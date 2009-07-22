@@ -1,464 +1,379 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+#
+# Copyright (C) 2009  Larne Pekowsky, Ping Wei
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 """
+%prog --result_glog=Glob [options]
+
 Tomoki Isogai (isogait@carleton.edu)
 
-This program makes plots from result files of KW_veto_calc program.
+This program makes the following plots from result files of KW_veto_calc.
 
-Input:
-    result glob: Glob for result files from KW_veto_calc
-    output directory: Output directory
+1. Use Percentage vs Threshold
+2. GPS time vs SNR of all KW triggers, KW triggers above critical threshold and 
+ coincident KW triggers
+- 2 histograms and 2 additionals for candidates
+1. GW Triggers Number vs SNR for low SNR range
+2. GW Number vs SNR for whole SNR range
+For candidates
+3. Vetoed GW Triggers Number vs SNR for SNR range
+4. Vetoed GW Triggers Number vs SNR for whole SNR range
     
-Output: 
-    - 7 plots
-    1. Use Percentage vs Threshold
-    2. Coincident KW Triggers Number vs Threshold
-    3. Total KW Triggers Number vs Threshold
-    4. Dead Time vs Threshold
-    5. Dead Time Percentage vs Threshold
-    6. Vetoed Inspiral Triggers Number vs Threshold
-    7. Veto Efficiency vs Threshold
-    - 2 time series
-    1. GPS time vs SNR of all insp triggers / vetoed insp triggers
-    2. GPS time vs SNR of all KW triggers / KW triggers above critical threshold
-       / coincident KW triggers
-    - 4 histograms
-    1. Inspiral Triggers Number vs SNR for SNR 0-50
-    2. Inspiral Triggers Number vs SNR for whole SNR range
-    3. Vetoed Inspiral Triggers Number vs SNR for SNR 0-50
-    4. Vetoed Inspiral Triggers Number vs SNR for whole SNR range
-    
-    The program also makes a thumbnail for each plot
+The program also makes a thumbnail for each plot for webpage sake.
 
-!CAUTION!: make sure to put ' mark around glob
-    
-$Id$
+!CAUTION!: make sure to put ' mark around glob; otherwise bash wouldn't pass the right string.
 """
-from __future__ import division
-import optparse
 
-import sys, os
+# =============================================================================
+#
+#                               PREAMBLE
+#
+# =============================================================================
+
+from __future__ import division
+
+import sys
+import os
+import optparse
 import glob
-from glue.segments import segment, segmentlist
-import cPickle
+
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+
 import matplotlib
 matplotlib.use('Agg')
 from pylab import *
 
+from glue.segments import segment, segmentlist
+
+from pylal import KW_veto_utils
+
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__date__ = "2009/7/10"
+__version__ = "2.0"
 
 def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,\
-                                   version="$Id: KW_veto_plots,v 1.00 2008/7/6")
-    parser.add_option("-r", "--result_glob",\
-        help="the result files from vetoStats")
-    parser.add_option("-c", "--critical_usePer", type="int",\
-        help="the program recognizes channels above this use percentage "\
-             "as veto candidate channels")
-    parser.add_option("-o", "--out_dir", default = "plots",\
-        help="an output directory name")
-    parser.add_option("-v", "--verbose", action="store_true",\
-                      default=False, help="run verbosely")
+    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+    parser.add_option("-r", "--result_glob",
+                      help="Glob for result files from KW_veto_calc. Required.")
+    parser.add_option("-o", "--out_dir", default = "plots",
+                      help="Output directory name. (Default: plots)")
+    parser.add_option("-l", "--scratch_dir", default=".",
+                      help="Scratch directory to be used for database engine. Specify local scratch directory for better performance and less fileserver load. (Default: current directory)")
+    parser.add_option("-v", "--verbose", action="store_true", default=False,
+                      help="Run verbosely. (Default: False)")
     
     opts, args = parser.parse_args()
     
     # check if necessary input exists
     if opts.result_glob is None:
-        print >>sys.stderr, "--result_glob is a required parameter"
-        sys.exit(1)
-        
+      parser.error("--result_glob is a required parameter")
     # make an output directory if it doesn't exist yet
     if not os.path.exists(opts.out_dir): os.makedirs(opts.out_dir)
         
     # show parameters
     if opts.verbose:
-        print
-        print "running plot_maker..."
-        print
-        print "********************** PARAMETERS ******************************"
-        print 'glob for result files:'; print opts.result_glob;
-        print 'critical used percentage'; print opts.critical_usePer
-        print 'output directory:'; print opts.out_dir;
-        print
+        print >> sys.stderr, ""
+        print >> sys.stderr, "running KW_veto_plots..."
+        print >> sys.stderr, "version: %s"%__version__
+        print >> sys.stderr, ""
+        print >> sys.stderr, "***************** PARAMETERS ********************"
+        for o in opts.__dict__.items():
+          print >> sys.stderr, o[0]+":"
+          print >> sys.stderr, o[1]
+        print >> sys.stderr, ""
         
     return opts
 
-def load_info(filename):
-    """
-    Adapted from io.py written by Nickolas Fotopoulos, modified.
-    load data from KW_veto_calc
-    """
-    
-    if filename == '':
-        raise ValueError, "Empty filename"
-    # get extension
-    ext = os.path.splitext(filename)[-1]
-    
-    # case 1: mat file
-    if ext == '.mat':
-        try:
-            import scipy.io
-        except (ImportError):
-            print >>sys.stderr, "Error: need scipy to read in mat files"
-            sys.exit(1)
-        mat_data=scipy.io.loadmat(filename)
-        output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
-        output["thresh"] = mat_data["thresh"].tolist()
-        output["coinKW"] = mat_data["coinKW"].tolist()
-        output["totalKW"] = mat_data["totalKW"].tolist()
-        output["usePercentage"] = mat_data["usePercentage"].tolist()
-        output["deadTimes"] = mat_data["deadTimes"].tolist()[:-1]
-        output["deadTimePer"] = mat_data["deadTimePer"].tolist()
-        output["vetoedNum"] = mat_data["vetoedNum"].tolist()[:-1]
-        output["vetoEff"] = mat_data["vetoEff"].tolist()
-        # the last element in vetoedNum is actually total triggers number
-        totalTrigNum = mat_data["vetoedNum"].tolist()[-1]
-        # the last element in deadTimes is actually total time
-        totalTime = mat_data["deadTimes"].tolist()[-1]
-        return output
-    
-    ## Set up file_handle:
-    file_handle = file(filename, 'rb')
-    
-    # case 2: txt file
-    if ext == '.txt':
-        output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
-        lines=file_handle.readlines()
-        totalTrigNum = float(lines[0].split(":")[1].strip())
-        totalTime = float(lines[1].split(":")[1].strip())
-        for line in lines:
-            info=line.strip().split()
-            if info[0][0]!="#" and info[0][0]!="%":
-                output["thresh"].append(float(info[0]))
-                output["coinKW"].append(float(info[1]))
-                output["totalKW"].append(float(info[2]))
-                output["usePercentage"].append(float(info[3]))
-                output["deadTimes"].append(float(info[4]))
-                output["deadTimePer"].append(float(info[5]))
-                output["vetoedNum"].append(float(info[6]))
-                output["vetoEff"].append(float(info[7]))
-        return output
-        
-    # case 3: pickle file
-    if ext == '.pickle':
-        output = cPickle.load(file_handle)
-        totalTrigNum = output["vetoedNum"].pop()
-        totalTime = output["deadTimes"].pop()
-        return output
-        
-    # case 4: unsupported file type
-    else:
-        raise ValueError, "Unrecognized file extension"
-    
-def plot_channel(prefix,channel,result,plot_data,critical_usePer):
+def plot_channel():
     """
     This is the main function which makes all the plots.
-    input:
-        prefix: (tag)-(ifo)-(channel name)
-        channel: channel name
-        result: a dictionary that stores the result from vetoStats 
-                (used percentage, veto efficiency, dead time percentage etc.)
-            
-    output:
-        - 7 plots
-        1. Use Percentage vs Threshold
-        2. Coincident KW Triggers Number vs Threshold
-        3. Total KW Triggers Number vs Threshold
-        4. Dead Time vs Threshold
-        5. Dead Time Percentage vs Threshold
-        6. Vetoed Inspiral Triggers Number vs Threshold
-        7. Veto Efficiency vs Threshold
-        - 2 time series
-        1. GPS time vs SNR of all insp triggers / vetoed insp triggers
-        2. GPS time vs SNR of all KW triggers / KW triggers above 
-           critical threshold / coincident KW triggers
-        - 4 histograms
-        1. Inspiral Triggers Number vs SNR for SNR 0-50
-        2. Inspiral Triggers Number vs SNR for whole SNR range
-        3. Vetoed Inspiral Triggers Number vs SNR for SNR 0-50
-        4. Vetoed Inspiral Triggers Number vs SNR for whole SNR range
-        
-        The program also makes a thumbnail for each plot
-        
     """
-    thresh=result["thresh"]
+    ## get data for plotting
+    thresh, usedPer, eff_over_deadTime = zip(*cursor.execute("select threshold, usedPercentage, efficiency_over_deadTimePer from result order by threshold asc").fetchall())
+    # candidate is a tuple:
+    # (threshold, used percentage, # of coincident KW triggers above the threshold, # of total KW triggers above the threshold, # of vetoed GW triggers, veto efficiency, dead time, dead time percentage, (used percentage) / (random used percentage), (veto efficiency) / (dead time percentage))
+    # that corresponds to threshold to be used for veto.
+    # candidate is just None for non candidate channel
+    candidate = KW_veto_utils.get_candidate(cursor, params["critical_usedPer"])
+    # file name to save plots
+    prefix = os.path.join(opts.out_dir, params["filePrefix"])
+    if candidate != None: # means candidate
+      veto_thresh = candidate[0] # KW Significance threshold to be used for veto
     # start and end of x axis
-    start=thresh[0]; end=thresh[-1]
-    # at least plot 100 even if thresh interval is 0
-    if start==end: end=start+100
-    
-    ############################## plots #######################################
-    
-    ## plot use percentage
-    plot(thresh,result["usePercentage"],'k',\
-         thresh,result["usePercentage"],'bo',markersize=3)
-    xlim(start,end)
-    # show critical used percentage line for candidate channel
-    if max(result["usePercentage"]) > critical_usePer:
-        axhline(y = critical_usePer, linewidth = 2, color = 'r')
-        text(end+10,critical_usePer-1,'%d%%'%critical_usePer, color='k')
+    start = thresh[0]; 
+    end = thresh[-1]
+    # when interval is 0 (meaning there is no KW trigger) at least plot null
+    # one threshold step
+    if start == end: 
+      end = start + params['resolution']
+
+    # other parameter for plots
     tickspace=500 
-    ticks=[start]+range((int(start/tickspace)+1)*tickspace,\
+    ticks=[start]+range((int(start/tickspace)+1)*tickspace,
            (int(end/tickspace)+1)*tickspace,tickspace)+[end]
+
+    matplotlib.rcParams.update({
+	"font.size": 8.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0})
+ 
+    ############################## plots #######################################
+
+    ## plot use percentage
+    # show critical used percentage and threshold for veto line for candidate channel
+    if candidate != None:
+      axhline(y = params["critical_usedPer"], linewidth = 2, color = 'r', label="Used Percentage Threshold: %d%%"%params['critical_usedPer'])
+      text(end + 10, params["critical_usedPer"] - 1, '%d%%'%params["critical_usedPer"], color='k')
+      axvline(x = veto_thresh, linewidth = 2, color = 'k',label="Veto Threshold: %d"%veto_thresh)
+      legend(loc='lower right')
+    # actual plotting
+    plot(thresh,usedPer,'k',thresh,usedPer,'bo',markersize=3)
+    xlim(start,end)
     xticks(ticks)
     xlabel('KW Significance Threshold')
     ylabel('Used Percentage (%)')
-    title(channel.upper())
+    title(params["channel"])
     savefig("%s-usePercentage_plot.png"%prefix)
     savefig("%s-usePercentage_plot-thumbnail.png"%prefix,dpi=60)
     close('all')
     
-    ## plot coincident KW event number
-    plot(thresh,result["coinKW"],'k',\
-         thresh,result["coinKW"],'bo',markersize=3)
-    xlim(start,end)
-    xticks(ticks)
-    xlabel('KW Significance Threshold')
-    ylabel('Coincident KW Events')
-    title(channel.upper())
-    savefig("%s-coincidentKW_plot.png"%prefix)
-    savefig("%s-coincidentKW_plot-thumbnail.png"%prefix,dpi=60)
-    close('all')
-    
-    ## plot total KW event number
-    plot(thresh,result["totalKW"],'k',\
-         thresh,result["totalKW"],'bo',markersize=3)
-    xlim(start,end)
-    xticks(ticks)
-    xlabel('KW Significance Threshold')
-    ylabel('Total KW Events')
-    title(channel.upper())
-    savefig("%s-totalKW_plot.png"%prefix)
-    savefig("%s-totalKW_plot-thumbnail.png"%prefix,dpi=60)
-    close('all')
-    
-    ## plot dead time
-    plot(thresh,result["deadTimes"],'k',\
-         thresh,result["deadTimes"],'bo',markersize=3)
-    xlim(start,end)
-    xticks(ticks)
-    xlabel('KW Significance Threshold')
-    ylabel('Dead Time (s)')
-    title(channel.upper())
-    savefig("%s-deadTime_plot.png"%prefix)
-    savefig("%s-deadTime_plot-thumbnail.png"%prefix,dpi=60)
-    close('all')
-    
-    ## plot dead time percentage
-    plot(thresh,result["deadTimePer"],'k',\
-         thresh,result["deadTimePer"],'bo',markersize=3)
-    xlim(start,end)
-    xticks(ticks)
-    xlabel('KW Significance Threshold')
-    ylabel('Dead Time Percentage (%)')
-    title(channel.upper())
-    savefig("%s-deadTimePer_plot.png"%prefix)
-    savefig("%s-deadTimePer_plot-thumbnail.png"%prefix,dpi=60)
-    close('all')
-    
-    ## plot vetoed trigger number
-    plot(thresh,result["vetoedNum"],'k',\
-         thresh,result["vetoedNum"],'bo',markersize=3)
-    xlim(start,end)
-    xticks(ticks)
-    xlabel('KW Significance Threshold')
-    ylabel('Vetoed GW Trigger Number')
-    title(channel.upper())
-    savefig("%s-vetoedNum_plot.png"%prefix)
-    savefig("%s-vetoedNum_plot-thumbnail.png"%prefix,dpi=60)
-    close('all')
-    
-    ## plot veto efficiency
-    plot(thresh,result["vetoEff"],'k',\
-         thresh,result["vetoEff"],'bo',markersize=3)
-    xlim(start,end)
+    ## plot veto efficiency / dead time
+    # show the threshold for candidate channel
+    if candidate != None:
+      axvline(x = veto_thresh, linewidth = 2, color = 'r',label="Veto Threshold: %d"%veto_thresh)
+      legend(loc='lower right')
+    plot(thresh, eff_over_deadTime,'k',thresh, eff_over_deadTime, 'bo', markersize=3)
+    xlim(start, end)
     xticks(ticks)
     xlabel('KW Significance Threshold')
     ylabel('Veto Efficiency (%)')
-    title(channel.upper())
-    savefig("%s-vetoEff_plot.png"%prefix)
-    savefig("%s-vetoEff_plot-thumbnail.png"%prefix,dpi=60)
+    title(params["channel"])
+    savefig("%s-eff_over_deadTime_plot.png"%prefix)
+    savefig("%s-eff_over_deadTime-thumbnail.png"%prefix,dpi=60)
     close('all')
     
     ############################## time series #################################
     
-    ## time series for insp triggers and KW triggers
+    ## time series for GW triggers and KW triggers
     # figure out range of x axis
     # use common x range for both insp and KW triggers
-    x_min=plot_data["start_time"]
-    x_max=plot_data["end_time"]
-    # when x_max = x_min, at least plot an hour
-    if x_max == x_min: x_max = x_min + 3600
-    
-    # insp time series
+    x_min = params["start_time"]
+    x_max = params["end_time"]   
+    # avoid science notation for GPS times
+    from matplotlib.ticker import FormatStrFormatter 
+
+    # GW trigs time series
     subplot(211)
-    semilogy(plot_data['inspTrigs'][0],plot_data['inspTrigs'][1],'bo',\
-             markersize=3,label='Triggers')
+    GW_time, GW_SNR = zip(*cursor.execute("select GPSTime, SNR from GWtrigs").fetchall())
+    semilogy(GW_time, GW_SNR, 'bo', markersize=3, label='Triggers')
     ylabel('SNR')
     title("GW Triggers")
-    if len(plot_data)>5: #means candidate channel
-        semilogy(plot_data['vetoedTrigs'][0],plot_data['vetoedTrigs'][1],'ro',\
-                 markersize=3,label='Vetoed Triggers')
-    legend(loc='upper right')
-    xlim([x_min,x_max])
-    
-    # KW time series
+    del GW_time
+    if candidate != None: # means candidate channel
+      # coincGW_id is a list of GW trigger IDs coincident to this KW trigger
+      coincGW_id = reduce(lambda x, y: x + map(int,y[0].split(',')), cursor.execute("select CoincidenceGWTrigID from KWtrigs where KWSignificance > ? and CoincidenceGWTrigID <> 'No Coincidence'", (veto_thresh,)),[])
+
+      # original function to find coincident GW triggers 
+      connection.create_function("coinc", 1, lambda x: x in coincGW_id)
+      # find coincident GW triggers
+      coincGW_time, coincGW_SNR = zip(*cursor.execute("select GPSTime, SNR from GWtrigs where coinc(ID)").fetchall())
+
+      semilogy(coincGW_time, coincGW_SNR, 'ro', markersize=3,
+                 label='Vetoed Triggers')
+      del coincGW_time
+    legend(loc='lower right')
+    xlim([x_min, x_max])
+    gca().xaxis.set_major_formatter(FormatStrFormatter("%d"))
+
+    # KW trigs time series
     subplot(212)
-    semilogy(plot_data['KWtrigs'][0],plot_data['KWtrigs'][1],'bx',\
-             markersize=3,label='All KW Triggers')
+    # all the KW triggers
+    KWtrigs = zip(*cursor.execute("select GPSTime, KWSignificance from KWtrigs").fetchall())
+    if KWtrigs == []: # when there is no KW trigger
+      KWtrigs = [[],[]]
+    semilogy(KWtrigs[0],KWtrigs[1],'bx',markersize=3,label = 'All KW Triggers')
     xlabel('GPS time')
     ylabel('KW significance')
-    title(channel.upper()+" KW Triggers")
-    if len(plot_data)>5: #means candidate channel
-        semilogy(plot_data['totalKW'][0],plot_data['totalKW'][1],'bo',\
-                 markersize=3,label='KW Triggers Used for Veto')
-        semilogy(plot_data['coinKW'][0],plot_data['coinKW'][1],'ro',\
+    title(params["channel"] + " KW Triggers")
+    if candidate != None: # means candidate channel
+      # KW triggers above threshold to be used for veto
+      KWtrigs = zip(*cursor.execute("select GPSTime, KWSignificance from KWtrigs where KWSignificance > ?",(veto_thresh,)).fetchall())
+      # coincident KW triggers above the threshold
+      coincKWtrigs = zip(*cursor.execute("select GPSTime, KWSignificance from KWtrigs where KWSignificance > ? and CoincidenceGWTrigID <> 'No Coincidence'",(veto_thresh,)).fetchall())        
+      semilogy(KWtrigs[0], KWtrigs[1], 'bo',
+                 markersize = 3, label = 'KW Triggers Used for Veto')
+      semilogy(coincKWtrigs[0], coincKWtrigs[1], 'ro',
                  markersize=3,label='Coincident KW Triggers')
-    legend(loc='upper right')
+      axhline(y = veto_thresh, linewidth = 1, color = 'r',label="Veto Threshold: %d"%veto_thresh)
+      del coincKWtrigs
+    del KWtrigs
+    legend(loc='lower right')
     xlim([x_min,x_max])
-    savefig("%s-timeSeries.png"%prefix)
+    
+    # do not use science notification for GPS time
+    gca().xaxis.set_major_formatter(FormatStrFormatter("%d"))
+
+    savefig("%s-timeSeries.png"%prefix,dpi=250)
+    #savefig("%s-timeSeries.eps"%prefix) # FIXME: doesn't work on condor...
     savefig("%s-timeSeries-thumbnail.png"%prefix,dpi=60)
+
     close('all')
 
     ############################## histgrams ###################################
 
-    ## histogram: Inspiral Triggers Number vs Snr
-    # whole snr range
-    # just to get bin (100)
-    n,all_bins,patches=hist(plot_data['inspTrigs'][1],bins=100)
-    close('all')
+    ## histogram: GW Triggers Number vs SNR
+    # whole SNR range
     # set bottom to 0.1 because it's log scale and cannot plot 0
-    n,bins,patches=hist(plot_data['inspTrigs'][1],bins=all_bins,bottom=0.1,\
-                                   facecolor='b',width=all_bins[1]-all_bins[0])
-    ax=gca()
-    ax.set_yscale('log')
+    n, all_bins, patches = hist(GW_SNR ,bins=100, bottom=0.1,\
+                                   facecolor='b', log=True)
     xlabel('SNR')
     ylabel('Number of GW Triggers')
     title('GW Triggers, All SNR Range')
-    if len(plot_data)>5: #means candidate channel
-        # figure out non vetoed triggers' SNR
-        non_vetoed_snr =\
-                        filter(lambda x:x not in plot_data['vetoedTrigs'][1],\
-                               plot_data['inspTrigs'][1])
-        # set bottom to 0.1 because it's log scale and cannot plot 0
-        n2,bins2,patches2=hist(non_vetoed_snr,bins=all_bins,bottom=0.1,\
-                               facecolor='r',width=all_bins[1]-all_bins[0])
-        legend((patches[0],patches2[0]),("Before Veto","After Veto"),\
-               loc='upper right')
+    if candidate != None: # means candidate channel
+      # FIXME: find more efficient way
+      # figure out non vetoed triggers' SNR
+      non_coincGW_id = set(range(1,params['totalGWtrigsNum']+1)) - set(coincGW_id)
+      # original function to pick non-coincident GW triggers.
+      connection.create_function("non_coinc", 1, lambda x: x in non_coincGW_id)
         
-    savefig("%s-triggers_hist.png"%prefix)
+      # reduce to flatten
+      # this is the same as sum(,()) but builtin sum is overwritten by numpy...
+      non_coincGW = reduce(lambda x,y: x+y, cursor.execute("select SNR from GWtrigs where non_coinc(ID)").fetchall(), ())
+      # set bottom to 0.1 because it's log scale and cannot plot 0
+      n2,bins2,patches2=hist(non_coincGW, bins=all_bins, bottom=0.1,\
+                             facecolor='r', log=True)
+      legend((patches[0],patches2[0]),("Before Veto","After Veto"),\
+              loc='upper right')
+        
+    savefig("%s-triggers_hist.png"%prefix,dpi=200)
     savefig("%s-triggers_hist-thumbnail.png"%prefix,dpi=60)
     close('all')
     
-    ## histogram for 0 - 50 snr range
-    low_hist_data=[s for s in plot_data['inspTrigs'][1] if s < 50]
+    ## histogram for low SNR range
+    # plot the lowest 50% trigger
+    num = int(len(GW_SNR) / 2) + 1 # so that no 0
+    low_GW = sorted(GW_SNR)[:num]
     # 1 bin for 1 SNR
-    low_bins = range(int(min(low_hist_data)),int(max(low_hist_data))+1)
+    max_bin = int(max(low_GW))+1
+    min_bin = int(min(low_GW))
+    low_bins = range(min_bin,max_bin)
     # set bottom to 0.1 because it's log scale and cannot plot 0
-    n,bins,patches=hist(low_hist_data,bins=low_bins,bottom=0.1,facecolor='b',\
-                        width=low_bins[1]-low_bins[0])
-    ax=gca()
-    ax.set_yscale('log')
+    n, bins, patches = hist(low_GW, bins = low_bins, bottom=0.1, facecolor='b', log=True)
     xlabel('SNR')
     ylabel('Number of GW Triggers')
     title("GW Triggers, Low SNR Range")
     
-    if len(plot_data)>5: # means candidate channel
+    if candidate != None: # means candidate channel
         # set bottom to 0.1 because it's log scale and cannot plot 0
-        low_after_veto_data=[s for s in non_vetoed_snr if s < 50]
-        n2,bins2,patches2=hist(low_after_veto_data,bins=low_bins,bottom=0.1,\
-                               facecolor='r',width=low_bins[1]-low_bins[0])
-        legend((patches[0],patches2[0]),("Before Veto","After Veto"),\
+        bound = max(low_GW)
+        low_non_coincGW = [s for s in non_coincGW if s < bound]
+        n2, bins2, patches2 = hist(low_non_coincGW, bins = low_bins,
+                                   bottom = 0.1, facecolor = 'r')
+        if len(patches)>0 and len(patches2)>0:
+          legend((patches[0], patches2[0]), ("Before Veto","After Veto"),
                loc='upper right')
-    savefig("%s-triggers_hist_lowSnr.png"%prefix)
+    savefig("%s-triggers_hist_lowSnr.png"%prefix,dpi=200)
     savefig("%s-triggers_hist_lowSnr-thumbnail.png"%prefix,dpi=60)
     close('all')
     
-    ## histogram: Vetoed Inspiral Triggers Number vs Snr
-    # whole snr range
-    if len(plot_data)>5: #means candidate channel
+    ## histogram: Vetoed Inspiral Triggers Number vs SNR
+    # whole SNR range
+    if candidate != None: # means candidate channel
         # set bottom to 0.1 because it's log scale and cannot plot 0
         # 100 bins
-        hist(plot_data['vetoedTrigs'][1],bins=all_bins,bottom=0.1,\
-             facecolor='b',width=all_bins[1]-all_bins[0])
-        ax=gca()
-        ax.set_yscale('log')
+        hist(coincGW_SNR, bins=all_bins, bottom=0.1,\
+             facecolor='b', log=True)
         xlabel('SNR')
         ylabel('Number of Vetoed GW Triggers')
-        title("Vetoed GW Triggers by "+channel.upper()+", All SNR Range")
-        savefig("%s-vetoed_triggers_hist.png"%prefix)
+        title("Vetoed GW Triggers by " + params['channel'] + ", All SNR Range")
+        savefig("%s-vetoed_triggers_hist.png"%prefix,dpi=200)
         savefig("%s-vetoed_triggers_hist-thumbnail.png"%prefix,dpi=60)
         close('all')
     
-    ## histogram: Vetoed Inspiral Triggers Number vs Snr
-    # -50 snr range
-    if len(plot_data)>5: #means candidate channel
-        low_vetoed_trigs=[s for s in plot_data['vetoedTrigs'][1] if s < 50]
+    ## histogram: Vetoed Inspiral Triggers Number vs SNR
+    # low SNR range
+    if candidate != None: # means candidate channel
+        low_coincGW = [s for s in coincGW_SNR if s < bound]
         # set bottom to 0.1 because it's log scale and cannot plot 0
         # 1 bin for 1 SNR
-        hist(low_vetoed_trigs,bins=low_bins,bottom=0.1,facecolor='b',\
-             width=low_bins[1]-low_bins[0])
-        ax=gca()
-        ax.set_yscale('log')
+        hist(low_coincGW, bins = low_bins, bottom=0.1, facecolor='b', log = True)
         xlabel('SNR')
         ylabel('Number of Vetoed GW Triggers')
-        title("Vetoed GW Triggers by "+channel.upper()+", Low SNR Range")
-        savefig("%s-vetoed_triggers_hist_lowSnr.png"%prefix)
+        title("Vetoed GW Triggers by " + params['channel'] + ", Low SNR Range")
+        savefig("%s-vetoed_triggers_hist_lowSnr.png"%prefix,dpi=200)
         savefig("%s-vetoed_triggers_hist_lowSnr-thumbnail.png"%prefix,dpi=60)
         close('all')
-    
-def main(opts):
-    
-    # make a list of the result files from KW_veto_calc and check sanity
-    files_list=glob.glob(opts.result_glob)
-    if opts.verbose: print "result files:", files_list
-    if files_list==[]: # check if there is at least one file
-        print >> sys.stderr, "Error: no files found for %s"%opts.result_glob
-        sys.exit(1)
-    
-    # check if they have the same name tag
-    if os.path.commonprefix(files_list)=="":
-        print >>sys.stderr, """
-        Error: Possibly files from different runs are coexisting. 
-               Please check the result glob.
-        """
-        sys.exit(1)
+
+# =============================================================================
+#
+#                                    MAIN
+#
+# =============================================================================
+
+# parse command line    
+opts = parse_commandline()
+
+try:    
+  # make a list of the result files from KW_veto_calc and check sanity
+  files_list = glob.glob(opts.result_glob)
+  if opts.verbose:
+    print >> sys.stderr, "result files:", files_list
+  if files_list==[]: # check if there is at least one file
+    print >> sys.stderr, "Error: no result files found for %s"%opts.result_glob
+    sys.exit(1)
+
+  # check if they have the same name tag
+  if os.path.commonprefix(files_list)=="":
+    print >> sys.stderr, """
+    Error: Possibly files from different runs are coexisting. 
+           Please check the result_glob.
+    """
+    sys.exit(1)
+
+  # for each veto_data files make plots
+  for f in files_list:
+    ## retrieve data from file for plots
+    global working_filename
+    cursor, connection, working_filename, params = \
+         KW_veto_utils.load_db(f, opts.scratch_dir, opts.verbose)
         
-    # sort out veto data file from files_list
-    veto_datafiles=[f for f in files_list if f.find("veto_data")!=-1]
-    
-    # for each veto_data files make plots
-    for f in veto_datafiles:
-        # figure out tag/ifo/channel name from file name
-        name_parts = os.path.splitext(f)[0].split("-")
-        chan_name = name_parts[-3]
-        ifo = name_parts[-4].upper()
-        tag = os.path.split(name_parts[-5])[1]
-        
-        ## retrieve data from file for plots
-        result=load_info(f)
-        
-        ## get data for time series/histograms
-        data_file="-".join(name_parts[:-1])+"-plot_data.pickle"
-        plot_data = cPickle.load(open(data_file,"rb"))
-        
-        ## plot
-        outname_prefix =\
-                        os.path.join(opts.out_dir,"-".join([tag,ifo,chan_name]))
-        if opts.verbose: print "plotting %s..."%outname_prefix
-        plot_channel(\
-                 outname_prefix,chan_name,result,plot_data,opts.critical_usePer)
-        
-        if opts.verbose: print "plot_maker for %s done!"%outname_prefix
-        
-if __name__=="__main__":
-    # parse commandline
-    opts = parse_commandline()
-    # do the work
-    main(opts)
+    ## plot
+    if opts.verbose: 
+      print >> sys.stderr, "plotting %s..."%params['channel']
+      plot_channel()        
+    if opts.verbose: 
+      print >> sys.stderr, "plots for %s done."%params['channel']
+
+finally:
+  # erase temporal database
+  if globals().has_key('working_filename'):
+    db = globals()['working_filename']
+    if opts.verbose:
+       print >> sys.stderr, "removing temporary workspace '%s'..." % db
+    os.remove(db)       
+
+if opts.verbose: print >> sys.stderr, "KW_veto_plots done!"

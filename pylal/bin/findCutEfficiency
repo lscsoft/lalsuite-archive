@@ -216,6 +216,7 @@ if not opts.show:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import*
+import copy
 
 #Calculating statistic for coincidences
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
