@@ -226,10 +226,10 @@ def coalesce_seg(database, start_time, end_time):
     
     curs.execute("drop view seg_view")
     curs.execute("drop view sum_view")
+    curs.close()
 
   except Exception,e:
     ret = str(e)
     print >> sys.stdout, ("%s" % ret)
 
-  curs.close()
   return ret
