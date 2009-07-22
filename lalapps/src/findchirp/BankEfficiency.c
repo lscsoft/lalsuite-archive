@@ -349,6 +349,16 @@ main (INT4 argc, CHAR **argv )
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
       }
+if( 1 )
+{
+  FILE *fp = NULL;
+  fp = fopen("tddata.dat", "w");
+  for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
+  {
+    fprintf(fp,"%e\n", ampCorDataSegVec->data->chan->data->data[i] );
+  }
+  fclose( fp );
+}
 
 
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
@@ -760,8 +770,6 @@ main (INT4 argc, CHAR **argv )
     LALFindChirpFilterFinalize( &status, &ampCorFilterParams );
     LALFindChirpTemplateFinalize( &status, &ampCorTmpltParams );
     LALFindChirpDataFinalize( &status, &ampCorDataParams );
-
-
   }
   
   LALFree(randIn.psd.data);

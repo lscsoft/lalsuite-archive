@@ -68,6 +68,7 @@ static void print_usage( void );
 
 static void print_usage()
 {
+  fprintf( stderr, "\n");
   fprintf( stderr, " --help               : Print this message! \n");
   fprintf( stderr, " --overlap            : Normalises input data \n");
   fprintf( stderr, " --signal             : Replaces data with signal\n");
@@ -85,7 +86,9 @@ static void print_usage()
   fprintf( stderr, " --psi PSI            : Specify polarisation psi \n");
   fprintf( stderr, " --dist DIST          : Specify signal distance \n");
   fprintf( stderr, " --amp-order AMP      : Specify signal amplitude order \n");
-  fprintf( stderr, " --phase-order ORDER  : Specify signal phase order \n\n\n");
+  fprintf( stderr, " --phase-order ORDER  : Specify signal phase order \n");
+  fprintf( stderr, " --num-points N       : Specify time array length \n");
+  fprintf( stderr, " --print-max          : Calculate & display maximum\n\n\n");
   return;
 }                   
 
@@ -119,7 +122,6 @@ int main( int argc, char **argv )
 
   const UINT4 numSegments  = 1;
   UINT4 numPoints          = 262144;
-/*  UINT4 numPoints          = 306720;*/
   const UINT4 numChisqBins = 8;
   const UINT4 invSpecTrunc = 0;
   REAL4 srate              = SRATE;   /* Hz */
@@ -131,6 +133,7 @@ int main( int argc, char **argv )
   REAL4 ts;
   INT4 output = 0;
   INT4 overlap = 0;
+  INT4 printmax = 0;
   INT4 flatpsd = 0;
   INT4 dominant = 0;
   INT4 h_plus = 0;
@@ -152,17 +155,6 @@ int main( int argc, char **argv )
   /* these are required for filtering; they are created by Init() */
   FindChirpTmpltParams *tmpltParams = NULL;
   FindChirpDataParams  *dataParams  = NULL;
-
-  
-  /* set initialization parameters */
-  initParams.numSegments    = numSegments;
-  initParams.numPoints      = numPoints;
-  initParams.numChisqBins   = numChisqBins;
-  initParams.approximant    = AmpCorPPN;
-  initParams.createRhosqVec = 1;
-
-
-
 
   /*******************************************************************
    * ARGUMENT PARSING (arg stores the current position)              *
@@ -378,6 +370,27 @@ int main( int argc, char **argv )
         return 0;
       }
     }
+    /* num Points */
+    else if ( !strcmp( argv[arg], "--num-points" ) )
+    {
+      if (argc > arg + 1 )
+      {
+        arg++;
+        numPoints = atof( argv[arg++] ) ;
+      }
+      else
+      {
+        arg++;
+        print_usage();
+        return 0;
+      }
+    }
+    /* print maximum */
+    else if ( !strcmp( argv[arg], "--print-max" ) )
+    {
+      arg++;
+      printmax = 1 ;
+    }
     else
     {
       print_usage();
@@ -385,8 +398,22 @@ int main( int argc, char **argv )
     }
   }
 
+  
+  /* set initialization parameters */
+  initParams.numSegments    = numSegments;
+  initParams.numPoints      = numPoints;
+  initParams.numChisqBins   = numChisqBins;
+  initParams.approximant    = AmpCorPPN;
+  initParams.createRhosqVec = 1;
 
 
+
+
+
+
+
+  fprintf( stderr, "===================================");
+  fprintf( stderr, "==================\n");
   /* create objects needed by  filters */
   fprintf( stderr, "Creating structures and variables...    " );
   Start( &dataSegVec, &filterInput, &filterParams, &fcSegVec, &initParams );
@@ -401,7 +428,7 @@ int main( int argc, char **argv )
 
   /* create some fake data */
   fprintf( stderr, "Making data segment...                  " );
-  MakeData( dataSegVec, mass1, mass2, srate, fmin, fmax );
+  MakeDataACTD( dataSegVec, mass1, mass2, srate, fmin, fmax, amp );
   fprintf( stderr, "      Done!\n" );  
 
   for ( j = 0; j < (INT4)dataSegVec->data->spec->data->length; ++j )
@@ -563,6 +590,7 @@ int main( int argc, char **argv )
     LALFree( waveform.phi );
 
     fprintf( stderr, "      Done!\n" );  
+    fflush( stderr );
   }
 
   /*
@@ -743,15 +771,33 @@ int main( int argc, char **argv )
   if( output == 1 )
   {
     fp = fopen("rhosqVec.dat", "w");
-    numPoints = filterParams->rhosqVec->data->length;
 
-    for( i=0; i < (INT4)numPoints; ++i  )
+    for( i=0; i < (INT4)filterParams->rhosqVec->data->length; ++i  )
     {
       fprintf( fp, "%e \n", filterParams->rhosqVec->data->data[i] );
     }
     fclose( fp );
   }
 
+  if( printmax )
+  {
+    REAL4 max = 0.0;
+
+    for( i=0; i < (INT4)filterParams->rhosqVec->data->length; ++i  )
+    {
+      if( filterParams->rhosqVec->data->data[i] > max )
+      {
+        max = filterParams->rhosqVec->data->data[i];
+      }
+    }
+    max = pow( max, 0.5 );
+    fprintf( stderr, "===================================");
+    fprintf( stderr, "==================\n");
+    fprintf( stderr, "                                   ");
+    fprintf( stderr, "Maximum = %1.4f\n", max );
+    fprintf( stderr, "===================================");
+    fprintf( stderr, "==================\n");
+  }
 
   /* clean up memory and exit */
   Stop( &dataSegVec, &filterInput, &filterParams, &fcSegVec, numChisqBins );
@@ -883,20 +929,21 @@ int Fini(
 
 /*  
  *  
- * MakeData()
+ * MakeDataACTD()
  *
  * Populate the dataSegVec with an injected inspiral and set the spectrum
  * and response vectors to unity.
  *
  */
   
-int MakeData(
+int MakeDataACTD(
     DataSegmentVector *dataSegVec, 
     REAL4 mass1,
     REAL4 mass2,
     REAL4 srate,
     REAL4 fmin,
-    REAL4 fmax
+    REAL4 fmax,
+    INT4 amp
     )
 { 
   InspiralTemplate tmplt;
@@ -915,7 +962,7 @@ int MakeData(
   tmplt.massChoice      = m1Andm2;
   tmplt.startTime       = 0;
   tmplt.startPhase      = 0;
-  tmplt.fLower          = fmin;
+  tmplt.fLower          = fmin * 2.0 / ( (REAL4)(amp) + 2.0 );
   tmplt.fCutoff         = fmax;
   tmplt.tSampling       = srate;
   tmplt.signalAmplitude = 1;
