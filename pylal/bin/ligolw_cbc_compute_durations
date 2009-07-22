@@ -24,6 +24,7 @@ import sys
 import os
 
 from glue import segments
+from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -87,11 +88,28 @@ def parse_command_line():
 #
 # =============================================================================
 
+
+def get_playground_sets_from_all_data(all_data_ring_sets):
+    """
+    Calculates playground segment sets using all_data ring_sets.
+    Returns a dictionary of segments (which is of form {instrument_set:segmentlist})
+    with just playground segments in them.
+    
+    @all_data_ring_sets: all_data ring sets
+    """
+    playground_sets = {}
+    playground = segmentsUtils.S2playground(all_data_ring_sets.extent_all())
+    for instruments, seglist in all_data_ring_sets.items():
+        playground_sets[instruments] = seglist.coalesce() & playground 
+
+    return playground_sets
+
+
 class Durations:
     """
     Class to store and retrieve durations.
     self.durations has the structure:
-    self.durations[(on_instruments,veto_def_name,time_slide_id)]
+    self.durations[(on_instruments, veto_def_name,datatype, time_slide_id)]
     """
     def __init__( self ):
         self.durations = {}
@@ -172,7 +190,7 @@ sqlquery = """
    """
 datatypes = [datatype[0] for datatype in connection.cursor().execute(sqlquery)]
 if "playground" in datatypes or "exclude_play" in datatypes:
-    playground_segs = db_thinca_rings.get_playground_from_all_data(ring_sets)
+    playground_segs = get_playground_sets_from_all_data(ring_sets)
     exclude_play_segs = ring_sets - playground_segs
     zero_lag_offsets = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
 
@@ -223,22 +241,19 @@ for veto_def_name in connection.cursor().execute(sqlquery).fetchall():
     # slide in the time-slide table; the resulting durations dictionary has the following form:
     # durations[(on_instruments, veto_def_name, datatype, time_slide_id)] = livetime (in seconds)
     if options.verbose:
-        print >> sys.stderr, "\tcalculating durations for:"
-
+       print >> sys.stderr, "\tcalculating durations for:"
     livetime_dict = db_thinca_rings.get_thinca_livetimes(ring_sets, veto_segments, time_slide_dict.values(), verbose = options.verbose)
     dur_bank.map_slides_to_durations(veto_def_name, "full_data", time_slide_dict, livetime_dict)
 
     if "playground" in datatypes:
         if options.verbose:
             print >> sys.stderr, "\n\tcalculating playground durations for:"
-
         livetime_dict = db_thinca_rings.get_thinca_livetimes(playground_segs, veto_segments, zero_lag_offsets.values(), verbose = options.verbose)
         dur_bank.map_slides_to_durations(veto_def_name, "playground", zero_lag_offsets, livetime_dict)
 
     if "exclude_play" in datatypes:
         if options.verbose:
             print >> sys.stderr, "\n\tcalculating exclude_play durations for:"
-
         livetime_dict = db_thinca_rings.get_thinca_livetimes(exclude_play_segs, veto_segments, zero_lag_offsets.values(), verbose = options.verbose)
         dur_bank.map_slides_to_durations(veto_def_name, "exclude_play", zero_lag_offsets, livetime_dict)
 
