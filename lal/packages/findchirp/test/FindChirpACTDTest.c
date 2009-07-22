@@ -88,6 +88,7 @@ static void print_usage()
   fprintf( stderr, " --amp-order AMP      : Specify signal amplitude order \n");
   fprintf( stderr, " --phase-order ORDER  : Specify signal phase order \n");
   fprintf( stderr, " --num-points N       : Specify time array length \n");
+  fprintf( stderr, " --psd-scale SCALE    : Default = 9.0e46 \n");
   fprintf( stderr, " --print-max          : Calculate & display maximum\n\n\n");
   return;
 }                   
@@ -131,6 +132,7 @@ int main( int argc, char **argv )
 
   INT4 i, j;
   REAL4 ts;
+  REAL8 scale = 9.0e46;
   INT4 output = 0;
   INT4 overlap = 0;
   INT4 printmax = 0;
@@ -385,6 +387,21 @@ int main( int argc, char **argv )
         return 0;
       }
     }
+    /* psd scale */
+    else if ( !strcmp( argv[arg], "--psd-scale" ) )
+    {
+      if (argc > arg + 1 )
+      {
+        arg++;
+        scale = atof( argv[arg++] ) ;
+      }
+      else
+      {
+        arg++;
+        print_usage();
+        return 0;
+      }
+    }
     /* print maximum */
     else if ( !strcmp( argv[arg], "--print-max" ) )
     {
@@ -428,7 +445,7 @@ int main( int argc, char **argv )
 
   /* create some fake data */
   fprintf( stderr, "Making data segment...                  " );
-  MakeDataACTD( dataSegVec, mass1, mass2, srate, fmin, fmax, amp );
+  MakeDataACTD( dataSegVec, mass1, mass2, srate, fmin, fmax, amp, scale );
   fprintf( stderr, "      Done!\n" );  
 
   for ( j = 0; j < (INT4)dataSegVec->data->spec->data->length; ++j )
@@ -779,6 +796,8 @@ int main( int argc, char **argv )
     fclose( fp );
   }
 
+  fprintf( stderr, "===================================");
+  fprintf( stderr, "==================\n");
   if( printmax )
   {
     REAL4 max = 0.0;
@@ -791,8 +810,6 @@ int main( int argc, char **argv )
       }
     }
     max = pow( max, 0.5 );
-    fprintf( stderr, "===================================");
-    fprintf( stderr, "==================\n");
     fprintf( stderr, "                                   ");
     fprintf( stderr, "Maximum = %1.4f\n", max );
     fprintf( stderr, "===================================");
@@ -943,7 +960,8 @@ int MakeDataACTD(
     REAL4 srate,
     REAL4 fmin,
     REAL4 fmax,
-    INT4 amp
+    INT4  amp,
+    REAL8 scale
     )
 { 
   InspiralTemplate tmplt;
@@ -1018,7 +1036,7 @@ int MakeDataACTD(
     if( f >= fs )
     {
       LALLIGOIPsd(&status, &psd, f);
-      dataSegVec->data->spec->data->data[k] = psd;
+      dataSegVec->data->spec->data->data[k] = psd * 9.0e-46 * scale;
     }
     else
     {
