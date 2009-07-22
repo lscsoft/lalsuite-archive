@@ -39,7 +39,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
-from glue.ligolw.utils import process as ligolw_process
 from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import git_version
@@ -222,14 +221,14 @@ def append_process(doc, options):
     """
     Append a process table and a process_params table to doc.
     """
-    process = ligolw_process.append_process(doc, "pylal_relic",
+    process = llwapp.append_process(doc, "pylal_relic",
         git_version.tag or git_version.id, "lscsoft",
         git_version.date)
 
     def map_val(name, val):
         """
         Put (name, val) pairs in a format suitable for
-        glue.ligolw.utils.process.append_process_params().
+        llwapp.append_process_params().
         """
         type_map = {str: u"lstring", bool: u"lstring",
                     unicode: u"lstring",
@@ -243,7 +242,7 @@ def append_process(doc, options):
 
     params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
               if (val is not False) and (val is not None)]
-    ligolw_process.append_process_params(doc, process, params)
+    llwapp.append_process_params(doc, process, params)
     return process
 
 def parse_args():

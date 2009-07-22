@@ -32,7 +32,6 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
-from glue.ligolw.utils import process as ligolw_process
 from glue.segments import segment, segmentlist
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
@@ -105,13 +104,13 @@ def append_process(doc, options):
     """
     Append a process table and a process_params table to doc.
     """
-    process = ligolw_process.append_process(doc, "paste_triggers", __version__,
+    process = llwapp.append_process(doc, "paste_triggers", __version__,
                                     "lscsoft", __date__)
 
     def map_val(name, val):
         """
         Put (name, val) pairs in a format suitable for
-        glue.ligolw.utils.process.append_process_params().
+        llwapp.append_process_params().
         """
         type_map = {str: u"lstring", bool: u"lstring",
                     unicode: u"lstring",
@@ -126,7 +125,7 @@ def append_process(doc, options):
     params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
               if (val is not False) and (val is not None)]
 
-    ligolw_process.append_process_params(doc, process, params)
+    llwapp.append_process_params(doc, process, params)
 
     return process
 
