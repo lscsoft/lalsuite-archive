@@ -136,24 +136,6 @@ def get_thinca_zero_lag_segments(connection, program_name = "thinca"):
   return seglists
 
 
-def get_playground_from_all_data(all_data_ring_sets):
-  """
-  Calculates playground segment sets using all_data ring_sets.
-  Returns a dictionary of segments (which is of form {instrument_set:segmentlist})
-  with just playground segments in them.
-  
-  @all_data_ring_sets: all_data ring sets
-  """
-  from glue import segmentsUtils 
-  playground_sets = {}
-  for instruments, seglist in all_data_ring_sets.items():
-    playground_sets[instruments] = segments.segmentlist([])
-    for this_segment in seglist:
-      playground_sets[instruments] |= segmentsUtils.S2playground(this_segment)
-
-  return playground_sets
-
-
 def get_veto_segments(connection, name):
   """
   Return a coalesced glue.segments.segmentlistdict object containing the
