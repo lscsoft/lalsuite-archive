@@ -1,14 +1,25 @@
-
-
-# This script coalesces segment and segment_summary table at LHO and LLO segment database machine
-# At LHO, this script only coalesces H1, H2 segments
-# At LLO, this script only coalesces L1 segments
+# $Id$
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import sys
 import os
 import time
 import socket
-#import ConfigParser
 
 
 try:
@@ -30,13 +41,6 @@ __version__ ="$Revision$"[11:-2]
 __src__ = "$Source$"
 #================================================================================
 
-
-
-#================================================================================
-#
-#                                    Main
-#
-#================================================================================
 def coalesce_seg(database, start_time, end_time):
   ret = 0
 
@@ -48,12 +52,8 @@ def coalesce_seg(database, start_time, end_time):
     # Set up environment and get needed values
     #-------------------------------------------------------------------
     # Set up connection to the database
-    try:
-       dbconn = DB2.connect(dsn=db, uid='', pwd='', autoCommit=True)
-       curs = dbconn.cursor()
-    except Exception, e:
-       ret = str(e)
-   
+    dbconn = DB2.connect(dsn=db, uid='', pwd='', autoCommit=True)
+    curs = dbconn.cursor()
 
     # create a new process_id
     sql = "select hex(GENERATE_UNIQUE()) from sysibm.sysdummy1"
@@ -108,15 +108,15 @@ def coalesce_seg(database, start_time, end_time):
     # 5. Delete uncoalesced segments and intervals from the database
 
 
-    # 1. From process_ids , find distinct segment type with in process table start_time range
+    # 1. Find distinct version 1 segment types from segment_summary within the specified time range
     sql  = "SELECT distinct(hex(segment_summary.segment_def_id)) FROM segment_summary, segment_definer "
     sql += "WHERE segment_summary.segment_def_id=segment_definer.segment_def_id "
     sql += "AND segment_summary.segment_def_cdb=segment_definer.creator_db "
     sql += "AND segment_definer.version=1 "
-    sql += "AND segment_summary.start_time between %d and %d " % (st,et)
+    sql += "AND segment_summary.start_time <=%d " % et
+    sql += "AND segment_summary.end_time >= %d " % st
     curs.execute(sql)
     def_ids = curs.fetchall()
-    #print >> sys.stdout, ("%s" % def_ids)
 
     # loop in the segment types to fetch, coalesce, insert and delete
     for d in def_ids:
@@ -140,10 +140,11 @@ def coalesce_seg(database, start_time, end_time):
       sql = "CREATE view seg_view (st,et,seg_id) AS "
       sql += "SELECT start_time,end_time, segment_id from segment "
       sql += "WHERE hex(segment_def_id) = '%s' " % d[0]
-      sql += "AND start_time between %d and %d " % (st, et)
+      sql += "AND segment.start_time <=%d " % et
+      sql += "AND segment.end_time >= %d " % st
       print >> sys.stdout, ("Selecting segments to coalesce for %s %s ... " % (ifos, name))
       curs.execute(sql)
-  
+
       curs.execute("SELECT st,et from seg_view")
       seg_bf_cos = curs.fetchall()   # get the segments to coalesce
 
@@ -155,10 +156,11 @@ def coalesce_seg(database, start_time, end_time):
       sql = "CREATE view sum_view (st,et,sum_id) AS "
       sql += "SELECT start_time,end_time, segment_sum_id from segment_summary "
       sql += "WHERE hex(segment_def_id) = '%s' " % d[0]
-      sql += "AND start_time between %d and %d " % (st, et)
+      sql += "AND segment_summary.start_time <=%d " % et
+      sql += "AND segment_summary.end_time >= %d " % st
       curs.execute(sql)
 
-      curs.execute("select st,et from sum_view")
+      curs.execute("SELECT st,et from sum_view")
       sum_bf_cos = curs.fetchall()   # get the summarys to coalesce
 
       # 3. Coalesce segments and intervals
@@ -206,7 +208,7 @@ def coalesce_seg(database, start_time, end_time):
       curs.executemany(sql, insert_list)
 
       # 5. Delete uncoalesced segments and intervals from the database
-      print >> sys.stdout, "Deleting un-coalseced segments ... "
+      print >> sys.stdout, "Deleting un-coaleseced segments ... "
       print >> sys.stdout 
       sql = "DELETE FROM segment "
       sql += "WHERE segment_id in (select seg_id from seg_view) "
@@ -221,15 +223,13 @@ def coalesce_seg(database, start_time, end_time):
     # update end_time in process table
     sql = "update process set end_time=%d where hex(process_id)='%s' " % (current_time,hex_procid)
     curs.execute(sql)
-
+    
+    curs.execute("drop view seg_view")
+    curs.execute("drop view sum_view")
 
   except Exception,e:
     ret = str(e)
     print >> sys.stdout, ("%s" % ret)
 
-  curs.execute("drop table tmp_co_seg")
-  curs.execute("drop table tmp_co_sum")
   curs.close()
-
-
   return ret
