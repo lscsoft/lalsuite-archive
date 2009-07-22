@@ -113,3 +113,14 @@ int MakeData(
     REAL4 fmin,
     REAL4 fmax
     );
+
+int MakeDataACTD(
+    DataSegmentVector *dataSegVec,
+    REAL4 mass1,
+    REAL4 mass2,
+    REAL4 srate,
+    REAL4 fmin,
+    REAL4 fmax,
+    INT4 amp,
+    REAL8 scale
+    );
