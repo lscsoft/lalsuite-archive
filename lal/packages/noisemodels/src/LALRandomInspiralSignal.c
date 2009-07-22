@@ -752,7 +752,7 @@ void LALRandomInspiralSignalTimeDomain
 /*    UINT4                   indice; */
   REAL8                   epsilon1, epsilon2, norm=0.0;
 
-  REAL4Vector             buff;
+  REAL4Vector             *buff = NULL;
 
   REAL4FFTPlan            *invPlan = NULL;
   REAL4FFTPlan            *fwdPlan = NULL;
@@ -815,12 +815,12 @@ void LALRandomInspiralSignalTimeDomain
     {
       LALCCreateVector( status->statusPtr, &stilde, fLength );
       CHECKSTATUSPTR(status);
-      
-      buff.length = signal->length;
-      if( !(buff.data = (REAL4*) LALCalloc(buff.length, sizeof(REAL4)) )) 
+    
+      if ( !(buff = XLALCreateREAL4Vector( signal->length ) ))
       {
-        ABORT (status, LALNOISEMODELSH_EMEM, LALNOISEMODELSH_MSGEMEM);
+        ABORTXLAL( status );
       }
+      memset( buff->data, 0, buff->length * sizeof( REAL4 ));  
     }
   }
 
@@ -859,7 +859,8 @@ void LALRandomInspiralSignalTimeDomain
                                 + (randIn->mMax - randIn->mMin) * epsilon1;
           randIn->param.mass2 = randIn->mMin 
                                 + (randIn->mMax - randIn->mMin) * epsilon2;
-          LALInspiralParameterCalc(status->statusPtr, &(randIn->param));	                CHECKSTATUSPTR(status);
+          LALInspiralParameterCalc(status->statusPtr, &(randIn->param));
+          CHECKSTATUSPTR(status);
           break;
 
         case minmaxTotalMass:
@@ -1223,26 +1224,26 @@ void LALRandomInspiralSignalTimeDomain
       {
         randIn->param.fFinal=0; 
         GenerateTimeDomainWaveformForInjection( status->statusPtr, 
-                                                &buff, &randIn->param);
+                                                buff, &randIn->param);
         CHECKSTATUSPTR(status);
       }
       else
       {
         /* force to compute fFinal is it really necessary  ? */ 
         randIn->param.fFinal=0; 
-        LALInspiralWave(status->statusPtr, &buff, &randIn->param);
+        LALInspiralWave(status->statusPtr, buff, &randIn->param);
         CHECKSTATUSPTR(status);
       }
       /* Taper signal */
       if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
       {
-        XLALInspiralWaveTaper( &buff, randIn->taperSignal );
+        XLALInspiralWaveTaper( buff, randIn->taperSignal );
       }
 
       /* Add signal to noise in Freq domain */ 
       LALCreateForwardRealFFTPlan( status->statusPtr, &fwdPlan, tLength, 0 );
       CHECKSTATUSPTR(status);
-      LALForwardRealFFT( status->statusPtr, stilde, &buff, fwdPlan ); 
+      LALForwardRealFFT( status->statusPtr, stilde, buff, fwdPlan ); 
       CHECKSTATUSPTR(status);
       LALDestroyRealFFTPlan( status->statusPtr, &fwdPlan );
       CHECKSTATUSPTR(status);
@@ -1293,18 +1294,21 @@ void LALRandomInspiralSignalTimeDomain
       ntilde->data[fLength-1].im = 0.0;
 
 
-      LALCreateReverseRealFFTPlan( status->statusPtr, &invPlan, tLength, 0 );
-      CHECKSTATUSPTR(status);
-      LALReverseRealFFT( status->statusPtr, signal, ntilde, invPlan );
-      CHECKSTATUSPTR(status);
+      if ( !(invPlan = XLALCreateReverseREAL4FFTPlan( tLength, 0 ) ))
+      {
+        ABORTXLAL( status );
+      }
+      if ( XLALREAL4ReverseFFT( signal, ntilde, invPlan ) == XLAL_FAILURE )
+      {
+        ABORTXLAL( status );
+      }
       /* Normalise after fft */
       for( k=0; k < tLength; ++k )
       {
         signal->data[k] /= (REAL4)(tLength);
       }
 
-      LALDestroyRealFFTPlan( status->statusPtr, &invPlan );
-      CHECKSTATUSPTR(status);
+      XLALDestroyREAL4FFTPlan( invPlan );
       LALSDestroyVector( status->statusPtr, &ntilde_re );
       CHECKSTATUSPTR(status);
       LALSDestroyVector( status->statusPtr, &ntilde_im );
@@ -1313,10 +1317,12 @@ void LALRandomInspiralSignalTimeDomain
       CHECKSTATUSPTR(status);
       LALCDestroyVector( status->statusPtr, &stilde );
       CHECKSTATUSPTR(status);
-      if( buff.data != NULL ) 
+      if ( buff )
       {
-        LALFree(buff.data);
-      }
+        XLALDestroyREAL4Vector( buff );
+      }      
+
+
       DETATCHSTATUSPTR(status);
       RETURN(status);
       break;
