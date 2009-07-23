@@ -69,27 +69,26 @@ static void print_usage( void );
 static void print_usage()
 {
   fprintf( stderr, "\n");
-  fprintf( stderr, " --help               : Print this message! \n");
-  fprintf( stderr, " --overlap            : Normalises input data \n");
-  fprintf( stderr, " --signal             : Replaces data with signal\n");
-  fprintf( stderr, " --dynrange DYNRANGE  : set the dynamic range \n");
-  fprintf( stderr, " --flatpsd            : Use flat psd \n");
-  fprintf( stderr, " --dominant           : Inject only domintnat harmonic \n");
-  fprintf( stderr, " --h-plus             : inject only h+\n");
-  fprintf( stderr, " --enable-output      : Print output files \n");
-  fprintf( stderr, " --tmplt-masses M1 M2 : Specify template masses \n");
-  fprintf( stderr, " --sgnl-masses M1 M2  : Specify signal masses \n");
-  fprintf( stderr, " --iota IOTA          : Specify signal iota \n");
-  fprintf( stderr, " --phiC PHIC          : Specify signal coa phase \n");
-  fprintf( stderr, " --phi PHI            : Specify sky angle phi \n");
-  fprintf( stderr, " --theta THETA        : Specify sky angle theta \n");
-  fprintf( stderr, " --psi PSI            : Specify polarisation psi \n");
-  fprintf( stderr, " --dist DIST          : Specify signal distance \n");
-  fprintf( stderr, " --amp-order AMP      : Specify signal amplitude order \n");
-  fprintf( stderr, " --phase-order ORDER  : Specify signal phase order \n");
-  fprintf( stderr, " --num-points N       : Specify time array length \n");
-  fprintf( stderr, " --psd-scale SCALE    : Default = 9.0e46 \n");
-  fprintf( stderr, " --print-max          : Calculate & display maximum\n\n\n");
+  fprintf( stderr, " --help                        : Print this message! \n");
+  fprintf( stderr, " --overlap                     : Normalises input data \n");
+  fprintf( stderr, " --signal                      : Replaces data with signal\n");
+  fprintf( stderr, " --dynrange-exponent DYNRANGE  : set the dynamic range exponent\n");
+  fprintf( stderr, " --flatpsd                     : Use flat psd \n");
+  fprintf( stderr, " --dominant                    : Inject only domintnat harmonic \n");
+  fprintf( stderr, " --h-plus                      : inject only h+\n");
+  fprintf( stderr, " --enable-output               : Print output files \n");
+  fprintf( stderr, " --tmplt-masses M1 M2          : Specify template masses \n");
+  fprintf( stderr, " --sgnl-masses M1 M2           : Specify signal masses \n");
+  fprintf( stderr, " --iota IOTA                   : Specify signal iota \n");
+  fprintf( stderr, " --phiC PHIC                   : Specify signal coa phase \n");
+  fprintf( stderr, " --phi PHI                     : Specify sky angle phi \n");
+  fprintf( stderr, " --theta THETA                 : Specify sky angle theta \n");
+  fprintf( stderr, " --psi PSI                     : Specify polarisation psi \n");
+  fprintf( stderr, " --dist DIST                   : Specify signal distance \n");
+  fprintf( stderr, " --amp-order AMP               : Specify signal amplitude order \n");
+  fprintf( stderr, " --phase-order ORDER           : Specify signal phase order \n");
+  fprintf( stderr, " --num-points N                : Specify time array length \n");
+  fprintf( stderr, " --print-max                   : Calculate & display maximum\n\n\n");
   return;
 }                   
 
@@ -132,7 +131,6 @@ int main( int argc, char **argv )
 
   INT4 i, j;
   REAL4 ts;
-  REAL8 scale = 9.0e46;
   INT4 output = 0;
   INT4 overlap = 0;
   INT4 printmax = 0;
@@ -177,12 +175,12 @@ int main( int argc, char **argv )
       return 0;
     }
     /* Set dynRange */
-    else if ( !strcmp( argv[arg], "--dynrange" ) )
+    else if ( !strcmp( argv[arg], "--dynrange-exponent" ) )
     {
       if ( argc > arg + 1 )
       {
         arg++;
-        dynRange = atof( argv[arg++] );
+        dynRange = pow( 2.0, atof( argv[arg++] ) );
       }
       else
       {
@@ -387,21 +385,6 @@ int main( int argc, char **argv )
         return 0;
       }
     }
-    /* psd scale */
-    else if ( !strcmp( argv[arg], "--psd-scale" ) )
-    {
-      if (argc > arg + 1 )
-      {
-        arg++;
-        scale = atof( argv[arg++] ) ;
-      }
-      else
-      {
-        arg++;
-        print_usage();
-        return 0;
-      }
-    }
     /* print maximum */
     else if ( !strcmp( argv[arg], "--print-max" ) )
     {
@@ -424,7 +407,7 @@ int main( int argc, char **argv )
   initParams.createRhosqVec = 1;
 
   /* Scale the distance to correspond to the PSD */
-  dist = dist * 1.0e6 * LAL_PC_SI / sqrt(scale);
+  dist = dist * 1.0e6 * LAL_PC_SI / dynRange;
 
 
 
@@ -445,10 +428,10 @@ int main( int argc, char **argv )
 
   /* create some fake data */
   fprintf( stderr, "Making data segment...                  " );
-  MakeDataACTD( dataSegVec, mass1, mass2, srate, fmin, fmax, amp, scale );
+  MakeDataACTD( dataSegVec, mass1, mass2, srate, fmin, fmax, amp, dynRange );
   fprintf( stderr, "      Done!\n" );  
 
-  for ( j = 0; j < (INT4)dataSegVec->data->spec->data->length; ++j )
+  /*for ( j = 0; j < (INT4)dataSegVec->data->spec->data->length; ++j )
   {
     if( flatpsd == 1 )
     {
@@ -458,7 +441,7 @@ int main( int argc, char **argv )
     {
      dataSegVec->data->spec->data->data[j] *= 1.0/dynRange;
     }    
-  }
+  }*/
 
   /* Replace Data with Signal */
   if( injSignal )
@@ -961,7 +944,7 @@ int MakeDataACTD(
     REAL4 fmin,
     REAL4 fmax,
     INT4  amp,
-    REAL8 scale
+    REAL8 dynRange
     )
 { 
   InspiralTemplate tmplt;
@@ -1036,7 +1019,7 @@ int MakeDataACTD(
     if( f >= fs )
     {
       LALLIGOIPsd(&status, &psd, f);
-      dataSegVec->data->spec->data->data[k] = psd;
+      dataSegVec->data->spec->data->data[k] = psd * 9.0e-46 * dynRange * dynRange;
     }
     else
     {
@@ -1044,7 +1027,7 @@ int MakeDataACTD(
     }
   
 
-    dataSegVec->data->resp->data->data[k].re = 1;
+    dataSegVec->data->resp->data->data[k].re = 1. / dynRange;
     dataSegVec->data->resp->data->data[k].im = 0;
   }
 

@@ -242,8 +242,6 @@ extern "C" {
                 REAL8 sourceThetaMin, sourceThetaMax, sourcePhiMin, sourcePhiMax;
                 REAL8 inclinationMin, inclinationMax;
 
-                REAL4 dynRange;
-
                 InspiralApplyTaper taperSignal;
             }  
     RandomInspiralSignalIn;
