@@ -164,7 +164,7 @@ opts, args = parse_args()
 
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
+InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 html_footer = ""
 
 ##############################################################################
