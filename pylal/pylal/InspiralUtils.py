@@ -21,6 +21,36 @@ from pylal import git_version
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
 
+# set color codes for coincident ifo types
+def get_coinc_ifo_colors( ifo_set ):
+  """ 
+  Given an ifo set, returns an html color code for plotting.
+  """     
+  # check that ifo_set is set or frozenset
+  if not ( isinstance(ifo_set, set) or isinstance(ifo_set, frozenset) ):
+    raise ValueError, "ifo_set must be of type set or frozenset. " + \
+      "Use lsctables.instrument_set_from_ifos to do this."
+
+  if ifo_set == set(['H1', 'H2', 'L1', 'V1']):
+    return '#F88017' # dark orange
+  elif ifo_set == set(['H1', 'H2', 'L1']):
+    return '#00FFFF' # cyan
+  elif ifo_set == set(['H1', 'L1', 'V1']):
+    return '#7D1B7E' # dark orchid
+  elif ifo_set == set(['H2', 'L1', 'V1']):
+    return '#153E7E' # dodger blue4
+  elif ifo_set == set(['H1', 'L1']):
+    return '#00FF00' # green
+  elif ifo_set == set(['H1', 'V1']):
+    return '#6698FF' # sky blue
+  elif ifo_set == set(['H2', 'L1']):
+    return '#FF0000' # red
+  elif ifo_set == set(['H2', 'V1']):
+    return '#FF00FF' # magenta
+  elif ifo_set == set(['L1', 'V1']):
+    return '#254117' # dark green
+  else: # other coincs just set to black
+    return 'k'
 
 class InspiralPage(object):
   """
