@@ -239,7 +239,8 @@ main (INT4 argc, CHAR **argv )
     ampCorFilterParams->chisqThresh = 1e-6;
 
     ampCorDataParams->fLow = randIn.param.fLower; 
-    ampCorDataParams->dynRange = 1.0;
+    ampCorDataParams->dynRange = pow(2.0, 69.0);
+    ampCorTmpltParams->dynRange = ampCorDataParams->dynRange;
     ampCorDataParams->invSpecTrunc = 0;
   }
 
@@ -252,8 +253,9 @@ main (INT4 argc, CHAR **argv )
     for( i = 0; i < (INT4)randIn.psd.length; ++i )
     {
       ampCorDataSegVec->data->spec->data->data[i] = 
-        randIn.psd.data[i] *= 9.0e20;
-      ampCorDataSegVec->data->resp->data->data[i].re = 1.0;
+        randIn.psd.data[i] * ampCorDataParams->dynRange * ampCorDataParams->dynRange;
+      randIn.psd.data[i] = ampCorDataSegVec->data->spec->data->data[i];
+      ampCorDataSegVec->data->resp->data->data[i].re = (REAL4)(1.0 / ampCorDataParams->dynRange);
       ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
     }      
   }
@@ -321,7 +323,14 @@ main (INT4 argc, CHAR **argv )
     /* --- set the fcutoff (signal,overlap) --- */
     randIn.param.fCutoff = userParam.signalfFinal;
     randIn.param.inclination = 0.;
-    randIn.param.distance = 1.;
+    if ( userParam.template == AmpCorPPN )
+    {
+      randIn.param.distance = 1.0e6 * LAL_PC_SI / ampCorDataParams->dynRange;
+    }
+    else
+    {
+      randIn.param.distance = 1.;
+    }
 
     /* --- generate the signal waveform --- */
     LAL_CALL(BankEfficiencyGenerateInputData(&status,
@@ -385,7 +394,7 @@ if( 1 )
                      ampCorFreqSegVec->data->data->data->data[i].re;
             power += ampCorFreqSegVec->data->data->data->data[i].im *
                      ampCorFreqSegVec->data->data->data->data[i].im;
-        
+             
             norm += 4.0 * power * ampCorFilterParams->deltaT 
                     / (REAL4)(ampCorDataSegVec->data->chan->data->length)
                     / ampCorDataParams->wtildeVec->data[i].re;
