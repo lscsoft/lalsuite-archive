@@ -268,7 +268,10 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	process.version = version
 	process.cvs_repository = cvs_repository
 	if cvs_entry_time is not None:
-		process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
+		try:
+			process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y-%m-%d %H:%M:%S +0000")).seconds
+		except:
+			process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
 	else:
 		process.cvs_entry_time = None
 	process.comment = comment
