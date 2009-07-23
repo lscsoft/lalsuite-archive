@@ -51,7 +51,7 @@ static void print_usage( void );
 /* Default parameter settings. */
 #define M1       (15.0)
 #define M2       (10.0)
-#define DIST     (1000)
+#define DIST     (1.0)
 
 #define INC      (45.0)
 #define PHIC     (1.8829478)
@@ -423,8 +423,8 @@ int main( int argc, char **argv )
   initParams.approximant    = AmpCorPPN;
   initParams.createRhosqVec = 1;
 
-
-
+  /* Scale the distance to correspond to the PSD */
+  dist = dist * 1.0e6 * LAL_PC_SI / sqrt(scale);
 
 
 
@@ -1036,7 +1036,7 @@ int MakeDataACTD(
     if( f >= fs )
     {
       LALLIGOIPsd(&status, &psd, f);
-      dataSegVec->data->spec->data->data[k] = psd * 9.0e-46 * scale;
+      dataSegVec->data->spec->data->data[k] = psd;
     }
     else
     {

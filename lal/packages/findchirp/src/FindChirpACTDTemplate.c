@@ -168,7 +168,7 @@ LALFindChirpACTDTemplate(
   ppnParams.eta_real8 /= ppnParams.mTot_real8;
 
   /* Set distance at 20Mpc for testing, will be normalised anyway */
-  ppnParams.d = 1.0;
+  ppnParams.d = 1.0e6 * LAL_PC_SI / params->dynRange;
   ppnParams.fStartIn = params->fLow;
   ppnParams.fStopIn = - 1.0 /
               (6.0 * sqrt(6.0) * LAL_PI * ppnParams.mTot_real8 * LAL_MTSUN_SI);
@@ -557,17 +557,16 @@ LALFindChirpACTDNormalize(
     {
    
       gsl_matrix_set( innerProd, i, k, 
-                   XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
+         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
       gsl_matrix_set( innerProd, i+NACTDVECS, k, 
-         XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k],
+         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
       gsl_matrix_set( innerProd, i, k+NACTDVECS, 
-         XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k+NACTDVECS],
+         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k+NACTDVECS],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
       gsl_matrix_set( innerProd, i+NACTDVECS, k+NACTDVECS,
-                        XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], 
-                                                       &ACTDtilde[k+NACTDVECS],
+         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k+NACTDVECS],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
 
       gsl_matrix_set( innerProd, k, i, gsl_matrix_get( innerProd, i, k ));
@@ -650,9 +649,9 @@ LALFindChirpACTDNormalize(
       for ( k = 0; k < numPoints; k++ )
       {
         tmpVec[i]->data[k].re += 
-                    gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].re;
+              (REAL4)gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].re;
         tmpVec[i]->data[k].im += 
-                    gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].im;
+              (REAL4)gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].im;
       }
     }
   }
