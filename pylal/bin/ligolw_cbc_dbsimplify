@@ -179,14 +179,13 @@ CREATE TEMP TABLE _idmap_ AS
     JOIN
         distinct_slides ON (
             distinct_slides.slide == all_slides.slide
-            AND distinct_slides.id != all_slides.id
         );
 
 CREATE INDEX idm_o_index ON _idmap_ (old);
 UPDATE coinc_event SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
 UPDATE experiment_summary SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
 
-DELETE FROM time_slide WHERE time_slide_id IN (SELECT old FROM _idmap_);
+DELETE FROM time_slide WHERE time_slide_id IN (SELECT old FROM _idmap_ WHERE old != new);
 
 DROP TABLE _idmap_;
 """
@@ -200,6 +199,9 @@ connection.cursor().executescript( sqlscript )
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+if opts.verbose:
+    print >> sys.stdout, "Cleaning experiment tables..."
 
 sqlscript = """
 --

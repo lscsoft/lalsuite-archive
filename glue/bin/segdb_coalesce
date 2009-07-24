@@ -62,17 +62,18 @@ __version__ = "$Revision$"[11:-2]
 parser = OptionParser(
   version = "%prog CVS $Header$",
   usage   = "%prog [OPTIONS]",
-  description = "Publishes XML files into the segment database")
+  description = "Coalesce segments and summary intervals in the database")
 
 parser.add_option("-d", "--database-name", metavar = "database_name", help = "name of the database you run coalescing on")
-parser.add_option("-S", "--state-file", metavar = "FILE", help = "read published and excluded segments from FILE")
+parser.add_option("-S", "--state-file", metavar = "FILE", help = "read coalesced time range from FILE")
 parser.add_option("-P", "--pid-file", metavar = "FILE", help = "use FILE as process lock file")
 parser.add_option("-l", "--log-file", metavar = "FILE", help = "use FILE as log file")
 parser.add_option("-L", "--log-level", metavar = "LEVEL", default = "INFO", help = "set logging level to LEVEL")
 
 options, filenames = parser.parse_args()
 
-
+if not options.database_name:
+  raise ValueError, "missing argument --database-name"
 if not options.state_file:
   raise ValueError, "missing argument --state-file"
 if not options.pid_file:
@@ -89,6 +90,7 @@ fp = open(options.pid_file, "w")
 fp.write("lock")
 fp.close()
 
+
 try:
   # setup the output file
   outdoc = ligolw.Document()
@@ -96,7 +98,7 @@ try:
   proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__).process_id
 
   # set up logging
-  logger = logging.getLogger('ligolw_coalesce')
+  logger = logging.getLogger('segdb_coalesce')
   handler = logging.handlers.RotatingFileHandler(options.log_file, 'a', 1048576, 5)
   formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
   handler.setFormatter(formatter)
@@ -113,14 +115,14 @@ try:
   end_times = []
   for c in coalesced_range:
     end_times.append(c[1])
-  last_endtime = max(end_times) 
+  max_endtime = max(end_times) 
   logger.debug("coalesced time range = %s" % str(coalesced_range))
 
   # make a list of the time range that need to be coalesced:
   #########################
   current_time = gpstime.GpsSecondsFromPyUTC(time.time())
-  pending_range = [(last_endtime, current_time)]
-  st = last_endtime
+  pending_range = [(max_endtime, current_time)]
+  st = max_endtime
   et = current_time 
   logger.debug("pending range is [%d,%d)" % (st,et))
 
@@ -131,7 +133,6 @@ try:
         coalesced_range |= segments.segmentlist([(st,et)])
         logger.info("finished coalescing range [%d,%d)" % (st,et))
   else:
-        coalesced_range |= segments.segmentlist([coalesced_range])
         logger.error("faile to coalesce, state_file remains unchanged")
         logger.error(result)
         sys.exit(1)
