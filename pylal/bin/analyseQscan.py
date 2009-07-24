@@ -17,14 +17,16 @@ __prog__ = 'analyseQscan'
 
 #import matplotlib
 
+import pdb
 import matplotlib
 matplotlib.use('Agg')
 
-from matplotlib.patches     import Patch
-from matplotlib.axes        import Axes
-from matplotlib.collections import PolyCollection
-from matplotlib.colors      import normalize, Colormap
-from pylab import *
+#from matplotlib.patches     import Patch
+#from matplotlib.axes        import Axes
+#from matplotlib.collections import PolyCollection
+#from matplotlib.colors      import normalize, Colormap
+import pylab
+#from pylab import *
 
 import sys, getopt, os, copy, math
 import socket, time
@@ -262,7 +264,7 @@ def computeDeltaT(table,chan,opts,ifo):
   return dt_list
 
 
-def makeHistogram(list,distribution,opts,percentiles=None,candidate=None):
+def makeHistogram(inputlist,distribution,opts,percentiles=None,candidate=None):
 
   parameter = distribution.split('-')[0]
 
@@ -279,45 +281,47 @@ def makeHistogram(list,distribution,opts,percentiles=None,candidate=None):
 
   step = (float(max_val) - float(min_val))/float(nbins)
 
-  bins = arange(min_val - step/2., max_val + step/2., step)
+  bins = pylab.arange(min_val, max_val + step, step)
+  print "input of histrogram"
+  print inputlist
 
-  if len(list):
+  if len(inputlist):
     # compute the histogram values
-    [dist, bin, info] = hist(list,bins,bottom=None,\
+    [dist, bin, info] = pylab.hist(inputlist,bins,bottom=None,\
     align='edge', orientation='vertical', width=None)
 
   return dist,bin
 
-def findPercentile(list,percentile):
-  list.sort()
-  index = int(percentile * len(list))
-  return list[index - 1]
+def findPercentile(inputlist,percentile):
+  inputlist.sort()
+  index = int(percentile * len(inputlist))
+  return inputlist[index - 1]
 
-def findPercentileForDt(list,percentile):
-  list.sort()
-  index = int( (1-percentile) * len(list)) +1
-  return list[index - 1]
+def findPercentileForDt(inputlist,percentile):
+  inputlist.sort()
+  index = int( (1-percentile) * len(inputlist)) +1
+  return inputlist[index - 1]
 
-def absList(list):
+def absList(inputlist):
   newList = []
-  for element in list:
+  for element in inputlist:
     newList.append(abs(element))
   return newList
 
-def computeRank(list,threshold):
+def computeRank(inputlist,threshold):
   counter = 0
-  for element in list:
+  for element in inputlist:
     if element < threshold:
       counter = counter + 1
-  rank = float(counter) / float(len(list))
+  rank = float(counter) / float(len(inputlist))
   return rank
 
-def computeRankForDt(list,threshold):
+def computeRankForDt(inputlist,threshold):
   counter = 0
-  for element in list:
+  for element in inputlist:
     if abs(element) > threshold:
       counter = counter + 1
-  rank = float(counter) / float(len(list))
+  rank = float(counter) / float(len(inputlist))
   return rank
 
 def getAuxVsDarmList(table,chan,opts,ifo=None):
@@ -359,43 +363,44 @@ def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None
   p2 = None
   p3 = None
   parameter = distribution.split('-')[0]
-  figure(figNumber)
+  #figure(figNumber)
+  pylab.figure(0)
 
-  ax = subplot(111)
+  ax = pylab.subplot(111)
   ax.set_xscale('log')
   ax.set_yscale('log')
 
   if list11 and list12:
-    p1 = plot(list11,list12,linestyle='None', marker='o',\
+    p1 = pylab.plot(list11,list12,linestyle='None', marker='o',\
                markerfacecolor='k', markeredgecolor='k',\
                markersize=4, markeredgewidth=0)
 
   if list21 and list22:
-    p2 = plot(list21,list22,linestyle='None', marker='v',\
+    p2 = pylab.plot(list21,list22,linestyle='None', marker='v',\
                markerfacecolor='r', markeredgecolor='r',\
                markersize=4, markeredgewidth=0)
 
   if list31 and list32:
-    p3 = plot(list31,list32,linestyle='None', marker='s',\
+    p3 = pylab.plot(list31,list32,linestyle='None', marker='s',\
                markerfacecolor='r', markeredgecolor='r',\
                markersize=8, markeredgewidth=0)
 
-  grid()
-  xlabel('Z in ' + chan,size='x-large')
-  ylabel('Z in ' + opts.ref_channel,size='x-large')
-  title('Scattered plot of significance for channel: ' + chan)
+  pylab.grid()
+  pylab.xlabel('Z in ' + chan,size='x-large')
+  pylab.ylabel('Z in ' + opts.ref_channel,size='x-large')
+  pylab.title('Scattered plot of significance for channel: ' + chan)
 
   if p1 and p2 and p3:
-    legend((p1,p2,p3),('background','foreground','candidate'),loc = 'upper right')
+    pylab.legend((p1,p2,p3),('background','foreground','candidate'),loc = 'upper right')
     lim = max(max(list11),max(list12),max(list21),max(list22),max(list31),max(list32))
   if p1 and p2 and not p3:
-    legend((p1,p2),('background','foreground'),loc = 'upper right')
+    pylab.legend((p1,p2),('background','foreground'),loc = 'upper right')
     lim = max(max(list11),max(list12),max(list21),max(list22))
   if p1 and not p2 and p3:
-    legend((p1,p3),('background','candidate'),loc = 'upper right')
+    pylab.legend((p1,p3),('background','candidate'),loc = 'upper right')
     lim = max(max(list11),max(list12),max(list31),max(list32))    
   if p1 and not p2 and not p3:
-#    legend((p1),('background'),loc='upper right')
+#   pylab.legend((p1),('background'),loc='upper right')
     lim = max(max(list11),max(list12))
 
   ax.set_xlim(1e0, lim*2)
@@ -405,7 +410,8 @@ def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None
    
   figName = InspiralUtils.set_figure_name(opts,figText)
   InspiralUtils.savefig_pylal(figName)
-  close(figNumber)
+  pylab.close(0)
+  #close(figNumber)
 
   return figName  
 
@@ -423,41 +429,43 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   else:
     xlimSup = max(binList)
 
-  figure(figNumber)
+  #pylab.figure(figNumber)
+  pylab.figure(0)
   # semilogy(bins + step/2., z_dist+0.0001, 'r^',markerfacecolor="b",markersize=12)
   # plot(bins + step/2., z_dist)
-  bar(binList, histoList, width=step, bottom=0)
+  pylab.bar(binList[0:len(binList)-1], histoList, width=step, bottom=0)
 
   if percentiles:
-    line1 = axvline(x=percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
-    line2 = axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='95th percentile', linewidth=2, linestyle='--')
-    line3 = axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='99th percentile', linewidth=2, linestyle='--')
+    line1 = pylab.axvline(x=percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
+    line2 = pylab.axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='95th percentile', linewidth=2, linestyle='--')
+    line3 = pylab.axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='99th percentile', linewidth=2, linestyle='--')
     if parameter == 'dt':
-      axvline(x=-percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
-      axvline(x=-percentiles[1], ymin=0, ymax=max(histoList), color='m', label='95th percentile', linewidth=2, linestyle='--')
-      axvline(x=-percentiles[2], ymin=0, ymax=max(histoList), color='r', label='99th percentile', linewidth=2, linestyle='--')
+      pylab.axvline(x=-percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
+      pylab.axvline(x=-percentiles[1], ymin=0, ymax=max(histoList), color='m', label='95th percentile', linewidth=2, linestyle='--')
+      pylab.axvline(x=-percentiles[2], ymin=0, ymax=max(histoList), color='r', label='99th percentile', linewidth=2, linestyle='--')
 
   if candidate:
-    line0 = axvline(x=candidate, ymin=0, ymax=max(histoList), color='k', label='candidate value (%s percentile)' % (candidateRank), linewidth=2, linestyle='-')
+    line0 = pylab.axvline(x=candidate, ymin=0, ymax=max(histoList), color='k', label='candidate value (%s percentile)' % (candidateRank), linewidth=2, linestyle='-')
 
   if percentiles and candidate:
-    legend((line0,line1,line2,line3),('candidate','50%','95%','99%'),loc = 'upper right')
+    pylab.legend((line0,line1,line2,line3),('candidate','50%','95%','99%'),loc = 'upper right')
 
   if percentiles and not candidate:
-    legend((line1,line2,line3),('50%','95%','99%'),loc = 'upper right')
+    pylab.legend((line1,line2,line3),('50%','95%','99%'),loc = 'upper right')
 
-  xlim(xlimInf,xlimSup)
+  pylab.xlim(xlimInf,xlimSup)
 
-  xlabel(parameter + ' value',size='large')
+  pylab.xlabel(parameter + ' value',size='large')
   # ylabel(r'#',size='x-large')
-  grid()  
-  title("Histogram of the " + parameter + " value for " + chan + ', Statistics = ' + str(counter))
+  pylab.grid()  
+  pylab.title("Histogram of the " + parameter + " value for " + chan + ', Statistics = ' + str(counter))
 
 
   figText = chan.split(':')[0] + '_' + chan.split(':')[1] + '_' + parameter + '_dist'
   figFileName = InspiralUtils.set_figure_name(opts,figText)
   InspiralUtils.savefig_pylal(figFileName) 
-  close(figNumber)
+  pylab.close(0)
+  #close(figNumber)
 
   return figFileName
 
