@@ -273,6 +273,13 @@ setup(
         os.path.join('src', 'php', 'seginsert','scripts','styletitle.php'),
         os.path.join('src', 'php', 'seginsert','scripts','time_conv_functions.php')
       ]
+    ),
+    ( os.path.join( 'var', 'php', 'dq_report' ),
+      [
+        os.path.join('src', 'php', 'dq_report','index.php'),
+        os.path.join('src', 'php', 'dq_report','get_report.php'),
+        os.path.join('src', 'php', 'dq_report','header.php')
+      ]
     )
   ]
 )
