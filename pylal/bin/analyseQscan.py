@@ -15,9 +15,6 @@ __prog__ = 'analyseQscan'
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
 
-#import matplotlib
-
-import pdb
 import matplotlib
 matplotlib.use('Agg')
 
@@ -26,7 +23,6 @@ matplotlib.use('Agg')
 #from matplotlib.collections import PolyCollection
 #from matplotlib.colors      import normalize, Colormap
 import pylab
-#from pylab import *
 
 import sys, getopt, os, copy, math
 import socket, time
@@ -282,8 +278,6 @@ def makeHistogram(inputlist,distribution,opts,percentiles=None,candidate=None):
   step = (float(max_val) - float(min_val))/float(nbins)
 
   bins = pylab.arange(min_val, max_val + step, step)
-  print "input of histrogram"
-  print inputlist
 
   if len(inputlist):
     # compute the histogram values
