@@ -17,12 +17,12 @@ __prog__ = 'analyseQscan'
 
 import matplotlib
 matplotlib.use('Agg')
-
 #from matplotlib.patches     import Patch
 #from matplotlib.axes        import Axes
 #from matplotlib.collections import PolyCollection
 #from matplotlib.colors      import normalize, Colormap
 import pylab
+import numpy
 
 import sys, getopt, os, copy, math
 import socket, time
@@ -277,12 +277,11 @@ def makeHistogram(inputlist,distribution,opts,percentiles=None,candidate=None):
 
   step = (float(max_val) - float(min_val))/float(nbins)
 
-  bins = pylab.arange(min_val, max_val + step, step)
+  bins = numpy.arange(min_val, max_val + step, step)
 
   if len(inputlist):
     # compute the histogram values
-    [dist, bin, info] = pylab.hist(inputlist,bins,bottom=None,\
-    align='edge', orientation='vertical', width=None)
+    dist, bin = numpy.histogram(inputlist,bins)
 
   return dist,bin
 
@@ -352,13 +351,12 @@ def selectSignificance(table,chan,opts):
   return z_list
 
 
-def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None,list22=None,list31=None,list32=None,figNumber=None):
+def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None,list22=None,list31=None,list32=None):
   p1 = None
   p2 = None
   p3 = None
   parameter = distribution.split('-')[0]
-  #figure(figNumber)
-  pylab.figure(0)
+  pylab.figure()
 
   ax = pylab.subplot(111)
   ax.set_xscale('log')
@@ -404,13 +402,12 @@ def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None
    
   figName = InspiralUtils.set_figure_name(opts,figText)
   InspiralUtils.savefig_pylal(figName)
-  pylab.close(0)
-  #close(figNumber)
+  pylab.close()
 
   return figName  
 
 
-def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles=None,candidate=None,candidateRank=None):
+def plotHistogram(chan,opts,distribution,histoList,binList,percentiles=None,candidate=None,candidateRank=None):
 
   parameter = distribution.split('-')[0]
       
@@ -423,8 +420,7 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   else:
     xlimSup = max(binList)
 
-  #pylab.figure(figNumber)
-  pylab.figure(0)
+  pylab.figure()
   # semilogy(bins + step/2., z_dist+0.0001, 'r^',markerfacecolor="b",markersize=12)
   # plot(bins + step/2., z_dist)
   pylab.bar(binList[0:len(binList)-1], histoList, width=step, bottom=0)
@@ -458,8 +454,7 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   figText = chan.split(':')[0] + '_' + chan.split(':')[1] + '_' + parameter + '_dist'
   figFileName = InspiralUtils.set_figure_name(opts,figText)
   InspiralUtils.savefig_pylal(figFileName) 
-  pylab.close(0)
-  #close(figNumber)
+  pylab.close()
 
   return figFileName
 
@@ -702,16 +697,14 @@ if not opts.process_background_only:
           print >> sys.stderr, 'could not make the z histogram for channel ' + channel
           continue
 
-        figNumber = figNumber + 1
-        zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber,percentiles,zCandidate,z_candidate_rank)
+        zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,percentiles,zCandidate,z_candidate_rank)
         fnameList.append(zFigure)
 
       if opts.plot_z_scattered:
         aux_list_back,darm_list_back = getAuxVsDarmList(backgroundSubTable,channel,opts,candidate[3])
         aux_list_fore,darm_list_fore = getAuxVsDarmList(foregroundSubTable,channel,opts,candidate[3])
         aux_list_cand,darm_list_cand = getAuxVsDarmList(candidateTable,channel,opts,candidate[3])
-        figNumber = figNumber + 1
-        scatteredFigure = makeScatteredPlot(channel,opts,'z-distribution',aux_list_back,darm_list_back,aux_list_fore,darm_list_fore,aux_list_cand,darm_list_cand,figNumber)
+        scatteredFigure = makeScatteredPlot(channel,opts,'z-distribution',aux_list_back,darm_list_back,aux_list_fore,darm_list_fore,aux_list_cand,darm_list_cand)
         fnameList.append(scatteredFigure)
 
       if opts.plot_dt_distribution:
@@ -731,8 +724,7 @@ if not opts.process_background_only:
         except:
           print >> sys.stderr, 'could not make the dt histogram for channel ' + channel
           continue
-        figNumber = figNumber + 1
-        dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,figNumber,dtpercentiles,dtCandidate,dt_candidate_rank)
+        dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,dtpercentiles,dtCandidate,dt_candidate_rank)
         fnameList.append(dtFigure)
 
       #append the html page
@@ -797,15 +789,13 @@ if opts.process_background_only:
       except:
         print >> sys.stderr, 'could not make the z histogram for channel ' + channel
         continue
-      figNumber = figNumber + 1
-      zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber,percentiles,None,None)
+      zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,percentiles,None,None)
       fnameList.append(zFigure)
 
     # plot the significance scattered plot
     if opts.plot_z_scattered:
       aux_list_back,darm_list_back = getAuxVsDarmList(backgroundTable,channel,opts)
-      figNumber = figNumber + 1
-      scatteredFigure = makeScatteredPlot(channel,opts,'z-distribution',aux_list_back,darm_list_back,None,None,None,None,figNumber)
+      scatteredFigure = makeScatteredPlot(channel,opts,'z-distribution',aux_list_back,darm_list_back,None,None,None,None)
       fnameList.append(scatteredFigure)
 
     # prepare and plot the distribution of delta t
@@ -821,8 +811,7 @@ if opts.process_background_only:
       except:
         print >> sys.stderr, 'could not make the dt histogram for channel ' + channel 
         continue
-      figNumber = figNumber + 1
-      dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,figNumber,dtpercentiles)
+      dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,dtpercentiles)
       fnameList.append(dtFigure)
 
     #append the html page
