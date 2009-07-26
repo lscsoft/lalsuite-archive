@@ -2634,7 +2634,7 @@ class SummMimeTable(table.Table):
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"channel": "lstring",
-		"descip": "lstring",
+		"descrip": "lstring",
 		"mimedata": "blob",
 		"mimedata_length": "int_4s",
 		"mimetype": "lstring",
