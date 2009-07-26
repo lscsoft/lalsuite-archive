@@ -42,7 +42,12 @@ matplotlib.rcParams.update({
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.transforms import offset_copy
+try:
+	from matplotlib.transforms import offset_copy
+except:
+	# FIXME: wrong matplotlib version, disable this feature;  figure
+	# out how to do this portably later.
+	pass
 import numpy
 from optparse import OptionParser
 try:
@@ -294,6 +299,45 @@ def create_is_playground_func(connection, playground_segs):
 #
 # =============================================================================
 #
+#                      Injection Parameter Distributions
+#
+# =============================================================================
+#
+
+
+class InjectionParameterDistributionPlots(object):
+	def __init__(self):
+		self.injections = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# no injections
+			return
+		for values in contents.connection.cursor().execute("""
+SELECT
+	*
+FROM
+	sim_inspiral
+			"""):
+			sim = contents.sim_inspiral_table._row_from_cols(values)
+			instruments = frozenset(instrument for instrument, segments in contents.seglists.items() if sim.get_end() in segments)
+			self.injections.setdefault(sim.waveform, []).append(sim)
+
+	def finish(self):
+		for waveform, sims in self.injections.items():
+			fig, axes = create_plot(r"Injected $M_{1}$ ($\mathrm{M}_{\odot}$)", r"Injected $M_{2}$ ($\mathrm{M}_{\odot}$)", aspect = 1.0)
+			axes.set_title(r"Injection Parameter Distribution (%s Injections)" % waveform)
+			axes.plot([sim.mass1 for sim in sims], [sim.mass2 for sim in sims], "kx")
+			minx, maxx = axes.get_xlim()
+			miny, maxy = axes.get_ylim()
+			axes.set_xlim((min(minx, miny), max(maxx, maxy)))
+			axes.set_ylim((min(minx, miny), max(maxx, maxy)))
+			yield fig, "sim_dist_m1_m2_%s" % (waveform), False
+
+
+#
+# =============================================================================
+#
 #                              Missed/Found Plot
 #
 # =============================================================================
@@ -307,7 +351,7 @@ class MissedFoundPlots(object):
 			self.found_in = {}
 
 		def add_contents(self, contents):
-  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
 			for values in contents.connection.cursor().execute("""
 SELECT
 	sim_inspiral.*,
@@ -738,7 +782,7 @@ def sigma_region(mean, nsigma):
 
 
 def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio):
-	if not (len(zerolag_stats) or len(background_stats)):
+	if not zerolag_stats and not background_stats:
 		# no data
 		return None, None
 
@@ -748,16 +792,24 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	fig, axes = create_plot(None, r"Number of Events")
 
 	#
+	# check for unrankable zero-lag events, and condition them for
+	# plotting
+	#
+
+	zerolag_stats = numpy.array(zerolag_stats)
+	n_unrankable_zerolags = (zerolag_stats > max(background_stats)).sum()
+	zerolag_stats = numpy.where(zerolag_stats > max(background_stats), max(background_stats) * 2, zerolag_stats)
+
+	#
 	# determine the horizontal and vertical extent of the plot
 	#
 
-	if zerolag_stats:
-		zerolag_stats = numpy.array(zerolag_stats)
-		n_unrankable_zerolags = (zerolag_stats > max(background_stats)).sum()
-		zerolag_stats = numpy.where(zerolag_stats > max(background_stats), max(background_stats) * 2, zerolag_stats)
-		minX, maxX = min(min(zerolag_stats), min(background_stats)), max(max(zerolag_stats), max(background_stats))
+	if len(zerolag_stats):
+		if background_stats:
+			minX, maxX = min(min(zerolag_stats), min(background_stats)), max(max(zerolag_stats), max(background_stats))
+		else:
+			minX, maxX = min(zerolag_stats), max(zerolag_stats)
 	else:
-		n_unrankable_zerolags = 0
 		minX, maxX = min(background_stats), max(background_stats)
 	minN, maxN = min(1, zerolag_to_background_livetime_ratio), max(len(zerolag_stats), len(background_stats) * zerolag_to_background_livetime_ratio)
 
@@ -811,7 +863,14 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 			msg = r"%d Events" % n_unrankable_zerolags
 		else:
 			msg = r"%d Event" % n_unrankable_zerolags
-		axes.text(maxX, n_unrankable_zerolags, msg, horizontalalignment = "right", verticalalignment = "bottom", transform = offset_copy(axes.transData, fig = fig, x = -6, y = +4, units = "points"))
+		try:
+			offset_copy = offset_copy
+		except NameError:
+			# FIXME:  wrong matplotlib version, disable;
+			# figure out how to do this portably later
+			pass
+		else:
+			axes.text(maxX, n_unrankable_zerolags, msg, horizontalalignment = "right", verticalalignment = "bottom", transform = offset_copy(axes.transData, fig = fig, x = -6, y = +4, units = "points"))
 	axes.set_xlim(minX, maxX)
 	axes.set_ylim(minN, maxN)
 
@@ -942,7 +1001,8 @@ def new_plots(plots = None):
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
 		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
-		RateVsThreshold()
+		RateVsThreshold(),
+		InjectionParameterDistributionPlots()
 	)
 	if plots is None:
 		plots = range(len(l))
