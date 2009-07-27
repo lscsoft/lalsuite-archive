@@ -221,6 +221,7 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
   #initialize xml document
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
+  
   #extract the data from the intial Omega file
   f = open(datafile, 'r')
   vars = []
@@ -229,11 +230,13 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
       var = line.lstrip('#').strip()
       if var in omega_vars:
         vars.append(var)
-    elif 'omega' in line:
-      segDir = line.strip()
+    elif 'file://' in line:
+      dataDir = line.strip()
     elif ('H1' in line or 'L1' in line or 'V1' in line)\
          and not 'H1L1V1' in line:
       detectors = line.strip().split()
+    elif 'https://' in line:
+      dataLink = line.strip()
     else:
       vals = line.strip().split()
       if len(vars) > len(vals):
@@ -252,7 +255,9 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
   for ifo in detectors:
     log_data += ifo + ' '
   log_data += '\n'
-  log_data += 'segment location: ' + segDir + '\n'
+  log_data += 'event web URL: ' + dataLink + '\n' 
+  log_data += '\n'
+  log_data += 'segment location: ' + dataDir + '\n'
   
   #fill the MutliBurstTable
   coinc_event_id = coinc_event_id_base + str(UID)
