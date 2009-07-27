@@ -169,7 +169,9 @@ if not configFilePath:
 # created elsewhere
 configuration = {
   'server' : None,
+  'ipaddr' : '',
   'port' : 30015,
+  'secure' : 'yes',
   'gridmap' : 'grid-mapfile',
   'certfile' : 'ldbdcert.pem',
   'keyfile' : 'ldbdkey.pem',
@@ -317,7 +319,9 @@ class LDBDDaemon(object):
       self.keyFilePath  = configuration["keyfile"]
       self.gridmapFilePath = configuration["gridmap"]
       self.pidFilePath = configuration["pidfile"]
+      self.ipaddr = configuration["ipaddr"]
       self.port = configuration["port"]
+      self.secure = configuration["secure"]
 
       myLogger = logging.getLogger('ldbdd')
 
@@ -443,29 +447,38 @@ class LDBDDaemon(object):
 
     @return: None
     """
-    # create a callback to use for authorization
-    gridmap = gsiserverutils.Gridmap(self.gridmapFilePath, self.logger)
-    callback = gsiserverutils.AuthCallback(gridmap, self.logger, callback=None)
-
-    # create authorization data object and set callback
-    authData = io.AuthData()
-    authData.set_callback(callback, self)
-    self.authData = authData
-        
     # create TCPIO Attribute object and initialize to pass to server        
-    #
-    # we use secure IO authentication using GSSAPI and authorization back
-    # to a callback function, which reads a gridmap file
     tcpIOAttr = io.TCPIOAttr()
-    tcpIOAttr.set_authentication_mode(
-      io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
-    tcpIOAttr.set_authorization_mode(
-      io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData)
-    tcpIOAttr.set_channel_mode(
-      io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-    tcpIOAttr.set_delegation_mode(
-      io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY)
+
+    if self.secure is 'no':
+      # set up an unathenticated connection
+      tcpIOAttr.set_authentication_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_NONE)
+
+    else:
+      # create a callback to use for authorization
+      gridmap = gsiserverutils.Gridmap(self.gridmapFilePath, self.logger)
+      callback = gsiserverutils.AuthCallback(gridmap, self.logger, callback=None)
+
+      # create authorization data object and set callback
+      authData = io.AuthData()
+      authData.set_callback(callback, self)
+      self.authData = authData
+        
+      # we use secure IO authentication using GSSAPI and authorization back
+      # to a callback function, which reads a gridmap file
+      tcpIOAttr.set_authentication_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+      tcpIOAttr.set_authorization_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_CALLBACK, authData)
+      tcpIOAttr.set_channel_mode(
+        io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+      tcpIOAttr.set_delegation_mode(
+        io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY)
                 
+      my_channel_mode = io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR
+      my_deligation_mode = io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY
+
     self.tcpIOAttr = tcpIOAttr
 
     # start the server
@@ -475,11 +488,10 @@ class LDBDDaemon(object):
       try:
         self.logger.info("Starting server on port %d" % self.port)
         server = io.ThreadingGSITCPSocketServer(
-          addr=("", self.port), 
+          addr=(self.ipaddr, self.port), 
           RequestHandlerClass=self.handler,
-          #io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
-          channel_mode=io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
-          delegation_mode=io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
+          channel_mode=my_channel_mode,
+          delegation_mode=my_deligation_mode,
           tcpAttr=self.tcpIOAttr
           )
         self.server = server

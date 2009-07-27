@@ -199,24 +199,31 @@ class LDBDClient(object):
       pass
 
     try:
-      # create TCPIOAttr instance and set authentication mode to be GSSAPI
+      # create TCPIOAttr instance
       clientAttr = io.TCPIOAttr()
-      clientAttr.set_authentication_mode(
-        io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
-
-      # create AuthData instance and set expected identity
-      authData = io.AuthData()
-      authData.set_identity(identity)
-
-      # set authorization, channel, and delegation modes
-      clientAttr.set_authorization_mode(
-        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
-      clientAttr.set_channel_mode(
-        io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-      clientAttr.set_delegation_mode(
-        io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
-
       soc = io.GSITCPSocket()
+
+      if identity is None:
+        # try an unauthenticated connection
+        clientAttr.set_authentication_mode(
+          io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_NONE)
+      else:
+        # set authentication mode to be GSSAPI
+        clientAttr.set_authentication_mode(
+          io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+
+        # create AuthData instance and set expected identity
+        authData = io.AuthData()
+        authData.set_identity(identity)
+
+        # set authorization, channel, and delegation modes
+        clientAttr.set_authorization_mode(
+          io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_IDENTITY, authData)
+        clientAttr.set_channel_mode(
+          io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+        clientAttr.set_delegation_mode(
+          io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
+
       soc.connect(host, port, clientAttr)
       self.socket = soc
       self.sfile = soc.makefile("rw")
