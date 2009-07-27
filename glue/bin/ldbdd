@@ -481,6 +481,13 @@ class LDBDDaemon(object):
 
     self.tcpIOAttr = tcpIOAttr
 
+    # bind to an interface, if specified
+    if self.ipaddr is not '':
+      self.logger.info("Listening on ip address: %s" % self.ipaddr)
+      self.tcpIOAttr.set_interface(self.ipaddr)
+    else:
+      self.logger.info("Listening on all interfaces")
+
     # start the server
     self.running = 0
     self.nap = 1
