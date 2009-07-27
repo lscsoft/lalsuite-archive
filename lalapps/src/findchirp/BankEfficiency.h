@@ -53,6 +53,8 @@
 #include <lal/FindChirpTD.h>
 #include <lal/FindChirpACTD.h>
 
+#include <lal/Random.h>
+
 
 /* Here, I defined my own xml table outside the lal strcuture although
    it can be put  into the liXmlHeader files I guess. I dont want to

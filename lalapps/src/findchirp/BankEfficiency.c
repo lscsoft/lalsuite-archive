@@ -312,7 +312,7 @@ main (INT4 argc, CHAR **argv )
   /* --- loop over the number of simulations (ntrials) --- */
   while (++simulation.ntrials <= userParam.ntrials)
   {
-    if (vrbflg==0){
+    if (vrbflg){
       fprintf(stdout,"Simulation number %d/%d\n", 
                       simulation.ntrials, userParam.ntrials);
     }
@@ -491,7 +491,7 @@ main (INT4 argc, CHAR **argv )
         case PadeT1:
         case PadeF1:
         case SpinTaylor:
-          if (vrbflg==0){
+          if (vrbflg){
             fprintf(stderr,"closest template is tau0= %f tau3= %f  index=%d filterintIndex= %d\n",
               mybank.tau0[fast_index], mybank.tau3[fast_index],fast_index,simulation.filteringIndex);
           }
@@ -641,12 +641,12 @@ main (INT4 argc, CHAR **argv )
 
             if (vrbflg)
             {
-              fprintf(stdout, "%f %f %f %f %f\n",
-                overlapOutputThisTemplate.rhoMax,
-                insptmplt.t0, insptmplt.t3,
-                randIn.param.t0, randIn.param.t3
-								);
-            fflush(stdout);
+              fprintf(stderr, "snr=%f m1T=%f m2T=%f m1S=%f m2S=%f SigPad=%d Maxbin=%d\n",
+                overlapOutputThisTemplate.rhoMax, insptmplt.mass1,
+                insptmplt.mass2, randIn.param.mass1, randIn.param.mass2,
+                randIn.param.nStartPad, overlapOutputThisTemplate.rhoBin);
+
+            fflush(stderr);
             }
 
             if (overlapOutputThisTemplate.rhoMax > simulation.bestSNR)
@@ -910,7 +910,7 @@ void BankEfficiencyPrintResults(
   BankEfficiencySimulation simulation)
 {
 /*  FILE *fs; */
-  fprintf(stderr,
+  fprintf(stdout,
   "%8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %d\n",
       result.mass1_trigger, result.mass2_trigger,
 /*
@@ -2276,15 +2276,14 @@ void BankEfficiencyGenerateInputData(
 {
   UINT4 trial ;
   UINT4 success ;
-
+  
   INITSTATUS( status, "BankEfficiencyGenerateInputData", BANKEFFICIENCYC );
   ATTATCHSTATUSPTR( status );
-  
   /* randomize the input start time */
   if (randnStartPad==1)
   {
-    randIn->param.nStartPad = (int)( (float)rand() /
-        (float)RAND_MAX*signal->length/2);
+    randIn->param.nStartPad = XLALUniformDeviate( randParams ) 
+                                * signal->length / 2 ;
   }
 
   trial = 0 ;
@@ -2459,7 +2458,7 @@ void BankEfficiencyGenerateInputData(
       }
     }
 
-    if(vrbflg==0) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
+    if(vrbflg) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
   }
 
 
@@ -2483,7 +2482,7 @@ void BankEfficiencyGenerateInputData(
   }    
        
   /* --- print the signal waveform --- */   
-  if (vrbflg==0)
+  if (vrbflg)
   {
   BankEfficiencyPrintMessage(" ... done\n");
   BankEfficiencySaveVector(BANKEFFICIENCY_ASCIISIGNAL, *signal,
@@ -4730,7 +4729,7 @@ void BankEfficiencyInitMyBank(
 
   mybank->size = (INT4) (*sizeBank);
   mybank->approximant = userParam.template;
-  if ( vrbflg==0 )
+  if ( vrbflg )
   {
     if( userParam.template == Eccentricity )
     {
@@ -4784,7 +4783,7 @@ void BankEfficiencyPrintAmbiguity(
 
   if (userParam.ambiguity)
   {
-    if (vrbflg==0)
+    if (vrbflg)
     {
       fprintf(stderr,"------->%s\n",userParam.tag);
       sprintf(str, "BankEfficiency-ambiguity_%d_%s.dat",
@@ -4835,7 +4834,7 @@ void BankEfficiencyValidity(
 
 void BankEfficiencyPrintMessage(const char *str)
 {
-  if (vrbflg==0){
+  if (vrbflg){
   fprintf(stdout, "%s",str);fflush(stdout);
   }
 }

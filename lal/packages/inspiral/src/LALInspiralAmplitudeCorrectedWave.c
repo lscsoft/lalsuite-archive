@@ -258,12 +258,12 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
   p = phi.data[count-1];
 
   params->fFinal = ff.data[count-1];
-  sprintf(message, "cycles = %f", p/(double)LAL_TWOPI);
+  sprintf(message, "cycles = %f", p/(REAL8)LAL_TWOPI);
   LALInfo(status, message);
 
   if ( (INT4)(p/LAL_TWOPI) < 2 ){
     sprintf(message, "The waveform has only %f cycles; we don't keep waveform with less than 2 cycles.",
-	       p/(double)LAL_TWOPI );
+	       p/(REAL8)LAL_TWOPI );
     XLALPrintError(message);
     LALWarning(status, message);
   }
@@ -330,7 +330,7 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
       LALSnprintf( waveform->phi->name, LALNameLength, "T1 inspiral phase" );
 
       /* --- fill some output ---*/
-      ppnParams->tc     = (double)(count-1) / params->tSampling ;
+      ppnParams->tc     = (REAL8)(count-1) / params->tSampling ;
       ppnParams->length = count;
       ppnParams->dfdt   = ((REAL4)(waveform->f->data->data[count-1]
 				   - waveform->f->data->data[count-2]))
@@ -380,7 +380,7 @@ LALInspiralAmplitudeCorrectedWaveEngine(
   /* For f+ and fx */
   LALDetector  det;
   InterferometerNumber ifoNumber = LAL_IFO_H1;
-  double fPlus, fCross, tdelay, gmst;
+  REAL8 fPlus, fCross, tdelay, gmst;
   LIGOTimeGPS  time;
   
   INITSTATUS(status, "LALInspiralAmplitudeCorrectedWaveEngine", 

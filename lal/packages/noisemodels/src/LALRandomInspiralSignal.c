@@ -190,11 +190,13 @@ LALAddVectors
 
 static void GenerateRandomSpinTaylorParameters ( 
         LALStatus *status, 
-        RandomInspiralSignalIn *randIn 
+        RandomInspiralSignalIn *randIn, 
+        RandomParams *randParams
         );
 static void GenerateRandomSkyPositionAndPolarisation ( 
         LALStatus *status, 
-        RandomInspiralSignalIn *randIn 
+        RandomInspiralSignalIn *randIn, 
+        RandomParams *randParams
         );
 
 NRCSID (LALRANDOMINSPIRALSIGNALC, "$Id$");
@@ -216,8 +218,10 @@ void LALRandomInspiralSignal
     REAL4Vector             noisy, buff;
     AddVectorsIn            addIn;
     INT4                    valid;
-    static RandomParams     *randomparams;
     InspiralWaveNormaliseIn normin;
+
+    RandomParams *randParams = NULL;
+
 
     INITSTATUS (status, "LALRandomInspiralSignal", LALRANDOMINSPIRALSIGNALC);
     ATTATCHSTATUSPTR(status);
@@ -236,9 +240,13 @@ void LALRandomInspiralSignal
     
 
     /* Use the seed to initialize random(). */
-    srandom(randIn->useed);
+    /* srandom(randIn->useed); */
     /* use the random number so generated as the next seed */
-    randIn->useed = random();
+    /* randIn->useed = random(); */
+    LALCreateRandomParams(status->statusPtr, &randParams, randIn->useed);
+    CHECKSTATUSPTR(status);
+    randIn->useed = randParams->i;
+    
 
     /* we need random parameters only if we need to generate a signal (i.e. type 0/2) */
     if (randIn->type==0 || randIn->type==2)
@@ -248,8 +256,10 @@ void LALRandomInspiralSignal
          * are located within the specified region */
         while (!valid) 
         {
-            epsilon1 = (float) random()/(float)RAND_MAX;
-            epsilon2 = (float) random()/(float)RAND_MAX;
+            /* epsilon1 = (float) random()/(float)RAND_MAX;
+            epsilon2 = (float) random()/(float)RAND_MAX; */
+            epsilon1 = XLALUniformDeviate( randParams );
+            epsilon2 = XLALUniformDeviate( randParams );
             switch (randIn->param.massChoice) 
             {
 
@@ -412,11 +422,11 @@ void LALRandomInspiralSignal
                             (randIn->mMax - randIn->mMin) * epsilon2;
 
                     /* Set the random spin parameters */
-                    GenerateRandomSpinTaylorParameters ( status->statusPtr, randIn );
+                    GenerateRandomSpinTaylorParameters ( status->statusPtr, randIn, randParams );
                     CHECKSTATUSPTR(status);
 
                     /* Set the random sky position and polarisation angle */
-                    GenerateRandomSkyPositionAndPolarisation ( status->statusPtr,randIn );
+                    GenerateRandomSkyPositionAndPolarisation ( status->statusPtr,randIn, randParams );
                     CHECKSTATUSPTR(status);
 
                     LALInspiralParameterCalc(status->statusPtr, &(randIn->param));	       
@@ -627,12 +637,12 @@ void LALRandomInspiralSignal
                 Old method of generating Gaussian noise
                 LALGaussianNoise(status->statusPtr, &buff, &randIn->useed);
                 */
-            /*LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);*/
-            LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
+            /*LALCreateRandomParams(status->statusPtr, &randParams, randIn->useed);*/
+            /*LALCreateRandomParams(status->statusPtr, &randParams, randIn->useed);
+            */CHECKSTATUSPTR(status);
+            LALNormalDeviates(status->statusPtr, &buff, randParams);
             CHECKSTATUSPTR(status);
-            LALNormalDeviates(status->statusPtr, &buff, randomparams);
-            CHECKSTATUSPTR(status);
-            LALDestroyRandomParams(status->statusPtr, &randomparams);
+            LALDestroyRandomParams(status->statusPtr, &randParams);
             CHECKSTATUSPTR(status);
             LALREAL4VectorFFT(status->statusPtr, signal, &buff, randIn->fwdp);
             CHECKSTATUSPTR(status);
@@ -658,12 +668,8 @@ void LALRandomInspiralSignal
                 buff.data = NULL;
                 ABORT (status, LALNOISEMODELSH_EMEM, LALNOISEMODELSH_MSGEMEM);
             }
-            /*LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);*/
-            LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
-            CHECKSTATUSPTR(status);
-            LALNormalDeviates(status->statusPtr, &buff, randomparams);
-            CHECKSTATUSPTR(status);
-            LALDestroyRandomParams(status->statusPtr, &randomparams);
+            /*LALCreateRandomParams(status->statusPtr, &randParams, randIn->useed);*/
+            LALNormalDeviates(status->statusPtr, &buff, randParams);
             CHECKSTATUSPTR(status);
             LALREAL4VectorFFT(status->statusPtr, &noisy, &buff, randIn->fwdp);
             CHECKSTATUSPTR(status);
@@ -726,6 +732,8 @@ void LALRandomInspiralSignal
      * lower cut-off frequency.
      */
 
+    LALDestroyRandomParams(status->statusPtr, &randParams );
+    CHECKSTATUSPTR(status);
 
     if (buff.data != NULL) LALFree(buff.data);
 
@@ -750,27 +758,28 @@ void LALRandomInspiralSignalTimeDomain
 /*    REAL8                   maxTemp;  temporary variable */
 /*    INT4                    iMax;     temporary index    */
 /*    UINT4                   indice; */
-  REAL8                   epsilon1, epsilon2, norm=0.0;
+  REAL8           epsilon1, epsilon2, norm=0.0;
 
-  REAL4Vector             *buff = NULL;
+  REAL4Vector    *buff = NULL;
 
-  REAL4FFTPlan            *invPlan = NULL;
-  REAL4FFTPlan            *fwdPlan = NULL;
-  REAL4Vector             *ntilde_re = NULL;
-  REAL4Vector             *ntilde_im = NULL;
-  COMPLEX8Vector          *ntilde = NULL;
-  COMPLEX8Vector          *stilde = NULL;
+  REAL4FFTPlan    *invPlan = NULL;
+  REAL4FFTPlan    *fwdPlan = NULL;
+  REAL4Vector     *ntilde_re = NULL;
+  REAL4Vector     *ntilde_im = NULL;
+  COMPLEX8Vector  *ntilde = NULL;
+  COMPLEX8Vector  *stilde = NULL;
 
-  INT4                    tLength;
-  INT4                    fLength;
-  REAL8                   df;
-  REAL8                   dt;
-  REAL4                   invRoot;
-  REAL4                   denom;
-  INT4                    k;
+  INT4    tLength;
+  INT4    fLength;
+  REAL8   df;
+  REAL8   dt;
+  REAL4   invRoot;
+  REAL4   denom;
+  INT4    k;
+  INT4    valid;
 
-  INT4                    valid;
-  static RandomParams     *randomparams;
+  RandomParams     *randParams = NULL;
+  
 
 
   INITSTATUS(status, "LALRandomInspiralSignalTimeDomain", 
@@ -797,9 +806,14 @@ void LALRandomInspiralSignalTimeDomain
 
  
   /* Use the seed to initialize random(). */
-  srandom(randIn->useed);
+  /* srandom(randIn->useed); */
   /* use the random number so generated as the next seed */
-  randIn->useed = random();
+  /* randIn->useed = random(); */
+
+  /* use the random number so generated as the next seed */
+  LALCreateRandomParams(status->statusPtr, &randParams, randIn->useed);
+  CHECKSTATUSPTR(status);
+  randIn->useed = randParams->i;
 
   /* If we are making noise allocate memory now */
   if( randIn->type > 0 )
@@ -834,8 +848,12 @@ void LALRandomInspiralSignalTimeDomain
      * are located within the specified region */
     while (!valid) 
     {
+/*
       epsilon1 = (float) random()/(float)RAND_MAX;
       epsilon2 = (float) random()/(float)RAND_MAX;
+*/    
+      epsilon1 = XLALUniformDeviate( randParams );
+      epsilon2 = XLALUniformDeviate( randParams );
       switch (randIn->param.massChoice) 
       {
         case bhns:
@@ -990,11 +1008,13 @@ void LALRandomInspiralSignalTimeDomain
           randIn->param.mass2 = randIn->mMin
                                  + (randIn->mMax - randIn->mMin) * epsilon2;
           /* Set the random spin parameters */
-          GenerateRandomSpinTaylorParameters ( status->statusPtr, randIn );
+          GenerateRandomSpinTaylorParameters( status->statusPtr, randIn,
+                                               randParams );
           CHECKSTATUSPTR(status);
 
           /* Set the random sky position and polarisation angle */
-          GenerateRandomSkyPositionAndPolarisation ( status->statusPtr,randIn );
+          GenerateRandomSkyPositionAndPolarisation( status->statusPtr,
+                                                        randIn, randParams );
           CHECKSTATUSPTR(status);
 
           LALInspiralParameterCalc(status->statusPtr, &(randIn->param));
@@ -1211,13 +1231,9 @@ void LALRandomInspiralSignalTimeDomain
       /* 
        * finally deal with the noise+signal case:
        */
-      LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
+      LALNormalDeviates(status->statusPtr, ntilde_re, randParams);
       CHECKSTATUSPTR(status);
-      LALNormalDeviates(status->statusPtr, ntilde_re, randomparams);
-      CHECKSTATUSPTR(status);
-      LALNormalDeviates(status->statusPtr, ntilde_im, randomparams);
-      CHECKSTATUSPTR(status);
-      LALDestroyRandomParams(status->statusPtr, &randomparams);
+      LALNormalDeviates(status->statusPtr, ntilde_im, randParams);
       CHECKSTATUSPTR(status);
        
       if( randIn->param.approximant == SpinTaylor )
@@ -1321,6 +1337,8 @@ void LALRandomInspiralSignalTimeDomain
       {
         XLALDestroyREAL4Vector( buff );
       }      
+      LALDestroyRandomParams(status->statusPtr, &randParams);
+      CHECKSTATUSPTR(status);
 
 
       DETATCHSTATUSPTR(status);
@@ -1334,7 +1352,8 @@ void LALRandomInspiralSignalTimeDomain
 /* Function to generate random sky position and polarisation angle */
 static void GenerateRandomSkyPositionAndPolarisation ( 
         LALStatus *status,
-        RandomInspiralSignalIn *randIn )
+        RandomInspiralSignalIn *randIn,
+        RandomParams *randParams )
 {
     REAL8 u;
     REAL8 cosThetaMin, cosThetaMax;
@@ -1361,15 +1380,18 @@ static void GenerateRandomSkyPositionAndPolarisation (
     ASSERT (randIn->polarisationAngleMax <= LAL_PI/2.0 , 
             status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
 
-    u = (float)(random())/(float)(RAND_MAX);
+    /* u = (float)(random())/(float)(RAND_MAX); */
+    u = XLALUniformDeviate( randParams );
     cosThetaMax = cos(randIn->sourceThetaMax); 
     cosThetaMin = cos(randIn->sourceThetaMin); 
     randIn->param.sourceTheta = acos(cosThetaMin + 
             u * (cosThetaMax - cosThetaMin) );
-    u = (float)(random())/(float)(RAND_MAX); 
+    /* u = (float)(random())/(float)(RAND_MAX); */
+    u = XLALUniformDeviate( randParams );
     randIn->param.sourcePhi = randIn->sourcePhiMin +  
             u * (randIn->sourcePhiMax - randIn->sourcePhiMin);
-    u = (float)(random())/(float)(RAND_MAX); 
+    /* u = (float)(random())/(float)(RAND_MAX); */
+    u = XLALUniformDeviate( randParams );
     randIn->param.polarisationAngle = randIn->polarisationAngleMin + 
             u * (randIn->polarisationAngleMax - 
                     randIn->polarisationAngleMin);
@@ -1382,7 +1404,8 @@ static void GenerateRandomSkyPositionAndPolarisation (
 /* Function to generate random parameters for SpinTaylor injections */
 static void GenerateRandomSpinTaylorParameters ( 
         LALStatus              *status, 
-        RandomInspiralSignalIn *randIn 
+        RandomInspiralSignalIn *randIn,
+        RandomParams           *randParams  
         )
 {
     REAL8 u;
@@ -1398,14 +1421,17 @@ static void GenerateRandomSpinTaylorParameters (
         ASSERT (randIn->spin1min >= 0.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
         ASSERT (randIn->spin1max <= 1.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
 
-        u = (REAL8)(random())/(REAL8)(RAND_MAX);
+        /* u = (REAL8)(random())/(REAL8)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         spin1Mag = randIn->spin1min +  
                 u * (randIn->spin1max - randIn->spin1min);
-        u = (float)(random())/(float)(RAND_MAX);
+        /* u = (float)(random())/(float)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         randIn->param.spin1[2] = (u - 0.5) * 2 * (spin1Mag);
         r1 = pow( ((spin1Mag * spin1Mag) - (randIn->param.spin1[2] 
                         * randIn->param.spin1[2])) , 0.5);
-        u = (float)(random())/(float)(RAND_MAX);
+        /* u = (float)(random())/(float)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         phi1 = u * LAL_TWOPI;
         randIn->param.spin1[0]  = r1 * cos(phi1);
         randIn->param.spin1[1]  = r1 * sin(phi1);
@@ -1419,14 +1445,17 @@ static void GenerateRandomSpinTaylorParameters (
         ASSERT (randIn->spin2min >= 0.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
         ASSERT (randIn->spin2max <= 1.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
 
-        u = (float)(random())/(float)(RAND_MAX);
+        /* u = (float)(random())/(float)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         spin2Mag = randIn->spin2min +  
                 u * (randIn->spin2max - randIn->spin2min);
-        u = (float)(random())/(float)(RAND_MAX);
+        /* u = (float)(random())/(float)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         randIn->param.spin2[2] = (u - 0.5) * 2 * (spin2Mag);
         r2 = pow( ((spin2Mag * spin2Mag) - (randIn->param.spin2[2] 
                         * randIn->param.spin2[2])) , 0.5);
-        u = (float)(random())/(float)(RAND_MAX);
+        /* u = (float)(random())/(float)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         phi2 = u * LAL_TWOPI;
         randIn->param.spin2[0]  = r2 * cos(phi2);
         randIn->param.spin2[1]  = r2 * sin(phi2);
@@ -1443,12 +1472,14 @@ static void GenerateRandomSpinTaylorParameters (
         ASSERT (randIn->phi0min >= 0.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
         ASSERT (randIn->phi0max <= LAL_PI*2.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
 
-        u = (float)(random())/(float)(RAND_MAX); 
+        /* u = (float)(random())/(float)(RAND_MAX); */
+        u = XLALUniformDeviate( randParams );
         cosTheta0Max = cos(randIn->theta0max); 
         cosTheta0Min = cos(randIn->theta0min); 
         randIn->param.orbitTheta0 = acos(cosTheta0Min + 
                 u * (cosTheta0Max - cosTheta0Min) );
-        u = (float)(random())/(float)(RAND_MAX); 
+        /* u = (float)(random())/(float)(RAND_MAX); */ 
+        u = XLALUniformDeviate( randParams );
         randIn->param.orbitPhi0 = randIn->phi0min +  
                 u * (randIn->phi0max - randIn->phi0min);
     }
@@ -1459,7 +1490,8 @@ static void GenerateRandomSpinTaylorParameters (
         ASSERT (randIn->inclinationMin >= 0.0 , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
         ASSERT (randIn->inclinationMax <= LAL_PI , status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
 
-        u = (float)(random())/(float)(RAND_MAX); 
+        /* u = (float)(random())/(float)(RAND_MAX); */ 
+        u = XLALUniformDeviate( randParams );
         randIn->param.inclination = randIn->inclinationMin +  
                 u * (randIn->inclinationMax - randIn->inclinationMin);
     }
