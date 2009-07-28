@@ -157,8 +157,8 @@ def parse_command_line():
 
     # Make sure we know who to contact for data
     if options.segment_url:
-        if options.segment_url.startswith('ldbd:'):
-            database_location = options.segment_url[len('ldbd://'):]
+        if options.segment_url.startswith('ldbd'):
+            database_location = options.segment_url
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
         else:
@@ -179,7 +179,7 @@ def parse_command_line():
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
-        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
+        database_location = os.environ['S6_SEGMENT_SERVER']
     elif options.dmt_files:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
