@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.26
+Version:	1.28
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -46,6 +46,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/var/
 
 %changelog
+* Mon Jul 27 2009 Duncan Brown <dabrown@physics.syr.edu>
+- First S6 release of glue
+
 * Wed Jul 01 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Pre S6 release of glue
 
