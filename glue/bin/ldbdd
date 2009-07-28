@@ -449,24 +449,32 @@ class LDBDDaemon(object):
     """
     # create TCPIO Attribute object and initialize to pass to server        
     tcpIOAttr = io.TCPIOAttr()
+    authData = io.AuthData()
 
-    if self.secure is 'no':
+    # create a callback to use for authorization
+    gridmap = gsiserverutils.Gridmap(self.gridmapFilePath, self.logger)
+    callback = gsiserverutils.AuthCallback(gridmap, self.logger, callback=None)
+
+    # set authorization callback
+    authData.set_callback(callback, self)
+    self.authData = authData
+
+    if self.secure == 'no':
       # set up an unathenticated connection
+      self.logger.info("Disabling security")
       tcpIOAttr.set_authentication_mode(
         io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_NONE)
+      tcpIOAttr.set_authorization_mode(
+        io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_NONE, authData)
+      tcpIOAttr.set_channel_mode(
+        io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+      tcpIOAttr.set_delegation_mode(
+        io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_NONE)
 
     else:
-      # create a callback to use for authorization
-      gridmap = gsiserverutils.Gridmap(self.gridmapFilePath, self.logger)
-      callback = gsiserverutils.AuthCallback(gridmap, self.logger, callback=None)
-
-      # create authorization data object and set callback
-      authData = io.AuthData()
-      authData.set_callback(callback, self)
-      self.authData = authData
-        
       # we use secure IO authentication using GSSAPI and authorization back
       # to a callback function, which reads a gridmap file
+      self.logger.info("Enabling security")
       tcpIOAttr.set_authentication_mode(
         io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
       tcpIOAttr.set_authorization_mode(
@@ -475,9 +483,6 @@ class LDBDDaemon(object):
         io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
       tcpIOAttr.set_delegation_mode(
         io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY)
-                
-      my_channel_mode = io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR
-      my_deligation_mode = io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY
 
     self.tcpIOAttr = tcpIOAttr
 
