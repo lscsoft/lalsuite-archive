@@ -201,19 +201,26 @@ class LDBDClient(object):
     try:
       # create TCPIOAttr instance
       clientAttr = io.TCPIOAttr()
+      authData = io.AuthData()
       soc = io.GSITCPSocket()
 
       if identity is None:
         # try an unauthenticated connection
         clientAttr.set_authentication_mode(
           io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_NONE)
+        clientAttr.set_authorization_mode(
+          io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_NONE, authData)
+        clientAttr.set_channel_mode(
+          io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+        clientAttr.set_delegation_mode(
+          io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_NONE)
+
       else:
         # set authentication mode to be GSSAPI
         clientAttr.set_authentication_mode(
           io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
 
-        # create AuthData instance and set expected identity
-        authData = io.AuthData()
+        # set expected identity
         authData.set_identity(identity)
 
         # set authorization, channel, and delegation modes
