@@ -502,8 +502,8 @@ class LDBDDaemon(object):
         server = io.ThreadingGSITCPSocketServer(
           addr=(self.ipaddr, self.port), 
           RequestHandlerClass=self.handler,
-          channel_mode=my_channel_mode,
-          delegation_mode=my_deligation_mode,
+          channel_mode=io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR,
+          delegation_mode=io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_FULL_PROXY,
           tcpAttr=self.tcpIOAttr
           )
         self.server = server
