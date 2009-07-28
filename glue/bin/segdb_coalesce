@@ -132,8 +132,13 @@ try:
   if result==0:
         coalesced_range |= segments.segmentlist([(st,et)])
         logger.info("finished coalescing range [%d,%d)" % (st,et))
+        logger.info("exiting")
   else:
-        logger.error("faile to coalesce, state_file remains unchanged")
+        logger.error("fail to coalesce, state_file remains unchanged")
+        try:
+          os.unlink(options.pid_file)
+        except:
+          pass
         logger.error(result)
         sys.exit(1)
   coalesced_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","COALESCED",0)
