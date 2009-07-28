@@ -79,11 +79,11 @@ def setup_database(database_location):
     from glue import gsiserverutils
 
     """Determine if we are using the secure or insecure server"""
-    if database_location.starts_with('ldbd:'):
+    if database_location.startswith('ldbd:'):
         port = 30015
         host_and_port = database_location[len('ldbd://'):]
         identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
-    elif database_location.starts_with('ldbdi:'):
+    elif database_location.startswith('ldbdi:'):
         port = 30016
         host_and_port = database_location[len('ldbdi://'):]
         identity = None
