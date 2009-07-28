@@ -611,7 +611,7 @@ page.tr()
 page.td("#9 Glitch report")
 page.td("Were the instruments behaving normally according to the weekly glitch report ?")
 page.td()
-page.td("<a href=\"http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift\">Glitch reports</a><br>")
+page.td("<a href=\"https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies\">Glitch reports</a><br>")
 page.td()
 page.tr.close()
 
