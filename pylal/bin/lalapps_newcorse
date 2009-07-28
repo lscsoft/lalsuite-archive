@@ -205,7 +205,7 @@ class Summaries(object):
 		# retrieve the livetime
 		#
 
-		t = self.cached_livetime.set_default(on_instruments, 0.0)
+		t = self.cached_livetime.setdefault(on_instruments, 0.0)
 
 		#
 		# return the rate of events above the given reputation

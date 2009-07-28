@@ -292,8 +292,8 @@ def summary_maker():
         <tr><td><b>Dead Time Percentage:</b></td> <td>%.4f%%</td> <td>(%d s/%d s)</td>
         <tr><td><b>Used Percentage/Random Used Percentage:</b></td> <td>%.2f</td>
         <tr><td><b>Veto Efficiency/Dead Time Percentage:</b></td> <td>%.2f</td>
-        <tr><td><b>Vetoed Inj / Expected N:</b></td> <td>%d / %.2f</td>
-        <tr><td><b>Probability:</b></td> <td>%.2f</td>
+        <tr><td><b>Vetoed Inj / Expected N:</b></td> <td>%s / %s</td>
+        <tr><td><b>Safety Probability:</b></td> <td>%s</td>
         <tr><td><b>Safety:</b></td> <td>%s</td>
         </tbody>
         </table>
