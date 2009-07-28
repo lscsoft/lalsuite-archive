@@ -1,282 +1,156 @@
-#!/usr/bin/env python
-
-# This script coalesces segment and segment_summary table at LHO and LLO segment database machine
-# At LHO, this script only coalesces H1, H2 segments
-# At LLO, this script only coalesces L1 segments
+#!/usr/bin/python
+#
+# xml dq publishing script for virgo (or other) dq xml files
+#
+# $Id$
+#
+# Copyright (C) 2009 Duncan Brown
+# 
+# This is part of the Grid LSC User Environment (GLUE)
+# 
+# GLUE is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+# 
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+import pwd
 import os
+import re
+import exceptions
+import re
 import time
-import socket
-import ConfigParser
+import logging
+import logging.handlers
+
 from optparse import OptionParser
 
+from glue import gsiserverutils
+from glue import segments
+from glue import gpstime
+
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils as ligolw_utils
+from glue.ligolw.utils import segments as ligolw_segments
+from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import coalesce_db as ligolw_coalesce
+
+from glue.segmentdb import segmentdb_utils
+
+
+PROGRAM_NAME = sys.argv[0].replace('./','')
+PROGRAM_PID  = os.getpid()
 
 try:
-  import DB2
+  USER_NAME = os.getlogin()
 except:
-  pass
+  USER_NAME = pwd.getpwuid(os.getuid())[0]
 
-try:
-  from glue import gpstime
-  from glue import segments
-except ImportError, e:
-  print >> sys.stderr, """
-Error: unable to import modules from glue.
+__author__  = "Ping Wei <piwei@physics.syr.edu>"
+__date__    = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
-Check that glue is correctly installed and in your PYTHONPATH.
+parser = OptionParser(
+  version = "%prog CVS $Header$",
+  usage   = "%prog [OPTIONS]",
+  description = "Coalesce segments and summary intervals in the database")
 
-%s
-""" % e
+parser.add_option("-d", "--database-name", metavar = "database_name", help = "name of the database you run coalescing on")
+parser.add_option("-S", "--state-file", metavar = "FILE", help = "read coalesced time range from FILE")
+parser.add_option("-P", "--pid-file", metavar = "FILE", help = "use FILE as process lock file")
+parser.add_option("-l", "--log-file", metavar = "FILE", help = "use FILE as log file")
+parser.add_option("-L", "--log-level", metavar = "LEVEL", default = "INFO", help = "set logging level to LEVEL")
 
-#================================================================================
-__author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ ="$Revision$"[11:-2]
-__src__ = "$Source$"
-#================================================================================
-#                Command Line
-#================================================================================
-def parse_command_line():
-  parser = OptionParser()
+options, filenames = parser.parse_args()
 
-  parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
-  parser.add_option("-e", "--gps-end-time", metavar = "gps_end_time", help = "End of GPS time range")
-  parser.add_option("-d", "--database-name", metavar = "database_name", help = "name of the database you run coalescing on. Currently segdb_coalesce only supports seg6_lho, seg6_llo and seg6_cit")
-
-  opts, others = parser.parse_args()
-
-  return opts
-
-
-options = parse_command_line()
-
-if not options.gps_start_time:
-   print "Error: --gps-start-time is required"
-   sys.exit(1)
-if not options.gps_end_time:
-   print "Error: --gps-end-time is required"
-   sys.exit(1)
 if not options.database_name:
-   print "Error: --database-name is required, please specify one of [seg6_lho | seg6_llo | seg6_cit ]"
-   sys.exit(1)
+  raise ValueError, "missing argument --database-name"
+if not options.state_file:
+  raise ValueError, "missing argument --state-file"
+if not options.pid_file:
+  raise ValueError, "missing argument --pid-file"
+if not options.log_file:
+  raise ValueError, "missing argument --log-file"
+
+# check for an existing lock file
+if os.access(options.pid_file,os.F_OK):
+  raise RuntimeError, "lock file exists: %s" % options.pid_file
+
+# create lock file
+fp = open(options.pid_file, "w")
+fp.write("lock")
+fp.close()
 
 
-# Set up connection to the database
-database = options.database_name
 try:
-  dbconn = DB2.connect(dsn=database, uid='', pwd='')
-  curs = dbconn.cursor()
+  # setup the output file
+  outdoc = ligolw.Document()
+  outdoc.appendChild(ligolw.LIGO_LW())
+  proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__).process_id
+
+  # set up logging
+  logger = logging.getLogger('segdb_coalesce')
+  handler = logging.handlers.RotatingFileHandler(options.log_file, 'a', 1048576, 5)
+  formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+  handler.setFormatter(formatter)
+  logger.addHandler(handler)
+  logger.setLevel(eval("logging." + options.log_level))
+  logger.debug("pid file = " + options.pid_file)
+  logger.debug("log file = " + options.log_file)
+  logger.debug("log level = " + options.log_level)
+
+  # read in the coalesced time range 
+  logger.debug("reading state from %s" % options.state_file)
+  indoc = ligolw_utils.load_url(options.state_file, gz = (options.state_file or "stdin").endswith(".gz"))
+  coalesced_range = segmentdb_utils.find_segments(indoc,"P1:COALESCED:0")
+  end_times = []
+  for c in coalesced_range:
+    end_times.append(c[1])
+  max_endtime = max(end_times) 
+  logger.debug("coalesced time range = %s" % str(coalesced_range))
+
+  # make a list of the time range that need to be coalesced:
+  #########################
+  current_time = gpstime.GpsSecondsFromPyUTC(time.time())
+  pending_range = [(max_endtime, current_time)]
+  st = max_endtime
+  et = current_time 
+  logger.debug("pending range is [%d,%d)" % (st,et))
+
+  # coalesce the pending range and add them to the list of coalesced range 
+  logger.debug("start coalescing")
+  result = ligolw_coalesce.coalesce_seg(options.database_name,st,et)
+  if result==0:
+        coalesced_range |= segments.segmentlist([(st,et)])
+        logger.info("finished coalescing range [%d,%d)" % (st,et))
+  else:
+        logger.error("faile to coalesce, state_file remains unchanged")
+        logger.error(result)
+        sys.exit(1)
+  coalesced_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","COALESCED",0)
+  segmentdb_utils.add_to_segment(outdoc,proc_id,coalesced_id,coalesced_range)
+
+  # write the new segment state file on top of the old one
+  ligolw_utils.write_filename(outdoc, options.state_file)
+
 except Exception, e:
-  print e
+  try:
+    logger.error(str(e))
+  except:
+    pass
+  print >>sys.stderr, "runtime error (%s)" % str(e)
+  os.unlink(options.pid_file)
   sys.exit(1)
 
-# Get coalesce time range
-st = int(options.gps_start_time)
-et = int(options.gps_end_time)
-
-#================================================================================
-#                 Insert a new row in the process table
-#================================================================================
-# get current_time for later use
-current_time = gpstime.GpsSecondsFromPyUTC(time.time())
-
-
-# prepare values for the new row to be inserted into the process table
-program = sys.argv[0].replace('./','')
-node = socket.gethostname()
-username = os.getlogin()
-unix_procid = os.getpid()
-start_time = current_time
-end_time = None
-jobid = 0
-domain = 'coalesce_local'
-
-sql = "select hex(GENERATE_UNIQUE()) from sysibm.sysdummy1"
-curs.execute(sql)
-hex_procid = curs.fetchone()[0]
-process_id = 'x' + '\'' + hex_procid + '\''
-
-if database == 'seg6_lho':
-  process_creator_db = 1
-elif database == 'seg6_llo':
-  process_creator_db = 2
-elif database == 'seg6_cit':
-  process_creator_db = 3
-
-
-# insert new row into process table
-sql = "INSERT INTO process "
-sql += "(program, is_online, node, username, unix_procid, start_time, jobid, domain, process_id, creator_db) "
-sql += "VALUES ('%s', 0, '%s', '%s', %d, %d, %d, '%s',%s, %d)" % (program, node, username, unix_procid, start_time, jobid, domain, process_id, process_creator_db)
-curs.execute(sql)
-curs.execute("commit")
-
-# get the BLOB process_id for later reference
-sql = "SELECT BLOB(process_id) from process where hex(process_id)='%s' " % hex_procid
-curs.execute(sql)
-blob_procid = curs.fetchone()[0]
-
-
-#========================================================================
-# fetch, coalesce and delete segments and summarys
-#========================================================================
-# create the tmp segment table with primary ids to delete
-try:
-  curs.execute("CREATE TABLE tmp_co_seg (prim_id CHAR(13) FOR BIT DATA NOT NULL PRIMARY KEY);")
-  curs.execute("CREATE INDEX tmp_co_seg_in on tmp_co_seg(prim_id)")
-  curs.execute("commit")
-except:
-  # if table already exist, delete its content
-  curs.execute("delete from tmp_co_seg")
-  curs.execute("commit")
-
-# create the tmp summary table with primary ids to delete 
-try:
-  curs.execute("CREATE TABLE tmp_co_sum (prim_id CHAR(13) FOR BIT DATA NOT NULL PRIMARY KEY);")
-  curs.execute("CREATE INDEX tmp_co_sum_in on tmp_co_sum(prim_id)")
-  curs.execute("commit")
-except:
-  # if table already exist, delete its content
-  curs.execute("delete from tmp_co_sum")
-  curs.execute("commit")
-
-# find unique segment types exist in the database within the time range specified by user
-sql = "SELECT distinct hex(segment_def_id) from segment_summary " 
-sql += "WHERE creator_db = %d " % process_creator_db
-sql += "AND start_time <= %d " % et
-sql += "AND end_time >= %d " % st
-
-curs.execute(sql)
-def_ids = curs.fetchall()
-
-
-# loop in the segment types to fetch, coalesce, insert and delete
-for d in def_ids:
-  # get the BLOB segment_def_id for later use 
-  sql = "SELECT BLOB(segment_def_id), ifos, name " 
-  sql += "FROM segment_definer " 
-  sql += "WHERE hex(segment_def_id) = '%s' " % d[0]
-  sql += "AND creator_db = %d " % process_creator_db
-
-  curs.execute(sql)
-  result = curs.fetchone()
-  blob_defid = result[0]
-  ifos = result[1].strip() 
-  name = result[2]
-
-  # get the segment start_time, end_time to coalesce, and according primary key to delete
-  sql = "SELECT start_time, end_time, BLOB(segment_id) FROM segment "
-  sql += "WHERE hex(segment_def_id) = '%s' and segment_def_cdb = %d " % (d[0], process_creator_db)
-  sql += "AND start_time <= %d " % et
-  sql += "AND end_time >= %d " % st
-  sql +=" ORDER BY start_time "
-
-  print "Retrieving start_time and end_time to coalesce for %s, %s ..." %(ifos, name)
-  curs.execute(sql)
-  seg_bf_cos = curs.fetchall()   # get the segments to coalesce
-
-  # get the summary start_time, end_time to coalesce, and according primary key to delete
-  sql = "SELECT start_time, end_time, BLOB(segment_sum_id) "
-  sql += "FROM segment_summary "
-  sql += "WHERE hex(segment_def_id) = '%s' and segment_def_cdb = %d " % (d[0], process_creator_db)
-  sql += "AND start_time <= %d " % et
-  sql += "AND end_time >= %d " % st
-  sql +=" ORDER BY start_time "
-   
-  curs.execute(sql)
-  sum_bf_cos = curs.fetchall()   # get the summarys to coalesce
-
-
-  # coalesce the segments and summarys, populate the tmp tables with the primary ids to delete
-  print "Coalescing segments ... "
-  seg_ids_to_delete = []
-  sum_ids_to_delete = []
-  segs = segments.segmentlist([]) 
-  sums = segments.segmentlist([]) 
-  for bf in seg_bf_cos:
-    seg = segments.segment(int(bf[0]), int(bf[1]))
-    segs.append(seg) 
-    seg_ids_to_delete.append(bf[2])
-
-  for bf in sum_bf_cos:
-    sum = segments.segment(int(bf[0]), int(bf[1]))
-    sums.append(sum) 
-    sum_ids_to_delete.append(bf[2])
-
-  segs.coalesce()
-  sums.coalesce()
-
-  # populate the tmp tables with primary ids to delete
-  sql = "INSERT INTO tmp_co_seg VALUES(?) "
-  curs.executemany(sql, seg_ids_to_delete)
-  curs.execute("commit")
-
-  sql = "INSERT INTO tmp_co_sum VALUES(?) "
-  curs.executemany(sql, sum_ids_to_delete)
-  curs.execute("commit")
-
-
-
-  # insert coalesced segments back in to the database  
-  print "Inserting coalesced segments back in ... "
-
-  # insert coalesced segs into segment table
-  insert_list = []
-  for s in segs:
-    # generate unique id for insertion
-    curs.execute("VALUES BLOB(GENERATE_UNIQUE())")
-    prim_id = curs.fetchone()[0]
-
-    # generate a list of values to insert using executemany()
-    insert_list.append((prim_id, process_creator_db, s[0], s[1], blob_defid, process_creator_db, blob_procid))
-
-  sql = "INSERT INTO segment "
-  sql += "(segment_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
-  sql += "VALUES (?,?,?,?,?,?,?) "
-  curs.executemany(sql, insert_list)
-  curs.execute("commit")
-
-
-  # insert coalesced sums into segment_summary table
-  insert_list = []
-  for s in sums:
-    # generate unique id for insertion
-    curs.execute("VALUES BLOB(GENERATE_UNIQUE())")
-    prim_id = curs.fetchone()[0]
-
-    # generate a list of values to insert using executemany()
-    insert_list.append((prim_id, process_creator_db, s[0], s[1], blob_defid, process_creator_db, blob_procid))
-
-  sql = "INSERT INTO segment_summary "
-  sql += "(segment_sum_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
-  sql += "VALUES (?,?,?,?,?,?,?) "
-  curs.executemany(sql, insert_list)
-  curs.execute("commit")
-
-
-  # delete un-coalesced segments
-  print "deleting un-coalesced segemnts ... "
-  print
-  sql = "DELETE FROM segment "
-  sql += "WHERE segment_id in (SELECT * FROM tmp_co_seg ORDER BY prim_id)"
-  curs.execute(sql)
-  curs.execute("commit")
-
-  sql = "DELETE FROM segment_summary "
-  sql += "WHERE segment_sum_id in (SELECT * FROM tmp_co_sum ORDER BY prim_id)"
-  sql += "AND segment_def_cdb = %d " % process_creator_db
-  curs.execute(sql)
-  curs.execute("commit")
-
-  # empty the tmp table for the next segment type
-  curs.execute("DELETE FROM tmp_co_seg")
-  curs.execute("DELETE FROM tmp_co_sum")
-  curs.execute("commit")
-
-
-curs.execute("drop table tmp_co_seg")
-curs.execute("drop table tmp_co_sum")
-curs.execute("commit")
-curs.close()
+os.unlink(options.pid_file)
 sys.exit(0)
+

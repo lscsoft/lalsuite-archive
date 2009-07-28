@@ -219,23 +219,28 @@ class Client:
                                                 key_file=key, cert_file=cert)
         self.url = url
 
-    def send(self, method, **kw):
+    def send(self, method, httpmethod="POST", **kw):
         try:
             kw['cli'] = 'true'
             kw = urllib.urlencode(kw)
+            headers = {'connection' : 'keep-alive'}
             url = "%s/%s" % (self.url, method)
-            self.conn.request("POST", url, kw, {})
+            self.conn.request(httpmethod, url, kw, headers)
             return self.conn.getresponse().read()
         except Exception, e:
             return "ERROR: " + str(e)
 
     def upload(self, method, fields, files):
+        # Do an tiny GET request to get SSL primed.
+        # Large initial SSL/POST requests will choke the server.
+        self.send('ping', 'GET', ack='priming')
         try:
             fields += [('cli', 'true')]
             content_type, body = encode_multipart_formdata(fields, files)
             headers = {
                 'content-type': content_type,
                 'content-length': str(len(body)),
+                'connection': 'keep-alive',
             }
             url = "%s/%s" % (self.url, method)
             self.conn.request("POST", url, body, headers)
