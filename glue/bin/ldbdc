@@ -53,6 +53,7 @@ Usage: ldbdc.py [OPTIONS]
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
   -D, --dmt-segments      insert the XML data as DMT segment data
+  -a, --disable-gssapi    disable grid certificate authentication
   -p, --ping              ping the server
   -h, --help              print this message
 
@@ -65,7 +66,7 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:j:d:i:f:q:o:Dvph"
+shortop = "r:j:d:i:f:q:o:Dvpha"
 longop = [
   "server=",
   "identity=",
@@ -75,6 +76,7 @@ longop = [
   "query=",
   "output=",
   "dmt-segments",
+  "disable-gssapi",
   "ping",
   "help"
   ]
@@ -94,6 +96,7 @@ pfnlist = None
 outfile = None
 squery = None
 dmtsegs = None
+disableauth = None
 ping = None
 
 # environment variables override defaults but not
@@ -122,6 +125,8 @@ for o, a in opts:
     outfile = a
   elif o in ("-D", "--dmt-segments"):
     dmtsegs = 1
+  elif o in ("-D", "--disable-gssapi"):
+    disableauth = 1
   elif o in ("-p", "--ping"):
     ping = 1
 
@@ -162,6 +167,9 @@ if dmtsegs and pfnlist:
 
 if not identity:
   identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+
+if disableauth:
+  identity = None
 
 # open connection to LDBD Server
 try:
