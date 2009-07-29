@@ -74,17 +74,9 @@ class SkyPoints(object):
 
     self.longitude = 0.0 
     self.latitude = 0.0
-    self.time = min(coinc.get_gps_times()[ifo] for ifo in\
-                    coinc.get_gps_times())
     self.detector_locations = detector_locations
     self.detector_responses = detector_responses
-    self.snr= dict((trig.ifo,getattr(coinc,trig.ifo).snr)\
-                   for trig in coinc)
-    self.gps = dict((trig.ifo,trig.get_end())\
-                    for trig in coinc)
-    self.effective_distances = dict((trig.ifo,\
-                                    getattr(coinc,trig.ifo).eff_distance)\
-                                    for trig in coinc)
+
     self.coarse_res = coarse_res
     self.fine_res = fine_res
     self.wide_threshold = wide_threshold
@@ -96,6 +88,16 @@ class SkyPoints(object):
     self.leftover_region = []
     self.num_sky_blobs = 0
 
+    self.time = min(coinc.get_gps_times()[ifo] for ifo in\
+                    coinc.get_gps_times())
+    self.snr= dict((trig.ifo,getattr(coinc,trig.ifo).snr)\
+                   for trig in coinc)
+    self.gps = dict((trig.ifo,trig.get_end())\
+                    for trig in coinc)
+    self.effective_distances = dict((trig.ifo,\
+                                    getattr(coinc,trig.ifo).eff_distance)\
+                                    for trig in coinc)
+   
     self.coinc_type, full_ifo_list = coinc.get_ifos() 
     if self.coinc_type != "H1L1V1" and self.coinc_type != "H1H2L1V1":
       self.no_coincs = 1
