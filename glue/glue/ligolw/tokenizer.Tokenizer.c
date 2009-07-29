@@ -194,7 +194,7 @@ static void parse_error(PyObject *exception, const Py_UNICODE *buffer, size_t bu
 	pos_str = PyUnicode_Encode(pos, 1, NULL, NULL);
 
 	if(buffer_str && pos_str)
-		PyErr_Format(exception, "parse error in '%s' near '%s' at position %ld: %s", PyString_AS_STRING(buffer_str), PyString_AS_STRING(pos_str), pos - buffer + 1, msg);
+		PyErr_Format(exception, "parse error in '%s' near '%s' at position %zd: %s", PyString_AS_STRING(buffer_str), PyString_AS_STRING(pos_str), pos - buffer + 1, msg);
 	else
 		PyErr_Format(exception, "parse error (details not available): %s", msg);
 
