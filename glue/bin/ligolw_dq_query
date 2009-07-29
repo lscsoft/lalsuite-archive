@@ -68,9 +68,6 @@ import tempfile
 import urllib
 import pwd
 
-from glue import LDBDClient
-from glue import gsiserverutils
-
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -130,9 +127,9 @@ def parse_command_line():
 
 
     # Data location options
-    parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL")
+    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
 
     # Other options
@@ -159,19 +156,19 @@ def parse_command_line():
     file_location     = None
 
     # Make sure we know who to contact for data
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd'):
+            database_location = options.segment_url
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
             tmp_dir = tempfile.mkdtemp()
         
             # Grab the part of the name after the last slash
-            pos     = options.segment[::-1].find('/')
-            fname   = (pos > -1) and options.segment[ -1 * pos:] or "dmt.xml" 
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
 
-            inurl   = urllib.urlopen(options.segment)
+            inurl   = urllib.urlopen(options.segment_url)
             outfile = open(tmp_dir + "/" + fname, 'w')
             for l in inurl:
                 print >>outfile, l,
@@ -180,13 +177,17 @@ def parse_command_line():
             outfile.close()
             file_location = tmp_dir
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER']
     elif options.dmt_files:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
         
@@ -283,7 +284,6 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
     # of time per-query
     #
     for tm in map(lambda x: int(x[0]), times):
-        # hams!
         # Segments we are in the midsts of
         rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
              segment.start_time, segment.end_time
@@ -296,7 +296,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
         for ifo, name, version, start_time, end_time in rows:
             full_name = get_full_name(ifo, name, version)
             in_times[full_name] = [start_time, end_time]
-            print '%-45s[%d %d %d)' % (full_name, start_time, tm, end_time)
+            print '%-45s [%d %d %d)' % (full_name, start_time, tm, end_time)
 
         if not in_segments_only:
             # Segments we are between. Latest end time before of interest.
@@ -328,7 +328,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
             for key in out_times:
                 if key not in in_times:
                     value = out_times[key]
-                    print '%-45s%s %d %s' % (key, value[0], tm, value[1])
+                    print '%-45s %s %d %s' % (key, value[0], tm, value[1])
 
 
 def run_active(doc, process_id, engine, include_segments, times):
@@ -362,7 +362,7 @@ def run_active(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -393,7 +393,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -408,36 +408,6 @@ def run_defined(doc, process_id, engine, include_segments, times):
 #
 # =============================================================================
 #
-
-
-def setup_database(host_and_port):
-    port = 30015
-    
-    if host_and_port.find(':') < 0:
-        host = host_and_port
-    else:
-        # server and port specified
-        host, portString = host_and_port.split(':')
-        port = int(portString)
-
-
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-
-    # open connection to LDBD Server
-    client = None
-
-    try:
-        client = LDBDClient.LDBDClient(host, port, identity)
-    except Exception, e:
-        print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-        if gsiserverutils.checkCredentials():
-            print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
-
-    return client
-
 
 def ping_server(client):
     print client.ping()
@@ -467,6 +437,8 @@ def setup_files(dir_name, options, times):
 
     ligolw_sqlite.insert(connection, xml_files)
 
+    segmentdb_utils.ensure_segment_table(connection)
+
     return temp_db, connection
     
 
@@ -480,12 +452,6 @@ def setup_files(dir_name, options, times):
 #
 
 if __name__ == '__main__':
-    # Add boolean as a type to ligolwtypes, so that we can put boolean arguments
-    # into the process_params table
-
-    from glue.ligolw import types as ligolwtypes
-    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
-
     # We don't accept nanosecond resolution
     del lsctables.SegmentTable.validcolumns['start_time_ns']
     del lsctables.SegmentTable.validcolumns['end_time_ns']
@@ -495,7 +461,7 @@ if __name__ == '__main__':
 
     # Ping the database and exit if requested
     if options.ping:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         sys.exit( ping_server(connection) )
 
     start_pad = 0
@@ -517,7 +483,7 @@ if __name__ == '__main__':
     temp_files = False
 
     if database_location:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
         temp_db, connection = setup_files(file_location, options, times)

@@ -33,7 +33,7 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from glue import lal
 from glue.ligolw import lsctables
-from pylal import followup_missed
+from pylal import followup_trigger
 
 from glue import markup
 from glue.markup import oneliner as extra
@@ -159,6 +159,7 @@ def get_coinc_triggers(opts, observatory, pattern):
 def get_injections(ifos = None, pattern = None, verbose=False):
   injcache = cache.sieve(ifos = ifos, description = pattern)
   injFiles = injcache.checkfilesexist()[0].pfnlist()
+
   if verbose:
     print "\n reading the following injection files..."
     for file in injFiles:
@@ -198,7 +199,7 @@ coincMissed = lsctables.New(lsctables.SimInspiralTable)
 
 # initialize the followup class
 if opts.do_followup:
-  followup = followup_missed.FollowupMissed( cache, missed_cache, opts)
+  followup = followup_trigger.FollowupTrigger(cache, opts)
 
 # and the page
 page = markup.page()
@@ -211,6 +212,8 @@ for entry in missed_cache:
   page.h2(ifos)
   page.ul()
   missed_inj= SimInspiralUtils.ReadSimInspiralFromFiles([entry.path()])
+  if missed_inj is None:
+    continue
 
   single_found = {}
   single_found_times = {}
@@ -232,7 +235,7 @@ for entry in missed_cache:
       coincMissed.append( inj )
       if opts.do_followup:
         followup.setTag( "TEST")
-        followuphtml = followup.followup( inj, "H1", opts.followup_tag )
+        followuphtml = followup.from_missed(inj)
         page = add_href(page, followuphtml, "details here")
   page.ul.close()
 
@@ -250,7 +253,7 @@ if opts.enable_output is True:
   html_file.close()
 
   if opts.do_followup:
-    fnameList =  followup.fnameList 
+    fnameList =  followup.fname_list 
     InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
     

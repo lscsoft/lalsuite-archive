@@ -97,7 +97,7 @@ SYNOPSIS
 
         ligo_data_find --server=NAME:PORT --show-types
  
-        ligo_data_find --server=NAME:PORT --show-times --type foo --observatory bar
+        ligo_data_find --server=NAME:PORT --show-times --type TYPE --observatory OBS
 
         ligo_data_find --server=NAME:PORT --ping
 
@@ -170,13 +170,13 @@ DESCRIPTION
 
 ENVIRONMENT
 
-        LSC_DATAFIND_SERVER can be set to avoid having to use the 
+        LIGO_DATAFIND_SERVER can be set to avoid having to use the 
         --server option on the command line. 
 
-        LSC_DATAFIND_URL_TYPE can be set to avoid having to use the
+        LIGO_DATAFIND_URL_TYPE can be set to avoid having to use the
         --url-type option on the command line.
 
-        LSC_DATAFIND_MATCH can be set to avoid having to use the
+        LIGO_DATAFIND_MATCH can be set to avoid having to use the
         --match option on the command line. 
 
 EXAMPLE
@@ -254,12 +254,12 @@ def main():
 
     # environment variables override defaults but not
     # command line options
-    if os.environ.has_key('LSC_DATAFIND_SERVER'): 
-        hostPortString = os.environ['LSC_DATAFIND_SERVER']
-    if os.environ.has_key('LSC_DATAFIND_URL_TYPE'): 
-        clientMethodArgDict['urlType'] = os.environ['LSC_DATAFIND_URL_TYPE'] 
-    if os.environ.has_key('LSC_DATAFIND_MATCH'):
-        clientMethodArgDict['match'] = os.environ['LSC_DATAFIND_MATCH']
+    if os.environ.has_key('LIGO_DATAFIND_SERVER'): 
+        hostPortString = os.environ['LIGO_DATAFIND_SERVER']
+    if os.environ.has_key('LIGO_DATAFIND_URL_TYPE'): 
+        clientMethodArgDict['urlType'] = os.environ['LIGO_DATAFIND_URL_TYPE'] 
+    if os.environ.has_key('LIGO_DATAFIND_MATCH'):
+        clientMethodArgDict['match'] = os.environ['LIGO_DATAFIND_MATCH']
 
     for o, a in opts:
             if o in ("-h", "--help"):
@@ -338,10 +338,14 @@ def main():
     clientMethodArgDict['namesOnly'] = namesOnly
     clientMethodArgDict['lalcache'] = lalcache
 
-    # find credential
-    certFile, keyFile = (None, None)
-    if not noproxy:
-       certFile, keyFile = findCredential() 
+    # find credential unless either the user has
+    # specified no proxy credential or we are going
+    # to hit port 80
+
+    if noproxy or port == 80:
+        certFile, keyFile = (None, None)
+    else:        
+        certFile, keyFile = findCredential() 
 
     clientMethodArgDict['certFile'] = certFile
     clientMethodArgDict['keyFile'] = keyFile
@@ -421,8 +425,10 @@ def validateProxy(path):
     # load the proxy from path
     try:
         proxy = M2Crypto.X509.load_cert(path)
-    except Exception:
+    except Exception, e:
         msg = "Unable to load proxy from path %s : %s" % (path, e)
+        print >>sys.stderr, msg
+        sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
     try:
@@ -506,7 +512,7 @@ def ping(args):
     if certFile and keyFile:
         h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPSConnection(server)
+        h = httplib.HTTPConnection(server)
 
     # query the server
     try:
@@ -584,7 +590,7 @@ be present when searching for groups of files
     if certFile and keyFile:
         h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPSConnection(server)
+        h = httplib.HTTPConnection(server)
 
     # query the server
     try:
@@ -673,7 +679,7 @@ def showObservatories(args):
     if certFile and keyFile:
         h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPSConnection(server)
+        h = httplib.HTTPConnection(server)
 
     # query the server
     try:
@@ -724,7 +730,7 @@ def showTypes(args):
     if certFile and keyFile:
         h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPSConnection(server)
+        h = httplib.HTTPConnection(server)
 
     # query the server
     try:
@@ -796,7 +802,7 @@ or just a beginning or just an end time.
     if certFile and keyFile:
         h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPSConnection(server)
+        h = httplib.HTTPConnection(server)
 
     # query the server
     try:
@@ -862,7 +868,7 @@ def singleFrameFind(args):
     if certFile and keyFile:
         h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
     else:
-        h = httplib.HTTPSConnection(server)
+        h = httplib.HTTPConnection(server)
 
     # query the server
     try:

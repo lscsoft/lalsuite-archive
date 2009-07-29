@@ -596,7 +596,10 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
     if cp.has_option("followup-"+type, ifo + '_type'): 
       self.set_type( cp.get("followup-"+type, ifo + '_type' ))
     else:
-      self.set_type( cp.get("followup-"+type, 'type' ))
+      if not( cp.has_option("followup-"+type,"remote-ifo") and \
+      cp.get("followup-"+type,"remote-ifo")==ifo ):
+        self.set_type( cp.get("followup-"+type, 'type' ))
+      else: self.set_type("dummy")
     lalCache = self.get_output()
     qCache = lalCache.rstrip("cache") + "qcache"
     self.set_post_script(job.name + "/cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
@@ -652,9 +655,9 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     pipeline.CondorDAGNode.__init__(self,job)
     if name.split('-')[0]=='background':
-      self.add_var_arg('scanlite')
-    else:
       self.add_var_arg('scan')
+    else:
+      self.add_var_arg('scan -r')
     qscanConfig = string.strip(cp.get("followup-"+name, ifo + 'config-file'))
     self.add_var_arg("-c "+qscanConfig)
     self.add_var_arg("-f "+qcache)
@@ -671,7 +674,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
         print >> sys.stderr, 'path '+output+' is not writable'
         sys.exit(1)
 
-    self.add_var_arg("-o "+output)
+    self.add_var_arg("-o "+output+"/"+repr(time))
     self.add_var_arg(repr(time))
 
     self.set_pre_script(job.name + "/checkForDir.sh %s %s" \
@@ -728,6 +731,80 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
  #   except: 
  #     self.validNode = False
  #     print >> sys.stderr, "could not set up the qscan job for " + self.id
+
+
+##############################################################################
+# class for remote qscan jobs
+
+class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A remote qscan job
+  """
+  def __init__(self, opts, cp, tag_base='REMOTESCAN'):
+    """
+    """
+    if not os.path.exists(tag_base):
+       os.mkdir(tag_base)
+    self.setup_executable(tag_base)
+    self.__executable = tag_base + '/remote_scan_wrapper.sh'
+    self.__universe = "scheduler"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setupJobWeb(tag_base,None)
+
+  def setup_executable(self,tag_base):
+    starter_script = open(tag_base + '/remote_scan_wrapper.sh','w')
+    starter_script.write("""#!/bin/bash
+    dotbashrc=$1
+    executable=$2
+    gpstime=$3
+    configfile=$4
+    qscantype=$5
+    remoteoutput=$6
+    remotereceiver=$7
+    outputpath=$8
+    shift 8
+    source $dotbashrc
+    $executable --gps-time $gpstime --config-file $configfile --qscan-type $qscantype --remote-output $remoteoutput --remote-receiver $remotereceiver --output-path $outputpath
+    """)
+    starter_script.close()
+    os.chmod(tag_base + '/remote_scan_wrapper.sh',0755)
+
+
+##############################################################################
+# class for remote qscan Node
+
+class remoteQscanFgNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a remote qscan job
+  """
+  def __init__(self,job,time,cp,ifo,name,opts,dag,qscanCommand):
+    """
+    job = A CondorDAGJob that can run an instance of remote qscan.
+    """
+    self.friendlyName = name
+    self.id = ifo + '-' + name + '-' + repr(time)
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_macro("macroid", self.id)
+    self.jobName = job.name
+
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","virgo-env-path")))
+    self.add_var_arg(string.strip(cp.get("condor","submit_remote_scan")))
+    self.add_var_arg(repr(time))
+    self.add_var_arg(string.strip(cp.get("followup-"+name,ifo+"config-file")))
+    self.add_var_arg("_".join(name.split("-")[1:len(name.split("-"))]))
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-output")))
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-server")))
+
+    outputdir = 'QSCAN' + '/' + name + '/' + ifo + '/' + repr(time)
+    self.add_var_arg(outputdir)
+
+    if not opts.disable_dag_categories:
+      self.set_category(job.name.lower())
+
+    if eval('opts.' + qscanCommand):
+        dag.addNode(self,"Remote " + self.friendlyName)
+        self.validate()
+    else: self.invalidate()
 
 
 ##############################################################################
@@ -862,11 +939,17 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       
       # add the parents to this node
       for node in dag.get_nodes():
-        # if node distributeQscanNode is valid and remote if is analysed,
+        # if node distributeQscanNode is valid and if remote ifo is analysed,
         # add distributeQscanNode as parent
         if isinstance(node,distributeQscanNode):
           if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
             if node.validNode:
+              self.add_parent(node)
+        # if node remoteQscanFgNode is valid and if remote ifo is analysed,
+        # add remoteQscanFgNode as parent
+        if isinstance(node,remoteQscanFgNode):
+          if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
+            if node.friendlyName == name and node.validNode:
               self.add_parent(node)
         # add all qscan nodes of the same type as parents
         if isinstance(node,qscanNode): 
@@ -983,7 +1066,7 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     qeventConfig = string.strip(cp.get("followup-"+name, ifoString + '-config-file'))
     self.add_var_arg('-p '+qeventConfig)
     self.add_file_arg('-f '+qeventcache)
-    self.add_var_arg('-o '+output)
+    self.add_var_arg('-o '+output+'/'+repr(times[ifoList[0]]))
     self.add_var_arg(repr(times[ifoList[0]]))
     eventDuration = string.strip(cp.get("followup-"+name, 'duration'))
     self.add_var_arg(eventDuration)
@@ -1151,25 +1234,36 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       self.friendlyName = 'Odds followup job'
       pipeline.CondorDAGNode.__init__(self,followupoddsJob)
       cacheFiles=[]
+      GPSstarts=[]
+      GPSends=[]
       for ifo in IFOs:
         for row in procParamsTable[ifo]:
           param=row.param.strip("-")
           value=row.value
           if param == 'frame-cache': cacheFile=value
-          if param == 'gps-start-time': GPSstart=value
-          if param == 'gps-end-time': GPSend=value
-
+          if param == 'gps-start-time':
+            GPSstarts.append(float(value))
+          if param == 'gps-end-time':
+            GPSends.append(float(value))
         self.add_var_arg("--IFO "+str(ifo))
         self.add_var_arg("--cache " +str(cacheFile))
+      #Check the start and end times are OK
+      
+      GPSstart=str(max(GPSstarts)+64)
+      GPSend=str(min(GPSends)-64)
+
+      #Check the start and end times are OK
+      GPSstart=str(max(GPSstarts)+64)
+      GPSend=str(min(GPSends)-64)
 
       outputname = followupoddsJob.name + '/'+followupoddsJob.name+'-' \
-                   +trig.ifos+'-'+str(trig.statValue)+'_'+str(trig.eventID)+'.dat'
+                   +trig.ifos+'-'+str(trig.statValue)+'_'+str(trig.eventID)+'_'+randomseed[0]+'.dat'
       self.add_var_opt("Nlive",Nlive)
       self.add_var_opt("GPSstart",GPSstart)
       self.add_var_opt("length",str(float(GPSend)-float(GPSstart)))
       self.add_var_opt("approximant",Approximant)
       self.add_var_opt("out",outputname)
-      self.add_var_opt("Nsegs",str((int(GPSend)-int(GPSstart))/8))
+      self.add_var_opt("Nsegs",str((int(float(GPSend))-int(float(GPSstart)))/8))
       self.add_var_opt("dt",time_prior)
       self.add_var_opt("end_time",trig.gpsTime[ifo])
       self.add_var_opt("Mmin",2.8)
@@ -1177,9 +1271,10 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("srate",srate)
       self.add_var_opt("seed",randomseed[0])
       #self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
-      self.id = followupoddsJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.id = followupoddsJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0]
       self.outputCache = trig.ifos + ' ' + followupoddsJob.name + ' ' +\
                          self.id.split('-')[-1]+' '+outputname+'\n'
+      self.add_var_opt("channel",string.strip(cp.get("followup-coh-trigbank",trig.ifos[0:2]+"_channel")))
 
       #print "Using IFOs " + str(IFOs)
 
@@ -1187,7 +1282,7 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
 
       #print "Arguments: " + str(self.get_cmd_line())
 
-      if opts.odds:
+      if opts.odds and float(GPSend)-float(GPSstart)>=24:
         dag.addNode(self,self.friendlyName)
         self.validate()
       else: self.invalidate()
@@ -1225,10 +1320,9 @@ class followupOddsPostNode(pipeline.CondorDAGNode,webTheNode):
       pipeline.CondorDAGNode.__init__(self,oddsPostJob)
 
       # get the list of odds .txt files to be used as input
-      oddsfilelist = ''
       for oddsjobId in oddsjoblist:
-        oddsfilelist += oddsjobId.split('-')[0]+'/' + oddsjobId + '.txt,' # here we assume that the directory name is mcmcId.split('-')[0]
-        self.add_var_opt("data",oddsfilelist.strip(','))
+        oddsfile = oddsjobId.split('-')[0]+'/' + oddsjobId + '.dat' # here we assume that the directory name is mcmcId.split('-')[0]
+        self.add_var_arg("--data " + oddsfile)
 
       # Get the number of live points in each run
       Nlive = string.strip(cp.get('followup-odds','min-live'))
@@ -1237,7 +1331,11 @@ class followupOddsPostNode(pipeline.CondorDAGNode,webTheNode):
       if cp.has_option('followup-odds','web') and string.strip(cp.get('followup-odds','web')):
         outputpath = string.strip(cp.get('followup-odds','web'))
       else:
-        outputpath = oddsPostJob.name
+        outputpath = oddsPostJob.name + "/" + str(trig.eventID)
+      if not os.access(outputpath,os.F_OK):
+        os.mkdir(outputpath)
+
+      self.add_var_opt("outpath",outputpath)
 
       self.id = oddsPostJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
 
@@ -1342,7 +1440,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
         
       self.add_var_opt("template",string.strip(cp.get('followup-mcmc','template')))
       self.add_var_opt("iterations",iterations)
-      self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
+      self.add_var_opt("randomseed",randomseed)
       self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[maxIFO])
       self.add_var_opt("tbefore",tbefore)
       self.add_var_opt("tafter",tafter)
@@ -1386,7 +1484,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.add_var_opt("importanceresample",10000)
 
-      self.id = followupmcmcJob.name + '-' + self.ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
+      self.id = followupmcmcJob.name + '-' + self.ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed
       outputName = followupmcmcJob.name+'/'+self.id
       self.outputCache = self.ifonames + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '.csv\n'
 
@@ -1832,7 +1930,7 @@ class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
     """
     self.__prog__ = 'CHECKLIST'
     self.__executable = string.strip(cp.get('condor','makechecklist'))
-    self.__universe = "vanilla"
+    self.__universe = "local"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.setupJobWeb(self.__prog__)
@@ -1865,6 +1963,8 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("ifo-tag",trig.ifoTag)
     if cp.has_option("followup-dq","input-sql"):
       self.add_var_opt("data-quality-database",cp.get("followup-dq","input-sql"))
+    elif cp.has_option("followup-dq","server-url"):
+      self.add_var_opt("segment-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
 
@@ -1881,13 +1981,6 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.set_category(job.name.lower())
 
     for node in dag.get_nodes():
-      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode):
-        for gps in gpsList.strip(",").split(","):
-          if gps in node.id and node.validNode:
-            self.add_parent(node)
-      if isinstance(node,h1h2QeventNode) and "H1" in trig.ifolist_in_coinc:
-        if str(trig.gpsTime["H1"]) in node.id and node.validNode:
-          self.add_parent(node)
       if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode) or isinstance(node,followupTriggerNode):
         if str(trig.eventID) in node.id and node.validNode:
           self.add_parent(node)

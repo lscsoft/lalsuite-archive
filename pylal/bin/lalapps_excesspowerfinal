@@ -90,7 +90,7 @@ from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -196,8 +196,8 @@ WHERE
 #
 
 
-def create_sim_coinc_map_view(database):
-	database.connection.cursor().execute("""
+def create_sim_coinc_map_view(connection):
+	connection.cursor().execute("""
 CREATE TEMPORARY VIEW
 	sim_coinc_map
 AS
@@ -298,7 +298,7 @@ def dump_confidence_likelihood_scatter_data(globs, live_time_program = "lalapps_
 		else:
 			# injections
 			injections_buffer = []
-			create_sim_coinc_map_view(database)
+			create_sim_coinc_map_view(database.connection)
 			for a, l, c in database.connection.cursor().execute("""
 SELECT
 	burst_coinc_amplitude,
@@ -808,7 +808,7 @@ class EfficiencyData(SimBurstUtils.Efficiency_hrss_vs_freq):
 
 		# iterate over all sims
 
-		create_sim_coinc_map_view(contents)
+		create_sim_coinc_map_view(contents.connection)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,

@@ -36,7 +36,7 @@ import os
 import socket
 import StringIO
 import time
-
+import pwd
 
 from glue import gpstime
 from glue.ligolw import ligolw
@@ -82,13 +82,18 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	# FIXME:  remove the "" case when the git versioning business is
 	# sorted out
 	if cvs_entry_time is not None and cvs_entry_time != "":
-		process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")))
+		try:
+			# try the git_version format first
+			process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y-%m-%d %H:%M:%S +0000")))
+		except ValueError:
+			# fall back to the old cvs format
+			process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")))
 	else:
 		process.cvs_entry_time = None
 	process.comment = comment
 	process.is_online = int(is_online)
 	process.node = socket.gethostname()
-	process.username = os.environ["LOGNAME"]
+	process.username = pwd.getpwuid(os.getuid())[0]
 	process.unix_procid = os.getpid()
 	process.start_time = gpstime.GpsSecondsFromPyUTC(time.time())
 	process.end_time = None
@@ -175,6 +180,9 @@ def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 
 	def params(paramdict):
 		for name, value in paramdict.items():
+			# Change the name back to the form it had on the command line
+			name = '--' + name.replace('_','-')
+
 			if value is True or value is False:
 				yield (name, None, None)
 			elif value is not None:

@@ -22,11 +22,11 @@ from pylal import ligolw_sqlutils as sqlutils
 
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
-from glue.ligolw.utils.ligolw_sqlite import extract
 
 usage = \
 '''
-Calculates uncombined and combined false alarm rates (FAR) in units of yr^(-1).
+Calculates false alarm rates (FAR) in units of yr^(-1) and stores to
+specified output_column.
 Writes results out to a new database.
 '''
 
@@ -58,11 +58,7 @@ def parse_command_line():
         help = 
             "Name of output database to save to."
             )
-    parser.add_option( "-x", "--write-xml-file", action = "store", type = "string", default = None,
-        help =
-            "Writes output to specified xml file. Warning: for larger databases, this can take awhile."
-            )
-    parser.add_option( "-t", "--temp-space", action = "store", type = "string", default = None,
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help = 
             "Requried. Location of local disk on which to do work. " +
@@ -74,7 +70,7 @@ def parse_command_line():
         help = 
             "Print progress information"
            )
-    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+    parser.add_option( "-D", "--debug", action = "store_true", default = False,
         help =
             "Print SQLite queries used and the approximate time taken to run each one." )
     # following are generic inspiral_sql options
@@ -154,13 +150,14 @@ def parse_command_line():
             "This specifies whether to rank triggers by ascending (MAX) or " +
             "descending (MIN) stat value." 
             )
-    parser.add_option( "", "--combine-fars", action = "store", type = "string", default = None, 
-        metavar = "across_all, across_param_only",
+    parser.add_option( "", "--output-column", action = "store", type = "string", default = None, 
         help = 
-            "Required. Tell cfar what categories to combine uncombined fars across. " +
-            "Options are across_all or across_param_only. " +
-            "If across_all, will combine FARs across both coinc-types and parameter grouping. " +
-            "If across_param_only, will only combine FARs across the parameter grouping." 
+          "Required. Column in the coinc_inspiral table to store output to."
+            )
+    parser.add_option( "", "--group-by-ifos", action = "store_true", default = False, 
+        help = 
+          "Turning on will cause triggers to be grouped by coincident ifos when " +
+          "calculating FARs."
             )
   
     (options, args) = parser.parse_args()
@@ -170,20 +167,20 @@ def parse_command_line():
         raise ValueError, "No input specified."
     if not options.output:
         raise ValueError, "No output specified."
-    if not options.temp_space:
-        raise ValueError, "--temp-space is a requred argument."
+    if not options.tmp_space:
+        raise ValueError, "--tmp-space is a requred argument."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
-    if not (options.rank_by.upper() == 'MAX' or options.rank_by.upper() == 'MIN'):
+    if not (options.rank_by.strip().upper() == 'MAX' or options.rank_by.strip().upper() == 'MIN'):
         raise ValueError, "--rank-by must be specified and set to either MAX or MIN."
     if options.param_name and not options.param_ranges:
         raise ValueError, "param-name requires param-ranges"
     if options.param_ranges and not options.param_name:
         raise ValueError, "param-ranges requires param-name"
-    if not options.combine_fars:
-        raise ValueError, "combine_fars is a requried argument."
-    if not (options.combine_fars == 'across_all' or options.combine_fars == 'across_param_only'):
-        raise ValueError, "combine-fars must be set to either across_all or across_param_only"
+    if not options.output_column:
+        raise ValueError, "output_column is a required argument"
+    if ' ' in options.output_column.strip():
+        raise ValueError, "output_column cannot have spaces in it"
     if options.exclude_coincs and options.include_only_coincs:
         raise ValueError, "Cannot specify both --exclude-coincs and --include-only-coincs."
 
@@ -225,7 +222,7 @@ if not os.path.isfile( filename ):
 if opts.verbose: 
     print >> sys.stdout, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
@@ -277,13 +274,14 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 # 
 
 # Get ranking stat
-ranking_stat =  opts.ranking_stat
+if " " in opts.ranking_stat.strip():
+  raise ValueError, "ranking-stat must not contain spaces"
+ranking_stat =  opts.ranking_stat.strip()
+
 if opts.rank_by.strip().upper() == 'MAX':
     rank_by = 'MAX'
-elif opts.rank_by.strip().upper() == 'MIN':
-    rank_by = 'MIN'
 else:
-    raise ValueError, "rank_by must be set to either MAX or MIN (received %s)" % str(rank_by)
+    rank_by = 'MIN'
 
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
@@ -310,23 +308,32 @@ sqlquery = ''.join(["""
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
         convert_to_yrs(experiment_summary.duration),
-        experiment_summary.zero_lag
+        experiment_summary.datatype
     FROM
-        experiment_summary"""])
-for eid, esid, duration, zero_lag in connection.cursor().execute( sqlquery ):
+        experiment_summary
+    WHERE
+        experiment_summary.datatype != "simulation" """])
+for eid, esid, duration, datatype in connection.cursor().execute( sqlquery ):
     background.append_duration(eid, esid, duration)
-    if zero_lag == 1:
-        background.append_zero_lag_id( eid, esid )
+    if datatype != "slide":
+        background.append_zero_lag_id( eid, esid, datatype )
 
 # calculate the background duration for each experiment_summary_id 
 background.calc_bkg_durs()
+
+# get desired ifo grouping
+if opts.group_by_ifos:
+  ifo_grouping = 'coinc_inspiral.ifos'
+else:
+  ifo_grouping = '"ALL_IFOS"'
 
 # get all the non-injection triggers
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        coinc_inspiral.ifos,
+        """,
+        ifo_grouping, """,
         """,
         param_grouping, """,
         coinc_inspiral.""", ranking_stat,"""
@@ -337,7 +344,7 @@ sqlquery = ''.join([ """
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
             AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
     WHERE 
-        experiment_summary.simulation == 0"""])
+        experiment_summary.datatype != "simulation" """])
 
 if opts.debug:
     import time
@@ -345,45 +352,46 @@ if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 for eid, esid, ifos, param_group, stat in connection.cursor().execute(sqlquery):
-    background.add_to_bkgstats(eid, esid, ifos, param_group, stat)
+    background.add_to_bkg_stats(eid, esid, ifos, param_group, stat)
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # sort the background lists
-background.sort_bkgstats()
-background.add_zero_lag_to_frgstats_and_sort()
+background.sort_bkg_stats()
 
 if rank_by == "MIN":
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_min)
 else:
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
 
+output_column = opts.output_column.strip().lower()
+
 
 #
-#     Calculate uncombined FAR
+#     Calculate FAR
 #
 
 if opts.verbose:
-    print >> sys.stderr, "Calculating uncombined FAR..."
+    print >> sys.stderr, "Calculating FAR..."
 # calculate the uncombined far for each trigger and store in coinc_inspiral table
 sqlquery = ''.join(["""
     UPDATE
         coinc_inspiral
     SET
-        false_alarm_rate = (
+        """, output_column, """ = (
             SELECT
                 calc_ufar(
                     experiment_summary.experiment_id,
                     experiment_summary.experiment_summ_id,
-                    coinc_inspiral.ifos,
+                    """, ifo_grouping, """,
                     """, param_grouping, """,
                     coinc_inspiral.""", ranking_stat, """
                     ) 
             FROM 
                 experiment_summary, experiment_map
             WHERE
-                experiment_summary.simulation == 0
+                experiment_summary.datatype != "simulation"
                 AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 if opts.debug:
@@ -395,129 +403,6 @@ connection.cursor().execute(sqlquery)
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-
-#
-#   Calculate combined FAR
-#
-
-if opts.verbose:
-    print >> sys.stderr, "Calculating combined FAR..."
-
-# sqlitize functions
-connection.create_function('calc_cfar', 3, background.calc_cfar)
-
-# to calculate the max_bkg_fars in each category, we will 
-# use calc_ufar by passing it a 0; for this to work, however,
-# calc_ufar must be the by_max version, so if MIN, reset to max
-if rank_by == "MIN":
-    connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
-
-#
-# Run the sqlite script to calculate combined far. This works in
-# 3 steps:
-#   1. Create a temporary table called max_bkg_fars. This stores
-#      the max_bkg_fars for every category for each experiment_summ_id.
-#   2. Get max_bkg_fars for each experiment_summ_id: 
-#      this is the same things as the far calculated above, 
-#      just that the numerator are ALL the triggers in the
-#      background for that category.
-#   3. Calculate the combined FAR:
-#      This applies the algorithim in calc_cfar to each uncombined_far
-#      in the coinc_inspiral table using the max_bkg_fars calculated in 2.
-#
-sqlscript = ''.join(["""
-    CREATE TEMP TABLE max_bkg_fars AS
-        SELECT DISTINCT 
-            experiment_summary.experiment_id AS experiment_id,
-            experiment_summary.experiment_summ_id AS experiment_summ_id,
-            coinc_inspiral.ifos AS ifos,
-            """,
-            param_grouping, """ AS param_group,
-            NULL AS max_bkg_far
-        FROM 
-            coinc_inspiral
-        JOIN 
-            experiment_summary, experiment_map ON (
-                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
-        WHERE 
-            experiment_summary.simulation == 0;
-    UPDATE 
-        max_bkg_fars
-    SET 
-        max_bkg_far = (
-            calc_ufar(
-                    max_bkg_fars.experiment_id,
-                    max_bkg_fars.experiment_summ_id,
-                    max_bkg_fars.ifos,
-                    max_bkg_fars.param_group,
-                    0
-                    )
-            );
-   CREATE INDEX mbf_es_index ON max_bkg_fars (experiment_summ_id);"""])
-
-if opts.debug:
-    print >> sys.stderr, sqlscript
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().executescript( sqlscript )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-# get the max bkg fars for each experiment summary
-sqlquery = """
-    SELECT
-        experiment_summ_id,
-        ifos,
-        max_bkg_far
-    FROM
-        max_bkg_fars"""
-
-if opts.debug:
-    print >> sys.stderr, sqlquery
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-for esid, ifos, mbf in connection.cursor().execute(sqlquery):
-    if opts.combine_fars == "across_all":
-        ifos = "ALL_IFOS"
-    background.append_max_bkg_far(esid, ifos, mbf)
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-background.sort_max_bkg_fars()
-
-if opts.combine_fars == "across_all":
-    ifos_group = '"ALL_IFOS",'
-else:
-    ifos_group = "coinc_inspiral.ifos,"
-sqlquery = ''.join(["""
-   UPDATE 
-       coinc_inspiral
-   SET 
-       combined_far = (
-           SELECT 
-               calc_cfar( 
-                    experiment_map.experiment_summ_id,
-                    """, ifos_group,
-                    """
-                    coinc_inspiral.false_alarm_rate )
-            FROM 
-                experiment_summary, experiment_map
-            WHERE
-                experiment_summary.simulation == 0
-                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
-
-if opts.debug:
-    print >> sys.stderr, sqlquery
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().execute( sqlquery )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # Vacuum database if desired
 if opts.vacuum:
@@ -531,14 +416,7 @@ if opts.vacuum:
 #       Save and Exit
 #
 
-# TODO: set outfile name rather than user inputed name
-
 connection.commit()
-
-# write xml file if desired
-if opts.write_xml_file:
-    extract(connection, opts.write_xml_file, verbose = opts.verbose)
-
 connection.close()
 
 # write output database

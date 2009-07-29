@@ -1,0 +1,127 @@
+#!/usr/bin/env python
+#
+# ligolw_print_active_cats: print active defined cat vetos for a given time
+#
+# Copyright (C) 2009 Josh Smith and Jameson Rollins
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import sys
+import os
+from subprocess import *
+
+############################################################
+
+# usage
+def usage():
+	print "usage: LIGOLW_VETO_FILE=<file>", CMD, "<gpstime>"
+	print """
+Indicate whether flags from a category definer are active, inactive, or undefined.
+The output is one line per category-defined veto, of the form:
+
+  <flag> <cat> <ifo:channel>
+
+The flags are:
+
+  + = active
+  - = defined but inactive
+  ! = undefined
+
+The environment variable LIGOLW_VETO_FILE must contain the path or URL of a
+category definer file."""
+
+# simple failure function
+def failure(error='', errnum=1):
+	sys.stderr.write(error)
+	sys.exit(errnum)
+	
+# make a veto:cat dictionary from defined veto cat flags from a veto file
+# returns a dictionary with flag names as keys (<ifo>:<channel name>, and
+# categories as values
+def get_veto_cats():
+	cmd = 'ligolw_print -t veto_definer -c ifo -c name -c category -d " " %s' % (VETO_FILE)
+	p1 = Popen(cmd, stdout=PIPE, shell=True)
+	vetos = {}
+	for line in p1.communicate()[0].split('\n'):
+		if line != '':
+			info = line.split(' ')
+			vetos[info[0] + ':' + info[1]] = info[2]
+
+	if p1.wait() == 0:
+		return vetos
+	else:
+		failure("Could not retrieve veto definitions from veto definier file.\n")
+
+# retrieve flags of type ('defined', 'active') for time
+def get_flags(type, time):
+	# convert time to integer, since that's what dq_query accepts at the moment
+	time = int(time)
+	cmd1 = 'ligolw_dq_query --dmt-file --%s %s' % (type, time)
+	cmd2 = 'ligolw_print -t segment_definer -c ifos -c name -d :'
+	p1 = Popen(cmd1, stdout=PIPE, shell=True)#, shell=True)
+	p2 = Popen(cmd2, stdin=p1.stdout, stdout=PIPE, shell=True)
+	flags = []
+	[flags.append(line) for line in p2.communicate()[0].split('\n') if line != '']
+
+	if p1.wait() == 0 and p2.wait() == 0:
+		return flags
+	else:
+		failure("Could not retrieve %s veto flags.\n" % (type))
+	
+############################################################
+
+CMD = os.path.basename(sys.argv[0])
+
+# single input argument is GPS time (or --help)
+try:
+	if sys.argv[1] in ['--help', '-h', '-help']:
+		usage()
+		sys.exit()
+	else:
+		time = float(sys.argv[1])
+except IndexError:
+	failure("Must specify a GPS time. Type '--help' for more info.\n")
+except ValueError:
+	failure("GPS time must be a number. Type '--help' for more info.\n")
+	
+# get the veto file from the environment
+VETO_FILE = os.getenv("LIGOLW_VETO_FILE")
+if VETO_FILE == None:
+	failure("LIGOLW_VETO_FILE variable not defined.\n")
+
+############################################################
+
+# get veto dictionary from definer file
+vetos = get_veto_cats()
+
+# retrieve active flags for time
+actives = get_flags('active', time)
+
+# retrieve defined flags for time
+defined = get_flags('defined', time)
+
+# process all vetos
+for channel, cat in vetos.iteritems():
+	# set the appropriate flag
+	if channel in defined:
+		if channel in actives:
+			flag = '+'
+		else:
+			flag = '-'
+	else:
+		flag = '!'
+
+	# output the channel info
+	print flag, cat, channel

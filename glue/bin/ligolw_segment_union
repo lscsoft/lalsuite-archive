@@ -118,13 +118,6 @@ if __name__ == '__main__':
     # Settings - disable nanoseconds and other fields we don't use
     del lsctables.SegmentTable.validcolumns['start_time_ns']
     del lsctables.SegmentTable.validcolumns['end_time_ns']
-    del lsctables.ProcessTable.validcolumns['domain']
-    del lsctables.ProcessTable.validcolumns['jobid']
-    del lsctables.ProcessTable.validcolumns['is_online']
-
-    # And set up for boolean arguments
-    from glue.ligolw import types as ligolwtypes
-    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 
     options, filenames = parse_command_line()
 

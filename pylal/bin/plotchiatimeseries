@@ -29,7 +29,6 @@ from pylab import *
 # sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
-from pylal.fu_utils import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -73,6 +72,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     opts.suffix = "-" + str(int(gpsStart)) + "-" + str(duration)
 
     maxSNR = 0.0
+
     for row_index,row in enumerate(multiInspiralTable):
       eventID = int(row.event_id)
       if not str(eventID) in user_tag:
@@ -649,8 +649,8 @@ if not opts.chiaXmlFile:
   print >> sys.stderr, "Use --chiaXmlFile XML to specify a file"
   sys.exit(1)
 
-if not opts.H1_framefile:
-  h1framefile
+#if not opts.H1_framefile:
+#  h1framefile
 
 frameDict = {'H1': opts.H1_framefile, 'H2': opts.H2_framefile, 'L1': opts.L1_framefile, 'V1': opts.V1_framefile}
 

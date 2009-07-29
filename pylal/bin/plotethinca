@@ -727,10 +727,10 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     
     if coincTriggersList:
       xVals = [[x.stat for x in coincs] for coincs in [coincs_list[ifos_index]]]
-      y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,
-          range=[0, stat_max]) for xVal in xVals])
+      y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,range=[0, stat_max]) for xVal in xVals])
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
+        x = x[0:-1] + stat_max/(2.*opts.num_bins)
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
         handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
@@ -745,6 +745,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       if not coincTriggersList:
         n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
+        x = x[0:-1] + stat_max/(2.*opts.num_bins)
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
         handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
@@ -789,6 +790,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         normalization = 1.0
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
+        x = x[0:-1] + ep_max/(2.*opts.num_bins)
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
         y_norm = zeros(len(y),float64)
         for j in range(len(y)):
@@ -803,6 +805,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
           range=[0, ep_max]) for eps in [ethinca_list[ifos_index]]])
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
+        x = x[0:-1] + ep_max/(2.*opts.num_bins)
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
         handle = bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
         setp(handle, alpha=0.6)
