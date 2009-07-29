@@ -59,8 +59,13 @@ def parse_command_line():
         help = 
             "Location of local disk on which to do work. " +
             "This is used to enhance performance in a networked " +
-            "environment. As this program doesn't make any changes to " +
-            "the database, this isn't needed if using in a local environment." 
+            "environment and is needed if extracting an xml file."
+            )
+    parser.add_option("-x", "--extract-to-xml", action = "store", type = "string",
+        default = None, metavar = "filename",
+        help =
+            "Will extract an xml file from the database containing only the " +
+            "triggers that are printed. Requries --tmp-space. "
             )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
@@ -149,6 +154,8 @@ def parse_command_line():
     # check for required options and for self-consistency
     if not options.input:
         raise ValueError, "No input specified."
+    if options.extract_to_xml and not options.tmp_space:
+        raise ValueError, "extract-to-xml requires tmp-space"
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
@@ -268,7 +275,8 @@ if opts.verbose:
 info = connection.cursor().execute( sqlquery ).fetchall()
 
 # Get list of column names from coinc_inspiral table
-column_names = ' || '.join( sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' ) )
+coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
+column_names = ' || '.join( coinc_inspiral_cols  )
 
 # append experiment.instruments and duration to column names
 durname = ''.join([ opts.datatype.strip().lower(), ' duration (', opts.convert_durations.strip().lower(), ')' ])
@@ -280,6 +288,29 @@ print >> sys.stdout, column_names
 for row in info:
     row = ' || '.join(str(data) for data in row)
     print >> sys.stdout, "|| %s ||" % row
+
+# if extract-to-xml, generate the xml
+if opts.extract_to_xml:
+    if opts.verbose:
+        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
+        print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
+    # use the coinc_event_ids to figure out what to keep
+    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id") + 2
+    save_ids = [''.join(['"', row[ceid_index_num], '"']) for row in info]
+    # delete all other ids from the coinc_inspiral table
+    sqlquery = ''.join([ """
+        DELETE
+        FROM 
+            coinc_inspiral
+        WHERE
+            coinc_event_id NOT IN (
+            """, ','.join(save_ids), """
+            )""" ])
+    connection.cursor().execute(sqlquery)
+    # clean up the other tables that point to the deleted ids
+    sqlutils.clean_inspiral_tables(connection, verbose = opts.verbose)
+    # extract to the xml file
+    extract(connection, opts.extract_to_xml, verbose = opts.verbose)
 
 # close connection and exit
 connection.close()
