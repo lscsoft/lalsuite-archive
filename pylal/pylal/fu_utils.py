@@ -2007,6 +2007,7 @@ defaulting to %s"%(self.serverURL))
     segment_definer.ifos, \
     segment_definer.name, \
     segment_definer.version, \
+    segment_definer.comment, \
     segment.start_time, \
     segment.end_time \
     FROM segment,segment_definer \
@@ -2092,7 +2093,7 @@ defaulting to %s"%(self.serverURL))
       self.triggerTime = int(triggerTime)
       try:
         connection=None
-        serverURL=self.serverURL.strip("ldbd://")
+        serverURL=self.serverURL
         connection=segmentdb_utils.setup_database(serverURL)
       except Exception, errMsg:
         sys.stderr.write("Error connection to %s\n"\
@@ -2108,7 +2109,7 @@ defaulting to %s"%(self.serverURL))
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
-      sys.stderr.write("Query failed %s \n"%(self.serverURL))
+      sys.stderr.write("Query failed %s \n"%(serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
       sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
@@ -2120,15 +2121,15 @@ defaulting to %s"%(self.serverURL))
     if self.resultList.__len__() > 0:
       #Obtain list of all flags
       uniqSegmentName=list()
-      for ifo,name,version,start,end in self.resultList:
-        if not uniqSegmentName.__contains__((ifo,name,version)):
-          uniqSegmentName.append((ifo,name,version))
+      for ifo,name,version,comment,start,end in self.resultList:
+        if not uniqSegmentName.__contains__((ifo,name,version,comment)):
+          uniqSegmentName.append((ifo,name,version,comment))
       #Save textKey for all uniq segments combos
-      for uifo,uname,uversion in uniqSegmentName:
+      for uifo,uname,uversion,ucomment in uniqSegmentName:
         segmentIntervals=list()
         #Extra segments based on uniq textKey
-        for ifo,name,version,start,end in self.resultList:
-          if (uifo,uname,uversion)==(ifo,name,version):
+        for ifo,name,version,comment,start,end in self.resultList:
+          if (uifo,uname,uversion,ucomment)==(ifo,name,version,comment):
             segmentIntervals.append((start,end))
         segmentIntervals.sort()
         #Coalesce those segments
@@ -2139,7 +2140,7 @@ defaulting to %s"%(self.serverURL))
           newSegmentIntervals=segmentIntervals
         #Write them to the object which we will return
         for newStart,newStop in newSegmentIntervals:
-          newDQSeg.append([uifo,uname,uversion,newStart,newStop])
+          newDQSeg.append([uifo,uname,uversion,ucomment,newStart,newStop])
         newDQSeg.sort()
         del segmentIntervals
     self.resultList=newDQSeg
@@ -2166,12 +2167,12 @@ defaulting to %s"%(self.serverURL))
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
-    for ifo,name,version,start,stop in self.resultList:
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+    for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2183,11 +2184,7 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      #If NAME is LIGO flag then adjust name txt to be url also
-      if ligo.__contains__(ifo.upper().strip()):
-        url=channelWiki%(name.upper().strip())
-        name="<a href=\"%s\">%s</a>"%(url,name.strip().upper())
-      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()

@@ -22,7 +22,6 @@ from pylal import ligolw_sqlutils as sqlutils
 
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
-from glue.ligolw.utils.ligolw_sqlite import extract
 
 usage = \
 '''
