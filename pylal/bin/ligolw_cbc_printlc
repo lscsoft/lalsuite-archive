@@ -381,7 +381,7 @@ if opts.extract_to_xml:
         """
     # now step through all tables with process_ids and remove rows who's ids 
     # aren't in save_proc_ids
-    for table in ['process','process_params','search_summary', 'summ_value']:
+    for table in ['process','process_params','search_summary','search_summvars','summ_value']:
         sqlscript = ''.join([ sqlscript, 
             """
             DELETE FROM
