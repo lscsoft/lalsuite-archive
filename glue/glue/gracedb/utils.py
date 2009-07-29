@@ -352,7 +352,7 @@ def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict,\
 #write_output_files('.', xmldoc, log_data)
 
 #here's how it works for bursts
-xmldoc, log_data, detectors, cid = populate_burst_tables("initial.data")
-final_xmldoc = populate_coinc_tables(xmldoc,cid, coherent_event_id_dict,\
-                                     BurstCoincDef, detectors)
-write_output_files('.', final_xmldoc, log_data)
+#xmldoc, log_data, detectors, cid = populate_burst_tables("initial.data")
+#final_xmldoc = populate_coinc_tables(xmldoc,cid, coherent_event_id_dict,\
+#                                     BurstCoincDef, detectors)
+#write_output_files('.', final_xmldoc, log_data)
