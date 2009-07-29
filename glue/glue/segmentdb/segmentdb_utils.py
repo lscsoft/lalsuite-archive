@@ -74,13 +74,23 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
 
 
 
-def setup_database(host_and_port):
+def setup_database(database_location):
     from glue import LDBDClient
     from glue import gsiserverutils
 
-    """Opens a connection to a LDBD Server"""
-    port = 30015
+    """Determine if we are using the secure or insecure server"""
+    if database_location.startswith('ldbd:'):
+        port = 30015
+        host_and_port = database_location[len('ldbd://'):]
+        identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
+    elif database_location.startswith('ldbdi:'):
+        port = 30016
+        host_and_port = database_location[len('ldbdi://'):]
+        identity = None
+    else:
+        raise ValueError( "invalid url for segment database" )
     
+    """Opens a connection to a LDBD Server"""
     if host_and_port.find(':') < 0:
         host = host_and_port
     else:
@@ -88,7 +98,8 @@ def setup_database(host_and_port):
         host, portString = host_and_port.split(':')
         port = int(portString)
 
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+    if identity:
+        identity += host
 
     # open connection to LDBD Server
     client = None

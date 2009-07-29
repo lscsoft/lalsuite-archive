@@ -24,7 +24,6 @@
 #define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
 #endif
 
-static PyObject *version;
 static PyObject *author;
 static PyObject *PyExc_FrError;
 
@@ -837,19 +836,15 @@ static PyMethodDef FrMethods[] = {
 };
 
 PyMODINIT_FUNC initFr(void) {
-    PyObject *m, *temp;
+    PyObject *m;
     m = Py_InitModule3("pylal.Fr", FrMethods, FrDocstring);
 
     import_array();
 
     PyExc_FrError = PyErr_NewException("Fr.FrError", NULL, NULL);
-    temp = PyString_FromString("$Revision$");
-    version = PySequence_GetSlice(temp, (Py_ssize_t)11, (Py_ssize_t)-2);
-    Py_DECREF(temp);
     author = PyString_FromString("Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>");
 
     Py_INCREF(PyExc_FrError);  // Recommended by extending & embedding doc
     PyModule_AddObject(m, "FrError", PyExc_FrError);
     PyModule_AddObject(m, "__author__", author);
-    PyModule_AddObject(m, "__version__", version);
 };

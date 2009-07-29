@@ -20,7 +20,7 @@ import sys
 import os
 import time
 import socket
-
+import pwd
 
 try:
   import DB2
@@ -67,21 +67,16 @@ def coalesce_seg(database, start_time, end_time):
     curs.execute(sql)
     creator_db = int(curs.fetchone()[0])
 
-
-    # get current_time for later use
-    current_time = gpstime.GpsSecondsFromPyUTC(time.time())
-
   
     # prepare values for the new row to be inserted into the process table
     program = sys.argv[0].replace('./','')
     node = socket.gethostname()
-    username = os.getlogin()
+    username = pwd.getpwuid(os.getuid())[0]
     unix_procid = os.getpid()
-    proc_start_time = current_time
+    proc_start_time = gpstime.GpsSecondsFromPyUTC(time.time())
     end_time = None
     jobid = 0
     domain = 'coalesce_local'
-
 
     # insert new row into process table
     sql = "INSERT INTO process "
@@ -108,11 +103,13 @@ def coalesce_seg(database, start_time, end_time):
     # 5. Delete uncoalesced segments and intervals from the database
 
 
-    # 1. Find distinct version 1 segment types from segment_summary within the specified time range
-    sql  = "SELECT distinct(hex(segment_summary.segment_def_id)) FROM segment_summary, segment_definer "
+    # 1. Find distinct segment types matching our criteria from segment_summary within the specified time range
+    sql  = "SELECT distinct(hex(segment_summary.segment_def_id)) FROM segment_summary, segment_definer, process "
     sql += "WHERE segment_summary.segment_def_id=segment_definer.segment_def_id "
     sql += "AND segment_summary.segment_def_cdb=segment_definer.creator_db "
-    sql += "AND segment_definer.version=1 "
+    sql += "AND segment_summary.process_id=process.process_id "
+    sql += "AND segment_summary.creator_db=process.creator_db "
+    sql += "AND ((segment_definer.name like 'DMT-%' and segment_definer.version=1) or (process.ifos='V1' and process.program='SegOnline')) "
     sql += "AND segment_summary.start_time <=%d " % et
     sql += "AND segment_summary.end_time >= %d " % st
     curs.execute(sql)
@@ -221,11 +218,14 @@ def coalesce_seg(database, start_time, end_time):
       curs.execute(sql)
 
     # update end_time in process table
-    sql = "update process set end_time=%d where hex(process_id)='%s' " % (current_time,hex_procid)
+    sql = "update process set end_time=%d where hex(process_id)='%s' " % (gpstime.GpsSecondsFromPyUTC(time.time()),hex_procid)
     curs.execute(sql)
-    
-    curs.execute("drop view seg_view")
-    curs.execute("drop view sum_view")
+  
+    try:  
+      curs.execute("drop view seg_view")
+      curs.execute("drop view sum_view")
+    except:
+      pass
     curs.close()
 
   except Exception,e:
