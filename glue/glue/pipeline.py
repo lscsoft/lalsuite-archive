@@ -299,7 +299,6 @@ class CondorJob:
       arg = string.strip(cp.get(section,opt))
       self.__options[opt] = arg
 
-
   def set_notification(self, value):
     """
     Set the email address to send notification to.
@@ -504,26 +503,8 @@ class CondorDAGManJob:
     dir = the diretory in which the dag file is located
     """
     self.__dag = dag
-    self.__options = {}
     self.__notification = None
     self.__dag_directory= dir
-
-  def add_opt(self, opt, value):
-    """
-    Add a command line option to the executable. The order that the arguments
-    will be appended to the command line is not guaranteed, but they will
-    always be added before any command line arguments. The name of the option
-    is prefixed with single hyphen.
-    @param opt: command line option to add.
-    @param value: value to pass to the option (None for no argument).
-    """
-    self.__options[opt] = value
-
-  def get_opts(self):
-    """
-    Return the dictionary of opts for the job.
-    """
-    return self.__options
 
   def set_dag_directory(self, dir):
     """
@@ -547,40 +528,10 @@ class CondorDAGManJob:
 
   def get_sub_file(self):
     """
-    Get the name of the file which the Condor submit file will be
-    written to when write_sub_file() is called.
+    Return the name of the dag as the submit file name for the
+    SUBDAG EXTERNAL command in the uber-dag
     """
-    return self.__dag + ".condor.sub"
-
-  def write_sub_file(self):
-    """
-    Write a submit file for this Condor job.
-    """
-    cwd = os.getcwd()
-    if self.get_dag_directory() is not None:
-      try: os.chdir(self.get_dag_directory())
-      except: raise CondorSubmitError, \
-          "directory " + self.get_dag_directory() + " doesn't exist"
-
-    command = "condor_submit_dag -f -no_submit "
-
-    if self.__options.keys():
-      for c in self.__options.keys():
-        if self.__options[c]:
-          command +=  ' -' + c + ' ' + self.__options[c]
-        else:
-          command += ' -' + c
-      command += ' '
-
-    command += self.__dag
-
-    stdin, out, err = os.popen3(command)
-    pid, status = os.wait()
-
-    if status != 0:
-      raise CondorSubmitError, command + " failed."
-
-    os.chdir(cwd)
+    return self.__dag
 
 
 class CondorDAGNode:
@@ -873,10 +824,15 @@ class CondorDAGNode:
     Write the DAG entry for this node's job to the DAG file descriptor.
     @param fh: descriptor of open DAG file.
     """
-    fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() )
-    if isinstance(self.job(),CondorDAGManJob) and \
-        self.job().get_dag_directory() is not None:
-      fh.write( ' DIR ' + self.job().get_dag_directory() )
+    if isinstance(self.job(),CondorDAGManJob):
+      # create an external subdag from this dag
+      fh.write( ' '.join(
+        ['SUBDAG EXTERNAL', self.__name, self.__job.get_sub_file]) )
+      if self.job().get_dag_directory():
+        fh.write( ' DIR ' + self.job().get_dag_directory() )
+    else:
+      # write a regular condor job
+      fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() )
     fh.write( '\n')
 
     fh.write( 'RETRY ' + self.__name + ' ' + str(self.__retry) + '\n' )
