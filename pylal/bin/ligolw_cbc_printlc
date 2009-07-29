@@ -307,8 +307,115 @@ if opts.extract_to_xml:
             """, ','.join(save_ids), """
             )""" ])
     connection.cursor().execute(sqlquery)
+
     # clean up the other tables that point to the deleted ids
     sqlutils.clean_inspiral_tables(connection, verbose = opts.verbose)
+
+    # also remove experiments that don't have loud events in them
+    if opts.verbose:
+        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+
+    sqlscript = """
+        DELETE FROM
+            experiment
+        WHERE
+            experiment_id NOT IN (
+                SELECT DISTINCT
+                    experiment_summary.experiment_id
+                FROM
+                    experiment_summary, experiment_map
+                WHERE
+                    experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                );
+        DELETE FROM
+            experiment_summary
+        WHERE
+            experiment_id NOT IN (
+                SELECT
+                    experiment_id
+                FROM
+                    experiment
+                );
+        DELETE FROM
+            time_slide
+        WHERE
+            time_slide_id NOT IN (
+                SELECT DISTINCT
+                    time_slide_id
+                FROM
+                    experiment_summary
+                );
+        """
+    connection.cursor().executescript(sqlscript)
+
+    # remove additional meta-data from other tables who's process_ids are not in
+    # the experiment or coinc. tables
+    if opts.verbose:
+        print >> sys.stdout, "Removing unneeded metadata..."
+
+    sqlscript = """
+        -- create a temp. table of process_ids to keep
+        CREATE TEMP TABLE save_proc_ids AS
+            SELECT DISTINCT
+                process_id AS process_id
+            FROM
+                coinc_event;
+        INSERT INTO save_proc_ids (process_id)
+            SELECT DISTINCT
+                process_id
+            FROM
+                sngl_inspiral;
+        INSERT INTO save_proc_ids (process_id)
+            SELECT DISTINCT
+                process_id
+            FROM
+                time_slide;
+        INSERT INTO save_proc_ids (process_id)
+            SELECT DISTINCT
+                sim_proc_id
+            FROM
+                experiment_summary
+            WHERE
+                sim_proc_id IS NOT NULL;
+        CREATE INDEX proc_index ON save_proc_ids (process_id);
+        """
+    # now step through all tables with process_ids and remove rows who's ids 
+    # aren't in save_proc_ids
+    for table in ['process','process_params','search_summary', 'summ_value']:
+        sqlscript = ''.join([ sqlscript, 
+            """
+            DELETE FROM
+            """, table, """
+            WHERE
+                process_id NOT IN (
+                    SELECT
+                        process_id
+                    FROM
+                        save_proc_ids
+                    );
+            """ ])
+    connection.cursor().executescript(sqlscript)
+
+    # now remove any veto segments that don't apply by first getting all the
+    # end times in the sngl_inspiral table
+    if opts.verbose:
+        print >> sys.stdout, "Removing veto-segments that don't apply..."
+        print >> sys.stdout, "\tgetting event end_times..."
+
+    sqlquery = "SELECT DISTINCT end_time FROM sngl_inspiral"
+    in_this_filter = [''.join([ "(start_time <= ", str(end_time[0]), " AND end_time > ", str(end_time[0]), ")"]) for end_time in connection.cursor().execute(sqlquery)]
+
+    # now remove segments that don't intersect with the event_end_times
+    if opts.verbose:
+        print >> sys.stdout, "\tdeleting segments that don't intersect..."
+
+    sqlquery = ''.join([ """
+        DELETE FROM
+            segment
+        WHERE NOT
+            """, ' OR '.join(in_this_filter) ])
+    connection.cursor().execute(sqlquery)
+
     # extract to the xml file
     extract(connection, opts.extract_to_xml, verbose = opts.verbose)
 
