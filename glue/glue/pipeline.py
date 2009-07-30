@@ -1175,22 +1175,18 @@ class CondorDAG:
     Write all the nodes in the workflow to the DAX file.
     """
     if not self.__dax_file_path:
-      # this workflow is not dax-compatible, so just return
+      # this workflow is not dax-compatible, so don't write a dax
       return
     try:
-      dagfile = open( self.__dag_file_path, 'w' )
+      dagfile = open( self.__dax_file_path, 'w' )
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
 
     # write the preamble
-    preamble = """\
-<?xml version="1.0" encoding="UTF-8"?>
-
+    preamble = """<?xml version="1.0" encoding="UTF-8"?>
 <adag xmlns="http://pegasus.isi.edu/schema/DAX"
 xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-3.0.xsd"
-xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" index="0"
-
-"""
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" index="0" """
     dax_name = os.path.split(self.__dax_file_path)[-1]
     dax_basename = '.'.join(dax_name.split('.')[0:-1])
     preamble_2 = 'name="' + dax_basename  + '">'
@@ -1249,12 +1245,13 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
     id = 0
     for node in self.__nodes:
-      if isinstance(node, LSCDataFindNode):
+      if self.is_dax() and isinstance(node, LSCDataFindNode):
         pass
 
       elif isinstance(node.job(), CondorDAGManJob):
         id += 1
         id_tag = "ID%06d" % id
+        node_name = node._CondorDAGNode__name
         node_name_id_dict[node_name] = id_tag
 
         if node.job().get_dax() is None:
@@ -1262,11 +1259,11 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           subdag_name = os.path.split(node.job().get_dag())[-1]
           try:
             subdag_path = os.path.join(
-              os.getcwd(),node.job().get_dag_directory(),subgax_name)
+              os.getcwd(),node.job().get_dag_directory(),subdag_name)
           except AttributeError:
             subdag_path = os.path.join(os.getcwd(),subdag_name)
 
-          print >>dagfile, """<dag id="%s" file="%s">""" % (id, subdag_name)
+          print >>dagfile, """<dag id="%s" file="%s">""" % (id_tag, subdag_name)
           print >>dagfile, """\
      <uses file="%s" link="input" register="false" transfer="true" type="data">
           <pfn url="%s" site="local"/>
@@ -1282,7 +1279,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           except AttributeError:
             subdax_path = os.path.join(os.getcwd(),subdax_name)
             
-          print >>dagfile, """<dax id="%s" file="%s">""" % (id, subdax_name)
+          print >>dagfile, """<dax id="%s" file="%s">""" % (id_tag, subdax_name)
           print >>dagfile, """     <argument>-vvvvvv</argument>"""
           print >>dagfile, """\
      <uses file="%s" link="input" register="false" transfer="true" type="data">
