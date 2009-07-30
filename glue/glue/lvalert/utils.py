@@ -96,7 +96,7 @@ def get_LVAdata_from_file(filename):
 
   return file, uid, data_loc  
 
-def make_LVAlertTable(filename, file, uid, data_loc):
+def make_LVAlertTable(filename, file_url, uid, data_loc):
   """
   create xml doc which contains an LVAlert Table
   with submission file file_loc and  data located at data_loc
