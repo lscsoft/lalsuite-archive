@@ -128,12 +128,20 @@ try:
 
   # coalesce the pending range and add them to the list of coalesced range 
   logger.debug("start coalescing")
-  result = ligolw_coalesce.coalesce_seg(options.database_name,st,et)
-  if result==0:
+  result,data_existence = ligolw_coalesce.coalesce_seg(options.database_name,st,et)
+  if result == 0 and data_existence == 1:
         coalesced_range |= segments.segmentlist([(st,et)])
+        coalesced_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","COALESCED",0)
+        segmentdb_utils.add_to_segment(outdoc,proc_id,coalesced_id,coalesced_range)
+
+        # write the new segment state file on top of the old one
+        ligolw_utils.write_filename(outdoc, options.state_file)
+
         logger.info("finished coalescing range [%d,%d)" % (st,et))
         logger.info("exiting")
-  else:
+  elif result == 0 and data_existence != 1:
+        logger.info("no data found in time range, state_file remians unchanged")
+  if result != 0 :
         logger.error("fail to coalesce, state_file remains unchanged")
         try:
           os.unlink(options.pid_file)
@@ -141,11 +149,6 @@ try:
           pass
         logger.error(result)
         sys.exit(1)
-  coalesced_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","COALESCED",0)
-  segmentdb_utils.add_to_segment(outdoc,proc_id,coalesced_id,coalesced_range)
-
-  # write the new segment state file on top of the old one
-  ligolw_utils.write_filename(outdoc, options.state_file)
 
 except Exception, e:
   try:

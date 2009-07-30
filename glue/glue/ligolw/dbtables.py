@@ -283,6 +283,26 @@ def idmap_get_new(connection, old, tbl):
 	return new
 
 
+def idmap_get_max_id(connection, id_class):
+	"""
+	Given an ilwd:char ID class, return the highest ID from the table
+	for whose IDs that is the class.
+
+	Example:
+
+	>>> id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> print id
+	sngl_inspiral:event_id:0
+	>>> max = get_max_id(connection, type(id))
+	>>> print max
+	sngl_inspiral:event_id:1054
+	"""
+	max = connection.cursor().execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name)).fetchone()[0]
+	if max is None:
+		return None
+	return id_class(max)
+
+
 #
 # =============================================================================
 #
@@ -514,11 +534,11 @@ class DBTable(table.Table):
 
 	def sync_next_id(self):
 		if self.next_id is not None:
-			last, = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.next_id.column_name, self.next_id.index_offset + 1, self.dbtablename)).fetchone()
-			if last is None:
+			max_id = idmap_get_max_id(self.connection, type(self.next_id))
+			if max_id is None:
 				self.set_next_id(type(self.next_id)(0))
 			else:
-				self.set_next_id(type(self.next_id)(last + 1))
+				self.set_next_id(max_id + 1)
 		return self.next_id
 
 	def maxrowid(self):

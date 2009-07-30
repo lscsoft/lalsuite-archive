@@ -134,6 +134,9 @@ class inspiral_ilwdchar(long):
 	def __str__(self):
 		return "%s:%s:%d" % (self.table_name, self.column_name, long(self))
 
+	def __conform__(self, protocol):
+		return unicode(self)
+
 	def __sub__(self, other):
 		return long.__sub__(self, other)
 
