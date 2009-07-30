@@ -497,12 +497,13 @@ class CondorDAGManJob:
   Condor DAGMan job class. Appropriate for setting up DAGs to run within a
   DAG.
   """
-  def __init__(self, dag, dir=None):
+  def __init__(self, dag, dir=None, dax=None):
     """
     dag = the name of the condor dag file to run
     dir = the diretory in which the dag file is located
     """
     self.__dag = dag
+    self.__dax = dax
     self.__notification = None
     self.__dag_directory= dir
 
@@ -530,6 +531,18 @@ class CondorDAGManJob:
     """
     Return the name of the dag as the submit file name for the
     SUBDAG EXTERNAL command in the uber-dag
+    """
+    return self.__dag
+
+  def get_dax(self):
+    """
+    Return the name of any associated dax file
+    """
+    return self.__dax
+
+  def get_dag(self):
+    """
+    Return the name of any associated dag file
     """
     return self.__dag
 
@@ -1010,6 +1023,7 @@ class CondorDAG:
     self.__log_file_path = log
     self.__dax = dax
     self.__dag_file_path = None
+    self.__dax_file_path = None
     self.__jobs = []
     self.__nodes = []
     self.__maxjobs_categories = []
@@ -1031,7 +1045,6 @@ class CondorDAG:
     """
     return self.__jobs
 
-
   def is_dax(self):
     """
     Returns true if this DAG is really a DAX
@@ -1044,27 +1057,37 @@ class CondorDAG:
     """
     self.__integer_node_names = 1
 
-  def set_dag_file(self, path, no_append=0):
+  def set_dag_file(self, path):
     """
     Set the name of the file into which the DAG is written.
     @param path: path to DAG file.
     """
-    if no_append:
-      self.__dag_file_path = path
-    else:
-      if self.__dax:
-        self.__dag_file_path = path + '.dax'
-      else:
-        self.__dag_file_path = path + '.dag'
+    self.__dag_file_path = path + '.dag'
 
   def get_dag_file(self):
     """
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAG or DAX file"
+      raise CondorDAGError, "No path for DAG file"
     else:
       return self.__dag_file_path
+
+  def set_dax_file(self, path):
+    """
+    Set the name of the file into which the DAG is written.
+    @param path: path to DAG file.
+    """
+    self.__dax_file_path = path + '.dax'
+
+  def get_dax_file(self):
+    """
+    Return the path to the DAG file.
+    """
+    if not self.__log_file_path:
+      raise CondorDAGError, "No path for DAX file"
+    else:
+      return self.__dax_file_path
 
   def add_node(self,node):
     """
@@ -1144,7 +1167,7 @@ class CondorDAG:
     """
     Write all the nodes in the workflow to the DAX file.
     """
-    if not self.__dag_file_path:
+    if not self.__dax_file_path:
       raise CondorDAGError, "No path for DAX file"
     try:
       dagfile = open( self.__dag_file_path, 'w' )
@@ -1154,12 +1177,15 @@ class CondorDAG:
     # write the preamble
     preamble = """\
 <?xml version="1.0" encoding="UTF-8"?>
-<adag xmlns="http://www.griphyn.org/chimera/DAX"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.griphyn.org/chimera/DAX
-        http://www.griphyn.org/chimera/dax-1.8.xsd"
+
+<adag xmlns="http://pegasus.isi.edu/schema/DAX"
+xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-3.0.xsd"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" index="0"
+
 """
-    preamble_2 = 'name="' + os.path.split(self.__dag_file_path)[-1]  + '" index="0" count="1" version="1.8">'
+    dax_name = os.path.split(self.__dax_file_path)[-1]
+    dax_basename = '.'.join(dax_name.split('.')[0:-1])
+    preamble_2 = 'name="' + dax_basename  + '">'
     print >>dagfile, preamble,preamble_2
 
     # find unique input and output files from nodes
@@ -1196,27 +1222,12 @@ class CondorDAG:
     input_filelist = input_file_dict.keys()
     input_filelist.sort()
     self.__rls_filelist = input_filelist
-    for f in input_filelist:
-      msg = """\
-    <filename file="%s" link="input"/>\
-"""
-      print >>dagfile, msg % f
 
     inout_filelist = inout_file_dict.keys()
     inout_filelist.sort()
-    for f in inout_filelist:
-      msg = """\
-    <filename file="%s" link="inout"/>\
-"""
-      print >>dagfile, msg % f
 
     output_filelist = output_file_dict.keys()
     output_filelist.sort()
-    for f in output_filelist:
-      msg = """\
-    <filename file="%s" link="output"/>\
-"""
-      print >>dagfile, msg % f
 
     # write the jobs themselves to the DAX, making sure
     # to replace logical file references by the appropriate
@@ -1232,6 +1243,45 @@ class CondorDAG:
     for node in self.__nodes:
       if isinstance(node, LSCDataFindNode):
         pass
+
+      elif isinstance(node.job(), CondorDAGManJob):
+        id += 1
+        id_tag = "ID%06d" % id
+        node_name_id_dict[node_name] = id_tag
+
+        if node.job().get_dax() is None:
+          # write this node as a sub-dag
+          subdag_name = os.path.split(node.job().get_dag())[-1]
+          try:
+            subdag_path = os.path.join(
+              os.getcwd(),node.job().get_dag_directory(),subgax_name)
+          except AttributeError:
+            subdag_path = os.path.join(os.getcwd(),subdag_name)
+
+          print >>dagfile, """<dag id="%s" file="%s">""" % (id, subdag_name)
+          print >>dagfile, """\
+     <uses file="%s" link="input" register="false" transfer="true" type="data">
+          <pfn url="%s" site="local"/>
+     </uses>
+</dax>""" % (subdag_name, subdag_path)
+
+        else:
+          # write this node as a sub-dax
+          subdax_name = os.path.split(node.job().get_dax())[-1]
+          try:
+            subdax_path = os.path.join(
+              os.getcwd(),node.job().get_dag_directory(),subdax_name)
+          except AttributeError:
+            subdax_path = os.path.join(os.getcwd(),subdax_name)
+            
+          print >>dagfile, """<dax id="%s" file="%s">""" % (id, subdax_name)
+          print >>dagfile, """     <argument>-vvvvvv</argument>"""
+          print >>dagfile, """\
+     <uses file="%s" link="input" register="false" transfer="true" type="data">
+          <pfn url="%s" site="local"/>
+     </uses>
+</dax>""" % (subdax_name, subdax_path)
+
       else:
         executable = node.job()._CondorJob__executable
         node_name = node._CondorDAGNode__name
@@ -1262,24 +1312,27 @@ class CondorDAG:
 
         # write the group if this node has one
         if node.get_vds_group():
-          template = """<profile namespace="vds" key="group">%s</profile>"""
+          template = """<profile namespace="pegasus" key="group">%s</profile>"""
           xml = xml + template % (node.get_vds_group())
+
+        template = """<profile namespace="condor" key="universe">%s</profile>"""
+        xml = xml + template % (node.job().get_universe())
 
         print >>dagfile, xml
 
         for f in node.get_input_files():
           if f in inout_filelist:
             print >>dagfile, """\
-     <uses file="%s" link="inout" dontRegister="true" dontTransfer="false"/>\
+     <uses file="%s" link="inout" register="false" transfer="true"/>\
 """ % f
           else:
             print >>dagfile, """\
-     <uses file="%s" link="input" dontRegister="true" dontTransfer="false"/>\
+     <uses file="%s" link="input" register="false" transfer="true"/>\
 """ % f
 
         for f in node.get_output_files():
           print >>dagfile, """\
-     <uses file="%s" link="output" dontRegister="true" dontTransfer="false"/>\
+     <uses file="%s" link="output" register="false" transfer="true"/>\
 """ % f
 
         print >>dagfile, "</job>"
@@ -1306,17 +1359,6 @@ class CondorDAG:
 
     dagfile.close()
 
-  def write_pegasus_rls_cache(self,gsiftp,pool):
-    try:
-      outfilename = self.__dag_file_path+'.peg_cache'
-      outfile = open(outfilename, "w")
-    except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
-
-    for filename in set(self.__rls_filelist):
-      if filename in self.__data_find_files: continue
-      # try to figure out if the path is absolute
-      outfile.write(os.path.split(filename)[-1] + ' ' + 'gsiftp://'+gsiftp +os.path.abspath(filename)+' pool="'+pool+'"\n')
   def write_dag(self):
     """
     Write either a dag or a dax.
@@ -1324,10 +1366,8 @@ class CondorDAG:
     if not self.__nodes_finalized:
       for node in self.__nodes:
         node.finalize()
-    if self.is_dax():
-      self.write_abstract_dag()
-    else:
-      self.write_concrete_dag()
+    self.write_concrete_dag()
+    self.write_abstract_dag()
 
   def write_script(self):
     """
