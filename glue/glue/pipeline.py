@@ -1175,7 +1175,8 @@ class CondorDAG:
     Write all the nodes in the workflow to the DAX file.
     """
     if not self.__dax_file_path:
-      raise CondorDAGError, "No path for DAX file"
+      # this workflow is not dax-compatible, so just return
+      return
     try:
       dagfile = open( self.__dag_file_path, 'w' )
     except:
