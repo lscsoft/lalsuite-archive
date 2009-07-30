@@ -21,13 +21,16 @@ from glue.ligolw import utils
 class LVAlertTable(table.Table):
   """
   for reference, file is written as
-  file://host/path_to_file/file
-  and uid is the unique id assigned by gracedb
+  file: //host/path_to_file/file
+  uid: the unique id assigned by gracedb
+  temp_data_loc: current location (just the directory)
+                 of the ouput of the pipeline (this is VOLATILE)
   """
   tableName = "LVAlert:table"
   validcolumns = {
     "file": "lstring",
-    "uid": "lstring"
+    "uid": "lstring",
+    "temp_data_loc": "lstring"
     }
     
 class LVAlertRow(object):
@@ -41,7 +44,7 @@ LVAlertTable.RowType = LVAlertRow
 #
 ##############################################################################
 
-def _parse_file_url(file_url):
+def parse_file_url(file_url):
   """
   simple function to parse the file urls of the form:
   file://host_name/path_to_file/file
@@ -54,10 +57,9 @@ def _parse_file_url(file_url):
   """
   parsed = urlparse.urlparse(file_url)
   host = parsed[1]
-  full_path = parsed[2]
-  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0], \
-                             'general')
-  return host, full_path, general_dir
+  path, fname = os.path.split(parsed[2])
+  
+  return host, path, fname
 
 def get_LVAdata_from_stdin(std_in):
   """
@@ -70,10 +72,11 @@ def get_LVAdata_from_stdin(std_in):
   """
   doc = utils.load_fileobj(std_in)[0]
   lvatable = table.get_table(doc, LVAlertTable.tableName)
-  host, full_path, general_dir = _parse_file_url(lvatable[0].file)
+  file = lvatable[0].file
   uid = lvatable[0].uid
+  data_loc = lvatable[0].temp_data_loc
 
-  return host, full_path, general_dir, uid
+  return file, uid, data_loc
 
 def get_LVAdata_from_file(filename):
   """
@@ -87,16 +90,16 @@ def get_LVAdata_from_file(filename):
   """
   doc = utils.load_filename(filename)
   lvatable = table.get_table(doc, LVAlertTable.tableName)
-  lvatable = table.get_table(doc, LVAlertTable.tableName)
-  host, full_path, general_dir = _parse_file_url(lvatable[0].file)
+  file = lvatable[0].file
   uid = lvatable[0].uid
+  data_loc = lvatable[0].temp_data_loc
 
-  return host, full_path, general_dir, uid
+  return file, uid, data_loc  
 
-def write_LVAlertTable(filename, file_url, uid):
+def write_LVAlertTable(filename, file, uid, data_loc):
   """
   create filename.xml which contains an LVAlert Table
-  with file_url and  uid
+  with submission file file_loc and  data located at data_loc
   """
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
@@ -104,6 +107,7 @@ def write_LVAlertTable(filename, file_url, uid):
   row = lvalerttable.RowType()
   row.file = file_url
   row.uid = uid
+  row.temp_data_loc = data_loc
   lvalerttable.append(row)
   xmldoc.childNodes[0].appendChild(lvalerttable)
   output_file = open(filename+'.xml', 'w')
