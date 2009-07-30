@@ -598,7 +598,7 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	# they're not already in the table 
 	if add_inst_subsets:
 		for nn in range(2, len(instruments) ):
-			for sub_combo in iterutils.choices( instruments, nn ):
+			for sub_combo in iterutils.choices( list(instruments), nn ):
 				if frozenset(sub_combo) not in experiment_ids:
 					experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(search_group, search, lars_id, sub_combo, expr_start_time, expr_end_time, comments = comments)
 
