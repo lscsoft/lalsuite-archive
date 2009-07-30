@@ -546,6 +546,13 @@ class CondorDAGManJob:
     """
     return self.__dag
 
+  def write_sub_file(self):
+    """
+    Do nothing as there is not need for a sub file with the
+    SUBDAG EXTERNAL command in the uber-dag
+    """
+    pass
+
 
 class CondorDAGNode:
   """
@@ -840,7 +847,7 @@ class CondorDAGNode:
     if isinstance(self.job(),CondorDAGManJob):
       # create an external subdag from this dag
       fh.write( ' '.join(
-        ['SUBDAG EXTERNAL', self.__name, self.__job.get_sub_file]) )
+        ['SUBDAG EXTERNAL', self.__name, self.__job.get_sub_file()]) )
       if self.job().get_dag_directory():
         fh.write( ' DIR ' + self.job().get_dag_directory() )
     else:
