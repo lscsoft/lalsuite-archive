@@ -586,6 +586,7 @@ class CondorDAGNode:
     self.__output_files = []
     self.__input_files = []
     self.__vds_group = None
+    self.__user_tag = None
 
     # generate the md5 node name
     t = str( long( time.time() * 1000 ) )
@@ -656,6 +657,19 @@ class CondorDAGNode:
     Get the category for this node in the DAG.
     """
     return self.__category
+
+  def set_user_tag(self,usertag):
+    """
+    Set the user tag that is passed to the analysis code.
+    @param user_tag: the user tag to identify the job
+    """
+    self.__user_tag = usertag
+
+  def get_user_tag(self):
+    """
+    Returns the usertag string
+    """
+    return self.__user_tag
 
   def set_priority(self,priority):
     """
@@ -1273,14 +1287,24 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         else:
           # write this node as a sub-dax
           subdax_name = os.path.split(node.job().get_dax())[-1]
-          try:
+          dax_subdir = node.job().get_dag_directory()
+          if dax_subdir:
             subdax_path = os.path.join(
               os.getcwd(),node.job().get_dag_directory(),subdax_name)
-          except AttributeError:
+          else:
             subdax_path = os.path.join(os.getcwd(),subdax_name)
+            dax_subdir = '.'
             
           print >>dagfile, """<dax id="%s" file="%s">""" % (id_tag, subdax_name)
-          print >>dagfile, """     <argument>-vvvvvv</argument>"""
+          xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
+          dax_usertag = node.get_user_tag()
+          if dax_usertag:
+            pegasus_exec_subdir = os.path.join(dax_subdir,dax_usertag)
+          else:
+            pegasus_exec_subdir = dax_subdir
+          xml += """--dir %s """ % pegasus_exec_subdir
+          xml += """-vvvvvv --force -o local --nocleanup</argument>"""
+          print >>dagfile, xml
           print >>dagfile, """\
      <uses file="%s" link="input" register="false" transfer="true" type="data">
           <pfn url="%s" site="local"/>
