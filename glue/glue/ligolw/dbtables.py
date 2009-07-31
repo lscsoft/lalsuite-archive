@@ -69,6 +69,22 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
+def connection_db_type(connection):
+	"""
+	A totally broken attempt to determine what type of database a
+	connection object is attached to.  Don't use this.
+
+	The input is a DB API 2.0 compliant connection object, the return
+	value is one of the strings "sqlite3" or "mysql".  Raises TypeError
+	when the database type cannot be determined.
+	"""
+	if "sqlite3" in repr(connection):
+		return "sqlite3"
+	if "mysql" in repr(connection):
+		return "mysql"
+	raise TypeError, connection
+
+
 def DBTable_set_connection(connection):
 	"""
 	Set the Python DB-API 2.0 compatible connection the DBTable class
@@ -272,7 +288,8 @@ def idmap_get_new(connection, old, tbl):
 	to re-map row IDs when merging multiple documents.
 	"""
 	cursor = connection.cursor()
-	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
+	cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,))
+	new = cursor.fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
 		return new[0]
@@ -281,6 +298,28 @@ def idmap_get_new(connection, old, tbl):
 	new = unicode(tbl.get_next_id())
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
+
+
+def idmap_get_max_id(connection, id_class):
+	"""
+	Given an ilwd:char ID class, return the highest ID from the table
+	for whose IDs that is the class.
+
+	Example:
+
+	>>> id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> print id
+	sngl_inspiral:event_id:0
+	>>> max = get_max_id(connection, type(id))
+	>>> print max
+	sngl_inspiral:event_id:1054
+	"""
+	cursor = connection.cursor()
+	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
+	max = cursor.fetchone()[0]
+	if max is None:
+		return None
+	return id_class(max)
 
 
 #
@@ -310,7 +349,9 @@ def get_table_names(connection):
 	"""
 	Return a list of the table names in the database.
 	"""
-	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
+	cursor = connection.cursor()
+	cursor.execute("SELECT name FROM sqlite_master WHERE type == 'table'")
+	return [name for (name,) in cursor]
 
 
 def get_column_info(connection, table_name):
@@ -318,7 +359,9 @@ def get_column_info(connection, table_name):
 	Return an in order list of (name, type) tuples describing the
 	columns in the given table.
 	"""
-	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
+	cursor = connection.cursor()
+	cursor.execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,))
+	statement, = cursor.fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
@@ -495,7 +538,13 @@ class DBTable(table.Table):
 			self.dbcolumntypes = self.columntypes
 
 		# create the table
-		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ligolwtypes.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		ToSQLType = {
+			"sqlite3": ligolwtypes.ToSQLiteType,
+			"mysql": ligolwtypes.ToMySQLType
+		}[connection_db_type(self.connection)]
+		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		if connection_db_type(self.connection) == "mysql" and "rowid" not in map(str.lower, self.dbcolumnnames):
+			statement += ", ROWID INTEGER UNIQUE AUTO_INCREMENT"
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -505,7 +554,11 @@ class DBTable(table.Table):
 		self.last_maxrowid = self.maxrowid() or 0
 
 		# construct the SQL to be used to insert new rows
-		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), ",".join("?" * len(self.dbcolumnnames)))
+		params = {
+			"sqlite3": ",".join("?" * len(self.dbcolumnnames)),
+			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
+		}[connection_db_type(self.connection)]
+		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), params)
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -514,21 +567,25 @@ class DBTable(table.Table):
 
 	def sync_next_id(self):
 		if self.next_id is not None:
-			last, = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.next_id.column_name, self.next_id.index_offset + 1, self.dbtablename)).fetchone()
-			if last is None:
+			max_id = idmap_get_max_id(self.connection, type(self.next_id))
+			if max_id is None:
 				self.set_next_id(type(self.next_id)(0))
 			else:
-				self.set_next_id(type(self.next_id)(last + 1))
+				self.set_next_id(max_id + 1)
 		return self.next_id
 
 	def maxrowid(self):
-		return self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename).fetchone()[0]
+		self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename)
+		return self.cursor.fetchone()[0]
 
 	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename).fetchone()[0]
+		self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename)
+		return self.cursor.fetchone()[0]
 
 	def __iter__(self):
-		for values in self.connection.cursor().execute("SELECT * FROM %s" % self.dbtablename):
+		cursor = self.connection.cursor()
+		cursor.execute("SELECT * FROM %s" % self.dbtablename)
+		for values in cursor:
 			yield self._row_from_cols(values)
 
 	def _append(self, row):
@@ -601,6 +658,7 @@ class DBTable(table.Table):
 
 
 class ProcessTable(DBTable):
+	# FIXME:  remove this class
 	tableName = lsctables.ProcessTable.tableName
 	validcolumns = lsctables.ProcessTable.validcolumns
 	constraints = lsctables.ProcessTable.constraints
@@ -631,6 +689,7 @@ class ProcessParamsTable(DBTable):
 
 
 class SearchSummaryTable(DBTable):
+	# FIXME:  remove this class
 	tableName = lsctables.SearchSummaryTable.tableName
 	validcolumns = lsctables.SearchSummaryTable.validcolumns
 	constraints = lsctables.SearchSummaryTable.constraints
@@ -735,6 +794,7 @@ class TimeSlideTable(DBTable):
 
 
 class CoincDefTable(DBTable):
+	# FIXME:  remove this class
 	tableName = lsctables.CoincDefTable.tableName
 	validcolumns = lsctables.CoincDefTable.validcolumns
 	constraints = lsctables.CoincDefTable.constraints

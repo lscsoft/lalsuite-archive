@@ -2607,6 +2607,63 @@ class VetoDef(object):
 
 VetoDefTable.RowType = VetoDef
 
+
+#
+# =============================================================================
+#
+#                               summ_mime:table
+#
+# =============================================================================
+#
+
+
+SummMimeID = ilwd.get_ilwdchar_class(u"summ_mime", u"summ_mime_id")
+
+
+class SummMimeTable(table.Table):
+	tableName = "summ_mime:table"
+	validcolumns = {
+		"origin": "lstring",
+		"process_id": "ilwd:char",
+		"filename": "lstring",
+		"submitter": "lstring",
+		"frameset_group": "lstring",
+		"segment_def_id": "ilwd:char",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"channel": "lstring",
+		"descrip": "lstring",
+		"mimedata": "blob",
+		"mimedata_length": "int_4s",
+		"mimetype": "lstring",
+		"comment": "lstring",
+		"summ_mime_id": "ilwd:char"
+	}
+	constraints = "PRIMARY KEY (summ_mime_id)"
+	next_id = SummMimeID(0)
+
+
+class SummMime(object):
+	__slots__ = SummMimeTable.validcolumns.keys()
+
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+
+SummMimeTable.RowType = SummMime
+
+
 #
 # =============================================================================
 #
@@ -2653,7 +2710,8 @@ TableByName = {
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
-	table.StripTableName(VetoDefTable.tableName): VetoDefTable
+	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
+	table.StripTableName(SummMimeTable.tableName): SummMimeTable
 }
 
 

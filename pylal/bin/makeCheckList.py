@@ -348,6 +348,13 @@ followupTriggerFile = getFileMatchingTrigger("followUpTriggers",opts.trigger_id,
 if followupTriggerFile:
   fu_triggers.append(followupTriggerFile)
 
+#Set reusable channel wiki link string
+channelWikiLinks="<br>\
+<a href=\"https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki\">\
+LSC Channel Wiki</a><br>\
+<a href=\"https://pub3.ego-gw.it/itf/channelsdb/\">\
+Virgo Channel Wiki</a><br>"
+
 # build the checklist table
 page.h2()
 page.add("Follow-up tests")
@@ -464,7 +471,7 @@ if dqTable=="":
     defaultServer=opts.defaultldbd
   else:
     defaultServer=None
-  windowSize=int(300)
+  windowSize=int(150)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)
@@ -547,6 +554,8 @@ for j,ifo in enumerate(ifolist):
 seismicQscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   seismicQscanLinks += " <a href=\"" + analyse_seismic_qscan[j] + "\">" + ifo + "</a>"
+#Add channel wiki VIRGO and LIGO
+seismicQscanLinks += channelWikiLinks
 page.td(seismicQscanLinks)
 page.td()
 page.tr.close()
@@ -569,6 +578,7 @@ for k in range(0,len(opts.ifo_times)-1,2):
 qscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   qscanLinks += " <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>"
+qscanLinks += channelWikiLinks
 page.td(qscanLinks)
 page.td()
 page.tr.close()
@@ -590,6 +600,8 @@ for k in range(0,len(opts.ifo_times)-1,2):
 qscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   qscanLinks += " <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>"
+qscanLinks += channelWikiLinks
+page.td(qscanLinks)
 page.td()
 page.tr.close()
 
@@ -611,7 +623,7 @@ page.tr()
 page.td("#9 Glitch report")
 page.td("Were the instruments behaving normally according to the weekly glitch report ?")
 page.td()
-page.td("<a href=\"http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift\">Glitch reports</a><br>")
+page.td("<a href=\"https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies\">Glitch reports</a><br>")
 page.td()
 page.tr.close()
 
