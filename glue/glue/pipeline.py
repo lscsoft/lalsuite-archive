@@ -32,6 +32,7 @@ import random
 import math
 import urlparse
 import stat
+import socket
 try:
   # use hashlib if available, python25 and above
   from hashlib import md5
@@ -48,6 +49,18 @@ def s2play(t):
     return 1
   else:
     return 0
+
+# FIXME convenience function until pegasus does this for us
+def recurse_pfn_cache(node,xml=""):
+  for parent in node._CondorDAGNode__parents:
+    if isinstance(parent.job(), CondorDAGManJob):
+      if parent.job().get_dax() is None:
+        pass
+      else:
+        xml = recurse_pfn_cache(parent,xml)
+        xml += "--cache %s " % os.path.join(
+          parent.job().get_pegasus_exec_dir(), '00/P1/P1.cache')
+  return xml
 
 
 class CondorError(exceptions.Exception):
@@ -506,6 +519,8 @@ class CondorDAGManJob:
     self.__dax = dax
     self.__notification = None
     self.__dag_directory= dir
+    self.__pegasus_exec_dir = None
+    self.__pfn_cache = []
 
   def set_dag_directory(self, dir):
     """
@@ -534,6 +549,13 @@ class CondorDAGManJob:
     """
     return self.__dag
 
+  def write_sub_file(self):
+    """
+    Do nothing as there is not need for a sub file with the
+    SUBDAG EXTERNAL command in the uber-dag
+    """
+    pass
+
   def get_dax(self):
     """
     Return the name of any associated dax file
@@ -546,12 +568,29 @@ class CondorDAGManJob:
     """
     return self.__dag
 
-  def write_sub_file(self):
+  def set_pegasus_exec_dir(self,dir):
     """
-    Do nothing as there is not need for a sub file with the
-    SUBDAG EXTERNAL command in the uber-dag
+    Set the directory in which pegasus will generate all log files
     """
-    pass
+    self.__pegasus_exec_dir = dir
+
+  def get_pegasus_exec_dir(self):
+    """
+    Return the directory in which pegasus will generate all log files
+    """
+    return self.__pegasus_exec_dir
+
+  def add_pfn_cache(self,file):
+    """
+    Add an lfn pfn and pool tuple to the pfn cache
+    """
+    self.__pfn_cache.append(file)
+
+  def get_pfn_cache(self):
+    """
+    Return the pfn cache
+    """
+    return self.__pfn_cache
 
 
 class CondorDAGNode:
@@ -1282,7 +1321,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
      <uses file="%s" link="input" register="false" transfer="true" type="data">
           <pfn url="%s" site="local"/>
      </uses>
-</dax>""" % (subdag_name, subdag_path)
+</dag>""" % (subdag_name, subdag_path)
 
         else:
           # write this node as a sub-dax
@@ -1296,15 +1335,17 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
             dax_subdir = '.'
             
           print >>dagfile, """<dax id="%s" file="%s">""" % (id_tag, subdax_name)
+
           xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
-          dax_usertag = node.get_user_tag()
-          if dax_usertag:
-            pegasus_exec_subdir = os.path.join(dax_subdir,dax_usertag)
-          else:
-            pegasus_exec_subdir = dax_subdir
-          xml += """--dir %s """ % pegasus_exec_subdir
-          xml += """-vvvvvv --force -o local --nocleanup</argument>"""
+
+          xml += "--dir %s " % node.job().get_pegasus_exec_dir()
+
+          # FIXME pegasus should really do this for us
+          xml = recurse_pfn_cache(node,xml)
+
+          xml += "-vvvvvv --force -o local --nocleanup</argument>"
           print >>dagfile, xml
+
           print >>dagfile, """\
      <uses file="%s" link="input" register="false" transfer="true" type="data">
           <pfn url="%s" site="local"/>
@@ -1335,16 +1376,26 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         template = """\
 <job id="%s" namespace="ligo" name="%s" version="1.0" level="1" dv-name="%s">
      <argument>%s
-     </argument>\
+     </argument>
 """
         xml = template % (id_tag, os.path.basename(executable), node_name, cmd_line)
 
+        # write the executable into the dax
+        executable_path = os.path.join(os.getcwd(),executable)
+        if self.is_dax():
+          executable_path = '/'.join(
+            ['gsiftp:/', socket.gethostbyaddr(socket.gethostname())[0], 
+            executable_path.lstrip('/')])
+        else:
+          print >>dagfile, """     <execution key="site">local</execution>"""
+        print >>dagfile, """     <execution key="executable">%s</execution>""" % executable_path
+
         # write the group if this node has one
         if node.get_vds_group():
-          template = """<profile namespace="pegasus" key="group">%s</profile>"""
+          template = """     <profile namespace="pegasus" key="group">%s</profile>"""
           xml = xml + template % (node.get_vds_group())
 
-        template = """<profile namespace="condor" key="universe">%s</profile>"""
+        template = """     <profile namespace="condor" key="universe">%s</profile>"""
         xml = xml + template % (node.job().get_universe())
 
         print >>dagfile, xml
@@ -1368,9 +1419,9 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
     # print parent-child relationships to DAX
     for node in self.__nodes:
-      if isinstance(node, LSCDataFindNode):
+      if self.is_dax() and isinstance(node, LSCDataFindNode):
         pass
-      elif ( len(node._CondorDAGNode__parents) == 1 ) and isinstance(node._CondorDAGNode__parents[0], LSCDataFindNode):
+      elif self.is_dax() and ( len(node._CondorDAGNode__parents) == 1 ) and isinstance(node._CondorDAGNode__parents[0], LSCDataFindNode):
         pass
       else:
         child_id = node_name_id_dict[str(node)]
@@ -1387,6 +1438,58 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
     print >>dagfile, "</adag>"
 
     dagfile.close()
+
+    # write the site catalog file which is needed by the DAG
+    try:
+      sitefile = open( 'site-local.xml', 'w' )
+      hostname = socket.gethostbyaddr(socket.gethostname())[0]
+      print >> sitefile, """\
+<?xml version="1.0" encoding="UTF-8"?>
+<sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-3.0.xsd" version="3.0">
+  <site handle="local" arch="x86_64" os="LINUX">
+    <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
+    <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+    <head-fs>
+      <scratch>
+        <shared>
+          <file-server protocol="file" url="file://" mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970">
+          </file-server>
+          <internal-mount-point mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970" free-size="null" total-size="null"/>
+        </shared>
+      </scratch>
+      <storage>
+        <shared>
+          <file-server protocol="file" url="file://" mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970">
+          </file-server>
+          <internal-mount-point mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970" free-size="null" total-size="null"/>
+        </shared>
+      </storage>
+    </head-fs>
+    <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+    </replica-catalog>
+""" % (hostname,hostname)
+      try:
+        print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="LD_LIBRARY_PATH">%s</profile>""" % os.environ['LD_LIBRARY_PATH']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
+      except:
+        pass
+      print >> sitefile, """\
+    <profile namespace="pegasus" key="gridstart">none</profile>
+    <profile namespace="condor" key="should_transfer_files">YES</profile>
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
+  </site>
+</sitecatalog>""" 
+      sitefile.close()
+    except:
+      pass
 
   def write_dag(self):
     """
