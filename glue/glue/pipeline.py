@@ -1253,8 +1253,12 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
       input_files = node.get_input_files()
       output_files = node.get_output_files()
       for f in input_files:
+        # FIXME need a better way of dealing with the cache subdirectory
+        f = os.path.basename(f)
         input_file_dict[f] = 1
       for f in output_files:
+        # FIXME need a better way of dealing with the cache subdirectory
+        f = os.path.basename(f)
         output_file_dict[f] = 1
 
     # move union of input and output into inout
@@ -1369,7 +1373,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         for f in node.get_output_files():
           node_file_dict[f] = 1
         for f in node_file_dict.keys():
-          xml = '<filename file="%s" />' % f
+          # FIXME need a better way of dealing with the cache subdirectory
+          xml = '<filename file="%s" />' % os.path.basename(f)
           cmd_line = cmd_line.replace(f, xml)
 
         template = """\
@@ -1400,6 +1405,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         print >>dagfile, xml
 
         for f in node.get_input_files():
+          # FIXME need a better way of dealing with the cache subdirectory
+          f = os.path.basename(f)
           if f in inout_filelist:
             print >>dagfile, """\
      <uses file="%s" link="inout" register="false" transfer="true"/>\
@@ -1410,6 +1417,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 """ % f
 
         for f in node.get_output_files():
+          # FIXME need a better way of dealing with the cache subdirectory
+          f = os.path.basename(f)
           print >>dagfile, """\
      <uses file="%s" link="output" register="false" transfer="true"/>\
 """ % f
