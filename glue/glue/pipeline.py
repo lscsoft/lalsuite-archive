@@ -1090,8 +1090,6 @@ class CondorDAG:
     self.__integer_node_names = 0
     self.__node_count = 0
     self.__nodes_finalized = 0
-    self.__rls_filelist = []
-    self.__data_find_files = []
 
   def get_nodes(self):
     """
@@ -1251,18 +1249,17 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
     # creating dictionary for input- and output-files
     for node in self.__nodes:
-      if isinstance(node, LSCDataFindNode):
-        # make a list of the output files here so that I can have a
-        # more sensible rls_cache method that doesn't just ignore .gwf
-        self.__data_find_files.extend(node.get_output())
 
-      else:
-        input_files = node.get_input_files()
-        output_files = node.get_output_files()
-        for f in input_files:
-          input_file_dict[f] = 1
-        for f in output_files:
-          output_file_dict[f] = 1
+      input_files = node.get_input_files()
+      output_files = node.get_output_files()
+      for f in input_files:
+        # FIXME need a better way of dealing with the cache subdirectory
+        f = os.path.basename(f)
+        input_file_dict[f] = 1
+      for f in output_files:
+        # FIXME need a better way of dealing with the cache subdirectory
+        f = os.path.basename(f)
+        output_file_dict[f] = 1
 
     # move union of input and output into inout
     inout_file_dict = {}
@@ -1278,13 +1275,18 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
     # print input, inout, and output to dax
     input_filelist = input_file_dict.keys()
     input_filelist.sort()
-    self.__rls_filelist = input_filelist
+    for f in input_filelist:
+      print >>dagfile, """    <filename file="%s" link="input"/>""" % f
 
     inout_filelist = inout_file_dict.keys()
     inout_filelist.sort()
+    for f in inout_filelist:
+      print >>dagfile, """    <filename file="%s" link="inout"/>""" % f
 
     output_filelist = output_file_dict.keys()
     output_filelist.sort()
+    for f in output_filelist:
+      print >>dagfile, """    <filename file="%s" link="output"/>""" % f
 
     # write the jobs themselves to the DAX, making sure
     # to replace logical file references by the appropriate
@@ -1338,10 +1340,18 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
           xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
 
-          xml += "--dir %s " % node.job().get_pegasus_exec_dir()
+          dax_usertag = node.get_user_tag()
+          if dax_usertag:
+            pegasus_exec_subdir = os.path.join(dax_subdir,dax_usertag)
+          else:
+            pegasus_exec_subdir = dax_subdir
+          xml += """--dir %s """ % pegasus_exec_subdir
 
           # FIXME pegasus should really do this for us
           xml = recurse_pfn_cache(node,xml)
+
+          if not self.is_dax():
+            xml += "-s local "
 
           xml += "-vvvvvv --force -o local --nocleanup</argument>"
           print >>dagfile, xml
@@ -1353,6 +1363,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 </dax>""" % (subdax_name, subdax_path)
 
       else:
+        # write this job as a regular node
         executable = node.job()._CondorJob__executable
         node_name = node._CondorDAGNode__name
 
@@ -1370,7 +1381,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         for f in node.get_output_files():
           node_file_dict[f] = 1
         for f in node_file_dict.keys():
-          xml = '<filename file="%s" />' % f
+          # FIXME need a better way of dealing with the cache subdirectory
+          xml = '<filename file="%s" />' % os.path.basename(f)
           cmd_line = cmd_line.replace(f, xml)
 
         template = """\
@@ -1387,12 +1399,12 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
             ['gsiftp:/', socket.gethostbyaddr(socket.gethostname())[0], 
             executable_path.lstrip('/')])
         else:
-          print >>dagfile, """     <execution key="site">local</execution>"""
-        print >>dagfile, """     <execution key="executable">%s</execution>""" % executable_path
+          xml = xml + """     <execution key="site">local</execution>\n"""
+        xml = xml +  """     <execution key="executable">%s</execution>\n""" % executable_path
 
         # write the group if this node has one
         if node.get_vds_group():
-          template = """     <profile namespace="pegasus" key="group">%s</profile>"""
+          template = """     <profile namespace="pegasus" key="group">%s</profile>\n"""
           xml = xml + template % (node.get_vds_group())
 
         template = """     <profile namespace="condor" key="universe">%s</profile>"""
@@ -1401,6 +1413,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         print >>dagfile, xml
 
         for f in node.get_input_files():
+          # FIXME need a better way of dealing with the cache subdirectory
+          f = os.path.basename(f)
           if f in inout_filelist:
             print >>dagfile, """\
      <uses file="%s" link="inout" register="false" transfer="true"/>\
@@ -1411,6 +1425,8 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 """ % f
 
         for f in node.get_output_files():
+          # FIXME need a better way of dealing with the cache subdirectory
+          f = os.path.basename(f)
           print >>dagfile, """\
      <uses file="%s" link="output" register="false" transfer="true"/>\
 """ % f
@@ -1428,7 +1444,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         if node._CondorDAGNode__parents:
           print >>dagfile, '<child ref="%s">' % child_id
           for parent in node._CondorDAGNode__parents:
-            if isinstance(parent, LSCDataFindNode):
+            if self.is_dax() and isinstance(parent, LSCDataFindNode):
               pass
             else:
               parent_id = node_name_id_dict[str(parent)]
