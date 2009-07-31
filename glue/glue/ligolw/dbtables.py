@@ -543,8 +543,6 @@ class DBTable(table.Table):
 			"mysql": ligolwtypes.ToMySQLType
 		}[connection_db_type(self.connection)]
 		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
-		if connection_db_type(self.connection) == "mysql" and "rowid" not in map(str.lower, self.dbcolumnnames):
-			statement += ", ROWID INTEGER UNIQUE AUTO_INCREMENT"
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -688,42 +686,6 @@ class ProcessParamsTable(DBTable):
 		DBTable.append(self, row)
 
 
-class SearchSummaryTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.SearchSummaryTable.tableName
-	validcolumns = lsctables.SearchSummaryTable.validcolumns
-	constraints = lsctables.SearchSummaryTable.constraints
-	next_id = lsctables.SearchSummaryTable.next_id
-	RowType = lsctables.SearchSummaryTable.RowType
-	how_to_index = lsctables.SearchSummaryTable.how_to_index
-
-	def get_out_segmentlistdict(self, process_ids = None):
-		"""
-		Return a segmentlistdict mapping instrument to out segment
-		list.  If process_ids is a list of process IDs, then only
-		rows with matching IDs are included otherwise all rows are
-		included.
-
-		Note:  the result is not coalesced, each segmentlist
-		contains the segments listed for that instrument as they
-		appeared in the table.
-		"""
-		# start a segment list dictionary
-		seglists = segments.segmentlistdict()
-
-		# add segments from appropriate rows to segment list
-		# dictionary
-		for row in self:
-			ifos = row.get_ifos()
-			if ifos is None:
-				ifos = (None,)
-			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
-
-		# done
-		return seglists
-
-
 class TimeSlideTable(DBTable):
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
@@ -793,46 +755,6 @@ class TimeSlideTable(DBTable):
 		raise NotImplementedError
 
 
-class CoincDefTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.CoincDefTable.tableName
-	validcolumns = lsctables.CoincDefTable.validcolumns
-	constraints = lsctables.CoincDefTable.constraints
-	next_id = lsctables.CoincDefTable.next_id
-	RowType = lsctables.CoincDefTable.RowType
-	how_to_index = lsctables.CoincDefTable.how_to_index
-
-	def get_coinc_def_id(self, search, coinc_type, create_new = True, description = u""):
-		"""
-		Return the coinc_def_id for the row in the table whose
-		search string and search_coinc_type integer have the values
-		given.  If a matching row is not found, the default
-		behaviour is to create a new row and return the ID assigned
-		to the new row.  If, instead, create_new is False then
-		KeyError is raised when a matching row is not found.  The
-		optional description parameter can be used to set the
-		description string assigned to the new row if one is
-		created, otherwise the new row is left with an empty
-		description.
-		"""
-		# look for the ID
-		for row in self:
-			if (row.search, row.search_coinc_type) == (search, coinc_type):
-				# found it
-				return row.coinc_def_id
-
-		# coinc type not found in table
-		if not create_new:
-			raise KeyError, (search, coinc_type)
-		self.sync_next_id()
-		row = self.RowType()
-		row.coinc_def_id = self.get_next_id()
-		row.search = search
-		row.search_coinc_type = coinc_type
-		row.description = description
-		self.append(row)
-
-
 #
 # =============================================================================
 #
@@ -882,9 +804,7 @@ def build_indexes(connection, verbose = False):
 TableByName = {
 	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-	table.StripTableName(CoincDefTable.tableName): CoincDefTable
+	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
 }
 
 
