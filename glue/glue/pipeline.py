@@ -1268,21 +1268,13 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
       del input_file_dict[f]
       del output_file_dict[f]
 
-    # print input, inout, and output to dax
+    # create and soft input, inout, and output dictionaries
     input_filelist = input_file_dict.keys()
     input_filelist.sort()
-    for f in input_filelist:
-      print >>dagfile, """    <filename file="%s" link="input"/>""" % f
-
     inout_filelist = inout_file_dict.keys()
     inout_filelist.sort()
-    for f in inout_filelist:
-      print >>dagfile, """    <filename file="%s" link="inout"/>""" % f
-
     output_filelist = output_file_dict.keys()
     output_filelist.sort()
-    for f in output_filelist:
-      print >>dagfile, """    <filename file="%s" link="output"/>""" % f
 
     # write the jobs themselves to the DAX, making sure
     # to replace logical file references by the appropriate
@@ -1450,6 +1442,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
     try:
       sitefile = open( 'site-local.xml', 'w' )
       hostname = socket.gethostbyaddr(socket.gethostname())[0]
+      pwd = os.getcwd()
       print >> sitefile, """\
 <?xml version="1.0" encoding="UTF-8"?>
 <sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -1460,22 +1453,22 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <head-fs>
       <scratch>
         <shared>
-          <file-server protocol="file" url="file://" mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970">
+          <file-server protocol="file" url="file://" mount-point="%s">
           </file-server>
-          <internal-mount-point mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970" free-size="null" total-size="null"/>
+          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
         </shared>
       </scratch>
       <storage>
         <shared>
-          <file-server protocol="file" url="file://" mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970">
+          <file-server protocol="file" url="file://" mount-point="%s">
           </file-server>
-          <internal-mount-point mount-point="/home/dbrown/projects/cbc/dax/ihope-dax3.0/847555570-847641970" free-size="null" total-size="null"/>
+          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
         </shared>
       </storage>
     </head-fs>
     <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
     </replica-catalog>
-""" % (hostname,hostname)
+""" % (hostname,hostname,pwd,pwd,pwd,pwd)
       try:
         print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
       except:
