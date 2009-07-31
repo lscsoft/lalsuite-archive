@@ -51,16 +51,16 @@ def s2play(t):
     return 0
 
 # FIXME convenience function until pegasus does this for us
-def recurse_pfn_cache(node,xml=""):
+def recurse_pfn_cache(node,caches=[]):
   for parent in node._CondorDAGNode__parents:
     if isinstance(parent.job(), CondorDAGManJob):
       if parent.job().get_dax() is None:
         pass
       else:
-        xml = recurse_pfn_cache(parent,xml)
-        xml += "--cache %s " % os.path.join(
-          parent.job().get_pegasus_exec_dir(), '00/P1/P1.cache')
-  return xml
+        caches = recurse_pfn_cache(parent,caches)
+        caches.append( os.path.join(
+          parent.job().get_pegasus_exec_dir(), '00/P1/P1.cache') )
+  return caches
 
 
 class CondorError(exceptions.Exception):
@@ -1340,12 +1340,15 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           xml += """--dir %s """ % pegasus_exec_subdir
 
           # FIXME pegasus should really do this for us
-          xml = recurse_pfn_cache(node,xml)
+          caches = recurse_pfn_cache(node)
+
+          caches += node.job().get_pfn_cache()
+          xml += "--cache " + ','.join(caches) + " "
 
           if not self.is_dax():
-            xml += "-s local "
+            xml += "-s local --nocleanup "
 
-          xml += "-vvvvvv --force -o local --nocleanup</argument>"
+          xml += "-vvvvvv --force -o local</argument>"
           print >>dagfile, xml
 
           print >>dagfile, """\
@@ -1399,8 +1402,12 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           template = """     <profile namespace="pegasus" key="group">%s</profile>\n"""
           xml = xml + template % (node.get_vds_group())
 
-        template = """     <profile namespace="condor" key="universe">%s</profile>"""
-        xml = xml + template % (node.job().get_universe())
+        if self.is_dax():
+          # FIXME should put remote universe property here
+          pass
+        else:
+          template = """     <profile namespace="condor" key="universe">%s</profile>"""
+          xml = xml + template % (node.job().get_universe())
 
         print >>dagfile, xml
 
