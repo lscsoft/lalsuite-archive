@@ -257,6 +257,7 @@ setup(
 		os.path.join("bin", "plotcoincseglength"),
 		os.path.join("bin", "plotsegments"),
 		os.path.join("bin", "plotthinca"),
+		os.path.join("bin", "pylal_cache_to_mvsc.py"),
 		os.path.join("bin", "pylal_combine_posteriors"),
 		os.path.join("bin", "pylal_followup_missed"),
 		os.path.join("bin", "followupRescueHtml"),
