@@ -1305,17 +1305,19 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           # write this node as a sub-dag
           subdag_name = os.path.split(node.job().get_dag())[-1]
           try:
-            subdag_path = os.path.join(
-              os.getcwd(),node.job().get_dag_directory(),subdag_name)
+            subdag_exec_path = os.path.join(
+              os.getcwd(),node.job().get_dag_directory())
           except AttributeError:
-            subdag_path = os.path.join(os.getcwd(),subdag_name)
+            subdag_exec_path = os.getcwd()
 
           print >>dagfile, """<dag id="%s" file="%s">""" % (id_tag, subdag_name)
+          print >>dagfile, """\
+     <profile namespace="dagman" key="DIR">%s</profile>""" % subdag_exec_path
           print >>dagfile, """\
      <uses file="%s" link="input" register="false" transfer="true" type="data">
           <pfn url="%s" site="local"/>
      </uses>
-</dag>""" % (subdag_name, subdag_path)
+</dag>""" % (subdag_name, os.path.join(subdag_exec_path,subdag_name))
 
         else:
           # write this node as a sub-dax
