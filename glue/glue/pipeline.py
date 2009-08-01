@@ -1496,13 +1496,15 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
       except:
         pass
       try:
+        print >> sitefile, """    <profile namespace="env" key="PYTHONPATH">%s</profile>""" % os.environ['PYTHONPATH']
+      except:
+        pass
+      try:
         print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
       except:
         pass
       print >> sitefile, """\
     <profile namespace="pegasus" key="gridstart">none</profile>
-    <profile namespace="condor" key="should_transfer_files">YES</profile>
-    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
   </site>
 </sitecatalog>""" 
       sitefile.close()
