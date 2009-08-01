@@ -69,22 +69,6 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-def connection_db_type(connection):
-	"""
-	A totally broken attempt to determine what type of database a
-	connection object is attached to.  Don't use this.
-
-	The input is a DB API 2.0 compliant connection object, the return
-	value is one of the strings "sqlite3" or "mysql".  Raises TypeError
-	when the database type cannot be determined.
-	"""
-	if "sqlite3" in repr(connection):
-		return "sqlite3"
-	if "mysql" in repr(connection):
-		return "mysql"
-	raise TypeError, connection
-
-
 def DBTable_set_connection(connection):
 	"""
 	Set the Python DB-API 2.0 compatible connection the DBTable class
@@ -288,8 +272,7 @@ def idmap_get_new(connection, old, tbl):
 	to re-map row IDs when merging multiple documents.
 	"""
 	cursor = connection.cursor()
-	cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,))
-	new = cursor.fetchone()
+	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
 		return new[0]
@@ -314,9 +297,7 @@ def idmap_get_max_id(connection, id_class):
 	>>> print max
 	sngl_inspiral:event_id:1054
 	"""
-	cursor = connection.cursor()
-	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
-	max = cursor.fetchone()[0]
+	max = connection.cursor().execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name)).fetchone()[0]
 	if max is None:
 		return None
 	return id_class(max)
@@ -349,9 +330,7 @@ def get_table_names(connection):
 	"""
 	Return a list of the table names in the database.
 	"""
-	cursor = connection.cursor()
-	cursor.execute("SELECT name FROM sqlite_master WHERE type == 'table'")
-	return [name for (name,) in cursor]
+	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
 def get_column_info(connection, table_name):
@@ -359,9 +338,7 @@ def get_column_info(connection, table_name):
 	Return an in order list of (name, type) tuples describing the
 	columns in the given table.
 	"""
-	cursor = connection.cursor()
-	cursor.execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,))
-	statement, = cursor.fetchone()
+	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
@@ -538,13 +515,7 @@ class DBTable(table.Table):
 			self.dbcolumntypes = self.columntypes
 
 		# create the table
-		ToSQLType = {
-			"sqlite3": ligolwtypes.ToSQLiteType,
-			"mysql": ligolwtypes.ToMySQLType
-		}[connection_db_type(self.connection)]
-		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
-		if connection_db_type(self.connection) == "mysql" and "rowid" not in map(str.lower, self.dbcolumnnames):
-			statement += ", ROWID INTEGER UNIQUE AUTO_INCREMENT"
+		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ligolwtypes.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -554,11 +525,7 @@ class DBTable(table.Table):
 		self.last_maxrowid = self.maxrowid() or 0
 
 		# construct the SQL to be used to insert new rows
-		params = {
-			"sqlite3": ",".join("?" * len(self.dbcolumnnames)),
-			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
-		}[connection_db_type(self.connection)]
-		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), params)
+		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), ",".join("?" * len(self.dbcolumnnames)))
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -575,17 +542,13 @@ class DBTable(table.Table):
 		return self.next_id
 
 	def maxrowid(self):
-		self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename)
-		return self.cursor.fetchone()[0]
+		return self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename).fetchone()[0]
 
 	def __len__(self):
-		self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename)
-		return self.cursor.fetchone()[0]
+		return self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename).fetchone()[0]
 
 	def __iter__(self):
-		cursor = self.connection.cursor()
-		cursor.execute("SELECT * FROM %s" % self.dbtablename)
-		for values in cursor:
+		for values in self.connection.cursor().execute("SELECT * FROM %s" % self.dbtablename):
 			yield self._row_from_cols(values)
 
 	def _append(self, row):
@@ -658,7 +621,6 @@ class DBTable(table.Table):
 
 
 class ProcessTable(DBTable):
-	# FIXME:  remove this class
 	tableName = lsctables.ProcessTable.tableName
 	validcolumns = lsctables.ProcessTable.validcolumns
 	constraints = lsctables.ProcessTable.constraints
@@ -689,7 +651,6 @@ class ProcessParamsTable(DBTable):
 
 
 class SearchSummaryTable(DBTable):
-	# FIXME:  remove this class
 	tableName = lsctables.SearchSummaryTable.tableName
 	validcolumns = lsctables.SearchSummaryTable.validcolumns
 	constraints = lsctables.SearchSummaryTable.constraints
@@ -794,7 +755,6 @@ class TimeSlideTable(DBTable):
 
 
 class CoincDefTable(DBTable):
-	# FIXME:  remove this class
 	tableName = lsctables.CoincDefTable.tableName
 	validcolumns = lsctables.CoincDefTable.validcolumns
 	constraints = lsctables.CoincDefTable.constraints
