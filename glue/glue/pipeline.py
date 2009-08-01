@@ -836,10 +836,9 @@ class CondorDAGNode:
     @param opt: option name.
     @param value: value of the option for this node in the DAG.
     """
-    if value:
-      macro = self.__bad_macro_chars.sub( r'', opt )
-      self.__opts['macro' + macro] = value
-      self.__job.add_var_opt(opt)
+    macro = self.__bad_macro_chars.sub( r'', opt )
+    self.__opts['macro' + macro] = value
+    self.__job.add_var_opt(opt)
 
   def add_file_opt(self,opt,filename,file_is_output_file=False):
     """
@@ -852,10 +851,9 @@ class CondorDAGNode:
     @param file_is_output_file: A boolean if the file will be an output file
     instead of an input file.  The default is to have it be an input.
     """
-    if filename:
-      self.add_var_opt(opt,filename)
-      if file_is_output_file: self.add_output_file(filename)
-      else: self.add_input_file(filename)
+    self.add_var_opt(opt,filename)
+    if file_is_output_file: self.add_output_file(filename)
+    else: self.add_input_file(filename)
 
   def add_var_arg(self, arg):
     """
