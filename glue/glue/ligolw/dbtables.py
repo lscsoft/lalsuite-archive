@@ -69,22 +69,6 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-def connection_db_type(connection):
-	"""
-	A totally broken attempt to determine what type of database a
-	connection object is attached to.  Don't use this.
-
-	The input is a DB API 2.0 compliant connection object, the return
-	value is one of the strings "sqlite3" or "mysql".  Raises TypeError
-	when the database type cannot be determined.
-	"""
-	if "sqlite3" in repr(connection):
-		return "sqlite3"
-	if "mysql" in repr(connection):
-		return "mysql"
-	raise TypeError, connection
-
-
 def DBTable_set_connection(connection):
 	"""
 	Set the Python DB-API 2.0 compatible connection the DBTable class
@@ -288,8 +272,7 @@ def idmap_get_new(connection, old, tbl):
 	to re-map row IDs when merging multiple documents.
 	"""
 	cursor = connection.cursor()
-	cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,))
-	new = cursor.fetchone()
+	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
 		return new[0]
@@ -314,9 +297,7 @@ def idmap_get_max_id(connection, id_class):
 	>>> print max
 	sngl_inspiral:event_id:1054
 	"""
-	cursor = connection.cursor()
-	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
-	max = cursor.fetchone()[0]
+	max = connection.cursor().execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name)).fetchone()[0]
 	if max is None:
 		return None
 	return id_class(max)
@@ -349,9 +330,7 @@ def get_table_names(connection):
 	"""
 	Return a list of the table names in the database.
 	"""
-	cursor = connection.cursor()
-	cursor.execute("SELECT name FROM sqlite_master WHERE type == 'table'")
-	return [name for (name,) in cursor]
+	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
 def get_column_info(connection, table_name):
@@ -359,9 +338,7 @@ def get_column_info(connection, table_name):
 	Return an in order list of (name, type) tuples describing the
 	columns in the given table.
 	"""
-	cursor = connection.cursor()
-	cursor.execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,))
-	statement, = cursor.fetchone()
+	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
@@ -538,11 +515,7 @@ class DBTable(table.Table):
 			self.dbcolumntypes = self.columntypes
 
 		# create the table
-		ToSQLType = {
-			"sqlite3": ligolwtypes.ToSQLiteType,
-			"mysql": ligolwtypes.ToMySQLType
-		}[connection_db_type(self.connection)]
-		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ligolwtypes.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -552,11 +525,7 @@ class DBTable(table.Table):
 		self.last_maxrowid = self.maxrowid() or 0
 
 		# construct the SQL to be used to insert new rows
-		params = {
-			"sqlite3": ",".join("?" * len(self.dbcolumnnames)),
-			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
-		}[connection_db_type(self.connection)]
-		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), params)
+		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), ",".join("?" * len(self.dbcolumnnames)))
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -573,17 +542,13 @@ class DBTable(table.Table):
 		return self.next_id
 
 	def maxrowid(self):
-		self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename)
-		return self.cursor.fetchone()[0]
+		return self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename).fetchone()[0]
 
 	def __len__(self):
-		self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename)
-		return self.cursor.fetchone()[0]
+		return self.cursor.execute("SELECT COUNT(*) FROM %s" % self.dbtablename).fetchone()[0]
 
 	def __iter__(self):
-		cursor = self.connection.cursor()
-		cursor.execute("SELECT * FROM %s" % self.dbtablename)
-		for values in cursor:
+		for values in self.connection.cursor().execute("SELECT * FROM %s" % self.dbtablename):
 			yield self._row_from_cols(values)
 
 	def _append(self, row):
@@ -656,7 +621,6 @@ class DBTable(table.Table):
 
 
 class ProcessTable(DBTable):
-	# FIXME:  remove this class
 	tableName = lsctables.ProcessTable.tableName
 	validcolumns = lsctables.ProcessTable.validcolumns
 	constraints = lsctables.ProcessTable.constraints
@@ -684,6 +648,41 @@ class ProcessParamsTable(DBTable):
 		if row.type is not None and row.type not in ligolwtypes.Types:
 			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		DBTable.append(self, row)
+
+
+class SearchSummaryTable(DBTable):
+	tableName = lsctables.SearchSummaryTable.tableName
+	validcolumns = lsctables.SearchSummaryTable.validcolumns
+	constraints = lsctables.SearchSummaryTable.constraints
+	next_id = lsctables.SearchSummaryTable.next_id
+	RowType = lsctables.SearchSummaryTable.RowType
+	how_to_index = lsctables.SearchSummaryTable.how_to_index
+
+	def get_out_segmentlistdict(self, process_ids = None):
+		"""
+		Return a segmentlistdict mapping instrument to out segment
+		list.  If process_ids is a list of process IDs, then only
+		rows with matching IDs are included otherwise all rows are
+		included.
+
+		Note:  the result is not coalesced, each segmentlist
+		contains the segments listed for that instrument as they
+		appeared in the table.
+		"""
+		# start a segment list dictionary
+		seglists = segments.segmentlistdict()
+
+		# add segments from appropriate rows to segment list
+		# dictionary
+		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
+			if process_ids is None or row.process_id in process_ids:
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
+
+		# done
+		return seglists
 
 
 class TimeSlideTable(DBTable):
@@ -755,6 +754,45 @@ class TimeSlideTable(DBTable):
 		raise NotImplementedError
 
 
+class CoincDefTable(DBTable):
+	tableName = lsctables.CoincDefTable.tableName
+	validcolumns = lsctables.CoincDefTable.validcolumns
+	constraints = lsctables.CoincDefTable.constraints
+	next_id = lsctables.CoincDefTable.next_id
+	RowType = lsctables.CoincDefTable.RowType
+	how_to_index = lsctables.CoincDefTable.how_to_index
+
+	def get_coinc_def_id(self, search, coinc_type, create_new = True, description = u""):
+		"""
+		Return the coinc_def_id for the row in the table whose
+		search string and search_coinc_type integer have the values
+		given.  If a matching row is not found, the default
+		behaviour is to create a new row and return the ID assigned
+		to the new row.  If, instead, create_new is False then
+		KeyError is raised when a matching row is not found.  The
+		optional description parameter can be used to set the
+		description string assigned to the new row if one is
+		created, otherwise the new row is left with an empty
+		description.
+		"""
+		# look for the ID
+		for row in self:
+			if (row.search, row.search_coinc_type) == (search, coinc_type):
+				# found it
+				return row.coinc_def_id
+
+		# coinc type not found in table
+		if not create_new:
+			raise KeyError, (search, coinc_type)
+		self.sync_next_id()
+		row = self.RowType()
+		row.coinc_def_id = self.get_next_id()
+		row.search = search
+		row.search_coinc_type = coinc_type
+		row.description = description
+		self.append(row)
+
+
 #
 # =============================================================================
 #
@@ -804,7 +842,9 @@ def build_indexes(connection, verbose = False):
 TableByName = {
 	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
+	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
+	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
+	table.StripTableName(CoincDefTable.tableName): CoincDefTable
 }
 
 
