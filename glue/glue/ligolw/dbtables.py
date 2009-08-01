@@ -79,8 +79,8 @@ def connection_db_type(connection):
 	value is one of the strings "sqlite3" or "mysql".  Raises TypeError
 	when the database type cannot be determined.
 	"""
-	if "sqlite3" in repr(connection):
-		return "sqlite3"
+	if "sqlite" in repr(connection):
+		return "sqlite"
 	if "mysql" in repr(connection):
 		return "mysql"
 	raise TypeError, connection
@@ -526,7 +526,7 @@ class DBTable(table.Table):
 
 		# create the table
 		ToSQLType = {
-			"sqlite3": ligolwtypes.ToSQLiteType,
+			"sqlite": ligolwtypes.ToSQLiteType,
 			"mysql": ligolwtypes.ToMySQLType
 		}[connection_db_type(self.connection)]
 		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
@@ -540,7 +540,7 @@ class DBTable(table.Table):
 
 		# construct the SQL to be used to insert new rows
 		params = {
-			"sqlite3": ",".join("?" * len(self.dbcolumnnames)),
+			"sqlite": ",".join("?" * len(self.dbcolumnnames)),
 			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
 		}[connection_db_type(self.connection)]
 		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), params)
