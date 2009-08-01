@@ -46,6 +46,7 @@ try:
 	set
 except NameError:
 	from sets import Set as set
+from warnings import warn
 
 
 import ligolw
@@ -453,21 +454,15 @@ class DBTable(table.Table):
 
 	Example:
 
-	import dbtables
-
-	# set class attribute
-	dbtables.DBTable_set_connection(connection)
-
-	# create a process table instance connected to that database
-	table_elem = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}))
+	>>> tbl = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}), connection = connection)
 	"""
 	#
 	# When instances of this class are created, they initialize their
-	# connection attributes from the value of this class attribute at
-	# the time of their creation.  The value must be passed into the
-	# __init__() method this way because it cannot be passed in as a
-	# separate argument;  this class' __init__() method must have the
-	# same signature as normal Element subclasses.
+	# connection attributes from the value of this class attribute.
+	#
+	# NOTE:  this is deprecated;  this class attribute will be removed,
+	# and the connection parameter of the __init__() method will be the
+	# only way to pass this information to the class in the future.
 	#
 
 	connection = None
@@ -478,19 +473,10 @@ class DBTable(table.Table):
 			# no, try to retrieve it from lsctables
 			attrs, = args
 			name = table.StripTableName(attrs[u"Name"])
-			try:
+			if name in lsctables.TableByName:
+				# found metadata in lsctables, construct
+				# custom subclass.
 				lsccls = lsctables.TableByName[name]
-			except KeyError:
-				# unknown table, give up
-				pass
-			else:
-				# found metadata, construct custom
-				# subclass.  NOTE:  this works because when
-				# using SQL-backed tables there can only be
-				# ONE of any table in a document, which
-				# solves the problem of trying to share the
-				# next_id attribute across multiple
-				# instances of a table.
 				class CustomDBTable(cls):
 					tableName = lsccls.tableName
 					validcolumns = lsccls.validcolumns
@@ -521,6 +507,7 @@ class DBTable(table.Table):
 		if "connection" in kwargs:
 			self.connection = kwargs.pop("connection")
 		else:
+			warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
 			self.connection = self.connection
 
 		# pre-allocate a cursor for internal queries
@@ -842,8 +829,8 @@ def startTable(self, attrs):
 	if name in map(table.StripTableName, NonDBTableNames):
 		return __parent_startTable(self, attrs)
 	if name in TableByName:
-		return TableByName[name](attrs)
-	return DBTable(attrs)
+		return TableByName[name](attrs, connection = DBTable.connection)
+	return DBTable(attrs, connection = DBTable.connection)
 
 
 ligolw.LIGOLWContentHandler.startTable = startTable
