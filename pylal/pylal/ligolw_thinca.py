@@ -43,7 +43,7 @@ try:
 	all
 except NameError:
 	# Python < 2.5.x
-	from iterutils import all as all
+	from glue.iterutils import all as all
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
