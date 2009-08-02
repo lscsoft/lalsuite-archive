@@ -219,14 +219,31 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 		# hmm... that program's output is not in this file.
 		raise KeyError, program
 
-	# extract a segmentlistdict;  protract by half the largest
-	# coincidence window so as to not miss edge effects
+	# extract a segmentlistdict
 	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce().protract(max_segment_gap / 2)
-	avail_instruments = set(seglistdict.keys())
+	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce()
+
+	# fast path:  if the largest gap anywhere in the lists is smaller
+	# than max_segment_gap then all process_ids participate.  NOTE:
+	# this also handles the case of max_segment_gap being passed in as
+	# float("inf") (which would otherwise break the LIGOTimeGPS
+	# arithmetic).
+	#
+	# this is checking the gaps between segments in the *same
+	# instrument*.  this assumption is that if max_segment_gap can
+	# close all the gaps within each instrument's segment list then,
+	# finally, all processes will be found to be required for the
+	# coincidence analysis.  this is not really true, but it's safe.
+	if max(b[0] - a[1] for segs in seglistdict.values() for a, b in zip(segs[:-1], segs[1:])) <= max_segment_gap:
+		return proc_ids
+
+	# protract by half the largest coincidence window so as to not miss
+	# edge effects
+	seglistdict.protract(max_segment_gap / 2)
 
 	# determine what time slides are possible given the instruments in
 	# the search summary table
+	avail_instruments = set(seglistdict.keys())
 	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector.keys()).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
