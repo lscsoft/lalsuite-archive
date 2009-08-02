@@ -1817,6 +1817,7 @@ class AnalysisNode(CondorDAGNode):
       # we have an LFN list
       self.add_var_opt('glob-frame-data',' ')
       # only add the LFNs that actually overlap with this job
+      # XXX FIXME this is a very slow algorithm
       for lfn in filename:
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)
