@@ -61,6 +61,78 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+def time_slide_component_offsets(offset_vectors):
+	"""
+	Given an iterable of time slide vectors, return the shortest list
+	of the unique two-instrument time slide vectors from which all the
+	vectors in the input list can be consructed.  This can be used to
+	determine the minimal set of two-instrument coincs required to
+	construct all the coincs for all the requested instrument and
+	offset combinations in the time slide list.
+
+	It is assumed that the coincs for the vector {"H1": 0, "H2": 10,
+	"L1": 20} can be constructed from the coincs for the vectors {"H1":
+	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
+	offsets are significant in determining if two events are
+	coincident, not the absolute offsets.  This is not true for the
+	standard inspiral pipeline.
+	"""
+	#
+	# collect unique instrument pair / offset combinations
+	#
+
+	doubles = {}
+	for offset_vector in offset_vectors:
+		for ab in iterutils.choices(sorted(offset_vector.keys()), 2):
+			doubles.setdefault(ab, set()).add(offset_vector[ab[1]] - offset_vector[ab[0]])
+
+	#
+	# translate into a list of two-instrument offset vectors
+	#
+
+	return [{a: 0.0, b: delta} for (a, b), deltas in doubles.items() for delta in deltas]
+
+
+def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
+	"""
+	Print a summary of the output of time_slide_component_offsets().
+	"""
+	#
+	# organize the information
+	#
+	# groupby requires its input to be grouped (= sorted) by the
+	# grouping key (the instruments), so we have to do this first.
+	# after constructing the strings, we make sure the lists of offset
+	# strings are all the same length by appending empty strings as
+	# needed.  finally we transpose the whole mess so that it's stored
+	# as rows instead of columns.
+	#
+
+	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a.keys()), sorted(b.keys())))
+	l = [["%s - %s" % (b, a)] + ["%.17g s" % offset for offset in sorted(offset_vector[b] - offset_vector[a] for offset_vector in offset_vectors)] for (a, b), offset_vectors in itertools.groupby(l, lambda v: sorted(v.keys()))]
+	n = max(len(offsets) for offsets in l)
+	for offsets in l:
+		offsets += [""] * (n - len(offsets))
+	l = zip(*l)
+
+	#
+	# find the width of the columns
+	#
+
+	width = max(max(len(s) for s in line) for line in l)
+	format = "%%%ds" % width
+
+	#
+	# print the offsets
+	#
+
+	lines = iter(l)
+	print >>fileobj, " | ".join(format % s for s in lines.next())
+	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
+	for line in lines:
+		print >>fileobj, " | ".join(format % s for s in line)
+
+
 def time_slide_consideration_order(time_slide_table):
 	"""
 	Given a time_slide table, return a list of the unique
