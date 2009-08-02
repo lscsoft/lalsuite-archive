@@ -61,11 +61,18 @@ __date__ = "$Date$"[7:-2]
 
 
 #
-# Use C row types for coinc_event_map and sngl_inspiral tables
+# Use C row type for coinc_event_map table
 #
 
 
 lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
+
+
+#
+# Construct a subclass of the C sngl_inspiral row class with the methods
+# that are needed
+#
+
 
 class SnglInspiral(xlaltools.SnglInspiralTable):
 	__slots__ = ()
@@ -75,13 +82,6 @@ class SnglInspiral(xlaltools.SnglInspiralTable):
 
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_id_parts(self):
-		int_event_id = int(self.event_id)
-		a = int_event_id // 1000000000
-		slidenum = (int_event_id % 1000000000) // 100000
-		b = int_event_id % 100000
-		return int(a), int(slidenum), int(b)
 
 	def get_effective_snr(self, fac):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25)
@@ -96,9 +96,11 @@ class SnglInspiral(xlaltools.SnglInspiralTable):
 			cmp(self.search, other.search)
 		)
 
-# FIXME:  can't use C row class until event_ids don't have bazillions of
-# digits because Macs blow.  can't have 64-bit python on a Mac.  nope.
-#lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = SnglInspiral
+	def __cmp__(self, other):
+		# compare self's end time to the LIGOTimeGPS instance
+		# other.  allows bisection searches by GPS time to find
+		# ranges of triggers quickly
+		return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
 
 
 #
@@ -107,18 +109,6 @@ class SnglInspiral(xlaltools.SnglInspiralTable):
 
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
-
-
-#
-# Allow bisection searches by GPS time to find ranges of triggers quickly
-#
-
-
-def sngl_inspiral___cmp__(self, other):
-	# compare self's end time to the LIGOTimeGPS instance other
-	return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
-
-SnglInspiral.__cmp__ = sngl_inspiral___cmp__
 
 
 #
@@ -319,7 +309,7 @@ def inspiral_coinc_compare(a, b, e_thinca_parameter):
 	"""
 	try:
 		# FIXME:  should it be ">" or ">="?
-		return tools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
+		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
 	except ValueError:
 		# ethinca test failed to converge == events are not
 		# coincident
@@ -346,11 +336,10 @@ def replicate_threshold(e_thinca_parameter, instruments):
 	>>> replicate_threshold(6, ["H1", "H2"])
 	{("H1", "H2"): 6, ("H2", "H1"): 6}
 	"""
-	instruments = list(instruments)
-	instruments.sort()
-	thresholds = dict([(pair, e_thinca_parameter) for pair in list(iterutils.choices(instruments, 2))])
+	instruments = sorted(instruments)
+	thresholds = dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2))
 	instruments.reverse()
-	thresholds.update(dict([(pair, e_thinca_parameter) for pair in list(iterutils.choices(instruments, 2))]))
+	thresholds.update(dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2)))
 	return thresholds
 
 
@@ -383,13 +372,13 @@ def ligolw_thinca(
 	#
 
 	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
-	avail_instruments = set(eventlists.keys())
 
 	#
 	# replicate the ethinca parameter for every possible instrument
 	# pair
 	#
 
+	avail_instruments = set(eventlists.keys())
 	thresholds = replicate_threshold(thresholds, avail_instruments)
 
 	#
