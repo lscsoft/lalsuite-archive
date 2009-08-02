@@ -32,6 +32,7 @@ Light Weight XML documents.
 """
 
 
+import itertools
 import copy
 import sys
 # Python 2.3 compatibility
