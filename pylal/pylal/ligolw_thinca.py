@@ -39,6 +39,11 @@ from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 from pylal import tools
 from pylal.xlal import tools as xlaltools
+try:
+	all
+except NameError:
+	# Python < 2.5.x
+	from iterutils import all as all
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -224,7 +229,11 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
+		if all(event.chisq for event in events):
+			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
+		else:
+			# would get divide-by-zero without a \chi^{2} value
+			coinc_inspiral.snr = None
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.set_end(events[0].get_end())
