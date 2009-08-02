@@ -329,14 +329,7 @@ class EventList(list):
 	def get_coincs(self, event_a, threshold, comparefunc):
 		"""
 		Return a list of the events from this list that are
-		coincident with event_a.  The events must be coincident
-		with event_a, not merely be likely to be coincident with
-		event_a given more careful scrutiny, because the events
-		returned by this method will never again been compared to
-		event_a.  However, it is not necessary for the events in
-		the list returned to be themselves mutually coincident in
-		any way (that might not even make sense, since each list
-		contains only events from a single instrument).
+		coincident with event_a.
 
 		The threshold argument will be the thresholds appropriate
 		for "instrument_a, instrument_b", in that order, where
@@ -360,14 +353,14 @@ class EventListDict(dict):
 	def __init__(self, EventListType, event_table, process_ids = None):
 		"""
 		Initialize a newly-created instance.  EventListType is a
-		subclass of EventList (the class, not an instance of the
-		class).  event_table is a list of events (e.g., an instance
-		of a glue.ligolw.table.Table subclass).  If the optional
-		process_ids arguments is not None, then it is assumed to be
-		a list or set or other thing implementing the "in" operator
-		which is used to define the set of process_ids whose events
-		should be considered in the coincidence analysis, otherwise
-		all events are considered.
+		subclass of EventList (the subclass itself, not an instance
+		of the subclass).  event_table is a list of events (e.g.,
+		an instance of a glue.ligolw.table.Table subclass).  If the
+		optional process_ids arguments is not None, then it is
+		assumed to be a list or set or other thing implementing the
+		"in" operator which is used to define the set of
+		process_ids whose events should be considered in the
+		coincidence analysis, otherwise all events are considered.
 		"""
 		for event in event_table:
 			if (process_ids is None) or (event.process_id in process_ids):
