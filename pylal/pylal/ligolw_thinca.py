@@ -212,10 +212,10 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# - end_time is the end time of the first trigger in
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
-		# - mass is average of total masses (appropriate for
-		#   high-mass search)
+		# - mass is average of total masses
+		# - mchirp is average of mchirps
 		# - snr is root-sum-square of SNRs
-		# - false-alarm rate is blank
+		# - false-alarm rates are blank
 		#
 
 		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
@@ -223,8 +223,10 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral = self.coinc_inspiral_table.RowType()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
+		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
+		coinc_inspiral.combined_far = None
 		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
