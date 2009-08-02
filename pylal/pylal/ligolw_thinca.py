@@ -186,8 +186,8 @@ InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 
 
 
 class InspiralCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, coinc_definer_rows):
-		snglcoinc.CoincTables.__init__(self, xmldoc, coinc_definer_rows)
+	def __init__(self, xmldoc):
+		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
 		# find the coinc_inspiral table or create one if not found
@@ -199,12 +199,12 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events, effective_snr_factor):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, effective_snr_factor):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
 
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events)
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
 
 		#
 		# populate the coinc_inspiral table:
@@ -360,13 +360,13 @@ def ligolw_thinca(
 	verbose = False
 ):
 	#
-	# prepare the coincidence table interface.  only one type of
-	# coincidence, use None as key in fake coinc type look-up table.
+	# prepare the coincidence table interface.
 	#
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, {None: coinc_definer_row})
+	coinc_tables = CoincTables(xmldoc)
+	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 
 	#
 	# build the event list accessors, populated with events from those
@@ -422,7 +422,7 @@ def ligolw_thinca(
 			print >>sys.stderr, "\tsearching ..."
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
 			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, time_slide_id, None, ntuple, effective_snr_factor)
+				coinc_tables.append_coinc(process_id, time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 
 	#
 	# remove time offsets from events

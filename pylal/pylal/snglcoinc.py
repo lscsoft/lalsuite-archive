@@ -132,17 +132,7 @@ class CoincTables(object):
 	A convenience interface to the XML document's coincidence tables,
 	allowing for easy addition of coincidence events.
 	"""
-	def __init__(self, xmldoc, coinc_definer_rows):
-		# get the coinc_def_ids for the coincidence types we will
-		# be constructing.  the CoincDefiner class instances in the
-		# coinc_definer_rows dictionary  should have the search,
-		# search_coinc_type, and description attributes set as
-		# default attributes.
-		self.coinc_def_ids = dict(
-			(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
-			for key, coinc_def in coinc_definer_rows.items()
-		)
-
+	def __init__(self, xmldoc):
 		# find the coinc table or create one if not found
 		try:
 			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
@@ -170,7 +160,7 @@ class CoincTables(object):
 		time_slides = self.time_slide_table.as_dict()
 		return [(id, time_slides[id]) for id in time_slide_consideration_order(self.time_slide_table)]
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
 		Takes a process ID, a time slide ID, and a list of events,
 		and adds the events as a new coincidence to the coinc_event
@@ -178,7 +168,7 @@ class CoincTables(object):
 		"""
 		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
-		coinc.coinc_def_id = self.coinc_def_ids[coinc_def_id_key]
+		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = time_slide_id
 		coinc.set_instruments(None)
