@@ -257,6 +257,16 @@ class InspiralEventList(snglcoinc.EventList):
 		"""
 		self.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
 
+	def set_dt(self, dt):
+		"""
+		If an event's end time differs by more than this many
+		seconds from the end time of another event then it is
+		*impossible* for them to be coincident.
+		"""
+		# add 1% for safety, and pre-convert to LIGOTimeGPS to
+		# avoid doing type conversion in loops
+		self.dt = LIGOTimeGPS(dt * 1.01)
+
 	def _add_offset(self, delta):
 		"""
 		Add an amount to the end time of each event.
@@ -272,25 +282,13 @@ class InspiralEventList(snglcoinc.EventList):
 		end = event_a.get_end()
 
 		#
-		# if event_a's end time differs by more than this many
-		# seconds from the end time of an event in this list then
-		# it is *impossible* for them to be coincident
-		#
-		# FIXME:  use getTimeError() function in LAL to compute
-		# this (currently that's a static function, so it'll have
-		# to be renamed and exported as part of the LAL API).
-		#
-
-		dt = 0.5
-
-		#
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed end times to quickly identify
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - dt) : bisect.bisect_right(self, end + dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
 
 
 #
@@ -300,6 +298,21 @@ class InspiralEventList(snglcoinc.EventList):
 #
 # =============================================================================
 #
+
+
+def inspiral_max_dt(events, e_thinca_parameter):
+	"""
+	Given an e-thinca parameter and a list of sngl_inspiral events,
+	return the greatest \Delta t that can separate two events and they
+	still be considered coincident.
+	"""
+	# FIXME:  use correct code when XLALSnglInspiralTimeError() is
+	# available
+	return 0.5
+	# for each instrument present in the event list, compute the
+	# largest \Delta t interval for the events from that instrument,
+	# and return the sum of the largest two such \Delta t's.
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:])
 
 
 def inspiral_coinc_compare(a, b, e_thinca_parameter):
@@ -372,6 +385,16 @@ def ligolw_thinca(
 	#
 
 	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
+
+	#
+	# set the \Delta t parameter on all the event lists
+	#
+
+	max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
+	if verbose:
+		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
+	for eventlist in eventlists.values():
+		eventlist.set_dt(max_dt)
 
 	#
 	# replicate the ethinca parameter for every possible instrument
