@@ -82,7 +82,7 @@ def time_slide_consideration_order(time_slide_table):
 	previously-constructed doubles for those which match the third
 	instrument instead of constructing the triples from scratch from
 	the raw trigger list (which involves paying the price of
-	constructing the doubles all over again).
+	constructing the doubles again).
 	"""
 	#
 	# sorted list of the unique instruments appearing in the offset
@@ -92,10 +92,10 @@ def time_slide_consideration_order(time_slide_table):
 	instruments = sorted(set(time_slide_table.getColumnByName("instrument")))
 
 	#
-	# group into pairs:  (first, second), (second, third), ...
+	# all possible pairs
 	#
 
-	instruments = tuple(zip(instruments[1:], instruments[:-1]))
+	instruments = iterutils.choices(instruments, 2)
 
 	#
 	# the offset vectors indexed by time_slide_id
