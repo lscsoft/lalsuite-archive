@@ -1612,6 +1612,7 @@ class AnalysisNode(CondorDAGNode):
     self.__start = 0
     self.__end = 0
     self.__data_start = 0
+    self.__pad_data = 0
     self.__data_end = 0
     self.__trig_start = 0
     self.__trig_end = 0
@@ -1670,6 +1671,19 @@ class AnalysisNode(CondorDAGNode):
     Get the GPS start time of the data needed by this node.
     """
     return self.__data_start
+
+  def set_pad_data(self,pad):
+    """
+    Set the GPS start time of the data needed by this analysis node.
+    @param time: GPS start time of job.
+    """
+    self.__pad_data = pad
+
+  def get_pad_data(self):
+    """
+    Get the GPS start time of the data needed by this node.
+    """
+    return self.__pad_data
 
   def set_data_end(self,time):
     """
@@ -1807,7 +1821,8 @@ class AnalysisNode(CondorDAGNode):
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)
         t_end = int(c) + int(d)
-        if (t_start <= (self.__data_end+int(d)+1) and t_end >= (self.__data_start-int(d)-1)):
+        if (t_start <= (self.get_data_end()+self.get_pad_data()+int(d)+1) \
+          and t_end >= (self.get_data_start()-self.get_pad_data()-int(d)-1)):
           self.add_input_file(lfn)
       # set the frame type based on the LFNs returned by datafind
       self.add_var_opt('frame-type',b)
