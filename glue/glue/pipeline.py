@@ -40,6 +40,14 @@ except ImportError:
   # md5 is deprecated in python26
   from md5 import new as md5
 
+try:
+  import httplib
+  import urlparse
+  import M2Crypto
+  import cjson
+except:
+  pass
+
 def s2play(t):
   """
   Return 1 if t is in the S2 playground, 0 otherwise
@@ -2668,6 +2676,160 @@ class ScienceData:
 
 
 
+class LsyncCache:
+  def __init__(self,path):
+    # location of the cache file
+    self.__path = path
+
+    # dictionary where the keys are data types like 'gwf', 'sft', 'xml'
+    # and the values are dictionaries 
+    self.cache = {'gwf': None, 'sft' : None, 'xml' : None}
+
+    # for each type create a dictionary where keys are sites and values
+    # are dictionaries
+    for type in self.cache.keys():
+      self.cache[type] = {}
+
+  def group(self, lst, n):
+    """
+    Group an iterable into an n-tuples iterable. Incomplete
+    tuples are discarded
+    """
+    return itertools.izip(*[itertools.islice(lst, i, None, n) for i in range(n)])
+
+  def parse(self):
+    """
+    Each line of the frame cache file is like the following:
+
+    /frames/E13/LHO/frames/hoftMon_H1/H-H1_DMT_C00_L2-9246,H,H1_DMT_C00_L2,1,16 1240664820 6231 {924600000 924646720 924646784 924647472 924647712 924700000}
+
+    The description is as follows:
+
+    1.1) Directory path of files
+    1.2) Site
+    1.3) Type
+    1.4) Number of frames in the files (assumed to be 1)
+    1.5) Duration of the frame files.
+
+    2) UNIX timestamp for directory modification time.
+
+    3) Number of files that that match the above pattern in the directory.
+
+    4) List of time range or segments [start, stop)
+
+    We store the cache for each site and frameType combination
+    as a dictionary where the keys are (directory, duration)
+    tuples and the values are segment lists. 
+
+    Since the cache file is already coalesced we do not
+    have to call the coalesce method on the segment lists.
+    """
+    path = self.__path
+    cache = self.cache
+
+    f = open(path, 'r')
+
+    # holds this iteration of the cache
+    gwfDict = {}
+
+    # total lines parsed
+    count = 0
+
+    # total lines included in cache
+    countIncluded = 0
+
+    # parse each line in the cache file
+    for line in f:
+      count += 1
+            
+      # split on spaces and then comma to get the parts
+      header, modTime, fileCount, times = line.strip().split(' ', 3)
+      dir, site, frameType, frameCount, duration = header.split(',')
+      duration = int(duration)
+
+      # times string has form { t1 t2 t3 t4 t5 t6 ... tN t(N+1) }
+      # where the (ti, t(i+1)) represent segments
+      #
+      # first turn the times string into a list of integers
+      times = [ int(s) for s in times[1:-1].split(' ') ]
+
+      # group the integers by two and turn those tuples into segments
+      segments = [ glue.segments.segment(a) for a in self.group(times, 2) ]
+
+      # initialize if necessary for this site
+      if not gwfDict.has_key(site):
+        gwfDict[site] = {}
+
+      # initialize if necessary for this frame type
+      if not gwfDict[site].has_key(frameType):
+        gwfDict[site][frameType] = {}
+
+      # record the segment list as value indexed by the (directory, duration) tuple
+      key = (dir, duration)
+      if gwfDict[site][frameType].has_key(key):
+        msg = "The combination %s is not unique in the frame cache file" % str(key)
+        raise RuntimeError, msg
+                
+      gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)                    
+            
+      countIncluded += 1
+
+      f.close()
+
+      cache['gwf'] = gwfDict
+
+  def get_lfns(self, site, frameType, gpsStart, gpsEnd):
+    """
+    """
+    # get the cache from the manager
+    cache = self.cache
+            
+    # if the cache does not contain any mappings for this site type return empty list
+    if not cache['gwf'].has_key(site):
+      return []
+
+    # if the cache does nto contain any mappings for this frame type return empty list
+    if not cache['gwf'][site].has_key(frameType):
+      return []
+
+    # segment representing the search interval
+    search = glue.segments.segment(gpsStart, gpsEnd)
+
+    # segment list representing the search interval
+    searchlist = glue.segments.segmentlist([search])
+
+    # dict of LFNs returned that match the metadata query
+    lfnDict = {}
+
+    for key,seglist in cache['gwf'][site][frameType].items():
+      dir, dur = key
+
+      # see if the seglist overlaps with our search
+      overlap = seglist.intersects(searchlist)
+
+      if not overlap: continue
+
+      # the seglist does overlap with search so build file paths
+      # but reject those outside of the search segment
+
+      for s in seglist:
+        if s.intersects(search):
+          t1, t2 = s
+          times = xrange(t1, t2, dur)
+
+          # loop through the times and create paths 
+          for t in times:
+            if search.intersects(glue.segments.segment(t, t + dur)):
+              lfn =  "%s-%s-%d-%d.gwf" % (site, frameType, t, dur) 
+              lfnDict[lfn] = None
+                
+    # sort the LFNs to deliver URLs in GPS order
+    lfns = lfnDict.keys()
+    lfns.sort()
+
+    return lfns
+
+
 class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   """
   An LSCdataFind job used to locate data. The static options are
@@ -2677,7 +2839,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   is directed to the logs directory. The job always runs in the scheduler
   universe. The path to the executable is determined from the ini file.
   """
-  def __init__(self,cache_dir,log_dir,config_file,dax=0):
+  def __init__(self,cache_dir,log_dir,config_file,dax=0,lsync_cache_file=None):
     """
     @param cache_dir: the directory to write the output lal cache files to.
     @param log_dir: the directory to write the stderr file to.
@@ -2692,6 +2854,11 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__cache_dir = cache_dir
     self.__dax = dax
     self.__config_file = config_file
+    if lsync_cache_file:
+      self.__lsync_cache = LsyncCache(lsync_cache_file)
+      self.__lsync_cache.parse()
+    else:
+      self.__lsync_cache = None
 
     # we have to do this manually for backwards compatibility with type
     for o in self.__config_file.options('datafind'):
@@ -2731,6 +2898,9 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     return the configuration file object
     """
     return self.__config_file
+
+  def lsync_cache(self):
+    return self.__lsync_cache
 
 
 class LSCDataFindNode(CondorDAGNode, AnalysisNode):
@@ -2840,53 +3010,80 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     or the files itself as tuple (for DAX)
     """
     if self.__dax:
-      if not self.__lfn_list:
-        # call the datafind client to get the LFNs
-        from pyGlobus import security
-        from glue import LDRdataFindClient
-        from glue import gsiserverutils
+      # we are a dax running in grid mode so we need to resolve the
+      # frame file metadata into LFNs so pegasus can query the RLS
+      if self.__lfn_list is None:
 
-        hostPortString = os.environ['LSC_DATAFIND_SERVER']
-        print >>sys.stderr, ".",
-        if hostPortString.find(':') < 0:
-          # no port specified
-          myClient = LDRdataFindClient.LSCdataFindClient(hostPortString)
+        if self.job().lsync_cache():
+          # get the lfns from the lsync cache object
+          if self.__lfn_list is None:
+            self.__lfn_list = self.job().lsync_cache().get_lfns(
+              self.get_observatory(), self.get_type(),
+              self.get_start(), self.get_end())
+
         else:
-          # server and port specified
-          host, portString = hostPortString.split(':')
-          port = int(portString)
-          myClient = LDRdataFindClient.LSCdataFindClient(host,port)
+          # try querying the ligo_data_find server
+          try:
+            server = os.environ['LIGO_DATAFIND_SERVER']
+          except KeyError:
+            raise RuntimeError, \
+              "Environment variable LIGO_DATAFIND_SERVER is not set"
 
-        clientMethod = 'findFrameNames'
-        clientMethodArgDict = {
-          'observatory': self.get_observatory(),
-          'end': str(self.get_end()),
-          'start': str(self.get_start()),
-          'type': self.get_type(),
-          'filename': None,
-          'urlType': None,
-          'match': None,
-          'limit': None,
-          'offset': None,
-          'strict' : None,
-          'namesOnly' : True
-          }
+          # try and get a proxy or certificate
+          # FIXME this doesn't check that it is valid, though
+          cert = None
+          key = None
+          try:
+            proxy = os.environ['X509_USER_PROXY']
+            cert = proxy
+            key = proxy
+          except:
+            try:
+              cert = os.environ['X509_USER_CERT']
+              key = os.environ['X509_USER_KEY']
+            except:
+              uid = os.getuid()
+              proxy_path = "/tmp/x509up_u%d" % uid
+              if os.access(path, os.R_OK):
+                cert = proxy_path
+                key = proxy_path
 
-        print >>sys.stderr, ".",
-        time.sleep( 1 )
-        result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
+          # if we have a credential then use it when setting up the connection
+          if certFile and keyFile:
+            h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+          else:
+            h = httplib.HTTPConnection(server)
 
-        if not isinstance(result,LDRdataFindClient.lfnlist):
-          msg = "datafind server did not return LFN list : " + str(result)
-          raise SegmentError, msg
-        if len(result) == 0:
-          msg = "No LFNs returned for segment %s %s" % ( str(self.get_start()),
-            str(self.get_end()) )
-          raise SegmentError, msg
-        self.__lfn_list = result
+          # construct the URL for a simple data find query
+          url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s.json" % (
+            self.get_observatory(), self.get_type(),
+            str(self.get_start()), str(self.get_end()))
+
+          # query the server
+          h.request("GET", url)
+          response = h.getresponse()
+
+          if response.status != 200:
+            msg = "Server returned code %d: %s" % (response.status, response.reason)
+            body = response.read()
+            msg += body
+            raise RuntimeError, msg
+
+          # decode the JSON
+          urlList = cjson.decode(body)
+          lfnDict = {}
+          for url in urlList:
+            path = urlparse.urlparse(url)[2]
+            lfn = os.path.split(path)[1]
+            lfnDict[lfn] = 1
+
+          self.__lfn_list = lfnDict.keys()
+          self.__lfn_list.sort()
+
       return self.__lfn_list
     else:
       return self.__output
+
 
 class LigolwAddJob(CondorDAGJob, AnalysisJob):
   """
