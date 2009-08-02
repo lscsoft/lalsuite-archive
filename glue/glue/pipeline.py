@@ -2740,7 +2740,7 @@ class LsyncCache:
       # ignore lines that don't match the regex
       if type_filter and type_filter.search(line) is None:
         continue
-            
+
       # split on spaces and then comma to get the parts
       header, modTime, fileCount, times = line.strip().split(' ', 3)
       dir, site, frameType, frameCount, duration = header.split(',')
@@ -2836,7 +2836,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   is directed to the logs directory. The job always runs in the scheduler
   universe. The path to the executable is determined from the ini file.
   """
-  def __init__(self,cache_dir,log_dir,config_file,dax=0,lsync_cache_file=None):
+  def __init__(self,cache_dir,log_dir,config_file,dax=0,lsync_cache_file=None,lsync_type_regex=None):
     """
     @param cache_dir: the directory to write the output lal cache files to.
     @param log_dir: the directory to write the stderr file to.
@@ -2854,7 +2854,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__lsync_cache = None
     if lsync_cache_file:
       self.__lsync_cache = LsyncCache(lsync_cache_file)
-      self.__lsync_cache.parse()
+      self.__lsync_cache.parse(lsync_type_regex)
 
     # we have to do this manually for backwards compatibility with type
     for o in self.__config_file.options('datafind'):
