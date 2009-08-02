@@ -33,6 +33,8 @@ import math
 import urlparse
 import stat
 import socket
+import itertools
+import glue.segments
 try:
   # use hashlib if available, python25 and above
   from hashlib import md5
@@ -1319,7 +1321,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
             subdag_exec_path = os.getcwd()
 
           print >>dagfile, """<dag id="%s" file="%s">""" % (id_tag, subdag_name)
-          print >>dagfile, """\
+          print >>dagfile, """
      <profile namespace="dagman" key="DIR">%s</profile>""" % subdag_exec_path
           print >>dagfile, """\
      <uses file="%s" link="input" register="false" transfer="true" type="data">
@@ -1416,10 +1418,10 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           # FIXME should put remote universe property here
           pass
         else:
-          template = """     <profile namespace="condor" key="universe">%s</profile>"""
+          template = """     <profile namespace="condor" key="universe">%s</profile>\n"""
           xml = xml + template % (node.job().get_universe())
 
-        print >>dagfile, xml
+        print >>dagfile, xml,
 
         for f in node.get_input_files():
           # FIXME need a better way of dealing with the cache subdirectory
@@ -1797,23 +1799,20 @@ class AnalysisNode(CondorDAGNode):
       # the name of a lal cache file created by a datafind node
       self.add_var_opt('frame-cache', filename)
       self.add_input_file(filename)
+    elif isinstance( filename, list ):
+      # we have an LFN list
+      self.add_var_opt('glob-frame-data',' ')
+      # only add the LFNs that actually overlap with this job
+      for lfn in filename:
+        a, b, c, d = lfn.split('.')[0].split('-')
+        t_start = int(c)
+        t_end = int(c) + int(d)
+        if (t_start <= (self.__data_end+int(d)+1) and t_end >= (self.__data_start-int(d)-1)):
+          self.add_input_file(lfn)
+      # set the frame type based on the LFNs returned by datafind
+      self.add_var_opt('frame-type',b)
     else:
-      # check we have an LFN list
-      from glue import LDRdataFindClient
-      if isinstance( filename, LDRdataFindClient.lfnlist ):
-        self.add_var_opt('glob-frame-data',' ')
-        # only add the LFNs that actually overlap with this job
-        # FIXME this doesnt handle edge cases quite right
-        for lfn in filename:
-          a, b, c, d = lfn.split('.')[0].split('-')
-          t_start = int(c)
-          t_end = int(c) + int(d)
-          if (t_start <= (self.__data_end+int(d)+1) and t_end >= (self.__data_start-int(d)-1)):
-            self.add_input_file(lfn)
-        # set the frame type based on the LFNs returned by datafind
-        self.add_var_opt('frame-type',b)
-      else:
-        raise CondorDAGNodeError, "Unknown LFN cache format"
+      raise CondorDAGNodeError, "Unknown LFN cache format"
 
   def calibration_cache_path(self):
     """
@@ -2697,7 +2696,7 @@ class LsyncCache:
     """
     return itertools.izip(*[itertools.islice(lst, i, None, n) for i in range(n)])
 
-  def parse(self):
+  def parse(self,type_regex=None):
     """
     Each line of the frame cache file is like the following:
 
@@ -2726,21 +2725,21 @@ class LsyncCache:
     """
     path = self.__path
     cache = self.cache
+    if type_regex:
+      type_filter = re.compile(type_regex)
+    else:
+      type_filter = None
 
     f = open(path, 'r')
 
     # holds this iteration of the cache
     gwfDict = {}
 
-    # total lines parsed
-    count = 0
-
-    # total lines included in cache
-    countIncluded = 0
-
     # parse each line in the cache file
     for line in f:
-      count += 1
+      # ignore lines that don't match the regex
+      if type_filter and type_filter.search(line) is None:
+        continue
             
       # split on spaces and then comma to get the parts
       header, modTime, fileCount, times = line.strip().split(' ', 3)
@@ -2764,19 +2763,17 @@ class LsyncCache:
       if not gwfDict[site].has_key(frameType):
         gwfDict[site][frameType] = {}
 
-      # record the segment list as value indexed by the (directory, duration) tuple
+      # record segment list as value indexed by the (directory, duration) tuple
       key = (dir, duration)
       if gwfDict[site][frameType].has_key(key):
-        msg = "The combination %s is not unique in the frame cache file" % str(key)
+        msg = "The combination %s is not unique in the frame cache file" \
+          % str(key)
         raise RuntimeError, msg
                 
       gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)                    
-            
-      countIncluded += 1
+    f.close()
 
-      f.close()
-
-      cache['gwf'] = gwfDict
+    cache['gwf'] = gwfDict
 
   def get_lfns(self, site, frameType, gpsStart, gpsEnd):
     """
@@ -2854,11 +2851,10 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__cache_dir = cache_dir
     self.__dax = dax
     self.__config_file = config_file
+    self.__lsync_cache = None
     if lsync_cache_file:
       self.__lsync_cache = LsyncCache(lsync_cache_file)
       self.__lsync_cache.parse()
-    else:
-      self.__lsync_cache = None
 
     # we have to do this manually for backwards compatibility with type
     for o in self.__config_file.options('datafind'):
@@ -3049,8 +3045,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
                 key = proxy_path
 
           # if we have a credential then use it when setting up the connection
-          if certFile and keyFile:
-            h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+          if cert and key:
+            h = httplib.HTTPSConnection(server, key_file = key, cert_file = cert)
           else:
             h = httplib.HTTPConnection(server)
 
@@ -3068,6 +3064,9 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
             body = response.read()
             msg += body
             raise RuntimeError, msg
+
+          # since status is 200 OK read the URLs
+          body = response.read()
 
           # decode the JSON
           urlList = cjson.decode(body)
