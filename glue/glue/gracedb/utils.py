@@ -187,9 +187,11 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   #https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/ 
   #090505160219S6PlanningNotebookCoinc_and_Experiment_Tables_ihope_implementation?
   #highlight=%28coinc%29|%28table%29
+  
+  temp_data_loc = None
 
   if len(detectors) < 2:
-    return xmldoc, log_data, detectors, -1
+    return xmldoc, log_data, temp_data_loc
     
   #coinc_event_id = coinc_event_id_base + str(UID)
   cin_table = lsctables.New(lsctables.CoincInspiralTable)
@@ -211,9 +213,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
 
 
   xmldoc = populate_coinc_tables(xmldoc,cid,insp_event_id_dict,\
-                                     InspiralCoincDef,detectors)
-  temp_data_loc = None
-  
+                                 InspiralCoincDef,detectors)
+    
   return xmldoc, log_data, temp_data_loc
 
 def populate_burst_tables(datafile, set_keys = Omega_set_keys):
@@ -286,8 +287,7 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
     
 def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict,\
                           CoincDef, detectors, \
-                          time_slide_id = None, likelihood = None, \
-                          nevents = 3):
+                          time_slide_id = None, likelihood = None):
   """
   populate a set of coinc tables
   xmldoc:  xml file to append the tables to
@@ -308,7 +308,12 @@ def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict,\
     row.coinc_def_id = coinc_def_id
     row.time_slide_id = time_slide_id
     row.set_instruments(detectors)
-    row.nevents = nevents
+    if 'inspiral' in CoincDef.search:
+      row.nevents = len(detectors)
+    elif 'burst' in CoincDef.search:
+      row.nevents = 1
+    else:
+      raise ValueError, "Unrecognize CoincDef.search"
     row.likelihood = likelihood
     coinc_table.append(row)
 
