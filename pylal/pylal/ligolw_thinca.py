@@ -306,9 +306,6 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	return the greatest \Delta t that can separate two events and they
 	still be considered coincident.
 	"""
-	# FIXME:  use correct code when XLALSnglInspiralTimeError() is
-	# available
-	return 0.5
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
