@@ -33,11 +33,13 @@
 #include <string.h>
 #include <numpy/arrayobject.h>
 #include <lal/DetectorSite.h>
+#include <misc.h>
 #include <tools.h>
 
 /* for inspiral-related things */
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
+#include <lal/TrigScanEThincaCommon.h>
 
 
 #define MODULE_NAME "pylal.xlal.tools"
@@ -615,6 +617,25 @@ PyTypeObject ligolw_CoincMap_Type = {
  */
 
 
+static PyObject *pylal_XLALSnglInspiralTimeError(PyObject *self, PyObject *args)
+{
+	pylal_SnglInspiralTable *row;
+	double e_thinca_threshold;
+	double delta_t;
+
+	if(!PyArg_ParseTuple(args, "O!d", &pylal_SnglInspiralTable_Type, &row, &e_thinca_threshold))
+		return NULL;
+
+	delta_t = XLALSnglInspiralTimeError(&row->sngl_inspiral, e_thinca_threshold);
+	if(XLAL_IS_REAL8_FAIL_NAN(delta_t)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(delta_t);
+}
+
+
 static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *args)
 {
 	static InspiralAccuracyList accuracyparams;
@@ -705,6 +726,7 @@ static PyObject *get_ilwdchar_class(char *table_name, char *column_name)
 
 
 static struct PyMethodDef methods[] = {
+	{"XLALSnglInspiralTimeError", pylal_XLALSnglInspiralTimeError, METH_VARARGS, "XLALSnglInspiralTimeError(row, threshold)\n\nFrom a sngl_inspiral event and compute the \\Delta t interval corresponding to the given e-thinca threshold."},
 	{"XLALCalculateEThincaParameter", pylal_XLALCalculateEThincaParameter, METH_VARARGS, "XLALCalculateEThincaParameter(row1, row2)\n\nTakes two SnglInspiralTable objects and\ncalculates the overlap factor between them."},
 	{NULL,}
 };
