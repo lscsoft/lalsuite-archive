@@ -96,9 +96,9 @@ def get_LVAdata_from_file(filename):
 
   return file, uid, data_loc  
 
-def write_LVAlertTable(filename, file, uid, data_loc):
+def make_LVAlertTable(file_url, uid, data_loc):
   """
-  create filename.xml which contains an LVAlert Table
+  create xml doc which contains an LVAlert Table
   with submission file file_loc and  data located at data_loc
   """
   xmldoc = ligolw.Document()
@@ -110,9 +110,8 @@ def write_LVAlertTable(filename, file, uid, data_loc):
   row.temp_data_loc = data_loc
   lvalerttable.append(row)
   xmldoc.childNodes[0].appendChild(lvalerttable)
-  output_file = open(filename+'.xml', 'w')
-  xmldoc.write(output_file)
-  output_file.close()
+
+  return xmldoc
 
 
 #the following is meant as a template for small jobs
