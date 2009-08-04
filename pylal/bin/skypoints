@@ -125,8 +125,12 @@ class SkyPoints(object):
         self.mass2 = 0.0
 
     elif coinctable:
-      print coinctable
+
       xmldoc = utils.load_filename(coinctable)
+      if tab.get_table(xmldoc,lsctables.CoincTable.tableName)[0].nevents != 3:
+        print >>sys.stdout, "Need a three detector coincidence."
+        sys.exit(0) 
+      
       snglinsptab = tab.get_table(xmldoc,lsctables.SnglInspiralTable.tableName)
       
       self.time = min(row.end_time for row in snglinsptab)
@@ -1111,8 +1115,9 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 
 #set the base filename for everything
 if opts.output:
-  bname = os.path.split(opts.output)[1][:-4]
+  base = os.path.split(opts.output)[1][:-4]
   path = os.path.split(opts.output)[0]
+  bname = os.path.join(path,base)
 if opts.online_input:
   bname = general_dir + '/SKYPOINTS_ONLINE_' + uid
   output_files = []
@@ -1172,7 +1177,7 @@ if opts.injection:
 #llwapp.set_process_end_time(process)
 if opts.online_input:
   output_fname = bname + '.xml'
-  output_files.append(output_fname)
+#  output_files.append(output_fname)
 else:
   output_fname = opts.output
 
