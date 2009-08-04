@@ -439,22 +439,29 @@ class DBTable(table.Table):
 	without developer intervention the column types will be guessed
 	using a generic mapping of SQL types to LIGO Light Weight types.
 
-	Each instance of this class must be connected to a database, but
-	because the __init__() method must have the same signature as the
-	__init__() methods of other Element subclasses (so that this class
-	can be used as a drop-in replacement during document parsing), it
-	is not possible to pass a connection object into the __init__()
-	method as a separate argument.  Instead, the connection object is
-	passed into the __init__() method via a class attribute.  The
-	procedure is:  set the class attribute, create instances of the
-	class connected to that database, set the class attribute to a new
-	value, create instances of the class connected to a different
-	database, and so on.  A utility function is available for setting
-	the class attribute, and should be used.
+	Each instance of this class must be connected to a database.  The
+	(Python DBAPI 2.0 compatible) connection object is passed to the
+	class via the connection parameter at instance creation time.
 
 	Example:
 
 	>>> tbl = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}), connection = connection)
+
+	There is not yet a LIGO Light Weight content handler that is able
+	to do this correctly, so for the time-being a mechanism is used
+	where in the connection is stored as an attribute of the DBTable
+	class.  This makes it difficult to work with more than one database
+	at a time, and is the subject of on-going development effort.  See
+	the DBTable_set_connection() function for information on how to set
+	the class attribute.
+
+	If a custom glue.ligolw.Table subclass is defined in
+	glue.ligolw.lsctables whose name matches the name of the DBTable
+	being constructed, the lsctables class is added to the list of
+	parent classes.  This allows the lsctables class' methods to be
+	used with the DBTable instances but not all of the methods will
+	necessarily work with the database-backed version of the class.
+	Your mileage may vary.
 	"""
 	#
 	# When instances of this class are created, they initialize their
@@ -475,9 +482,15 @@ class DBTable(table.Table):
 			name = table.StripTableName(attrs[u"Name"])
 			if name in lsctables.TableByName:
 				# found metadata in lsctables, construct
-				# custom subclass.
+				# custom subclass.  the class from
+				# lsctables is added as a parent class to
+				# allow methods from that class to be used
+				# with this class, however there is no
+				# guarantee that all parent class methods
+				# will be appropriate for use with the
+				# DB-backed object.
 				lsccls = lsctables.TableByName[name]
-				class CustomDBTable(cls):
+				class CustomDBTable(cls, lsccls):
 					tableName = lsccls.tableName
 					validcolumns = lsccls.validcolumns
 					loadcolumns = lsccls.loadcolumns
