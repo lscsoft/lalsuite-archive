@@ -38,7 +38,6 @@ class mvsc_html:
         self.treesplits = None
         self.cols = None
         self.zeronum = None
-        self.efficiency = None
 
     #functions to set parameters
     
@@ -83,9 +82,6 @@ class mvsc_html:
 
     def set_zeronum(self,zeronum):
         self.zeronum = zeronum
-
-    def set_efficiency(self,lower,upper):
-        self.efficiency = [lower,upper]
 
 ##############################################################################
     
@@ -144,8 +140,6 @@ class mvsc_html:
                         zstr = ' --open-box'
                     elif self.opts.zero_lag:
                         zstr = ' --zero-lag'
-                    elif self.opts.hardware:
-                        zstr = ' --hardware'
                     else:
                         zstr = ''
 
@@ -245,11 +239,6 @@ class mvsc_html:
                         str(self.op_point[1]) + \
                         '<br>Combined Effective SNR squared cutoff value: ' + \
                         str(self.op_point[2])
-
-                    if self.efficiency:
-                        htmlcode += '<br>Resulting efficiency: ' + \
-                            str(self.efficiency[0]) + ' < p < ' + \
-                            str(self.efficiency[1]) + ' (at 68% CL)'
                 else:
                     htmlcode = match.group(2)
 

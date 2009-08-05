@@ -207,8 +207,7 @@ def wilson(p,n):
     """Calculates the Wilson interval, the confidence interval for a binomial
     distribution.
 
-    Returns the appropriate upper and lower error bars.
-    The confidence level used is always 68%."""
+    Returns the appropriate upper and lower error bars"""
 
     n = float(n)
     diff = math.sqrt(max(p*(1-p)/n + 0.25/n**2,0)) / (1+1/n)
@@ -283,9 +282,7 @@ def top_events(data,cols,n,stations,patfile):
 ##############################################################################
 
 def ROCplot(data,cols,op_point = 1,ts_trig_ratio = 25):
-    """Creates an ROC plot from one file.
-
-    Returns the confidence interval of the resulting efficiency."""
+    """Creates an ROC plot from one file."""
     
     timeslides = []
     injections = []
@@ -368,8 +365,6 @@ def ROCplot(data,cols,op_point = 1,ts_trig_ratio = 25):
 
     pyplot.ylim(.85,1.01)
     pyplot.legend(loc='lower right')
-
-    return lower,upper
 
 ##############################################################################
 
@@ -782,6 +777,129 @@ def snr_vs_chisqr(data,cols,afar = 1.0/2000,zerodata=None ):
     pyplot.ylabel('Combined Chisq squared')
     pyplot.xlabel('Combined SNR squared')
     pyplot.title('SNR vs Chi Squared')
+        
+##############################################################################
+
+def plot_cuts(data,cols,dim1_header,dim2_header,dim1log,dim2log,filename=None,\
+              zerodata=None):
+    """Attempts to plot the decision tree cuts in two dimensions.
+
+    Filename is the path to decision tree file.  If not given, will not plot
+    any cuts."""
+
+    if not (cols.has_key(dim1_header) & cols.has_key(dim2_header)):
+        print 'Invalid dimensions given to plot-cuts option'
+        return
+        
+    dim1 = cols[dim1_header]
+    dim2 = cols[dim2_header]
+
+    injdim1 = []
+    tsdim1 = []
+    injdim2 = []
+    tsdim2 = []
+
+    #separate into timeslides and injections
+    for i in range(len(data[0])):
+        if data[1][i] == 0:
+            tsdim1.append( data[dim1][i] )
+            tsdim2.append( data[dim2][i] )
+        else:
+            injdim1.append( data[dim1][i] )
+            injdim2.append( data[dim2][i] )
+
+    #Plot injections and timeslides
+    pyplot.figure()
+    pyplot.plot(tsdim1,tsdim2,'xk',label='Timeslides')
+    pyplot.plot(injdim1,injdim2,'+r',mec='r', \
+                label='Injections')
+
+    if zerodata:
+        zerodim1 = []
+        zerodim2 = []
+        for i in range(len(zerodata[0])):
+            zerodim1.append( zerodata[dim1][i])
+            zerodim2.append( zerodata[dim2][i])
+
+        pyplot.plot(zerodim1,zerodim2,'.g',mec='g', \
+            label='Zero lag')
+    
+    #pyplot.legend(loc='lower right')
+    pyplot.xlabel(dim1_header)
+    pyplot.ylabel(dim2_header)
+    
+    if dim1log & dim2log:
+        pyplot.loglog()
+    elif dim1log:
+        pyplot.semilogx()
+    elif dim2log:
+        pyplot.semilogy()
+
+    if filename:
+        #Find all cuts made
+        try:
+            f = open(filename)
+        except IOError:
+            print '***Error!*** Trouble opening file', filename
+            return
+
+        p = re.compile(r'Id: \S+ Score: \S+ Dim: (\S+) Cut: (\S+)')
+        p2 = re.compile(r'Dimensions:')
+        p3 = re.compile(r'\s+(\S+)\s+(\S+)')
+
+        dim1cuts = []
+        dim2cuts = []
+        cuts = []
+        cutcols = {}
+        
+        while True:
+            n = f.readline()
+            m = p.match(n)
+            if m:
+                cuts.append( ( m.group(1), m.group(2) ) )
+            elif p2.match(n):
+                break
+            elif not n:
+                print '***Error!*** Unexpected format in',filename
+                return
+
+        while True:
+            n = f.readline()
+            m = p3.match(n)
+            if m:
+                cutcols[m.group(2)] = m.group(1)
+            else:
+                break
+        
+        f.close()
+
+        if cutcols.has_key(dim1_header):
+            for i in range(len(cuts)):
+                if cuts[i][0] == cutcols[dim1_header]:
+                    dim1cuts.append(float(cuts[i][1]))
+
+        if cutcols.has_key(dim2_header):
+            for i in range(len(cuts)):
+                if cuts[i][0] == cutcols[dim2_header]:
+                    dim2cuts.append(float(cuts[i][1]))
+        
+        xmin,xmax = pyplot.xlim()
+        ymin,ymax = pyplot.ylim()
+    
+        #Plot cuts
+        for i in range(len(dim1cuts)):
+            pyplot.plot([dim1cuts[i],dim1cuts[i]],[ymin,ymax],'b',alpha=0.2)
+        for i in range(len(dim2cuts)):
+            pyplot.plot([xmin,xmax],[dim2cuts[i],dim2cuts[i]],'b',alpha=0.2)
+
+        pyplot.xlim(xmin,xmax)
+        pyplot.ylim(ymin,ymax)
+        pyplot.title('Decision tree cuts on "'+dim1_header+'" and "' \
+                 +dim2_header+'" dimensions' )
+        
+    else:
+        pyplot.title('Triggers in the "'+dim1_header+'" and "' \
+                 +dim2_header+'" dimensions' )
  
 ##############################################################################
 
@@ -919,13 +1037,6 @@ def IFANplot(data,cols,zerodata,ts_trig_ratio=25):
     pyplot.errorbar(ifan,cumnumber,xerr=[ifan_errl,ifan_erru], \
                     yerr=[cumnumber_errl,cumnumber_erru])
     pyplot.loglog()
-
-    ymin,ymax = pyplot.ylim()
-    xmin,xmax = pyplot.xlim()
-    pyplot.plot([xmin,xmax],[-xmin,-xmax],'r',alpha=0.5)
-    pyplot.ylim(ymin,ymax)
-    pyplot.xlim(xmin,xmax)
-    
     pyplot.xlabel('Inverse False Alarm Number')
     pyplot.ylabel('Cumulative Number')
     pyplot.title('IFAN plot')
