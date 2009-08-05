@@ -135,63 +135,6 @@ def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 		print >>fileobj, " | ".join(format % s for s in line)
 
 
-def time_slide_consideration_order(time_slide_table):
-	"""
-	Given a time_slide table, return a list of the unique
-	time_slide_id's in the table sorted by number of participating
-	instruments, then by inter-instrument deltas (then by ID string if
-	there are duplicate time slide vectors in the table).
-
-	If coincs are constructed for time slides in this order, each
-	offset vector will always be considered after any offset vectors it
-	contains.  For example the vector {"H1": 0, "H2": 10, "L1": 20}
-	will be considered after {"H1": 0, "H2": 10} because the latter is
-	contained in the former.
-
-	If the coincidence test is such that an H1,H2,L1 triple as above
-	would also be found as the H1,H2 double above, then if the offset
-	vectors are processed in the order returned by this function a
-	performance improvement can be achieved in the coincidence
-	algorithm by constructing triples by scanning
-	previously-constructed doubles for those which match the third
-	instrument instead of constructing the triples from scratch from
-	the raw trigger list (which involves paying the price of
-	constructing the doubles again).
-	"""
-	#
-	# sorted list of the unique instruments appearing in the offset
-	# vectors
-	#
-
-	instruments = sorted(set(time_slide_table.getColumnByName("instrument")))
-
-	#
-	# all possible pairs
-	#
-
-	instruments = iterutils.choices(instruments, 2)
-
-	#
-	# the offset vectors indexed by time_slide_id
-	#
-
-	offsets = time_slide_table.as_dict()
-
-	#
-	# order IDs by number of participating instruments then by
-	# inter-instrument deltas, then by ID
-	#
-
-	def deltas(offset_vector):
-		for a, b in instruments:
-			try:
-				yield offset_vector[b] - offset_vector[a]
-			except KeyError:
-				yield None
-
-	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a])), tuple(deltas(offsets[b]))) or cmp(a, b))
-
-
 #
 # =============================================================================
 #
@@ -227,12 +170,9 @@ class CoincTables(object):
 
 	def get_ordered_time_slides(self):
 		"""
-		Returns a list of (time_slide_id, offset vector) tuples for
-		the document's time slide vectors in the order defined by
-		the time_slide_consideration_order() function.
+		Deprecated.
 		"""
-		time_slides = self.time_slide_table.as_dict()
-		return [(id, time_slides[id]) for id in time_slide_consideration_order(self.time_slide_table)]
+		return sorted(self.time_slide_table.as_dict().items())
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
