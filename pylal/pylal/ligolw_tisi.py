@@ -26,6 +26,7 @@
 #
 
 
+import itertools
 import sys
 # Python 2.3 compatibility
 try:
@@ -263,6 +264,23 @@ def RowsFromOffsetDict(offsetdict, time_slide_id, process):
 #
 
 
+def offset_vector_to_deltas(offset_vector):
+	"""
+	Construct a dictionary of relative offsets from a dictionary of
+	absolute offsets.
+
+	Example:
+
+	>>> offset_vector_to_deltas({"H1": 0, "L1": 10, "V1": 20})
+	{('H1', 'L1'): 10, ('L1', 'V1'): 10}
+
+	The keys in the result are instrument pairs, (a, b), and the values
+	are the relative time shifts, (offset[b] - offset[a]).
+	"""
+	instruments = tuple(sorted(offset_vector.keys()))
+	return dict(((a, b), (offset_vector[b] - offset_vector[a])) for a, b in zip(instruments[:-1], instruments[1:]))
+
+
 def time_slide_cmp(offsetdict1, offsetdict2):
 	"""
 	Compare two offset dictionaries mapping instrument --> offset.  The
@@ -279,25 +297,7 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	because although the absolute offsets are not equal in the two
 	dictionaries, all relative offsets are.
 	"""
-	if offsetdict2:
-		# offsetdict2 is not empty, pick an instrument at random
-		instrument, offset = offsetdict2.iteritems().next()
-		if instrument in offsetdict1:
-			# the instrument is listed in offsetdict1, so make
-			# a working copy of offsetdict2
-			offsetdict2 = offsetdict2.copy()
-			# compute the offset difference for the common
-			# instrument
-			delta = offsetdict1[instrument] - offset
-			# add it to the offsets in the working copy of
-			# offsetdict2
-			for instrument in offsetdict2.keys():
-				offsetdict2[instrument] += delta
-	# either the offsets have now been normalized to one another, or it
-	# was discovered that the two offset dictionaries have different
-	# instrument lists;  either way we can now use the built-in cmp
-	# method
-	return cmp(offsetdict1, offsetdict2)
+	return cmp(offset_vector_to_deltas(offsetdict1), offset_vector_to_deltas(offsetdict2))
 
 
 def time_slides_find(time_slides, offset_vector):
@@ -358,8 +358,8 @@ def time_slides_vacuum(time_slides, verbose = False):
 	and replace references to that ID in other tables with references
 	to time_slide_id:0.
 	"""
-	# so we can modify it
-	time_slides = time_slides.copy()
+	# convert offsets to deltas
+	time_slides = dict((id, offset_vector_to_deltas(offset_vector)) for id, offset_vector in time_slides.items())
 	N = len(time_slides)
 	# old --> new mapping
 	mapping = {}
@@ -369,12 +369,13 @@ def time_slides_vacuum(time_slides, verbose = False):
 		if verbose and not (n % 10):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 		# pull out an ID/offset dictionary pair at random
-		id1, offsetdict1 = time_slides.popitem()
+		id1, deltas1 = time_slides.popitem()
 		# for every other ID/offset dictionary pair in the time
 		# slides
-		for id2, offsetdict2 in time_slides.items():
-			# if the offset dictionaries are equivalent
-			if not time_slide_cmp(offsetdict1, offsetdict2):
+		for id2, deltas2 in time_slides.items():
+			# if the relative offset dictionaries are
+			# equivalent
+			if deltas2 == deltas1:
 				# remove it, and record in the old --> new
 				# mapping
 				time_slides.pop(id2)
