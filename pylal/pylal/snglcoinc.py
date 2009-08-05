@@ -46,6 +46,7 @@ from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
+from pylal import ligolw_tisi
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -62,7 +63,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def time_slide_component_offsets(offset_vectors, n):
+def time_slide_component_vectors(offset_vectors, n):
 	"""
 	Given an iterable of time slide vectors, return the shortest list
 	of the unique n-instrument time slide vectors from which all the
@@ -86,13 +87,13 @@ def time_slide_component_offsets(offset_vectors, n):
 	delta_sets = {}
 	for offset_vector in offset_vectors:
 		for instruments in iterutils.choices(sorted(offset_vector.keys()), n):
-			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[b] - offset_vector[a] for a, b in zip(instruments[:-1], instruments[1:])))
+			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments[1:]))
 
 	#
 	# translate into a list of n-instrument offset vectors
 	#
 
-	return [dict(zip(instruments, (0,) + deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
+	return [dict(zip(instruments, (0.0,) + deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
 
 
 def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
@@ -133,6 +134,59 @@ def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
 	for line in lines:
 		print >>fileobj, " | ".join(format % s for s in line)
+
+
+#
+# =============================================================================
+#
+#                               Time Slide Graph
+#
+# =============================================================================
+#
+
+
+class TimeSlideGraphNode(object):
+	def __init__(self, offset_vector):
+		self.offset_vector = offset_vector
+		self.children = set()
+
+
+class TimeSlideGraph(object):
+	def __init__(self, offset_vectors):
+		self.head = set(TimeSlideGraphNode(offset_vector) for offset_vector in offset_vectors)
+		self.generations = {}
+
+		for n in range(max(len(offset_vector) for offset_vector in offset_vectors), 2, -1):
+			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
+			if n in self.generations:
+				offset_vectors += [node.offset_vector for node in self.generations[n]]
+			self.generations[n - 1] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
+
+		for node in self.head:
+			n = len(node.offset_vector)
+			if n in self.generations:
+				generation = self.generations[n]
+			else:
+				generation = self.generations[n- 1]
+			node.children = set(child for child in generation if ligolw_tisi.time_slide_contains(node.offset_vector, child.offset_vector))
+		for n, nodes in self.generations.items():
+			if n <= 2:
+				continue
+			for node in nodes:
+				node.children = set(child for child in self.generations[n - 1] if ligolw_tisi.time_slide_contains(node.offset_vector, child.offset_vector))
+
+
+def write_time_slide_graph(fileobj, graph):
+	vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
+
+	print >>fileobj, "digraph \"Time Slides\" {"
+	for nodes in graph.generations.values() + [graph.head]:
+		for node in nodes:
+			node_name = vectorstring(node.offset_vector)
+			for child in node.children:
+				child_name = vectorstring(child.offset_vector)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (child_name, node_name)
+	print >>fileobj, "}"
 
 
 #
