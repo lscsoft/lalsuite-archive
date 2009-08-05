@@ -148,7 +148,7 @@ def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector):
 		self.offset_vector = offset_vector
-		self.children = set()
+		self.components = set()
 
 
 class TimeSlideGraph(object):
@@ -156,6 +156,8 @@ class TimeSlideGraph(object):
 		self.head = set(TimeSlideGraphNode(offset_vector) for offset_vector in offset_vectors)
 		self.generations = {}
 
+		n = max(len(offset_vector) for offset_vector in offset_vectors)
+		self.generations[n] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors((node.offset_vector for node in self.head), n))
 		for n in range(max(len(offset_vector) for offset_vector in offset_vectors), 2, -1):
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
@@ -163,29 +165,30 @@ class TimeSlideGraph(object):
 			self.generations[n - 1] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
 
 		for node in self.head:
-			n = len(node.offset_vector)
-			if n in self.generations:
-				generation = self.generations[n]
-			else:
-				generation = self.generations[n- 1]
-			node.children = set(child for child in generation if ligolw_tisi.time_slide_contains(node.offset_vector, child.offset_vector))
+			node.components = set(component for component in self.generations[len(node.offset_vector)] if ligolw_tisi.time_slide_contains(node.offset_vector, component.offset_vector))
 		for n, nodes in self.generations.items():
 			if n <= 2:
 				continue
 			for node in nodes:
-				node.children = set(child for child in self.generations[n - 1] if ligolw_tisi.time_slide_contains(node.offset_vector, child.offset_vector))
+				node.components = set(component for component in self.generations[n - 1] if ligolw_tisi.time_slide_contains(node.offset_vector, component.offset_vector))
 
 
 def write_time_slide_graph(fileobj, graph):
 	vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
 
 	print >>fileobj, "digraph \"Time Slides\" {"
-	for nodes in graph.generations.values() + [graph.head]:
+	for nodes in graph.generations.values():
 		for node in nodes:
 			node_name = vectorstring(node.offset_vector)
-			for child in node.children:
-				child_name = vectorstring(child.offset_vector)
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (child_name, node_name)
+			print >>fileobj, "\t\"%s\" [shape=box];" % node_name
+			for component in node.components:
+				component_name = vectorstring(component.offset_vector)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+	for node in graph.head:
+		node_name = vectorstring(node.offset_vector)
+		for component in node.components:
+			component_name = vectorstring(component.offset_vector)
+			print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
 	print >>fileobj, "}"
 
 
