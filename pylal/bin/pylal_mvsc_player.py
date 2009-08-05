@@ -23,8 +23,6 @@ parser = OptionParser()
 parser.add_option("-r","--run-name", default=False, \
     help="The name of the run (required). Any name is okay, as long as " + \
     "it's the same one used to generate the pat files")
-parser.add_option("", "--cache-file", default=False, \
-    help="Generate new pat files from the given cache file" )
 parser.add_option("-t","--gps-time", default=False, \
     help="The gps time of the run (used in printing out the html file)" )
 parser.add_option("-S","--stations", default='H1L1', \
@@ -32,13 +30,26 @@ parser.add_option("-S","--stations", default='H1L1', \
 parser.add_option("-a","--data-sets",help="Choose which data sets for "+\
     "training and validation. Ex: -a BC trains on B, validates on "+\
     "C, and tests on A+D.  Randomized by default." )
+
+parser.add_option("","--zero-lag",default=False,action="store_true", \
+                  help="Test on zero-lag triggers in playground.")
+parser.add_option("","--open-box",default=False,action="store_true", \
+                  help="Test on zero-lag triggers for full data.")
+parser.add_option("","--hardware",default=False,action="store_true", \
+    help="Test on hardware injection triggers (currently unimplemented).")
+
+parser.add_option("", "--cache-file", default=False, \
+    help="Generate new pat files from the given cache file" )
 parser.add_option("-p", "--plot-only", action="store_true", default=False, \
     help="Generate plots only, without training or testing again. (Note "+ \
     "that you have to manually reinput -R and -a if you want the html file " \
     "to have the right ones)")
 parser.add_option("-d", "--show-plots", action="store_true", default=False, \
     help="Show all plots at the end of program" )
-
+parser.add_option("-O","--enable-output",action="store_true",\
+      default=False, \
+      help="enable the generation of the html and cache documents")
+                  
 parser.add_option("-n", default='30', \
     help="number of Bagger training cycles (def=30)" )
 parser.add_option("-l", default='4', \
@@ -72,9 +83,6 @@ parser.add_option("-k", type='int', default=1, \
 parser.add_option("-R", "--seed",action="store",default=False, \
     help="Use a chosen seed. (currently broken to be unreproducible)")
 
-parser.add_option("-O","--enable-output",action="store_true",\
-      default=False, \
-      help="enable the generation of the html and cache documents")
 parser.add_option("-o","--output-path",default="html_files", \
       help="Path where the html files and images would be stored. " +\
       "(def = html_files)")
@@ -82,10 +90,6 @@ parser.add_option("-q","--data-path",default="Data", \
       help="path where all data files would be stored (def = Data)")
 parser.add_option("-w","--pat-path",default="patfiles", \
       help="path where pat files would be stored (def = patfiles)")
-parser.add_option("","--zero-lag",default=False,action="store_true", \
-                  help="Test on zero-lag triggers in playground.")
-parser.add_option("","--open-box",default=False,action="store_true", \
-                  help="Test on zero-lag triggers for full data.")
 
 opts,args = parser.parse_args()
 
@@ -134,6 +138,9 @@ if opts.open_box:
 elif opts.zero_lag:
     zeropath = 'patfiles/'+ filecode+'/'+stationcode+ \
                'setZeroLag_playground.pat'
+elif opts.hardware:
+    zeropath = 'patfiles/' + filecode + '/' + stationcode + \
+               'setHardWare.pat'
 else:
     zeropath = False
 
@@ -227,7 +234,7 @@ if opts.cache_file:
     time_pat_start = os.times()[4]
 
     #call pylal_cache_to mvsc.py
-    os.system('python pylal_cache_to_mvsc.py --cache-file ' + opts.cache_file )
+    os.system('pylal_cache_to_mvsc.py --cache-file ' + opts.cache_file )
 
     time_pat_end = os.times()[4]
     print 'Time spent creating pat files: ' + str(time_pat_end-time_pat_start)
@@ -243,12 +250,12 @@ if opts.cache_file:
         
     os.system('mv *.pat '+patpath+'/' + filecode)
 
-    #make a text file with gps time
-    if opts.gps_time:
-        os.system('echo '+opts.gps_time+' > '+patpath+'/'+filecode+'/gpstime')
-    
     print 'Finished generating pat files'
 
+#make a text file with gps time
+if opts.gps_time:
+    os.system('echo '+opts.gps_time+' > '+patpath+'/'+filecode+'/gpstime')
+    
 ##############################################################################
 #call SprBaggerDecisionTreeApp
 
@@ -317,10 +324,29 @@ if not opts.plot_only:
             os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
                        ' -a 1 '+ filepath+ \
                        '.spr ' + zeropath +' '+filepath+'_playground.dat' )
-
+        elif opts.hardware:
+            os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                       ' -a 1 '+ filepath+ \
+                       '.spr ' + zeropath +' '+filepath+'_hardware.dat' )
+        
         time_tree_end = os.times()[4]
         print 'Time spent training and testing trees: ' + \
               str(time_tree_end-time_tree_start)
+else:
+    if not os.path.isdir(opts.data_path):
+        print 'Data files do not exist!  Try again without -p option.'
+        sys.exit()
+
+    if not ( os.path.isfile(filepath + '_test.dat') & \
+             os.path.isfile(filepath + '_info') & \
+             os.path.isfile(filepath + '.spr') ):
+        print 'Data files do not exist!  Try again without -p option.'
+        sys.exit()
+
+    if (opts.open_box & (not os.path.isfile( filepath+'_fulldata.dat' ) ) ) |\
+       (opts.zero_lag & (not os.path.isfile(filepath+'_playground.dat' ))):
+        print 'Zero lag files do not exist!  Try again without -p option.'
+        sys.exit()
 
 ##############################################################################
 #Create plots
@@ -357,6 +383,8 @@ elif opts.show_plots | opts.enable_output:
         zerodata,temp1,temp2 = patread(filepath+'_fulldata.dat',stationcode )
     elif opts.zero_lag:
         zerodata,temp1,temp2 = patread(filepath+'_playground.dat',stationcode )
+    elif opts.hardware:
+        zerodata,temp1,temp2 = patread(filepath+'_hardware.dat',stationcode )
     else:
         zerodata = None
 
@@ -385,9 +413,10 @@ elif opts.show_plots | opts.enable_output:
     if opts.enable_output:
         htmlfile.add_figure('missed_inj')
         
-    ROCplot(data,cols,ts_trig_ratio=ts_trig_ratio)
+    lower,upper = ROCplot(data,cols,ts_trig_ratio=ts_trig_ratio)
     if opts.enable_output:
         htmlfile.add_figure('ROC')
+        htmlfile.set_efficiency(lower,upper)
     
     mvsc_vs_effsnr(data,cols,mvsc_cutoff,effsnr_cutoff,zerodata)
     if opts.enable_output:
@@ -420,10 +449,7 @@ elif opts.show_plots | opts.enable_output:
 #Create html page
 
 if opts.enable_output:
-    if opts.gps_time:
-        htmlfile.set_gpstime(opts.gps_time)
-        
-    elif os.path.isfile(patpath + '/' + filecode + '/gpstime' ):
+    if os.path.isfile(patpath + '/' + filecode + '/gpstime' ):
         try:
             f = open(patpath + '/' + filecode + '/gpstime' )
         except IOError:
@@ -436,6 +462,8 @@ if opts.enable_output:
     
 ##############################################################################
 #Create xml page
+
+pass
 
 ##############################################################################
 #Show plots
