@@ -127,7 +127,7 @@ int main( int argc, char **argv )
   REAL4 srate              = SRATE;   /* Hz */
   REAL4 fmin               = FMIN;    /* Hz */
   REAL4 fmax               = FMAX;    /* Hz */
-  REAL4 dynRange           = 1.0;
+  REAL4 dynRange           = pow( 2.0, 69.0 );
 
   INT4 i, j;
   REAL4 ts;

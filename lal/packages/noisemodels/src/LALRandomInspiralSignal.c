@@ -774,7 +774,7 @@ void LALRandomInspiralSignalTimeDomain
   REAL8   df;
   REAL8   dt;
   REAL4   invRoot;
-  REAL4   denom;
+  REAL4   numer, denom;
   INT4    k;
   INT4    valid;
 
@@ -818,18 +818,31 @@ void LALRandomInspiralSignalTimeDomain
   /* If we are making noise allocate memory now */
   if( randIn->type > 0 )
   {
-    LALSCreateVector( status->statusPtr, &ntilde_re, fLength );
-    CHECKSTATUSPTR(status);
-    LALSCreateVector( status->statusPtr, &ntilde_im, fLength );
-    CHECKSTATUSPTR(status);
-    LALCCreateVector( status->statusPtr, &ntilde, fLength );
-    CHECKSTATUSPTR(status);
+    if ( !(ntilde_re = XLALCreateREAL4Vector( fLength ) ))
+    {
+      ABORTXLAL( status );
+    }
+    memset( ntilde_re->data, 0, ntilde_re->length * sizeof( REAL4 ));  
+    if ( !(ntilde_im = XLALCreateREAL4Vector( fLength ) ))
+    {
+      ABORTXLAL( status );
+    }
+    memset( ntilde_im->data, 0, ntilde_im->length * sizeof( REAL4 ));  
+    if ( !(ntilde = XLALCreateCOMPLEX8Vector( fLength ) ))
+    {
+      ABORTXLAL( status );
+    }
+    memset( ntilde->data, 0, ntilde->length * sizeof( COMPLEX8 ));
 
+    /* If we are adding signal to that noise allocate memory now */
     if( randIn->type == 2 )
     {
-      LALCCreateVector( status->statusPtr, &stilde, fLength );
-      CHECKSTATUSPTR(status);
-    
+      if ( !(stilde = XLALCreateCOMPLEX8Vector( fLength ) ))
+      {
+        ABORTXLAL( status );
+      }
+      memset( stilde->data, 0, stilde->length * sizeof( COMPLEX8 ));
+  
       if ( !(buff = XLALCreateREAL4Vector( signal->length ) ))
       {
         ABORTXLAL( status );
@@ -1257,12 +1270,14 @@ void LALRandomInspiralSignalTimeDomain
       }
 
       /* Add signal to noise in Freq domain */ 
-      LALCreateForwardRealFFTPlan( status->statusPtr, &fwdPlan, tLength, 0 );
-      CHECKSTATUSPTR(status);
-      LALForwardRealFFT( status->statusPtr, stilde, buff, fwdPlan ); 
-      CHECKSTATUSPTR(status);
-      LALDestroyRealFFTPlan( status->statusPtr, &fwdPlan );
-      CHECKSTATUSPTR(status);
+      if ( !(fwdPlan = XLALCreateForwardREAL4FFTPlan( tLength, 0 ) ))
+      {
+        ABORTXLAL( status );
+      }
+      if ( XLALREAL4ForwardFFT( stilde, buff, fwdPlan ) == XLAL_FAILURE )
+      {
+        ABORTXLAL( status );
+      }  
 
       /* Calculate Signal Norm */
       for( k=0; k < (INT4)fLength; ++k )
@@ -1270,27 +1285,27 @@ void LALRandomInspiralSignalTimeDomain
         REAL4 power;
 
         /* Calculate Signal Norm */
-        if( (REAL4)(k) * df > randIn->param.fLower )
+        if( (REAL4)(k) * (REAL4)(df) > randIn->param.fLower )
         {
           power  = stilde->data[k].re * stilde->data[k].re; 
           power += stilde->data[k].im * stilde->data[k].im; 
-          norm  += power / randIn->psd.data[k];
+          norm  += power / (REAL4)(randIn->psd.data[k]);
         } 
       }
-      norm *= 4.0 * dt / tLength;
-      invRoot = pow( norm, -0.5 ); 
+      norm *= 4.0 * (REAL4)(dt) / (REAL4)(tLength);
+      invRoot = 1.0 / sqrt( norm );
 
-      denom = pow( dt, -0.5 );
       for( k=0; k < fLength; ++k )
       {
-        REAL4 numer = pow( 4.0 * randIn->psd.data[k], 0.5 );
-
+        if( (REAL4)(k) * (REAL4)(df) > randIn->param.fLower )
+        {
+        }
+        if( 1 ){
+        numer = sqrt( 0.25 * (REAL4)(tLength) / (REAL4)(dt) *  (REAL4)(randIn->psd.data[k]) );
         /* Colour Noise */
         ntilde_re->data[k] *= numer;
-        ntilde_re->data[k] /= denom;
         ntilde_im->data[k] *= numer;
-        ntilde_im->data[k] /= denom;
-               
+
         /* Normalise Signal */
         stilde->data[k].re *= invRoot;
         stilde->data[k].im *= invRoot;
@@ -1301,7 +1316,13 @@ void LALRandomInspiralSignalTimeDomain
 
         ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
         ntilde->data[k].im += stilde->data[k].im * randIn->SignalAmp;
+        }
+        else
+        {
+          ntilde->data[k].re = ntilde->data[k].im = 0.0;
+        }
       }
+
 
       /* set DC and nyquist = 0.0 */
       ntilde->data[0].re = 0.0;
@@ -1324,22 +1345,30 @@ void LALRandomInspiralSignalTimeDomain
         signal->data[k] /= (REAL4)(tLength);
       }
 
+      XLALDestroyREAL4FFTPlan( fwdPlan );
       XLALDestroyREAL4FFTPlan( invPlan );
-      LALSDestroyVector( status->statusPtr, &ntilde_re );
-      CHECKSTATUSPTR(status);
-      LALSDestroyVector( status->statusPtr, &ntilde_im );
-      CHECKSTATUSPTR(status);
-      LALCDestroyVector( status->statusPtr, &ntilde );
-      CHECKSTATUSPTR(status);
-      LALCDestroyVector( status->statusPtr, &stilde );
-      CHECKSTATUSPTR(status);
+      if ( ntilde_re )
+      {
+        XLALDestroyREAL4Vector( ntilde_re );
+      }      
+      if ( ntilde_im )
+      {
+        XLALDestroyREAL4Vector( ntilde_im );
+      }      
+      if ( ntilde )
+      {
+        XLALDestroyCOMPLEX8Vector( ntilde );
+      }      
+      if ( stilde )
+      {
+        XLALDestroyCOMPLEX8Vector( stilde );
+      }      
       if ( buff )
       {
         XLALDestroyREAL4Vector( buff );
       }      
       LALDestroyRandomParams(status->statusPtr, &randParams);
       CHECKSTATUSPTR(status);
-
 
       DETATCHSTATUSPTR(status);
       RETURN(status);

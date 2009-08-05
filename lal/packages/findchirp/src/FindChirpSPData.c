@@ -245,7 +245,7 @@ LALFindChirpSPData (
       REAL4 q = outputData[k].im;
       REAL4 x = resp[k].re * params->dynRange;
       REAL4 y = resp[k].im * params->dynRange;
-
+  
       outputData[k].re =  p*x - q*y;
       outputData[k].im =  p*y + q*x;
     }
@@ -359,6 +359,8 @@ LALFindChirpSPData (
       outputData[k].re = 0.0;
       outputData[k].im = 0.0;
     }
+    outputData[ fcSeg->data->data->length-1 ].re = 0.0;
+    outputData[ fcSeg->data->data->length-1 ].im = 0.0;
     
     for ( k = 0; k < cut; ++k )
     {
@@ -389,6 +391,7 @@ LALFindChirpSPData (
     /* get the whitened time series */
     LALReverseRealFFT( status->statusPtr, dataPower, fftVec,
           params->invPlan );
+    CHECKSTATUSPTR( status );
     dataPower->data[0] = 0;
 
     /* compute the cumulative power used for the continous

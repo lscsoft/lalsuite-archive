@@ -521,6 +521,7 @@ LALFindChirpACTDNormalize(
  
   deltaT = tmpltParams->deltaT;
 
+#if 0
   innerProd = gsl_matrix_alloc( NACTDTILDEVECS, NACTDTILDEVECS );
   eigenVect = gsl_matrix_alloc( NACTDTILDEVECS, NACTDTILDEVECS );
   /*
@@ -529,11 +530,23 @@ LALFindChirpACTDNormalize(
   */
   eigenVal  = gsl_vector_alloc( NACTDTILDEVECS );
   workspace = gsl_eigen_symmv_alloc( NACTDTILDEVECS );
-
+#endif
   for( i = 0; i < NACTDTILDEVECS; ++i )
   {
     ACTDtilde[i].length = numPoints;
     ACTDtilde[i].data  = fcTmplt->ACTDtilde->data + (i * numPoints );
+  }
+
+  /* Do a little jiggery-pokery so that the dominant harmonic is the first index */
+  {
+    COMPLEX8 *tmp = ACTDtilde[0].data;
+    ACTDtilde[0].data = ACTDtilde[1].data;
+    ACTDtilde[1].data = tmp;
+
+    tmp = ACTDtilde[ NACTDVECS ].data;
+    ACTDtilde[NACTDVECS].data = ACTDtilde[NACTDVECS+1].data;
+    ACTDtilde[NACTDVECS+1].data = tmp;
+
   }
 
   /* Norm the templates before we start */
@@ -549,7 +562,35 @@ LALFindChirpACTDNormalize(
       ACTDtilde[i].data[k].im /= norm;
     }
   }
+  
+  /* Lets see if Gram-Schmidt works */
+  for ( i = 0; i < NACTDTILDEVECS; ++i )
+  {
+    for ( j = 0; j < i; ++j )
+    {
+      REAL4 innerProd = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
+                             wtilde, tmpltParams->fLow, deltaT, numTDPoints );
 
+      for ( k = 0; k < numPoints; ++k )
+      {
+        ACTDtilde[i].data[k].re -= innerProd * ACTDtilde[j].data[k].re;
+        ACTDtilde[i].data[k].im -= innerProd * ACTDtilde[j].data[k].im;
+      }
+
+      /* Now re-norm the vector */
+      norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
+                wtilde, tmpltParams->fLow, deltaT, numTDPoints );
+      norm = sqrt(norm);
+
+      for (k = 0; k < numPoints; k++)
+      {
+        ACTDtilde[i].data[k].re /= norm;
+        ACTDtilde[i].data[k].im /= norm;
+      }
+    }
+  }
+
+#if 0
   /* Fill the inner product matrix */
   for ( i = 0; i < NACTDVECS; i++ )
   {
@@ -578,7 +619,7 @@ LALFindChirpACTDNormalize(
                         gsl_matrix_get( innerProd, i+NACTDVECS, k+NACTDVECS ));
     }
   }
-
+#endif
   /* XXX UNCOMMENT BELOW TO SEE INNER PRODUCT MATRIX XXX */
   /*  
   printf("\n");
@@ -592,10 +633,10 @@ LALFindChirpACTDNormalize(
   }
   */
   /* XXX UNCOMMENT ABOVE TO SEE INNER PRODUCT MATRIX XXX */
-
+#if 0
   /* Diagonalize the matrix */
   gsl_eigen_symmv( innerProd, eigenVal, eigenVect, workspace );
-
+#endif
   /* XXX UNCOMMENT BELOW TO SEE EIGENVALUES/VECTORS XXX */
   /*
   printf( "EigenValues:\n");
@@ -634,7 +675,7 @@ LALFindChirpACTDNormalize(
   }
 #endif   
 
-  
+#if 0  
   /* Now we perform the co-ordinate transformation */
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -668,9 +709,9 @@ LALFindChirpACTDNormalize(
       ACTDtilde[i].data[k].im /= norm;
     }
   }
-
+#endif
   /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
-  /*
+  /* 
   printf( " NORMALIZATION TEST:\n\n" );
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -690,11 +731,12 @@ LALFindChirpACTDNormalize(
   fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
 
   /* Free memory */
+#if 0
   gsl_matrix_free( innerProd );
   gsl_matrix_free( eigenVect );
   gsl_vector_free( eigenVal );
   gsl_eigen_symmv_free( workspace );
-
+#endif
   /* normal exit */
   RETURN( status );
 

@@ -252,10 +252,12 @@ main (INT4 argc, CHAR **argv )
   {
     for( i = 0; i < (INT4)randIn.psd.length; ++i )
     {
-      ampCorDataSegVec->data->spec->data->data[i] = 
-        randIn.psd.data[i] * ampCorDataParams->dynRange * ampCorDataParams->dynRange;
+      ampCorDataSegVec->data->spec->data->data[i] =
+                               randIn.psd.data[i] * ampCorDataParams->dynRange 
+                                                  * ampCorDataParams->dynRange;
       randIn.psd.data[i] = ampCorDataSegVec->data->spec->data->data[i];
-      ampCorDataSegVec->data->resp->data->data[i].re = (REAL4)(1.0 / ampCorDataParams->dynRange);
+      ampCorDataSegVec->data->resp->data->data[i].re = 
+                                     (REAL4)(1.0 / ampCorDataParams->dynRange);
       ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
     }      
   }
@@ -358,6 +360,7 @@ main (INT4 argc, CHAR **argv )
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
       }
+
 
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
@@ -604,7 +607,6 @@ main (INT4 argc, CHAR **argv )
                   bin = i;
                 }
               }
-
 
               overlapOutputThisTemplate.rhoMax       = pow( max, 0.5 );
               overlapOutputThisTemplate.rhoBin       = bin;
@@ -2200,16 +2202,23 @@ void BankEfficiencyCreatePsd(
   switch (userParam.noiseModel)
   {
     case UNITY:
-      LAL_CALL(LALNoiseSpectralDensity (status->statusPtr,
-          coarseBankIn->shf.data, &LALLIGOIPsd, df),
-          status->statusPtr);
       for (i = 0; i < coarseBankIn->shf.data->length; i++)
-    coarseBankIn->shf.data->data[i] = 1;
+        coarseBankIn->shf.data->data[i] = 1;
       break;
     case LIGOI:
-      LAL_CALL(LALNoiseSpectralDensity (status->statusPtr,
-          coarseBankIn->shf.data, &LALLIGOIPsd, df),
-          status->statusPtr);
+      for( i = 0; i < randIn->psd.length; ++i )
+      {
+        if( (REAL4)(i) * (REAL4)(df) > randIn->param.fLower )
+        {
+          coarseBankIn->shf.data->data[i] = 
+              XLALLIGOIPsd( (REAL8)(i) * (REAL8)(df) );
+        }
+        else
+        {
+          coarseBankIn->shf.data->data[i] = 
+              XLALLIGOIPsd( (REAL8)(randIn->param.fLower) );
+        }
+      }
       break;
     case LIGOA:
       LAL_CALL(LALNoiseSpectralDensity (status->statusPtr,
@@ -2247,20 +2256,23 @@ void BankEfficiencyCreatePsd(
       break;
     }
 
+    /* copy the psd in RandIn.psd */
+    for (i = 0; i< coarseBankIn->shf.data->length; i++)
+    {
+      randIn->psd.data[i] = coarseBankIn->shf.data->data[i];
+    }
+
+    
+
   /* --- save the psd in the file psd.dat if requested --- */
   if (userParam.printPsd)
   {
     Foutput= fopen(BANKEFFICIENCY_PRINTPSD_FILE,"w");
-    for (i = 1; i < coarseBankIn->shf.data->length; i++)
+    for (i = 0; i < coarseBankIn->shf.data->length; i++)
       fprintf(Foutput, "%f %e\n",(REAL4)i*df, coarseBankIn->shf.data->data[i]);
     fclose(Foutput);
   }
 
-
-  /* copy the psd in RandIn.psd */
-  for (i = 0; i< coarseBankIn->shf.data->length; i++){
-    randIn->psd.data[i] = coarseBankIn->shf.data->data[i];
-  }
 
   BankEfficiencyPrintMessage(" ... done\n");
 
