@@ -276,8 +276,8 @@ def offset_vector_to_deltas(offset_vector):
 	The keys in the result are instrument pairs, (a, b), and the values
 	are the relative time shifts, (offset[b] - offset[a]).
 	"""
-	instruments = tuple(sorted(offset_vector.keys()))
-	return dict(((a, b), (offset_vector[b] - offset_vector[a])) for a, b in zip(instruments[:-1], instruments[1:]))
+	instruments = sorted(offset_vector.keys())
+	return dict(((a, b), offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:]))
 
 
 def time_slide_cmp(offsetdict1, offsetdict2):
@@ -299,37 +299,15 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	return cmp(offset_vector_to_deltas(offsetdict1), offset_vector_to_deltas(offsetdict2))
 
 
-def time_slides_find(time_slides, offset_vector):
+def time_slide_contains(offset_vector1, offset_vector2):
 	"""
-	Given a dictionary mapping time slide IDs to instrument-->offset
-	mappings, for example as returned by the .as_dict() method of the
-	TimeSlideTable class in glue.ligolw.lsctables, return the set of
-	IDs of instrument-->offset mappings equivalent to offset_vector as
-	defined by time_slide_cmp().  See also
-	time_slides_find_components().
+	Returns True if offset vector 2 can be found in offset vector 1,
+	False otherwise.  An offset vector is "found in" another offset
+	vector if the latter contains all of the former's instruments and
+	the relative offsets among those instruments agree (the absolute
+	offsets need not).
 	"""
-	return set(id for id, offsetdict in time_slides.items() if not time_slide_cmp(offsetdict, offset_vector))
-
-
-def time_slides_find_components(time_slides, offset_vector):
-	"""
-	Given a dictionary mapping time slide IDs to instrument-->offset
-	mappings, for example as returned by the .as_dict() method of the
-	TimeSlideTable class in glue.ligolw.lsctables, return the set of
-	IDs of instrument-->offset mappings that are contained in the given
-	offset_vector as defined by time_slide_cmp().
-
-	For example, {"H1": 10, "H2": 10} is contained in {"H1": 0, "H2":
-	0, "L1": 10} because the instruments in the former appear in the
-	latter with the same relative offsets.  Only proper subsets are
-	reported.  See also time_slides_find().
-	"""
-	ids = set()
-	all_instruments = offset_vector.keys()
-	for n in range(2, len(all_instruments)):
-		for instruments in iterutils.choices(all_instruments, n):
-			ids |= time_slides_find(time_slides, dict((instrument, offset_vector[instrument]) for instrument in instruments))
-	return ids
+	return offset_vector_to_deltas(dict((instrument, offset) for instrument, offset in offset_vector1.items() if instrument in offset_vector2)) == offset_vector_to_deltas(offset_vector2)
 
 
 def time_slides_vacuum(time_slides, verbose = False):
