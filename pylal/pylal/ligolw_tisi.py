@@ -26,7 +26,6 @@
 #
 
 
-import itertools
 import sys
 # Python 2.3 compatibility
 try:
