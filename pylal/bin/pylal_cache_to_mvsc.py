@@ -246,7 +246,10 @@ def get_slide_coincs_from_cache(cachefile, pattern, match, verb, coinc_stat):
     return None
   # split the time slide files into 105 groups to aid with I/O
   num_files=len(files)
-  groups_of_files = split_seq(files,105)
+
+  #Changed by Tristan Miller as a memory fix
+  #groups_of_files = split_seq(files,105)
+  groups_of_files = split_seq(files,50)
   for filegroup in groups_of_files:
     if filegroup:  
       # extract the coinc table
