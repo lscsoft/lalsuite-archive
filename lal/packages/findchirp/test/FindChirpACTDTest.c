@@ -71,6 +71,8 @@ static void print_usage()
   fprintf( stderr, "\n");
   fprintf( stderr, " --help                        : Print this message! \n");
   fprintf( stderr, " --overlap                     : Normalises input data \n");
+  fprintf( stderr, " --snr SNR                     : Fake Noise and inject at given SNR \n");
+  fprintf( stderr, " --seed SEED                   : Seed for Noise generator\n");
   fprintf( stderr, " --signal                      : Replaces data with signal\n");
   fprintf( stderr, " --dynrange-exponent DYNRANGE  : set the dynamic range exponent\n");
   fprintf( stderr, " --flatpsd                     : Use flat psd \n");
@@ -133,12 +135,21 @@ int main( int argc, char **argv )
   REAL4 ts;
   INT4 output = 0;
   INT4 overlap = 0;
+  REAL4 snr = 0.0;
   INT4 printmax = 0;
   INT4 flatpsd = 0;
   INT4 dominant = 0;
   INT4 h_plus = 0;
-  FILE *fp, *fpTwo;
 
+  /* Fake Noise */
+  REAL4Vector    *ntilde_re = NULL;
+  REAL4Vector    *ntilde_im = NULL;
+  COMPLEX8Vector *ntilde = NULL;
+  RandomParams   *randParams = NULL;
+  INT4            seed = 1;
+
+  /* output */
+  FILE *fp, *fpTwo;
 
   SnglInspiralTable *event = NULL;
 
@@ -163,16 +174,44 @@ int main( int argc, char **argv )
   arg = 1;
   while ( arg < argc )
   {
+    if ( !strcmp( argv[arg], "--help") )
+    {
+      print_usage();
+      return 0;
+    }
     /* Compute Overlap */
-    if ( !strcmp( argv[arg], "--overlap" ) )
+    else if ( !strcmp( argv[arg], "--overlap" ) )
     {
       arg++;
       overlap = 1;
     }
-    else if ( !strcmp( argv[arg], "--help") )
+    /* Fake noise */
+    else if ( !strcmp( argv[arg], "--snr" ) )
     {
-      print_usage();
-      return 0;
+      if ( argc > arg + 1 )
+      {
+        arg++;
+        snr = atof( argv[arg++] );
+      }
+      else
+      {
+        print_usage();
+        return 0;
+      }
+    }
+    /* Seed for noise generator */
+    else if ( !strcmp( argv[arg], "--seed" ) )
+    {
+      if ( argc > arg + 1 )
+      {
+        arg++;
+        seed = atof( argv[arg++] );
+      }
+      else
+      {
+        print_usage();
+        return 0;
+      }
     }
     /* Set dynRange */
     else if ( !strcmp( argv[arg], "--dynrange-exponent" ) )
@@ -746,6 +785,69 @@ int main( int argc, char **argv )
     }
     fprintf( stderr, "         Done!\n");
   }
+
+  if( snr != 0 )
+  {
+    if ( !(ntilde_re = XLALCreateREAL4Vector( numPoints / 2 + 1 ) ))
+    {
+      ABORTXLAL( &status );
+    }
+    memset( ntilde_re->data, 0, ntilde_re->length * sizeof( REAL4 ));
+    if ( !(ntilde_im = XLALCreateREAL4Vector( numPoints / 2 + 1 ) ))
+    {
+      ABORTXLAL( &status );
+    }  
+    memset( ntilde_im->data, 0, ntilde_im->length * sizeof( REAL4 ));
+    if ( !(ntilde = XLALCreateCOMPLEX8Vector( numPoints / 2 + 1 ) ))
+    {
+      ABORTXLAL( &status );
+    }
+    memset( ntilde->data, 0, ntilde->length * sizeof( COMPLEX8 ));
+
+    LALCreateRandomParams( &status, &randParams, seed );
+    TEST_STATUS( &status );
+    LALNormalDeviates( &status, ntilde_re, randParams);
+    TEST_STATUS( &status );
+    LALNormalDeviates( &status, ntilde_im, randParams);
+    TEST_STATUS( &status );
+
+    /* colour noise and add to signal */
+    for( j=1; j < numPoints / 2 ; ++j )
+    { 
+      REAL4 fac;
+
+      fac = sqrt( (REAL4)(numPoints) * 0.25
+                   / dt * dataParams->wtildeVec->data[j].re );
+
+      ntilde->data[j].re = ntilde_re->data[j] * fac;
+      ntilde->data[j].im = ntilde_im->data[j] * fac;
+
+      fcSegVec->data->data->data->data[j].re *= snr;
+      fcSegVec->data->data->data->data[j].im *= snr;
+    
+      fcSegVec->data->data->data->data[j].re += ntilde->data[j].re;
+      fcSegVec->data->data->data->data[j].im += ntilde->data[j].im;
+    
+    }
+
+    LALDestroyRandomParams( &status, &randParams );
+    TEST_STATUS( &status );
+
+    if ( ntilde_re )
+    {
+      XLALDestroyREAL4Vector( ntilde_re );
+    }
+    if ( ntilde_im )
+    {
+      XLALDestroyREAL4Vector( ntilde_im );
+    }
+    if ( ntilde )
+    {
+      XLALDestroyCOMPLEX8Vector( ntilde );
+    }
+  }
+
+
 
 
   if( output == 1 )
