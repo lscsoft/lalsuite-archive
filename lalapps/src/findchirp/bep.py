@@ -54,7 +54,10 @@ def create_condor_file(configcp):
   # in particular, the number of simulations and nodes to be used
   n = float(configcp.get("simulation", "ntrial"))
   N = float(configcp.get("simulation", "njobs"))
-  arguments = arguments + ' --ntrial '+str( int(n/N))
+  if int(n/N) > 0:
+    arguments = arguments + ' --ntrial '+str( int(n/N))
+  else:
+    arguments = arguments + ' --ntrial 1'
 
   # now we can update the sub file with the arguments that have just been read
   fp.write('Arguments = ' + arguments + ' --seed $(macroseed)')
@@ -139,7 +142,7 @@ def create_finalise_condor(configcp):
   """
   fp = open('finalise.sub', 'w')
   fp.write('Executable   = ./finalise.sh\n')
-  fp.write('Universe     = vanilla\n')
+  fp.write('Universe     = local\n')
   fp.write('Arguments =\n')
   fp.write('priority = 10\n')
   fp.write('log = ./log/tmp\n')
@@ -165,7 +168,7 @@ def create_finalise_script(configcp):
   fp = open('finalise.sh', 'w')
   fp.write('#!/bin/sh\n')
   fp.write('cp BankEfficiency-Bank.xml BE_Bank.xml\n')
-  fp.write('rm -f Trigger.dat ; ls bankefficiency*.out | awk \'{print "cat  " $1 ">> Trigger.dat"}\' > script.sh; chmod 755 script.sh ; ./script.sh; \n')
+  fp.write('rm -f Trigger.dat ; cat bankefficiency*.out >> Trigger.dat \n')
   fp.write(configcp.get("main", "executable") +' --ascii2xml \n')
   fp.write('mv BankEfficiency-Result.xml Trigger_' + noise_model +'_'+fl+'_'+grid+'_'+template+'_'+signal+'_'+mm+'.xml')
   fp.close()
