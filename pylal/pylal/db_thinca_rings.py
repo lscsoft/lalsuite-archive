@@ -40,9 +40,9 @@ from pylal import SnglInspiralUtils
 
 # FIXME:  remove when Python >= 2.5 required
 try:
-	any
+  any
 except NameError:
-	any = iterutils.any
+  any = iterutils.any
 
 
 #
