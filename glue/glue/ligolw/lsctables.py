@@ -377,6 +377,9 @@ class SearchSummaryTable(table.Table):
 		"nevents": "int_4s",
 		"nnodes": "int_4s"
 	}
+	how_to_index = {
+		"ss_pi_index": ("process_id",),
+	}
 
 	def get_inlist(self):
 		"""
