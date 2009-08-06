@@ -38,6 +38,82 @@ __version__ = "$Revision$"
 
 # Following utilities can be used with any coinc_table
 
+def concatenate( *args ):
+    """
+    SQLite doesn't have a tuple type built-in. This can be frustrating if one
+    needs to compare values from multiple columns when doing queries. For example,
+    if one wanted to do something like:
+
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE (a.val1, a.val2) IN (
+            SELECT (b.val1, b.val2) 
+            FROM b)
+        ''')
+    
+    an error would be raised.
+
+    This function tries to alleiviate the problem by giving the ability to concatenate
+    results from multiple columns into a single colon-seperated string. These strings can then be
+    compared directly. So, in the above example, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_function("concatenate", 2, sqlutils.concatenate)
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE concatenate(a.val1, a.val2) IN (
+            SELECT concatenate(b.val1, b.val2) 
+            FROM b)
+    ''')
+
+    Note that the create_function method must be called first with the number of 
+    values that will be passed to concatenate before using it in any query.
+    """
+    return ':'.join([str(val) for val in args])
+
+class aggregate_concatenate:
+    """
+    This class builds on the concatenate method to allow string concatenation
+    across multiple columns and rows. These strings can then be compared in
+    SQLite. For example, if one wanted to match ids from two different tables that share
+    the same values, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_aggregate("agg_concatenate", 2, sqlutils.aggregate_concatenate)
+    connection.cursor().execute('''
+        SELECT a.id, b.id
+        FROM a, b
+        WHERE
+            (
+                SELECT agg_concatenate(a.val1, a.val2) 
+                FROM a 
+                GROUP BY id
+                ORDER BY a.val1, a.val2 ASC
+           ) == (
+                SELECT agg_concatenate(b.val1, b.val2) 
+                FROM b 
+                GROUP BY id
+                ORDER BY b.val1, b.val2 ASC
+           )
+    ''')
+
+    In the strings that are created, rows are seperated by ",", columns by ":".
+
+    Note that the create_aggregate method must be called first with the number of 
+    values that will be passed to aggregate_concatenate before using it in any query.
+    """
+    def __init__(self):
+        self.result = ''
+    def step(self, *args):
+        self.result = ','.join([ self.result, concatenate(*args) ])
+        #elf.result.append(concatenate(*args))
+    def finalize(self):
+        return self.result.lstrip(',')
+        #return ','.join(sorted(self.result))
+    
+
 class parse_param_ranges:
     
     param = None

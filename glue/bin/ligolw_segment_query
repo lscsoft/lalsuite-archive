@@ -109,7 +109,7 @@ def parse_command_line():
     # Major modes
     parser.add_option("-p", "--ping",           action = "store_true", help = "Ping the target server")
     parser.add_option("-y", "--show-types",     action = "store_true", help = "Returns a xml table containing segment type information: ifos, name, version, segment_definer.comment, segment_summary.start_time, segment_summary.end_time, segment_summary.comment")
-    parser.add_option("-u", "--query-types",    action = "store_true", help = "Returns a ligolw document whose segment_definer table includes all segment types defined in the given period and included by include-segments, and whose segment table includes all active segments matching the same criteria.")
+    parser.add_option("-u", "--query-types",    action = "store_true", help = "Returns a ligolw document whose segment_definer table includes all segment types defined in the given period and included by include-segments and whose segment_summary table indicates the times for which those segments are defined.")
     parser.add_option("-q", "--query-segments", action = "store_true", help = "Returns a ligolw document whose segment table contains the times included by the include-segments flag and excluded by exclude-segments")
 
     # Time options
@@ -118,8 +118,8 @@ def parse_command_line():
 
 
     # Data location options
-    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL. Users have to specify a prefix 'ldbd://' in front of the actual url where the segment database locates. For example, '--segment-url=ldbd://nldas.ligo-wa.caltech.edu:30015'. Port number is optional, if not present, the default port 30015 will be used. ")
-    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=ldbd://nldas.ligo-wa.caltech.edu'")
+    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL. Users have to specify either 'ldbd://' for a secure connection or 'ldbdi://' for an insecure connection in the segment database url. For example, '--segment-url=ldbd://segdb.ligo.caltech.edu:30015'. Port number is optional, if not present, the default port 30015 will be used for secure connections and 30016 for insecure connections. ")
+    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=ldbd://segdb.ligo.caltech.edu'")
     parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ, for example, 'ONLINEDQ=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
 
 
@@ -151,8 +151,8 @@ def parse_command_line():
 
     # Make sure we know who to contact for data
     if options.segment_url:
-        if options.segment_url.startswith('ldbd:'):
-            database_location = options.segment_url[len('ldbd://'):]
+        if options.segment_url.startswith('ldbd'):
+            database_location = options.segment_url
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
         else:
@@ -173,7 +173,7 @@ def parse_command_line():
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
-        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
+        database_location = os.environ['S6_SEGMENT_SERVER']
     elif options.dmt_files:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-files specified but ONLINEDQ not set" )

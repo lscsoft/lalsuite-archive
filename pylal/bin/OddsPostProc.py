@@ -3,13 +3,15 @@
 #from numpy import *
 import scipy
 import matplotlib 
-matplotlib.use("Agg")
+#matplotlib.use("Agg")
 import sys
 import math
 from pylab import *
 from optparse import OptionParser
 import os
 import numpy
+from time import strftime
+from scipy import stats
 
 parser=OptionParser()
 parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
@@ -130,55 +132,65 @@ if(Bflag==1):
 
 #hist(array([d[:,1], d[:,2]]))
 
-foo=array([pos[:,0],pos[:,1]])
-(bins,myhist)=histN(foo,[30,30])
 myfig=figure(1,figsize=(6,4),dpi=80)
-contourf(bins[0],bins[1],myhist)
-plot([foo[0,-1]],[foo[1,-1]],'x')
-grid()
+
+def plot2Dkernel(xdat,ydat,Nx,Ny):
+    xax=linspace(min(xdat),max(xdat),Nx)
+    yax=linspace(min(ydat),max(ydat),Ny)
+    x,y=numpy.meshgrid(xax,yax)
+    samp=array([xdat,ydat])
+    kde=stats.kde.gaussian_kde(samp)
+    grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    z = kde(grid_coords.T)
+    z = z.reshape(Nx,Ny)
+    asp=xax.ptp()/yax.ptp()
+#    if(asp<0.8 or asp > 1.6): asp=1.4
+    imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
+    colorbar()
+
+plot2Dkernel(pos[:,0],pos[:,1],100,100)
 xlabel('chirp mass (Msun)')
 ylabel('eta')
+grid()
 myfig.savefig(outdir+'/Meta.png')
 
 myfig.clear()
-lims=(min(pos[:,6]),min(pos[:,5]),max(pos[:,6]),max(pos[:,5]))
-#myfig.add_axes(lims)
-foo=array([pos[:,5],pos[:,6]])
-(bins,myhist)=histN(foo,[30,30])
-#myfig=figure(2)
-contourf(bins[0],bins[1],myhist)
-plot([foo[0,-1]],[foo[1,-1]],'x')
+plot2Dkernel(pos[:,5],pos[:,6],100,100)
+xlabel('RA')
+ylabel('dec')
 grid()
-xlabel('Right Ascension')
-ylabel('Declination')
 myfig.savefig(outdir+'/RAdec.png')
 
 myfig.clear()
-foo=array([pos[:,7],pos[:,8]])
-(bins,myhist)=histN(foo,[30,30])
-#myfig=figure(3)
-contour(bins[0],bins[1],myhist)
-plot([foo[0,-1]],[foo[1,-1]], 'x')
-grid()
+plot2Dkernel(pos[:,7],pos[:,8],100,100)
 xlabel('psi')
 ylabel('iota')
+grid()
 myfig.savefig(outdir+'/psiiota.png')
 myfig.clear()
 
 (m1,m2)=mc2ms(pos[:,0],pos[:,1])
-foo=array([m1,m2])
-(bins,myhist)=histN(foo,[30,30])
-#myfig=figure()
-contourf(bins[0],bins[1],myhist)
+plot2Dkernel(m1,m2,100,100)
 xlabel('mass 1')
 ylabel('mass 2')
 grid()
 myfig.savefig(outdir+'/m1m2.png')
 myfig.clear()
 
-foo=array([pos[:,4],pos[:,8]])
-(bins,myhist)=histN(foo,[30,30])
-contourf(bins[0],bins[1],myhist)
+plot2Dkernel(m1,pos[:,4],100,100)
+xlabel('m1')
+ylabel('Distance (Mpc)')
+grid()
+myfig.savefig(outdir+'/m1dist.png')
+myfig.clear()
+plot2Dkernel(m2,pos[:,4],100,100)
+xlabel('m2')
+ylabel('Distance (Mpc)')
+grid()
+myfig.savefig(outdir+'/m2dist.png')
+myfig.clear()
+
+plot2Dkernel(pos[:,4],pos[:,8],100,100)
 xlabel('distance')
 ylabel('iota')
 grid()
@@ -187,34 +199,53 @@ myfig.clear()
 
 paramnames=('Mchirp (Msun)','eta','geocenter time ISCO','phi_c','Distance (Mpc)','RA (rads)','declination (rads)','psi','iota')
 
+for i in range(0,Nd-1):
+    for j in range(i+1,Nd-1):
+        plot2Dkernel(pos[:,i],pos[:,j],50,50)
+        xlabel(paramnames[i])
+        ylabel(paramnames[j])
+        grid()
+        margdir=outdir+'/2D'
+        if not os.path.isdir(margdir+'/'): os.mkdir(margdir)
+        myfig.savefig(margdir+'/'+paramnames[i]+'-'+paramnames[j]+'_2Dkernel.png')
+        myfig.clear()
+
 htmlfile=open(outdir+'/posplots.html','w')
-htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>Posterior PDFs</h3>')
+htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>'+str(means[2])+' inspnest Posterior PDFs</h3>')
 if(Bflag==1): htmlfile.write('<h4>log Bayes Factor: '+str(BayesFactor)+'</h4><br>')
-htmlfile.write('signal evidence: '+str(logZ)+'. Fisher information: '+str(H*1.442)+' bits.<br>')
-htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, taken from '+str(len)+' NS samples using '+str(Nlive)+' live points<br>')
+htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bits.<br>')
+if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d[-1,-1]-NoiseZ)+'<br>')
+htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(len)+' NS samples using '+str(Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
 htmlfile.write('<table border=1><tr>')
 paramline=reduce(lambda a,b:a+'<td>'+b,paramnames)
 htmlfile.write('<td>'+paramline+'<td>logLmax</tr><tr>')
 meanline=reduce(lambda a,b:a+'<td>'+b,meanStr)
 htmlfile.write('<td>'+meanline+'</tr></table>')
-
+htmlfile.write('<h5>2D Marginal PDFs</h5><br>')
 htmlfile.write('<table border=1><tr>')
 htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
+htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
+htmlfile.write('<td width=30%><img width=100% src="m1dist.png"></td>')
+htmlfile.write('<td width=30%><img width=100% src="m2dist.png"></td>')
 htmlfile.write('</table>')
-htmlfile.write('<br><hr>')
+htmlfile.write('<br><a href="2D/">All 2D Marginal PDFs</a><hr><h5>1D marginal posterior PDFs</h5><br>')
 
 for i in [0,1,2,3,4,5,6,7,8]:
     myfig=figure(figsize=(4,3.5),dpi=80)
     hist(pos[:,i],50,normed='true')
+    gkde=stats.gaussian_kde(pos[:,i])
+    ind=linspace(min(pos[:,i]),max(pos[:,i]),101)
+    kdepdf=gkde.evaluate(ind)
+    plot(ind,kdepdf,label='density estimate')
     grid()
     xlabel(paramnames[i])
     ylabel('Probability Density')
-    myfig.savefig(outdir+'/'+str(i) + '.png')
-    htmlfile.write('<img src="'+str(i)+'.png">')
+    myfig.savefig(outdir+'/'+paramnames[i]+ '.png')
+    htmlfile.write('<img src="'+paramnames[i]+'.png">')
 
-
+htmlfile.write('<hr><br>Produced using lalapps_inspnest and OddsPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S"))
 htmlfile.write('</BODY></HTML>')
 htmlfile.close()

@@ -153,8 +153,8 @@ def parse_command_line():
     # (This is redundant with ligolw_segment_query, maybe move to
     # query_engine)
     if options.segment_url:
-        if options.segment_url.startswith('ldbd:'):
-            database_location = options.segment_url[len('ldbd://'):]
+        if options.segment_url.startswith('ldbd'):
+            database_location = options.segment_url
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
         else:
@@ -175,7 +175,7 @@ def parse_command_line():
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
-        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
+        database_location = os.environ['S6_SEGMENT_SERVER']
     elif options.dmt_file:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-file specified but ONLINEDQ not set" )
