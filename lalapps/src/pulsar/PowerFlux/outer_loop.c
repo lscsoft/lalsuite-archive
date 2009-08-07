@@ -586,29 +586,10 @@ OUTPUT_SKYMAP(weight_loss_fraction_skymap, "weight_loss_fraction");
 OUTPUT_SKYMAP(ks_skymap, "ks_value");
 }
 
-void outer_loop(void)
+void create_segments(EXTREME_INFO ***out_ei, int *out_nei)
 {
-int pi, i, k, m;
-int nchunks;
-int nei;
-POWER_SUM **ps, **ps_tmp;
+int i, k, m, nei;
 EXTREME_INFO **ei;
-int ps_tmp_len;
-int count;
-double gps_start=min_gps();
-double gps_stop=max_gps()+1;
-time_t start_time, end_time;
-RGBPic *p;
-PLOT *plot;
-
-assign_per_dataset_cutoff_veto();
-assign_cutoff_veto();
-assign_detector_veto();
-
-nchunks=args_info.nchunks_arg*veto_free;
-ps=do_alloc(nchunks, sizeof(*ps));
-ps_tmp=do_alloc(nchunks, sizeof(*ps));
-
 ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg-1)*(veto_free+1), sizeof(*ei));
 
 fprintf(LOG, "nchunks: %d\n", args_info.nchunks_arg);
@@ -632,6 +613,35 @@ for(i=0;i<args_info.nchunks_arg;i++)
 			nei++;
 			}
 
+*out_nei=nei;
+*out_ei=ei;
+}
+
+void outer_loop(void)
+{
+int pi, i, k, m;
+int nchunks;
+POWER_SUM **ps, **ps_tmp;
+int nei;
+EXTREME_INFO **ei;
+int ps_tmp_len;
+int count;
+double gps_start=min_gps();
+double gps_stop=max_gps()+1;
+time_t start_time, end_time;
+RGBPic *p;
+PLOT *plot;
+
+assign_per_dataset_cutoff_veto();
+assign_cutoff_veto();
+assign_detector_veto();
+
+nchunks=args_info.nchunks_arg*veto_free;
+ps=do_alloc(nchunks, sizeof(*ps));
+ps_tmp=do_alloc(nchunks, sizeof(*ps));
+
+create_segments(&ei, &nei);
+
 fprintf(LOG, "nei: %d\n", nei);
 
 time(&start_time);
@@ -647,7 +657,11 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 		}
 	generate_patch_templates(pi, &(ps[0]), &count);
 
-	if(count<1)continue;
+	if(count<1) {
+		free(ps[0]);
+		ps[0]=NULL;
+		continue;
+		}
 
 	for(i=1;i<nchunks;i++) {
 		clone_templates(ps[0], count, &(ps[i]));
