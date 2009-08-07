@@ -58,6 +58,7 @@ from glue import markup
 from lalapps import inspiralutils
 from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
+from pylal.xlal import date as xlaldate
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -2153,13 +2154,15 @@ defaulting to %s"%(self.serverURL))
     return self.resultList
   #End generateResultList
   
-  def generateHTMLTable(self):
+  def generateHTMLTable(self,tableType="BOTH"):
     """
     Return a HTML table already formatted using the module MARKUP to
     keep the HTML tags complient.  This method does nothing but return
     the result of the last call to self.fetchInformation() The flag
     names associated with LIGO will have links to the channel wiki in
     them also.
+    Types that will invoke a not everything behaviour are
+    DQ and VETO
     """
     ligo=["L1","H1","H2","V1"]
     channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
@@ -2184,7 +2187,14 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      else:
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
@@ -2425,3 +2435,70 @@ path %s\n"%(myPath))
 
 #End followupDQdb class()
 ######################################################################
+
+#A loose method to retrieve the iLog url given a integer for of
+#GPStime
+def getiLogURL(time=None,ifo=None):
+  """
+  This method returns a URL string to point you to ilog day page for
+  specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
+  """
+  dateString="%s/%s/%s"
+  urls={
+    'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+    'V1':"https://pub3.ego-gw.it/logbook/",
+    'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
+    }
+  outputURL=urls['default']
+  if ((ifo==None) or (time==None)):
+    return urls['default']
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
+  if ('H1','H2','L1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]%gpsStamp
+  if ('V1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]
+  return outputURL
+#End def getiLogURL
+
+def getGlitchReportURL(time=None):
+  """
+  This method is esentially a wrapper method until we have a better
+  approach to linking directly to a specific glitch report. The method
+  expects an interger respresentation of GPS time.
+  """
+  stopS5=int(875232014)
+  defaultURL="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies"
+  s5URL="http://lancelot.mit.edu/~dicredic/S5scimon.html"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5URL
+  else:
+    return defaultURL
+#End getGlitchReportURL
+
+def getDailyStatsURL(time=None):
+  """
+  This method points you to the right URL to look at the daily stats
+  pages.
+  """
+  stopS5=int(875232014)
+  defaultURL="http://blue.ligo-wa.caltech.edu/scirun/S6/DailyStatistics/"
+  s5Link="http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5Link
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+  outputLink=defaultURL+linkText
+  return outputLink
+#End getDailyStatsURL
