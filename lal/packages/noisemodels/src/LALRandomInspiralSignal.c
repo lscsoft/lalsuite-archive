@@ -777,6 +777,7 @@ void LALRandomInspiralSignalTimeDomain
   REAL4   numer, denom;
   INT4    k;
   INT4    valid;
+  INT4    tmpType;
 
   RandomParams     *randParams = NULL;
   
@@ -804,7 +805,11 @@ void LALRandomInspiralSignalTimeDomain
   dt = 1.0 / randIn->param.tSampling;
   df = randIn->param.tSampling / (REAL8)(tLength) / 2.;
 
- 
+  /* Hack for now; force the type to be SignalOnly in here */
+  tmpType = randIn->type;
+  randIn->type = 0; 
+
+
   /* Use the seed to initialize random(). */
   /* srandom(randIn->useed); */
   /* use the random number so generated as the next seed */
@@ -1374,6 +1379,10 @@ void LALRandomInspiralSignalTimeDomain
       RETURN(status);
       break;
   }
+
+  randIn->type = tmpType;
+  DETATCHSTATUSPTR(status);
+  RETURN(status);
 } 
 
 /*----------- Functions static within this file -------------------*/
