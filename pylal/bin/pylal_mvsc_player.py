@@ -1,7 +1,9 @@
 #!/usr/bin/python
 """Calculates and uses MVSC values from cache files.
 
-Writes an html file with plots and information showing results."""
+Writes an html file with plots and information showing results.
+See /archive/home/tmiller/MVSC/MVSC_help/readme for detailed instructions.
+(also available at https://ldas-jobs.ligo.caltech.edu/~tmiller/MVSC/MVSC_help/readme)"""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
 __date__ = '$Date$'
@@ -336,6 +338,8 @@ if not opts.plot_only:
                        ' -a 1 '+ filepath+ \
                        '.spr ' + zeropath +' '+filepath+'_hardware.dat' )
             zerodata = rewrite_results( zeropath, filepath + '_hardware.dat' )
+        else:
+            zerodata = None
         
         time_tree_end = os.times()[4]
         print 'Time spent training and testing trees: ' + \
