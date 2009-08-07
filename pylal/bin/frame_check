@@ -129,22 +129,40 @@ if opts.enable_output is True:
   html_filename = opts.output_path + opts.prefix + opts.suffix + ".html"
   web = webUtils.WebPage("Frame check for "+opts.ifo_times, html_filename)
 
+countPasses=int(0)
+frameCount=myCache.__len__()
+failedList=list()
+verboseText=list()
 for entry in myCache:
   cmd = opts.frame_check_executable + ' -i  '  + entry.path()
   frCheckExec = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE)
   frCheckRetCode = frCheckExec.wait()
   frCheckOutput = frCheckExec.stdout
   if frCheckRetCode != 0:
-    print >> sys.stderr, "command " + cmd + " failed"
-    sys.exit(1)
+    failedList.append(entry.path())
+    if opts.enable_output is True:
+      for line in  frCheckOutput.readlines():
+        verboseText.append(line)
   else:
     if opts.enable_output is True:
       for line in  frCheckOutput.readlines():
-        web.text(line)
+        verboseText.append(line)
 
+if opts.enable_output is True:
+  web.text("Frame_Check_Summary :%i: files failed!\n\n")
+  for line in failedList:
+    web.text(line+"\n")
+  web.text("\n\n")
+  for line in verboseText:
+    web.text(line)
 if opts.enable_output is True:    
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
   web.cleanWrite('IUL')
 
+#If there are failed frame checks
+if failedList.__len__() > 0:
+  print >> sys.stderr, "At least 1 frame file failed the frame check.\n"
+  sys.exit(1)
+  
 sys.exit(0)
 

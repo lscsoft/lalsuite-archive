@@ -73,19 +73,19 @@ unset LD_PRELOAD
 unset XROOTD_VMP
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH_SAV}
 
-echo "convert thumbnails...."
+#echo "convert thumbnails...."
 
-tempConvert="tmpConvert$QSUB_FILEID.sh"
+#tempConvert="tmpConvert$QSUB_FILEID.sh"
 
-for i in `ls -1 $outputDirectory/$eventTime` ; do
-  pngEnd=`echo $i | sed "s/.*.png$/.png/"`
-  fileName=$outputDirectory/$eventTime/$i
-  if [ $pngEnd = ".png" ]; then
-     echo $fileName | awk '{tmp = substr($1,1,length($1)-4);print "convert -resize 300x " $1 "  -strip -depth 8 -colors 256 " tmp"_thumbnail.png" }' >> $tempConvert
-  fi
-done
-chmod u+x $tempConvert;
-./$tempConvert; rm $tempConvert
+#for i in `ls -1 $outputDirectory/$eventTime` ; do
+#  pngEnd=`echo $i | sed "s/.*.png$/.png/"`
+#  fileName=$outputDirectory/$eventTime/$i
+#  if [ $pngEnd = ".png" ]; then
+#     echo $fileName | awk '{tmp = substr($1,1,length($1)-4);print "convert -resize 300x " $1 "  -strip -depth 8 -colors 256 " tmp"_thumbnail.png" }' >> $tempConvert
+#  fi
+#done
+#chmod u+x $tempConvert;
+#./$tempConvert; rm $tempConvert
 
 echo "transfer files to web directory"
 #scp -i ~/.ssh/id_rsa -r $outputDirectory/$eventTime $webDirectory/$webSubDirectory
