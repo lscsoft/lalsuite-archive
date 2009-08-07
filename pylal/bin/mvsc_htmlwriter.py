@@ -164,10 +164,10 @@ class mvsc_html:
             elif match.group(1) == 'files':
                 try:
                     # make absolute link
-                    home_path = os.path.abspath('.')
+                    #home_path = os.path.abspath('.')
                     
                     # ... or make relative link
-                    #home_path = os.path.relpath('.',self.patpath)
+                    home_path = os.path.relpath('.',self.patpath)
                     
                     training_path = home_path+'/'+self.patpath+ \
                        self.opts.run_name+\
@@ -269,33 +269,35 @@ class mvsc_html:
 
             # insert list of top events
             elif match.group(1) == 'top_events':
-                if self.top_events:
-                    htmlcode = ''
-                    for i in range(len(self.top_events)):
-                        htmlcode += '<tr><td>'+str(i+1)+'</td>'
+              if self.top_events:
+                htmlcode = ''
+                for i in range(len(self.top_events)):
+                  htmlcode += '<tr><td>'+str(i+1)+'</td>'
 
-                        colinfo = ['get_end()','snr','chisq','eff_distance']
-                        for j in range(len(colinfo)):
-                            htmlcode += '<td>'
-                            htmlcode += str(self.top_events[i][ \
+                  colinfo = ['get_end()','snr','chisq','eff_distance']
+                  for j in range(len(colinfo)):
+                    htmlcode += '<td>'
+                    htmlcode += str(self.top_events[i][ \
                                 self.cols['t1'+colinfo[j]]])
                                             
-                            k = 2
-                            while self.cols.has_key('t'+str(k)+colinfo[j]):
-                                htmlcode += '<br>'
-                                htmlcode += str(self.top_events[i][ \
+                    k = 2
+                    while self.cols.has_key('t'+str(k)+colinfo[j]):
+                      htmlcode += '<br>'
+                      htmlcode += str(self.top_events[i][ \
                                     self.cols['t'+str(k)+colinfo[j]]])
-                                k += 1
+                      k += 1
 
-                            htmlcode += '</td>'
+                    htmlcode += '</td>'
                             
-                        htmlcode += '<td>'+\
-                            str(self.top_events[i][self.cols['t1t2mchirp']]) +\
-                            '</td><td>' + \
-                            str(self.top_events[i][self.cols['Bagger']]) + \
-                            '</td></tr>'
-                else:
-                    htmlcode = match.group(2)
+                  htmlcode += '<td>'+\
+                        str(self.top_events[i][self.cols['t1t2mchirp']]) +\
+                        '</td><td>' + \
+                        str(self.top_events[i][self.cols['FAN']]) + \
+                        '</td><td>' + \
+                        str(self.top_events[i][self.cols['Bagger']]) + \
+                        '</td></tr>'
+              else:
+                htmlcode = match.group(2)
             elif match.group(1) == 'filename':
                 try:
                     htmlcode = 'Html file for ' + self.filename
