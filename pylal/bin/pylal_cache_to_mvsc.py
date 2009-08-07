@@ -301,10 +301,10 @@ parser.add_option("","--full-data-zerolag-pattern", default="COIRE_SECOND*CAT_2_
 parser.add_option("","--slide-pattern", default="COIRE_SLIDE_SECOND_*_FULL_DATA_CAT_2_VETO", action="store",type="string", metavar="SLIDEPTTRN", help="sieve pattern for background" )
 parser.add_option("","--found-pattern", default="COIRE_INJECTIONS_*_FOUND_SECOND_*_*INJ_CAT_2_VETO", metavar="FOUNDPTTRN", help="sieve pattern for found injection files")
 parser.add_option("", "--ifo-times", default=None, action="store", type="string", metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
+parser.add_option("","--veto-category", default="CAT_2", action="store", type="string", metavar="VETOCAT", help="in the format CAT_x where x=1,2,3,4,5,6") 
 parser.add_option("", "--exact-match",default=False, action="store_true", help="the pattern should match exactly if this option is used" )
 parser.add_option("--statistic", action="store",type="string", default="effective_snr",help="choice of statistic used in making plots, valid arguments are: snr, snr_over_chi, s3_snr_chi_stat, effective_snr")
 parser.add_option("--verbose",action="store_true",default=True,help="print extra info to the screen")
-
 (opts,args)=parser.parse_args()
 
 # get tables ready for putting things in
@@ -316,19 +316,22 @@ SlideTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L
 InjTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 KnownTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 
+# too keep I/O functioning smoothly, save the relevant lines from the cache into a new, smaller cache
 cache_file = glob.glob(opts.cache_file)[0]
-cachefile = lal.Cache.fromfile(open(cache_file)).sieve(ifos=opts.ifo_times, exact_match=opts.exact_match)
+os.system('cat ' + cache_file + ' | grep COIRE | grep SECOND | grep ' + opts.veto_category + ' > mvsc_cache.cache') 
+# now we can open the cache file
+cachefile = lal.Cache.fromfile(open('mvsc_cache.cache')).sieve(ifos=opts.ifo_times, exact_match=opts.exact_match)
 # initialize CoincInspiralUtils, which is going to pull coincidences out of the xml files that you provide as arguments to the options
 coinc_stat=CoincInspiralUtils.coincStatistic(opts.statistic)
 # Read in the files
 SlideCoincs = get_slide_coincs_from_cache(cachefile, opts.slide_pattern, opts.exact_match, opts.verbose, coinc_stat)
-SlideCoincs = new_coincs_from_coincs(SlideCoincs, coinc_stat)
+if SlideCoincs: SlideCoincs = new_coincs_from_coincs(SlideCoincs, coinc_stat)
 PlaygroundZeroCoincs = get_coincs_from_cache(cachefile, opts.playground_zerolag_pattern, opts.exact_match, opts.verbose, coinc_stat)
-PlaygroundZeroCoincs = new_coincs_from_coincs(PlaygroundZeroCoincs, coinc_stat)
+if PlaygroundZeroCoincs: PlaygroundZeroCoincs = new_coincs_from_coincs(PlaygroundZeroCoincs, coinc_stat)
 FullDataZeroCoincs = get_coincs_from_cache(cachefile, opts.full_data_zerolag_pattern, opts.exact_match, opts.verbose, coinc_stat)
-FullDataZeroCoincs = new_coincs_from_coincs(FullDataZeroCoincs, coinc_stat)
+if FullDataZeroCoincs: FullDataZeroCoincs = new_coincs_from_coincs(FullDataZeroCoincs, coinc_stat)
 InjCoincs = get_coincs_from_cache(cachefile, opts.found_pattern, opts.exact_match, opts.verbose, coinc_stat)
-InjCoincs = new_coincs_from_coincs(InjCoincs,coinc_stat)
+if InjCoincs: InjCoincs = new_coincs_from_coincs(InjCoincs,coinc_stat)
 
 params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()','eff_distance','get_end()'], "metricInfo":['ethinca'],"coincRelativeDelta":['mchirp','eta'], "coincDelta":['time'], "coincInfo":['class']}
 
