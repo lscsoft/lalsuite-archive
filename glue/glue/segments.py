@@ -1165,7 +1165,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = segmentlist(self[keys.pop()])
+		seglist = shallowcopy(self[keys.pop()])
 		for key in keys:
 			seglist &= self[key]
 		return seglist
@@ -1178,7 +1178,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = segmentlist(self[keys.pop()])
+		seglist = shallowcopy(self[keys.pop()])
 		for key in keys:
 			seglist |= self[key]
 		return seglist

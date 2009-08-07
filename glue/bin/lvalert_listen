@@ -7,14 +7,20 @@ import time
 import select
 import logging
 import libxml2
+import getpass
+import ConfigParser
+from subprocess import Popen, PIPE
 from optparse import *
+
+# pubsub import must come first because it overloads part of the
+# StanzaProcessor class
+from glue.lvalert import pubsub
 
 from pyxmpp.all import JID,Iq,Presence,Message,StreamError,TLSSettings
 from pyxmpp.jabber.all import Client
 from pyxmpp.jabber.simple import send_message
 from pyxmpp.interface import implements
 from pyxmpp.interfaces import *
-from glue.lvalert import pubsub
 
 """
 A tool to listen for events on a pubsub node 
@@ -63,10 +69,21 @@ usage = """\
 
   to find out how to manage your subscriptions. 
 
-  COMING SOON:  the next version of lvalert_listen will take a
-  configuration file which specifies actions to take when an alert is
-  received from a given node. This should allow automation of
-  downstream tasks by scientists in response to the alert.
+  It is also possible to specify actions to be taken upon receipt of a
+  message from a given node using a config-file to specify the program
+  to run when the message is received via different nodes. The payload
+  of the message is piped to the command via stdin.  A sample
+  config-file called example.ini might look like
+
+  [lvalert_test]
+  executible=./mycounter
+
+  then running
+
+  lvalert_listen --username albert.einstein --password secret --config-file example.ini
+
+  would result in ./mycounter being executed and the output printed to
+  screen whenever a message was received via the lvalert_test node. 
 
 """
 
@@ -87,6 +104,10 @@ def parse_command_line():
       default="", help="the password of the publisher or listener" )
   parser.add_option("-s","--server",action="store",type="string",\
       default="lvalert.phys.uwm.edu", help="the pubsub server" )
+  parser.add_option("-r","--resource",action="store",type="string",\
+      default="listener", help="resource to use in JID" )
+  parser.add_option("-c","--config-file",action="store",type="string",\
+      default=None, help="config file with list of actions" )
 
   parser.add_option("-S","--show",action="store_true",\
       default=False, help="print the payload to stdout" )
@@ -114,9 +135,10 @@ class LVAlertHandler(object):
 
     implements(IMessageHandlersProvider)
     
-    def __init__(self, client):
+    def __init__(self, client, actions):
         """Just remember who created this."""
         self.client = client
+        self.actions = actions
     
     def get_message_handlers(self):
         """Return list of (message_type, message_handler) tuples.
@@ -137,11 +159,23 @@ class LVAlertHandler(object):
         :returns: `True` to indicate, that the stanza should not be processed
         any further."""
         e=self.get_entry(stanza)
+        n=self.get_node(stanza)
         if e:
-            print "Payload received at %s" % (datetime.datetime.now().ctime())
-            if opts.show:
-                print u'%s' % (e,),
+            if n in self.actions:
+                p = Popen([self.actions[n]], stdin=PIPE, stdout=PIPE)
+                print p.communicate(e)[0]
+                sys.stdout.flush()
+            else:
+                print "Payload received at %s" % (datetime.datetime.now().ctime())
+                if opts.show:
+                    print u'%s' % (e,),
         return True
+
+    def get_node(self,stanza):
+        c = stanza.xmlnode.children
+        c = c.children
+        if c:
+            return c.prop("node")
 
     def get_entry(self,stanza):
         c = stanza.xmlnode.children
@@ -155,10 +189,10 @@ class LVAlertHandler(object):
         return None
 
 class MyClient(Client):
-    def __init__(self, jid, password):
+    def __init__(self, jid, password,actions):
         # if bare JID is provided add a resource -- it is required
         if not jid.resource:
-            jid=JID(jid.node, jid.domain, "LVAlert")
+            jid=JID(jid.node, jid.domain, "listener")
 
         # we require a TLS connection
         t=TLSSettings(require=True,verify_peer=False)
@@ -170,7 +204,7 @@ class MyClient(Client):
 
         # add the separate components
         self.interface_providers = [
-            LVAlertHandler(self),
+            LVAlertHandler(self,actions),
             ]
 
     def stream_state_changed(self,state,arg):
@@ -191,9 +225,21 @@ if opts.debug:
 # debug the memory
 libxml2.debugMemory(1)
 
+# set up handlers for each node
+actions={}
+if opts.config_file:
+    cp=ConfigParser.ConfigParser()
+    cp.read(opts.config_file)
+    for node in cp.sections():
+        actions[node]=cp.get(node,'executible')
+
 # set up the stream
-myjid=JID(opts.username+"@"+opts.server+"/Home")
-s=MyClient(myjid,opts.password)
+myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)
+if not opts.password:
+    mypassword = getpass.getpass()
+else:
+    mypassword = opts.password
+s=MyClient(myjid,mypassword,actions)
 
 if opts.verbose:
     print "connecting..."

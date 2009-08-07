@@ -25,6 +25,13 @@ __revision__="$Id: message.py 651 2006-08-27 19:26:45Z jajcus $"
 __docformat__="restructuredtext en"
 
 import libxml2
+
+## Needed because openfire has a minor bug associated with results
+## being ignored in the handshake stage. There is a one line fix
+## in this overloaded class.
+from glue.lvalert.lvstanzaprocessor import LVAlertStanzaProcessor
+
+
 from pyxmpp.stanza import Stanza
 from pyxmpp.utils import to_utf8,from_utf8
 from pyxmpp.xmlextra import common_ns

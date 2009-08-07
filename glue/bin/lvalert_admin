@@ -8,13 +8,16 @@ import logging
 import libxml2
 from optparse import *
 
+# pubsub import must come first because it overloads part of the
+# StanzaProcessor class
+from glue.lvalert import pubsub
+
 from pyxmpp.all import JID,Iq,Presence,Message,StreamError,TLSSettings
 from pyxmpp.jabber.all import Client
 from pyxmpp.jabber.dataforms import Form,DATAFORM_NS
 from pyxmpp.interface import implements
 from pyxmpp.interfaces import *
 from pyxmpp.exceptions import ClientError, FatalClientError
-from glue.lvalert import pubsub
 
 """
 A tool to administer the pubsub service of openfire
@@ -90,6 +93,8 @@ def parse_command_line():
       default="", help="the password of the publisher or listener" )
   parser.add_option("-c","--server",action="store",type="string",\
       default="lvalert.phys.uwm.edu", help="the pubsub server" )
+  parser.add_option("-r","--resource",action="store",type="string",\
+      default="admin", help="resource to use in JID" )
 
   # access information about root nodes
   parser.add_option("-d","--create",action="store_true",\
@@ -138,7 +143,7 @@ class MyClient(Client):
     def __init__(self, jid, password):
         # if bare JID is provided add a resource -- it is required
         if not jid.resource:
-            jid=JID(jid.node, jid.domain, "PubsubBot")
+            jid=JID(jid.node, jid.domain, "admin")
 
         # we require a TLS connection
         t=TLSSettings(require=True,verify_peer=False)
@@ -221,7 +226,7 @@ if opts.debug:
 libxml2.debugMemory(1)
 
 # set up the stream
-myjid=JID(opts.username+"@"+opts.server+"/Home")
+myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)
 s=MyClient(jid=myjid,password=opts.password)
 
 if opts.verbose:

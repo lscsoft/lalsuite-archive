@@ -271,6 +271,10 @@ def parse_args():
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--v1-calibration-uncertainty", metavar="FAC",
+        type="float", default=0.,
+        help="fractional uncertainty in the DC calibration of "
+        "V1; rescale distances by (1 +/- max(FAC))*D")
     parser.add_option("--include-MC-error", metavar="NSIGMA", type="float",
         help="include NSIGMA standard deviations of 1/sqrt(N) Monte-Carlo "\
         "uncertainty.")
@@ -293,8 +297,8 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
-    if len(options.ifo_tag) != 4:
-        raise ValueError, "Only two-IFO combinations are supported."
+    #if len(options.ifo_tag) != 4:
+    #    raise ValueError, "Only two-IFO combinations are supported."
 
     if (options.likelihood_threshold is not None) \
         and (options.likelihood_threshold <= 0):
@@ -431,9 +435,9 @@ if opts.nonuniform_smoothing_L:
 # Take calibration systematics into account by rescaling D bins
 # NB: Needs to be after injections are binned, but before actual distances
 #     are extracted from the search.
-supported_ifos = set(("H1", "H2", "L1"))
+supported_ifos = set(("H1", "H2", "L1", "V1"))
 if opts.ifo_tag is not None:
-    ifos = (opts.ifo_tag[:2], opts.ifo_tag[2:])
+    ifos = set(opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag) // 2))
     if not supported_ifos.issuperset(ifos):
         raise ValueError, "Only %s are valid IFOs in --ifo-tag" % supported_ifos
 else:

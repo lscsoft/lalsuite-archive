@@ -29,6 +29,7 @@
 
 
 import bisect
+from new import instancemethod
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -45,12 +46,13 @@ from glue.ligolw import utils
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.date import LIGOTimeGPS
-
-
+from scipy import interpolate
+import scipy
+import numpy
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -70,23 +72,44 @@ def parse_command_line():
 		usage = "%prog [options] [file ...]",
 		description = "%prog does blah blah blah."
 	)
-	parser.add_option("-b", "--mass-bins", metavar = "m0,m1[,m2,...]", help = "Set the boundaries of the mass bins.  The lowest and highest bounds must be explicitly listed.  Example 0,5,inf.  Required.")
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
-	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
+	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
+	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"oninstruments\"}", help = "Select the event categorization algorithm.  Required.")
+	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
+	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	#
+	# categories and ranking
+	#
+
+	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "oninstruments"):
+		raise ValueError, "missing or unrecognized --categories option"
+	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
+		raise ValueError, "missing or unrecognized --rank-by option"
+
+	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
+		if options.rank_by != "snr":
+			raise ValueError, "--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories
+		options.populate_column = "false_alarm_rate"
+	else:
+		if options.rank_by == "snr":
+			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
+		options.populate_column = "combined_far"
+
+	#
 	# parse mass bins
 	#
 
-	if options.mass_bins: 
+	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
+		if options.mass_bins is None:
+			raise ValueError, "--mass-bins required with category algorithm \"%s\"" % options.categories
 		options.mass_bins = sorted(map(float, options.mass_bins.split(",")))
 		if len(options.mass_bins) < 2:
-			raise ValueError, "must supply at least two mass bin boundaries"
+			raise ValueError, "must set at least two mass bin boundaries (i.e., define at least one mass bin)"
 		options.mass_bins = rate.IrregularBins(options.mass_bins)
-
 
 	#
 	# other
@@ -112,51 +135,143 @@ def parse_command_line():
 
 
 class Summaries(object):
-	def __init__(self, mass_bins):
-		self.mass_bins = mass_bins
-		self.snrs = {}
-		self.cached_livetime = {}
+	def __init__(self, category_algorithm, rank_by, mass_bins = None):
+		if category_algorithm == "mchirp-ifos-oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
+		elif category_algorithm == "mtotal-ifos-oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
+		elif category_algorithm == "oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
+		else:
+			raise ValueError, category_algorithm
+		self.category_func = instancemethod(self.category_func, self, self.__class__)
 
-	def add_livetime(self, connection, veto_segments, live_time_program, verbose = False):
+		if rank_by == "snr":
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
+		elif rank_by == "uncombined-ifar":
+			# cast to float so this does the right thing when
+			# we get "inf" as a string
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: float(uncombined_ifar)
+		elif rank_by == "likelihood":
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
+		else:
+			raise ValueError, rank_by
+		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
+
+		self.mass_bins = mass_bins
+		self.reputations = {}
+		self.signal_reputations = {}
+		self.cached_livetime = {}
+		self.rank_by = rank_by
+		self.signal_denominator = None
+		self.background_denominator = None
+		self.signal_numerator = None
+
+	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+		if veto_segments_name is not None:
+			if verbose:
+				print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
+			veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+		else:
+			veto_segments = segments.segmentlistdict()
 		if verbose:
-			print >>sys.stderr, "computing livetimes:",
-		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+			print >>sys.stderr, "\tcomputing livetimes:",
+		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
-				self.cached_livetime[on_instruments] += livetime
+				self.cached_livetime[on_instruments] += sum(livetimes)
 			except KeyError:
-				self.cached_livetime[on_instruments] = livetime
+				self.cached_livetime[on_instruments] = sum(livetimes)
 		if verbose:
 			print >>sys.stderr
 
-	def add_coinc(self, on_instruments, participating_instruments, mass, snr):
-		if self.mass_bins: key = (on_instruments, participating_instruments, self.mass_bins[mass])
-		else: key = (on_instruments,)
+	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append((self.reputation_func(snr, uncombined_ifar, likelihood),0))
+
+	def add_signal_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, distance, uncombined_ifar, likelihood):
+                self.signal_reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append((self.reputation_func(snr, uncombined_ifar, likelihood), distance))
+
+	def index(self):
+		for reputations in self.reputations.values():
+			reputations.sort()
+		for reputations in self.signal_reputations.values():
+			reputations.sort()
+
+	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		#
+		# retrieve the appropriate reputation list (create an empty
+		# one if there are no reputations for this category)
+		#
+
+		reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+
+		#
+		# len(x) - bisect.bisect_left(x, reputation) = number of
+		# elements in list >= reputation
+		#
+
+		n = len(reputations) - bisect.bisect_left(reputations, (self.reputation_func(snr, uncombined_ifar, likelihood), 0))
+		
+		#
+		# retrieve the livetime
+		#
+
+		t = self.cached_livetime.setdefault(on_instruments, 0.0)
+		#
+		# return the rate of events above the given reputation
+		#
+
 		try:
-			self.snrs[key].append(snr)
-		except KeyError:
-			self.snrs[key] = [snr]
+			return n / t, 
+		except ZeroDivisionError, e:
+			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
+			raise e
 
-	def index(self, stat):
-		#if stat == "coinc_inspiral.false_alarm_rate": rev=True
-		#else: rev=False
-		for snrs in self.snrs.values():
-			snrs.sort()
+	def likelihood_summarize(self):
+                self.background_denominator = sum(len(l) for l in self.reputations.values())
+		fullintegral = 0
+		for l in self.signal_reputations.values():
+			integral = 0
+			for j in range(len(l)-1, -1, -1):
+				integral += l[j][1]
+				fullintegral += l[j][1]
+				l[j] = (l[j][0], integral)
+		self.signal_denominator = fullintegral
+		cnt = 0
+		self.fit = {}
+		for k in self.reputations.keys():
+			l = self.reputations[k]
+			B1 = []
+			B0 = []
+			for i, val in enumerate(l):
+				try: 
+					if val[0] == B1[-1]: continue
+				except: pass
+				B1.append(val[0])
+				#FIXME I changed the normalization to only be over the category, is that right or should it be self.background_denominator???
+				B0.append((len(l) - i+1.0) / len(l))
+			#FIXME add some points to the curve so that everything agrees...
+			
+			U1 = numpy.concatenate((numpy.log(B1), numpy.log(numpy.linspace(100,10000, 100))))
+			U0 = numpy.concatenate((numpy.log(B0), numpy.linspace(-600,-10000 * 10000 * .06, 100)))
+                	self.fit[k] = interpolate.splrep(U1, U0, s=100, k=1)
+	
+	def likelihood(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar):
 
-	def rate(self, on_instruments, participating_instruments, mass, snr):
-		if self.mass_bins: key = (on_instruments, participating_instruments, self.mass_bins[mass])
-		else: key = (on_instruments,)
-		try:
-			snrs = self.snrs[key]
-		except KeyError:
-			# found coinc in category that has no background
-			# events.  trap error, and create new empty event
-			# list
-			snrs = self.snrs[key] = []
-		# len(x) - bisect.bisect_left(x, snr) = (# of elements in
-		# list >= snr)
-		return (len(snrs) - bisect.bisect_left(snrs, snr)) / self.cached_livetime[on_instruments]
-
+                reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+		fit = self.fit.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+		lnPb = interpolate.splev(numpy.log(snr), fit)
+                signal_reputations = self.signal_reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+                ns = bisect.bisect_left(signal_reputations, (self.reputation_func(snr, uncombined_ifar, likelihood), 0))
+                try:
+			# FIXME add one to avoid n=0 error, handle better
+			# FIXME I changed the normalization to be based on category, should be signal_denominator???
+			val = numpy.log((1.0+signal_reputations[ns][1]) / (signal_reputations[-1][1]+1.0)) - lnPb
+                        return val
+                except ZeroDivisionError, e:
+			print >> sys.stderr, ns, len(signal_reputations), signal_reputations[ns-1][1], self.signal_denominator, n, self.background_denominator
+                        print >>sys.stderr, "Divide by Zero in likelihood ranking"
+                        raise e
 
 #
 # =============================================================================
@@ -180,15 +295,9 @@ options, filenames = parse_command_line()
 #
 
 
-background = Summaries(options.mass_bins)
-if options.mass_bins: 
-	stat = "coinc_inspiral.snr"
-	far_col = "false_alarm_rate"
-else: 
-	stat = "1.0 / (coinc_inspiral.false_alarm_rate + 1.0e-17)"
-	far_col = "combined_far"
+background = Summaries(options.categories, options.rank_by, mass_bins = options.mass_bins)
 
-print "stat = " + stat + " far_col = " + far_col
+
 #
 # iterate over database files accumulating background statistics
 #
@@ -211,49 +320,94 @@ for n, filename in enumerate(filenames):
 	#
 	# if the database contains a sim_inspiral table then it is assumed
 	# to represent an injection run.  its rings must not added to the
-	# livetime, and it cannot provide background coincs, so it is just
-	# skipped altogether.
-	#
+	# livetime, However we can use its statistics in a likelihood calculation 
 
 	if "sim_inspiral" in dbtables.get_table_names(connection):
 		if options.verbose:
-			print >>sys.stderr, "database contains sim_inspiral table, skipping ..."
+			print >>sys.stderr, "\tdatabase contains sim_inspiral table, collecting signal stats ..."
 
-		#
-		# close the database
-		#
+
+
+		for on_instruments, participating_instruments, mchirp, mtotal, snr, distance, uncombined_ifar, likelihood in connection.cursor().execute("""
+SELECT
+        coinc_event.instruments,
+        coinc_inspiral.ifos,
+        coinc_inspiral.mchirp,
+        coinc_inspiral.mass,
+        coinc_inspiral.snr,
+	-- Work out the correction factor for injection population distances
+	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr") 
+		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance 
+		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
+		ELSE 1.0 END,
+        CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN (SELECT min(coinc_inspiral.false_alarm_rate)) ELSE coinc_inspiral.false_alarm_rate END,
+        coinc_event.likelihood
+FROM
+        coinc_event
+        JOIN coinc_inspiral ON (
+                coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+        )
+        JOIN coinc_event_map AS mapA ON (mapA.event_id == coinc_event.coinc_event_id AND mapA.table_name == "coinc_event")
+        JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == mapA.coinc_event_id AND mapB.table_name == "sim_inspiral")
+        JOIN sim_inspiral ON (mapB.event_id == sim_inspiral.simulation_id)
+WHERE
+        -- require coinc to not be background (= at least one of its time slide offsets is non-zero)
+        -- FIXME this has to call a function to get coinc_def id 
+        NOT EXISTS (
+                SELECT
+                        *
+                FROM
+                        time_slide
+                WHERE
+                        time_slide.time_slide_id == coinc_event.time_slide_id
+                        AND time_slide.offset != 0
+        )
+	        """):
+        	        background.add_signal_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, distance, uncombined_ifar, likelihood)
 
 		connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 		continue
 
 	#
-	# retrieve the veto segments
-	#
-
-	if options.veto_segments_name is not None:
-		if options.verbose:
-			print >>sys.stderr, "retrieving veto segments \"%s\" ..." % options.veto_segments_name
-		veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
-	else:
-		veto_segments = segments.segmentlistdict()
-
-	#
 	# compute and record background livetime
 	#
 
-	background.add_livetime(connection, veto_segments, options.live_time_program, verbose = options.verbose)
+	background.add_livetime(connection, options.live_time_program, veto_segments_name = options.veto_segments_name, verbose = options.verbose)
 
 	#
-	# count background coincs by type and mass bin
+	# count background coincs
 	#
 
-	#         -- require coinc to be background (= at least one of its time slide offsets is non-zero)
-
-	select_query = "SELECT coinc_event.instruments, coinc_inspiral.ifos, coinc_inspiral.mass, " + stat + " FROM coinc_event JOIN coinc_inspiral ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE EXISTS (SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0)"
-
-	for on_instruments, participating_instruments, mass, snr in connection.cursor().execute(select_query):
-		background.add_coinc(on_instruments, participating_instruments, mass, snr)
+	if options.verbose:
+		print >>sys.stderr, "\tcollecting background statistics ..."
+	for on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood in connection.cursor().execute("""
+SELECT
+	coinc_event.instruments,
+	coinc_inspiral.ifos,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.mass,
+	coinc_inspiral.snr,
+	CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
+	coinc_event.likelihood
+FROM
+	coinc_event
+	JOIN coinc_inspiral ON (
+		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	-- require coinc to be background (= at least one of its time slide offsets is non-zero)
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+	"""):
+		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood)
 
 	#
 	# close the database
@@ -263,16 +417,12 @@ for n, filename in enumerate(filenames):
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
+background.index()
+background.likelihood_summarize()
+
 #
 # iterate over database files assigning false-alarm rates to coincs
 #
-
-
-if options.verbose:
-	print >>sys.stderr, "calculating and recording false alarm rates ..."
-
-
-background.index(stat)
 
 
 for n, filename in enumerate(filenames):
@@ -289,16 +439,67 @@ for n, filename in enumerate(filenames):
 	# prepare the database
 	#
 
-	connection.create_function("background_rate", 4, background.rate)
+	connection.create_function("background_rate", 7, background.rate)
 
 	#
 	# count background coincs by type and mass bin
 	#
 
-	update_query = "UPDATE coinc_inspiral SET " + far_col + " = (SELECT background_rate(coinc_event.instruments, coinc_inspiral.ifos, coinc_inspiral.mass, " + stat + " ) FROM coinc_event WHERE coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id)"
-	print update_query
-	connection.cursor().execute(update_query)
+	if options.verbose:
+		print >>sys.stderr, "\tcalculating and recording false alarm rates ..."
+	connection.cursor().execute("""
+UPDATE
+	coinc_inspiral
+SET
+	%s = (
+		SELECT
+			background_rate(
+				coinc_event.instruments,
+				coinc_inspiral.ifos,
+				coinc_inspiral.mchirp,
+				coinc_inspiral.mass,
+				coinc_inspiral.snr,
+				CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
+				coinc_event.likelihood
+			)
+		FROM
+			coinc_event
+		WHERE
+			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+
+
+	""" % options.populate_column)
 	connection.commit()
+
+	# FIXME, sort of a hack tying it to one specific algorithm, do we make it a new algorithm?
+	if background.rank_by == "snr":
+	        connection.create_function("likeliness", 6, background.likelihood)
+	        if options.verbose:
+        	        print >>sys.stderr, "\tcalculating and recording likelihood ..."
+	        connection.cursor().execute("""
+UPDATE
+        coinc_event
+SET
+        likelihood = (
+                SELECT
+                        likeliness(
+                                coinc_event.instruments,
+                                coinc_inspiral.ifos,
+                                coinc_inspiral.mchirp,
+                                coinc_inspiral.mass,
+                                coinc_inspiral.snr,
+                                CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END
+                        )
+                FROM
+                        coinc_inspiral
+                WHERE
+                        coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+        )
+        	""") 
+	        connection.commit()
+
+
 
 	#
 	# close the database

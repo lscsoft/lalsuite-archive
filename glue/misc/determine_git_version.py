@@ -69,11 +69,11 @@ def in_git_repository():
   NB: Unfortunately there is a magic number without any documentation to back
   it up. It turns out that git status returns non-zero exit codes for all sorts
   of success conditions, but I cannot find any documentation of them. 128 was
-  determined empirically.  I sure hope that it's portable.
-  The return code of 127 indicates that the git command cannot be found.
+  determined empirically. I sure hope that it's portable.
   """
-  ret_code = run_external_command('git status', honour_ret_code=False)[0]
-  return ret_code not in (127, 128)
+  ret_code, output = run_external_command('which git', honour_ret_code=False)
+  return (ret_code != 1) and not output.startswith('no') \
+      and (run_external_command('git status', honour_ret_code=False)[0] != 128)
 
 def write_git_version(fileobj):
   """

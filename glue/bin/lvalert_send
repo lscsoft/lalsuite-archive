@@ -9,11 +9,13 @@ import logging
 import libxml2
 from optparse import *
 
+# pubsub import must come first because it overloads part of the
+# StanzaProcessor class
+from glue.lvalert import pubsub
+
 from pyxmpp.all import JID,Iq,Presence,Message,StreamError,TLSSettings
 from pyxmpp.jabber.all import Client
 from pyxmpp.jabber.simple import send_message
-
-from glue.lvalert import pubsub
 
 """
 A tool to send an event to a pubsub node 
@@ -80,6 +82,9 @@ def parse_command_line():
       default="", help="the password of the publisher or listener" )
   parser.add_option("-s","--server",action="store",type="string",\
       default="lvalert.phys.uwm.edu", help="the pubsub server" )
+  parser.add_option("-r","--resource",action="store",type="string",\
+      default="sender", help="resource to use in JID" )
+
 
   # access information about root nodes
   parser.add_option("-n","--node",action="store",type="string",\
@@ -116,7 +121,7 @@ class MyClient(Client):
     def __init__(self, jid, password):
         # if bare JID is provided add a resource -- it is required
         if not jid.resource:
-            jid=JID(jid.node, jid.domain, "PubsubBot")
+            jid=JID(jid.node, jid.domain, "sender")
 
         # we require a TLS connection
         t=TLSSettings(require=True,verify_peer=False)
@@ -136,7 +141,6 @@ class MyClient(Client):
             pass
 
     def session_started(self):
-        self.stream.send(Presence())
         if opts.file:
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.create_error,\
@@ -166,17 +170,21 @@ if opts.debug:
 libxml2.debugMemory(1)
 
 # set up the stream
-myjid=JID(opts.username+"@"+opts.server+"/Home")
+myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)
 s=MyClient(jid=myjid,password=opts.password)
 
 if opts.verbose:
     print "connecting..."
 s.connect()
 
+
 if opts.file:
     if opts.verbose:
         print "build pubsub stanza..."
-    eventfile = open(opts.file)
+    if opts.file == '-':
+        eventfile = sys.stdin
+    else:
+        eventfile = open(opts.file)
     voevent = eventfile.read()
     eventfile.close()
 else:

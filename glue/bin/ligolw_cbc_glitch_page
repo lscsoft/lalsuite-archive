@@ -79,6 +79,10 @@ def parse_command_line():
     parser.add_option("-b", "--gps-start-time",  metavar="gps_start_time", help = "Provide an explicit start time, rather than using the timestamp file")
     parser.add_option("-n", "--gps-end-time",  metavar="gps_end_time", help = "Provide an explicit end time, rather than using now")
 
+    parser.add_option("-a", "--omega-conf",       metavar="omega_conf",      help = "Omega configuration file")
+    parser.add_option("-c", "--omega-frame-dir",  metavar="omega_frame_dir", help = "Top level directory of frame files for omega")
+    parser.add_option("-d", "--omega-out-dir",    metavar="omega_out_dir",   help = "Output directory for omega results")
+
     options, others = parser.parse_args()
 
     # Make sure we have all required parameters
@@ -94,16 +98,23 @@ def generate_html(outf, triggers, colors):
     # echo "<p><tt><a href=\"${xmlfile}\">${xmlfile}</a></tt>" >> ${htmlfile}
     print >>outf, '<p>'
     print >>outf, '<table border=1>'
-    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>f_final</th><th>ttotal</th><th>Q scan</th><th>&Omega; scan</th><th>DQ flags</th></tr>'
+    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>&Omega; scan</th><th>DQ flags</th></tr>'
 
     for count, trig in enumerate(triggers):
         print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
-        for res in trig[:-1]:
+
+
+        print >>outf, '    <td>%s</td>' % (trig[0])
+
+        end_time_utc = os.popen('tconvert %d' % trig[1]).next().strip()
+        print >>outf, '    <td>%s</td>' % (end_time_utc)
+
+        for res in trig[1:-1]:
             print >>outf, '    <td>%s</td>' % res
-        print >>outf, '    <td><a href="http://ldas-jobs.ligo-wa.caltech.edu/~inspiralbns/qscans/%d.%d">Q scan</a></td><td>Coming soon!</td></td>' % (trig[1], trig[2])
+        
+        print >>outf, '    <td><a href="omega/%s/index.html">&Omega; scan</a></td>' % (trig[1])
 
         print >>outf, '    <td>'
-
         for name, value in trig[-1].items():
             if not name.startswith('DMT'):
                 print >>outf, '      <b>%s</b><br>' % name
@@ -146,6 +157,13 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 
 if __name__ == '__main__':
     options = parse_command_line()    
+
+    # Do we have everything we need for omage scans?
+    omega_ok = options.omega_conf and options.omega_frame_dir and options.omega_out_dir
+
+    if not omega_ok:
+        print >>sys.stderr, "Warning: Missing omega options, omega scans will not be run"
+
 
     kcount = int(options.known_count)
     ucount = int(options.unknown_count)
@@ -216,9 +234,7 @@ if __name__ == '__main__':
              sngl_inspiral.end_time,
              sngl_inspiral.end_time_ns,
              sngl_inspiral.snr, 
-             sngl_inspiral.eff_distance,
-             sngl_inspiral.f_final, 
-             sngl_inspiral.ttotal
+             sngl_inspiral.eff_distance
       FROM sngl_inspiral 
       WHERE (cast(sngl_inspiral.end_time as char) || " -- " || cast(sngl_inspiral.snr as char)) IN
              (SELECT cast(end_time as char) || " -- " || cast(MAX(snr) as char)
@@ -242,7 +258,7 @@ if __name__ == '__main__':
     known_trigs   = []
     unknown_trigs = []
     
-    for ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot in rows:
+    for ifo, end_time, end_time_ns, snr, e_dist in rows:
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
@@ -275,12 +291,20 @@ if __name__ == '__main__':
         if len(flags) == 0:
             if len(unknown_trigs) < ucount:
                 flags[ifo_status] = True
-                unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
+                unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
         elif len(known_trigs) < kcount:
             flags[ifo_status] = True
-            known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
+            known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
 
-        os.system('nohup condor_run "~qonline/qscan/bin/qscan.sh %d.%d" < /dev/null &>/dev/null &' % (end_time, end_time_ns))
+        if omega_ok:
+            # The frames may live in a directory with subdirectories by time.  If the given directory
+            # contains a '%d' populate it with the first 4 digits of the time.
+            full_path = options.omega_frame_dir
+
+            if full_path.find('%d') != -1:
+                full_path = full_path % (end_time / 100000)
+
+            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
 
         # Print no more than the top ten known and unknown triggers
         # (the ranking is done by the 'ODRER BY snr DESC' in the query above)
