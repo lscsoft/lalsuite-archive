@@ -127,15 +127,15 @@ int main( int argc, char **argv )
   const UINT4 numChisqBins = 8;
   const UINT4 invSpecTrunc = 0;
   REAL4 srate              = SRATE;   /* Hz */
-  REAL4 fmin               = FMIN;    /* Hz */
-  REAL4 fmax               = FMAX;    /* Hz */
+  REAL4 fMin               = FMIN;    /* Hz */
+  REAL4 fMax               = FMAX;    /* Hz */
   REAL4 dynRange           = pow( 2.0, 69.0 );
 
   INT4 i, j;
   REAL4 ts;
   INT4 output = 0;
   INT4 overlap = 0;
-  REAL4 snr = 0.0;
+  REAL4 rho = 0.0;
   INT4 printmax = 0;
   INT4 flatpsd = 0;
   INT4 dominant = 0;
@@ -191,7 +191,7 @@ int main( int argc, char **argv )
       if ( argc > arg + 1 )
       {
         arg++;
-        snr = atof( argv[arg++] );
+        rho = atof( argv[arg++] );
       }
       else
       {
@@ -467,7 +467,7 @@ int main( int argc, char **argv )
 
   /* create some fake data */
   fprintf( stderr, "Making data segment...                  " );
-  MakeDataACTD( dataSegVec, mass1, mass2, srate, fmin, fmax, amp, dynRange );
+  MakeDataACTD( dataSegVec, mass1, mass2, srate, fMin, fMax, amp, dynRange );
   fprintf( stderr, "      Done!\n" );  
 
   /*for ( j = 0; j < (INT4)dataSegVec->data->spec->data->length; ++j )
@@ -514,7 +514,7 @@ int main( int argc, char **argv )
     params.phi = phiC;
     params.psi = psi;
     params.d = dist;
-    params.fStartIn = fmin;
+    params.fStartIn = fMin;
     params.fStopIn = - 1.0 / 
                      ( 6.0 * sqrt(6.0) * LAL_PI * 
                        params.mTot_real8 * LAL_MTSUN_SI );
@@ -646,8 +646,8 @@ int main( int argc, char **argv )
   mytmplt.startTime       = 0.;
   mytmplt.startPhase      = 0.;
   mytmplt.tSampling       = 1.0 / fcSegVec->data->deltaT;
-  mytmplt.fLower          = fmin;
-  mytmplt.fCutoff         = fmax;
+  mytmplt.fLower          = fMin;
+  mytmplt.fCutoff         = fMax;
   mytmplt.signalAmplitude = 1;
   mytmplt.nStartPad       = 0;
   mytmplt.nEndPad         = 0;
@@ -666,7 +666,7 @@ int main( int argc, char **argv )
   initParams.approximant = AmpCorPPN;
   initParams.numPoints = dataSegVec->data->chan->data->length;
 
-  Init( &tmpltParams, &dataParams, &initParams, srate, fmin, dynRange,                     invSpecTrunc );
+  Init( &tmpltParams, &dataParams, &initParams, srate, fMin, dynRange,                     invSpecTrunc );
 
 
   tmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
@@ -765,7 +765,7 @@ int main( int argc, char **argv )
 
     for( j = 0; j < (INT4)fcSegVec->data->data->data->length - 1; ++j )
     {
-      if( j * fcSegVec->data->data->deltaF >= fmin )
+      if( j * fcSegVec->data->data->deltaF >= fMin )
       {
         REAL4 power;
         power = fcSegVec->data->data->data->data[j].re * 
@@ -786,21 +786,21 @@ int main( int argc, char **argv )
     fprintf( stderr, "         Done!\n");
   }
 
-  if( snr != 0 )
+  if( rho != 0 )
   {
     if ( !(ntilde_re = XLALCreateREAL4Vector( numPoints / 2 + 1 ) ))
     {
-      ABORTXLAL( &status );
+      exit( -1 );
     }
     memset( ntilde_re->data, 0, ntilde_re->length * sizeof( REAL4 ));
     if ( !(ntilde_im = XLALCreateREAL4Vector( numPoints / 2 + 1 ) ))
     {
-      ABORTXLAL( &status );
+      exit( -1 );
     }  
     memset( ntilde_im->data, 0, ntilde_im->length * sizeof( REAL4 ));
     if ( !(ntilde = XLALCreateCOMPLEX8Vector( numPoints / 2 + 1 ) ))
     {
-      ABORTXLAL( &status );
+      exit( -1 );
     }
     memset( ntilde->data, 0, ntilde->length * sizeof( COMPLEX8 ));
 
@@ -812,7 +812,7 @@ int main( int argc, char **argv )
     TEST_STATUS( &status );
 
     /* colour noise and add to signal */
-    for( j=1; j < numPoints / 2 ; ++j )
+    for( j=1; j < (INT4)numPoints / 2 ; ++j )
     { 
       REAL4 fac;
 
@@ -822,8 +822,8 @@ int main( int argc, char **argv )
       ntilde->data[j].re = ntilde_re->data[j] * fac;
       ntilde->data[j].im = ntilde_im->data[j] * fac;
 
-      fcSegVec->data->data->data->data[j].re *= snr;
-      fcSegVec->data->data->data->data[j].im *= snr;
+      fcSegVec->data->data->data->data[j].re *= rho;
+      fcSegVec->data->data->data->data[j].im *= rho;
     
       fcSegVec->data->data->data->data[j].re += ntilde->data[j].re;
       fcSegVec->data->data->data->data[j].im += ntilde->data[j].im;
@@ -989,24 +989,24 @@ int Init(
     FindChirpDataParams  **dataParams,
     FindChirpInitParams     *initParams,
     REAL4 srate,
-    REAL4 fmin,
+    REAL4 fMin,
     REAL4 dynRange,
-    UINT4 trunc
+    UINT4 invSpecTrunc
     )
 {
   LALFindChirpTemplateInit( &status, tmpltParams, initParams );
   TEST_STATUS( &status );
 
   (*tmpltParams)->deltaT   = 1.0 / srate;
-  (*tmpltParams)->fLow     = fmin;
+  (*tmpltParams)->fLow     = fMin;
   (*tmpltParams)->dynRange = dynRange;
 
   LALFindChirpDataInit( &status, dataParams, initParams );
   TEST_STATUS( &status );
 
-  (*dataParams)->fLow         = fmin;
+  (*dataParams)->fLow         = fMin;
   (*dataParams)->dynRange     = dynRange;
-  (*dataParams)->invSpecTrunc = trunc;
+  (*dataParams)->invSpecTrunc = invSpecTrunc;
 
 
   return 0;
@@ -1043,8 +1043,8 @@ int MakeDataACTD(
     REAL4 mass1,
     REAL4 mass2,
     REAL4 srate,
-    REAL4 fmin,
-    REAL4 fmax,
+    REAL4 fMin,
+    REAL4 fMax,
     INT4  amp,
     REAL8 dynRange
     )
@@ -1065,8 +1065,8 @@ int MakeDataACTD(
   tmplt.massChoice      = m1Andm2;
   tmplt.startTime       = 0;
   tmplt.startPhase      = 0;
-  tmplt.fLower          = fmin * 2.0 / ( (REAL4)(amp) + 2.0 );
-  tmplt.fCutoff         = fmax;
+  tmplt.fLower          = fMin * 2.0 / ( (REAL4)(amp) + 2.0 );
+  tmplt.fCutoff         = fMax;
   tmplt.tSampling       = srate;
   tmplt.signalAmplitude = 1;
   tmplt.nStartPad       = dataSegVec->data->chan->data->length / 2;
@@ -1112,7 +1112,7 @@ int MakeDataACTD(
   dataSegVec->data->chan->epoch.gpsSeconds     = 0;
   dataSegVec->data->chan->epoch.gpsNanoSeconds = 0;
 
-  fs = 0.9*fmin;
+  fs = 0.9*fMin;
 
   for ( k = 0; k < nspec; ++k )
   {
