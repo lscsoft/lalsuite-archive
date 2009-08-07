@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """Calculates and uses MVSC values from cache files.
 
-Currently being written"""
+Writes an html file with plots and information showing results."""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
 __date__ = '$Date$'
@@ -12,9 +12,6 @@ __prog__ = 'pylal_mvsc_player'
 # import modules
 import sys,os,random
 from optparse import OptionParser
-from mvsc_plots import *
-from mvsc_htmlwriter import mvsc_html
-from matplotlib import pyplot
 
 ##############################################################################
 # parse options and arguments
@@ -36,7 +33,7 @@ parser.add_option("","--zero-lag",default=False,action="store_true", \
 parser.add_option("","--open-box",default=False,action="store_true", \
                   help="Test on zero-lag triggers for full data.")
 parser.add_option("","--hardware",default=False,action="store_true", \
-    help="Test on hardware injection triggers (currently unimplemented).")
+    help="Test on hardware injection triggers.")
 
 parser.add_option("", "--cache-file", default=False, \
     help="Generate new pat files from the given cache file" )
@@ -92,6 +89,12 @@ parser.add_option("-w","--pat-path",default="patfiles", \
       help="path where pat files would be stored (def = patfiles)")
 
 opts,args = parser.parse_args()
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot
+from mvsc_plots import *
+from mvsc_htmlwriter import mvsc_html
 
 ##############################################################################
 #Initialize important values
@@ -302,6 +305,8 @@ if not opts.plot_only:
             filepath+ \
             '.spr ' + testpath +' '+filepath+'_test.dat' )
 
+        data = rewrite_results( testpath, filepath + '_test.dat' )
+
         print
         print 'SprBaggerDecisionTreeApp -a 1 -i -z '+escapecode + \
             gstr+ sstr + \
@@ -320,19 +325,22 @@ if not opts.plot_only:
             os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
                        ' -a 1 '+ filepath+ \
                        '.spr ' + zeropath +' '+filepath+'_fulldata.dat' )
+            zerodata = rewrite_results( zeropath, filepath + '_fulldata.dat')
         elif opts.zero_lag:
             os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
                        ' -a 1 '+ filepath+ \
                        '.spr ' + zeropath +' '+filepath+'_playground.dat' )
+            zerodata=rewrite_results( zeropath, filepath + '_playground.dat')
         elif opts.hardware:
             os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
                        ' -a 1 '+ filepath+ \
                        '.spr ' + zeropath +' '+filepath+'_hardware.dat' )
+            zerodata = rewrite_results( zeropath, filepath + '_hardware.dat' )
         
         time_tree_end = os.times()[4]
         print 'Time spent training and testing trees: ' + \
               str(time_tree_end-time_tree_start)
-else:
+elif opts.show_plots | opts.enable_output:
     if not os.path.isdir(opts.data_path):
         print 'Data files do not exist!  Try again without -p option.'
         sys.exit()
@@ -347,6 +355,9 @@ else:
        (opts.zero_lag & (not os.path.isfile(filepath+'_playground.dat' ))):
         print 'Zero lag files do not exist!  Try again without -p option.'
         sys.exit()
+
+    zerodata = None
+    data = None
 
 ##############################################################################
 #Create plots
@@ -374,54 +385,58 @@ if opts.k > 1:
     
 elif opts.show_plots | opts.enable_output:
     time_plot_start = os.times()[4]
-    
-    data,cols,cols2 = patread( filepath + '_test.dat',stationcode )
 
-    ts_trig_ratio = 50
-    
-    if opts.open_box:
-        zerodata,temp1,temp2 = patread(filepath+'_fulldata.dat',stationcode )
-    elif opts.zero_lag:
-        zerodata,temp1,temp2 = patread(filepath+'_playground.dat',stationcode )
-    elif opts.hardware:
-        zerodata,temp1,temp2 = patread(filepath+'_hardware.dat',stationcode )
+    if not data:
+        data,cols,cols2 = patread( filepath + '_test.dat',stationcode )
     else:
-        zerodata = None
+        cols,cols2 = patread( filepath + '_test.dat',stationcode,colsonly=True)
+
+    data_inj,data_ts = sort_inj_ts(data)
+    
+    ts_trig_ratio = 50
+
+    if not zerodata:
+        if opts.open_box:
+            zerodata,temp1 = patread(filepath+'_fulldata.dat' )
+        elif opts.zero_lag:
+            zerodata,temp1 = patread(filepath+'_playground.dat' )
+        elif opts.hardware:
+            zerodata,temp1 = patread(filepath+'_hardware.dat' )
 
     if zerodata:
-        IFANplot(data,cols,zerodata,ts_trig_ratio)
-        if opts.enable_output:
+        flag = IFANplot(data_ts,cols,zerodata,ts_trig_ratio)
+        if flag & opts.enable_output:
             htmlfile.add_figure('IFAN')
     
-    mvsc_cutoff = FARplot(data,cols,zerodata,ts_trig_ratio)
+    mvsc_cutoff,mvsc_to_fan = FARplot(data_ts,cols,zerodata,ts_trig_ratio)
     if opts.enable_output:
         htmlfile.add_figure('FAR')
     
     afar,mvsc_cutoff,effsnr_cutoff = \
-        fraction_detected(data,cols,mvsc_cutoff=mvsc_cutoff)
+        fraction_detected(data_inj,data_ts,cols,mvsc_cutoff=mvsc_cutoff)
     if opts.enable_output:
         htmlfile.add_figure('Frac_vs_SNR')
         htmlfile.set_op_point(afar,mvsc_cutoff,effsnr_cutoff)
-
+ 
     afar,mvsc_cutoff,effsnr_cutoff = \
-        fraction_detected(data,cols,mvsc_cutoff=mvsc_cutoff,distance=True)
+        fraction_detected(data_inj,data_ts,cols,mvsc_cutoff=mvsc_cutoff,\
+                          distance=True)
     if opts.enable_output:
         htmlfile.add_figure('Frac_vs_effdist')
-        htmlfile.set_op_point(afar,mvsc_cutoff,effsnr_cutoff)
         
-    snr_vs_chisqr(data,cols,afar,zerodata)
+    snr_vs_chisqr(data_inj,data_ts,cols,afar,zerodata)
     if opts.enable_output:
         htmlfile.add_figure('missed_inj')
         
-    lower,upper = ROCplot(data,cols,ts_trig_ratio=ts_trig_ratio)
+    lower,upper = ROCplot(data_inj,data_ts,cols,ts_trig_ratio=ts_trig_ratio)
     if opts.enable_output:
         htmlfile.add_figure('ROC')
         htmlfile.set_efficiency(lower,upper)
     
-    mvsc_vs_effsnr(data,cols,mvsc_cutoff,effsnr_cutoff,zerodata)
+    mvsc_vs_effsnr(data_inj,data_ts,cols,mvsc_cutoff,effsnr_cutoff,zerodata)
     if opts.enable_output:
         htmlfile.add_figure('MVSC_vs_effSNR')
-
+ 
     fom,treesplits,ts_tr,inj_tr,ts_va,inj_va = inforead( filepath + '_info' )
     FOMplot(fom)
     if opts.enable_output:
@@ -434,10 +449,16 @@ elif opts.show_plots | opts.enable_output:
                 
     #Best 15 events:
     if opts.enable_output:
-        if zerodata:
-            events = top_events(zerodata,cols,15,stationcode,zeropath)
+        if opts.open_box:
+            strdata,temp1 = patread(filepath+'_fulldata.dat',readstr=True )
+        elif opts.zero_lag:
+            strdata,temp1 = patread(filepath+'_playground.dat',readstr=True )
+        elif opts.hardware:
+            strdata,temp1 = patread(filepath+'_hardware.dat',readstr=True )
         else:
-            events = top_events(data,cols,15,stationcode,testpath)
+            strdata,temp1 = patread(filepath + '_test.dat',readstr=True)
+            
+        events = top_events(strdata,cols,15,stationcode,mvsc_to_fan)
     
         htmlfile.set_top_events(events,cols)
 
