@@ -2,8 +2,9 @@
 """Calculates and uses MVSC values from cache files.
 
 Writes an html file with plots and information showing results.
-See /archive/home/tmiller/MVSC/MVSC_help/readme for detailed instructions.
-(also available at https://ldas-jobs.ligo.caltech.edu/~tmiller/MVSC/MVSC_help/readme)"""
+See /archive/home/tmiller/MVSC/MVSC_help, where there is a readme with detailed
+instructions, as well as the html template and config file.
+(also available at https://ldas-jobs.ligo.caltech.edu/~tmiller/MVSC/MVSC_help)"""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
 __date__ = '$Date$'
@@ -82,13 +83,14 @@ parser.add_option("-k", type='int', default=1, \
 parser.add_option("-R", "--seed",action="store",default=False, \
     help="Use a chosen seed. (currently broken to be unreproducible)")
 
-parser.add_option("-o","--output-path",default="html_files", \
-      help="Path where the html files and images would be stored. " +\
-      "(def = html_files)")
-parser.add_option("-q","--data-path",default="Data", \
-      help="path where all data files would be stored (def = Data)")
-parser.add_option("-w","--pat-path",default="patfiles", \
-      help="path where pat files would be stored (def = patfiles)")
+parser.add_option("-o","--output-path",default=False, \
+      help="Path where the html files and images would be stored.")
+parser.add_option("-q","--data-path",default=False, \
+      help="path where all data files would be stored")
+parser.add_option("-w","--pat-path",default=False, \
+      help="path where pat files would be stored")
+parser.add_option("-f","--config",default="mvsc_config", \
+      help="path to the config file (def = mvsc_config)")
 
 opts,args = parser.parse_args()
 
@@ -97,6 +99,39 @@ matplotlib.use("Agg")
 from matplotlib import pyplot
 from mvsc_plots import *
 from mvsc_htmlwriter import mvsc_html
+
+##############################################################################
+#Read config file
+
+if not os.path.isfile(opts.config):
+    print 'Config file missing.  Aborting...'
+    sys.exit()
+
+try:
+    f = open(opts.config)
+except IOError:
+    print '***Error!*** Trouble opening file', filename
+    sys.exit()
+
+config = {}
+p = re.compile(r'(\S+)\s*=\s*(.+)')
+
+while True:
+    n = f.readline()
+    m = p.match(n)
+    if m:
+        config[m.group(1)] = m.group(2)
+    elif not n:
+        break
+
+f.close()
+
+if not opts.output_path:
+    opts.output_path = config['default_htmlpath']
+if not opts.data_path:
+    opts.data_path = config['default_datapath']
+if not opts.pat_path:
+    opts.pat_path = config['default_patpath']
 
 ##############################################################################
 #Initialize important values
@@ -154,16 +189,7 @@ if opts.k > 1:
     opts.enable_output = False
     opts.show_plots = True
 
-escapecode = "'event_id,L1V1ethinca,H1V1ethinca"
-
-#remove effective snr?
-#escapecode += "L1get_effective_snr(),H1get_effective_snr(),"
-#escapecode += "H2get_effective_snr(),V1get_effective_snr()"
-
-for i in range(0,len(stationcode),2):
-    escapecode += "," + stationcode[i:i+2] + "eff_distance,"
-    escapecode += stationcode[i:i+2] + "get_end()"
-escapecode += "'"
+escapecode = "'" + config['skip_columns'] + "'"
 
 if opts.s:
     sstr = ' -s ' + opts.s
@@ -224,9 +250,12 @@ testpath = patpath + '/'+ filecode+'/'+stationcode + 'sets' + letters[2] + \
 
 #initialize mvsc_html object
 if opts.enable_output:
-    htmlfile = mvsc_html(opts,filename)
+    htmlfile = mvsc_html(opts,filename,config['templatepath'])
 
     htmlfile.set_data_sets(letters)
+
+    if config.has_key('comments'):
+        htmlfile.set_comments(config['comments'])
 
     if not os.path.isdir(opts.output_path):
         os.system('mkdir ' + opts.output_path)
@@ -306,9 +335,9 @@ if not opts.plot_only:
         os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode +' -a 1 '+ \
             filepath+ \
             '.spr ' + testpath +' '+filepath+'_test.dat' )
-
+        
         data = rewrite_results( testpath, filepath + '_test.dat' )
-
+        
         print
         print 'SprBaggerDecisionTreeApp -a 1 -i -z '+escapecode + \
             gstr+ sstr + \
@@ -355,18 +384,28 @@ elif opts.show_plots | opts.enable_output:
         print 'Data files do not exist!  Try again without -p option.'
         sys.exit()
 
-    if (opts.open_box & (not os.path.isfile( filepath+'_fulldata.dat' ) ) ) |\
-       (opts.zero_lag & (not os.path.isfile(filepath+'_playground.dat' ))):
-        print 'Zero lag files do not exist!  Try again without -p option.'
-        sys.exit()
+    if opts.open_box & (not os.path.isfile( filepath+'_fulldata.dat' ) ):
+        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                       ' -a 1 '+ filepath+ \
+                       '.spr ' + zeropath +' '+filepath+'_fulldata.dat' )
+        zerodata = rewrite_results( zeropath, filepath + '_fulldata.dat')
+    elif opts.zero_lag & (not os.path.isfile(filepath+'_playground.dat' )):
+        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                       ' -a 1 '+ filepath+ \
+                       '.spr ' + zeropath +' '+filepath+'_playground.dat' )
+        zerodata=rewrite_results( zeropath, filepath + '_playground.dat')
+    elif opts.hardware & (not os.path.isfile(filepath+'_hardware.dat' )):
+        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                       ' -a 1 '+ filepath+ \
+                       '.spr ' + zeropath +' '+filepath+'_hardware.dat' )
+        zerodata = rewrite_results( zeropath, filepath + '_hardware.dat' )
+    else:
+        zerodata = None
 
-    zerodata = None
     data = None
-
+    
 ##############################################################################
 #Create plots
-
-data = False
 
 if opts.k > 1:
     afar = 1.0/2000
@@ -389,12 +428,12 @@ if opts.k > 1:
     
 elif opts.show_plots | opts.enable_output:
     time_plot_start = os.times()[4]
-
+    
     if not data:
         data,cols,cols2 = patread( filepath + '_test.dat',stationcode )
     else:
         cols,cols2 = patread( filepath + '_test.dat',stationcode,colsonly=True)
-
+        
     data_inj,data_ts = sort_inj_ts(data)
     
     ts_trig_ratio = 50
