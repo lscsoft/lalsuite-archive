@@ -31,7 +31,6 @@ import math
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
@@ -176,7 +175,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 
 		# find the multi_burst table or create one if not found
 		try:
-			self.multibursttable = table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+			self.multibursttable = lsctables.table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
 		except ValueError:
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
