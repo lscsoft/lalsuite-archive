@@ -46,9 +46,8 @@ from glue.ligolw import utils
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.date import LIGOTimeGPS
-from scipy import interpolate
-import scipy
-import numpy
+
+
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
@@ -160,12 +159,7 @@ class Summaries(object):
 
 		self.mass_bins = mass_bins
 		self.reputations = {}
-		self.signal_reputations = {}
 		self.cached_livetime = {}
-		self.rank_by = rank_by
-		self.signal_denominator = None
-		self.background_denominator = None
-		self.signal_numerator = None
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -186,15 +180,10 @@ class Summaries(object):
 			print >>sys.stderr
 
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
-		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append((self.reputation_func(snr, uncombined_ifar, likelihood),0))
-
-	def add_signal_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, distance, uncombined_ifar, likelihood):
-                self.signal_reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append((self.reputation_func(snr, uncombined_ifar, likelihood), distance))
+		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
 
 	def index(self):
 		for reputations in self.reputations.values():
-			reputations.sort()
-		for reputations in self.signal_reputations.values():
 			reputations.sort()
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
@@ -210,68 +199,24 @@ class Summaries(object):
 		# elements in list >= reputation
 		#
 
-		n = len(reputations) - bisect.bisect_left(reputations, (self.reputation_func(snr, uncombined_ifar, likelihood), 0))
-		
+		n = len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))
+
 		#
 		# retrieve the livetime
 		#
 
 		t = self.cached_livetime.setdefault(on_instruments, 0.0)
+
 		#
 		# return the rate of events above the given reputation
 		#
 
 		try:
-			return n / t, 
+			return n / t
 		except ZeroDivisionError, e:
 			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
 			raise e
 
-	def likelihood_summarize(self):
-                self.background_denominator = sum(len(l) for l in self.reputations.values())
-		fullintegral = 0
-		for l in self.signal_reputations.values():
-			integral = 0
-			for j in range(len(l)-1, -1, -1):
-				integral += l[j][1]
-				fullintegral += l[j][1]
-				l[j] = (l[j][0], integral)
-		self.signal_denominator = fullintegral
-		cnt = 0
-		self.fit = {}
-		for k in self.reputations.keys():
-			l = self.reputations[k]
-			B1 = []
-			B0 = []
-			for i, val in enumerate(l):
-				try: 
-					if val[0] == B1[-1]: continue
-				except: pass
-				B1.append(val[0])
-				#FIXME I changed the normalization to only be over the category, is that right or should it be self.background_denominator???
-				B0.append((len(l) - i+1.0) / len(l))
-			#FIXME add some points to the curve so that everything agrees...
-			
-			U1 = numpy.concatenate((numpy.log(B1), numpy.log(numpy.linspace(100,10000, 100))))
-			U0 = numpy.concatenate((numpy.log(B0), numpy.linspace(-600,-10000 * 10000 * .06, 100)))
-                	self.fit[k] = interpolate.splrep(U1, U0, s=100, k=1)
-	
-	def likelihood(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar):
-
-                reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
-		fit = self.fit.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
-		lnPb = interpolate.splev(numpy.log(snr), fit)
-                signal_reputations = self.signal_reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
-                ns = bisect.bisect_left(signal_reputations, (self.reputation_func(snr, uncombined_ifar, likelihood), 0))
-                try:
-			# FIXME add one to avoid n=0 error, handle better
-			# FIXME I changed the normalization to be based on category, should be signal_denominator???
-			val = numpy.log((1.0+signal_reputations[ns][1]) / (signal_reputations[-1][1]+1.0)) - lnPb
-                        return val
-                except ZeroDivisionError, e:
-			print >> sys.stderr, ns, len(signal_reputations), signal_reputations[ns-1][1], self.signal_denominator, n, self.background_denominator
-                        print >>sys.stderr, "Divide by Zero in likelihood ranking"
-                        raise e
 
 #
 # =============================================================================
@@ -320,50 +265,17 @@ for n, filename in enumerate(filenames):
 	#
 	# if the database contains a sim_inspiral table then it is assumed
 	# to represent an injection run.  its rings must not added to the
-	# livetime, However we can use its statistics in a likelihood calculation 
+	# livetime, and it cannot provide background coincs, so it is just
+	# skipped altogether in this first pass.
+	#
 
 	if "sim_inspiral" in dbtables.get_table_names(connection):
 		if options.verbose:
-			print >>sys.stderr, "\tdatabase contains sim_inspiral table, collecting signal stats ..."
+			print >>sys.stderr, "\tdatabase contains sim_inspiral table, skipping ..."
 
-
-
-		for on_instruments, participating_instruments, mchirp, mtotal, snr, distance, uncombined_ifar, likelihood in connection.cursor().execute("""
-SELECT
-        coinc_event.instruments,
-        coinc_inspiral.ifos,
-        coinc_inspiral.mchirp,
-        coinc_inspiral.mass,
-        coinc_inspiral.snr,
-	-- Work out the correction factor for injection population distances
-	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr") 
-		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance 
-		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
-		ELSE 1.0 END,
-        CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN (SELECT min(coinc_inspiral.false_alarm_rate)) ELSE coinc_inspiral.false_alarm_rate END,
-        coinc_event.likelihood
-FROM
-        coinc_event
-        JOIN coinc_inspiral ON (
-                coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
-        )
-        JOIN coinc_event_map AS mapA ON (mapA.event_id == coinc_event.coinc_event_id AND mapA.table_name == "coinc_event")
-        JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == mapA.coinc_event_id AND mapB.table_name == "sim_inspiral")
-        JOIN sim_inspiral ON (mapB.event_id == sim_inspiral.simulation_id)
-WHERE
-        -- require coinc to not be background (= at least one of its time slide offsets is non-zero)
-        -- FIXME this has to call a function to get coinc_def id 
-        NOT EXISTS (
-                SELECT
-                        *
-                FROM
-                        time_slide
-                WHERE
-                        time_slide.time_slide_id == coinc_event.time_slide_id
-                        AND time_slide.offset != 0
-        )
-	        """):
-        	        background.add_signal_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, distance, uncombined_ifar, likelihood)
+		#
+		# close the database
+		#
 
 		connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
@@ -418,7 +330,7 @@ WHERE
 
 
 background.index()
-background.likelihood_summarize()
+
 
 #
 # iterate over database files assigning false-alarm rates to coincs
@@ -467,39 +379,8 @@ SET
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-
-
 	""" % options.populate_column)
 	connection.commit()
-
-	# FIXME, sort of a hack tying it to one specific algorithm, do we make it a new algorithm?
-	if background.rank_by == "snr":
-	        connection.create_function("likeliness", 6, background.likelihood)
-	        if options.verbose:
-        	        print >>sys.stderr, "\tcalculating and recording likelihood ..."
-	        connection.cursor().execute("""
-UPDATE
-        coinc_event
-SET
-        likelihood = (
-                SELECT
-                        likeliness(
-                                coinc_event.instruments,
-                                coinc_inspiral.ifos,
-                                coinc_inspiral.mchirp,
-                                coinc_inspiral.mass,
-                                coinc_inspiral.snr,
-                                CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END
-                        )
-                FROM
-                        coinc_inspiral
-                WHERE
-                        coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-        )
-        	""") 
-	        connection.commit()
-
-
 
 	#
 	# close the database
