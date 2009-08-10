@@ -56,8 +56,9 @@ from glue.lal import *
 from glue import lal
 from glue import markup
 from lalapps import inspiralutils
-from glue           import LDBDClient
+from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
+from pylal.xlal import date as xlaldate
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -803,25 +804,20 @@ def getSciSegs(ifo=None,
     if serverURL == None:
       serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
-    serverName,serverPort=serverURL[len('ldbd://'):].split(':')
-  except:
-    serverPort="30015"
-    serverName=serverURL[len('ldbd://'):]
-  try:
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(serverName)
-    connection=\
-    LDBDClient.LDBDClient(serverName,int(serverPort),identity)
+    connection=None
+    serverURL=serverURL.strip("ldbd://")
+    connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
-    sys.stderr.write("Error connection to %s at port %s\n"\
-                     %(serverName,serverPort))
+    sys.stderr.write("Error connection to %s\n"\
+                     %(serverURL))
     sys.stderr.write("Error Message :\t %s \n"%(errMsg))
     return None
   try:
-    engine=query_engine.LdbdQueryEngine(connection)
     sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
+    engine=query_engine.LdbdQueryEngine(connection)
     queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
-    sys.stderr.write("SciSeg query failed %s port %s\n"%(serverName,serverPort))
+    sys.stderr.write("SciSeg query failed %s\n"%(serverURL))
     sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
     sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
     sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
@@ -1998,7 +1994,6 @@ class followupDQV:
     """
     self.triggerTime=int(-1)
     self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
-    self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
     if LDBDServerURL==None:
       envServer=None
       envServer=os.getenv('S6_SEGMENT_SERVER')
@@ -2008,15 +2003,12 @@ class followupDQV:
 defaulting to %s"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
-    if self.serverURL[len('ldbd://'):].__contains__(':'):
-      self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
-    else:
-      self.serverName=self.serverURL[len('ldbd://'):]
     self.resultList=list()
     self.dqvQuery= """SELECT \
     segment_definer.ifos, \
     segment_definer.name, \
     segment_definer.version, \
+    segment_definer.comment, \
     segment.start_time, \
     segment.end_time \
     FROM segment,segment_definer \
@@ -2100,17 +2092,16 @@ defaulting to %s"%(self.serverURL))
       return
     else:
       self.triggerTime = int(triggerTime)
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(self.serverName)
-    connection=None
-    try:
-      connection =\
-    LDBDClient.LDBDClient(self.serverName,int(self.serverPort),identity)
-    except Exception, errMsg:
-      sys.stderr.write("Error connection to %s at port %s\n"\
-                       %(self.serverName,self.serverPort))
-      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
-      self.resultList=list()
-      return
+      try:
+        connection=None
+        serverURL=self.serverURL
+        connection=segmentdb_utils.setup_database(serverURL)
+      except Exception, errMsg:
+        sys.stderr.write("Error connection to %s\n"\
+                         %(serverURL))
+        sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+        self.resultList=list()
+        return
     try:
       engine=query_engine.LdbdQueryEngine(connection)
       gpsEnd=int(triggerTime)+int(window)
@@ -2119,7 +2110,7 @@ defaulting to %s"%(self.serverURL))
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
-      sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
+      sys.stderr.write("Query failed %s \n"%(serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
       sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
@@ -2127,20 +2118,19 @@ defaulting to %s"%(self.serverURL))
     engine.close()
     #Coalesce the segments for each DQ flag
     #Reparse the information
-    tmpDQSeg=self.resultList
     newDQSeg=list()
-    if tmpDQSeg.__len__() > 0:
+    if self.resultList.__len__() > 0:
       #Obtain list of all flags
       uniqSegmentName=list()
-      for ifo,name,version,start,end in tmpDQSeg:
-        if not uniqSegmentName.__contains__((ifo,name,version)):
-          uniqSegmentName.append((ifo,name,version))
+      for ifo,name,version,comment,start,end in self.resultList:
+        if not uniqSegmentName.__contains__((ifo,name,version,comment)):
+          uniqSegmentName.append((ifo,name,version,comment))
       #Save textKey for all uniq segments combos
-      for uifo,uname,uversion in uniqSegmentName:
+      for uifo,uname,uversion,ucomment in uniqSegmentName:
         segmentIntervals=list()
         #Extra segments based on uniq textKey
-        for ifo,name,version,start,end in tmpDQSeg:
-          if (uifo,uname,uversion)==(ifo,name,version):
+        for ifo,name,version,comment,start,end in self.resultList:
+          if (uifo,uname,uversion,ucomment)==(ifo,name,version,comment):
             segmentIntervals.append((start,end))
         segmentIntervals.sort()
         #Coalesce those segments
@@ -2151,9 +2141,9 @@ defaulting to %s"%(self.serverURL))
           newSegmentIntervals=segmentIntervals
         #Write them to the object which we will return
         for newStart,newStop in newSegmentIntervals:
-          newDQSeg.append([uifo,uname,uversion,newStart,newStop])
+          newDQSeg.append([uifo,uname,uversion,ucomment,newStart,newStop])
+        newDQSeg.sort()
         del segmentIntervals
-    #Save the final result
     self.resultList=newDQSeg
   #End method fetchInformation()
 
@@ -2164,22 +2154,28 @@ defaulting to %s"%(self.serverURL))
     return self.resultList
   #End generateResultList
   
-  def generateHTMLTable(self):
+  def generateHTMLTable(self,tableType="BOTH"):
     """
     Return a HTML table already formatted using the module MARKUP to
     keep the HTML tags complient.  This method does nothing but return
-    the result of the last call to self.fetchInformation()
+    the result of the last call to self.fetchInformation() The flag
+    names associated with LIGO will have links to the channel wiki in
+    them also.
+    Types that will invoke a not everything behaviour are
+    DQ and VETO
     """
+    ligo=["L1","H1","H2","V1"]
+    channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
-    for ifo,name,version,start,stop in self.resultList:
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+    for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2191,7 +2187,14 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      else:
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
@@ -2432,3 +2435,70 @@ path %s\n"%(myPath))
 
 #End followupDQdb class()
 ######################################################################
+
+#A loose method to retrieve the iLog url given a integer for of
+#GPStime
+def getiLogURL(time=None,ifo=None):
+  """
+  This method returns a URL string to point you to ilog day page for
+  specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
+  """
+  dateString="%s/%s/%s"
+  urls={
+    'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+    'V1':"https://pub3.ego-gw.it/logbook/",
+    'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
+    }
+  outputURL=urls['default']
+  if ((ifo==None) or (time==None)):
+    return urls['default']
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
+  if ('H1','H2','L1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]%gpsStamp
+  if ('V1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]
+  return outputURL
+#End def getiLogURL
+
+def getGlitchReportURL(time=None):
+  """
+  This method is esentially a wrapper method until we have a better
+  approach to linking directly to a specific glitch report. The method
+  expects an interger respresentation of GPS time.
+  """
+  stopS5=int(875232014)
+  defaultURL="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies"
+  s5URL="http://lancelot.mit.edu/~dicredic/S5scimon.html"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5URL
+  else:
+    return defaultURL
+#End getGlitchReportURL
+
+def getDailyStatsURL(time=None):
+  """
+  This method points you to the right URL to look at the daily stats
+  pages.
+  """
+  stopS5=int(875232014)
+  defaultURL="http://blue.ligo-wa.caltech.edu/scirun/S6/DailyStatistics/"
+  s5Link="http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5Link
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+  outputLink=defaultURL+linkText
+  return outputLink
+#End getDailyStatsURL

@@ -74,13 +74,23 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
 
 
 
-def setup_database(host_and_port):
+def setup_database(database_location):
     from glue import LDBDClient
     from glue import gsiserverutils
 
-    """Opens a connection to a LDBD Server"""
-    port = 30015
+    """Determine if we are using the secure or insecure server"""
+    if database_location.startswith('ldbd:'):
+        port = 30015
+        host_and_port = database_location[len('ldbd://'):]
+        identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
+    elif database_location.startswith('ldbdi:'):
+        port = 30016
+        host_and_port = database_location[len('ldbdi://'):]
+        identity = None
+    else:
+        raise ValueError( "invalid url for segment database" )
     
+    """Opens a connection to a LDBD Server"""
     if host_and_port.find(':') < 0:
         host = host_and_port
     else:
@@ -88,7 +98,8 @@ def setup_database(host_and_port):
         host, portString = host_and_port.split(':')
         port = int(portString)
 
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+    if identity:
+        identity += host
 
     # open connection to LDBD Server
     client = None
@@ -154,9 +165,14 @@ def query_segments(engine, table, segdefs):
     for segdef in segdefs:
         ifo, name, version, start_time, end_time, start_pad, end_pad = segdef
 
-        matches = lambda row: row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
+        matches    = lambda row: row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
 
-        result  = segmentlist( [segment(row[3] + start_pad, row[4] + end_pad) for row in rows if matches(row)] )
+        # Segments may overlap the start or end times, in which case
+        # chop off the excess
+        real_start = lambda t: max(start_time, t + start_pad)
+        real_end   = lambda t: min(end_time, t + end_pad)
+
+        result  = segmentlist( [segment(real_start(row[3]), real_end(row[4])) for row in rows if matches(row)] )
         result &= segmentlist([segment(start_time, end_time)])
         result.coalesce()
 

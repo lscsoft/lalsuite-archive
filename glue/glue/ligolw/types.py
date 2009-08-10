@@ -217,10 +217,32 @@ FromNumPyType = {
 #
 # =============================================================================
 #
-#                  Conversion To and From Native SQLite Types
+#                 Conversion To and From Native Database Types
 #
 # =============================================================================
 #
+
+
+ToMySQLType = {
+	u"char_s": "CHAR(20)",
+	u"char_v": "VARCHAR(64)",
+	u"ilwd:char": "VARCHAR(64)",
+	u"ilwd:char_u": "BLOB",
+	u"blob": "BLOB",
+	u"lstring": "VARCHAR(255)",
+	u"string": "VARCHAR(255)",
+	u"int_2s": "SMALLINT",
+	u"int_2u": "SMALLINT",
+	u"int_4s": "INTEGER",
+	u"int_4u": "INTEGER",
+	u"int_8s": "BIGINT",
+	u"int_8u": "BIGINT",
+	u"int": "INTEGER",
+	u"real_4": "FLOAT",
+	u"real_8": "DOUBLE",
+	u"float": "FLOAT",
+	u"double": "DOUBLE"
+}
 
 
 ToSQLiteType = {

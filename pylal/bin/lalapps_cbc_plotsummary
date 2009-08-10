@@ -42,7 +42,12 @@ matplotlib.rcParams.update({
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-#from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
+try:
+	from matplotlib.transforms import offset_copy
+except:
+	# FIXME: wrong matplotlib version, disable this feature;  figure
+	# out how to do this portably later.
+	pass
 import numpy
 from optparse import OptionParser
 try:
@@ -106,7 +111,7 @@ def parse_command_line():
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False, wiki=None):
 		"""
 		Compute and record some summary information about the
 		database.
@@ -203,6 +208,21 @@ class CoincDatabase(object):
 				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
 					print >>sys.stderr, "\t%s: %d" % (description, n)
 
+		if wiki:
+			wiki.write("database overview:\n\n")
+			for on_instruments in self.on_instruments_combos:
+				wiki.write("||zero-lag playground livetime for %s||%f s||\n" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments]))
+				wiki.write("||zero-lag nonplayground livetime for %s||%f s||\n" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments]))
+				wiki.write("||background livetime for %s ||%f s||\n" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments])))
+			if self.sngl_inspiral_table is not None:
+				wiki.write("||inspiral events|| %d||\n" % len(self.sngl_inspiral_table))
+			if self.sim_inspiral_table is not None:
+				wiki.write("||injections|| %d||\n" % len(self.sim_inspiral_table))
+			if self.time_slide_table is not None:
+				wiki.write("||time slides|| %d||\n" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0])
+			if self.coinc_def_table is not None:
+				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+					wiki.write("||%s||%d||\n" % (description, n) )
 
 
 #
@@ -214,7 +234,9 @@ class CoincDatabase(object):
 #
 
 
-def sim_end_time(sim, instrument):
+def sim_end_time(sim, instrument
+
+):
 	return sim.get_end(instrument[0])
 
 
@@ -294,6 +316,78 @@ def create_is_playground_func(connection, playground_segs):
 #
 # =============================================================================
 #
+#                      Injection Parameter Distributions
+#
+# =============================================================================
+#
+class SummaryTable(object):
+	def __init__(self):
+		self.playground_candidates = []
+		self.candidates = []
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table:
+			#For now we only return summary information on non injections
+			return
+		self.playground_candidates += contents.connection.cursor().execute("""
+SELECT coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time, coinc_inspiral.end_time_ns, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ": " || sngl_inspiral.snr || ":" || sngl_inspiral.chisq, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
+		""").fetchall()
+		self.candidates += contents.connection.cursor().execute("""
+SELECT coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time, coinc_inspiral.end_time_ns, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ": " || sngl_inspiral.snr || ":" || sngl_inspiral.chisq, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
+                """).fetchall()
+
+
+	def finish(self):
+		self.playground_candidates.sort()
+		self.candidates.sort()
+		f = open('summary_table.txt','w')
+		f.write("=== Open box loudest 10 summary table ===\n")
+		f.write('|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||\n' % ("Rank", "combined FAR","Effective SNR", "end_time","end_time_ns","total mass","chirp mass", "ifos", "instruments", "IFO:snr:chisq"))
+		for i, values in enumerate(self.candidates[:10]):
+			f.write('|| ' + str(i) + ' || %e || %f || %d || %d || %f || %f || %s || %s || %s ||\n' % values)
+		f.close()
+
+		f = open('playground_summary_table.txt','w')
+                f.write("=== Playground loudest 10 summary table ===\n")
+		f.write('|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||\n' % ("Rank", "combined FAR", "Effective SNR", "end_time","end_time_ns","total mass","chirp mass", "ifos", "instruments", "IFO:snr:chisq"))
+		for i,values in enumerate(self.playground_candidates[:10]):
+			f.write('|| ' + str(i) + ' || %e || %f || %d || %d || %f || %f || %s || %s || %s ||\n' % values)
+		f.close()
+		yield None, None, None
+
+class InjectionParameterDistributionPlots(object):
+	def __init__(self):
+		self.injections = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# no injections
+			return
+		for values in contents.connection.cursor().execute("""
+SELECT
+	*
+FROM
+	sim_inspiral
+			"""):
+			sim = contents.sim_inspiral_table._row_from_cols(values)
+			instruments = frozenset(instrument for instrument, segments in contents.seglists.items() if sim.get_end() in segments)
+			self.injections.setdefault(sim.waveform, []).append(sim)
+
+	def finish(self):
+		for waveform, sims in self.injections.items():
+			fig, axes = create_plot(r"Injected $M_{1}$ ($\mathrm{M}_{\odot}$)", r"Injected $M_{2}$ ($\mathrm{M}_{\odot}$)", aspect = 1.0)
+			axes.set_title(r"Injection Parameter Distribution (%s Injections)" % waveform)
+			axes.plot([sim.mass1 for sim in sims], [sim.mass2 for sim in sims], "kx")
+			minx, maxx = axes.get_xlim()
+			miny, maxy = axes.get_ylim()
+			axes.set_xlim((min(minx, miny), max(maxx, maxy)))
+			axes.set_ylim((min(minx, miny), max(maxx, maxy)))
+			yield fig, "sim_dist_m1_m2_%s" % (waveform), False
+
+
+#
+# =============================================================================
+#
 #                              Missed/Found Plot
 #
 # =============================================================================
@@ -307,7 +401,7 @@ class MissedFoundPlots(object):
 			self.found_in = {}
 
 		def add_contents(self, contents):
-  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
 			for values in contents.connection.cursor().execute("""
 SELECT
 	sim_inspiral.*,
@@ -388,6 +482,7 @@ class ParameterAccuracyPlots(object):
 		if contents.sim_inspiral_table is None:
 			# not an injections file
 			return
+		n_simcolumns = len(contents.sim_inspiral_table.columnnames)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_inspiral.*,
@@ -406,7 +501,7 @@ FROM
 	)
 		"""):
 			sim = contents.sim_inspiral_table._row_from_cols(values)
-			sngl = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sim_inspiral_table.columnnames):])
+			sngl = contents.sngl_inspiral_table._row_from_cols(values[n_simcolumns:])
 			self.sim_sngl_pairs.setdefault((sim.waveform, sngl.ifo), []).append((sim, sngl))
 
 	def finish(self):
@@ -737,7 +832,7 @@ def sigma_region(mean, nsigma):
 
 
 def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio):
-	if not (len(zerolag_stats) or len(background_stats)):
+	if not zerolag_stats and not background_stats:
 		# no data
 		return None, None
 
@@ -746,14 +841,42 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 
 	fig, axes = create_plot(None, r"Number of Events")
 
-	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
-	x = numpy.array(zerolag_stats, dtype = "double")
-	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+	#
+	# check for unrankable zero-lag events, and condition them for
+	# plotting
+	#
 
-	# mask to retain the first 10,000 elements, then every 10th until
-	# the 100,000th element, then every 100th after that
+	zerolag_stats = numpy.array(zerolag_stats)
+	n_unrankable_zerolags = (zerolag_stats > max(background_stats)).sum()
+	zerolag_stats = numpy.where(zerolag_stats > max(background_stats), max(background_stats) * 2, zerolag_stats)
+
+	#
+	# determine the horizontal and vertical extent of the plot
+	#
+
+	if len(zerolag_stats):
+		if background_stats:
+			minX, maxX = min(min(zerolag_stats), min(background_stats)), max(max(zerolag_stats), max(background_stats))
+		else:
+			minX, maxX = min(zerolag_stats), max(zerolag_stats)
+	else:
+		minX, maxX = min(background_stats), max(background_stats)
+	minN, maxN = min(1, zerolag_to_background_livetime_ratio), max(len(zerolag_stats), len(background_stats) * zerolag_to_background_livetime_ratio)
+
+	#
+	# construct a background mask to retain the first 10,000 elements,
+	# then every 10th until the 100,000th element, then every 100th
+	# after that.  this is for reducing the dataset size so matplotlib
+	# can handle it and vector graphics output isn't ridiculous in
+	# size.
+	#
+
 	mask = numpy.arange(len(background_stats))
 	mask = (mask < 10000) | ((mask < 100000) & (mask % 10 == 0)) | (mask % 100 == 0)
+
+	#
+	# background
+	#
 
 	N = (numpy.arange(len(background_stats), dtype = "double") + 1.0) * zerolag_to_background_livetime_ratio
 	x = numpy.array(background_stats, dtype = "double")
@@ -761,8 +884,9 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = x.compress(mask)
 	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
 
-	minX, maxX = min(zerolag_stats + background_stats), max(zerolag_stats + background_stats)
-	minN, maxN = min(1, zerolag_to_background_livetime_ratio), max(len(zerolag_stats), len(background_stats) * zerolag_to_background_livetime_ratio)
+	#
+	# error bands
+	#
 
 	x = x.repeat(2)[1:]
 	x = numpy.concatenate((x, x[::-1]))
@@ -771,10 +895,34 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
 	axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
 
-	axes.set_xlim(minX, maxX)
-	axes.set_ylim(minN, maxN)
+	#
+	# zero-lag
+	#
+
+	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
+	x = numpy.array(zerolag_stats, dtype = "double")
+	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+
+	#
+	# done
+	#
 
 	axes.legend(("Zero-lag", "Expected Background, $N$", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
+	if n_unrankable_zerolags:
+		if n_unrankable_zerolags > 1:
+			msg = r"%d Events" % n_unrankable_zerolags
+		else:
+			msg = r"%d Event" % n_unrankable_zerolags
+		try:
+			offset_copy = offset_copy
+		except NameError:
+			# FIXME:  wrong matplotlib version, disable;
+			# figure out how to do this portably later
+			pass
+		else:
+			axes.text(maxX, n_unrankable_zerolags, msg, horizontalalignment = "right", verticalalignment = "bottom", transform = offset_copy(axes.transData, fig = fig, x = -6, y = +4, units = "points"))
+	axes.set_xlim(minX, maxX)
+	axes.set_ylim(minN, maxN)
 
 	return fig, axes
 
@@ -817,7 +965,7 @@ class RateVsThreshold(object):
 		for on_instruments, ifar, snr, is_playground, is_background in connection.cursor().execute("""
 SELECT
 	coinc_event.instruments,
-	1.0 / coinc_inspiral.combined_far,
+	CASE coinc_inspiral.combined_far WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.combined_far END,
 	coinc_inspiral.snr,
 	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns),
 	EXISTS (
@@ -836,6 +984,8 @@ FROM
 	)
 		"""):
 			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
+			# to convert the string "inf" to float infinity
+			ifar = float(ifar)
 			if is_background:
 				self.background_ifar[on_instruments].append(ifar)
 				self.background_snr[on_instruments].append(snr)
@@ -901,7 +1051,9 @@ def new_plots(plots = None):
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
 		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
-		RateVsThreshold()
+		RateVsThreshold(),
+		InjectionParameterDistributionPlots(),
+		SummaryTable()
 	)
 	if plots is None:
 		plots = range(len(l))
@@ -912,12 +1064,15 @@ if options.plot_group is None:
 	options.plot_group = range(len(plots))
 
 
+wiki = open("plotsummary.txt","w")
+
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	wiki.write("=== %d/%d: %s ===\n\n" % (n + 1, len(filenames), filename))
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose)
+	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose, wiki=wiki)
 	if contents.sim_inspiral_table is not None:
 		create_sim_coinc_view(connection)
 	create_is_playground_func(connection, contents.playground_segs)
@@ -939,8 +1094,9 @@ filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot_group
 while len(plots):
 	for fig, filename_fragment, is_open_box in plots.pop(0).finish():
 		for format in options.format:
-			filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
-			if options.verbose:
-				print >>sys.stderr, "writing %s ..." % filename
-			fig.savefig(filename)
+			if filename_fragment and fig:
+				filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
+				if options.verbose:
+					print >>sys.stderr, "writing %s ..." % filename
+				fig.savefig(filename)
 	n += 1

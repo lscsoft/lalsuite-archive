@@ -32,6 +32,7 @@ Light Weight XML documents.
 """
 
 
+import itertools
 import copy
 import sys
 # Python 2.3 compatibility
@@ -45,6 +46,7 @@ from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
+from pylal import ligolw_tisi
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -61,61 +63,135 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def time_slide_consideration_order(time_slide_table):
+def time_slide_component_vectors(offset_vectors, n):
 	"""
-	Given a time_slide table, return a list of the unique
-	time_slide_id's in the table sorted by number of participating
-	instruments, then by inter-instrument deltas (then by ID string if
-	there are duplicate time slide vectors in the table).
+	Given an iterable of time slide vectors, return the shortest list
+	of the unique n-instrument time slide vectors from which all the
+	vectors in the input list can be consructed.  This can be used to
+	determine the minimal set of n-instrument coincs required to
+	construct all of the coincs for all of the requested instrument and
+	offset combinations in the time slide list.
 
-	If coincs are constructed for time slides in this order, each
-	offset vector will always be considered after any offset vectors it
-	contains.  For example the vector {"H1": 0, "H2": 10, "L1": 20}
-	will be considered after {"H1": 0, "H2": 10} because the latter is
-	contained in the former.
-
-	If the coincidence test is such that an H1,H2,L1 triple as above
-	would also be found as the H1,H2 double above, then if the offset
-	vectors are processed in the order returned by this function a
-	performance improvement can be achieved in the coincidence
-	algorithm by constructing triples by scanning
-	previously-constructed doubles for those which match the third
-	instrument instead of constructing the triples from scratch from
-	the raw trigger list (which involves paying the price of
-	constructing the doubles all over again).
+	It is assumed that the coincs for the vector {"H1": 0, "H2": 10,
+	"L1": 20} can be constructed from the coincs for the vectors {"H1":
+	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
+	offsets are significant in determining if two events are
+	coincident, not the absolute offsets.  This assumption is not true
+	for the standard inspiral pipeline, where the absolute offsets are
+	significant.
 	"""
 	#
-	# sorted list of the unique instruments appearing in the offset
-	# vectors
+	# collect unique instrument set / deltas combinations
 	#
 
-	instruments = sorted(set(time_slide_table.getColumnByName("instrument")))
+	delta_sets = {}
+	for offset_vector in offset_vectors:
+		for instruments in iterutils.choices(sorted(offset_vector.keys()), n):
+			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments[1:]))
 
 	#
-	# group into pairs:  (first, second), (second, third), ...
+	# translate into a list of n-instrument offset vectors
 	#
 
-	instruments = tuple(zip(instruments[1:], instruments[:-1]))
+	return [dict(zip(instruments, (0.0,) + deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
+
+
+def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
+	"""
+	Print a summary of the output of time_slide_component_offsets().
+	"""
+	#
+	# organize the information
+	#
+	# groupby requires its input to be grouped (= sorted) by the
+	# grouping key (the instruments), so we have to do this first.
+	# after constructing the strings, we make sure the lists of offset
+	# strings are all the same length by appending empty strings as
+	# needed.  finally we transpose the whole mess so that it's stored
+	# as rows instead of columns.
+	#
+
+	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a.keys()), sorted(b.keys())))
+	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v.keys()))]
+	n = max(len(offsets) for offsets in l)
+	for offsets in l:
+		offsets += [""] * (n - len(offsets))
+	l = zip(*l)
 
 	#
-	# the offset vectors indexed by time_slide_id
+	# find the width of the columns
 	#
 
-	offsets = time_slide_table.as_dict()
+	width = max(max(len(s) for s in line) for line in l)
+	format = "%%%ds" % width
 
 	#
-	# order IDs by number of participating instruments then by
-	# inter-instrument deltas, then by ID
+	# print the offsets
 	#
 
-	def deltas(offset_vector):
-		for a, b in instruments:
-			try:
-				yield offset_vector[b] - offset_vector[a]
-			except KeyError:
-				yield None
+	lines = iter(l)
+	print >>fileobj, " | ".join(format % s for s in lines.next())
+	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
+	for line in lines:
+		print >>fileobj, " | ".join(format % s for s in line)
 
-	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a])), tuple(deltas(offsets[b]))) or cmp(a, b))
+
+#
+# =============================================================================
+#
+#                               Time Slide Graph
+#
+# =============================================================================
+#
+
+
+class TimeSlideGraphNode(object):
+	def __init__(self, offset_vector):
+		self.offset_vector = offset_vector
+		self.deltas = ligolw_tisi.offset_vector_to_deltas(offset_vector)
+		self.components = set()
+
+
+class TimeSlideGraph(object):
+	def __init__(self, offset_vectors):
+		self.head = set(TimeSlideGraphNode(offset_vector) for offset_vector in offset_vectors)
+		self.generations = {}
+
+		n = max(len(offset_vector) for offset_vector in offset_vectors)
+		self.generations[n] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors((node.offset_vector for node in self.head), n))
+		for n in range(max(len(offset_vector) for offset_vector in offset_vectors), 2, -1):
+			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
+			if n in self.generations:
+				offset_vectors += [node.offset_vector for node in self.generations[n]]
+			self.generations[n - 1] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
+
+		for node in self.head:
+			node.components = set(component for component in self.generations[len(node.offset_vector)] if node.deltas == component.deltas)
+		for n, nodes in self.generations.items():
+			if n <= 2:
+				continue
+			for node in nodes:
+				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in time_slide_component_vectors([node.offset_vector], n - 1))
+				node.components = set(component for component in self.generations[n - 1] if frozenset(component.deltas.items()) in component_deltas)
+
+
+def write_time_slide_graph(fileobj, graph):
+	vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
+
+	print >>fileobj, "digraph \"Time Slides\" {"
+	for nodes in graph.generations.values():
+		for node in nodes:
+			node_name = vectorstring(node.offset_vector)
+			print >>fileobj, "\t\"%s\" [shape=box];" % node_name
+			for component in node.components:
+				component_name = vectorstring(component.offset_vector)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+	for node in graph.head:
+		node_name = vectorstring(node.offset_vector)
+		for component in node.components:
+			component_name = vectorstring(component.offset_vector)
+			print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+	print >>fileobj, "}"
 
 
 #
@@ -132,17 +208,7 @@ class CoincTables(object):
 	A convenience interface to the XML document's coincidence tables,
 	allowing for easy addition of coincidence events.
 	"""
-	def __init__(self, xmldoc, coinc_definer_rows):
-		# get the coinc_def_ids for the coincidence types we will
-		# be constructing.  the CoincDefiner class instances in the
-		# coinc_definer_rows dictionary  should have the search,
-		# search_coinc_type, and description attributes set as
-		# default attributes.
-		self.coinc_def_ids = dict(
-			(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
-			for key, coinc_def in coinc_definer_rows.items()
-		)
-
+	def __init__(self, xmldoc):
 		# find the coinc table or create one if not found
 		try:
 			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
@@ -163,14 +229,11 @@ class CoincTables(object):
 
 	def get_ordered_time_slides(self):
 		"""
-		Returns a list of (time_slide_id, offset vector) tuples for
-		the document's time slide vectors in the order defined by
-		the time_slide_consideration_order() function.
+		Deprecated.
 		"""
-		time_slides = self.time_slide_table.as_dict()
-		return [(id, time_slides[id]) for id in time_slide_consideration_order(self.time_slide_table)]
+		return sorted(self.time_slide_table.as_dict().items())
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
 		Takes a process ID, a time slide ID, and a list of events,
 		and adds the events as a new coincidence to the coinc_event
@@ -178,7 +241,7 @@ class CoincTables(object):
 		"""
 		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
-		coinc.coinc_def_id = self.coinc_def_ids[coinc_def_id_key]
+		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = time_slide_id
 		coinc.set_instruments(None)
@@ -219,14 +282,31 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 		# hmm... that program's output is not in this file.
 		raise KeyError, program
 
-	# extract a segmentlistdict;  protract by half the largest
-	# coincidence window so as to not miss edge effects
+	# extract a segmentlistdict
 	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce().protract(max_segment_gap / 2)
-	avail_instruments = set(seglistdict.keys())
+	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce()
+
+	# fast path:  if the largest gap anywhere in the lists is smaller
+	# than max_segment_gap then all process_ids participate.  NOTE:
+	# this also handles the case of max_segment_gap being passed in as
+	# float("inf") (which would otherwise break the LIGOTimeGPS
+	# arithmetic).
+	#
+	# this is checking the gaps between segments in the *same
+	# instrument*.  this assumption is that if max_segment_gap can
+	# close all the gaps within each instrument's segment list then,
+	# finally, all processes will be found to be required for the
+	# coincidence analysis.  this is not really true, but it's safe.
+	if max(b[0] - a[1] for segs in seglistdict.values() for a, b in zip(segs[:-1], segs[1:])) <= max_segment_gap:
+		return proc_ids
+
+	# protract by half the largest coincidence window so as to not miss
+	# edge effects
+	seglistdict.protract(max_segment_gap / 2)
 
 	# determine what time slides are possible given the instruments in
 	# the search summary table
+	avail_instruments = set(seglistdict.keys())
 	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector.keys()).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
@@ -312,14 +392,7 @@ class EventList(list):
 	def get_coincs(self, event_a, threshold, comparefunc):
 		"""
 		Return a list of the events from this list that are
-		coincident with event_a.  The events must be coincident
-		with event_a, not merely be likely to be coincident with
-		event_a given more careful scrutiny, because the events
-		returned by this method will never again been compared to
-		event_a.  However, it is not necessary for the events in
-		the list returned to be themselves mutually coincident in
-		any way (that might not even make sense, since each list
-		contains only events from a single instrument).
+		coincident with event_a.
 
 		The threshold argument will be the thresholds appropriate
 		for "instrument_a, instrument_b", in that order, where
@@ -343,14 +416,14 @@ class EventListDict(dict):
 	def __init__(self, EventListType, event_table, process_ids = None):
 		"""
 		Initialize a newly-created instance.  EventListType is a
-		subclass of EventList (the class, not an instance of the
-		class).  event_table is a list of events (e.g., an instance
-		of a glue.ligolw.table.Table subclass).  If the optional
-		process_ids arguments is not None, then it is assumed to be
-		a list or set or other thing implementing the "in" operator
-		which is used to define the set of process_ids whose events
-		should be considered in the coincidence analysis, otherwise
-		all events are considered.
+		subclass of EventList (the subclass itself, not an instance
+		of the subclass).  event_table is a list of events (e.g.,
+		an instance of a glue.ligolw.table.Table subclass).  If the
+		optional process_ids arguments is not None, then it is
+		assumed to be a list or set or other thing implementing the
+		"in" operator which is used to define the set of
+		process_ids whose events should be considered in the
+		coincidence analysis, otherwise all events are considered.
 		"""
 		for event in event_table:
 			if (process_ids is None) or (event.process_id in process_ids):

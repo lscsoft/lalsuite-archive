@@ -85,6 +85,7 @@ class IOTrappedSignal(Exception):
 		return "trapped signal %d" % self.signum
 
 
+# FIXME:  remove, use parameter passed to load_*() functions instead
 ContentHandler = ligolw.LIGOLWContentHandler
 
 
@@ -264,7 +265,7 @@ class MD5File(object):
 		return self.fileobj.close()
 
 
-def load_fileobj(fileobj, gz = False, xmldoc = None):
+def load_fileobj(fileobj, gz = False, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file object fileobj, and return the
 	contents as a LIGO Light Weight document tree.  The file object
@@ -287,11 +288,11 @@ def load_fileobj(fileobj, gz = False, xmldoc = None):
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
-	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	ligolw.make_parser((contenthandler or ContentHandler)(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 
 
-def load_filename(filename, verbose = False, gz = False, xmldoc = None):
+def load_filename(filename, verbose = False, gz = False, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file identified by filename, and return
 	the contents as a LIGO Light Weight document tree.  Helpful
@@ -313,13 +314,13 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc)
+	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 	return xmldoc
 
 
-def load_url(url, verbose = False, gz = False, xmldoc = None):
+def load_url(url, verbose = False, gz = False, xmldoc = None, contenthandler = None):
 	"""
 	This function has the same behaviour as load_filename() but accepts
 	a URL instead of a filename.  Any source from which Python's
@@ -343,7 +344,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc)
+	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, url or "")
 	return xmldoc

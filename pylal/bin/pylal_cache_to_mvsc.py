@@ -36,6 +36,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal.tools import XLALCalculateEThincaParameter
+from pylal.date import LIGOTimeGPS
 
 def new_coincs_from_coincs(coincTable, coinc_stat):
   """
@@ -245,9 +246,10 @@ def get_slide_coincs_from_cache(cachefile, pattern, match, verb, coinc_stat):
     return None
   # split the time slide files into 105 groups to aid with I/O
   num_files=len(files)
-  print num_files
-  groups_of_files = split_seq(files,105)
-  print groups_of_files
+
+  #Changed by Tristan Miller as a memory fix
+  #groups_of_files = split_seq(files,105)
+  groups_of_files = split_seq(files,50)
   for filegroup in groups_of_files:
     if filegroup:  
       # extract the coinc table
@@ -294,40 +296,48 @@ __title__ = "Create input files for random forest from the ihope cache"
 parser=OptionParser(usage=usage,version="%prog CVS $Id: pylal_ihope_to_randomforest_input.py,v 1.1 2009/03/03 22:02:42 KariHodge Exp $")
 
 parser.add_option("", "--cache-file", default="*ihope.cache",metavar="CACHEFILE", help="cache pointing to files of interest")
-parser.add_option("","--trig-pattern", default="SIRE_SECOND*_PLAYGROUND_CAT_3_VETO", action="store",type="string", metavar="TRIGPTTRN", help="sieve pattern for trig-files" )
-parser.add_option("","--slide-pattern", default="COIRE_SLIDE_SECOND_*_FULL_DATA_CAT_3_VETO", action="store",type="string", metavar="SLIDEPTTRN", help="sieve pattern for background" )
-parser.add_option("","--found-pattern", default="COIRE_INJECTIONS_*_FOUND_SECOND_*_*INJ_CAT_3_VETO", metavar="FOUNDPTTRN", help="sieve pattern for found injection files")
+parser.add_option("","--playground-zerolag-pattern", default="COIRE_SECOND*_PLAYGROUND_CAT_2_VETO", action="store",type="string", metavar="PLAYZLTRIGPTTRN", help="sieve pattern for trig-files" )
+parser.add_option("","--full-data-zerolag-pattern", default="COIRE_SECOND*CAT_2_VETO", action="store",type="string", metavar="FULLZLTRIGPTTRN", help="sieve pattern for trig-files" )
+parser.add_option("","--slide-pattern", default="COIRE_SLIDE_SECOND_*_FULL_DATA_CAT_2_VETO", action="store",type="string", metavar="SLIDEPTTRN", help="sieve pattern for background" )
+parser.add_option("","--found-pattern", default="COIRE_INJECTIONS_*_FOUND_SECOND_*_*INJ_CAT_2_VETO", metavar="FOUNDPTTRN", help="sieve pattern for found injection files")
 parser.add_option("", "--ifo-times", default=None, action="store", type="string", metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
+parser.add_option("","--veto-category", default="CAT_2", action="store", type="string", metavar="VETOCAT", help="in the format CAT_x where x=1,2,3,4,5,6") 
 parser.add_option("", "--exact-match",default=False, action="store_true", help="the pattern should match exactly if this option is used" )
 parser.add_option("--statistic", action="store",type="string", default="effective_snr",help="choice of statistic used in making plots, valid arguments are: snr, snr_over_chi, s3_snr_chi_stat, effective_snr")
 parser.add_option("--verbose",action="store_true",default=True,help="print extra info to the screen")
-
 (opts,args)=parser.parse_args()
 
 # get tables ready for putting things in
 #instruments = ("H1", "H2", "L1", "V1")
 #ZeroTable = dict(("".join(key), []) for n in range(2, len(instruments + 1)) for key in iterutils.choices(instruments, n))
-ZeroTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
+PlaygroundZeroTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
+FullDataZeroTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 SlideTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 InjTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 KnownTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 
+# too keep I/O functioning smoothly, save the relevant lines from the cache into a new, smaller cache
 cache_file = glob.glob(opts.cache_file)[0]
-cachefile = lal.Cache.fromfile(open(cache_file)).sieve(ifos=opts.ifo_times, exact_match=opts.exact_match)
+os.system('cat ' + cache_file + ' | grep COIRE | grep SECOND | grep ' + opts.veto_category + ' > mvsc_cache.cache') 
+# now we can open the cache file
+cachefile = lal.Cache.fromfile(open('mvsc_cache.cache')).sieve(ifos=opts.ifo_times, exact_match=opts.exact_match)
 # initialize CoincInspiralUtils, which is going to pull coincidences out of the xml files that you provide as arguments to the options
 coinc_stat=CoincInspiralUtils.coincStatistic(opts.statistic)
 # Read in the files
 SlideCoincs = get_slide_coincs_from_cache(cachefile, opts.slide_pattern, opts.exact_match, opts.verbose, coinc_stat)
-SlideCoincs = new_coincs_from_coincs(SlideCoincs, coinc_stat)
-ZeroCoincs = get_coincs_from_cache(cachefile, opts.trig_pattern, opts.exact_match, opts.verbose, coinc_stat)
-ZeroCoincs = new_coincs_from_coincs(ZeroCoincs, coinc_stat)
+if SlideCoincs: SlideCoincs = new_coincs_from_coincs(SlideCoincs, coinc_stat)
+PlaygroundZeroCoincs = get_coincs_from_cache(cachefile, opts.playground_zerolag_pattern, opts.exact_match, opts.verbose, coinc_stat)
+if PlaygroundZeroCoincs: PlaygroundZeroCoincs = new_coincs_from_coincs(PlaygroundZeroCoincs, coinc_stat)
+FullDataZeroCoincs = get_coincs_from_cache(cachefile, opts.full_data_zerolag_pattern, opts.exact_match, opts.verbose, coinc_stat)
+if FullDataZeroCoincs: FullDataZeroCoincs = new_coincs_from_coincs(FullDataZeroCoincs, coinc_stat)
 InjCoincs = get_coincs_from_cache(cachefile, opts.found_pattern, opts.exact_match, opts.verbose, coinc_stat)
-InjCoincs = new_coincs_from_coincs(InjCoincs,coinc_stat)
+if InjCoincs: InjCoincs = new_coincs_from_coincs(InjCoincs,coinc_stat)
 
-params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()','eff_distance'], "metricInfo":['ethinca'],"coincRelativeDelta":['mchirp','eta'], "coincDelta":['time'], "coincInfo":['event_id','class']}
+params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()','eff_distance','get_end()'], "metricInfo":['ethinca'],"coincRelativeDelta":['mchirp','eta'], "coincDelta":['time'], "coincInfo":['class']}
 
 if SlideCoincs: parse_coinc(SlideCoincs,SlideTable,params)
-if ZeroCoincs: parse_coinc(ZeroCoincs,ZeroTable,params)
+if PlaygroundZeroCoincs: parse_coinc(PlaygroundZeroCoincs,PlaygroundZeroTable,params)
+if FullDataZeroCoincs: parse_coinc(FullDataZeroCoincs,FullDataZeroTable,params)
 if InjCoincs: parse_coinc(InjCoincs,InjTable,params)
 
 # need to put the triggers we know to represent signal (injections) and background (timeslides) into the same file for testing/validation
@@ -335,4 +345,5 @@ merge_table_dict(KnownTable,InjTable)
 merge_table_dict(KnownTable,SlideTable)
 
 table_dict_to_file(KnownTable,params,'Known.pat',{'setA':[0],'setB':[1],'setC':[2],'setD':[3]})
-table_dict_to_file(ZeroTable,params,'Unknown.pat',{'set':[0]})
+table_dict_to_file(PlaygroundZeroTable,params,'ZeroLag_playground.pat',{'set':[0]})
+table_dict_to_file(FullDataZeroTable,params,'ZeroLag_fulldata.pat',{'set':[0]})
