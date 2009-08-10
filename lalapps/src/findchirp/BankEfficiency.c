@@ -377,11 +377,10 @@ main (INT4 argc, CHAR **argv )
       {
         for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
-          REAL4 power;
-        
           if( i * ampCorFreqSegVec->data->data->deltaF 
                                       >= ampCorDataParams->fLow )
           {
+            REAL4 power;
             power  = ampCorFreqSegVec->data->data->data->data[i].re *
                      ampCorFreqSegVec->data->data->data->data[i].re;
             power += ampCorFreqSegVec->data->data->data->data[i].im *
@@ -391,12 +390,10 @@ main (INT4 argc, CHAR **argv )
                     / (REAL4)(ampCorDataSegVec->data->chan->data->length)
                     / ampCorDataParams->wtildeVec->data[i].re;
           }
-        
         }
-
         invRootData = pow( norm, -0.5 );  
 
-        for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        for( i = 1; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
           ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
           ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
@@ -405,8 +402,10 @@ main (INT4 argc, CHAR **argv )
         /* Generate noise if required, and inject signal at required SNR */
         if ( randIn.type == 2 )
         {
-          REAL4Vector *ntilde_re = XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
-          REAL4Vector *ntilde_im = XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
+          REAL4Vector *ntilde_re = 
+            XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
+          REAL4Vector *ntilde_im = 
+            XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
           if ( !ntilde_re || !ntilde_im )
           {
             exit( 1 );
@@ -415,23 +414,28 @@ main (INT4 argc, CHAR **argv )
           LAL_CALL( LALNormalDeviates(&status, ntilde_re, randParams), &status );
           LAL_CALL( LALNormalDeviates(&status, ntilde_im, randParams), &status );
 
-          for  (i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+          for( i=0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
           {
-            ntilde_re->data[i] *= sqrt( 0.25 * (REAL4)ampCorDataSegVec->data->chan->data->length 
-                                * (REAL4)coarseBankIn.tSampling *  (REAL4)(randIn.psd.data[i]) );
-            ntilde_im->data[i] *= sqrt( 0.25 * (REAL4)ampCorDataSegVec->data->chan->data->length
-                                * (REAL4)coarseBankIn.tSampling *  (REAL4)(randIn.psd.data[i]) );
+            REAL4 fac;
+            fac = sqrt( (REAL4)(ampCorDataSegVec->data->chan->data->length) * 
+                        0.25 * (REAL4)(randIn.param.tSampling) /
+                        (REAL4)(randIn.psd.data[i]) );
+
+            ntilde_re->data[i] *= fac; 
+            ntilde_im->data[i] *= fac; 
 
             ampCorFreqSegVec->data->data->data->data[i].re *= randIn.SignalAmp;
             ampCorFreqSegVec->data->data->data->data[i].im *= randIn.SignalAmp;
-            ampCorFreqSegVec->data->data->data->data[i].re += randIn.NoiseAmp * ntilde_re->data[i];
-            ampCorFreqSegVec->data->data->data->data[i].im += randIn.NoiseAmp * ntilde_im->data[i];
+
+            ampCorFreqSegVec->data->data->data->data[i].re += 
+                                            randIn.NoiseAmp * ntilde_re->data[i];
+            ampCorFreqSegVec->data->data->data->data[i].im += 
+                                            randIn.NoiseAmp * ntilde_im->data[i];
           }
 
           XLALDestroyREAL4Vector( ntilde_re );
           XLALDestroyREAL4Vector( ntilde_im );
-       }
-
+        }
       }    
     }
        

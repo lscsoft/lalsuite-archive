@@ -760,21 +760,12 @@ void LALRandomInspiralSignalTimeDomain
 /*    UINT4                   indice; */
   REAL8           epsilon1, epsilon2, norm=0.0;
 
-  REAL4Vector    *buff = NULL;
-
-  REAL4FFTPlan    *invPlan = NULL;
   REAL4FFTPlan    *fwdPlan = NULL;
-  REAL4Vector     *ntilde_re = NULL;
-  REAL4Vector     *ntilde_im = NULL;
-  COMPLEX8Vector  *ntilde = NULL;
-  COMPLEX8Vector  *stilde = NULL;
 
   INT4    tLength;
   INT4    fLength;
   REAL8   df;
   REAL8   dt;
-  REAL4   invRoot;
-  REAL4   numer, denom;
   INT4    k;
   INT4    valid;
   INT4    tmpType;
@@ -805,57 +796,10 @@ void LALRandomInspiralSignalTimeDomain
   dt = 1.0 / randIn->param.tSampling;
   df = randIn->param.tSampling / (REAL8)(tLength) / 2.;
 
-  /* Hack for now; force the type to be SignalOnly in here */
-  tmpType = randIn->type;
-  randIn->type = 0; 
-
-
-  /* Use the seed to initialize random(). */
-  /* srandom(randIn->useed); */
-  /* use the random number so generated as the next seed */
-  /* randIn->useed = random(); */
-
   /* use the random number so generated as the next seed */
   LALCreateRandomParams(status->statusPtr, &randParams, randIn->useed);
   CHECKSTATUSPTR(status);
   randIn->useed = randParams->i;
-
-  /* If we are making noise allocate memory now */
-  if( randIn->type > 0 )
-  {
-    if ( !(ntilde_re = XLALCreateREAL4Vector( fLength ) ))
-    {
-      ABORTXLAL( status );
-    }
-    memset( ntilde_re->data, 0, ntilde_re->length * sizeof( REAL4 ));  
-    if ( !(ntilde_im = XLALCreateREAL4Vector( fLength ) ))
-    {
-      ABORTXLAL( status );
-    }
-    memset( ntilde_im->data, 0, ntilde_im->length * sizeof( REAL4 ));  
-    if ( !(ntilde = XLALCreateCOMPLEX8Vector( fLength ) ))
-    {
-      ABORTXLAL( status );
-    }
-    memset( ntilde->data, 0, ntilde->length * sizeof( COMPLEX8 ));
-
-    /* If we are adding signal to that noise allocate memory now */
-    if( randIn->type == 2 )
-    {
-      if ( !(stilde = XLALCreateCOMPLEX8Vector( fLength ) ))
-      {
-        ABORTXLAL( status );
-      }
-      memset( stilde->data, 0, stilde->length * sizeof( COMPLEX8 ));
-  
-      if ( !(buff = XLALCreateREAL4Vector( signal->length ) ))
-      {
-        ABORTXLAL( status );
-      }
-      memset( buff->data, 0, buff->length * sizeof( REAL4 ));  
-    }
-  }
-
 
   /* we need random parameters only if we need to generate a signal
      (i.e. type 0/2) */
@@ -866,10 +810,10 @@ void LALRandomInspiralSignalTimeDomain
      * are located within the specified region */
     while (!valid) 
     {
-/*
+      /*
       epsilon1 = (float) random()/(float)RAND_MAX;
       epsilon2 = (float) random()/(float)RAND_MAX;
-*/    
+      */    
       epsilon1 = XLALUniformDeviate( randParams );
       epsilon2 = XLALUniformDeviate( randParams );
       switch (randIn->param.massChoice) 
@@ -1163,18 +1107,23 @@ void LALRandomInspiralSignalTimeDomain
   }
 
   /* set up the structure for normalising the signal */
-/* 
+  /* 
   normin.psd          = &(randIn->psd);
   normin.df           = randIn->param.tSampling / (REAL8) signal->length;
   normin.fCutoff      = randIn->param.fCutoff;
   normin.samplingRate = randIn->param.tSampling;
-*/
+  */
   switch (randIn->type) 
   {
+    case 1:
+      fprintf( stderr, "ERROR case 1 not yet ready for ACTD!\n" );
+      return;
+      break;
+
     case 0:
-      /* First deal with the signal only case:
-       * if the signal is generated in the Fourier domain no
-       * need for Fourier transform
+    default:
+      /*
+       * case 0 and case 2 just need signal, noise is made later
        */
       if(
           randIn->param.approximant == BCV ||
@@ -1239,148 +1188,11 @@ void LALRandomInspiralSignalTimeDomain
       CHECKSTATUSPTR(status);
       */
       break;
-    
-    case 1:
-      fprintf( stderr, "ERROR case 1 not ready for ACTD!\n" );
-      return;
-      break;
-
-    default:
-      /* 
-       * finally deal with the noise+signal case:
-       */
-      LALNormalDeviates(status->statusPtr, ntilde_re, randParams);
-      CHECKSTATUSPTR(status);
-      LALNormalDeviates(status->statusPtr, ntilde_im, randParams);
-      CHECKSTATUSPTR(status);
-       
-      if( randIn->param.approximant == SpinTaylor )
-      {
-        randIn->param.fFinal=0; 
-        GenerateTimeDomainWaveformForInjection( status->statusPtr, 
-                                                buff, &randIn->param);
-        CHECKSTATUSPTR(status);
-      }
-      else
-      {
-        /* force to compute fFinal is it really necessary  ? */ 
-        randIn->param.fFinal=0; 
-        LALInspiralWave(status->statusPtr, buff, &randIn->param);
-        CHECKSTATUSPTR(status);
-      }
-      /* Taper signal */
-      if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
-      {
-        XLALInspiralWaveTaper( buff, randIn->taperSignal );
-      }
-
-      /* Add signal to noise in Freq domain */ 
-      if ( !(fwdPlan = XLALCreateForwardREAL4FFTPlan( tLength, 0 ) ))
-      {
-        ABORTXLAL( status );
-      }
-      if ( XLALREAL4ForwardFFT( stilde, buff, fwdPlan ) == XLAL_FAILURE )
-      {
-        ABORTXLAL( status );
-      }  
-
-      /* Calculate Signal Norm */
-      for( k=0; k < (INT4)fLength; ++k )
-      {
-        REAL4 power;
-
-        /* Calculate Signal Norm */
-        if( (REAL4)(k) * (REAL4)(df) > randIn->param.fLower )
-        {
-          power  = stilde->data[k].re * stilde->data[k].re; 
-          power += stilde->data[k].im * stilde->data[k].im; 
-          norm  += power / (REAL4)(randIn->psd.data[k]);
-        } 
-      }
-      norm *= 4.0 * (REAL4)(dt) / (REAL4)(tLength);
-      invRoot = 1.0 / sqrt( norm );
-
-      for( k=0; k < fLength; ++k )
-      {
-        if( (REAL4)(k) * (REAL4)(df) > randIn->param.fLower )
-        {
-        }
-        if( 1 ){
-        numer = sqrt( 0.25 * (REAL4)(tLength) / (REAL4)(dt) *  (REAL4)(randIn->psd.data[k]) );
-        /* Colour Noise */
-        ntilde_re->data[k] *= numer;
-        ntilde_im->data[k] *= numer;
-
-        /* Normalise Signal */
-        stilde->data[k].re *= invRoot;
-        stilde->data[k].im *= invRoot;
-
-        /* Add signal */
-        ntilde->data[k].re = ntilde_re->data[k] * randIn->NoiseAmp;
-        ntilde->data[k].im = ntilde_im->data[k] * randIn->NoiseAmp;
-
-        ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
-        ntilde->data[k].im += stilde->data[k].im * randIn->SignalAmp;
-        }
-        else
-        {
-          ntilde->data[k].re = ntilde->data[k].im = 0.0;
-        }
-      }
-
-
-      /* set DC and nyquist = 0.0 */
-      ntilde->data[0].re = 0.0;
-      ntilde->data[0].im = 0.0;
-      ntilde->data[fLength-1].re = 0.0;
-      ntilde->data[fLength-1].im = 0.0;
-
-
-      if ( !(invPlan = XLALCreateReverseREAL4FFTPlan( tLength, 0 ) ))
-      {
-        ABORTXLAL( status );
-      }
-      if ( XLALREAL4ReverseFFT( signal, ntilde, invPlan ) == XLAL_FAILURE )
-      {
-        ABORTXLAL( status );
-      }
-      /* Normalise after fft */
-      for( k=0; k < tLength; ++k )
-      {
-        signal->data[k] /= (REAL4)(tLength);
-      }
-
-      XLALDestroyREAL4FFTPlan( fwdPlan );
-      XLALDestroyREAL4FFTPlan( invPlan );
-      if ( ntilde_re )
-      {
-        XLALDestroyREAL4Vector( ntilde_re );
-      }      
-      if ( ntilde_im )
-      {
-        XLALDestroyREAL4Vector( ntilde_im );
-      }      
-      if ( ntilde )
-      {
-        XLALDestroyCOMPLEX8Vector( ntilde );
-      }      
-      if ( stilde )
-      {
-        XLALDestroyCOMPLEX8Vector( stilde );
-      }      
-      if ( buff )
-      {
-        XLALDestroyREAL4Vector( buff );
-      }      
-      LALDestroyRandomParams(status->statusPtr, &randParams);
-      CHECKSTATUSPTR(status);
-
-      DETATCHSTATUSPTR(status);
-      RETURN(status);
-      break;
   }
 
-  randIn->type = tmpType;
+  LALDestroyRandomParams(status->statusPtr, &randParams);
+  CHECKSTATUSPTR(status);
+
   DETATCHSTATUSPTR(status);
   RETURN(status);
 } 
