@@ -475,7 +475,7 @@ if dqTable=="":
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)
-  dqTable=x.generateHTMLTable()
+  dqTable=x.generateHTMLTable("DQ")
 #
 # Insert the new text string of a table using markup.py functions
 page.td(dqTable)
@@ -485,6 +485,9 @@ page.tr.close()
 
 
 # Row #2
+#Repopulate veto table assume S5 segment DB
+if vetoTable == "":
+  vetoTable=x.generateHTMLTable("VETO")
 page.tr()
 page.td("#2 Veto investigations")
 page.td("Does the candidate survive the veto investigations performed at its time ?")
@@ -501,15 +504,13 @@ page.td()
 page.tr.close()
 
 # Row #3
+eventTime=int(float(gpstime0))
 page.tr()
 page.td("#3 Ifo status")
 page.td("Are the interferometers operating normally with a reasonable level of sensitivity around the time of the candidate ?")
 page.td()
-ifoStatusLinks = "<a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:"
-for j,ifo in enumerate(ifolist):
-  ifoStatusLinks += " <a href=\"" + dailyStat[j] + "\">" + ifo + "</a>"
-#file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n","") + "<br>" + dateScSeg)
-page.td(ifoStatusLinks)
+linkText="<a href=\"%s\">Daily Stats pages</a> "%(fu_utils.getDailyStatsURL(eventTime))
+page.td(linkText)
 page.td()
 page.tr.close()
 
@@ -607,23 +608,27 @@ page.tr.close()
 
 
 # Row #8
+gpsEventTime=int(float(gpstime0))
 page.tr()
 page.td("#8 Elog")
 page.td("Were the instruments behaving normally according to the comments posted by the sci-mons or the operators in the e-log ?")
 page.td()
-elogLinks = "<a href=\"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Hanford elog</a><br>\n"
-elogLinks += "<a href=\"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Livingston elog</a>"
+elogLinks = "<a href=\"%s\">Livingston</a>, "%(fu_utils.getiLogURL(gpsEventTime,'L1'))
+elogLinks += "<a href=\"%s\">Hanford</a>, "%(fu_utils.getiLogURL(gpsEventTime,'H1'))
+elogLinks += "<a href=\"%s\">Virgo</a><br>"%(fu_utils.getiLogURL(gpsEventTime,'V1'))
 page.td(elogLinks)
 page.td()
 page.tr.close()
 
 
 # Row #9
+gpsEventTime=int(float(gpstime0))
 page.tr()
 page.td("#9 Glitch report")
 page.td("Were the instruments behaving normally according to the weekly glitch report ?")
 page.td()
-page.td("<a href=\"https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies\">Glitch reports</a><br>")
+linkText="<a href=\"%s\">Glitch Report</a><br>"%(fu_utils.getGlitchReportURL(gpsEventTime))
+page.td(linkText)
 page.td()
 page.tr.close()
 
