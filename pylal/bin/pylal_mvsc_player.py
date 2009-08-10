@@ -94,8 +94,9 @@ parser.add_option("-f","--config",default="mvsc_config", \
 
 opts,args = parser.parse_args()
 
-import matplotlib
-matplotlib.use("Agg")
+if not opts.show_plots:
+    import matplotlib
+    matplotlib.use("Agg")
 from matplotlib import pyplot
 from mvsc_plots import *
 from mvsc_htmlwriter import mvsc_html
@@ -491,15 +492,13 @@ elif opts.show_plots | opts.enable_output:
             htmlfile.set_zeronum(len(zerodata[0]))
                 
     #Best 15 events:
-    if opts.enable_output:
+    if opts.enable_output & (zerodata != None):
         if opts.open_box:
             strdata,temp1 = patread(filepath+'_fulldata.dat',readstr=True )
         elif opts.zero_lag:
             strdata,temp1 = patread(filepath+'_playground.dat',readstr=True )
         elif opts.hardware:
             strdata,temp1 = patread(filepath+'_hardware.dat',readstr=True )
-        else:
-            strdata,temp1 = patread(filepath + '_test.dat',readstr=True)
             
         events = top_events(strdata,cols,15,stationcode,mvsc_to_fan)
     
