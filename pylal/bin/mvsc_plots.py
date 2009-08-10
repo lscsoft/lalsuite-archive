@@ -14,10 +14,17 @@ from matplotlib import cbook
 
 ##############################################################################
 
-def patread(filename,station=None,flag=False,headeronly=False):
+def patread(filename,station=None,readpat=False,readstr=False,\
+            headeronly=False,colsonly=False):
     """Reads in a file from SprOutputWriterApp.
 
-    If flag is false, reads a dat file.  Otherwise, reads a pat file."""
+    If readpat is false, reads a dat file.  Otherwise, reads a pat file.
+    If headeronly is true, only outputs header in a list.
+    If cols only is true, only outputs header in dict.
+    If station is given, outputs two dicts, the first with more standardized
+    names (ie 'H1L1' => 't1t2')
+    If readstr is false, reads floats.  Otherwise, reads strings (which keeps
+    full precision)."""
     
     try:
         f = open(filename)
@@ -27,11 +34,7 @@ def patread(filename,station=None,flag=False,headeronly=False):
 
     p = re.compile(r'\S+')
 
-    #the flag is part of a workaround dealing with rounding issues in
-    #SprOutputWriterApp
-    # if flag is true, reads a pat file (rather than a dat file)
-    # and outputs strings, without rounding
-    if flag:
+    if readpat:
         h = f.readline()
         
     h = f.readline()
@@ -40,20 +43,48 @@ def patread(filename,station=None,flag=False,headeronly=False):
     if headeronly:
         f.close()
         return header
-        
-    data = []
+
     cols = {}
     for i in range(len(header)):
         cols[header[i]] = i
+        
+    if station:
+        iter = cols.iterkeys()
+        cols2 = {}
+        
+        while True:
+            try:
+                key = iter.next()
+                origcopy = key
+            
+                for j in range(0,6,2):
+                    for i in range(0,len(station),2):
+                        if key[j:j+2] == station[i:i+2]:
+                            key = key[:j]+'t'+str(i/2+1)+key[j+2:]
+                            break
 
+                cols2[key] = cols[origcopy]
+
+            except StopIteration:
+                break
+        
+    if colsonly:
+        f.close()
+        if station:
+            return cols2,cols
+        else:
+            return cols
+        
     #read the rest of the file
-    n = f.readline()
-    m = p.findall(n)
-    if m:
-        for i in range(len(m)):
-            data.append([float(m[i])])
+    
+    data = []
+    if readstr:
+        n = f.readline()
+        m = p.findall(n)
+        if m:
+            for i in range(len(m)):
+                data.append([m[i]])
 
-    if flag:
         while m:
             n = f.readline()
             m = p.findall(n)
@@ -61,6 +92,12 @@ def patread(filename,station=None,flag=False,headeronly=False):
                 for i in range(len(m)):
                     data[i].append(m[i])
     else:
+        n = f.readline()
+        m = p.findall(n)
+        if m:
+            for i in range(len(m)):
+                data.append([float(m[i])])
+                
         while m:
             n = f.readline()
             m = p.findall(n)
@@ -70,32 +107,12 @@ def patread(filename,station=None,flag=False,headeronly=False):
     
     f.close()
 
-    if not station:
-        print 'Finished reading file', filename
-        return data, cols
-    
-    #modify cols dictionary to be more uniform (ie get rid of H1s and L1s)
-    iter = cols.iterkeys()
-    cols2 = {}
-    
-    while True:
-        try:
-            key = iter.next()
-            origcopy = key
-            
-            for j in range(0,6,2):
-                for i in range(0,len(station),2):
-                    if key[j:j+2] == station[i:i+2]:
-                        key = key[:j]+'t'+str(i/2+1)+key[j+2:]
-                        break
-
-            cols2[key] = cols[origcopy]
-
-        except StopIteration:
-            break
-        
     print 'Finished reading file', filename
-    return data, cols2, cols
+    
+    if station:
+        return data, cols2, cols
+    else:
+        return data,cols
 
 ##############################################################################
 
@@ -164,6 +181,65 @@ def inforead(filename):
 
 ##############################################################################
 
+def rewrite_results( patpath, resultpath ):
+    """Rewrites the output of SprOutputWriterApp because it couldn't be
+    bothered to save the numbers to full precision.
+
+    Returns the data (so that you don't have to reread the file later)"""
+
+    patdata,patcols = patread(patpath,readpat=True,readstr=True)
+
+    resultdata,resultcols = patread(resultpath)
+    header = patread(resultpath,headeronly=True)
+
+    try:
+        f = open(resultpath,'w')
+    except IOError:
+        print '***Error!*** Trouble opening file', filename
+        return
+
+    for i in range(len(header)):
+        f.write(header[i] + ' ')
+
+    baggercol = resultcols['Bagger']
+    for i in range(len(patdata[0])):
+        f.write('\n')
+        
+        for j in range(3):
+            f.write(str(resultdata[j][i]) + ' ')
+
+        for j in range(len(patdata)-1):
+            f.write(patdata[j][i] + ' ')
+
+        f.write(str(resultdata[baggercol][i]))
+
+    f.close()
+
+    return resultdata
+
+##############################################################################
+
+def sort_inj_ts(data):
+    """Sorts data into injections and timeslides"""
+
+    injections = []
+    timeslides = []
+    for i in range(len(data)):
+        injections.append([])
+        timeslides.append([])
+    
+    for i in range(len(data[0])):
+        if data[1][i] == 0:
+            for j in range(len(data)):
+                timeslides[j].append(data[j][i])
+        else:
+            for j in range(len(data)):
+                injections[j].append(data[j][i])
+
+    return injections,timeslides
+
+##############################################################################
+
 def ROC(timeslides,injections):
     """Computes true and false positive rates.
 
@@ -207,7 +283,8 @@ def wilson(p,n):
     """Calculates the Wilson interval, the confidence interval for a binomial
     distribution.
 
-    Returns the appropriate upper and lower error bars"""
+    Returns the appropriate upper and lower error bars.
+    The confidence level used is always 68%."""
 
     n = float(n)
     diff = math.sqrt(max(p*(1-p)/n + 0.25/n**2,0)) / (1+1/n)
@@ -236,68 +313,80 @@ def stairs(x,y):
 
 ##############################################################################
 
-def top_events(data,cols,n,stations,patfile):
+def top_events(data,cols,n,stations, mvsc_to_fan=None):
     """Finds the n events with the highest MVSC values.
 
-    If multiple events tie for last, all will be included."""
+    If multiple events tie for last, all will be included.
+    Must give data in string form to keep precision.
+    If given mvsc_to_fan (which is [list of mvsc cutoff values, list of
+    corresponding false alarm numbers]), then will add a column of FAN."""
 
+    baggercol = cols['Bagger']
+    
     #must transpose data in order to sort it
+    #also, change Bagger column from string to number
+    
     data2 = []
     for i in range(len(data[0])):
         data2.append([])
         for j in range(len(data)):
-            data2[-1].append( data[j][i] )
+            if j == baggercol:
+                data2[-1].append(float(data[j][i]))
+            else:
+                data2[-1].append( data[j][i] )
         
     sorter = cbook.Sorter()
-    sorter(data2,cols['Bagger'])
-    mvsc_cutoff = data2[-min(len(data2),n)][cols['Bagger']]
+    sorter(data2,baggercol)
+    mvsc_cutoff = data2[-min(len(data2),n)][baggercol]
 
     events = []
     index = []
     
     for i in range(1,len(data2)+1):
-        if data2[-i][cols['Bagger']] >= mvsc_cutoff:
+        if data2[-i][baggercol] >= mvsc_cutoff:
             index.append(i)
-            #events.append([])
-            #for j in range(len(data2[0])):
-            #    events[-1].append(data2[-i][j])
+            events.append([])
+            for j in range(len(data2[0])):
+                events[-1].append(data2[-i][j])
         else:
             break
 
-    #problem: SprOutputWriterApp rounds all numbers to six digits
-    #workaround solution: below
-    data3,cols,cols2 = patread(patfile,stations,True)
-
-    for i in index:
-        events.append([])
+    if mvsc_to_fan:
+        #add extra column to 'cols' dict
+        cols['FAN'] = len(cols)
         
-        for j in range(3):
-            events[-1].append(data2[-i][j])
-        for j in range(len(data3)-1):
-            events[-1].append(data3[j][-i])
-        events[-1].append(data2[-i][-1])
+        for i in range(len(events)):
+            mvsc_cutoff = events[i][baggercol]
+            
+            for j in range(1,len(mvsc_to_fan[0])+1):
+                if mvsc_to_fan[0][-j] <= mvsc_cutoff:
+                    break
+
+            events[i].append(mvsc_to_fan[1][-j])
 
     return events
 
 ##############################################################################
 
-def ROCplot(data,cols,op_point = 1,ts_trig_ratio = 25):
-    """Creates an ROC plot from one file."""
+def ROCplot(data_inj,data_ts,cols,op_point = 1,ts_trig_ratio = 25):
+    """Creates an ROC plot from one file.
+
+    Returns the confidence interval of the resulting efficiency."""
     
-    timeslides = []
-    injections = []
+    timeslides = data_ts[cols['Bagger']][:]
+    injections = data_inj[cols['Bagger']][:]
     timeslides_snr = []
     injections_snr = []
-
-    for i in range(len(data[0])):
-        if data[1][i] == 0:
-            timeslides.append(data[cols['Bagger']][i])
-            timeslides_snr.append(data[cols['t1get_effective_snr()']][i]**2+ \
-                                  data[cols['t2get_effective_snr()']][i]**2)
-        else:
-            injections.append(data[cols['Bagger']][i])
-            injections_snr.append(data[cols['t1get_effective_snr()']][i]**2+ \
-                                  data[cols['t2get_effective_snr()']][i]**2)
+    
+    effsnr1 = cols['t1get_effective_snr()']
+    effsnr2 = cols['t2get_effective_snr()']
+    
+    for i in range(len(data_ts[0])):
+        timeslides_snr.append(data_ts[effsnr1][i]**2+ \
+                              data_ts[effsnr2][i]**2)
+    for i in range(len(data_inj[0])):
+        injections_snr.append(data_inj[effsnr1][i]**2+ \
+                              data_inj[effsnr2][i]**2)
 
     truepos,falsepos = ROC(timeslides,injections)
     truepos_snr,falsepos_snr = ROC(timeslides_snr,injections_snr)
@@ -365,6 +454,8 @@ def ROCplot(data,cols,op_point = 1,ts_trig_ratio = 25):
 
     pyplot.ylim(.85,1.01)
     pyplot.legend(loc='lower right')
+
+    return lower,upper
 
 ##############################################################################
 
@@ -468,24 +559,24 @@ def FOMmean(fom):
 
 ##############################################################################
 
-def mvsc_vs_effsnr(data,cols, mvsc_cutoff=None,effsnr_cutoff=None,\
+def mvsc_vs_effsnr(data_inj,data_ts,cols, mvsc_cutoff=None,effsnr_cutoff=None,\
                    zerodata=None):
     """Plots mvsc values vs the sum of the squares of effective snr."""
 
-    timeslides = []
-    injections = []
+    timeslides = data_ts[cols['Bagger']][:]
+    injections = data_inj[cols['Bagger']][:]
     timeslides_snr = []
     injections_snr = []
-
-    for i in range(len(data[0])):
-        if data[1][i] == 0:
-            timeslides.append(data[cols['Bagger']][i])
-            timeslides_snr.append(data[cols['t1get_effective_snr()']][i]**2+ \
-                                  data[cols['t2get_effective_snr()']][i]**2)
-        else:
-            injections.append(data[cols['Bagger']][i])
-            injections_snr.append(data[cols['t1get_effective_snr()']][i]**2+ \
-                                  data[cols['t2get_effective_snr()']][i]**2)
+    
+    effsnr1 = cols['t1get_effective_snr()']
+    effsnr2 = cols['t2get_effective_snr()']
+    
+    for i in range(len(data_ts[0])):
+        timeslides_snr.append(data_ts[effsnr1][i]**2+ \
+                              data_ts[effsnr2][i]**2)
+    for i in range(len(data_inj[0])):
+        injections_snr.append(data_inj[effsnr1][i]**2+ \
+                              data_inj[effsnr2][i]**2)
 
     pyplot.figure()
     pyplot.semilogy(timeslides,timeslides_snr,'kx',label='Timeslides')
@@ -515,7 +606,7 @@ def mvsc_vs_effsnr(data,cols, mvsc_cutoff=None,effsnr_cutoff=None,\
 
 ##############################################################################
 
-def fraction_detected(data, cols, afar = None,mvsc_cutoff=None, \
+def fraction_detected(data_inj,data_ts, cols, afar = None,mvsc_cutoff=None, \
                       distance=False ):
     """Graphs the fraction detected vs snr or distance.
 
@@ -524,6 +615,8 @@ def fraction_detected(data, cols, afar = None,mvsc_cutoff=None, \
     against distance instead.  Requires either the afar or mvsc_cutoff
     in order to choose operating point."""
 
+    #set bins
+    
     if distance:
         minbin = 1.
         stepfactor = 3
@@ -539,34 +632,37 @@ def fraction_detected(data, cols, afar = None,mvsc_cutoff=None, \
     while snrbins[-1] <= maxbin:
         snrbins.append( stepfactor**(i) * snrbins[0] )
         i += 1
+
+    #prepare data for sorting
     
     inj = []
     ts = []
-
+    baggercol = cols['Bagger']
+    effsnr1 = cols['t1get_effective_snr()']
+    effsnr2 = cols['t2get_effective_snr()']
+    
     if distance:
-        for i in range(len(data[0])):
-            if data[1][i] == 0:
-                ts.append( ( data[cols['Bagger']][i], \
-                             data[cols['t1get_effective_snr()']][i]**2+ \
-                             data[cols['t2get_effective_snr()']][i]**2 ) )
-            else:
-                inj.append( ( data[cols['Bagger']][i], \
-                       data[cols['t1get_effective_snr()']][i]**2+ \
-                       data[cols['t2get_effective_snr()']][i]**2, \
-                       (data[cols['t1eff_distance']][i]+ \
-                       data[cols['t2eff_distance']][i])**3/8 ) )
+        speccol1 = cols['t1eff_distance']
+        speccol2 = cols['t2eff_distance']
+        for i in range(len(data_inj[0])):
+            inj.append( ( data_inj[cols['Bagger']][i], \
+                      data_inj[effsnr1][i]**2 + data_inj[effsnr2][i]**2, \
+                      (data_inj[speccol1][i]+ \
+                       data_inj[speccol2][i])**3/8 ) )
     else:
-        for i in range(len(data[0])):
-            if data[1][i] == 0:
-                ts.append( ( data[cols['Bagger']][i], \
-                         data[cols['t1get_effective_snr()']][i]**2+ \
-                         data[cols['t2get_effective_snr()']][i]**2 ) )
-            else:
-                inj.append( ( data[cols['Bagger']][i], \
-                    data[cols['t1get_effective_snr()']][i]**2+ \
-                    data[cols['t2get_effective_snr()']][i]**2, \
-                    data[cols['t1snr']][i]**2+data[cols['t2snr']][i]**2 ) )
+        speccol1 = cols['t1snr']
+        speccol2 = cols['t2snr']
+        for i in range(len(data_inj[0])):
+            inj.append( ( data_inj[cols['Bagger']][i], \
+                      data_inj[effsnr1][i]**2 + data_inj[effsnr2][i]**2, \
+                      data_inj[speccol1][i]**2+ \
+                       data_inj[speccol2][i]**2 ) ) 
+    
+    for i in range(len(data_ts[0])):
+        ts.append( ( data_ts[baggercol][i], \
+                     data_ts[effsnr1][i]**2 + data_ts[effsnr2][i]**2 ) )
 
+    # sort
     sorter = cbook.Sorter()
     ts_mvsc = sorter(ts,0)
     ts_effsnr = sorter(ts,1)
@@ -684,29 +780,33 @@ def fraction_detected(data, cols, afar = None,mvsc_cutoff=None, \
 
 ##############################################################################
 
-def snr_vs_chisqr(data,cols,afar = 1.0/2000,zerodata=None ):
+def snr_vs_chisqr(data_inj,data_ts,cols,afar = 1.0/2000,zerodata=None ):
     """Plots SNR vs Chi Squared, indicating which triggers were correctly
     classified, and which were incorrectly classified.
 
     afar is the allowed false alarm rate in the classification"""
-    
+
+    # prepare data for sorting
     inj = []
     ts = []
-
-    #separate into timeslides and injections
-    for i in range(len(data[0])):
-        if data[1][i] == 0:
-            ts.append( ( data[cols['Bagger']][i], \
-                        data[cols['t1chisq']][i]**2+ \
-                        data[cols['t2chisq']][i]**2, \
-                        data[cols['t1snr']][i]**2+ \
-                        data[cols['t2snr']][i]**2 ) )
-        else:
-            inj.append( ( data[cols['Bagger']][i], \
-                        data[cols['t1chisq']][i]**2+ \
-                        data[cols['t2chisq']][i]**2, \
-                        data[cols['t1snr']][i]**2+ \
-                        data[cols['t2snr']][i]**2 ) )
+    baggercol = cols['Bagger']
+    chisq1 = cols['t1chisq']
+    chisq2 = cols['t2chisq']
+    snr1 = cols['t1snr']
+    snr2 = cols['t2snr']
+    
+    for i in range(len(data_ts[0])):
+        ts.append( ( data_ts[baggercol][i], \
+                        data_ts[chisq1][i]**2+ \
+                        data_ts[chisq2][i]**2, \
+                        data_ts[snr1][i]**2+ \
+                        data_ts[snr2][i]**2 ) )
+    for i in range(len(data_inj[0])):
+        inj.append( ( data_inj[baggercol][i], \
+                        data_inj[chisq1][i]**2+ \
+                        data_inj[chisq2][i]**2, \
+                        data_inj[snr1][i]**2+ \
+                        data_inj[snr2][i]**2 ) )
 
     cutoff = int(afar*len(ts)) + 1
     
@@ -777,141 +877,18 @@ def snr_vs_chisqr(data,cols,afar = 1.0/2000,zerodata=None ):
     pyplot.ylabel('Combined Chisq squared')
     pyplot.xlabel('Combined SNR squared')
     pyplot.title('SNR vs Chi Squared')
-        
-##############################################################################
-
-def plot_cuts(data,cols,dim1_header,dim2_header,dim1log,dim2log,filename=None,\
-              zerodata=None):
-    """Attempts to plot the decision tree cuts in two dimensions.
-
-    Filename is the path to decision tree file.  If not given, will not plot
-    any cuts."""
-
-    if not (cols.has_key(dim1_header) & cols.has_key(dim2_header)):
-        print 'Invalid dimensions given to plot-cuts option'
-        return
-        
-    dim1 = cols[dim1_header]
-    dim2 = cols[dim2_header]
-
-    injdim1 = []
-    tsdim1 = []
-    injdim2 = []
-    tsdim2 = []
-
-    #separate into timeslides and injections
-    for i in range(len(data[0])):
-        if data[1][i] == 0:
-            tsdim1.append( data[dim1][i] )
-            tsdim2.append( data[dim2][i] )
-        else:
-            injdim1.append( data[dim1][i] )
-            injdim2.append( data[dim2][i] )
-
-    #Plot injections and timeslides
-    pyplot.figure()
-    pyplot.plot(tsdim1,tsdim2,'xk',label='Timeslides')
-    pyplot.plot(injdim1,injdim2,'+r',mec='r', \
-                label='Injections')
-
-    if zerodata:
-        zerodim1 = []
-        zerodim2 = []
-        for i in range(len(zerodata[0])):
-            zerodim1.append( zerodata[dim1][i])
-            zerodim2.append( zerodata[dim2][i])
-
-        pyplot.plot(zerodim1,zerodim2,'.g',mec='g', \
-            label='Zero lag')
-    
-    #pyplot.legend(loc='lower right')
-    pyplot.xlabel(dim1_header)
-    pyplot.ylabel(dim2_header)
-    
-    if dim1log & dim2log:
-        pyplot.loglog()
-    elif dim1log:
-        pyplot.semilogx()
-    elif dim2log:
-        pyplot.semilogy()
-
-    if filename:
-        #Find all cuts made
-        try:
-            f = open(filename)
-        except IOError:
-            print '***Error!*** Trouble opening file', filename
-            return
-
-        p = re.compile(r'Id: \S+ Score: \S+ Dim: (\S+) Cut: (\S+)')
-        p2 = re.compile(r'Dimensions:')
-        p3 = re.compile(r'\s+(\S+)\s+(\S+)')
-
-        dim1cuts = []
-        dim2cuts = []
-        cuts = []
-        cutcols = {}
-        
-        while True:
-            n = f.readline()
-            m = p.match(n)
-            if m:
-                cuts.append( ( m.group(1), m.group(2) ) )
-            elif p2.match(n):
-                break
-            elif not n:
-                print '***Error!*** Unexpected format in',filename
-                return
-
-        while True:
-            n = f.readline()
-            m = p3.match(n)
-            if m:
-                cutcols[m.group(2)] = m.group(1)
-            else:
-                break
-        
-        f.close()
-
-        if cutcols.has_key(dim1_header):
-            for i in range(len(cuts)):
-                if cuts[i][0] == cutcols[dim1_header]:
-                    dim1cuts.append(float(cuts[i][1]))
-
-        if cutcols.has_key(dim2_header):
-            for i in range(len(cuts)):
-                if cuts[i][0] == cutcols[dim2_header]:
-                    dim2cuts.append(float(cuts[i][1]))
-        
-        xmin,xmax = pyplot.xlim()
-        ymin,ymax = pyplot.ylim()
-    
-        #Plot cuts
-        for i in range(len(dim1cuts)):
-            pyplot.plot([dim1cuts[i],dim1cuts[i]],[ymin,ymax],'b',alpha=0.2)
-        for i in range(len(dim2cuts)):
-            pyplot.plot([xmin,xmax],[dim2cuts[i],dim2cuts[i]],'b',alpha=0.2)
-
-        pyplot.xlim(xmin,xmax)
-        pyplot.ylim(ymin,ymax)
-        pyplot.title('Decision tree cuts on "'+dim1_header+'" and "' \
-                 +dim2_header+'" dimensions' )
-        
-    else:
-        pyplot.title('Triggers in the "'+dim1_header+'" and "' \
-                 +dim2_header+'" dimensions' )
  
 ##############################################################################
 
-def FARplot(data,cols,zerodata=None,ts_trig_ratio = 25):
-    """Graphs the cumulative number of detections vs MVSC threshold."""
+def FARplot(data_ts,cols,zerodata=None,ts_trig_ratio = 25):
+    """Graphs the cumulative number of detections vs MVSC threshold.
+
+    Returns the coordinates of plotted points so that the FAN can be extracted
+    from the MVSC value later."""
     
     ts_mvsc = []
 
-    for i in range(len(data[0])):
-        if data[1][i] == 0:
-            ts_mvsc.append(data[cols['Bagger']][i])
-
+    ts_mvsc = data_ts[cols['Bagger']][:]
     ts_mvsc.sort()
     n = len(ts_mvsc)
     
@@ -920,7 +897,7 @@ def FARplot(data,cols,zerodata=None,ts_trig_ratio = 25):
     mvsc_cutoff = 1
     flag = True
     
-    for i in range(1,n):
+    for i in range(n):
         if ts_mvsc[i] != ts_mvsc[i-1]:
             far.append(float(n-i)/ts_trig_ratio)
             mvsc.append(ts_mvsc[i])
@@ -955,7 +932,7 @@ def FARplot(data,cols,zerodata=None,ts_trig_ratio = 25):
         zerorate = []
         zero_mvsc1 = []
         
-        for i in range(1,m):
+        for i in range(m):
             if zero_mvsc[i] != zero_mvsc[i-1]:
                 zerorate.append(float(m-i))
                 zero_mvsc1.append(zero_mvsc[i])
@@ -988,20 +965,16 @@ def FARplot(data,cols,zerodata=None,ts_trig_ratio = 25):
     pyplot.xlabel('MVSC value cutoff')
     pyplot.title('FAR plot')
 
-    return mvsc_cutoff
+    return mvsc_cutoff,[mvsc,far]
 
 ##############################################################################
 
-def IFANplot(data,cols,zerodata,ts_trig_ratio=25):
+def IFANplot(data_ts,cols,zerodata,ts_trig_ratio=25):
     """Plots the inverse false alarm number vs cumulative number of detections.
-    """
+
+    Returns false if fails, true if succeeds"""
     
-    ts_mvsc = []
-
-    for i in range(len(data[0])):
-        if data[1][i] == 0:
-            ts_mvsc.append(data[cols['Bagger']][i])
-
+    ts_mvsc = data_ts[cols['Bagger']][:]
     ts_mvsc.sort()
     n = len(ts_mvsc)
 
@@ -1015,7 +988,7 @@ def IFANplot(data,cols,zerodata,ts_trig_ratio=25):
     ifan = []
     ifan_erru = []
     ifan_errl = []
-    for i in range(1,m):
+    for i in range(m):
         if zero_mvsc[i] != zero_mvsc[i-1]:
             cumnumber.append(float(m-i))
             upper,lower = wilson(cumnumber[-1]/m,m)
@@ -1033,10 +1006,22 @@ def IFANplot(data,cols,zerodata,ts_trig_ratio=25):
             ifan_erru.append(upper2*ts_trig_ratio)
             ifan_errl.append(lower2*ts_trig_ratio)
 
+    if len(cumnumber_errl) == 0:
+        return False
+    
     pyplot.figure()
     pyplot.errorbar(ifan,cumnumber,xerr=[ifan_errl,ifan_erru], \
                     yerr=[cumnumber_errl,cumnumber_erru])
     pyplot.loglog()
+
+    ymin,ymax = pyplot.ylim()
+    xmin,xmax = pyplot.xlim()
+    pyplot.plot([xmin,xmax],[1./xmin,1./xmax],'r',alpha=0.5)
+    pyplot.ylim(ymin,ymax)
+    pyplot.xlim(xmin,xmax)
+    
     pyplot.xlabel('Inverse False Alarm Number')
     pyplot.ylabel('Cumulative Number')
     pyplot.title('IFAN plot')
+
+    return True

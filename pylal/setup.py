@@ -258,6 +258,10 @@ setup(
 		os.path.join("bin", "plotsegments"),
 		os.path.join("bin", "plotthinca"),
 		os.path.join("bin", "pylal_cache_to_mvsc.py"),
+		os.path.join("bin", "pylal_mvsc_player.py"),
+		os.path.join("bin", "mvsc_plots.py"),
+		os.path.join("bin", "mvsc_plot_cuts.py"),
+		os.path.join("bin", "mvsc_htmlwriter.py"),
 		os.path.join("bin", "pylal_combine_posteriors"),
 		os.path.join("bin", "pylal_followup_missed"),
 		os.path.join("bin", "followupRescueHtml"),
@@ -331,17 +335,16 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "extractCommand"),
-		os.path.join("bin", "OddsPostProc.py")
+		os.path.join("bin", "OddsPostProc.py"),
+		os.path.join("bin", "prepare_sendback.py"),
+		os.path.join("bin", "qsub_wscan.sh"),
+		os.path.join("bin", "qsub_wscanlite.sh"),
+		os.path.join("bin", "virgo_qscan_in2p3.py"),
+		os.path.join("bin", "wscan_in2p3.sh"),
+		os.path.join("bin", "wscanlite_in2p3.sh")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
 		os.path.join("etc", "pylal-user-env.csh")
-		] ), (os.path.join("bin","followup_virgo_scripts"), [
-		os.path.join("bin", "followup_virgo_scripts", "wscan_in2p3.sh"),
-		os.path.join("bin", "followup_virgo_scripts", "wscanlite_in2p3.sh"),
-		os.path.join("bin", "followup_virgo_scripts", "qsub_wscan.sh"),
-		os.path.join("bin", "followup_virgo_scripts", "qsub_wscanlite.sh"),
-		os.path.join("bin", "followup_virgo_scripts", "virgo_qscan_in2p3.py"),
-		os.path.join("bin", "followup_virgo_scripts", "prepare_sendback.py")
-	] ) ]
+		] ) ]
 )

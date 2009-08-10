@@ -28,14 +28,22 @@ eventTime=$1
 configFile=$2
 outputDirectory=$3
 
-omegaDirectory="$THRONG_DIR/pro/omegadev/omega-nightly/test/install/"
+omegaDirectory="$THRONG_DIR/pro/omegadev/omega_r2062"
+matlabDirectory="/usr/local/matlabR2008a/bin/glnxa64"
 FFLFile="/afs/in2p3.fr/group/virgo/BKDB/VSR1/VSR1_raw.ffl"
 
 # Set path for omega
-testpath=`echo $PATH | grep -i 'omegadev/omega-nightly/test/install/bin'`
+testpath=`echo $PATH | grep -i 'omegadev/omega_r2062/bin'`
 
 if [ -z $testpath ]; then
   export PATH=$omegaDirectory/bin:$PATH
+fi
+
+# Set ld_library_path for matlab used by omega
+testpath=`echo $PATH | grep -i 'matlabR2008a/bin/glnxa64'`
+
+if [ -z $testpath ]; then
+  export LD_LIBRARY_PATH=$matlabDirectory:$LD_LIBRARY_PATH
 fi
 
 if [ -d $outputDirectory/$eventTime ]; then
@@ -49,7 +57,7 @@ fi
 
 # Execute the wscanlite
 
-OMEGASCAN="$omegaDirectory/bin/wpipeline scanlite -c $configFile -f $FFLFile -o $outputDirectory $eventTime"
+OMEGASCAN="$omegaDirectory/bin/wpipeline scan -c $configFile -f $FFLFile -o $outputDirectory/$eventTime $eventTime"
 
 echo "execute : $OMEGASCAN"
 export LD_LIBRARY_PATH_SAV=${LD_LIBRARY_PATH}
