@@ -149,7 +149,7 @@ for entry in myCache:
         verboseText.append(line)
 
 if opts.enable_output is True:
-  web.text("Frame_Check_Summary :%i: files failed!\n\n")
+  web.text("Frame_Check_Summary :%i: files failed!\n\n"%(failedList.__len__()))
   for line in failedList:
     web.text(line+"\n")
   web.text("\n\n")
@@ -160,9 +160,9 @@ if opts.enable_output is True:
   web.cleanWrite('IUL')
 
 #If there are failed frame checks
-if failedList.__len__() > 0:
-  print >> sys.stderr, "At least 1 frame file failed the frame check.\n"
-  sys.exit(1)
+#if failedList.__len__() > 0:
+#  print >> sys.stderr, "At least 1 frame file failed the frame check.\n"
+#  sys.exit(1)
   
 sys.exit(0)
 
