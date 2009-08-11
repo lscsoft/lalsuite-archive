@@ -1281,7 +1281,7 @@ def writeParamTable(trigger,opts):
     page.td(repr(trigger.gpsTime[ifo]));
     for param in paramList:
       page.td("%0.3f"%(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
-    page.td("%0.2f"%(trigger.statValue));
+    page.td("%0.5f"%(trigger.statValue));
     if not opts.disable_ifarsorting:
       page.td("%0.4f"%(trigger.far))
     page.tr.close()
