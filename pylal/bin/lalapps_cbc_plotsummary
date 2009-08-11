@@ -182,6 +182,8 @@ class CoincDatabase(object):
 			print >>sys.stderr, "calculating background livetimes: ",
 		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
+		# The previous line is slow, if you are debugging some other feature you could just hardcode it like this
+		# self.background_livetime = {frozenset(["H1","L1"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
@@ -330,28 +332,44 @@ class SummaryTable(object):
 			#For now we only return summary information on non injections
 			return
 		self.playground_candidates += contents.connection.cursor().execute("""
-SELECT coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time, coinc_inspiral.end_time_ns, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ": " || sngl_inspiral.snr || ":" || sngl_inspiral.chisq, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
+SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
 		""").fetchall()
 		self.candidates += contents.connection.cursor().execute("""
-SELECT coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time, coinc_inspiral.end_time_ns, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ": " || sngl_inspiral.snr || ":" || sngl_inspiral.chisq, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
+SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
                 """).fetchall()
 
+		self.livetime = {}
+		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
+			self.livetime.setdefault(on_instruments, 0.0)
+
+		for on_instruments, livetime in contents.nonplayground_livetime.items():
+			self.livetime[on_instruments] += livetime
+
+	def write_wiki_string(self, l, f):
+		f.write('''
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+''' % ("Rank", "combined FAR (Hz)","False alarm probability", "effective SNR", "end_time","total mass","chirp mass", "detectors", "detector time", "", "", "", "", "detector", "snr", "chisq", "mass1", "mass2"))
+		for i, values in enumerate(l):
+			values=list(values)
+			dets =  frozenset(dbtables.lsctables.instrument_set_from_ifos(values[7]))
+			values[1] = 1.0 - math.exp( 0.0 - values[1] * self.livetime[dets] )
+			f.write('|| ' + str(i) + ' || %.2e || %.3f || %.2f || %.4f || %.2f || %.2f || %s || %s ||\n' % tuple(values[:8]))
+			for ifo in values[8].split():
+				ifo = list(ifo.split(":"))
+				for i in range(1,len(ifo)): ifo[i] = float(ifo[i])
+				f.write('|| || || || || %s || %.2f || %.2f || %.2f || %.2f ||\n' % tuple(ifo) )
 
 	def finish(self):
 		self.playground_candidates.sort()
 		self.candidates.sort()
 		f = open('summary_table.txt','w')
 		f.write("=== Open box loudest 10 summary table ===\n")
-		f.write('|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||\n' % ("Rank", "combined FAR","Effective SNR", "end_time","end_time_ns","total mass","chirp mass", "ifos", "instruments", "IFO:snr:chisq"))
-		for i, values in enumerate(self.candidates[:10]):
-			f.write('|| ' + str(i) + ' || %e || %f || %d || %d || %f || %f || %s || %s || %s ||\n' % values)
+		self.write_wiki_string(self.candidates[:10], f)
 		f.close()
-
 		f = open('playground_summary_table.txt','w')
                 f.write("=== Playground loudest 10 summary table ===\n")
-		f.write('|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||\n' % ("Rank", "combined FAR", "Effective SNR", "end_time","end_time_ns","total mass","chirp mass", "ifos", "instruments", "IFO:snr:chisq"))
-		for i,values in enumerate(self.playground_candidates[:10]):
-			f.write('|| ' + str(i) + ' || %e || %f || %d || %d || %f || %f || %s || %s || %s ||\n' % values)
+		self.write_wiki_string(self.playground_candidates[:10], f)
 		f.close()
 		yield None, None, None
 
@@ -1047,13 +1065,13 @@ options, filenames = parse_command_line()
 
 def new_plots(plots = None):
 	l = (
+                SummaryTable(),
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
 		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
 		RateVsThreshold(),
 		InjectionParameterDistributionPlots(),
-		SummaryTable()
 	)
 	if plots is None:
 		plots = range(len(l))
