@@ -411,7 +411,7 @@ class SkyPoints(object):
       clusters.remove(clusters[loc2])
       clusters.remove(clusters[loc1])
   
-  def compute_skypoints(self,plot=None):
+  def compute_skypoints(self,plot_name=None):
     """
     this method
       (1) grids the sky coarsely
@@ -422,7 +422,7 @@ class SkyPoints(object):
     """
     coarse_grid = self.gridsky(0,self.coarse_res,-0.5*pi,0.5*pi,0,2*pi,0,0)
     coarse_L = []
-    if plot:
+    if plot_name:
       figure()
     
     for point in coarse_grid:
@@ -439,7 +439,7 @@ class SkyPoints(object):
         coarse_hotspots.append(pt[0])
       else:
         self.leftover_region.append(pt)
-        if plot:
+        if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'bx')
     pt_step = pi*numpy.sqrt(2.0)*2*self.coarse_res/180.0
     dmax = self.sphdist((0,0), (pt_step,pt_step))
@@ -497,16 +497,16 @@ class SkyPoints(object):
           self.sky_area_inj += pi*self.fine_res*self.fine_res
       if self.narrow_threshold <= pt[1] <= self.wide_threshold:
         self.wide_region.append(pt)
-        if plot:
+        if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'yx')
       elif self.narrow_threshold > pt[1]:
         self.narrow_region.append(pt)
-        if plot:
+        if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
    #   else:
    #     continue
 
-    if plot:
+    if plot_name:
       if self.injection:
         plot(asarray([self.longitude_inj]),\
              asarray([self.latitude_inj]),self.inj_color+'o')
@@ -515,9 +515,9 @@ class SkyPoints(object):
       xlabel("Right Ascension (radians)")
       ylabel("Declination (radians)")
       title("Skymap for Trigger at "+str(self.time))
-      savefig(plot)
+      savefig(plot_name)
   
-      if not show_plot:
+      if not opts.show_plot:
         close()
       
   def get_narrow_region(self):
@@ -561,18 +561,12 @@ class SkyLocTable(table.Table):
   validcolumns = {
     "end_time": "int_4s",
     "comb_snr": "real_4",
-    "h1_snr": "real_4",
-    "l1_snr": "real_4",
-    "v1_snr": "real_4",
     "ra": "real_4",
     "dec": "real_4",
-    "narrow_area": "real_4",
-    "wide_area": "real_4",
-    "h1_eff_distance": "real_4",
-    "l1_eff_distance": "real_4",
-    "v1_eff_distance": "real_4",
+    "area_60pct": "real_4",
+    "area_90pct": "real_4",
+    "min_eff_distance": "real_4",
     "skymap": "lstring",
-    "galaxies": "lstring",
     "grid": "lstring"
     }
     
@@ -648,7 +642,7 @@ LVAlertTable.RowType = LVAlertRow
 #
 ##############################################################################
 
-def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,gals_fname,\
+def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,\
                          skyloctable):
   """
   given an instance of SkyPoints, populate and return skyloctable
@@ -659,22 +653,19 @@ def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,gals_fname,\
   row.comb_snr = numpy.sqrt(skypoints.snr["H1"]*skypoints.snr["H1"] +\
                             skypoints.snr["L1"]*skypoints.snr["L1"] +\
                             skypoints.snr["V1"]*skypoints.snr["V1"])
-  row.h1_snr = skypoints.snr["H1"]
-  row.l1_snr = skypoints.snr["L1"]
-  row.v1_snr = skypoints.snr["V1"]
   row.ra = skypoints.longitude
   row.dec = skypoints.latitude
-  row.narrow_area = pi*skypoints.fine_res*skypoints.fine_res\
-                    *len(skypoints.narrow_region)
-  row.wide_area = pi*skypoints.coarse_res*skypoints.coarse_res\
-                  *len(skypoints.wide_region)
-  row.h1_eff_distance = skypoints.effective_distances["H1"]
-  row.l1_eff_distance = skypoints.effective_distances["L1"]
-  row.v1_eff_distance = skypoints.effective_distances["V1"]
+  row.area_60pct = pi*skypoints.fine_res*skypoints.fine_res\
+                   *len(skypoints.narrow_region)
+  row.area_90pct = pi*skypoints.coarse_res*skypoints.coarse_res\
+                   *len(skypoints.wide_region)
+  row.min_eff_distance = min([skypoints.effective_distances["H1"],\
+                              skypoints.effective_distances["L1"],\
+                              skypoints.effective_distances["V1"]])
   row.skymap = skymap_fname
   row.grid = grid_fname
-  row.galaxies = gals_fname
-  
+ # row.galaxies = gals_fname
+
   skyloctable.append(row)
   
 def populate_SkyLocInjTable(skypoints,skylocinjtable):
@@ -701,6 +692,9 @@ def populate_SkyLocInjTable(skypoints,skylocinjtable):
   row.v1_eff_distance = skypoints.eff_distances_inj["V1"]
   row.mass1 = skypoints.mass1_inj
   row.mass2 = skypoints.mass2_inj
+
+
+
 
   skylocinjtable.append(row)
 
@@ -739,7 +733,7 @@ def plot_skypoints(skypoints,output=None,show_plot=False):
       for pt in skypoints.narrow_region:
         plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
     #if there's an injection plot it and color it appropriately
-    if skymap.injection:
+    if skypoints.injection:
       plot(asarray([skypoints.longitude_inj]),\
            asarray([skypoints.latitude_inj]),skypoints.inj_color+'o')
 
@@ -896,7 +890,7 @@ def do_skypoints(coinc,coinctable=None):
     else:
       plot_name = ''
 
-    
+    print plot_name
     skymap.compute_skypoints(plot_name)
     print "lon = ", skymap.longitude
     print "lat = ",skymap.latitude
@@ -914,7 +908,7 @@ def do_skypoints(coinc,coinctable=None):
 
    # else:
    #   plot_name = ''
-    
+    populate_SkyLocTable(skymap,plot_name,grid_name,sky_loc_table)
     if opts.plotgalaxies:
       narrow, wide = find_boundaries(skymap)
       galaxies = get_galaxies_in_region(skymap,catalog,wide)
@@ -923,24 +917,25 @@ def do_skypoints(coinc,coinctable=None):
         galtable = lsctables.New(GalaxyTable)
         for galaxy in get_galaxies_in_region(skymap,catalog,narrow):
           populate_GalaxyTable(skymap,galaxy,galtable)
-          galdoc = ligolw.Document()
-          galdoc.appendChild(ligolw.LIGO_LW())
-          galdoc.childNodes[0].appendChild(galtable)     
+    #      galdoc = ligolw.Document()
+    #      galdoc.appendChild(ligolw.LIGO_LW())
+    #      galdoc.childNodes[0].appendChild(galtable)
+          xmldoc.childNodes[0].appendChild(galtable)
           if opts.output:
             gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
           if opts.online_input:
             gal_name = bname + '_'+str(skymap.time)+'_galaxies.xml'
             output_files.append(gal_name)
-          gal_output = open(gal_name, 'w')
-          galdoc.write(gal_output)
-          gal_output.close
+    #      gal_output = open(gal_name, 'w')
+    #      galdoc.write(gal_output)
+    #      gal_output.close
           
     else:
       gal_name = ''
 
     #populate the tables
-    print gal_name
-    populate_SkyLocTable(skymap,plot_name,grid_name,gal_name,sky_loc_table)
+    #print gal_name
+    #populate_SkyLocTable(skymap,plot_name,grid_name,gal_name,sky_loc_table)
     if opts.injection:
       populate_SkyLocInjTable(skymap,sky_loc_inj_table)
                                                         
@@ -1132,7 +1127,7 @@ if opts.injection:
   sky_loc_inj_table = lsctables.New(SkyLocInjTable)
 #make it work with XSL stylesheet
 ligolw.Header += u"""\n\n"""\
-                 +u"""<?xml-stylesheet type="text/xsl" href="ligolw-cbc3.xsl"?>"""\
+                 +u"""<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>"""\
                  +u"""\n\n"""
 
 
@@ -1167,6 +1162,7 @@ else:
   
 #finish up by writing output
 xmldoc.childNodes[0].appendChild(sky_loc_table)
+
 if opts.injection:
   xmldoc.childNodes[0].appendChild(sky_loc_inj_table)
 
