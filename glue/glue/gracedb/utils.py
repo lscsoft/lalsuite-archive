@@ -228,6 +228,7 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   f = open(datafile, 'r')
   vars = []
   for line in f.readlines():
+    if not line.strip(): continue # ignore blank lines
     if '#' in line:
       var = line.lstrip('#').strip()
       if var in omega_vars:

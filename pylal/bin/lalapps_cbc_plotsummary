@@ -339,13 +339,17 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
                 """).fetchall()
 
 		self.livetime = {}
+		self.playground_livetime = {}
 		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.livetime.setdefault(on_instruments, 0.0)
+			self.playground_livetime.setdefault(on_instruments, 0.0)
 
 		for on_instruments, livetime in contents.nonplayground_livetime.items():
 			self.livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.playground_livetime.items():
+			self.playground_livetime[on_instruments] += livetime
 
-	def write_wiki_string(self, l, f):
+	def write_wiki_string(self, l, f, lt):
 		f.write('''
 || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
 || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
@@ -353,7 +357,7 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 		for i, values in enumerate(l):
 			values=list(values)
 			dets =  frozenset(dbtables.lsctables.instrument_set_from_ifos(values[7]))
-			values[1] = 1.0 - math.exp( 0.0 - values[1] * self.livetime[dets] )
+			values[1] = 1.0 - math.exp( 0.0 - values[1] * lt[dets] )
 			f.write('|| ' + str(i) + ' || %.2e || %.3f || %.2f || %.4f || %.2f || %.2f || %s || %s ||\n' % tuple(values[:8]))
 			for ifo in values[8].split():
 				ifo = list(ifo.split(":"))
@@ -365,11 +369,11 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 		self.candidates.sort()
 		f = open('summary_table.txt','w')
 		f.write("=== Open box loudest 10 summary table ===\n")
-		self.write_wiki_string(self.candidates[:10], f)
+		self.write_wiki_string(self.candidates[:10], f, self.livetime)
 		f.close()
 		f = open('playground_summary_table.txt','w')
                 f.write("=== Playground loudest 10 summary table ===\n")
-		self.write_wiki_string(self.playground_candidates[:10], f)
+		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
 		f.close()
 		yield None, None, None
 

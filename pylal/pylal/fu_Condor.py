@@ -1967,6 +1967,9 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("segment-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
+    if cp.has_section("followup-analyse-qscan"):
+      if cp.has_option("followup-analyse-qscan","hoft-qscan-ref-channel"):
+        self.add_var_opt("hoft-channel-ref",cp.get("followup-analyse-qscan","hoft-qscan-ref-channel"))
 
     if cp.has_option("followup-foreground-qscan","remote-ifo"):
       remote_ifo = cp.get("followup-foreground-qscan","remote-ifo")
