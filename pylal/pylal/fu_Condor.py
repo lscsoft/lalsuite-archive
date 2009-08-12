@@ -1727,6 +1727,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("ra-step",string.strip(cp.get('chia','ra-step')))
       self.add_var_opt("dec-step",string.strip(cp.get('chia','dec-step')))
       self.add_var_opt("numCohTrigs",string.strip(cp.get('chia','numCohTrigs')))
+      self.add_var_opt("user-tag",str(trig.eventID))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
       bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
@@ -1752,7 +1753,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       hLengthAnalyzed = 1
       self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) - int(hLengthAnalyzed) )
       self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) + int(hLengthAnalyzed) )
-      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+      skipParams = ['minimal-match', 'bank-file', 'injection-file', 'trig-start-time', 'trig-end-time']
 
       if opts.plot_chia:
         dag.addNode(self,'chia')
@@ -1817,9 +1818,9 @@ class followUpCohireNode(pipeline.CondorDAGNode,webTheNode):
     if 1: #try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
-      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
-      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
       self.add_var_opt("input",inputFileName)
       self.add_var_opt("data-type","all_data")
       self.add_var_opt("output",outputXmlFile)
@@ -1883,7 +1884,7 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
       self.add_var_opt("chiaXmlFile",chiaXmlFileName)
       self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
       self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]+1))
