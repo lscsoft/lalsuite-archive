@@ -427,13 +427,17 @@ main (INT4 argc, CHAR **argv )
             ntilde_re->data[i] *= fac; 
             ntilde_im->data[i] *= fac; 
 
-            ampCorFreqSegVec->data->data->data->data[i].re *= randIn.SignalAmp;
-            ampCorFreqSegVec->data->data->data->data[i].im *= randIn.SignalAmp;
+            if( i * ampCorFreqSegVec->data->data->deltaF
+                                      >= ampCorDataParams->fLow )
+            {
+              ampCorFreqSegVec->data->data->data->data[i].re *= randIn.SignalAmp;
+              ampCorFreqSegVec->data->data->data->data[i].im *= randIn.SignalAmp;
 
-            ampCorFreqSegVec->data->data->data->data[i].re += 
+              ampCorFreqSegVec->data->data->data->data[i].re += 
                                           randIn.NoiseAmp * ntilde_re->data[i];
-            ampCorFreqSegVec->data->data->data->data[i].im += 
+              ampCorFreqSegVec->data->data->data->data[i].im += 
                                           randIn.NoiseAmp * ntilde_im->data[i];
+            }
           }
 
           XLALDestroyREAL4Vector( ntilde_re );
