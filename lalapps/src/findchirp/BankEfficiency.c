@@ -338,7 +338,6 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL(BankEfficiencyGenerateInputData(&status,
         &signal, &randIn, userParam), &status);
 
-
     /* --- populate the main structure of the overlap ---*/
     overlapin.signal = signal;
 
@@ -347,21 +346,32 @@ main (INT4 argc, CHAR **argv )
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
-      INT4  diff = ampCorDataSegVec->data->chan->data->length - signal.length;
 
-      for( i = (INT4)ampCorDataSegVec->data->chan->data->length-1; i>-1; --i )
+      if( randIn.type != 1 )
       {
-        if( i > diff )
+        INT4  diff = ampCorDataSegVec->data->chan->data->length 
+                     - signal.length;
+        for( i=(INT4)ampCorDataSegVec->data->chan->data->length-1; i>-1; --i )
         {
-          ampCorDataSegVec->data->chan->data->data[i] = 
-            overlapin.signal.data[i-diff];
+          if( i > diff )
+          {
+            ampCorDataSegVec->data->chan->data->data[i] = 
+              overlapin.signal.data[i-diff];
+          }
+          else
+          {
+            ampCorDataSegVec->data->chan->data->data[i] = 0.0;
+          }      
         }
-        else
-        {
-          ampCorDataSegVec->data->chan->data->data[i] = 0.0;
-        }      
       }
-
+      else
+      {
+        /* Dummy value so FindChirpTDData doesn't fail */
+        for( i=1; i<(INT4)ampCorDataSegVec->data->chan->data->length-1; ++i )
+        {
+          ampCorDataSegVec->data->chan->data->data[i] = 1.0;      
+        }
+      }
 
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
@@ -373,7 +383,7 @@ main (INT4 argc, CHAR **argv )
               ampCorFreqSegVec->data->segNorm->length * sizeof( REAL4 ) );
 
       /* Only do this in the absence of noise */
-      if( randIn.type == 0 || randIn.type == 2 )
+      if( randIn.type != 1 )
       {
         for( i=0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
@@ -398,56 +408,66 @@ main (INT4 argc, CHAR **argv )
           ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
           ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
         }
+      }
 
-        /* Generate noise if required, and inject signal at required SNR */
-        if ( randIn.type == 2 )
+      /* Generate noise if required, and inject signal at required SNR */
+      if ( randIn.type > 0 )
+      {
+        REAL4Vector *ntilde_re = 
+         XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
+        REAL4Vector *ntilde_im = 
+         XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
+        if ( !ntilde_re || !ntilde_im )
         {
-          REAL4Vector *ntilde_re = 
-           XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
-          REAL4Vector *ntilde_im = 
-           XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
-          if ( !ntilde_re || !ntilde_im )
-          {
-            exit( 1 );
-          }
+          exit( 1 );
+        }
 
-          LAL_CALL( LALNormalDeviates(&status, ntilde_re, randParams), 
+        LAL_CALL( LALNormalDeviates(&status, ntilde_re, randParams), 
                                                                &status );
-          LAL_CALL( LALNormalDeviates(&status, ntilde_im, randParams),
+        LAL_CALL( LALNormalDeviates(&status, ntilde_im, randParams),
                                                                &status );
 
-          for( i=1; i < 
-                      (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        for( i=1; i < 
+                    (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        {
+          REAL4 fac;
+          fac = sqrt( (REAL4)(ampCorDataSegVec->data->chan->data->length) * 
+                      0.25 * (REAL4)(randIn.param.tSampling) /
+                      (REAL4)(randIn.psd.data[i]) );
+
+          ntilde_re->data[i] *= fac; 
+          ntilde_im->data[i] *= fac; 
+
+
+          if( i * ampCorFreqSegVec->data->data->deltaF
+                                    >= ampCorDataParams->fLow )
           {
-            REAL4 fac;
-            fac = sqrt( (REAL4)(ampCorDataSegVec->data->chan->data->length) * 
-                        0.25 * (REAL4)(randIn.param.tSampling) /
-                        (REAL4)(randIn.psd.data[i]) );
-
-            ntilde_re->data[i] *= fac; 
-            ntilde_im->data[i] *= fac; 
-
-            if( i * ampCorFreqSegVec->data->data->deltaF
-                                      >= ampCorDataParams->fLow )
+            if( randIn.type == 2 )
             {
               ampCorFreqSegVec->data->data->data->data[i].re 
-                                                          *= randIn.SignalAmp;
+                                                        *= randIn.SignalAmp;
               ampCorFreqSegVec->data->data->data->data[i].im 
-                                                          *= randIn.SignalAmp;
-
+                                                        *= randIn.SignalAmp;
+            
               ampCorFreqSegVec->data->data->data->data[i].re += 
-                                          randIn.NoiseAmp * ntilde_re->data[i];
+                                        randIn.NoiseAmp * ntilde_re->data[i];
               ampCorFreqSegVec->data->data->data->data[i].im += 
-                                          randIn.NoiseAmp * ntilde_im->data[i];
+                                        randIn.NoiseAmp * ntilde_im->data[i];
             }
+            else
+            {
+              ampCorFreqSegVec->data->data->data->data[i].re = 
+                                                            ntilde_re->data[i];
+              ampCorFreqSegVec->data->data->data->data[i].im = 
+                                                            ntilde_im->data[i];
+            }  
           }
-
-          XLALDestroyREAL4Vector( ntilde_re );
-          XLALDestroyREAL4Vector( ntilde_im );
         }
-      }    
+        XLALDestroyREAL4Vector( ntilde_re );
+        XLALDestroyREAL4Vector( ntilde_im );
+      }
       ampCorFilterInput->segment = ampCorFreqSegVec->data;
-   }
+    }    
        
     /*  --- populate the insptmplt with the signal parameter --- */
     insptmplt = randIn.param; /* set the sampling and other common parameters */
