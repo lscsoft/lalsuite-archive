@@ -274,6 +274,38 @@ if __name__ == '__main__':
     cursor.execute("UPDATE %s SET process_id='process:process_id:0'" % table_name)
     cursor.execute("UPDATE search_summary SET process_id='process:process_id:0'")
 
+    # Determine which tables we're outputting
+    output_tables = []
+    for name in ['process','process_params',table_name,'search_summary','summ_value']:
+        count = int(cursor.execute("select count(*) from sqlite_master where name='%s'" % name).fetchone()[0])
+        if count:
+            output_tables.append(name)
+
+    # Write out a set of triggers that cuts out non-science time
+    for ifo in options.ifos.split(','):
+        subquery  = "SELECT %s.end_time FROM %s, segment, segment_definer " % (table_name, table_name)
+        subquery += "   WHERE segment_definer.segment_def_id = segment.segment_def_id "
+        subquery += "     AND segment_definer.name = 'DMT-SCIENCE' "
+        subquery += "     AND segment_definer.ifos = '%s' " % (ifo)
+        subquery += "     AND (%s.end_time BETWEEN segment.start_time AND segment.end_time)" % (table_name)
+
+        sql       = 'DELETE FROM %s WHERE end_time NOT IN (%s)' % (table_name, subquery)
+
+        cursor.execute(sql)
+
+        base_dir   = options.output_dir or '.'
+        first_four = gps_start_time / 100000
+        outdir     = "%s/%s-SCI/%s-SCI-%d" % (base_dir, ifo, ifo, first_four)
+        outname    = "%s/%s-SCI-%d-%d.xml" % (outdir, ifo, gps_start_time, (gps_end_time - gps_start_time))
+
+        try:
+            os.makedirs(outdir)
+        except:
+            pass
+
+        ligolw_sqlite.extract(connection, outname, table_names=output_tables)
+
+
     # Backup the sngl_ table
     sql = cursor.execute("SELECT sql FROM sqlite_master WHERE name='%s'" % table_name).fetchone()[0]
     pos = sql.index(table_name) + len(table_name)
@@ -283,12 +315,6 @@ if __name__ == '__main__':
     cursor.execute('INSERT INTO %s_backup SELECT * FROM %s' % (table_name, table_name))
 
 
-    # Determine which tables we're outputting
-    output_tables = []
-    for name in ['process','process_params',table_name,'search_summary','summ_value']:
-        count = int(cursor.execute("select count(*) from sqlite_master where name='%s'" % name).fetchone()[0])
-        if count:
-            output_tables.append(name)
 
     ops = []
     if options.separate:
