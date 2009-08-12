@@ -772,9 +772,17 @@ int main( int argc, char **argv )
       ntilde->data[j].re = ntilde_re->data[j] * fac;
       ntilde->data[j].im = ntilde_im->data[j] * fac;
 
-      fcSegVec->data->data->data->data[j].re *= rho;
-      fcSegVec->data->data->data->data[j].im *= rho;
-    
+      if( j * fcSegVec->data->data->deltaF >= fMin )
+      {
+        fcSegVec->data->data->data->data[j].re *= rho;
+        fcSegVec->data->data->data->data[j].im *= rho;
+      }
+      else
+      {    
+        fcSegVec->data->data->data->data[j].re = 0.0;
+        fcSegVec->data->data->data->data[j].im = 0.0;
+      }
+
       fcSegVec->data->data->data->data[j].re += ntilde->data[j].re;
       fcSegVec->data->data->data->data[j].im += ntilde->data[j].im;
     
