@@ -224,10 +224,10 @@ main (INT4 argc, CHAR **argv )
     ampCorDataSegVec->data->chan->deltaT = 
                                      1.0 / ( REAL4 )( randIn.param.tSampling );
 
-    ampCorDataSegVec->data->spec->deltaF = randIn.param.tSampling 
-                                           / ( REAL4 )( signal.length ); 
-    ampCorFreqSegVec->data->data->deltaF = randIn.param.tSampling 
-                                           / ( REAL4 )( signal.length ); 
+    ampCorDataSegVec->data->spec->deltaF = (REAL4)( randIn.param.tSampling 
+                                           / signal.length ); 
+    ampCorFreqSegVec->data->data->deltaF = (REAL4)( randIn.param.tSampling 
+                                           / signal.length ); 
 
     ampCorTmpltParams->deltaT = 1.0 / ( REAL4 )( randIn.param.tSampling );
     ampCorTmpltParams->fLow = randIn.param.fLower; 
@@ -347,13 +347,14 @@ main (INT4 argc, CHAR **argv )
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
+      INT4  diff = ampCorDataSegVec->data->chan->data->length - signal.length;
 
-      for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
+      for( i = (INT4)ampCorDataSegVec->data->chan->data->length-1; i>-1; --i )
       {
-        if( i < (INT4)signal.length )
+        if( i > diff )
         {
           ampCorDataSegVec->data->chan->data->data[i] = 
-            overlapin.signal.data[i];
+            overlapin.signal.data[i-diff];
         }
         else
         {
@@ -366,7 +367,6 @@ main (INT4 argc, CHAR **argv )
                                     ampCorDataSegVec, ampCorDataParams ),
                                     &status );
 
-      ampCorFilterInput->segment = ampCorFreqSegVec->data;
       
       /* We need to normalise the data here */
       memset( ampCorFreqSegVec->data->segNorm->data, 0,
@@ -375,7 +375,7 @@ main (INT4 argc, CHAR **argv )
       /* Only do this in the absence of noise */
       if( randIn.type == 0 || randIn.type == 2 )
       {
-        for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        for( i=0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
           if( i * ampCorFreqSegVec->data->data->deltaF 
                                       >= ampCorDataParams->fLow )
@@ -386,14 +386,14 @@ main (INT4 argc, CHAR **argv )
             power += ampCorFreqSegVec->data->data->data->data[i].im *
                      ampCorFreqSegVec->data->data->data->data[i].im;
              
-            norm += 4.0 * power * ampCorFilterParams->deltaT 
+            norm += 4.0 * power * (REAL4)ampCorFilterParams->deltaT 
                     / (REAL4)(ampCorDataSegVec->data->chan->data->length)
                     / ampCorDataParams->wtildeVec->data[i].re;
           }
         }
         invRootData = pow( norm, -0.5 );  
 
-        for( i = 1; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        for( i=1; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
           ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
           ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
@@ -403,18 +403,21 @@ main (INT4 argc, CHAR **argv )
         if ( randIn.type == 2 )
         {
           REAL4Vector *ntilde_re = 
-            XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
+           XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
           REAL4Vector *ntilde_im = 
-            XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
+           XLALCreateREAL4Vector( ampCorFreqSegVec->data->data->data->length );
           if ( !ntilde_re || !ntilde_im )
           {
             exit( 1 );
           }
 
-          LAL_CALL( LALNormalDeviates(&status, ntilde_re, randParams), &status );
-          LAL_CALL( LALNormalDeviates(&status, ntilde_im, randParams), &status );
+          LAL_CALL( LALNormalDeviates(&status, ntilde_re, randParams), 
+                                                               &status );
+          LAL_CALL( LALNormalDeviates(&status, ntilde_im, randParams),
+                                                               &status );
 
-          for( i=0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+          for( i=1; i < 
+                      (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
           {
             REAL4 fac;
             fac = sqrt( (REAL4)(ampCorDataSegVec->data->chan->data->length) * 
@@ -428,16 +431,17 @@ main (INT4 argc, CHAR **argv )
             ampCorFreqSegVec->data->data->data->data[i].im *= randIn.SignalAmp;
 
             ampCorFreqSegVec->data->data->data->data[i].re += 
-                                            randIn.NoiseAmp * ntilde_re->data[i];
+                                          randIn.NoiseAmp * ntilde_re->data[i];
             ampCorFreqSegVec->data->data->data->data[i].im += 
-                                            randIn.NoiseAmp * ntilde_im->data[i];
+                                          randIn.NoiseAmp * ntilde_im->data[i];
           }
 
           XLALDestroyREAL4Vector( ntilde_re );
           XLALDestroyREAL4Vector( ntilde_im );
         }
       }    
-    }
+      ampCorFilterInput->segment = ampCorFreqSegVec->data;
+   }
        
     /*  --- populate the insptmplt with the signal parameter --- */
     insptmplt = randIn.param; /* set the sampling and other common parameters */
@@ -574,7 +578,7 @@ main (INT4 argc, CHAR **argv )
             overlapin.param.order              = tempOrder;
             overlapin.param.eccentricity       = tempEccentricity;
             insptmplt.eccentricity             = tempEccentricity;
-            /* --- the faithfulness requires only one filtering, so we stop - */
+            /* --- the faithfulness requires only one filtering, so we stop */
             simulation.stop = 1;
           }
           /* if we want to cut integration before the fFinal */
@@ -594,7 +598,7 @@ main (INT4 argc, CHAR **argv )
             }
           }
 
-          /* --- filteing!=1 ensure that at least 1 filter will be used    ---*/
+          /* --- filteing!=1 ensure that at least 1 filter will be used ---*/
           /* --- while lastEMatch is greater than the ematch --- */
           if ((simulation.filteringIndex !=1) &&
               (userParam.fastSimulation != None)
@@ -636,7 +640,8 @@ main (INT4 argc, CHAR **argv )
               for( i = 1; 
                     i < (INT4)ampCorFilterParams->rhosqVec->data->length; ++i )
               {
-                correlation.data[i] = ampCorFilterParams->rhosqVec->data->data[i];
+                correlation.data[i] = 
+                                   ampCorFilterParams->rhosqVec->data->data[i];
                 if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
                 {
                   max = ampCorFilterParams->rhosqVec->data->data[i];
@@ -646,9 +651,9 @@ main (INT4 argc, CHAR **argv )
 
               overlapOutputThisTemplate.rhoMax       = pow( max, 0.5 );
               overlapOutputThisTemplate.rhoBin       = bin;
+              overlapOutputThisTemplate.freq         = overlapin.param.fFinal;
               /* Dummy numbers below */ 
               overlapOutputThisTemplate.phase        = 0.0;
-              overlapOutputThisTemplate.freq         = overlapin.param.fFinal;
               overlapOutputThisTemplate.snrAtCoaTime = 0.0; 
             }  
             else
