@@ -377,6 +377,9 @@ class SearchSummaryTable(table.Table):
 		"nevents": "int_4s",
 		"nnodes": "int_4s"
 	}
+	how_to_index = {
+		"ss_pi_index": ("process_id",),
+	}
 
 	def get_inlist(self):
 		"""
@@ -2686,6 +2689,7 @@ TableByName = {
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
 	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
 	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
+	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,

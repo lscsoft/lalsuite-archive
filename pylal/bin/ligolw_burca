@@ -225,6 +225,7 @@ def burca1(options, filenames):
 	#
 
 
+	from glue.ligolw import lsctables
 	from glue.ligolw import utils
 	from pylal import ligolw_burca
 	from pylal import llwapp
@@ -313,6 +314,7 @@ def burca1(options, filenames):
 
 		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 		xmldoc.unlink()
+		lsctables.table.reset_next_ids(lsctables.TableByName.values())
 
 
 #

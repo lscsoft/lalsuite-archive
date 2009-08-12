@@ -33,15 +33,23 @@ else
   webSubDirectory=""
 fi
 
-omegaDirectory="$THRONG_DIR/pro/omegadev/omega-nightly/test/install"
+omegaDirectory="$THRONG_DIR/pro/omegadev/omega_r2062"
+matlabDirectory="/usr/local/matlabR2008a/bin/glnxa64"
 FFLFile="/afs/in2p3.fr/group/virgo/BKDB/VSR1/VSR1_raw.ffl"
 #webDirectory="buskulic@olserver14.virgo.infn.it:/opt/w3/MonitoringWeb/OmegaEvents/"
 
 # Set path for omega
-testpath=`echo $PATH | grep -i 'omegadev/omega-nightly/test/install/bin'`
+testpath=`echo $PATH | grep -i 'omegadev/omega_r2062/bin'`
 
 if [ -z $testpath ]; then
   export PATH=$omegaDirectory/bin:$PATH
+fi
+
+# Set ld_library_path for matlab used by omega
+testpath=`echo $PATH | grep -i 'matlabR2008a/bin/glnxa64'`
+
+if [ -z $testpath ]; then
+  export LD_LIBRARY_PATH=$matlabDirectory:$LD_LIBRARY_PATH
 fi
 
 if [ -d $outputDirectory/$eventTime ]; then
@@ -55,7 +63,7 @@ fi
 
 # Execute the wscan
 
-OMEGASCAN="$omegaDirectory/bin/wpipeline scan -c $configFile -f $FFLFile -o $outputDirectory $eventTime"
+OMEGASCAN="$omegaDirectory/bin/wpipeline scan -r -c $configFile -f $FFLFile -o $outputDirectory/$eventTime $eventTime"
 
 echo "execute : $OMEGASCAN"
 export LD_LIBRARY_PATH_SAV=${LD_LIBRARY_PATH}
@@ -65,19 +73,19 @@ unset LD_PRELOAD
 unset XROOTD_VMP
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH_SAV}
 
-echo "convert thumbnails...."
+#echo "convert thumbnails...."
 
-tempConvert="tmpConvert$QSUB_FILEID.sh"
+#tempConvert="tmpConvert$QSUB_FILEID.sh"
 
-for i in `ls -1 $outputDirectory/$eventTime` ; do
-  pngEnd=`echo $i | sed "s/.*.png$/.png/"`
-  fileName=$outputDirectory/$eventTime/$i
-  if [ $pngEnd = ".png" ]; then
-     echo $fileName | awk '{tmp = substr($1,1,length($1)-4);print "convert -resize 300x " $1 "  -strip -depth 8 -colors 256 " tmp"_thumbnail.png" }' >> $tempConvert
-  fi
-done
-chmod u+x $tempConvert;
-./$tempConvert; rm $tempConvert
+#for i in `ls -1 $outputDirectory/$eventTime` ; do
+#  pngEnd=`echo $i | sed "s/.*.png$/.png/"`
+#  fileName=$outputDirectory/$eventTime/$i
+#  if [ $pngEnd = ".png" ]; then
+#     echo $fileName | awk '{tmp = substr($1,1,length($1)-4);print "convert -resize 300x " $1 "  -strip -depth 8 -colors 256 " tmp"_thumbnail.png" }' >> $tempConvert
+#  fi
+#done
+#chmod u+x $tempConvert;
+#./$tempConvert; rm $tempConvert
 
 echo "transfer files to web directory"
 #scp -i ~/.ssh/id_rsa -r $outputDirectory/$eventTime $webDirectory/$webSubDirectory

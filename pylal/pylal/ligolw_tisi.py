@@ -263,6 +263,23 @@ def RowsFromOffsetDict(offsetdict, time_slide_id, process):
 #
 
 
+def offset_vector_to_deltas(offset_vector):
+	"""
+	Construct a dictionary of relative offsets from a dictionary of
+	absolute offsets.
+
+	Example:
+
+	>>> offset_vector_to_deltas({"H1": 0, "L1": 10, "V1": 20})
+	{('H1', 'L1'): 10, ('L1', 'V1'): 10}
+
+	The keys in the result are instrument pairs, (a, b), and the values
+	are the relative time shifts, (offset[b] - offset[a]).
+	"""
+	instruments = sorted(offset_vector.keys())
+	return dict(((a, b), offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:]))
+
+
 def time_slide_cmp(offsetdict1, offsetdict2):
 	"""
 	Compare two offset dictionaries mapping instrument --> offset.  The
@@ -279,58 +296,18 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	because although the absolute offsets are not equal in the two
 	dictionaries, all relative offsets are.
 	"""
-	if offsetdict2:
-		# offsetdict2 is not empty, pick an instrument at random
-		instrument, offset = offsetdict2.iteritems().next()
-		if instrument in offsetdict1:
-			# the instrument is listed in offsetdict1, so make
-			# a working copy of offsetdict2
-			offsetdict2 = offsetdict2.copy()
-			# compute the offset difference for the common
-			# instrument
-			delta = offsetdict1[instrument] - offset
-			# add it to the offsets in the working copy of
-			# offsetdict2
-			for instrument in offsetdict2.keys():
-				offsetdict2[instrument] += delta
-	# either the offsets have now been normalized to one another, or it
-	# was discovered that the two offset dictionaries have different
-	# instrument lists;  either way we can now use the built-in cmp
-	# method
-	return cmp(offsetdict1, offsetdict2)
+	return cmp(offset_vector_to_deltas(offsetdict1), offset_vector_to_deltas(offsetdict2))
 
 
-def time_slides_find(time_slides, offset_vector):
+def time_slide_contains(offset_vector1, offset_vector2):
 	"""
-	Given a dictionary mapping time slide IDs to instrument-->offset
-	mappings, for example as returned by the .as_dict() method of the
-	TimeSlideTable class in glue.ligolw.lsctables, return the set of
-	IDs of instrument-->offset mappings equivalent to offset_vector as
-	defined by time_slide_cmp().  See also
-	time_slides_find_components().
+	Returns True if offset vector 2 can be found in offset vector 1,
+	False otherwise.  An offset vector is "found in" another offset
+	vector if the latter contains all of the former's instruments and
+	the relative offsets among those instruments agree (the absolute
+	offsets need not).
 	"""
-	return set(id for id, offsetdict in time_slides.items() if not time_slide_cmp(offsetdict, offset_vector))
-
-
-def time_slides_find_components(time_slides, offset_vector):
-	"""
-	Given a dictionary mapping time slide IDs to instrument-->offset
-	mappings, for example as returned by the .as_dict() method of the
-	TimeSlideTable class in glue.ligolw.lsctables, return the set of
-	IDs of instrument-->offset mappings that are contained in the given
-	offset_vector as defined by time_slide_cmp().
-
-	For example, {"H1": 10, "H2": 10} is contained in {"H1": 0, "H2":
-	0, "L1": 10} because the instruments in the former appear in the
-	latter with the same relative offsets.  Only proper subsets are
-	reported.  See also time_slides_find().
-	"""
-	ids = set()
-	all_instruments = offset_vector.keys()
-	for n in range(2, len(all_instruments)):
-		for instruments in iterutils.choices(all_instruments, n):
-			ids |= time_slides_find(time_slides, dict((instrument, offset_vector[instrument]) for instrument in instruments))
-	return ids
+	return offset_vector_to_deltas(dict((instrument, offset) for instrument, offset in offset_vector1.items() if instrument in offset_vector2)) == offset_vector_to_deltas(offset_vector2)
 
 
 def time_slides_vacuum(time_slides, verbose = False):
@@ -358,8 +335,8 @@ def time_slides_vacuum(time_slides, verbose = False):
 	and replace references to that ID in other tables with references
 	to time_slide_id:0.
 	"""
-	# so we can modify it
-	time_slides = time_slides.copy()
+	# convert offsets to deltas
+	time_slides = dict((id, offset_vector_to_deltas(offset_vector)) for id, offset_vector in time_slides.items())
 	N = len(time_slides)
 	# old --> new mapping
 	mapping = {}
@@ -369,12 +346,13 @@ def time_slides_vacuum(time_slides, verbose = False):
 		if verbose and not (n % 10):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 		# pull out an ID/offset dictionary pair at random
-		id1, offsetdict1 = time_slides.popitem()
+		id1, deltas1 = time_slides.popitem()
 		# for every other ID/offset dictionary pair in the time
 		# slides
-		for id2, offsetdict2 in time_slides.items():
-			# if the offset dictionaries are equivalent
-			if not time_slide_cmp(offsetdict1, offsetdict2):
+		for id2, deltas2 in time_slides.items():
+			# if the relative offset dictionaries are
+			# equivalent
+			if deltas2 == deltas1:
 				# remove it, and record in the old --> new
 				# mapping
 				time_slides.pop(id2)
