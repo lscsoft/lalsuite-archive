@@ -427,16 +427,6 @@ LALFindChirpACTDTemplate(
     }
   }
 
-  /* Create the tmplt for the other quadrature */
-  for( i = 0; i < NACTDVECS; ++i)
-  {
-    for ( j = 0; j < ACTDtilde[i].length; j++ )
-    {
-      ACTDtilde[i+NACTDVECS].data[j].re = - ACTDtilde[i].data[j].im;
-      ACTDtilde[i+NACTDVECS].data[j].im =  ACTDtilde[i].data[j].re;
-    }
-  }
-
   /* copy the template parameters to the findchirp template structure */
   memcpy( &(fcTmplt->tmplt), tmplt, sizeof(InspiralTemplate) );
 
@@ -470,21 +460,8 @@ LALFindChirpACTDNormalize(
   UINT4           numTDPoints;
   REAL8           deltaT; 
   COMPLEX8Vector  ACTDtilde[NACTDTILDEVECS];
-  COMPLEX8Vector *tmpVec[NACTDTILDEVECS];
   COMPLEX8       *wtilde;
   REAL4           norm;
-
-  /* gsl variables */
-  gsl_matrix *innerProd = NULL;
-  gsl_matrix *eigenVect = NULL;
-  gsl_vector *eigenVal  = NULL;
-
-  /*
-  gsl_matrix *transpose = NULL;
-  gsl_matrix *output    = NULL;
-  */
-  gsl_eigen_symmv_workspace *workspace = NULL;
-
 
   INITSTATUS( status, "LALFindChirpACTDNormalize", FINDCHIRPACTDTEMPLATEC );
 
@@ -521,23 +498,15 @@ LALFindChirpACTDNormalize(
  
   deltaT = tmpltParams->deltaT;
 
-#if 0
-  innerProd = gsl_matrix_alloc( NACTDTILDEVECS, NACTDTILDEVECS );
-  eigenVect = gsl_matrix_alloc( NACTDTILDEVECS, NACTDTILDEVECS );
-  /*
-  transpose = gsl_matrix_alloc( 2 * NACTDVECS, 2 * NACTDVECS );
-  output    = gsl_matrix_alloc( 2 * NACTDVECS, 2 * NACTDVECS );
-  */
-  eigenVal  = gsl_vector_alloc( NACTDTILDEVECS );
-  workspace = gsl_eigen_symmv_alloc( NACTDTILDEVECS );
-#endif
   for( i = 0; i < NACTDTILDEVECS; ++i )
   {
     ACTDtilde[i].length = numPoints;
     ACTDtilde[i].data  = fcTmplt->ACTDtilde->data + (i * numPoints );
   }
 
-  /* Do a little jiggery-pokery so that the dominant harmonic is the first index */
+  /* Do a little jiggery-pokery so that the dominant 
+   * harmonic is the first index 
+   */
   {
     COMPLEX8 *tmp = ACTDtilde[0].data;
     ACTDtilde[0].data = ACTDtilde[1].data;
@@ -550,7 +519,7 @@ LALFindChirpACTDNormalize(
   }
 
   /* Norm the templates before we start */
-  for( i = 0; i < NACTDTILDEVECS; ++i ) 
+  for( i = 0; i < NACTDVECS; ++i ) 
   {
     norm =  XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
                 wtilde, tmpltParams->fLow, deltaT, numTDPoints );
@@ -560,6 +529,10 @@ LALFindChirpACTDNormalize(
     {
       ACTDtilde[i].data[k].re /= norm;
       ACTDtilde[i].data[k].im /= norm;
+    
+      /* Set the other quadrature */
+      ACTDtilde[i+3].data[k].re = - ACTDtilde[i].data[k].im;
+      ACTDtilde[i+3].data[k].im = ACTDtilde[i].data[k].re;
     }
   }
   
@@ -568,7 +541,8 @@ LALFindChirpACTDNormalize(
   {
     for ( j = 0; j < i; ++j )
     {
-      REAL4 innerProd = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
+      REAL4 innerProd = 
+                XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
 
       for ( k = 0; k < numPoints; ++k )
@@ -590,126 +564,6 @@ LALFindChirpACTDNormalize(
     }
   }
 
-#if 0
-  /* Fill the inner product matrix */
-  for ( i = 0; i < NACTDVECS; i++ )
-  {
-    for ( k = i; k < NACTDVECS; k++ )
-    {
-   
-      gsl_matrix_set( innerProd, i, k, 
-         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
-                             wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-      gsl_matrix_set( innerProd, i+NACTDVECS, k, 
-         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k],
-                             wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-      gsl_matrix_set( innerProd, i, k+NACTDVECS, 
-         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k+NACTDVECS],
-                             wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-      gsl_matrix_set( innerProd, i+NACTDVECS, k+NACTDVECS,
-         (double)XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k+NACTDVECS],
-                             wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-
-      gsl_matrix_set( innerProd, k, i, gsl_matrix_get( innerProd, i, k ));
-      gsl_matrix_set( innerProd, k, i+NACTDVECS, 
-                                  gsl_matrix_get( innerProd, i+NACTDVECS, k ));
-      gsl_matrix_set( innerProd, k+NACTDVECS, i, 
-                                  gsl_matrix_get( innerProd, i, k+NACTDVECS ));
-      gsl_matrix_set( innerProd, k+NACTDVECS, i+NACTDVECS, 
-                        gsl_matrix_get( innerProd, i+NACTDVECS, k+NACTDVECS ));
-    }
-  }
-#endif
-  /* XXX UNCOMMENT BELOW TO SEE INNER PRODUCT MATRIX XXX */
-  /*  
-  printf("\n");
-  for ( i = 0; i < 2 * NACTDVECS; i++ )
-  {
-    for ( k = 0; k < 2 * NACTDVECS; k++ )
-    {
-      printf("\t%e", gsl_matrix_get( innerProd, i, k ) );
-    }
-    printf("\n");
-  }
-  */
-  /* XXX UNCOMMENT ABOVE TO SEE INNER PRODUCT MATRIX XXX */
-#if 0
-  /* Diagonalize the matrix */
-  gsl_eigen_symmv( innerProd, eigenVal, eigenVect, workspace );
-#endif
-  /* XXX UNCOMMENT BELOW TO SEE EIGENVALUES/VECTORS XXX */
-  /*
-  printf( "EigenValues:\n");
-  for ( i = 0; i < 2 * NACTDVECS; i++ )
-  {
-    printf("\t%e", gsl_vector_get( eigenVal, i ));
-  }
-  printf("\n\n");
-  printf("Transformation matrix:\n");
-  for ( i = 0; i < 2 * NACTDVECS; i++ )
-  {
-    for ( k = 0; k < 2 * NACTDVECS; k++ )
-    {
-      printf("\t%e", gsl_matrix_get( eigenVect, i, k ) );
-    }
-    printf("\n");
-  }
-  */
-  /* XXX UNCOMMENT ABOVE TO SEE EIGENVALUES/VECTORS XXX */
-
-#if 0
-  /* Take transpose and check it is the inverse */
-  gsl_matrix_transpose_memcpy( transpose, eigenVect );
-
-  gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, 1.0, 
-                  transpose, eigenVect, 0.0, output );
-
-  printf("\nA^TA:\n");
-  for ( i = 0; i < 2 * NACTDVECS; i++ )
-  {
-    for ( k = 0; k < 2 * NACTDVECS; k++ )
-    {
-      printf("\t%e", gsl_matrix_get( output, i, k ) );
-    }
-    printf("\n");
-  }
-#endif   
-
-#if 0  
-  /* Now we perform the co-ordinate transformation */
-  for ( i = 0; i < NACTDTILDEVECS; i++ )
-  {
-    tmpVec[i] = XLALCreateCOMPLEX8Vector( numPoints );
-    memset( tmpVec[i]->data, 0, numPoints * sizeof( COMPLEX8) );
-  }
-
-  for ( i = 0; i < NACTDTILDEVECS; i++ )
-  {
-    for ( j = 0; j < NACTDTILDEVECS; j++ )
-    {
-      for ( k = 0; k < numPoints; k++ )
-      {
-        tmpVec[i]->data[k].re += 
-              (REAL4)gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].re;
-        tmpVec[i]->data[k].im += 
-              (REAL4)gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].im;
-      }
-    }
-  }
-
-  /* Copy in and normalize */
-  for ( i = 0; i < NACTDTILDEVECS; i++ )
-  {
-    memcpy( ACTDtilde[i].data, tmpVec[i]->data, numPoints * sizeof( COMPLEX8 ));
-    XLALDestroyCOMPLEX8Vector( tmpVec[i] );
-    norm = sqrt( gsl_vector_get( eigenVal, i ) );
-    for ( k = 0; k < numPoints; k++ )
-    {
-      ACTDtilde[i].data[k].re /= norm;
-      ACTDtilde[i].data[k].im /= norm;
-    }
-  }
-#endif
   /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
   /* 
   printf( " NORMALIZATION TEST:\n\n" );
@@ -730,13 +584,6 @@ LALFindChirpACTDNormalize(
   fcTmplt->norm = 2.0 * deltaT / (REAL4)(numPoints);
   fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
 
-  /* Free memory */
-#if 0
-  gsl_matrix_free( innerProd );
-  gsl_matrix_free( eigenVect );
-  gsl_vector_free( eigenVal );
-  gsl_eigen_symmv_free( workspace );
-#endif
   /* normal exit */
   RETURN( status );
 
