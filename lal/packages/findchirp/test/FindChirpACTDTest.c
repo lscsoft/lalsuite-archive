@@ -70,10 +70,8 @@ static void print_usage()
 {
   fprintf( stderr, "\n");
   fprintf( stderr, " --help                        : Print this message! \n");
-  fprintf( stderr, " --overlap                     : Normalises input data \n");
-  fprintf( stderr, " --snr SNR                     : Fake Noise and inject at given SNR \n");
+  fprintf( stderr, " --snr SNR                     : Fake Noise and inject at given SNR (snr=0 for overlap) \n");
   fprintf( stderr, " --seed SEED                   : Seed for Noise generator\n");
-  fprintf( stderr, " --signal                      : Replaces data with signal\n");
   fprintf( stderr, " --dynrange-exponent DYNRANGE  : set the dynamic range exponent\n");
   fprintf( stderr, " --flatpsd                     : Use flat psd \n");
   fprintf( stderr, " --dominant                    : Inject only domintnat harmonic \n");
@@ -107,7 +105,16 @@ int main( int argc, char **argv )
   REAL8 sigMass1 = M1;
   REAL8 sigMass2 = M2;
   
-  UINT4 injSignal = 0;
+  PPNParamStruc   params;
+  CoherentGW    waveform;
+  REAL4TimeSeries  *hoft = NULL;
+  LALDetector        det;
+  double           fplus;
+  double          fcross;
+  double          tdelay;
+  double            gmst;
+  InterferometerNumber ifoNumber = LAL_IFO_H1;
+  LIGOTimeGPS     dummyTime;
   
   REAL4 inc   = INC   / 360 * LAL_TWOPI;
   REAL4 phiC  = PHIC  / 360.0 * LAL_TWOPI;
@@ -134,12 +141,14 @@ int main( int argc, char **argv )
   INT4 i, j;
   REAL4 ts;
   INT4 output = 0;
-  INT4 overlap = 0;
   REAL4 rho = 0.0;
   INT4 printmax = 0;
   INT4 flatpsd = 0;
   INT4 dominant = 0;
   INT4 h_plus = 0;
+
+  REAL4 invRootData;
+  REAL4 norm = 0.0;
 
   /* Fake Noise */
   REAL4Vector    *ntilde_re = NULL;
@@ -179,13 +188,7 @@ int main( int argc, char **argv )
       print_usage();
       return 0;
     }
-    /* Compute Overlap */
-    else if ( !strcmp( argv[arg], "--overlap" ) )
-    {
-      arg++;
-      overlap = 1;
-    }
-    /* Fake noise */
+    /* Set SNR */
     else if ( !strcmp( argv[arg], "--snr" ) )
     {
       if ( argc > arg + 1 )
@@ -283,12 +286,6 @@ int main( int argc, char **argv )
         return 0;
       }
     }
-    /* Replace data with injected signal */
-    else if ( !strcmp( argv[arg], "--signal" ) )
-    {
-      arg++;
-      injSignal = 1;
-     }
     /* Parse iota option */
     else if ( !strcmp( argv[arg], "--iota" ) )
     {
@@ -483,154 +480,140 @@ int main( int argc, char **argv )
   }*/
 
   /* Replace Data with Signal */
-  if( injSignal )
-  {
-    PPNParamStruc   params;
-    CoherentGW    waveform;
-    REAL4TimeSeries  *hoft = NULL;
-    LALDetector        det;
-    double           fplus;
-    double          fcross;
-    double          tdelay;
-    double            gmst;
-    InterferometerNumber ifoNumber = LAL_IFO_H1;
-    LIGOTimeGPS     dummyTime;
-    dummyTime.gpsSeconds = 841000000;
-    dummyTime.gpsNanoSeconds = 000000000;
+  dummyTime.gpsSeconds = 841000000;
+  dummyTime.gpsNanoSeconds = 000000000;
 
-    fprintf( stderr, "Replacing data with signal...           " );
+  fprintf( stderr, "Generating signal...           " );
 
-    /* Fixed parameters. */
-    params.position.latitude = theta;
-    params.position.longitude = phi;
-    params.position.system = COORDINATESYSTEM_EQUATORIAL;
-    params.lengthIn = 0;
+  /* Fixed parameters. */
+  params.position.latitude = theta;
+  params.position.longitude = phi;
+  params.position.system = COORDINATESYSTEM_EQUATORIAL;
+  params.lengthIn = 0;
 
-    /* Variable parameters. */
-    params.deltaT = dt;
-    params.mTot_real8 = sigMass1 + sigMass2;
-    params.eta_real8 = sigMass1*sigMass2/( params.mTot_real8*params.mTot_real8);
-    params.inc = inc;
-    params.phi = phiC;
-    params.psi = psi;
-    params.d = dist;
-    params.fStartIn = fMin;
-    params.fStopIn = - 1.0 / 
-                     ( 6.0 * sqrt(6.0) * LAL_PI * 
-                       params.mTot_real8 * LAL_MTSUN_SI );
+  /* Variable parameters. */
+  params.deltaT = dt;
+  params.mTot_real8 = sigMass1 + sigMass2;
+  params.eta_real8 = sigMass1*sigMass2/( params.mTot_real8*params.mTot_real8);
+  params.inc = inc;
+  params.phi = phiC;
+  params.psi = psi;
+  params.d = dist;
+  params.fStartIn = fMin;
+  params.fStopIn = - 1.0 / 
+                   ( 6.0 * sqrt(6.0) * LAL_PI * 
+                     params.mTot_real8 * LAL_MTSUN_SI );
 
-    /* Amplitude switches */
-    params.ampOrder = amp;
+  /* Amplitude switches */
+  params.ampOrder = amp;
 
-    /* PPN parameter. */
-    params.ppn = NULL;
-    LALSCreateVector( &status, &(params.ppn), order + 1 );
-    params.ppn->data[0] = 1.0;
-    if ( order > 0 )
-      params.ppn->data[1] = 0.0;
-    for ( i = 2; i <= (INT4)( order ); i++ )
-      params.ppn->data[i] = 1.0;
+  /* PPN parameter. */
+  params.ppn = NULL;
+  LALSCreateVector( &status, &(params.ppn), order + 1 );
+  params.ppn->data[0] = 1.0;
+  if ( order > 0 )
+    params.ppn->data[1] = 0.0;
+  for ( i = 2; i <= (INT4)( order ); i++ )
+    params.ppn->data[i] = 1.0;
    
-    memset( &waveform, 0, sizeof( CoherentGW ) );
-/*
-    fprintf( stderr, "\n params.deltaT   = %e\n", params.deltaT );
-    fprintf( stderr, " params.mTot_r8  = %e\n", params.mTot_real8 );
-    fprintf( stderr, " params.eta_r8   = %e\n", params.eta_real8 );
-    fprintf( stderr, " params.d        = %e\n", params.d );
-    fprintf( stderr, " params.fStartIn = %e\n", params.fStartIn );
-    fprintf( stderr, " params.fStopIn  = %e\n", params.fStopIn );
-    fprintf( stderr, " params.inc      = %e\n", params.inc );     
-    fprintf( stderr, " params.psi      = %e\n", params.psi );     
-    fprintf( stderr, " params.phiC      = %e\n", params.phi );     
-    fprintf( stderr, " params.amporder = %d\n", params.ampOrder );
-    for( i = 0; i < order + 1; ++i )
-    {
-      fprintf( stderr, " params.ppn->data[%d] = %e\n", i, params.ppn->data[i]);
-    }
-*/
-    /* Generate Signal */
-    LALGeneratePPNAmpCorInspiral( &status, &waveform, &params );
+  memset( &waveform, 0, sizeof( CoherentGW ) );
+  /*
+  fprintf( stderr, "\n params.deltaT   = %e\n", params.deltaT );
+  fprintf( stderr, " params.mTot_r8  = %e\n", params.mTot_real8 );
+  fprintf( stderr, " params.eta_r8   = %e\n", params.eta_real8 );
+  fprintf( stderr, " params.d        = %e\n", params.d );
+  fprintf( stderr, " params.fStartIn = %e\n", params.fStartIn );
+  fprintf( stderr, " params.fStopIn  = %e\n", params.fStopIn );
+  fprintf( stderr, " params.inc      = %e\n", params.inc );     
+  fprintf( stderr, " params.psi      = %e\n", params.psi );     
+  fprintf( stderr, " params.phiC      = %e\n", params.phi );     
+  fprintf( stderr, " params.amporder = %d\n", params.ampOrder );
+  for( i = 0; i < order + 1; ++i )
+  {
+    fprintf( stderr, " params.ppn->data[%d] = %e\n", i, params.ppn->data[i]);
+  }
+  */
+  /* Generate Signal */
+  LALGeneratePPNAmpCorInspiral( &status, &waveform, &params );
 
-    /* Compute h(t) */
-    hoft = LALCalloc( 1, sizeof( *hoft ) );
-    hoft->data = XLALCreateREAL4Vector( waveform.h->data->length );
+  /* Compute h(t) */
+  hoft = LALCalloc( 1, sizeof( *hoft ) );
+  hoft->data = XLALCreateREAL4Vector( waveform.h->data->length );
 
-    XLALReturnDetector( &det, ifoNumber );
+  XLALReturnDetector( &det, ifoNumber );
  
-    gmst = XLALGreenwichMeanSiderealTime( &dummyTime );
+  gmst = XLALGreenwichMeanSiderealTime( &dummyTime );
 
-    XLALComputeDetAMResponse( &fplus, &fcross, det.response, 
-                        params.position.longitude, params.position.latitude, 
-                                                                  psi, gmst );
-    tdelay = XLALTimeDelayFromEarthCenter( det.location, 
-                 params.position.longitude, params.position.latitude, &dummyTime );
+  XLALComputeDetAMResponse( &fplus, &fcross, det.response, 
+                     params.position.longitude, params.position.latitude, 
+                                                                 psi, gmst );
+  tdelay = XLALTimeDelayFromEarthCenter( det.location, 
+            params.position.longitude, params.position.latitude, &dummyTime );
 
 
-    if ( h_plus == 1 )
+  if ( h_plus == 1 )
+  {
+    for( j = 0; j < (INT4)waveform.h->data->length; ++j )
     {
-      for( j = 0; j < (INT4)waveform.h->data->length; ++j )
-      {
-        hoft->data->data[j] = waveform.h->data->data[2*j]; 
-      }
+      hoft->data->data[j] = waveform.h->data->data[2*j]; 
+    }
+  }
+  else
+  {
+    for( j = 0; j < (INT4)waveform.h->data->length; ++j )
+    {
+       hoft->data->data[j] = (  fplus * waveform.h->data->data[2*j] +
+                              fcross * waveform.h->data->data[2*j+1] );
+    }
+    /* Taper waveform */
+    XLALInspiralWaveTaper( hoft->data, INSPIRAL_TAPER_STARTEND );
+    
+  }
+
+
+  /* Replace Data */
+  for( j = dataSegVec->data->chan->data->length-1; j > -1; --j )
+  {
+    INT4 diff = dataSegVec->data->chan->data->length - hoft->data->length;
+    if( j >  diff )
+    {
+        dataSegVec->data->chan->data->data[j] = 
+             hoft->data->data[j - diff];
     }
     else
     {
-      for( j = 0; j < (INT4)waveform.h->data->length; ++j )
-      {
-
-        hoft->data->data[j] = (  fplus * waveform.h->data->data[2*j] +
-                                fcross * waveform.h->data->data[2*j+1] );
-      }
-      /* Taper waveform */
-      XLALInspiralWaveTaper( hoft->data, INSPIRAL_TAPER_STARTEND );
-      
+      dataSegVec->data->chan->data->data[j] = 0.0;
     }
-
-
-    /* Replace Data */
-    for( j = dataSegVec->data->chan->data->length-1; j > -1; --j )
-    {
-      INT4 diff = dataSegVec->data->chan->data->length - hoft->data->length;
-      if( j >  diff )
-      {
-          dataSegVec->data->chan->data->data[j] = 
-               hoft->data->data[j - diff];
-      }
-      else
-      {
-        dataSegVec->data->chan->data->data[j] = 0.0;
-      }
-    }
-    if( output == 1 )
-    {
-      fp = fopen( "tddata.dat", "w" );
-      for( j = 0; j < (INT4)numPoints - 1; ++j )
-      {
-		    fprintf( fp, "%e %e\n", j * dataSegVec->data->chan->deltaT,
-                              dataSegVec->data->chan->data->data[j] );
-      }
-      fclose( fp );
-    }
-
-    /* Clear Memory */
-    LALSDestroyVector( &status, &(params.ppn) );
-
-    XLALDestroyREAL4Vector( hoft->data );
-    LALFree( hoft );
-    
-
-    LALSDestroyVectorSequence( &status, &(waveform.h->data) );
-    LALSDestroyVectorSequence( &status, &(waveform.a->data) );
-    LALSDestroyVector( &status, &(waveform.f->data) );
-    LALDDestroyVector( &status, &(waveform.phi->data) );
-    LALFree( waveform.h );
-    LALFree( waveform.a );
-    LALFree( waveform.f );
-    LALFree( waveform.phi );
-
-    fprintf( stderr, "      Done!\n" );  
-    fflush( stderr );
   }
+  if( output == 1 )
+  {
+    fp = fopen( "tdsignal.dat", "w" );
+    for( j = 0; j < (INT4)numPoints - 1; ++j )
+    {
+    fprintf( fp, "%e %e\n", j * dataSegVec->data->chan->deltaT,
+                            dataSegVec->data->chan->data->data[j] );
+    }
+    fclose( fp );
+  }
+
+  /* Clear Memory */
+  LALSDestroyVector( &status, &(params.ppn) );
+
+  XLALDestroyREAL4Vector( hoft->data );
+  LALFree( hoft );
+   
+  LALSDestroyVectorSequence( &status, &(waveform.h->data) );
+  LALSDestroyVectorSequence( &status, &(waveform.a->data) );
+  LALSDestroyVector( &status, &(waveform.f->data) );
+  LALDDestroyVector( &status, &(waveform.phi->data) );
+  LALFree( waveform.h );
+  LALFree( waveform.a );
+  LALFree( waveform.f );
+  LALFree( waveform.phi );
+
+  fprintf( stderr, "               Done!\n" );  
+  fflush( stderr );
+
 
   /*
    * setup the template
@@ -711,80 +694,47 @@ int main( int argc, char **argv )
   }
   fprintf( stderr, "      Done!\n" );  
 
-
-
   LALFindChirpTDData( &status, fcSegVec, dataSegVec, dataParams );
   TEST_STATUS( &status );
 
-
-
-  fprintf( stderr, "Testing ACTDNormalize...                " );
-  LALFindChirpACTDNormalize( &status, filterInput->fcTmplt, tmpltParams,
-                               dataParams );
-  TEST_STATUS( &status );
-  if( output == 1 )
-  {
-    fp = fopen("FTtmpltNorm.dat","w");
-
-    for( i = 0; i < ( (INT4)numPoints / 2 + 1 ); ++i )
-    {
-      fprintf( fp, "%.5e ", i * srate /( numPoints ) );
-      for( j = 0; j < NACTDVECS; ++j )
-      {
-        fprintf( fp, "%.5e %.5e ",
-          filterInput->fcTmplt->ACTDtilde->data[i+j*(numPoints/2+1)].re,
-          filterInput->fcTmplt->ACTDtilde->data[i+j*(numPoints/2+1)].im );
-      }
-      fprintf( fp, "\n");
-    }
-    fclose( fp );
-  }
-  fprintf( stderr, "      Done!\n" );  
-
-
   /* Normalise data to compute overlap */
-  if ( overlap == 1 )
+  memset( fcSegVec->data->segNorm->data, 0,
+    fcSegVec->data->segNorm->length * sizeof(REAL4) );
+
+  if ( dominant == 1 )
   {
-    REAL4 invRootData;
-    REAL4 norm = 0.0;
-
-    memset( fcSegVec->data->segNorm->data, 0,
-      fcSegVec->data->segNorm->length * sizeof(REAL4) );
-
-    if ( dominant == 1 )
+    for ( j = 1; j < (INT4)fcSegVec->data->data->data->length; ++j )
     {
-      for ( j = 1; j < (INT4)fcSegVec->data->data->data->length; ++j )
-      {
-        fcSegVec->data->data->data->data[j].re = 
-               filterInput->fcTmplt->ACTDtilde->data[j + (numPoints/2+1) ].re;
-        fcSegVec->data->data->data->data[j].im = 
-               filterInput->fcTmplt->ACTDtilde->data[j + (numPoints/2+1) ].im;
-      }
+      fcSegVec->data->data->data->data[j].re = 
+             filterInput->fcTmplt->ACTDtilde->data[j + (numPoints/2+1) ].re;
+      fcSegVec->data->data->data->data[j].im = 
+             filterInput->fcTmplt->ACTDtilde->data[j + (numPoints/2+1) ].im;
     }
-    fprintf( stderr, "Normalising input data for overlap..." );
-
-    for( j = 0; j < (INT4)fcSegVec->data->data->data->length - 1; ++j )
-    {
-      if( j * fcSegVec->data->data->deltaF >= fMin )
-      {
-        REAL4 power;
-        power = fcSegVec->data->data->data->data[j].re * 
-                fcSegVec->data->data->data->data[j].re;
-        power += fcSegVec->data->data->data->data[j].im * 
-                fcSegVec->data->data->data->data[j].im;
-        norm +=  4.0 * dt * power / dataParams->wtildeVec->data[j].re 
-                                                            / (REAL4)numPoints;
-      }
-    }
-    invRootData = pow( norm, -0.5 );
-
-    for ( j = 0;  j < (INT4)fcSegVec->data->data->data->length; ++j )
-    {
-      fcSegVec->data->data->data->data[j].re *= invRootData;
-      fcSegVec->data->data->data->data[j].im *= invRootData;
-    }
-    fprintf( stderr, "         Done!\n");
   }
+  fprintf( stderr, "Normalising input data for overlap..." );
+
+  for( j = 0; j < (INT4)fcSegVec->data->data->data->length - 1; ++j )
+  {
+    if( j * fcSegVec->data->data->deltaF >= fMin )
+    {
+      REAL4 power;
+      power = fcSegVec->data->data->data->data[j].re * 
+              fcSegVec->data->data->data->data[j].re;
+      power += fcSegVec->data->data->data->data[j].im * 
+              fcSegVec->data->data->data->data[j].im;
+      norm +=  4.0 * dt * power / dataParams->wtildeVec->data[j].re 
+                                                          / (REAL4)numPoints;
+    }
+  }
+  invRootData = pow( norm, -0.5 );
+
+  for ( j = 0;  j < (INT4)fcSegVec->data->data->data->length; ++j )
+  {
+    fcSegVec->data->data->data->data[j].re *= invRootData;
+    fcSegVec->data->data->data->data[j].im *= invRootData;
+  }
+  fprintf( stderr, "         Done!\n");
+
 
   if( rho != 0 )
   {
@@ -847,9 +797,6 @@ int main( int argc, char **argv )
     }
   }
 
-
-
-
   if( output == 1 )
   {
     fp = fopen("FTdata.dat","w");    
@@ -862,6 +809,33 @@ int main( int argc, char **argv )
   }
 
   filterInput->segment = fcSegVec->data;
+
+
+
+  fprintf( stderr, "Testing ACTDNormalize...                " );
+  LALFindChirpACTDNormalize( &status, filterInput->fcTmplt, tmpltParams,
+                               dataParams );
+  TEST_STATUS( &status );
+  if( output == 1 )
+  {
+    fp = fopen("FTtmpltNorm.dat","w");
+
+    for( i = 0; i < ( (INT4)numPoints / 2 + 1 ); ++i )
+    {
+      fprintf( fp, "%.5e ", i * srate /( numPoints ) );
+      for( j = 0; j < NACTDVECS; ++j )
+      {
+        fprintf( fp, "%.5e %.5e ",
+          filterInput->fcTmplt->ACTDtilde->data[i+j*(numPoints/2+1)].re,
+          filterInput->fcTmplt->ACTDtilde->data[i+j*(numPoints/2+1)].im );
+      }
+      fprintf( fp, "\n");
+    }
+    fclose( fp );
+  }
+  fprintf( stderr, "      Done!\n" );  
+
+
 
 
 
