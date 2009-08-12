@@ -1967,8 +1967,8 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
   #Also write input file for clustering code "cohire"
-  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1-' + str(int(triggerTime)-1) + "-2.xml.gz"
-  cohireInputFile = ifoTag + '-COHIRE-' + str(int(triggerTime)-1) + "-2.txt"
+  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.xml.gz"
+  cohireInputFile = ifoTag + '-COHIRE_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.txt"
   if outputPath:
     cohireInputFile = outputPath + '/' + cohireInputFile
   ff = open(cohireInputFile,'w')
