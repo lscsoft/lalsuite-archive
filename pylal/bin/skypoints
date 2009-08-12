@@ -10,6 +10,7 @@ __Id__ = "$Id$"
 
 import sys
 import os
+from os import path
 import gzip
 from optparse import *
 import re
@@ -657,13 +658,13 @@ def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,\
   row.dec = skypoints.latitude
   row.area_60pct = pi*skypoints.fine_res*skypoints.fine_res\
                    *len(skypoints.narrow_region)
-  row.area_90pct = pi*skypoints.coarse_res*skypoints.coarse_res\
+  row.area_90pct = pi*skypoints.fine_res*skypoints.fine_res\
                    *len(skypoints.wide_region)
   row.min_eff_distance = min([skypoints.effective_distances["H1"],\
                               skypoints.effective_distances["L1"],\
                               skypoints.effective_distances["V1"]])
-  row.skymap = skymap_fname
-  row.grid = grid_fname
+  row.skymap = os.path.basename(str(skymap_fname))
+  row.grid = os.path.basename(str(grid_fname))
  # row.galaxies = gals_fname
 
   skyloctable.append(row)
@@ -1123,6 +1124,7 @@ if opts.online_input:
 xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
 sky_loc_table = lsctables.New(SkyLocTable)
+xmldoc.childNodes[0].appendChild(sky_loc_table)
 if opts.injection:
   sky_loc_inj_table = lsctables.New(SkyLocInjTable)
 #make it work with XSL stylesheet
@@ -1161,7 +1163,7 @@ else:
 
   
 #finish up by writing output
-xmldoc.childNodes[0].appendChild(sky_loc_table)
+#xmldoc.childNodes[0].appendChild(sky_loc_table)
 
 if opts.injection:
   xmldoc.childNodes[0].appendChild(sky_loc_inj_table)
