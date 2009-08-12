@@ -430,8 +430,10 @@ main (INT4 argc, CHAR **argv )
             if( i * ampCorFreqSegVec->data->data->deltaF
                                       >= ampCorDataParams->fLow )
             {
-              ampCorFreqSegVec->data->data->data->data[i].re *= randIn.SignalAmp;
-              ampCorFreqSegVec->data->data->data->data[i].im *= randIn.SignalAmp;
+              ampCorFreqSegVec->data->data->data->data[i].re 
+                                                          *= randIn.SignalAmp;
+              ampCorFreqSegVec->data->data->data->data[i].im 
+                                                          *= randIn.SignalAmp;
 
               ampCorFreqSegVec->data->data->data->data[i].re += 
                                           randIn.NoiseAmp * ntilde_re->data[i];
