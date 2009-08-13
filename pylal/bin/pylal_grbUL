@@ -410,7 +410,7 @@ if opts.nonuniform_smoothing_D:
     # dimension of a and the second-to-last dimension of b.
     A = numpy.fromfunction(\
         lambda i, j: numpy.exp(-(i - j) * (i - j) \
-            / (2 * opts.nonuniform_smoothing_D * (i + 1))),
+            / (2 * opts.nonuniform_smoothing_D * (i + 1)**2)),
         shape=(len(D_bins), len(D_bins)))
     A /= A.sum(axis=1)[:, None]  # conserve counts
     count_by_L_m2_D = numpy.dot(count_by_L_m2_D, A)
@@ -421,7 +421,7 @@ if opts.nonuniform_smoothing_D:
 if opts.nonuniform_smoothing_L:
     B = numpy.fromfunction(\
         lambda i, j: numpy.exp(-(i - j) * (i - j) \
-            / (2 * opts.nonuniform_smoothing * (len(L_bins) - i))),
+            / (2 * opts.nonuniform_smoothing * (len(L_bins) - i)**2)),
         shape=(len(L_bins), len(L_bins)))
     B /= B.sum(axis=1)[:, None]  # conserve counts
     count_by_L_m2_D = numpy.dot(count_by_L_m2_D.transpose((1, 2, 0)),
