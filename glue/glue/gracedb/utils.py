@@ -231,7 +231,8 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   omega_list = []
   for line in f.readlines():
     if not line.strip(): continue # ignore blank lines
-    if '#' in line.strip()[0]: continue # ignore comments
+    elif '#' in line.strip()[0]: continue # ignore comments
+    elif '=' not in line: raise ValueError, "Improperly formatted line"
     else:
       omega_list.extend([dat.strip() for dat in line.split('=',1)])
   f.close()
