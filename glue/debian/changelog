@@ -1,3 +1,9 @@
+python-glue (1.28.1-1) unstable; urgency=low
+
+  * Initial release of 1.28.1
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 13 Aug 2009 11:45:16 -0500
+
 python-glue (1.28-1) unstable; urgency=low
 
   * Initial release of 1.28
