@@ -277,21 +277,16 @@ if statistic != "effective_snr":
     raise NotImplemented
 
 _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
-_, _, offsource_log_L_by_trial_m2, _ = \
-    pickle.load(open(opts.grblikelihood_offsource))
 _, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
 
 # Set everything less than THRESH to THRESH, including missed injections
 if opts.likelihood_threshold is not None:
-    eps = opts.likelihood_threshold
+    L_min = opts.likelihood_threshold
 else:
-    eps = min(offsource_log_L_by_trial_m2\
-                [offsource_log_L_by_trial_m2 > 0].min(),
-              inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 > 0].min())
-offsource_log_L_by_trial_m2[offsource_log_L_by_trial_m2 < eps] = eps
-inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < eps] = eps
-log_L_by_m2[log_L_by_m2 < eps] = eps
+    L_min = inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 > 0].min()
+inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < L_min] = L_min
+log_L_by_m2[log_L_by_m2 < L_min] = L_min
 
 ##############################################################################
 # Compute tallies for P(L | D) and P(L | D_best) for each m2
@@ -300,11 +295,8 @@ if opts.verbose:
     print "Computing P(L | D_best)..."
 
 num_L = 40
-L_min = eps
-L_max = max(offsource_log_L_by_trial_m2.max(),
-            inj_log_L_by_trial_m2.max())
+L_max = inj_log_L_by_trial_m2.max()
 if not (log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
-    L_min = min(L_min, log_L_by_m2.min())
     L_max = max(L_max, log_L_by_m2.max())
 L_bins = rate.LogarithmicBins(L_min, L_max, num_L)
 
