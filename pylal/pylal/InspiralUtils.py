@@ -2,26 +2,55 @@
 """
 Utilities for the inspiral plotting functions
 """
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__Id__ = "$Id$"
-
-# $Source$
 
 from glue import lal
 from glue import segments
 import socket, os
 import sys
 import copy
+import math
 
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+from pylal import git_version
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
+
+# set color codes for coincident ifo types
+def get_coinc_ifo_colors( ifo_set ):
+  """ 
+  Given an ifo set, returns an html color code for plotting.
+  """     
+  # check that ifo_set is set or frozenset
+  if not ( isinstance(ifo_set, set) or isinstance(ifo_set, frozenset) ):
+    raise ValueError, "ifo_set must be of type set or frozenset. " + \
+      "Use lsctables.instrument_set_from_ifos to do this."
+
+  if ifo_set == set(['H1', 'H2', 'L1', 'V1']):
+    return '#F88017' # dark orange
+  elif ifo_set == set(['H1', 'H2', 'L1']):
+    return '#00FFFF' # cyan
+  elif ifo_set == set(['H1', 'L1', 'V1']):
+    return '#7D1B7E' # dark orchid
+  elif ifo_set == set(['H2', 'L1', 'V1']):
+    return '#153E7E' # dodger blue4
+  elif ifo_set == set(['H1', 'L1']):
+    return '#00FF00' # green
+  elif ifo_set == set(['H1', 'V1']):
+    return '#6698FF' # sky blue
+  elif ifo_set == set(['H2', 'L1']):
+    return '#FF0000' # red
+  elif ifo_set == set(['H2', 'V1']):
+    return '#FF00FF' # magenta
+  elif ifo_set == set(['L1', 'V1']):
+    return '#254117' # dark green
+  else: # other coincs just set to black
+    return 'k'
 
 class InspiralPage(object):
   """
@@ -129,7 +158,7 @@ def message(opts, text):
   """
   if opts.verbose:
     print text
-  return text+'</br>\n'
+  return text+'<br>\n'
 
 def set_figure_name(opts, text):
   """
@@ -143,9 +172,89 @@ def set_figure_name(opts, text):
 
   return fname
 
+def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=None, number=None, format=None,followup = None, followupOpts = None):
+  """
+  picks out loudest coincident triggers from given CoincInspiralUtils Tables
+  and returns info about the coincidences in a html or wiki table 
+
+  @param tableList: a list of CoincInspiralUtils.coincInspiralTables
+  @param commentList: comments about each table (e.g., file name)
+  @param stat: any CoincInspiralUtils.coincStatistic
+  @param statTag: string specifying what stat used
+  @param number: number of triggers to list
+  @param format: desired output format; can be either 'html' or 'wiki'
+  """
+
+  # set format
+  if format == 'html':
+    tx = '<table border = "1">'
+    xt = '</table>'
+    thx = '<tr><td colspan=14>'
+    rx = '<tr><td>'
+    xr = '</td></tr>'
+    xccx = '</td><td>'
+  elif format == 'wiki':
+    tx = ''
+    xt = ''
+    thx = '||<-14>'
+    rx = '||'
+    xr = '||\n'
+    xccx = '||'
+  else:
+    raise ValueError, 'unrecognized format; must be either html or wiki'
+  
+  # set statTag if not specified
+  if statTag is None: statTag = stat.name
+
+  CoincSummTable = '' 
+
+  # populate table
+  for coincTable, coincComment in zip(tableList,commentList):
+    if stat.name == 'far':
+      coincTable.sort(descending=False)
+    else:
+      coincTable.sort()
+    rank = 1
+    # set table header
+    CoincSummTable = CoincSummTable + tx + thx + coincComment + xr 
+    CoincSummTable = CoincSummTable + \
+        rx + ' Rank ' + xccx + ' followup ' + xccx + 'Coinc IFOs' + xccx +\
+	statTag + xccx + 'False Alarm Probability' + xccx + ' end_time ' + \
+        xccx + ' end_time_ns ' + xccx + ' mass1 ' + xccx + ' mass2 ' + xccx + ' mchirp ' + \
+        xccx + ' eta ' + xccx + ' snr ' + xccx + ' chisq ' + xccx + ' effective_snr ' + xr
+    for coinc in coincTable:
+      if format == 'html': 
+        CoincSummTable = CoincSummTable + '<tr><td rowspan=' + str(coinc.numifos) + '>' + str(rank) + '</td>'
+      elif format == 'wiki':
+        CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + str(rank) + xccx
+      followupLink = 'None'
+      if followup:
+        followup.from_coinc( coinc, coinc.get_ifos()[1][0] )
+        coinc.get_ifos()[1][0]
+        followupFile = followupOpts.prefix  \
+            + '_followup_' + str(followup.number) + followupOpts.suffix\
+            + '.html'
+	followupLink = '<a href="./' + followupFile +'"> here </a>'
+      if format == 'html':
+        CoincSummTable = CoincSummTable + '<td rowspan=' + str(coinc.numifos) + '>' + followupLink + xccx
+      elif format == 'wiki':
+        CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + followupLink + xccx
+      # cycle through info
+      for trig in coinc:
+        CoincSummTable = CoincSummTable + trig.ifo + xccx + str(coinc.stat) + xccx + str(coinc.fap) + xccx + str(trig.end_time) + \
+                xccx + str(trig.end_time_ns) + xccx + str(trig.mass1) + xccx + str(trig.mass2) + xccx + str(trig.mchirp) + \
+                xccx + str(trig.eta) + xccx + str(trig.snr) + xccx + str(trig.chisq) + xccx + str(trig.get_effective_snr()) + xr + \
+                rx
+      CoincSummTable = CoincSummTable + xr
+      rank = rank + 1
+      if rank > number: break
+    CoincSummTable = CoincSummTable + xt
+        
+  return CoincSummTable
+
 def write_html_output(opts, args, fnameList, tagLists, \
 			doThumb=True, cbcweb = False, mapList = [],\
-			comment=None ):
+			comment=None, CoincSummTable=None ):
   """
   @param opts: The options from the calling code
   @param args: The args from the calling code
@@ -162,7 +271,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   if cbcweb:
     page.addheader("<%method title>" + opts.name + " results</%method>")
     page.addheader("<%method headline>" + opts.name + " results</%method>")
-    page.addheader("<%method cvsid> $Id$ </%method>")
+    page.addheader("<%method cvsid> $Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $ </%method>")
   else:
     page.h1(opts.name + " results")
 
@@ -229,9 +338,6 @@ def write_html_output(opts, args, fnameList, tagLists, \
       page.hr()
     text = writeProcessParams( opts.name, opts.version,  args)
     page.add(text)
-    if comment is not None:
-      page.hr()
-      page.add("<div> "+comment+"</div>")
     html_file.write(page(False))
     html_file.close()
 
@@ -341,7 +447,7 @@ def initialise(opts, name, version = None):
     if opts.ifo_times:
       prefix = opts.ifo_times +"-"+ prefix
   except:
-     print >> sys.stderr, "--ifo-time option not implemented in the "+name +" executable. skipping..."
+     print >> sys.stderr, "--ifo-times option not implemented in the "+name +" executable. skipping..."
      pass
   try:
     if opts.ifo_tag:
@@ -360,7 +466,7 @@ def initialise(opts, name, version = None):
   # compose suffix
   try:
     if opts.gps_start_time and opts.gps_end_time :
-      suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
+      suffix = "-"+str(int(opts.gps_start_time))+"-"+str(int(math.ceil(opts.gps_end_time))-int(opts.gps_start_time))
     else:
       suffix = "-unspecified-gpstime"
   except:
