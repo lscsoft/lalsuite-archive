@@ -40,7 +40,7 @@ import sys
 import warnings
 
 import numpy
-numpy.seterr(over="raise", under="ignore")
+numpy.seterr(all="raise", under="ignore")
 from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
@@ -388,7 +388,7 @@ D_bins.delta /= calib_fac
 if opts.verbose:
     print "Computing confidence belts..."
 
-pLD_by_L_m2_D = count_by_L_m2_D / (num_sims_by_m2_D[None, :, :] + 1e-10)
+pLD_by_L_m2_D = count_by_L_m2_D / num_sims_by_m2_D[None, :, :]
 
 D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
 D_best_by_L_m2 = D_centre(pLD_by_L_m2_D.argmax(axis=2))
