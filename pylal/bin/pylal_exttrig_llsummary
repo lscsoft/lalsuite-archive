@@ -1,8 +1,8 @@
 #!/usr/bin/python
 """
-pylal_lotis
+pylal_exttrig_llsummary
 
-Low latency Online Triggered Inspiralsearch Summary
+Creating a summary page for the low latency analysis of a GRB
 
 Generate a set of images, numerical results and a
 summary page  for the low latency online
@@ -43,7 +43,8 @@ ifos_list = ['H1L1V1', 'H1L1', 'H1V1', 'L1V1']
 
 
 # the html template. File html_template.html
-html_template ='<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>summary of this GRB <a href="http://grad40.as.utexas.edu/grblog.php?view=burst&amp;GRB=macrogrbname">here</a><br>google sky kml-file <a href="macrokml">here</a><br>onsource loudest triggers <a href="macroxml">here</a><br>segments availability <a href="https://ldas-jobs.ligo.caltech.edu/%7Edietz/pages/s5/GRB/CVS/plotsegments/PLOTSEGMENT_macrogrbname.png">here</a><table style="text-align: left;" border="0" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td><a href="macroplot1link" title="Loudest by Mchirp H1L1V1"><img alt="Loudest by Mchirp H1L1V1" src="macroplot1thumb" border="2" width="300"></a></td><td><a href="macroplot2link" title="Loudest by Mchirp H1L1"><img alt="Loudest by Mchirp H1L1" src="macroplot2thumb" border="2" width="300"></a></td></tr><tr><td><a href="macroplot3link" title="Loudest by Mchirp H1V1"><img alt="Loudest by Mchirp H1V1" src="macroplot3thumb" border="2" width="300"></a></td><td><a href="macroplot4link" title="Loudest by Mchirp L1V1"><img alt="Loudest by Mchirp L1V1" src="macroplot4thumb" border="2" width="300"></a>&nbsp;</td></tr></tbody></table>macrostattable</body></html>'
+html_template ='<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>summary of this GRB <a href="http://grad40.as.utexas.edu/grblog.php?view=burst&amp;GRB=macrogrbname">here</a><br>google sky kml-file <a href="macrokml">here</a><br>onsource loudest triggers <a href="macroxml">here</a><br>segments availability <a href="macrosegplot">here</a><table style="text-align: left;" border="0" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td><a href="macroplot1link" title="Loudest by Mchirp H1L1V1"><img alt="Loudest by Mchirp H1L1V1" src="macroplot1thumb" border="2" width="300"></a></td><td><a href="macroplot2link" title="Loudest by Mchirp H1L1"><img alt="Loudest by Mchirp H1L1" src="macroplot2thumb" border="2" width="300"></a></td></tr><tr><td><a href="macroplot3link" title="Loudest by Mchirp H1V1"><img alt="Loudest by Mchirp H1V1" src="macroplot3thumb" border="2" width="300"></a></td><td><a href="macroplot4link" title="Loudest by Mchirp L1V1"><img alt="Loudest by Mchirp L1V1" src="macroplot4thumb" border="2" width="300"></a>&nbsp;</td></tr></tbody></table>macrostattable</body></html>'
+
 
 
 
@@ -319,15 +320,16 @@ def get_options():
 opts = get_options()
 grb_name = opts.user_tag[3:]
 plots_dir = 'plots'
+print InspiralUtils.__file__
 page = InspiralUtils.InspiralPage(opts)
 
 
 #
 # read the input-data
 #
-statistic, mc_bins, _, _, onsource_loudest_by_mc \
+statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.onsource_pickle))
-statistic, mc_bins, _, _, offsource_loudest_by_trial_mc \
+statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.offsource_pickle))
 
 
@@ -355,8 +357,14 @@ for onsource_loudest, offsource_loudest_by_trial in \
 coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
 onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
             [opts.onsource_xml])
-onsource_trigs = table.get_table(onsource_doc,
-                                 lsctables.SnglInspiralTable.tableName)
+
+# Neeed to work around a bug introduced much earlier:
+# If no trigger, then no table
+try:
+  onsource_trigs = table.get_table(onsource_doc,
+                                  lsctables.SnglInspiralTable.tableName)
+except AttributeError:
+  onsource_trigs = []
 onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
                                                         coinc_stat)
 if len(onsource_coincs) > len(mc_bins):
@@ -480,18 +488,25 @@ for ifo in ['H1','H2','L1','G1','V1']:
   html = html.replace('macrodet%s'%ifo.lower(),'%.2f'%f_q)
   
 
+# copy the segment plot
+segplot = 'plot_segments_GRB%s.png' % grb_name
+command = 'cp ../../../%s %s' % (segplot, opts.output_path)
+subprocess.call(command, shell=True)
+
+
 # put in some more links and copy needed files
 html = html.replace('macrokml',kml_filename)
 shutil.copy(opts.onsource_xml, opts.output_path)
 html = html.replace('macroxml', opts.onsource_xml)
 html = html.replace('macrostattable', statistic_table)
+html = html.replace('macrosegplot', segplot)
 
 # put some status information
 text = "<hr>This page has been created at %s\n"%time.asctime(time.localtime())
 text += "Version used: "+ git_version.verbose_msg
 
 # write the html file
-write_file(opts.output_path, 'pylal_lotis_'+grb_name+'.html' , html)
+write_file(opts.output_path, 'pylal_exttrig_llsummary_'+grb_name+'.html' , html)
 
 # now copy the files if required
 if opts.output_path_html:
