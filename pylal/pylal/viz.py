@@ -1262,7 +1262,7 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     error = array(error)
 
     if plot_type == 'log':
-      bins = 10**bins
+      plotbins = 10**plotbins
       if plot_name:
         semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2, label = plot_name)
