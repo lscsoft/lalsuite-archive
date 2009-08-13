@@ -111,8 +111,6 @@ def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve
             raise NameError ("%s is not a known operation (intersect, union or diff)" % operation)
 
 
-        result.coalesce()
-
         # Add a segment definer for the result
         seg_def_id = add_to_segment_definer(outdoc, proc_id, ifo, name, version)
 
@@ -178,7 +176,6 @@ def run_segment_operation(outdoc, filenames, segments, use_segment_table, operat
     else:
         raise NameError("%s is not a known operation (intersect, union or diff)" % operation)
 
-    sgmntlist.coalesce()
 
     # Add a segment definer and segments
     seg_def_id = add_to_segment_definer(outdoc, proc_id, '', result_name, 1)

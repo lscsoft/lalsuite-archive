@@ -318,8 +318,9 @@ if __name__ == '__main__':
                     end_time = now
 
                 veto_interval  = glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
-                veto_interval &= cli_interval
                 veto_interval.coalesce()
+                veto_interval &= cli_interval
+
 
                 if len(veto_interval) > 0:
                     segdefs.append( (ifo, name, version, veto_interval[0][0], veto_interval[0][1], start_pad, end_pad) )
