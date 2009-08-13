@@ -53,7 +53,10 @@ class PlotSegmentsPlot(object):
     self.ifos = []
     self._time_transform = lambda t: t - t0
     
-    self.ax.set_xlabel("time (s)")
+    if t0>0:
+      self.ax.set_xlabel("time (s)  offset: %9d"%t0)
+    else:
+      self.ax.set_xlabel("time (s)")
     self.ax.set_ylabel("IFO")
   
   def add_contents(self, segdict, ifos=None):
