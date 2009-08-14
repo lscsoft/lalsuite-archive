@@ -147,6 +147,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     email_msg = 'The analysis of GRB%s has started\n' % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
                  (grb_time, grb_ra, grb_dec)
+    email_msg += 'Data enough found for detectors %s' % ifo_list
     email_msg += 'The DAG is located at : %s\n'% analysis_path
     peu.send_mail(subject, email_msg)
 
