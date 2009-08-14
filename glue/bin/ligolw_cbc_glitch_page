@@ -62,6 +62,11 @@ def parse_command_line():
     Parse the command line, return an options object
     """
 
+    def require(flag, message):
+        if not flag:
+            print >>sys.stdout, message
+            sys.exit(1)
+
     parser = OptionParser(
         version     = "%prog CVS $Header$",
         usage       = "%prog --trigger-dir dir --segments url --html-file file --ifo ifo --timestamp-file [other options]",
@@ -69,6 +74,7 @@ def parse_command_line():
 	)
 
     parser.add_option("-t", "--trigger-dir",   metavar="dir",  help = "Location of XML files containing sngl_inspiral tables")
+    parser.add_option("-e", "--trigger-db",    metavar="database",  help = "Location of an already-created sqlite database")
     parser.add_option("-s", "--segments",      metavar="url",  help = "URL to contact for DQ flags (ldbd: or file:)")
     parser.add_option("-f", "--html-file",     metavar="file", help = "Location of html file to write")
     parser.add_option("-i", "--ifo",           metavar="ifo",  help = "IFO")
@@ -76,6 +82,7 @@ def parse_command_line():
     parser.add_option("-m", "--min-glitch-snr", metavar="snr",  help = "Minimum SNR to be considered a glitch (default=15.0)",  default="15.0")
     parser.add_option("-k", "--known-count",    metavar="known_count", help = "Max. number of triggers with DQ flags to print (default=10)", default="10")
     parser.add_option("-u", "--unknown-count",  metavar="unknown_count", help = "Max. number of triggers without DQ flags to print (default=10)", default="10")
+    parser.add_option("-j", "--limit-count",    metavar="limit_count",   help = "Max. number of triggers to examine", default="50")
     parser.add_option("-b", "--gps-start-time",  metavar="gps_start_time", help = "Provide an explicit start time, rather than using the timestamp file")
     parser.add_option("-n", "--gps-end-time",  metavar="gps_end_time", help = "Provide an explicit end time, rather than using now")
 
@@ -86,9 +93,10 @@ def parse_command_line():
     options, others = parser.parse_args()
 
     # Make sure we have all required parameters
-    if not (options.trigger_dir and options.segments and options.ifo and options.timestamp_file and options.html_file):
-        print "Usgae: %prog --trigger-dir dir --segments url --html-file file --ifo ifo --timestamp-file [other options]"
-        sys.exit(-1)
+    require(options.trigger_dir or options.trigger_db, "Missing required argument [--trigger-dir | --trigger-db]")
+    require(options.ifo, "Missing required argument --ifo")
+    require(options.html_file, "Missing required argument --html-file")
+    require(options.timestamp_file or (options.gps_start_time and options.gps_end_time), "Missing required argument [--timestamp-file | --gps-start-time --gps-end-time]")
 
     return options
 
@@ -131,17 +139,21 @@ def generate_html(outf, triggers, colors):
 
 
 
-def setup_files(dir_name, gps_start_time, gps_end_time):
-    # Filter out the ones that are outside our time range
-    xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
+def setup_files(dir_name, db_name, gps_start_time, gps_end_time):
+    if db_name:
+        temp_db    = None
+        connection = sqlite3.connect(db_name)
+    else:
+        # Filter out the ones that are outside our time range
+        xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
-    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
-    os.close(handle)
+        handle, temp_db = tempfile.mkstemp(suffix='.sqlite')
+        os.close(handle)
 
-    target     = dbtables.get_connection_filename(temp_db, None, True, False)
-    connection = ligolw_sqlite.setup(target)
+        target     = dbtables.get_connection_filename(temp_db, None, True, False)
+        connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files)
+        ligolw_sqlite.insert(connection, xml_files)
 
     return temp_db, connection
     
@@ -190,7 +202,7 @@ if __name__ == '__main__':
 
     # Load the relevant trigger XML files into a sqlite DB and
     # get a connection
-    temp_db, connection = setup_files(options.trigger_dir, gps_start_time, gps_end_time)
+    temp_db, connection = setup_files(options.trigger_dir, options.trigger_db, gps_start_time, gps_end_time)
 
     # Did we find any triggers?  If not there won't even be a sngl_inspiral
     # table, so the normal query will fail
@@ -255,9 +267,11 @@ if __name__ == '__main__':
 
     # ligolw_sicluster --cluster-window ${clusterwindow} --sort-descending-snr ${xmlfile}
 
-    known_trigs   = []
-    unknown_trigs = []
-    
+    known_trigs    = []
+    unknown_trigs  = []
+    examined_count = 0
+    limit_count    = int(options.limit_count)
+
     for ifo, end_time, end_time_ns, snr, e_dist in rows:
         trig_time = end_time
         if end_time_ns >= 500000000:
@@ -287,16 +301,19 @@ if __name__ == '__main__':
         if len(ifo_status) > 0:
             ifo_status = ifo_status[:-1]
 
+        found_new_one = False
 
         if len(flags) == 0:
             if len(unknown_trigs) < ucount:
                 flags[ifo_status] = True
                 unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
+                found_new_one = True
         elif len(known_trigs) < kcount:
             flags[ifo_status] = True
             known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
+            found_new_one = True
 
-        if omega_ok:
+        if omega_ok and found_new_one:
             # The frames may live in a directory with subdirectories by time.  If the given directory
             # contains a '%d' populate it with the first 4 digits of the time.
             full_path = options.omega_frame_dir
@@ -306,10 +323,12 @@ if __name__ == '__main__':
 
             os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
 
+        examined_count += 1
+
         # Print no more than the top ten known and unknown triggers
         # (the ranking is done by the 'ODRER BY snr DESC' in the query above)
     
-        if len(known_trigs) == kcount and len(unknown_trigs) == ucount:
+        if (len(known_trigs) == kcount and len(unknown_trigs) == ucount) or examined_count >= limit_count:
             break
     
     
@@ -347,7 +366,8 @@ if __name__ == '__main__':
         print >>f,  gps_end_time
         f.close()
 
-    # Clean up after ourselves.
-    os.remove(temp_db)
+    # If we created our own database, clean up after ourselves.
+    if temp_db:
+        os.remove(temp_db)
 
 
