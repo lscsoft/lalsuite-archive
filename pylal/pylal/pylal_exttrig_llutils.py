@@ -554,7 +554,7 @@ class ExttrigDag(object):
                  'dag-name':self.dag_file,\
                  'ifos':'', 'condorlogpath':'',\
                  'triggertime':self.time,\
-                 'right_ascensioin': self.ra,'declination':self.de,
+                 'right_ascension': self.ra,'declination':self.de,
                  'qvalues':self.qvalues}
 
     if has_data ==0:
