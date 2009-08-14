@@ -138,7 +138,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     exttrig_dag.set_seg_info(off_source, ifo_times)
     exttrig_dag.create_exttrig_xml_file()
     exttrig_dag.prepare_analysis_directory()
-    #exttrig_dag.start_analysis()
+    exttrig_dag.start_analysis()
     check_condor = exttrig_dag.check_analysis_directory()
     exttrig_dag.update_database(check_condor)
 
