@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 #
-# ligolw_print_active_cats: print active defined cat vetos for a given time
+# ligolw_dq_active_cats: print state of defined cat vetos for a given
+# time
 #
-# Copyright (C) 2009 Josh Smith and Jameson Rollins
+# Copyright (C) 2009 Jameson Rollins and Josh Smith
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -28,41 +29,52 @@ from subprocess import *
 def usage():
 	print "usage: LIGOLW_VETO_FILE=<file>", CMD, "<gpstime>"
 	print """
-Indicate whether flags from a category definer are active, inactive, or undefined.
-The output is one line per category-defined veto, of the form:
+Output the state of category-defined DQ/veto flags for a given time.
+The output is one line per flag, of the form:
 
-  <flag> <cat> <ifo:channel>
+  <state> <cat> <ifo:flag>
 
-The flags are:
+The states are:
 
   + = active
   - = defined but inactive
   ! = undefined
 
-The environment variable LIGOLW_VETO_FILE must contain the path or URL of a
-category definer file."""
+The environment variable LIGOLW_VETO_FILE must contain the path or URL
+of a category definer file."""
 
 # simple failure function
 def failure(error='', errnum=1):
 	sys.stderr.write(error)
 	sys.exit(errnum)
 	
-# make a veto:cat dictionary from defined veto cat flags from a veto file
-# returns a dictionary with flag names as keys (<ifo>:<channel name>, and
-# categories as values
-def get_veto_cats():
-	cmd = 'ligolw_print -t veto_definer -c ifo -c name -c category -d " " %s' % (VETO_FILE)
+# make category/start_time/end_time dictionaries from defined veto cat
+# flags from a veto file.  returns three dictionaries with flag names
+# as keys (<ifo>:<flag>) and categories, start times, and end times as
+# values
+def get_cats():
+	cmd = 'ligolw_print -t veto_definer -d " " -c ifo -c name -c category -c start_time -c end_time %s' % (VETO_FILE)
 	p1 = Popen(cmd, stdout=PIPE, shell=True)
-	vetos = {}
+	categories = {}
+	start_times = {}
+	end_times = {}
 	for line in p1.communicate()[0].split('\n'):
 		if line != '':
 			info = line.split(' ')
-			vetos[info[0] + ':' + info[1]] = info[2]
+			flag = info[0] + ':' + info[1]
+			cat = info[2]
+			start = float(info[3])
+			end = float(info[4])
+			if end == 0: end = float('inf')
+
+			categories[flag] = cat
+			start_times[flag] = start
+			end_times[flag] = end
 
 	if p1.wait() == 0:
-		return vetos
+		return categories, start_times, end_times
 	else:
-		failure("Could not retrieve veto definitions from veto definier file.\n")
+		failure("Could not retrieve info from veto definier file.\n")
 
 # retrieve flags of type ('defined', 'active') for time
 def get_flags(type, time):
@@ -70,7 +82,7 @@ def get_flags(type, time):
 	time = int(time)
 	cmd1 = 'ligolw_dq_query --dmt-file --%s %s' % (type, time)
 	cmd2 = 'ligolw_print -t segment_definer -c ifos -c name -d :'
-	p1 = Popen(cmd1, stdout=PIPE, shell=True)#, shell=True)
+	p1 = Popen(cmd1, stdout=PIPE, shell=True)
 	p2 = Popen(cmd2, stdin=p1.stdout, stdout=PIPE, shell=True)
 	flags = []
 	[flags.append(line) for line in p2.communicate()[0].split('\n') if line != '']
@@ -78,7 +90,7 @@ def get_flags(type, time):
 	if p1.wait() == 0 and p2.wait() == 0:
 		return flags
 	else:
-		failure("Could not retrieve %s veto flags.\n" % (type))
+		failure("Could not retrieve %s flags.\n" % (type))
 	
 ############################################################
 
@@ -103,8 +115,8 @@ if VETO_FILE == None:
 
 ############################################################
 
-# get veto dictionary from definer file
-vetos = get_veto_cats()
+# get categories, start and end times from definer file
+categories, start_times, end_times = get_cats()
 
 # retrieve active flags for time
 actives = get_flags('active', time)
@@ -113,15 +125,22 @@ actives = get_flags('active', time)
 defined = get_flags('defined', time)
 
 # process all vetos
-for channel, cat in vetos.iteritems():
-	# set the appropriate flag
-	if channel in defined:
-		if channel in actives:
-			flag = '+'
-		else:
-			flag = '-'
-	else:
-		flag = '!'
+for flag, category in categories.iteritems():
 
-	# output the channel info
-	print flag, cat, channel
+	# check that the flag is valid for the time
+	if time < start_times[flag]:
+		continue
+	if time >= end_times[flag]:
+		continue
+
+	# set the appropriate state indicator
+	if flag in defined:
+		if flag in actives:
+			state = '+'
+		else:
+			state = '-'
+	else:
+		state = '!'
+
+	# output the info
+	print state, category, flag

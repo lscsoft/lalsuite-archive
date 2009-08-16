@@ -211,6 +211,25 @@ def reassign_ids(elem):
 		tbl.applyKeyMapping(mapping)
 
 
+def reset_next_ids(classes):
+	"""
+	For each class in the list, if the .next_id attribute is not None
+	(meaning the table has an ID generator associated with it), set
+	.next_id to 0.  This has the effect of reset the ID generators, and
+	is useful in applications that process multiple documents and wish
+	to reset all the ID generators between documents so that the
+	assigned IDs don't grow without bound as each document is
+	processed.
+
+	Example:
+
+	>>> reset_next_ids(lsctables.TableByName.values())
+	"""
+	for cls in classes:
+		if cls.next_id is not None:
+			cls.set_next_id(type(cls.next_id)(0))
+
+
 #
 # =============================================================================
 #

@@ -148,6 +148,7 @@ def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector):
 		self.offset_vector = offset_vector
+		self.deltas = ligolw_tisi.offset_vector_to_deltas(offset_vector)
 		self.components = set()
 
 
@@ -165,12 +166,13 @@ class TimeSlideGraph(object):
 			self.generations[n - 1] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
 
 		for node in self.head:
-			node.components = set(component for component in self.generations[len(node.offset_vector)] if ligolw_tisi.time_slide_contains(node.offset_vector, component.offset_vector))
+			node.components = set(component for component in self.generations[len(node.offset_vector)] if node.deltas == component.deltas)
 		for n, nodes in self.generations.items():
 			if n <= 2:
 				continue
 			for node in nodes:
-				node.components = set(component for component in self.generations[n - 1] if ligolw_tisi.time_slide_contains(node.offset_vector, component.offset_vector))
+				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in time_slide_component_vectors([node.offset_vector], n - 1))
+				node.components = set(component for component in self.generations[n - 1] if frozenset(component.deltas.items()) in component_deltas)
 
 
 def write_time_slide_graph(fileobj, graph):

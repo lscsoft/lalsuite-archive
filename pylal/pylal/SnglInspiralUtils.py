@@ -48,6 +48,8 @@ except NameError:
 # =============================================================================
 #
 
+# Initialize the mangler exactly once
+_mangled_next_id = lsctables.SnglInspiralID_old(0)
 
 def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, non_lsc_tables_ok=False, old_document=False):
   """
@@ -61,7 +63,7 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, no
   # turn on ID remapping if necessary
   if mangle_event_id or old_document:
     next_id_orig = lsctables.SnglInspiralTable.next_id
-    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+    lsctables.SnglInspiralTable.next_id = _mangled_next_id
   if old_document:
     event_id_orig = lsctables.SnglInspiralTable.validcolumns["event_id"]
     lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"

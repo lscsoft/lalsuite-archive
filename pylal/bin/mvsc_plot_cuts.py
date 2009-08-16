@@ -41,7 +41,7 @@ def plot_cuts(data,cols,dim1_header,dim2_header,dim1log,dim2log,filename=None,\
 
     Filename is the path to decision tree file.  If not given, will not plot
     any cuts."""
-
+    
     if not (cols.has_key(dim1_header) & cols.has_key(dim2_header)):
         print 'Invalid dimensions given to plot-cuts option'
         return
@@ -104,19 +104,11 @@ def plot_cuts(data,cols,dim1_header,dim2_header,dim1log,dim2log,filename=None,\
 
         dim1cuts = []
         dim2cuts = []
-        cuts = []
         cutcols = {}
-        
+
         while True:
-            n = f.readline()
-            m = p.match(n)
-            if m:
-                cuts.append( ( m.group(1), m.group(2) ) )
-            elif p2.match(n):
+            if p2.match(f.readline()):
                 break
-            elif not n:
-                print '***Error!*** Unexpected format in',filename
-                return
 
         while True:
             n = f.readline()
@@ -125,18 +117,32 @@ def plot_cuts(data,cols,dim1_header,dim2_header,dim1log,dim2log,filename=None,\
                 cutcols[m.group(2)] = m.group(1)
             else:
                 break
-        
-        f.close()
 
+        f.seek(0)
         if cutcols.has_key(dim1_header):
-            for i in range(len(cuts)):
-                if cuts[i][0] == cutcols[dim1_header]:
-                    dim1cuts.append(float(cuts[i][1]))
-
+            cutcol1 = cutcols[dim1_header]
+        else:
+            cutcol1 = -2
         if cutcols.has_key(dim2_header):
-            for i in range(len(cuts)):
-                if cuts[i][0] == cutcols[dim2_header]:
-                    dim2cuts.append(float(cuts[i][1]))
+            cutcol2 = cutcols[dim2_header]
+        else:
+            cutcol2 = -2
+        
+        while True:
+            n = f.readline()
+            m = p.match(n)
+            if m:
+                if m.group(1) == cutcol1:
+                        dim1cuts.append(float(m.group(2)))
+                elif m.group(1) == cutcol2:
+                        dim2cuts.append(float(m.group(2)))
+            elif p2.match(n):
+                break
+            elif not n:
+                print '***Error!*** Unexpected format in',filename
+                return
+
+        f.close()
         
         xmin,xmax = pyplot.xlim()
         ymin,ymax = pyplot.ylim()

@@ -35,6 +35,7 @@ import cPickle
 import gzip
 from scipy import interpolate
 import math
+import fnmatch
 
 from optparse import *
 from types import *
@@ -334,7 +335,10 @@ class getCache(UserDict):
     statistic =  string.strip(cp.get('followup-triggers','statistic'))
     bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
     blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb))
+    if cp.has_option('followup-triggers','exclude-tags'):
+      excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
+    else: excludedTags = None
+    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
     return numtrigs, found, coincs, search
 
 
@@ -553,7 +557,7 @@ def floatToStringList(listin):
 # function to read in a list of files and extract the simInspiral tables
 # and sngl_inspiral tables
 ##############################################################################
-def readFiles(fileGlob,statistic=None):
+def readFiles(fileGlob,statistic=None,excludedTags=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
   if Sngls are found, construct coincs, add injections (if any)
@@ -566,12 +570,20 @@ def readFiles(fileGlob,statistic=None):
     print "Warning: No glob specified, returning empty structures..."
     return None, CoincInspiralUtils.coincInspiralTable(), None
 
-  # if there aren't any files globbed exit
-  #fList = glob.glob(fileGlob)
-  #if not fList:
-  #  print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
-  #  sys.exit(1)
-  fList = fileGlob
+  fList = []
+  for thisFile in fileGlob:
+    if excludedTags:
+      for thisTag in excludedTags.split(","):
+        if fnmatch.fnmatch(thisFile.split('/')[-1],thisTag.strip()):
+          print "WARNING: the following file will be excluded:"
+          print thisFile
+          continue
+    fList.append(thisFile)
+
+  if len(fList) == 0:
+    print "Warning: After removing forbidden tags, no remaining files in glob. Returning empty structures..."
+    return None, CoincInspiralUtils.coincInspiralTable(), None
+
   sims = None
   coincs = None
   search = None
@@ -1281,7 +1293,7 @@ def writeParamTable(trigger,opts):
     page.td(repr(trigger.gpsTime[ifo]));
     for param in paramList:
       page.td("%0.3f"%(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
-    page.td("%0.2f"%(trigger.statValue));
+    page.td("%0.5f"%(trigger.statValue));
     if not opts.disable_ifarsorting:
       page.td("%0.4f"%(trigger.far))
     page.tr.close()
@@ -1967,8 +1979,8 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
   #Also write input file for clustering code "cohire"
-  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1-' + str(int(triggerTime)-1) + "-2.xml.gz"
-  cohireInputFile = ifoTag + '-COHIRE-' + str(int(triggerTime)-1) + "-2.txt"
+  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.xml.gz"
+  cohireInputFile = ifoTag + '-COHIRE_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.txt"
   if outputPath:
     cohireInputFile = outputPath + '/' + cohireInputFile
   ff = open(cohireInputFile,'w')
