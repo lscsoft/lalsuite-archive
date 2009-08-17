@@ -216,9 +216,6 @@ def parse_args():
     parser.add_option("--nonuniform-smoothing-D", type="float", metavar="SIZE",
         help="enable a non-uniform smoothing of p(L|D) over D with a kernel "\
         "that varies proportionally to SIZE*D (default: no smoothing)")
-    parser.add_option("--nonuniform-smoothing-L", type="float", metavar="SIZE",
-        help="enable a non-uniform smoothing of p(L|D) over L with a kernel "\
-        "that varies proportionally to SIZE*(Lmax - L) (default: no smoothing)")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -336,19 +333,6 @@ if opts.nonuniform_smoothing_D:
                               / (2 * opts.nonuniform_smoothing_D * D_out**2))
     K_by_Din_Dout /= K_by_Din_Dout.sum(axis=0)[None, :]  # conserve counts
     count_by_L_m2_D = numpy.dot(count_by_L_m2_D, K_by_Din_Dout)
-
-# smooth in L with shrinking Gaussian
-# NB: convolutions commute and these convolutions are separable
-if opts.nonuniform_smoothing_L:
-    if opts.verbose:
-        print "Applying nonuniform smoothing in L..."
-    B = numpy.fromfunction(\
-        lambda i, j: numpy.exp(-(i - j) * (i - j) \
-            / (2 * opts.nonuniform_smoothing * (len(L_bins) - i)**2)),
-        shape=(len(L_bins), len(L_bins)))
-    B /= B.sum(axis=1)[:, None]  # conserve counts
-    count_by_L_m2_D = numpy.dot(count_by_L_m2_D.transpose((1, 2, 0)),
-                                B).transpose((2, 0, 1))
 
 num_sims_by_m2_D = count_by_L_m2_D.sum(axis=0)
 
