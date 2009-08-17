@@ -320,7 +320,6 @@ def get_options():
 opts = get_options()
 grb_name = opts.user_tag[3:]
 plots_dir = 'plots'
-print InspiralUtils.__file__
 page = InspiralUtils.InspiralPage(opts)
 
 

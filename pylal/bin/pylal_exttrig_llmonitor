@@ -147,7 +147,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     email_msg = 'The analysis of GRB%s has started\n' % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
                  (grb_time, grb_ra, grb_dec)
-    email_msg += 'Data enough found for detectors %s' % ifo_list
+    email_msg += 'Data enough found for detectors %s\n' % ifo_list
     email_msg += 'The DAG is located at : %s\n'% analysis_path
     peu.send_mail(subject, email_msg)
 
@@ -162,7 +162,7 @@ def check_gcn(gcn_file, grbs_processed):
   # copy the latest file
   alert_file = cp.get('alerts','alert_file')
   alert_host = cp.get('alerts','alert_host')
-  cmd = 'scp %s:%s %s' % (alert_host, alert_file, gcn_file)
+  cmd = 'scp %s:%s %s >> ~/cp.log 2>&1' % (alert_host, alert_file, gcn_file)
   peu.system_call(cmd)
 
   # open the file
