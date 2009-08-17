@@ -576,7 +576,8 @@ class FollowupTrigger:
       print "Processing INSPIRAL triggers from files ", trigger_files
       
     sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-              trigger_files , verbose=False, old_document=self.old_document)
+              trigger_files , mangle_event_id = True,\
+              verbose=False, old_document=self.old_document)
 
     # create a figure and initialize some lists
     fig=pylab.figure()
