@@ -362,7 +362,7 @@ if slidefilelists:
   for filegroup in slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
-      shift_vector, verbose=opts.verbose)
+      shift_vector, mangleEventId=True, verbose=opts.verbose)
 
     if slideTriggers == None:
       slideTriggers = []
