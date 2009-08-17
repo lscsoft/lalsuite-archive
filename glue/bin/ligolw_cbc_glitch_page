@@ -159,7 +159,7 @@ def setup_files(dir_name, db_name, gps_start_time, gps_end_time):
 
 def get_times_with_flags(gps_start_time, gps_end_time):
     # Find times where there were no DQ flags, rather than checking the time of each trigger
-    segment_connection = segmentdb_utils.setup_database(os.environ['S6_SEGMENT_SERVER'])
+    segment_connection = segmentdb_utils.setup_database(os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):])
     engine             = query_engine.LdbdQueryEngine(segment_connection)
 
     sql  = "SELECT start_time, end_time FROM segment "
@@ -269,7 +269,8 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
                 del flags[flag]
 
         if len(ifo_status) > 0:
-            ifo_status = ifo_status[:-1]
+            ifo_status        = ifo_status[:-1]
+            flags[ifo_status] = True
 
         ret.append((ifo, end_time, end_time_ns, snr, eff_dist, chisq, flags))
 
