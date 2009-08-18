@@ -261,18 +261,18 @@ else:
 inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < L_min] = L_min
 log_L_by_m2[log_L_by_m2 < L_min] = L_min
 
-##############################################################################
-# Compute tallies for P(L | D) and P(L | D_best) for each m2
-
-if opts.verbose:
-    print "Computing P(L | D_best)..."
-
 # determine L binning
 num_L = 40
 L_max = inj_log_L_by_trial_m2.max()
 if not (log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
     L_max = max(L_max, log_L_by_m2.max())
 L_bins = rate.LogarithmicBins(L_min, L_max, num_L)
+
+##############################################################################
+# Tally injections
+
+if opts.verbose:
+    print "Tallying injections..."
 
 # bin up injections into (L, m2, D)
 nd_bins = rate.NDBins((L_bins, m2_bins, D_bins))
@@ -288,8 +288,33 @@ for inj_L_by_m2, m2_D in \
 
     count_by_L_m2_D[L_ind, m2_ind, D_ind] += 1
 
+##############################################################################
+# Take calibration systematics into account by rescaling D bins
+# NB: Needs to be after injections are binned, but before actual distances
+#     are used in the search.
+if opts.calib_factor is not None:
+    if opts.verbose:
+        print "Applying calibration uncertainties..."
+    D_bins.min /= 1 + opts.calib_factor
+    D_bins.max /= 1 + opts.calib_factor
+    D_bins.delta /= 1 + opts.calib_factor
+
+##############################################################################
+# Vectorize some useful lookup functions
+
+L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
+L_upper = numpy.frompyfunc(L_bins.upper().__getitem__, 1, 1)
+D_lower = numpy.frompyfunc(D_bins.lower().__getitem__, 1, 1)
+D_upper = numpy.frompyfunc(D_bins.upper().__getitem__, 1, 1)
+D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
+
+##############################################################################
+# Smooth binned injections
+
 # smooth with Gaussian
 if opts.smoothing_radius is not None:
+    if opts.verbose:
+        print "Applying Gaussian smoothing..."
     window_2d = rate.gaussian_window2d(4 * opts.smoothing_radius,
                                        4 * opts.smoothing_radius,
                                        opts.smoothing_radius)
@@ -298,22 +323,23 @@ if opts.smoothing_radius is not None:
 
 # smooth in D with growing Gaussian
 if opts.nonuniform_smoothing_D:
+    if opts.verbose:
+        print "Applying nonuniform smoothing in D..."
     # Make each row (after) a linear combination of rows (before)
-    # This is like a one-dimensional convolution in D, but with a kernel
-    # that grows proportionally to D.
-    # NB: numpy.fromfunction(f, shape) fills the (i, j) element with f(i, j).
     # NB: numpy.dot(a, b) does a product and sum, iterating over the last
     # dimension of a and the second-to-last dimension of b.
-    A = numpy.fromfunction(\
-        lambda i, j: numpy.exp(-(i - j) * (i - j) \
-            / (2 * opts.nonuniform_smoothing_D * (i + 1)**2)),
-        shape=(len(D_bins), len(D_bins)))
-    A /= A.sum(axis=1)[:, None]  # conserve counts
-    count_by_L_m2_D = numpy.dot(count_by_L_m2_D, A)
+    D_in = numpy.asarray(D_bins.centres())[:, None]  # varies with i
+    D_out = numpy.asarray(D_bins.centres())[None, :]  # varies with j
+    K_by_Din_Dout = numpy.exp(-(D_in - D_out)**2 \
+                              / (2 * opts.nonuniform_smoothing_D * D_out**2))
+    K_by_Din_Dout /= K_by_Din_Dout.sum(axis=0)[None, :]  # conserve counts
+    count_by_L_m2_D = numpy.dot(count_by_L_m2_D, K_by_Din_Dout)
 
 # smooth in L with shrinking Gaussian
 # NB: convolutions commute and these convolutions are separable
 if opts.nonuniform_smoothing_L:
+    if opts.verbose:
+        print "Applying nonuniform smoothing in L..."
     B = numpy.fromfunction(\
         lambda i, j: numpy.exp(-(i - j) * (i - j) \
             / (2 * opts.nonuniform_smoothing * (len(L_bins) - i)**2)),
@@ -325,36 +351,17 @@ if opts.nonuniform_smoothing_L:
 num_sims_by_m2_D = count_by_L_m2_D.sum(axis=0)
 
 ##############################################################################
-# Take calibration systematics into account by rescaling D bins
-# NB: Needs to be after injections are binned, but before actual distances
-#     are extracted from the search.
-if opts.calib_factor is not None:
-    if opts.verbose:
-        print "Applying calibration uncertainties..."
-    D_bins.min /= 1 + opts.calib_factor
-    D_bins.max /= 1 + opts.calib_factor
-    D_bins.delta /= 1 + opts.calib_factor
-
-##############################################################################
 # Construct confidence belts with FC ranking principle and get D limits
 
 if opts.verbose:
     print "Computing confidence belts..."
 
 pLD_by_L_m2_D = count_by_L_m2_D / num_sims_by_m2_D[None, :, :]
-
-D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
 D_best_by_L_m2 = D_centre(pLD_by_L_m2_D.argmax(axis=2))
 pLD_best_by_L_m2 = pLD_by_L_m2_D.max(axis=2)
 
 # rank L bins for each m2, D
 R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
-
-# vectorize some useful lookup functions
-L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
-L_upper = numpy.frompyfunc(L_bins.upper().__getitem__, 1, 1)
-D_lower = numpy.frompyfunc(D_bins.lower().__getitem__, 1, 1)
-D_upper = numpy.frompyfunc(D_bins.upper().__getitem__, 1, 1)
 
 # construct belts
 # NB: assume regions are contiguous; conservatively take outer edges of bins
