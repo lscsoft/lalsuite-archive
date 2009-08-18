@@ -808,6 +808,11 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
 
     width = xdata[1] - xdata[0]
 
+    # to account for a bug-feature in different numpy versions
+    # (which is a feature, behaving lik a bug)
+    if len(xdata)==len(ydata)+1:
+      xdata=xdata[:-1]
+
     if plot_type == 'loglog' or plot_type=='logy':
       indexPositive = find(ydata>0)
       ydata = log10( ydata[indexPositive] )
