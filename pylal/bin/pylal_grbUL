@@ -198,18 +198,8 @@ def parse_args():
         help="display the plots to screen if an X11 display is available")
 
     # Uncertainty
-    parser.add_option("--h1-calibration-uncertainty", metavar="FAC",
-        type="float", default=0.,
-        help="fractional uncertainty in the DC calibration of "
-        "H1; rescale distances by (1 +/- max(FAC))*D")
-    parser.add_option("--h2-calibration-uncertainty", metavar="FAC",
-        type="float", default=0.,
-        help="fractional uncertainty in the DC calibration of "
-        "H2; rescale distances by (1 +/- max(FAC))*D")
-    parser.add_option("--l1-calibration-uncertainty", metavar="FAC",
-        type="float", default=0.,
-        help="fractional uncertainty in the DC calibration of "
-        "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--calib-factor", metavar="FAC",
+        type="float", help="rescale injection distances to D / (1 + FAC)")
     parser.add_option("--include-MC-error", metavar="NSIGMA", type="float",
         help="include NSIGMA standard deviations of 1/sqrt(N) Monte-Carlo "\
         "uncertainty.")
@@ -340,22 +330,12 @@ if opts.nonuniform_smoothing_L:
 # Take calibration systematics into account by rescaling D bins
 # NB: Needs to be after injections are binned, but before actual distances
 #     are extracted from the search.
-supported_ifos = set(("H1", "H2", "L1"))
-if opts.ifo_tag is not None:
-    ifos = (opts.ifo_tag[:2], opts.ifo_tag[2:])
-    if not supported_ifos.issuperset(ifos):
-        raise ValueError, "Only %s are valid IFOs in --ifo-tag" % supported_ifos
-else:
-    sys.stderr.write("warning: --ifo-tag not provided, so using all provided "\
-        "calibration factors.\n")
-    ifos = supported_ifos
-if opts.verbose:
-    print "Applying calibration uncertainties from %s..." % repr(ifos)
-calib_fac = 1 + max(getattr(opts,
-    "%s_calibration_uncertainty" % ifo.lower()) for ifo in ifos)
-D_bins.min /= calib_fac
-D_bins.max /= calib_fac
-D_bins.delta /= calib_fac
+if opts.calib_factor is not None:
+    if opts.verbose:
+        print "Applying calibration uncertainties..."
+    D_bins.min /= 1 + opts.calib_factor
+    D_bins.max /= 1 + opts.calib_factor
+    D_bins.delta /= 1 + opts.calib_factor
 
 ##############################################################################
 # Construct confidence belts with FC ranking principle and get D limits
