@@ -67,21 +67,6 @@ pylab.rcParams.update({
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
 
-def take_axis_argsort(X, ix, axis):
-    """
-    Return a new array that takes the output of an argsort, ix, indexing
-    into X such that if ix = X.argsort(axis=axis), then
-    take_axis_argsort(X, ix, axis) returns an array identical to the result
-    of X.sort(axis=axis).
-
-    Taken directly from:
-    <http://www.mail-archive.com/numpy-discussion@scipy.org/msg10150.html>
-    """
-    XX = numpy.rollaxis(X,axis)
-    ixix = numpy.rollaxis(ix,axis)
-    s = XX.shape
-    return numpy.rollaxis(XX[(ixix,)+tuple(numpy.indices(s)[1:])],0,axis+1)
-
 def boundary_of_nonzero_along(arr, axis):
     """
     Given an N dimensional array, return two N-1 dimensional arrays containing
