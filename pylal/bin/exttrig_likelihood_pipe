@@ -246,8 +246,10 @@ def create_grbUL_call(cp, opts):
   call += ' --ifo-tag ' + opts.ifo_tag
   call += ' --user-tag ' + input_user_tag + '_' + opts.user_tag
   call += ' --enable-output'
-  call += ' --h1-calibration 0.1'
+  call += ' --calib-factor 0.306'
   call += ' --likelihood-threshold 1'
+  call += ' --nonuniform-smoothing-D 0.025'
+  call += ' --include-MC-error 1.28'
 
   if opts.stage=='OPENBOX':
     dir = cp.get('common','output-path')+'OPENBOX'
