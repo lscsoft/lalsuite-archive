@@ -141,8 +141,7 @@ def get_confidence_band_with_MC_err(p_by_L, rank_by_L, CL, MC_fac, N_by_L):
         raise ValueError, "p_by_L and rank_by_L do not have matching length"
     if len(p_by_L) != len(N_by_L):
         raise ValueError, "p_by_L and N_by_L do not have matching length"
-    if p_by_L.sum() - MC_fac * p_by_L.sum() * (1 - p_by_L.sum()) \
-        / numpy.sqrt(N_by_L.sum()) < CL:
+    if p_by_L.sum() - MC_fac * CL * (1 - CL) / numpy.sqrt(N_by_L.sum()) < CL:
         warnings.warn("not enough probability to satisfy requested CL")
         return 0, len(p_by_L) - 1
 
@@ -152,14 +151,13 @@ def get_confidence_band_with_MC_err(p_by_L, rank_by_L, CL, MC_fac, N_by_L):
     # start with the trivial belt and start expanding outward
     ind_low = ind_high = order.next()
     if (p_by_L[ind_low] - \
-        MC_fac * p_by_L[ind_low] * (1 - p_by_L[ind_low]) \
-        / numpy.sqrt(N_by_L[ind_low])) >= CL:
+        MC_fac * CL * (1 - CL) / numpy.sqrt(N_by_L[ind_low])) >= CL:
         return ind_low, ind_high
     for new_ind in order:
         ind_low = min(ind_low, new_ind)
         ind_high = max(ind_high, new_ind)
         P_cum = p_by_L[ind_low:ind_high+1].sum()
-        P_cum -= MC_fac * P_cum * (1 - P_cum) \
+        P_cum -= MC_fac * CL * (1 - CL) \
             / numpy.sqrt(N_by_L[ind_low:ind_high].sum())
         if P_cum >= CL:
             return ind_low, ind_high
