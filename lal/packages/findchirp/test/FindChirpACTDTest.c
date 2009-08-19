@@ -1098,7 +1098,7 @@ int MakeDataACTD(
 
   for ( k = 0; k < nspec; ++k )
   {
-    REAL8 f = k*df;
+    REAL8 f = (REAL8)(k)*df;
     REAL8 psd;
     if( f >= fs )
     {

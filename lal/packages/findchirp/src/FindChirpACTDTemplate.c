@@ -65,7 +65,7 @@ LALFindChirpACTDTemplate(
     )
 /* </lalVerbatim> */
 {
-  UINT4          i, j;
+  UINT4          i, j, istart = 0, present = 3;
   UINT4          shift;
   UINT4          numPoints;
   REAL4Vector    ACTDVecs[NACTDVECS];
@@ -124,15 +124,6 @@ LALFindChirpACTDTemplate(
 
   /* check that the input exists */
   ASSERT( tmplt, status, FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
-
-  /* check that the template masses are not equal */
-  if( tmplt->mass1 == tmplt->mass2 )
-  {
-    tmplt->mass2 += 1e-05;
-    /*
-    ABORT( status, FINDCHIRPACTDH_EQMAS, FINDCHIRPACTDH_MSGEQMAS );
-    */
-  }
 
   /* check that the  approximant is AmpCorPPN */
   if( params->approximant != AmpCorPPN )
@@ -231,7 +222,7 @@ LALFindChirpACTDTemplate(
 
   memset( params->ACTDVecs->data, 0, NACTDVECS * numPoints * sizeof( REAL4 ) );
   memset( fcTmplt->ACTDtilde->data, 0, 
-                        NACTDTILDEVECS * (numPoints / 2 + 1) * sizeof( COMPLEX8 ) ); 
+                   NACTDTILDEVECS * (numPoints / 2 + 1) * sizeof( COMPLEX8 ) ); 
 
   for( i=0; i < NACTDVECS; ++i )
   {
@@ -240,14 +231,22 @@ LALFindChirpACTDTemplate(
     ACTDtilde[i+NACTDVECS].length = numPoints / 2 + 1;
     ACTDVecs[i].data  = params->ACTDVecs->data + (i * numPoints);
     ACTDtilde[i].data = fcTmplt->ACTDtilde->data + (i * (numPoints / 2 + 1 ) );
-    ACTDtilde[i+NACTDVECS].data = fcTmplt->ACTDtilde->data + ((i+NACTDVECS) * (numPoints / 2 + 1 ) );
+    ACTDtilde[i+NACTDVECS].data = 
+            fcTmplt->ACTDtilde->data + ((i+NACTDVECS) * (numPoints / 2 + 1 ) );
   }
 
   /* compute h(t) */
   /* legacy - length is the lentgh of the vectors */
+  
+  /* If a harmonic is not in band don't loop over it */  
+  if( - ppnParams.fStopIn / 2.0 <= params->fLow )
+    istart++;
+  if( - ppnParams.fStopIn  <= params->fLow )
+    istart++;
+
   for ( j = 0; j < waveform.a->data->length; ++j )
   {
-    for ( i = 0; i < NACTDVECS; ++i )
+    for ( i = istart; i < NACTDVECS; ++i )
     {
       ACTDVecs[i].data[j] = waveform.a->data->data[3*j + i]
          * cos( ( ( REAL4 )( i ) + 1.0 ) / 2.0 * waveform.phi->data->data[j] );
@@ -321,8 +320,13 @@ LALFindChirpACTDTemplate(
     {
       /* search for the end of the chirp but don't fall off the array */
       if ( --j == 0 )
-      {
-        ABORT( status, FINDCHIRPTDH_EEMTY, FINDCHIRPTDH_MSGEEMTY );
+      { 
+        /* We may only have one harmonic */
+        --present;
+        if( present == 0 )
+        { 
+          ABORT( status, FINDCHIRPTDH_EEMTY, FINDCHIRPTDH_MSGEEMTY );
+        }
       }
     }
     ++j;
@@ -425,6 +429,10 @@ LALFindChirpACTDTemplate(
     {
       ABORTXLAL( status );
     }
+    ACTDtilde[i].data[0].re = 0.0;
+    ACTDtilde[i].data[0].im = 0.0;
+    ACTDtilde[i].data[numPoints / 2].re = 0.0;
+    ACTDtilde[i].data[numPoints / 2].im = 0.0;
   }
 
   /* copy the template parameters to the findchirp template structure */
@@ -503,80 +511,102 @@ LALFindChirpACTDNormalize(
     ACTDtilde[i].length = numPoints;
     ACTDtilde[i].data  = fcTmplt->ACTDtilde->data + (i * numPoints );
   }
-
   /* Do a little jiggery-pokery so that the dominant 
-   * harmonic is the first index 
+   * harmonic is the first index.
+   * The third harmonic has more power in band so that goes in to 
+   * second place. 
    */
   {
     COMPLEX8 *tmp = ACTDtilde[0].data;
     ACTDtilde[0].data = ACTDtilde[1].data;
     ACTDtilde[1].data = tmp;
 
-    tmp = ACTDtilde[ NACTDVECS ].data;
-    ACTDtilde[NACTDVECS].data = ACTDtilde[NACTDVECS+1].data;
-    ACTDtilde[NACTDVECS+1].data = tmp;
+    tmp = ACTDtilde[1].data;
+    ACTDtilde[1].data = ACTDtilde[3].data;
+    ACTDtilde[3].data = tmp;
 
+    tmp = ACTDtilde[3].data;
+    ACTDtilde[3].data = ACTDtilde[5].data;
+    ACTDtilde[5].data = tmp;
+
+    tmp = ACTDtilde[4].data;
+    ACTDtilde[4].data = ACTDtilde[5].data;
+    ACTDtilde[5].data = tmp;
   }
+
 
   /* Norm the templates before we start */
   for( i = 0; i < NACTDVECS; ++i ) 
   {
-    norm =  XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
+    norm =  XLALFindChirpACTDInnerProduct( &ACTDtilde[2*i], &ACTDtilde[2*i],
                 wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-    norm = sqrt(norm);
-
-    for (k = 0; k < numPoints; k++)
+    if( norm != 0.0 )
     {
-      ACTDtilde[i].data[k].re /= norm;
-      ACTDtilde[i].data[k].im /= norm;
-    
+      norm = sqrt( norm );
+    }
+
+    for( k = 0; k < numPoints; k++ )
+    {
+      if( norm != 0.0 )
+      {
+        ACTDtilde[2*i].data[k].re /= norm;
+        ACTDtilde[2*i].data[k].im /= norm;
+      }        
       /* Set the other quadrature */
-      ACTDtilde[i+3].data[k].re = - ACTDtilde[i].data[k].im;
-      ACTDtilde[i+3].data[k].im = ACTDtilde[i].data[k].re;
+      ACTDtilde[2*i+1].data[k].re = - ACTDtilde[2*i].data[k].im;
+      ACTDtilde[2*i+1].data[k].im = ACTDtilde[2*i].data[k].re;   
     }
   }
-  
-  /* Lets see if Gram-Schmidt works */
+
+  /* Gram-Schmidt works */
   for ( i = 0; i < NACTDTILDEVECS; ++i )
   {
     for ( j = 0; j < i; ++j )
     {
+      norm = 0.0;
+
       REAL4 innerProd = 
                 XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
 
-      for ( k = 0; k < numPoints; ++k )
+      if( innerProd != 0.0 )
       {
-        ACTDtilde[i].data[k].re -= innerProd * ACTDtilde[j].data[k].re;
-        ACTDtilde[i].data[k].im -= innerProd * ACTDtilde[j].data[k].im;
-      }
-
-      /* Now re-norm the vector */
-      norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
+        for ( k = 0; k < numPoints; ++k )
+        {
+          ACTDtilde[i].data[k].re -= innerProd * ACTDtilde[j].data[k].re;
+          ACTDtilde[i].data[k].im -= innerProd * ACTDtilde[j].data[k].im;
+        }
+      
+        /* Now re-norm the vector */
+        norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
                 wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-      norm = sqrt(norm);
-
-      for (k = 0; k < numPoints; k++)
-      {
-        ACTDtilde[i].data[k].re /= norm;
-        ACTDtilde[i].data[k].im /= norm;
       }
+ 
+      if( norm != 0.0 )
+      {
+        norm = sqrt(norm);
+        for (k = 0; k < numPoints; k++)
+        {
+          ACTDtilde[i].data[k].re /= norm;
+          ACTDtilde[i].data[k].im /= norm;
+        }
+      }  
     }
   }
-
   /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
-  /* 
-  printf( " NORMALIZATION TEST:\n\n" );
+  /*
+  fprintf( stderr, "\n\n NORMALIZATION TEST:\n    ");
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
-    for ( k = 0; k < NACTDTILDEVECS; k++ )
+    for ( j= 0; j < NACTDTILDEVECS; j++ )
     {
-      norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
+      norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-      printf( "H%dH%d=%.4f ", i, k, fabs(norm) );
+      fprintf( stderr, "H%dH%d=%.4f ", i, j, fabs(norm) );
     }
-    printf("\n");
+    fprintf( stderr, "\n    ");
   }
+  fprintf( stderr, "                                    ");
   */
   /* XXX UNCOMMENT ABOVE TO TEST ORTHONORMALIZATION XXX */
 
@@ -599,22 +629,36 @@ REAL4  XLALFindChirpACTDInnerProduct(
                                     )
 {
   INT4  k;
+  INT4  cut;
   REAL4 innerProduct;
   REAL4 deltaF;
   REAL4 sum = 0.0;
+  REAL4 power;
+
+  if ( a->length != b->length )
+  {
+     XLALPrintError( "Lengths of the vectors do not agree\n" );
+     XLAL_ERROR_REAL8( "XLALFindChirpACTDInnerProduct", XLAL_EINVAL );
+  }
+     
 
   deltaF = 1.0 / ((REAL4)numPoints * deltaT);
 
-  for( k = 1; k < (INT4)a->length; ++k )
+  cut = flower / deltaF > 1 ? flower / deltaF : 1;
+
+  for( k = cut; k < (INT4)a->length-1; ++k )
   {
-    if(  k * deltaF  >= flower )
-    {
-      REAL4 power;
-      power = a->data[k].re * b->data[k].re;
-      power += a->data[k].im * b->data[k].im;
-      
-      sum += 4.0 * deltaT *  power * wtilde[k].re / (REAL4)(numPoints);
+    power = a->data[k].re * b->data[k].re;
+    power += a->data[k].im * b->data[k].im;
+
+    if( isnan( power ) ){
+      fprintf(stderr, "\nk=%d\ta.re=%.3e\ta.im=%.3e\tb.re=%.3e\tb.im=%.3e\n",
+                k, a->data[k].re, b->data[k].re,
+                a->data[k].im, b->data[k].im );
+      exit( 1 );
     }
+ 
+    sum += 4.0 * deltaT *  power * wtilde[k].re / (REAL4)(numPoints);
   }
 
   innerProduct = sum;
