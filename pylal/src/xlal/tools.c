@@ -492,6 +492,88 @@ PyTypeObject pylal_SimInspiralTable_Type = {
 /*
  * ============================================================================
  *
+ *                                 Coinc Type
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Cached ID types
+ */
+
+
+static PyObject *coinc_event_id_type = NULL;
+static PyObject *coinc_def_id_type = NULL;
+static PyObject *time_slide_id_type = NULL;
+
+
+/*
+ * Structure
+ */
+
+
+typedef struct {
+	PyObject_HEAD
+	long process_id_i;
+	long coinc_def_id_i;
+	long coinc_event_id_i;
+	long time_slide_id_i;
+	PyObject *instruments;
+	int nevents;
+	double likelihood;
+} ligolw_Coinc;
+
+
+/*
+ * Attributes
+ */
+
+
+static struct PyMemberDef ligolw_Coinc_members[] = {
+	{"instruments", T_OBJECT, offsetof(ligolw_Coinc, instruments), 0, "instruments"},
+	{"nevents", T_INT, offsetof(ligolw_Coinc, nevents), 0, "nevents"},
+	{"likelihood", T_DOUBLE, offsetof(ligolw_Coinc, likelihood), 0, "likelihood"},
+	{NULL,}
+};
+
+
+static struct PyGetSetDef ligolw_Coinc_getset[] = {
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, process_id_i), &process_id_type}},
+	{"coinc_def_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_def_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, coinc_def_id_i), &coinc_def_id_type}},
+	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, coinc_event_id_i), &coinc_event_id_type}},
+	{"time_slide_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "time_slide_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, time_slide_id_i), &time_slide_id_type}},
+	{NULL,}
+};
+
+
+/*
+ * Methods
+ */
+
+
+/* FIXME:  add get_instruments(), set_instruments() */
+
+
+/*
+ * Type
+ */
+
+
+PyTypeObject ligolw_Coinc_Type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(ligolw_Coinc),
+	.tp_flags = Py_TPFLAGS_DEFAULT,
+	.tp_name = MODULE_NAME ".Coinc",
+	.tp_new = PyType_GenericNew,
+	.tp_members = ligolw_Coinc_members,
+	.tp_getset = ligolw_Coinc_getset,
+};
+
+
+/*
+ * ============================================================================
+ *
  *                               CoincMap Type
  *
  * ============================================================================
@@ -501,9 +583,6 @@ PyTypeObject pylal_SimInspiralTable_Type = {
 /*
  * Structure
  */
-
-
-static PyObject *coinc_event_id_type = NULL;
 
 
 typedef struct {
@@ -738,6 +817,14 @@ void inittools(void)
 
 	import_array();
 
+	/* Cached ID types */
+	process_id_type = get_ilwdchar_class("process", "process_id");
+	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
+	sim_inspiral_simulation_id_type = get_ilwdchar_class("sim_inspiral", "simulation_id");
+	coinc_def_id_type = get_ilwdchar_class("coinc_definer", "coinc_def_id");
+	coinc_event_id_type = get_ilwdchar_class("coinc_event", "coinc_event_id");
+	time_slide_id_type = get_ilwdchar_class("time_slide", "time_slide_id");
+
 	/* LALDetector */
 	if(PyType_Ready(&pylal_LALDetector_Type) < 0)
 		return;
@@ -750,20 +837,22 @@ void inittools(void)
 		return;
 	Py_INCREF(&pylal_SnglInspiralTable_Type);
 	PyModule_AddObject(module, "SnglInspiralTable", (PyObject *) &pylal_SnglInspiralTable_Type);
-	process_id_type = get_ilwdchar_class("process", "process_id");
-	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
 
 	/* SimInspiralTable */
 	if(PyType_Ready(&pylal_SimInspiralTable_Type) < 0)
 		return;
 	Py_INCREF(&pylal_SimInspiralTable_Type);
 	PyModule_AddObject(module, "SimInspiralTable", (PyObject *) &pylal_SimInspiralTable_Type);
-	sim_inspiral_simulation_id_type = get_ilwdchar_class("sim_inspiral", "simulation_id");
+
+	/* Coinc */
+	if(PyType_Ready(&ligolw_Coinc_Type) < 0)
+		return;
+	Py_INCREF(&ligolw_Coinc_Type);
+	PyModule_AddObject(module, "Coinc", (PyObject *) &ligolw_Coinc_Type);
 
 	/* CoincMap */
 	if(PyType_Ready(&ligolw_CoincMap_Type) < 0)
 		return;
 	Py_INCREF(&ligolw_CoincMap_Type);
 	PyModule_AddObject(module, "CoincMap", (PyObject *) &ligolw_CoincMap_Type);
-	coinc_event_id_type = get_ilwdchar_class("coinc_event", "coinc_event_id");
 }
