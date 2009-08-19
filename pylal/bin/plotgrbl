@@ -27,9 +27,6 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "plotgrbl"
 __title__ = "GRB likelihood diagnostics"
 
@@ -189,7 +186,7 @@ opts, args = parse_args()
 
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
+InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 html_footer = ""
 
 ##############################################################################

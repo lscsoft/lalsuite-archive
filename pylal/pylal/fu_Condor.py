@@ -1241,9 +1241,10 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
           param=row.param.strip("-")
           value=row.value
           if param == 'frame-cache': cacheFile=value
-          if param == 'gps-start-time': GPSstarts.append(float(value))
-          if param == 'gps-end-time': GPSends.append(float(value))
-
+          if param == 'gps-start-time':
+            GPSstarts.append(float(value))
+          if param == 'gps-end-time':
+            GPSends.append(float(value))
         self.add_var_arg("--IFO "+str(ifo))
         self.add_var_arg("--cache " +str(cacheFile))
       #Check the start and end times are OK
@@ -1251,14 +1252,18 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       GPSstart=str(max(GPSstarts)+64)
       GPSend=str(min(GPSends)-64)
 
+      #Check the start and end times are OK
+      GPSstart=str(max(GPSstarts)+64)
+      GPSend=str(min(GPSends)-64)
+
       outputname = followupoddsJob.name + '/'+followupoddsJob.name+'-' \
-                   +trig.ifos+'-'+str(trig.statValue)+'_'+str(trig.eventID)+'.dat'
+                   +trig.ifos+'-'+str(trig.statValue)+'_'+str(trig.eventID)+'_'+randomseed[0]+'.dat'
       self.add_var_opt("Nlive",Nlive)
       self.add_var_opt("GPSstart",GPSstart)
       self.add_var_opt("length",str(float(GPSend)-float(GPSstart)))
       self.add_var_opt("approximant",Approximant)
       self.add_var_opt("out",outputname)
-      self.add_var_opt("Nsegs",str((int(GPSend)-int(GPSstart))/8))
+      self.add_var_opt("Nsegs",str((int(float(GPSend))-int(float(GPSstart)))/8))
       self.add_var_opt("dt",time_prior)
       self.add_var_opt("end_time",trig.gpsTime[ifo])
       self.add_var_opt("Mmin",2.8)
@@ -1266,9 +1271,10 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("srate",srate)
       self.add_var_opt("seed",randomseed[0])
       #self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
-      self.id = followupoddsJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.id = followupoddsJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0]
       self.outputCache = trig.ifos + ' ' + followupoddsJob.name + ' ' +\
                          self.id.split('-')[-1]+' '+outputname+'\n'
+      self.add_var_opt("channel",string.strip(cp.get("followup-coh-trigbank",trig.ifos[0:2]+"_channel")))
 
       #print "Using IFOs " + str(IFOs)
 
@@ -1276,7 +1282,7 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
 
       #print "Arguments: " + str(self.get_cmd_line())
 
-      if opts.odds or float(GPSend)-float(GPSstart)<24:
+      if opts.odds and float(GPSend)-float(GPSstart)>=24:
         dag.addNode(self,self.friendlyName)
         self.validate()
       else: self.invalidate()
@@ -1314,10 +1320,9 @@ class followupOddsPostNode(pipeline.CondorDAGNode,webTheNode):
       pipeline.CondorDAGNode.__init__(self,oddsPostJob)
 
       # get the list of odds .txt files to be used as input
-      oddsfilelist = ''
       for oddsjobId in oddsjoblist:
-        oddsfilelist += oddsjobId.split('-')[0]+'/' + oddsjobId + '.txt,' # here we assume that the directory name is mcmcId.split('-')[0]
-        self.add_var_opt("data",oddsfilelist.strip(','))
+        oddsfile = oddsjobId.split('-')[0]+'/' + oddsjobId + '.dat' # here we assume that the directory name is mcmcId.split('-')[0]
+        self.add_var_arg("--data " + oddsfile)
 
       # Get the number of live points in each run
       Nlive = string.strip(cp.get('followup-odds','min-live'))
@@ -1326,7 +1331,11 @@ class followupOddsPostNode(pipeline.CondorDAGNode,webTheNode):
       if cp.has_option('followup-odds','web') and string.strip(cp.get('followup-odds','web')):
         outputpath = string.strip(cp.get('followup-odds','web'))
       else:
-        outputpath = oddsPostJob.name
+        outputpath = oddsPostJob.name + "/" + str(trig.eventID)
+      if not os.access(outputpath,os.F_OK):
+        os.mkdir(outputpath)
+
+      self.add_var_opt("outpath",outputpath)
 
       self.id = oddsPostJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
 
@@ -1431,7 +1440,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
         
       self.add_var_opt("template",string.strip(cp.get('followup-mcmc','template')))
       self.add_var_opt("iterations",iterations)
-      self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
+      self.add_var_opt("randomseed",randomseed)
       self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[maxIFO])
       self.add_var_opt("tbefore",tbefore)
       self.add_var_opt("tafter",tafter)
@@ -1475,7 +1484,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.add_var_opt("importanceresample",10000)
 
-      self.id = followupmcmcJob.name + '-' + self.ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
+      self.id = followupmcmcJob.name + '-' + self.ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed
       outputName = followupmcmcJob.name+'/'+self.id
       self.outputCache = self.ifonames + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '.csv\n'
 
@@ -1718,6 +1727,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("ra-step",string.strip(cp.get('chia','ra-step')))
       self.add_var_opt("dec-step",string.strip(cp.get('chia','dec-step')))
       self.add_var_opt("numCohTrigs",string.strip(cp.get('chia','numCohTrigs')))
+      self.add_var_opt("user-tag",str(trig.eventID))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
       bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
@@ -1743,7 +1753,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       hLengthAnalyzed = 1
       self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) - int(hLengthAnalyzed) )
       self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) + int(hLengthAnalyzed) )
-      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+      skipParams = ['minimal-match', 'bank-file', 'injection-file', 'trig-start-time', 'trig-end-time']
 
       if opts.plot_chia:
         dag.addNode(self,'chia')
@@ -1808,9 +1818,9 @@ class followUpCohireNode(pipeline.CondorDAGNode,webTheNode):
     if 1: #try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
-      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
-      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
       self.add_var_opt("input",inputFileName)
       self.add_var_opt("data-type","all_data")
       self.add_var_opt("output",outputXmlFile)
@@ -1874,7 +1884,7 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
       self.add_var_opt("chiaXmlFile",chiaXmlFileName)
       self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
       self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]+1))
@@ -1958,6 +1968,9 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("segment-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
+    if cp.has_section("followup-analyse-qscan"):
+      if cp.has_option("followup-analyse-qscan","hoft-qscan-ref-channel"):
+        self.add_var_opt("hoft-channel-ref",cp.get("followup-analyse-qscan","hoft-qscan-ref-channel"))
 
     if cp.has_option("followup-foreground-qscan","remote-ifo"):
       remote_ifo = cp.get("followup-foreground-qscan","remote-ifo")

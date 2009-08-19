@@ -132,6 +132,7 @@ def timeindays(col_data ):
     - S5:         [815119213, 875232014]
     - E13:        [924606015, 924865215]
     - E14:        [928875615, 929134815]
+    - S6:         [930960015, ?????????]
   @param col_data: array containing times in GPS seconds
   """
   lvtimes = [700000000, 700086400]
@@ -142,10 +143,13 @@ def timeindays(col_data ):
   s5times = [815119213, 875232014]
   e13times = [924606015, 924865215]
   e14times = [928875615, 929134815]
+  s6time = 930960015
 
   if len(col_data) == 0: return col_data
 
-  if col_data[0] > s2times[0] and col_data[0] < s2times[1]:
+  if col_data[0] > s6time:
+    start = s6time
+  elif col_data[0] > s2times[0] and col_data[0] < s2times[1]:
     start = s2times[0]
   elif col_data[0] > s3times[0] and col_data[0] < s3times[1]:
     start = s3times[0]
@@ -1258,7 +1262,7 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     error = array(error)
 
     if plot_type == 'log':
-      bins = 10**bins
+      plotbins = 10**plotbins
       if plot_name:
         semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2, label = plot_name)

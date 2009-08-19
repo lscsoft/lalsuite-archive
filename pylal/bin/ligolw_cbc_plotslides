@@ -57,9 +57,9 @@ def parse_command_line():
             "environment. "
         )
     parser.add_option( "-P", "--output-path", action = "store", type = "string", \
-        default = "", metavar = "PATH", \
+        default = os.getcwd(), metavar = "PATH", \
         help = 
-            "path where the figures should be stored" 
+            "Optional. Path where the figures should be stored. Default is current directory." 
         )
     parser.add_option( "-O", "--enable-output", action = "store_true", \
         default =  False, metavar = "OUTPUT", \
@@ -90,8 +90,6 @@ def parse_command_line():
     #check if required options specified and for self-consistency
     if not options.input:
         raise ValueError, "--input must be specified"
-    if not options.output_path:
-        raise ValueError, "--output-path must be specified"
 
     return options, sys.argv[1:]
             
