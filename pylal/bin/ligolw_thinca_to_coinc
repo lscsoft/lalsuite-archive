@@ -40,11 +40,11 @@ import re
 import sys
 import os
 try:
-    any
-    all
+	any
+	all
 except NameError:
-    # Python < 2.5
-    from glue.iterutils import any, all
+	# Python < 2.5
+	from glue.iterutils import any, all
 
 from glue import iterutils
 from glue import lal
@@ -62,7 +62,7 @@ from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -95,6 +95,15 @@ lsctables.SnglInspiral.__hash__ = __sngl_inspiral_hash__
 
 
 #
+# Disable the custom ID remapping attached to the SnglInspiralTable class
+# (use the generic ID mapping provided by the parent class instead)
+#
+
+
+del lsctables.SnglInspiralTable.updateKeyMapping
+
+
+#
 # =============================================================================
 #
 #                                 Command Line
@@ -121,7 +130,6 @@ def parse_command_line():
 	parser.add_option("--search", metavar = "string", type = "string", default = None, help = "Set the search, e.g., 'low_mass', for this experiment in the experiment table (optional).")
 	parser.add_option("--experiment-start-time", type="int", help = "Start time, in gps seconds, of the experiment being performed. This is NOT the start time of the thinca-files being used. Required.")
 	parser.add_option("--experiment-end-time", type="int", help = "End time, in gps seconds, of the experiment being performed. This is NOT the end time of the thinca-files being used. Required.")
-	parser.add_option("--compute-durations", action = "store_true", help = "Turning on will cause thinca_to_coinc to compute all_data durations for each slide in the experiment_summary table. For zero-lag, playground and exclude_play durations will also be calculated. If veto-segments are specified, will apply veto segments when calculating.")
 	parser.add_option("--simulation", action = "store_true", default = False, help = "Turn on if thinca file contains injections. Doing so will causes only zero-lag entries to be written to the experiment_summary table whose datatype is 'simulation'.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
@@ -132,26 +140,27 @@ def parse_command_line():
 		if options.verbose:
 			print >>sys.stderr, "reading %s ..." % options.ihope_cache
 		# find second thinca cache entries
-		pattern = re.compile("THINCA(_SLIDE)?_SECOND_[^_]+_(?P<tag>.+)_CAT_(?P<cat>[\d]+)_VETO")
+		pattern = re.compile(r"THINCA(?P<slide>(_SLIDE)?)_SECOND_[^_]+_(((?P<taga>.+)_CAT_(?P<cat>[\d]+)_VETO)|(?P<tagb>.+))\Z")
+		metadata_cache = {}
 		zero_lag_urls = {}
 		slide_urls = {}
-		for c in map(lal.CacheEntry, file(options.ihope_cache)):
+		for n, c in enumerate(lal.CacheEntry(line) for line in file(options.ihope_cache)):
+			if options.verbose and not n % 1597:
+				print >>sys.stderr, "\t%d lines\r" % n,
+			if "INSPIRAL_SECOND" in c.url:
+				metadata_cache[os.path.basename(c.path())] = c.url
 			category = pattern.match(c.description)
 			if category is None:
 				continue
-			category = category.groups()
-			if category[0] is None:
+			category = category.groupdict()
+			if category["slide"] == "":
 				# zero-lag URL
-				try:
-					zero_lag_urls[category[1:]].append(c)
-				except KeyError:
-					zero_lag_urls[category[1:]] = [c]
+				zero_lag_urls.setdefault((category["taga"] or category["tagb"], category["cat"] or "1"), []).append(c)
 			else:
 				# slide URL
-				try:
-					slide_urls[category[1:]].append(c)
-				except KeyError:
-					slide_urls[category[1:]] = [c]
+				slide_urls.setdefault((category["taga"] or category["tagb"], category["cat"] or "1"), []).append(c)
+		if options.verbose:
+			print >>sys.stderr
 		# extract URLs.  sorting cache entries puts them in time
 		# order
 		zero_lag_urls = dict((key, [c.url for c in sorted(cache)]) for key, cache in zero_lag_urls.items())
@@ -159,7 +168,7 @@ def parse_command_line():
 		# pad lists with None's so zero-lag and slide lists exist
 		# for all the same categories and have the same number of
 		# entries
-		for key in set(zero_lag_urls.keys()) | set(slide_urls.keys()):
+		for key in set(zero_lag_urls) | set(slide_urls):
 			if key not in slide_urls:
 				# must be in zero-lag
 				slide_urls[key] = [None,] * len(zero_lag_urls[key])
@@ -173,8 +182,9 @@ def parse_command_line():
 				zero_lag_urls[key] += [None,] * (len(slide_urls[key]) - len(zero_lag_urls[key]))
 		# match up each zero-lag url with corresponding slides urls
 		# in each category
-		categories = dict((key, zip(zero_lag_urls[key], slide_urls[key])) for key in zero_lag_urls.keys())
+		categories = dict((key, zip(zero_lag_urls[key], slide_urls[key])) for key in zero_lag_urls)
 	elif options.zero_lag_file or options.time_slide_file:
+		metadata_cache = None
 		categories = {(None, None): [(options.zero_lag_file, options.time_slide_file)]}
 	else:
 		raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
@@ -188,7 +198,98 @@ def parse_command_line():
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
 
-	return options, categories
+	return options, categories, metadata_cache
+
+
+#
+# =============================================================================
+#
+#                              Metadata Retrieval
+#
+# =============================================================================
+#
+
+
+#
+# content handler used to remove the sngl_inspiral table from input
+# documents
+#
+
+
+class MetadataContentHandler(ligolw.FilteringLIGOLWContentHandler):
+	def __init__(self, xmldoc):
+		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: not lsctables.IsTableProperties(lsctables.SnglInspiralTable, name, attrs))
+
+
+#
+# uses a dictionary mapping filename to URL to retrieve the process
+# metadata for the lalapps_inspiral jobs whose triggers are found in
+# xmldoc.  re-assigns each trigger's process_id to indicate the
+# lalapps_inspiral job that generated it.
+#
+
+
+def add_metadata(xmldoc, metadata_cache, verbose = False):
+	if verbose:
+		print >>sys.stderr, "retrieving lalapps_inspiral metadata ..."
+
+	#
+	# choose the metadata URLs for this document
+	#
+
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
+	urls = sorted(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file")
+
+	#
+	# insert the metadata from the URLs into xmldoc, remapping IDs to
+	# prevent collision with existing information
+	#
+
+	for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
+		tbl.sync_next_id()
+	xmldoc = ligolw_add.ligolw_add(xmldoc, urls, verbose = verbose, contenthandler = MetadataContentHandler)
+
+	#
+	# check for no-op and unusable documents
+	#
+
+	try:
+		table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		# no inspiral table --> no-op
+		if verbose:
+			print >>sys.stderr, "cannot find sngl_inspiral table"
+		return xmldoc
+	if len(set(row.search for row in table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))) != 1:
+		raise ValueError, "sngl_inspiral triggers must be collected from exactly one search"
+
+	#
+	# index lalapps_inspiral entries in the search_summary table
+	#
+
+	if verbose:
+		print >>sys.stderr, "re-linking sngl_inspiral rows to process rows ..."
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("inspiral")
+	segs = {}
+	ids = {}
+	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+		if row.process_id in process_ids:
+			segs.setdefault(row.ifos, segments.segmentlist()).append(row.get_out())
+			ids.setdefault(row.ifos, []).append(row.process_id)
+
+	#
+	# assign each sngl_inspiral to its (presumably) original
+	# lalapps_inspiral job
+	#
+
+	for row in table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName):
+		row.process_id = ids[row.ifo][segs[row.ifo].find(row.get_end())]
+
+	#
+	# done
+	#
+
+	return xmldoc
 
 
 #
@@ -453,8 +554,8 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 		# required instruments
 		#
 
-		if not required_instruments.issubset(set(offset_vector.keys())):
-			missing_instruments = set(offset_vector.keys()) - required_instruments
+		if not required_instruments.issubset(set(offset_vector)):
+			missing_instruments = set(offset_vector) - required_instruments
 			raise ValueError, "no option(s) %s in process_params table for instrument(s) %s in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
 
 		#
@@ -464,7 +565,7 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 		#
 
 		if instruments is not None:
-			for instrument in set(offset_vector.keys()) - instruments:
+			for instrument in set(offset_vector) - instruments:
 				del offset_vector[instrument]
 
 	#
@@ -558,7 +659,6 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 		print >>sys.stderr, "removed %d redundant time slide vectors, %d remaining" % (length_before - length_after, length_after)
 
 
-
 #
 # =============================================================================
 #
@@ -566,10 +666,15 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 #
 # =============================================================================
 #
-		
-def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = None, verbose = False):
+
+
+def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = None, add_inst_subsets = False, verbose = False):
 	"""
-	Populate the experiment table using the given entries.
+	Populate the experiment table using the given entries. If
+	add_inst_subsets is set to True, will write additional
+	entries for every possible sub-combination of the given instrument
+	set. Returns a dictionary of experiment_ids keyed by the instrument
+	set.
 
 	@xmldoc: xmldoc to get/write table to
 	@lars_id: lars_id of the experiment
@@ -578,11 +683,13 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	@expr_start_time: start time of the experiment (not of the file)
 	@expr_end_time: end time of the experiment (not of the file)
 	@comments: any desired comments
+	@add_inst_subsets: will write an entry for every possible subset
+		of @instruments
 	@verbose: be verbose
 	"""
 
 	if verbose:
-		print >> sys.stderr, "Populating the experiment table..."
+		print >> sys.stderr, "populating the Experiment table..."
 
 	# find the experiment table or create one if needed
 	try:
@@ -590,8 +697,20 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	except ValueError:
 		expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
 	
-	# write entry to experiment table if it doesn't already exist
-	return expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
+	experiment_ids = {}
+
+	# write entry to the experiment table for the given instruments if it doesn't already exist
+	experiment_ids[frozenset(instruments)] =  expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
+
+	#  add every possible sub-combination of the instrument set if 
+	# they're not already in the table 
+	if add_inst_subsets:
+		for nn in range(2, len(instruments) ):
+			for sub_combo in iterutils.choices( list(instruments), nn ):
+				if frozenset(sub_combo) not in experiment_ids:
+					experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(search_group, search, lars_id, sub_combo, expr_start_time, expr_end_time, comments = comments)
+
+	return experiment_ids
 
 
 def populate_experiment_summ_table( xmldoc, experiment_id, time_slide_dict, veto_def_name, simulation = False, return_dict = False, verbose = False ):
@@ -633,38 +752,30 @@ def populate_experiment_summ_table( xmldoc, experiment_id, time_slide_dict, veto
 		expr_summ_table.write_non_injection_summary( experiment_id, time_slide_dict, veto_def_name, write_all_data = True, write_playground = True, write_exclude_play = True, return_dict = return_dict )
 
 
-def generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, comments = None, simulation = False, verbose = False):
+def generate_experiment_tables(xmldoc, search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, comments = None, simulation = False, verbose = False):
 	"""
-	Creates or adds entries to the experiment table and experiment_summ
-	table using the time_slide table.
+	Create or adds entries to the experiment table and experiment_summ
+	table using instruments pulled from the search summary table and
+	offsets pulled from the time_slide table.
 	"""
 
 	if verbose:
-		print >> sys.stderr, "Populating the experiment and experiment_summary tables using the time_slide table..."
+		print >> sys.stderr, "Populating the experiment and experiment_summary tables using search_summary and time_slide tables..."
 
-	# Get the time_slide_table as dict
-	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+	# Get the instruments that were on
+	thinca_process_ids = get_thinca_process_ids(xmldoc)
+	instruments = set( get_search_summary_instruments(xmldoc, thinca_process_ids) )
+
+	# Populate the experiment table
+	experiment_ids = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, add_inst_subsets = True, verbose = verbose)
 	
-	# Cycle through the time_slide_ids in the time_slide table and populate the
-	# expr table
-	experiment_ids = {}
-	for slide_id in time_slide_dict:
-		# get instrument set
-		instruments = sorted(set(time_slide_dict[ slide_id ].keys()))
+	# Get the time_slide table as dict
+	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
 
-		# Add entry to expr_table if instrument set is new
-		if frozenset(instruments) not in experiment_ids:
-			experiment_ids[frozenset(instruments)] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = False)
-			# Additionally, add every possible sub-combination of the instrument set if 
-			# they're not already in the table using iterutils.choices
-			for nn in range(2, len(instruments) ):
-				for sub_combo in iterutils.choices( instruments, nn ):
-					if frozenset(sub_combo) not in experiment_ids.keys():
-						experiment_ids[frozenset(sub_combo)] = populate_experiment_table(xmldoc, search_group, search, lars_id, sub_combo, expr_start_time, expr_end_time, comments = comments, verbose = False)
-
-	# Populate experiment_summ_table
+	# Populate the experiment_summary table
 	for instruments in experiment_ids:
 		populate_experiment_summ_table( xmldoc, experiment_ids[instruments], time_slide_dict, veto_def_name, simulation = simulation, return_dict = False, verbose = False )
+
 
 #
 # =============================================================================
@@ -673,6 +784,7 @@ def generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, 
 #
 # =============================================================================
 #
+
 
 def depopulate_experiment_tables(xmldoc, verbose = False):
 	"""
@@ -789,7 +901,6 @@ def retrieve_ring_boundaries(xmldoc):
 	return rings
 
 
-
 def get_playground_segments(all_data_segments):
 	"""
 	Calculates playground segments using all_data segments.
@@ -802,12 +913,17 @@ def get_playground_segments(all_data_segments):
 		playground_segments |= segmentsUtils.S2playground(this_segment)
 
 	return playground_segments
-		
 
 
 #
 # For sngl_inspiral <--> sngl_inspiral coincidences
 #
+
+
+def check_for_thinca_id_overflow(event):
+	a, b, c = event.get_id_parts()
+	if a >= 100000000 and c == 99999:
+		raise ValueError, "found sngl_inspiral with ID ending in 99999 (\"%s\"):  overflow occured in lalapps_thinca's ID assignment, time slide indexes are corrupted" % str(event.event_id)
 
 
 def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, verbose = False):
@@ -903,6 +1019,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
+				check_for_thinca_id_overflow(event)
 				event.event_id = sngl_inspiral_table.get_next_id()
 			continue
 
@@ -935,6 +1052,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		#
 
 		for event in events:
+			check_for_thinca_id_overflow(event)
 			coincmap = coinc_event_map_table.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id = sngl_inspiral_table.get_next_id()
@@ -1066,7 +1184,8 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 # =============================================================================
 #
 
-def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, simulation = False, verbose = False):
+
+def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, simulation = False, verbose = False):
 	from glue.pipeline import s2play as is_in_playground
 
 	#
@@ -1089,7 +1208,9 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 	#
 	# Index the coinc_inspiral table as a dictionary
 	#
+
 	coinc_index = dict((row.coinc_event_id, row) for row in table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName))
+
 	#
 	# Get the time_slide_table as dict
 	#
@@ -1097,8 +1218,7 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
 
 	#
-	# find the experiment table; for now, assign all coincs to the same
-	# experiment ifo time (this may change later when vetoes are applied)
+	# find the experiment table
 	#
 
 	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
@@ -1108,6 +1228,15 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 	#
 
 	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+
+	#
+	# Get the on_instruments from the search summary table
+	# for now will assign all coincs to the same experiment ifo time
+	# (this may change later when vetoes are applied)
+	#
+
+	thinca_process_ids = get_thinca_process_ids(xmldoc)
+	instruments = get_search_summary_instruments(xmldoc, thinca_process_ids)
 
 	#
 	# cycle through the coincs in the coinc_inspiral table
@@ -1123,10 +1252,9 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 
 		expr_map.coinc_event_id = coinc.coinc_event_id
 
-		# get the (temporary) experiment and experiment_summ_id for this coinc using the
-		# instruments from the time_slide_id
-		instruments = set(time_slide_dict[coinc.time_slide_id].keys())
+		# get the (temporary) experiment and experiment_summ_id for this coinc 
 		expr_id = expr_table.get_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time )
+
 		if simulation:
 			# map to the simulation entry in the experiment_summary table
 			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id, coinc.time_slide_id,
@@ -1313,28 +1441,26 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		offset_vector = time_slides[coinc_event.time_slide_id]
 
 		#
-		# compare the instruments participating in the coinc to the
-		# instruments named in the time slide vector
+		# retrieve the instruments named in the search summary
+		# table for the ring in which the coinc was found (recorded
+		# earlier)
 		#
 
-		expected_instruments = set(offset_vector.keys())
+		on_instruments = coinc_event.get_instruments()
+
+		#
+		# compare the instruments participating in the coinc to the
+		# instruments for which offsets are available
+		#
+
 		found_instruments = set(event.ifo for event in index[coinc_event.coinc_event_id])
 
-		if found_instruments == expected_instruments:
-			#
-			# all instruments contributed to this coinc:
-			# nothing more to check
-			#
-
-			continue
-
-		if not found_instruments.issubset(expected_instruments):
-			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
+		if not found_instruments.issubset(set(offset_vector)):
+			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector)), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
 
 		#
-		# if we get here, the time shift vector names instruments
-		# that did not particicpate in the coinc.  check to see
-		# which instruments were on at the time
+		# from the vetoes, check to see which instruments were
+		# *really* on at the time of the coinc
 		#
 
 		#
@@ -1374,7 +1500,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# least those that participated in the coinc.
 		#
 
-		on_instruments = set(instrument for instrument in offset_vector.keys() if instrument not in vetoes or coinc_time not in vetoes[instrument])
+		on_instruments -= set(instrument for instrument, vetosegs in vetoes.items() if coinc_time in vetosegs)
 		coinc_event.set_instruments(on_instruments | found_instruments)
 
 		# the following re-sets the detectors column in the experiment summary table,
@@ -1415,7 +1541,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 			if verbose:
 				moved_coincs[experiment_index[current_eid].instruments][on_instr] += 1 
 
-
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
 		for old_instruments in moved_coincs:
@@ -1426,95 +1551,22 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 #
 # =============================================================================
 #
-#                              Compute Durations
-#
-# =============================================================================
-#
-
-
-def compute_durations( xmldoc, veto_segments, verbose = False):
-	"""
-	Computes livetime for each element in the experiment_summary table
-	using SngInspiralUtils.compute_thinca_livetime and writes the result
-	to the duration column.
-	"""
-
-	if options.verbose:
-		print >> sys.stderr, "Computing durations for each experiment in the experiment_summary table..."
-
-	#
-	# find the tables we'll need
-	#
-
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-
-	#
-	# turn the time slide table into a dictionary
-	#
-
-	time_slide_dict = time_slide_table.as_dict()
-
-
-	#
-	# retrieve the ring boundaries
-	#
-
-	# retrieve the all_data rings
-	rings = retrieve_ring_boundaries(xmldoc)
-	# retrieve the playground segments
-	playground_segments = get_playground_segments(rings)
-	# calculate the exclude_play segs using all_data rings and playground_segments
-	exclude_play_segments = rings - playground_segments
-
-	#
-	# performance assist: remove veto segments that don't fall in any
-	# of the rings, then remove veto segment lists that are empty
-	#
-
-	coalesced_rings = segments.segmentlist(rings).coalesce()
-	veto_segments = segments.segmentlistdict((instrument, seglist & coalesced_rings) for (instrument, seglist) in veto_segments.items() if seglist.intersects(coalesced_rings))
-
-	#
-	# cycle through experiments in the experiment_summ table
-	# calculating the duration for each
-	#
-
-	for row in expr_summ_table:
-		on_instruments = lsctables.instrument_set_from_ifos(expr_table.get_row_from_id(row.experiment_id).instruments)
-		off_instruments = set(ifo for ifo in time_slide_dict[ row.time_slide_id ]) - on_instruments
-		# if zero-lag, use the apprpiate ring summaries depending on whether the row is
-		# all_data, playground, or exclude_play
-		if row.datatype == 'playground':
-			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, playground_segments, veto_segments, [time_slide_dict[row.time_slide_id]] ))
-		elif row.datatype == 'exclude_play':
-			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, exclude_play_segments, veto_segments, [time_slide_dict[row.time_slide_id]] ))
-		else: # is all_data or slide, use rings
-			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] ))
-
-	
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
 #
 
 
-options, url_categories = parse_command_line()
+options, url_categories, metadata_cache = parse_command_line()
+
 
 if options.veto_segments:
 	try:
 		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
 	except AttributeError:
 		# will get an AttributeError if using new-format veto segment file because
-		# of new format does not include _ns; if so, remove the _ns columns from the
+		# new format does not include _ns; if so, remove the _ns columns from the
 		# segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-		from glue.lal import LIGOTimeGPS
-
 		del lsctables.SegmentTable.validcolumns['start_time_ns']
 		del lsctables.SegmentTable.validcolumns['end_time_ns']
 
@@ -1522,7 +1574,7 @@ if options.veto_segments:
 			"""
 			Return the segment described by this row.
 			"""
-			return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+			return segments.segment(lsctables.LIGOTimeGPS(self.start_time, 0), lsctables.LIGOTimeGPS(self.end_time, 0))
 
 		def set_segment(self, segment):
 			"""
@@ -1535,7 +1587,6 @@ if options.veto_segments:
 		lsctables.Segment.set = set_segment
 
 		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
-
 
 
 for (tag, veto_category), url_pairs in url_categories.items():
@@ -1560,17 +1611,15 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		# set variables for experiment tables
 		#FIXME: should search_group be command line set? comments?
 		search_group = "cbc"
-		search = options.search
-		lars_id = options.lars_id
 
 		# write the experiment_tables 
-		generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, comments = None, simulation = options.simulation, verbose = options.verbose)
+		generate_experiment_tables(xmldoc, search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, comments = None, simulation = options.simulation, verbose = options.verbose)
 
 		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
 
 		depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
-		populate_experiment_map(search_group, search, lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, simulation = options.simulation, verbose = options.verbose)
+		populate_experiment_map(xmldoc, search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, simulation = options.simulation, verbose = options.verbose)
 
 		if options.veto_segments:
 			apply_vetoes(xmldoc, veto_segments, process, verbose = options.verbose)
@@ -1579,13 +1628,10 @@ for (tag, veto_category), url_pairs in url_categories.items():
 
 		depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
-		if options.compute_durations and not options.veto_segments:
-			# set veto_segments to empty dictionary 
-			veto_segments = {}
-		if options.compute_durations:
-			compute_durations( xmldoc, veto_segments, verbose = options.verbose )
-
 		depopulate_experiment_tables(xmldoc, verbose = options.verbose)
+
+		if metadata_cache is not None:
+			add_metadata(xmldoc, metadata_cache, verbose = options.verbose)
 
 		llwapp.set_process_end_time(process)
 
@@ -1596,3 +1642,5 @@ for (tag, veto_category), url_pairs in url_categories.items():
 			zero_lag_filename = os.path.basename(url_pair[0])
 			output = re.sub('THINCA','THINCA_TO_COINC',zero_lag_filename)
 		utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
+		xmldoc.unlink()
+		lsctables.table.reset_next_ids(lsctables.TableByName.values())

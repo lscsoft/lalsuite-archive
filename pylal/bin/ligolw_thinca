@@ -42,7 +42,7 @@ from pylal import llwapp
 from pylal import snglcoinc
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -53,6 +53,22 @@ __date__ = "$Date$"[7:-2]
 
 
 lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+
+
+#
+# Use C row class for memory efficiency and speed.
+#
+
+
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
+
+
+#
+# Don't use sngl_inspiral event_id derived from the long built-in
+#
+
+
+del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
 
 
 #
@@ -195,3 +211,4 @@ for n, filename in enumerate(filenames):
 
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
+	lsctables.table.reset_next_ids(lsctables.TableByName.values())

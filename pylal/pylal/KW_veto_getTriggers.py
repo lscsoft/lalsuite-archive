@@ -1,468 +1,360 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2009  Tomoki Isogai
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 """
+%prog --trigger_files=Files [--segment_file=File | --gps_start_time=GPSTime --gps_end_time=GPSTime] [options]
+
 Tomoki Isogai (isogait@carleton.edu)
-function save_dict is adapted from io.py by Nickolas Fotopolos and modified.
 
-This program gets time and snr data for inspiral triggers from a file, filter 
-triggers by the minimum snr and segment file, and saves the data in a file.
-This code tries to deal with txt, dat, xml, mat and pickle file.
-See note.txt for more detail about supported format.
-To read/save mat file, scipy must be in the path
+This program gets GPS time and SNR of GW triggers that fall into a specified segments above a given SNR threshold.
+Input file must be ligolw xml or ascii format. For ligolw xml files, the code deals with sngl_inspiral, sngl_ringdown or singl_burst table. For ascii files, it is assumed that the first column represents GPS time of triggers and the second column represents SNR. The code ignores any empty lines and lines starting with "#" or "%", and gives an error if more that two columns are found.
 
-$Id$
+If --out_format is given, a file will be created for each channel with the name
+(start_time)_(end_time)_(SNR threshold)_GWtrigs.(specified extention)
+If --name_tag is given, (name_tag)_ will be added to the name as prefix.
+If --out_format is not given, the code prints out the result in stdout.
+You can specify --order_by to sort the output. Supported options are 'GPSTime asc' for ascending time, 'GPSTime desc' for descending time, 'SNR asc' for ascending SNR, and 'SNR desc' for descending SNR. Default is 'GPSTime asc'.
+
 """
+
+# =============================================================================
+#
+#                               PREAMBLE
+# 
+# =============================================================================
+
 from __future__ import division
-import cPickle
+
+import os
+import sys
+import shutil
 import optparse
-import os.path as p
-import sys, os
-from numpy import *
+import cPickle
+
+try:
+    import sqlite3
+except ImportError:
+   # pre 2.5.x
+   from pysqlite2 import dbapi2 as sqlite3
+
 from glue import segmentsUtils
 from glue.segments import segment, segmentlist
 
+from pylal import KW_veto_utils
+
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__date__ = "7/10/2009"
+__version__ = "2.0"
 
 def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,\
-                                 version="$Id: get_triggers.py,v 1.10 2008/7/1")
-    parser.add_option("-t", "--trigger_file",\
-                      help="file which contains triggers")
-    parser.add_option("-s", "--segment_file",
-                      help="file which contains segments by which "+\
-                                                      "triggers are filtered")
-    parser.add_option("-m", "--min_thresh", default=8, type="float",\
-                      help="filter triggers below this minimum snr value")
-    parser.add_option("-o", "--outname", default='output.pickle',\
-                      help="output file name")
-    parser.add_option("-v", "--verbose", action="store_true",\
-                      default=False, help="run verbosely")
+    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+
+    parser.add_option("-t", "--trigger_files", action="append", default=[],
+                      help="File containing triggers. Required.")
+    parser.add_option("-S", "--segment_file", default=None,
+                      help="Segments file by which triggers are filtered. This option or --gps_start_time and --gps_end_time are required.")
+    parser.add_option("-s", "--gps_start_time", type="int",
+                      help="GPS start time on which triggers are retrieved. Required unless --segment_file is specified.")
+    parser.add_option("-e", "--gps_end_time", type="int",
+                      help="GPS end time on which triggers are retrieved. Required unless --segment_file is specified.")
+    parser.add_option("-m", "--min_thresh", default=8, type="float",
+                      help="Code filters triggers below this minimum SNR value. (Default: 8)")
+    parser.add_option("-n", "--name_tag", default=None,
+                      help="If given, this will be added as prefix in the output file name.")
+    parser.add_option("-f", "--out_format", default='.stdout',
+                      help="Save in this format if specified, otherwise output in stdout.")
+    parser.add_option("-o", "--order_by", default="GPSTime asc",
+                      help="Order of the output. See --help for the supported format and output file name. (Default: GPSTime asc)")
+    parser.add_option('-l', "--scratch_dir", default='.',
+                      help="Scratch directory to be used for database engine. Specify local scratch directory for better performance and less fileserver load. (Default: current directory)")
+    parser.add_option("-v", "--verbose", action="store_true",default=False, 
+                      help="Run verbosely. (Default: False)")
     
     opts, args = parser.parse_args()
     
-    # check if necessary input exists
-    for o in ("trigger_file","segment_file"):
-        if getattr(opts,o) is None:
-            print >>sys.stderr, "Error: --%s is a required parameter"%o
-            sys.exit(1)
-        if not os.path.isfile(getattr(opts,o)):
-            print >>sys.stderr, "Error: %s not found"%o
-            sys.exit(1)
+    
+    ############################## Sanity Checks ##############################
+
+    ## check if necessary input exists
+    # trigger file
+    if opts.trigger_files == []:
+        parser.error("Error: --trigger_files is a required parameter")
+    for t in opts.trigger_files:
+      if not os.path.isfile(t):
+        parser.error("Error: --trigger_files %s not found"%t)
+
+    # segments
+    if opts.segment_file is not None:
+      if not os.path.isfile(opts.segment_file):
+        parser.error("Error: segment file %s not found"%opts.segment_file)
+    else:
+      for t in ('gps_start_time','gps_end_time'):
+        if getattr(opts,t) is None:
+          parser.error("Error: either --segment_file or --gps_start/end_time must be specified.")
         
+    # check if scratch directory exists
+    if not os.path.exists(opts.scratch_dir):
+        parser.error("Error: %s does not exist"%opts.scratch_dir)
+
+    # standardize the format (starting from period .) and see if it's supported 
+    if opts.out_format[0] != ".":
+      opts.out_format = "." + opts.out_format
+      if opts.out_format not in (\
+         ".stdout",".pickle",".pickle.gz",".mat",".txt",".txt.gz",".db"):
+        parser.error("Error: %s is not a supported format"%opts.out_format)
+
+    # check order_by is valid and avoid SQL injection attack
+    if opts.order_by not in ("GPSTime asc","GPSTime desc","SNR asc","SNR desc"):
+      parser.error("Error: %s is not valid. See -help for the supported order."%opes.order_by)
         
-    # show parameters
+    ## show parameters
     if opts.verbose:
-        print "running get_triggers..."
-        print
-        print "********************** PARAMETERS ******************************"
-        print 'trigger file:'; print opts.trigger_file; 
-        print 'segment file:'; print opts.segment_file;
-        print 'minimum snr:'; print opts.min_thresh; 
-        print 'output file name:'; print opts.outname;
-        print
+        print >> sys.stderr, "running get_triggers..."
+        print >> sys.stderr, "version: %s"%__version__
+        print >> sys.stderr, ""
+        print >> sys.stderr, "******************** PARAMETERS *****************"
+        print >> sys.stderr, 'trigger file:'
+        print >> sys.stderr, opts.trigger_files; 
+        if opts.segment_file is not None:
+          print >> sys.stderr, 'segment file:'
+          print >> sys.stderr, opts.segment_file; 
+        else:
+          print >> sys.stderr, 'start/end GPS time:'
+          print >> sys.stderr, "%d - %d"%(opts.gps_start_time,opts.gps_end_time)
+        print >> sys.stderr, 'minimum SNR:'
+        print >> sys.stderr, opts.min_thresh;
+        print >> sys.stderr, 'name tag:'
+        print >> sys.stderr, opts.name_tag; 
+        print >> sys.stderr, 'output format:'
+        print >> sys.stderr, opts.out_format[1:];
+        print >> sys.stderr, 'order by:'
+        print >> sys.stderr, opts.order_by;
+        print >> sys.stderr, 'scratch directory:'
+        print >> sys.stderr, opts.scratch_dir;
+        print >> sys.stderr, ''
     
     return opts
 
-def get_trigs_txt(trigger_file,min_thresh,verbose):
+def get_trigs_txt(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     """
-    read triggers data from text file
+    Read trigger data from text file.
+    It is assumed that the first column is GPS time and the second is SNR.
     """
-    trigs_file=open(trigger_file)
-    # read the first line after header and find out the number of columns
-    comment = True # avoid header
-    while comment:
-        line=trigs_file.readline().split()
-        if line[0][0] != "#" and line[0][0] != "%":
-            columnNum = len(line)
-            comment = False
-    if verbose: print "number of columns in the file:"; print columnNum
-      
-    # if the number of the columns is 2-4, read the first line as time and the 
-    # second line as snr
-    if columnNum > 1 and columnNum < 5:
-        t_column=0; s_column=1
-        
-    # if the number of the columns is 5, read the first line as time and the 
-    # 5th line as snr (virgo's trigger file)
-    elif columnNum == 5:
-        t_column=0; s_column=4;
-        
-    # otherwise unsupported
-    else:
-        print >>sys.stderr, "Error: unrecognized file format, please read "\
-                            "note.txt and modify the file to a supported format"
-        sys.exit(1)
-        
-    if verbose:
-        print "column # used for times:"; print t_column+1
-        print "column # used for snr:"; print s_column+1; print
-        
-    ## get times and snrs
-    times=[]; snr=[]
-    for line in trigs_file:
-        trig=line.split()
-        if trig[0][0]!="#" and trig[0][0]!="%": # exclude comment lines
-            s = float(trig[s_column])
-            if s >= min_thresh and s != float('inf'): # inf is bad
-                times.append(float(trig[t_column]))
-                snr.append(s)
+    # read lines avoiding white space and comment lines
+    trigs = [line.split() for line in open(trigger_file) if (line != "\n" and\
+             not line.startswith("%") and not line.startswith("#"))]
     
-    # check if first entry of time list is bigger than 800000000 to reduce the 
-    # possibility to read the wrong column
-    # (sometimes first colume is row number...)
-    return check_time_list(times,snr) 
+    # check the number of columns
+    if len(trigs[0]) != 2:
+        print >> sys.stderr, "Error: two columns are assumed (1. GPS time 2. SNR), found %d columns. Please check the trigger file."%len(trigs[0])
+        sys.exit(1)       
+    
+    ## get times and snrs
+    for trig in trigs:
+        t = float(trig[0])
+        s = float(trig[1])
+        if t in segs:
+          if s >= min_thresh and s != float('inf'):
+            # insert into the database
+            # micro second for GPS time is accurate enough
+            GWcursor.execute("insert into GWtrigs values (?, ?)",("%.3f"%t,"%.2f"%s))
+            tracker['counter'] += 1
+        else:
+          # keep track if some triggers are outside of segments and later
+          # warn the user (for veto code use)
+          tracker['outside'] = True
+    return GWcursor
 
-def get_trigs_xml(trigger_file,min_thresh,verbose):
+def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     """
-    read triggers data from xml file that has ligo_lw format.
-    many lines in this function are adapted from ligolw_print by Kipp Cannon and 
-    inspiral_veto_evaluator by Kipp Cannon, Chad Hanna and Jake Slutsky, and 
-    modified to suit the purpose.
+    Read trigger data from xml file that has ligolw xml format.
+    Many lines in this function are adapted from ligolw_print by Kipp Cannon
+    and modified to suit the need.
     """
-    from glue.lal import CacheEntry
     from glue.ligolw import ligolw
     from glue.ligolw import table
     from glue.ligolw import lsctables
     from glue.ligolw import utils
     # speed hacks
     # replace Glue's pure Python LIGOTimeGPS class with pyLAL's C version
-    #from pylal.xlal.date import LIGOTimeGPS
-    #lsctables.LIGOTimeGPS = LIGOTimeGPS
-    
+    from pylal.xlal.date import LIGOTimeGPS
+    lsctables.LIGOTimeGPS = LIGOTimeGPS 
+
     # Enable column interning to save memory
     table.RowBuilder = table.InterningRowBuilder
-    
-    # for now, hardcode the names
-    urls = [trigger_file]
-    tables = ['sngl_inspiral']
+
+    # for now, hardcode the table/column names
+    # FIXME: assuming there is only one of those tables in the file
+    tables = ['sngl_burst','sngl_inspiral','sngl_ringdown']
     columns = ['end_time','end_time_ns','snr']
     
+
     # don't parse other tables so as to improve parsing speed and reduce memory 
-    # requirements.  Because we do this, we can assume later that we should 
-    # print all the tables that can be found in the document.
+    # requirements.
     
     def ContentHandler(xmldoc):
         return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
-                                (name == ligolw.Table.tagName) and\
-                                (table.StripTableName(attrs["Name"]) in tables))
-	
+                           (name == ligolw.Table.tagName) and\
+                           (table.StripTableName(attrs["Name"]) in tables))
+
     utils.ContentHandler = ContentHandler
     
-    # loop over and get the triggers whose snr is above minimum snr specified
-    snr = []; times = []
-    for url in urls:
-        # some xml file uses the old event_id int_8s
-        # try the new version and if failed try int_8s for event_id
-        for i in range(2):
-            try:
-                xmldoc = utils.load_url(url, verbose = verbose,\
-                                          gz = (url or "stdin").endswith(".gz"))
-                break
-            except (ligolw.ElementError):
-                print 'old version'
-                lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
-        table.InterningRowBuilder.strings.clear()
-        for table_elem in xmldoc.getElements(lambda e:\
-                                           (e.tagName == ligolw.Table.tagName)):
-            for n, row in enumerate(table_elem):
-                s = row.snr
-                if s >= min_thresh and s != float('inf'): # inf is bad
-                    times.append(float(row.get_end()))
-                    snr.append(s)
-        xmldoc.unlink()
-    return times,snr
+    # FIXME: find a way to load only columns necessary
+    # something like lsctables.SnglInspiral.loadcolumns = columns?
 
-def get_trigs_mat(trigger_file,min_thresh,verbose):
-    """
-    read triggers data from mat file that contain lists carrying the trigger
-    information.
-    ! Don't use it! 
-    It's possible that code can grab the wrong list as times or snr and check is
-    not robust.
-    Only reason it's here is that the old code was matlab code and I have many
-    triggers in .mat format.
-    """
-    # scipy is necessary to read mat file
-    try:
-        import scipy.io
-    except (ImportError):
-        print >>sys.stderr, "Error: need scipy to read a mat file."
-        raise
-    try:
-        # load and see what's inside
-        mat_contents=scipy.io.loadmat(trigger_file)
-        # exclude __version__, __header__, __globals__, etc.
-        list_names = [l for l in mat_contents.keys() if l[:2]!="__"]
-        times=[]; snr=[]
-        # case 1: only one list
-        if len(list_names) == 1:
-            if verbose:
-                    print "list name used for getting triggers info:"
-                    print list_names[0]; print
-            trigs = mat_contents[list_names[0]].tolist()
-            # assume there are more than three triggers in the file
-            # issue an error otherwise
-            # find the dimension of the matrix
-            n = len(trigs); m = len(trigs[0])
-            # case 1: 2 * n matrix
-            if n == 2 and m > 2:
-                if verbose: print "2 * n matrix found, parsing..."
-                # figure out which list is time
-                # (check the first entry of each and assume that the list with 
-                # its entry > 800000000 is time list)
-                t, s = check_time_list(trigs[0],trigs[1])
-                # loop over and filter triggers below the minimum snr defined
-                for i in range(m):
-                    if s[i] >= min_thresh and s[i]!=float('inf'):
-                        times.append(t[i])
-                        snr.append(s[i])
-            # case 2: n * 2 matrix
-            elif n > 2 and m == 2:
-                if verbose: print "n * 2 matrix found, parsing..."
-                # transpose
-                trigs = map(lambda *row: list(row), *trigs)
-                # figure out which list is time
-                t, s = check_time_list(trigs[0],trigs[1])
-                # loop over and filter triggers below the minimum threshold
-                for i in range(n):
-                    if s[i] >= min_thresh and s[i]!=float('inf'):
-                        times.append(t[i])
-                        snr.append(s[i])
-            # issue an error for other cases
-            else:
-                print >>sys.stderr, "Error: only 2 * n or n * 2 matrix is"\
-                            "supported for mat file. Please read note.txt and"\
-                            "modify the file to a supported format"
-                sys.exit(1)
-        # case 2: 2 lists    
-        elif len(list_names) == 2:
-            if verbose:
-                    print "list names used for getting triggers info:"
-                    print list_names[0], list_names[1]; print
-            # find out which list is time list
-            # sanity check for list containing another list is done in
-            # check_time_list()
-            times, snr = check_time_list(mat_contents[list_names[0]].tolist(),\
-                                         mat_contents[list_names[1]].tolist())
-        # case 3: more than two lists 
-        # the program can't handle so ask user to modify the file
+    xmldoc = utils.load_url(trigger_file, verbose = verbose,\
+                                 gz = trigger_file.endswith(".gz"))
+    table.InterningRowBuilder.strings.clear()
+    for table_elem in xmldoc.getElements(lambda e:\
+                                        (e.tagName == ligolw.Table.tagName)):
+      # trigger specific time retrieval functions
+      if table_elem.tableName[:-6] in ('sngl_inspiral'):
+        get_time = lambda row: row.get_end()
+      elif table_elem.tableName[:-6] in ('sngl_burst'):
+        get_time = lambda row: row.get_peak()
+      elif table_elem.tableName[:-6] in ('sngl_ringdown'):
+        get_time = lambda row: row.get_start()
+      else:
+        print >> sys.stderr, "Error: This should not be happening. Please contact to the author with the error trace."
+        sys.exit(1)
+
+      for row in table_elem:
+        t = get_time(row)
+        if t in segs:
+          if row.snr > min_thresh:
+            # insert into the database
+            # micro second for GPS time is accurate enough
+            GWcursor.execute("insert into GWtrigs values (?, ?)",("%.3f"%t, "%.2f"%row.snr))
+            tracker['counter'] += 1
         else:
-            print >>sys.stderr, "Error: unrecognized format: please read",\
-                            "note.txt and modify the file to a supported format"
-            sys.exit(1)
-    except: # improve as errors are found
-        raise
-    
-    return times, snr
+          # some triggers are outside of segments
+          tracker['outside'] = True
+    xmldoc.unlink()
+    return GWcursor
+      
+def get_trigs(trigger_files,segs,min_thresh,name_tag=None,scratch_dir=".",verbose=True):
+    """
+    prepare the SQL database and retrieve the triggers    
+    """
+    # initialize SQLite database
+    start_time = segs[0][0]
+    end_time = segs[-1][1]
+    prefix = "%d_%d_%d_GWtrigs"%(start_time,end_time,min_thresh)
+    if name_tag != None:
+      prefix = name_tag + "_" + prefix
+    dbname = prefix+".db"
+    # if the name already exists, rename the old one to avoid collisions
+    KW_veto_utils.rename(dbname)
+ 
+    global GW_working_filename # so that it can be erased when error occurs
+    GW_working_filename = KW_veto_utils.get_connection_filename(\
+                         dbname,tmp_path=scratch_dir,verbose=verbose)
+   
+    GWconnection = sqlite3.connect(GW_working_filename)
+    GWcursor = GWconnection.cursor()
 
-def get_trigs_pickle(trigger_file,min_thresh,verbose):
-    """
-    Get triggers info from pickle file
-    Assumption is that the info stored in the pickle is a dictionary whose key
-    named times corresponds to times and key named snr corresponds to snr
-    """
-    trigs=cPickle.load(open(trigger_file))
-    # check if it's dictionary
-    if type(trigs)==type({}):
-        t_name='times';s_name='snr'
-        if verbose:
-            print "dictionary key used for times:"; print t_name;
-            print "dictionary key used for snr:"; print s_name; print
-        try:
-            # filter out low snr
-            times=[]; snr=[]
-            for trig in zip(trigs[t_name],trigs[s_name]):
-                # in case entries are str, float() it
-                s = float(trig[1]) # snr
-                if s >= min_thresh and s!=float('inf'):
-                    times.append(float(trig[0]))
-                    snr.append(s)
-        except (KeyError):
-            print >>sys.stderr, """
-            Error: dictionary must have keys 'times' and 'snr' for times and 
-                   snr: please read note.txt and modify the file to a supported
-                   format
-            """
-            raise
-    # issue an error if it's not dictionary
-    else:
-        print >>sys.stderr, """
-        Error: unrecognized file format (no dictionary found):
-               please read note.txt and modify the file to a supported format
-               """
-        sys.exit(1)
-    return times,snr
+    GWcursor.execute('create table GWtrigs (GPSTime double, SNR double)')
 
-def check_time_list(list1,list2):
-    """
-    two functionality: 
-    1. error checking if the program got the right time list
-    2. figure out which of two list is time list
-    return time list, snr list
-    assumption: time is always > 800000000
-    """
-    # make sure list contains triggers
-    if list1 == []:
-        print >>sys.stderr, "Error: no triggers"
-        sys.exit(1)
-    # make sure element is float, exclude list of list
-    if type(list1[0])!=type(float(1)) or type(list2[0])!=type(float(1)):
-        print >>sys.stderr, """
-        Error: unrecognized file format (possibly too many dimensions): 
-               please read note.txt and modify the file to a supported format
-        """
-        sys.exit(1)
-        
-    # go on until one of the list element is > 800000000 but not the other
-    # expectation: not so many SNRs are > 800000000
-    for i in xrange(len(list1)):
-        if list1[i]>800000000 and list2[i]<800000000: 
-            return list1, list2
-        elif list2[0]>800000000 and list1[i]<800000000:
-            return list2, list1
-
-def check_triggers(times, snr, segfile, verbose):
-    """
-    This function checks if all triggers falls in the segment list.
-    If not, exclude those triggers outside of segment list and issue a message.
-    """
-    ## read in segment data
-    seg_list =\
-           segmentsUtils.fromsegwizard(open(segfile),coltype=float,strict=False)
-    if seg_list==[]:
+    ## find out file format and read in the data
+    # tracker tracks 1) number of triggers retrieved and 2) if any triggers outside of specified segments
+    tracker = {'counter': 0,'outside': False}
+    for t in trigger_files:
+      ext=os.path.splitext(t)[-1]
+      if ext == '.txt' or ext == '.dat':
+        if verbose: print >> sys.stderr, "getting triggers from txt/dat file..."
+        GWcursor = get_trigs_txt(GWcursor,t,segs,min_thresh,tracker,verbose)
+      elif ext == '.xml':
+        if verbose: print >> sys.stderr, "getting triggers from xml file..."
+        GWcursor = get_trigs_xml(GWcursor,t,segs,min_thresh,tracker,verbose)
+      else:
         print >> sys.stderr, """
-        Error: file contains no segments or glue.segmentsUtils.fromsegwizard is
-               not reading segments correctly. Please check the seg file. 
-               (possibly comments in the file is causing this)
-        """
-        sys.exit(1)
-        
-    ## check if triggers are in the segments
-    # trigs[0] is the time list and trigs[1] is the snr list of the triggers
-    time_list=[]; snr_list=[]
-    outside=False
-    for i in xrange(len(times)):
-        if times[i] in seg_list:
-            time_list.append(times[i]); snr_list.append(snr[i])
-        else:
-            outside=True
-    if outside:
-        print >> sys.stderr, """
-        Warning: Some of the triggers are outside of the segment list.
-                 Unless intentional (using DQ flags etc.), make sure you
-                 are using the right segment list.
-                 Ignoring..."""
-        
-    # check at least one trigger remains
-    if len(time_list)==0:
-        print >> sys.stderr, """
-        Error: No triggers. Check trigger file and segment file.
-        """
-        sys.exit(1)
-        
-    return time_list, snr_list
-
-def save_dict(filename, data_dict, file_handle=None):
-    """
-    Adapted from io.py by Nickolas Fotopoulos, modified.
-    Dump a dictionary to file.  Do something intelligent with the filename
-    extension.  Supported file extensions are:
-    * .pickle - Python pickle file (dictionary serialized unchanged)
-    * .pickle.gz - gzipped pickle (dictionary serialized unchanged)
-    * .mat - Matlab v4 file (dictionary keys become variable names; requires
-             Scipy)
-    * .txt - ASCII text 
-    * .txt.gz - gzipped ASCII text
-    For all formats but .mat, we can write to file_handle directly.
-    """
-    if filename == '':
-        raise ValueError, "Empty filename"
-    
-    ext = p.splitext(filename)[-1]
-    
-    ## .mat is a special case, unfortunately
-    if ext == '.mat':
-        if file_handle is not None:
-            print >>sys.stderr, "Warning: Cannot write to a given file_handle",\
-                "with .mat format.  Attempting to ignore."
-        import scipy.io
-        scipy.io.savemat(filename, data_dict)
-        return
-    
-    ## Set up file_handle
-    if file_handle is None:
-        file_handle = file(filename, 'wb')
-    
-    # For gz files, bind file_handle to a gzip file and find the new extension
-    if ext == '.gz':
-        import gzip
-        file_handle = gzip.GzipFile(fileobj=file_handle, mode='wb')
-        ext = p.splitext(filename[:-len(ext)])[-1]
-    
-    ## Prepare output
-    if ext == '.pickle':
-        import cPickle
-        output = cPickle.dumps(data_dict, -1) # -1 means newest format
-    elif ext == '.txt':
-        line=[]
-        line.append("#time"+" "*15+"#snr")
-        for trig in zip(data_dict['times'],data_dict['snr']):
-            # align
-            line.append("%f"%trig[0]+" "*(20-len("%f"%trig[0]))+"%f"%trig[1])
-        output = '\n'.join(line)
-    else:
-        raise ValueError, "Unrecognized file extension"
-    
-    ## Write output
-    file_handle.write(output)
-
-def main(trigger_file,min_thresh,segment_file,verbose):
-    # find out file format and read in the data
-    ext=os.path.splitext(trigger_file)[-1]
-    if ext=='.pickle':
-        if verbose: print "getting triggers from pickle file..."
-        times,snr=get_trigs_pickle(trigger_file,min_thresh,verbose)
-    elif ext == '.txt' or ext == '.dat':
-        if verbose: print "getting triggers from txt/dat file..."
-        times,snr=get_trigs_txt(trigger_file,min_thresh,verbose)
-    elif ext == '.xml':
-        if verbose: print "getting triggers from xml file..."
-        times,snr=get_trigs_xml(trigger_file,min_thresh,verbose)
-    elif ext == '.mat':
-        if verbose: print "getting triggers from mat file..."
-        times,snr=get_trigs_mat(trigger_file,min_thresh,verbose)
-    else:
-        print >>sys.stderr, """
-        Error: unrecognized file format: please read note.txt and modify the 
+        Error: unrecognized file format: please see --help and modify the 
                file to a supported format
         """
         sys.exit(1)
         
-    if verbose: print "times and snr for triggers retrieved!"
+    GWconnection.commit()
+
+    if verbose: print >> sys.stderr, "times and SNR for triggers retrieved!"
+
+    # if some triggers were outside of given segments, warn the user
+    if tracker['outside']:
+      print >> sys.stderr, """
+      Warning: Some of the triggers are outside of the segment list.
+               Unless intentional (using DQ flags etc.), make sure you
+               are using the right segment list.
+               Ignoring...
+      """
+
+    # check how many triggers remained after cuts
+    if tracker['counter'] == 0:
+      print >> sys.stderr, """
+      Error : No triggers remained after cut. 
+              Please check trigger files and segments.
+      """
+      sys.exit(1)   
         
-    # filter triggers by segment list
-    times, snr = check_triggers(times,snr,segment_file,verbose)
-    
-    ## sanity check
-    assert len(times)==len(snr)
-        
-    return [times, snr]
-    
-if __name__=="__main__":
+    if verbose:
+      print >> sys.stderr, "%d triggers are retrieved."%tracker['counter']
+ 
+    return dbname, GW_working_filename, GWconnection, GWcursor, tracker['counter']
+
+# =============================================================================
+#
+#                                   Main
+#
+# =============================================================================
+
+def main():
     # parse commandline
     opts = parse_commandline()
-    trigs = main(opts.trigger_file, opts.min_thresh,\
-                                        opts.segment_file, opts.verbose)
+
+    ## get the segments on which triggers are retrieved
+    # case 1: segment file is given   
+    if opts.segment_file is not None:
+      # read segment file
+      seg_list = KW_veto_utils.read_segfile(opts.segment_file)
+    # case 2: start and end GPS time are given
+    else:
+      seg_list = segmentlist([segment(opts.gps_start_time,opts.gps_end_time)])
     
-    # convert the data to dictionary to save
-    trigs={"times": trigs[0], "snr": trigs[1]}
-    
-    #save
-    if opts.verbose: print "saving in '%s'..." % opts.outname
-    save_dict(opts.outname,trigs)
-    if opts.verbose: print "get_triggers done!"
+    try:
+      dbname, GW_working_filename, GWconnection, GWcursor, GWnum =\
+         get_trigs(opts.trigger_files, seg_list, opts.min_thresh, name_tag = opts.name_tag, scratch_dir=opts.scratch_dir, verbose=opts.verbose)
+
+      # save/display the result
+      outname = os.path.splitext(dbname)[0]+opts.out_format
+      KW_veto_utils.save_db(GWcursor,"GWtrigs",outname,GW_working_filename,
+                      order_by=opts.order_by,verbose=opts.verbose)
+   
+      # close the connection to the database
+      GWconnection.close()
+    finally:
+      # erase temporal database
+      if globals().has_key('GW_working_filename'):
+        db = globals()["GW_working_filename"]
+        if opts.verbose:
+          print >> sys.stderr, "removing temporary workspace '%s'..." % db
+        os.remove(db)
+
+if __name__=="__main__":
+    main()
 

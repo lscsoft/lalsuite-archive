@@ -35,6 +35,7 @@ import cPickle
 import gzip
 from scipy import interpolate
 import math
+import fnmatch
 
 from optparse import *
 from types import *
@@ -56,8 +57,9 @@ from glue.lal import *
 from glue import lal
 from glue import markup
 from lalapps import inspiralutils
-from glue           import LDBDClient
+from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
+from pylal.xlal import date as xlaldate
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -333,7 +335,10 @@ class getCache(UserDict):
     statistic =  string.strip(cp.get('followup-triggers','statistic'))
     bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
     blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb))
+    if cp.has_option('followup-triggers','exclude-tags'):
+      excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
+    else: excludedTags = None
+    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
     return numtrigs, found, coincs, search
 
 
@@ -464,17 +469,14 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
       if rangeString or segmentListFile:
         segmentList = pipeline.ScienceData()
         segmentMin = cp.getint('followup-background-qscan-times','segment-min-len')
+        segmentPading = cp.getint('followup-background-qscan-times','segment-pading')
         if segmentListFile:
           segmentList.read(segmentListFile,segmentMin)
         elif rangeString:
-          segmentListTempo = getSciSegs(string.strip(cp.get('followup-dq','server-url')),ifo,int(epochStart),int(epochEnd),True)
-          seg_index = 0
-          for segment in segmentListTempo:
-            if int(math.floor(segment[1])-math.ceil(segment[0])) >= segmentMin:
-              segmentList.append_from_tuple(tuple([seg_index,segment[0],segment[1],segment[1]-segment[0]]))
-              seg_index += 1
-            else: continue
-
+          segmentString="DMT-SCIENCE"
+          if ifo.lower() == "v1":
+            segmentString="ITF_SCIENCEMODE"
+          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,segmentString,segmentMin,segmentPading)
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -555,7 +557,7 @@ def floatToStringList(listin):
 # function to read in a list of files and extract the simInspiral tables
 # and sngl_inspiral tables
 ##############################################################################
-def readFiles(fileGlob,statistic=None):
+def readFiles(fileGlob,statistic=None,excludedTags=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
   if Sngls are found, construct coincs, add injections (if any)
@@ -568,12 +570,20 @@ def readFiles(fileGlob,statistic=None):
     print "Warning: No glob specified, returning empty structures..."
     return None, CoincInspiralUtils.coincInspiralTable(), None
 
-  # if there aren't any files globbed exit
-  #fList = glob.glob(fileGlob)
-  #if not fList:
-  #  print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
-  #  sys.exit(1)
-  fList = fileGlob
+  fList = []
+  for thisFile in fileGlob:
+    if excludedTags:
+      for thisTag in excludedTags.split(","):
+        if fnmatch.fnmatch(thisFile.split('/')[-1],thisTag.strip()):
+          print "WARNING: the following file will be excluded:"
+          print thisFile
+          continue
+    fList.append(thisFile)
+
+  if len(fList) == 0:
+    print "Warning: After removing forbidden tags, no remaining files in glob. Returning empty structures..."
+    return None, CoincInspiralUtils.coincInspiralTable(), None
+
   sims = None
   coincs = None
   search = None
@@ -758,17 +768,23 @@ def getstatistic(stat, bla, blb):
 ##############################################################################
 # function to query segment server looking for science segments
 ##############################################################################
-def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
-               ifo=None,
+def getSciSegs(ifo=None,
                gpsStart=None,
                gpsStop=None,
                cut=bool(False),
-               segName="DMT-SCIENCE"):
+               serverURL=None,
+               segName="DMT-SCIENCE",
+               seglenmin=None,
+               segpading=0
+):
   """
-  This method is designed to query the server specified by SERVERURL.
+  This method is designed to query the server specified by SERVERURL
+  if not specified the method will use the environment variable
+  S6_SEGMENT_SERVER to determine who to query.
   The method will return the segments that are between and overlaping
   with the variable gpsStart and gpsStop.  If the flag cut is
-  specified to be True then the returned lists will be cut so that the
+  specified to be True then the returned science segment list will be
+  cut so that the 
   times are between gpsStart and gpsStop inclusive.  In addition to
   these required arguments you must also specify in a text string the
   IFO of interest.  Valid entries are L1 H1 V1 , but only one IFO at a
@@ -777,62 +793,74 @@ def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
   to call using no segment cuts and the default URL try:
   x=getSciSegs(gpsStart=987654321,gpsStop=876543210)
   A query failure will give an error but no records found for the
-  options specified will return an empty list.
+  options specified will return an empty glue.pipeline.ScienceData()
+  segment list.
+  Returns a data structure of type glue.pipeine.ScienceData()
   """
   if sum([x==None for x in (ifo,gpsStart,gpsStop)])>0:
     sys.stderr.write("Invalid arguments given to getSciSegs.\n")
     return None
   ifo=ifo.strip()
-  queryString="""SELECT \
-segment.start_time,\
-segment.end_time FROM segment,segment_definer \
-WHERE segment_definer.segment_def_id = \
-segment.segment_def_id AND \
-segment_definer.name = '%s' AND \
-segment_definer.ifos = '%s' AND \
-NOT (segment.start_time > %s OR %s > \
-segment.end_time)"""
+  query01 ="""SELECT segment.start_time, \
+  segment.end_time \
+  FROM segment, segment_definer \
+  WHERE \
+  segment.segment_def_id  = segment_definer.segment_def_id AND \
+  segment.segment_def_cdb = segment_definer.creator_db AND \
+  segment_definer.name = '%s' AND \
+  segment_definer.ifos = '%s' AND \
+  NOT (segment.start_time > %s OR  %s > segment.end_time)"""
+  #Determine who to query if not specified.
+  if serverURL == None:
+    serverURL=os.getenv('S6_SEGMENT_SERVER')
+    if serverURL == None:
+      serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
-    serverName,serverPort=serverURL[len('ldbd://'):].split(':')
-  except:
-    serverPort="30015"
-    serverName=serverURL[len('ldbd://'):]
-  try:
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(serverName)
-    connection=\
-    LDBDClient.LDBDClient(serverName,int(serverPort),identity)
+    connection=None
+    serverURL=serverURL.strip("ldbd://")
+    connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
-    sys.stderr.write("Error connection to %s at port %s\n"\
-                     %(serverName,serverPort))
+    sys.stderr.write("Error connection to %s\n"\
+                     %(serverURL))
     sys.stderr.write("Error Message :\t %s \n"%(errMsg))
     return None
   try:
+    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
     engine=query_engine.LdbdQueryEngine(connection)
-    sqlString=queryString%(segName,ifo,gpsStop,gpsStart)
-    queryResult=engine.query(sqlString)
+    queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
-    print type(errMsg),errMsg
-    sys.stderr.write("SciSeg query failed %s port %s\n"%(serverName,serverPort))
+    sys.stderr.write("SciSeg query failed %s\n"%(serverURL))
     sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
     sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
-    sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+    sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
     return
   engine.close()
   queryResult.sort()
-  if cut:
-    newList=list()
-    for seg in queryResult:
-      newStart=seg[0]
-      newStop=seg[1]
-      if int(newStart)<int(gpsStart):
-        newStart=gpsStart
-      if int(newStop)>int(gpsStop):
-        newStop=gpsStop
-      newList.append((newStart,newStop))
-    return newList
+  #Take segment information and turn into
+  #ScienceData() object
+  segListTemp = pipeline.ScienceData()
+  #Append the raw data into the ScienceData class()
+  segIndex=0
+  for rawStart,rawStop in queryResult:
+    if cut:
+      if int(rawStart)<int(gpsStart):
+        rawStart=gpsStart
+      if int(rawStop)>int(gpsStop):
+        rawStop=gpsStop
+    segListTemp.append_from_tuple((segIndex,rawStart,rawStop,rawStop-rawStart))
+    segIndex=+1
+    segListTemp.coalesce()
+  if not seglenmin: return segListTemp
   else:
-    return queryResult
-  return None
+    if segpading and 2*segpading >= seglenmin:
+      sys.stderr.write("segpading must be smaller than seglenmin/2\n")
+      sys.exit(1)
+    segList = pipeline.ScienceData()
+    for indice in range(0,segListTemp.__len__()):
+      segTemp = segListTemp.__getitem__(indice)
+      if segTemp.dur() >= seglenmin:
+        segList.append_from_tuple((segTemp.id(),segTemp.start()+segpading,segTemp.end()-segpading,segTemp.dur()-2*segpading))
+    return segList
 #End getSciSegs()
 #
 
@@ -1043,7 +1071,9 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
     magic_number = float(string.strip(cp.get('followup-triggers','eff-snr-denom-fac')))
   else:
     magic_number = None
-  if seglistname: seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
+  if seglistname: 
+    seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
+    seglist.coalesce()
   else: seglist = []
   if seglist: print "WARNING: restricting triggers to specified segment list"
 
@@ -1263,7 +1293,7 @@ def writeParamTable(trigger,opts):
     page.td(repr(trigger.gpsTime[ifo]));
     for param in paramList:
       page.td("%0.3f"%(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
-    page.td("%0.2f"%(trigger.statValue));
+    page.td("%0.5f"%(trigger.statValue));
     if not opts.disable_ifarsorting:
       page.td("%0.4f"%(trigger.far))
     page.tr.close()
@@ -1759,11 +1789,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoURL.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=str(self.ifoURL[firstKey][secondKey])
       return output
@@ -1780,11 +1812,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoLambda.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=self.ifoLambda[firstKey][secondKey]
       return output
@@ -1945,8 +1979,8 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
   #Also write input file for clustering code "cohire"
-  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1-' + str(int(triggerTime)-1) + "-2.xml.gz"
-  cohireInputFile = ifoTag + '-COHIRE-' + str(int(triggerTime)-1) + "-2.txt"
+  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.xml.gz"
+  cohireInputFile = ifoTag + '-COHIRE_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.txt"
   if outputPath:
     cohireInputFile = outputPath + '/' + cohireInputFile
   ff = open(cohireInputFile,'w')
@@ -1965,35 +1999,98 @@ class followupDQV:
     """
     This class setups of for connecting to a LDBD server specified at
     command line to do segment queries as part of the follow up
-    pipeline.  The LDBD URL should be in the following form
+    pipeline.  If the user does not specify the LDBD server to use the
+    method will use the environment variable S6_SEGMENT_SERVER to
+    determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
     self.triggerTime=int(-1)
-    self.serverURL="ldbd://metaserver.phy.syr.edu:30015"
-    self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+    self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
     if LDBDServerURL==None:
+      envServer=None
+      envServer=os.getenv('S6_SEGMENT_SERVER')
+      if envServer!=None:
+        self.serverURL=envServer
       sys.stderr.write("Warning no LDBD Server URL specified \
 defaulting to %s"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
-      if self.serverURL[len('ldbd://'):].__contains__(':'):
-        self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
-      else:
-        self.serverName=self.serverURL[len('ldbd://'):]
     self.resultList=list()
-    self.segmentsActiveString = "SELECT \
-    segment_definer.ifos,segment_definer.name,\
-segment_definer.version,segment.start_time,\
-segment.end_time FROM segment,segment_definer \
-WHERE segment_definer.segment_def_id = \
-segment.segment_def_id AND \
-segment_definer.version >= %s AND \
-NOT (segment.start_time > %s OR %s > \
-segment.end_time)"
+    self.dqvQuery= """SELECT \
+    segment_definer.ifos, \
+    segment_definer.name, \
+    segment_definer.version, \
+    segment_definer.comment, \
+    segment.start_time, \
+    segment.end_time \
+    FROM segment,segment_definer \
+    WHERE \
+    segment_definer.segment_def_id = segment.segment_def_id \
+    AND segment.segment_def_cdb = segment_definer.creator_db \
+    AND segment_definer.version >= %s AND \
+    NOT (segment.start_time > %s OR %s > \
+    segment.end_time)"""
 
   #End __init__()
-  
-  def fetchInformation(self,triggerTime=None,window=600,version=99):
+  def __merge__(self,inputList=None):
+    """
+    Takes an input list of tuples representing start,stop and merges
+    them placing them in time order when returning the coalesced list of
+    tuples.
+    """
+    outputList=list()
+    if type(inputList) != type(list()):
+      sys.stderr.write("Wrong variable type passed as argument in\
+ followupDQV.__merge__()\n")
+      return None
+    if inputList.__len__() < 1:
+      return  inputList
+    inputList.sort()
+    while inputList:
+        segA=inputList.pop()
+        overlap=True
+        #Assume next segment overlaps segA
+        while overlap:
+            #Pop of next segment if available
+            if inputList.__len__() > 0:
+                segB=inputList.pop()
+            else:
+                #No overlap possible no segs left!
+                segB=(-1,-1)
+                overlap=False
+            #Three cases of intersection
+            #Overlap Left
+            if (
+                (segB[0]<= segA[0] <= segB[1])
+                and
+                (segA[1] >= segB[1])
+                ):
+                segA=(segB[0],segA[1])
+            #Overlap Right
+            elif (
+                  (segB[0]<= segA[1] <= segB[1])
+                  and
+                  (segA[1] <= segB[0])
+                 ):
+                segA=(segA[0],segB[1])
+            #Bridge over
+            elif (
+                (segB[0]<=segA[0])
+                and
+                (segB[1]>=segA[1])
+                ):
+                segA=(segB[0],segB[1])
+            else:
+                #Put segment back there was no overlap!
+                if not((-1,-1)==segB):
+                  inputList.append(segB)
+                overlap=False
+        outputList.append(segA)
+        outputList.sort()
+    return outputList
+  #End __merge__() method
+
+  def fetchInformation(self,triggerTime=None,window=300,version=99):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2007,49 +2104,90 @@ segment.end_time)"
       return
     else:
       self.triggerTime = int(triggerTime)
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(self.serverName)
-    connection=None
-    try:
-      connection =\
-    LDBDClient.LDBDClient(self.serverName,int(self.serverPort),identity)
-    except Exception, errMsg:
-      sys.stderr.write("Error connection to %s at port %s\n"\
-                       %(self.serverName,self.serverPort))
-      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
-      self.resultList=list()
-      return
+      try:
+        connection=None
+        serverURL=self.serverURL
+        connection=segmentdb_utils.setup_database(serverURL)
+      except Exception, errMsg:
+        sys.stderr.write("Error connection to %s\n"\
+                         %(serverURL))
+        sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+        self.resultList=list()
+        return
     try:
       engine=query_engine.LdbdQueryEngine(connection)
       gpsEnd=int(triggerTime)+int(window)
       gpsStart=int(triggerTime)-int(window)
-      sqlString=self.segmentsActiveString%(version,gpsEnd,gpsStart)
+      sqlString=self.dqvQuery%(version,gpsEnd,gpsStart)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
-      sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
+      sys.stderr.write("Query failed %s \n"%(serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
       sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
       return
     engine.close()
+    #Coalesce the segments for each DQ flag
+    #Reparse the information
+    newDQSeg=list()
+    if self.resultList.__len__() > 0:
+      #Obtain list of all flags
+      uniqSegmentName=list()
+      for ifo,name,version,comment,start,end in self.resultList:
+        if not uniqSegmentName.__contains__((ifo,name,version,comment)):
+          uniqSegmentName.append((ifo,name,version,comment))
+      #Save textKey for all uniq segments combos
+      for uifo,uname,uversion,ucomment in uniqSegmentName:
+        segmentIntervals=list()
+        #Extra segments based on uniq textKey
+        for ifo,name,version,comment,start,end in self.resultList:
+          if (uifo,uname,uversion,ucomment)==(ifo,name,version,comment):
+            segmentIntervals.append((start,end))
+        segmentIntervals.sort()
+        #Coalesce those segments
+        newStyle=bool(True)
+        if newStyle:
+          newSegmentIntervals=self.__merge__(segmentIntervals)
+        else:
+          newSegmentIntervals=segmentIntervals
+        #Write them to the object which we will return
+        for newStart,newStop in newSegmentIntervals:
+          newDQSeg.append([uifo,uname,uversion,ucomment,newStart,newStop])
+        newDQSeg.sort()
+        del segmentIntervals
+    self.resultList=newDQSeg
   #End method fetchInformation()
+
+  def generateResultList(self):
+    """
+    Simple calling function to create a list object of the results.
+    """
+    return self.resultList
+  #End generateResultList
   
-  def generateHTMLTable(self):
+  def generateHTMLTable(self,tableType="BOTH"):
     """
     Return a HTML table already formatted using the module MARKUP to
     keep the HTML tags complient.  This method does nothing but return
-    the result of the last call to self.fetchInformation()
+    the result of the last call to self.fetchInformation() The flag
+    names associated with LIGO will have links to the channel wiki in
+    them also.
+    Types that will invoke a not everything behaviour are
+    DQ and VETO
     """
+    ligo=["L1","H1","H2","V1"]
+    channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
-    for ifo,name,version,start,stop in self.resultList:
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+    for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2061,7 +2199,14 @@ segment.end_time)"
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      else:
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
@@ -2302,3 +2447,70 @@ path %s\n"%(myPath))
 
 #End followupDQdb class()
 ######################################################################
+
+#A loose method to retrieve the iLog url given a integer for of
+#GPStime
+def getiLogURL(time=None,ifo=None):
+  """
+  This method returns a URL string to point you to ilog day page for
+  specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
+  """
+  dateString="%s/%s/%s"
+  urls={
+    'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+    'V1':"https://pub3.ego-gw.it/logbook/",
+    'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
+    }
+  outputURL=urls['default']
+  if ((ifo==None) or (time==None)):
+    return urls['default']
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
+  if ('H1','H2','L1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]%gpsStamp
+  if ('V1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]
+  return outputURL
+#End def getiLogURL
+
+def getGlitchReportURL(time=None):
+  """
+  This method is esentially a wrapper method until we have a better
+  approach to linking directly to a specific glitch report. The method
+  expects an interger respresentation of GPS time.
+  """
+  stopS5=int(875232014)
+  defaultURL="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies"
+  s5URL="http://lancelot.mit.edu/~dicredic/S5scimon.html"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5URL
+  else:
+    return defaultURL
+#End getGlitchReportURL
+
+def getDailyStatsURL(time=None):
+  """
+  This method points you to the right URL to look at the daily stats
+  pages.
+  """
+  stopS5=int(875232014)
+  defaultURL="http://blue.ligo-wa.caltech.edu/scirun/S6/DailyStatistics/"
+  s5Link="http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5Link
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+  outputLink=defaultURL+linkText
+  return outputLink
+#End getDailyStatsURL

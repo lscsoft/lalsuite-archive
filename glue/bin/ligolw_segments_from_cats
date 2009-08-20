@@ -153,8 +153,8 @@ def parse_command_line():
     # (This is redundant with ligolw_segment_query, maybe move to
     # query_engine)
     if options.segment_url:
-        if options.segment_url.startswith('ldbd:'):
-            database_location = options.segment_url[len('ldbd://'):]
+        if options.segment_url.startswith('ldbd'):
+            database_location = options.segment_url
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
         else:
@@ -175,7 +175,7 @@ def parse_command_line():
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
-        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
+        database_location = os.environ['S6_SEGMENT_SERVER']
     elif options.dmt_file:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-file specified but ONLINEDQ not set" )
@@ -280,6 +280,10 @@ if __name__ == '__main__':
 
     ligolw_sqlite.insert(veto_connection, xml_files)
 
+    # If we're working with DMT files make sure we have a segment table
+    if file_location:
+        segmentdb_utils.ensure_segment_table(veto_connection)
+    
     cli_interval = glue.segments.segmentlist([glue.segments.segment(int(options.gps_start_time), int(options.gps_end_time))])
             
     #
@@ -314,8 +318,9 @@ if __name__ == '__main__':
                     end_time = now
 
                 veto_interval  = glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
-                veto_interval &= cli_interval
                 veto_interval.coalesce()
+                veto_interval &= cli_interval
+
 
                 if len(veto_interval) > 0:
                     segdefs.append( (ifo, name, version, veto_interval[0][0], veto_interval[0][1], start_pad, end_pad) )

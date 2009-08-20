@@ -40,7 +40,7 @@ import sys
 import warnings
 
 import numpy
-numpy.seterr(over="raise", under="ignore")
+numpy.seterr(all="raise", under="ignore")
 from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
@@ -66,21 +66,6 @@ pylab.rcParams.update({
 
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
-
-def take_axis_argsort(X, ix, axis):
-    """
-    Return a new array that takes the output of an argsort, ix, indexing
-    into X such that if ix = X.argsort(axis=axis), then
-    take_axis_argsort(X, ix, axis) returns an array identical to the result
-    of X.sort(axis=axis).
-
-    Taken directly from:
-    <http://www.mail-archive.com/numpy-discussion@scipy.org/msg10150.html>
-    """
-    XX = numpy.rollaxis(X,axis)
-    ixix = numpy.rollaxis(ix,axis)
-    s = XX.shape
-    return numpy.rollaxis(XX[(ixix,)+tuple(numpy.indices(s)[1:])],0,axis+1)
 
 def boundary_of_nonzero_along(arr, axis):
     """
@@ -115,17 +100,26 @@ def boundary_of_nonzero_along(arr, axis):
     return (min_arr.reshape(s[:axis] + s[axis+1:]),
             max_arr.reshape(s[:axis] + s[axis+1:]))
 
-def get_confidence_band(p_by_L, rank_by_L, CL):
+def get_confidence_band(p_by_L, rank_by_L, CL, MC_fac, N):
     """
     Return the lower and upper L indices defining a confidence belt
     that contains the minimum possible probability >= CL, starting from
-    highest rank.
+    highest rank.  Include MC error so that
+    P >= CL + MC_fac * sqrt(CL * (1 - CL) / N).
+    N is the total number of injections in the p_by_L distribution.
     """
     if len(p_by_L) == 0:
         raise ValueError, "empty probability array"
     if len(p_by_L) != len(rank_by_L):
         raise ValueError, "p_by_L and rank_by_L do not have matching length"
-    if p_by_L.sum() < CL:
+    if not numpy.isscalar(N):
+        raise ValueError, "N must be a scalar"
+    if MC_fac < 0:
+        raise ValueError, "MC error correction factor must be positive"
+
+    MC_err = MC_fac * numpy.sqrt(CL * (1 - CL) / N)
+
+    if p_by_L.sum() < CL + MC_err:
         warnings.warn("not enough probability to satisfy requested CL")
         return 0, len(p_by_L) - 1
 
@@ -134,95 +128,15 @@ def get_confidence_band(p_by_L, rank_by_L, CL):
 
     # start with the trivial belt and start expanding outward
     ind_low = ind_high = order.next()
-    if p_by_L[ind_low] >= CL:
+    if p_by_L[ind_low] >= CL + MC_err:
         return ind_low, ind_high
     for new_ind in order:
         ind_low = min(ind_low, new_ind)
         ind_high = max(ind_high, new_ind)
         P_cum = p_by_L[ind_low:ind_high+1].sum()
-        if P_cum >= CL:
+        if P_cum >= CL + MC_err:
             return ind_low, ind_high
     raise ValueError, "should never get here"
-
-def get_confidence_band_with_MC_err(p_by_L, rank_by_L, CL, MC_fac, N_by_L):
-    """
-    Return the lower and upper L indices defining a confidence belt
-    that contains the minimum possible probability >= CL, starting from
-    highest rank.  Include MC error so that P - MC_fac / sqrt(N) >= CL.
-    """
-    if len(p_by_L) == 0:
-        raise ValueError, "empty probability array"
-    if len(p_by_L) != len(rank_by_L):
-        raise ValueError, "p_by_L and rank_by_L do not have matching length"
-    if len(p_by_L) != len(N_by_L):
-        raise ValueError, "p_by_L and N_by_L do not have matching length"
-    if p_by_L.sum() - MC_fac * p_by_L.sum() * (1 - p_by_L.sum()) \
-        / numpy.sqrt(N_by_L.sum()) < CL:
-        warnings.warn("not enough probability to satisfy requested CL")
-        return 0, len(p_by_L) - 1
-
-    # iterate from highest rank to lowest
-    order = reversed(rank_by_L.argsort())
-
-    # start with the trivial belt and start expanding outward
-    ind_low = ind_high = order.next()
-    if (p_by_L[ind_low] - \
-        MC_fac * p_by_L[ind_low] * (1 - p_by_L[ind_low]) \
-        / numpy.sqrt(N_by_L[ind_low])) >= CL:
-        return ind_low, ind_high
-    for new_ind in order:
-        ind_low = min(ind_low, new_ind)
-        ind_high = max(ind_high, new_ind)
-        P_cum = p_by_L[ind_low:ind_high+1].sum()
-        P_cum -= MC_fac * P_cum * (1 - P_cum) \
-            / numpy.sqrt(N_by_L[ind_low:ind_high].sum())
-        if P_cum >= CL:
-            return ind_low, ind_high
-    raise ValueError, "should never get here"
-
-def get_level_crossings(xy_array, level, y_bins):
-    """
-    Return the linearly interpolated y values where the xy_array dips first
-    dips below level, iterating upwards.
-    """
-    # sanity checks
-    if xy_array.ndim != 2:
-        raise ValueError, "require a two-dimensional xy_array"
-    if xy_array.shape[1] != len(y_bins):
-        raise ValueError, "xy_array y-dimension does not match y_bin length"
-
-    def _first_below_val(column, target):
-        """
-        Return the index of the first entry that is less than target.
-        If no entry is less than the target, return the length of the column.
-        """
-        for i, val in enumerate(column):
-            if val < target:
-                return i
-        return len(column)
-
-    def _interp_column(column, level, y_vals, min_y=0, max_y=None):
-        """
-        Return the linearly interpolated value of y where the column first
-        dips below level.
-        """
-        if max_y is None:
-            max_y = y_vals[-1]
-        ind = _first_below_val(column, level)
-        if ind == 0:
-            return min_y
-        elif ind == len(column):
-            return max_y
-        else:
-            # interpolate between ind-1 and ind
-            slope = (y_vals[ind] - y_vals[ind-1]) / \
-                    (column[ind] - column[ind-1])
-            return y_vals[ind-1] + (level - column[ind-1]) * slope
-
-    y_vals = y_bins.centres()
-    return numpy.array([_interp_column(col, level, y_vals, min_y=0,
-                                       max_y=y_bins.max) \
-                        for col in xy_array])
 
 def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
@@ -259,21 +173,11 @@ def parse_args():
         help="display the plots to screen if an X11 display is available")
 
     # Uncertainty
-    parser.add_option("--h1-calibration-uncertainty", metavar="FAC",
-        type="float", default=0.,
-        help="fractional uncertainty in the DC calibration of "
-        "H1; rescale distances by (1 +/- max(FAC))*D")
-    parser.add_option("--h2-calibration-uncertainty", metavar="FAC",
-        type="float", default=0.,
-        help="fractional uncertainty in the DC calibration of "
-        "H2; rescale distances by (1 +/- max(FAC))*D")
-    parser.add_option("--l1-calibration-uncertainty", metavar="FAC",
-        type="float", default=0.,
-        help="fractional uncertainty in the DC calibration of "
-        "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--calib-factor", metavar="FAC",
+        type="float", help="rescale injection distances to D / (1 + FAC)")
     parser.add_option("--include-MC-error", metavar="NSIGMA", type="float",
-        help="include NSIGMA standard deviations of 1/sqrt(N) Monte-Carlo "\
-        "uncertainty.")
+        default=0., help="include NSIGMA standard deviations of 1/sqrt(N) "\
+        "Monte-Carlo uncertainty.")
 
     # odds and ends
     parser.add_option("--likelihood-threshold", type="float", metavar="THRESH",
@@ -285,16 +189,13 @@ def parse_args():
     parser.add_option("--nonuniform-smoothing-D", type="float", metavar="SIZE",
         help="enable a non-uniform smoothing of p(L|D) over D with a kernel "\
         "that varies proportionally to SIZE*D (default: no smoothing)")
-    parser.add_option("--nonuniform-smoothing-L", type="float", metavar="SIZE",
-        help="enable a non-uniform smoothing of p(L|D) over L with a kernel "\
-        "that varies proportionally to SIZE*(Lmax - L) (default: no smoothing)")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
     options, arguments = parser.parse_args()
 
-    if len(options.ifo_tag) != 4:
-        raise ValueError, "Only two-IFO combinations are supported."
+    #if len(options.ifo_tag) != 4:
+    #    raise ValueError, "Only two-IFO combinations are supported."
 
     if (options.likelihood_threshold is not None) \
         and (options.likelihood_threshold <= 0):
@@ -321,61 +222,31 @@ if statistic != "effective_snr":
     raise NotImplemented
 
 _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
-_, _, offsource_log_L_by_trial_m2, _ = \
-    pickle.load(open(opts.grblikelihood_offsource))
 _, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
 
 # Set everything less than THRESH to THRESH, including missed injections
 if opts.likelihood_threshold is not None:
-    eps = opts.likelihood_threshold
+    L_min = opts.likelihood_threshold
 else:
-    eps = min(offsource_log_L_by_trial_m2\
-                [offsource_log_L_by_trial_m2 > 0].min(),
-              inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 > 0].min())
-offsource_log_L_by_trial_m2[offsource_log_L_by_trial_m2 < eps] = eps
-inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < eps] = eps
-log_L_by_m2[log_L_by_m2 < eps] = eps
+    L_min = inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 > 0].min()
+inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < L_min] = L_min
+log_L_by_m2[log_L_by_m2 < L_min] = L_min
 
-##############################################################################
-# Compute P(L > L_obs | h) (old UL statement; irrelevant for Feldman-Cousins)
-
-if opts.verbose:
-    print "Computing old upper limit statement..."
-
-m2_D_bins = rate.NDBins((m2_bins, D_bins))
-num_sims_by_m2_D = rate.BinnedArray(m2_D_bins)
-for m2_D in m2_D_by_inj:
-    num_sims_by_m2_D[m2_D] += 1
-num_sims_by_m2_D = num_sims_by_m2_D.array
-
-inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
-for inj_log_L_by_m2, m2_D in zip(inj_log_L_by_trial_m2, m2_D_by_inj):
-    m2_ind, D_ind = m2_D_bins[m2_D]
-    if inj_log_L_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
-        inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
-pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
-
-# Take MC errors into account
-MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
-
-##############################################################################
-# Compute tallies for P(L | D) and P(L | D_best) for each m2
-
-if opts.verbose:
-    print "Computing P(L | D_best)..."
-
+# determine L binning
 num_L = 40
-L_min = eps
-L_max = max(offsource_log_L_by_trial_m2.max(),
-            inj_log_L_by_trial_m2.max())
+L_max = inj_log_L_by_trial_m2.max()
 if not (log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
-    L_min = min(L_min, log_L_by_m2.min())
     L_max = max(L_max, log_L_by_m2.max())
 L_bins = rate.LogarithmicBins(L_min, L_max, num_L)
 
-# reset the num_sims because we are making cuts on L
-num_sims_by_m2_D = numpy.zeros_like(num_sims_by_m2_D)
+##############################################################################
+# Tally injections
+
+if opts.verbose:
+    print "Tallying injections..."
+
+# bin up injections into (L, m2, D)
 nd_bins = rate.NDBins((L_bins, m2_bins, D_bins))
 count_by_L_m2_D = numpy.zeros(nd_bins.shape, dtype=float)
 for inj_L_by_m2, m2_D in \
@@ -388,65 +259,55 @@ for inj_L_by_m2, m2_D in \
     L_ind = L_bins[inj_L]
 
     count_by_L_m2_D[L_ind, m2_ind, D_ind] += 1
-    num_sims_by_m2_D[m2_ind, D_ind] += 1
-
-# smooth with Gaussian
-if opts.smoothing_radius is not None:
-    window_2d = rate.gaussian_window2d(opts.smoothing_radius,
-                                       opts.smoothing_radius)
-    for count_by_L_D in count_by_L_m2_D.transpose((1, 0, 2)):
-        rate.filter_array(count_by_L_D, window_2d)
-    window = rate.gaussian_window(opts.smoothing_radius)
-    for num_sims_by_D in num_sims_by_m2_D:
-        rate.filter_array(num_sims_by_D, window)
-
-# smooth in D with growing Gaussian
-if opts.nonuniform_smoothing_D:
-    # Make each row (after) a linear combination of rows (before)
-    # This is like a one-dimensional convolution in D, but with a kernel
-    # that grows proportionally to D.
-    # NB: numpy.fromfunction(f, shape) fills the (i, j) element with f(i, j).
-    # NB: numpy.dot(a, b) does a product and sum, iterating over the last
-    # dimension of a and the second-to-last dimension of b.
-    A = numpy.fromfunction(\
-        lambda i, j: numpy.exp(-(i - j) * (i - j) \
-            / (2 * opts.nonuniform_smoothing_D * (i + 1))),
-        shape=(len(D_bins), len(D_bins)))
-    A /= A.sum(axis=1)[:, None]  # conserve counts
-    count_by_L_m2_D = numpy.dot(count_by_L_m2_D, A)
-    num_sims_by_m2_D = numpy.dot(num_sims_by_m2_D, A)
-
-# smooth in L with shrinking Gaussian
-# NB: convolutions commute and these convolutions are separable
-if opts.nonuniform_smoothing_L:
-    B = numpy.fromfunction(\
-        lambda i, j: numpy.exp(-(i - j) * (i - j) \
-            / (2 * opts.nonuniform_smoothing * (len(L_bins) - i))),
-        shape=(len(L_bins), len(L_bins)))
-    B /= B.sum(axis=1)[:, None]  # conserve counts
-    count_by_L_m2_D = numpy.dot(count_by_L_m2_D.transpose((1, 2, 0)),
-                                B).transpose((2, 0, 1))
 
 ##############################################################################
 # Take calibration systematics into account by rescaling D bins
 # NB: Needs to be after injections are binned, but before actual distances
-#     are extracted from the search.
-supported_ifos = set(("H1", "H2", "L1"))
-if opts.ifo_tag is not None:
-    ifos = (opts.ifo_tag[:2], opts.ifo_tag[2:])
-    if not supported_ifos.issuperset(ifos):
-        raise ValueError, "Only %s are valid IFOs in --ifo-tag" % supported_ifos
-else:
-    sys.stderr.write("warning: --ifo-tag not provided, so using all provided "\
-        "calibration factors.\n")
-    ifos = supported_ifos
-if opts.verbose:
-    print "Applying calibration uncertainties from %s..." % repr(ifos)
-calib_fac = 1 + max(getattr(opts,
-    "%s_calibration_uncertainty" % ifo.lower()) for ifo in ifos)
-D_bins.min /= calib_fac
-D_bins.max /= calib_fac
-D_bins.delta /= calib_fac
+#     are used in the search.
+if opts.calib_factor is not None:
+    if opts.verbose:
+        print "Applying calibration uncertainties..."
+    D_bins.min /= 1 + opts.calib_factor
+    D_bins.max /= 1 + opts.calib_factor
+    D_bins.delta /= 1 + opts.calib_factor
+
+##############################################################################
+# Vectorize some useful lookup functions
+
+L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
+L_upper = numpy.frompyfunc(L_bins.upper().__getitem__, 1, 1)
+D_lower = numpy.frompyfunc(D_bins.lower().__getitem__, 1, 1)
+D_upper = numpy.frompyfunc(D_bins.upper().__getitem__, 1, 1)
+D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
+
+##############################################################################
+# Smooth binned injections
+
+# smooth with Gaussian
+if opts.smoothing_radius is not None:
+    if opts.verbose:
+        print "Applying Gaussian smoothing..."
+    window_2d = rate.gaussian_window2d(4 * opts.smoothing_radius,
+                                       4 * opts.smoothing_radius,
+                                       opts.smoothing_radius)
+    for count_by_L_D in count_by_L_m2_D.transpose((1, 0, 2)):
+        rate.filter_array(count_by_L_D, window_2d)
+
+# smooth in D with growing Gaussian
+if opts.nonuniform_smoothing_D:
+    if opts.verbose:
+        print "Applying nonuniform smoothing in D..."
+    # Make each row (after) a linear combination of rows (before)
+    # NB: numpy.dot(a, b) does a product and sum, iterating over the last
+    # dimension of a and the second-to-last dimension of b.
+    D_in = numpy.asarray(D_bins.centres())[:, None]  # varies with i
+    D_out = numpy.asarray(D_bins.centres())[None, :]  # varies with j
+    K_by_Din_Dout = numpy.exp(-(D_in - D_out)**2 \
+                              / (2 * opts.nonuniform_smoothing_D * D_out**2))
+    K_by_Din_Dout /= K_by_Din_Dout.sum(axis=0)[None, :]  # conserve counts
+    count_by_L_m2_D = numpy.dot(count_by_L_m2_D, K_by_Din_Dout)
+
+num_sims_by_m2_D = count_by_L_m2_D.sum(axis=0)
 
 ##############################################################################
 # Construct confidence belts with FC ranking principle and get D limits
@@ -454,20 +315,12 @@ D_bins.delta /= calib_fac
 if opts.verbose:
     print "Computing confidence belts..."
 
-pLD_by_L_m2_D = count_by_L_m2_D / (num_sims_by_m2_D[None, :, :] + 1e-10)
-
-D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
+pLD_by_L_m2_D = count_by_L_m2_D / num_sims_by_m2_D[None, :, :]
 D_best_by_L_m2 = D_centre(pLD_by_L_m2_D.argmax(axis=2))
 pLD_best_by_L_m2 = pLD_by_L_m2_D.max(axis=2)
 
 # rank L bins for each m2, D
 R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
-
-# vectorize some useful lookup functions
-L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
-L_upper = numpy.frompyfunc(L_bins.upper().__getitem__, 1, 1)
-D_lower = numpy.frompyfunc(D_bins.lower().__getitem__, 1, 1)
-D_upper = numpy.frompyfunc(D_bins.upper().__getitem__, 1, 1)
 
 # construct belts
 # NB: assume regions are contiguous; conservatively take outer edges of bins
@@ -481,13 +334,9 @@ for CL_ind, CL in enumerate(CLs):
     # get confidence bands in L
     for m2_ind, D_ind in numpy.ndindex((len(m2_bins), len(D_bins))):
         L_slice = (slice(None, None, None), m2_ind, D_ind)
-        if opts.include_MC_error is None:
-            low_ind, high_ind = get_confidence_band(\
-                pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL)
-        else:
-            low_ind, high_ind = get_confidence_band_with_MC_err(\
-                pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL,
-                opts.include_MC_error, count_by_L_m2_D[L_slice])
+        low_ind, high_ind = get_confidence_band(\
+            pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL,
+            opts.include_MC_error, num_sims_by_m2_D[m2_ind, D_ind])
         L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 0] = L_lower(low_ind)
         L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 1] = L_upper(high_ind)
 
@@ -612,32 +461,6 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
         page.add_plot(plot.fig, "confidence_belts_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
-
-## OLD upper limit contours (m2, D) image
-text = "(m2, D) contours including MC error"
-
-plot = plotutils.FillPlot(r"$m_\mathrm{companion}\ (M_\odot)$",
-    r"$D\ \mathrm{(Mpc)}$",
-    r"$D\textrm{ at which we see something louder in X\% of trials}$")
-
-exclusion_x = m2_bins.lower()
-zero = numpy.zeros(len(m2_bins), dtype=float)
-
-for exclusion_level in CLs:
-    num_sigmas = stats.norm.ppf(exclusion_level)
-    exclusion_y = get_level_crossings(pLh_by_m2_D - num_sigmas * MC_sigma,
-        exclusion_level, D_bins)
-    tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
-    plot.add_content(tmpx, tmpy,
-        label=str(int(exclusion_level * 100)) + r"\%")
-
-plot.finalize()
-plot.ax.set_ylim((0, D_bins.max))
-
-if opts.enable_output:
-    page.add_plot(plot.fig, "old_exclusion_by_m2_D")
-if not opts.show_plot:
-    plot.close()
 
 
 #############################################################################

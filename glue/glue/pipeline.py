@@ -2961,7 +2961,7 @@ class SqliteJob(CondorDAGJob, AnalysisJob):
     """
     self.__exec_name = exec_name
     executable = cp.get('condor', exec_name)
-    universe = 'local'
+    universe = 'vanilla'
     CondorDAGJob.__init__(self, universe, executable)
     AnalysisJob.__init__(self, cp, dax)
 
@@ -3055,6 +3055,7 @@ class LigolwSqliteNode(SqliteNode):
     SqliteNode.__init__(self, job)
     self.__input_cache = None
     self.__xml_output = None
+    self.__xml_input   = None
 
   def set_input_cache(self, input_cache):
     """
@@ -3068,12 +3069,18 @@ class LigolwSqliteNode(SqliteNode):
     Gets input cache.
     """
     return self.__input_cache
+  
+  def set_xml_input(self, xml_file):
+    """
+    Sets xml input file instead of cache
+    """
+    self.add_var_arg(xml_file)
 
   def set_xml_output(self, xml_file):
     """
     Tell ligolw_sqlite to dump the contents of the database to a file.
     """
-    if self.__database is None:
+    if self.get_database() is None:
       raise ValueError, "no database specified"
     self.add_file_opt('extract', xml_file)
     self.__xml_output = xml_file
@@ -3083,10 +3090,10 @@ class LigolwSqliteNode(SqliteNode):
     Override standard get_output to return xml-file if xml-file is specified.
     Otherwise, will return database.
     """
-    if self.__xml_file:
-      return self.__xml_file
-    elif self.__database:
-      return self.__database
+    if self.__xml_output:
+      return self.__xml_output
+    elif self.get_database():
+      return self.get_database()
     else:
       raise ValueError, "no output xml file or database specified"
 

@@ -23,10 +23,10 @@ import os
 import re
 
 from glue.segments import segment, segmentlist
-from glue import gsiserverutils
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
+from glue.ligolw import types as ligolwtypes
 
 
 
@@ -39,7 +39,7 @@ from glue.segmentdb import query_engine
 #
 
 
-def get_all_files_in_range(dirname, starttime, endtime):
+def get_all_files_in_range(dirname, starttime, endtime, pad=64):
     """Returns all files in dirname and all its subdirectories whose
     names indicate that they contain segments in the range starttime
     to endtime"""
@@ -60,26 +60,37 @@ def get_all_files_in_range(dirname, starttime, endtime):
         if re.match('.*-[0-9]{4}$', filename):
             dirtime = int(filename[-4:])
             if dirtime >= first_four_start and dirtime <= first_four_end:
-                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
+                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
         elif re.match('.*-[0-9]*-[0-9]*\.xml', filename):
             file_time = int(filename.split('-')[-2])
-            if file_time >= (starttime-64) and file_time <= (endtime+64):
+            if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))
         else:
             # Keep recursing, we may be looking at directories of
             # ifos, each of which has directories with times
-            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
+            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
 
     return ret
 
 
 
-def setup_database(host_and_port):
+def setup_database(database_location):
     from glue import LDBDClient
+    from glue import gsiserverutils
 
-    """Opens a connection to a LDBD Server"""
-    port = 30020
+    """Determine if we are using the secure or insecure server"""
+    if database_location.startswith('ldbd:'):
+        port = 30015
+        host_and_port = database_location[len('ldbd://'):]
+        identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
+    elif database_location.startswith('ldbdi:'):
+        port = 30016
+        host_and_port = database_location[len('ldbdi://'):]
+        identity = None
+    else:
+        raise ValueError( "invalid url for segment database" )
     
+    """Opens a connection to a LDBD Server"""
     if host_and_port.find(':') < 0:
         host = host_and_port
     else:
@@ -87,7 +98,8 @@ def setup_database(host_and_port):
         host, portString = host_and_port.split(':')
         port = int(portString)
 
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+    if identity:
+        identity += host
 
     # open connection to LDBD Server
     client = None
@@ -118,9 +130,18 @@ def setup_database(host_and_port):
 
 
 def query_segments(engine, table, segdefs):
-    # each segdef has
-    # ifo, name, version, start_time, end_time, start_pad, end_pad
+    # each segdef is a list containing:
+    #     ifo, name, version, start_time, end_time, start_pad, end_pad
 
+
+    # The trivial case: if there's nothing to do, return no time
+    if len(segdefs) == 0:
+        return [ segmentlist([]) ]
+
+    #
+    # For the sake of efficiency we query the database for all the segdefs at once
+    # This constructs a clause that looks for one
+    #
     def make_clause(table, segdef):
         ifo, name, version, start_time, end_time, start_pad, end_pad = segdef
 
@@ -130,9 +151,6 @@ def query_segments(engine, table, segdefs):
         sql += "AND NOT (%d > %s.end_time OR %s.start_time > %d)) " % (start_time, table, table, end_time)
 
         return sql
-
-    if len(segdefs) == 0:
-        return [ segmentlist([]) ]
 
     clauses = [make_clause(table, segdef) for segdef in segdefs]
 
@@ -148,17 +166,52 @@ def query_segments(engine, table, segdefs):
 
     rows = engine.query(sql)
 
+    #
+    # The result of a query will be rows of the form
+    #    ifo, name, version, start_time, end_time
+    #
+    # We want to associate each returned row with the segdef it belongs to so that
+    # we can apply the correct padding.
+    #
+    # If segdefs were uniquely spcified by (ifo, name, version) this would
+    # be easy, but it may happen that we're looking for the same segment definer
+    # at multiple disjoint times.  In particular this can happen if the user
+    # didn't specify a version number; in that case we might have version 2
+    # of some flag defined over multiple disjoint segment_definers.
+    #
     results = []
 
     for segdef in segdefs:
         ifo, name, version, start_time, end_time, start_pad, end_pad = segdef
 
-        matches = lambda row: row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
+        search_span      = segment(start_time, end_time)
+        search_span_list = segmentlist([search_span])
 
-        result  = segmentlist( [segment(row[3] + start_pad, row[4] + end_pad) for row in rows if matches(row)] )
-        result &= segmentlist([segment(start_time, end_time)])
-        result.coalesce()
+        # See whether the row belongs to the current segdef.  Name, ifo and version must match
+        # and the padded segment must overlap with the range of the segdef.
+        def matches(row):
+            return ( row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
+                     and search_span.intersects(segment(row[3] + start_pad, row[4] + start_pad)) )
 
+        # Add the padding.  Segments may extend beyond the time of interest, chop off the excess.
+        def pad_and_truncate(row_start, row_end):
+            tmp = segmentlist([segment(row_start + start_pad, row_end + end_pad)])
+            # No coalesce needed as a list with a single segment is already coalesced
+            tmp &= search_span_list
+
+            # The intersection is guaranteed to be non-empty if the row passed match()
+            return tmp[0]
+
+        # Build a segment list from the returned segments, padded and trunctated.  The segments will
+        # not necessarily be disjoint, if the padding crosses gaps.  They are also not gauranteed to
+        # be in order, since there's no ORDER BY in the query.  So the list needs to be coalesced
+        # before arithmatic can be done with it.
+        result  = segmentlist( [pad_and_truncate(row[3], row[4]) for row in rows if matches(row)] ).coalesce()
+
+        # This is not needed: since each of the segments are constrained to be within the search
+        # span the whole list must be as well.
+        # result &= search_span_list
+        
         results.append(result)
 
     return results
@@ -179,7 +232,10 @@ def expand_version_number(engine, segdef):
     sql += "AND   segment_definer.name = '%s' " % name
 
     rows    = engine.query(sql)
-    version = len(rows[0]) and rows[0][0] or 1
+    try:
+        version = len(rows[0]) and rows[0][0] or 1
+    except:
+        version = None
 
     results = []
 
@@ -190,8 +246,8 @@ def expand_version_number(engine, segdef):
             for seg in segs[0]:
                 results.append( (ifo, name, version, seg[0], seg[1], 0, 0) )
 
-        intervals -= segs[0]
         intervals.coalesce()
+        intervals -= segs[0]
 
         version -= 1
 
@@ -230,12 +286,33 @@ def find_segments(doc, key, use_segment_table = True):
 #
 # =============================================================================
 #
+#                      General utilities
+#
+# =============================================================================
+#
+def ensure_segment_table(connection):
+    """Ensures that the DB represented by connection posses a segment table.
+    If not, creates one and prints a warning to stderr"""
+
+    count = connection.cursor().execute("SELECT count(*) FROM sqlite_master WHERE name='segment'").fetchone()[0]
+
+    if count == 0:
+        print >>sys.stderr, "WARNING: None of the loaded files contain a segment table"
+        theClass  = lsctables.TableByName['segment']
+        statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
+
+        connection.cursor().execute(statement)
+
+
+
+# =============================================================================
+#
 #                    Routines to write data to XML documents
 #
 # =============================================================================
 #
 
-def add_to_segment_definer(xmldoc, proc_id, ifo, name, version):
+def add_to_segment_definer(xmldoc, proc_id, ifo, name, version, comment=''):
     try:
         seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
     except:
@@ -249,7 +326,7 @@ def add_to_segment_definer(xmldoc, proc_id, ifo, name, version):
     segment_definer.ifos           = ifo
     segment_definer.name           = name
     segment_definer.version        = version
-    segment_definer.comment        = ''
+    segment_definer.comment        = comment
 
     seg_def_table.append(segment_definer)
 
@@ -275,7 +352,7 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
         segtable.append(segment)
 
 
-def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist):
+def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist, comment=''):
     try:
         seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
     except:
@@ -289,7 +366,7 @@ def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist):
         segment_sum.segment_sum_id = seg_sum_table.get_next_id()
         segment_sum.start_time     = seg[0]
         segment_sum.end_time       = seg[1]
-        segment_sum.comment        = ''
+        segment_sum.comment        = comment
 
         seg_sum_table.append(segment_sum)
 
@@ -303,7 +380,8 @@ def add_segment_info(doc, proc_id, segdefs, segments, segment_summaries):
 
         add_to_segment_summary(doc, proc_id, seg_def_id, segment_summaries[i])
 
-        add_to_segment(doc, proc_id, seg_def_id, segments[i])
+        if segments:
+            add_to_segment(doc, proc_id, seg_def_id, segments[i])
 
 #
 # =============================================================================
@@ -331,6 +409,8 @@ def build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, 
     version = len(rows[0]) and rows[0][0] or 1
 
     return build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version, start_pad, end_pad)
+
+
 def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version = None, start_pad = 0, end_pad = 0):
     """Builds a list of segments satisfying the given criteria """
     seg_result = segmentlist([])

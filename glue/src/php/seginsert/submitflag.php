@@ -19,7 +19,7 @@ require './scripts/header.php';
       // Store file contents in an array
       // Open file for output
       if(($fh = fopen($flagFile, 'w+')) == FALSE){
-         die('Failed to open file for writing!');
+         die('Failed to open ' . $flagFile . ' for writing!');
       }
       $flagData = "<?xml version='1.0'?>\n".
                   "<!DOCTYPE LIGO_LW SYSTEM 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt'>\n".
@@ -30,12 +30,27 @@ require './scripts/header.php';
       fwrite($fh, $flagData); 
 
       // insert xml file to the database
-      $com = "/bin/env PATH=/usr1/ldbd/glue/bin:/usr1/ldbd/ldg-4.7/ant/bin:/usr1/ldbd/ldg-4.7/glite/sbin:/usr1/ldbd/ldg-4.7/glite/bin:/usr1/ldbd/ldg-4.7/pegasus/bin:/usr1/ldbd/ldg-4.7/edg/sbin:/usr1/ldbd/ldg-4.7/pyglobus-url-copy/bin:/usr1/ldbd/ldg-4.7/jdk1.5/bin:/usr1/ldbd/ldg-4.7/condor/sbin:/usr1/ldbd/ldg-4.7/condor/bin:/usr1/ldbd/ldg-4.7/wget/bin:/usr1/ldbd/ldg-4.7/logrotate/sbin:/usr1/ldbd/ldg-4.7/gpt/sbin:/usr1/ldbd/ldg-4.7/globus/bin:/usr1/ldbd/ldg-4.7/globus/sbin:/usr1/ldbd/pacman-3.26/bin:/usr1/ldbd/ldg-4.7/vdt/sbin:/usr1/ldbd/ldg-4.7/vdt/bin:/usr1/ldbd/ldg-4.7/ldg-client/bin LD_LIBRARY_PATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/ldg-4.7/tclglobus/lib:/usr1/ldbd/ldg-4.7/glite/lib64:/usr1/ldbd/ldg-4.7/glite/lib:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/server:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/client:/usr1/ldbd/ldg-4.7/berkeley-db/lib:/usr1/ldbd/ldg-4.7/expat/lib:/usr1/ldbd/ldg-4.7/globus/lib PYTHONPATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/glue/lib/python2.4/site-packages:/usr1/ldbd/ldg-4.7/globus/lib64/python X509_USER_CERT=/etc/pki/tls/certs/ldbdcert.pem X509_USER_KEY=/etc/pki/tls/certs/ldbdkey.pem dmtdq_seg_insert --server=segdb.ligo.caltech.edu:30020 --file ".$flagFile . " 2>&1";
+      $gluepath = getenv('GLUEPATH');
+      $pythonpath = getenv('PYTHONPATH');
+      $ldlibpath = getenv('LD_LIBRARY_PATH');
+      $ldbdserver = getenv('LDBD_SERVER');
+      $x509_cert = getenv('X509_USER_CERT');
+      $x509_key = getenv('X509_USER_KEY');
+
+      putenv("PYTHONPATH=" . $pythonpath);
+      putenv("LD_LIBRARY_PATH=" . $ldlibpath);
+      putenv("LDBD_SERVER=" . $ldbdserver);
+      putenv("X509_USER_CERT=" . $x509_cert);
+      putenv("X509_USER_KEY=" . $x509_key);
+
+      $com = "dmtdq_seg_insert --file ".$flagFile . " 2>&1";
+      $com = $gluepath . '/' . $com;
       exec($com, $output, $returnval);
+
       if($returnval==0) {
         fwrite($fh, $flagData);
         echo "<h3><center>Flag Submitted</center></h3>";
-        echo '<center>You can check your flag in the <a href="http://metaserver.phy.syr.edu/flagentry/listflags.php">list of all flags in the database.</a></center>';
+        echo '<center>You can check your flag in the <a href="listflags.php">list of all flags in the database.</a></center>';
       }
       else {
         echo "<h3><font color='blue'><center>Submit failed!</font></center></h3>";
@@ -53,7 +68,13 @@ require './scripts/header.php';
 
    // construct result filename
    $duration = (int)$_POST['stopgps'] - (int)$_POST['startgps'];
-   $filename = "/var/www/html/flagentry/data/".$_POST['site']."-"."SCIMON_DQ_".$name."-".$_POST['startgps']."-".$duration.".xml";
+   $flagdatadir = getenv('SEGMENT_DATA_DIR');
+   $filename = $_POST['site']."-"."SCIMON_DQ_".$name."-".$_POST['startgps']."-".$duration.".xml";
+   if(eregi('/',$filename))
+     {
+       die("Error: attempt to insert a slash into DQ filename: request denied");
+     }
+   $filename = $flagdatadir."/".$filename;
 
    // construct username
    $split_username = explode("@",$_POST[user]);

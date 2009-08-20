@@ -31,7 +31,6 @@ import math
 import sys
 
 
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
@@ -171,18 +170,18 @@ def make_multi_burst(process_id, coinc_event_id, events):
 
 
 class ExcessPowerCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, coinc_definer_rows):
-		snglcoinc.CoincTables.__init__(self, xmldoc, coinc_definer_rows)
+	def __init__(self, xmldoc):
+		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		# find the multi_burst table or create one if not found
 		try:
-			self.multibursttable = table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+			self.multibursttable = lsctables.table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
 		except ValueError:
 			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
-	def append_coinc(self, process_id, time_slide_id, events):
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
 		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events))
 		return coinc
 
@@ -377,13 +376,13 @@ def ligolw_burca(
 	verbose = False
 ):
 	#
-	# prepare the coincidence table interface.  only one type of
-	# coincidence, use None as key in fake coinc type look-up table.
+	# prepare the coincidence table interface.
 	#
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, {None: coinc_definer_row})
+	coinc_tables = CoincTables(xmldoc)
+	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 
 	#
 	# build the event list accessors, populated with events from those
@@ -433,7 +432,7 @@ def ligolw_burca(
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
 			if not ntuple_comparefunc(ntuple):
 				# pass None for coinc type key
-				coinc_tables.append_coinc(process_id, time_slide_id, None, ntuple)
+				coinc_tables.append_coinc(process_id, time_slide_id, coinc_def_id, ntuple)
 
 	#
 	# remove time offsets from events

@@ -82,59 +82,6 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
         maxSNR = SNR
         maxIndex = row_index
 
-    cohSNR = "%0.2f"%maxSNR
-    if not (float(multiInspiralTable[maxIndex].null_statistic) == -1.0):
-      h1h2_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_statistic))
-      h1h2NullStat = "%0.5f"%h1h2_null_stat
-    else:
-      h1h2NullStat = "NA"
-    if not (float(multiInspiralTable[maxIndex].tau5) == -1.0):
-      net_null_stat = sqrt(float(multiInspiralTable[maxIndex].tau5))
-      netNullStat = "%0.5f"%net_null_stat
-    else:
-      netNullStat =  "NA"
-    eta = "%0.3f"%multiInspiralTable[maxIndex].eta
-    mchirp = "%0.3f"%multiInspiralTable[maxIndex].mchirp
-    mass1 = "%0.3f"%multiInspiralTable[maxIndex].mass1
-    mass2 = "%0.3f"%multiInspiralTable[maxIndex].mass2
-    end_time = str(multiInspiralTable[maxIndex].end_time)
-    end_time_ns = str(multiInspiralTable[maxIndex].end_time_ns)
-    gpsTime = repr(float(multiInspiralTable[maxIndex].end_time) + float(multiInspiralTable[maxIndex].end_time_ns)*10**(-9))
-    if not (float(multiInspiralTable[maxIndex].eff_distance) == -1.0):
-      eff_distance = "%0.3f"%multiInspiralTable[maxIndex].eff_distance
-    else:
-      eff_distance =  "NA"
-    ifo1_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo1_eff_distance
-    ifo2_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo2_eff_distance
-    if not (float(multiInspiralTable[maxIndex].tau3) == -1.0):
-      tau3 = "%0.3f"%multiInspiralTable[maxIndex].tau3
-    else:
-      tau3 =  "NA"
-    if not (float(multiInspiralTable[maxIndex].tau4) == -1.0):
-      tau4 = "%0.3f"%multiInspiralTable[maxIndex].tau4
-    else:
-      tau4 =  "NA"
-    if not (float(multiInspiralTable[maxIndex].ligo_axis_dec) == -1001.0):
-      ligo_axis_dec = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_dec
-    else:
-      ligo_axis_dec =  "NA"
-    if not (float(multiInspiralTable[maxIndex].ligo_axis_ra) == -1001.0):
-      ligo_axis_ra = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_ra
-    else:
-      ligo_axis_ra =  "NA"
-    if not (float(multiInspiralTable[maxIndex].polarization) == -1001.0):
-      polarization = "%0.3f"%multiInspiralTable[maxIndex].polarization
-    else:
-      polarization =  "NA"
-    if not (float(multiInspiralTable[maxIndex].inclination) == -1001.0):
-      inclination = "%0.3f"%multiInspiralTable[maxIndex].inclination
-    else:
-      inclination =  "NA"
-    if not (float(multiInspiralTable[maxIndex].coa_phase) == -1001.0):
-      coa_phase = "%0.3f"%multiInspiralTable[maxIndex].coa_phase
-    else:
-      coa_phase =  "NA"
-
     IfoSNR = {}
     colorCode = {'H1': 'r', 'H2': 'b', 'L1': 'g', 'V1': 'm'}
 
@@ -157,6 +104,70 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
         minSNR = float(IfoSNR[ifo])
         minSNRIfo = ifo
 
+
+    if not (float(multiInspiralTable[maxIndex].tau4) == -1.0):
+      tau4 = "%0.3f"%multiInspiralTable[maxIndex].tau4
+    else:
+      tau4 =  "NA"
+
+
+    cohSNR = "%0.2f"%maxSNR
+    if ifoH1 == 1 and ifoH2 == 1 \
+      and not (float(multiInspiralTable[maxIndex].null_statistic) == -1.0):
+      # Fetch H1H2 null-stat if available
+      h1h2_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_statistic))
+      h1h2NullStat = "%0.5f"%h1h2_null_stat
+    else:
+      h1h2NullStat = "NA"
+    # Fetch H1H2 eff-distance if available
+    if ifoH1 == 1 and ifoH2 == 1 \
+      and not (float(multiInspiralTable[maxIndex].tau4) == -1.0):
+      tau4 = "%0.3f"%multiInspiralTable[maxIndex].tau4
+    else:
+      tau4 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].tau5) == -1.0):
+      net_null_stat = sqrt(float(multiInspiralTable[maxIndex].tau5))
+      netNullStat = "%0.5f"%net_null_stat
+    else:
+      netNullStat =  "NA"
+    eta = "%0.3f"%multiInspiralTable[maxIndex].eta
+    mchirp = "%0.3f"%multiInspiralTable[maxIndex].mchirp
+    mass1 = "%0.3f"%multiInspiralTable[maxIndex].mass1
+    mass2 = "%0.3f"%multiInspiralTable[maxIndex].mass2
+    end_time = str(multiInspiralTable[maxIndex].end_time)
+    end_time_ns = str(multiInspiralTable[maxIndex].end_time_ns)
+    gpsTime = repr(float(multiInspiralTable[maxIndex].end_time) + float(multiInspiralTable[maxIndex].end_time_ns)*10**(-9))
+    if not (float(multiInspiralTable[maxIndex].eff_distance) == -1.0):
+      eff_distance = "%0.3f"%multiInspiralTable[maxIndex].eff_distance
+    else:
+      eff_distance =  "NA"
+    ifo1_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo1_eff_distance
+    ifo2_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo2_eff_distance
+    if not (float(multiInspiralTable[maxIndex].tau3) == -1.0):
+      tau3 = "%0.3f"%multiInspiralTable[maxIndex].tau3
+    else:
+      tau3 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].ligo_axis_dec) == -1001.0):
+      ligo_axis_dec = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_dec
+    else:
+      ligo_axis_dec =  "NA"
+    if not (float(multiInspiralTable[maxIndex].ligo_axis_ra) == -1001.0):
+      ligo_axis_ra = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_ra
+    else:
+      ligo_axis_ra =  "NA"
+    if not (float(multiInspiralTable[maxIndex].polarization) == -1001.0):
+      polarization = "%0.3f"%multiInspiralTable[maxIndex].polarization
+    else:
+      polarization =  "NA"
+    if not (float(multiInspiralTable[maxIndex].inclination) == -1001.0):
+      inclination = "%0.3f"%multiInspiralTable[maxIndex].inclination
+    else:
+      inclination =  "NA"
+    if not (float(multiInspiralTable[maxIndex].coa_phase) == -1001.0):
+      coa_phase = "%0.3f"%multiInspiralTable[maxIndex].coa_phase
+    else:
+      coa_phase =  "NA"
+
     del multiInspiralTable
 
     print >> sys.stdout, "Read table entries"
@@ -172,7 +183,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     timePoints = segLenSec * sampleRate
 
     cohNetSNRFrameName = 'Coherent_SNR_' + str(eventID)
-    cohNetSNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+    cohNetSNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
     cohNetSNR_tuple = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,0)
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
@@ -185,7 +196,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     #Read in the coherent H1H2 SNR data from frame-file
     if ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)      
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1_' + str(eventID) + '-'  + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
@@ -193,7 +204,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       expectCohH1H2snr = 1 
     elif ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
       cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf' 
+      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf' 
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
@@ -337,13 +348,13 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     #Read in the coherent H1H2 SNR data from frame-file
     if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
     elif expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
       cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
@@ -355,7 +366,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     # updated for LV searches
     if ifoH1 == 1 and ifoH2 == 1:
       H1H2NullStatFrameName = 'Coherent_H1H2_NullStat_' + str(eventID)
-      H1H2NullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      H1H2NullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       H1H2NullStat_tuple = Fr.frgetvect(H1H2NullStatFrameFile,H1H2NullStatFrameName)
       H1H2NullStatSq = H1H2NullStat_tuple[0]
       del H1H2NullStat_tuple
@@ -436,7 +447,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     # Network null-stream versus weakest ifo SNR:
     if not (ifoH1 == 1 and ifoH2 == 1 and numIfos == 3 ) and not (numIfos < 3):
       cohNullStatFrameName = 'Coherent_NullStat_' + str(eventID)
-      cohNullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_NULL_STAT_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohNullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_NULL_STAT_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohNullStat_tuple = Fr.frgetvect(cohNullStatFrameFile,cohNullStatFrameName)
       cohNullStatSq = cohNullStat_tuple[0]
       del cohNullStat_tuple
@@ -648,9 +659,6 @@ if not opts.chiaXmlFile:
   print >> sys.stderr, "No chia xml file specified."
   print >> sys.stderr, "Use --chiaXmlFile XML to specify a file"
   sys.exit(1)
-
-if not opts.H1_framefile:
-  h1framefile
 
 frameDict = {'H1': opts.H1_framefile, 'H2': opts.H2_framefile, 'L1': opts.L1_framefile, 'V1': opts.V1_framefile}
 
