@@ -140,16 +140,17 @@ def extrapolation_coeffs(rank_by, N, reputations, t):
 	# calculate the FAR extrapolation coefficients
 	#
 
+	#
+	# get just the loudest N in reputations
+	#
+
+	if len(reputations) < 2:
+		print >>sys.stderr,"Warning: found a category with less than 2 background triggers, cannot perform extrapolation for this category"
+		return (0, (0, 0))
+
+	x = reputations[-N:]
+
 	if rank_by == "snr":
-		#
-		# get just the loudest N in reputations
-		#
-
-		if len(reputations) < 2:
-			print >>sys.stderr,"Warning: found a category with less than 2 background triggers, cannot perform extrapolation for this category"
-			return (0, (0, 0))
-
-		x = reputations[-N:]
 		y = range(1, len(x) + 1, 1)
 		y.reverse()
 
@@ -166,8 +167,7 @@ def extrapolation_coeffs(rank_by, N, reputations, t):
 		return (len(x), (A, B))
 
 	elif rank_by == "uncombined-ifar":
-		x = [1 for rep in reputations if rep >= t/N]
-		A = float(len(x)) / N
+		A = float(len(x)) * x[0] / t
 		return (len(x), (A, 0))
 
 def extrapolate_reputation(rank_by, coeffs, reputation, t):
