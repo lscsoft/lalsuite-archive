@@ -812,10 +812,11 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
       data = log10(data)
 
 
-    if bins:
-      ydata, xdata, patches = hist(data,bins)
+    if len(bins) != 0:
+      ydata, xdata = numpy.histogram(data, bins, new=True)
     else:
-      ydata, xdata, patches = hist(data,nbins)
+      ydata, xdata = numpy.histogram(data, nbins, new=True)
+    xdata = xdata[:-1]
 
     width = xdata[1] - xdata[0]
 
