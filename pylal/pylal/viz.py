@@ -1342,9 +1342,9 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     for i in range(nbins):
       bins.append(hist_width[0] + (hist_width[1] - hist_width[0]) * i / nbins)
   
-    out = hist(tmp_diff,bins)
+    out = histogram(tmp_diff,bins=bins,new=False)
   else:
-    out = hist(tmp_diff,nbins)
+    out = histogram(tmp_diff,bins=nbins,new=False)
   clf()
   figure(fig_num)
   
@@ -1359,11 +1359,7 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     val = val + (width * hist_num)/2
     left.append(val)
  
- 
-  try:
-    bar(left,height,width,color=histcolors[hist_num])
-  except:
-    print 'problem in histdiff, using bar. skipped'
+  bar(left,height,width,color=histcolors[hist_num])
 
   # figtext(0.13,0.8 - 0.1* hist_num," mean = %6.3e" % mean(tmp_diff))
   # figtext(0.13,0.75 - 0.1 * hist_num,'sigma = %6.3e' % std(tmp_diff))
