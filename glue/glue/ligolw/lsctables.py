@@ -2689,6 +2689,7 @@ TableByName = {
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
 	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
 	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
+	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,

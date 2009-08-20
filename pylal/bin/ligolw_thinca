@@ -64,6 +64,14 @@ lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.Sng
 
 
 #
+# Don't use sngl_inspiral event_id derived from the long built-in
+#
+
+
+del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
+
+
+#
 # =============================================================================
 #
 #                                 Command Line
@@ -203,3 +211,4 @@ for n, filename in enumerate(filenames):
 
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
+	lsctables.table.reset_next_ids(lsctables.TableByName.values())

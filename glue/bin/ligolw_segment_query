@@ -355,8 +355,8 @@ def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_ti
 
     for key in segment_types:
         # Make sure the intervals fall within the query window and coalesce
-        segment_types[key] &= query_segment
         segment_types[key].coalesce()
+        segment_types[key] &= query_segment
 
         seg_def_id                     = seg_def_table.get_next_id()
         segment_definer                = lsctables.SegmentDef()
@@ -437,8 +437,9 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
         excluded_segments = segmentdb_utils.query_segments(engine, 'segment', ex_segdefs)
         excluded_segments = reduce(operator.or_, excluded_segments).coalesce()
 
-        found_segments -= excluded_segments
         found_segments.coalesce()
+        found_segments -= excluded_segments
+
 
 
     # Add the result type to the segment definer table

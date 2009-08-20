@@ -1,9 +1,9 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.32-64
+VERSION=1.4.33-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
@@ -12,7 +12,7 @@ OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
 OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
-OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
+#OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC
@@ -416,9 +416,10 @@ upload.l: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
-upload.c: powerflux-condor powerflux-mt
+upload.c: powerflux-condor powerflux-mt powerflux-condor2
 	globus-scp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
+	globus-scp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.m: powerflux-condor powerflux-mt
