@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python 
 #
 # Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
@@ -78,9 +78,6 @@ def parse_args():
 
     parser.add_option("--analyze", type="string",help="Specifies what to "\
                       "analyze. Possible values: {box,test}.")
-    parser.add_option("--reject-redshift-grb", action="store_true",
-                      help="Enables any GRB with a redshift value to be rejected. "\
-                      "Not recommended.", default=False)
     parser.add_option("--reject-no-candidate", action="store_true",
                       help="Rejects any GRB which does not have any candidate"\
                       " for the population statement.", default=False)
@@ -88,7 +85,7 @@ def parse_args():
                       help="Comma-seperated list"\
                       " of GRBs to be rejected.")
     parser.add_option("--reject-empty", action="store_true", default=False,
-        help="reject empty trials in both on/off-source")
+        help="reject every empty trial in both on/off-source")
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
     parser.add_option("--m2-max", type="float", help="maximum m2 value")
@@ -116,20 +113,13 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
-
     if options.ifo_tag is not None:
         options.ifo_times = options.ifo_tag
 
-    for opt in ["data_path"]:
+    # check the minimal required arguments
+    for opt in ["data_path","m2_min","m2_max","m2_nbins"]:
         if getattr(options, opt) is None:
             raise ValueError,  "--%s is required" % opt.replace("_", "-")
-
-
-    # Default hack: Not nice, but FIXME, i.e. load the grbUL pickle file!!
-    if options.m2_min is None:
-        options.m2_min = 1
-        options.m2_max = 40
-        options.m2_nbins = 13
 
     return options, arguments
 
@@ -174,7 +164,7 @@ for m2_low, m2_high in zip(m2_bins.lower(), m2_bins.upper()):
     pop_m2[mass_bin] = PopStatement.PopStatement(grb_data, mass_bin)
 
 
-# loop over each GRB in the list (22 of them)
+# loop over each GRB in the list
 list_grb = grb_data.keys()
 list_grb.sort()
 for grb_name in list_grb:
@@ -194,36 +184,49 @@ for grb_name in list_grb:
            pickle.load(open(file_off))
     n_trials = offsource_L_by_trial_m2.shape[0]
 
-    dummy, dummy, injections_L_by_trial_m2, inj_log_sum_L_by_trial =\
-                pickle.load(open(file_inj))
+    # read injection data only in the case of testing (i.e. not-box-opening)
+    if opts.analyze!='box':
+        dummy, dummy, injections_L_by_trial_m2, inj_log_sum_L_by_trial =\
+               pickle.load(open(file_inj))
+    else:
+        inj_log_sum_L_by_trial = [0]
+        injections_L_by_trial_m2 = []
 
 
     # double check the detection statistic
     count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
     stat = count_louder/n_trials
-    text = "GRB%s p(c|0)= %.1f %% | log(L) = %.2f" % (grb_name, 100.0*stat, log_sum_L)
+    text = "GRB%s p(c|0)= %.1f %% | log(L) = %.2f" % \
+           (grb_name, 100.0*stat, log_sum_L)
     if log_sum_L == -numpy.infty:
         text+= "(no candidate)"    
     page.write(text)
 
     if (opts.reject_no_candidate and log_sum_L == -numpy.infty) \
            or grb_name in list_reject_grb:
-        print "This GRB will not be used for the final population statement"
+        text = "This GRB %s will not be used for the final "\
+               "population statement"%grb_name
+        page.write(text)
         continue
 
     # add data to the m2-pop statement instances
     for index_m2, (m2_low, m2_high) in \
         enumerate(zip(m2_bins.lower(), m2_bins.upper())):             
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
-
+        
+        if opts.analyze!='box':
+            injections_L_by_trial = injections_L_by_trial_m2[:,index_m2]
+        else:
+            injections_L_by_trial = [0]
+            
         pop_m2[mass_bin].add_data(grb_name, \
-                                  injections_L_by_trial_m2[:,index_m2],\
+                                  injections_L_by_trial,\
                                   offsource_L_by_trial_m2[:,index_m2], \
                                   onsource_L_by_m2[index_m2])
 
     # populate the popStatement instance with real background/onsource
     pop_stat.add_data(grb_name, inj_log_sum_L_by_trial, \
-                      off_log_sum_L_by_trial,log_sum_L) 
+                      off_log_sum_L_by_trial, log_sum_L) 
 
 # finalize the sampling
 pop_stat.finalize()
@@ -320,8 +323,8 @@ else:
     pop_stat.select_onsource(opts.analyze, reject_empty = opts.reject_empty)
     z_lik = pop_stat.compute_wmu()
 
-    page.write("Number of offsource trials used: %d" % len(pop_stat.on_list))
-    page.write("Number of GRB data used: %d" % len(pop_stat.off_list))
+    page.write("Number of actual offsource trials used: %d" % pop_stat.n_off)
+    page.write("Number of actual GRB data used: %d" % pop_stat.n_grb)
 
     plot = pop_stat.create_plot_hist()
     page.add_plot(plot.fig, "histCondense")
@@ -369,6 +372,18 @@ else:
     pickle.dump([pop_stat.on_list, pop_stat.off_list],f)
 
 
-  
 # create the html page    
 page.write_page()
+
+# store the key results in a tex file for the paper
+tex_file = open('expose.tex','w')
+tex_file.write('\\newcommand\\numGRBs{%d}\n' % pop_stat.n_grb)
+tex_file.write('\\newcommand\\numbertotaloff{%d}\n'% pop_stat.n_off)
+p_100 = 100.0*pop_stat.p_one_sided
+tex_file.write('\\newcommand\\mwuprob{%.0f}\n'% p_100)
+tex_file.write('\\newcommand\\mwusigma{%.2f}\n'% z_lik)
+p_dummy =  100.0-p_100
+tex_file.write('\\newcommand\\resultUTestInverse{%.0f}\n' % p_dummy)
+tex_file.close()
+print "expose.tex file has been created"
+
