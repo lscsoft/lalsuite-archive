@@ -396,7 +396,7 @@ def ligolw_burca(
 	# iterate over time slides
 	#
 
-	time_slides = coinc_tables.get_ordered_time_slides()
+	time_slides = coinc_tables.get_time_slides()
 	for n, (time_slide_id, offsetdict) in enumerate(time_slides):
 		if verbose:
 			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(("%s = %+.16g s" % x) for x in sorted(offsetdict.items())))
