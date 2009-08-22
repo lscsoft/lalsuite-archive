@@ -32,6 +32,7 @@ Light Weight XML documents.
 """
 
 
+import bisect
 import itertools
 import copy
 import sys
@@ -86,7 +87,7 @@ def time_slide_component_vectors(offset_vectors, n):
 
 	delta_sets = {}
 	for offset_vector in offset_vectors:
-		for instruments in iterutils.choices(sorted(offset_vector.keys()), n):
+		for instruments in iterutils.choices(sorted(offset_vector), n):
 			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments[1:]))
 
 	#
@@ -111,8 +112,8 @@ def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 	# as rows instead of columns.
 	#
 
-	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a.keys()), sorted(b.keys())))
-	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v.keys()))]
+	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a), sorted(b)))
+	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v))]
 	n = max(len(offsets) for offsets in l)
 	for offsets in l:
 		offsets += [""] * (n - len(offsets))
@@ -146,52 +147,162 @@ def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 
 
 class TimeSlideGraphNode(object):
-	def __init__(self, offset_vector):
+	def __init__(self, offset_vector, time_slide_id = None):
+		self.time_slide_id = time_slide_id
 		self.offset_vector = offset_vector
-		self.deltas = ligolw_tisi.offset_vector_to_deltas(offset_vector)
-		self.components = set()
+		self.deltas = frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items())
+		self.components = None
+		self.coincs = None
+		self.unused_coincs = set()
+
+
+	def get_coincs(self, verbose = False):
+		#
+		# has this node already been visited?  if so, return the
+		# answer we already know
+		#
+
+		if self.coincs is not None:
+			if verbose:
+				print >>sys.stderr, "\treusing %s" % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+			return self.coincs
+
+		#
+		# is this a leaf node?  construct the coincs explicitly
+		#
+
+		if self.components is None:
+			# FIXME:  move the code from ligolw_thinca to here
+			raise NotImplementedError
+
+		#
+		# is this a head node, or some other node that magically
+		# has only one component?  copy coincs from component
+		#
+
+		if len(self.components) == 1:
+			if verbose:
+				print >>sys.stderr, "\tcopying from %s" % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.components[0].offset_vector.items())))
+			self.coincs = self.components[0].get_coincs(verbose = verbose)
+			self.unused_coincs = self.components[0].unused_coincs
+
+			#
+			# done.  unlink the graph as we go to release
+			# memory
+			#
+
+			self.components = None
+			return self.coincs
+
+		#
+		# len(self.components) == 2 is impossible
+		#
+
+		assert len(self.components) > 2
+
+		#
+		# this is a regular node in the graph.  use coincidence
+		# synthesis algorithm to populate its coincs
+		#
+
+		if verbose:
+			print >>sys.stderr, "\tassembling %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+
+		self.unused_coincs = reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components)) | reduce(lambda a, b: a | b, (set(component.coincs) for component in self.components))
+
+		self.coincs = []
+		allcoincs0 = self.components[0].get_coincs(verbose = verbose)
+		allcoincs1 = self.components[1].get_coincs(verbose = verbose)
+		allcoincs2 = self.components[-1].get_coincs(verbose = verbose)
+		for coinc0 in allcoincs0:
+			coincs1 = allcoincs1[bisect.bisect_left(allcoincs1, coinc0[:-1]):bisect.bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
+			coincs2 = allcoincs2[bisect.bisect_left(allcoincs2, coinc0[1:]):bisect.bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
+			for coinc1 in coincs1:
+				i = bisect.bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
+				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
+					new_coinc = coinc0[:1] + coincs2[i]
+					self.unused_coincs -= set(iterutils.choices(new_coinc, len(new_coinc) - 1))
+					self.coincs.append(new_coinc)
+		self.coincs.sort()
+		self.coincs = tuple(self.coincs)
+
+		#
+		# done.  unlink the graph as we go to release memory
+		#
+
+		self.components = None
+		return self.coincs
 
 
 class TimeSlideGraph(object):
-	def __init__(self, offset_vectors):
-		self.head = set(TimeSlideGraphNode(offset_vector) for offset_vector in offset_vectors)
-		self.generations = {}
+	def __init__(self, offset_vector_dict):
+		#
+		# populate the graph head nodes.  these represent the
+		# target offset vectors requested by the calling code.
+		#
 
-		n = max(len(offset_vector) for offset_vector in offset_vectors)
-		self.generations[n] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors((node.offset_vector for node in self.head), n))
-		for n in range(max(len(offset_vector) for offset_vector in offset_vectors), 2, -1):
+		self.head = tuple(TimeSlideGraphNode(offset_vector, id) for id, offset_vector in sorted(offset_vector_dict.items()))
+
+		#
+		# populate the graph generations.  generations[n] is a
+		# tuple of the nodes in the graph representing all unique
+		# n-instrument offset vectors to be constructed as part of
+		# the analysis (including normalized forms of any
+		# n-instrument target offset vectors).
+		#
+
+		self.generations = {}
+		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors((node.offset_vector for node in self.head), n))
+		for n in range(n, 2, -1):	# [n, ..., 3]
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
 				offset_vectors += [node.offset_vector for node in self.generations[n]]
-			self.generations[n - 1] = set(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
+			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
+
+		#
+		# link each n-instrument node to the n-1 instrument nodes
+		# from which it will be constructed.  NOTE:  the components
+		# are sorted according to the alphabetically-sorted tuples
+		# of instrument names involved in each component;  this is
+		# a critical part of the coincidence synthesis algorithm
+		#
 
 		for node in self.head:
-			node.components = set(component for component in self.generations[len(node.offset_vector)] if node.deltas == component.deltas)
+			node.components = tuple(sorted((component for component in self.generations[len(node.offset_vector)] if node.deltas == component.deltas), lambda a, b: cmp(sorted(a.offset_vector), sorted(b.offset_vector))))
 		for n, nodes in self.generations.items():
 			if n <= 2:
 				continue
 			for node in nodes:
 				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in time_slide_component_vectors([node.offset_vector], n - 1))
-				node.components = set(component for component in self.generations[n - 1] if frozenset(component.deltas.items()) in component_deltas)
+				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), lambda a, b: cmp(sorted(a.offset_vector), sorted(b.offset_vector))))
+
+		#
+		# done
+		#
 
 
-def write_time_slide_graph(fileobj, graph):
-	vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
+	def write(self, fileobj):
+		"""
+		Write a DOT graph representation of the time slide graph
+		object to fileobj.
+		"""
+		vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
 
-	print >>fileobj, "digraph \"Time Slides\" {"
-	for nodes in graph.generations.values():
-		for node in nodes:
+		print >>fileobj, "digraph \"Time Slides\" {"
+		for nodes in self.generations.values():
+			for node in nodes:
+				node_name = vectorstring(node.offset_vector)
+				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
+				for component in node.components:
+					component_name = vectorstring(component.offset_vector)
+					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+		for node in self.head:
 			node_name = vectorstring(node.offset_vector)
-			print >>fileobj, "\t\"%s\" [shape=box];" % node_name
 			for component in node.components:
 				component_name = vectorstring(component.offset_vector)
 				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
-	for node in graph.head:
-		node_name = vectorstring(node.offset_vector)
-		for component in node.components:
-			component_name = vectorstring(component.offset_vector)
-			print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
-	print >>fileobj, "}"
+		print >>fileobj, "}"
 
 
 #
@@ -227,11 +338,11 @@ class CoincTables(object):
 		# find the time_slide table
 		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 
-	def get_ordered_time_slides(self):
+	def get_time_slides(self):
 		"""
-		Deprecated.
+		Return the time_slide_id --> offset vector dictionary.
 		"""
-		return sorted(self.time_slide_table.as_dict().items())
+		return self.time_slide_table.as_dict()
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
@@ -239,6 +350,10 @@ class CoincTables(object):
 		and adds the events as a new coincidence to the coinc_event
 		and coinc_map tables.
 		"""
+		# so we can iterate over it more than once incase we've
+		# been given a generator expression.
+		events = tuple(events)
+
 		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = coinc_def_id
@@ -297,7 +412,9 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# close all the gaps within each instrument's segment list then,
 	# finally, all processes will be found to be required for the
 	# coincidence analysis.  this is not really true, but it's safe.
-	if max(b[0] - a[1] for segs in seglistdict.values() for a, b in zip(segs[:-1], segs[1:])) <= max_segment_gap:
+	if len([segs for segs in seglistdict.values() if len(segs) == 1]):
+		return proc_ids
+	elif max(b[0] - a[1] for segs in seglistdict.values() for a, b in zip(segs[:-1], segs[1:])) <= max_segment_gap:
 		return proc_ids
 
 	# protract by half the largest coincidence window so as to not miss
@@ -306,8 +423,8 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 
 	# determine what time slides are possible given the instruments in
 	# the search summary table
-	avail_instruments = set(seglistdict.keys())
-	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector.keys()).issubset(avail_instruments)]
+	avail_instruments = set(seglistdict)
+	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
 	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
