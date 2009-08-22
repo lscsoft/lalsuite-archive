@@ -355,10 +355,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         FROM
             experiment_summary
         WHERE
-            experiment_summary.experiment_id == ? AND (
-                experiment_summary.datatype == "slide"
-                OR experiment_summary.datatype == ? )"""
-    for esid, duration, datatype in connection.cursor().execute( sqlquery, (eid, plot_datatype) ):
+            experiment_summary.experiment_id == ?"""
+    for esid, duration, datatype in connection.cursor().execute( sqlquery, (eid,) ):
         background.append_duration(eid, esid, duration)
         if datatype != "slide":
             background.append_zero_lag_id(eid, esid, datatype)
@@ -517,7 +515,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     tagList = [] # ditto
 
     # get the esid of the zero-lag for this eid
-    zero_esid = background.zero_lag_ids[ eid ].values()[0]
+    zero_esid = background.zero_lag_ids[ eid ][ plot_datatype ]
+
+    # set bkg_correction: this is the zero-lag duration of the plot_datatype divided
+    # by the all_data duration; this is needed to set the background correctly
+    all_data_zero_esid = background.zero_lag_ids[eid]['all_data']
+    bkg_correction = background.frg_durs[eid][zero_esid] / background.frg_durs[eid][all_data_zero_esid]
     
     #
     #   Plot Uncombined IFAR
@@ -542,12 +545,6 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xmax = -numpy.inf
             ymin = 0.8
             ymax = 0
-            if plot_datatype == "playground":
-                bkg_correction = 0.1
-            elif plot_datatype == "exclude_play":
-                bkg_correction = 0.9
-            else:
-                bkg_correction = 1.
 
             #
             #   Plot lightning bolts
@@ -776,12 +773,6 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xmax = -numpy.inf
             ymin = 0.8
             ymax = 0
-            if plot_datatype == "playground":
-                bkg_correction = 0.1
-            elif plot_datatype == "exclude_play":
-                bkg_correction = 0.9
-            else:
-                bkg_correction = 1.
 
             #
             #   Plot lightning bolts
