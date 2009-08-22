@@ -519,8 +519,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
 
     # set bkg_correction: this is the zero-lag duration of the plot_datatype divided
     # by the all_data duration; this is needed to set the background correctly
-    all_data_zero_esid = background.zero_lag_ids[eid]['all_data']
-    bkg_correction = background.frg_durs[eid][zero_esid] / background.frg_durs[eid][all_data_zero_esid]
+    if 'all_data' in background.zero_lag_ids[eid]:
+        all_data_zero_esid = background.zero_lag_ids[eid]['all_data']
+        bkg_correction = background.frg_durs[eid][zero_esid] / background.frg_durs[eid][all_data_zero_esid]
+    else: # if not all_data, just set bkg_correction to 1. to avoid errors
+        bkg_correction = 1.
     
     #
     #   Plot Uncombined IFAR
