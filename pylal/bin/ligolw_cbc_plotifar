@@ -29,7 +29,6 @@ from glue.ligolw import dbtables
 import glue.iterutils
 
 from pylal import InspiralUtils
-from numpy import histogram
 
 import itertools
 import numpy
@@ -249,8 +248,7 @@ if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-from pylal import viz
-from numpy import histogram
+#from pylal import viz
 rc('text', usetex=True)
 
 #
@@ -302,6 +300,12 @@ if plot_datatype not in lsctables.ExperimentSummaryTable.datatypes:
 if plot_datatype == "slide" or plot_datatype == "simulation":
     raise ValueError, "--datatype must be either all_data, playground, or exclude_play"
 
+# stick datatype plotted in filename
+if opts.user_tag:
+    opts.user_tag = '_'.join([ opts.user_tag, plot_datatype.upper(), 'PLOTTED'])
+else:
+    opts.user_tag = '_'.join([ plot_datatype.upper(), 'PLOTTED' ])
+
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 
@@ -325,6 +329,7 @@ sqlquery = """
         experiment
         """
 for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( sqlquery ):
+    on_inst = lsctables.instrument_set_from_ifos(on_inst)
     if opts.verbose:
         print >> sys.stdout, "Creating plots for %s time..." % lsctables.ifos_from_instrument_set(on_inst)
 
@@ -365,7 +370,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     # this is just 1/background_duration for each experiment_summ_id
     min_bkg_ufar = {}
     if opts.verbose:
-        print >> sys.stdout, "Calculating maximum background IFARs..."
+        print >> sys.stdout, "\tcalculating maximum background IFARs..."
     for esid, bkg_dur in background.bkg_durs.items():
         min_bkg_ufar[esid] = 1./bkg_dur
 
@@ -375,8 +380,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     sqlquery = ''.join([ """
         SELECT 
             experiment_summary.experiment_summ_id,
-            """,
-            ifo_grouping, """,
+            coinc_inspiral.ifos,
             """,
             param_grouping, """,
             coinc_inspiral.false_alarm_rate,
@@ -390,8 +394,10 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         WHERE 
             experiment_summary.experiment_id == ? AND (
                 experiment_summary.datatype == "slide" 
-                OR experiment_summary.datatype == ?"""])
+                OR experiment_summary.datatype == ? )
+        """])
     for esid, ifos, param_group, ufar, cfar in connection.cursor().execute(sqlquery, (eid, plot_datatype) ):
+        ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         if opts.plot_uncombined:
             ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
             # since the ufar_summaries class doesn't know about zero-lag esides,
@@ -405,7 +411,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 ifo_group = "ALL_IFOS"
             cfar_summaries.add_to_bkg_stats(eid, esid, ifo_group, "ALL_PARAM_BINS", cfar)
             if esid in background.zero_lag_ids[eid].values():
-                cfar_summaries.bkg_stats[(eid, ifos, param_group)].remove(cfar)
+                cfar_summaries.bkg_stats[(eid, ifo_group, "ALL_PARAM_BINS")].remove(cfar)
 
     # calculate max-bkg fars
     if opts.verbose:
@@ -426,6 +432,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 experiment_summary.datatype == "slide"
             """])
     for ifos, param_group in connection.cursor().execute(sqlquery, (eid,)):
+        ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         tot_num = len( ufar_summaries.bkg_stats[(eid, ifos, param_group)] )
         for esid in background.frg_durs[eid]:
             this_num = tot_num
@@ -441,8 +448,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             else:
                 max_bkg_fars[esid][(ifos, param_group)] = this_num / background.bkg_durs[esid]
 
-    # sort and calculate cumulative historgram values for each
-    # uncombined_far list in uncombined_fars
+    #
+    #   Sort and calculate cumulative historgram values
+    #
+
+    # uncombined_fars
     if opts.verbose:
         print >> sys.stdout, "\tcalculating cumulative histogram..."
     if opts.plot_uncombined:
@@ -461,14 +471,14 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                     break
                 uncomb_zero_cumnum[ category ] = n + 1
                 ufarlist[n] = min_bkg_ufar[ category[1] ] 
-                # reverse sort ufarlist and uncombined_cumnum so loudest trigs will
-                # be plotted first 
-                uncombined_cumnum[ category ].sort(reverse = True)
-                ufarlist.sort(reverse = True)
-                # turn ufarlist into an array for easy inverse calculation
-                ufar_summaries.sngl_slide_stats[ category ] = array( ufarlist )
+            # reverse sort ufarlist and uncombined_cumnum so loudest trigs will
+            # be plotted first 
+            uncombined_cumnum[ category ].sort(reverse = True)
+            ufarlist.sort(reverse = True)
+            # turn ufarlist into an array for easy inverse calculation
+            ufar_summaries.sngl_slide_stats[ category ] = numpy.array( ufarlist )
 
-    # do the same for combined far
+    # do the same for combined_fars
     if opts.plot_combined:
         combined_cumnum = {}
         comb_zero_cumnum = {}
@@ -482,20 +492,14 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                     break
                 comb_zero_cumnum[ category ] = n + 1
                 cfarlist[n] = min_bkg_ufar[esid] * len(max_bkg_fars[esid].values())
-                cfarlist.sort(reverse = True)
-                combined_cumnum[ category ].sort(reverse = True)
-                cfar_summaries.sngl_slide_stats[ category ] = array( cfarlist )
+            cfarlist.sort(reverse = True)
+            combined_cumnum[ category ].sort(reverse = True)
+            cfar_summaries.sngl_slide_stats[ category ] = numpy.array( cfarlist )
 
         
     #
     #   Plot
     #
-
-    # Create a new page of plots for this experiment id
-    if opts.user_tag:
-        opts.user_tag = '_'.join([ opts.user_tag, plot_datatype.upper()])
-    else:
-        opts.user_tag = plot_datatype.upper()
 
     # FIXME: The following should be done more elegantly, but requires changes to 
     # InspiralUtils.py
@@ -538,20 +542,21 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xmax = -numpy.inf
             ymin = 0.8
             ymax = 0
+            if plot_datatype == "playground":
+                bkg_correction = 0.1
+            elif plot_datatype == "exclude_play":
+                bkg_correction = 0.9
+            else:
+                bkg_correction = 1.
 
             #
             #   Plot lightning bolts
             #
             if opts.plot_slides:
-                if plot_datatype == "playground":
-                    bkg_correction = 0.1
-                if plot_datatype == "exclude_play":
-                    bkg_correction = 0.9
-                if plot_datatype == "all_data":
-                    bkg_correction = 1.
                 for category, ufars in ufar_summaries.sngl_slide_stats.items():
+                    esid = category[1]
                     # skip the zero-lag
-                    if category[1] == zero_esid:
+                    if esid == zero_esid:
                         continue
                     # plot the rest as gray lines
                     loglog( bkg_correction/ufars, 
@@ -573,7 +578,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             #
 
             xbkg = numpy.logspace( -8, 2, num=100, endpoint=True, base=10.0 )
-            ybkg = background.frg_durs[eid] / xbkg
+            ybkg = background.frg_durs[eid][zero_esid] / xbkg
             loglog( xbkg, ybkg, 'k--', linewidth = 2, label = 'Expected Background' )
             
             # plot error
@@ -594,9 +599,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             #
 
             for category, ufars in ufar_summaries.sngl_slide_stats.items():
+                esid = category[1]
                 # skip the slides
-                if category[1] != zero_esid:
+                if esid != zero_esid:
                     continue
+                ifos = category[2]
+                param_group = category[3]
                 loglog( 1./ufars, 
                         uncombined_cumnum[ category ],
                         marker = param_ranges_legend[(param_name, param_group)]['marker'],
@@ -698,12 +706,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             # Set the ifo colors:
             # use the ifos listed in the max_bkg_fars to get the ifo colors
             lgnd = dict([ [ifos, InspiralUtils.get_coinc_ifo_colors(ifos)] \
-                for (esid, ifos) in background.max_bkg_fars if esid == zero_esid])
+                for (ifos, param_group) in max_bkg_fars[zero_esid] ])
             # if any ifos are in the foreground but not in the background, add those also
-            if zero_esid in uncombined_fars[eid]:
-                for (ifos, param_group) in uncombined_fars[eid][zero_esid]:
-                    if ifos not in lgnd:
-                        lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
+            for (eid, esid, ifos, param_group) in ufar_summaries.sngl_slide_stats:
+                if esid == zero_esid and ifos not in lgnd:
+                    lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
             # add the ifo colors to the legend
             for ifos, ifos_color  in lgnd.items():
                 loglog( [xdum,xdum], [ydum,ydum],
@@ -769,24 +776,25 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xmax = -numpy.inf
             ymin = 0.8
             ymax = 0
+            if plot_datatype == "playground":
+                bkg_correction = 0.1
+            elif plot_datatype == "exclude_play":
+                bkg_correction = 0.9
+            else:
+                bkg_correction = 1.
 
             #
             #   Plot lightning bolts
             #
             if opts.plot_slides:
-                if plot_datatype == "playground":
-                    bkg_correction = 0.1
-                if plot_datatype == "exclude_play":
-                    bkg_correction = 0.9
-                if plot_datatype == "all_data":
-                    bkg_correction = 1.
                 for category, cfars in cfar_summaries.sngl_slide_stats.items():
+                    esid = category[1]
                     # skip the zero-lag
-                    if category[1] == zero_esid:
+                    if esid == zero_esid:
                         continue
                     # plot the rest as gray lines
                     loglog( bkg_correction/cfars, 
-                            uncombined_cumnum[ category ],
+                            combined_cumnum[ category ],
                             color = 'gray',
                             linestyle = '-',
                             alpha = 0.4,
@@ -804,7 +812,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             #
 
             xbkg = numpy.logspace( -8, 2, num=100, endpoint=True, base=10.0 )
-            ybkg = frg_durs[eid] / xbkg
+            ybkg = background.frg_durs[eid][zero_esid] / xbkg
             loglog( xbkg, ybkg, 'k--', linewidth = 2, label = 'Expected Background' )
             
             # plot error
@@ -826,10 +834,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             #
 
             for category, cfars in cfar_summaries.sngl_slide_stats.items():
+                esid = category[1]
                 # skip the slides
-                if category[1] != zero_esid:
+                if esid != zero_esid:
                     continue
-                if category[2] == "ALL_IFOS":
+                ifo_group = category[2]
+                if ifo_group == "ALL_IFOS":
                     trigcolor = 'b'
                     lbl = "Combined Coincs"
                 else:
