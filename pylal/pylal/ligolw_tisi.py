@@ -26,6 +26,7 @@
 #
 
 
+import itertools
 import sys
 # Python 2.3 compatibility
 try:
@@ -274,9 +275,9 @@ def offset_vector_to_deltas(offset_vector):
 	{('H1', 'L1'): 10, ('L1', 'V1'): 10}
 
 	The keys in the result are instrument pairs, (a, b), and the values
-	are the relative time shifts, (offset[b] - offset[a]).
+	are the relative time offsets, (offset[b] - offset[a]).
 	"""
-	instruments = sorted(offset_vector.keys())
+	instruments = sorted(offset_vector)
 	return dict(((a, b), offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:]))
 
 
@@ -345,18 +346,19 @@ def time_slides_vacuum(time_slides, verbose = False):
 		n = N - len(time_slides)
 		if verbose and not (n % 10):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		# pull out an ID/offset dictionary pair at random
+		# pick an ID/offset dictionary pair at random
 		id1, deltas1 = time_slides.popitem()
 		# for every other ID/offset dictionary pair in the time
 		# slides
+		ids_to_delete = []
 		for id2, deltas2 in time_slides.items():
 			# if the relative offset dictionaries are
-			# equivalent
+			# equivalent record in the old --> new mapping
 			if deltas2 == deltas1:
-				# remove it, and record in the old --> new
-				# mapping
-				time_slides.pop(id2)
 				mapping[id2] = id1
+				ids_to_delete.append(id2)
+		for id2 in ids_to_delete:
+			time_slides.pop(id2)
 	# done
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
@@ -389,6 +391,39 @@ def time_slide_list_merge(slides1, slides2):
 #
 
 
+def time_slide_component_vectors(offset_vectors, n):
+	"""
+	Given an iterable of time slide vectors, return the shortest list
+	of the unique n-instrument time slide vectors from which all the
+	vectors in the input list can be consructed.  This can be used to
+	determine the minimal set of n-instrument coincs required to
+	construct all of the coincs for all of the requested instrument and
+	offset combinations in the time slide list.
+
+	It is assumed that the coincs for the vector {"H1": 0, "H2": 10,
+	"L1": 20} can be constructed from the coincs for the vectors {"H1":
+	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
+	offsets are significant in determining if two events are
+	coincident, not the absolute offsets.  This assumption is not true
+	for the standard inspiral pipeline, where the absolute offsets are
+	significant.
+	"""
+	#
+	# collect unique instrument set / deltas combinations
+	#
+
+	delta_sets = {}
+	for offset_vector in offset_vectors:
+		for instruments in iterutils.choices(sorted(offset_vector), n):
+			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments[1:]))
+
+	#
+	# translate into a list of n-instrument offset vectors
+	#
+
+	return [dict(zip(instruments, (0.0,) + deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
+
+
 def time_slide_normalize(time_slide, **kwargs):
 	"""
 	The time slide, a mapping of instrument --> offset, is adjusted so
@@ -417,3 +452,52 @@ def time_slide_normalize(time_slide, **kwargs):
 				time_slide[instrument] += delta
 			break
 	return time_slide
+
+
+#
+# =============================================================================
+#
+#                                    Other
+#
+# =============================================================================
+#
+
+
+def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
+	"""
+	Print a summary of the output of time_slide_component_offsets().
+	"""
+	#
+	# organize the information
+	#
+	# groupby requires its input to be grouped (= sorted) by the
+	# grouping key (the instruments), so we have to do this first.
+	# after constructing the strings, we make sure the lists of offset
+	# strings are all the same length by appending empty strings as
+	# needed.  finally we transpose the whole mess so that it's stored
+	# as rows instead of columns.
+	#
+
+	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a), sorted(b)))
+	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v))]
+	n = max(len(offsets) for offsets in l)
+	for offsets in l:
+		offsets += [""] * (n - len(offsets))
+	l = zip(*l)
+
+	#
+	# find the width of the columns
+	#
+
+	width = max(max(len(s) for s in line) for line in l)
+	format = "%%%ds" % width
+
+	#
+	# print the offsets
+	#
+
+	lines = iter(l)
+	print >>fileobj, " | ".join(format % s for s in lines.next())
+	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
+	for line in lines:
+		print >>fileobj, " | ".join(format % s for s in line)

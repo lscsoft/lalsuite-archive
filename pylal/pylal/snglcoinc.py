@@ -34,13 +34,7 @@ Light Weight XML documents.
 
 import bisect
 import itertools
-import copy
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
 
 
 from glue import iterutils
@@ -53,88 +47,6 @@ from pylal import ligolw_tisi
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-
-
-#
-# =============================================================================
-#
-#                             Time Slide Utilities
-#
-# =============================================================================
-#
-
-
-def time_slide_component_vectors(offset_vectors, n):
-	"""
-	Given an iterable of time slide vectors, return the shortest list
-	of the unique n-instrument time slide vectors from which all the
-	vectors in the input list can be consructed.  This can be used to
-	determine the minimal set of n-instrument coincs required to
-	construct all of the coincs for all of the requested instrument and
-	offset combinations in the time slide list.
-
-	It is assumed that the coincs for the vector {"H1": 0, "H2": 10,
-	"L1": 20} can be constructed from the coincs for the vectors {"H1":
-	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
-	offsets are significant in determining if two events are
-	coincident, not the absolute offsets.  This assumption is not true
-	for the standard inspiral pipeline, where the absolute offsets are
-	significant.
-	"""
-	#
-	# collect unique instrument set / deltas combinations
-	#
-
-	delta_sets = {}
-	for offset_vector in offset_vectors:
-		for instruments in iterutils.choices(sorted(offset_vector), n):
-			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments[1:]))
-
-	#
-	# translate into a list of n-instrument offset vectors
-	#
-
-	return [dict(zip(instruments, (0.0,) + deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
-
-
-def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
-	"""
-	Print a summary of the output of time_slide_component_offsets().
-	"""
-	#
-	# organize the information
-	#
-	# groupby requires its input to be grouped (= sorted) by the
-	# grouping key (the instruments), so we have to do this first.
-	# after constructing the strings, we make sure the lists of offset
-	# strings are all the same length by appending empty strings as
-	# needed.  finally we transpose the whole mess so that it's stored
-	# as rows instead of columns.
-	#
-
-	l = sorted(component_offset_vectors, lambda a, b: cmp(sorted(a), sorted(b)))
-	l = [[", ".join("%s-%s" % (b, a) for a, b in zip(instruments[:-1], instruments[1:]))] + [", ".join("%.17g s" % (offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:])) for offset_vector in offset_vectors] for instruments, offset_vectors in itertools.groupby(l, lambda v: sorted(v))]
-	n = max(len(offsets) for offsets in l)
-	for offsets in l:
-		offsets += [""] * (n - len(offsets))
-	l = zip(*l)
-
-	#
-	# find the width of the columns
-	#
-
-	width = max(max(len(s) for s in line) for line in l)
-	format = "%%%ds" % width
-
-	#
-	# print the offsets
-	#
-
-	lines = iter(l)
-	print >>fileobj, " | ".join(format % s for s in lines.next())
-	print >>fileobj, "-+-".join(["-" * width] * len(l[0]))
-	for line in lines:
-		print >>fileobj, " | ".join(format % s for s in line)
 
 
 #
@@ -214,7 +126,10 @@ class TimeSlideGraphNode(object):
 		allcoincs0 = self.components[0].get_coincs(verbose = verbose)
 		allcoincs1 = self.components[1].get_coincs(verbose = verbose)
 		allcoincs2 = self.components[-1].get_coincs(verbose = verbose)
-		for coinc0 in allcoincs0:
+		length = len(allcoincs0)
+		for n, coinc0 in enumerate(allcoincs0):
+			if verbose and not (n % 200):
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
 			coincs1 = allcoincs1[bisect.bisect_left(allcoincs1, coinc0[:-1]):bisect.bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
 			coincs2 = allcoincs2[bisect.bisect_left(allcoincs2, coinc0[1:]):bisect.bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
 			for coinc1 in coincs1:
@@ -223,6 +138,8 @@ class TimeSlideGraphNode(object):
 					new_coinc = coinc0[:1] + coincs2[i]
 					self.unused_coincs -= set(iterutils.choices(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
+		if verbose:
+			print >>sys.stderr, "\t100.0%"
 		self.coincs.sort()
 		self.coincs = tuple(self.coincs)
 
@@ -253,12 +170,12 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors((node.offset_vector for node in self.head), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head), n))
 		for n in range(n, 2, -1):	# [n, ..., 3]
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
 				offset_vectors += [node.offset_vector for node in self.generations[n]]
-			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in time_slide_component_vectors(offset_vectors, n - 1))
+			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, n - 1))
 
 		#
 		# link each n-instrument node to the n-1 instrument nodes
@@ -274,7 +191,7 @@ class TimeSlideGraph(object):
 			if n <= 2:
 				continue
 			for node in nodes:
-				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in time_slide_component_vectors([node.offset_vector], n - 1))
+				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
 				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), lambda a, b: cmp(sorted(a.offset_vector), sorted(b.offset_vector))))
 
 		#
@@ -628,7 +545,7 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 	# for each event in the shortest list
 
 	for n, event in enumerate(shortestlist):
-		if verbose and not (n % 500):
+		if verbose and not (n % 1000):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
 
 		head = (event,)
