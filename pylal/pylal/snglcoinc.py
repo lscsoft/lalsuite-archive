@@ -33,7 +33,6 @@ Light Weight XML documents.
 
 
 import bisect
-import itertools
 import sys
 
 
