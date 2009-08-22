@@ -37,7 +37,6 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
-from pylal import tools
 from pylal.xlal import tools as xlaltools
 try:
 	all
@@ -61,7 +60,7 @@ __date__ = "$Date$"[7:-2]
 
 
 #
-# Use C row type for coinc_event_map table
+# Use C row classes for memory and speed
 #
 
 
@@ -185,6 +184,12 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
+		# create a string uniquifier
+		#
+
+		self.uniquifier = {}
+
+		#
 		# find the coinc_inspiral table or create one if not found
 		#
 
@@ -200,6 +205,8 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+
+		# FIXME:  set the instruments attribute
 
 		#
 		# populate the coinc_inspiral table:
@@ -228,6 +235,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.set_ifos(event.ifo for event in events)
+		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
 		self.coinc_inspiral_table.append(coinc_inspiral)
 
 		return coinc
@@ -375,6 +383,7 @@ def ligolw_thinca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
@@ -398,55 +407,67 @@ def ligolw_thinca(
 	# pair
 	#
 
-	avail_instruments = set(eventlists.keys())
+	avail_instruments = set(eventlists)
 	thresholds = replicate_threshold(thresholds, avail_instruments)
 
 	#
 	# iterate over time slides
 	#
 
-	time_slides = coinc_tables.get_ordered_time_slides()
-	for n, (time_slide_id, offsetdict) in enumerate(time_slides):
+	offset_vector_dict = coinc_tables.get_time_slides()
+	if verbose:
+		print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
+	time_slide_graph = snglcoinc.TimeSlideGraph(offset_vector_dict)
+	if verbose:
+		print >>sys.stderr, "graph contains:"
+		for n in sorted(time_slide_graph.generations):
+			print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(time_slide_graph.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
+		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
+
+	#
+	# construct all of the double coincidences in time_slide_graph
+	#
+
+	if verbose:
+		print >>sys.stderr, "constructing doubles ..."
+	for n, node in enumerate(time_slide_graph.generations[2]):
 		if verbose:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(("%s = %+.16g s" % x) for x in sorted(offsetdict.items())))
-
-		#
-		# can we do it?
-		#
-
-		offset_instruments = set(offsetdict.keys())
-		if len(offset_instruments) < 2:
-			if verbose:
-				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
-			continue
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.generations[2]), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
+		offset_instruments = set(node.offset_vector)
 		if not offset_instruments.issubset(avail_instruments):
 			if verbose:
 				print >>sys.stderr, "\twarning: do not have data for instrument(s) %s: skipping" % ", ".join(offset_instruments - avail_instruments)
+			node.coincs = tuple()
 			continue
 
-		#
-		# apply offsets to events
-		#
-
 		if verbose:
-			print >>sys.stderr, "\tapplying time offsets ..."
-		eventlists.set_offsetdict(offsetdict)
-
-		#
-		# search for and record coincidences
-		#
+			print >>sys.stderr, "\tapplying offsets ..."
+		eventlists.set_offsetdict(node.offset_vector)
 
 		if verbose:
 			print >>sys.stderr, "\tsearching ..."
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
-			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+		node.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
 
 	#
 	# remove time offsets from events
 	#
 
 	eventlists.remove_offsetdict()
+
+	#
+	# loop over the items in time_slide_graph.head, producing all of
+	# those n-tuple coincidences
+	#
+
+	if verbose:
+		print >>sys.stderr, "constructing coincs for target offset vectors ..."
+	for n, node in enumerate(time_slide_graph.head):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
+		for coinc in node.get_coincs(verbose):
+			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, [sngl_index[id] for id in coinc], effective_snr_factor)
+		for coinc in node.unused_coincs:
+			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, [sngl_index[id] for id in coinc], effective_snr_factor)
 
 	#
 	# done
