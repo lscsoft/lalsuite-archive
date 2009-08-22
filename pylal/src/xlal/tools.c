@@ -563,7 +563,7 @@ static struct PyGetSetDef ligolw_Coinc_getset[] = {
 PyTypeObject ligolw_Coinc_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(ligolw_Coinc),
-	.tp_flags = Py_TPFLAGS_DEFAULT,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_name = MODULE_NAME ".Coinc",
 	.tp_new = PyType_GenericNew,
 	.tp_members = ligolw_Coinc_members,
