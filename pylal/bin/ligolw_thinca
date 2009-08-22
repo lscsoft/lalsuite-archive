@@ -37,6 +37,13 @@ from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+# Don't use sngl_inspiral event_id derived from the long built-in.  this
+# must be done before importing pylal.xlal.tools or bad things happen.
+# FIXME:  remove when thinca no longer generates bazillion-digit long
+# event_ids and the custom screwy event ID mess is all gone away.  (or
+# people stop using Macs, which ever comes first).
+del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
+lsctables.SnglInspiralID = lsctables.ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
@@ -56,19 +63,11 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
-# Use C row class for memory efficiency and speed.
+# Use C row classes for memory efficiency and speed.
 #
 
 
 lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
-
-
-#
-# Don't use sngl_inspiral event_id derived from the long built-in
-#
-
-
-del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
 
 
 #
