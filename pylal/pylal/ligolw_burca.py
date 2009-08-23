@@ -383,6 +383,7 @@ def ligolw_burca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglBurstTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
@@ -396,23 +397,35 @@ def ligolw_burca(
 	# iterate over time slides
 	#
 
-	time_slides = coinc_tables.get_time_slides()
-	for n, (time_slide_id, offsetdict) in enumerate(time_slides.items()):
+	offset_vector_dict = coinc_tables.get_time_slides()
+	if verbose:
+		print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
+	time_slide_graph = snglcoinc.TimeSlideGraph(offset_vector_dict)
+	if verbose:
+		print >>sys.stderr, "graph contains:"
+		for n in sorted(time_slide_graph.generations):
+			print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(time_slide_graph.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
+		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
+
+	#
+	# construct all double coincidences in graph
+	#
+
+	if verbose:
+		print >>sys.stderr, "constructing doubles ..."
+	for n, node in enumerate(time_slide_graph.generations[2]):
 		if verbose:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(("%s = %+.16g s" % x) for x in sorted(offsetdict.items())))
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.generations[2]), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 
 		#
 		# can we do it?
 		#
 
-		offset_instruments = set(offsetdict.keys())
-		if len(offset_instruments) < 2:
-			if verbose:
-				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
-			continue
+		offset_instruments = set(node.offset_vector)
 		if not offset_instruments.issubset(avail_instruments):
 			if verbose:
 				print >>sys.stderr, "\twarning: do not have data for instrument(s) %s: skipping" % ", ".join(offset_instruments - avail_instruments)
+			node.coincs = tuple()
 			continue
 
 		#
@@ -421,7 +434,7 @@ def ligolw_burca(
 
 		if verbose:
 			print >>sys.stderr, "\tapplying time offsets ..."
-		eventlists.set_offsetdict(offsetdict)
+		eventlists.set_offsetdict(node.offset_vector)
 
 		#
 		# search for and record coincidences
@@ -429,16 +442,28 @@ def ligolw_burca(
 
 		if verbose:
 			print >>sys.stderr, "\tsearching ..."
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
-			if not ntuple_comparefunc(ntuple):
-				# pass None for coinc type key
-				coinc_tables.append_coinc(process_id, time_slide_id, coinc_def_id, ntuple)
+		node.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
 
 	#
 	# remove time offsets from events
 	#
 
 	eventlists.remove_offsetdict()
+
+	#
+	# loop over the items in time_slide_graph.head, producing all of
+	# those n-tuple coincidences
+	#
+
+	if verbose:
+		print >>sys.stderr, "constructing coincs for target offset vectors ..."
+	for n, node in enumerate(time_slide_graph.head):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
+		for coinc in node.get_coincs(verbose):
+			ntuple = [sngl_index[id] for id in coinc]
+			if not ntuple_comparefunc(ntuple):
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 
 	#
 	# done
