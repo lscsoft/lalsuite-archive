@@ -464,6 +464,10 @@ def ligolw_burca(
 			ntuple = [sngl_index[id] for id in coinc]
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+		for coinc in node.unused_coincs:
+			ntuple = [sngl_index[id] for id in coinc]
+			if not ntuple_comparefunc(ntuple):
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 
 	#
 	# done
