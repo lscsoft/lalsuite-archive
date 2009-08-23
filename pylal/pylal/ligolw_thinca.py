@@ -411,7 +411,7 @@ def ligolw_thinca(
 	thresholds = replicate_threshold(thresholds, avail_instruments)
 
 	#
-	# iterate over time slides
+	# construct offset vector assembly graph
 	#
 
 	offset_vector_dict = coinc_tables.get_time_slides()
@@ -425,7 +425,7 @@ def ligolw_thinca(
 		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
 
 	#
-	# construct all of the double coincidences in time_slide_graph
+	# construct all double coincidences in graph
 	#
 
 	if verbose:
@@ -433,6 +433,11 @@ def ligolw_thinca(
 	for n, node in enumerate(time_slide_graph.generations[2]):
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.generations[2]), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
+
+		#
+		# can we do it?
+		#
+
 		offset_instruments = set(node.offset_vector)
 		if not offset_instruments.issubset(avail_instruments):
 			if verbose:
@@ -440,9 +445,17 @@ def ligolw_thinca(
 			node.coincs = tuple()
 			continue
 
+		#
+		# apply offsets to events
+		#
+
 		if verbose:
 			print >>sys.stderr, "\tapplying offsets ..."
 		eventlists.set_offsetdict(node.offset_vector)
+
+		#
+		# search for and record coincidences
+		#
 
 		if verbose:
 			print >>sys.stderr, "\tsearching ..."
@@ -465,9 +478,13 @@ def ligolw_thinca(
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in node.get_coincs(verbose):
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, [sngl_index[id] for id in coinc], effective_snr_factor)
+			ntuple = [sngl_index[id] for id in coinc]
+			if not ntuple_comparefunc(ntuple):
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 		for coinc in node.unused_coincs:
-			coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, [sngl_index[id] for id in coinc], effective_snr_factor)
+			ntuple = [sngl_index[id] for id in coinc]
+			if not ntuple_comparefunc(ntuple):
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 
 	#
 	# done
