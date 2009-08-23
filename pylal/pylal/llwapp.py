@@ -276,23 +276,29 @@ def segmentlistdict_fromsearchsummary(xmldoc, program = None):
 
 def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	"""
-	This function answers the question "Given a set of segment lists,
-	and a set of time slides to apply to those segment lists, what
-	segments do I need to keep in the original lists so that I have all
-	the segments that will participate in a coincidence analysis done
-	over those time slides?"
+	Compute the segments for which data is required in order to perform
+	a complete coincidence analysis given the segments for which data
+	is available and the list of offset vectors to be applied to the
+	data during the coincidence analysis.
 
-	This function constructs and returns a segmentlistdict object that,
-	for each key in seglistdict, contains the segments from the
-	corresponding list in seglistdict which are coincident under at
-	least one of the time slides described by offsetdictlist.
+	seglistdict is a segmentlistdict object defining the instruments
+	and times for which data is available.  offsetdictlist is a list of
+	offset vectors to be applied to the data --- dictionaries of
+	instrument/offset pairs.
 
-	offsetdictlist is a list of dictionaries of instrument/offset
-	pairs, with each dictionary describing a time slide and the
-	instruments that participate in it.  Each element in the list is
-	free to contain only subsets of the keys in seglistdict.  In those
-	cases, the coincidence is computed only between the segment lists
-	corresponding to the given keys.
+	The offset vectors in offsetdictlist are applied to the input
+	segments one by one and the interesection of the shifted segments
+	is computed.  The segments surviving the intersection are unshifted
+	to their original positions and stored.  The return value is the
+	union of the results of this operation.
+
+	In all cases the full n-way intersection is computed, that is if an
+	offset vector lists three instruments then this function returns
+	the times when exactly all three of those isntruments are on.  If
+	the calling code requires times when any two of the three are on
+	the list of offset vectors should be pre-processed to indicate this
+	by listing the allowed instrument combinations as separate offset
+	vectors.
 
 	For example, let us say that "input" is a segmentlistdict object
 	containing segment lists for three instruments, "H1", "H2" and
