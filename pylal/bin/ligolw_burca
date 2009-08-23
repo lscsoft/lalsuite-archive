@@ -236,7 +236,7 @@ def burca1(options, filenames):
 	#
 
 
-	ligolw_burca.table.RowBuilder = ligolw_burca.table.InterningRowBuilder
+	lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 	#
@@ -274,7 +274,7 @@ def burca1(options, filenames):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 		xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-		ligolw_burca.table.InterningRowBuilder.strings.clear()
+		lsctables.table.InterningRowBuilder.strings.clear()
 
 		#
 		# Have we already processed it?
