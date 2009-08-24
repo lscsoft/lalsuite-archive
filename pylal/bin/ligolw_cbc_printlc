@@ -30,6 +30,7 @@ from glue.ligolw.utils.ligolw_sqlite import extract
 
 from pylal import ligolw_sqlutils as sqlutils
 
+__prog__ = "ligolw_cbc_printlc"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __date__ = "$Date$" 
 __version__ = "$Revision$"
@@ -54,6 +55,12 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time." 
             )
+    parser.add_option("-o", "--output", action = "store", type = "string",
+        default = None,
+        help =
+            "Save summary table to file. If no output specified, result " +
+            "will be printed to stdout."
+            )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string",
         default = None, metavar = "path",
         help = 
@@ -61,14 +68,8 @@ def parse_command_line():
             "This is used to enhance performance in a networked " +
             "environment and is needed if extracting an xml file."
             )
-    parser.add_option("-o", "--output", action = "store", type = "string",
-        default = None
-        help =
-            "Save summary output to file. If no output specified, result " +
-            "will be printed to stdout."
-            )
     parser.add_option("-f", "--output-format", action = "store", type = "string",
-        default = "wiki"
+        default = "wiki", metavar = "wiki, html, OR xml",
         help =
             "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. " +
             "Default is wiki."
@@ -76,7 +77,7 @@ def parse_command_line():
     parser.add_option("-x", "--extract-to-xml", action = "store", type = "string",
         default = None, metavar = "filename",
         help =
-            "Will extract an xml file from the database containing only the " +
+            "Will extract a full xml file from the database containing only the " +
             "triggers that are printed. Requries --tmp-space. "
             )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
@@ -172,6 +173,8 @@ def parse_command_line():
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
         raise ValueError, "--rank-by must be specified and set to either MIN or MAX."
+    if not options.datatype:
+        raise ValueError, "--datatype must be specified."
     if options.datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
         raise ValueError, "Unrecognized datatype %s. See help for options." % options.datatype
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
@@ -289,8 +292,8 @@ info = connection.cursor().execute( sqlquery ).fetchall()
 
 # Get column-names: the first two columns are the instruments_on (from the experiment table), and the duration
 # (with the datatype and time-unit in the column name) followed by all the columns in the coinc_inspiral table
-durname = ''.join([ opts.datatype.strip().lower(), ' duration (', opts.convert_durations.strip().lower(), ')' ])
-column_names = [ 'instruments_on', durname ]
+durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower(), '' ])
+column_names = [ u'instruments_on', durname ]
 # Get list of column names from coinc_inspiral table
 column_names.extend(sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' ))
 
@@ -299,7 +302,7 @@ column_names.extend(sqlutils.get_column_names_from_table( connection, 'coinc_ins
 #
 
 # set output
-if opts.output:
+if opts.output and opts.output_format != 'xml':
     output = open(opts.output, 'w')
 else:
     output = sys.stdout
@@ -319,7 +322,7 @@ elif opts.output_format == "html":
     xr = '</td></tr>'
     xccx = '</td><td>'
 
-elif opts.output_foormat == "xml":
+elif opts.output_format == "xml":
     # get needed imports
     from glue.ligolw import ligolw
     from glue.ligolw import table
@@ -329,7 +332,7 @@ elif opts.output_foormat == "xml":
 
     # Define the table
     class LoudestEventsTable(table.Table):
-        tableName = "loudest_events"
+        tableName = "loudest_events:table"
         # as we don't know apriori what the column types are, just set everything to lstring
         validcolumns = dict([ [col_name, "lstring"] for col_name in column_names ])
 
@@ -353,12 +356,13 @@ elif opts.output_foormat == "xml":
     lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
     # add the table
     lctable = lsctables.New(LoudestEventsTable)
+    # connect the table to the document
+    lcdoc.childNodes[0].appendChild(lctable)
 
     
 else:
     raise ValueError, 'unrecognized output-format; must be either wiki, html, or xml'
     
-
 #
 # Print the summary data
 #
@@ -370,6 +374,8 @@ if opts.output_format != "xml":
         print >> output, "%s%s%s" % (rx, row, xr)
     # close the table
     print >> output, xt
+    if output != sys.stdout:
+        output.close()
 
 else:
     for row in info:
@@ -378,8 +384,8 @@ else:
             setattr(lcrow, column, data)
         # add the row to the table
         lctable.append(lcrow)
-    # write to output
-    utils.write_filename(lcdoc, output)
+    # write to opts.output (if opts.output is None, will write to sys.stdout)
+    utils.write_filename(lcdoc, opts.output)
 
 #
 # If extract-to-xml, generate the full xml
