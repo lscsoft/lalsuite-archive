@@ -149,7 +149,7 @@ def instrument_set_from_ifos(ifos):
 	input contains "," --> output is set of strings split on "," with
 	leading and trailing whitespace stripped from each piece
 
-	input contains "+" --> output is set of strings split on "," with
+	input contains "+" --> output is set of strings split on "+" with
 	leading and trailing whitespace stripped from each piece
 
 	else, after stripping input of leading and trailing whitespace,
