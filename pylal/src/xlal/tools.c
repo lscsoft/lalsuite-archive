@@ -257,39 +257,12 @@ static struct PyMemberDef pylal_SnglInspiralTable_members[] = {
 };
 
 
-static int pylal_SnglInspiralTable_event_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	if((PyObject *) val->ob_type != sngl_inspiral_event_id_type) {
-		PyErr_SetObject(PyExc_TypeError, val);
-		return -1;
-	}
-
-	row->event_id.id = i;
-
-	return 0;
-}
-
-
-static PyObject *pylal_SnglInspiralTable_event_id_get(PyObject *obj, void *data)
-{
-	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
-
-	return PyObject_CallFunction(sngl_inspiral_event_id_type, "l", (long) row->event_id.id);
-}
-
-
 static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
-	{"event_id", pylal_SnglInspiralTable_event_id_get, pylal_SnglInspiralTable_event_id_set, "event_id", NULL},
+	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
 	{NULL,}
 };
 
