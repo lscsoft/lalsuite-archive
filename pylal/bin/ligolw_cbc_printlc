@@ -385,7 +385,7 @@ else:
         # add the row to the table
         lctable.append(lcrow)
     # write to opts.output (if opts.output is None, will write to sys.stdout)
-    utils.write_filename(lcdoc, opts.output)
+    utils.write_filename(lcdoc, opts.output, xsl_file = "ligolw.xsl")
 
 #
 # If extract-to-xml, generate the full xml
