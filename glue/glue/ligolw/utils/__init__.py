@@ -349,7 +349,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False):
+def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  The file object need not be seekable.  The
@@ -390,7 +390,7 @@ def write_fileobj(xmldoc, fileobj, gz = False):
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	xmldoc.write(fileobj)
+	xmldoc.write(fileobj, xsl_file = xsl_file)
 	fileobj.flush()
 	del fileobj
 
@@ -405,7 +405,7 @@ def write_fileobj(xmldoc, fileobj, gz = False):
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False):
+def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = None):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	file name filename.  Friendly verbosity messages are printed while
@@ -434,7 +434,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = file(filename, "w")
 	else:
 		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz)
+	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file)
 	fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
