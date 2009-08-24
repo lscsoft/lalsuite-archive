@@ -61,6 +61,18 @@ def parse_command_line():
             "This is used to enhance performance in a networked " +
             "environment and is needed if extracting an xml file."
             )
+    parser.add_option("-o", "--output", action = "store", type = "string",
+        default = None
+        help =
+            "Save summary output to file. If no output specified, result " +
+            "will be printed to stdout."
+            )
+    parser.add_option("-f", "--output-format", action = "store", type = "string",
+        default = "wiki"
+        help =
+            "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. " +
+            "Default is wiki."
+            )
     parser.add_option("-x", "--extract-to-xml", action = "store", type = "string",
         default = None, metavar = "filename",
         help =
@@ -270,26 +282,109 @@ sqlquery = ''.join([ """
 if opts.verbose:
     print >> sys.stdout, "Sqlite query is:"
     print >> sys.stdout, sqlquery
-    print >> sys.stdout, "\nResults are:\n"
+    if not opts.output:
+        print >> sys.stdout, "\nResults are:\n"
 
 info = connection.cursor().execute( sqlquery ).fetchall()
 
-# Get list of column names from coinc_inspiral table
-coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
-column_names = ' || '.join( coinc_inspiral_cols  )
-
-# append experiment.instruments and duration to column names
+# Get column-names: the first two columns are the instruments_on (from the experiment table), and the duration
+# (with the datatype and time-unit in the column name) followed by all the columns in the coinc_inspiral table
 durname = ''.join([ opts.datatype.strip().lower(), ' duration (', opts.convert_durations.strip().lower(), ')' ])
+column_names = [ 'instruments_on', durname ]
+# Get list of column names from coinc_inspiral table
+column_names.extend(sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' ))
 
-column_names = ' '.join([ '||', 'instruments_on', '||', durname, '||', column_names, '||' ])
-print >> sys.stdout, column_names
+#
+# Prepare for printing summary info to output
+#
 
-# print data
-for row in info:
-    row = ' || '.join(str(data) for data in row)
-    print >> sys.stdout, "|| %s ||" % row
+# set output
+if opts.output:
+    output = open(opts.output, 'w')
+else:
+    output = sys.stdout
 
-# if extract-to-xml, generate the xml
+# set output-format
+if opts.output_format == 'wiki':
+    tx = ''
+    xt = ''
+    rx = '||'
+    xr = '||'
+    xccx = '||'
+
+elif opts.output_format == "html":
+    tx = '<table border = "1">'
+    xt = '</table>'
+    rx = '<tr><td>'
+    xr = '</td></tr>'
+    xccx = '</td><td>'
+
+elif opts.output_foormat == "xml":
+    # get needed imports
+    from glue.ligolw import ligolw
+    from glue.ligolw import table
+    from glue.ligolw import utils
+    from glue.ligolw.utils import ligolw_add
+    from glue.ligolw.utils import process
+
+    # Define the table
+    class LoudestEventsTable(table.Table):
+        tableName = "loudest_events"
+        # as we don't know apriori what the column types are, just set everything to lstring
+        validcolumns = dict([ [col_name, "lstring"] for col_name in column_names ])
+
+    # Define the row
+    class LoudestEvents(object):
+        __slots__ = LoudestEventsTable.validcolumns.keys()
+    
+        def get_pyvalue(self):
+            if self.value is None:
+                return None
+            return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+
+    # connect the row to the table
+    LoudestEventsTable.RowType = LoudestEvents
+
+    # Create a document
+    lcdoc = ligolw.Document()
+    # setup the LIGOLW tag
+    lcdoc.appendChild(ligolw.LIGO_LW())
+    # add this programs metadata
+    lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+    # add the table
+    lctable = lsctables.New(LoudestEventsTable)
+
+    
+else:
+    raise ValueError, 'unrecognized output-format; must be either wiki, html, or xml'
+    
+
+#
+# Print the summary data
+#
+if opts.output_format != "xml":
+    header = ''.join([ tx, rx, xccx.join( column_names  ), xr ])
+    print >> output, header
+    for row in info:
+        row = xccx.join(str(data) for data in row)
+        print >> output, "%s%s%s" % (rx, row, xr)
+    # close the table
+    print >> output, xt
+
+else:
+    for row in info:
+        lcrow = LoudestEvents()
+        for column, data in zip(column_names, row):
+            setattr(lcrow, column, data)
+        # add the row to the table
+        lctable.append(lcrow)
+    # write to output
+    utils.write_filename(lcdoc, output)
+
+#
+# If extract-to-xml, generate the full xml
+#
+
 if opts.extract_to_xml:
     if opts.verbose:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
