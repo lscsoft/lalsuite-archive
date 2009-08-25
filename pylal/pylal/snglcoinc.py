@@ -498,7 +498,7 @@ def make_eventlists(xmldoc, EventListType, event_table_name, max_segment_gap, pr
 #
 # =============================================================================
 #
-#                            Coincidence Iterators
+#                             Coincidence Iterator
 #
 # =============================================================================
 #
@@ -506,11 +506,35 @@ def make_eventlists(xmldoc, EventListType, event_table_name, max_segment_gap, pr
 
 def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose = False):
 	"""
-	Given an EventListDict object, a list (or iterator) of instruments,
-	and a dictionary of instrument pair thresholds, generate a sequence
-	of tuples of mutually coincident events.  Each tuple returned by
-	this generator will contain exactly one event from each of the
-	instruments in the instrument list.
+	Given an instance of an EventListDict subclass, an event comparison
+	function, an iterable (e.g., a list) of instruments, and a
+	dictionary mapping instrument pair to threshold data, generate a
+	sequence of tuples of mutually coincident events.
+
+	The signature of the comparison function should be
+
+	>>> comparefunc(event1, event2, threshold_data)
+
+	where event1 and event2 are two objects drawn from the event lists
+	(from different instruments) and threshold_data is the value
+	contained in the thresholds dictionary for the pair of instruments
+	from which event1 and event2 have been drawn.  The return value
+	should be 0 if the events are coincident, and non-zero otherwise.
+
+	The thresholds dictionary should look like
+
+	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
+
+	i.e., the keys are tuples of instrument pairs and the values
+	specify the "threshold" for that instrument pair.  The threshold
+	itself is arbitrary.  Here simple floats are used as an example,
+	but any Python object can be provided and will be passed to the
+	comparefunc().  Note that it is assumed that order matters in the
+	comparison function and so the thresholds dictionary must provide a
+	threshold for the instruments in both orders.
+
+	Each tuple returned by this generator will contain exactly one
+	event from each of the instruments in the instrument list.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
