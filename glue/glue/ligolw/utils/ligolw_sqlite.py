@@ -123,10 +123,10 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 #
 
 
-def extract(connection, filename, table_names = None, verbose = False):
+def extract(connection, filename, table_names = None, verbose = False, xsl_file = None):
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(dbtables.get_xml(connection, table_names))
-	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
+	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose, xsl_file = xsl_file)
 
 	# delete cursors
 	xmldoc.unlink()
