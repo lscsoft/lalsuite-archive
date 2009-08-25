@@ -415,13 +415,13 @@ def time_slide_component_vectors(offset_vectors, n):
 	delta_sets = {}
 	for offset_vector in offset_vectors:
 		for instruments in iterutils.choices(sorted(offset_vector), n):
-			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments[1:]))
+			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments))
 
 	#
-	# translate into a list of n-instrument offset vectors
+	# translate into a list of normalized n-instrument offset vectors
 	#
 
-	return [dict(zip(instruments, (0.0,) + deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
+	return [dict(zip(instruments, deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
 
 
 def time_slide_normalize(time_slide, **kwargs):
