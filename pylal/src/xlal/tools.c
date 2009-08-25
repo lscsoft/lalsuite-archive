@@ -753,7 +753,7 @@ static PyObject *pylal_XLALSnglInspiralTimeError(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *pylal_XLALSnglRingdownTimeError(PyObject *self, PyObject *args)
+static PyObject *pylal_XLALRingdownTimeError(PyObject *self, PyObject *args)
 {
 	pylal_SnglRingdownTable *row;
 	double ds_sq_threshold;
@@ -762,7 +762,7 @@ static PyObject *pylal_XLALSnglRingdownTimeError(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "O!d", &pylal_SnglRingdownTable_Type, &row, &ds_sq_threshold))
 		return NULL;
 
-	delta_t = XLALSnglRingdownTimeError(&row->sngl_ringdown, ds_sq_threshold);
+	delta_t = XLALRingdownTimeError(&row->sngl_ringdown, ds_sq_threshold);
 	if(XLAL_IS_REAL8_FAIL_NAN(delta_t)) {
 		pylal_set_exception_from_xlalerrno();
 		return NULL;

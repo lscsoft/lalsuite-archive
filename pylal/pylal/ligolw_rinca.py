@@ -299,7 +299,7 @@ def ringdown_max_dt(events, ds_sq_threshold):
 	LAL_REARTH_SI = 6.378140e6 # m
 	LAL_C_SI = 299792458 # m s^-1
 
-	return sum(sorted(max(xlaltools.XLALSnglRingdownTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
+	return sum(sorted(max(xlaltools.XLALRingdownTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
 def ringdown_coinc_compare(a, b, ds_sq_threshold):
