@@ -138,11 +138,10 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, program = None, e_thinca_parameter = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
-		(u"--program", u"lstring", program),
 		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
 	]
 	if comment is not None:
@@ -363,7 +362,6 @@ def replicate_threshold(e_thinca_parameter, instruments):
 
 def ligolw_thinca(
 	xmldoc,
-	program,
 	process_id,
 	EventListType,
 	CoincTables,
@@ -371,7 +369,6 @@ def ligolw_thinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
-	get_max_segment_gap = lambda xmldoc, thresholds: float("inf"),
 	effective_snr_factor = 250.0,
 	verbose = False
 ):
@@ -390,7 +387,7 @@ def ligolw_thinca(
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
 
 	#
 	# set the \Delta t parameter on all the event lists

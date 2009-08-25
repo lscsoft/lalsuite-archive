@@ -125,11 +125,10 @@ use___segments(lsctables)
 process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, program = None, ds_sq_threshold = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
-		(u"--program", u"lstring", program),
 		(u"--ds-sq-threshold", u"real_8", ds_sq_threshold)
 	]
 	if comment is not None:
@@ -345,7 +344,6 @@ def replicate_threshold(ds_sq_threshold, instruments):
 
 def ligolw_rinca(
 	xmldoc,
-	program,
 	process_id,
 	EventListType,
 	CoincTables,
@@ -353,7 +351,6 @@ def ligolw_rinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
-	get_max_segment_gap = lambda xmldoc, thresholds: float("inf"),
 	verbose = False
 ):
 	#
@@ -371,7 +368,7 @@ def ligolw_rinca(
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglRingdownTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglRingdownTable.tableName)
 
 	#
 	# set the \Delta t parameter on all the event lists
