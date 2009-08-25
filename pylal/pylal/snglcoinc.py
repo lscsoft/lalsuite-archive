@@ -66,8 +66,7 @@ class TimeSlideGraphNode(object):
 		self.coincs = None
 		self.unused_coincs = set()
 
-
-	def get_coincs(self, verbose = False):
+	def get_coincs(self, eventlists, event_comparefunc, thresholds, verbose = False):
 		#
 		# has this node already been visited?  if so, return the
 		# answer we already know
@@ -83,8 +82,41 @@ class TimeSlideGraphNode(object):
 		#
 
 		if self.components is None:
-			# FIXME:  move the code from ligolw_thinca to here
-			raise NotImplementedError
+			if verbose:
+				print >>sys.stderr, "\tconstructing %s" % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+			#
+			# can we do it?
+			#
+
+			avail_instruments = set(eventlists)
+			offset_instruments = set(self.offset_vector)
+			if not offset_instruments.issubset(avail_instruments):
+				if verbose:
+					print >>sys.stderr, "\twarning: do not have data for instrument(s) %s ... assuming 0 coincs" % ", ".join(offset_instruments - avail_instruments)
+				self.coincs = tuple()
+				return self.coincs
+
+			#
+			# apply offsets to events
+			#
+
+			if verbose:
+				print >>sys.stderr, "\tapplying offsets ..."
+			eventlists.set_offsetdict(self.offset_vector)
+
+			#
+			# search for and record coincidences
+			#
+
+			if verbose:
+				print >>sys.stderr, "\tsearching ..."
+			# FIXME:  assumes the instrument column is named
+			# "ifo".  works for inspirals, bursts, and
+			# ring-downs.
+			self.coincs = [tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)]
+			self.coincs.sort()
+			self.coincs = tuple(self.coincs)
+			return self.coincs
 
 		#
 		# is this a head node, or some other node that magically
@@ -94,7 +126,7 @@ class TimeSlideGraphNode(object):
 		if len(self.components) == 1:
 			if verbose:
 				print >>sys.stderr, "\tcopying from %s" % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.components[0].offset_vector.items())))
-			self.coincs = self.components[0].get_coincs(verbose = verbose)
+			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
 			#
@@ -122,9 +154,9 @@ class TimeSlideGraphNode(object):
 		self.unused_coincs = reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components)) | reduce(lambda a, b: a | b, (set(component.coincs) for component in self.components))
 
 		self.coincs = []
-		allcoincs0 = self.components[0].get_coincs(verbose = verbose)
-		allcoincs1 = self.components[1].get_coincs(verbose = verbose)
-		allcoincs2 = self.components[-1].get_coincs(verbose = verbose)
+		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
+		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
+		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 		length = len(allcoincs0)
 		for n, coinc0 in enumerate(allcoincs0):
 			if verbose and not (n % 200):
