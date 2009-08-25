@@ -212,7 +212,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		coinc_ringdown.mass = sum(event.mass for event in events) / len(events)
-		coinc_ringdown.snr = sum(event.snr**2. for event in events))**.5
+		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
 		coinc_ringdown.combined_far = None
 		coinc_ringdown.set_end(events[0].get_end())
