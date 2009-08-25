@@ -522,7 +522,7 @@ if opts.extract_to_xml:
     connection.cursor().execute(sqlquery)
 
     # extract to the xml file
-    extract(connection, opts.extract_to_xml, verbose = opts.verbose)
+    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
 
 # close connection and exit
 connection.close()
