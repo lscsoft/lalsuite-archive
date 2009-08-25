@@ -1,6 +1,6 @@
 # $Id$
 #
-# Copyright (C) 2008  Kipp C. Cannon
+# Copyright (C) 2008  Kipp C. Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -211,10 +211,13 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		coinc_ringdown.mass = sum(event.mass for event in events) / len(events)
+		coinc_ringdown.spin = sum(event.spin for event in events) / len(events)
+		coinc_ringdown.frequency = sum(event.frequency for event in events) / len(events)
+		coinc_ringdown.quality = sum(event.quality for event in events) / len(events)
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
 		coinc_ringdown.combined_far = None
-		coinc_ringdown.set_end(events[0].get_end())
+		coinc_ringdown.set_start(events[0].get_start())
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
 		self.coinc_ringdown_table.append(coinc_ringdown)
