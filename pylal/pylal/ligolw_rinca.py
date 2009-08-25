@@ -352,7 +352,7 @@ def ligolw_rinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
-	small_coincs = False
+	small_coincs = False,
 	verbose = False
 ):
 	#
