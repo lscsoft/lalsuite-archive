@@ -40,7 +40,7 @@
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
 #include <lal/TrigScanEThincaCommon.h>
-
+#include <lal/Ring.h>
 
 #define MODULE_NAME "pylal.xlal.tools"
 
@@ -753,6 +753,25 @@ static PyObject *pylal_XLALSnglInspiralTimeError(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *pylal_XLALRingdownTimeError(PyObject *self, PyObject *args)
+{
+	pylal_SnglRingdownTable *row;
+	double ds_sq_threshold;
+	double delta_t;
+
+	if(!PyArg_ParseTuple(args, "O!d", &pylal_SnglRingdownTable_Type, &row, &ds_sq_threshold))
+		return NULL;
+
+	delta_t = XLALRingdownTimeError(&row->sngl_ringdown, ds_sq_threshold);
+	if(XLAL_IS_REAL8_FAIL_NAN(delta_t)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(delta_t);
+}
+
+
 static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *args)
 {
 	static InspiralAccuracyList accuracyparams;
@@ -770,6 +789,26 @@ static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *a
 	}
 
 	result = XLALCalculateEThincaParameter(&row1->sngl_inspiral, &row2->sngl_inspiral, &accuracyparams);
+
+	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
+		XLALClearErrno();
+		PyErr_SetString(PyExc_ValueError, "not coincident");
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(result);
+}
+
+
+static PyObject *pylal_XLAL3DRinca(PyObject *self, PyObject *args)
+{
+	pylal_SnglRingdownTable *row1, *row2;
+	double result;
+
+	if(!PyArg_ParseTuple(args, "O!O!", &pylal_SnglRingdownTable_Type, &row1, &pylal_SnglRingdownTable_Type, &row2))
+		return NULL;
+
+	result = XLAL3DRinca(&row1->sngl_ringdown, &row2->sngl_ringdown);
 
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
 		XLALClearErrno();
