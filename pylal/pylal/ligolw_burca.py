@@ -208,17 +208,6 @@ StringCuspCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_typ
 #
 
 
-def ExcessPowerMaxSegmentGap(xmldoc, thresholds):
-	"""
-	Determine the maximum allowed segment gap for use with the excess
-	power coincidence test.
-	"""
-	# force triggers from all processes in the input file to be
-	# considered:  the pipeline script solves the problem of assembling
-	# coincident trigger files for processing by burca.
-	return float("inf")
-
-
 class ExcessPowerEventList(snglcoinc.EventList):
 	"""
 	A customization of the EventList class for use with the excess
@@ -280,17 +269,6 @@ class ExcessPowerEventList(snglcoinc.EventList):
 #
 # For use with string coincidence test
 #
-
-
-def StringMaxSegmentGap(xmldoc, thresholds):
-	"""
-	Determine the maximum allowed segment gap for use with the string
-	coincidence test.
-	"""
-	# force triggers from all processes in the input file to be
-	# considered:  the pipeline script solves the problem of assembling
-	# coincident trigger files for processing by burca.
-	return float("inf")
 
 
 class StringEventList(snglcoinc.EventList):
@@ -364,7 +342,6 @@ def StringCoincCompare(a, b, thresholds):
 
 def ligolw_burca(
 	xmldoc,
-	program,
 	process_id,
 	EventListType,
 	CoincTables,
@@ -372,7 +349,6 @@ def ligolw_burca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
-	get_max_segment_gap = lambda xmldoc, thresholds: float("inf"),
 	verbose = False
 ):
 	#
@@ -390,7 +366,7 @@ def ligolw_burca(
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName)
 	avail_instruments = set(eventlists.keys())
 
 	#

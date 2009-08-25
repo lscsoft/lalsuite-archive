@@ -170,7 +170,7 @@ class TimeSlideGraph(object):
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
 		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head), n))
-		for n in range(n, 2, -1):	# [n, ..., 3]
+		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
 				offset_vectors += [node.offset_vector for node in self.generations[n]]
@@ -200,8 +200,8 @@ class TimeSlideGraph(object):
 
 	def write(self, fileobj):
 		"""
-		Write a DOT graph representation of the time slide graph
-		object to fileobj.
+		Write a DOT graph representation of the time slide graph to
+		fileobj.
 		"""
 		vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
 
@@ -297,7 +297,7 @@ class CoincTables(object):
 #
 
 
-def coincident_process_ids(xmldoc, max_segment_gap, program):
+def coincident_process_ids(xmldoc, offset_vectors, max_segment_gap, program):
 	"""
 	Take an XML document tree and determine the set of process IDs
 	that will participate in coincidences identified by the time slide
@@ -340,10 +340,10 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# determine what time slides are possible given the instruments in
 	# the search summary table
 	avail_instruments = set(seglistdict)
-	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector).issubset(avail_instruments)]
+	offset_vectors = [offset_vector for offset_vector in offset_vectors if set(offset_vector).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
-	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
+	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, offset_vectors)
 
 	# find the IDs of the processes that contributed to the coincident
 	# segments
@@ -485,20 +485,20 @@ class EventListDict(dict):
 			l.set_offset(0)
 
 
-def make_eventlists(xmldoc, EventListType, event_table_name, max_segment_gap, program_name):
+def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None):
 	"""
 	Convenience wrapper for constructing a dictionary of event lists
 	from an XML document tree, the name of a table from which to get
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = coincident_process_ids(xmldoc, max_segment_gap, program_name))
+	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = process_ids)
 
 
 #
 # =============================================================================
 #
-#                            Coincidence Iterators
+#                          N-way Coincidence Iterator
 #
 # =============================================================================
 #
@@ -506,11 +506,35 @@ def make_eventlists(xmldoc, EventListType, event_table_name, max_segment_gap, pr
 
 def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose = False):
 	"""
-	Given an EventListDict object, a list (or iterator) of instruments,
-	and a dictionary of instrument pair thresholds, generate a sequence
-	of tuples of mutually coincident events.  Each tuple returned by
-	this generator will contain exactly one event from each of the
-	instruments in the instrument list.
+	Given an instance of an EventListDict, an event comparison
+	function, an iterable (e.g., a list) of instruments, and a
+	dictionary mapping instrument pair to threshold data, generate a
+	sequence of tuples of mutually coincident events.
+
+	The signature of the comparison function should be
+
+	>>> comparefunc(event1, event2, threshold_data)
+
+	where event1 and event2 are two objects drawn from the event lists
+	(from different instruments) and threshold_data is the value
+	contained in the thresholds dictionary for the pair of instruments
+	from which event1 and event2 have been drawn.  The return value
+	should be 0 if the events are coincident, and non-zero otherwise.
+
+	The thresholds dictionary should look like
+
+	>>> {("H1", "L1"): 10.0, ("L1", "H1"): -10.0}
+
+	i.e., the keys are tuples of instrument pairs and the values
+	specify the "threshold" for that instrument pair.  The threshold
+	itself is arbitrary.  Here simple floats are used as an example,
+	but any Python object can be provided and will be passed to the
+	comparefunc().  Note that it is assumed that order matters in the
+	comparison function and so the thresholds dictionary must provide a
+	threshold for the instruments in both orders.
+
+	Each tuple returned by this generator will contain exactly one
+	event from each of the instruments in the instrument list.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
@@ -531,13 +555,13 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 		# remaining instruments in the order in which they will be
 		# used by the inner loop
 
-		threshold_sequence = tuple([thresholds[pair] for pair in iterutils.choices([instrument for eventlist, instrument in eventlists], 2)])
+		threshold_sequence = tuple(thresholds[pair] for pair in iterutils.choices([instrument for eventlist, instrument in eventlists], 2))
 
 		# retrieve the thresholds to be used in comparing events
 		# from the shortest list to those in each of the remaining
 		# event lists
 
-		eventlists = tuple([(eventlist, thresholds[(shortestinst, instrument)]) for eventlist, instrument in eventlists])
+		eventlists = tuple((eventlist, thresholds[(shortestinst, instrument)]) for eventlist, instrument in eventlists)
 	except KeyError, e:
 		raise KeyError, "no coincidence thresholds provided for instrument pair %s" % str(e)
 

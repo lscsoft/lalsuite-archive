@@ -257,39 +257,12 @@ static struct PyMemberDef pylal_SnglInspiralTable_members[] = {
 };
 
 
-static int pylal_SnglInspiralTable_event_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	if((PyObject *) val->ob_type != sngl_inspiral_event_id_type) {
-		PyErr_SetObject(PyExc_TypeError, val);
-		return -1;
-	}
-
-	row->event_id.id = i;
-
-	return 0;
-}
-
-
-static PyObject *pylal_SnglInspiralTable_event_id_get(PyObject *obj, void *data)
-{
-	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
-
-	return PyObject_CallFunction(sngl_inspiral_event_id_type, "l", (long) row->event_id.id);
-}
-
-
 static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
-	{"event_id", pylal_SnglInspiralTable_event_id_get, pylal_SnglInspiralTable_event_id_set, "event_id", NULL},
+	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
 	{NULL,}
 };
 
@@ -330,6 +303,98 @@ PyTypeObject pylal_SnglInspiralTable_Type = {
 	.tp_getset = pylal_SnglInspiralTable_getset,
 	.tp_name = MODULE_NAME ".SnglInspiralTable",
 	.tp_new = pylal_SnglInspiralTable___new__,
+};
+
+
+/*
+ * ============================================================================
+ *
+ *                           SnglRingdownTable Type
+ *
+ * ============================================================================
+ */
+
+/*
+ * Cached ID types
+ */
+
+
+static PyObject *sngl_ringdown_event_id_type = NULL;
+
+
+/*
+ * Member access
+ */
+
+
+static struct PyMemberDef pylal_SnglRingdownTable_members[] = {
+	{"start_time", T_INT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.start_time.gpsSeconds), 0, "start_time"},
+	{"start_time_ns", T_INT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.start_time.gpsNanoSeconds), 0, "start_time_ns"},
+	{"start_time_gmst", T_DOUBLE, offsetof(pylal_SnglRingdownTable, sngl_ringdown.start_time_gmst), 0, "start_time_gmst"},
+	{"frequency", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.frequency), 0, "frequency"},
+	{"quality", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.quality), 0, "quality"},
+	{"phase", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.phase), 0, "phase"},
+	{"mass", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.mass), 0, "mass"},
+	{"spin", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.spin), 0, "spin"},
+	{"epsilon", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.epsilon), 0, "epsilon"},
+	{"num_clust_trigs", T_INT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.num_clust_trigs), 0, "num_clust_trigs"},
+	{"ds2_H1H2", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.ds2_H1H2), 0, "ds2_H1H2"},
+	{"ds2_H1L1", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.ds2_H1L1), 0, "ds2_H1L1"},
+	{"ds2_H2L1", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.ds2_H2L1), 0, "ds2_H2L1"},
+	{"amplitude", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.amplitude), 0, "amplitude"},
+	{"snr", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.snr), 0, "snr"},
+	{"eff_dist", T_FLOAT, offsetof(pylal_SnglRingdownTable, sngl_ringdown.eff_dist), 0, "eff_dist"},
+	{"sigma_sq", T_DOUBLE, offsetof(pylal_SnglRingdownTable, sngl_ringdown.sigma_sq), 0, "sigma_sq"},
+	{NULL,}
+};
+
+
+static struct PyGetSetDef pylal_SnglRingdownTable_getset[] = {
+	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglRingdownTable, sngl_ringdown.ifo), LIGOMETA_IFO_MAX}},
+	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglRingdownTable, sngl_ringdown.channel), LIGOMETA_CHANNEL_MAX}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglRingdownTable, process_id_i), &process_id_type}},
+	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglRingdownTable, event_id.id), &sngl_ringdown_event_id_type}},
+	{NULL,}
+};
+
+
+/*
+ * Methods
+ */
+
+
+static PyObject *pylal_SnglRingdownTable___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+	/* call the generic __new__() */
+	pylal_SnglRingdownTable *new = (pylal_SnglRingdownTable *) PyType_GenericNew(type, args, kwds);
+
+	if(!new)
+		return NULL;
+
+	/* link the event_id pointer in the sngl_ringdown table structure
+	 * to the event_id structure */
+	new->sngl_ringdown.event_id = &new->event_id;
+
+	/* done */
+	return (PyObject *) new;
+}
+
+
+/*
+ * Type
+ */
+
+
+PyTypeObject pylal_SnglRingdownTable_Type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(pylal_SnglRingdownTable),
+	.tp_doc = "LAL's SnglRingdownTable structure",
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_members = pylal_SnglRingdownTable_members,
+	.tp_getset = pylal_SnglRingdownTable_getset,
+	.tp_getset = pylal_SnglRingdownTable_getset,
+	.tp_name = MODULE_NAME ".SnglRingdownTable",
+	.tp_new = pylal_SnglRingdownTable___new__,
 };
 
 
@@ -412,40 +477,13 @@ static struct PyMemberDef pylal_SimInspiralTable_members[] = {
 };
 
 
-static int pylal_SimInspiralTable_simulation_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	pylal_SimInspiralTable *row = (pylal_SimInspiralTable *) obj;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	if((PyObject *) val->ob_type != sim_inspiral_simulation_id_type) {
-		PyErr_SetObject(PyExc_TypeError, val);
-		return -1;
-	}
-
-	row->event_id.id = i;
-
-	return 0;
-}
-
-
-static PyObject *pylal_SimInspiralTable_simulation_id_get(PyObject *obj, void *data)
-{
-	pylal_SimInspiralTable *row = (pylal_SimInspiralTable *) obj;
-
-	return PyObject_CallFunction(sim_inspiral_simulation_id_type, "l", (long) row->event_id.id);
-}
-
-
 static struct PyGetSetDef pylal_SimInspiralTable_getset[] = {
 	{"waveform", pylal_inline_string_get, pylal_inline_string_set, "waveform", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.waveform), LIGOMETA_WAVEFORM_MAX}},
 	{"source", pylal_inline_string_get, pylal_inline_string_set, "source", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.source), LIGOMETA_SOURCE_MAX}},
 	{"numrel_data", pylal_inline_string_get, pylal_inline_string_set, "numrel_data", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_data), LIGOMETA_STRING_MAX}},
 	{"taper", pylal_inline_string_get, pylal_inline_string_set, "taper", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.taper), LIGOMETA_INSPIRALTAPER_MAX}},
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, process_id_i), &process_id_type}},
-	{"simulation_id", pylal_SimInspiralTable_simulation_id_get, pylal_SimInspiralTable_simulation_id_set, "simulation_id", NULL},
+	{"simulation_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "simulation_id", &(struct ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, event_id.id), &sim_inspiral_simulation_id_type}},
 	{NULL,}
 };
 

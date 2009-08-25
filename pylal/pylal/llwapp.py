@@ -298,7 +298,8 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	the calling code requires times when any two of the three are on
 	the list of offset vectors should be pre-processed to indicate this
 	by listing the allowed instrument combinations as separate offset
-	vectors.
+	vectors.  See ligolw_tisi.time_slide_component_vectors() for a
+	function to assist in doing this.
 
 	For example, let us say that "input" is a segmentlistdict object
 	containing segment lists for three instruments, "H1", "H2" and
