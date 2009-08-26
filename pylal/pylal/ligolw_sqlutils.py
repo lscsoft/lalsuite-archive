@@ -551,13 +551,13 @@ class Summaries:
         Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id].values():
+        # add the categories to the bkg_stats if they don't exist yet
+        if (experiment_id, ifos, param_group) not in self.bkg_stats:
+            self.bkg_stats[(experiment_id, ifos, param_group)] = []
+        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        else:
-            if (experiment_id, ifos, param_group) not in self.bkg_stats:
-                self.bkg_stats[(experiment_id, ifos, param_group)] = []
-            if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
-                self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        # only add the stats if they are slide
+        if not ( experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id].values()):
             self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
