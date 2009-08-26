@@ -921,6 +921,12 @@ void inittools(void)
 	PyModule_AddObject(module, "LALDetector", (PyObject *) &pylal_LALDetector_Type);
 	PyModule_AddObject(module, "cached_detector", make_cached_detectors());
 
+	/* SnglRingdownTable */
+	if(PyType_Ready(&pylal_SnglRingdownTable_Type) < 0)
+		return;
+	Py_INCREF(&pylal_SnglRingdownTable_Type);
+	PyModule_AddObject(module, "SnglRingdownTable", (PyObject *) &pylal_SnglRingdownTable_Type);
+
 	/* SnglInspiralTable */
 	if(PyType_Ready(&pylal_SnglInspiralTable_Type) < 0)
 		return;
