@@ -25,6 +25,7 @@ except ImportError:
     # pre 2.5.x
     from pysqlite2 import dbapi2 as sqlite3
 import sys, os
+import numpy
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -93,6 +94,19 @@ def parse_command_line():
 
     return options, sys.argv[1:]
             
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+def get_statistics( numlist ):
+    """
+    Returns mean and standard deviation of a list.
+    """
+    numlist = numpy.array(numlist)
+    return numpy.mean(numlist), numpy.std(numlist)
 
 
 # ============================================================================
@@ -276,15 +290,23 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     fig_num += 1
     figure_numbers.append(fig_num)
     figure(fig_num)
+    val_list = []
     for esid, slide_num in slide_numbers.items():
         if datatypes[ esid ] == 'slide':
             bar(left = slide_num, height = durations[ esid ],
                 width = 1, color = 'gray',
                 align = 'center')
+            val_list.append( durations[ esid ] )
         if datatypes[ esid ] == 'all_data':
             bar(left = slide_num, height = durations[ esid ],
                 width = 1, color = 'b',
                 align = 'center')
+            val_list.append( durations[ esid ] )
+    # plot mean, +/- 1-sigma
+    mean_val, std_val = get_statistics(val_list)
+    axhline(mean_val, color='k', linewidth=2)
+    axhline(mean_val + std_val, color='k', linestyle='--', linewidth=2)
+    axhline(max(mean_val - std_val, 0), color='k', linestyle='--', linewidth=2)
     # set labels
     title_text = ' '.join([on_instr, r"All-Data Durations per Time-Slide"])
     title(title_text, size='x-large')
@@ -292,9 +314,14 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     ylabel( r"Duration (s)", size='x-large' )
     # set limits
     xlim(min_slide_num - 1, max_slide_num + 1)
-    if durations.values():
-        ymax = max(durations.values())
-    ylim(0, ymax + .1*ymax)
+    if val_list != []:
+        ymax = max(val_list)
+        ymin = max(0, min(val_list) - .1*ymax)
+        ymax = ymax + .1*ymax
+    else:
+        ymax = 1
+        ymin = 0
+    ylim(ymin, ymax)
     # Make the plot figure
     if opts.enable_output:
         name = "slide_durations"
@@ -310,15 +337,23 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         fig_num += 1
         figure_numbers.append(fig_num)
         figure(fig_num)
+        val_list = []
         for esid, slide_num in slide_numbers.items():
             if datatypes[ esid ] == 'slide':
                 bar(left = slide_num, height = tot_events[ esid ],
                     width = 1, color = 'gray',
                     align = 'center')
+                val_list.append( tot_events[ esid ] )
             if datatypes[ esid ] == 'all_data':
                 bar(left = slide_num, height = tot_events[ esid ],
                     width = 1, color = 'b',
                     align = 'center')
+                val_list.append( tot_events[ esid ] )
+        # plot mean, +/- 1-sigma
+        mean_val, std_val = get_statistics(val_list)
+        axhline(mean_val, color='k', linewidth=2)
+        axhline(mean_val + std_val, color='k', linestyle='--', linewidth=2)
+        axhline(max(mean_val - std_val, 0), color='k', linestyle='--', linewidth=2)
         # set labels
         title_text = ' '.join([on_instr, r"Total Number of Coinc. Events per Time-Slide"])
         title(title_text, size='x-large')
@@ -326,9 +361,14 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         ylabel( r"Number of Events", size='x-large' )
         # set limits
         xlim(min_slide_num - 1, max_slide_num + 1)
-        if tot_events.values():
-            ymax = max(tot_events.values())
-        ylim(0, ymax + .1*ymax)
+        if val_list != []:
+            ymax = max(val_list)
+            ymin = max(0, min(val_list) - .1*ymax)
+            ymax = ymax + .1*ymax
+        else:
+            ymax = 1
+            ymin = 0
+        ylim(ymin, ymax)
         # Make the plot figure
         if opts.enable_output:
             name = "total_nevents"
@@ -348,6 +388,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     figure_numbers += rate_fig_nums.values()
     figure_numbers.sort()
     ymax = 0.
+    val_dict = dict([ [datatype, list()] for datatype in rate_fig_nums ])
     for esid, slide_num in slide_numbers.items():
         # if plotting playground only, skip if not playground
         if opts.plot_playground_only and (datatypes[ esid ] == 'all_data' or datatypes[ esid ] == 'exclude_play'):
@@ -359,18 +400,25 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         if tot_rate > ymax:
             ymax = tot_rate
         if datatypes[ esid ] == 'slide':
-            for fig_num in rate_fig_nums.values():
+            for datatype, fig_num in rate_fig_nums.items():
                 figure(fig_num)
                 bar(left = slide_num, height = tot_rate,
                     width = 1, color = 'gray',
                     align = 'center')
+                val_dict[ datatype ].append( tot_rate )
         else:
             figure(rate_fig_nums[ datatypes[ esid ] ])
             bar(left = slide_num, height = tot_rate,
                 width = 1, color = 'b',
                 align = 'center')
+            val_dict[ datatypes[esid] ].append( tot_rate )
     for datatype, fig_num in rate_fig_nums.items():
         figure(fig_num)
+        # plot mean, +/- 1-sigma
+        mean_val, std_val = get_statistics(val_dict[datatype])
+        axhline(mean_val, color='k', linewidth=2)
+        axhline(mean_val + std_val, color='k', linestyle='--', linewidth=2)
+        axhline(max(mean_val - std_val, 0), color='k', linestyle='--', linewidth=2)
         # set labels
         title_text = ' '.join([on_instr, '-'.join(datatype.upper().split("_")), r"Total Trigger Rates per Time-Slide"])
         title(title_text, size='x-large')
@@ -378,6 +426,14 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         ylabel( "Rate (Hz)", size='x-large' )
         # set limits
         xlim(min_slide_num - 1, max_slide_num + 1)
+        if val_dict[ datatype ] != []:
+            ymax = max(val_dict[datatype])
+            ymin = max(0, min(val_dict[datatype]) - .1*ymax)
+            ymax = ymax + .1*ymax
+        else:
+            ymax = 1
+            ymin = 0
+        ylim(ymin, ymax)
         ylim(0, ymax + .1*ymax)
         # Make the plot figure
         if opts.enable_output:
@@ -394,6 +450,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         fig_num = figure_numbers[-1] + 1
         figure_numbers.append(fig_num)
         figure(fig_num)
+        val_list = []
         #
         # plot nevents
         #
@@ -403,20 +460,32 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                     bar(left = slide_num, height = coinc_ifos[ ifo_set ][ esid ],
                         width = 1, color = 'gray',
                         align = 'center')
+                    val_list.append( coinc_ifos[ ifo_set ][ esid ] )
                 if datatypes[ esid ] == 'all_data':
                     bar(left = slide_num, height = coinc_ifos[ ifo_set ][ esid ],
                         width = 1, color = InspiralUtils.get_coinc_ifo_colors(ifo_set),
                         align = 'center')
-                # set labels
-                title_text = ' '.join([ on_instr, r"Number of", r','.join(sorted(ifo_set)), "Events per Time-Slide" ])
-                title(title_text, size='x-large')
-                xlabel( r"Slide number", size='x-large')
-                ylabel( r"Number of Events", size='x-large' )
-                # set limits
-                xlim(min_slide_num - 1, max_slide_num + 1)
-                if coinc_ifos[ ifo_set ].values():
-                    ymax = max(coinc_ifos[ ifo_set ].values())
-                ylim(0, ymax + .1*ymax)
+                    val_list.append( coinc_ifos[ ifo_set ][ esid ] )
+            # plot mean, +/- 1-sigma
+            mean_val, std_val = get_statistics(val_list)
+            axhline(mean_val, color='k', linewidth=2)
+            axhline(mean_val + std_val, color='k', linestyle='--', linewidth=2)
+            axhline(max(mean_val - std_val, 0), color='k', linestyle='--', linewidth=2)
+            # set labels
+            title_text = ' '.join([ on_instr, r"Number of", r','.join(sorted(ifo_set)), "Events per Time-Slide" ])
+            title(title_text, size='x-large')
+            xlabel( r"Slide number", size='x-large')
+            ylabel( r"Number of Events", size='x-large' )
+            # set limits
+            xlim(min_slide_num - 1, max_slide_num + 1)
+            if val_list != []:
+                ymax = max(val_list)
+                ymin = max(0, min(val_list) - .1*ymax)
+                ymax = ymax + .1*ymax
+            else:
+                ymax = 1
+                ymin = 0
+            ylim(ymin, ymax)
             # Make the plot figure
             if opts.enable_output:
                 name = '_'.join([ ''.join(sorted(ifo_set)), "nevents" ])
@@ -435,6 +504,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         figure_numbers += rate_fig_nums.values()
         figure_numbers.sort()
         ymax = 0.
+        val_dict = dict([ [datatype, list()] for datatype in rate_fig_nums ])
         for esid, slide_num in slide_numbers.items():
             # if plotting playground only, skip if not playground
             if opts.plot_playground_only and (datatypes[ esid ] == 'all_data' or datatypes[ esid ] == 'exclude_play'):
@@ -446,18 +516,25 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             if ifo_rate > ymax:
                 ymax = ifo_rate
             if datatypes[ esid ] == 'slide':
-                for fig_num in rate_fig_nums.values():
+                for datatype, fig_num in rate_fig_nums.items():
                     figure(fig_num)
                     bar(left = slide_num, height = ifo_rate,
                         width = 1, color = 'gray',
                         align = 'center')
+                    val_dict[ datatype ].append( ifo_rate )
             else:
                 figure(rate_fig_nums[ datatypes[ esid ] ])
                 bar(left = slide_num, height = ifo_rate,
                     width = 1, color = InspiralUtils.get_coinc_ifo_colors(ifo_set),
                     align = 'center')
+                val_dict[ datatypes[esid] ].append( ifo_rate )
         for datatype, fig_num in rate_fig_nums.items():
             figure(fig_num)
+            # plot mean, +/- 1-sigma
+            mean_val, std_val = get_statistics(val_dict[datatype])
+            axhline(mean_val, color='k', linewidth=2)
+            axhline(mean_val + std_val, color='k', linestyle='--', linewidth=2)
+            axhline(max(mean_val - std_val, 0), color='k', linestyle='--', linewidth=2)
             # set labels
             title_text = ' '.join([on_instr, '-'.join(datatype.upper().split("_")), ','.join(sorted(ifo_set)), r"Trigger Rates per Time-Slide"])
             title(title_text, size='x-large')
@@ -465,6 +542,14 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             ylabel( "Rate (Hz)", size='x-large' )
             # set limits
             xlim(min_slide_num - 1, max_slide_num + 1)
+            if val_dict[ datatype ] != []:
+                ymax = max(val_dict[datatype])
+                ymin = max(0, min(val_dict[datatype]) - .1*ymax)
+                ymax = ymax + .1*ymax
+            else:
+                ymax = 1
+                ymin = 0
+            ylim(ymin, ymax)
             ylim(0, ymax + .1*ymax)
             # Make the plot figure
             if opts.enable_output:
