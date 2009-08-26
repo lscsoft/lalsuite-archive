@@ -1,9 +1,9 @@
-DATAFIND_SRCS = online_datafind.c
+CACHE_SRCS = online_cache.c
 
 if FRAME
 if LALFRAME
-FRAME_PROGS = lalapps_online_datafind
-lalapps_online_datafind_SOURCES = online_datafind.c
+FRAME_PROGS = lalapps_online_cache
+lalapps_online_cache_SOURCES = online_cache.c
 endif
 endif
 

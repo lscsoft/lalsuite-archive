@@ -119,7 +119,7 @@ src/inspiral/python_config.sed
 src/lalapps/lalapps_cache
 src/lalapps/lalapps_tconvert
 src/lalapps/lalapps_version
-src/online/lalapps_online_datafind
+src/online/lalapps_online_cache
 src/power/lalapps_binj
 src/power/lalapps_power
 src/power/sense_compare
