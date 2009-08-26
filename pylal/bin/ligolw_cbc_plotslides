@@ -131,18 +131,17 @@ if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-from pylal import viz
 from numpy import histogram
 rc('text', usetex=True)
 
 if opts.user_tag and opts.plot_playground_only:
-    opts.user_tag = '_'.join([ 'PLAYGROUND_ONLY', opts.user_tag ])
+    opts.user_tag = '_'.join([ opts.user_tag, 'CLOSED_BOX' ])
 if opts.user_tag and not opts.plot_playground_only:
-    opts.user_tag = '_'.join([ 'FULL_DATA', opts.user_tag ])
+    opts.user_tag = '_'.join([ opts.user_tag, 'OPEN_BOX' ])
 if not opts.user_tag and opts.plot_playground_only:
-    opts.user_tag = 'PLAYGROUND_ONLY'
+    opts.user_tag = 'CLOSED_BOX'
 if not opts.user_tag and not opts.plot_playground_only:
-    opts.user_tag = 'FULL_DATA'
+    opts.user_tag = 'OPEN_BOX'
 
 #
 #   Program-specific Initialization
