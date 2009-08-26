@@ -125,7 +125,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -135,6 +135,8 @@ def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None,
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
+	if save_small_coincs is not None:
+		params += [(u"--save-small-coincs", None, None)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
