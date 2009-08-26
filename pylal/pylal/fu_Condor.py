@@ -1959,7 +1959,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       gpsList += repr(trig.gpsTime[ifo]) + ","
     self.add_var_opt("trigger-gps",gpsList.strip(","))
     self.add_var_opt("ifolist-in-coinc",ifolist)
-    self.add_var_opt("user-tag",str(trig.eventID)+"_"+ifolist)
+    self.add_var_opt("user-tag",str(trig.eventID)+"_"+ifolist+"_"+str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])))
     self.add_var_opt("ifo-times",trig.ifoTag)
     self.add_var_opt("ifo-tag",trig.ifoTag)
     if cp.has_option("followup-dq","input-sql"):
