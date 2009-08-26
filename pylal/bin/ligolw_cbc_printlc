@@ -265,9 +265,9 @@ connection.create_function( 'convert_duration', 1, convert_duration )
 # Set up sqlquery
 sqlquery = ''.join([ """
     SELECT
+        coinc_inspiral.*,
         experiment.instruments,
-        convert_duration(experiment_summary.duration),
-        coinc_inspiral.*
+        convert_duration(experiment_summary.duration)
     FROM
         coinc_inspiral
     JOIN
@@ -290,12 +290,16 @@ if opts.verbose:
 
 info = connection.cursor().execute( sqlquery ).fetchall()
 
-# Get column-names: the first two columns are the instruments_on (from the experiment table), and the duration
-# (with the datatype and time-unit in the column name) followed by all the columns in the coinc_inspiral table
-durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower(), '' ])
-column_names = [ u'instruments_on', durname ]
 # Get list of column names from coinc_inspiral table
-column_names.extend(sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' ))
+column_names = []
+coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
+column_names.extend(coinc_inspiral_cols)
+# add instruments on, duration
+if opts.output_format == 'xml':
+    durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower() ])
+else:
+    durname = ''.join([ opts.datatype.strip().lower(), u' duration (', opts.convert_durations.strip().lower(), ')' ])
+column_names.extend([u'instruments_on', durname ])
 
 #
 # Prepare for printing summary info to output
@@ -396,7 +400,7 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
-    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id") + 2
+    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id")
     save_ids = [''.join(['"', row[ceid_index_num], '"']) for row in info]
     # delete all other ids from the coinc_inspiral table
     sqlquery = ''.join([ """
@@ -518,7 +522,7 @@ if opts.extract_to_xml:
     connection.cursor().execute(sqlquery)
 
     # extract to the xml file
-    extract(connection, opts.extract_to_xml, verbose = opts.verbose)
+    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
 
 # close connection and exit
 connection.close()

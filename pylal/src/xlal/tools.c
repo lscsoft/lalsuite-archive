@@ -40,7 +40,7 @@
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
 #include <lal/TrigScanEThincaCommon.h>
-
+#include <lal/Ring.h>
 
 #define MODULE_NAME "pylal.xlal.tools"
 
@@ -734,6 +734,11 @@ PyTypeObject ligolw_CoincMap_Type = {
  */
 
 
+/*
+ * sngl_inspiral related coincidence stuff.
+ */
+
+
 static PyObject *pylal_XLALSnglInspiralTimeError(PyObject *self, PyObject *args)
 {
 	pylal_SnglInspiralTable *row;
@@ -770,6 +775,50 @@ static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *a
 	}
 
 	result = XLALCalculateEThincaParameter(&row1->sngl_inspiral, &row2->sngl_inspiral, &accuracyparams);
+
+	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
+		XLALClearErrno();
+		PyErr_SetString(PyExc_ValueError, "not coincident");
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(result);
+}
+
+
+/*
+ * sngl_ringdown related coincidence stuff.
+ */
+
+
+static PyObject *pylal_XLALRingdownTimeError(PyObject *self, PyObject *args)
+{
+	pylal_SnglRingdownTable *row;
+	double ds_sq_threshold;
+	double delta_t;
+
+	if(!PyArg_ParseTuple(args, "O!d", &pylal_SnglRingdownTable_Type, &row, &ds_sq_threshold))
+		return NULL;
+
+	delta_t = XLALRingdownTimeError(&row->sngl_ringdown, ds_sq_threshold);
+	if(XLAL_IS_REAL8_FAIL_NAN(delta_t)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(delta_t);
+}
+
+
+static PyObject *pylal_XLAL3DRinca(PyObject *self, PyObject *args)
+{
+	pylal_SnglRingdownTable *row1, *row2;
+	double result;
+
+	if(!PyArg_ParseTuple(args, "O!O!", &pylal_SnglRingdownTable_Type, &row1, &pylal_SnglRingdownTable_Type, &row2))
+		return NULL;
+
+	result = XLAL3DRinca(&row1->sngl_ringdown, &row2->sngl_ringdown);
 
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
 		XLALClearErrno();
@@ -843,8 +892,10 @@ static PyObject *get_ilwdchar_class(char *table_name, char *column_name)
 
 
 static struct PyMethodDef methods[] = {
-	{"XLALSnglInspiralTimeError", pylal_XLALSnglInspiralTimeError, METH_VARARGS, "XLALSnglInspiralTimeError(row, threshold)\n\nFrom a sngl_inspiral event and compute the \\Delta t interval corresponding to the given e-thinca threshold."},
+	{"XLALSnglInspiralTimeError", pylal_XLALSnglInspiralTimeError, METH_VARARGS, "XLALSnglInspiralTimeError(row, threshold)\n\nFrom a sngl_inspiral event compute the \\Delta t interval corresponding to the given e-thinca threshold."},
 	{"XLALCalculateEThincaParameter", pylal_XLALCalculateEThincaParameter, METH_VARARGS, "XLALCalculateEThincaParameter(row1, row2)\n\nTakes two SnglInspiralTable objects and\ncalculates the overlap factor between them."},
+	{"XLALRingdownTimeError", pylal_XLALRingdownTimeError, METH_VARARGS, "XLALRingdownTimeError(row, ds^2)\n\nFrom a sngl_ringdown event compute the \\Delta t interval corresponding to the given ds^2 threshold."},
+	{"XLAL3DRinca", pylal_XLAL3DRinca, METH_VARARGS, "XLAL3DRinca(row1, row)\n\nTakes two SnglRingdown objects and\ncalculates the distance, ds^2, between them."},
 	{NULL,}
 };
 
@@ -859,6 +910,7 @@ void inittools(void)
 	process_id_type = get_ilwdchar_class("process", "process_id");
 	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
 	sim_inspiral_simulation_id_type = get_ilwdchar_class("sim_inspiral", "simulation_id");
+	sngl_ringdown_event_id_type = get_ilwdchar_class("sngl_ringdown", "event_id");
 	coinc_def_id_type = get_ilwdchar_class("coinc_definer", "coinc_def_id");
 	coinc_event_id_type = get_ilwdchar_class("coinc_event", "coinc_event_id");
 	time_slide_id_type = get_ilwdchar_class("time_slide", "time_slide_id");
@@ -869,6 +921,12 @@ void inittools(void)
 	Py_INCREF(&pylal_LALDetector_Type);
 	PyModule_AddObject(module, "LALDetector", (PyObject *) &pylal_LALDetector_Type);
 	PyModule_AddObject(module, "cached_detector", make_cached_detectors());
+
+	/* SnglRingdownTable */
+	if(PyType_Ready(&pylal_SnglRingdownTable_Type) < 0)
+		return;
+	Py_INCREF(&pylal_SnglRingdownTable_Type);
+	PyModule_AddObject(module, "SnglRingdownTable", (PyObject *) &pylal_SnglRingdownTable_Type);
 
 	/* SnglInspiralTable */
 	if(PyType_Ready(&pylal_SnglInspiralTable_Type) < 0)

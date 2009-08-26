@@ -1453,15 +1453,10 @@ class CoincRingdownTable(table.Table):
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
 		"ifos": "lstring",
-		"end_time": "int_4s",
-		"end_time_ns": "int_4s",
-		"mass": "real_8",
-		"spin": "real_8",
-		"frequency": "real_8",
-		"quality": "real_8",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
 		"snr": "real_8",
-		"false_alarm_rate": "real_8",
-		"combined_far": "real_8"
+		"false_alarm_rate": "real_8"
 	}
 	# FIXME:  like some other tables here, this table should have the
 	# constraint that the coinc_event_id column is a primary key.  this
@@ -1469,7 +1464,7 @@ class CoincRingdownTable(table.Table):
 	# the constraint is being replaced with an index.
 	#constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
-		"ci_cei_index": ("coinc_event_id",)
+		"cr_cei_index": ("coinc_event_id",)
 	}
 	interncolumns = ("coinc_event_id", "ifos")
 

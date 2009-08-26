@@ -81,6 +81,7 @@ def parse_command_line():
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--ds-sq-threshold", metavar = "float", type = "float", help = "Set the metrical coincidence algorithm's threshold (required).")
+	parser.add_option("-s", "--save-small-coincs", action = "store_true", help = "Save the m-coincidences to file where m < num_ifos")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -153,6 +154,7 @@ for n, filename in enumerate(filenames):
 		comment = options.comment,
 		force = options.force,
 		ds_sq_threshold = options.ds_sq_threshold,
+		save_small_coincs = options.save_small_coincs,
 		verbose = options.verbose
 	)
 
@@ -183,6 +185,7 @@ for n, filename in enumerate(filenames):
 		coinc_definer_row = ligolw_rinca.RingdownCoincDef,
 		event_comparefunc = ligolw_rinca.ringdown_coinc_compare,
 		thresholds = options.ds_sq_threshold,
+		small_coincs = options.save_small_coincs,
 		verbose = options.verbose
 	)
 

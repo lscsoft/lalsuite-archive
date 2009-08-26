@@ -83,7 +83,7 @@ class SnglRingdown(xlaltools.SnglRingdownTable):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	def __cmp__(self, other):
-		# compare self's end time to the LIGOTimeGPS instance
+		# compare self's start time to the LIGOTimeGPS instance
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
 		return cmp(self.start_time, other.seconds) or cmp(self.start_time_ns, other.nanoseconds)
@@ -125,7 +125,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -135,6 +135,8 @@ def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None,
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
+	if save_small_coincs is not None:
+		params += [(u"--save-small-coincs", None, None)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -197,26 +199,19 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		#
 		# populate the coinc_ringdown table:
 		#
-		# - end_time is the end time of the first trigger in
+		# - start_time is the start time of the first trigger in
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
-		# - mass is average of total masses
-		# - mchirp is average of mchirps
 		# - snr is root-sum-square of SNRs
-		# - false-alarm rates are blank
+		# - false-alarm rate is blank
 		#
 
 		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
-		coinc_ringdown.mass = sum(event.mass for event in events) / len(events)
-		coinc_ringdown.spin = sum(event.spin for event in events) / len(events)
-		coinc_ringdown.frequency = sum(event.frequency for event in events) / len(events)
-		coinc_ringdown.quality = sum(event.quality for event in events) / len(events)
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
-		coinc_ringdown.combined_far = None
 		coinc_ringdown.set_start(events[0].get_start())
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
@@ -241,18 +236,18 @@ class RingdownEventList(snglcoinc.EventList):
 	"""
 	def make_index(self):
 		"""
-		Sort events by end time so that a bisection search can
+		Sort events by start time so that a bisection search can
 		retrieve them.  Note that the bisection search relies on
 		the __cmp__() method of the SnglRingdown row class having
-		previously been set to compare the event's end time to a
+		previously been set to compare the event's start time to a
 		LIGOTimeGPS.
 		"""
-		self.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.sort(lambda a, b: cmp(a.start_time, b.start_time) or cmp(a.start_time_ns, b.start_time_ns))
 
 	def set_dt(self, dt):
 		"""
-		If an event's end time differs by more than this many
-		seconds from the end time of another event then it is
+		If an event's start time differs by more than this many
+		seconds from the start time of another event then it is
 		*impossible* for them to be coincident.
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
@@ -261,26 +256,26 @@ class RingdownEventList(snglcoinc.EventList):
 
 	def _add_offset(self, delta):
 		"""
-		Add an amount to the end time of each event.
+		Add an amount to the start time of each event.
 		"""
 		for event in self:
-			event.set_end(event.get_end() + delta)
+			event.set_start(event.get_start() + delta)
 
 	def get_coincs(self, event_a, ds_sq_threshold, comparefunc):
 		#
-		# event_a's end time
+		# event_a's start time
 		#
 
-		end = event_a.get_end()
+		start = event_a.get_start()
 
 		#
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
-		# minimum and maximum allowed end times to quickly identify
+		# minimum and maximum allowed start times to quickly identify
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, ds_sq_threshold)]
+		return [event_b for event_b in self[bisect.bisect_left(self, start - self.dt) : bisect.bisect_right(self, start + self.dt)] if not comparefunc(event_a, event_b, ds_sq_threshold)]
 
 
 #
@@ -301,7 +296,12 @@ def ringdown_max_dt(events, ds_sq_threshold):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:])
+
+	# FIXME: get these from somewhere else
+	LAL_REARTH_SI = 6.378140e6 # m
+	LAL_C_SI = 299792458 # m s^-1
+
+	return sum(sorted(max(xlaltools.XLALRingdownTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
 def ringdown_coinc_compare(a, b, ds_sq_threshold):
@@ -311,7 +311,7 @@ def ringdown_coinc_compare(a, b, ds_sq_threshold):
 	"""
 	try:
 		# FIXME:  should it be ">" or ">="?
-		return xlaltools.XLALCalculateEThincaParameter(a, b) > ds_sq_threshold
+		return xlaltools.XLAL3DRinca(a, b) > ds_sq_threshold
 	except ValueError:
 		# ds_sq test failed to converge == events are not
 		# coincident
@@ -354,6 +354,7 @@ def ligolw_rinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
+	small_coincs = False,
 	verbose = False
 ):
 	#
@@ -388,8 +389,7 @@ def ligolw_rinca(
 	# pair
 	#
 
-	avail_instruments = set(eventlists)
-	thresholds = replicate_threshold(thresholds, avail_instruments)
+	thresholds = replicate_threshold(thresholds, set(eventlists))
 
 	#
 	# construct offset vector assembly graph
@@ -406,49 +406,6 @@ def ligolw_rinca(
 		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
 
 	#
-	# construct all double coincidences in graph
-	#
-
-	if verbose:
-		print >>sys.stderr, "constructing doubles ..."
-	for n, node in enumerate(time_slide_graph.generations[2]):
-		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.generations[2]), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-
-		#
-		# can we do it?
-		#
-
-		offset_instruments = set(node.offset_vector)
-		if not offset_instruments.issubset(avail_instruments):
-			if verbose:
-				print >>sys.stderr, "\twarning: do not have data for instrument(s) %s: skipping" % ", ".join(offset_instruments - avail_instruments)
-			node.coincs = tuple()
-			continue
-
-		#
-		# apply offsets to events
-		#
-
-		if verbose:
-			print >>sys.stderr, "\tapplying offsets ..."
-		eventlists.set_offsetdict(node.offset_vector)
-
-		#
-		# search for and record coincidences
-		#
-
-		if verbose:
-			print >>sys.stderr, "\tsearching ..."
-		node.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
-
-	#
-	# remove time offsets from events
-	#
-
-	eventlists.remove_offsetdict()
-
-	#
 	# loop over the items in time_slide_graph.head, producing all of
 	# those n-tuple coincidences
 	#
@@ -458,14 +415,21 @@ def ligolw_rinca(
 	for n, node in enumerate(time_slide_graph.head):
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-		for coinc in node.get_coincs(verbose):
+		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
 			ntuple = [sngl_index[id] for id in coinc]
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
-		for coinc in node.unused_coincs:
-			ntuple = [sngl_index[id] for id in coinc]
-			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+		if small_coincs:
+			for coinc in node.unused_coincs:
+				ntuple = [sngl_index[id] for id in coinc]
+				if not ntuple_comparefunc(ntuple):
+					coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+
+	#
+	# remove time offsets from events
+	#
+
+	eventlists.remove_offsetdict()
 
 	#
 	# done

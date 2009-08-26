@@ -316,7 +316,12 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:])
+
+	# FIXME: get these from somewhere else
+	LAL_REARTH_SI = 6.378140e6 # m
+	LAL_C_SI = 299792458 # m s^-1
+
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
 def inspiral_coinc_compare(a, b, e_thinca_parameter):
@@ -404,8 +409,7 @@ def ligolw_thinca(
 	# pair
 	#
 
-	avail_instruments = set(eventlists)
-	thresholds = replicate_threshold(thresholds, avail_instruments)
+	thresholds = replicate_threshold(thresholds, set(eventlists))
 
 	#
 	# construct offset vector assembly graph
@@ -422,49 +426,6 @@ def ligolw_thinca(
 		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
 
 	#
-	# construct all double coincidences in graph
-	#
-
-	if verbose:
-		print >>sys.stderr, "constructing doubles ..."
-	for n, node in enumerate(time_slide_graph.generations[2]):
-		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.generations[2]), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-
-		#
-		# can we do it?
-		#
-
-		offset_instruments = set(node.offset_vector)
-		if not offset_instruments.issubset(avail_instruments):
-			if verbose:
-				print >>sys.stderr, "\twarning: do not have data for instrument(s) %s: skipping" % ", ".join(offset_instruments - avail_instruments)
-			node.coincs = tuple()
-			continue
-
-		#
-		# apply offsets to events
-		#
-
-		if verbose:
-			print >>sys.stderr, "\tapplying offsets ..."
-		eventlists.set_offsetdict(node.offset_vector)
-
-		#
-		# search for and record coincidences
-		#
-
-		if verbose:
-			print >>sys.stderr, "\tsearching ..."
-		node.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
-
-	#
-	# remove time offsets from events
-	#
-
-	eventlists.remove_offsetdict()
-
-	#
 	# loop over the items in time_slide_graph.head, producing all of
 	# those n-tuple coincidences
 	#
@@ -474,7 +435,7 @@ def ligolw_thinca(
 	for n, node in enumerate(time_slide_graph.head):
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-		for coinc in node.get_coincs(verbose):
+		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
 			ntuple = [sngl_index[id] for id in coinc]
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
@@ -482,6 +443,12 @@ def ligolw_thinca(
 			ntuple = [sngl_index[id] for id in coinc]
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+
+	#
+	# remove time offsets from events
+	#
+
+	eventlists.remove_offsetdict()
 
 	#
 	# done
