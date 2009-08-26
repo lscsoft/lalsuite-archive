@@ -160,9 +160,10 @@ sqlquery = """
 experiment_ids = {}
 for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor().execute(sqlquery):
     on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
+    on_instr = r','.join(sorted(on_instruments)) + r' Time:'
     # get all the summary information for this experiment
     if opts.verbose:
-        print >> sys.stdout, "Creating plots for %s time..." % ''.join(sorted(on_instruments))
+        print >> sys.stdout, "Creating plots for %s time..." % ','.join(sorted(on_instruments))
         print >> sys.stdout, "\tcollecting durations, total nevents..."
     slide_numbers = {}
     prev_slide_id = None
@@ -285,8 +286,10 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                 width = 1, color = 'b',
                 align = 'center')
     # set labels
+    title_text = ' '.join([on_instr, r"All-Data Durations per Time-Slide"])
+    title(title_text, size='x-large')
     xlabel( r"Slide number", size='x-large')
-    ylabel( r"All-Data Durations (s)", size='x-large' )
+    ylabel( r"Duration (s)", size='x-large' )
     # set limits
     xlim(min_slide_num - 1, max_slide_num + 1)
     if durations.values():
@@ -317,8 +320,10 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                     width = 1, color = 'b',
                     align = 'center')
         # set labels
+        title_text = ' '.join([on_instr, r"Total Number of Coinc. Events per Time-Slide"])
+        title(title_text, size='x-large')
         xlabel( r"Slide number", size='x-large')
-        ylabel( r"Total Number of Coinc. Events", size='x-large' )
+        ylabel( r"Number of Events", size='x-large' )
         # set limits
         xlim(min_slide_num - 1, max_slide_num + 1)
         if tot_events.values():
@@ -367,9 +372,10 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     for datatype, fig_num in rate_fig_nums.items():
         figure(fig_num)
         # set labels
+        title_text = ' '.join([on_instr, '-'.join(datatype.upper().split("_")), r"Total Trigger Rates per Time-Slide"])
+        title(title_text, size='x-large')
         xlabel( r"Slide number", size='x-large')
-        ylbl = '-'.join(datatype.split("_"))
-        ylabel( ylbl + " Total Rates (Hz)", size='x-large' )
+        ylabel( "Rate (Hz)", size='x-large' )
         # set limits
         xlim(min_slide_num - 1, max_slide_num + 1)
         ylim(0, ymax + .1*ymax)
@@ -402,9 +408,10 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                         width = 1, color = InspiralUtils.get_coinc_ifo_colors(ifo_set),
                         align = 'center')
                 # set labels
+                title_text = ' '.join([ on_instr, r"Number of", r','.join(sorted(ifo_set)), "Events per Time-Slide" ])
+                title(title_text, size='x-large')
                 xlabel( r"Slide number", size='x-large')
-                ylbl = ' '.join(["Nuber of ", ''.join(sorted(ifo_set)), "coinc. events" ])
-                ylabel( ylbl, size='x-large' )
+                ylabel( r"Number of Events", size='x-large' )
                 # set limits
                 xlim(min_slide_num - 1, max_slide_num + 1)
                 if coinc_ifos[ ifo_set ].values():
@@ -452,9 +459,10 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         for datatype, fig_num in rate_fig_nums.items():
             figure(fig_num)
             # set labels
+            title_text = ' '.join([on_instr, '-'.join(datatype.upper().split("_")), ','.join(sorted(ifo_set)), r"Trigger Rates per Time-Slide"])
+            title(title_text, size='x-large')
             xlabel( r"Slide number", size='x-large')
-            ylbl = ' '.join([ ''.join(sorted(ifo_set)), '-'.join(datatype.split("_")), "rates (Hz)" ])
-            ylabel( ylbl, size='x-large' )
+            ylabel( "Rate (Hz)", size='x-large' )
             # set limits
             xlim(min_slide_num - 1, max_slide_num + 1)
             ylim(0, ymax + .1*ymax)
