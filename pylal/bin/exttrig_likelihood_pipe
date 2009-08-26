@@ -231,6 +231,10 @@ def create_grbUL_call(cp, opts):
   
   input_user_tag = cp.get('pipeline', 'input-user-tag')
 
+  # set the calib factors as outlined on wiki
+  # https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/JointS5/090709085927TrigSearchCalibration
+  calib_factor = {'H1L1':0.306, 'H2L1':0.292, 'H1H2':0.273, 'H1H2L1':0.320}
+
   # create the code-call
   call = './executables/pylal_grbUL'
   call += ' --relic-offsource ' + namePickleOffsource
@@ -247,10 +251,10 @@ def create_grbUL_call(cp, opts):
   call += ' --ifo-tag ' + opts.ifo_tag
   call += ' --user-tag ' + input_user_tag + '_' + opts.user_tag
   call += ' --enable-output'
-  call += ' --calib-factor 0.306'
-  call += ' --likelihood-threshold 1'
+  call += ' --calib-factor ' +str(calib_factor[opts.ifo_tag])
   call += ' --nonuniform-smoothing-D 0.025'
   call += ' --include-MC-error 1.28'
+  call += ' --likelihood-threshold 1'
 
   if opts.stage=='OPENBOX':
     dir = cp.get('common','output-path')+'OPENBOX'
