@@ -177,11 +177,11 @@ page._escape = False
 doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
 doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
 
-title = "Detection Checklist for candidate " + str(opts.trigger_id)
+title = "Detection Checklist for candidate " + str(opts.trigger_gps.split(",")[0].strip())
 page.init(title=title, doctype=doctype)
 #page.init(title=title)
 page.h1()
-page.add("Detection Checklist for Candidate " + str(opts.trigger_id))
+page.add("Detection Checklist for Candidate " + str(opts.trigger_gps.split(",")[0].strip()) + " " + opts.ifolist_in_coinc + " in " + opts.ifo_times)
 page.h1.close()
 
 page.h2()

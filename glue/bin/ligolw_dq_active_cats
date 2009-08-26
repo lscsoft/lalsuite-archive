@@ -59,17 +59,17 @@ def get_cats():
 	start_times = {}
 	end_times = {}
 	for line in p1.communicate()[0].split('\n'):
-		if line != '':
-			info = line.split(' ')
-			flag = info[0] + ':' + info[1]
-			cat = info[2]
-			start = float(info[3])
-			end = float(info[4])
-			if end == 0: end = float('inf')
+		if line == '': continue
+		info = line.split(' ')
+		flag = info[0] + ':' + info[1]
+		cat = info[2]
+		start = float(info[3])
+		end = float(info[4])
+		if end == 0: end = float('inf')
 
-			categories[flag] = cat
-			start_times[flag] = start
-			end_times[flag] = end
+		categories[flag] = cat
+		start_times[flag] = start
+		end_times[flag] = end
 
 	if p1.wait() == 0:
 		return categories, start_times, end_times
