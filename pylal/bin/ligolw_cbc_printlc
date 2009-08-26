@@ -340,7 +340,8 @@ sqlquery = ''.join([ """
         """, ranking_stat, ' ',  rank_by ])
 
 if opts.verbose:
-    print >> sys.stdout, "Sqlite query is:"
+    print >> sys.stdout, "Getting coincs..."
+    print >> sys.stdout, "SQLite query used is:"
     print >> sys.stdout, sqlquery
     if not opts.output:
         print >> sys.stdout, "\nResults are:\n"
@@ -350,7 +351,12 @@ info = connection.cursor().execute( sqlquery ).fetchall()
 # Get list of column names from coinc_inspiral table
 coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
 # generate list of column names for the summary table
-column_names = [ 'rank' ]
+# note: for xml format, column names cannot have spaces or (),
+# so they are replaced with _
+if opts.output_format == 'xml':
+    column_names = [ 'rank_using_' + ranking_stat.split('.')[-1] ]
+else:
+    column_names = [ 'rank (using ' + ranking_stat.split('.')[-1] + ')' ] 
 column_names.extend(coinc_inspiral_cols)
 # add instruments on, duration
 if opts.output_format == 'xml':
