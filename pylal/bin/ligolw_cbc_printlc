@@ -234,6 +234,8 @@ class rank_stats:
             return bisect.bisect_left(self.stats, this_stat) + 1
         else:
             return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
+            
+
 # =============================================================================
 #
 #                                     Main
