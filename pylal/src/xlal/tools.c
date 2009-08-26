@@ -910,6 +910,7 @@ void inittools(void)
 	process_id_type = get_ilwdchar_class("process", "process_id");
 	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
 	sim_inspiral_simulation_id_type = get_ilwdchar_class("sim_inspiral", "simulation_id");
+	sngl_ringdown_event_id_type = get_ilwdchar_class("sngl_ringdown", "event_id");
 	coinc_def_id_type = get_ilwdchar_class("coinc_definer", "coinc_def_id");
 	coinc_event_id_type = get_ilwdchar_class("coinc_event", "coinc_event_id");
 	time_slide_id_type = get_ilwdchar_class("time_slide", "time_slide_id");
