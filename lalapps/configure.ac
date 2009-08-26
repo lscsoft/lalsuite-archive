@@ -32,12 +32,10 @@ AC_CONFIG_FILES([\
   src/pulsar/TimingTests/Makefile \
   src/pulsar/TDS_isolated/Makefile \
   src/inspiral/Makefile \
-  src/inspiral/posterior/Makefile \
   src/zmsearch/Makefile \
   src/detresponse/Makefile \
   src/pulsar/hough/src2/Makefile \
   src/pulsar/MakeSFTs/Makefile \
-  src/pulsar/crosscorr/Makefile \
   src/pulsar/fscan/Makefile \
   src/tracksearch/Makefile \
   src/online/Makefile \
