@@ -23,6 +23,7 @@ except ImportError:
     from pysqlite2 import dbapi2 as sqlite3
 import sys
 import os
+import bisect
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -173,6 +174,8 @@ def parse_command_line():
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
         raise ValueError, "--rank-by must be specified and set to either MIN or MAX."
+    if options.param_name and not options.param_ranges:
+        raise ValueError, "--param-name requires --param-ranges"
     if not options.datatype:
         raise ValueError, "--datatype must be specified."
     if options.datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
@@ -185,6 +188,52 @@ def parse_command_line():
 
     return options, sys.argv[1:]
 
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+class rank_stats:
+    """
+    Class to return a rank for stats.
+    """
+    def __init__(self, table, ranking_stat, rank_by):
+        """
+        @table: table containing the stats to rank
+        @ranking_stat: stat in table that wish to rank
+        @rank_by: should be either "ASC" or "DESC"
+        """
+        self.stats = []
+        self.table = table
+        self.ranking_stat = ranking_stat
+        self.rank_by = rank_by
+    def populate_stats_list(self, connection, limit, filter = ''):
+        """
+        Gets top stats from database for later ranking
+        @connection: connection to a sqlite database
+        @limit: number of stats to get
+        @filter: apply a filter (i.e., a SQLite WHERE clause). 
+            Note: If the filter uses colums from tables other than
+            self.table, must include the join conditions as well
+        @verbose: if verbose, will print the sqlquery used 
+        """
+        sqlquery = ''.join(["""
+            SELECT
+                """, self.ranking_stat, """
+            FROM
+                """, self.table,
+            filter, """
+            ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
+            LIMIT """, str(limit) ])
+        self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
+        self.stats.sort()
+    def get_rank( self, this_stat ):
+        if self.rank_by == "ASC":
+            return bisect.bisect_left(self.stats, this_stat) + 1
+        else:
+            return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
 # =============================================================================
 #
 #                                     Main
@@ -252,35 +301,43 @@ if opts.include_only_coincs:
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
+# join the needed tables to in_this_filter
+where_in_this_filter = ''.join([ sqlutils.join_experiment_tables_to_coinc_inspiral(), "\n    WHERE\n\t", in_this_filter ])
+
+# Set needed functions
+
 # establish what units will be converting duration to; this has to be done
 # by defining a function which calls sqlutils.convert_duration with the desired
 # conversion. This function is then sqlitized so that it just takes one argument,
 # the duration, and automatically converts. We do this because we cannot set the
 # appropiate conversion flag from within the sql statement
-
 def convert_duration( duration ):
     return sqlutils.convert_duration( duration, opts.convert_durations.strip().lower() )
 connection.create_function( 'convert_duration', 1, convert_duration )
-    
+
+# initialize ranking. We do this by collecting the statistics that do the ranking
+# first, so that rank can be computed on the fly in the main sqlquery below. It is
+# done in this way because the RANK and DENSE_RANK SQL functions are not supported by
+# SQLite.
+if opts.verbose:
+    print >> sys.stdout, "Getting statistics for ranking..."
+ranker = rank_stats('coinc_inspiral', ranking_stat, rank_by)
+ranker.populate_stats_list(connection, opts.limit, filter = where_in_this_filter)
+connection.create_function( 'rank', 1, ranker.get_rank )
+
 # Set up sqlquery
 sqlquery = ''.join([ """
     SELECT
+        rank(""", ranking_stat, """),
         coinc_inspiral.*,
         experiment.instruments,
         convert_duration(experiment_summary.duration)
     FROM
         coinc_inspiral
-    JOIN
-        experiment, experiment_summary, experiment_map 
-    ON ( 
-        experiment.experiment_id == experiment_summary.experiment_id
-        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
-    WHERE 
-        """, in_this_filter, """
+    """, where_in_this_filter, """
+        AND rank(""", ranking_stat, """) <= """, str(opts.limit), """
     ORDER BY
-        """, ranking_stat, ' ',  rank_by, """
-    LIMIT """, str(opts.limit) ])
+        """, ranking_stat, ' ',  rank_by ])
 
 if opts.verbose:
     print >> sys.stdout, "Sqlite query is:"
@@ -291,8 +348,9 @@ if opts.verbose:
 info = connection.cursor().execute( sqlquery ).fetchall()
 
 # Get list of column names from coinc_inspiral table
-column_names = []
 coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
+# generate list of column names for the summary table
+column_names = [ 'rank' ]
 column_names.extend(coinc_inspiral_cols)
 # add instruments on, duration
 if opts.output_format == 'xml':
