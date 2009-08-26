@@ -185,7 +185,7 @@ for n, filename in enumerate(filenames):
 		coinc_definer_row = ligolw_rinca.RingdownCoincDef,
 		event_comparefunc = ligolw_rinca.ringdown_coinc_compare,
 		thresholds = options.ds_sq_threshold,
-		small_coincs = options.save_small_coincs
+		small_coincs = options.save_small_coincs,
 		verbose = options.verbose
 	)
 
