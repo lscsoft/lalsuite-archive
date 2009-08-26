@@ -151,13 +151,14 @@ class TimeSlideGraphNode(object):
 		if verbose:
 			print >>sys.stderr, "\tassembling %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
 
-		self.unused_coincs = reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components)) | reduce(lambda a, b: a | b, (set(component.coincs) for component in self.components))
-
 		self.coincs = []
 		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 		length = len(allcoincs0)
+
+		self.unused_coincs = reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components)) | reduce(lambda a, b: a | b, (set(component.coincs) for component in self.components))
+
 		for n, coinc0 in enumerate(allcoincs0):
 			if verbose and not (n % 200):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
