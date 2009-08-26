@@ -181,7 +181,7 @@ title = "Detection Checklist for candidate " + str(opts.trigger_gps.split(",")[0
 page.init(title=title, doctype=doctype)
 #page.init(title=title)
 page.h1()
-page.add("Detection Checklist for Candidate " + str(opts.trigger_gps.split(",")[0].strip()))
+page.add("Detection Checklist for Candidate " + str(opts.trigger_gps.split(",")[0].strip()) + " " + opts.ifolist_in_coinc + " in " + opts.ifo_times)
 page.h1.close()
 
 page.h2()
