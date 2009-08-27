@@ -466,7 +466,7 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
-    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id")
+    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id") + 1
     save_ids = [''.join(['"', row[ceid_index_num], '"']) for row in info]
     # delete all other ids from the coinc_inspiral table
     sqlquery = ''.join([ """
@@ -580,9 +580,11 @@ if opts.extract_to_xml:
     if opts.verbose:
         print >> sys.stdout, "\tdeleting segments that don't intersect..."
 
-    sqlquery = ''.join([ """
+    sqlquery = """
         DELETE FROM
-            segment
+            segment"""
+    if in_this_filter != []:
+        sqlquery = ''.join([ sqlquery, """
         WHERE NOT
             """, ' OR '.join(in_this_filter) ])
     connection.cursor().execute(sqlquery)
