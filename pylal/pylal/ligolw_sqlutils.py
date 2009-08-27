@@ -296,7 +296,9 @@ class parse_coinc_options:
             rule = rule.strip().lstrip('[').rstrip(']').upper()
 
             # get coinc_instruments, instruments_on 
-            [ coinc_instruments, instruments_on ] = rule.split(' IN ')
+            if len(rule.split('IN')) != 2:
+                raise ValueError, "Must seperate coinc. types and on-instruments by 'in'"
+            [ coinc_instruments, instruments_on ] = rule.split('IN')
             instruments_on = instruments_on.strip()
             coinc_instruments = coinc_instruments.strip()
 
