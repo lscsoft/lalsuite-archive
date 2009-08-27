@@ -369,11 +369,10 @@ def ligolw_burca(
 	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName)
 
 	#
-	# iterate over time slides
+	# construct offset vector assembly graph
 	#
 
-	offset_vector_dict = coinc_tables.get_time_slides()
-	time_slide_graph = snglcoinc.TimeSlideGraph(offset_vector_dict, verbose = verbose)
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.get_time_slides(), verbose = verbose)
 
 	#
 	# loop over the items in time_slide_graph.head, producing all of
