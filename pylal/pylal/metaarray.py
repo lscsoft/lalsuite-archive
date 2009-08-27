@@ -17,8 +17,6 @@
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"[11:-2]
 
 import os
 import sys
