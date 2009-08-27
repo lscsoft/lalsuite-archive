@@ -405,10 +405,8 @@ class CacheEntry(object):
 	"""
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
-	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
-	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/\.]+)\.[^/]+)\Z")
-	# My old regex from lalapps_path2cache, in case it's needed
-	#_url_regex = re.compile(r"\s*(?P<observatory>[^-]+)-(?P<description>[^-]+)-(?P<start>[^-]+)-(?P<duration>[^-\.]+)\.(?P<extension>.*)\s*")
+	_regex = re.compile(r"\A\s*(?P<obs>\S+)\s+(?P<dsc>\S+)\s+(?P<strt>\S+)\s+(?P<dur>\S+)\s+(?P<url>\S+)\s*\Z")
+	_url_regex = re.compile(r"\A((.*/)*(?P<obs>[^/]+)-(?P<dsc>[^/]+)-(?P<strt>[^/]+)-(?P<dur>[^/\.]+)\.[^/]+)\Z")
 
 	def __init__(self, *args, **kwargs):
 		"""
@@ -435,29 +433,32 @@ class CacheEntry(object):
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = int)
 		ValueError: invalid literal for int(): 576.5
 		"""
-		if len(args) == 1 and type(args[0]) == str:
+		if len(args) == 1:
 			# parse line of text as an entry in a cache file
-			if kwargs.keys() and kwargs.keys() != ["coltype"]:
-				raise TypeError, "unrecognized keyword arguments: %s" % [a for a in kwargs.keys() if a != "coltype"]
-			coltype = kwargs.get("coltype", LIGOTimeGPS)
 			match = self._regex.search(args[0])
-			if not match:
-				raise ValueError, "could not convert \"%s\" to CacheEntry" % args[0]
-			self.observatory = match.group("observatory")
-			self.description = match.group("description")
-			start = match.group("start")
-			duration = match.group("duration")
+			try:
+				match = match.groupdict()
+			except AttributeError:
+				raise ValueError, "could not convert %s to CacheEntry" % repr(args[0])
+			self.observatory = match["obs"]
+			self.description = match["dsc"]
+			start = match["strt"]
+			duration = match["dur"]
+			coltype = kwargs.pop("coltype", LIGOTimeGPS)
 			if start == "-" and duration == "-":
 				# no segment information
 				self.segment = None
 			else:
-				self.segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
-			self.url = match.group("url")
+				start = coltype(start)
+				self.segment = segments.segment(start, start + coltype(duration))
+			self.url = match["url"]
+			if kwargs:
+				raise TypeError, "unrecognized keyword arguments: %s" % ", ".join(kwargs)
 		elif len(args) == 4:
 			# parse arguments as observatory, description,
 			# segment, url
 			if kwargs:
-				raise TypeError, "invalid arguments: %s" % kwargs
+				raise TypeError, "invalid arguments: %s" % ", ".join(kwargs)
 			self.observatory, self.description, self.segment, self.url = args
 		else:
 			raise TypeError, "invalid arguments: %s" % args
@@ -533,11 +534,11 @@ class CacheEntry(object):
 		"""
 		match = cls._url_regex.search(url)
 		if not match:
-			raise ValueError, "could not convert \"%s\" to CacheEntry" % url
-		observatory = match.group("observatory")
-		description = match.group("description")
-		start = match.group("start")
-		duration = match.group("duration")
+			raise ValueError, "could not convert %s to CacheEntry" % repr(url)
+		observatory = match.group("obs")
+		description = match.group("dsc")
+		start = match.group("strt")
+		duration = match.group("dur")
 		if start == "-" and duration == "-":
 			# no segment information
 			segment = None

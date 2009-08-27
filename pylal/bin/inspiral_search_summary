@@ -529,6 +529,8 @@ matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
 from pylal import plotutils
+import copy
+from scipy import stats
 rcParams.update({                                                               
     "text.usetex": True,                                                        
     "text.verticalalignment": "center",                                         

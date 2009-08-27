@@ -133,15 +133,25 @@ $error = 0;
       }
    
     // validate username
-    $user = htmlspecialchars($_POST['user']);
-    if(strlen($user)==0 || strpos($user,'.')==FALSE || strpos($user, '@')==TRUE)
+    $username = $_POST['user'];
+    if(strlen($username)==0)
       {
          $error = $error + 1;
-         echo "<p>User Name = <font color='red'>username must be in the format of albert.einstein</font></p>";
+         echo "<p>User Name = <font color='red'>username must be specified</font></p>";
       }
     else
       {
-        echo "User Name = $user";
+        $userlist = split( '@', $username );
+        $user = $userlist[0];
+        if(strlen($user)==0 || strpos($user,'.')==FALSE)
+          {
+             echo "<p>User Name = <font color='red'>username must be in the format of albert.einstein@LIGO.ORG or albert.einstein</font></p>";
+             $error = $error + 1;
+          }
+        else
+          {
+            echo "User Name = $user";
+          }
       }
 
 ?>

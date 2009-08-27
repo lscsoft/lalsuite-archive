@@ -40,7 +40,7 @@ from pylal import ligolw_tisi
 from pylal import llwapp
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -64,7 +64,7 @@ def parse_command_line():
 	parser.add_option("--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-i", "--instrument", metavar = "name=first:last:step[,first:last:step[,...]]", action = "append", default = [], help = "Provide a description of the set of offsets to use for a particular instrument.  The set of offsets is (first + n * step) where n is an integer such that first <= offset <= last.  More than one set of offsets can be given for the same instrument, in which case the union is used.  As a short-hand, the sets can be combined into a single command line argument by separating the first:last:step triples with commas.")
-	parser.add_option("--inspiral-num-slides", metavar = "count:instrument=offset[,instrument=offset...]", action = "append", default = [], help = "Generate a set of inspiral group style time slides.  The collection of instrument/offset pairs defines an offset vector, and the time slides produced are integer multiples of that vector n * {offsets} where n is a non-zero integer in [-count, +count] (so if count=50, you get 100 time slides... that's the convention used in the inspiral pipeline.  If this option is given more than once, then multiple sets of inspiral-style time slides are generated.")
+	parser.add_option("--inspiral-num-slides", metavar = "count:instrument=offset[,instrument=offset...]", action = "append", default = [], help = "Generate a set of inspiral group style time slides.  The collection of instrument/offset pairs defines an offset vector, and the time slides produced are integer multiples of that vector n * {offsets} where n is a non-zero integer in [-count, +count] (so if count=50, you get 101 time slides).  If this option is given more than once, then multiple sets of inspiral-style time slides are generated.")
 	parser.add_option("-n", "--normalize", metavar = "name=offset", default = [], action = "append", help = "Normalize the time slides so that this instrument has the specified offset in all.  The other offsets in each time slide are adjusted so that the relative offsets are preserved.  Time slides that do not involve this instrument are unaffected.  If this option is given multiple times, then they are applied in order to each time slide until the first is found that affects the offsets of the time slide.")
 	options, filenames = parser.parse_args()
 

@@ -317,6 +317,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del lwtparser
     except Exception, e:
       logger.error(
         "Error deleting metadata object in method query: %s" % e)
@@ -365,6 +366,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del lwtparser
     except Exception, e:
       logger.error(
         "Error deleting metadata object in method insert: %s" % e)
@@ -380,68 +382,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
-    global logger
-    global xmlparser, dbobj, rls
-
-    logger.debug("Method insertmap called")
-
-    if not rls:
-      msg = "server is not initialized for RLS connections"
-      logger.error(msg)
-      return (1, msg)
-
-    # assume failure
-    code = 1
-
-    try:
-      # unpickle the PFN/LFN mappings from the client
-      lfnpfn_dict = cPickle.loads(arg[1])
-      if not isinstance(lfnpfn_dict, dict):
-        raise ServerHandlerException, \
-          "LFN/PFN mapping from client is not dictionary"
-
-      # capture the remote users DN for insertion into the database
-      cred = self.request.get_delegated_credential()
-      remote_dn = cred.inquire_cred()[1].display()
-
-      # create a ligo metadata object
-      lwtparser = ldbd.LIGOLwParser()
-      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
-
-      # parse the input string into a metadata object
-      ligomd.parse(arg[0])
-
-      # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
-
-      # add the lfns to the metadata insert to populate the lfn table
-      for lfn in lfnpfn_dict.keys():
-        ligomd.add_lfn(lfn)
-
-      # insert the metadata into the database
-      result = str(ligomd.insert())
-      logger.info("Method insert: %s rows affected by insert" % result)
-
-      # insert the PFN/LFN mappings into the RLS
-      for lfn in lfnpfn_dict.keys():
-        pfns = lfnpfn_dict[lfn]
-        if not isinstance( pfns, types.ListType ):
-          raise ServerHandlerException, \
-            "PFN must be a single string or a list of PFNs"
-        rls.lrc_create_lfn( lfn, pfns[0] )
-        for pfn in pfns[1:len(pfns)]:
-          rls.lrc_add( lfn, pfn )
-          
-      logger.info("Method insertmap: insert LFN mappings for %s" % 
-        str(lfnpfn_dict.keys()))
-      code = 0
-
-    except Exception, e:
-      result = ("Error inserting LFN/PFN mapping into RLS: %s" % e)
-      logger.error(result)
-      return (code,result)
-
-    return (code,result)
+    msg = "server is not initialized for RLS connections"
+    logger.error(msg)
+    return (1, msg)
 
   def insertdmt(self, arg):
     """
@@ -673,12 +616,13 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del lwtparser
       del known_proc
       del seg_def_key
       del proc_key
     except Exception, e:
       logger.error(
-        "Error deleting metadata object in method insert: %s" % e)
+        "Error deleting metadata object in method insertdmt: %s" % e)
 
     return (code,result)
 

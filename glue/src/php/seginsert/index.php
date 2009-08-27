@@ -15,6 +15,7 @@ require './scripts/header.php';
 <hr>
 <h3>Insert new flag</h3>
      <form action="flagcheck.php" method="post">
+        <input type="reset"/ value="Clear insert form">
         <p>Affected Detector: <select name="site">
                     <option value="H1">H1</option>
 	            <option value="L1">L1</option>
@@ -32,6 +33,7 @@ require './scripts/header.php';
         <option value="SCI-HIGH_MICROSEISMIC_ELOG (High microseismic levels described in the elog)">SCI-HIGH_MICROSEISMIC_ELOG (High microseismic levels described in the elog)</option>
         <option value="SCI-HIGH_WIND_ELOG (High winds described in the elog)">SCI-HIGH_WIND_ELOG (High winds described in the elog)</option>
         <option value="SCI-HUMAN_INTRUSION_ELOG (Human intrusion into the LVEA described in the elog)">SCI-HUMAN_INTRUSION_ELOG (Human intrusion into the LVEA described in the elog)</option>
+        <option value="SCI-LOW_POWER_ELOG (low power laser operation described in the elog)">SCI-LOW_POWER_ELOG (low power laser operation described in the elog)</option>
         <option value="SCI-NONSTAND_CONFIG_ELOG (Nonstandard configuration described in the elog)">SCI-NONSTAND_CONFIG_ELOG (Nonstandard configuration described in the elog)</option>
         <option value="SCI-SEISMIC_ELOG (Seismic event of unknown cause described in the elog)">SCI-SEISMIC_ELOG (Seismic event described in the elog)</option>
         <option value="SCI-TRAIN_ELOG (Passing train causing high seismic levels described in the elog)">SCI-TRAIN_ELOG (Passing train causing high seismic levels described in the elog)</option>
@@ -92,8 +94,8 @@ require './scripts/header.php';
        </p>
 
         <p>Elog URL with detailed description of problem:<input type="text" size=67 name="url" ></p>
-	<p>Enter your @LIGO.ORG User Name (e.g albert.einstein):<input type="text" size=50 name="user"></p>
- 	<p><input type="reset"/><input type="submit" /></p>
+	<p>Enter your @LIGO.ORG User Name (e.g albert.einstein):<input type="text" size=50 name="user" value="<?=$_SERVER['REMOTE_USER']?>"></p>
+ 	<p><input type="submit" value="Submit flag to database"/></p>
      </form>
 
 <?php require './scripts/footer.php'; ?>

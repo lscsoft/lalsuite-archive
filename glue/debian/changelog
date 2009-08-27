@@ -1,3 +1,39 @@
+python-glue (1.28.1-2) unstable; urgency=low
+
+  * python version fix (c&p from 1.28-5)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 26 Aug 2009 09:09:09 +0200
+
+python-glue (1.28.1-1) unstable; urgency=low
+
+  * Initial release of 1.28.1
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 13 Aug 2009 11:45:16 -0500
+
+python-glue (1.28-1) unstable; urgency=low
+
+  * Initial release of 1.28
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Mon, 27 Jun 2009 22:30:00 -0500
+
+python-glue (1.27-1) unstable; urgency=low
+
+  * Initial release of 1.27
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Mon, 27 Jun 2009 22:20:00 -0500
+
+python-glue (1.26-1) unstable; urgency=low
+
+  * Initial release of 1.26
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Wed, 2 Jun 2009 13:20:00 -0500
+
+python-glue (1.25-1) unstable; urgency=low
+
+  * Initial release of 1.25
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Wed, 1 Jun 2009 16:22:00 -0500
+
 python-glue (1.24-1) unstable; urgency=low
 
   * Initial release of 1.24

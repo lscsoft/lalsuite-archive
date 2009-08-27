@@ -83,6 +83,10 @@ parser.add_option("","--trigger-gps",action="store",type="string",\
 coincidence is found. The gps times must be separated by a coma, for example \
 trigger-gps=\"860308882.71533203,860308882.74438477\"")
 
+parser.add_option("","--hoft-channel-ref",action="store",type="string",\
+    metavar=" STRING",default="DMT-STRAIN,h_16384Hz",help="this indicates"\
+    " the hoft channel name used by LIGO and Virgo ifos")
+
 parser.add_option("","--ifolist-in-coinc",action="store",type="string",\
     metavar=" STRING",help="string cointaing the ifo names found in coincidence, for example: \"H1H2L1\"")
 
@@ -117,7 +121,7 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
 
-parser.add_option("-X","--data-quality-url",action="store",type="string",\
+parser.add_option("-X","--segment-url",action="store",type="string",\
                   metavar="URL",default=None, dest="defaultldbd",\
                   help="Using this argument specify a URL the LDBD \
 server that you want to query DQ Veto segment information from for\
@@ -173,11 +177,11 @@ page._escape = False
 doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
 doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
 
-title = "Detection Checklist for candidate " + str(opts.trigger_id)
+title = "Detection Checklist for candidate " + str(opts.trigger_gps.split(",")[0].strip())
 page.init(title=title, doctype=doctype)
 #page.init(title=title)
 page.h1()
-page.add("Detection Checklist for Candidate " + str(opts.trigger_id))
+page.add("Detection Checklist for Candidate " + str(opts.trigger_gps.split(",")[0].strip()) + " " + opts.ifolist_in_coinc + " in " + opts.ifo_times)
 page.h1.close()
 
 page.h2()
@@ -219,6 +223,10 @@ singlemcmc = []
 coherentmcmc = []
 fu_triggers = []
 
+# get channel name for hoft data
+LIGO_channel = opts.hoft_channel_ref.split(",")[0].strip()
+Virgo_channel = opts.hoft_channel_ref.split(",")[1].strip()
+
 # prepare strings containing information on Nelson's DQ investigations
 #for ifo in ifoList:
 #  if ifo in trig.ifolist_in_coinc:
@@ -243,32 +251,20 @@ for ifo_index,ifo in enumerate(ifolist):
   # links to qscans
   hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime)
   if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
-    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime)
+    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/qscan/" + gpstime)
   else:
     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
   if opts.remote_seismic_qscan_web and ifo == opts.remote_seismic_qscan_web.split(",")[0]:
-    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/" + gpstime)
+    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/seismic_qscan/" + gpstime)
   else:
     seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
   # links to analyse qscans
-  analyseSeismicQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_seismic_qscan")
-  if analyseSeismicQscanFile:
-    analyse_seismic_qscan.append(analyseSeismicQscanFile) 
-  else:
-    analyse_seismic_qscan.append("")
+  analyse_seismic_qscan.append("../analyseQscanJob/" + ifo + "-analyseQscan_" + ifo + "_" + gpstime.replace(".","_") + "_seismic_qscan-unspecified-gpstime.html")
 
-  analyseQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_qscan")
-  if analyseQscanFile:
-    analyse_rds_qscan.append(analyseQscanFile)
-  else:
-    analyse_rds_qscan.append("")
+  analyse_rds_qscan.append("../analyseQscanJob/" + ifo + "-analyseQscan_" + ifo + "_" + gpstime.replace(".","_") + "_qscan-unspecified-gpstime.html")
 
-  analyseHoftQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_hoft_qscan")
-  if analyseHoftQscanFile:
-    analyse_hoft_qscan.append(analyseHoftQscanFile)
-  else:
-    analyse_hoft_qscan.append("")
+  analyse_hoft_qscan.append("../analyseQscanJob/" + ifo + "-analyseQscan_" + ifo + "_" + gpstime.replace(".","_") + "_hoft_qscan-unspecified-gpstime.html")
 
   # links to snrchisq plots
   snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+opts.trigger_id)
@@ -303,7 +299,7 @@ for j in range(0,len(opts.ifo_times)-1,2):
      # links to qscans
      hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime0)
      if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
-       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime0)
+       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/qscan/" + gpstime0)
      else:
        rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
@@ -351,6 +347,13 @@ if skymapFile:
 followupTriggerFile = getFileMatchingTrigger("followUpTriggers",opts.trigger_id,True)
 if followupTriggerFile:
   fu_triggers.append(followupTriggerFile)
+
+#Set reusable channel wiki link string
+channelWikiLinks="<br>\
+<a href=\"https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki\">\
+LSC Channel Wiki</a><br>\
+<a href=\"https://pub3.ego-gw.it/itf/channelsdb/\">\
+Virgo Channel Wiki</a><br>"
 
 # build the checklist table
 page.h2()
@@ -460,13 +463,19 @@ else:
   dqTable=""
   vetoTable=""
   
-if opts.defaultldbd != None:
-  defaultServer="ldbd://metaserver.phy.syr.edu:30015"
-  windowSize=int(600)
+#Always run if the dqTable is empty, this means we did not use
+#--data-quality-database option to populate our DQ trigger table.
+#
+if dqTable=="":
+  if opts.defaultldbd != None:
+    defaultServer=opts.defaultldbd
+  else:
+    defaultServer=None
+  windowSize=int(150)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)
-  dqTable=x.generateHTMLTable()
+  dqTable=x.generateHTMLTable("DQ")
 #
 # Insert the new text string of a table using markup.py functions
 page.td(dqTable)
@@ -476,6 +485,9 @@ page.tr.close()
 
 
 # Row #2
+#Repopulate veto table assume S5 segment DB
+if vetoTable == "":
+  vetoTable=x.generateHTMLTable("VETO")
 page.tr()
 page.td("#2 Veto investigations")
 page.td("Does the candidate survive the veto investigations performed at its time ?")
@@ -492,15 +504,13 @@ page.td()
 page.tr.close()
 
 # Row #3
+eventTime=int(float(gpstime0))
 page.tr()
 page.td("#3 Ifo status")
 page.td("Are the interferometers operating normally with a reasonable level of sensitivity around the time of the candidate ?")
 page.td()
-ifoStatusLinks = "<a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:"
-for j,ifo in enumerate(ifolist):
-  ifoStatusLinks += " <a href=\"" + dailyStat[j] + "\">" + ifo + "</a>"
-#file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n","") + "<br>" + dateScSeg)
-page.td(ifoStatusLinks)
+linkText="<a href=\"%s\">Daily Stats pages</a> "%(fu_utils.getDailyStatsURL(eventTime))
+page.td(linkText)
 page.td()
 page.tr.close()
 
@@ -512,19 +522,23 @@ page.td("Do the Qscan figures show what we would expect for a gravitational-wave
 page.td()
 hoftQscanLinks = "h(t) Qscans:<br>"
 for j,ifo in enumerate(ifolist):
+  if ifo == "V1": strain = Virgo_channel
+  else: strain = LIGO_channel
   gpstime = opts.trigger_gps.split(",")[j].strip()
   hoftQscanLinks += " <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a><br>"
   hoftQscanLinks += " <a href=\"" + analyse_hoft_qscan[j] + "\"> Background information for " + ifo + "</a>"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
 i=0
 for k in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[k:k+2]
+  if ifo == "V1": strain = Virgo_channel
+  else: strain = LIGO_channel
   if not ifolist.count(ifo):
     i=i+1
     hoftQscanLinks += " <a href=\"" + hoft_qscan[i + len(ifolist) - 1] + "\">" + ifo + "</a><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
 page.td(hoftQscanLinks)
 page.td()
 page.tr.close()
@@ -541,6 +555,8 @@ for j,ifo in enumerate(ifolist):
 seismicQscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   seismicQscanLinks += " <a href=\"" + analyse_seismic_qscan[j] + "\">" + ifo + "</a>"
+#Add channel wiki VIRGO and LIGO
+seismicQscanLinks += channelWikiLinks
 page.td(seismicQscanLinks)
 page.td()
 page.tr.close()
@@ -563,6 +579,7 @@ for k in range(0,len(opts.ifo_times)-1,2):
 qscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   qscanLinks += " <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>"
+qscanLinks += channelWikiLinks
 page.td(qscanLinks)
 page.td()
 page.tr.close()
@@ -584,28 +601,34 @@ for k in range(0,len(opts.ifo_times)-1,2):
 qscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   qscanLinks += " <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>"
+qscanLinks += channelWikiLinks
+page.td(qscanLinks)
 page.td()
 page.tr.close()
 
 
 # Row #8
+gpsEventTime=int(float(gpstime0))
 page.tr()
 page.td("#8 Elog")
 page.td("Were the instruments behaving normally according to the comments posted by the sci-mons or the operators in the e-log ?")
 page.td()
-elogLinks = "<a href=\"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Hanford elog</a><br>\n"
-elogLinks += "<a href=\"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Livingston elog</a>"
+elogLinks = "<a href=\"%s\">Livingston</a>, "%(fu_utils.getiLogURL(gpsEventTime,'L1'))
+elogLinks += "<a href=\"%s\">Hanford</a>, "%(fu_utils.getiLogURL(gpsEventTime,'H1'))
+elogLinks += "<a href=\"%s\">Virgo</a><br>"%(fu_utils.getiLogURL(gpsEventTime,'V1'))
 page.td(elogLinks)
 page.td()
 page.tr.close()
 
 
 # Row #9
+gpsEventTime=int(float(gpstime0))
 page.tr()
 page.td("#9 Glitch report")
 page.td("Were the instruments behaving normally according to the weekly glitch report ?")
 page.td()
-page.td("<a href=\"http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift\">Glitch reports</a><br>")
+linkText="<a href=\"%s\">Glitch Report</a><br>"%(fu_utils.getGlitchReportURL(gpsEventTime))
+page.td(linkText)
 page.td()
 page.tr.close()
 
@@ -635,26 +658,32 @@ if opts.defaultRatioTestPickle == None:
 ratioTest=fu_utils.ratioTest()
 if os.path.isfile(preBuiltPickle):
   ratioTest.setPickleLocation(preBuiltPickle)
-for index1,ifo1 in enumerate(ifolist):
-  for index2,ifo2 in enumerate(ifolist):
-    ifoA=ratioTest.mapToObservatory(ifo1)
-    ifoB=ratioTest.mapToObservatory(ifo2)
-    if ifoA != ifoB:
-      gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
-      gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
-      snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
-      snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
-      try:
-        snrRatio=snrA/snrB
-      except:
-        snrRatio=0
-      gpsDiff=gpsA-gpsB
-      result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
-      pairURL=ratioTest.findURL(ifoA,ifoB)
-      myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
-      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
-          (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
-      resultString="%s %s"%(resultString,myString)
+#Create list of unique IFO pairings
+pairingList=list()
+for A,a in enumerate(ifolist):
+  for B,b in enumerate(ifolist):
+    if (A!=B) and not pairingList.__contains__([B,b,A,a]):
+      pairingList.append([A,a,B,b])
+#Process unique list of IFO pairings
+for index1,ifo1,index2,ifo2 in pairingList:
+  ifoA=ratioTest.mapToObservatory(ifo1)
+  ifoB=ratioTest.mapToObservatory(ifo2)
+  if ifoA != ifoB:
+    gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
+    gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
+    snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
+    snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
+    try:
+      snrRatio=snrA/snrB
+    except:
+      snrRatio=0
+    gpsDiff=gpsA-gpsB
+    result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+    pairURL=ratioTest.findURL(ifoA,ifoB)
+    myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+    myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+        (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+    resultString="%s %s"%(resultString,myString)
 imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
 resultString=" %s </table>"%(resultString)
 ##############
@@ -815,17 +844,11 @@ page.tr.close()
 
 page.table.close()
 page.h2()
-<<<<<<< HEAD:pylal/bin/makeCheckList.py
 page.add("Follow up documentation")
-=======
 page.add("Miscellaneous Information")
->>>>>>> master:pylal/bin/makeCheckList.py
 page.h2.close()
-<<<<<<< HEAD:pylal/bin/makeCheckList.py
-=======
 timeString=str(time.gmtime()[0:6]).replace(" ","").replace(",","-")
 page.add("Checklist compiled:%s <br>\n"%(timeString))
->>>>>>> master:pylal/bin/makeCheckList.py
 page.add("<a\
  href=\"https://ldas-jobs.ligo.caltech.edu/~ctorres/followUpLivingDoc_LAST.pdf\">Living\
  follow up document</a>")

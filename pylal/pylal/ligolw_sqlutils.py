@@ -38,6 +38,82 @@ __version__ = "$Revision$"
 
 # Following utilities can be used with any coinc_table
 
+def concatenate( *args ):
+    """
+    SQLite doesn't have a tuple type built-in. This can be frustrating if one
+    needs to compare values from multiple columns when doing queries. For example,
+    if one wanted to do something like:
+
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE (a.val1, a.val2) IN (
+            SELECT (b.val1, b.val2) 
+            FROM b)
+        ''')
+    
+    an error would be raised.
+
+    This function tries to alleiviate the problem by giving the ability to concatenate
+    results from multiple columns into a single colon-seperated string. These strings can then be
+    compared directly. So, in the above example, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_function("concatenate", 2, sqlutils.concatenate)
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE concatenate(a.val1, a.val2) IN (
+            SELECT concatenate(b.val1, b.val2) 
+            FROM b)
+    ''')
+
+    Note that the create_function method must be called first with the number of 
+    values that will be passed to concatenate before using it in any query.
+    """
+    return ':'.join([str(val) for val in args])
+
+class aggregate_concatenate:
+    """
+    This class builds on the concatenate method to allow string concatenation
+    across multiple columns and rows. These strings can then be compared in
+    SQLite. For example, if one wanted to match ids from two different tables that share
+    the same values, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_aggregate("agg_concatenate", 2, sqlutils.aggregate_concatenate)
+    connection.cursor().execute('''
+        SELECT a.id, b.id
+        FROM a, b
+        WHERE
+            (
+                SELECT agg_concatenate(a.val1, a.val2) 
+                FROM a 
+                GROUP BY id
+                ORDER BY a.val1, a.val2 ASC
+           ) == (
+                SELECT agg_concatenate(b.val1, b.val2) 
+                FROM b 
+                GROUP BY id
+                ORDER BY b.val1, b.val2 ASC
+           )
+    ''')
+
+    In the strings that are created, rows are seperated by ",", columns by ":".
+
+    Note that the create_aggregate method must be called first with the number of 
+    values that will be passed to aggregate_concatenate before using it in any query.
+    """
+    def __init__(self):
+        self.result = ''
+    def step(self, *args):
+        self.result = ','.join([ self.result, concatenate(*args) ])
+        #elf.result.append(concatenate(*args))
+    def finalize(self):
+        return self.result.lstrip(',')
+        #return ','.join(sorted(self.result))
+    
+
 class parse_param_ranges:
     
     param = None
@@ -475,13 +551,13 @@ class Summaries:
         Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if experiment_summ_id in self.zero_lag_ids[experiment_id].values():
+        # add the categories to the bkg_stats if they don't exist yet
+        if (experiment_id, ifos, param_group) not in self.bkg_stats:
+            self.bkg_stats[(experiment_id, ifos, param_group)] = []
+        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        else:
-            if (experiment_id, ifos, param_group) not in self.bkg_stats:
-                self.bkg_stats[(experiment_id, ifos, param_group)] = []
-            if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
-                self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        # only add the stats if they are slide
+        if not ( experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id].values()):
             self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
@@ -498,7 +574,9 @@ class Summaries:
         """
         Adds a zero_lag_id to the zero_lag_ids dictionary.
         """
-        self.zero_lag_ids[experiment_id] = dict({ datatype: zero_lag_esid })
+        if experiment_id not in self.zero_lag_ids:
+            self.zero_lag_ids[experiment_id] = {}
+        self.zero_lag_ids[experiment_id][datatype] = zero_lag_esid
 
     def append_duration(self, experiment_id, experiment_summ_id, duration):
         """
@@ -564,7 +642,13 @@ class Summaries:
         by counting background triggers that have a stat value less than or 
         equal to the given stat. (Done by using bisect.bisect_right as opposed to 
         len(list) - bisect.bisect_left).
+        Note: if stat is 0, will just return 0. This is because a 0 when caclulating
+        FARs by minimum value is equivalent to inf. when caclulating FARs by maximum
+        value.
         """
+        if stat == 0.:
+            return stat
+
         return ( \
             bisect.bisect_right(self.bkg_stats[(eid, ifos, param_group)], stat) \
             - \

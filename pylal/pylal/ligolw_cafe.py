@@ -48,7 +48,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal import packing
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -72,11 +71,11 @@ def load_cache(filename, verbose = False):
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	if filename:
+	if filename is not None:
 		f = file(filename)
 	else:
 		f = sys.stdin
-	return [CacheEntry(line, coltype = LIGOTimeGPS) for line in f]
+	return [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in f]
 
 
 def cache_to_seglistdict(cache):
@@ -173,8 +172,8 @@ class CafePacker(packing.Packer):
 		each mapping instruments to offsets.
 		"""
 		self.timeslides = offsetdictlist
-		min_offset = min([min(timeslide.itervalues()) for timeslide in offsetdictlist])
-		max_offset = max([max(timeslide.itervalues()) for timeslide in offsetdictlist])
+		min_offset = min(min(timeslide.values()) for timeslide in offsetdictlist)
+		max_offset = max(max(timeslide.values()) for timeslide in offsetdictlist)
 		# largest gap that can conceivably be closed by the time
 		# slides
 		self.max_gap = max_offset - min_offset
@@ -234,7 +233,6 @@ class CafePacker(packing.Packer):
 
 
 def write_caches(base, bins, instruments, verbose = False):
-	instruments = set(instruments)
 	filenames = []
 	if len(bins):
 		pattern = "%%s%%0%dd.cache" % int(log10(len(bins)) + 1)
@@ -287,9 +285,9 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# contribute to a coincidence analysis.
 	#
 
-	segmentlistdict_normalize(seglists, LIGOTimeGPS(800000000))
+	segmentlistdict_normalize(seglists, lsctables.LIGOTimeGPS(800000000))
 	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
-	segmentlistdict_unnormalize(seglists, LIGOTimeGPS(800000000))
+	segmentlistdict_unnormalize(seglists, lsctables.LIGOTimeGPS(800000000))
 
 	#
 	# Remove files that will not participate in a coincidence.  Take
@@ -325,7 +323,7 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	if verbose:
 		print >>sys.stderr, "packing files ..."
 	for n, cacheentry in enumerate(cache):
-		if verbose and not n % 7:
+		if verbose and not n % 13:
 			print >>sys.stderr, "\t%.1f%%\t(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
