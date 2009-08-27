@@ -215,7 +215,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.set_start(events[0].get_start() + sum(event.snr * float(event.get_start() - events[0].get_start()) for event in events) / sum(event.snr for event in events))
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
-		coinc_ringdown.frequeny = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
+		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
 		self.coinc_ringdown_table.append(coinc_ringdown)
 
