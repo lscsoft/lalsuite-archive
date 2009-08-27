@@ -1455,6 +1455,8 @@ class CoincRingdownTable(table.Table):
 		"ifos": "lstring",
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
+		"frequency": "real_8",
+		"quality": "real_8",
 		"snr": "real_8",
 		"false_alarm_rate": "real_8"
 	}
