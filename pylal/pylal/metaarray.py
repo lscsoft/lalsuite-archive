@@ -18,6 +18,7 @@ from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
+import operator
 import os
 import sys
 import copy
@@ -516,7 +517,7 @@ class TimeSeriesList(MetaArrayList):
         """
         Concatenate the list into one single TimeSeries.
         """
-        meta = reduce(lambda a,b: a|b, [ts.metadata for ts in self])
+        meta = reduce(operator.or_, [ts.metadata for ts in self])
         return TimeSeries(numpy.concatenate(self.A), meta)
 
 ##############################################################################
@@ -608,7 +609,7 @@ class SpectrumList(MetaArrayList):
         """
         if len(self) == 0:
             raise ValueError
-        meta = reduce(lambda a,b: a|b, [s.metadata for s in self])
+        meta = reduce(operator.or_, [s.metadata for s in self])
         return Spectrum(numpy.sum(self.A, axis=0), meta)
 
 class SpectrumDict(dict):
