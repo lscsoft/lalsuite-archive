@@ -512,12 +512,6 @@ class TimeSeriesList(MetaArrayList):
             segs.extend(series.metadata.segments)
         return segs
 
-    def extent(self):
-        """
-        Return the combined extent of time spanned by this SpectrumList.
-        """
-        return self.segments().extent()
-    
     def merge_list(self):
         """
         Concatenate the list into one single TimeSeries.
@@ -596,13 +590,7 @@ class SpectrumList(MetaArrayList):
         for spectrum in self:
             segs.extend(spectrum.metadata.segments)
         return segs
-    
-    def extent(self):
-        """
-        Return the combined extent of time spanned by this SpectrumList.
-        """
-        return self.segments().extent()
-    
+
     def ordinates(self):
         """
         Return an single-precision ndarray containing the frequencies at
