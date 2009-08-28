@@ -1025,7 +1025,14 @@ class MultiBurstTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"coinc_event_id": "ilwd:char"
 	}
-	constraints = "PRIMARY KEY (coinc_event_id)"
+	# FIXME:  like some other tables here, this table should have the
+	# constraint that the coinc_event_id column is a primary key.  this
+	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
+	# the constraint is being replaced with an index.
+	#constraints = "PRIMARY KEY (coinc_event_id)"
+	how_to_index = {
+		"mb_cei_index": ("coinc_event_id",)
+	}
 
 
 class MultiBurst(object):
