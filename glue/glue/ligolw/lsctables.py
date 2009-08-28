@@ -1458,8 +1458,7 @@ class CoincRingdownTable(table.Table):
 		"frequency": "real_8",
 		"quality": "real_8",
 		"snr": "real_8",
-		"false_alarm_rate": "real_8",
-		"uncombined-ifar":  "real_8"
+		"false_alarm_rate": "real_8"
 	}
 	# FIXME:  like some other tables here, this table should have the
 	# constraint that the coinc_event_id column is a primary key.  this
