@@ -119,8 +119,8 @@ def plotinspiralrange_histogram(opts):
     opts.range_min = log10(opts.range_min)
     opts.range_max = log10(opts.range_max)
 
-  bins = arange(opts.range_min,opts.range_max, \
-      (opts.range_max - opts.range_min)/ opts.nbins)
+  bins = numpy.linspace(opts.range_min, opts.range_max, opts.nbins,
+    endpoint=True)
 
   if opts.plot_type == 'log':
     bins = 10**bins
@@ -132,7 +132,8 @@ def plotinspiralrange_histogram(opts):
     Range = inspiralSumm[ifo].getColumnByName('value').asarray()
     startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
     style = colors[ifo]
-    num[ifo], bins = numpy.histogram(Range, bins, new=False)
+    num[ifo], bins = numpy.histogram(Range, bins, new=True)
+    bins = bins[:-1]
 
   for ifo in inspiralSumm.keys():
     if opts.plot_type == 'log':
