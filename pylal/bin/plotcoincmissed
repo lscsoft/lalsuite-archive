@@ -33,11 +33,9 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from glue import lal
 from glue.ligolw import lsctables
-from pylal import followup_trigger
 
 from glue import markup
 from glue.markup import oneliner as extra
-
 
 #################################################################
 usage = """Usage: %prog [options] 
@@ -191,7 +189,7 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-
+from pylal import followup_trigger
 
 # generate the cache and missed cache
 cache = lal.Cache.fromfile(open(opts.cache_file))

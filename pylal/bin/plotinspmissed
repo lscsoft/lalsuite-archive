@@ -36,8 +36,6 @@ from pylal import CoincInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
 import numpy
-from pylal import followup_missed
-from pylal import followup_trigger
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -303,6 +301,8 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+from pylal import followup_missed
+from pylal import followup_trigger
 
 
 # do something if a title was given
