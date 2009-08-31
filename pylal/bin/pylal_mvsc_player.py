@@ -77,9 +77,6 @@ parser.add_option("-b", "--balance-data", action="store_true", default=False, \
     help='Train and validate on balanced data which has equal number of ' + \
         'timeslides'+' and injections. This data is much smaller, ' + \
         'because most timeslides are tossed out. (currently unimplemented)' )
-parser.add_option("-k", type='int', default=1, \
-    help='Train and test multiple times to estimate uncertainty. '+\
-         '(under construction)')
 parser.add_option("-R", "--seed",action="store",default=False, \
     help="Use a chosen seed. (currently broken to be unreproducible)")
 
@@ -94,8 +91,9 @@ parser.add_option("-f","--config",default="mvsc_config", \
 
 opts,args = parser.parse_args()
 
-import matplotlib
-matplotlib.use("Agg")
+if not opts.show_plots:
+    import matplotlib
+    matplotlib.use("Agg")
 from matplotlib import pyplot
 from mvsc_plots import *
 from mvsc_htmlwriter import mvsc_html
@@ -183,11 +181,6 @@ elif opts.hardware:
                'setHardWare.pat'
 else:
     zeropath = False
-
-#If k is greater than 1, display only
-if opts.k > 1:
-    opts.enable_output = False
-    opts.show_plots = True
 
 escapecode = "'" + config['skip_columns'] + "'"
 
@@ -296,83 +289,67 @@ if opts.gps_time:
 if not opts.plot_only:
     if not os.path.isdir(opts.data_path):
         os.system('mkdir ' + opts.data_path)
-    
-    if opts.k > 1:
-        for k in range(1,opts.k+1):
-            print 'Training run number', k
-            filepathk = filepath + 'run' + str(k)
-                
-            os.system( 'SprBaggerDecisionTreeApp -a 1 -G -i -z '+ \
-                escapecode + \
-                sstr + ' -n '+opts.n+ \
-                ' -l '+opts.l+' -c '+opts.c+' -g '+opts.g+ \
-                ' -t ' + valpath+ \
-                ' -d 1 -f '+filepathk+'.spr '+ trainpath + \
-                ' > '+filepathk+'_info' )
-            os.system( 'SprOutputWriterApp -p 10000 -Z '+escapecode+' -a 1 '+ \
-                filepathk+ \
-                '.spr '+testpath +' '+filepathk+'_test.dat' )
+
+    time_tree_start = os.times()[4]
+        
+    if not os.path.isfile(testpath):
+        # concatenate files
+        temppath1 = patpath + '/'+filecode+'/'+stationcode + 'set' + \
+                    letters[2][0] + 'Known.pat'
+        temppath2 = patpath + '/'+filecode+'/'+stationcode + 'set' + \
+                    letters[2][1] + 'Known.pat'
+        os.system("awk 'NF' " + temppath1 + " > " + testpath )
+        os.system("awk 'NR > 2' " + temppath2 + " >> " + testpath)
+        
+    os.system( 'SprBaggerDecisionTreeApp -a 1 -i -z '+escapecode + \
+               gstr+ sstr + \
+               ' -n '+opts.n+ \
+               ' -l '+opts.l+' -c '+opts.c+' -g '+opts.g+ \
+               ' -t ' + valpath + \
+               ' -d 1 -f '+filepath+'.spr ' + trainpath + \
+               ' > '+filepath+'_info' )
+        
+    os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode +' -a 1 '+ \
+               filepath+ \
+               '.spr ' + testpath +' '+filepath+'_test.dat' )
+        
+    data = rewrite_results( testpath, filepath + '_test.dat' )
+        
+    print
+    print 'SprBaggerDecisionTreeApp -a 1 -i -z '+escapecode + \
+          gstr+ sstr + \
+          ' -n '+opts.n+ \
+          ' -l '+opts.l+' -c '+opts.c+' -g '+opts.g+ \
+          ' -t ' + valpath + \
+          ' -d 1 -f '+filepath+'.spr ' + trainpath + \
+          ' > '+filepath+'_info'
+    print
+    print  'SprOutputWriterApp -p 10000 -Z ' + escapecode +' -a 1 '+ \
+          filepath+ \
+          '.spr ' + testpath +' '+filepath+'_test.dat'
+    print
+        
+    if opts.open_box:
+        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                   ' -a 1 '+ filepath+ \
+                   '.spr ' + zeropath +' '+filepath+'_fulldata.dat' )
+        zerodata = rewrite_results( zeropath, filepath + '_fulldata.dat')
+    elif opts.zero_lag:
+        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                   ' -a 1 '+ filepath+ \
+                   '.spr ' + zeropath +' '+filepath+'_playground.dat' )
+        zerodata=rewrite_results( zeropath, filepath + '_playground.dat')
+    elif opts.hardware:
+        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
+                   ' -a 1 '+ filepath+ \
+                   '.spr ' + zeropath +' '+filepath+'_hardware.dat' )
+        zerodata = rewrite_results( zeropath, filepath + '_hardware.dat' )
     else:
-        time_tree_start = os.times()[4]
+        zerodata = None
         
-        if not os.path.isfile(testpath):
-            # concatenate files
-            temppath1 = patpath + '/'+filecode+'/'+stationcode + 'set' + \
-                        letters[2][0] + 'Known.pat'
-            temppath2 = patpath + '/'+filecode+'/'+stationcode + 'set' + \
-                        letters[2][1] + 'Known.pat'
-            os.system("awk 'NF' " + temppath1 + " > " + testpath )
-            os.system("awk 'NR > 2' " + temppath2 + " >> " + testpath)
-        
-        os.system( 'SprBaggerDecisionTreeApp -a 1 -i -z '+escapecode + \
-            gstr+ sstr + \
-            ' -n '+opts.n+ \
-            ' -l '+opts.l+' -c '+opts.c+' -g '+opts.g+ \
-            ' -t ' + valpath + \
-            ' -d 1 -f '+filepath+'.spr ' + trainpath + \
-            ' > '+filepath+'_info' )
-        
-        os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode +' -a 1 '+ \
-            filepath+ \
-            '.spr ' + testpath +' '+filepath+'_test.dat' )
-        
-        data = rewrite_results( testpath, filepath + '_test.dat' )
-        
-        print
-        print 'SprBaggerDecisionTreeApp -a 1 -i -z '+escapecode + \
-            gstr+ sstr + \
-            ' -n '+opts.n+ \
-            ' -l '+opts.l+' -c '+opts.c+' -g '+opts.g+ \
-            ' -t ' + valpath + \
-            ' -d 1 -f '+filepath+'.spr ' + trainpath + \
-            ' > '+filepath+'_info'
-        print
-        print  'SprOutputWriterApp -p 10000 -Z ' + escapecode +' -a 1 '+ \
-            filepath+ \
-            '.spr ' + testpath +' '+filepath+'_test.dat'
-        print
-        
-        if opts.open_box:
-            os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
-                       ' -a 1 '+ filepath+ \
-                       '.spr ' + zeropath +' '+filepath+'_fulldata.dat' )
-            zerodata = rewrite_results( zeropath, filepath + '_fulldata.dat')
-        elif opts.zero_lag:
-            os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
-                       ' -a 1 '+ filepath+ \
-                       '.spr ' + zeropath +' '+filepath+'_playground.dat' )
-            zerodata=rewrite_results( zeropath, filepath + '_playground.dat')
-        elif opts.hardware:
-            os.system( 'SprOutputWriterApp -p 10000 -Z ' + escapecode + \
-                       ' -a 1 '+ filepath+ \
-                       '.spr ' + zeropath +' '+filepath+'_hardware.dat' )
-            zerodata = rewrite_results( zeropath, filepath + '_hardware.dat' )
-        else:
-            zerodata = None
-        
-        time_tree_end = os.times()[4]
-        print 'Time spent training and testing trees: ' + \
-              str(time_tree_end-time_tree_start)
+    time_tree_end = os.times()[4]
+    print 'Time spent training and testing trees: ' + \
+          str(time_tree_end-time_tree_start)
 elif opts.show_plots | opts.enable_output:
     if not os.path.isdir(opts.data_path):
         print 'Data files do not exist!  Try again without -p option.'
@@ -407,26 +384,7 @@ elif opts.show_plots | opts.enable_output:
 ##############################################################################
 #Create plots
 
-if opts.k > 1:
-    afar = 1.0/2000
-    
-    data = []
-    fom = []
-    for k in range(1,opts.k+1):
-        d,cols,cols2 = patread(filepath+'run'+str(k)+'_test.dat',stationcode )
-        data.append(d)
-        
-        f,treesplits,ts_tr,inj_tr,ts_va,inj_va=inforead( \
-            filepath + 'run' + str(k) + '_info' )
-        fom.append(f)
-        
-    mid,upper,lower = ROCcompare( data,cols,afar )
-    FOMmean(fom)
-
-    print 'True positive rate: ' + str(mid)
-    print 'Confidence interval: [' + str(lower) + ',' + str(upper) + ']'
-    
-elif opts.show_plots | opts.enable_output:
+if opts.show_plots | opts.enable_output:
     time_plot_start = os.times()[4]
     
     if not data:
@@ -491,15 +449,13 @@ elif opts.show_plots | opts.enable_output:
             htmlfile.set_zeronum(len(zerodata[0]))
                 
     #Best 15 events:
-    if opts.enable_output:
+    if opts.enable_output & (zerodata != None):
         if opts.open_box:
             strdata,temp1 = patread(filepath+'_fulldata.dat',readstr=True )
         elif opts.zero_lag:
             strdata,temp1 = patread(filepath+'_playground.dat',readstr=True )
         elif opts.hardware:
             strdata,temp1 = patread(filepath+'_hardware.dat',readstr=True )
-        else:
-            strdata,temp1 = patread(filepath + '_test.dat',readstr=True)
             
         events = top_events(strdata,cols,15,stationcode,mvsc_to_fan)
     

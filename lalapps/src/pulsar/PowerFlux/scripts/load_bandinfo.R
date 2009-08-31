@@ -23,7 +23,7 @@ ofn<-function(name) {
 	return(file(paste(output_dir, "/", name, sep=""), open="wt"))
 	}
 
-col_names<-read.table(pipe("grep tag: 0/90000-50.000000/powerflux.log | head --lines=1"), header=FALSE, sep=" ")
+col_names<-read.table(pipe("grep tag: 0/*/powerflux.log | head --lines=1"), header=FALSE, sep=" ")
 
 cat("Loading data from ", fn, "\n", sep="")
 # Cheat - get a small sample first and use it to find out types and such.

@@ -338,6 +338,10 @@ if filelists:
   for filegroup in filelists:
     # read raw triggers
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose, mangle_event_id=True,old_document=opts.old_document) 
+    if not (inspTriggers):
+      print >> sys.stderr, "No triggers found, exiting gracefully."
+      sys.exit(0)
+
     populate_mtotal(inspTriggers)
 
     # perform the veto
@@ -353,7 +357,6 @@ if filelists:
 
     # append them to our list
     coincTriggersList.append(newCoincs)
-
 
 slideTriggersList = []
 if slidefilelists:
