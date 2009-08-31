@@ -1358,7 +1358,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           xml += "--cache " + ','.join(caches) + " "
 
           if not self.is_dax():
-            xml += "-s local --nocleanup "
+            xml += "--nocleanup "
 
           xml += "-vvvvvv --force -o local</argument>"
           print >>dagfile, xml
