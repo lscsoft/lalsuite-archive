@@ -100,7 +100,7 @@ require './scripts/header.php';
 '    "submitflag.php"'.','.
 ' "1.0"'.','.
 ' "/lalsuite/glue/php/submitflag.php"'.','.
-'"'.$_POST[comment].'"'.','.
+'"'.$brief_desc.'"'.','.
 '"'.$node.'"'.','.
 '"'.$_POST[user].'"'.','.
 " $pid".','.
@@ -110,8 +110,7 @@ require './scripts/header.php';
 ' "'.$_POST[site].'"'."\n".
 '    </Stream>'."\n".
 '  </Table>'."\n";
-//'"'.$_POST[comment].'"'.','.
-//'"'.$brief_desc.'"'.','.
+
 
   $segment_definer = " <Table Name='segment_definer:table'>\n".
 "   <Column Name='segment_definer:process_id' Type='ilwd:char'/>\n".
