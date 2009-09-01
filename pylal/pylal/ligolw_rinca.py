@@ -212,9 +212,11 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
-		coinc_ringdown.set_start(events[0].get_start())
+		coinc_ringdown.set_start(events[0].get_start() + sum(event.snr * float(event.get_start() - events[0].get_start()) for event in events) / sum(event.snr for event in events))
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
+		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
+		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
 		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		return coinc
@@ -395,15 +397,7 @@ def ligolw_rinca(
 	# construct offset vector assembly graph
 	#
 
-	offset_vector_dict = coinc_tables.get_time_slides()
-	if verbose:
-		print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
-	time_slide_graph = snglcoinc.TimeSlideGraph(offset_vector_dict)
-	if verbose:
-		print >>sys.stderr, "graph contains:"
-		for n in sorted(time_slide_graph.generations):
-			print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(time_slide_graph.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
-		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.get_time_slides(), verbose = verbose)
 
 	#
 	# loop over the items in time_slide_graph.head, producing all of

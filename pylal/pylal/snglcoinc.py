@@ -183,7 +183,10 @@ class TimeSlideGraphNode(object):
 
 
 class TimeSlideGraph(object):
-	def __init__(self, offset_vector_dict):
+	def __init__(self, offset_vector_dict, verbose = False):
+		if verbose:
+			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
+
 		#
 		# populate the graph head nodes.  these represent the
 		# target offset vectors requested by the calling code.
@@ -228,6 +231,12 @@ class TimeSlideGraph(object):
 		#
 		# done
 		#
+
+		if verbose:
+			print >>sys.stderr, "graph contains:"
+			for n in sorted(self.generations):
+				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
+			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
 
 
 	def write(self, fileobj):
