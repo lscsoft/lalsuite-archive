@@ -318,7 +318,6 @@ connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 if opts.verbose:
     print >> sys.stdout, "Getting information about all available experiments..."
 
-experiment_ids = {}
 sqlquery = """
     SELECT
         experiment_id,
@@ -519,9 +518,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
 
     # set bkg_correction: this is the zero-lag duration of the plot_datatype divided
     # by the all_data duration; this is needed to set the background correctly
+    all_data_dur = 0
     if 'all_data' in background.zero_lag_ids[eid]:
-        all_data_zero_esid = background.zero_lag_ids[eid]['all_data']
-        bkg_correction = background.frg_durs[eid][zero_esid] / background.frg_durs[eid][all_data_zero_esid]
+        all_data_dur = background.frg_durs[eid][background.zero_lag_ids[eid]['all_data']]
+
+    if all_data_dur != 0:
+        bkg_correction = background.frg_durs[eid][zero_esid] / all_data_dur
     else: # if not all_data, just set bkg_correction to 1. to avoid errors
         bkg_correction = 1.
     
@@ -537,8 +539,13 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         figure_number += 1
 
         # check that there's something to plot; if there isn't, just make an empty plot
-        if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
-            text( 0.5, 0.5, "No uncombined fars found for this experiment.", 
+        if len(ufar_summaries.sngl_slide_stats.keys()) == 0 or background.frg_durs[eid][zero_esid] == 0:
+            msg = ''
+            if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
+                msg = "No uncombined fars found for this experiment."
+            if background.frg_durs[eid][zero_esid] == 0:
+                msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+            text( 0.5, 0.5, msg, 
                 ha = 'center', va = 'center' )
             xlabel( r"No data", size='x-large' )
             ylabel( r"No data", size='x-large' )
