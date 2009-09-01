@@ -338,6 +338,10 @@ if filelists:
   for filegroup in filelists:
     # read raw triggers
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose, mangle_event_id=True,old_document=opts.old_document) 
+    if not (inspTriggers):
+      print >> sys.stderr, "No triggers found, exiting gracefully."
+      sys.exit(0)
+
     populate_mtotal(inspTriggers)
 
     # perform the veto
@@ -354,7 +358,6 @@ if filelists:
     # append them to our list
     coincTriggersList.append(newCoincs)
 
-
 slideTriggersList = []
 if slidefilelists:
   shift_vector = {"H1": opts.h1_slide_time, "H2": opts.h2_slide_time,
@@ -362,7 +365,7 @@ if slidefilelists:
   for filegroup in slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
-      shift_vector, verbose=opts.verbose)
+      shift_vector, mangleEventId=True, verbose=opts.verbose)
 
     if slideTriggers == None:
       slideTriggers = []
