@@ -21,7 +21,7 @@ foreach {var value} $argv {
 	}
 
 if { $OUTPUT_HEADER_ONLY } {
-	puts "label\tset\tskyband\tindex"
+	puts "label\tset\tskyband\tindex\tcount"
 	exit 0
 	}
 
