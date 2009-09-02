@@ -37,6 +37,13 @@ from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+# Don't use sngl_inspiral event_id derived from the long built-in.  this
+# must be done before importing pylal.xlal.tools or bad things happen.
+# FIXME:  remove when thinca no longer generates bazillion-digit long
+# event_ids and the custom screwy event ID mess is all gone away.  (or
+# people stop using Macs, which ever comes first).
+del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
+lsctables.SnglInspiralID = lsctables.ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
@@ -56,19 +63,11 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
-# Use C row class for memory efficiency and speed.
+# Use C row classes for memory efficiency and speed.
 #
 
 
 lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
-
-
-#
-# Don't use sngl_inspiral event_id derived from the long built-in
-#
-
-
-del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
 
 
 #
@@ -88,7 +87,6 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
-	parser.add_option("-p", "--program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.  Default = \"inspiral\"")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -162,7 +160,6 @@ for n, filename in enumerate(filenames):
 		xmldoc,
 		comment = options.comment,
 		force = options.force,
-		program = options.program,
 		e_thinca_parameter = options.e_thinca_parameter,
 		verbose = options.verbose
 	)
@@ -188,7 +185,6 @@ for n, filename in enumerate(filenames):
 
 	ligolw_thinca.ligolw_thinca(
 		xmldoc,
-		program = options.program,
 		process_id = process.process_id,
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
