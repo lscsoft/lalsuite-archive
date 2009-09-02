@@ -194,9 +194,6 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
-    if len(options.ifo_tag) != 4:
-        raise ValueError, "Only two-IFO combinations are supported."
-
     if (options.likelihood_threshold is not None) \
         and (options.likelihood_threshold <= 0):
         raise ValueError, "--likelihood-threshold THRESH must be positive."
