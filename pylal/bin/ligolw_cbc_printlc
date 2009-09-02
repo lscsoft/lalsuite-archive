@@ -553,7 +553,7 @@ if opts.extract_to_xml:
     # now step through all tables with process_ids and remove rows who's ids 
     # aren't in save_proc_ids
     for table in ['process','process_params','search_summary','search_summvars','summ_value']:
-        sqlscript = ''.join([ sqlscript, 
+        sqlquery = ''.join([ sqlscript, 
             """
             DELETE FROM
             """, table, """
@@ -563,9 +563,12 @@ if opts.extract_to_xml:
                         process_id
                     FROM
                         save_proc_ids
-                    );
+                    )
             """ ])
-    connection.cursor().executescript(sqlscript)
+        try:
+            connection.cursor().execute(sqlquery)
+        except:
+            continue
 
     # now remove any veto segments that don't apply by first getting all the
     # end times in the sngl_inspiral table
