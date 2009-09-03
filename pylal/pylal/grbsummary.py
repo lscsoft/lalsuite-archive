@@ -232,8 +232,9 @@ def get_mean_mchirp_lv(coinc):
     else:
       modified_mean_mchirp = -1
 
-    if mean_mchirp<0.86 or mean_mchirp>17.50:
-      modified_mean_mchirp = -1
+    if mean_mchirp<0.0 or mean_mchirp>20.0:
+      raise ValueError, "The given mean_mchirp of %.2f is outside the "\
+                        " allowed range [0,20]." % mean_mchirp
 
     return modified_mean_mchirp
 
