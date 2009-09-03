@@ -190,7 +190,6 @@ def parse_command_line():
 			options.likelihood_data_cache = set([CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_data_cache)])
 		else:
 			options.likelihood_data_cache = set()
-	else:
 		if options.program is None:
 			raise ValueError, "missing required argument --program"
 
@@ -236,7 +235,7 @@ def burca1(options, filenames):
 	#
 
 
-	ligolw_burca.table.RowBuilder = ligolw_burca.table.InterningRowBuilder
+	lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 	#
@@ -250,13 +249,11 @@ def burca1(options, filenames):
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
 		CoincDef = ligolw_burca.ExcessPowerCoincDef
-		options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 	elif options.coincidence_algorithm == "stringcusp":
 		EventListType = ligolw_burca.StringEventList
 		comparefunc = ligolw_burca.StringCoincCompare
 		CoincTables = snglcoinc.CoincTables
 		CoincDef = ligolw_burca.StringCuspCoincDef
-		options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
 	else:
 		raise Exception, "should never get here"
 
@@ -274,7 +271,7 @@ def burca1(options, filenames):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 		xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-		ligolw_burca.table.InterningRowBuilder.strings.clear()
+		lsctables.table.InterningRowBuilder.strings.clear()
 
 		#
 		# Have we already processed it?
@@ -300,7 +297,7 @@ def burca1(options, filenames):
 		# Run coincidence algorithm.
 		#
 
-		ligolw_burca.ligolw_burca(xmldoc, options.program, process.process_id, EventListType, CoincTables, CoincDef, comparefunc, options.thresholds, get_max_segment_gap = options.get_max_segment_gap, verbose = options.verbose)
+		ligolw_burca.ligolw_burca(xmldoc, process.process_id, EventListType, CoincTables, CoincDef, comparefunc, options.thresholds, verbose = options.verbose)
 
 		#
 		# Close out the process table.
@@ -404,7 +401,7 @@ def burca2(options, filenames):
 
 
 		if options.likelihood_data_cache:
-			likelihood_files = set([c.path() for c in options.likelihood_data_cache if c.to_segmentlistdict().intersects(database.seglists)])
+			likelihood_files = set(c.path() for c in options.likelihood_data_cache if c.to_segmentlistdict().intersects(database.seglists))
 		else:
 			likelihood_files = options.likelihood_data
 		if likelihood_files != cached_likelihood_files:

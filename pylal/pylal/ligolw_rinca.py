@@ -68,38 +68,25 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 
 
 #
-# Construct a subclass of the C sngl_inspiral row class with the methods
+# Construct a subclass of the C sngl_ringdown row class with the methods
 # that are needed
 #
 
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglRingdown(xlaltools.SnglRingdownTable):
 	__slots__ = ()
 
-	def get_end(self):
-		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
-	def set_end(self, gps):
-		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_effective_snr(self, fac):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25)
-
-	def __eq__(self, other):
-		return not (
-			cmp(self.ifo, other.ifo) or
-			cmp(self.end_time, other.end_time) or
-			cmp(self.end_time_ns, other.end_time_ns) or
-			cmp(self.mass1, other.mass1) or
-			cmp(self.mass2, other.mass2) or
-			cmp(self.search, other.search)
-		)
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	def __cmp__(self, other):
-		# compare self's end time to the LIGOTimeGPS instance
+		# compare self's start time to the LIGOTimeGPS instance
 		# other.  allows bisection searches by GPS time to find
 		# ranges of triggers quickly
-		return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
+		return cmp(self.start_time, other.seconds) or cmp(self.start_time_ns, other.nanoseconds)
 
 
 #
@@ -135,19 +122,21 @@ use___segments(lsctables)
 #
 
 
-process_program_name = "ligolw_thinca"
+process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
-		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
+		(u"--ds-sq-threshold", u"real_8", ds_sq_threshold)
 	]
 	if comment is not None:
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
+	if save_small_coincs is not None:
+		params += [(u"--save-small-coincs", None, None)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -166,11 +155,11 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 
 
 #
-# The sngl_inspiral <--> sngl_inspiral coinc type.
+# The sngl_ringdown <--> sngl_ringdown coinc type.
 #
 
 
-InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
+RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, description = u"sngl_ringdown<-->sngl_ringdown coincidences")
 
 
 #
@@ -178,7 +167,7 @@ InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 
 #
 
 
-class InspiralCoincTables(snglcoinc.CoincTables):
+class RingdownCoincTables(snglcoinc.CoincTables):
 	def __init__(self, xmldoc):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
@@ -189,16 +178,16 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		self.uniquifier = {}
 
 		#
-		# find the coinc_inspiral table or create one if not found
+		# find the coinc_ringdown table or create one if not found
 		#
 
 		try:
-			self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+			self.coinc_ringdown_table = lsctables.table.get_table(xmldoc, lsctables.CoincRingdownTable.tableName)
 		except ValueError:
-			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
-			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
+			self.coinc_ringdown_table = lsctables.New(lsctables.CoincRingdownTable)
+			xmldoc.childNodes[0].appendChild(self.coinc_ringdown_table)
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, effective_snr_factor):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
@@ -208,34 +197,25 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# FIXME:  set the instruments attribute
 
 		#
-		# populate the coinc_inspiral table:
+		# populate the coinc_ringdown table:
 		#
-		# - end_time is the end time of the first trigger in
+		# - start_time is the start time of the first trigger in
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
-		# - mass is average of total masses
-		# - mchirp is average of mchirps
 		# - snr is root-sum-square of SNRs
-		# - false-alarm rates are blank
+		# - false-alarm rate is blank
 		#
 
 		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
-		coinc_inspiral = self.coinc_inspiral_table.RowType()
-		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
-		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
-		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		if all(event.chisq for event in events):
-			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
-		else:
-			# would get divide-by-zero without a \chi^{2} value
-			coinc_inspiral.snr = None
-		coinc_inspiral.false_alarm_rate = None
-		coinc_inspiral.combined_far = None
-		coinc_inspiral.set_end(events[0].get_end())
-		coinc_inspiral.set_ifos(event.ifo for event in events)
-		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
-		self.coinc_inspiral_table.append(coinc_inspiral)
+		coinc_ringdown = self.coinc_ringdown_table.RowType()
+		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
+		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
+		coinc_ringdown.false_alarm_rate = None
+		coinc_ringdown.set_start(events[0].get_start())
+		coinc_ringdown.set_ifos(event.ifo for event in events)
+		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
+		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		return coinc
 
@@ -249,25 +229,25 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 #
 
 
-class InspiralEventList(snglcoinc.EventList):
+class RingdownEventList(snglcoinc.EventList):
 	"""
-	A customization of the EventList class for use with the inspiral
+	A customization of the EventList class for use with the ringdown
 	search.
 	"""
 	def make_index(self):
 		"""
-		Sort events by end time so that a bisection search can
+		Sort events by start time so that a bisection search can
 		retrieve them.  Note that the bisection search relies on
-		the __cmp__() method of the SnglInspiral row class having
-		previously been set to compare the event's end time to a
+		the __cmp__() method of the SnglRingdown row class having
+		previously been set to compare the event's start time to a
 		LIGOTimeGPS.
 		"""
-		self.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.sort(lambda a, b: cmp(a.start_time, b.start_time) or cmp(a.start_time_ns, b.start_time_ns))
 
 	def set_dt(self, dt):
 		"""
-		If an event's end time differs by more than this many
-		seconds from the end time of another event then it is
+		If an event's start time differs by more than this many
+		seconds from the start time of another event then it is
 		*impossible* for them to be coincident.
 		"""
 		# add 1% for safety, and pre-convert to LIGOTimeGPS to
@@ -276,26 +256,26 @@ class InspiralEventList(snglcoinc.EventList):
 
 	def _add_offset(self, delta):
 		"""
-		Add an amount to the end time of each event.
+		Add an amount to the start time of each event.
 		"""
 		for event in self:
-			event.set_end(event.get_end() + delta)
+			event.set_start(event.get_start() + delta)
 
-	def get_coincs(self, event_a, e_thinca_parameter, comparefunc):
+	def get_coincs(self, event_a, ds_sq_threshold, comparefunc):
 		#
-		# event_a's end time
+		# event_a's start time
 		#
 
-		end = event_a.get_end()
+		start = event_a.get_start()
 
 		#
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
-		# minimum and maximum allowed end times to quickly identify
+		# minimum and maximum allowed start times to quickly identify
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, start - self.dt) : bisect.bisect_right(self, start + self.dt)] if not comparefunc(event_a, event_b, ds_sq_threshold)]
 
 
 #
@@ -307,9 +287,9 @@ class InspiralEventList(snglcoinc.EventList):
 #
 
 
-def inspiral_max_dt(events, e_thinca_parameter):
+def ringdown_max_dt(events, ds_sq_threshold):
 	"""
-	Given an e-thinca parameter and a list of sngl_inspiral events,
+	Given a ds_sq threshold and a list of sngl_ringdown events,
 	return the greatest \Delta t that can separate two events and they
 	still be considered coincident.
 	"""
@@ -321,19 +301,19 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	LAL_REARTH_SI = 6.378140e6 # m
 	LAL_C_SI = 299792458 # m s^-1
 
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
+	return sum(sorted(max(xlaltools.XLALRingdownTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
-def inspiral_coinc_compare(a, b, e_thinca_parameter):
+def ringdown_coinc_compare(a, b, ds_sq_threshold):
 	"""
-	Returns False (a & b are coincident) if they pass the ellipsoidal
-	thinca test.
+	Returns False (a & b are coincident) if they pass the metric
+	rinca test.
 	"""
 	try:
 		# FIXME:  should it be ">" or ">="?
-		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
+		return xlaltools.XLAL3DRinca(a, b) > ds_sq_threshold
 	except ValueError:
-		# ethinca test failed to converge == events are not
+		# ds_sq test failed to converge == events are not
 		# coincident
 		return True
 
@@ -347,7 +327,7 @@ def inspiral_coinc_compare(a, b, e_thinca_parameter):
 #
 
 
-def replicate_threshold(e_thinca_parameter, instruments):
+def replicate_threshold(ds_sq_threshold, instruments):
 	"""
 	From a single threshold and a list of instruments, return a
 	dictionary whose keys are every instrument pair (both orders), and
@@ -359,13 +339,13 @@ def replicate_threshold(e_thinca_parameter, instruments):
 	{("H1", "H2"): 6, ("H2", "H1"): 6}
 	"""
 	instruments = sorted(instruments)
-	thresholds = dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2))
+	thresholds = dict((pair, ds_sq_threshold) for pair in iterutils.choices(instruments, 2))
 	instruments.reverse()
-	thresholds.update(dict((pair, e_thinca_parameter) for pair in iterutils.choices(instruments, 2)))
+	thresholds.update(dict((pair, ds_sq_threshold) for pair in iterutils.choices(instruments, 2)))
 	return thresholds
 
 
-def ligolw_thinca(
+def ligolw_rinca(
 	xmldoc,
 	process_id,
 	EventListType,
@@ -374,7 +354,7 @@ def ligolw_thinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
-	effective_snr_factor = 250.0,
+	small_coincs = False,
 	verbose = False
 ):
 	#
@@ -385,27 +365,27 @@ def ligolw_thinca(
 		print >>sys.stderr, "indexing ..."
 	coinc_tables = CoincTables(xmldoc)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
-	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
+	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglRingdownTable.tableName)
 
 	#
 	# set the \Delta t parameter on all the event lists
 	#
 
-	max_dt = inspiral_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName), thresholds)
+	max_dt = ringdown_max_dt(lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName), thresholds)
 	if verbose:
 		print >>sys.stderr, "event bisection search window will be %.16g s" % max_dt
 	for eventlist in eventlists.values():
 		eventlist.set_dt(max_dt)
 
 	#
-	# replicate the ethinca parameter for every possible instrument
+	# replicate the ds_sq threshold for every possible instrument
 	# pair
 	#
 
@@ -438,11 +418,12 @@ def ligolw_thinca(
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
 			ntuple = [sngl_index[id] for id in coinc]
 			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
-		for coinc in node.unused_coincs:
-			ntuple = [sngl_index[id] for id in coinc]
-			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+		if small_coincs:
+			for coinc in node.unused_coincs:
+				ntuple = [sngl_index[id] for id in coinc]
+				if not ntuple_comparefunc(ntuple):
+					coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 
 	#
 	# remove time offsets from events

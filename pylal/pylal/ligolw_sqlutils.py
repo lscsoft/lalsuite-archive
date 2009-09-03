@@ -551,13 +551,13 @@ class Summaries:
         Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if experiment_summ_id in self.zero_lag_ids[experiment_id].values():
+        # add the categories to the bkg_stats if they don't exist yet
+        if (experiment_id, ifos, param_group) not in self.bkg_stats:
+            self.bkg_stats[(experiment_id, ifos, param_group)] = []
+        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        else:
-            if (experiment_id, ifos, param_group) not in self.bkg_stats:
-                self.bkg_stats[(experiment_id, ifos, param_group)] = []
-            if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
-                self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        # only add the stats if they are slide
+        if not ( experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id].values()):
             self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
@@ -574,7 +574,9 @@ class Summaries:
         """
         Adds a zero_lag_id to the zero_lag_ids dictionary.
         """
-        self.zero_lag_ids[experiment_id] = dict({ datatype: zero_lag_esid })
+        if experiment_id not in self.zero_lag_ids:
+            self.zero_lag_ids[experiment_id] = {}
+        self.zero_lag_ids[experiment_id][datatype] = zero_lag_esid
 
     def append_duration(self, experiment_id, experiment_summ_id, duration):
         """
