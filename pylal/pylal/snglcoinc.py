@@ -294,12 +294,7 @@ class CoincTables(object):
 
 		# find the time_slide table
 		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-
-	def get_time_slides(self):
-		"""
-		Return the time_slide_id --> offset vector dictionary.
-		"""
-		return self.time_slide_table.as_dict()
+		self.time_slide_index = self.time_slide_table.as_dict()
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
