@@ -168,7 +168,7 @@ RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, d
 
 
 class RingdownCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc):
+	def __init__(self, xmldoc, program = u"ring"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
@@ -187,6 +187,12 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 			self.coinc_ringdown_table = lsctables.New(lsctables.CoincRingdownTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_ringdown_table)
 
+		#
+		# extract the coalesced out segment lists from lalapps_ring
+		#
+
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		#
 		# populate the coinc_event and coinc_event_map tables
@@ -194,30 +200,46 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
 
-		# FIXME:  set the instruments attribute
-
 		#
 		# populate the coinc_ringdown table:
 		#
-		# - start_time is the start time of the first trigger in
-		#   alphabetical order by instrument (!?) time-shifted
-		#   according to the coinc's offset vector
+		# - start_time is the SNR-weighted mean of the start times
+		# - frequency and quality are the SNR-weighted means of the
+		#   frequencies and qualities
 		# - snr is root-sum-square of SNRs
 		# - false-alarm rate is blank
 		#
-
-		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
+		# do time arithmetic using floats relative to epoch
 		coinc_ringdown.set_start(events[0].get_start() + sum(event.snr * float(event.get_start() - events[0].get_start()) for event in events) / sum(event.snr for event in events))
 		coinc_ringdown.set_ifos(event.ifo for event in events)
-		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
 		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
 		self.coinc_ringdown_table.append(coinc_ringdown)
+
+		#
+		# record the instruments that were on at the time of the
+		# coinc.  note that the start time of the coinc must be
+		# unslid to compare with the instrument segment lists
+		#
+
+		tstart = coinc_ringdown.get_start()
+		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+
+		#
+		# save memory by re-using strings
+		#
+
+		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
+		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
+
+		#
+		# done
+		#
 
 		return coinc
 
@@ -397,7 +419,7 @@ def ligolw_rinca(
 	# construct offset vector assembly graph
 	#
 
-	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.get_time_slides(), verbose = verbose)
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
 
 	#
 	# loop over the items in time_slide_graph.head, producing all of
