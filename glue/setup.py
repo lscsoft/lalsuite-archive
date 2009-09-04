@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.28"
+ver = "1.28.1"
 
 def remove_root(path,root):
   if root:
@@ -158,7 +158,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb' ],
+  packages = [ 'glue', 'glue.gracedb', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb' ],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,

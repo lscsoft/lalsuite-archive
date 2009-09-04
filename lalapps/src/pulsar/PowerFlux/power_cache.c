@@ -728,6 +728,7 @@ struct {
 	long misses;
 	long overwrites;
 	long large_shifts;
+	int max_size;
 
 	/* cache contents */
 	int segment_count;
@@ -736,11 +737,12 @@ struct {
 	int *key;
 	SEGMENT_INFO **si;
 	PARTIAL_POWER_SUM_F **pps;
-	} SIMPLE_CACHE={0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL};
+	} SIMPLE_CACHE={0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL};
 
 void reset_simple_cache(int segment_count, int template_count)
 {
 int i;
+if(SIMPLE_CACHE.free>SIMPLE_CACHE.max_size)SIMPLE_CACHE.max_size=SIMPLE_CACHE.free;
 for(i=0;i<SIMPLE_CACHE.free;i++) {
 	free_partial_power_sum_F(SIMPLE_CACHE.pps[i]);
 	free(SIMPLE_CACHE.si[i]);
@@ -843,10 +845,10 @@ sse_accumulate_partial_power_sum_F(pps, SIMPLE_CACHE.pps[k]);
 
 void print_cache_stats(void)
 {
-fprintf(stderr, "SIMPLE_CACHE stats: hits=%ld misses=%ld overwrites=%ld large_shifts=%ld miss ratio %f overwrite ratio %f\n", SIMPLE_CACHE.hits, SIMPLE_CACHE.misses, SIMPLE_CACHE.overwrites, SIMPLE_CACHE.large_shifts,
+fprintf(stderr, "SIMPLE_CACHE stats: max_size=%d hits=%ld misses=%ld overwrites=%ld large_shifts=%ld miss ratio %f overwrite ratio %f\n", SIMPLE_CACHE.max_size, SIMPLE_CACHE.hits, SIMPLE_CACHE.misses, SIMPLE_CACHE.overwrites, SIMPLE_CACHE.large_shifts,
 	SIMPLE_CACHE.misses/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0), SIMPLE_CACHE.overwrites/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0));
 
-fprintf(LOG, "SIMPLE_CACHE stats: hits=%ld misses=%ld overwrites=%ld  large_shifts=%ld miss ratio %f overwrite ratio %f\n", SIMPLE_CACHE.hits, SIMPLE_CACHE.misses, SIMPLE_CACHE.overwrites, SIMPLE_CACHE.large_shifts,
+fprintf(LOG, "SIMPLE_CACHE stats: max_size=%d hits=%ld misses=%ld overwrites=%ld  large_shifts=%ld miss ratio %f overwrite ratio %f\n", SIMPLE_CACHE.max_size, SIMPLE_CACHE.hits, SIMPLE_CACHE.misses, SIMPLE_CACHE.overwrites, SIMPLE_CACHE.large_shifts,
 	SIMPLE_CACHE.misses/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0), SIMPLE_CACHE.overwrites/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0));
 }
 

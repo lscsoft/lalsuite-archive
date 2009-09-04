@@ -29,6 +29,7 @@
 
 
 import bisect
+import numpy
 from new import instancemethod
 from optparse import OptionParser
 try:
@@ -77,6 +78,7 @@ def parse_command_line():
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
 	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-n","--extrapolation-num",action="store",type="int",default=0, metavar="num",help="number of time-slide points to use in FAR extrapolation" )
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -127,6 +129,61 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                               Helper Functions
+#
+# =============================================================================
+#
+
+
+def extrapolation_coeffs(rank_by, N, reputations, t):
+	#
+	# calculate the FAR extrapolation coefficients
+	#
+
+	#
+	# get just the loudest N in reputations
+	#
+
+	if len(reputations) < 2:
+		print >>sys.stderr,"Warning: found a category with less than 2 background triggers, cannot perform extrapolation for this category"
+		return (0, (0, 0))
+
+	x = reputations[-N:]
+
+	if rank_by == "snr":
+		y = range(1, len(x) + 1, 1)
+		y.reverse()
+
+		Y0 = 0.
+		X0 = 0.
+
+		for idx in range(len(x)):
+			sigmasq = y[0]**2. / y[idx]
+			Y0 += numpy.log(1. * y[idx] / y[0]) / sigmasq
+			X0 += (x[idx]**2. - x[0]**2.) / sigmasq
+
+		B = Y0 / X0
+		A = y[0] * numpy.exp(-B * x[0]**2.)
+		return (len(x), (A, B))
+
+	elif rank_by == "uncombined-ifar":
+		A = float(len(x)) * x[0] / t
+		return (len(x), (A, 0))
+
+def extrapolate_reputation(rank_by, coeffs, reputation, t):
+	#
+	# calculate the FAN from the reputation and the extrapolation coefficients
+	#
+
+	if rank_by == "snr":
+		return coeffs[0] * numpy.exp(coeffs[1] * reputation**2.)
+	if rank_by == "uncombined-ifar":
+		return coeffs[0] * t / reputation
+
+
+#
+# =============================================================================
+#
 #                                 Book-Keeping
 #
 # =============================================================================
@@ -155,11 +212,15 @@ class Summaries(object):
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
 			raise ValueError, rank_by
+		self.rank_by = rank_by
 		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
 
 		self.mass_bins = mass_bins
 		self.reputations = {}
 		self.cached_livetime = {}
+		self.extrapolate = False
+		self.extrapolation_coeffs = {}
+		self.categories = []
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -181,10 +242,23 @@ class Summaries(object):
 
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
+		if self.category_func(on_instruments, participating_instruments, mchirp, mtotal) not in self.categories:
+			self.categories.append(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
 
 	def index(self):
 		for reputations in self.reputations.values():
 			reputations.sort()
+
+	def rate_extrapolation(self, N):
+		#
+		# calculate the FAR extrapolation coefficients for the different categories
+		#
+
+		self.extrapolate = True
+		for category in self.categories:
+			t = self.cached_livetime.setdefault(category, 0.0)
+			reputations = self.reputations.setdefault(category, [])
+			self.extrapolation_coeffs[category] = extrapolation_coeffs(self.rank_by, N, reputations, t)
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		#
@@ -192,7 +266,9 @@ class Summaries(object):
 		# one if there are no reputations for this category)
 		#
 
-		reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
+		reputations = self.reputations.setdefault(category, [])
+
 
 		#
 		# len(x) - bisect.bisect_left(x, reputation) = number of
@@ -206,6 +282,9 @@ class Summaries(object):
 		#
 
 		t = self.cached_livetime.setdefault(on_instruments, 0.0)
+		if self.extrapolate:
+			if n < self.extrapolation_coeffs[category][0]:
+				n = extrapolate_reputation(self.rank_by, self.extrapolation_coeffs[category][1], self.reputation_func(snr, uncombined_ifar, likelihood), t)
 
 		#
 		# return the rate of events above the given reputation
@@ -330,7 +409,10 @@ WHERE
 
 
 background.index()
-
+if options.extrapolation_num:
+	if options.verbose:
+		print >>sys.stderr, "\tcalculating FAR extrapolation coefficients ..."
+	background.rate_extrapolation(options.extrapolation_num)
 
 #
 # iterate over database files assigning false-alarm rates to coincs

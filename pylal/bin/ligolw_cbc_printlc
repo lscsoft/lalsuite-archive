@@ -23,6 +23,7 @@ except ImportError:
     from pysqlite2 import dbapi2 as sqlite3
 import sys
 import os
+import bisect
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -30,6 +31,7 @@ from glue.ligolw.utils.ligolw_sqlite import extract
 
 from pylal import ligolw_sqlutils as sqlutils
 
+__prog__ = "ligolw_cbc_printlc"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __date__ = "$Date$" 
 __version__ = "$Revision$"
@@ -54,13 +56,30 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time." 
             )
+    parser.add_option("-o", "--output", action = "store", type = "string",
+        default = None,
+        help =
+            "Save summary table to file. If no output specified, result " +
+            "will be printed to stdout."
+            )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string",
         default = None, metavar = "path",
         help = 
             "Location of local disk on which to do work. " +
             "This is used to enhance performance in a networked " +
-            "environment. As this program doesn't make any changes to " +
-            "the database, this isn't needed if using in a local environment." 
+            "environment and is needed if extracting an xml file."
+            )
+    parser.add_option("-f", "--output-format", action = "store", type = "string",
+        default = "wiki", metavar = "wiki, html, OR xml",
+        help =
+            "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. " +
+            "Default is wiki."
+            )
+    parser.add_option("-x", "--extract-to-xml", action = "store", type = "string",
+        default = None, metavar = "filename",
+        help =
+            "Will extract a full xml file from the database containing only the " +
+            "triggers that are printed. Requries --tmp-space. "
             )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
@@ -149,10 +168,16 @@ def parse_command_line():
     # check for required options and for self-consistency
     if not options.input:
         raise ValueError, "No input specified."
+    if options.extract_to_xml and not options.tmp_space:
+        raise ValueError, "extract-to-xml requires tmp-space"
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
         raise ValueError, "--rank-by must be specified and set to either MIN or MAX."
+    if options.param_name and not options.param_ranges:
+        raise ValueError, "--param-name requires --param-ranges"
+    if not options.datatype:
+        raise ValueError, "--datatype must be specified."
     if options.datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
         raise ValueError, "Unrecognized datatype %s. See help for options." % options.datatype
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
@@ -162,6 +187,54 @@ def parse_command_line():
 
 
     return options, sys.argv[1:]
+
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+class rank_stats:
+    """
+    Class to return a rank for stats.
+    """
+    def __init__(self, table, ranking_stat, rank_by):
+        """
+        @table: table containing the stats to rank
+        @ranking_stat: stat in table that wish to rank
+        @rank_by: should be either "ASC" or "DESC"
+        """
+        self.stats = []
+        self.table = table
+        self.ranking_stat = ranking_stat
+        self.rank_by = rank_by
+    def populate_stats_list(self, connection, limit, filter = ''):
+        """
+        Gets top stats from database for later ranking
+        @connection: connection to a sqlite database
+        @limit: number of stats to get
+        @filter: apply a filter (i.e., a SQLite WHERE clause). 
+            Note: If the filter uses colums from tables other than
+            self.table, must include the join conditions as well
+        @verbose: if verbose, will print the sqlquery used 
+        """
+        sqlquery = ''.join(["""
+            SELECT
+                """, self.ranking_stat, """
+            FROM
+                """, self.table,
+            filter, """
+            ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
+            LIMIT """, str(limit) ])
+        self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
+        self.stats.sort()
+    def get_rank( self, this_stat ):
+        if self.rank_by == "ASC":
+            return bisect.bisect_left(self.stats, this_stat) + 1
+        else:
+            return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
+            
 
 # =============================================================================
 #
@@ -230,56 +303,297 @@ if opts.include_only_coincs:
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
+# join the needed tables to in_this_filter
+where_in_this_filter = ''.join([ sqlutils.join_experiment_tables_to_coinc_inspiral(), "\n    WHERE\n\t", in_this_filter ])
+
+# Set needed functions
+
 # establish what units will be converting duration to; this has to be done
 # by defining a function which calls sqlutils.convert_duration with the desired
 # conversion. This function is then sqlitized so that it just takes one argument,
 # the duration, and automatically converts. We do this because we cannot set the
 # appropiate conversion flag from within the sql statement
-
 def convert_duration( duration ):
     return sqlutils.convert_duration( duration, opts.convert_durations.strip().lower() )
 connection.create_function( 'convert_duration', 1, convert_duration )
-    
+
+# initialize ranking. We do this by collecting the statistics that do the ranking
+# first, so that rank can be computed on the fly in the main sqlquery below. It is
+# done in this way because the RANK and DENSE_RANK SQL functions are not supported by
+# SQLite.
+if opts.verbose:
+    print >> sys.stdout, "Getting statistics for ranking..."
+ranker = rank_stats('coinc_inspiral', ranking_stat, rank_by)
+ranker.populate_stats_list(connection, opts.limit, filter = where_in_this_filter)
+connection.create_function( 'rank', 1, ranker.get_rank )
+
 # Set up sqlquery
 sqlquery = ''.join([ """
     SELECT
+        rank(""", ranking_stat, """),
+        coinc_inspiral.*,
         experiment.instruments,
-        convert_duration(experiment_summary.duration),
-        coinc_inspiral.*
+        convert_duration(experiment_summary.duration)
     FROM
         coinc_inspiral
-    JOIN
-        experiment, experiment_summary, experiment_map 
-    ON ( 
-        experiment.experiment_id == experiment_summary.experiment_id
-        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
-    WHERE 
-        """, in_this_filter, """
+    """, where_in_this_filter, """
+        AND rank(""", ranking_stat, """) <= """, str(opts.limit), """
     ORDER BY
-        """, ranking_stat, ' ',  rank_by, """
-    LIMIT """, str(opts.limit) ])
+        """, ranking_stat, ' ',  rank_by ])
 
 if opts.verbose:
-    print >> sys.stdout, "Sqlite query is:"
+    print >> sys.stdout, "Getting coincs..."
+    print >> sys.stdout, "SQLite query used is:"
     print >> sys.stdout, sqlquery
-    print >> sys.stdout, "\nResults are:\n"
+    if not opts.output:
+        print >> sys.stdout, "\nResults are:\n"
 
 info = connection.cursor().execute( sqlquery ).fetchall()
 
 # Get list of column names from coinc_inspiral table
-column_names = ' || '.join( sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' ) )
+coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
+# generate list of column names for the summary table
+# note: for xml format, column names cannot have spaces or (),
+# so they are replaced with _
+if opts.output_format == 'xml':
+    column_names = [ 'rank_using_' + ranking_stat.split('.')[-1] ]
+else:
+    column_names = [ 'rank (using ' + ranking_stat.split('.')[-1] + ')' ] 
+column_names.extend(coinc_inspiral_cols)
+# add instruments on, duration
+if opts.output_format == 'xml':
+    durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower() ])
+else:
+    durname = ''.join([ opts.datatype.strip().lower(), u' duration (', opts.convert_durations.strip().lower(), ')' ])
+column_names.extend([u'instruments_on', durname ])
 
-# append experiment.instruments and duration to column names
-durname = ''.join([ opts.datatype.strip().lower(), ' duration (', opts.convert_durations.strip().lower(), ')' ])
+#
+# Prepare for printing summary info to output
+#
 
-column_names = ' '.join([ '||', 'instruments_on', '||', durname, '||', column_names, '||' ])
-print >> sys.stdout, column_names
+# set output
+if opts.output and opts.output_format != 'xml':
+    output = open(opts.output, 'w')
+else:
+    output = sys.stdout
 
-# print data
-for row in info:
-    row = ' || '.join(str(data) for data in row)
-    print >> sys.stdout, "|| %s ||" % row
+# set output-format
+if opts.output_format == 'wiki':
+    tx = ''
+    xt = ''
+    rx = '||'
+    xr = '||'
+    xccx = '||'
+
+elif opts.output_format == "html":
+    tx = '<table border = "1">'
+    xt = '</table>'
+    rx = '<tr><td>'
+    xr = '</td></tr>'
+    xccx = '</td><td>'
+
+elif opts.output_format == "xml":
+    # get needed imports
+    from glue.ligolw import ligolw
+    from glue.ligolw import table
+    from glue.ligolw import utils
+    from glue.ligolw.utils import ligolw_add
+    from glue.ligolw.utils import process
+
+    # Define the table
+    class LoudestEventsTable(table.Table):
+        tableName = "loudest_events:table"
+        # as we don't know apriori what the column types are, just set everything to lstring
+        validcolumns = dict([ [col_name, "lstring"] for col_name in column_names ])
+
+    # Define the row
+    class LoudestEvents(object):
+        __slots__ = LoudestEventsTable.validcolumns.keys()
+    
+        def get_pyvalue(self):
+            if self.value is None:
+                return None
+            return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+
+    # connect the row to the table
+    LoudestEventsTable.RowType = LoudestEvents
+
+    # Create a document
+    lcdoc = ligolw.Document()
+    # setup the LIGOLW tag
+    lcdoc.appendChild(ligolw.LIGO_LW())
+    # add this programs metadata
+    lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+    # add the table
+    lctable = lsctables.New(LoudestEventsTable)
+    # connect the table to the document
+    lcdoc.childNodes[0].appendChild(lctable)
+
+    
+else:
+    raise ValueError, 'unrecognized output-format; must be either wiki, html, or xml'
+    
+#
+# Print the summary data
+#
+if opts.output_format != "xml":
+    header = ''.join([ tx, rx, xccx.join( column_names  ), xr ])
+    print >> output, header
+    for row in info:
+        row = xccx.join(str(data) for data in row)
+        print >> output, "%s%s%s" % (rx, row, xr)
+    # close the table
+    print >> output, xt
+    if output != sys.stdout:
+        output.close()
+
+else:
+    for row in info:
+        lcrow = LoudestEvents()
+        for column, data in zip(column_names, row):
+            setattr(lcrow, column, data)
+        # add the row to the table
+        lctable.append(lcrow)
+    # write to opts.output (if opts.output is None, will write to sys.stdout)
+    utils.write_filename(lcdoc, opts.output, xsl_file = "ligolw.xsl")
+
+#
+# If extract-to-xml, generate the full xml
+#
+
+if opts.extract_to_xml:
+    if opts.verbose:
+        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
+        print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
+    # use the coinc_event_ids to figure out what to keep
+    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id") + 1
+    save_ids = [''.join(['"', row[ceid_index_num], '"']) for row in info]
+    # delete all other ids from the coinc_inspiral table
+    sqlquery = ''.join([ """
+        DELETE
+        FROM 
+            coinc_inspiral
+        WHERE
+            coinc_event_id NOT IN (
+            """, ','.join(save_ids), """
+            )""" ])
+    connection.cursor().execute(sqlquery)
+
+    # clean up the other tables that point to the deleted ids
+    sqlutils.clean_inspiral_tables(connection, verbose = opts.verbose)
+
+    # also remove experiments that don't have loud events in them
+    if opts.verbose:
+        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+
+    sqlscript = """
+        DELETE FROM
+            experiment
+        WHERE
+            experiment_id NOT IN (
+                SELECT DISTINCT
+                    experiment_summary.experiment_id
+                FROM
+                    experiment_summary, experiment_map
+                WHERE
+                    experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                );
+        DELETE FROM
+            experiment_summary
+        WHERE
+            experiment_id NOT IN (
+                SELECT
+                    experiment_id
+                FROM
+                    experiment
+                );
+        DELETE FROM
+            time_slide
+        WHERE
+            time_slide_id NOT IN (
+                SELECT DISTINCT
+                    time_slide_id
+                FROM
+                    experiment_summary
+                );
+        """
+    connection.cursor().executescript(sqlscript)
+
+    # remove additional meta-data from other tables who's process_ids are not in
+    # the experiment or coinc. tables
+    if opts.verbose:
+        print >> sys.stdout, "Removing unneeded metadata..."
+
+    sqlscript = """
+        -- create a temp. table of process_ids to keep
+        CREATE TEMP TABLE save_proc_ids AS
+            SELECT DISTINCT
+                process_id AS process_id
+            FROM
+                coinc_event;
+        INSERT INTO save_proc_ids (process_id)
+            SELECT DISTINCT
+                process_id
+            FROM
+                sngl_inspiral;
+        INSERT INTO save_proc_ids (process_id)
+            SELECT DISTINCT
+                process_id
+            FROM
+                time_slide;
+        INSERT INTO save_proc_ids (process_id)
+            SELECT DISTINCT
+                sim_proc_id
+            FROM
+                experiment_summary
+            WHERE
+                sim_proc_id IS NOT NULL;
+        CREATE INDEX proc_index ON save_proc_ids (process_id);
+        """
+    # now step through all tables with process_ids and remove rows who's ids 
+    # aren't in save_proc_ids
+    for table in ['process','process_params','search_summary','search_summvars','summ_value']:
+        sqlquery = ''.join([ sqlscript, 
+            """
+            DELETE FROM
+            """, table, """
+            WHERE
+                process_id NOT IN (
+                    SELECT
+                        process_id
+                    FROM
+                        save_proc_ids
+                    )
+            """ ])
+        try:
+            connection.cursor().execute(sqlquery)
+        except:
+            continue
+
+    # now remove any veto segments that don't apply by first getting all the
+    # end times in the sngl_inspiral table
+    if opts.verbose:
+        print >> sys.stdout, "Removing veto-segments that don't apply..."
+        print >> sys.stdout, "\tgetting event end_times..."
+
+    sqlquery = "SELECT DISTINCT end_time FROM sngl_inspiral"
+    in_this_filter = [''.join([ "(start_time <= ", str(end_time[0]), " AND end_time > ", str(end_time[0]), ")"]) for end_time in connection.cursor().execute(sqlquery)]
+
+    # now remove segments that don't intersect with the event_end_times
+    if opts.verbose:
+        print >> sys.stdout, "\tdeleting segments that don't intersect..."
+
+    sqlquery = """
+        DELETE FROM
+            segment"""
+    if in_this_filter != []:
+        sqlquery = ''.join([ sqlquery, """
+        WHERE NOT
+            """, ' OR '.join(in_this_filter) ])
+    connection.cursor().execute(sqlquery)
+
+    # extract to the xml file
+    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
 
 # close connection and exit
 connection.close()

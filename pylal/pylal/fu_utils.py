@@ -35,6 +35,7 @@ import cPickle
 import gzip
 from scipy import interpolate
 import math
+import fnmatch
 
 from optparse import *
 from types import *
@@ -58,6 +59,7 @@ from glue import markup
 from lalapps import inspiralutils
 from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
+from pylal.xlal import date as xlaldate
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -333,7 +335,10 @@ class getCache(UserDict):
     statistic =  string.strip(cp.get('followup-triggers','statistic'))
     bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
     blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb))
+    if cp.has_option('followup-triggers','exclude-tags'):
+      excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
+    else: excludedTags = None
+    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
     return numtrigs, found, coincs, search
 
 
@@ -552,7 +557,7 @@ def floatToStringList(listin):
 # function to read in a list of files and extract the simInspiral tables
 # and sngl_inspiral tables
 ##############################################################################
-def readFiles(fileGlob,statistic=None):
+def readFiles(fileGlob,statistic=None,excludedTags=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
   if Sngls are found, construct coincs, add injections (if any)
@@ -565,12 +570,20 @@ def readFiles(fileGlob,statistic=None):
     print "Warning: No glob specified, returning empty structures..."
     return None, CoincInspiralUtils.coincInspiralTable(), None
 
-  # if there aren't any files globbed exit
-  #fList = glob.glob(fileGlob)
-  #if not fList:
-  #  print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
-  #  sys.exit(1)
-  fList = fileGlob
+  fList = []
+  for thisFile in fileGlob:
+    if excludedTags:
+      for thisTag in excludedTags.split(","):
+        if fnmatch.fnmatch(thisFile.split('/')[-1],thisTag.strip()):
+          print "WARNING: the following file will be excluded:"
+          print thisFile
+          continue
+    fList.append(thisFile)
+
+  if len(fList) == 0:
+    print "Warning: After removing forbidden tags, no remaining files in glob. Returning empty structures..."
+    return None, CoincInspiralUtils.coincInspiralTable(), None
+
   sims = None
   coincs = None
   search = None
@@ -1280,7 +1293,7 @@ def writeParamTable(trigger,opts):
     page.td(repr(trigger.gpsTime[ifo]));
     for param in paramList:
       page.td("%0.3f"%(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
-    page.td("%0.2f"%(trigger.statValue));
+    page.td("%0.5f"%(trigger.statValue));
     if not opts.disable_ifarsorting:
       page.td("%0.4f"%(trigger.far))
     page.tr.close()
@@ -1966,8 +1979,8 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
   #Also write input file for clustering code "cohire"
-  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1-' + str(int(triggerTime)-1) + "-2.xml.gz"
-  cohireInputFile = ifoTag + '-COHIRE-' + str(int(triggerTime)-1) + "-2.txt"
+  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.xml.gz"
+  cohireInputFile = ifoTag + '-COHIRE_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)-1) + "-2.txt"
   if outputPath:
     cohireInputFile = outputPath + '/' + cohireInputFile
   ff = open(cohireInputFile,'w')
@@ -2007,6 +2020,7 @@ defaulting to %s"%(self.serverURL))
     segment_definer.ifos, \
     segment_definer.name, \
     segment_definer.version, \
+    segment_definer.comment, \
     segment.start_time, \
     segment.end_time \
     FROM segment,segment_definer \
@@ -2092,7 +2106,7 @@ defaulting to %s"%(self.serverURL))
       self.triggerTime = int(triggerTime)
       try:
         connection=None
-        serverURL=self.serverURL.strip("ldbd://")
+        serverURL=self.serverURL
         connection=segmentdb_utils.setup_database(serverURL)
       except Exception, errMsg:
         sys.stderr.write("Error connection to %s\n"\
@@ -2108,7 +2122,7 @@ defaulting to %s"%(self.serverURL))
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
-      sys.stderr.write("Query failed %s \n"%(self.serverURL))
+      sys.stderr.write("Query failed %s \n"%(serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
       sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
@@ -2120,15 +2134,15 @@ defaulting to %s"%(self.serverURL))
     if self.resultList.__len__() > 0:
       #Obtain list of all flags
       uniqSegmentName=list()
-      for ifo,name,version,start,end in self.resultList:
-        if not uniqSegmentName.__contains__((ifo,name,version)):
-          uniqSegmentName.append((ifo,name,version))
+      for ifo,name,version,comment,start,end in self.resultList:
+        if not uniqSegmentName.__contains__((ifo,name,version,comment)):
+          uniqSegmentName.append((ifo,name,version,comment))
       #Save textKey for all uniq segments combos
-      for uifo,uname,uversion in uniqSegmentName:
+      for uifo,uname,uversion,ucomment in uniqSegmentName:
         segmentIntervals=list()
         #Extra segments based on uniq textKey
-        for ifo,name,version,start,end in self.resultList:
-          if (uifo,uname,uversion)==(ifo,name,version):
+        for ifo,name,version,comment,start,end in self.resultList:
+          if (uifo,uname,uversion,ucomment)==(ifo,name,version,comment):
             segmentIntervals.append((start,end))
         segmentIntervals.sort()
         #Coalesce those segments
@@ -2139,7 +2153,7 @@ defaulting to %s"%(self.serverURL))
           newSegmentIntervals=segmentIntervals
         #Write them to the object which we will return
         for newStart,newStop in newSegmentIntervals:
-          newDQSeg.append([uifo,uname,uversion,newStart,newStop])
+          newDQSeg.append([uifo,uname,uversion,ucomment,newStart,newStop])
         newDQSeg.sort()
         del segmentIntervals
     self.resultList=newDQSeg
@@ -2152,13 +2166,15 @@ defaulting to %s"%(self.serverURL))
     return self.resultList
   #End generateResultList
   
-  def generateHTMLTable(self):
+  def generateHTMLTable(self,tableType="BOTH"):
     """
     Return a HTML table already formatted using the module MARKUP to
     keep the HTML tags complient.  This method does nothing but return
     the result of the last call to self.fetchInformation() The flag
     names associated with LIGO will have links to the channel wiki in
     them also.
+    Types that will invoke a not everything behaviour are
+    DQ and VETO
     """
     ligo=["L1","H1","H2","V1"]
     channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
@@ -2166,12 +2182,12 @@ defaulting to %s"%(self.serverURL))
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
-    for ifo,name,version,start,stop in self.resultList:
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+    for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2183,11 +2199,14 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      #If NAME is LIGO flag then adjust name txt to be url also
-      if ligo.__contains__(ifo.upper().strip()):
-        url=channelWiki%(name.upper().strip())
-        name="<a href=\"%s\">%s</a>"%(url,name.strip().upper())
-      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+      else:
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
@@ -2428,3 +2447,70 @@ path %s\n"%(myPath))
 
 #End followupDQdb class()
 ######################################################################
+
+#A loose method to retrieve the iLog url given a integer for of
+#GPStime
+def getiLogURL(time=None,ifo=None):
+  """
+  This method returns a URL string to point you to ilog day page for
+  specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
+  """
+  dateString="%s/%s/%s"
+  urls={
+    'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+    'V1':"https://pub3.ego-gw.it/logbook/",
+    'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
+    }
+  outputURL=urls['default']
+  if ((ifo==None) or (time==None)):
+    return urls['default']
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
+  if ('H1','H2','L1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]%gpsStamp
+  if ('V1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]
+  return outputURL
+#End def getiLogURL
+
+def getGlitchReportURL(time=None):
+  """
+  This method is esentially a wrapper method until we have a better
+  approach to linking directly to a specific glitch report. The method
+  expects an interger respresentation of GPS time.
+  """
+  stopS5=int(875232014)
+  defaultURL="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies"
+  s5URL="http://lancelot.mit.edu/~dicredic/S5scimon.html"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5URL
+  else:
+    return defaultURL
+#End getGlitchReportURL
+
+def getDailyStatsURL(time=None):
+  """
+  This method points you to the right URL to look at the daily stats
+  pages.
+  """
+  stopS5=int(875232014)
+  defaultURL="http://blue.ligo-wa.caltech.edu/scirun/S6/DailyStatistics/"
+  s5Link="http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/"
+  if time==None:
+    return defaultURL
+  if int(time) <= stopS5:
+    return s5Link
+  gpsTime=xlaldate.LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+  outputLink=defaultURL+linkText
+  return outputLink
+#End getDailyStatsURL

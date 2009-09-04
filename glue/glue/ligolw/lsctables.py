@@ -149,7 +149,7 @@ def instrument_set_from_ifos(ifos):
 	input contains "," --> output is set of strings split on "," with
 	leading and trailing whitespace stripped from each piece
 
-	input contains "+" --> output is set of strings split on "," with
+	input contains "+" --> output is set of strings split on "+" with
 	leading and trailing whitespace stripped from each piece
 
 	else, after stripping input of leading and trailing whitespace,
@@ -376,6 +376,9 @@ class SearchSummaryTable(table.Table):
 		"out_end_time_ns": "int_4s",
 		"nevents": "int_4s",
 		"nnodes": "int_4s"
+	}
+	how_to_index = {
+		"ss_pi_index": ("process_id",),
 	}
 
 	def get_inlist(self):
@@ -1022,7 +1025,14 @@ class MultiBurstTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"coinc_event_id": "ilwd:char"
 	}
-	constraints = "PRIMARY KEY (coinc_event_id)"
+	# FIXME:  like some other tables here, this table should have the
+	# constraint that the coinc_event_id column is a primary key.  this
+	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
+	# the constraint is being replaced with an index.
+	#constraints = "PRIMARY KEY (coinc_event_id)"
+	how_to_index = {
+		"mb_cei_index": ("coinc_event_id",)
+	}
 
 
 class MultiBurst(object):
@@ -1389,10 +1399,10 @@ CoincInspiralTable.RowType = CoincInspiral
 #
 
 
-SnglRingDownID = ilwd.get_ilwdchar_class(u"sngl_ringdown", u"event_id")
+SnglRingdownID = ilwd.get_ilwdchar_class(u"sngl_ringdown", u"event_id")
 
 
-class SnglRingDownTable(table.Table):
+class SnglRingdownTable(table.Table):
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1419,12 +1429,12 @@ class SnglRingDownTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#next_id = SnglRingDownID(0)
+	#next_id = SnglRingdownID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
-class SnglRingDown(object):
-	__slots__ = SnglRingDownTable.validcolumns.keys()
+class SnglRingdown(object):
+	__slots__ = SnglRingdownTable.validcolumns.keys()
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -1433,7 +1443,58 @@ class SnglRingDown(object):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 
-SnglRingDownTable.RowType = SnglRingDown
+SnglRingdownTable.RowType = SnglRingdown
+
+
+#
+# =============================================================================
+#
+#                             coinc_ringdown:table
+#
+# =============================================================================
+#
+
+
+class CoincRingdownTable(table.Table):
+	tableName = "coinc_ringdown:table"
+	validcolumns = {
+		"coinc_event_id": "ilwd:char",
+		"ifos": "lstring",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"frequency": "real_8",
+		"quality": "real_8",
+		"snr": "real_8",
+		"false_alarm_rate": "real_8"
+	}
+	# FIXME:  like some other tables here, this table should have the
+	# constraint that the coinc_event_id column is a primary key.  this
+	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
+	# the constraint is being replaced with an index.
+	#constraints = "PRIMARY KEY (coinc_event_id)"
+	how_to_index = {
+		"cr_cei_index": ("coinc_event_id",)
+	}
+	interncolumns = ("coinc_event_id", "ifos")
+
+
+class CoincRingdown(object):
+	__slots__ = CoincRingdownTable.validcolumns.keys()
+
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	def set_ifos(self, ifos):
+		self.ifos = ifos_from_instrument_set(ifos)
+
+	def get_ifos(self):
+		return instrument_set_from_ifos(self.ifos)
+
+
+CoincRingdownTable.RowType = CoincRingdown
 
 
 #
@@ -1777,10 +1838,10 @@ SimBurstTable.RowType = SimBurst
 #
 
 
-SimRingDownID = ilwd.get_ilwdchar_class(u"sim_ringdown", u"simulation_id")
+SimRingdownID = ilwd.get_ilwdchar_class(u"sim_ringdown", u"simulation_id")
 
 
-class SimRingDownTable(table.Table):
+class SimRingdownTable(table.Table):
 	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1813,12 +1874,12 @@ class SimRingDownTable(table.Table):
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
-	next_id = SimRingDownID(0)
+	next_id = SimRingdownID(0)
 	interncolumns = ("process_id", "waveform", "coordinates")
 
 
-class SimRingDown(object):
-	__slots__ = SimRingDownTable.validcolumns.keys()
+class SimRingdown(object):
+	__slots__ = SimRingdownTable.validcolumns.keys()
 
 	def get_start(self, site = None):
 		if not site:
@@ -1828,7 +1889,7 @@ class SimRingDown(object):
 			return LIGOTimeGPS(getattr(self, site + '_start_time'), getattr(self, site + '_start_time_ns'))
 
 
-SimRingDownTable.RowType = SimRingDown
+SimRingdownTable.RowType = SimRingdown
 
 
 #
@@ -2686,15 +2747,17 @@ TableByName = {
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
 	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
 	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
+	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
 	table.StripTableName(CoincInspiralTable.tableName): CoincInspiralTable,
-	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
+	table.StripTableName(SnglRingdownTable.tableName): SnglRingdownTable,
+	table.StripTableName(CoincRingdownTable.tableName): CoincRingdownTable,
 	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
 	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
 	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
-	table.StripTableName(SimRingDownTable.tableName): SimRingDownTable,
+	table.StripTableName(SimRingdownTable.tableName): SimRingdownTable,
 	table.StripTableName(SummValueTable.tableName): SummValueTable,
 	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
 	table.StripTableName(StochasticTable.tableName): StochasticTable,

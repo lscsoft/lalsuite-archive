@@ -245,7 +245,8 @@ class VerticalBarHistogram(BasicPlot):
             plot_kwargs.setdefault("width", width)
            
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins, normed=normed, new=False)
+            y, x = numpy.histogram(data_set, bins=bins, normed=normed, new=True)
+            x = x[:-1]
 
             # stagger bins for pure aesthetics
             x += 0.1 * i * max_stat / num_bins
