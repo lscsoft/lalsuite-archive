@@ -16,6 +16,7 @@
 #include "rastermagic.h"
 #include "hookup.h"
 #include "outer_loop.h"
+#include "summing_context.h"
 
 extern struct gengetopt_args_info args_info;
 
@@ -631,6 +632,7 @@ double gps_stop=max_gps()+1;
 time_t start_time, end_time;
 RGBPic *p;
 PLOT *plot;
+SUMMING_CONTEXT *ctx;
 
 assign_per_dataset_cutoff_veto();
 assign_cutoff_veto();
@@ -641,6 +643,8 @@ ps=do_alloc(nchunks, sizeof(*ps));
 ps_tmp=do_alloc(nchunks, sizeof(*ps));
 
 create_segments(&ei, &nei);
+
+ctx=create_summing_context();
 
 fprintf(LOG, "nei: %d\n", nei);
 
@@ -668,7 +672,7 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 		}
 	for(i=0;i<args_info.nchunks_arg;i++) {
 		for(k=0;k<veto_free;k++) {
-			accumulate_power_sums(ps[i*veto_free+k], count, gps_start+i*(gps_stop-gps_start)/args_info.nchunks_arg, gps_start+(i+1)*(gps_stop-gps_start)/args_info.nchunks_arg, veto_info[k].veto_mask);
+			accumulate_power_sums(ctx, ps[i*veto_free+k], count, gps_start+i*(gps_stop-gps_start)/args_info.nchunks_arg, gps_start+(i+1)*(gps_stop-gps_start)/args_info.nchunks_arg, veto_info[k].veto_mask);
 			}
 		}
 
@@ -700,6 +704,7 @@ fprintf(stderr, "Patch speed: %f\n", patch_grid->npoints/(1.0*(end_time-start_ti
 fprintf(LOG, "Patch speed: %f\n", patch_grid->npoints/(1.0*(end_time-start_time+1.0)));
 free(ps);
 print_cache_stats();
+free_summing_context(ctx);
 
 fflush(DATA_LOG);
 fflush(LOG);
