@@ -21,7 +21,7 @@ foreach {var value} $argv {
 	}
 
 if { $OUTPUT_HEADER_ONLY } {
-	puts "label\tset\tskyband\tindex\tcount"
+	puts "label\tset\tskyband\tindex\tlevel\tcount"
 	exit 0
 	}
 
@@ -60,7 +60,7 @@ while { ![eof $FILE] } {
 	if { $index < 0 } { set index 0 }
 	if { $index > $SNR_MAX_INDEX } { set index $SNR_MAX_INDEX }
 
-	set id [list $LABEL $SET $SKYBAND $index]
+	set id [list $LABEL $SET $SKYBAND $index [expr $SNR_LEFT+$index*$SNR_STEP]]
 
 	if { [info exists DATA($id)] } {
 		set a $DATA($id)
