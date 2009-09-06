@@ -23,7 +23,7 @@ fprintf(stderr, "Averaging mode: %s\n", args_info.averaging_mode_arg);
 
 /* default values appropriate for particular averaging mode */
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
-	ctx->get_uncached_power_sum=get_uncached_matched_power_sum;
+	ctx->get_uncached_power_sum=sse_get_uncached_matched_power_sum;
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached1;
 
 	ctx->cache_granularity=10;

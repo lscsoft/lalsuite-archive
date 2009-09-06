@@ -5,6 +5,8 @@
 #define __USE_ISOC99
 #include <math.h>
 #include <gsl/gsl_cblas.h>
+
+#include <pmmintrin.h>
 #include <xmmintrin.h>
 
 #include "polarization.h"
@@ -923,6 +925,252 @@ pps->c_weight_cccc=weight_cccc;
 pps->collapsed_weight_arrays=0;
 }
 
+void sse_get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
+{
+int i,k,n,m;
+int bin_shift;
+SEGMENT_INFO *si_local;
+DATASET *d;
+//POLARIZATION *pl;
+float *im, *re, *pp, *pc, *cc, *fm;
+float *power, *p;
+float a;
+float TM;
+float weight;
+float f_plus, f_cross, f_pp, f_pc, f_cc;
+
+int pps_bins=pps->nbins;
+
+float sum, sum_sq;
+float pps_bins_inv=1.0/pps_bins;
+//float pmax_factor=args_info.power_max_median_factor_arg;
+
+float filter[8];
+
+float weight_pppp=0;
+float weight_pppc=0;
+float weight_ppcc=0;
+float weight_pccc=0;
+float weight_cccc=0;
+__m128 v4power, v4power0, v4power1, v4tm, v4sum, v4sum_sq, v4pp, v4pc, v4cc, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
+float *tmp1, *tmp2;
+
+/*pp=aligned_alloca(pps_bins*sizeof(*pp));
+pc=aligned_alloca(pps_bins*sizeof(*pc));
+cc=aligned_alloca(pps_bins*sizeof(*cc));*/
+power=aligned_alloca(pps_bins*sizeof(*power));
+
+tmp1=aligned_alloca(8*sizeof(*tmp1));
+tmp2=aligned_alloca(8*sizeof(*tmp2));
+
+pp=pps->power_pp;
+pc=pps->power_pc;
+cc=pps->power_cc;
+for(i=0;i<pps_bins;i++) {
+	(*pp)=0.0;
+	(*pc)=0.0;
+	(*cc)=0.0;
+
+	pp++;
+	pc++;
+	cc++;
+	}
+
+pps->weight_arrays_non_zero=0;
+
+for(i=0;i<pps_bins;i++) {
+	pps->weight_pppp[i]=0.0;
+	pps->weight_pppc[i]=0.0;
+	pps->weight_ppcc[i]=0.0;
+	pps->weight_pccc[i]=0.0;
+	pps->weight_cccc[i]=0.0;
+	}
+
+//fprintf(stderr, "%d\n", count);
+
+for(k=0;k<count;k++) {
+	si_local=&(si[k]);
+
+	bin_shift=rintf(si_local->bin_shift)-pps->offset;
+	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
+		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+			bin_shift, si_local->bin_shift);
+		exit(-1);
+		}
+
+ 	d=&(datasets[si_local->dataset]);
+// 	pl=&(d->polarizations[0]);
+
+	//f_plus=F_plus_coeff(si_local->segment, si_local->e, pl->AM_coeffs);
+	//f_cross=F_plus_coeff(si_local->segment, si_local->e, pl->conjugate->AM_coeffs);
+
+	f_plus=si_local->f_plus;
+	f_cross=si_local->f_cross;
+
+
+	re=&(d->re[si_local->segment*nbins+side_cut+bin_shift]);
+	im=&(d->im[si_local->segment*nbins+side_cut+bin_shift]);
+	fm=&(d->expFMedians_plain[side_cut+bin_shift]);
+
+	if(args_info.subtract_background_arg) {
+		TM=-d->expTMedians[si_local->segment];
+		} else {
+		TM=0;
+		}
+
+	tabulated_fill_hann_filter7(filter, (si_local->bin_shift-rintf(si_local->bin_shift)));
+	filter[7]=0.0;
+	v4filt0=_mm_load_ps(filter);
+	v4filt1=_mm_load_ps(&(filter[4]));
+
+	p=power;
+
+	sum=0;
+	sum_sq=0;
+	tmp1[7]=0;
+	tmp2[7]=0;
+	for(i=0;i<pps_bins;i++) {
+		memcpy(tmp1, &(re[-3]), 8*sizeof(*tmp1));
+		memcpy(tmp2, &(im[-3]), 8*sizeof(*tmp2));
+
+		v4a=_mm_load_ps(&(tmp1[0]));
+		v4a1=_mm_load_ps(&(tmp1[4]));
+
+		v4a=_mm_mul_ps(v4filt0, v4a);
+		v4a1=_mm_mul_ps(v4filt1, v4a1);
+
+		v4a=_mm_add_ps(v4a, v4a1);
+
+		v4b=_mm_load_ps(&(tmp2[0]));
+		v4b1=_mm_load_ps(&(tmp2[4]));
+
+		v4b=_mm_mul_ps(v4filt0, v4b);
+		v4b1=_mm_mul_ps(v4filt1, v4b1);
+
+		v4b=_mm_add_ps(v4b, v4b1);
+
+//		v4a=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(re[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(re[1]))));
+//		v4b=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(im[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(im[1]))));
+	
+		v4power0=_mm_hadd_ps(v4a, v4b);
+		v4power0=_mm_hadd_ps(v4power0, v4power0);
+		v4power1=_mm_mul_ps(v4power0, v4power0);
+		v4power1=_mm_hadd_ps(v4power1, v4power1);
+
+		_mm_store_ss(&a, v4power1);
+
+		*p=a;
+
+		sum+=a;
+		sum_sq=a*a;
+
+		im++;
+		re++;
+		p++;
+		}
+
+	if(args_info.tmedian_noise_level_arg) {
+		weight=d->expTMedians[si_local->segment]*d->weight;
+		} else {
+		sum*=pps_bins_inv;
+		sum_sq*=pps_bins_inv;
+		sum_sq-=sum*sum;
+	// 
+	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
+	// 	a=pmax*pmax;
+	// 	//if(a>weight)weight=a;
+	// 
+		weight=1.0/sum_sq;
+		}
+
+	f_pp=f_plus*f_plus;
+	f_pc=f_plus*f_cross;
+	f_cc=f_cross*f_cross;
+	
+
+	weight_pppp+=weight*f_pp*f_pp;
+	weight_pppc+=weight*f_pp*f_pc;
+	weight_ppcc+=weight*f_pp*f_cc;
+	weight_pccc+=weight*f_pc*f_cc;
+	weight_cccc+=weight*f_cc*f_cc;
+
+	f_pp*=weight;
+	f_pc*=weight;
+	f_cc*=weight;
+
+	p=power;
+	pp=pps->power_pp;
+	pc=pps->power_pc;
+	cc=pps->power_cc;
+
+	v4pp=_mm_load1_ps(&f_pp);
+	v4pc=_mm_load1_ps(&f_pc);
+	v4cc=_mm_load1_ps(&f_cc);
+
+	for(i=0;i<(pps_bins-3);i+=4) {
+		v4power=_mm_load_ps(p);
+
+		_mm_store_ps(pp, _mm_add_ps(_mm_load_ps(pp), _mm_mul_ps(v4power, v4pp)));
+		_mm_store_ps(pc, _mm_add_ps(_mm_load_ps(pc), _mm_mul_ps(v4power, v4pc)));
+		_mm_store_ps(cc, _mm_add_ps(_mm_load_ps(cc), _mm_mul_ps(v4power, v4cc)));
+
+		p+=4;
+		pp+=4;
+		pc+=4;
+		cc+=4;
+		/**/
+		}
+
+	for(;i<pps_bins;i++) {
+		a=(*p);
+
+		(*pp)+=a*f_pp;
+		(*pc)+=a*f_pc;
+		(*cc)+=a*f_cc;
+
+		p++;
+		pp++;
+		pc++;
+		cc++;
+		/**/
+		}
+
+	/*
+	pp=pps->power_pp;
+	pc=pps->power_pc;
+	cc=pps->power_cc;
+	for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
+		m=d->lines_report->lines_list[n];
+		i=m-side_cut-bin_shift;
+		if(i<0)continue;
+		if(i>=pps_bins)continue;
+
+		a=power[i]*weight;
+
+		pp[i]-=a*f_plus*f_plus;
+		pc[i]-=a*f_plus*f_cross;
+		cc[i]-=a*f_cross*f_cross;
+
+		pps->weight_pppp[i]-=weight*f_plus*f_plus*f_plus*f_plus;
+		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
+		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
+		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
+		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
+
+		pps->weight_arrays_non_zero=1;
+		}
+	*/
+	}
+
+pps->c_weight_pppp=weight_pppp;
+pps->c_weight_pppc=weight_pppc;
+pps->c_weight_ppcc=weight_ppcc;
+pps->c_weight_pccc=weight_pccc;
+pps->c_weight_cccc=weight_cccc;
+
+pps->collapsed_weight_arrays=0;
+}
+
 struct {
 	/* statistics */
 	long hits;
@@ -1192,6 +1440,13 @@ get_uncached_single_bin_power_sum(ctx, si, count, ps3);
 /* sse implementation */
 sse_get_uncached_single_bin_power_sum(ctx, si, count, ps4);
 result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps3, ps4);
+
+/* reference implementation */
+get_uncached_matched_power_sum(ctx, si, count, ps3);
+
+/* sse implementation */
+sse_get_uncached_matched_power_sum(ctx, si, count, ps4);
+result+=compare_partial_power_sums_F("sse_get_uncached_matched_power_sum:", ps3, ps4);
 
 free(si);
 free_partial_power_sum_F(ps1);
