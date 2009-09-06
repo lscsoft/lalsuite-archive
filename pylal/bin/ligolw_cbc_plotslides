@@ -148,15 +148,6 @@ from pylab import *
 from numpy import histogram
 rc('text', usetex=True)
 
-if opts.user_tag and opts.plot_playground_only:
-    opts.user_tag = '_'.join([ opts.user_tag, 'CLOSED_BOX' ])
-if opts.user_tag and not opts.plot_playground_only:
-    opts.user_tag = '_'.join([ opts.user_tag, 'OPEN_BOX' ])
-if not opts.user_tag and opts.plot_playground_only:
-    opts.user_tag = 'CLOSED_BOX'
-if not opts.user_tag and not opts.plot_playground_only:
-    opts.user_tag = 'OPEN_BOX'
-
 #
 #   Program-specific Initialization
 #
@@ -315,17 +306,17 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     # set limits
     xlim(min_slide_num - 1, max_slide_num + 1)
     if val_list != []:
-        ymax = max(val_list)
-        ymin = max(0, min(val_list) - .1*ymax)
-        ymax = ymax + .1*ymax
+        ymax = max(val_list) + 2.*std_val
+        ymin = max(0, min(val_list) - 2.*std_val)
     else:
         ymax = 1
         ymin = 0
     ylim(ymin, ymax)
     # Make the plot figure
     if opts.enable_output:
-        name = "slide_durations"
-        fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+        name = InspiralUtils.set_figure_tag( "durations_per_slide",
+                datatype_plotted = "ALL_DATA", open_box = False )
+        fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name) 
         InspiralUtils.savefig_pylal( filename = fname )
         fnameList.append(fname)
         tagList.append(name)
@@ -362,16 +353,16 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         # set limits
         xlim(min_slide_num - 1, max_slide_num + 1)
         if val_list != []:
-            ymax = max(val_list)
-            ymin = max(0, min(val_list) - .1*ymax)
-            ymax = ymax + .1*ymax
+            ymax = max(val_list) + 2.*std_val
+            ymin = max(0, min(val_list) - 2.*std_val)
         else:
             ymax = 1
             ymin = 0
         ylim(ymin, ymax)
         # Make the plot figure
         if opts.enable_output:
-            name = "total_nevents"
+            name = InspiralUtils.set_figure_tag( "total_nevents",
+                datatype_plotted = "ALL_DATA", open_box = True )
             fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
             InspiralUtils.savefig_pylal( filename = fname )
             fnameList.append(fname)
@@ -397,8 +388,6 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             tot_rate = float(tot_events[ esid ])/float(durations[ esid ])
         else:
             tot_rate = 0.
-        if tot_rate > ymax:
-            ymax = tot_rate
         if datatypes[ esid ] == 'slide':
             for datatype, fig_num in rate_fig_nums.items():
                 figure(fig_num)
@@ -427,17 +416,20 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         # set limits
         xlim(min_slide_num - 1, max_slide_num + 1)
         if val_dict[ datatype ] != []:
-            ymax = max(val_dict[datatype])
-            ymin = max(0, min(val_dict[datatype]) - .1*ymax)
-            ymax = ymax + .1*ymax
+            ymax = max(val_dict[datatype]) + 2.*std_val
+            ymin = max(0, min(val_dict[datatype]) - 2.*std_val)
         else:
             ymax = 1
             ymin = 0
         ylim(ymin, ymax)
-        ylim(0, ymax + .1*ymax)
         # Make the plot figure
         if opts.enable_output:
-            name = datatype + "_tot_rates"
+            if datatype == 'all_data' or datatype == 'exclude_play':
+                box_flag = True
+            else:
+                box_flag = False
+            name = InspiralUtils.set_figure_tag( "total_rates",
+                datatype_plotted = datatype.upper(), open_box = box_flag )
             fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
             InspiralUtils.savefig_pylal( filename = fname )
             fnameList.append(fname)
@@ -479,16 +471,16 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             # set limits
             xlim(min_slide_num - 1, max_slide_num + 1)
             if val_list != []:
-                ymax = max(val_list)
-                ymin = max(0, min(val_list) - .1*ymax)
-                ymax = ymax + .1*ymax
+                ymax = max(val_list) + 2.*std_val
+                ymin = max(0, min(val_list) - 2.*std_val)
             else:
                 ymax = 1
                 ymin = 0
             ylim(ymin, ymax)
             # Make the plot figure
             if opts.enable_output:
-                name = '_'.join([ ''.join(sorted(ifo_set)), "nevents" ])
+                name = InspiralUtils.set_figure_tag( ''.join(sorted(ifo_set)) + "_nevents",
+                    datatype_plotted = "ALL_DATA", open_box = True )
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
                 InspiralUtils.savefig_pylal( filename = fname )
                 fnameList.append(fname)
@@ -513,8 +505,6 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                 ifo_rate = float(coinc_ifos[ ifo_set ][ esid ])/float(durations[ esid ])
             else:
                 ifo_rate = 0.
-            if ifo_rate > ymax:
-                ymax = ifo_rate
             if datatypes[ esid ] == 'slide':
                 for datatype, fig_num in rate_fig_nums.items():
                     figure(fig_num)
@@ -543,17 +533,20 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             # set limits
             xlim(min_slide_num - 1, max_slide_num + 1)
             if val_dict[ datatype ] != []:
-                ymax = max(val_dict[datatype])
-                ymin = max(0, min(val_dict[datatype]) - .1*ymax)
-                ymax = ymax + .1*ymax
+                ymax = max(val_dict[datatype]) + 2.*std_val
+                ymin = max(0, min(val_dict[datatype]) - 2.*std_val)
             else:
                 ymax = 1
                 ymin = 0
             ylim(ymin, ymax)
-            ylim(0, ymax + .1*ymax)
             # Make the plot figure
             if opts.enable_output:
-                name = '_'.join([ ''.join(sorted(ifo_set)), datatype, "rates" ])
+                if datatype == 'all_data' or datatype == 'exclude_play':
+                    box_flag = True
+                else:
+                    box_flag = False
+                name = InspiralUtils.set_figure_tag( ''.join(sorted(ifo_set)) + "_rates",
+                    datatype_plotted = datatype.upper(), open_box = box_flag )
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
                 InspiralUtils.savefig_pylal( filename = fname )
                 fnameList.append(fname)
@@ -566,8 +559,19 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     if opts.enable_output:
         if opts.verbose:
             print >> sys.stdout, "\twriting html file and cache..."
-        html_filename = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList, tagList )
-        InspiralUtils.write_cache_output( InspiralUtilsOpts, html_filename, fnameList )
+        # write closed-box plots page
+        if opts.verbose:
+            print >> sys.stdout, "\t\tfor closed box plots..."
+        closed_list = [fname for fname in fnameList if 'OPEN_BOX' not in fname]
+        closed_html = InspiralUtils.write_html_output( InspiralUtilsOpts, args, closed_list,
+            tagList, add_box_flag = True )
+        InspiralUtils.write_cache_output( InspiralUtilsOpts, closed_html, closed_list )
+        if not opts.plot_playground_only:
+            if opts.verbose:
+                print >> sys.stdout, "\t\tfor open box plots..."
+            open_html = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
+                tagList, add_box_flag = True )
+            InspiralUtils.write_cache_output( InspiralUtilsOpts, open_html, fnameList )
 
     #
     #   Show plots if desired
