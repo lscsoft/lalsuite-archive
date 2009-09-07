@@ -50,32 +50,6 @@ from pylal import git_version
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
-def get_mean_mchirp_GRB070923(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    if mean_mchirp<0.86 or mean_mchirp>17.50:
-      modified_mean_mchirp = -1
-
-    return modified_mean_mchirp
-
 #
 # get loudest coincs from each category
 #
