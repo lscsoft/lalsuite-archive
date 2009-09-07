@@ -342,8 +342,7 @@ setup(
 		os.path.join("bin", "qsub_wscanlite.sh"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
-		os.path.join("bin", "wscanlite_in2p3.sh"),
-                os.path.join("bin", "minifollowups")
+		os.path.join("bin", "wscanlite_in2p3.sh")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
