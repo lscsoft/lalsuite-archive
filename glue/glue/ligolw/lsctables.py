@@ -816,8 +816,8 @@ ExperimentSummaryTable.RowType = ExperimentSummary
 class ExperimentMapTable(table.Table):
 	tableName = "experiment_map:table"
 	validcolumns = {
-		"experiment_summ_id": "lstring",
-		"coinc_event_id": "lstring",
+		"experiment_summ_id": "ilwd:char",
+		"coinc_event_id": "ilwd:char",
 	}
 	how_to_index = {
 		"em_esi_index": ("experiment_summ_id",),
