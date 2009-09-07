@@ -73,6 +73,7 @@ class FollowupTrigger:
   htmlname2 = followup.from_sngl(sngl_inspiral)
   htmlname3 = followup.from_missed(missed_inj)
   htmlname4 = followup.from_found(found_inj)
+  htmlname5 = followup.from_new_coinc(new_coinc,[sngls])
 
   # In each case the path to the created html file is returned. 
   # In the first call a CoincInspirals table is expected, a SngleInspiral
@@ -123,7 +124,8 @@ class FollowupTrigger:
                         'INSPIRAL_SECOND', 'THINCA_SECOND']
     self.orderLabels = copy.deepcopy(self.stageLabels)
     self.orderLabels.extend( [ 'THINCA_SECOND_CAT_1','THINCA_SECOND_CAT_2', \
-                               'THINCA_SECOND_CAT_3','THINCA_SECOND_CAT_4'] )
+                               'THINCA_SECOND_CAT_3','THINCA_SECOND_CAT_4', \
+                               'THINCA_SECOND_CAT_5'] )
 
     # set arguments from the options
     self.opts = opts
@@ -790,7 +792,7 @@ class FollowupTrigger:
     return page
   
   # --------------------------------------------
-  def create_table_coinc(self, coinc):
+  def create_table_coinc(self, coinc,snglInspirals=None):
     """
     Creates the first table containing basic properties
     of the coincidence which is followed up.
@@ -802,11 +804,22 @@ class FollowupTrigger:
     page.h1("Followup trigger #"+str(self.number))
     page.add('<table border="2">')
 
-    self.fill_table( page, ['Statistic: ', coinc.stat] )
+    if not snglInspirals:
+      self.fill_table( page, ['Statistic: ', coinc.stat] )
+    else:
+      self.fill_table( page, ['Combined FAR: ', coinc.combined_far] )
+      self.fill_table( page, ['Uncombined FAR: ', coinc.false_alarm_rate] )
 
     for ifo in ['H1','H2','L1','V1','G1']:
-      if hasattr(coinc,ifo):
+      trig = None
+      if snglInspirals:
+        for sngl in snglInspirals:
+          if sngl.ifo == ifo:
+            trig = sngl
+      elif hasattr(coinc,ifo):
         trig = getattr(coinc,ifo)
+
+      if trig:
         page.add('<td><table border="2" >')        
     
         self.fill_table( page, ['<b>parameter','<b>'+ifo] )
@@ -960,6 +973,32 @@ class FollowupTrigger:
     # do the followup
     return self.followup(page)
 
+  # -----------------------------------------------------  
+  def from_new_coinc(self, coinc, sngls,\
+                 more_infos = False, injection_id = None):
+    """
+    Creates a followup page from a coincident trigger.
+    @param coinc: the coincidence to be followed up
+    @param ifo: specifies the ifo to be used from the coinc.
+    @param more_infos: to have some additional informations
+    @param injection_id: Must be specified for exttrig search
+                         to specify what injection to use
+    """
+
+    sngl = sngls[0]
+
+    # set the time
+    self.followup_time = float(sngl.get_end())
+
+    # prepare the page
+    self.injection_id = injection_id
+    page =  self.create_table_coinc(coinc,snglInspirals= sngls)
+    self.flag_followup = more_infos
+
+    # do the followup
+    return self.followup(page)
+
+
   # -----------------------------------------------------
   def from_sngl(self, sngl, ifo = None, more_infos = False, \
                 injection_id = None):
@@ -1108,7 +1147,7 @@ class FollowupTrigger:
       # call the function to create the timeseries
       if 'THINCA_SECOND' in stage:
         # ... need to loop over the four categories
-        for cat in [1,2,3,4]:          
+        for cat in [1,2,3,4,5]:          
           select_list=self.select_category(file_list, cat)
           if len(select_list)==0:
             print "WARNING (not that bad): "\
