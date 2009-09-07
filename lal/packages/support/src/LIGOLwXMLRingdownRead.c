@@ -248,9 +248,12 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
       }
       else if ( tableDir[j].idx == 19 )
       {
+        /* JC: AVOID BUG IN METAIO -- BAD */
+        union { const char *cs; const unsigned char *cus; } bad;
         thisEvent->event_id = (EventIDColumn *) 
           LALCalloc( 1, sizeof(EventIDColumn) );
-        sscanf( env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data, "sngl_ringdown:event_id:%" LAL_UINT8_FORMAT, &(thisEvent->event_id->id) );
+        bad.cus = env->ligo_lw.table.elt[tableDir[j].pos].data.ilwd_char.data;
+        sscanf( bad.cs, "sngl_ringdown:event_id:%" LAL_UINT8_FORMAT, &(thisEvent->event_id->id) );
         thisEvent->event_id->snglRingdownTable = thisEvent;
       }
       else
