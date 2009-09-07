@@ -184,6 +184,13 @@ def parse_args():
 # parse arguments
 opts, args = parse_args()
 
+# GRB 070923 issue
+if 'V' in opts.ifo_tag:
+  get_mean_mchirp = grbsummary.get_mean_mchirp_lv
+else:
+  get_mean_mchirp = grbsummary.get_mean_mchirp
+
+
 ##############################################################################
 # HTML initialization
 InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
@@ -332,18 +339,19 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
-    all_ifos = ['H1','L1','V1']
+    all_ifos = ['H1','H2','L1','V1']
     columns = ["mc_bin", "event_id"] \
         + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
         "<sub>eff,obs</sub> | 0)"]
     rows = []
+
     ## split up the coincs before
     mchirp_dict = {}
     for coinc in onsource_coincs:
       ifo_text = ''
-      mc = get_mean_mchirp_GRB070923(coinc)
+      mc = get_mean_mchirp(coinc)
       for ifo in all_ifos:
         if hasattr(coinc, ifo):
           ifo_text+=ifo
@@ -406,8 +414,8 @@ else:
             raise ValueError, "there should be exactly one or zero coincs"
         row.extend(["%.4g" % log_L, "%.4g" % pL0])
         rows.append(row)
-    html_footer += make_html_table(rows, columns)
 
+    html_footer += make_html_table(rows, columns)
 
 ################################################################################
 # plots
