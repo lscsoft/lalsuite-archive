@@ -1062,7 +1062,7 @@ for(k=0;k<count;k++) {
 		*p=a;
 
 		sum+=a;
-		sum_sq=a*a;
+		sum_sq+=a*a;
 
 		im++;
 		re++;
