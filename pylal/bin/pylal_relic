@@ -49,9 +49,6 @@ from pylal.date import LIGOTimeGPS
 from pylal import git_version
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2] or None
-
 
 def get_mean_mchirp_GRB070923(coinc):
     """
@@ -251,8 +248,9 @@ def append_process(doc, options):
     """
     Append a process table and a process_params table to doc.
     """
-    process = ligolw_process.append_process(doc, "pylal_relic", __version__,
-                                    "lscsoft", __date__)
+    process = ligolw_process.append_process(doc, "pylal_relic",
+        git_version.tag or git_version.id, "lalsuite",
+        git_version.date)
 
     def map_val(name, val):
         """
