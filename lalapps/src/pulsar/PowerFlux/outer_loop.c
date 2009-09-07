@@ -656,7 +656,7 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 		time(&end_time);
 		if(end_time<start_time)end_time=start_time;
 		fprintf(stderr, "%d (%f patches/sec)\n", pi, pi/(1.0*(end_time-start_time+1.0)));
-		print_cache_stats();
+		ctx->print_cache_stats(ctx);
 		//fprintf(stderr, "%d\n", pi);
 		}
 	generate_patch_templates(pi, &(ps[0]), &count);
@@ -703,7 +703,7 @@ if(end_time<start_time)end_time=start_time;
 fprintf(stderr, "Patch speed: %f\n", patch_grid->npoints/(1.0*(end_time-start_time+1.0)));
 fprintf(LOG, "Patch speed: %f\n", patch_grid->npoints/(1.0*(end_time-start_time+1.0)));
 free(ps);
-print_cache_stats();
+ctx->print_cache_stats(ctx);
 free_summing_context(ctx);
 
 fflush(DATA_LOG);

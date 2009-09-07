@@ -1171,7 +1171,11 @@ pps->c_weight_cccc=weight_cccc;
 pps->collapsed_weight_arrays=0;
 }
 
-struct {
+#define SIMPLE_CACHE_ID 1
+
+typedef struct {
+	long id;
+
 	/* statistics */
 	long hits;
 	long misses;
@@ -1186,114 +1190,91 @@ struct {
 	int *key;
 	SEGMENT_INFO **si;
 	PARTIAL_POWER_SUM_F **pps;
-	} SIMPLE_CACHE={0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL};
+	} SIMPLE_CACHE;
+
+void free_simple_cache(SUMMING_CONTEXT *ctx)
+{
+int i;
+SIMPLE_CACHE *sc=(SIMPLE_CACHE *)ctx->cache;
+if(sc==NULL)return;
+if(sc->id!=SIMPLE_CACHE_ID) {
+	fprintf(stderr, "INTERNAL ERROR: simple cache id does not match in %s, aborting\n", __FUNCTION__);
+	exit(-1);
+	}
+ctx->cache=NULL;
+for(i=0;i<sc->free;i++) {
+	free_partial_power_sum_F(sc->pps[i]);
+	free(sc->si[i]);
+	}
+free(sc->pps);
+free(sc->si);
+free(sc->key);
+free(sc);
+}
+
+void print_simple_cache_stats(SUMMING_CONTEXT *ctx)
+{
+SIMPLE_CACHE *sc=(SIMPLE_CACHE *)ctx->cache;
+if(sc==NULL) {
+	fprintf(stderr, "SIMPLE CACHE has not been initialized yet\n");
+	fprintf(LOG, "SIMPLE CACHE has not been initialized yet\n");
+	return;
+	}
+if(sc->id!=SIMPLE_CACHE_ID) {
+	fprintf(stderr, "INTERNAL ERROR: simple cache id does not match in %s, aborting\n", __FUNCTION__);
+	exit(-1);
+	}
+fprintf(stderr, "SIMPLE_CACHE stats: max_size=%d hits=%ld misses=%ld overwrites=%ld large_shifts=%ld miss ratio %f overwrite ratio %f\n", sc->max_size, sc->hits, sc->misses, sc->overwrites, sc->large_shifts,
+	sc->misses/(sc->hits+sc->misses+0.0), sc->overwrites/(sc->hits+sc->misses+0.0));
+
+fprintf(LOG, "SIMPLE_CACHE stats: max_size=%d hits=%ld misses=%ld overwrites=%ld  large_shifts=%ld miss ratio %f overwrite ratio %f\n", sc->max_size, sc->hits, sc->misses, sc->overwrites, sc->large_shifts,
+	sc->misses/(sc->hits+sc->misses+0.0), sc->overwrites/(sc->hits+sc->misses+0.0));
+}
 
 void reset_simple_cache(SUMMING_CONTEXT *ctx, int segment_count, int template_count)
 {
 int i;
-if(SIMPLE_CACHE.free>SIMPLE_CACHE.max_size)SIMPLE_CACHE.max_size=SIMPLE_CACHE.free;
-for(i=0;i<SIMPLE_CACHE.free;i++) {
-	free_partial_power_sum_F(SIMPLE_CACHE.pps[i]);
-	free(SIMPLE_CACHE.si[i]);
+SIMPLE_CACHE *sc=(SIMPLE_CACHE *)ctx->cache;
+if((sc==NULL) || (sc->id!=SIMPLE_CACHE_ID)) {
+	fprintf(stderr, "INTERNAL ERROR: simple cache id does not match in %s, aborting\n", __FUNCTION__);
+	exit(-1);
 	}
-free(SIMPLE_CACHE.pps);
-free(SIMPLE_CACHE.si);
-free(SIMPLE_CACHE.key);
+if(sc->free>sc->max_size)sc->max_size=sc->free;
+for(i=0;i<sc->free;i++) {
+	free_partial_power_sum_F(sc->pps[i]);
+	free(sc->si[i]);
+	}
+free(sc->pps);
+free(sc->si);
+free(sc->key);
 
-SIMPLE_CACHE.segment_count=segment_count;
-SIMPLE_CACHE.size=template_count;
-SIMPLE_CACHE.free=0;
-SIMPLE_CACHE.key=do_alloc(SIMPLE_CACHE.size, sizeof(*SIMPLE_CACHE.key));
-SIMPLE_CACHE.pps=do_alloc(SIMPLE_CACHE.size, sizeof(*SIMPLE_CACHE.pps));
-SIMPLE_CACHE.si=do_alloc(SIMPLE_CACHE.size, sizeof(*SIMPLE_CACHE.si));
+sc->segment_count=segment_count;
+sc->size=template_count;
+sc->free=0;
+sc->key=do_alloc(sc->size, sizeof(*sc->key));
+sc->pps=do_alloc(sc->size, sizeof(*sc->pps));
+sc->si=do_alloc(sc->size, sizeof(*sc->si));
 }
 
-/* Note: si is modified in place to have bin_shift rounded as appropriate to the power generating algorithm */
-void accumulate_single_bin_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
+void allocate_simple_cache(SUMMING_CONTEXT *ctx)
 {
-int i, k;
-int match;
-int key;
-float a;
-int first_shift;
-int max_shift=args_info.max_first_shift_arg;
-SEGMENT_INFO *si_local, *sc_si_local;
-if(count!=SIMPLE_CACHE.segment_count) { 
-	fprintf(stderr, "Internal error: segment counts don't match.\n");
-	exit(-1);
-	}
+SIMPLE_CACHE *sc;
+if(ctx->cache!=NULL)ctx->free_cache(ctx);
+ctx->cache=NULL;
+sc=do_alloc(1, sizeof(SIMPLE_CACHE));
 
-si_local=si;
-key=0.0;
-k=rintf(si_local->bin_shift);
-for(i=0;i<count;i++) {
-	//fprintf(stderr, "%0.1f ", si_local->bin_shift);
-	a=rintf(si_local->bin_shift);
-	key+=((int)a-k)*2*i;
-	si_local->bin_shift=a;
-	si_local++;
-	//fprintf(stderr, "%0.1f ", a);
-	}
-//fprintf(stderr, "%d ", key);
+memset(sc, 0, sizeof(*sc));
+sc->id=SIMPLE_CACHE_ID;
 
-for(k=0;k<SIMPLE_CACHE.free;k++) {
-	/* the reason we use exact equality for floating point numbers is because the number in cache have been placed there by the same function. */
-	if(key==SIMPLE_CACHE.key[k]) {
-		/* we found the box holding our data, double check it is the right one */
-		si_local=si;
-		sc_si_local=SIMPLE_CACHE.si[k];
-		first_shift=si_local->bin_shift-sc_si_local->bin_shift;
-		if( (first_shift>max_shift) || (first_shift< -max_shift)) {
-			SIMPLE_CACHE.large_shifts++;
-			break;
-			}
-		match=1;
-		for(i=1;i<count;i++) {
-			si_local++;
-			sc_si_local++;
-
-			if(si_local->bin_shift!=sc_si_local->bin_shift+first_shift) {
-				match=0;
-				break;
-				}
-			}
-		if(match) {
-			SIMPLE_CACHE.hits++;
-			/*  align pps with stored data */
-			pps->offset-=first_shift;
-			sse_accumulate_partial_power_sum_F(pps, SIMPLE_CACHE.pps[k]);
-			pps->offset+=first_shift;
-			//fprintf(stderr, "hit\n");
-			return;
-			}
-		SIMPLE_CACHE.overwrites++;
-		break;
-		}
-	}
-
-SIMPLE_CACHE.misses++;
-//fprintf(stderr, "miss\n");
-
-if(k>=SIMPLE_CACHE.size) {
-	fprintf(stderr, "*** INTERNAL ERROR: cache overflow\n");
-	exit(-1);
-	}
-
-if(k>=SIMPLE_CACHE.free) {
-	SIMPLE_CACHE.si[k]=do_alloc(SIMPLE_CACHE.segment_count, sizeof(*si));
-	SIMPLE_CACHE.pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift);
-	SIMPLE_CACHE.free++;
-	}
-
-SIMPLE_CACHE.key[k]=key;
-memcpy(SIMPLE_CACHE.si[k], si, SIMPLE_CACHE.segment_count*sizeof(*si));
-
-sse_get_uncached_single_bin_power_sum(ctx, SIMPLE_CACHE.si[k], SIMPLE_CACHE.segment_count, SIMPLE_CACHE.pps[k]);
-sse_accumulate_partial_power_sum_F(pps, SIMPLE_CACHE.pps[k]);
+ctx->free_cache=free_simple_cache;
+ctx->print_cache_stats=print_simple_cache_stats;
+ctx->reset_cache=reset_simple_cache;
+ctx->cache=sc;
 }
 
-#define MATCHED_CACHE_GRANULARITY 10
-#define INV_MATCHED_CACHE_GRANULARITY (1.0/MATCHED_CACHE_GRANULARITY)
+
+#define KEY_MULT 8388623
+#define KEY_DIV ((1<<31)-1)
 
 /* Note: si is modified in place to have bin_shift rounded as appropriate to the power generating algorithm */
 void accumulate_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
@@ -1304,9 +1285,16 @@ int key;
 float a;
 int first_shift;
 int max_shift=args_info.max_first_shift_arg;
-
 SEGMENT_INFO *si_local, *sc_si_local;
-if(count!=SIMPLE_CACHE.segment_count) { 
+int *sc_key;
+
+SIMPLE_CACHE *sc=(SIMPLE_CACHE *)ctx->cache;
+if((sc==NULL) || (sc->id!=SIMPLE_CACHE_ID)) {
+	fprintf(stderr, "INTERNAL ERROR: simple cache id does not match in %s, aborting\n", __FUNCTION__);
+	exit(-1);
+	}
+
+if(count!=sc->segment_count) { 
 	fprintf(stderr, "Internal error: segment counts don't match.\n");
 	exit(-1);
 	}
@@ -1318,29 +1306,32 @@ k=rintf(si_local->bin_shift)*ctx->cache_granularity;
 for(i=0;i<count;i++) {
 	//fprintf(stderr, "%0.1f ", si_local->bin_shift);
 	a=rintf(si_local->bin_shift*ctx->cache_granularity);
-	key+=((int)a-k)*2*(i+1);
+
+	key=( (key+(int)a-k) * KEY_MULT) & KEY_DIV;
+
 	si_local->bin_shift=a*ctx->inv_cache_granularity;
 	si_local++;
 	//fprintf(stderr, "%0.1f ", a);
 	}
 //fprintf(stderr, "k=%d key=%d %f\n", k, key, a);
 
-for(k=0;k<SIMPLE_CACHE.free;k++) {
+sc_key=sc->key;
+for(k=0;k<sc->free;k++) {
 	/* the reason we use exact equality for floating point numbers is because the numbers in cache have been placed there by the same function. */
-	if(key==SIMPLE_CACHE.key[k]) {
+	if(key==sc_key[k]) {
 		/* we found the box holding our data, double check it is the right one */
 		si_local=si;
-		sc_si_local=SIMPLE_CACHE.si[k];
+		sc_si_local=sc->si[k];
 		first_shift=rintf(si_local->bin_shift-sc_si_local->bin_shift);
 		if( (first_shift>max_shift) || (first_shift< -max_shift)) {
-			SIMPLE_CACHE.large_shifts++;
+			sc->large_shifts++;
 			break;
 			}
 		match=1;
 		for(i=0;i<count;i++) {
 			if(fabs(si_local->bin_shift-(sc_si_local->bin_shift+first_shift))> ctx->half_inv_cache_granularity) {
 				match=0;
-				//fprintf(stderr, "OVERWRITE: i=%d %f %f %d\n", i, si_local->bin_shift, sc_si_local->bin_shift, first_shift);
+				fprintf(stderr, "OVERWRITE: i=%d key=%d count=%d %f %f %d\n", i, key, count, si_local->bin_shift, sc_si_local->bin_shift, first_shift);
 				break;
 				}
 
@@ -1348,47 +1339,38 @@ for(k=0;k<SIMPLE_CACHE.free;k++) {
 			sc_si_local++;
 			}
 		if(match) {
-			SIMPLE_CACHE.hits++;
+			sc->hits++;
 			/*  align pps with stored data */
 			pps->offset-=first_shift;
-			sse_accumulate_partial_power_sum_F(pps, SIMPLE_CACHE.pps[k]);
+			sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
 			pps->offset+=first_shift;
 			//fprintf(stderr, "hit\n");
 			return;
 			}
-		SIMPLE_CACHE.overwrites++;
+		sc->overwrites++;
 		break;
 		}
 	}
 
-SIMPLE_CACHE.misses++;
+sc->misses++;
 //fprintf(stderr, "miss\n");
 
-if(k>=SIMPLE_CACHE.size) {
+if(k>=sc->size) {
 	fprintf(stderr, "*** INTERNAL ERROR: cache overflow\n");
 	exit(-1);
 	}
 
-if(k>=SIMPLE_CACHE.free) {
-	SIMPLE_CACHE.si[k]=do_alloc(SIMPLE_CACHE.segment_count, sizeof(*si));
-	SIMPLE_CACHE.pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift);
-	SIMPLE_CACHE.free++;
+if(k>=sc->free) {
+	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
+	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift);
+	sc->free++;
 	}
 
-SIMPLE_CACHE.key[k]=key;
-memcpy(SIMPLE_CACHE.si[k], si, SIMPLE_CACHE.segment_count*sizeof(*si));
+sc->key[k]=key;
+memcpy(sc->si[k], si, sc->segment_count*sizeof(*si));
 
-ctx->get_uncached_power_sum(ctx, SIMPLE_CACHE.si[k], SIMPLE_CACHE.segment_count, SIMPLE_CACHE.pps[k]);
-sse_accumulate_partial_power_sum_F(pps, SIMPLE_CACHE.pps[k]);
-}
-
-void print_cache_stats(void)
-{
-fprintf(stderr, "SIMPLE_CACHE stats: max_size=%d hits=%ld misses=%ld overwrites=%ld large_shifts=%ld miss ratio %f overwrite ratio %f\n", SIMPLE_CACHE.max_size, SIMPLE_CACHE.hits, SIMPLE_CACHE.misses, SIMPLE_CACHE.overwrites, SIMPLE_CACHE.large_shifts,
-	SIMPLE_CACHE.misses/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0), SIMPLE_CACHE.overwrites/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0));
-
-fprintf(LOG, "SIMPLE_CACHE stats: max_size=%d hits=%ld misses=%ld overwrites=%ld  large_shifts=%ld miss ratio %f overwrite ratio %f\n", SIMPLE_CACHE.max_size, SIMPLE_CACHE.hits, SIMPLE_CACHE.misses, SIMPLE_CACHE.overwrites, SIMPLE_CACHE.large_shifts,
-	SIMPLE_CACHE.misses/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0), SIMPLE_CACHE.overwrites/(SIMPLE_CACHE.hits+SIMPLE_CACHE.misses+0.0));
+ctx->get_uncached_power_sum(ctx, sc->si[k], sc->segment_count, sc->pps[k]);
+sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
 }
 
 void power_cache_selftest(void)

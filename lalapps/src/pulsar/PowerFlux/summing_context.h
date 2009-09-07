@@ -11,6 +11,10 @@ typedef struct S_SUMMING_CONTEXT {
 	float inv_cache_granularity;
 	float half_inv_cache_granularity;
 
+	void *cache;
+	void (*free_cache)(struct S_SUMMING_CONTEXT *ctx);
+	void (*print_cache_stats)(struct S_SUMMING_CONTEXT *ctx);
+	void (*reset_cache)(struct S_SUMMING_CONTEXT *ctx, int segment_count, int template_count);
 	} SUMMING_CONTEXT;
 
 SUMMING_CONTEXT *create_summing_context(void);

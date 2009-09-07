@@ -218,7 +218,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	for(k=0;k<group_count;k++) {
  		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
 		if(group_segment_count[k]<1)continue;
-		reset_simple_cache(ctx, group_segment_count[k], count);
+		ctx->reset_cache(ctx, group_segment_count[k], count);
 	
 		/* loop over templates */
 		ps_local=ps;

@@ -18,8 +18,10 @@ SUMMING_CONTEXT *create_summing_context(void)
 SUMMING_CONTEXT *ctx;
 
 ctx=do_alloc(1, sizeof(*ctx));
+memset(ctx, 0, sizeof(*ctx));
 
 fprintf(stderr, "Averaging mode: %s\n", args_info.averaging_mode_arg);
+fprintf(LOG, "Averaging mode: %s\n", args_info.averaging_mode_arg);
 
 /* default values appropriate for particular averaging mode */
 if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
@@ -34,7 +36,7 @@ if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.avera
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "1") || !strcasecmp(args_info.averaging_mode_arg, "one")) {
 	ctx->get_uncached_power_sum=sse_get_uncached_single_bin_power_sum;
-	ctx->accumulate_power_sum_cached=accumulate_single_bin_power_sum_cached1;
+	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached1;
 
 	ctx->cache_granularity=1;
 	} else {
@@ -51,10 +53,13 @@ ctx->inv_cache_granularity=1.0/ctx->cache_granularity;
 ctx->half_inv_cache_granularity=0.5/ctx->cache_granularity;
 fprintf(LOG, "cache_granularity: %f\n", ctx->cache_granularity);
 
+allocate_simple_cache(ctx);
+
 return(ctx);
 }
 
 void free_summing_context(SUMMING_CONTEXT *ctx)
 {
 free(ctx);
+if(ctx->free_cache!=NULL)ctx->free_cache(ctx);
 }
