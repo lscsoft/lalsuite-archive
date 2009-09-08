@@ -48,6 +48,7 @@ $Id$
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXMLRead.h>
 #include <lal/Date.h>
+#include <gsl/gsl_rng.h>
 
 NRCSID( LIGOLWXMLREADC, "$Id$" );
 
@@ -1853,6 +1854,7 @@ InspiralTmpltBankFromLIGOLw (
   const  MetaioParseEnv                 env = &parseEnv;
   int   pParParam;
   int   pParValue;
+  gsl_rng * r = gsl_rng_alloc (gsl_rng_taus);
   REAL4 minMatch = 0;
   MetaTableDirectory tableDir[] =
   {
@@ -2005,6 +2007,11 @@ InspiralTmpltBankFromLIGOLw (
         MetaioClose( env );
         return -1;
       }
+
+ /* assign the unused minMatch parameter to a random number for the bank */
+    /* veto sorting algorithm */
+
+    thisTmplt->OmegaS = (REAL8) gsl_rng_uniform_pos(r);
 
       /* parse the contents of the row into the InspiralTemplate structure */
       for ( j = 0; tableDir[j].name; ++j )
@@ -2185,6 +2192,7 @@ InspiralTmpltBankFromLIGOLw (
   }
 
   /* we have sucesfully parsed temples */
+  gsl_rng_free(r);
   MetaioClose( env );
   return nrows;  
 }
