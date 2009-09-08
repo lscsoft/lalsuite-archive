@@ -415,15 +415,7 @@ def ligolw_thinca(
 	# construct offset vector assembly graph
 	#
 
-	offset_vector_dict = coinc_tables.get_time_slides()
-	if verbose:
-		print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
-	time_slide_graph = snglcoinc.TimeSlideGraph(offset_vector_dict)
-	if verbose:
-		print >>sys.stderr, "graph contains:"
-		for n in sorted(time_slide_graph.generations):
-			print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(time_slide_graph.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
-		print >>sys.stderr, "\t%d offset vectors total" % sum(len(time_slide_graph.generations[n]) for n in time_slide_graph.generations)
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
 
 	#
 	# loop over the items in time_slide_graph.head, producing all of

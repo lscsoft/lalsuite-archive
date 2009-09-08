@@ -1,0 +1,147 @@
+#!/usr/bin/python
+"""
+routine to follow triggers from new style coinc xml tables
+"""
+# $Id$
+
+from __future__ import division
+
+__author__ = "Ian Harry <ian.harry@astro.cf.ac.uk>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__prog__="minifollowups"
+__Id__ = "$Id$"
+
+import sys,os
+from optparse import *
+from glue import lal
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw.utils import ligolw_add
+import matplotlib
+matplotlib.use('Agg')
+from pylal import followup_trigger
+
+def organize_coincs(new_coincs,sngls,coinc_map):
+# This function takes a (new style) coinc table and sngl table along with
+# the experiment map and returns a list of [coinc,[sngls]].
+  coinc_list = []
+  i = 0
+  for coinc in new_coincs:
+    coinc_list.append([])
+    coinc_list[i].append(coinc)
+    snglEventIds = []
+    for map in coinc_map:
+      if coinc.coinc_event_id == map.coinc_event_id:
+        snglEventIds.append(map.event_id)
+    snglList = []
+    for sngl in sngls:
+       if sngl.event_id in snglEventIds:
+         snglList.append(sngl)
+    coinc_list[i].append(snglList)
+    i += 1
+  return coinc_list
+
+usage = """%prog [options]
+
+Minifollowup is a code designed to run followups on new style xml files with
+coinc_inspiral_tables in them. It can also take in the html table files output
+by printlc and add the mini followup to it for write_ihope_page usage.
+"""
+
+parser = OptionParser( usage=usage)
+parser.add_option("-g","--cache-string",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="This is used to parse the cache file. Only files with this string in them will be used" )
+parser.add_option("-c", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
+      help="The ihope cache file to be used")
+parser.add_option("-p","--prefix",action="store",type="string",\
+      default=None, metavar=" PREFIX",\
+      help="Used to prefix the plot names" )
+parser.add_option("-s","--suffix",action="store",type="string",\
+      default=None, metavar=" SUFFIX",\
+      help="Used as a suffix in the plot names" )
+parser.add_option("-o","--output-path",action="store",type="string",\
+      default=".", metavar=" PATH",\
+      help="The output path for the plots" )
+parser.add_option("-x","--input-xml",action="store",type="string",\
+      default=None, metavar=" INPUT",\
+      help="The input xml file location" )
+parser.add_option("-t","--input-html-table",action="store",type="string",\
+      default=None, metavar=" INPHTML",\
+      help="The input printlc html table (if you want the followups added to it)" )
+parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+
+(opts,args) = parser.parse_args()
+
+# Followup_trigger needs the following options to be set
+
+opts.followup_exttrig = False
+opts.followup_flow = 40.0
+opts.figure_resolution = 50
+opts.output_path = opts.output_path + '/'
+opts.suffix = '_' + opts.suffix
+opts.verbose = True
+opts.followup_time_window = 50
+opts.user_tag = opts.cache_string
+
+if not os.path.isdir('Images'):
+  os.mkdir('Images')
+
+# Sieve the ihope cache file
+cache = lal.Cache.fromfile( open( opts.cache_file ) )
+temp_cache = cache.sieve (description = opts.cache_string )
+followup = followup_trigger.FollowupTrigger( temp_cache, opts, False )
+
+# Read in the new style coinc xml file
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [ opts.input_xml ])
+coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+table = organize_coincs(coincT,sngls,coincMap)
+
+# Run the followups on each of the coincs. coinc[0] is the coinc itself
+# coinc[1] is a list of its sngls (created by organize_coincs)
+page = []
+for coinc in table:
+  page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
+
+# If opts.html_table is used we read in the table add the followup to the
+# table and write it out again
+if opts.input_html_table:
+  htmlTable = open(opts.input_html_table,'r')
+  fileLines = []
+  for line in htmlTable:
+    fileLines.append(line)
+  htmlTable.close()
+
+  tmp = fileLines[0].split('</tr>')
+  tmp[0] += '<td>Mini Followup</td>'
+  fileLines[0] = tmp[0] + '</tr>' + tmp[1]
+
+  i = 0
+  for line in fileLines[1:-1]:
+    tmp = fileLines[i+1].split('</tr>')
+    b = 0
+    for coinc in table:
+      # Currently we use end time to match the followup to the coinc in the
+      # table. This is NOT ideal!
+      if str(coinc[0].end_time) in tmp[0]:
+        p = page[b]
+      b += 1
+    tmp[0] += '''<td><a href="''' + p + '''" rel="external">H1L1</a></td>'''
+    fileLines[i+1] = tmp[0] + '</tr>' + tmp[1]
+    i += 1
+
+  output = open(opts.input_html_table,'w')
+  for line in fileLines:
+    output.write(line)
+  output.close()
+
+
+  
+
