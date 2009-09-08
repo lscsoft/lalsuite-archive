@@ -35,6 +35,8 @@ import urlparse
 import time
 import calendar
 
+import glue.segments
+
 try:
     import M2Crypto
     import cjson
@@ -88,8 +90,8 @@ SYNOPSIS
         ligo_data_find --server=NAME:PORT --observatory=NAME --type=NAME 
                --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
-               [ --names-only ] [--show-times] [ --version ]
-               [ --no-proxy ]
+               [ --names-only ] [ --show-times ] [ --version ]
+               [ --no-proxy ] [ --gaps ]
 
         ligo_data_find --server=NAME:PORT --filename
 
@@ -139,6 +141,15 @@ DESCRIPTION
                 return only the names of files with particular values for
                 instrument, type, start, and end rather than full URLs
 
+        -g, --gaps
+                check the returned list of URLs or paths to see if the
+                files cover the requested interval; a return value of 
+                zero (0) indicates the interval is covered, a value of
+                one (1) indicates at least one gap exists and the interval
+                is not covered, and a value of (2) indicates that the
+                entire interval is not covered; missing gaps are
+                printed to stderr
+
         -P, --no-proxy
                 attempt to authenticate without a grid proxy.
 
@@ -187,7 +198,7 @@ def main():
     """
 
     # grab command line options
-    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:"
+    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:g"
     longop = [
               "version",
               "help", 
@@ -208,6 +219,7 @@ def main():
               "no-proxy",
               "disable-host-auth",
               "output-file=",
+              "gaps",
               ]
 
     try:
@@ -234,6 +246,7 @@ def main():
             'filename': None,
             'urlType': None,
             'match': None,
+            'checkGaps': None
             }
 
     # default method 
@@ -299,6 +312,8 @@ def main():
                     noproxy = True
             elif o in ("-O", "--output-file"):
                     output_file = open(a, "w")
+            elif o in ("-g", "--gaps"):
+                    clientMethodArgDict['checkGaps'] = True
 
     if not clientMethod:
             print >>sys.stderr, "Bad combination or missing options"
@@ -338,9 +353,10 @@ def main():
     clientMethodArgDict['keyFile'] = keyFile
 
     # execute the query and print the result
+    ret = None
     try:
         if clientMethod == 'findFrameURLs':
-            findFrameURLs(clientMethodArgDict)
+            ret = findFrameURLs(clientMethodArgDict)
         elif clientMethod == 'showObservatories':
             showObservatories(clientMethodArgDict)
         elif clientMethod == 'showTypes':
@@ -358,7 +374,11 @@ def main():
             sys.exit(1)
 
     output_file.close()
-    sys.exit(0)
+
+    if ret is None:
+        sys.exit(0)
+    else:
+        sys.exit(ret)
 
 def findCredential():
     """
@@ -544,6 +564,7 @@ def findFrameURLs(args):
     namesOnly   = args['namesOnly']
     lalcache    = args['lalcache']
     output_file = args['output_file']
+    checkGaps   = args['checkGaps']
 
     if not site or not frameType or not gpsStart or not gpsEnd:
         msg = """\
@@ -599,6 +620,80 @@ be present when searching for groups of files
 
     # decode the JSON
     urlList = cjson.decode(body)
+
+    # special branch to check for gaps
+    if checkGaps:
+        searchSegment = glue.segments.segment(int(gpsStart), int(gpsEnd))
+
+        if len(urlList) == 0:
+            # the interval is not covered at all so the 
+            # return value should be 2 and we will print
+            # the missing interval or gap to stderr and
+            # the string 'empty interval found' to stdout
+            # or the output_file
+            print >>output_file, 'empty interval found'
+            print >>sys.stderr, 'missing segments: %s' % str(searchSegment)
+            return 2
+
+        # parse the URLs to create a segment representation
+        lfnList = [ os.path.basename(url) for url in urlList ]
+        timeDuration = [ s[:-4].split('-')[2:4] for s in lfnList ]
+        intervals = [ [int(x), int(x) + int(y)] for x,y in timeDuration ]
+        returnedSegments = glue.segments.segmentlist([ glue.segments.segment(i) for i in intervals ])
+
+        # normalize the segment list
+        returnedSegments.coalesce()
+
+        # see if the returned segments cover the search segment
+        if searchSegment in returnedSegments:
+            # the interval is covered entirely so the
+            # return value should be zero (0) and we will
+            # print the URLs to stdout and nothing to stderr
+            if namesOnly:
+                lfns = parseLFNs(urlList)
+                for lfn in lfns:
+                    print >>output_file, "%s" % lfn
+
+            elif lalcache:
+                for pfn in urlList:
+                    lfn = os.path.basename(pfn)
+                    head, ext = os.path.splitext(lfn)
+                    a, b, c, d = head.split('-') 
+                    print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+            else:
+                for pfn in urlList:
+                    print >>output_file, "%s" % pfn
+
+            return 0
+
+        else:
+            # the interval is not covered entirely so the return
+            # value should be one (1) and we will print the URLs
+            # we did find to stdout and the missing segments
+            # to stderr
+            if namesOnly:
+                lfns = parseLFNs(urlList)
+                for lfn in lfns:
+                    print >>output_file, "%s" % lfn
+
+            elif lalcache:
+                for pfn in urlList:
+                    lfn = os.path.basename(pfn)
+                    head, ext = os.path.splitext(lfn)
+                    a, b, c, d = head.split('-') 
+                    print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+            else:
+                for pfn in urlList:
+                    print >>output_file, "%s" % pfn
+
+            missingSegments = glue.segments.segmentlist([searchSegment]) - returnedSegments
+            print >>sys.stderr, 'missing segments: %s' % missingSegments
+
+            return 1
+
+
 
     if len(urlList) == 0:
         print >>sys.stderr, "No files found!"
