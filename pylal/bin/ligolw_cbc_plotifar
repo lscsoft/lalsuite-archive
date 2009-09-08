@@ -301,10 +301,7 @@ if plot_datatype == "slide" or plot_datatype == "simulation":
     raise ValueError, "--datatype must be either all_data, playground, or exclude_play"
 
 # determine whether or not this is open box for later naming
-if plot_datatype == "all_data" or "exclude_play":
-    open_box = True
-else:
-    open_box = False
+open_box = (plot_datatype == "all_data") or (plot_datatype == "exclude_play")
 
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
@@ -741,7 +738,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xlabel( r"Uncombined Inverse False Alarm Rate (yr)", size='x-large' )
             ylabel( r"Cumulative \#", size='x-large' )
             title_txt = ' '.join([ lsctables.ifos_from_instrument_set(on_inst), "Time:",
-                re.sub('-','_', plot_datatype.upper()), "Cum. Num. vs Uncombined IFAR"])
+                re.sub('_','-', plot_datatype.upper()), "Cum. Num. vs Uncombined IFAR"])
             title(title_txt, size='x-large')
 
         #
@@ -909,7 +906,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xlabel( r"Inverse False Alarm Rate (yr)", size='x-large' )
             ylabel( r"Cumulative \#", size='x-large' )
             title_txt = ' '.join([ lsctables.ifos_from_instrument_set(on_inst), "Time:",
-                re.sub('-','_', plot_datatype.upper()), "Cum. Num. vs Combined IFAR"])
+                re.sub('_','-', plot_datatype.upper()), "Cum. Num. vs Combined IFAR"])
             title(title_txt, size='x-large')
 
             # Make the legend

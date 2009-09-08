@@ -297,7 +297,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   if html_tag != '':
     prefix += '_' + html_tag
   # add the box-flag to the prefix if desired
-  if add_box_flag is True:
+  if add_box_flag:
     box_flag = ''
     if [fname for fname in fnameList if 'OPEN_BOX' in fname] != []:
       box_flag ='_OPEN_BOX'
