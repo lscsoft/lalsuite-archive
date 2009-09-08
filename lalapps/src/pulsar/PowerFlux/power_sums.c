@@ -138,6 +138,8 @@ float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*
 
 float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for amplitude response and bin shift estimation */
 
+//fprintf(stderr, "%p %p %d %lf %lf 0x%08x\n", ctx, ps, count, gps_start, gps_stop, veto_mask);
+
 for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
 	si=find_segments(gps_idx, gps_idx+gps_step, veto_mask, &segment_count);

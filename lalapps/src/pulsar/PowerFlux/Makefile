@@ -397,10 +397,11 @@ upload: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.a: powerflux-condor powerflux-mt powerflux-condor2
-	globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-	globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
+	#globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	#globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	#globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	globus-scp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	globus-scp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
@@ -416,10 +417,11 @@ upload.l: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
-upload.c: powerflux-condor powerflux-mt powerflux-condor2
+upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	globus-scp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
+	globus-scp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.m: powerflux-condor powerflux-mt
