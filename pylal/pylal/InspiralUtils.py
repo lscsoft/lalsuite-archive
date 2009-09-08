@@ -276,7 +276,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
 def write_html_output(opts, args, fnameList, tagLists, \
       doThumb=True, cbcweb = False, mapList = [],\
       comment=None, CoincSummTable=None,\
-      add_box_flag=False):
+      html_tag = '', add_box_flag=False):
   """
   @param opts: The options from the calling code
   @param args: The args from the calling code
@@ -285,6 +285,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   @param doThumb: Uses the _thumb file as the sourcs for the images
   @param cbcweb: Creates the output as a CBC webpage
   @param mapList: A list of dictionaries to create the image maps
+  @html_tag: tag to add to html filename
   @add_box_flag: Adds _OPEN_BOX to the html file name if any
    of the files in filelist have "_OPEN_BOX" in their name. Otherwise,
    will add "_CLOSED_BOX" to the file name. These flags go between
@@ -292,6 +293,9 @@ def write_html_output(opts, args, fnameList, tagLists, \
   """
 
   prefix = opts.prefix
+  # add the html_tag if desired
+  if html_tag != '':
+    prefix += '_' + html_tag
   # add the box-flag to the prefix if desired
   if add_box_flag is True:
     box_flag = ''
