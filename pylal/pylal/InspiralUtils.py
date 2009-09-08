@@ -13,6 +13,7 @@ import math
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.iterutils import any
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import git_version
@@ -299,7 +300,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   # add the box-flag to the prefix if desired
   if add_box_flag:
     box_flag = ''
-    if [fname for fname in fnameList if 'OPEN_BOX' in fname] != []:
+    if any(fname for fname in fnameList if 'OPEN_BOX' in fname):
       box_flag ='_OPEN_BOX'
     else:
       box_flag = '_CLOSED_BOX'
