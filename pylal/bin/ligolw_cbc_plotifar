@@ -629,7 +629,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if xmax < 1./ufars[-1]:
                     xmax = 1./ufars[-1]
                 if ymax < uncombined_cumnum[category][0]:
-                    ymax = uncombined_cumnum[category]
+                    ymax = uncombined_cumnum[category][0]
 
 
             #
