@@ -77,7 +77,7 @@ def smart_round( val, decimal_places = 2):
     places specified.
 
     @val: value to round. If val is not a float, just returns val
-    @decimal_places: valber of decimal places to round to
+    @decimal_places: number of decimal places to round to
     """
     if isinstance(val, float) and val != 0.0:
         if val >= 10.**-(decimal_places - 1):
