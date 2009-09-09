@@ -49,35 +49,6 @@ from pylal.date import LIGOTimeGPS
 from pylal import git_version
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2] or None
-
-
-def get_mean_mchirp_GRB070923(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    if mean_mchirp<0.86 or mean_mchirp>17.50:
-      modified_mean_mchirp = -1
-
-    return modified_mean_mchirp
 
 #
 # get loudest coincs from each category
@@ -152,7 +123,7 @@ def get_loudest_stats_by_mc(xmldoc, coinc_stat, mc_bins):
     # define bins and keys
     nd_bins = rate.NDBins((mc_bins,))
     stat_func = operator.attrgetter("stat")
-    keys = (get_mean_mchirp_GRB070923,)
+    keys = (get_mean_mchirp,)
 
     # get loudest stat in each bin
     return get_loudest_stats_by_bins(onsource_coincs, stat_func, nd_bins, keys,
@@ -176,7 +147,7 @@ def keep_only_loudest_events_by_mc(xmldoc, coincstat, mc_bins):
     # define bins and keys
     nd_bins = rate.NDBins((mc_bins,))
     stat_func = lambda coinc: (coinc.stat, coinc.event_id)
-    keys = (grbsummary.get_mean_mchirp,)
+    keys = (get_mean_mchirp,)
 
     # get loudest (stat, event_id) in each bin, then filter for matching triggers
     loudest_pairs = get_loudest_stats_by_bins(onsource_coincs, stat_func,
@@ -204,7 +175,7 @@ def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
     nd_bins = rate.NDBins((trial_bins, mc_bins))
     stat_func = operator.attrgetter("stat")
     keys = (CoincInspiralUtils.coincInspiralTable.row.get_time,
-            get_mean_mchirp_GRB070923)
+            get_mean_mchirp)
 
     # get loudest stat in each bin
     return get_loudest_stats_by_bins(offsource_coincs, stat_func, nd_bins,
@@ -237,7 +208,7 @@ def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
     # find loudest coincs
     # convert time -> trial index -> sim index
     keys = (lambda row: trial_bins[row.get_time()],
-            get_mean_mchirp_GRB070923)
+            get_mean_mchirp)
     sim_bins = DictBins([(trial_ind, i) for i, trial_ind \
                          in enumerate(sim_trials)])
     nd_bins = rate.NDBins((sim_bins, mc_bins))
@@ -251,8 +222,9 @@ def append_process(doc, options):
     """
     Append a process table and a process_params table to doc.
     """
-    process = ligolw_process.append_process(doc, "pylal_relic", __version__,
-                                    "lscsoft", __date__)
+    process = ligolw_process.append_process(doc, "pylal_relic",
+        git_version.tag or git_version.id, "lalsuite",
+        git_version.date)
 
     def map_val(name, val):
         """
@@ -335,6 +307,10 @@ def parse_args():
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
 
+    # GRB 070923
+    parser.add_option("--grb070923", action="store_true", default=False,
+        help="specify if this code is analyzing GRB 070923 or a 'normal' GRB.")
+
     options, arguments = parser.parse_args()
 
     # check that mandatory switches are present
@@ -363,6 +339,12 @@ def parse_args():
 ################################################################################
 # parse arguments
 opts, args = parse_args()
+
+# special: GRB 070923
+if opts.grb070923:
+  get_mean_mchirp = grbsummary.get_mean_mchirp_lv
+else:
+  get_mean_mchirp = grbsummary.get_mean_mchirp
 
 ##############################################################################
 # generic initialization

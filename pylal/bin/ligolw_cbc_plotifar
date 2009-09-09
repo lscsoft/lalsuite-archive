@@ -20,7 +20,7 @@ try:
 except ImportError:
     # pre 2.5.x
     from pysqlite2 import dbapi2 as sqlite3
-import sys,os
+import sys,os,re
 import copy
 import bisect
 
@@ -260,7 +260,7 @@ rc('text', usetex=True)
 # param_ranges_legend, which has the following form:
 # param_ranges_legend[(param_name, group_number)]: {'range': string }, {'marker': marker}, {'linestyle': linestyle}
 param_ranges_legend = {}
-trigsymbols = itertools.cycle(( '^', 'o', 's' ))
+trigsymbols = itertools.cycle(( 'v', 'o', 's' ))
 linestyles = itertools.cycle(( ':', '-.', '--' ))
 if opts.param_name:
     param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name,
@@ -300,11 +300,8 @@ if plot_datatype not in lsctables.ExperimentSummaryTable.datatypes:
 if plot_datatype == "slide" or plot_datatype == "simulation":
     raise ValueError, "--datatype must be either all_data, playground, or exclude_play"
 
-# stick datatype plotted in filename
-if opts.user_tag:
-    opts.user_tag = '_'.join([ opts.user_tag, plot_datatype.upper(), 'PLOTTED'])
-else:
-    opts.user_tag = '_'.join([ plot_datatype.upper(), 'PLOTTED' ])
+# determine whether or not this is open box for later naming
+open_box = (plot_datatype == "all_data") or (plot_datatype == "exclude_play")
 
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
@@ -632,7 +629,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if xmax < 1./ufars[-1]:
                     xmax = 1./ufars[-1]
                 if ymax < uncombined_cumnum[category][0]:
-                    ymax = uncombined_cumnum[category]
+                    ymax = uncombined_cumnum[category][0]
 
 
             #
@@ -740,17 +737,20 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             ylim(ymin,ymax)
             xlabel( r"Uncombined Inverse False Alarm Rate (yr)", size='x-large' )
             ylabel( r"Cumulative \#", size='x-large' )
+            title_txt = ' '.join([ lsctables.ifos_from_instrument_set(on_inst), "Time:",
+                re.sub('_','-', plot_datatype.upper()), "Cum. Num. vs Uncombined IFAR"])
+            title(title_txt, size='x-large')
 
         #
         #   Make the Plot
         #
         if opts.enable_output:
-            name = "cumhist_uncombined_ifar"
-            txt = "Cumulative Histogram of Uncombined IFAR"
+            name = InspiralUtils.set_figure_tag("cumhist_uncombined_ifar", 
+                datatype_plotted = plot_datatype.upper(), open_box = open_box)
             fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
             fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
             fnameList.append(fname)
-            tagList.append(txt)
+            tagList.append(name)
 
 
     #
@@ -905,6 +905,9 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             ylim(ymin,ymax)
             xlabel( r"Inverse False Alarm Rate (yr)", size='x-large' )
             ylabel( r"Cumulative \#", size='x-large' )
+            title_txt = ' '.join([ lsctables.ifos_from_instrument_set(on_inst), "Time:",
+                re.sub('_','-', plot_datatype.upper()), "Cum. Num. vs Combined IFAR"])
+            title(title_txt, size='x-large')
 
             # Make the legend
             legend()
@@ -913,12 +916,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         #   Make the Plot
         #
         if opts.enable_output:
-            name = "cumhist_combined_ifar"
-            txt = "Cumulative Histogram of Combined IFAR"
+            name = InspiralUtils.set_figure_tag("cumhist_combined_ifar", 
+                datatype_plotted = plot_datatype.upper(), open_box = open_box)
             fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
             fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
             fnameList.append(fname)
-            tagList.append(txt)
+            tagList.append(name)
 
     #
     #   Create the html page for this experiment id
@@ -927,7 +930,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     if opts.enable_output:
         if opts.verbose:
             print >> sys.stdout, "\twriting html file and cache."
-        html_filename = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList, tagList )
+        html_filename = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList, tagList, 
+            html_tag = plot_datatype.upper() + '_PLOTTED', add_box_flag = True )
         InspiralUtils.write_cache_output( InspiralUtilsOpts, html_filename, fnameList )
     
     if opts.show_plot:

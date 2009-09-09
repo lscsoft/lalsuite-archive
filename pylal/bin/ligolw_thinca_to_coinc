@@ -920,12 +920,6 @@ def get_playground_segments(all_data_segments):
 #
 
 
-def check_for_thinca_id_overflow(event):
-	a, b, c = event.get_id_parts()
-	if a >= 100000000 and c == 99999:
-		raise ValueError, "found sngl_inspiral with ID ending in 99999 (\"%s\"):  overflow occured in lalapps_thinca's ID assignment, time slide indexes are corrupted" % str(event.event_id)
-
-
 def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, verbose = False):
 	if verbose:
 		print >>sys.stderr, "constructing coincs ...",
@@ -1019,7 +1013,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
-				check_for_thinca_id_overflow(event)
 				event.event_id = sngl_inspiral_table.get_next_id()
 			continue
 
@@ -1052,7 +1045,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		#
 
 		for event in events:
-			check_for_thinca_id_overflow(event)
 			coincmap = coinc_event_map_table.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id = sngl_inspiral_table.get_next_id()

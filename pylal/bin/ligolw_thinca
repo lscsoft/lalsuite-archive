@@ -37,6 +37,7 @@ from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import segments as ligolw_segments
 # Don't use sngl_inspiral event_id derived from the long built-in.  this
 # must be done before importing pylal.xlal.tools or bad things happen.
 # FIXME:  remove when thinca no longer generates bazillion-digit long
@@ -89,6 +90,8 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
+	parser.add_option("--veto-file", metavar = "filename", help = "Apply vetoes extracted from this XML document.")
+	parser.add_option("--vetoes-name", metavar = "string", default = "vetos", help = "From the veto file, extract the segment list having this name to use as the veto segments (default = \"vetoes\").")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -121,6 +124,11 @@ def parse_command_line():
 
 
 options, filenames = parse_command_line()
+
+if options.veto_file is not None:
+	vetoes = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_file, gz = options.veto_file.endswith(".gz"), verbose = options.verbose), options.vetoes_name).coalesce()
+else:
+	vetoes = None
 
 
 #
@@ -192,6 +200,7 @@ for n, filename in enumerate(filenames):
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
 		thresholds = options.e_thinca_parameter,
 		effective_snr_factor = options.effective_snr_factor,
+		veto_segments = vetoes,
 		verbose = options.verbose
 	)
 
