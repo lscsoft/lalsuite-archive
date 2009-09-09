@@ -329,7 +329,8 @@ setup(
                 os.path.join("bin", "ligolw_cbc_plotifar"),
                 os.path.join("bin", "ligolw_cbc_compute_durations"),
                 os.path.join("bin", "extractCommand"),
-		os.path.join("bin", "OddsPostProc.py")
+		os.path.join("bin", "OddsPostProc.py"),
+        os.path.join("bin", "minifollowups")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
