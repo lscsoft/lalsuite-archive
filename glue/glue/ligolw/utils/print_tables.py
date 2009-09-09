@@ -13,6 +13,8 @@
 A collection of utilities to convert xml-tables to other formats, such as
 wiki or html.
 """
+import sys
+
 from glue.ligolw import ligolw
 from glue.ligolw import table
 
@@ -104,7 +106,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
     tables.
 
     @xmldoc: document to convert
-    @output: file object to write output to
+    @output: file object to write output to; if None, will write to stdout
     @output_format: format to convert to
     @tableList: only convert the listed tables. Default is
      to convert all the tables found in the xmldoc. Tables
@@ -115,12 +117,16 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
     @decimal_places: If round_floats turned on, will smart_round to this
      number of decimal places.
     """
-    # get table bits
-    ttx, xtt, tx, xt, capx, xcap, rx, xr, xccx = set_output_format( output_format )
-
     # get the tables to convert
     if tableList == []:
         tableList = [tb.getAttribute("Name") for tb in xmldoc.childNodes[0].getElementsByTagName(u'Table')]
+
+    # set the output
+    if output is None:
+        output = sys.stdout
+
+    # get table bits
+    ttx, xtt, tx, xt, capx, xcap, rx, xr, xccx = set_output_format( output_format )
 
     # set the title if desired
     if title is not None:
