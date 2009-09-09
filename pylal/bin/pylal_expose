@@ -78,6 +78,8 @@ def parse_args():
 
     parser.add_option("--analyze", type="string",help="Specifies what to "\
                       "analyze. Possible values: {box,test}.")
+    parser.add_option("--statistic", type="string",help="Specifies what "\
+                      "statistoc to use. Possible values: {fap,ifar}.")
     parser.add_option("--reject-no-candidate", action="store_true",
                       help="Rejects any GRB which does not have any candidate"\
                       " for the population statement.", default=False)
@@ -117,7 +119,7 @@ def parse_args():
         options.ifo_times = options.ifo_tag
 
     # check the minimal required arguments
-    for opt in ["data_path","m2_min","m2_max","m2_nbins"]:
+    for opt in ["data_path","m2_min","m2_max","m2_nbins","statistic"]:
         if getattr(options, opt) is None:
             raise ValueError,  "--%s is required" % opt.replace("_", "-")
 
@@ -305,7 +307,7 @@ else:
             enumerate(zip(m2_bins.lower(), m2_bins.upper())):
                 
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
-        pop_m2[mass_bin].set_stat('lik')
+        pop_m2[mass_bin].set_stat(opts.statistic)
         pop_m2[mass_bin].select_onsource(opts.analyze, reject_empty =\
                                          opts.reject_empty)
         z_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
@@ -319,7 +321,7 @@ else:
 
 
     # select either a fake trial or the box
-    pop_stat.set_stat('lik')
+    pop_stat.set_stat(opts.statistic)
     pop_stat.select_onsource(opts.analyze, reject_empty = opts.reject_empty)
     z_lik = pop_stat.compute_wmu()
 
