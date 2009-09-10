@@ -184,6 +184,15 @@ class CoincDatabase(object):
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
 		# The previous line is slow, if you are debugging some other feature you could just hardcode it like this
 		# self.background_livetime = {frozenset(["H1","L1"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
+		self.livetime_by_offset = {}
+		for key in self.background_livetime.keys():
+			self.livetime_by_offset[key] = {}
+			for time,vec in zip(self.background_livetime[key], self.offset_vectors):
+				vec = vec['L1']
+				if vec in self.livetime_by_offset[key].keys():
+					self.livetime_by_offset[key][vec] += time
+				else:
+					self.livetime_by_offset[key][vec] = time
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
@@ -1046,6 +1055,131 @@ FROM
 				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), True
 
 
+class RateVsL1Offset(object):
+	def __init__(self):
+		self.livetime_by_offset = {}
+		self.num_triggers_by_offset = {}
+		self.num_triggers_by_offset_playground = {}
+		self.playground_livetime = {}
+		self.nonplayground_livetime = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is not None:
+			# skip injection documents
+			return
+
+		for on_instruments in set(contents.playground_livetime) | set(contents.nonplayground_livetime):
+			self.playground_livetime.setdefault(on_instruments, 0.0)
+			self.nonplayground_livetime.setdefault(on_instruments, 0.0)
+		for on_instruments, livetime in contents.playground_livetime.items():
+			self.playground_livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.nonplayground_livetime.items():
+			self.nonplayground_livetime[on_instruments] += livetime
+
+		for on_instruments in contents.livetime_by_offset.keys():
+			self.livetime_by_offset.setdefault(on_instruments, {})
+			self.num_triggers_by_offset.setdefault(on_instruments, {})
+			self.num_triggers_by_offset_playground.setdefault(on_instruments, {})
+			for offset in contents.livetime_by_offset[on_instruments].keys():
+				self.livetime_by_offset[on_instruments].setdefault(offset, 0.)
+				self.num_triggers_by_offset[on_instruments].setdefault(offset, {})
+			self.num_triggers_by_offset[on_instruments].setdefault(0.0, {})
+			self.num_triggers_by_offset_playground[on_instruments].setdefault(0.0, {})
+
+		for on_instruments in contents.livetime_by_offset.keys():
+			for offset, time  in contents.livetime_by_offset[on_instruments].items():
+				self.livetime_by_offset[on_instruments][offset] += time
+
+		for on_instruments, ifos, seconds, nanoseconds, offset in connection.cursor().execute("""
+SELECT
+	coinc_event.instruments,
+	coinc_inspiral.ifos,
+	coinc_inspiral.end_time,
+	coinc_inspiral.end_time_ns,
+	time_slide.offset
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN time_slide ON (
+		time_slide.time_slide_id == coinc_event.time_slide_id
+	)
+WHERE
+	time_slide.instrument == 'L1'
+		"""):
+			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
+			if ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
+				self.num_triggers_by_offset[on_instruments][offset][ifos] += 1
+			else:
+				self.num_triggers_by_offset[on_instruments][offset][ifos] = 1
+			if offset == 0.0 and LIGOTimeGPS(seconds, nanoseconds) in contents.playground_segs:
+				if ifos in self.num_triggers_by_offset_playground[on_instruments][offset].keys():
+					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] += 1
+				else:
+					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] = 1
+
+	def finish(self):
+		figs = {}
+		playground_figs = {}
+		background_time = {}
+		background_num_triggers = {}
+		for on_instruments in self.num_triggers_by_offset.keys():
+			figs[on_instruments] = {}
+			playground_figs[on_instruments] = {}
+			background_time[on_instruments] = 0
+			background_num_triggers[on_instruments] = {}
+			for offset in self.num_triggers_by_offset[on_instruments].keys():
+				if offset != 0.0:
+					background_time[on_instruments] += self.livetime_by_offset[on_instruments][offset]
+				for ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
+					if ifos not in background_num_triggers[on_instruments].keys():
+						background_num_triggers[on_instruments][ifos] = 0
+					if ifos not in figs[on_instruments].keys():
+						figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
+						playground_figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
+					if offset == 0:
+						c = 'r'
+						time = self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]
+						if time == 0:
+							rate = 0
+						else:
+							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/time
+						if self.playground_livetime[on_instruments] == 0:
+							playground_rate = 0
+						else:
+							try:
+								playground_rate = float(self.num_triggers_by_offset_playground[on_instruments][offset][ifos])/self.playground_livetime[on_instruments]
+							except KeyError:
+								playground_rate = 0
+					else:
+						c = 'b'
+						if self.livetime_by_offset[on_instruments][offset] == 0:
+							rate = 0
+						else:
+							background_num_triggers[on_instruments][ifos] += self.num_triggers_by_offset[on_instruments][offset][ifos]
+							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/self.livetime_by_offset[on_instruments][offset]
+					figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
+					playground_figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
+
+		for on_instruments in figs.keys():
+			for ifos in figs[on_instruments].keys():
+				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
+				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]))**.5
+				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
+				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
+				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
+				sigma1 = (float(background_num_triggers) / background_time * self.playground_livetime[on_instruments])**.5
+				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
+				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
+
+				ifos_txt = ifos.split(',')
+				ifos_txt.sort()
+				on_instruments_txt = list(on_instruments)
+				on_instruments_txt.sort()
+				yield figs[on_instruments][ifos][0], "plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), True
+				yield playground_figs[on_instruments][ifos][0], "plot_slides_playground_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), False
+
 #
 # =============================================================================
 #
@@ -1077,6 +1211,7 @@ def new_plots(plots = None):
 		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
 		RateVsThreshold(),
 		InjectionParameterDistributionPlots(),
+		RateVsL1Offset(),
 	)
 	if plots is None:
 		plots = range(len(l))
