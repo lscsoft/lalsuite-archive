@@ -233,7 +233,7 @@ def create_grbUL_call(cp, opts):
 
   # set the calib factors as outlined on wiki
   # https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/JointS5/090709085927TrigSearchCalibration
-  calib_factor = {'H1L1':0.306, 'H2L1':0.292, 'H1H2':0.273, 'H1H2L1':0.320}
+  calib_factor = {'H1L1':0.306, 'H2L1':0.292, 'H1H2':0.273, 'H1L1V1':0.320}
 
   # create the code-call
   call = './executables/pylal_grbUL'
