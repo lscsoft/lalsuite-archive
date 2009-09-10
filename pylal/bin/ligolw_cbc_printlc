@@ -453,8 +453,7 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
-    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id") + 1
-    save_ids = [''.join(['"', row[ceid_index_num], '"']) for row in info]
+    save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in lctable]
     # delete all other ids from the coinc_inspiral table
     sqlquery = ''.join([ """
         DELETE
