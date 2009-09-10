@@ -27,6 +27,12 @@ import bisect
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import utils
+from glue.ligolw.utils import print_tables
+from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
 
 from pylal import ligolw_sqlutils as sqlutils
@@ -70,10 +76,10 @@ def parse_command_line():
             "environment and is needed if extracting an xml file."
             )
     parser.add_option("-f", "--output-format", action = "store", type = "string",
-        default = "wiki", metavar = "wiki, html, OR xml",
+        default = "xml", metavar = "wiki, html, OR xml",
         help =
             "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. " +
-            "Default is wiki."
+            "Default is xml."
             )
     parser.add_option("-x", "--extract-to-xml", action = "store", type = "string",
         default = None, metavar = "filename",
@@ -152,6 +158,7 @@ def parse_command_line():
             "minimum stat value." 
             )
     parser.add_option( "", "--limit", action = "store", type = "int", default = 10,
+        metavar = "INT or None",
         help =
             "Specify how many triggers to print. Default is 10. "
             )
@@ -209,6 +216,7 @@ class rank_stats:
         self.table = table
         self.ranking_stat = ranking_stat
         self.rank_by = rank_by
+
     def populate_stats_list(self, connection, limit, filter = ''):
         """
         Gets top stats from database for later ranking
@@ -229,13 +237,13 @@ class rank_stats:
             LIMIT """, str(limit) ])
         self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
         self.stats.sort()
+
     def get_rank( self, this_stat ):
         if self.rank_by == "ASC":
             return bisect.bisect_left(self.stats, this_stat) + 1
         else:
             return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
             
-
 # =============================================================================
 #
 #                                     Main
@@ -306,7 +314,9 @@ if opts.include_only_coincs:
 # join the needed tables to in_this_filter
 where_in_this_filter = ''.join([ sqlutils.join_experiment_tables_to_coinc_inspiral(), "\n    WHERE\n\t", in_this_filter ])
 
-# Set needed functions
+#
+#   Set needed functions
+#
 
 # establish what units will be converting duration to; this has to be done
 # by defining a function which calls sqlutils.convert_duration with the desired
@@ -327,13 +337,75 @@ ranker = rank_stats('coinc_inspiral', ranking_stat, rank_by)
 ranker.populate_stats_list(connection, opts.limit, filter = where_in_this_filter)
 connection.create_function( 'rank', 1, ranker.get_rank )
 
-# Set up sqlquery
+
+#
+#   Create and prepare the LoudestEventsTable to store summary information
+#
+
+# Get list of column names from coinc_inspiral table
+coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
+# generate list of column names for the summary table
+column_names = [ 'rank_using_' + ranking_stat.split('.')[-1] ]
+column_names.extend(coinc_inspiral_cols)
+# add instruments on, duration, mini_followups
+durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower() ])
+column_names.extend([u'instruments_on', durname, u'mini_followup' ])
+
+#
+# define the table
+#
+class LoudestEventsTable(table.Table):
+    tableName = "loudest_events:table"
+    validcolumns = {}
+    for col_name in column_names:
+        if 'rank_using_' in col_name:
+            validcolumns[col_name] = "int_4u"
+        elif 'instruments_on' in col_name:
+            validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
+        elif '_duration_' in col_name:
+            validcolumns[col_name] = lsctables.ExperimentSummaryTable.validcolumns['duration']
+        elif col_name in lsctables.CoincInspiralTable.validcolumns.keys():
+            validcolumns[col_name] = lsctables.CoincInspiralTable.validcolumns[col_name]
+        # if custom columns exist in the database, just set them to lstrings
+        else:
+            validcolumns[col_name] = "lstring"
+
+class LoudestEvents(object):
+    __slots__ = LoudestEventsTable.validcolumns.keys()
+
+    def get_pyvalue(self):
+        if self.value is None:
+            return None
+        return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+
+# connect the row to the table
+LoudestEventsTable.RowType = LoudestEvents
+
+#
+# create a document
+#
+lcdoc = ligolw.Document()
+# setup the LIGOLW tag
+lcdoc.appendChild(ligolw.LIGO_LW())
+# add this program's metadata
+lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+# add the table
+lctable = lsctables.New(LoudestEventsTable)
+# connect the table to the document
+lcdoc.childNodes[0].appendChild(lctable)
+
+
+#
+#   Get the Data
+#
+
 sqlquery = ''.join([ """
     SELECT
         rank(""", ranking_stat, """),
         coinc_inspiral.*,
         experiment.instruments,
-        convert_duration(experiment_summary.duration)
+        convert_duration(experiment_summary.duration),
+        NULL AS mini_followup
     FROM
         coinc_inspiral
     """, where_in_this_filter, """
@@ -345,120 +417,35 @@ if opts.verbose:
     print >> sys.stdout, "Getting coincs..."
     print >> sys.stdout, "SQLite query used is:"
     print >> sys.stdout, sqlquery
-    if not opts.output:
-        print >> sys.stdout, "\nResults are:\n"
 
-info = connection.cursor().execute( sqlquery ).fetchall()
+for values in connection.cursor().execute( sqlquery ):
+    lcrow = LoudestEvents()
+    [ setattr(lcrow, column, data) for column, data in zip(column_names, values) ]
+    lctable.append(lcrow)
 
-# Get list of column names from coinc_inspiral table
-coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
-# generate list of column names for the summary table
-# note: for xml format, column names cannot have spaces or (),
-# so they are replaced with _
-if opts.output_format == 'xml':
-    column_names = [ 'rank_using_' + ranking_stat.split('.')[-1] ]
-else:
-    column_names = [ 'rank (using ' + ranking_stat.split('.')[-1] + ')' ] 
-column_names.extend(coinc_inspiral_cols)
-# add instruments on, duration
-if opts.output_format == 'xml':
-    durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower() ])
-else:
-    durname = ''.join([ opts.datatype.strip().lower(), u' duration (', opts.convert_durations.strip().lower(), ')' ])
-column_names.extend([u'instruments_on', durname ])
 
 #
-# Prepare for printing summary info to output
+#   Print the summary data
 #
 
-# set output
-if opts.output and opts.output_format != 'xml':
-    output = open(opts.output, 'w')
-else:
-    output = sys.stdout
+if opts.verbose and not opts.output:
+    print >> sys.stdout, "\nResults are:\n"
 
-# set output-format
-if opts.output_format == 'wiki':
-    tx = ''
-    xt = ''
-    rx = '||'
-    xr = '||'
-    xccx = '||'
-
-elif opts.output_format == "html":
-    tx = '<table border = "1">'
-    xt = '</table>'
-    rx = '<tr><td>'
-    xr = '</td></tr>'
-    xccx = '</td><td>'
-
-elif opts.output_format == "xml":
-    # get needed imports
-    from glue.ligolw import ligolw
-    from glue.ligolw import table
-    from glue.ligolw import utils
-    from glue.ligolw.utils import ligolw_add
-    from glue.ligolw.utils import process
-
-    # Define the table
-    class LoudestEventsTable(table.Table):
-        tableName = "loudest_events:table"
-        # as we don't know apriori what the column types are, just set everything to lstring
-        validcolumns = dict([ [col_name, "lstring"] for col_name in column_names ])
-
-    # Define the row
-    class LoudestEvents(object):
-        __slots__ = LoudestEventsTable.validcolumns.keys()
-    
-        def get_pyvalue(self):
-            if self.value is None:
-                return None
-            return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
-
-    # connect the row to the table
-    LoudestEventsTable.RowType = LoudestEvents
-
-    # Create a document
-    lcdoc = ligolw.Document()
-    # setup the LIGOLW tag
-    lcdoc.appendChild(ligolw.LIGO_LW())
-    # add this programs metadata
-    lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
-    # add the table
-    lctable = lsctables.New(LoudestEventsTable)
-    # connect the table to the document
-    lcdoc.childNodes[0].appendChild(lctable)
-
-    
-else:
-    raise ValueError, 'unrecognized output-format; must be either wiki, html, or xml'
-    
-#
-# Print the summary data
-#
 if opts.output_format != "xml":
-    header = ''.join([ tx, rx, xccx.join( column_names  ), xr ])
-    print >> output, header
-    for row in info:
-        row = xccx.join(str(data) for data in row)
-        print >> output, "%s%s%s" % (rx, row, xr)
-    # close the table
-    print >> output, xt
-    if output != sys.stdout:
-        output.close()
-
+    # set output
+    if opts.output is not None:
+        opts.output = open(opts.output, 'w')
+    # print the loudest_events table in the specified format
+    print_tables.print_tables(lcdoc, opts.output, opts.output_format, tableList = ['loudest_events'],
+        round_floats = True, decimal_places = 2, title = None)
+    if opts.output is not None:
+        opts.output.close()
 else:
-    for row in info:
-        lcrow = LoudestEvents()
-        for column, data in zip(column_names, row):
-            setattr(lcrow, column, data)
-        # add the row to the table
-        lctable.append(lcrow)
-    # write to opts.output (if opts.output is None, will write to sys.stdout)
     utils.write_filename(lcdoc, opts.output, xsl_file = "ligolw.xsl")
 
+
 #
-# If extract-to-xml, generate the full xml
+#   If extract-to-xml, generate the full xml
 #
 
 if opts.extract_to_xml:
@@ -466,8 +453,7 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
-    ceid_index_num = coinc_inspiral_cols.index("coinc_event_id") + 1
-    save_ids = [''.join(['"', row[ceid_index_num], '"']) for row in info]
+    save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in lctable]
     # delete all other ids from the coinc_inspiral table
     sqlquery = ''.join([ """
         DELETE
