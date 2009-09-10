@@ -121,7 +121,8 @@ else:
 # convert the files
 for xmldoc, title in zip(xmldocs, titles):
     print_tables.print_tables(xmldoc, options.output, options.output_format, tableList = options.table,
-        round_floats = round_floats, decimal_places = options.round_floats, title = title)
+        round_floats = round_floats, decimal_places = options.round_floats, title = title,
+        print_table_names = True)
 
 # close and exit
 options.output.close()

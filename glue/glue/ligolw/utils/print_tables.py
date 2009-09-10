@@ -99,7 +99,8 @@ def smart_round( val, decimal_places = 2):
 # =============================================================================
 #
 
-def print_tables(xmldoc, output, output_format, tableList = [], round_floats = True, decimal_places = 2, title = None):
+def print_tables(xmldoc, output, output_format, tableList = [], round_floats = True, decimal_places = 2, title = None,
+    print_table_names = True):
     """
     Method to print tables in an xml file in other formats.
     Input is an xmldoc, output is a file object containing the
@@ -116,6 +117,9 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
      number of places.
     @decimal_places: If round_floats turned on, will smart_round to this
      number of decimal places.
+    @title: Add a title to this set of tables.
+    @print_table_names: If set to True, will print the name of each table
+     in the caption section.
     """
     # get the tables to convert
     if tableList == []:
@@ -137,7 +141,8 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
         col_names = [col.getAttribute("Name").split(":")[-1] for col in this_table.getElementsByTagName(u'Column')]
         # start the table and print table name
         print >> output, tx
-        print >> output, "%s%s%s" %(capx, table_name, xcap)
+        if print_table_names:
+            print >> output, "%s%s%s" %(capx, table_name, xcap)
         print >> output, "%s%s%s" %(rx, xccx.join(col_names), xr)
 
         # print the data in the table
