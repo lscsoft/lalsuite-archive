@@ -65,7 +65,9 @@ LALFindChirpACTDTemplate(
     )
 /* </lalVerbatim> */
 {
-  UINT4          i, j, istart = 0, present = 3;
+  UINT4          i, j;
+  UINT4          istart = 0;
+  INT4           istop = NACTDVECS;
   UINT4          shift;
   UINT4          numPoints;
   REAL4Vector    ACTDVecs[NACTDVECS];
@@ -244,9 +246,21 @@ LALFindChirpACTDTemplate(
   if( - ppnParams.fStopIn  <= params->fLow )
     istart++;
 
+  /* delta varies between 0 and 1 
+   * Let us try a delta threshold of 0.25 such that if delta < 0.25 the
+   * 1st and 3rd harmonics are not included.
+   * This equates to eta > 0.2344
+   */
+  if( ppnParams.eta_real8 > 0.2344 )
+  {
+    istart = 1;
+    istop  = 2;
+  }
+  
+
   for ( j = 0; j < waveform.a->data->length; ++j )
   {
-    for ( i = istart; i < NACTDVECS; ++i )
+    for ( i = istart; i < istop; ++i )
     {
       ACTDVecs[i].data[j] = waveform.a->data->data[3*j + i]
          * cos( ( ( REAL4 )( i ) + 1.0 ) / 2.0 * waveform.phi->data->data[j] );
@@ -298,7 +312,7 @@ LALFindChirpACTDTemplate(
     ABORTXLAL( status );
   }
   
-  for( i = 0; i < NACTDVECS; i++ )
+  for( i = istart; i < istop; i++ )
   {
     memcpy( tmpACTDVec->data, ACTDVecs[i].data,  
                numPoints * sizeof( *( ACTDVecs[i].data ) ) );
@@ -321,12 +335,7 @@ LALFindChirpACTDTemplate(
       /* search for the end of the chirp but don't fall off the array */
       if ( --j == 0 )
       { 
-        /* We may only have one harmonic */
-        --present;
-        if( present == 0 )
-        { 
-          ABORT( status, FINDCHIRPTDH_EEMTY, FINDCHIRPTDH_MSGEEMTY );
-        }
+        ABORT( status, FINDCHIRPTDH_EEMTY, FINDCHIRPTDH_MSGEEMTY );
       }
     }
     ++j;
@@ -422,7 +431,7 @@ LALFindChirpACTDTemplate(
    */
 
   /* fft harmonics */
-  for( i = 0; i < NACTDVECS; ++i)
+  for( i = istart; i < istop; ++i)
   {
     if ( XLALREAL4ForwardFFT( &ACTDtilde[i], &ACTDVecs[i], 
          params->fwdPlan ) == XLAL_FAILURE )
