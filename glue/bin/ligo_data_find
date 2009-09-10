@@ -94,6 +94,8 @@ SYNOPSIS
                [ --names-only ] [ --show-times ] [ --version ]
                [ --no-proxy ] [ --gaps ]
 
+        ligo_data_find --server=NAME:PORT --observatory OBS --type TYPE --latest
+
         ligo_data_find --server=NAME:PORT --filename
 
         ligo_data_find --server=NAME:PORT --show-observatories
@@ -167,6 +169,8 @@ DESCRIPTION
         -y, --show-types
                 list available types
 
+        -T, --latest
+
         -a, --show-times
                list gps-second segments for all data of type specified.
                 Must be used with --type foo and --observatory bar, where foo 
@@ -202,7 +206,7 @@ def main():
     """
 
     # grab command line options
-    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:gW"
+    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:gWT"
     longop = [
               "version",
               "help", 
@@ -225,6 +229,7 @@ def main():
               "disable-host-auth",
               "output-file=",
               "gaps",
+              "latest",
               ]
 
     try:
@@ -316,6 +321,8 @@ def main():
             elif o in ("-a","--show-times"):
                     clientMethodArgDict['show-times'] = True
                     clientMethod = 'showTimes'
+            elif o in ("-T", "--latest"):
+                    clientMethod = 'latest'
             elif o in ("-P","--no-proxy"):
                     noproxy = True
             elif o in ("-O", "--output-file"):
@@ -376,6 +383,8 @@ def main():
             singleFrameFind(clientMethodArgDict)
         elif clientMethod == 'ping':
             ping(clientMethodArgDict)
+        elif clientMethod == 'latest':
+            latest(clientMethodArgDict)
 
     except Exception, e:
             print >>sys.stderr, "Error querying LDRDataFindServer: %s" % str(e)
@@ -1018,6 +1027,105 @@ def singleFrameFind(args):
     if len(urlList) == 0:
         print >>sys.stderr, "No files found!"
         return
+
+    elif namesOnly:
+        lfns = parseLFNs(urlList)
+        for lfn in lfns:
+            print >>output_file, "%s" % lfn
+
+    elif lalcache:
+        for pfn in urlList:
+            lfn = os.path.basename(pfn)
+            head, ext = os.path.splitext(lfn)
+            a, b, c, d = head.split('-') 
+            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    elif wcache:
+        wcachedict = wcacheFromURLList(urlList)
+        for item in wcachedict:
+            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+
+    else:
+        for pfn in urlList:
+            print >>output_file, "%s" % pfn
+
+def latest(args):
+    """
+    Given observatory and type with possibly a URL type 
+    query the server to find the URL(s) for the latest
+    GPS time frame file that the server knows about.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    site      = args['observatory']
+    frameType = args['type']
+
+    urlType   = args['urlType']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    namesOnly   = args['namesOnly']
+    lalcache    = args['lalcache']
+    wcache      = args['wcache']
+    output_file = args['output_file']
+
+    if not site or not frameType:
+        msg = """\
+Bad combination of command line arguments:
+--observatory --type --latest must all
+be present when searching for the latest file
+"""
+        raise RuntimeError(msg)
+        
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # construct the URL for the latest query
+    url = "/LDR/services/data/v1/gwf/%s/%s/latest" % (site, frameType)
+
+    # if a URL type is specified append it to the path
+    if urlType:
+        url += "/%s" % urlType
+
+    # request JSON output
+    url += ".json"
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the URLs
+    body = response.read()
+
+    # decode the JSON
+    urlList = cjson.decode(body)
+
+    if len(urlList) == 0:
+        print >>sys.stderr, "No files found!"
+        return 1
 
     elif namesOnly:
         lfns = parseLFNs(urlList)
