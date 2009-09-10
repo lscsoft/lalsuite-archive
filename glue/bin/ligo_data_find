@@ -87,7 +87,7 @@ NAME
 SYNOPSIS
         ligo_data_find --server=NAME:PORT --observatory=NAME --type=NAME 
                --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
-               [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
+               [ --omega-cache ] [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
                [ --names-only ] [--show-times] [ --version ]
                [ --no-proxy ]
 
@@ -131,6 +131,9 @@ DESCRIPTION
 
         -l, --lal-cache
                 format output for use as a LAL cache file
+
+	-w --omega-cache
+	        format output for use as an Omega cache file
 
         -m, --match
                 return only results that match a regular expression
@@ -200,6 +203,7 @@ def main():
               "ping",
               "server=",
               "lal-cache",
+              "omega-cache",
               "filename=",
               "url-type=",
               "match=",
@@ -221,6 +225,7 @@ def main():
     hostPortString = None
     port = None
     lalcache = False
+    wcache = False
     noproxy = False # i.e., use proxy by default
     namesOnly = False
     output_file = sys.stdout
@@ -275,6 +280,8 @@ def main():
                     clientMethodArgDict['type'] = a
             elif o in ("-l", "--lal-cache"):
                     lalcache = True
+            elif o in ("-w", "--omega-cache"):
+                    wcache = True
             elif o in ("-f", "--filename"):
                     clientMethodArgDict['filename'] = a
                     clientMethod = 'singleFrameFind'
@@ -324,6 +331,7 @@ def main():
     clientMethodArgDict['output_file'] = output_file
     clientMethodArgDict['namesOnly'] = namesOnly
     clientMethodArgDict['lalcache'] = lalcache
+    clientMethodArgDict['wcache'] = wcache
 
     # find credential unless either the user has
     # specified no proxy credential or we are going
@@ -543,6 +551,7 @@ def findFrameURLs(args):
 
     namesOnly   = args['namesOnly']
     lalcache    = args['lalcache']
+    wcache      = args['wcache']
     output_file = args['output_file']
 
     if not site or not frameType or not gpsStart or not gpsEnd:
@@ -615,6 +624,11 @@ be present when searching for groups of files
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
             print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    elif wcache:
+        wcachedict = wcacheFromURLList(urlList)
+        for item in wcachedict:
+            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
 
     else:
         for pfn in urlList:
@@ -819,6 +833,24 @@ or just a beginning or just an end time.
     for s in segmentList:
         print >>output_file, "%d %d" % tuple(s)
 
+def wcacheFromURLList(urlList):
+    wcachedict={}
+    for pfn in urlList:
+        dir=os.path.split(urlparse.urlparse(pfn)[2])[0]
+        lfn = os.path.basename(pfn)
+        head, ext = os.path.splitext(lfn)
+        a, b, c, d = head.split('-') 
+        tend=str(int(c)+int(d))
+        if wcachedict.has_key(dir):
+          l=wcachedict[dir]
+          if int(l[2]) > int(c):
+            wcachedict[dir][2]=c
+          if int(l[3]) < int(tend):
+            wcachedict[dir][3]=tend
+        else:
+          wcachedict[dir]=[a, b, c, tend, d, dir]
+    return wcachedict
+
 def singleFrameFind(args):
     """
     Query for the URLs for a single file.
@@ -833,6 +865,7 @@ def singleFrameFind(args):
     keyFile   = args['keyFile']
 
     lalcache    = args['lalcache']
+    wcache    = args['wcache']
     output_file = args['output_file']
     namesOnly   = args['namesOnly']
 
@@ -893,6 +926,11 @@ def singleFrameFind(args):
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
             print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    elif wcache:
+        wcachedict = wcacheFromURLList(urlList)
+        for item in wcachedict:
+            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
 
     else:
         for pfn in urlList:
