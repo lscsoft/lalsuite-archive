@@ -50,6 +50,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw import dbtables
 from pylal import CoincInspiralUtils
 from glue import iterutils
 from glue import pipeline
@@ -60,6 +61,8 @@ from lalapps import inspiralutils
 from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
 from pylal.xlal import date as xlaldate
+#Part of bandaid
+from xml import sax
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -317,12 +320,15 @@ class getCache(UserDict):
   def readTriggerFiles(self,cp,opts):
    
     if not self.cache or self.triggerTag == "":
+      #If using multiple XML files (CVT)
       xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
       triggerList = glob.glob(xml_glob) 
     else:
+      #Search for XML matching string self.triggerTag (CVT)
       triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
       triggerList = self.getListFromCache(triggerCache)
-
+      #Variable triggerList is a list of XML files to search(CVT)
+      
     # if the option "--convert-eventid" is called, a copy of the xml file 
     # is made under LOCAL_XML_COPY, and the event_id is converted
     # from int_8s to ilwd:char
@@ -335,10 +341,16 @@ class getCache(UserDict):
     statistic =  string.strip(cp.get('followup-triggers','statistic'))
     bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
     blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
+    #triggerList 
     if cp.has_option('followup-triggers','exclude-tags'):
       excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
     else: excludedTags = None
-    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
+    #Patch CVT 
+    if cp.has_option('followup-triggers','sqlite-triggers'):
+      sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
+      found, coincs, search = _bandaid_(sqliteTriggerFile,getstatistic(statistic,bla,blb),excludeTags)
+    else:
+      found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
     return numtrigs, found, coincs, search
 
 
@@ -557,6 +569,75 @@ def floatToStringList(listin):
 # function to read in a list of files and extract the simInspiral tables
 # and sngl_inspiral tables
 ##############################################################################
+
+##############################################################################
+#
+# This is a section of code the "BANDAID"
+#
+##############################################################################
+
+def _bandaid_(sqlFile,statistic=None,excludeTags=None):
+  """
+  Sqlite bandaid put in place until pipeline re-write.
+  Cristina Valeria Torres: Tue-Sep-08-2009:200909081422
+  hacked from the get_xml method.
+  """
+  sims=None
+  search=None
+  coincs=None
+  #Create emtpy table object
+  snglInspiralTable_old=lsctables.New(lsctables.SnglInspiralTable)
+  #Build by Hand
+  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SnglInspiralTable.tableName}))
+  colnamefmt = u":".join(snglInspiralTable.tableName.split(":")[:-1]) + u":%s"
+  for key, value in snglInspiralTable.validcolumns.items():
+    snglInspiralTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+  snglInspiralTable._end_of_columns()
+  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
+  #Pull in sqlite data
+  try:
+    sqlDB=sqlite.connect(sqlFile)
+    orderingString=""
+    for col in snglInspiralTable.columnnames:
+      orderingString="%s,%s"%(str(orderingString),str(col))
+    orderingString=orderingString.lstrip(",")
+    sqlDBsock=sqlDB.cursor()
+    sqlDBsock.execute("select %s from sngl_inspiral"%(orderingString))
+    results=sqlDBsock.fetchall()
+    delim=dataStream.getAttribute("Delimiter")
+    dataString=""
+    for elem in results:
+      for elem2 in elem:
+        dataString="%s%s%s"%(dataString,delim,str(elem2))
+    dataString=str(dataString+",").lstrip(delim)
+    snglInspiralTable.appendChild(dataStream)  
+    dataStream.appendData(dataString)  
+    fp=open('completeSNGLINSPIRALTABLE.xml','w')
+    snglInspiralTable.write(file=fp)
+    fp.close()
+  except:
+    sys.stderr.write("Error converting SQLITE file %s \n"%(sqlFile))
+    sys.stderr.write("Generating empty sngl_inspiral table xmldoc object.\n")
+    sys.stderr.flush()
+    dataString=''
+    snglInspiralTable.appendChild(dataStream)
+    coince=snglInspiralTable
+  #Mimicking method readfiles from here on out
+  if statistic == None:
+    coins=snglInspiralTable
+  else:
+    coincInspiralTable = \
+                       CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
+    coincs=coincInspiralTable
+
+  return sims,coincs,search
+
+##############################################################################
+#
+# End the BANDAID
+#
+##############################################################################
+
 def readFiles(fileGlob,statistic=None,excludedTags=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
