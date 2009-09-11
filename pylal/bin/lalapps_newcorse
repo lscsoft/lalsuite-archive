@@ -74,7 +74,7 @@ def parse_command_line():
 	)
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
-	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"oninstruments\"}", help = "Select the event categorization algorithm.  Required.")
+	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"ifos-oninstruments\",\"oninstruments\",\"none\"}", help = "Select the event categorization algorithm.  Required.")
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
 	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
@@ -86,7 +86,7 @@ def parse_command_line():
 	# categories and ranking
 	#
 
-	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "oninstruments"):
+	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "ifos-oninstruments", "oninstruments", "none"):
 		raise ValueError, "missing or unrecognized --categories option"
 	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
 		raise ValueError, "missing or unrecognized --rank-by option"
@@ -194,13 +194,29 @@ class Summaries(object):
 	def __init__(self, category_algorithm, rank_by, mass_bins = None):
 		if category_algorithm == "mchirp-ifos-oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category[0]
 		elif category_algorithm == "mtotal-ifos-oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category[0]
+		elif category_algorithm == "ifos-oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments)
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category[0]
 		elif category_algorithm == "oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category
+		elif category_algorithm == "none":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: None
+			self.time_func = lambda self, on_instruments: None
+			self.category_to_time = lambda self, category: category
 		else:
 			raise ValueError, category_algorithm
 		self.category_func = instancemethod(self.category_func, self, self.__class__)
+		self.time_func = instancemethod(self.time_func, self, self.__class__)
+		self.category_to_time = instancemethod(self.category_to_time, self, self.__class__)
 
 		if rank_by == "snr":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
@@ -221,6 +237,7 @@ class Summaries(object):
 		self.extrapolate = False
 		self.extrapolation_coeffs = {}
 		self.categories = []
+		self.times = []
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -234,9 +251,9 @@ class Summaries(object):
 		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
-				self.cached_livetime[on_instruments] += sum(livetimes)
+				self.cached_livetime[self.time_func(on_instruments)] += sum(livetimes)
 			except KeyError:
-				self.cached_livetime[on_instruments] = sum(livetimes)
+				self.cached_livetime[self.time_func(on_instruments)] = sum(livetimes)
 		if verbose:
 			print >>sys.stderr
 
@@ -244,6 +261,8 @@ class Summaries(object):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
 		if self.category_func(on_instruments, participating_instruments, mchirp, mtotal) not in self.categories:
 			self.categories.append(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
+		if self.time_func(on_instruments) not in self.times:
+			self.times.append(self.time_func(on_instruments))
 
 	def index(self):
 		for reputations in self.reputations.values():
@@ -256,8 +275,8 @@ class Summaries(object):
 
 		self.extrapolate = True
 		for category in self.categories:
-			t = self.cached_livetime.setdefault(category, 0.0)
-			reputations = self.reputations.setdefault(category, [])
+			t = self.cached_livetime[self.category_to_time(category)]
+			reputations = self.reputations[category]
 			self.extrapolation_coeffs[category] = extrapolation_coeffs(self.rank_by, N, reputations, t)
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
@@ -281,7 +300,7 @@ class Summaries(object):
 		# retrieve the livetime
 		#
 
-		t = self.cached_livetime.setdefault(on_instruments, 0.0)
+		t = self.cached_livetime[self.category_to_time(category)]
 		if self.extrapolate:
 			if n < self.extrapolation_coeffs[category][0]:
 				n = extrapolate_reputation(self.rank_by, self.extrapolation_coeffs[category][1], self.reputation_func(snr, uncombined_ifar, likelihood), t)

@@ -179,7 +179,7 @@ InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 
 
 
 class InspiralCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc):
+	def __init__(self, xmldoc, vetoes = None, program = u"inspiral"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
@@ -198,14 +198,20 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
+		#
+		# extract the coalesced out segment lists from lalapps_inspiral
+		#
+
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		if vetoes is not None:
+			self.seglists -= vetoes
+
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, effective_snr_factor):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
 
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
-
-		# FIXME:  set the instruments attribute
 
 		#
 		# populate the coinc_inspiral table:
@@ -234,8 +240,27 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.combined_far = None
 		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.set_ifos(event.ifo for event in events)
-		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
 		self.coinc_inspiral_table.append(coinc_inspiral)
+
+		#
+		# record the instruments that were on at the time of the
+		# coinc.  note that the start time of the coinc must be
+		# unslid to compare with the instrument segment lists
+		#
+
+		tstart = coinc_inspiral.get_end()
+		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+
+		#
+		# save memory by re-using strings
+		#
+
+		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
+		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
+
+		#
+		# done
+		#
 
 		return coinc
 
@@ -375,6 +400,7 @@ def ligolw_thinca(
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
 	effective_snr_factor = 250.0,
+	veto_segments = None,
 	verbose = False
 ):
 	#
@@ -383,16 +409,20 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc)
+	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
-	# processes that can participate in a coincidence
+	# processes that can participate in a coincidence.  apply vetoes by
+	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, vetoes = veto_segments)
+	if veto_segments is not None:
+		for eventlist in eventlists.values():
+			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)
 
 	#
 	# set the \Delta t parameter on all the event lists
@@ -415,7 +445,7 @@ def ligolw_thinca(
 	# construct offset vector assembly graph
 	#
 
-	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.get_time_slides(), verbose = verbose)
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
 
 	#
 	# loop over the items in time_slide_graph.head, producing all of

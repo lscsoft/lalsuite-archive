@@ -227,7 +227,8 @@ setup(
     os.path.join('bin','lvalert_listen'),
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
-    os.path.join('bin','segdb_coalesce'), ],
+    os.path.join('bin','segdb_coalesce'),
+    os.path.join('bin', 'ligolw_print_tables') ],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
