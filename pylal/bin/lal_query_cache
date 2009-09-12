@@ -27,18 +27,16 @@ import sys
 
 from glue.lal import Cache, CacheEntry
 from glue.segments import segment
+from pylal import git_version
 from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"[11:-2]
-__id__ = "$Id$"
 
 def format_cache(cache):
     return "\n".join(map(str, cache))
 
 parser = optparse.OptionParser(usage="%prog [options] CACHEFILE",
-    version=__version__)
+    version=git_version.verbose_msg)
 
 # query options
 parser.add_option("--select-description", metavar="PAT", help="select " \
