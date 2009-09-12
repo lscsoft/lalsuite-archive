@@ -13,6 +13,8 @@
 A collection of utilities to convert xml-tables to other formats, such as
 wiki or html.
 """
+import sys
+
 from glue.ligolw import ligolw
 from glue.ligolw import table
 
@@ -97,14 +99,15 @@ def smart_round( val, decimal_places = 2):
 # =============================================================================
 #
 
-def print_tables(xmldoc, output, output_format, tableList = [], round_floats = True, decimal_places = 2, title = None):
+def print_tables(xmldoc, output, output_format, tableList = [], round_floats = True, decimal_places = 2, title = None,
+    print_table_names = True):
     """
     Method to print tables in an xml file in other formats.
     Input is an xmldoc, output is a file object containing the
     tables.
 
     @xmldoc: document to convert
-    @output: file object to write output to
+    @output: file object to write output to; if None, will write to stdout
     @output_format: format to convert to
     @tableList: only convert the listed tables. Default is
      to convert all the tables found in the xmldoc. Tables
@@ -114,13 +117,20 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
      number of places.
     @decimal_places: If round_floats turned on, will smart_round to this
      number of decimal places.
+    @title: Add a title to this set of tables.
+    @print_table_names: If set to True, will print the name of each table
+     in the caption section.
     """
-    # get table bits
-    ttx, xtt, tx, xt, capx, xcap, rx, xr, xccx = set_output_format( output_format )
-
     # get the tables to convert
     if tableList == []:
         tableList = [tb.getAttribute("Name") for tb in xmldoc.childNodes[0].getElementsByTagName(u'Table')]
+
+    # set the output
+    if output is None:
+        output = sys.stdout
+
+    # get table bits
+    ttx, xtt, tx, xt, capx, xcap, rx, xr, xccx = set_output_format( output_format )
 
     # set the title if desired
     if title is not None:
@@ -131,7 +141,8 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
         col_names = [col.getAttribute("Name").split(":")[-1] for col in this_table.getElementsByTagName(u'Column')]
         # start the table and print table name
         print >> output, tx
-        print >> output, "%s%s%s" %(capx, table_name, xcap)
+        if print_table_names:
+            print >> output, "%s%s%s" %(capx, table_name, xcap)
         print >> output, "%s%s%s" %(rx, xccx.join(col_names), xr)
 
         # print the data in the table
