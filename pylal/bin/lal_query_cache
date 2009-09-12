@@ -79,13 +79,16 @@ sieved_cache = cache.sieve(description=opts.select_description,
 
 # take action
 if opts.print_which == "all":
-    print format_cache(sieved_cache)
+    if len(sieved_cache) > 0:
+        print format_cache(sieved_cache)
 elif opts.print_which == "only_missing":
     found, missing = sieved_cache.checkfilesexist(on_missing="ignore")
-    print format_cache(missing)
+    if len(missing) > 0:
+        print format_cache(missing)
 elif opts.print_which == "only_found":
     found, missing = sieved_cache.checkfilesexist(on_missing="ignore")
-    print format_cache(found)
+    if len(found) > 0:
+        print format_cache(found)
 else:
     raise ValueError, "should never get here; file a bug report"
 
