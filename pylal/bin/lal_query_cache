@@ -28,7 +28,6 @@ import sys
 from glue.lal import Cache, CacheEntry
 from glue.segments import segment
 from pylal import git_version
-from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
@@ -61,7 +60,7 @@ parser.add_option("--only-missing", dest="print_which", action="store_const",
 opts, args = parser.parse_args()
 
 if opts.within_segment is not None:
-    start, end = map(LIGOTimeGPS, opts.within_segment.split(","))
+    start, end = map(int, opts.within_segment.split(","))
     opts.within_segment = segment(start, end)
 
 if len(args) != 1:
@@ -69,7 +68,7 @@ if len(args) != 1:
     sys.exit(2)
 
 # read cache
-cache = Cache.fromfile(open(args[0]), coltype=LIGOTimeGPS)
+cache = Cache.fromfile(open(args[0]), coltype=int)
 
 # do query
 sieved_cache = cache.sieve(description=opts.select_description,
