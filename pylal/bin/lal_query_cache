@@ -37,9 +37,8 @@ __id__ = "$Id$"
 def format_cache(cache):
     return "\n".join(map(str, cache))
 
-parser = optparse.OptionParser(version=__version__)
-
-parser.add_option("--cache-file", help="the LAL cache to query")
+parser = optparse.OptionParser(usage="%prog [options] CACHEFILE",
+    version=__version__)
 
 # query options
 parser.add_option("--select-description", metavar="PAT", help="select " \
@@ -67,8 +66,12 @@ if opts.within_segment is not None:
     start, end = map(LIGOTimeGPS, opts.within_segment.split(","))
     opts.within_segment = segment(start, end)
 
+if len(args) != 1:
+    parser.print_usage(sys.stderr)
+    sys.exit(2)
+
 # read cache
-cache = Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
+cache = Cache.fromfile(open(args[0]), coltype=LIGOTimeGPS)
 
 # do query
 sieved_cache = cache.sieve(description=opts.select_description,
