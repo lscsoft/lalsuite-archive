@@ -256,7 +256,7 @@ WHERE
 		print "Total time in %s zero-lag segments: %s s" % (self.instrument, str(self.foreground_time))
 		print "%s time-slide events: %d" % (self.instrument, len(self.background))
 		print "Total time in %s time-slide segments: %s s" % (self.instrument, str(self.background_time))
-		self.axes.set_title(r"Cummulative Coincident Event Rate vs.\ Amplitude in %s" % self.instrument)
+		self.axes.set_title(r"Cumulative Coincident Event Rate vs.\ Amplitude in %s" % self.instrument)
 		self.background.sort()
 		self.foreground.sort()
 		self.background = numpy.array(self.background, dtype = "double")
