@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it

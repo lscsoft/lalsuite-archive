@@ -1,4 +1,3 @@
-#!/usr/bin/env @PYTHONPROG@
 """
 This module contains condor jobs / node classes for the followup dag
 
