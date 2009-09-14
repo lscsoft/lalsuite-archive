@@ -15,6 +15,9 @@ findLoudestEvents_path=`cat write_ifar_scripts_lv.ini | grep 'findLoudestEvents_
 search_summary_path=`cat write_ifar_scripts_lv.ini | grep 'search_summary_path' | awk '{print $3}'`
 sumtimes_path=`cat write_ifar_scripts_lv.ini | grep 'sumtimes_path' | awk '{print $3}'`
 calculatefar_path=`cat write_ifar_scripts_lv.ini | grep 'calculatefar_path' | awk '{print $3}'`
+finalclustering_path=`cat write_ifar_scripts_lv.ini | grep 'finalclustering_path' | awk '{print $3}'`
+
+ihope_full_data_files=`cat write_ifar_scripts_lv.ini | grep 'ihope_full_data_files' | awk '{print $3}'`
 
 log_path=`cat write_ifar_scripts_lv.ini | grep 'log_path' | awk '{print $3}'`
 condor_priority=`cat write_ifar_scripts_lv.ini | grep 'condor_priority' | awk '{print $3}'`
@@ -94,6 +97,38 @@ if [ 1 ]; then
   echo "priority=${condor_priority}"
   echo "queue 1"
 fi >  findLoudestEvents.sub
+
+# MAKE THE findTotalTimeAfterVetoes SUB FILE
+##############################################################################
+
+if [ 1 ]; then
+  echo "universe = local"
+  echo "executable = ./findTotalTimeAfterVetoes_path"
+  echo "getenv = True"
+  echo "log = " `mktemp -p ${log_path}`
+  echo "error = logs/findTotalTimeAfterVetoes-\$(cluster)-\$(process).err"
+  echo "output = logs/findTotalTimeAfterVetoes-\$(cluster)-\$(process).out"
+  echo "notification = never"
+  echo "priority=${condor_priority}"
+  echo "queue 1"
+fi >  findTotalTimeAfterVetoes.sub
+
+# MAKE THE finalclustering SUB FILE
+##############################################################################
+  
+if [ 1 ]; then
+  echo "universe = local"
+  echo "executable = ${finalclustering_path}"
+  echo "arguments = --zerolag-glob \$(macrozerolag) --slides-glob \$(macroslideglob) --statistic=lvS5stat --num-slides=50 --h1-triggers --h2-triggers --l1-triggers --v1-triggers --output-dir \$(macrooutputdir) --verbose --output-path . --coire-glob \$(macrocoireglob)  --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos} --gps-start-time ${month_gps_time} --gps-end-time ${month_gps_time}"
+  echo "getenv = True"
+  echo "log = " `mktemp -p ${log_path}`
+  echo "error = logs/finalclustering-\$(cluster)-\$(process).err"
+  echo "output = logs/finalclustering-\$(cluster)-\$(process).out"
+  echo "notification = never"
+  echo "priority=${condor_priority}"
+  echo "queue 1"
+fi >  finalclustering.sub
+
 
 # MAKE THE search_summary SUB FILE
 ##############################################################################
@@ -272,16 +307,27 @@ if [ 1 ]; then
   echo "JOB 1003 addEfficiencyFactors.sub"
 
   echo ""
+  echo "JOB 1003b findTotalTimeAfterVetoes.sub"
+
+  echo ""
+  echo "JOBS 1003c finalclustering.sub"
+  echo "VARS 1003c macrozerolag=\"CAT_3/all_data/*LIKELIHOOD_ALL_DATA*\" macroslideglob=\"CAT_3/all_data/*SLIDE*\" macrocoireglob=${ihope_full_data_files} macrooutputdir="reclustered_CAT_3_all_data" "
+
+  echo ""
+  echo "JOBS 1003d finalclustering.sub"
+  echo "VARS 1003d macrozerolag=\"CAT_3/exclude_play/*LIKELIHOOD_EXCLUDE*\" macroslideglob=\"CAT_3/exclude_play/*SLIDE*\" macrocoireglob=${ihope_full_data_files} macrooutputdir="reclustered_CAT_3_exclude_play" "
+
+  echo ""
   echo "JOB 1004 search_summary.sub"
   echo "VARS 1004 macroslideglob=\"CAT_3/playground_only/*SLIDE*\"  macrozerolag=\"CAT_3/playground_only/*LIKELIHOOD_PLAY*\" macropickle=\"playground_loudestbg.pickle\" macrooutput=\"search_summary_playground_only/\" macronobg=\"CAT_3/playground_only/no_background*\" macroseptimefiles=\"septime_files/*_V3_CAT*.txt\" efactorsfile=\"bns001inj_efficiency_factors.stat\""
 
   echo ""
   echo "JOB 1005 search_summary.sub"
-  echo "VARS 1005 macroslideglob=\"CAT_3/all_data/*SLIDE*\"  macrozerolag=\"CAT_3/all_data/*LIKELIHOOD_ALL_DATA*\" macropickle=\"all_data_loudestbg.pickle\" macrooutput=\"search_summary_all_data/\" macronobg=\"CAT_3/all_data/no_background*\" macroseptimefiles=\"septime_files/*_V3_CAT*.txt\" efactorsfile=\"bns001inj_efficiency_factors.stat\""
+  echo "VARS 1005 macroslideglob=\"reclustered_CAT_3_all_data/*SLIDE*\"  macrozerolag=\"reclustered_CAT_3_all_data/*LIKELIHOOD_CLUSTERED*\" macropickle=\"all_data_loudestbg.pickle\" macrooutput=\"search_summary_all_data/\" macronobg=\"CAT_3/all_data/no_background*\" macroseptimefiles=\"septime_files/*_V3_CAT*.txt\" efactorsfile=\"bns001inj_efficiency_factors.stat\""
 
   echo ""
   echo "JOB 1006 search_summary.sub"
-  echo "VARS 1006 macroslideglob=\"CAT_3/exclude_play/*SLIDE*\"  macrozerolag=\"CAT_3/exclude_play/*LIKELIHOOD_EXCLUDE_PLAY*\" macropickle=\"exclude_play_loudestbg.pickle\" macrooutput=\"search_summary_exclude_play/\" macronobg=\"CAT_3/exclude_play/no_background*\" macroseptimefiles=\"septime_files/*_V3_CAT*.txt\" efactorsfile=\"bns001inj_efficiency_factors.stat\""
+  echo "VARS 1006 macroslideglob=\"reclustered_CAT_3_exclude_play/*SLIDE*\"  macrozerolag=\"reclustered_CAT_3_exclude_play/*LIKELIHOOD_CLUSTERED*\" macropickle=\"exclude_play_loudestbg.pickle\" macrooutput=\"search_summary_exclude_play/\" macronobg=\"CAT_3/exclude_play/no_background*\" macroseptimefiles=\"septime_files/*_V3_CAT*.txt\" efactorsfile=\"bns001inj_efficiency_factors.stat\""
 
   echo ""
   echo "JOB 1007 sumtimes.sub"
@@ -289,25 +335,28 @@ if [ 1 ]; then
 
   echo ""
   echo "JOB 1008 calculatefar_zerolag.sub"
-  echo "VARS 1008 macroslideglob=\"CAT_3/exclude_play/*SLIDE*\" macroeventglob=\"search_summary_exclude_play/loudest_zerolag.xml\" macrostat=\"lvS5stat\" macrobgfile=\"exclude_play_bg.stat\" macrooutputpath=\"uncombined_ifar_files/exclude_play/\" macrocombineoutput=\"combined_ifar_files/exclude_play/H1H2L1V1-CORSE_ALL_MASSES-exclude_play_COMBINED_IFAR_CAT_3-${month_gps_time}-${month_gps_end}.xml.gz\" macroseptimefiles=\"septime_files/*CAT*txt\" "
+  echo "VARS 1008 macroslideglob=\"reclustered_CAT_3_exclude_play/*SLIDE*\" macroeventglob=\"search_summary_exclude_play/loudest_zerolag.xml\" macrostat=\"lvS5stat\" macrobgfile=\"exclude_play_bg.stat\" macrooutputpath=\"uncombined_ifar_files/exclude_play/\" macrocombineoutput=\"combined_ifar_files/exclude_play/H1H2L1V1-CORSE_ALL_MASSES-exclude_play_COMBINED_IFAR_CAT_3-${month_gps_time}-${month_gps_end}.xml.gz\" macroseptimefiles=\"total_time_after_vetoes/*CAT*txt\" "
 
   echo ""
   echo "JOB 1009 calculatefar_slides.sub"
-  echo "VARS 1009 macroeventglob=\"search_summary_exclude_play/loudest_timeslides.xml\" macrostat=\"lvS5stat\" macrobgfile=\"exclude_play_bg.stat\" macrooutputpath=\"uncombined_ifar_files/exclude_play/\" macrocombineoutput=\"combined_ifar_files/all_data_slide/H1H2L1V1-CORSE_ALL_MASSES-all_data_slide_COMBINED_IFAR_CAT_3-${month_gps_time}-${month_gps_end}.xml.gz\" macroseptimefiles=\"septime_files/*CAT*txt\" "
+  echo "VARS 1009 macroeventglob=\"search_summary_exclude_play/loudest_timeslides.xml\" macrostat=\"lvS5stat\" macrobgfile=\"exclude_play_bg.stat\" macrooutputpath=\"uncombined_ifar_files/exclude_play/\" macrocombineoutput=\"combined_ifar_files/all_data_slide/H1H2L1V1-CORSE_ALL_MASSES-all_data_slide_COMBINED_IFAR_CAT_3-${month_gps_time}-${month_gps_end}.xml.gz\" macroseptimefiles=\"total_time_after_vetoes/*CAT*txt\" "
 
 
   injcounter=1010
   for injstring in BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BNS001INJ; do
     echo ""
     echo "JOB ${injcounter} calculatefar_inj.sub"
-    echo "VARS ${injcounter} macroeventglob=\"${injstring}/*LIKELIHOOD*FOUND*xml\" macrostat=\"lvS5stat\" macrobgfile=\"exclude_play_bg.stat\" macrooutputpath=\"uncombined_ifar_files/${injstring}/\" macrocombineoutput=\"combined_ifar_files/${injstring}/H1H2L1V1-CORSE_ALL_MASSES-${injstring}_COMBINED_IFAR_CAT_3-${month_gps_time}-${month_gps_end}.xml.gz\" macroseptimefiles=\"septime_files/*CAT*txt\" "
+    echo "VARS ${injcounter} macroeventglob=\"${injstring}/*LIKELIHOOD*FOUND*xml\" macrostat=\"lvS5stat\" macrobgfile=\"exclude_play_bg.stat\" macrooutputpath=\"uncombined_ifar_files/${injstring}/\" macrocombineoutput=\"combined_ifar_files/${injstring}/H1H2L1V1-CORSE_ALL_MASSES-${injstring}_COMBINED_IFAR_CAT_3-${month_gps_time}-${month_gps_end}.xml.gz\" macroseptimefiles=\"total_time_after_vetoes/*CAT*txt\" "
     injcounter=$(( ${injcounter} + 1 ))
   done
 
   echo ""
   echo "PARENT 1001 CHILD 1002"
   echo "PARENT 1002 CHILD 1003"
-  echo "PARENT 1003 CHILD 1004"
+  echo "PARENT 1003 CHILD 1003b"
+  echo "PARENT 1003b CHILD 1003c"
+  echo "PARENT 1003c CHILD 1003d"
+  echo "PARENT 1003d CHILD 1004"
   echo "PARENT 1004 CHILD 1005"
   echo "PARENT 1005 CHILD 1006"
   echo "PARENT 1006 CHILD 1007"

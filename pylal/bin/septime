@@ -319,8 +319,8 @@ if slideTriggers:
           inspSepTimesTriggers[coinc] = tab.new_from_template(inspSlide)
           inspSepTimesTriggers[coinc].append(row)
 
-    SnglInspiralUtils.unslideTriggersOnRings(\
-        slideTriggers[slide]["sngl_trigs"], seg, slides)
+    #SnglInspiralUtils.unslideTriggersOnRings(\
+        #slideTriggers[slide]["sngl_trigs"], seg, slides)
 
   for coinc in ifo_coincs:
     if coinc not in inspSepTimesTriggers.keys():

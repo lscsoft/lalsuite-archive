@@ -34,7 +34,7 @@ import numpy
 
 
 
-def calculate_ifar(coincs, slide_stats, slide_time):
+def calculate_ifar(coincs, slide_stats, slide_time, zerolag_time):
   """
   Function to calculate ifar  for coincident triggers and save it in the alpha column of sngl_inspiral table which is returned.
   @param coincs: CoincInspiral Table
@@ -71,7 +71,7 @@ def calculate_ifar(coincs, slide_stats, slide_time):
 	  fan = float(N_total_slides - index)
 
 	# divide by duration of slides and normalize it to 1 year
-	far = (fan * 31536000.0) / float(slide_time)
+	far = (fan * zerolag_time) / float(slide_time)
 
 	# take the inverse
 	#ifar = 1.0 / far
@@ -314,10 +314,12 @@ else:
 septime_files = glob.glob(opts.septime_files)
 
 total_slide_time = 0
+total_zerolag_time = 0
 
 for septime_file in septime_files:
   # open file
   timefile = open(septime_file, 'r')
+  septimeifotime = timefile.split("/")[-1].split("_")[1]
   slide_time = 0
   # read it in line by line
   line_index = 0
@@ -325,7 +327,8 @@ for septime_file in septime_files:
 	line = line.split()
 	line_index += 1
 	if line_index ==1 :
-	  zero_lag_time = float(line[1])
+          if (float(line[1])>21600) or (("H1" in septimeifotime) and ("L1" in septimeifotime)):
+	    total_zerolag_time += float(line[1])
 	else:
 	  slide_time += float(line[1])
 
@@ -380,7 +383,7 @@ for file in events_files:
 	CoincTriggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
 	
 	# calculate inverse FAR and save it in alpha column
-	sngl_inspiral_table = calculate_ifar(CoincTriggers, all_stats_dic, total_slide_time)
+	sngl_inspiral_table = calculate_ifar(CoincTriggers, all_stats_dic, total_slide_time, total_zerolag_time)
   
   # open the output file for writing
   output_file_name = opts.output_path + "/" + file.split("/")[-1]
