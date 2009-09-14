@@ -1070,6 +1070,10 @@ class RateVsL1Offset(object):
 			# skip injection documents
 			return
 
+		#
+		# setup all the default values for the structures to hld the data
+		#
+
 		for on_instruments in set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.playground_livetime.setdefault(on_instruments, 0.0)
 			self.nonplayground_livetime.setdefault(on_instruments, 0.0)
@@ -1088,9 +1092,17 @@ class RateVsL1Offset(object):
 			self.num_triggers_by_offset[on_instruments].setdefault(0.0, {})
 			self.num_triggers_by_offset_playground[on_instruments].setdefault(0.0, {})
 
+		#
+		# save the analyzed time by offset vector
+		#
+
 		for on_instruments in contents.livetime_by_offset.keys():
 			for offset, time  in contents.livetime_by_offset[on_instruments].items():
 				self.livetime_by_offset[on_instruments][offset] += time
+
+		#
+		# load the triggers from the database
+		#
 
 		for on_instruments, ifos, seconds, nanoseconds, offset in connection.cursor().execute("""
 SELECT
@@ -1122,6 +1134,10 @@ WHERE
 					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] = 1
 
 	def finish(self):
+		#
+		# create structures to store the figures and associated data
+		#
+
 		figs = {}
 		playground_figs = {}
 		background_time = {}
@@ -1133,6 +1149,10 @@ WHERE
 			background_num_triggers[on_instruments] = {}
 			for offset in self.num_triggers_by_offset[on_instruments].keys():
 				if offset != 0.0:
+					#
+					# add up the background time
+					#
+
 					background_time[on_instruments] += self.livetime_by_offset[on_instruments][offset]
 				for ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
 					if ifos not in background_num_triggers[on_instruments].keys():
@@ -1141,6 +1161,10 @@ WHERE
 						figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
 						playground_figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
 					if offset == 0:
+						#
+						# zero-lag is special
+						#
+
 						c = 'r'
 						time = self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]
 						if time == 0:
@@ -1155,32 +1179,54 @@ WHERE
 							except KeyError:
 								playground_rate = 0
 					else:
+						#
+						# background rates
+						#
+
 						c = 'b'
 						if self.livetime_by_offset[on_instruments][offset] == 0:
 							rate = 0
 						else:
 							background_num_triggers[on_instruments][ifos] += self.num_triggers_by_offset[on_instruments][offset][ifos]
 							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/self.livetime_by_offset[on_instruments][offset]
+
+					#
+					# add rate bar to the plot
+					#
+
 					figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
+					if offset == 0.0:
+						rate = playground_rate
 					playground_figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
 
 		for on_instruments in figs.keys():
 			for ifos in figs[on_instruments].keys():
+				#
+				# add a line for the mean and the 1 sigma errors
+				#
+
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
 				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]))**.5
-				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
-				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
+				if self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]:
+					figs[on_instruments][ifos][1].axhline(max(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] - sigma1/(self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]), 0.), color='k', linewidth=1, linestyle='--')
+					figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] + sigma1/(self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]), color='k', linewidth=1, linestyle='--')
+
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
 				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * self.playground_livetime[on_instruments])**.5
-				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
-				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
+				if self.playground_livetime[on_instruments]:
+					playground_figs[on_instruments][ifos][1].axhline(max(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] - sigma1/self.playground_livetime[on_instruments], 0.), color='k', linewidth=1, linestyle='--')
+					playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] + sigma1/self.playground_livetime[on_instruments], color='k', linewidth=1, linestyle='--')
+
+				#
+				# output the plots
+				#
 
 				ifos_txt = ifos.split(',')
 				ifos_txt.sort()
 				on_instruments_txt = list(on_instruments)
 				on_instruments_txt.sort()
 				yield figs[on_instruments][ifos][0], "plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), True
-				yield playground_figs[on_instruments][ifos][0], "plot_slides_playground_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), False
+				yield playground_figs[on_instruments][ifos][0], "playground_plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), False
 
 #
 # =============================================================================
