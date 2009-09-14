@@ -1171,7 +1171,7 @@ WHERE
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
-				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time * self.playground_livetime[on_instruments])**.5
+				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * self.playground_livetime[on_instruments])**.5
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 
