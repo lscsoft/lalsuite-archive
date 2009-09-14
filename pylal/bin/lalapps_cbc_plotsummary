@@ -369,7 +369,7 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 			values=list(values)
 			dets =  frozenset(dbtables.lsctables.instrument_set_from_ifos(values[7]))
 			values[1] = 1.0 - math.exp( 0.0 - values[1] * lt[dets] ) # compute FAPS
-			values[2] = 1.0 - math.exp( 0.0 - values[1] * 31556926 ) # seconds in a year
+			values[2] = 1.0 - math.exp( 0.0 - values[2] * 31556926 ) # seconds in a year
 			f.write('|| ' + str(i) + ' || %.2e || %.3f || %.3f || %.2f || %.4f || %.2f || %.2f || %s || %s ||\n' % tuple(values[:9]))
 			for ifo in values[9].split():
 				ifo = list(ifo.split(":"))
