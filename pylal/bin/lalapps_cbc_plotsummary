@@ -367,7 +367,7 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 ''' % ("Rank", "combined FAR (Hz)","FAP", "FAP (1 yr)", "effective SNR", "end_time","total mass","chirp mass", "detectors", "detector time", "", "", "", "", "", "detector", "snr", "chisq", "mass1", "mass2"))
 		for i, values in enumerate(l):
 			values=list(values)
-			dets =  frozenset(dbtables.lsctables.instrument_set_from_ifos(values[7]))
+			dets =  frozenset(dbtables.lsctables.instrument_set_from_ifos(values[8]))
 			values[1] = 1.0 - math.exp( 0.0 - values[1] * lt[dets] ) # compute FAPS
 			values[2] = 1.0 - math.exp( 0.0 - values[2] * 31556926 ) # seconds in a year
 			f.write('|| ' + str(i) + ' || %.2e || %.3f || %.3f || %.2f || %.4f || %.2f || %.2f || %s || %s ||\n' % tuple(values[:9]))
