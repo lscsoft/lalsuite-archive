@@ -617,6 +617,9 @@ class BinnedRatios(object):
 		self.numerator = BinnedArray(bins, dtype = dtype)
 		self.denominator = BinnedArray(bins, dtype = dtype)
 
+	def __getitem__(self, coords):
+		return self.numerator[coords] / self.denominator[coords]
+
 	def bins(self):
 		return self.numerator.bins
 
@@ -1013,7 +1016,7 @@ def binned_array_from_xml(xml, name):
 	return a new rate.BinnedArray object from the data contained
 	therein.
 	"""
-	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
 	try:
 		xml, = xml
 	except ValueError:
@@ -1044,7 +1047,7 @@ def binned_ratios_from_xml(xml, name):
 	return a new rate.BinnedRatios object from the data contained
 	therein.
 	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
 	ratios = BinnedRatios(NDBins())
 	ratios.numerator = binned_array_from_xml(xml, u"numerator")
 	ratios.denominator = binned_array_from_xml(xml, u"denominator")
