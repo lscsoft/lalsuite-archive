@@ -100,6 +100,11 @@ def parse_command_line():
 			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "combined_far"
 
+	if options.categories in ("none"):
+		options.false_alarm_rate_column = "combined_far"
+	else:
+		options.false_alarm_rate_column = "false_alarm_rate"
+
 	#
 	# parse mass bins
 	#
@@ -275,8 +280,8 @@ class Summaries(object):
 
 		self.extrapolate = True
 		for category in self.categories:
-			t = self.cached_livetime[self.category_to_time(category)]
-			reputations = self.reputations[category]
+			t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
+			reputations = self.reputations.setdefault(category, [])
 			self.extrapolation_coeffs[category] = extrapolation_coeffs(self.rank_by, N, reputations, t)
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
@@ -287,7 +292,6 @@ class Summaries(object):
 
 		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
 		reputations = self.reputations.setdefault(category, [])
-
 
 		#
 		# len(x) - bisect.bisect_left(x, reputation) = number of
@@ -300,10 +304,11 @@ class Summaries(object):
 		# retrieve the livetime
 		#
 
-		t = self.cached_livetime[self.category_to_time(category)]
+		t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
 		if self.extrapolate:
-			if n < self.extrapolation_coeffs[category][0]:
-				n = extrapolate_reputation(self.rank_by, self.extrapolation_coeffs[category][1], self.reputation_func(snr, uncombined_ifar, likelihood), t)
+			extrapolation_coeffs = self.extrapolation_coeffs.setdefault(category, (0, (0, 0)))
+			if n < extrapolation_coeffs[0]:
+				n = extrapolate_reputation(self.rank_by, extrapolation_coeffs[1], self.reputation_func(snr, uncombined_ifar, likelihood), t)
 
 		#
 		# return the rate of events above the given reputation
@@ -398,7 +403,7 @@ SELECT
 	coinc_inspiral.mchirp,
 	coinc_inspiral.mass,
 	coinc_inspiral.snr,
-	CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
+	CASE coinc_inspiral.%s WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.%s END,
 	coinc_event.likelihood
 FROM
 	coinc_event
@@ -416,7 +421,7 @@ WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
 			AND time_slide.offset != 0
 	)
-	"""):
+	""" % (options.false_alarm_rate_column, options.false_alarm_rate_column)):
 		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood)
 
 	#
@@ -472,7 +477,7 @@ SET
 				coinc_inspiral.mchirp,
 				coinc_inspiral.mass,
 				coinc_inspiral.snr,
-				CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
+				CASE coinc_inspiral.%s WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.%s END,
 				coinc_event.likelihood
 			)
 		FROM
@@ -480,7 +485,7 @@ SET
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-	""" % options.populate_column)
+	""" % (options.populate_column, options.false_alarm_rate_column, options.false_alarm_rate_column) )
 	connection.commit()
 
 	#

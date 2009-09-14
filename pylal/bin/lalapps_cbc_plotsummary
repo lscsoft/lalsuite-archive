@@ -111,12 +111,13 @@ def parse_command_line():
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False, wiki=None):
+	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False, wiki=None, base=None):
 		"""
 		Compute and record some summary information about the
 		database.
 		"""
 
+		self.base = base
 		self.connection = connection
 		xmldoc = dbtables.get_xml(connection)
 
@@ -340,6 +341,7 @@ class SummaryTable(object):
 		if contents.sim_inspiral_table:
 			#For now we only return summary information on non injections
 			return
+		self.base = contents.base
 		self.playground_candidates += contents.connection.cursor().execute("""
 SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
 		""").fetchall()
@@ -360,8 +362,8 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 
 	def write_wiki_string(self, l, f, lt):
 		f.write('''
-|| %s || %s || %s || %s || %s || %s || %s || %s || %s ||
-|| %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
 ''' % ("Rank", "combined FAR (Hz)","FAP", "FAP (1 yr)", "effective SNR", "end_time","total mass","chirp mass", "detectors", "detector time", "", "", "", "", "", "detector", "snr", "chisq", "mass1", "mass2"))
 		for i, values in enumerate(l):
 			values=list(values)
@@ -377,11 +379,11 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 	def finish(self):
 		self.playground_candidates.sort()
 		self.candidates.sort()
-		f = open('summary_table.txt','w')
+		f = open(self.base+'summary_table.txt','w')
 		f.write("=== Open box loudest 10 summary table ===\n")
 		self.write_wiki_string(self.candidates[:10], f, self.livetime)
 		f.close()
-		f = open('playground_summary_table.txt','w')
+		f = open(self.base+'playground_summary_table.txt','w')
                 f.write("=== Playground loudest 10 summary table ===\n")
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
 		f.close()
@@ -1169,7 +1171,7 @@ WHERE
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
-				sigma1 = (float(background_num_triggers) / background_time * self.playground_livetime[on_instruments])**.5
+				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * self.playground_livetime[on_instruments])**.5
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 
@@ -1222,7 +1224,7 @@ if options.plot_group is None:
 	options.plot_group = range(len(plots))
 
 
-wiki = open("plotsummary.txt","w")
+wiki = open(options.base+"plotsummary.txt","w")
 
 for n, filename in enumerate(filenames):
 	if options.verbose:
@@ -1230,7 +1232,7 @@ for n, filename in enumerate(filenames):
 	wiki.write("=== %d/%d: %s ===\n\n" % (n + 1, len(filenames), filename))
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose, wiki=wiki)
+	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose, wiki=wiki, base=options.base)
 	if contents.sim_inspiral_table is not None:
 		create_sim_coinc_view(connection)
 	create_is_playground_func(connection, contents.playground_segs)

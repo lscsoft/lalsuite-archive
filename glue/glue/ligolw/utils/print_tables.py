@@ -13,7 +13,7 @@
 A collection of utilities to convert xml-tables to other formats, such as
 wiki or html.
 """
-import sys
+import sys, re
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -143,7 +143,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
         print >> output, tx
         if print_table_names:
             print >> output, "%s%s%s" %(capx, table_name, xcap)
-        print >> output, "%s%s%s" %(rx, xccx.join(col_names), xr)
+        print >> output, "%s%s%s" %(rx, re.sub('_', ' ', xccx.join(col_names)), xr)
 
         # print the data in the table
         for row in this_table:

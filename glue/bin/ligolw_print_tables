@@ -27,8 +27,6 @@ from glue.ligolw.utils import print_tables
 
 __prog__ = "ligolw_print_tables"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$"[7:-2] 
-__version__ = "$Revision$"[11:-2]
 
 
 # =============================================================================
@@ -124,10 +122,7 @@ if options.round_floats is None:
 else:
     round_floats = True
 
-if options.no_table_names:
-    print_table_names = False
-else:
-    print_table_names = True
+print_table_names = not options.no_table_names
 
 # convert the files
 for xmldoc, title in zip(xmldocs, titles):
