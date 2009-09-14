@@ -281,7 +281,7 @@ def makeHistogram(inputlist,distribution,opts,percentiles=None,candidate=None):
 
   if len(inputlist):
     # compute the histogram values
-    dist, bin = numpy.histogram(inputlist,bins)
+    dist, bin = numpy.histogram(inputlist,bins,new=True)
 
   return dist,bin
 

@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.28"
+ver = "1.28.1"
 
 def remove_root(path,root):
   if root:
@@ -227,7 +227,8 @@ setup(
     os.path.join('bin','lvalert_listen'),
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
-    os.path.join('bin','segdb_coalesce'), ],
+    os.path.join('bin','segdb_coalesce'),
+    os.path.join('bin', 'ligolw_print_tables') ],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),

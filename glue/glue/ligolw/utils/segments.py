@@ -290,6 +290,26 @@ def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
 	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
 
 
+def has_segment_tables(xmldoc, name = None):
+	"""
+	Return True if the document contains a complete set of segment
+	tables.  Returns False otherwise.  If name is given and not None
+	then the return value is True only if the document's segment
+	tables, if present, contain a segment list by that name.
+	"""
+	try:
+		def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+	except ValueError:
+		return False
+	try:
+		table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+	except ValueError:
+		return False
+	if name is not None and name not in set(row.name for row in def_table):
+		return False
+	return True
+
+
 def segmenttable_get_by_name(xmldoc, name):
 	"""
 	Retrieve the segments whose name matches those given.  The result

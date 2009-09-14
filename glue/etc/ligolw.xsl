@@ -26,7 +26,7 @@
 			</style>
 			
 			<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
-			<script type="text/javascript" src="ligolw-cbc3.js"></script>
+			<script type="text/javascript" src="ligolw.js"></script>
 			<script>
 			    $(document).ready(function() { setup(); });
 		    </script>
