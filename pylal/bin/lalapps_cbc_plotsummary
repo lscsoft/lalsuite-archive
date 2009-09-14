@@ -362,8 +362,8 @@ SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.
 
 	def write_wiki_string(self, l, f, lt):
 		f.write('''
-|| %s || %s || %s || %s || %s || %s || %s || %s || %s ||
-|| %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
 ''' % ("Rank", "combined FAR (Hz)","FAP", "FAP (1 yr)", "effective SNR", "end_time","total mass","chirp mass", "detectors", "detector time", "", "", "", "", "", "detector", "snr", "chisq", "mass1", "mass2"))
 		for i, values in enumerate(l):
 			values=list(values)
@@ -1171,7 +1171,7 @@ WHERE
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
-				sigma1 = (float(background_num_triggers) / background_time * self.playground_livetime[on_instruments])**.5
+				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time * self.playground_livetime[on_instruments])**.5
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] - sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos] + sigma1)/background_time[on_instruments], color='k', linewidth=2, linestyle='-')
 
