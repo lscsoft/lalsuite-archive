@@ -794,7 +794,7 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     
     bins = []
     if width:
-      for i in range(-nbins,nbins):
+      for i in range(-nbins,nbins + 1):
         bins.append(width * i/nbins)
     
     # creates the histogram and take plot_type into account  
@@ -1012,7 +1012,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     min_val -= 0.5
     max_val += 0.5
     
-  bins = numpy.linspace(min_val, max_val, nbins, endpoint=True)
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   # hist of the zero lag:
   if trigs:
@@ -1129,7 +1129,7 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     min_val -= 0.5
     max_val += 0.5
     
-  bins = numpy.linspace(min_val, max_val, nbins)
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   # hist of the zero lag:
   if trigs:
@@ -1140,7 +1140,7 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins, new=False)
+      num_slide, bin = numpy.histogram(slide_snr, bins, new=True)
       hist_slide.append(num_slide)
     hist_slide = numpy.array(hist_slide)
     slide_mean = hist_slide.mean(axis=0)
@@ -1220,15 +1220,17 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
       missedVal = log10(missedVal)
 
     if len(foundVal):
-      step = (max(foundVal) - min(foundVal)) /nbins
-      bins = arange(min(foundVal),max(foundVal)+step, step )
+      bins = numpy.linspace(min(foundVal), max(foundVal), nbins + 1,
+                            endpoint=True)
+      step = bins[1] - bins[0]
       plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
         plotbins = bins[0:-1] + foundVal[0]/4.0
     else:
-      step = (max(missedVal) - min(missedVal)) /nbins
-      bins = arange(min(missedVal),max(missedVal)+step, step )
+      bins = numpy.linspace(min(missedVal), max(missedVal), nbins + 1,
+                            endpoint=True)
+      step = bins[1] - bins[0]
       plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
@@ -1317,7 +1319,8 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     tmp_diff /= tmpvar1
 
   if hist_width[0] and hist_width[1]:
-    bins = numpy.linspace(hist_width[0], hist_width[1], nbins, endpoint=True)
+    bins = numpy.linspace(hist_width[0], hist_width[1], nbins + 1,
+                          endpoint=True)
     height, _ = numpy.histogram(tmp_diff, bins=bins, new=True)
   else:
     height, bins = numpy.histogram(tmp_diff, bins=nbins, new=True)
