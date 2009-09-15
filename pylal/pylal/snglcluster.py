@@ -113,7 +113,7 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 				i += 1
 				continue
 			if verbose and not (i % 13):
-				print >>sys.stderr, "\t%d / %d%s\r" % (i + 1, len(events), " " * (int(math.floor(math.log10(x))) + 1)),
+				print >>sys.stderr, "\t%d / %d%s\r" % (i + 1, len(events), " " * (int(math.floor(math.log10(len(events)))) + 1)),
 			inner_did_cluster = False
 			for j in xrange(i + 1, len(events)):
 				if events[j] is not None:
@@ -128,7 +128,7 @@ def cluster_events(events, testfunc, clusterfunc, sortfunc = None, bailoutfunc =
 			else:
 				i += 1
 		if verbose:
-			print >>sys.stderr, "\t%d / %d%s" % (len(events), len(events), " " * (int(math.floor(math.log10(x))) + 1))
+			print >>sys.stderr, "\t%d / %d%s" % (len(events), len(events), " " * (int(math.floor(math.log10(len(events)))) + 1))
 		if not outer_did_cluster:
 			if verbose:
 				print >>sys.stderr, "\tno change"
