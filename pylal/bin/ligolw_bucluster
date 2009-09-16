@@ -66,14 +66,7 @@ def parse_command_line():
 
 	if options.cluster_algorithm is None:
 		raise ValueError, "missing required argument --cluster-algorithm"
-	if options.cluster_algorithm == "excesspower":
-		options.prefunc = ligolw_bucluster.ExcessPowerPreFunc
-		options.postfunc = ligolw_bucluster.ExcessPowerPostFunc
-		options.testfunc = ligolw_bucluster.ExcessPowerTestFunc
-		options.sortfunc = ligolw_bucluster.ExcessPowerSortFunc
-		options.bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
-		options.clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
-	else:
+	if options.cluster_algorithm not in ("excesspower",):
 		raise ValueError, "unrecognized --cluster-algorithm %s" % options.cluster_algorithm
 
 	for cache in options.input_cache:
@@ -111,10 +104,66 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 options, filenames = parse_command_line()
 
 
+prefunc = {
+	"excesspower": ligolw_bucluster.ExcessPowerPreFunc
+}[options.cluster_algorithm]
+postfunc = {
+	"excesspower": ligolw_bucluster.ExcessPowerPostFunc
+}[options.cluster_algorithm]
+testfunc = {
+	"excesspower": ligolw_bucluster.ExcessPowerTestFunc
+}[options.cluster_algorithm]
+sortfunc = {
+	"excesspower": ligolw_bucluster.ExcessPowerSortFunc
+}[options.cluster_algorithm]
+bailoutfunc = {
+	"excesspower": ligolw_bucluster.ExcessPowerBailoutFunc
+}[options.cluster_algorithm]
+clusterfunc = {
+	"excesspower": ligolw_bucluster.ExcessPowerClusterFunc
+}[options.cluster_algorithm]
+
+
 for filename in filenames:
-	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	#
+	# Load document
+	#
+
+	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
 	lsctables.table.InterningRowBuilder.strings.clear()
-	xmldoc, changed = ligolw_bucluster.ligolw_bucluster(xmldoc, **options.__dict__)
+
+	#
+	# Add process information
+	#
+
+	process = append_process(xmldoc, cluster_algorithm = options.cluster_algorithm, comment = options.comment)
+
+	#
+	# Call clustering library
+	#
+
+	xmldoc, changed = ligolw_bucluster.ligolw_bucluster(
+		xmldoc,
+		program = options.program,
+		prefunc = prefunc,
+		postfunc = postfunc,
+		testfunc = testfunc,
+		clusterfunc = clusterfunc,
+		sortfunc = sortfunc,
+		bailoutfunc = bailoutfunc,
+		verbose = options.verbose
+	)
+
+	#
+	# Finish process information
+	#
+
+	llwapp.set_process_end_time(process)
+
+	#
+	# Write document
+	#
+
 	if changed:
-		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+		utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
 	xmldoc.unlink()

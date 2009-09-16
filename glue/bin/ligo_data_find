@@ -89,7 +89,7 @@ NAME
 SYNOPSIS
         ligo_data_find --server=NAME:PORT --observatory=NAME --type=NAME 
                --gps-start-time=GPS --gps-end-time=GPS 
-               [ --lal-cache ] [ --omega-cache ]
+               [ --lal-cache ] [ --frame-cache ]
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
                [ --names-only ] [ --show-times ] [ --version ]
                [ --no-proxy ] [ --gaps ]
@@ -137,8 +137,8 @@ DESCRIPTION
         -l, --lal-cache
                 format output for use as a LAL cache file
 
-        -W --omega-cache
-                format output for use as an Omega cache file
+        -W --frame-cache
+                format output for use as a frame cache file
 
         -m, --match
                 return only results that match a regular expression
@@ -219,7 +219,7 @@ def main():
               "ping",
               "server=",
               "lal-cache",
-              "omega-cache",
+              "frame-cache",
               "filename=",
               "url-type=",
               "match=",
@@ -299,7 +299,7 @@ def main():
                     clientMethodArgDict['type'] = a
             elif o in ("-l", "--lal-cache"):
                     lalcache = True
-            elif o in ("-W", "--omega-cache"):
+            elif o in ("-W", "--frame-cache"):
                     wcache = True
             elif o in ("-f", "--filename"):
                     clientMethodArgDict['filename'] = a
