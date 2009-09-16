@@ -103,7 +103,7 @@ fi >  findLoudestEvents.sub
 
 if [ 1 ]; then
   echo "universe = local"
-  echo "executable = ./findTotalTimeAfterVetoes_path"
+  echo "executable = findTotalTimeAfterVetoes.sh"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/findTotalTimeAfterVetoes-\$(cluster)-\$(process).err"
