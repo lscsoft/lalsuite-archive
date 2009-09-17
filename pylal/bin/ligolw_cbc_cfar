@@ -342,7 +342,7 @@ sqlquery = ''.join([ """
         experiment_summary, experiment_map ON (
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
             AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
-    """
+    """])
 
 if opts.debug:
     import time
