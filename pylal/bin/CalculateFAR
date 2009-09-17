@@ -319,7 +319,7 @@ total_zerolag_time = 0
 for septime_file in septime_files:
   # open file
   timefile = open(septime_file, 'r')
-  septimeifotime = timefile.split("/")[-1].split("_")[1]
+  septimeifotime = septime_file.split("/")[-1].split("_")[1]
   slide_time = 0
   # read it in line by line
   line_index = 0
