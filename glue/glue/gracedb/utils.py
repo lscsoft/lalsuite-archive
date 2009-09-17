@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from math import log
+from time import gmtime, strftime
 
 from pylal import Fr
 from glue.ligolw import ligolw
@@ -55,7 +56,8 @@ coherent_event_id_dict = None
 
 #the names of the variables we're going to get from omega
 omega_vars = ['time', 'frequency', 'duration', 'bandwidth', 'modeTheta',\
-              'modePhi', 'probSignal', 'probGlitch', 'logSignal','logGlitch']
+              'modePhi', 'probSignal', 'probGlitch', 'logSignal','logGlitch',\
+              'network', 'URL_web', 'URL_file']
               
 ##############################################################################
 #
@@ -187,9 +189,11 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   #https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/ 
   #090505160219S6PlanningNotebookCoinc_and_Experiment_Tables_ihope_implementation?
   #highlight=%28coinc%29|%28table%29
+  
+  temp_data_loc = None
 
   if len(detectors) < 2:
-    return xmldoc, log_data, detectors, -1
+    return xmldoc, log_data, temp_data_loc
     
   #coinc_event_id = coinc_event_id_base + str(UID)
   cin_table = lsctables.New(lsctables.CoincInspiralTable)
@@ -211,9 +215,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
 
 
   xmldoc = populate_coinc_tables(xmldoc,cid,insp_event_id_dict,\
-                                     InspiralCoincDef,detectors)
-  temp_data_loc = None
-  
+                                 InspiralCoincDef,detectors)
+    
   return xmldoc, log_data, temp_data_loc
 
 def populate_burst_tables(datafile, set_keys = Omega_set_keys):
@@ -225,39 +228,30 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   
   #extract the data from the intial Omega file
   f = open(datafile, 'r')
-  vars = []
+  omega_list = []
   for line in f.readlines():
-    if '#' in line:
-      var = line.lstrip('#').strip()
-      if var in omega_vars:
-        vars.append(var)
-    elif 'file://' in line:
-      dataDir = line.strip()
-    elif ('H1' in line or 'L1' in line or 'V1' in line)\
-         and not 'H1L1V1' in line:
-      detectors = line.strip().split()
-    elif 'https://' in line:
-      dataLink = line.strip()
+    if not line.strip(): continue # ignore blank lines
+    elif '#' in line.strip()[0]: continue # ignore comments
+    elif '=' not in line: raise ValueError, "Improperly formatted line"
     else:
-      vals = line.strip().split()
-      if len(vars) > len(vals):
-        raise ValueError, "More variables than values specified"
-      elif len(vars) < len(vals):
-        raise ValueError, "More values than variables specified"
-      else:
-        omega_data = dict(zip(vars,vals))
+      omega_list.extend([dat.strip() for dat in line.split('=',1)])
   f.close()
-  
+  omega_data = dict(zip(omega_list[::2],omega_list[1::2]))  
+  # basic error checking
+  for key in omega_data:
+    if not (key in omega_vars):
+      raise ValueError, "Unknown variable"
+    
   #create the content for the event.log file
-  log_data = '\n***Omega Online Event***\n'
+  log_data = '\nLog File created '\
+             +strftime("%a, %d %b %Y %H:%M:%S", gmtime())\
+             +'\n'
+
   for var in omega_vars:
     log_data += var + ': ' + omega_data[var] + '\n'
-  log_data += 'network: '
-  for ifo in detectors:
-    log_data += ifo + ' '
-  log_data += '\n'
-  log_data += 'event web URL: ' + dataLink + '\n' 
-  log_data += 'segment location: ' + dataDir + '\n'
+  
+  #pull out the ifos
+  detectors = [ifo for ifo in omega_data['network'].split(',')]
   
   #fill the MutliBurstTable
   mb_table = lsctables.New(lsctables.MultiBurstTable)
@@ -280,14 +274,13 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   xmldoc = populate_coinc_tables(xmldoc,cid, coherent_event_id_dict,\
                                      BurstCoincDef, detectors)
   
-  return xmldoc, log_data, dataDir
+  return xmldoc, log_data, omega_data['URL_file']
   
       
     
 def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict,\
                           CoincDef, detectors, \
-                          time_slide_id = None, likelihood = None, \
-                          nevents = 3):
+                          time_slide_id = None, likelihood = None):
   """
   populate a set of coinc tables
   xmldoc:  xml file to append the tables to
@@ -308,7 +301,12 @@ def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict,\
     row.coinc_def_id = coinc_def_id
     row.time_slide_id = time_slide_id
     row.set_instruments(detectors)
-    row.nevents = nevents
+    if 'inspiral' in CoincDef.search:
+      row.nevents = len(detectors)
+    elif 'burst' in CoincDef.search:
+      row.nevents = 1
+    else:
+      raise ValueError, "Unrecognize CoincDef.search"
     row.likelihood = likelihood
     coinc_table.append(row)
 

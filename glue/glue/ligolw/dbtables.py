@@ -46,6 +46,7 @@ try:
 	set
 except NameError:
 	from sets import Set as set
+from warnings import warn
 
 
 import ligolw
@@ -78,8 +79,8 @@ def connection_db_type(connection):
 	value is one of the strings "sqlite3" or "mysql".  Raises TypeError
 	when the database type cannot be determined.
 	"""
-	if "sqlite3" in repr(connection):
-		return "sqlite3"
+	if "sqlite" in repr(connection):
+		return "sqlite"
 	if "mysql" in repr(connection):
 		return "mysql"
 	raise TypeError, connection
@@ -438,36 +439,37 @@ class DBTable(table.Table):
 	without developer intervention the column types will be guessed
 	using a generic mapping of SQL types to LIGO Light Weight types.
 
-	Each instance of this class must be connected to a database, but
-	because the __init__() method must have the same signature as the
-	__init__() methods of other Element subclasses (so that this class
-	can be used as a drop-in replacement during document parsing), it
-	is not possible to pass a connection object into the __init__()
-	method as a separate argument.  Instead, the connection object is
-	passed into the __init__() method via a class attribute.  The
-	procedure is:  set the class attribute, create instances of the
-	class connected to that database, set the class attribute to a new
-	value, create instances of the class connected to a different
-	database, and so on.  A utility function is available for setting
-	the class attribute, and should be used.
+	Each instance of this class must be connected to a database.  The
+	(Python DBAPI 2.0 compatible) connection object is passed to the
+	class via the connection parameter at instance creation time.
 
 	Example:
 
-	import dbtables
+	>>> tbl = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}), connection = connection)
 
-	# set class attribute
-	dbtables.DBTable_set_connection(connection)
+	There is not yet a LIGO Light Weight content handler that is able
+	to do this correctly, so for the time-being a mechanism is used
+	where in the connection is stored as an attribute of the DBTable
+	class.  This makes it difficult to work with more than one database
+	at a time, and is the subject of on-going development effort.  See
+	the DBTable_set_connection() function for information on how to set
+	the class attribute.
 
-	# create a process table instance connected to that database
-	table_elem = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}))
+	If a custom glue.ligolw.Table subclass is defined in
+	glue.ligolw.lsctables whose name matches the name of the DBTable
+	being constructed, the lsctables class is added to the list of
+	parent classes.  This allows the lsctables class' methods to be
+	used with the DBTable instances but not all of the methods will
+	necessarily work with the database-backed version of the class.
+	Your mileage may vary.
 	"""
 	#
 	# When instances of this class are created, they initialize their
-	# connection attributes from the value of this class attribute at
-	# the time of their creation.  The value must be passed into the
-	# __init__() method this way because it cannot be passed in as a
-	# separate argument;  this class' __init__() method must have the
-	# same signature as normal Element subclasses.
+	# connection attributes from the value of this class attribute.
+	#
+	# NOTE:  this is deprecated;  this class attribute will be removed,
+	# and the connection parameter of the __init__() method will be the
+	# only way to pass this information to the class in the future.
 	#
 
 	connection = None
@@ -478,20 +480,17 @@ class DBTable(table.Table):
 			# no, try to retrieve it from lsctables
 			attrs, = args
 			name = table.StripTableName(attrs[u"Name"])
-			try:
+			if name in lsctables.TableByName:
+				# found metadata in lsctables, construct
+				# custom subclass.  the class from
+				# lsctables is added as a parent class to
+				# allow methods from that class to be used
+				# with this class, however there is no
+				# guarantee that all parent class methods
+				# will be appropriate for use with the
+				# DB-backed object.
 				lsccls = lsctables.TableByName[name]
-			except KeyError:
-				# unknown table, give up
-				pass
-			else:
-				# found metadata, construct custom
-				# subclass.  NOTE:  this works because when
-				# using SQL-backed tables there can only be
-				# ONE of any table in a document, which
-				# solves the problem of trying to share the
-				# next_id attribute across multiple
-				# instances of a table.
-				class CustomDBTable(cls):
+				class CustomDBTable(cls, lsccls):
 					tableName = lsccls.tableName
 					validcolumns = lsccls.validcolumns
 					loadcolumns = lsccls.loadcolumns
@@ -521,6 +520,7 @@ class DBTable(table.Table):
 		if "connection" in kwargs:
 			self.connection = kwargs.pop("connection")
 		else:
+			warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
 			self.connection = self.connection
 
 		# pre-allocate a cursor for internal queries
@@ -539,12 +539,10 @@ class DBTable(table.Table):
 
 		# create the table
 		ToSQLType = {
-			"sqlite3": ligolwtypes.ToSQLiteType,
+			"sqlite": ligolwtypes.ToSQLiteType,
 			"mysql": ligolwtypes.ToMySQLType
 		}[connection_db_type(self.connection)]
 		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
-		if connection_db_type(self.connection) == "mysql" and "rowid" not in map(str.lower, self.dbcolumnnames):
-			statement += ", ROWID INTEGER UNIQUE AUTO_INCREMENT"
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -555,7 +553,7 @@ class DBTable(table.Table):
 
 		# construct the SQL to be used to insert new rows
 		params = {
-			"sqlite3": ",".join("?" * len(self.dbcolumnnames)),
+			"sqlite": ",".join("?" * len(self.dbcolumnnames)),
 			"mysql": ",".join(["%s"] * len(self.dbcolumnnames))
 		}[connection_db_type(self.connection)]
 		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), params)
@@ -688,42 +686,6 @@ class ProcessParamsTable(DBTable):
 		DBTable.append(self, row)
 
 
-class SearchSummaryTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.SearchSummaryTable.tableName
-	validcolumns = lsctables.SearchSummaryTable.validcolumns
-	constraints = lsctables.SearchSummaryTable.constraints
-	next_id = lsctables.SearchSummaryTable.next_id
-	RowType = lsctables.SearchSummaryTable.RowType
-	how_to_index = lsctables.SearchSummaryTable.how_to_index
-
-	def get_out_segmentlistdict(self, process_ids = None):
-		"""
-		Return a segmentlistdict mapping instrument to out segment
-		list.  If process_ids is a list of process IDs, then only
-		rows with matching IDs are included otherwise all rows are
-		included.
-
-		Note:  the result is not coalesced, each segmentlist
-		contains the segments listed for that instrument as they
-		appeared in the table.
-		"""
-		# start a segment list dictionary
-		seglists = segments.segmentlistdict()
-
-		# add segments from appropriate rows to segment list
-		# dictionary
-		for row in self:
-			ifos = row.get_ifos()
-			if ifos is None:
-				ifos = (None,)
-			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
-
-		# done
-		return seglists
-
-
 class TimeSlideTable(DBTable):
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
@@ -793,46 +755,6 @@ class TimeSlideTable(DBTable):
 		raise NotImplementedError
 
 
-class CoincDefTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.CoincDefTable.tableName
-	validcolumns = lsctables.CoincDefTable.validcolumns
-	constraints = lsctables.CoincDefTable.constraints
-	next_id = lsctables.CoincDefTable.next_id
-	RowType = lsctables.CoincDefTable.RowType
-	how_to_index = lsctables.CoincDefTable.how_to_index
-
-	def get_coinc_def_id(self, search, coinc_type, create_new = True, description = u""):
-		"""
-		Return the coinc_def_id for the row in the table whose
-		search string and search_coinc_type integer have the values
-		given.  If a matching row is not found, the default
-		behaviour is to create a new row and return the ID assigned
-		to the new row.  If, instead, create_new is False then
-		KeyError is raised when a matching row is not found.  The
-		optional description parameter can be used to set the
-		description string assigned to the new row if one is
-		created, otherwise the new row is left with an empty
-		description.
-		"""
-		# look for the ID
-		for row in self:
-			if (row.search, row.search_coinc_type) == (search, coinc_type):
-				# found it
-				return row.coinc_def_id
-
-		# coinc type not found in table
-		if not create_new:
-			raise KeyError, (search, coinc_type)
-		self.sync_next_id()
-		row = self.RowType()
-		row.coinc_def_id = self.get_next_id()
-		row.search = search
-		row.search_coinc_type = coinc_type
-		row.description = description
-		self.append(row)
-
-
 #
 # =============================================================================
 #
@@ -882,9 +804,7 @@ def build_indexes(connection, verbose = False):
 TableByName = {
 	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
-	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
-	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-	table.StripTableName(CoincDefTable.tableName): CoincDefTable
+	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
 }
 
 
@@ -922,8 +842,8 @@ def startTable(self, attrs):
 	if name in map(table.StripTableName, NonDBTableNames):
 		return __parent_startTable(self, attrs)
 	if name in TableByName:
-		return TableByName[name](attrs)
-	return DBTable(attrs)
+		return TableByName[name](attrs, connection = DBTable.connection)
+	return DBTable(attrs, connection = DBTable.connection)
 
 
 ligolw.LIGOLWContentHandler.startTable = startTable

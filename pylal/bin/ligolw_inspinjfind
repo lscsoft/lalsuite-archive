@@ -37,6 +37,7 @@ from optparse import OptionParser
 import sys
 
 
+from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
@@ -169,3 +170,4 @@ for n, filename in enumerate(filenames):
 
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
+	lsctables.table.reset_next_ids(lsctables.TableByName.values())

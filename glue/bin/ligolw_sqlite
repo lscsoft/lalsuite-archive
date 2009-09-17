@@ -98,7 +98,6 @@ def parse_command_line():
 	return options, (urls or [None])
 
 
-
 #
 # =============================================================================
 #
@@ -112,6 +111,7 @@ def parse_command_line():
 # Command line
 #
 
+
 if __name__ == '__main__':
 	options, urls = parse_command_line()
 
@@ -119,16 +119,21 @@ if __name__ == '__main__':
 	will_replace_file = will_write_to_file and options.replace
 	will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
+
 	#
 	# Open database
 	#
-	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 
+
+	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 	connection = ligolw_sqlite.setup(target)
+
 
 	#
 	# Insert files
 	#
+
+
 	if (options.extract is None) or (urls != [None]):
 		ligolw_sqlite.insert(connection, urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
@@ -136,6 +141,8 @@ if __name__ == '__main__':
 	#
 	# Extract database contents
 	#
+
+
 	if options.extract is not None:
 		if options.extract == "-":
 			# stdout
@@ -146,12 +153,23 @@ if __name__ == '__main__':
 	#
 	# Close database
 	#
+
+
 	connection.close()
+
 
 	#
 	# Move database to final location
 	#
+
+
 	dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
+
+
+	#
+	# Done
+	#
+
 
 	if options.verbose:
 		print >>sys.stderr, "done."

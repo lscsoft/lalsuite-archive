@@ -16,6 +16,8 @@
 #include "rastermagic.h"
 #include "hookup.h"
 #include "outer_loop.h"
+#include "summing_context.h"
+#include "jobs.h"
 
 extern struct gengetopt_args_info args_info;
 
@@ -586,29 +588,10 @@ OUTPUT_SKYMAP(weight_loss_fraction_skymap, "weight_loss_fraction");
 OUTPUT_SKYMAP(ks_skymap, "ks_value");
 }
 
-void outer_loop(void)
+void create_segments(EXTREME_INFO ***out_ei, int *out_nei)
 {
-int pi, i, k, m;
-int nchunks;
-int nei;
-POWER_SUM **ps, **ps_tmp;
+int i, k, m, nei;
 EXTREME_INFO **ei;
-int ps_tmp_len;
-int count;
-double gps_start=min_gps();
-double gps_stop=max_gps()+1;
-time_t start_time, end_time;
-RGBPic *p;
-PLOT *plot;
-
-assign_per_dataset_cutoff_veto();
-assign_cutoff_veto();
-assign_detector_veto();
-
-nchunks=args_info.nchunks_arg*veto_free;
-ps=do_alloc(nchunks, sizeof(*ps));
-ps_tmp=do_alloc(nchunks, sizeof(*ps));
-
 ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg-1)*(veto_free+1), sizeof(*ei));
 
 fprintf(LOG, "nchunks: %d\n", args_info.nchunks_arg);
@@ -632,60 +615,156 @@ for(i=0;i<args_info.nchunks_arg;i++)
 			nei++;
 			}
 
+*out_nei=nei;
+*out_ei=ei;
+}
+
+SUMMING_CONTEXT **summing_contexts=NULL;
+struct {
+	POWER_SUM **ps;
+	POWER_SUM **ps_tmp;
+	
+	} *cruncher_contexts=NULL;
+int n_contexts=0;
+
+int nei;
+EXTREME_INFO **ei=NULL;
+int nchunks;
+
+double gps_start;
+double gps_stop;
+
+MUTEX data_logging_mutex;
+
+
+void outer_loop_cruncher(int thread_id, void *data)
+{
+int pi=(long)data;
+SUMMING_CONTEXT *ctx=summing_contexts[thread_id+1];
+int ps_tmp_len;
+int i,k,m,count;
+POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
+POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
+
+//fprintf(stderr, "%d ", pi);
+
+generate_patch_templates(pi, &(ps[0]), &count);
+
+if(count<1) {
+	free(ps[0]);
+	ps[0]=NULL;
+	return;
+	}
+
+for(i=1;i<nchunks;i++) {
+	clone_templates(ps[0], count, &(ps[i]));
+	}
+for(i=0;i<args_info.nchunks_arg;i++) {
+	for(k=0;k<veto_free;k++) {
+		accumulate_power_sums(ctx, ps[i*veto_free+k], count, gps_start+i*(gps_stop-gps_start)/args_info.nchunks_arg, gps_start+(i+1)*(gps_stop-gps_start)/args_info.nchunks_arg, veto_info[k].veto_mask);
+		}
+	}
+
+/* find largest strain and largest SNR candidates for this patch */
+for(i=0;i<nei;i++) {
+	ps_tmp_len=0;
+	for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
+		if(ei[i]->veto_num<0) {
+			for(m=0;m<veto_free;m++) {
+				ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
+				ps_tmp_len++;
+				}
+			} else {
+			ps_tmp[ps_tmp_len]=ps[k*veto_free+ei[i]->veto_num];
+			ps_tmp_len++;
+			}
+		}
+
+	thread_mutex_lock(data_logging_mutex);
+	log_extremes(ei[i], pi, ps_tmp, ps_tmp_len, count);
+	thread_mutex_unlock(data_logging_mutex);
+	}
+
+for(i=0;i<nchunks;i++) {
+	free_templates(ps[i], count);
+	ps[i]=NULL;
+	}
+}
+
+void outer_loop(void)
+{
+int pi, i, k;
+time_t start_time, end_time;
+RGBPic *p;
+PLOT *plot;
+
+thread_mutex_init(&data_logging_mutex);
+
+assign_per_dataset_cutoff_veto();
+assign_cutoff_veto();
+assign_detector_veto();
+
+nchunks=args_info.nchunks_arg*veto_free;
+
+create_segments(&ei, &nei);
+
+n_contexts=get_max_threads();
+summing_contexts=do_alloc(n_contexts, sizeof(*summing_contexts));
+for(i=0;i<n_contexts;i++)
+	summing_contexts[i]=create_summing_context();
+
+cruncher_contexts=do_alloc(n_contexts, sizeof(*cruncher_contexts));
+for(i=0;i<n_contexts;i++) {
+	cruncher_contexts[i].ps=do_alloc(nchunks, sizeof(*cruncher_contexts[i].ps));
+	cruncher_contexts[i].ps_tmp=do_alloc(nchunks, sizeof(*cruncher_contexts[i].ps_tmp));
+	}
+
 fprintf(LOG, "nei: %d\n", nei);
+
+gps_start=min_gps();
+gps_stop=max_gps()+1;
+
+reset_jobs_done_ratio();
 
 time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++) {
-	if(pi % 100 == 0) {
+/*	if(pi % 100 == 0) {
 		time(&end_time);
 		if(end_time<start_time)end_time=start_time;
 		fprintf(stderr, "%d (%f patches/sec)\n", pi, pi/(1.0*(end_time-start_time+1.0)));
-		print_cache_stats();
+		ctx->print_cache_stats(ctx);
 		//fprintf(stderr, "%d\n", pi);
-		}
-	generate_patch_templates(pi, &(ps[0]), &count);
-
-	if(count<1)continue;
-
-	for(i=1;i<nchunks;i++) {
-		clone_templates(ps[0], count, &(ps[i]));
-		}
-	for(i=0;i<args_info.nchunks_arg;i++) {
-		for(k=0;k<veto_free;k++) {
-			accumulate_power_sums(ps[i*veto_free+k], count, gps_start+i*(gps_stop-gps_start)/args_info.nchunks_arg, gps_start+(i+1)*(gps_stop-gps_start)/args_info.nchunks_arg, veto_info[k].veto_mask);
-			}
-		}
-
-	/* find largest strain and largest SNR candidates for this patch */
-	for(i=0;i<nei;i++) {
-		ps_tmp_len=0;
-		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
-			if(ei[i]->veto_num<0) {
-				for(m=0;m<veto_free;m++) {
-					ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
-					ps_tmp_len++;
-					}
-				} else {
-				ps_tmp[ps_tmp_len]=ps[k*veto_free+ei[i]->veto_num];
-				ps_tmp_len++;
-				}
-			}
-		log_extremes(ei[i], pi, ps_tmp, ps_tmp_len, count);
-		}
-
-	for(i=0;i<nchunks;i++) {
-		free_templates(ps[i], count);
-		ps[i]=NULL;
-		}
+		}*/
+	submit_job(outer_loop_cruncher, (void *)((long)pi));
 	}
+k=0;
+while(do_single_job(-1)) {
+	if(k % 100 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+	k++;
+	}
+wait_for_all_done();
+fprintf(stderr, "\n");
+
 time(&end_time);
 if(end_time<start_time)end_time=start_time;
 fprintf(stderr, "Patch speed: %f\n", patch_grid->npoints/(1.0*(end_time-start_time+1.0)));
 fprintf(LOG, "Patch speed: %f\n", patch_grid->npoints/(1.0*(end_time-start_time+1.0)));
-free(ps);
-print_cache_stats();
+
+for(i=0;i<n_contexts;i++) {
+	summing_contexts[i]->print_cache_stats(summing_contexts[i]);
+	free_summing_context(summing_contexts[i]);
+	summing_contexts[i]=NULL;
+
+	free(cruncher_contexts[i].ps);
+	free(cruncher_contexts[i].ps_tmp);
+	}
+free(summing_contexts);
+summing_contexts=NULL;
+free(cruncher_contexts);
+cruncher_contexts=NULL;
+
 
 fflush(DATA_LOG);
 fflush(LOG);

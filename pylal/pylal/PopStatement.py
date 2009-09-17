@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -153,12 +151,13 @@ class PopStatement(object):
         # calculate the IFAR as well
         off_ifar = self.calculate_sample_to_ifar(pop_background_by_trial,\
                                                  pop_background_by_trial)
-        inj_ifar = [0] #FIXME: fix me
+        inj_ifar =  self.calculate_sample_to_ifar(pop_injections_by_trial,\
+                                                 pop_background_by_trial)
         on_ifar = self.calculate_sample_to_ifar([pop_onsource], \
                                                 pop_background_by_trial)
         
         # and an instance for the IFAR data 
-        data_ifar = GRBdata(grb_name, inj_ifar, off_ifar, on_ifar)
+        data_ifar = GRBdata(grb_name, inj_ifar, off_ifar, on_ifar[0])
         
         # store the samples
         self.lik_by_grb.append(data_lik)
@@ -184,7 +183,7 @@ class PopStatement(object):
 
         vector_ifar = []
         for item in sample:
-            ifar = self.calculate_ifar(item, sample)
+            ifar = self.calculate_ifar(item, sample_ref)
             vector_ifar.append(ifar)
 
         return vector_ifar
@@ -343,6 +342,7 @@ class PopStatement(object):
 
         # adjust the number
         self.n_grb = len(self.on_list)
+        self.n_off = len(self.off_list)
 
     # -------------------------------------------------
     def remove_empty_trials(self, data):

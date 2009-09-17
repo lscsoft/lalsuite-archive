@@ -31,11 +31,11 @@ import sys
 
 
 from glue import segments
-from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
+from pylal import snglcluster
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -55,10 +55,10 @@ __date__ = "$Date$"[7:-2]
 process_program_name = "ligolw_bucluster"
 
 
-def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+def append_process(xmldoc, cluster_algorithm, comment):
+	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
-	ligolw_process.append_process_params(doc, process, [(u"--cluster-algorithm", u"lstring", kwargs["cluster_algorithm"])])
+	ligolw_process.append_process_params(xmldoc, process, [(u"--cluster-algorithm", u"lstring", cluster_algorithm)])
 
 	return process
 
@@ -109,25 +109,6 @@ def add_ms_columns(sngl_burst_table):
 #
 # =============================================================================
 #
-
-
-def smallest_enclosing_seg(a, b):
-	"""
-	Return the smallest segment that contains both a and b.
-	"""
-	return segments.segment(min(a[0], b[0]), max(a[1], b[1]))
-
-
-def weighted_average_seg(seg1, weight1, seg2, weight2):
-	"""
-	Return the segment whose start and ends are the weighted averages
-	of the start and ends of the two input segments, using the two
-	weights given.
-	"""
-	# The formulae are a little funny because they need to work with
-	# LIGOTimeGPS objects which don't like being multiplied by large
-	# numbers.
-	return segments.segment(seg1[0] + weight2 * float(seg2[0] - seg1[0]) / (weight1 + weight2), seg1[1] + weight2 * float(seg2[1] - seg1[1]) / (weight1 + weight2))
 
 
 #
@@ -213,8 +194,8 @@ def ExcessPowerClusterFunc(a, b):
 		a.ms_hrss = b.ms_hrss
 		a.ms_snr = b.ms_snr
 		a.ms_confidence = b.ms_confidence
-	a.set_ms_period(weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
-	a.set_ms_band(weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
+	a.set_ms_period(snglcluster.weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
+	a.set_ms_band(snglcluster.weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
 
 	#
 	# Compute the SNR squared weighted peak time and frequency (recall
@@ -248,14 +229,14 @@ def ExcessPowerClusterFunc(a, b):
 	# bands of the two original events
 	#
 
-	a.set_band(smallest_enclosing_seg(a.get_band(), b.get_band()))
+	a.set_band(snglcluster.smallest_enclosing_seg(a.get_band(), b.get_band()))
 
 	#
 	# The cluster's time interval is the smallest interval containing
 	# the intervals of the two original events
 	#
 
-	a.set_period(smallest_enclosing_seg(a.get_period(), b.get_period()))
+	a.set_period(snglcluster.smallest_enclosing_seg(a.get_period(), b.get_period()))
 
 	#
 	# Success
@@ -267,77 +248,30 @@ def ExcessPowerClusterFunc(a, b):
 #
 # =============================================================================
 #
-#                               Clustering Loop
-#
-# =============================================================================
-#
-
-
-def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, sortfunc = None, bailoutfunc = None):
-	"""
-	Cluster the candidates in the sngl_burst table.  testfunc will be
-	passed a pair in random order, and must return 0 (or False) if they
-	should be clustered.  clusterfunc will be passed a pair of
-	candidates in random order, and must return an event that is the
-	"cluster" of the two.  It is free to return a new trigger, or
-	modify one or the other of its parameters in place and return it.
-
-	If sortfunc and bailoutfunc are both not None (if one is provided
-	the other must be as well), the candidates will be sorted into
-	"increasing" order using sortfunc as a comparison operator, and
-	then only pairs of candidates for which bailoutfunc returns 0 (or
-	False) will be considered for clustering.
-
-	The return value is True if the sngl_burst table was modified, and
-	False if it was not.
-	"""
-	table_changed = False
-	while True:
-		if sortfunc is not None:
-			sngl_burst_table.sort(sortfunc)
-		outer_did_cluster = False
-		i = 0
-		while i < len(sngl_burst_table):
-			if sngl_burst_table[i] is None:
-				i += 1
-				continue
-			inner_did_cluster = False
-			for j in xrange(i + 1, len(sngl_burst_table)):
-				if sngl_burst_table[j] is not None:
-					if not testfunc(sngl_burst_table[i], sngl_burst_table[j]):
-						sngl_burst_table[i] = clusterfunc(sngl_burst_table[i], sngl_burst_table[j])
-						sngl_burst_table[j] = None
-						inner_did_cluster = True
-					elif (sortfunc is not None) and bailoutfunc(sngl_burst_table[i], sngl_burst_table[j]):
-						break
-			if inner_did_cluster:
-				outer_did_cluster = True
-			else:
-				i += 1
-		if outer_did_cluster:
-			iterutils.inplace_filter(lambda row: row is not None, sngl_burst_table)
-			table_changed = True
-		else:
-			break
-	return table_changed
-
-
-#
-# =============================================================================
-#
 #                                 Library API
 #
 # =============================================================================
 #
 
 
-def ligolw_bucluster(doc, **kwargs):
+def ligolw_bucluster(
+	xmldoc,
+	program,
+	process,
+	prefunc,
+	postfunc,
+	testfunc,
+	clusterfunc,
+	sortfunc = None,
+	bailoutfunc = None,
+	verbose = False
+):
 	"""
 	Run the clustering algorithm on the list of burst candidates.  The
-	return value is the tuple (doc, changed), where doc is the input
-	document, and changed is a boolean that is True if the contents of
-	the sngl_burst table were altered, and False if the triggers were
-	not modified by the clustering process.
+	return value is the tuple (xmldoc, changed), where xmldoc is the
+	input document, and changed is a boolean that is True if the
+	contents of the sngl_burst table were altered, and False if the
+	triggers were not modified by the clustering process.
 
 	If the document does not contain a sngl_burst table, then the
 	document is not modified (including no modifications to the process
@@ -349,22 +283,16 @@ def ligolw_bucluster(doc, **kwargs):
 	#
 
 	try:
-		sngl_burst_table = table.get_table(doc, lsctables.SnglBurstTable.tableName)
+		sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 	except ValueError:
 		# no-op:  document does not contain a sngl_burst table
-		if kwargs["verbose"]:
+		if verbose:
 			print >>sys.stderr, "document does not contain a sngl_burst table, skipping ..."
-		return doc, False
-	seg = llwapp.segmentlistdict_fromsearchsummary(doc, program = kwargs["program"]).coalesce().extent_all()
+		return xmldoc, False
+	seg = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce().extent_all()
 
 	# FIXME:  don't do this:  fix lalapps_power's output
 	add_ms_columns(sngl_burst_table)
-
-	#
-	# Add process information
-	#
-
-	process = append_process(doc, **kwargs)
 
 	#
 	# Remove all H2 triggers intersecting the frequency band
@@ -383,41 +311,32 @@ def ligolw_bucluster(doc, **kwargs):
 	# Preprocess candidates
 	#
 
-	if kwargs["verbose"]:
+	if verbose:
 		print >>sys.stderr, "pre-processing ..."
-	preprocess_output = kwargs["prefunc"](sngl_burst_table)
+	preprocess_output = prefunc(sngl_burst_table)
 
 	#
 	# Cluster
 	#
 
-	if kwargs["verbose"]:
-		print >>sys.stderr, "clustering ..."
-
-	table_changed = ClusterSnglBurstTable(sngl_burst_table, kwargs["testfunc"], kwargs["clusterfunc"], sortfunc = kwargs["sortfunc"], bailoutfunc = kwargs["bailoutfunc"])
+	table_changed = snglcluster.cluster_events(sngl_burst_table, testfunc, clusterfunc, sortfunc = sortfunc, bailoutfunc = bailoutfunc, verbose = verbose)
 
 	#
 	# Postprocess candidates
 	#
 
-	if kwargs["verbose"]:
+	if verbose:
 		print >>sys.stderr, "post-processing ..."
-	kwargs["postfunc"](sngl_burst_table, preprocess_output)
+	postfunc(sngl_burst_table, preprocess_output)
 
 	#
 	# Add search summary information
 	#
 
-	llwapp.append_search_summary(doc, process, inseg = seg, outseg = seg, nevents = len(sngl_burst_table))
-
-	#
-	# Finish process information
-	#
-
-	llwapp.set_process_end_time(process)
+	llwapp.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(sngl_burst_table))
 
 	#
 	# Done
 	#
 
-	return doc, table_changed
+	return xmldoc, table_changed

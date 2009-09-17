@@ -130,9 +130,18 @@ def setup_database(database_location):
 
 
 def query_segments(engine, table, segdefs):
-    # each segdef has
-    # ifo, name, version, start_time, end_time, start_pad, end_pad
+    # each segdef is a list containing:
+    #     ifo, name, version, start_time, end_time, start_pad, end_pad
 
+
+    # The trivial case: if there's nothing to do, return no time
+    if len(segdefs) == 0:
+        return [ segmentlist([]) ]
+
+    #
+    # For the sake of efficiency we query the database for all the segdefs at once
+    # This constructs a clause that looks for one
+    #
     def make_clause(table, segdef):
         ifo, name, version, start_time, end_time, start_pad, end_pad = segdef
 
@@ -142,9 +151,6 @@ def query_segments(engine, table, segdefs):
         sql += "AND NOT (%d > %s.end_time OR %s.start_time > %d)) " % (start_time, table, table, end_time)
 
         return sql
-
-    if len(segdefs) == 0:
-        return [ segmentlist([]) ]
 
     clauses = [make_clause(table, segdef) for segdef in segdefs]
 
@@ -160,22 +166,52 @@ def query_segments(engine, table, segdefs):
 
     rows = engine.query(sql)
 
+    #
+    # The result of a query will be rows of the form
+    #    ifo, name, version, start_time, end_time
+    #
+    # We want to associate each returned row with the segdef it belongs to so that
+    # we can apply the correct padding.
+    #
+    # If segdefs were uniquely spcified by (ifo, name, version) this would
+    # be easy, but it may happen that we're looking for the same segment definer
+    # at multiple disjoint times.  In particular this can happen if the user
+    # didn't specify a version number; in that case we might have version 2
+    # of some flag defined over multiple disjoint segment_definers.
+    #
     results = []
 
     for segdef in segdefs:
         ifo, name, version, start_time, end_time, start_pad, end_pad = segdef
 
-        matches    = lambda row: row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
+        search_span      = segment(start_time, end_time)
+        search_span_list = segmentlist([search_span])
 
-        # Segments may overlap the start or end times, in which case
-        # chop off the excess
-        real_start = lambda t: max(start_time, t + start_pad)
-        real_end   = lambda t: min(end_time, t + end_pad)
+        # See whether the row belongs to the current segdef.  Name, ifo and version must match
+        # and the padded segment must overlap with the range of the segdef.
+        def matches(row):
+            return ( row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
+                     and search_span.intersects(segment(row[3] + start_pad, row[4] + start_pad)) )
 
-        result  = segmentlist( [segment(real_start(row[3]), real_end(row[4])) for row in rows if matches(row)] )
-        result &= segmentlist([segment(start_time, end_time)])
-        result.coalesce()
+        # Add the padding.  Segments may extend beyond the time of interest, chop off the excess.
+        def pad_and_truncate(row_start, row_end):
+            tmp = segmentlist([segment(row_start + start_pad, row_end + end_pad)])
+            # No coalesce needed as a list with a single segment is already coalesced
+            tmp &= search_span_list
 
+            # The intersection is guaranteed to be non-empty if the row passed match()
+            return tmp[0]
+
+        # Build a segment list from the returned segments, padded and trunctated.  The segments will
+        # not necessarily be disjoint, if the padding crosses gaps.  They are also not gauranteed to
+        # be in order, since there's no ORDER BY in the query.  So the list needs to be coalesced
+        # before arithmatic can be done with it.
+        result  = segmentlist( [pad_and_truncate(row[3], row[4]) for row in rows if matches(row)] ).coalesce()
+
+        # This is not needed: since each of the segments are constrained to be within the search
+        # span the whole list must be as well.
+        # result &= search_span_list
+        
         results.append(result)
 
     return results
@@ -210,8 +246,8 @@ def expand_version_number(engine, segdef):
             for seg in segs[0]:
                 results.append( (ifo, name, version, seg[0], seg[1], 0, 0) )
 
-        intervals -= segs[0]
         intervals.coalesce()
+        intervals -= segs[0]
 
         version -= 1
 
@@ -373,6 +409,8 @@ def build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, 
     version = len(rows[0]) and rows[0][0] or 1
 
     return build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version, start_pad, end_pad)
+
+
 def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version = None, start_pad = 0, end_pad = 0):
     """Builds a list of segments satisfying the given criteria """
     seg_result = segmentlist([])

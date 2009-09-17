@@ -23,7 +23,7 @@ ofn<-function(name) {
 	return(file(paste(output_dir, "/", name, sep=""), open="wt"))
 	}
 
-col_names<-read.table(pipe("grep tag: 0/90000-50.000000/powerflux.log | head --lines=1"), header=FALSE, sep=" ")
+col_names<-read.table(pipe("grep tag: 0/*/powerflux.log | head --lines=1"), header=FALSE, sep=" ")
 
 cat("Loading data from ", fn, "\n", sep="")
 # Cheat - get a small sample first and use it to find out types and such.
@@ -35,8 +35,8 @@ Types<-lapply(header, class)
 Types<-lapply(Types, function(x)gsub("logical", "numeric", x))
 
 
-CreateQuery<-p("CREATE TABLE ", TableName, "(Line INTEGER AUTO_INCREMENT")
-LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", TableName, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' (")
+CreateQuery<-p("CREATE TABLE ", BandInfoTableName, "(Line INTEGER AUTO_INCREMENT")
+LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", BandInfoTableName, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' (")
 
 # "
 
@@ -60,18 +60,18 @@ LoadQuery<-p(LoadQuery, ")")
 cat("Connecting to the database\n")
 con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
 
-cat("Dropping table", TableName, "\n")
-try(dbGetQuery(con, p("DROP TABLE ", TableName)), silent=TRUE)
+cat("Dropping table", BandInfoTableName, "\n")
+try(dbGetQuery(con, p("DROP TABLE ", BandInfoTableName)), silent=TRUE)
 
-cat("Declaring table", TableName, "\n")
+cat("Declaring table", BandInfoTableName, "\n")
 dbGetQuery(con, CreateQuery)
 
-cat("Loading table", TableName, "\n")
+cat("Loading table", BandInfoTableName, "\n")
 dbGetQuery(con, LoadQuery)
 
 
-cat("Adding index to table", TableName, "\n")
-dbGetQuery(con, p("ALTER TABLE `", TableName, "` ADD INDEX (first_bin)"))
+cat("Adding index to table", BandInfoTableName, "\n")
+dbGetQuery(con, p("ALTER TABLE `", BandInfoTableName, "` ADD INDEX (first_bin)"))
 
 
 cat("Warnings:\n")

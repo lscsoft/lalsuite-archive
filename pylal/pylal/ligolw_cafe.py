@@ -31,7 +31,6 @@ LIGO Light-Weight XML coincidence analysis front end.
 """
 
 
-import bisect
 from math import log10
 import sys
 # Python 2.3 compatibility
@@ -46,9 +45,9 @@ from glue.lal import CacheEntry
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import packing
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -67,21 +66,22 @@ __version__ = "$Revision$"[11:-2]
 
 def load_cache(filename, verbose = False):
 	"""
-	Parses a LAL cache file named filename into a list of
-	glue.lal.CacheEntry objects.
+	Parse a LAL cache file named filename into a list of
+	glue.lal.CacheEntry objects.  If filename is None then input is
+	taken from stdin.
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
-	if filename:
+	if filename is not None:
 		f = file(filename)
 	else:
 		f = sys.stdin
-	return [CacheEntry(line, coltype = LIGOTimeGPS) for line in f]
+	return [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in f]
 
 
 def cache_to_seglistdict(cache):
 	"""
-	Constructs a coalesced segmentlistdict object from a list of
+	Construct a coalesced segmentlistdict object from a list of
 	glue.lal.CacheEntry objects.
 	"""
 	s = segments.segmentlistdict()
@@ -102,7 +102,7 @@ def cache_to_seglistdict(cache):
 def segmentlistdict_normalize(seglistdict, origin):
 	"""
 	Convert the times in a segmentlist dictionary to floats relative to
-	an origin.  The purpose is to allow segment lists stored as
+	origin.  The purpose is to allow segment lists stored as
 	LIGOTimeGPS times to be manipulated more quickly without loss of
 	precision.  The modification is done in place.
 	"""
@@ -133,10 +133,12 @@ def segmentlistdict_unnormalize(seglistdict, origin):
 
 class LALCacheBin(packing.Bin):
 	"""
-	Bin object representing a LAL file cache.  The objects attribute
-	contains a list of glue.lal.CacheEntry objects, and the size
-	attribute holds a glue.segments.segmentlistdict object summarizing
-	the times spanned by the files in the cache.
+	Subclass of the packing.Bin class representing a LAL file cache.
+	The files contained in the bin are available in the .objects
+	attribute, which is a list of glue.lal.CacheEntry objects.  The
+	.size attribute holds a glue.segments.segmentlistdict object giving
+	the times spanned by the files in the bin.  The .extent attribute
+	holds the result of running .extent_all() on the .size attribute.
 	"""
 	def __init__(self):
 		packing.Bin.__init__(self)
@@ -162,65 +164,97 @@ class LALCacheBin(packing.Bin):
 
 class CafePacker(packing.Packer):
 	"""
-	Packing algorithm implementing the ligolw_cafe event list file
-	packing algorithm.
+	Packing algorithm implementing the ligolw_cafe file list packing
+	algorithm.
 	"""
-	def set_time_slides(self, offsetdictlist):
+	def set_offset_vectors(self, offset_vectors):
 		"""
-		Set the list of time slides to be considered when deciding
-		the bins in which each file belongs.  Must be called before
-		packing any files.  The input is a list of dictionaries,
-		each mapping instruments to offsets.
+		Set the list of offset vectors to be considered when
+		deciding the bins in which each file belongs.  Must be
+		called before packing any files.  The input is a list of
+		dictionaries, each mapping instruments to offsets.
 		"""
-		self.timeslides = offsetdictlist
-		min_offset = min([min(timeslide.itervalues()) for timeslide in offsetdictlist])
-		max_offset = max([max(timeslide.itervalues()) for timeslide in offsetdictlist])
+		self.offset_vectors = offset_vectors
+		min_offset = min(min(offset_vector.values()) for offset_vector in offset_vectors)
+		max_offset = max(max(offset_vector.values()) for offset_vector in offset_vectors)
 		# largest gap that can conceivably be closed by the time
 		# slides
 		self.max_gap = max_offset - min_offset
-		if self.max_gap < 0:
-			raise Exception, "crash!"
+		assert self.max_gap >= 0
 
 	def pack(self, cache_entry):
 		"""
 		Find all bins in which this glue.lal.CacheEntry instance
-		belongs.  The test is, for each bin, to iterate through the
-		time slide dictionaries applying the offsets to both the
-		bin and the CacheEntry, and checking if the (time shifted)
-		CacheEntry's segment(s) intersects the (time shifted)
-		segments already in the bin, comparing only those that are
-		involved in the time slide.
+		belongs, merge them, and add this cache entry to the
+		result.  Create a new bin for this cache entry if it does
+		not belong in any of the existing bins.
+
+		The cache entry "belongs" in a bin if after each of the
+		preset offset vectors (see the .set_offset_vectors()
+		method) is applied to both the contents of a bin and the
+		cache entry, any of the segment lists of the bin and cache
+		entry are found to intersect.  When checking for
+		intersection, only the segment lists whose instrument names
+		are listed in the offset vector are compared.
 		"""
+		#
+		# add the cache entry to a new bin by itself
+		#
+
 		new = LALCacheBin()
 		new.add(cache_entry, cache_entry.to_segmentlistdict())
+
+		#
+		# assemble a list of bins in which the cache entry belongs.
+		# iterate over existing bins backwards so that we record
+		# the indeces of matching bins in descending order.  bail
+		# out when we find a bin that precedes the new one
+		#
+
 		matching_bins = []
-		for n in xrange(bisect.bisect_left([bin.extent[1] for bin in self.bins], new.extent[0] - self.max_gap), len(self.bins)):
+		for n in xrange(len(self.bins) - 1, -1, -1):
 			bin = self.bins[n]
-			for offsetdict in self.timeslides:
-				new.size.offsets.update(offsetdict)
-				bin.size.offsets.update(offsetdict)
-				if bin.size.is_coincident(new.size, keys = offsetdict.keys()):
+			if bin.extent[1] < new.extent[0] - self.max_gap:
+				break
+			for offset_vector in self.offset_vectors:
+				new.size.offsets.update(offset_vector)
+				bin.size.offsets.update(offset_vector)
+				if bin.size.is_coincident(new.size, keys = offset_vector.keys()):
 					matching_bins.append(n)
 					break
 			bin.size.offsets.clear()
 		new.size.offsets.clear()
 
+		#
+		# add new cache entry to bins
+		#
+
 		if not matching_bins:
-			# no matching bins, add a new one
+			#
+			# no existing bins match, add a new one
+			#
+
 			self.bins.append(new)
 		else:
-			# put file into first bin that was found to match
-			dest = self.bins[matching_bins.pop(0)]
-			dest += new
+			#
+			# put cache entry into first bin that was found to
+			# match.  if cache entry belongs in more than one
+			# bin, merge them.  note that the matching bin
+			# indexes are given in descending order so poping
+			# the bins as we go does not affect the indexes of
+			# the remaining, matching, bins.
+			#
 
-			# if cache_entry belongs in more than one bin,
-			# merge bins.  reverse the list of matching bins so
-			# that we delete the highest-numbered bin first
-			# (otherwise the bins would shift as we go and we
-			# would delete the wrong ones).
-			matching_bins.reverse()
+			dest = self.bins[matching_bins.pop(-1)]
+			dest += new
 			for n in matching_bins:
 				dest += self.bins.pop(n)
+
+		#
+		# time-order the bins so the bail-out above works next time
+		# this method is called
+		#
+
 		self.bins.sort()
 
 
@@ -234,7 +268,6 @@ class CafePacker(packing.Packer):
 
 
 def write_caches(base, bins, instruments, verbose = False):
-	instruments = set(instruments)
 	filenames = []
 	if len(bins):
 		pattern = "%%s%%0%dd.cache" % int(log10(len(bins)) + 1)
@@ -264,15 +297,23 @@ def write_single_instrument_caches(base, bins, instruments, verbose = False):
 #
 
 
-def ligolw_cafe(cache, time_slides, verbose = False):
+def ligolw_cafe(cache, offset_vectors, verbose = False):
 	"""
-	cache is a sequence of glue.lal.CacheEntry objects.  time_slides is
-	a sequence of dictionaries describing the time slides to consider.
-	Set verbose to True for verbosity.  The output is a tuple, the
-	first element of which is a glue.segments.segmentlistdict object
-	describing the times for which coincident data is available.  The
-	second element is a list of LALCacheBin objects, providing the file
-	groups identified by the coincidence analysis.
+	Transform a LAL cache into a list of caches each of whose contents
+	can be subjected to a coincidence analysis independently of the
+	contents of the other caches, assuming the coincidence analyses
+	will involve the application of the given offset vectors.
+
+	cache is a sequence (e.g., list, tuple, etc.) of
+	glue.lal.CacheEntry objects.  offset_vectors is a sequence of
+	instrument/offset dictionaries describing the offset vectors to
+	consider.  Set verbose to True for verbosity.
+
+	The output is a two-element tuple.  The first element is a
+	glue.segments.segmentlistdict object describing the times for which
+	coincident data is available (derived from the segment metadata of
+	the input cache).  The second element is a list of LALCacheBin
+	objects, providing the file groups.
 	"""
 	#
 	# Construct a segment list dictionary from the cache
@@ -287,9 +328,10 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# contribute to a coincidence analysis.
 	#
 
-	segmentlistdict_normalize(seglists, LIGOTimeGPS(800000000))
-	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
-	segmentlistdict_unnormalize(seglists, LIGOTimeGPS(800000000))
+	epoch = min([min(seg[0] for seg in seglist) for seglist in seglists.values() if seglist] or [None])
+	segmentlistdict_normalize(seglists, epoch)
+	seglists = llwapp.get_coincident_segmentlistdict(seglists, ligolw_tisi.time_slide_component_vectors(offset_vectors, 2))
+	segmentlistdict_unnormalize(seglists, epoch)
 
 	#
 	# Remove files that will not participate in a coincidence.  Take
@@ -321,16 +363,15 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 
 	outputcaches = []
 	packer = CafePacker(outputcaches)
-	packer.set_time_slides(time_slides)
+	packer.set_offset_vectors(offset_vectors)
 	if verbose:
 		print >>sys.stderr, "packing files ..."
 	for n, cacheentry in enumerate(cache):
-		if verbose and not n % 7:
+		if verbose and not n % 13:
 			print >>sys.stderr, "\t%.1f%%\t(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
-		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)" % (n + 1, len(outputcaches))
-		print >>sys.stderr, "sorting output caches ..."
+		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)\nsorting output caches ..." % (n + 1, len(outputcaches))
 	for cache in outputcaches:
 		cache.objects.sort()
 

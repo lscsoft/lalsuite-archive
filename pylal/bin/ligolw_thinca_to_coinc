@@ -95,6 +95,15 @@ lsctables.SnglInspiral.__hash__ = __sngl_inspiral_hash__
 
 
 #
+# Disable the custom ID remapping attached to the SnglInspiralTable class
+# (use the generic ID mapping provided by the parent class instead)
+#
+
+
+del lsctables.SnglInspiralTable.updateKeyMapping
+
+
+#
 # =============================================================================
 #
 #                                 Command Line
@@ -132,9 +141,14 @@ def parse_command_line():
 			print >>sys.stderr, "reading %s ..." % options.ihope_cache
 		# find second thinca cache entries
 		pattern = re.compile(r"THINCA(?P<slide>(_SLIDE)?)_SECOND_[^_]+_(((?P<taga>.+)_CAT_(?P<cat>[\d]+)_VETO)|(?P<tagb>.+))\Z")
+		metadata_cache = {}
 		zero_lag_urls = {}
 		slide_urls = {}
-		for c in map(lal.CacheEntry, file(options.ihope_cache)):
+		for n, c in enumerate(lal.CacheEntry(line) for line in file(options.ihope_cache)):
+			if options.verbose and not n % 1597:
+				print >>sys.stderr, "\t%d lines\r" % n,
+			if "INSPIRAL_SECOND" in c.url:
+				metadata_cache[os.path.basename(c.path())] = c.url
 			category = pattern.match(c.description)
 			if category is None:
 				continue
@@ -145,6 +159,8 @@ def parse_command_line():
 			else:
 				# slide URL
 				slide_urls.setdefault((category["taga"] or category["tagb"], category["cat"] or "1"), []).append(c)
+		if options.verbose:
+			print >>sys.stderr
 		# extract URLs.  sorting cache entries puts them in time
 		# order
 		zero_lag_urls = dict((key, [c.url for c in sorted(cache)]) for key, cache in zero_lag_urls.items())
@@ -168,6 +184,7 @@ def parse_command_line():
 		# in each category
 		categories = dict((key, zip(zero_lag_urls[key], slide_urls[key])) for key in zero_lag_urls)
 	elif options.zero_lag_file or options.time_slide_file:
+		metadata_cache = None
 		categories = {(None, None): [(options.zero_lag_file, options.time_slide_file)]}
 	else:
 		raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
@@ -181,7 +198,101 @@ def parse_command_line():
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
 
-	return options, categories
+	return options, categories, metadata_cache
+
+
+#
+# =============================================================================
+#
+#                              Metadata Retrieval
+#
+# =============================================================================
+#
+
+
+#
+# content handler used to remove the sngl_inspiral table from input
+# documents
+#
+
+
+class MetadataContentHandler(ligolw.FilteringLIGOLWContentHandler):
+	def __init__(self, xmldoc):
+		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: not lsctables.IsTableProperties(lsctables.SnglInspiralTable, name, attrs))
+
+
+#
+# uses a dictionary mapping filename to URL to retrieve the process
+# metadata for the lalapps_inspiral jobs whose triggers are found in
+# xmldoc.  re-assigns each trigger's process_id to indicate the
+# lalapps_inspiral job that generated it.
+#
+
+
+def add_metadata(xmldoc, metadata_cache, verbose = False):
+	if verbose:
+		print >>sys.stderr, "retrieving lalapps_inspiral metadata ..."
+
+	#
+	# choose the metadata URLs for this document.  because the input
+	# includes search_summ_vars rows from both the slides and
+	# non-slides thinca jobs, each url gets listed twice so we use
+	# set() to uniquify the list.
+	#
+
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
+	urls = sorted(set(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file"))
+
+	#
+	# insert the metadata from the URLs into xmldoc, remapping IDs to
+	# prevent collision with existing information
+	#
+
+	for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
+		tbl.sync_next_id()
+	xmldoc = ligolw_add.ligolw_add(xmldoc, urls, verbose = verbose, contenthandler = MetadataContentHandler)
+
+	#
+	# check for no-op and unusable documents
+	#
+
+	try:
+		table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		# no inspiral table --> no-op
+		if verbose:
+			print >>sys.stderr, "cannot find sngl_inspiral table"
+		return xmldoc
+	if len(set(row.search for row in table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))) != 1:
+		raise ValueError, "sngl_inspiral triggers must be collected from exactly one search"
+
+	#
+	# index lalapps_inspiral entries in the search_summary table
+	#
+
+	if verbose:
+		print >>sys.stderr, "re-linking sngl_inspiral rows to process rows ..."
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("inspiral")
+	segs = {}
+	ids = {}
+	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+		if row.process_id in process_ids:
+			segs.setdefault(row.ifos, segments.segmentlist()).append(row.get_out())
+			ids.setdefault(row.ifos, []).append(row.process_id)
+
+	#
+	# assign each sngl_inspiral to its (presumably) original
+	# lalapps_inspiral job
+	#
+
+	for row in table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName):
+		row.process_id = ids[row.ifo][segs[row.ifo].find(row.get_end())]
+
+	#
+	# done
+	#
+
+	return xmldoc
 
 
 #
@@ -598,7 +709,7 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	# they're not already in the table 
 	if add_inst_subsets:
 		for nn in range(2, len(instruments) ):
-			for sub_combo in iterutils.choices( instruments, nn ):
+			for sub_combo in iterutils.choices( list(instruments), nn ):
 				if frozenset(sub_combo) not in experiment_ids:
 					experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(search_group, search, lars_id, sub_combo, expr_start_time, expr_end_time, comments = comments)
 
@@ -812,12 +923,6 @@ def get_playground_segments(all_data_segments):
 #
 
 
-def check_for_thinca_id_overflow(event):
-	a, b, c = event.get_id_parts()
-	if a >= 100000000 and c == 99999:
-		raise ValueError, "found sngl_inspiral with ID ending in 99999 (\"%s\"):  overflow occured in lalapps_thinca's ID assignment, time slide indexes are corrupted" % str(event.event_id)
-
-
 def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, verbose = False):
 	if verbose:
 		print >>sys.stderr, "constructing coincs ...",
@@ -911,7 +1016,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
-				check_for_thinca_id_overflow(event)
 				event.event_id = sngl_inspiral_table.get_next_id()
 			continue
 
@@ -944,7 +1048,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		#
 
 		for event in events:
-			check_for_thinca_id_overflow(event)
 			coincmap = coinc_event_map_table.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id = sngl_inspiral_table.get_next_id()
@@ -1449,7 +1552,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 #
 
 
-options, url_categories = parse_command_line()
+options, url_categories, metadata_cache = parse_command_line()
 
 
 if options.veto_segments:
@@ -1459,8 +1562,6 @@ if options.veto_segments:
 		# will get an AttributeError if using new-format veto segment file because
 		# new format does not include _ns; if so, remove the _ns columns from the
 		# segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-		from glue.lal import LIGOTimeGPS
-
 		del lsctables.SegmentTable.validcolumns['start_time_ns']
 		del lsctables.SegmentTable.validcolumns['end_time_ns']
 
@@ -1468,7 +1569,7 @@ if options.veto_segments:
 			"""
 			Return the segment described by this row.
 			"""
-			return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+			return segments.segment(lsctables.LIGOTimeGPS(self.start_time, 0), lsctables.LIGOTimeGPS(self.end_time, 0))
 
 		def set_segment(self, segment):
 			"""
@@ -1524,6 +1625,9 @@ for (tag, veto_category), url_pairs in url_categories.items():
 
 		depopulate_experiment_tables(xmldoc, verbose = options.verbose)
 
+		if metadata_cache is not None:
+			add_metadata(xmldoc, metadata_cache, verbose = options.verbose)
+
 		llwapp.set_process_end_time(process)
 
 		# construct the output filename from the zero lag file being processed
@@ -1533,3 +1637,5 @@ for (tag, veto_category), url_pairs in url_categories.items():
 			zero_lag_filename = os.path.basename(url_pair[0])
 			output = re.sub('THINCA','THINCA_TO_COINC',zero_lag_filename)
 		utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
+		xmldoc.unlink()
+		lsctables.table.reset_next_ids(lsctables.TableByName.values())

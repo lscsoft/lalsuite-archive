@@ -37,6 +37,14 @@ from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import segments as ligolw_segments
+# Don't use sngl_inspiral event_id derived from the long built-in.  this
+# must be done before importing pylal.xlal.tools or bad things happen.
+# FIXME:  remove when thinca no longer generates bazillion-digit long
+# event_ids and the custom screwy event ID mess is all gone away.  (or
+# people stop using Macs, which ever comes first).
+del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
+lsctables.SnglInspiralID = lsctables.ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
@@ -56,6 +64,14 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
+# Use C row classes for memory efficiency and speed.
+#
+
+
+lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.SnglInspiral
+
+
+#
 # =============================================================================
 #
 #                                 Command Line
@@ -72,9 +88,9 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
-	parser.add_option("-p", "--program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.  Default = \"inspiral\"")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
+	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -146,7 +162,6 @@ for n, filename in enumerate(filenames):
 		xmldoc,
 		comment = options.comment,
 		force = options.force,
-		program = options.program,
 		e_thinca_parameter = options.e_thinca_parameter,
 		verbose = options.verbose
 	)
@@ -158,7 +173,7 @@ for n, filename in enumerate(filenames):
 	# need the IDs to be unique before starting the coincidence engine.
 	#
 	# FIXME:  remove this when LAL writes trigger files with unique
-	# IDs.
+	# IDs (unique within the output of lalapps_inspiral).
 	#
 
 	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
@@ -167,12 +182,32 @@ for n, filename in enumerate(filenames):
 		row.event_id = tbl.get_next_id()
 
 	#
+	# Extract veto segments if present.
+	#
+	# FIXME:  using the tools in the glue.ligolw.utils.segments module
+	# it's not hard to modify the veto segments in the .xml to be just
+	# those that intersect the search summary segments.  That way, if
+	# multiple documents are inserted into the same database, or merged
+	# with ligolw_add, the veto lists will not get duplicated.
+	#
+
+	if not ligolw_segments.has_segment_tables(xmldoc):
+		if options.verbose:
+			print >>sys.stderr, "warning: no segment definitions found, vetoes will not be applied"
+		vetoes = None
+	elif not ligolw_segments.has_segment_tables(xmldoc, name = options.vetoes_name):
+		if options.verbose:
+			print >>sys.stderr, "warning: document contains segment definitions but none named \"%s\", vetoes will not be applied" % options.vetoes_name
+		vetoes = None
+	else:
+		vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()
+
+	#
 	# Run coincidence algorithm.
 	#
 
 	ligolw_thinca.ligolw_thinca(
 		xmldoc,
-		program = options.program,
 		process_id = process.process_id,
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
@@ -180,6 +215,7 @@ for n, filename in enumerate(filenames):
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
 		thresholds = options.e_thinca_parameter,
 		effective_snr_factor = options.effective_snr_factor,
+		veto_segments = vetoes,
 		verbose = options.verbose
 	)
 
@@ -195,3 +231,4 @@ for n, filename in enumerate(filenames):
 
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
+	lsctables.table.reset_next_ids(lsctables.TableByName.values())
