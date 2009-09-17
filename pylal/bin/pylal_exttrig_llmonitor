@@ -83,7 +83,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
 
   # First check if enough time has passed
   # since the trigger-time
-  gps_now = time.time()-315964785
+  gps_now = time.time() - peu.offset_gps_to_linux
   time_diff = gps_now-int(grb_time)
   if time_diff < int(cp.get('data','min_diff')):
     # do not analyze this GRB now.
@@ -93,8 +93,10 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
 
   analysis_path = cp.get('paths','main')+'/GRB'+grb_name
   cvs_path = cp.get('paths','cvs')+'/'
+  seg_file = cp.get('paths','main')+'/plot_segments_GRB%s.png' % grb_name
 
   # initialize a new DAG
+  peu.info("New GRB found in the parse list: GRB %s"%grb_name)
   exttrig_dag = peu.ExttrigDag(grb_name = grb_name, grb_ra = grb_ra, \
                             grb_de=grb_dec, grb_time = grb_time)
 
@@ -111,18 +113,17 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
 
   # check if there is enough data for this GRB
   exttrig_dag.update_segment_lists(int(cp.get('data','min_diff')))
-  seg_file = cp.get('paths','main')+'/plot_segments_GRB%s.png' % grb_name
   off_source, ifo_list = exttrig_dag.get_segment_info(seg_file)
   ifo_times = "".join(ifo_list)
+  exttrig_dag.calculate_optimality()
 
-  print "llmonitor: ", off_source
   # decide 
   if len(ifo_list)<2:
     peu.info("GRB%s: insufficient multi-IFO data to construct an "\
-         "off-source segment. This GRB will be marked with NoData.")
+         "off-source segment. This GRB will be marked with NoData."%grb_name)
 
     # multiple notifications
-    subject = "New GRB found; not enough data found "
+    subject = "New GRB found (%s); not enough data " % grb_name
     email_msg = "The analysis of GRB%s has not been started because "\
                 "not enough data is available\n" % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
@@ -130,20 +131,23 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     peu.send_mail(subject, email_msg)  
 
     # add this GRB to the database, marked wit NoData
-    exttrig_dag.update_database_nodata()
+    exttrig_dag.update_database(0)
   
   else:
     # run the creation functions
     exttrig_dag.set_seg_info(off_source, ifo_times)
     exttrig_dag.create_exttrig_xml_file()
     exttrig_dag.prepare_analysis_directory()
-    exttrig_dag.check_analysis_directory()
+    exttrig_dag.start_analysis()
+    check_condor = exttrig_dag.check_analysis_directory()
+    exttrig_dag.update_database(check_condor)
 
     # multiple notifications
-    subject = "New GRB found; analysis started "
+    subject = "New GRB found (%s); analysis started " %grb_name
     email_msg = 'The analysis of GRB%s has started\n' % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
                  (grb_time, grb_ra, grb_dec)
+    email_msg += 'Data enough found for detectors %s\n' % ifo_list
     email_msg += 'The DAG is located at : %s\n'% analysis_path
     peu.send_mail(subject, email_msg)
 
@@ -155,10 +159,12 @@ def check_gcn(gcn_file, grbs_processed):
   in the GCN alert file, provided by Isabel
   """
 
-  # NOTE: THIS IS NOT THE FINAL PROCEDURE,
-  # THIS IS JUST A SIMPLE TEST IMPLEMENTATION
-  
- 
+  # copy the latest file
+  alert_file = cp.get('alerts','alert_file')
+  alert_host = cp.get('alerts','alert_host')
+  cmd = 'scp %s:%s %s >> ~/cp.log 2>&1' % (alert_host, alert_file, gcn_file)
+  peu.system_call(cmd)
+
   # open the file
   f = open(gcn_file)
   for line in f:
@@ -167,21 +173,28 @@ def check_gcn(gcn_file, grbs_processed):
     if len(line)>1 and line[0]!="#":
       
       words = line.split()
-      grb_name = words[1]
+      grb_name = words[2]
       if grb_name not in grbs_processed:
 
         # we found a new GRB!!
-        grb_ra = words[2]
-        grb_dec = words[3]
-        grb_time = words[4]
+        grb_ra = float(words[3])
+        grb_dec = float(words[4])
+        grb_time_sec = float(words[8])
+
+        # convert the date into a time format
+        # to compute the GPS time of the trigger
+        grb_date = grb_name[:6]
+        time0 = time.mktime(time.strptime(grb_date, "%y%m%d"))
+        grb_gps_time = time0 + grb_time_sec - peu.offset_gps_to_linux
 
         # and prepare the call for a new analysis
-        start_new_analysis(grb_name, grb_ra, grb_dec, grb_time)
+        start_new_analysis(grb_name, grb_ra, grb_dec, grb_gps_time)
+        
+        # and add the processed GRB to the list to avoid double analysis
+        grbs_processed.append(grb_name)
 
   f.close()
         
-    
-    
 
 # -----------------------------------------------------
 def start_ligolw(dag, dag_name):
@@ -214,6 +227,15 @@ def start_post(dag, dp):
   command = 'mkdir -p '+html_path
   peu.system_call(command)
 
+  # Have to use ALL the stupid pythonpath environments?
+  pylal_dir = cp.get('paths','pylal')
+  glue_dir = cp.get('paths','glue')
+  pythonpath = '%s/lib64/python2.4/site-packages:%s/lib/python2.4/site-packages:'\
+               '%s/lib64/python2.4/site-packages:%s/lib/python2.4/site-packages:'\
+               %(pylal_dir, pylal_dir, glue_dir, glue_dir)
+  #pythonpath = '%s/lib64/python2.4/site-packages:%s/lib/python2.4/site-packages:%s'\
+  #             %(pylal_dir, pylal_dir, os.getenv('PYTHONPATH'))
+
   # replace the in-file and create the DAG file
   f = file('sed.file','w')
   f.write("s/@GRBNAME@/GRB%s/g\n"%dag['name'])
@@ -226,7 +248,7 @@ def start_post(dag, dp):
   f.write("s/@DECLINATION@/%f/g\n"%float(dag['declination']))
   f.write("s=@OUTPUTPATH@=%s=g\n"%html_path)
   f.write("s/@LOGNAME@/%s/g\n" % os.getenv("LOGNAME"))
-  f.write("s=@PYTHONPATH@=%s=g\n"%os.getenv('PYTHONPATH'))
+  f.write("s=@PYTHONPATH@=%s=g\n"%pythonpath)
   f.close()
 
   # run the sed command
@@ -255,19 +277,16 @@ def analysis_finalized(dag):
   subject = 'The analysis of GRB%s has completed' %\
        (grb_name)
 
-  summary_file = 'H1L1V1-pylal_lotis_GRB%s-%s-%s.html' % (grb_name, \
-     dag['starttime'], dag['endtime']-dag['starttime'])
+  summary_file = 'pylal_exttrig_llsummary_%s.html' % (grb_name)
+  publishing_url = cp.get('paths','publishing_url')
 
   # open file for detailed output message
-  email_msg = 'Automatic notification from pylal_exttrig_llmonitor at time %s\n\n'%peu.get_time()
-  email_msg += subject+'\n'
-  email_msg += 'The analysis of GRB%s has completed\n' % grb_name
-  email_msg += 'The output pages and files are located at %s/GRB%s\n' % (publishing_url, grb_name)
+  email_msg = 'The output pages and files are located at %s/GRB%s\n' % (publishing_url, grb_name)
   email_msg += 'The summary page is %s/GRB%s/%s\n' % (publishing_url, grb_name, summary_file)
   peu.send_mail(subject, email_msg)
 
   # info to the log file
-  peu.info('  The analysis for GRB %s has completed successfully!')
+  peu.info('  The analysis for GRB %s has completed successfully!' % grb_name)
 
   # set the new status so 'finished'
   dag['status']='Finished'
@@ -293,6 +312,9 @@ except IOError:
   # create an empty file if it does not exist
   monitor_list = []
   pickle.dump(monitor_list, file(monitor_file,'w'))
+
+
+peu.generate_summary(monitor_file)
 
 # get the list of email adresses
 email_adresses = cp.get('notifications','email').replace(',',' ').split()
@@ -383,4 +405,7 @@ pickle.dump(monitor_list, file(monitor_file,'w'))
 #
 check_gcn(cp.get('paths','gcn_file'), grbs_processed)
     
-
+#
+# Update the summary page of all GRBs
+#
+peu.generate_summary(monitor_file)

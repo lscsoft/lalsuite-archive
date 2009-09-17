@@ -10,6 +10,7 @@ import optparse
 import pickle
 import glob
 
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
@@ -21,7 +22,7 @@ from glue.ligolw import table
 from glue.ligolw import utils
 from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
-
+from pylal import antenna
 
 # the config parser to be used in some of the functions
 cp = None
@@ -40,6 +41,40 @@ template_trigger_hipe = "./lalapps_trigger_hipe"\
 
 ifo_list = ['H1','L1','V1']
 
+offset_gps_to_linux = 315982785
+
+total_summary_prefix = """
+<body style="color: rgb(0, 0, 0); background-color: rgb(221, 255, 255);" alink="#000099" link="#000099" vlink="#990099">
+
+<h1>Summary of Gamma Ray Burst low-latency results during S6</h1>
+
+<span style="font-weight: bold;"><br><br>
+The following table contain a list of Gamma Ray Bursts occured during S6, with information about time, position on the sky, as well as duration and redshift (if available). This table has been automatically created by pylal_exttrig_llmonitor (in pylal_exttrig_llutils.py) to show a summary of the low-latency inspiral analysis of the GRBs during S6. A page describing this search can be found in the <a href="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/090706044855TriggeredSearchLow_Latency_Exttrig_Search#preview">wiki</a>.<br><br>
+
+The number in the IFO columns indicate the antenna factor for this GRB and this detector, if there is data available at this time (1 meaning optimal location, 0 meaning worst location). In addition, a <b>bold</b> number indicates that the current segment is long enough to contain the required number of off-source segments around the GRB, not required to be symmetrical.<br><br>
+Date of last creation: %s<br><br>
+
+</span><span style="font-weight: bold;">
+<br><br>
+</div>
+<table border="1" cellpadding="2" cellspacing="2">
+  <tbody>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Nr</td>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">GRB</td>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Status</td>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">GPS<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Date<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">redshift<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">duration [s]<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">RA<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">DEC<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">H1<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">L1<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">V1<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Result<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Link<br>
+"""
+
 # -----------------------------------------------------
 def system_call(command):
   """
@@ -54,7 +89,7 @@ def get_time():
   """
   Gets the time in human-readable format
   """
-  return time.asctime(time.localtime())
+  return time.asctime(time.gmtime())
 
 # -----------------------------------------------------
 def info(text):
@@ -67,8 +102,6 @@ def info(text):
   logfile = open(log_file,'a')
   logfile.write(msg+'\n')
   logfile.close()
-
-  print msg
 
 
 # -----------------------------------------------------
@@ -188,7 +221,74 @@ def get_empty_exttrig_row():
   row.event_status = 0
   return row
 
+# --------------------------------------
+def generate_summary(monitor_file):
 
+  def add(table, text):
+    #print text
+    return table + '<td>' +str(text)+'</td>' 
+
+  # Read the list of all processed GRBs
+  monitor_list = pickle.load(file(monitor_file))
+
+  # Bring them in timely order
+  time_unsort = [grb['triggertime'] for grb in monitor_list]
+  index = np.argsort(time_unsort)
+
+  table = total_summary_prefix % get_time()
+
+  # Loop over all GRBs in reverse order
+  for i in index[::-1]:
+
+    item = monitor_list[i]
+    name = item['name']
+
+    if (i % 2):
+      table += '<tr style="background-color: rgb(255, 200, 200);">'
+    else:
+      table += '<tr style="background-color: rgb(255, 200, 200);">'
+
+    table = add(table, i+1)
+    table = add(table, name) 
+    table = add(table, item['status'])
+    table = add(table, item['triggertime'])
+    asctime = time.asctime(time.gmtime(item['triggertime']+offset_gps_to_linux))
+    table = add(table, asctime)
+    if item.has_key('redshift'):
+      table = add(table, '<a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">%.2f</a>' % (item['redshift_ref'], item['redshift']))
+    else:
+      table = add(table, '&mdash')
+    if item.has_key('duration'):
+      table = add(table, '<a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">%.2f</a>' % (item['duration_ref'], item['duration']))
+    else:
+      table = add(table, '&mdash')
+    table = add(table, '%.2f' % item['right_ascension'])
+    table = add(table, '%.2f' % item['declination'])
+    for ifo in ifo_list:
+      if ifo in item['ifos']:
+        table = add(table, '<b>%.2f</b>'%item['qvalues'][ifo])
+      else:
+        table = add(table, '%.2f'%item['qvalues'][ifo])
+
+
+    if item['status'] == 'Finished':
+      table = add(table, 'RESULTS')
+      htmlfile = cp.get('paths','publishing_url')+'GRB%s/pylal_exttrig_llsummary_%s.html' % (name, name)
+      table = add(table, '<a href="%s">link</a>'%htmlfile)
+    else:
+      table = add(table, '&mdash')
+      table = add(table, '&mdash')
+
+    table +='</tr>'
+
+    # Processing only the one having no data of having finished
+    #if item['stage']=='NoData' or item['stage']=='Finished'
+    #table += ""
+    
+    filename = cp.get('paths','publishing_path')+'/total_summary.html'
+    f = open(filename,'w')
+    f.write(table)
+    f.close()
 
 # -----------------------------------------------------
 class ExttrigDag(object):
@@ -205,6 +305,8 @@ class ExttrigDag(object):
     self.ra = float(grb_ra)
     self.de = float(grb_de)
     self.time = int(grb_time)
+
+    self.qvalues = {}
 
   # -----------------------------------------------------
   def set_paths(self, input_dir=None, glue_dir=None, pylal_dir = None,\
@@ -238,6 +340,18 @@ class ExttrigDag(object):
   def set_seg_info(self, offsource_segment = None, ifos = None):
     self.offsource_segment = offsource_segment
     self.ifos = ifos
+
+  def make_links(self, sourcedir, destdir, list_exec):
+    """
+    Using a list of executables names, make symbolic links rather
+    than copying the files itself. That way the origin, i.e. the 
+    version of the executables can be verified, at least somewhat...
+    """
+    
+    cmd = 'cd %s;' % destdir
+    for execfile in list_exec:
+      cmd += 'ln -s %s/%s .;' % (sourcedir, execfile)
+    system_call(cmd)
 
 
   # -----------------------------------------------------
@@ -284,8 +398,8 @@ class ExttrigDag(object):
     system_call(cmd)
 
     executable = self.lalapps_dir+'/bin/lalapps_online_datafind'
-    print self.offsource_segment
-    print executable
+    #print self.offsource_segment
+    #print executable
     starttime = self.offsource_segment[0]
     endtime = self.offsource_segment[1]
 
@@ -343,6 +457,7 @@ class ExttrigDag(object):
     (self.lalapps_dir, self.analysis_dir)
     system_call(cmd)
 
+    #self.make_links(self, self.glue_dir+'/bin', self.analysis_dir, ['ligo_data_find','ligolw_add'])
     cmd = 'cd %s/bin; cp ligo_data_find ligolw_add %s' % \
       (self.glue_dir, self.analysis_dir)
     system_call(cmd)
@@ -367,19 +482,16 @@ class ExttrigDag(object):
     # TODO HERE
     self.run_datafind()
 
-    # create the datafind directory and copy the cache files to it
-    #cmd = 'mkdir -p %s/GRB%s/datafind/cache' % (self.analysis_dir, self.name)
-    #system_call(cmd)
-    #cmd = 'cp %s/*.cache %s/GRB%s/datafind/cache' % \
-    #      (self.input_dir, self.analysis_dir, self.name)
-    #system_call(cmd)
-
     # Prepare the postprocesing directory at this stage
     path = "%s/GRB%s/postprocessing" % (self.analysis_dir, self.name)
     system_call('mkdir -p %s/logs'%path)
 
     cmd = 'cp %s/post* %s' % (self.input_dir, path)
     system_call(cmd)
+
+
+  # -----------------------------------------------------
+  def start_analysis(self):
 
     # create the call to start the DAG
     cmd = 'cd %s;' % self.analysis_dir
@@ -422,40 +534,15 @@ class ExttrigDag(object):
       email_msg += 'The DAG is located at : %s\n'% self.analysis_dir
       send_mail(subject, email_msg)  
       
+      return -1 
     else:
 
-      # call the last bit of the process, updating the database
-      self.update_database()
+      return 1
       
   # -----------------------------------------------------
-  def update_database(self):
-
-    #
-    # add this DAG to the monitor database
-    #
-    
-    starttime = self.offsource_segment[0]
-    endtime = self.offsource_segment[1]
-
-    dag_dict = {'name':self.name, 'path':self.analysis_dir, \
-                 'dag-name':self.dag_file,\
-                 'status':'Running', 'stage':'Inspiral',\
-                 'starttime':starttime, 'endtime':endtime, \
-                 'ifos':self.ifos, 'condorlogpath':self.condor_log_path,\
-                 'triggertime':self.time,\
-                 'right_ascension': self.ra,'declination':self.de}
-
-    # update the monitor file
-    monitor_list = pickle.load(file(self.monitor_file))
-    monitor_list.append(dag_dict)
-    pickle.dump(monitor_list, file(self.monitor_file,'w'))
-
-    info('The GRB %s has been added to the database'%self.name)
-    
-  # -----------------------------------------------------
-  def update_database_nodata(self):
+  def update_database(self, has_data):
     """
-    Update the database in case not enough data has been found
+    Update the database, put in the informations
     for this GRB:
     """
 
@@ -465,18 +552,43 @@ class ExttrigDag(object):
 
     dag_dict = {'name':self.name, 'path':self.analysis_dir, \
                  'dag-name':self.dag_file,\
-                 'status':'NoData', 'stage':'NoData',\
-                 'starttime':None, 'endtime':None, \
                  'ifos':'', 'condorlogpath':'',\
                  'triggertime':self.time,\
-                 'right_ascension': self.ra,'declination':self.de}
+                 'right_ascension': self.ra,'declination':self.de,
+                 'qvalues':self.qvalues}
+
+    if has_data ==0:
+      # Not enough data has been found. The data is stored,
+      # but no analysis is started
+      dag_dict['starttime'] = None
+      dag_dict['endtime'] = None
+      dag_dict['status'] = 'NoData'
+      dag_dict['stage'] = 'NoData'
+      dag_dict['ifos'] = ''
+      dag_dict['condorlogpath'] = ''
+    else:
+      # Enough data is stored, the DAG has been prepared
+      dag_dict['starttime'] = self.offsource_segment[0]
+      dag_dict['endtime'] = self.offsource_segment[1]
+      # The DAG is either running or has not started.
+      # The status of the DAG will be checked then in the next round
+      if has_data==1:
+        dag_dict['status'] = 'Running'
+      if has_data ==-1:
+        dag_dict['status'] = 'Aborted'
+      dag_dict['stage'] = 'Inspiral' 
+      dag_dict['ifos'] = self.ifos
+      dag_dict['condorlogpath'] = self.condor_log_path
 
     # update the monitor file
     monitor_list = pickle.load(file(self.monitor_file))
     monitor_list.append(dag_dict)
     pickle.dump(monitor_list, file(self.monitor_file,'w'))
 
-    info('The GRB %s has been added to the database with NoData.'%self.name)
+    if has_data:
+      info('The GRB %s has been added to the database'%self.name)
+    else:
+      info('The GRB %s has been added to the database with NoData.'%self.name)
 
 
   # -----------------------------------------------------
@@ -513,7 +625,7 @@ class ExttrigDag(object):
     @param timeoffset: The offset in time for downloading those segments
     """
 
-    seg_names = ['H1:DMT-SCIENCE:1','H1:DMT-SCIENCE:1','V1:ITF_SCIENCEMODE']
+    seg_names = ['H1:DMT-SCIENCE:1','L1:DMT-SCIENCE:1','V1:ITF_SCIENCEMODE']
     ifo_list = ['H1','L1','V1']
     starttime = self.time-timeoffset
     endtime = self.time+timeoffset
@@ -542,7 +654,7 @@ class ExttrigDag(object):
     segdict = segments.segmentlistdict()
 
     # get the segment dicts
-    for ifo in ["H1", "L1", "V1"]:
+    for ifo in ifo_list:
       ifo_segfile = '%s/%s-science.txt' % (self.main_dir, ifo)
       if ifo_segfile is not None:
         tmplist = segmentsUtils.fromsegwizard(open(ifo_segfile))
@@ -558,7 +670,7 @@ class ExttrigDag(object):
     onSourceSegment = segments.segment(trigger - onsource_left,
                                        trigger + onsource_right)
 
-    # TODO: convert string in boolean
+    # convert string in integer
     padding_time = int(cp.get('data','padding_time'))
     num_trials = int(cp.get('data','num_trials'))
     symmetric = False
@@ -575,7 +687,7 @@ class ExttrigDag(object):
     # make a plot of the segments if required
     if plot_segments_file:
 
-      plot_offset = 100
+      plot_offset = 1000
 
       length_off_source = num_trials*(abs(onSourceSegment))
       plot_offSourceSegment = segments.segment(onSourceSegment[0] - length_off_source,
@@ -586,7 +698,7 @@ class ExttrigDag(object):
       effective_segdict = segdict.map(lambda sl: sl & effective_window)
       plot = PlotSegmentsPlot(trigger)
       plot.add_contents(effective_segdict)
-      plot.set_window(plot_offSourceSegment, plot_offset)
+      plot.set_window(offSourceSegment, plot_offset)
       plot.highlight_segment(onSourceSegment)
       plot.finalize()
       plot.ax.set_title('Segments for GRB '+self.name)
@@ -596,4 +708,12 @@ class ExttrigDag(object):
     # return the main values from this function    
     return offSourceSegment, grb_ifolist
 
+  # -----------------------------------------------------
+  def calculate_optimality(self):
+
+    # Calculate the antenna factors (for informational purpose only)
+    for ifo in ifo_list:
+      _, _, _, q = antenna.response(self.time, self.ra, self.de, \
+                                    0.0, 0.0, 'degree', ifo)
+      self.qvalues[ifo]=q
 

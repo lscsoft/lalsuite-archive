@@ -130,7 +130,13 @@ def timeindays(col_data ):
     - S3:         [751658413, 757699213]
     - S4:         [793130413, 795679213]
     - S5:         [815119213, 875232014]
+<<<<<<< HEAD:pylal/pylal/viz.py
   @param col_data: array containing times
+=======
+    - E13:        [924606015, 924865215]
+    - E14:        [928875615, 929134815]
+    - S6:         [930960015, ?????????]
+  @param col_data: array containing times in GPS seconds
   """
   lvtimes = [700000000, 700086400]
   v1times = [811132263, 811143059]
@@ -138,10 +144,15 @@ def timeindays(col_data ):
   s3times = [751658413, 757699213]
   s4times = [793130413, 795679213]
   s5times = [815119213, 875232014]
+  e13times = [924606015, 924865215]
+  e14times = [928875615, 929134815]
+  s6time = 930960015
 
   if len(col_data) == 0: return col_data
 
-  if col_data[0] > s2times[0] and col_data[0] < s2times[1]:
+  if col_data[0] > s6time:
+    start = s6time
+  elif col_data[0] > s2times[0] and col_data[0] < s2times[1]:
     start = s2times[0]
   elif col_data[0] > s3times[0] and col_data[0] < s3times[1]:
     start = s3times[0]
@@ -807,6 +818,11 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
       ydata, xdata, patches = hist(data,nbins)
 
     width = xdata[1] - xdata[0]
+
+    # to account for a bug-feature in different numpy versions
+    # (which is a feature, behaving lik a bug)
+    if len(xdata)==len(ydata)+1:
+      xdata=xdata[:-1]
 
     if plot_type == 'loglog' or plot_type=='logy':
       indexPositive = find(ydata>0)
