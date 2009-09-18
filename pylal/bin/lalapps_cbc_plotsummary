@@ -331,6 +331,8 @@ def create_is_playground_func(connection, playground_segs):
 #
 # =============================================================================
 #
+
+
 class SummaryTable(object):
 	def __init__(self):
 		self.playground_candidates = []
@@ -341,10 +343,85 @@ class SummaryTable(object):
 			#For now we only return summary information on non injections
 			return
 		self.playground_candidates += contents.connection.cursor().execute("""
-SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
+SELECT
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments,
+	(SELECT
+		group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ")
+	FROM
+		sngl_inspiral
+		JOIN coinc_event_map ON (
+			coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
+		)
+	WHERE
+		sngl_inspiral.event_id == coinc_event_map.event_id
+	)
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+WHERE
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+		AND
+			time_slide.offset != 0
+	)
+ORDER BY
+	combined_far
+LIMIT 10
 		""").fetchall()
 		self.candidates += contents.connection.cursor().execute("""
-SELECT coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.combined_far, coinc_inspiral.snr, coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_inspiral.mass, coinc_inspiral.mchirp, coinc_inspiral.ifos, coinc_event.instruments, (SELECT group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ") FROM sngl_inspiral JOIN coinc_event_map ON (coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE sngl_inspiral.event_id == coinc_event_map.event_id) FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) ORDER BY combined_far LIMIT 10
+SELECT
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments,
+	(SELECT
+		group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ")
+	FROM
+		sngl_inspiral
+		JOIN coinc_event_map ON (
+			coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
+		)
+	WHERE
+		sngl_inspiral.event_id == coinc_event_map.event_id
+	)
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+WHERE
+	NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+	)
+ORDER BY
+	combined_far
+LIMIT 10
                 """).fetchall()
 
 		self.livetime = {}
@@ -402,6 +479,7 @@ FROM
 	sim_inspiral
 			"""):
 			sim = contents.sim_inspiral_table._row_from_cols(values)
+			del sim.process_id, sim.source, sim.simulation_id
 			instruments = frozenset(instrument for instrument, segments in contents.seglists.items() if sim.get_end() in segments)
 			self.injections.setdefault(sim.waveform, []).append(sim)
 
@@ -452,6 +530,7 @@ FROM
 	sim_inspiral
 			"""):
 				sim = contents.sim_inspiral_table._row_from_cols(values)
+				del sim.process_id, sim.source, sim.simulation_id
 				if sim.get_end() in zero_lag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
 					if participating_instruments is not None:
@@ -534,6 +613,8 @@ FROM
 		"""):
 			sim = contents.sim_inspiral_table._row_from_cols(values)
 			sngl = contents.sngl_inspiral_table._row_from_cols(values[n_simcolumns:])
+			del sim.process_id, sim.source, sim.simulation_id
+			del sngl.process_id, sngl.search, sngl.channel, sngl.event_id
 			self.sim_sngl_pairs.setdefault((sim.waveform, sngl.ifo), []).append((sim, sngl))
 
 	def finish(self):
