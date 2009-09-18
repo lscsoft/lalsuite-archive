@@ -116,6 +116,26 @@ proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dic
 # create needed functions
 connection.create_aggregate("concatenate", 2, sqlutils.aggregate_concatenate)
 
+# create needed indices on tables if they don't already exist
+current_indices = [index[0] for index in 
+    connection.cursor.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()]
+sqlscript = ''
+if 'ts_io_index' not in current_indices:
+    sqlscript += 'CREATE INDEX ts_io_index ON time_slide (instrument, offset);\n'
+if 'e_sgitlc_index' not in current_indices:
+    sqlscript += 'CREATE INDEX e_sgitlc_index ON experiment (search, search_group, instruments, gps_start_time, gps_end_time, lars_id, comments);\n'
+if 'es_etvds_index' not in current_indices:
+    sqlscript += 'CREATE INDEX es_etvds_index ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);\n'
+if 'em_esi_index' not in current_indices:
+    sqlscript += 'CREATE INDEX em_esi_index ON experiment_map (experiment_summ_id);\n'
+if 'em_cei_index' not in current_indices:
+    sqlscript += 'CREATE INDEX em_cei_index ON experiment_map (coinc_event_id);\n'
+
+if sqlscript != '':
+    if opts.verbose:
+        print >> sys.stdout, "Creating needed indices..."
+    connection.cursor.executescript(sqlscript)
+
 if opts.verbose:
     print >> sys.stdout, "Cleaning up coinc_definer and time_slide table..."
 
@@ -125,7 +145,7 @@ sqlscript = """
 --
 
 
-CREATE TABLE _idmap_ AS
+CREATE TEMP TABLE _idmap_ AS
     SELECT
         old_definer.coinc_def_id AS old,
         MIN(new_definer.coinc_def_id) AS new
@@ -151,7 +171,6 @@ DROP TABLE _idmap_;
 -- time_slide clean up
 --
 
-CREATE INDEX ts_io_index ON time_slide (instrument, offset);
 CREATE TEMP TABLE all_slides AS
 SELECT
     time_slide_id AS id,
@@ -212,7 +231,6 @@ sqlscript = """
 -- create map table to map experiment_ids that are to be kept
 -- to experiment ids that are to be discarded, in the same manner
 -- as done above
-CREATE INDEX e_sgitlc_index ON experiment (search, search_group, instruments, gps_start_time, gps_end_time, lars_id, comments);
 CREATE TEMP TABLE eidmap AS
     SELECT
         old_exp.experiment_id AS old_eid,
@@ -246,7 +264,6 @@ UPDATE experiment_summary
         WHERE experiment_summary.experiment_id == old_eid );
 
 -- experiment summary clean up
-CREATE INDEX es_etvds_index ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
 
 -- create a table to store the distinct experiment_summaries
 CREATE TEMP TABLE distinct_experiments (experiment_summ_id, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
@@ -338,17 +355,6 @@ connection.cursor().executescript( sqlscript )
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-#FIXME: this should be set by lsctables.py
-
-sqlscript = """
-CREATE INDEX em_esi_index ON experiment_map (experiment_summ_id);
-CREATE INDEX em_cei_index ON experiment_map (coinc_event_id);
-"""
-try:
-    connection.cursor().executescript( sqlscript )
-except:
-    pass
 
 # Vacuum database if desired
 if opts.vacuum:

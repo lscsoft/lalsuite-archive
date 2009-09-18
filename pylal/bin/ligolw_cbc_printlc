@@ -363,7 +363,7 @@ class LoudestEventsTable(table.Table):
         elif 'instruments_on' in col_name:
             validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
         elif '_duration_' in col_name:
-            validcolumns[col_name] = lsctables.ExperimentSummaryTable.validcolumns['duration']
+            validcolumns[col_name] = "real_8"
         elif col_name in lsctables.CoincInspiralTable.validcolumns.keys():
             validcolumns[col_name] = lsctables.CoincInspiralTable.validcolumns[col_name]
         # if custom columns exist in the database, just set them to lstrings

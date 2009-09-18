@@ -916,7 +916,7 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = numpy.array(background_stats, dtype = "double")
 	N = N.compress(mask)
 	x = x.compress(mask)
-	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
+	line1, = axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
 
 	#
 	# error bands
@@ -925,9 +925,9 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = x.repeat(2)[1:]
 	x = numpy.concatenate((x, x[::-1]))
 	N = N.repeat(2)[:-1]
-	axes.fill(x, sigma_region(N, 3.0).clip(minN, maxN), alpha=0.25, facecolor=[0.75, 0.75, 0.75])
-	axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
-	axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
+	line2, = axes.fill(x, sigma_region(N, 3.0).clip(minN, maxN), alpha=0.25, facecolor=[0.75, 0.75, 0.75])
+	line3, = axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
+	line4, = axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
 
 	#
 	# zero-lag
@@ -935,13 +935,13 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 
 	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
 	x = numpy.array(zerolag_stats, dtype = "double")
-	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+	line5, = axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
 
 	#
 	# done
 	#
 
-	axes.legend(("Zero-lag", "Expected Background, $N$", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
+	axes.legend((line5, line1, line4, line3, line2), ("Zero-lag", "Expected Background, $N$", r"$\pm\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm 3\sqrt{N}$"), loc="lower left")
 	if n_unrankable_zerolags:
 		if n_unrankable_zerolags > 1:
 			msg = r"%d Events" % n_unrankable_zerolags
