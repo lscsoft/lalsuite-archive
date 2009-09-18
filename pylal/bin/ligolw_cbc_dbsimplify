@@ -118,7 +118,7 @@ connection.create_aggregate("concatenate", 2, sqlutils.aggregate_concatenate)
 
 # create needed indices on tables if they don't already exist
 current_indices = [index[0] for index in 
-    connection.cursor.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()]
+    connection.cursor().execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()]
 sqlscript = ''
 if 'ts_io_index' not in current_indices:
     sqlscript += 'CREATE INDEX ts_io_index ON time_slide (instrument, offset);\n'
@@ -134,7 +134,7 @@ if 'em_cei_index' not in current_indices:
 if sqlscript != '':
     if opts.verbose:
         print >> sys.stdout, "Creating needed indices..."
-    connection.cursor.executescript(sqlscript)
+    connection.cursor().executescript(sqlscript)
 
 if opts.verbose:
     print >> sys.stdout, "Cleaning up coinc_definer and time_slide table..."
