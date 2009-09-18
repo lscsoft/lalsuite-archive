@@ -1,4 +1,3 @@
-#!/usr/bin/python
 """
 Utilities for the inspiral plotting functions
 """

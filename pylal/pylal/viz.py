@@ -804,7 +804,7 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     
     bins = []
     if width:
-      for i in range(-nbins,nbins):
+      for i in range(-nbins,nbins + 1):
         bins.append(width * i/nbins)
     
     # creates the histogram and take plot_type into account  
@@ -1025,7 +1025,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     min_val -= 0.5
     max_val += 0.5
     
-  bins = numpy.linspace(min_val, max_val, nbins, endpoint=True)
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   # hist of the zero lag:
   if trigs:
@@ -1046,32 +1046,30 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       slide_mean *= 600./6370.
       slide_std *= sqrt(600./6370.)
 
+  ds = (bins[1] - bins[0]) / 2
   if "bitten_l" in stat:
-     xvals = bins[:-1]
+    lefts = bins[:-1]
+    centers = bins[:-1] + ds
   else:
-     xvals = bins[:-1]**2
+    lefts = bins[:-1]**2
+    centers = (bins[:-1] + ds)**2
 
   figure()
   # plot zero lag
   if trigs:
-    semilogy(xvals,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
+    semilogy(centers,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
         markersize=12)
-  
+
   # plot time slides
   if slide_trig_list and len(slide_snr_list):
-    ds = (bins[1] - bins[0]) / 2
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
-    tmpx, tmpy = makesteps(xvals, slide_min, slide_mean + slide_std)
-    if "bitten_l" in stat:
-      p=fill((tmpx-ds),tmpy, facecolor='y')
-    else:
-      p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
-    setp(p, alpha=0.3)
-    
+    semilogy(centers,asarray(slide_mean), 'r+', markersize=12)
+    tmpx, tmpy = makesteps(lefts, slide_min, slide_mean + slide_std)
+    fill(tmpx, tmpy, facecolor='y', alpha=0.3)
+
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
   elif stat: xlab = 'combined ' + stat.replace('_',' ')
   else: xlab = 'Combined Statistic'
@@ -1144,8 +1142,8 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     # NB: this is numpy.histogram's default behavior for equal max and min
     min_val -= 0.5
     max_val += 0.5
-    
-  bins = numpy.linspace(min_val, max_val, nbins)
+
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   # hist of the zero lag:
   if trigs:
@@ -1156,38 +1154,35 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins, new=False)
+      num_slide, _ = numpy.histogram(slide_snr, bins, new=True)
       hist_slide.append(num_slide)
     hist_slide = numpy.array(hist_slide)
     slide_mean = hist_slide.mean(axis=0)
     slide_std = hist_slide.std(axis=0)
 
+  ds = (bins[1] - bins[0]) / 2
   if "bitten_l" in stat:
-     xvals=bins
+    lefts = bins[:-1]
+    centers = bins[:-1] + ds
   else:
-     xvals=bins*bins;
+    lefts = bins[:-1]**2
+    centers = (bins[:-1] + ds)**2
 
-  clf()
-  hold(True)
+  figure()
   # plot zero lag
   if trigs and len(trigs):
-    semilogy(xvals,hist_zero+0.0001,'r^',markerfacecolor="b",\
+    semilogy(centers, hist_zero + 0.0001, 'r^', markerfacecolor="b",\
         markersize=12)
 
   # plot time slides
   if slide_trigs and len(slide_snr_list):
-    ds = (bins[1] - bins[0]) / 2
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
-    tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
-    if "bitten_l" in stat:
-       p=fill((tmpx-ds),tmpy, facecolor='y')
-    else:
-       p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
-    setp(p, alpha=0.3)
+    semilogy(centers, asarray(slide_mean), 'r+', markersize=12)
+    tmpx, tmpy = makesteps(lefts, slide_min, slide_mean + slide_std)
+    fill(tmpx, tmpy, facecolor='y', alpha=0.3)
 
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
   else: xlab = 'Combined Statistic'
@@ -1236,15 +1231,17 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
       missedVal = log10(missedVal)
 
     if len(foundVal):
-      step = (max(foundVal) - min(foundVal)) /nbins
-      bins = arange(min(foundVal),max(foundVal)+step, step )
+      bins = numpy.linspace(min(foundVal), max(foundVal), nbins + 1,
+                            endpoint=True)
+      step = bins[1] - bins[0]
       plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
         plotbins = bins[0:-1] + foundVal[0]/4.0
     else:
-      step = (max(missedVal) - min(missedVal)) /nbins
-      bins = arange(min(missedVal),max(missedVal)+step, step )
+      bins = numpy.linspace(min(missedVal), max(missedVal), nbins + 1,
+                            endpoint=True)
+      step = bins[1] - bins[0]
       plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
@@ -1333,7 +1330,8 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     tmp_diff /= tmpvar1
 
   if hist_width[0] and hist_width[1]:
-    bins = numpy.linspace(hist_width[0], hist_width[1], nbins, endpoint=True)
+    bins = numpy.linspace(hist_width[0], hist_width[1], nbins + 1,
+                          endpoint=True)
     height, _ = numpy.histogram(tmp_diff, bins=bins, new=True)
   else:
     height, bins = numpy.histogram(tmp_diff, bins=nbins, new=True)

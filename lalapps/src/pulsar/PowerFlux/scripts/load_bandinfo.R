@@ -35,8 +35,8 @@ Types<-lapply(header, class)
 Types<-lapply(Types, function(x)gsub("logical", "numeric", x))
 
 
-CreateQuery<-p("CREATE TABLE ", TableName, "(Line INTEGER AUTO_INCREMENT")
-LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", TableName, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' (")
+CreateQuery<-p("CREATE TABLE ", BandInfoTableName, "(Line INTEGER AUTO_INCREMENT")
+LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", BandInfoTableName, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' (")
 
 # "
 
@@ -60,18 +60,18 @@ LoadQuery<-p(LoadQuery, ")")
 cat("Connecting to the database\n")
 con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
 
-cat("Dropping table", TableName, "\n")
-try(dbGetQuery(con, p("DROP TABLE ", TableName)), silent=TRUE)
+cat("Dropping table", BandInfoTableName, "\n")
+try(dbGetQuery(con, p("DROP TABLE ", BandInfoTableName)), silent=TRUE)
 
-cat("Declaring table", TableName, "\n")
+cat("Declaring table", BandInfoTableName, "\n")
 dbGetQuery(con, CreateQuery)
 
-cat("Loading table", TableName, "\n")
+cat("Loading table", BandInfoTableName, "\n")
 dbGetQuery(con, LoadQuery)
 
 
-cat("Adding index to table", TableName, "\n")
-dbGetQuery(con, p("ALTER TABLE `", TableName, "` ADD INDEX (first_bin)"))
+cat("Adding index to table", BandInfoTableName, "\n")
+dbGetQuery(con, p("ALTER TABLE `", BandInfoTableName, "` ADD INDEX (first_bin)"))
 
 
 cat("Warnings:\n")

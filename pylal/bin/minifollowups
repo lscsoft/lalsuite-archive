@@ -76,7 +76,10 @@ parser.add_option("-t","--input-xml-summary",action="store",type="string",\
       help="The input xml summary table (if you want to add mini followup location to this table" )
 parser.add_option("-T","--output-html-table",action="store",type="string",\
       default=None, metavar=" INPXMLSUMMTABLE",\
-      help="The input xml summary table (if you want to add mini followup location to this table" )
+      help="The output html summary table file name (only if you give an input xml summary)" )
+parser.add_option("","--max-followups",action="store",\
+      type="int",  metavar="MAXFOLLOWUPS",default = 15,\
+      help="Only followup this number of files.")
 parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
@@ -111,8 +114,11 @@ coincTable = organize_coincs(coincT,sngls,coincMap)
 # Run the followups on each of the coincs. coinc[0] is the coinc itself
 # coinc[1] is a list of its sngls (created by organize_coincs)
 page = []
+numF = 0
 for coinc in coincTable:
-  page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
+  if numF < opts.max_followups:
+    page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
+    numF += 1
 
 # If opts.html_table is used we read in the table add the followup to the
 # table and write it out again
@@ -123,17 +129,18 @@ if opts.input_xml_summary:
 
   for event in summTable:
     for coinc,p in zip(coincTable,page):
-      # Currently we use end time to match the followup to the coinc in the
-      # table. This is NOT ideal!
       if event.coinc_event_id == coinc[0].coinc_event_id:
-        event.mini_followup = '''<a href = "''' + p + '''" rel="external"> link </a>''' 
+        event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>''' 
   if opts.output_html_table is not None:
     output = open(opts.output_html_table,'w')
     print_tables.print_tables(summTable, output, "html",\
         tableList = ['loudest_events'],round_floats = True, \
-        decimal_places = 2, title = None)
+        decimal_places = 2, title = None,print_table_names = False)
     output.close()
 
-
-  
+  for event in summTable:
+    for coinc,p in zip(coincTable,page):
+      if event.coinc_event_id == coinc[0].coinc_event_id:
+        event.mini_followup = p
+  utils.write_filename(xmlSummary,opts.input_xml_summary,xsl_file='ligolw.xsl')
 
