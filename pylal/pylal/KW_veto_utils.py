@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2009  Larne Pekowsky, Ping Wei
 #
 # This program is free software; you can redistribute it and/or modify it

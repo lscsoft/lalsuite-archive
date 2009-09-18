@@ -234,11 +234,14 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 		print >>sys.stderr, "retrieving lalapps_inspiral metadata ..."
 
 	#
-	# choose the metadata URLs for this document
+	# choose the metadata URLs for this document.  because the input
+	# includes search_summ_vars rows from both the slides and
+	# non-slides thinca jobs, each url gets listed twice so we use
+	# set() to uniquify the list.
 	#
 
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
-	urls = sorted(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file")
+	urls = sorted(set(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file"))
 
 	#
 	# insert the metadata from the URLs into xmldoc, remapping IDs to

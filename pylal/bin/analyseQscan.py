@@ -277,11 +277,11 @@ def makeHistogram(inputlist,distribution,opts,percentiles=None,candidate=None):
 
   step = (float(max_val) - float(min_val))/float(nbins)
 
-  bins = numpy.arange(min_val, max_val + step, step)
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   if len(inputlist):
     # compute the histogram values
-    dist, bin = numpy.histogram(inputlist,bins,new=True)
+    dist, bin = numpy.histogram(inputlist, bins, new=True)
 
   return dist,bin
 
