@@ -44,7 +44,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import lsctables
-from glue.ligolw import types as ligolwtypes
 from glue.ligolw.utils import process as ligolwprocess
 from pylal.date import XLALUTCToGPS
 
