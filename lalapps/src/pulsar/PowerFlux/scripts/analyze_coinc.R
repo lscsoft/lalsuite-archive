@@ -60,8 +60,8 @@ estimated_fstat_timebase<-function(h0, ra, dec, iota, psi, M.H1, M.L1,  twoFcuto
 
 	A2_LLO<- ifo_A2(ra, dec, iota, psi, gamma_LLO, lambda_LLO)
 
-	Sh.H1<- M.H1^2*sft.coherence
-	Sh.L1<- M.L1^2*sft.coherence
+	Sh.H1<- 0.5*M.H1^2*sft.coherence
+	Sh.L1<- 0.5*M.L1^2*sft.coherence
 
 	timebase<- twoFcutoff/(A2_LHO*h0^2*H1.uptime/Sh.H1+A2_LLO*h0^2*L1.uptime/Sh.L1)
 	return(timebase)
@@ -91,7 +91,9 @@ dbGetQueryCoinc<-function(con, query) {
 	res<-dbSendQuery(con, query)
 	L<-list()
 	while(!dbHasCompleted(res)) {
-		coincidences<-fetch(res, 20000)
+		a<-fetch(res, 20000)
+
+		coincidences<-a
 
 		if(length(coincidences)[1]<1 || dim(coincidences)[1]<1)next
 
@@ -234,9 +236,7 @@ cat(con=LOG, "Found", dim(coincidences)[1], "coincidences\n")
 
 line.list<-read.table(textConnection("Frequency fdot Width Comment
  46.70 0 0.1 H1CalibrationLine46.7
- 54.496 0 0.01 VME_CPU_clock
  54.70 0 0.1 L1CalibrationLine54.7
-108.992 0 0.01 VME_CPU_clock
  265.58 -4.15e-12 0.1 InjPulsar0
  849.06 -3e-10 1   InjPulsar1
  575.16 -1.37e-13 0.5 InjPulsar2
@@ -247,6 +247,8 @@ line.list<-read.table(textConnection("Frequency fdot Width Comment
 1220.90 -1.12e-9 0.2 InjPulsar7
  193.75  -8.65e-9 1.25 InjPulsar8
  763.85 -1.4E-17 0.1 InjPulsar9
+ 54.496 0 0.01 VME_CPU_clock
+108.992 0 0.01 VME_CPU_clock
  128.00 0 0.1 128Hz
  256.10 0 0.25 256Hz
  350 0 20 ViolinMode
