@@ -27,6 +27,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from glue import segments
 from glue import segmentsUtils
+from glue.segmentdb import segmentdb_utils
 
 # =============================================================================
 
@@ -174,7 +175,12 @@ parser.add_option("-s", "--segment-db", metavar = "segment_url", \
     default = "ldbd://segdb.ligo.caltech.edu:30015", \
     help = "URL pointing to segment database") 
 
-opts, filenames  = parser.parse_args()
+parser.add_option("-d","--mbta-dir", action="store",\
+    type="string",default="/archive/home/cbc/mbta/triggers", help="Directory contianing MBTA trigger files",metavar="MBTA_DIR")
+
+opts,blah  = parser.parse_args()
+
+filenames = segmentdb_utils.get_all_files_in_range(opts.mbta_dir, opts.gps_start_time, opts.gps_end_time)
 
 # =============================================================================
 ifos = []
