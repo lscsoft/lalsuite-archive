@@ -326,7 +326,8 @@ class getCache(UserDict):
         triggerCap=cp.get('followup-triggers','num-trigs')
       else:
         triggerCap=100
-      found, coincs, search = _bandaid_(sqliteTriggerFile,triggerCap,getstatistic(statistic,bla,blb),excludeTags)
+      excludeTags=""
+      found, coincs, search = _bandaid_(sqliteTriggerFile,triggerCap,getstatistic('far',"",""),excludeTags)
     else:
       if not self.cache or self.triggerTag == "":
         #If using multiple XML files (CVT)
