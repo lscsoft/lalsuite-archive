@@ -319,33 +319,6 @@ class getCache(UserDict):
       return inspiral_process_params, sngl
 
   def readTriggerFiles(self,cp,opts):
-   
-    if not self.cache or self.triggerTag == "":
-      #If using multiple XML files (CVT)
-      xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
-      triggerList = glob.glob(xml_glob) 
-    else:
-      #Search for XML matching string self.triggerTag (CVT)
-      triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
-      triggerList = self.getListFromCache(triggerCache)
-      #Variable triggerList is a list of XML files to search(CVT)
-      
-    # if the option "--convert-eventid" is called, a copy of the xml file 
-    # is made under LOCAL_XML_COPY, and the event_id is converted
-    # from int_8s to ilwd:char
-    if opts.convert_eventid:
-      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
-    elif opts.create_localcopy:
-      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
-      
-    numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
-    statistic =  string.strip(cp.get('followup-triggers','statistic'))
-    bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
-    blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    #triggerList 
-    if cp.has_option('followup-triggers','exclude-tags'):
-      excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
-    else: excludedTags = None
     #Patch CVT 
     if cp.has_option('followup-triggers','sqlite-triggers'):
       sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
@@ -355,6 +328,33 @@ class getCache(UserDict):
         triggerCap=100
       found, coincs, search = _bandaid_(sqliteTriggerFile,triggerCap,getstatistic(statistic,bla,blb),excludeTags)
     else:
+      if not self.cache or self.triggerTag == "":
+        #If using multiple XML files (CVT)
+        xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
+        triggerList = glob.glob(xml_glob) 
+      else:
+        #Search for XML matching string self.triggerTag (CVT)
+        triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
+        triggerList = self.getListFromCache(triggerCache)
+        #Variable triggerList is a list of XML files to search(CVT)
+
+      # if the option "--convert-eventid" is called, a copy of the xml file 
+      # is made under LOCAL_XML_COPY, and the event_id is converted
+      # from int_8s to ilwd:char
+      if opts.convert_eventid:
+        triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
+      elif opts.create_localcopy:
+        triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
+
+      numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
+      statistic =  string.strip(cp.get('followup-triggers','statistic'))
+      bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
+      blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
+      #triggerList 
+      if cp.has_option('followup-triggers','exclude-tags'):
+        excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
+      else:
+        excludedTags = None      
       found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
     return numtrigs, found, coincs, search
 
