@@ -826,6 +826,8 @@ def clean_inspiral_tables( connection, verbose = False ):
     connection.commit()
 
     # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
     for table in table_names:
         table = table[0]
         if verbose:
@@ -836,7 +838,10 @@ def clean_inspiral_tables( connection, verbose = False ):
             'WHERE event_id NOT IN (',
                 'SELECT event_id',
                 'FROM coinc_event_map )' ])
-        connection.cursor().execute( sqlquery )
+        try:
+            connection.cursor().execute( sqlquery )
+        except:
+            pass
         connection.commit()
 
     if verbose:

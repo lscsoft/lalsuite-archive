@@ -2440,10 +2440,11 @@ class CoincDefTable(table.Table):
 		description.
 		"""
 		# look for the ID
-		for row in self:
-			if (row.search, row.search_coinc_type) == (search, search_coinc_type):
-				# found it
-				return row.coinc_def_id
+		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
+		if len(rows) > 1:
+			raise ValueError, "search/search coinc type = %s/%d is not unique" % (search, search_coinc_type)
+		if len(rows) > 0:
+			return rows[0].coinc_def_id
 
 		# coinc type not found in table
 		if not create_new:

@@ -190,6 +190,14 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.noisemodels",
+			["src/xlal/noisemodels.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.tools",
 			["src/xlal/tools.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
@@ -284,6 +292,7 @@ setup(
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_ll2cache"),
+		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_stringfinal"),
@@ -330,7 +339,8 @@ setup(
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
-		os.path.join("bin", "minifollowups")
+		os.path.join("bin", "minifollowups"),
+		os.path.join("bin", "ligolw_cbc_plotcumhist")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

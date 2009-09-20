@@ -17,6 +17,7 @@ xml documents in specified formats -- currently wiki or html.
 import sys, os
 from optparse import OptionParser
 
+from glue import git_version
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import utils
@@ -26,8 +27,6 @@ from glue.ligolw.utils import print_tables
 
 __prog__ = "ligolw_print_tables"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
 
 
 # =============================================================================
@@ -43,7 +42,7 @@ def parse_command_line():
     options.
     """
     parser = OptionParser(
-        version = "",
+        version = git_version.verbose_msg,
         usage   = "%prog [--output-format] [options] file1.xml file2.xml ...",
         description = description
         )
@@ -77,6 +76,11 @@ def parse_command_line():
         help =
             "Round floating point numbers in the tables to the specified " +
             "number of decimal places."
+            )
+    parser.add_option("", "--no-table-names", action = "store_true",
+        default = False,
+        help =
+            "Turn off printing table names."
             )
 
     (options, filenames) = parser.parse_args()
@@ -118,10 +122,13 @@ if options.round_floats is None:
 else:
     round_floats = True
 
+print_table_names = not options.no_table_names
+
 # convert the files
 for xmldoc, title in zip(xmldocs, titles):
     print_tables.print_tables(xmldoc, options.output, options.output_format, tableList = options.table,
-        round_floats = round_floats, decimal_places = options.round_floats, title = title)
+        round_floats = round_floats, decimal_places = options.round_floats, title = title,
+        print_table_names = print_table_names)
 
 # close and exit
 options.output.close()

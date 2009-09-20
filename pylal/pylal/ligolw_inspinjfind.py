@@ -312,7 +312,6 @@ def NearCoincCompare(sim, inspiral):
 	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
 	"""
 	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
-	#return not SimBurstUtils.burst_is_near_injection(sim, burst.start_time, burst.start_time_ns, burst.duration, burst.ifo)
 
 
 #
