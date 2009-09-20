@@ -322,7 +322,7 @@ class getCache(UserDict):
     #Patch CVT 
     if cp.has_option('followup-triggers','sqlite-triggers'):
       sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
-      if cp.has_options('followup-triggers','num-trigs'):
+      if cp.has_option('followup-triggers','num-trigs'):
         triggerCap=cp.get('followup-triggers','num-trigs')
       else:
         triggerCap=100
