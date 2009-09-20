@@ -63,7 +63,9 @@ from glue.segmentdb import query_engine
 from pylal.xlal import date as xlaldate
 #Part of bandaid
 from xml import sax
-
+from pylal import db_thinca_rings
+from pylal.date import LIGOTimeGPS
+from pysqlite2 import dbapi2 as sqlite3x
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -348,7 +350,11 @@ class getCache(UserDict):
     #Patch CVT 
     if cp.has_option('followup-triggers','sqlite-triggers'):
       sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
-      found, coincs, search = _bandaid_(sqliteTriggerFile,getstatistic(statistic,bla,blb),excludeTags)
+      if cp.has_options('followup-triggers','num-trigs'):
+        triggerCap=cp.get('followup-triggers','num-trigs')
+      else:
+        triggerCap=100
+      found, coincs, search = _bandaid_(sqliteTriggerFile,triggerCap,getstatistic(statistic,bla,blb),excludeTags)
     else:
       found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
     return numtrigs, found, coincs, search
@@ -576,7 +582,7 @@ def floatToStringList(listin):
 #
 ##############################################################################
 
-def _bandaid_(sqlFile,statistic=None,excludeTags=None):
+def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
   """
   Sqlite bandaid put in place until pipeline re-write.
   Cristina Valeria Torres: Tue-Sep-08-2009:200909081422
@@ -596,13 +602,28 @@ def _bandaid_(sqlFile,statistic=None,excludeTags=None):
   dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
   #Pull in sqlite data
   try:
-    sqlDB=sqlite.connect(sqlFile)
-    orderingString=""
-    for col in snglInspiralTable.columnnames:
-      orderingString="%s,%s"%(str(orderingString),str(col))
-    orderingString=orderingString.lstrip(",")
+    sqlDB=sqlite3x.connect(sqlFile)
     sqlDBsock=sqlDB.cursor()
-    sqlDBsock.execute("select %s from sngl_inspiral"%(orderingString))
+    #Query the SQL Coincs table to get the gpstimes of the top N events
+    liveTimeProgram="thinca"
+    rawSeglists = db_thinca_rings.get_thinca_zero_lag_segments(sqlDB, program_name = liveTimeProgram)
+    playground_segs = segmentsUtils.S2playground(rawSeglists.extent_all())
+    sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
+    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
+    gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
+    # Create piece of query string 
+    oString01=oString02=""
+    for eventTimeTuple in gpsTimesToFetch:
+      eventTime=eventTimeTuple[0]
+      oString01=oString01+" ((%s<=end_time) AND (%s>=end_time)) OR "%(eventTime-1,eventTime+1)
+    oString01=oString01.rstrip("OR ")
+    for col in snglInspiralTable.columnnames:
+      oString02="%s,%s"%(str(oString02),str(col))
+    oString02=oString02.lstrip(",")
+    oString03="select %s from sngl_inspiral where %s"%(oString02,oString01,)
+    sqlDBsock.execute(oString03)
+    #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
+    #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
     results=sqlDBsock.fetchall()
     delim=dataStream.getAttribute("Delimiter")
     dataString=""
@@ -621,10 +642,11 @@ def _bandaid_(sqlFile,statistic=None,excludeTags=None):
     sys.stderr.flush()
     dataString=''
     snglInspiralTable.appendChild(dataStream)
-    coince=snglInspiralTable
+    coincs=snglInspiralTable
+    raise
   #Mimicking method readfiles from here on out
   if statistic == None:
-    coins=snglInspiralTable
+    coincs=snglInspiralTable
   else:
     coincInspiralTable = \
                        CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
