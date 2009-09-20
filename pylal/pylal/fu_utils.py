@@ -320,14 +320,15 @@ class getCache(UserDict):
 
   def readTriggerFiles(self,cp,opts):
     #Patch CVT 
+    numtrigs=0
     if cp.has_option('followup-triggers','sqlite-triggers'):
       sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
       if cp.has_option('followup-triggers','num-trigs'):
-        triggerCap=cp.get('followup-triggers','num-trigs')
+        numtrigs=cp.get('followup-triggers','num-trigs')
       else:
-        triggerCap=100
+        numtrigs=100
       excludeTags=""
-      found, coincs, search = _bandaid_(sqliteTriggerFile,triggerCap,getstatistic('far',"",""),excludeTags)
+      found, coincs, search = _bandaid_(sqliteTriggerFile,numtrigs,getstatistic('far',"",""),excludeTags)
     else:
       if not self.cache or self.triggerTag == "":
         #If using multiple XML files (CVT)
