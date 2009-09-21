@@ -620,7 +620,7 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     for eventTimeTuple in gpsTimesToFetch:
       eventTime=eventTimeTuple[0]
       eventID=eventTimeTuple[1]
-      oString01=oString01+" ((%s<=end_time) AND (%s>=end_time)) OR "%(eventTime-1,eventTime+1)
+      oString01=oString01+" ((%s<=end_time) AND (%s>=end_time)) OR "%(eventTime-1.0,eventTime+1.0)
     oString01=oString01.rstrip("OR ")
     for col in snglInspiralTable.columnnames:
       oString02="%s,%s"%(str(oString02),str(col))
@@ -630,28 +630,16 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
     #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
     results=sqlDBsock.fetchall()
-    #Cycle through results to replace sngl_inspiral ID with coinc ID
-    #Edit item 15 in elem "sngl_inspiral:event_id:220722"
+    #Grab mapping of coinc event to sngl event ids
+    #Remap sngl event ids
     newResults=list()
     for elem in results:
-      a,b,num=elem[14].split(":")
-      mySec=float(elem[52])
-      myNano=float(elem[55])*(10**-9)
-      myTime=mySec+myNano
-      newID=None
-      for newEvent in gpsTimesToFetch:
-        newTime=newEvent[0]
-        jtxt,jjtxt,newID=newEvent[1].split(':')
-        if abs(newTime-myTime) <= 1:
-          num=newID
-      if not(newID == None):
-        newIDString=elem[14].replace(num,newID)
-      elemList=list()
-      for eItem in elem:
-        elemList.append(eItem)
-      if not(newID == None):
-        elemList[14]=newIDString
-      newResults.append(elemList)
+      newID=sqlDBsock.execute("""select coinc_event_id from coinc_event_map where event_id == '%s'"""%(elem[14])).fetchall()
+      newRow=list()
+      for item in elem:
+        newRow.append(item)
+      newRow[14]=newID[0][0].replace("coinc_event:coinc_event_id:","sngl_inspiral:event_id:")
+      newResults.append(newRow)
     oldResults=results
     results=newResults
     delim=dataStream.getAttribute("Delimiter")
