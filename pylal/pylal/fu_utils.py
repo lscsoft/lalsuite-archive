@@ -635,12 +635,12 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     oString02=oString02.lstrip(",")
     oString03="SELECT %s FROM sngl_inspiral WHERE %s"%(oString02,oString01,)
     sqlDBsock.execute(oString03)
-    #Create tmp sngl table to speed things up
-    oString07="""CREATE TEMPORARY TABLE sngl_inspiral_temp AS %s"""%(oString03)
-    sqlDBsock.execute(oString07)
     #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
     #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
     results=sqlDBsock.fetchall()
+    #Create tmp sngl table to speed things up
+    oString07="""CREATE TEMPORARY TABLE sngl_inspiral_temp AS %s"""%(oString03)
+    sqlDBsock.execute(oString07)
     #Grab mapping of coinc event to sngl event ids
     #Remap sngl event ids
     newResults=list()
