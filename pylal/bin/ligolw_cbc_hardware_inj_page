@@ -61,7 +61,7 @@ def list_results(ifo, time, segment_url, filenames, successful_inj, outfile):
     # Check whether the injection was performed
     if (successful_inj.has_key(ifo) ) and (successful_inj[ifo] is not None):
         if time not in successful_inj[ifo]:
-            print >>outfile'  <tr valign="top" bgcolor="ddffdd"><td>%s</td><td colspan="10">Injection Not Performed</td><td></td></tr>' % ifo
+            print >>outfile,'  <tr valign="top" bgcolor="ddffdd"><td>%s</td><td colspan="10">Injection Not Performed</td><td></td></tr>' % ifo
             return
 
     # Get associated DQ flags
