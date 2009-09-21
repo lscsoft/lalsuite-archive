@@ -615,17 +615,26 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
     oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
     gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
+    #Get sngl ID from coinc_map
+    coincList=list()
+    for item in gpsTimesToFetch:
+      coincID=item[1]
+      coincList.append(coincID)
+    idString="SELECT event_id FROM coinc_event_map WHERE "
+    for cID in coincList:
+      idString=idString+""" (coinc_event_id == "%s") OR """%(cID)
+    idString=idString.rstrip("OR ")
+    snglEventIDs=sqlDBsock.execute(idString).fetchall()
     # Create piece of query string 
     oString01=oString02=""
-    for eventTimeTuple in gpsTimesToFetch:
-      eventTime=eventTimeTuple[0]
-      eventID=eventTimeTuple[1]
-      oString01=oString01+" ((%s<=end_time) AND (%s>=end_time)) OR "%(eventTime-1.0,eventTime+1.0)
+    for eventInfo in snglEventIDs:
+      eventID=eventInfo[0]
+      oString01=oString01+""" (event_id == "%s") OR """%(eventID)
     oString01=oString01.rstrip("OR ")
     for col in snglInspiralTable.columnnames:
       oString02="%s,%s"%(str(oString02),str(col))
     oString02=oString02.lstrip(",")
-    oString03="select %s from sngl_inspiral where %s"%(oString02,oString01,)
+    oString03="SELECT %s FROM sngl_inspiral WHERE %s"%(oString02,oString01,)
     sqlDBsock.execute(oString03)
     #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
     #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
@@ -634,7 +643,7 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     #Remap sngl event ids
     newResults=list()
     for elem in results:
-      newID=sqlDBsock.execute("""select coinc_event_id from coinc_event_map where event_id == '%s'"""%(elem[14])).fetchall()
+      newID=sqlDBsock.execute("""SELECT coinc_event_id FROM coinc_event_map WHERE event_id == '%s'"""%(elem[14])).fetchall()
       newRow=list()
       for item in elem:
         newRow.append(item)
