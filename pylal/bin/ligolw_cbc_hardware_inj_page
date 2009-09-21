@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009  Steve Fairhurst, based on glitch-page.sh by Duncan
+# Copyright (C) 2009  Steve Fairhurst & John Veitch, based on glitch-page.sh by Duncan
 # Brown, ligolw_glitch_page.py by Larne Pekowsky
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -50,6 +50,40 @@ def readInjLog(fname):
 
 # =============================================================================
 
+
+def get_xml_files(filenames,time,ifo):
+	# Decide on the xml files to read
+    xml_files = []
+
+    for fname in filenames:
+        tm, dur = fname.split('-')[-2:]
+        tm      = int(tm)
+        dur     = int(dur[:-4])
+	if time >= tm and time <= (tm + dur) and ifo in fname:
+        	xml_files.append(fname)
+    return xml_files
+# =============================================================================
+
+def get_ifo_result(ifo, time, filenames, successful_inj):
+	"""
+	Generate the HTML table element for a particular IFO and time
+	"""
+	
+	if(successful_inj.has_key(ifo)) and (successful_inj[ifo] is not None):
+		if time not in successful_inj[ifo]:
+			return ("<td bgcolor=#ddffdd>Not performed</td>",0,0)
+	xml_files = get_xml_files(filenames,time,ifo)
+	if not xml_files: return ("<td bgcolor=#ff9900>Not analysed</td>",1,0)
+	triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(xml_files)
+    	if triggers:
+       	 # keep those which are near the time
+        	inj_time = segments.segment(time - 0.1, time + 0.1)
+        	triggers = triggers.vetoed(inj_time)
+        	triggers = triggers.ifocut(ifo)	
+	if triggers and len(triggers):
+		return "<td bgcolor=#22ff22>Found</td>",1,1
+	else:	return "<td bgcolor=#ff2222>Missed</td>",1,0
+# =============================================================================
 def list_results(ifo, time, segment_url, filenames, successful_inj, outfile):
     """
     Generate HTML for each MBTA trigger in the given ifo 'close to'
@@ -102,18 +136,7 @@ def list_results(ifo, time, segment_url, filenames, successful_inj, outfile):
             dq_flags += '<b>%s</b><br>' % name
         else:
             dq_flags += '%s %s %s<br>' % (name, value[0], value[2])
-
-
-    # Decide on the xml files to read
-    xml_files = []
-    
-    for fname in filenames:
-        tm, dur = fname.split('-')[-2:]
-        tm      = int(tm)
-        dur     = int(dur[:-4])
-
-        if time >= tm and time <= (tm + dur) and ifo in fname:
-            xml_files.append(fname)
+    xml_files=get_xml_files(filenames,time,ifo)
 
     # read triggers
     if not xml_files:
@@ -142,7 +165,7 @@ def list_results(ifo, time, segment_url, filenames, successful_inj, outfile):
         print >>outfile, '  <tr valign="top" bgcolor="ff3333"><td>%s</td><td colspan="10">Not Found</td><td>%s</td></tr>' % (ifo, dq_flags)
 
     return
-
+# =============================================================================
 def write_page_long(opts,injections, ifos, filenames, hwinj_done):
     outfile=open(opts.outfile,'w')
     for inj in injections:
@@ -155,7 +178,6 @@ def write_page_long(opts,injections, ifos, filenames, hwinj_done):
                   (inj.get_end("H"), inj.get_end("L"), inj.get_end("V"), 
                    inj.mass1, inj.mass2, inj.mchirp, inj.eff_dist_h, inj.eff_dist_l, 
                    inj.eff_dist_v) 
-            print >>outfile, '  </tr>'
 
             for ifo in ifos:
                 list_results(ifo, inj.get_end(ifo[0]), opts.segment_db, filenames,\
@@ -164,7 +186,41 @@ def write_page_long(opts,injections, ifos, filenames, hwinj_done):
             print >>outfile, '</table>'
             print >>outfile, '<p>'
     return
+# =============================================================================
+def write_page_short(opts,injections,ifos,filenames,hwinj_done):
+	"""
+	Generate the short page
+	"""
+	outfile=open(opts.outfile,'w')
+	print >>outfile, '<html><head><title>Hardware injection summary: '+str(opts.gps_start_time)+' - '+str(opts.gps_end_time)+\
+			'</title></head><body><table border=1><tr bgcolor="#9999ff"><th>GPS end time</th><th>Mass 1</th><th>Mass 2</th><th>Distance (Mpc)</th>'
+	totalinj={}
+	totalfound={}
+	for ifo in ifos:
+		print >>outfile, '<th>'+ifo+'</th>'
+		totalinj[ifo]=0
+		totalfound[ifo]=0
 
+	for inj in injections:
+		if(inj.get_end("H") < opts.gps_start_time or inj.get_end("H") > opts.gps_end_time): continue
+		print >>outfile,'<tr><td>%.3f</td>' % (inj.geocent_end_time)
+		print >>outfile,'<td>%.3f</td><td>%.3f</td><td>%.3f</td>'% (inj.mass1,inj.mass2,inj.distance)
+		for ifo in ifos:
+			(result,injected,found)=get_ifo_result(ifo, inj.get_end(ifo[0]), filenames, hwinj_done)
+			print >>outfile,result
+			totalinj[ifo]=totalinj[ifo]+injected
+			totalfound[ifo]=totalfound[ifo]+found
+		print >>outfile,'</tr>'
+	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered / Injected</td>'
+	for ifo in ifos:
+		print >>outfile,'<td>%i / %i</td>'%(totalfound[ifo],totalinj[ifo])
+	print >>outfile,'</tr>'
+	print >>outfile,'</table>'
+	print >>outfile,'</body></html>'
+	return
+
+# =============================================================================
+# Main program begins here
 # =============================================================================
 
 usage = """ %prog [options]
@@ -172,6 +228,7 @@ Program to parse the inspiral injection log
 """
 
 parser = OptionParser( usage )
+parser.add_option("-D","--dq",action="store_true",dest="long_page",default=False,help="Poll DQ flags for each injection and write long page")
 parser.add_option("-o","--outfile",action="store",type="string",\
                   metavar="FILE.html",help="Filename for output page")
 parser.add_option("-t","--gps-start-time",action="store",type="int",\
@@ -258,5 +315,6 @@ for ifo in ifos:
 # Read in the injections
 injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.source_xml])
 
-write_page_long(opts,injections,ifos,filenames,hwinj_done)
+if(opts.long_page): write_page_long(opts,injections,ifos,filenames,hwinj_done)
+else:	write_page_short(opts,injections,ifos,filenames,hwinj_done)
 
