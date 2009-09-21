@@ -358,6 +358,9 @@ class getCache(UserDict):
       else:
         excludedTags = None      
       found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
+    print "COINC VARIABLE (fu_utils):",coincs,type(coincs)
+    if coincs==None:
+      print "COINCS object is None!\n"
     return numtrigs, found, coincs, search
 
 
@@ -610,12 +613,13 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     rawSeglists = db_thinca_rings.get_thinca_zero_lag_segments(sqlDB, program_name = liveTimeProgram)
     playground_segs = segmentsUtils.S2playground(rawSeglists.extent_all())
     sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
-    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
+    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
     gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
     # Create piece of query string 
     oString01=oString02=""
     for eventTimeTuple in gpsTimesToFetch:
       eventTime=eventTimeTuple[0]
+      eventID=eventTimeTuple[1]
       oString01=oString01+" ((%s<=end_time) AND (%s>=end_time)) OR "%(eventTime-1,eventTime+1)
     oString01=oString01.rstrip("OR ")
     for col in snglInspiralTable.columnnames:
@@ -626,6 +630,30 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
     #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
     results=sqlDBsock.fetchall()
+    #Cycle through results to replace sngl_inspiral ID with coinc ID
+    #Edit item 15 in elem "sngl_inspiral:event_id:220722"
+    newResults=list()
+    for elem in results:
+      a,b,num=elem[14].split(":")
+      mySec=float(elem[52])
+      myNano=float(elem[55])*(10**-9)
+      myTime=mySec+myNano
+      newID=None
+      for newEvent in gpsTimesToFetch:
+        newTime=newEvent[0]
+        jtxt,jjtxt,newID=newEvent[1].split(':')
+        if abs(newTime-myTime) <= 1:
+          num=newID
+      if not(newID == None):
+        newIDString=elem[14].replace(num,newID)
+      elemList=list()
+      for eItem in elem:
+        elemList.append(eItem)
+      if not(newID == None):
+        elemList[14]=newIDString
+      newResults.append(elemList)
+    oldResults=results
+    results=newResults
     delim=dataStream.getAttribute("Delimiter")
     dataString=""
     for elem in results:
