@@ -596,7 +596,6 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
   search=None
   coincs=None
   #Create emtpy table object
-  snglInspiralTable_old=lsctables.New(lsctables.SnglInspiralTable)
   #Build by Hand
   snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SnglInspiralTable.tableName}))
   colnamefmt = u":".join(snglInspiralTable.tableName.split(":")[:-1]) + u":%s"
@@ -636,6 +635,9 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     oString02=oString02.lstrip(",")
     oString03="SELECT %s FROM sngl_inspiral WHERE %s"%(oString02,oString01,)
     sqlDBsock.execute(oString03)
+    #Create tmp sngl table to speed things up
+    oString07="""CREATE TEMPORARY TABLE sngl_inspiral_temp AS %s"""%(oString03)
+    sqlDBsock.execute(oString07)
     #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
     #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
     results=sqlDBsock.fetchall()
@@ -662,12 +664,41 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
     fp=open('completeSNGLINSPIRALTABLE.xml','w')
     snglInspiralTable.write(file=fp)
     fp.close()
+    # SETUP SEARCH SUMMARY TABLE
+    #Create a search summary table to return here
+    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SearchSummaryTable.tableName}))
+    colnamefmt = u":".join(SearchSummaryTable.tableName.split(":")[:-1]) + u":%s"
+    for key, value in SearchSummaryTable.validcolumns.items():
+      SearchSummaryTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+      SearchSummaryTable._end_of_columns()
+      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.tableName})).config(SearchSummaryTable)
+    oString05=""
+    for col in SearchSummaryTable.columnnames:
+      oString05="%s,search_summary.%s"%(str(oString05),str(col))
+    oString05=oString05.lstrip(",")
+    oString04=""" SELECT %s FROM search_summary LEFT OUTER JOIN sngl_inspiral_temp ON (search_summary.process_id == sngl_inspiral_temp.process_id) WHERE """%(oString05)
+    for eventInfo in snglEventIDs:
+      eventID=eventInfo[0]
+      oString04=oString04+""" ( sngl_inspiral_temp.event_id == "%s" ) OR """%(eventID)
+    oString04=oString04.rstrip("OR ")
+    #Take SQL result and put into the searchsummarystream
+    searchSummaryRecords=sqlDBsock.execute(oString04).fetchall()
+    dataString=""
+    for elem in searchSummaryRecords:
+      for elem2 in elem:
+                dataString="%s%s%s"%(dataString,delim,str(elem2))
+    dataString=str(dataString+",").lstrip(delim)
+    SearchSummaryTable.appendChild(SearchSummaryStream)
+    SearchSummaryStream.appendData(dataString)
+    fp2=open('completeSearchSummaryTable.xml','w')
+    SearchSummaryTable.write(file=fp2)
+    fp2.close()
+    search=SearchSummaryTable
   except:
     sys.stderr.write("Error converting SQLITE file %s \n"%(sqlFile))
     sys.stderr.write("Generating empty sngl_inspiral table xmldoc object.\n")
     sys.stderr.flush()
     dataString=''
-    snglInspiralTable.appendChild(dataStream)
     coincs=snglInspiralTable
     raise
   #Mimicking method readfiles from here on out
