@@ -304,6 +304,10 @@ class getCache(UserDict):
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
       except:
         print "couldn't get inspiral process params for " + str(trig.eventID)
+        print "gpsTime:",trig.gpsTime
+        print "wildType:",wildType
+        print "ifoTag:",trig.ifoTag
+        print "ifolist_in_coinc:",trig.ifolist_in_coinc
         inspiral_process_params = []
       return inspiral_process_params
     else:
