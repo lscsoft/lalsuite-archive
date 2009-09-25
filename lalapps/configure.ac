@@ -12,7 +12,6 @@ AC_CONFIG_FILES([\
   misc/Makefile \
   src/Makefile \
   src/lalapps/Makefile \
-  src/example/Makefile \
   src/calibration/Makefile \
   src/frametools/Makefile \
   src/findchirp/Makefile \
@@ -33,12 +32,10 @@ AC_CONFIG_FILES([\
   src/pulsar/TimingTests/Makefile \
   src/pulsar/TDS_isolated/Makefile \
   src/inspiral/Makefile \
-  src/inspiral/posterior/Makefile \
   src/zmsearch/Makefile \
   src/detresponse/Makefile \
   src/pulsar/hough/src2/Makefile \
   src/pulsar/MakeSFTs/Makefile \
-  src/pulsar/crosscorr/Makefile \
   src/pulsar/fscan/Makefile \
   src/tracksearch/Makefile \
   src/online/Makefile \
@@ -114,7 +111,6 @@ if test "x$condor" = "xtrue"; then
   AC_DEFINE(LALAPPS_CONDOR, 1, [LALApps is condor compiled])
 fi
 if test "$GCC" = yes; then
-  CPPFLAGS="$CPPFLAGS -ansi"
   CFLAGS="$CFLAGS -W -Wall $lalapps_gcc_flags"
 fi
 AC_PROG_INSTALL
@@ -267,8 +263,8 @@ AC_MSG_RESULT(no))
 AC_CHECK_FUNCS(setenv)
 
 if test "$LALSUITE_BUILD" = "true"; then
-  LIBS="$LALXML_LIBS $LALFRAME_LIBS $LALMETAIO_LIBS $LALSUPPORT_LIBS $LAL_LIBS $LIBS"
-  CPPFLAGS="$CPPFLAGS $LAL_CFLAGS $LALSUPPORT_CFLAGS $LALFRAME_CFLAGS $LALMETAIO_CFLAGS $LALXML_LIBS"
+  LIBS="$LAL_LIBS $LALSUPPORT_LIBS $LALFRAME_LIBS $LALMETAIO_LIBS $LALXML_LIBS $LIBS"
+  CPPFLAGS="$LAL_CFLAGS $LALSUPPORT_CFLAGS $LALFRAME_CFLAGS $LALMETAIO_CFLAGS $LALXML_CFLAGS $CPPFLAGS"
   lalframe="false"
   lalmetaio="false"
   lalxml="false"
