@@ -354,8 +354,13 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             experiment_summary.experiment_id == ?"""
     for esid, duration, datatype in connection.cursor().execute( sqlquery, (eid,) ):
         background.append_duration(eid, esid, duration)
+        background.store_datatypes(eid, esid, datatype)
         if datatype != "slide":
-            background.append_zero_lag_id(eid, esid, datatype)
+            background.append_zero_lag_id(eid, esid)
+
+    # check that there is only a single plot_datatype entry for this experiment
+    if len(background.datatypes[eid][plot_datatype]) > 1:
+        raise ValueError, "more than one %s entry found for experiment %s" %(plot_datatype, eid)
 
     # calculate the background durations
     background.calc_bkg_durs()
@@ -394,9 +399,9 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         if opts.plot_uncombined:
             ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
-            # since the ufar_summaries class doesn't know about zero-lag esides,
+            # since the ufar_summaries class doesn't know about zero-lag esids,
             # we must remove the zero-lag stats from it's bkg_stats list by hand
-            if esid in background.zero_lag_ids[eid].values():
+            if esid in background.zero_lag_ids[eid]:
                 ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
         if opts.plot_combined:
             if opts.group_by_ifos:
@@ -404,7 +409,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             else:
                 ifo_group = "ALL_IFOS"
             cfar_summaries.add_to_bkg_stats(eid, esid, ifo_group, "ALL_PARAM_BINS", cfar)
-            if esid in background.zero_lag_ids[eid].values():
+            if esid in background.zero_lag_ids[eid]:
                 cfar_summaries.bkg_stats[(eid, ifo_group, "ALL_PARAM_BINS")].remove(cfar)
 
     # calculate max-bkg fars
@@ -511,13 +516,13 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     tagList = [] # ditto
 
     # get the esid of the zero-lag for this eid
-    zero_esid = background.zero_lag_ids[ eid ][ plot_datatype ]
+    zero_esid = background.datatypes[ eid ][ plot_datatype ][0]
 
     # set bkg_correction: this is the zero-lag duration of the plot_datatype divided
     # by the all_data duration; this is needed to set the background correctly
     all_data_dur = 0
-    if 'all_data' in background.zero_lag_ids[eid]:
-        all_data_dur = background.frg_durs[eid][background.zero_lag_ids[eid]['all_data']]
+    if 'all_data' in background.datatypes[eid]:
+        all_data_dur = background.frg_durs[eid][background.datatypes[eid]['all_data'][0]]
 
     if all_data_dur != 0:
         bkg_correction = background.frg_durs[eid][zero_esid] / all_data_dur
