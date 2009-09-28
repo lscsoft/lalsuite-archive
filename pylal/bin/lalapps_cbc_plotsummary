@@ -183,8 +183,9 @@ class CoincDatabase(object):
 			print >>sys.stderr, "calculating background livetimes: ",
 		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
-		# The previous line is slow, if you are debugging some other feature you could just hardcode it like this
-		# self.background_livetime = {frozenset(["H1","L1"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
+		# The previous line is slow, if you are debugging some
+		# other feature you could just hardcode it like this
+		#self.background_livetime = {frozenset(["H1","H2"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
 		self.livetime_by_offset = {}
 		for key in self.background_livetime.keys():
 			self.livetime_by_offset[key] = {}
