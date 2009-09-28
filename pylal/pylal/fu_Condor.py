@@ -83,13 +83,8 @@ def verifyCP(cp,defaults):
   depending if the cp object contains the sections and options
   specified by the input DEFAULTS.
   """
-  result=bool(True)
-  if not(cp.has_section(defaults["section"])):
-    result=bool(False)
-  for configOption in defaults["options"].keys():
-    if not(cp.has_option(defaults["section"],configOption)):
-      result=bool(False)
-  return result
+  return cp.has_section(defaults["section"]) and \
+  all(cp.has_option(defaults["section"], opt) for opt in defaults["options"])
   # End verifyCP
 
 def modifyCP(cp,defaults):
@@ -99,10 +94,9 @@ def modifyCP(cp,defaults):
   """
   if not(cp.has_section(defaults["section"])):
     cp.add_section(defaults["section"])
-  else:
-  for configOption in defaults["options"].keys():
-    if not(cp.has_option(defaults["section"],configOption)):
-      cp.set(defaults["section"],configOption,defaults["options"][configOption])
+  for key, val in defaults["options"].iteritems():
+    if not cp.has_option(defaults["section"], key):
+      cp.set(defaults["section"], val)
   #End modifyCP
 
 
