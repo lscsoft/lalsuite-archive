@@ -74,6 +74,7 @@ def checkHipeCachePath(cp):
 ### If CP object missing section a temporary default valued
 ### config parser (CP) object is generated
 ###############################################################################
+
 def verifyCP(cp,defaults):
   """
   This method takes in a cp object and give a set of defaults check to
@@ -91,7 +92,7 @@ def verifyCP(cp,defaults):
   return result
   # End verifyCP
 
-def generateCP(cp,defaults):
+def modifyCP(cp,defaults):
   """
   Appended the configuration information in defaults into the config
   parser (cp) object and return a copy of this newly update cp object.
@@ -102,8 +103,7 @@ def generateCP(cp,defaults):
   for configOption in defaults["options"].keys():
     if not(cp.has_option(defaults["section"],configOption)):
       cp.set(defaults["section"],configOption,defaults["options"][configOption])
-  return cp
-  #End generateCP
+  #End modifyCP
 
 
 ###############################################################################
@@ -119,7 +119,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
     }
   def __init__(self,cp,type='plot'):
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     inspiral.InspiralJob.__init__(self,cp)
     if type == 'head':
       self.set_executable(string.strip(cp.get('condor','inspiral_head')))
@@ -340,7 +340,7 @@ class plotSNRCHISQJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'plotSNRCHISQJob'
     self.__executable = string.strip(cp.get('condor','plotsnrchisq'))
     self.__universe = "vanilla"
@@ -418,7 +418,7 @@ class lalapps_skyMapJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'lalapps_skyMapJob'
     self.__executable = string.strip(cp.get('condor','lalapps_skymap'))
     self.__universe = "standard"
@@ -447,7 +447,7 @@ class pylal_skyPlotJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'pylal_skyPlotJob'
     self.__executable = string.strip(cp.get('condor','pylal_skyPlotJob'))
     self.__universe = "vanilla"
@@ -702,7 +702,7 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
@@ -840,7 +840,7 @@ class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     
     if not os.path.exists(tag_base):
        os.mkdir(tag_base)
@@ -925,7 +925,7 @@ class distributeQscanJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'distributeQscanJob'
     self.__executable = string.strip(cp.get('condor','distribute_q'))
     self.__universe = "vanilla"
@@ -976,7 +976,7 @@ class analyseQscanJob(pipeline.CondorDAGJob, webTheJob):
     }
   def __init__(self,options,cp,tag_base='ANALYSE_QSCAN'):
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'analyseQscanJob'
     self.__executable = string.strip(cp.get('condor','analyseQscan'))
     self.__universe = "vanilla"
@@ -1106,7 +1106,7 @@ class h1h2QeventJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.name = 'h1h2QeventJob'
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
@@ -1252,7 +1252,7 @@ class FrCheckJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'FrCheckJob'
     self.__executable = string.strip(cp.get('condor','frame_check'))
     self.__universe = "vanilla"
@@ -1319,7 +1319,7 @@ class IFOstatus_checkJob(pipeline.CondorDAGJob, webTheJob):
     }
   def __init__(self, options, cp, tag_base='IFOSTATUS'):
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'IFOstatus_checkJob'
     self.__executable = string.strip(cp.get('condor','IFOstatus_check'))
     self.__universe = "local"
@@ -1367,7 +1367,7 @@ class followupoddsJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)    
+      modifyCP(cp,self.defaults)    
     self.__prog__='followupoddsjob'
     self.__executable=string.strip(cp.get('condor','followupodds'))
     self.__universe="standard"
@@ -1465,7 +1465,7 @@ class followupOddsPostJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__='followupOddsPostJob'
     self.__executable=string.strip(cp.get('condor','oddsPostScript'))
     self.__universe="vanilla"
@@ -1545,7 +1545,7 @@ class followupmcmcJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followupmcmcJob'
     self.__executable = string.strip(cp.get('condor','followupmcmc'))
     self.__universe = "standard"
@@ -1694,7 +1694,7 @@ class followupspinmcmcJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followupspinmcmcJob'
     self.__executable = string.strip(cp.get('condor','followupspinspiral'))
     self.__universe = "standard"
@@ -1764,7 +1764,7 @@ class plotmcmcJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'plotmcmcJob'
     self.__executable = string.strip(cp.get('condor','plotmcmc'))
     self.__universe = "vanilla"
@@ -1889,7 +1889,7 @@ class followUpChiaJob(inspiral.ChiaJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followUpChiaJob'
     self.__executable = string.strip(cp.get('condor','chia'))
     self.__universe = "standard"
@@ -2004,7 +2004,7 @@ class followUpCohireJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followUpCohireJob'
     self.__executable = string.strip(cp.get('condor','cohire'))
     self.__universe = "vanilla"
@@ -2081,7 +2081,7 @@ class plotChiaJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'plotChiaJob'
     self.__executable = string.strip(cp.get('condor','plotchiatimeseries'))
     self.__universe = "vanilla"
@@ -2157,7 +2157,7 @@ class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'CHECKLIST'
     self.__executable = string.strip(cp.get('condor','makechecklist'))
     self.__universe = "local"
@@ -2242,7 +2242,7 @@ class followupTriggerJob(pipeline.CondorDAGJob,webTheJob):
     """
     """
     if not(verifyCP(cp,self.defaults)):
-      cp=generateCP(cp,self.defaults)
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followUpTriggers'
     self.__executable = string.strip(cp.get('condor','fu_triggers'))
     self.__universe = "vanilla"
