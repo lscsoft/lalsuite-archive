@@ -155,7 +155,7 @@ SELECT
 FROM
 	sim_burst
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			found = values[-1]
 			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
 				self.num_injections += 1
@@ -217,7 +217,7 @@ SELECT
 FROM
 	sim_burst
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			found = values[-1]
 			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
 				self.num_injections += 1
@@ -312,7 +312,7 @@ FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(self.amplitude_func(sim, self.instrument))
@@ -363,7 +363,7 @@ FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.frequency)
@@ -408,7 +408,7 @@ FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			bandwidth, freq_rec, hrss_rec = values[-3:]
 			self.matches += 1
 			self.x.append(bandwidth)
@@ -463,7 +463,7 @@ FROM
 WHERE
 	coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			coinc_event_id = values[-1]
 			sim_peak = SimBurstUtils.time_at_instrument(sim, self.instrument)
 			self.found += 1
@@ -609,7 +609,7 @@ FROM
 WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.frequency)
@@ -661,7 +661,7 @@ FROM
 WHERE
 	sim_coinc_event.coinc_def_id == ?
 		""", (contents.sce_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.frequency)

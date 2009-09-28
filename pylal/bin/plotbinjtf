@@ -113,7 +113,7 @@ def time_freq_plot(database, instrument, sim):
 	# find triggers from the desired instrument that are coincident
 	# with the injection, and iterate over them in order from least to
 	# most confident
-	for burst in map(database.sngl_burst_table._row_from_cols, database.connection.cursor().execute("""
+	for burst in map(database.sngl_burst_table.row_from_cols, database.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map AS a ON (
@@ -203,7 +203,7 @@ ORDER BY
 	# find triggers from the desired instrument that are near the
 	# injection, and iterate over them in order from least to most
 	# confident
-	for burst in map(database.sngl_burst_table._row_from_cols, database.connection.cursor().execute("""
+	for burst in map(database.sngl_burst_table.row_from_cols, database.connection.cursor().execute("""
 SELECT * FROM
 	sngl_burst
 WHERE
@@ -294,7 +294,7 @@ WHERE
 			AND sngl_burst.ifo == ?
 	)
 	""", (instrument,)):
-		yield contents.sim_burst_table._row_from_cols(values)
+		yield contents.sim_burst_table.row_from_cols(values)
 
 
 for n, filename in enumerate(filenames):

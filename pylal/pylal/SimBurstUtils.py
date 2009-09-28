@@ -208,7 +208,7 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			coinc_event_id = values[-1]
 			instruments = set(cursor.execute("""
 SELECT

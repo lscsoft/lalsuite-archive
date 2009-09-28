@@ -312,7 +312,7 @@ AS
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
 		# retrieve sngl_burst events
-		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
+		events = map(database.sngl_burst_table.row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
 
 		# compute and store likelihood ratio
 		cursor.execute("""

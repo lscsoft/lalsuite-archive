@@ -154,7 +154,7 @@ SELECT sngl_burst.* FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 	""", (coinc_event_id,)):
-		yield contents.sngl_burst_table._row_from_cols(values)
+		yield contents.sngl_burst_table.row_from_cols(values)
 
 
 #

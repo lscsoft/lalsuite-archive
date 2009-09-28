@@ -481,7 +481,7 @@ SELECT
 FROM
 	sim_inspiral
 			"""):
-			sim = contents.sim_inspiral_table._row_from_cols(values)
+			sim = contents.sim_inspiral_table.row_from_cols(values)
 			del sim.process_id, sim.source, sim.simulation_id
 			instruments = frozenset(instrument for instrument, segments in contents.seglists.items() if sim.get_end() in segments)
 			self.injections.setdefault(sim.waveform, []).append(sim)
@@ -532,7 +532,7 @@ SELECT
 FROM
 	sim_inspiral
 			"""):
-				sim = contents.sim_inspiral_table._row_from_cols(values)
+				sim = contents.sim_inspiral_table.row_from_cols(values)
 				del sim.process_id, sim.source, sim.simulation_id
 				if sim.get_end() in zero_lag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
@@ -614,8 +614,8 @@ FROM
 		AND coinc_event_map.event_id == sngl_inspiral.event_id
 	)
 		"""):
-			sim = contents.sim_inspiral_table._row_from_cols(values)
-			sngl = contents.sngl_inspiral_table._row_from_cols(values[n_simcolumns:])
+			sim = contents.sim_inspiral_table.row_from_cols(values)
+			sngl = contents.sngl_inspiral_table.row_from_cols(values[n_simcolumns:])
 			del sim.process_id, sim.source, sim.simulation_id
 			del sngl.process_id, sngl.search, sngl.channel, sngl.event_id
 			self.sim_sngl_pairs.setdefault((sim.waveform, sngl.ifo), []).append((sim, sngl))
@@ -861,8 +861,8 @@ WHERE
 	coinc_event.coinc_def_id == ?
 	AND sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
 			""", (contents.ii_definer_id,)):
-				x = contents.sngl_inspiral_table._row_from_cols(values)
-				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				x = contents.sngl_inspiral_table.row_from_cols(values)
+				y = contents.sngl_inspiral_table.row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				is_background, is_playground = values[-2:]
 				instrument_pair = (x.ifo, y.ifo)
 				if instrument_pair not in self.points:
@@ -901,8 +901,8 @@ FROM
 WHERE
 	sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
 			"""):
-				x = contents.sngl_inspiral_table._row_from_cols(values)
-				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				x = contents.sngl_inspiral_table.row_from_cols(values)
+				y = contents.sngl_inspiral_table.row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				instrument_pair = (x.ifo, y.ifo)
 				if instrument_pair not in self.points:
 					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()
