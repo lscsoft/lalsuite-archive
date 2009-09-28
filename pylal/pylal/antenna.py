@@ -59,7 +59,7 @@ def response( gpsTime, rightAscension, declination, inclination,
   
   The returned values are: (f-plus, f-cross, f-average, q-value).
   
-  Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'H1' )
+  Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'radians', 'H1' )
   """
   
   # check the input arguments

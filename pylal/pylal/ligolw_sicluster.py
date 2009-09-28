@@ -26,14 +26,15 @@
 
 import sys
 
-from glue import segments
-from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 from pylal import SnglInspiralUtils
+from pylal import snglcluster
+
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -111,43 +112,6 @@ def SnglInspiralCluster(a, b):
   else:
     return a
 
-
-def ClusterSnglInspiralTable(triggers, testfunc, clusterfunc, 
-  twindow, bailoutfunc = None):
-  """
-  Cluster the triggers in the list.  testfunc should accept a pair of
-  triggers, and return 0 if they should be clustered.  clusterfunc
-  should accept a pair of triggers, and replace the contents of the
-  first with a cluster constructed from the two.  If bailoutfunc is
-  provided, the triggers will be sorted using testfunc as a
-  comparison operator, and then only pairs of triggers for which
-  bailoutfunc returns 0 will be considered for clustering.
-  """
-  while True:
-    did_cluster = False
-
-    if bailoutfunc:
-      triggers.sort(testfunc)
-
-    i = 0
-    while i < len(triggers):
-      j = i + 1
-      while j < len(triggers):
-        if not testfunc(triggers[i], triggers[j],twindow):
-          triggers[i] = clusterfunc(triggers[i], triggers[j])
-          del triggers[j]
-          did_cluster = True
-        else:
-          if bailoutfunc:
-            if bailoutfunc(triggers[i], triggers[j]):
-              break
-          j += 1
-      i += 1
-
-    if not did_cluster:
-      return
-
-
 #
 # =============================================================================
 #
@@ -170,23 +134,26 @@ def ligolw_sicluster(doc, **kwargs):
   if kwargs["snr_threshold"] > 0:
     thresh = float(kwargs["snr_threshold"])
     if kwargs["verbose"]:
-      print >>sys.stderr, "discarding triggers with snr < %f..." % \
+      print >>sys.stderr, "discarding triggers with snr < %f ..." % \
         kwargs["snr_threshold"]
     for i in range(len(snglinspiraltable) - 1, -1, -1):
       if snglinspiraltable[i].snr <= thresh:
         del snglinspiraltable[i]
 
   # Cluster
-  if kwargs["verbose"]:
-    print >>sys.stderr, "clustering..."
-  ClusterSnglInspiralTable(snglinspiraltable, 
-    kwargs["testfunc"], kwargs["clusterfunc"],
-    LIGOTimeGPS(kwargs["cluster_window"]), kwargs["bailoutfunc"])
+  snglcluster.cluster_events(
+    snglinspiraltable,
+    testfunc = lambda a, b: SnglInspiralUtils.CompareSnglInspiral(a, b, twindow = kwargs["cluster_window"]),
+    clusterfunc = SnglInspiralCluster,
+    sortfunc = SnglInspiralUtils.CompareSnglInspiralByEndTime,
+    bailoutfunc = lambda a, b: SnglInspiralUtils.CompareSnglInspiral(a, b, twindow = kwargs["cluster_window"]),
+    verbose = kwargs["verbose"]
+  )
 
   # Sort by signal-to-noise ratio
   if kwargs["sort_ascending_snr"] or kwargs["sort_descending_snr"]:
     if kwargs["verbose"]:
-      print >>sys.stderr, "sorting by snr..."
+      print >>sys.stderr, "sorting by snr ..."
     snglinspiraltable.sort(SnglInspiralUtils.CompareSnglInspiralBySnr)
     if kwargs["sort_descending_snr"]:
       snglinspiraltable.reverse()

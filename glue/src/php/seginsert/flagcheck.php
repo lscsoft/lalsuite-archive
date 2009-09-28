@@ -122,11 +122,19 @@ $error = 0;
 
    // validate elog url
     $url = $_POST['url'];
+    // check url length
+    if(strlen($url)>255)
+      {
+        $error = $error + 1;
+        echo "<p>Elog url = <font color='red'>Length must not exceed 255 characters</font></p>";
+      }
+
+    // check url presence
     if(strpos($url,'http') !== 0)
       {
          echo "<p>Elog url = <font color='red'>Warning: no elog entry specified. Please give an elog URL, if possible.</font><p/>";
       }
-    if(strpos($url,'http') === 0)
+    if(strpos($url,'http') === 0 && strlen($url)<=255)
       {
          $url=htmlspecialchars($_POST['url']);
          echo "<p>Please click on this <a href='$url' get='_blank'>link</a> to verify the elog url (opens in new window).</p>";
@@ -134,10 +142,10 @@ $error = 0;
    
     // validate username
     $username = $_POST['user'];
-    if(strlen($username)==0)
+    if(strlen($username)==0 || strlen($username)>64) 
       {
          $error = $error + 1;
-         echo "<p>User Name = <font color='red'>username must be specified</font></p>";
+         echo "<p>User Name = <font color='red'>username must be specified, and length must not exceed 64 characters</font></p>";
       }
     else
       {

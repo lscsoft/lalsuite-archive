@@ -1,5 +1,3 @@
-#!/usr/bin/python
-#
 """
 followup web page scraping utilities
 

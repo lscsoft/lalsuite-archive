@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.28
+Version:	1.28.1
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries

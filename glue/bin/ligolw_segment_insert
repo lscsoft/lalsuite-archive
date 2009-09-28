@@ -53,7 +53,12 @@ __src__ = "$Source: /usr/local/cvs/lscsoft/glue/bin/ligolw_segment_insert,v $"
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
+
+try:
+  USER_NAME = os.getlogin()
+except:
+  USER_NAME = pwd.getpwuid(os.getuid())[0]
+
 
 ##################################################################
 #            Command Line

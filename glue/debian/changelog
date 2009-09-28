@@ -1,3 +1,15 @@
+python-glue (1.28.1-2) unstable; urgency=low
+
+  * python version fix (c&p from 1.28-5)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 26 Aug 2009 09:09:09 +0200
+
+python-glue (1.28.1-1) unstable; urgency=low
+
+  * Initial release of 1.28.1
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Thu, 13 Aug 2009 11:45:16 -0500
+
 python-glue (1.28-1) unstable; urgency=low
 
   * Initial release of 1.28

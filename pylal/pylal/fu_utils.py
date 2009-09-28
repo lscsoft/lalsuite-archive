@@ -1,4 +1,3 @@
-#!/usr/bin/env @PYTHONPROG@
 """
 followup utilities
 
@@ -50,6 +49,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw import dbtables
 from pylal import CoincInspiralUtils
 from glue import iterutils
 from glue import pipeline
@@ -60,7 +60,11 @@ from lalapps import inspiralutils
 from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
 from pylal.xlal import date as xlaldate
-
+#Part of bandaid
+from xml import sax
+from pylal import db_thinca_rings
+from pylal.date import LIGOTimeGPS
+from pysqlite2 import dbapi2 as sqlite3x
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -300,6 +304,10 @@ class getCache(UserDict):
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
       except:
         print "couldn't get inspiral process params for " + str(trig.eventID)
+        print "gpsTime:",trig.gpsTime
+        print "wildType:",wildType
+        print "ifoTag:",trig.ifoTag
+        print "ifolist_in_coinc:",trig.ifolist_in_coinc
         inspiral_process_params = []
       return inspiral_process_params
     else:
@@ -315,30 +323,48 @@ class getCache(UserDict):
       return inspiral_process_params, sngl
 
   def readTriggerFiles(self,cp,opts):
-   
-    if not self.cache or self.triggerTag == "":
-      xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
-      triggerList = glob.glob(xml_glob) 
+    #Patch CVT 
+    numtrigs=0
+    if cp.has_option('followup-triggers','sqlite-triggers'):
+      sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
+      if cp.has_option('followup-triggers','num-trigs'):
+        numtrigs=cp.get('followup-triggers','num-trigs')
+      else:
+        numtrigs=100
+      excludeTags=""
+      found, coincs, search = _bandaid_(sqliteTriggerFile,numtrigs,getstatistic('far',"",""),excludeTags)
     else:
-      triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
-      triggerList = self.getListFromCache(triggerCache)
+      if not self.cache or self.triggerTag == "":
+        #If using multiple XML files (CVT)
+        xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
+        triggerList = glob.glob(xml_glob) 
+      else:
+        #Search for XML matching string self.triggerTag (CVT)
+        triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
+        triggerList = self.getListFromCache(triggerCache)
+        #Variable triggerList is a list of XML files to search(CVT)
 
-    # if the option "--convert-eventid" is called, a copy of the xml file 
-    # is made under LOCAL_XML_COPY, and the event_id is converted
-    # from int_8s to ilwd:char
-    if opts.convert_eventid:
-      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
-    elif opts.create_localcopy:
-      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
-      
-    numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
-    statistic =  string.strip(cp.get('followup-triggers','statistic'))
-    bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
-    blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    if cp.has_option('followup-triggers','exclude-tags'):
-      excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
-    else: excludedTags = None
-    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
+      # if the option "--convert-eventid" is called, a copy of the xml file 
+      # is made under LOCAL_XML_COPY, and the event_id is converted
+      # from int_8s to ilwd:char
+      if opts.convert_eventid:
+        triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
+      elif opts.create_localcopy:
+        triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
+
+      numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
+      statistic =  string.strip(cp.get('followup-triggers','statistic'))
+      bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
+      blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
+      #triggerList 
+      if cp.has_option('followup-triggers','exclude-tags'):
+        excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
+      else:
+        excludedTags = None      
+      found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
+    print "COINC VARIABLE (fu_utils):",coincs,type(coincs)
+    if coincs==None:
+      print "COINCS object is None!\n"
     return numtrigs, found, coincs, search
 
 
@@ -557,6 +583,144 @@ def floatToStringList(listin):
 # function to read in a list of files and extract the simInspiral tables
 # and sngl_inspiral tables
 ##############################################################################
+
+##############################################################################
+#
+# This is a section of code the "BANDAID"
+#
+##############################################################################
+
+def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
+  """
+  Sqlite bandaid put in place until pipeline re-write.
+  Cristina Valeria Torres: Tue-Sep-08-2009:200909081422
+  hacked from the get_xml method.
+  """
+  sims=None
+  search=None
+  coincs=None
+  #Create emtpy table object
+  #Build by Hand
+  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SnglInspiralTable.tableName}))
+  colnamefmt = u":".join(snglInspiralTable.tableName.split(":")[:-1]) + u":%s"
+  for key, value in snglInspiralTable.validcolumns.items():
+    snglInspiralTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+  snglInspiralTable._end_of_columns()
+  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
+  #Pull in sqlite data
+  try:
+    sqlDB=sqlite3x.connect(sqlFile)
+    sqlDBsock=sqlDB.cursor()
+    #Query the SQL Coincs table to get the gpstimes of the top N events
+    liveTimeProgram="thinca"
+    rawSeglists = db_thinca_rings.get_thinca_zero_lag_segments(sqlDB, program_name = liveTimeProgram)
+    playground_segs = segmentsUtils.S2playground(rawSeglists.extent_all())
+    sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
+    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
+    gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
+    #Get sngl ID from coinc_map
+    coincList=list()
+    for item in gpsTimesToFetch:
+      coincID=item[1]
+      coincList.append(coincID)
+    idString="SELECT event_id FROM coinc_event_map WHERE "
+    for cID in coincList:
+      idString=idString+""" (coinc_event_id == "%s") OR """%(cID)
+    idString=idString.rstrip("OR ")
+    snglEventIDs=sqlDBsock.execute(idString).fetchall()
+    # Create piece of query string 
+    oString01=oString02=""
+    for eventInfo in snglEventIDs:
+      eventID=eventInfo[0]
+      oString01=oString01+""" (event_id == "%s") OR """%(eventID)
+    oString01=oString01.rstrip("OR ")
+    for col in snglInspiralTable.columnnames:
+      oString02="%s,%s"%(str(oString02),str(col))
+    oString02=oString02.lstrip(",")
+    oString03="SELECT %s FROM sngl_inspiral WHERE %s"%(oString02,oString01,)
+    sqlDBsock.execute(oString03)
+    #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
+    #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
+    results=sqlDBsock.fetchall()
+    #Create tmp sngl table to speed things up
+    oString07="""CREATE TEMPORARY TABLE sngl_inspiral_temp AS %s"""%(oString03)
+    sqlDBsock.execute(oString07)
+    #Grab mapping of coinc event to sngl event ids
+    #Remap sngl event ids
+    newResults=list()
+    for elem in results:
+      newID=sqlDBsock.execute("""SELECT coinc_event_id FROM coinc_event_map WHERE event_id == '%s'"""%(elem[14])).fetchall()
+      newRow=list()
+      for item in elem:
+        newRow.append(item)
+      newRow[14]=newID[0][0].replace("coinc_event:coinc_event_id:","sngl_inspiral:event_id:")
+      newResults.append(newRow)
+    oldResults=results
+    results=newResults
+    delim=dataStream.getAttribute("Delimiter")
+    dataString=""
+    for elem in results:
+      for elem2 in elem:
+        dataString="%s%s%s"%(dataString,delim,str(elem2))
+    dataString=str(dataString+",").lstrip(delim)
+    snglInspiralTable.appendChild(dataStream)  
+    dataStream.appendData(dataString)  
+    fp=open('completeSNGLINSPIRALTABLE.xml','w')
+    snglInspiralTable.write(file=fp)
+    fp.close()
+    # SETUP SEARCH SUMMARY TABLE
+    #Create a search summary table to return here
+    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SearchSummaryTable.tableName}))
+    colnamefmt = u":".join(SearchSummaryTable.tableName.split(":")[:-1]) + u":%s"
+    for key, value in SearchSummaryTable.validcolumns.items():
+      SearchSummaryTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+      SearchSummaryTable._end_of_columns()
+      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.tableName})).config(SearchSummaryTable)
+    oString05=""
+    for col in SearchSummaryTable.columnnames:
+      oString05="%s,search_summary.%s"%(str(oString05),str(col))
+    oString05=oString05.lstrip(",")
+    oString04=""" SELECT %s FROM search_summary LEFT OUTER JOIN sngl_inspiral_temp ON (search_summary.process_id == sngl_inspiral_temp.process_id) WHERE """%(oString05)
+    for eventInfo in snglEventIDs:
+      eventID=eventInfo[0]
+      oString04=oString04+""" ( sngl_inspiral_temp.event_id == "%s" ) OR """%(eventID)
+    oString04=oString04.rstrip("OR ")
+    #Take SQL result and put into the searchsummarystream
+    searchSummaryRecords=sqlDBsock.execute(oString04).fetchall()
+    dataString=""
+    for elem in searchSummaryRecords:
+      for elem2 in elem:
+                dataString="%s%s%s"%(dataString,delim,str(elem2))
+    dataString=str(dataString+",").lstrip(delim)
+    SearchSummaryTable.appendChild(SearchSummaryStream)
+    SearchSummaryStream.appendData(dataString)
+    fp2=open('completeSearchSummaryTable.xml','w')
+    SearchSummaryTable.write(file=fp2)
+    fp2.close()
+    search=SearchSummaryTable
+  except:
+    sys.stderr.write("Error converting SQLITE file %s \n"%(sqlFile))
+    sys.stderr.write("Generating empty sngl_inspiral table xmldoc object.\n")
+    sys.stderr.flush()
+    dataString=''
+    coincs=snglInspiralTable
+    raise
+  #Mimicking method readfiles from here on out
+  if statistic == None:
+    coincs=snglInspiralTable
+  else:
+    coincInspiralTable = \
+                       CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
+    coincs=coincInspiralTable
+
+  return sims,coincs,search
+
+##############################################################################
+#
+# End the BANDAID
+#
+##############################################################################
+
 def readFiles(fileGlob,statistic=None,excludedTags=None):
   """
   read in the Sngl and SimInspiralTables from a list of files

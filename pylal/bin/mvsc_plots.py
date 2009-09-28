@@ -459,66 +459,6 @@ def ROCplot(data_inj,data_ts,cols,op_point = 1,ts_trig_ratio = 25):
 
 ##############################################################################
 
-def ROCcompare(array,cols,op_point=None):
-    """Overlays several ROC plots to compare results."""
-
-    sum_truepos = 0
-    total_inj = 0
-    
-    pyplot.figure()
-    for k in range(len(array)):
-        data = array[k]
-        
-        timeslides = []
-        injections = []
-    
-        for i in range(len(data[0])):
-            if data[1][i] == 0:
-                timeslides.append(data[cols['Bagger']][i])
-            else:
-                injections.append(data[cols['Bagger']][i])
-
-        truepos,falsepos = ROC(timeslides,injections)
-
-        falsepos1,truepos1 = stairs(falsepos,truepos)
-        
-        pyplot.semilogx(falsepos1,truepos1)
-        
-        if op_point:
-        
-            for i in range(len(falsepos)):
-                if falsepos[i] <= op_point:
-                    break
-
-            sum_truepos += truepos[i]
-            total_inj += len(injections)
-
-    if op_point:
-        pyplot.plot([op_point,op_point],[.85,1],'r',label='Operating point')
-        
-        xmin,xmax = pyplot.xlim()
-        mid = sum_truepos / len(array)
-        low,high = wilson(mid,total_inj)
-        
-        upper = mid+high
-        lower = mid-low
-        pyplot.plot([xmin,xmax],[mid,mid],'r')
-        pyplot.plot([xmin,xmax],[lower,lower],'r:')
-        pyplot.plot([xmin,xmax],[upper,upper],'r:')
-        
-        pyplot.xlim(xmin,xmax)
-
-    pyplot.ylim(.85,1)
-    pyplot.xlabel('False positive rate')
-    pyplot.ylabel('True positive rate')
-    pyplot.title('ROC curves of multiple identical runs')
-    pyplot.legend(loc='lower right')
-
-    if op_point:
-        return mid,upper,lower
-
-##############################################################################
-
 def FOMplot(fom):
     """Plots FOM vs bagger cycle."""
 
@@ -528,34 +468,6 @@ def FOMplot(fom):
     pyplot.ylabel('Figure of Merit')
     pyplot.title('Figure of Merit vs number of Bagger cycles')
     pyplot.xlim(-len(fom)*0.05,len(fom))
-
-##############################################################################
-
-def FOMmean(fom):
-    """Plots average FOM over several runs."""
-
-    mean = []
-    std = []
-    
-    for i in range(len(fom[0])):
-        m = []
-        s = []
-        for j in range(len(fom)):
-            m.append(fom[j][i])
-            s.append(fom[j][i]**2)
-
-        sum1 = sum(m)
-        sumsq = sum(s)
-        mean.append( sum1/len(m) )
-        std.append( math.sqrt( max( \
-            (sumsq/len(m) - (sum1/len(m))**2)/(len(m)-1),0 ) ) )
-
-    pyplot.figure()
-    pyplot.errorbar(range(1,len(mean)+1),mean,yerr=std)
-    pyplot.xlabel('Bagger cycle')
-    pyplot.ylabel('Figure of Merit')
-    pyplot.title('Figure of Merit vs number of Bagger cycles')
-    pyplot.xlim(-len(fom[0])*0.05,len(fom[0]))
 
 ##############################################################################
 
@@ -669,7 +581,7 @@ def fraction_detected(data_inj,data_ts, cols, afar = None,mvsc_cutoff=None, \
     
     if afar:
     #Determine cutoff values which allow only the given number of false alarms
-    
+    #Check that this is FAR, and not FAN 8/22/09
         cutoff = int(afar*len(ts)) + 1
         mvsc_cutoff = ts_mvsc[-cutoff][0]
     elif mvsc_cutoff:

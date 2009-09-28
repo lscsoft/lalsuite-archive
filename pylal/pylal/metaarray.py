@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
   MetaArray - a subclass of ndarray that holds metadata and preserves it across
             array operations.
@@ -17,9 +16,8 @@
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"[11:-2]
 
+import operator
 import os
 import sys
 import copy
@@ -514,17 +512,11 @@ class TimeSeriesList(MetaArrayList):
             segs.extend(series.metadata.segments)
         return segs
 
-    def extent(self):
-        """
-        Return the combined extent of time spanned by this SpectrumList.
-        """
-        return self.segments().extent()
-    
     def merge_list(self):
         """
         Concatenate the list into one single TimeSeries.
         """
-        meta = reduce(lambda a,b: a|b, [ts.metadata for ts in self])
+        meta = reduce(operator.or_, [ts.metadata for ts in self])
         return TimeSeries(numpy.concatenate(self.A), meta)
 
 ##############################################################################
@@ -598,13 +590,7 @@ class SpectrumList(MetaArrayList):
         for spectrum in self:
             segs.extend(spectrum.metadata.segments)
         return segs
-    
-    def extent(self):
-        """
-        Return the combined extent of time spanned by this SpectrumList.
-        """
-        return self.segments().extent()
-    
+
     def ordinates(self):
         """
         Return an single-precision ndarray containing the frequencies at
@@ -622,7 +608,7 @@ class SpectrumList(MetaArrayList):
         """
         if len(self) == 0:
             raise ValueError
-        meta = reduce(lambda a,b: a|b, [s.metadata for s in self])
+        meta = reduce(operator.or_, [s.metadata for s in self])
         return Spectrum(numpy.sum(self.A, axis=0), meta)
 
 class SpectrumDict(dict):

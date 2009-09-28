@@ -35,6 +35,8 @@ import urlparse
 import time
 import calendar
 
+import glue.segments
+
 try:
     import M2Crypto
     import cjson
@@ -86,10 +88,13 @@ NAME
 
 SYNOPSIS
         ligo_data_find --server=NAME:PORT --observatory=NAME --type=NAME 
-               --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
+               --gps-start-time=GPS --gps-end-time=GPS 
+               [ --lal-cache ] [ --frame-cache ]
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
-               [ --names-only ] [--show-times] [ --version ]
-               [ --no-proxy ]
+               [ --names-only ] [ --show-times ] [ --version ]
+               [ --no-proxy ] [ --gaps ]
+
+        ligo_data_find --server=NAME:PORT --observatory OBS --type TYPE --latest
 
         ligo_data_find --server=NAME:PORT --filename
 
@@ -132,12 +137,24 @@ DESCRIPTION
         -l, --lal-cache
                 format output for use as a LAL cache file
 
+        -W --frame-cache
+                format output for use as a frame cache file
+
         -m, --match
                 return only results that match a regular expression
 
         -n, --names-only
                 return only the names of files with particular values for
                 instrument, type, start, and end rather than full URLs
+
+        -g, --gaps
+                check the returned list of URLs or paths to see if the
+                files cover the requested interval; a return value of 
+                zero (0) indicates the interval is covered, a value of
+                one (1) indicates at least one gap exists and the interval
+                is not covered, and a value of (2) indicates that the
+                entire interval is not covered; missing gaps are
+                printed to stderr
 
         -P, --no-proxy
                 attempt to authenticate without a grid proxy.
@@ -152,12 +169,14 @@ DESCRIPTION
         -y, --show-types
                 list available types
 
+        -T, --latest
+
         -a, --show-times
-        list gps-second segments for all data of type specified.
-        Must be used with --type foo and --observatory bar, where foo 
+               list gps-second segments for all data of type specified.
+                Must be used with --type foo and --observatory bar, where foo 
                 is a frame type and bar is an observatory. Optionally
-        Supports one or both of --gps-start-time and
-        --gps-end-time to restrict returned time ranges.
+                Supports one or both of --gps-start-time and
+                --gps-end-time to restrict returned time ranges.
 
         -p, --ping
                 ping the LDRDataFind server
@@ -178,19 +197,6 @@ ENVIRONMENT
 
         LIGO_DATAFIND_MATCH can be set to avoid having to use the
         --match option on the command line. 
-
-EXAMPLE
-
-$ ligo_data_find --server=dataserver.phys.uwm.edu --observatory=H 
---type=RDS_R_L3 --gps-start-time=714024240 --gps-end-time=714024340 --url-type=file 
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024224-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024240-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024256-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024272-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024288-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024304-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024320-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024336-16.gwf
 \
 """
         print >>sys.stderr, msg
@@ -200,7 +206,7 @@ def main():
     """
 
     # grab command line options
-    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:"
+    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:gWT"
     longop = [
               "version",
               "help", 
@@ -213,6 +219,7 @@ def main():
               "ping",
               "server=",
               "lal-cache",
+              "frame-cache",
               "filename=",
               "url-type=",
               "match=",
@@ -221,6 +228,8 @@ def main():
               "no-proxy",
               "disable-host-auth",
               "output-file=",
+              "gaps",
+              "latest",
               ]
 
     try:
@@ -234,6 +243,7 @@ def main():
     hostPortString = None
     port = None
     lalcache = False
+    wcache = False
     noproxy = False # i.e., use proxy by default
     namesOnly = False
     output_file = sys.stdout
@@ -247,6 +257,7 @@ def main():
             'filename': None,
             'urlType': None,
             'match': None,
+            'checkGaps': None
             }
 
     # default method 
@@ -288,6 +299,8 @@ def main():
                     clientMethodArgDict['type'] = a
             elif o in ("-l", "--lal-cache"):
                     lalcache = True
+            elif o in ("-W", "--frame-cache"):
+                    wcache = True
             elif o in ("-f", "--filename"):
                     clientMethodArgDict['filename'] = a
                     clientMethod = 'singleFrameFind'
@@ -308,10 +321,14 @@ def main():
             elif o in ("-a","--show-times"):
                     clientMethodArgDict['show-times'] = True
                     clientMethod = 'showTimes'
+            elif o in ("-T", "--latest"):
+                    clientMethod = 'latest'
             elif o in ("-P","--no-proxy"):
                     noproxy = True
             elif o in ("-O", "--output-file"):
                     output_file = open(a, "w")
+            elif o in ("-g", "--gaps"):
+                    clientMethodArgDict['checkGaps'] = True
 
     if not clientMethod:
             print >>sys.stderr, "Bad combination or missing options"
@@ -337,6 +354,7 @@ def main():
     clientMethodArgDict['output_file'] = output_file
     clientMethodArgDict['namesOnly'] = namesOnly
     clientMethodArgDict['lalcache'] = lalcache
+    clientMethodArgDict['wcache'] = wcache
 
     # find credential unless either the user has
     # specified no proxy credential or we are going
@@ -351,9 +369,10 @@ def main():
     clientMethodArgDict['keyFile'] = keyFile
 
     # execute the query and print the result
+    ret = None
     try:
         if clientMethod == 'findFrameURLs':
-            findFrameURLs(clientMethodArgDict)
+            ret = findFrameURLs(clientMethodArgDict)
         elif clientMethod == 'showObservatories':
             showObservatories(clientMethodArgDict)
         elif clientMethod == 'showTypes':
@@ -364,6 +383,8 @@ def main():
             singleFrameFind(clientMethodArgDict)
         elif clientMethod == 'ping':
             ping(clientMethodArgDict)
+        elif clientMethod == 'latest':
+            latest(clientMethodArgDict)
 
     except Exception, e:
             print >>sys.stderr, "Error querying LDRDataFindServer: %s" % str(e)
@@ -371,7 +392,11 @@ def main():
             sys.exit(1)
 
     output_file.close()
-    sys.exit(0)
+
+    if ret is None:
+        sys.exit(0)
+    else:
+        sys.exit(ret)
 
 def findCredential():
     """
@@ -556,7 +581,9 @@ def findFrameURLs(args):
 
     namesOnly   = args['namesOnly']
     lalcache    = args['lalcache']
+    wcache      = args['wcache']
     output_file = args['output_file']
+    checkGaps   = args['checkGaps']
 
     if not site or not frameType or not gpsStart or not gpsEnd:
         msg = """\
@@ -613,6 +640,88 @@ be present when searching for groups of files
     # decode the JSON
     urlList = cjson.decode(body)
 
+    # special branch to check for gaps
+    if checkGaps:
+        searchSegment = glue.segments.segment(int(gpsStart), int(gpsEnd))
+
+        if len(urlList) == 0:
+            # the interval is not covered at all so the 
+            # return value should be 2 and we will print
+            # the missing interval or gap to stderr and
+            # nothing to stdout or the output_file
+            print >>sys.stderr, 'missing segments: %s' % str(searchSegment)
+            return 2
+
+        # parse the URLs to create a segment representation
+        lfnList = [ os.path.basename(url) for url in urlList ]
+        timeDuration = [ s[:-4].split('-')[2:4] for s in lfnList ]
+        intervals = [ [int(x), int(x) + int(y)] for x,y in timeDuration ]
+        returnedSegments = glue.segments.segmentlist([ glue.segments.segment(i) for i in intervals ])
+
+        # normalize the segment list
+        returnedSegments.coalesce()
+
+        # see if the returned segments cover the search segment
+        if searchSegment in returnedSegments:
+            # the interval is covered entirely so the
+            # return value should be zero (0) and we will
+            # print the URLs to stdout and nothing to stderr
+            if namesOnly:
+                lfns = parseLFNs(urlList)
+                for lfn in lfns:
+                    print >>output_file, "%s" % lfn
+
+            elif lalcache:
+                for pfn in urlList:
+                    lfn = os.path.basename(pfn)
+                    head, ext = os.path.splitext(lfn)
+                    a, b, c, d = head.split('-') 
+                    print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+            elif wcache:
+                wcachedict = wcacheFromURLList(urlList)
+                for item in wcachedict:
+                    print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+
+            else:
+                for pfn in urlList:
+                    print >>output_file, "%s" % pfn
+
+            return 0
+
+        else:
+            # the interval is not covered entirely so the return
+            # value should be one (1) and we will print the URLs
+            # we did find to stdout and the missing segments
+            # to stderr
+            if namesOnly:
+                lfns = parseLFNs(urlList)
+                for lfn in lfns:
+                    print >>output_file, "%s" % lfn
+
+            elif lalcache:
+                for pfn in urlList:
+                    lfn = os.path.basename(pfn)
+                    head, ext = os.path.splitext(lfn)
+                    a, b, c, d = head.split('-') 
+                    print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+            elif wcache:
+                wcachedict = wcacheFromURLList(urlList)
+                for item in wcachedict:
+                    print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+
+            else:
+                for pfn in urlList:
+                    print >>output_file, "%s" % pfn
+
+            missingSegments = glue.segments.segmentlist([searchSegment]) - returnedSegments
+            print >>sys.stderr, 'missing segments: %s' % missingSegments
+
+            return 1
+
+
+
     if len(urlList) == 0:
         print >>sys.stderr, "No files found!"
         return
@@ -628,6 +737,11 @@ be present when searching for groups of files
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
             print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    elif wcache:
+        wcachedict = wcacheFromURLList(urlList)
+        for item in wcachedict:
+            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
 
     else:
         for pfn in urlList:
@@ -832,6 +946,24 @@ or just a beginning or just an end time.
     for s in segmentList:
         print >>output_file, "%d %d" % tuple(s)
 
+def wcacheFromURLList(urlList):
+    wcachedict={}
+    for pfn in urlList:
+        dir=os.path.split(urlparse.urlparse(pfn)[2])[0]
+        lfn = os.path.basename(pfn)
+        head, ext = os.path.splitext(lfn)
+        a, b, c, d = head.split('-') 
+        tend=str(int(c)+int(d))
+        if wcachedict.has_key(dir):
+          l=wcachedict[dir]
+          if int(l[2]) > int(c):
+            wcachedict[dir][2]=c
+          if int(l[3]) < int(tend):
+            wcachedict[dir][3]=tend
+        else:
+          wcachedict[dir]=[a, b, c, tend, d, dir]
+    return wcachedict
+
 def singleFrameFind(args):
     """
     Query for the URLs for a single file.
@@ -846,6 +978,7 @@ def singleFrameFind(args):
     keyFile   = args['keyFile']
 
     lalcache    = args['lalcache']
+    wcache    = args['wcache']
     output_file = args['output_file']
     namesOnly   = args['namesOnly']
 
@@ -906,6 +1039,110 @@ def singleFrameFind(args):
             head, ext = os.path.splitext(lfn)
             a, b, c, d = head.split('-') 
             print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    elif wcache:
+        wcachedict = wcacheFromURLList(urlList)
+        for item in wcachedict:
+            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
+
+    else:
+        for pfn in urlList:
+            print >>output_file, "%s" % pfn
+
+def latest(args):
+    """
+    Given observatory and type with possibly a URL type 
+    query the server to find the URL(s) for the latest
+    GPS time frame file that the server knows about.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    site      = args['observatory']
+    frameType = args['type']
+
+    urlType   = args['urlType']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    namesOnly   = args['namesOnly']
+    lalcache    = args['lalcache']
+    wcache      = args['wcache']
+    output_file = args['output_file']
+
+    if not site or not frameType:
+        msg = """\
+Bad combination of command line arguments:
+--observatory --type --latest must all
+be present when searching for the latest file
+"""
+        raise RuntimeError(msg)
+        
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # construct the URL for the latest query
+    url = "/LDR/services/data/v1/gwf/%s/%s/latest" % (site, frameType)
+
+    # if a URL type is specified append it to the path
+    if urlType:
+        url += "/%s" % urlType
+
+    # request JSON output
+    url += ".json"
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the URLs
+    body = response.read()
+
+    # decode the JSON
+    urlList = cjson.decode(body)
+
+    if len(urlList) == 0:
+        print >>sys.stderr, "No files found!"
+        return 1
+
+    elif namesOnly:
+        lfns = parseLFNs(urlList)
+        for lfn in lfns:
+            print >>output_file, "%s" % lfn
+
+    elif lalcache:
+        for pfn in urlList:
+            lfn = os.path.basename(pfn)
+            head, ext = os.path.splitext(lfn)
+            a, b, c, d = head.split('-') 
+            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    elif wcache:
+        wcachedict = wcacheFromURLList(urlList)
+        for item in wcachedict:
+            print >>output_file, "%s %s %s %s %s %s" % tuple(wcachedict[item])
 
     else:
         for pfn in urlList:
