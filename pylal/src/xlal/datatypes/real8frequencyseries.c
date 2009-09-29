@@ -100,7 +100,7 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 		return pylal_LALUnit_new(0, obj->series->sampleUnits);
 	if(!strcmp(name, "data")) {
 		npy_intp dims[] = {obj->series->data->length};
-		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, obj->series->data->data);
+		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, obj->series->data->data);
 		PyObject *copy;
 		if(!array)
 			return NULL;
@@ -166,7 +166,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 	}
 	if(!strcmp(name, "data")) {
 		int n;
-		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_FLOAT64)) {
+		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
