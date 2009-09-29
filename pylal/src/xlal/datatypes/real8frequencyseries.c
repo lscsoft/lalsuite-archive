@@ -175,7 +175,8 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 			return -1;
 		}
 		n = PyArray_DIM(value, 0);
-		obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
+		if(n != obj->series->data->length)
+			obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
 		memcpy(obj->series->data->data, PyArray_GETPTR1(value, 0), n * sizeof(*obj->series->data->data));
 		return 0;
 	}
