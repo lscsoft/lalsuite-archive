@@ -2158,6 +2158,7 @@ class followupDQV:
   information and veto segment information put into the segment
   database.  This class will replace the previously defined class of
   followupdqdb.
+  Contact: Cristina Valeria Torres
   """
   def __init__(self,LDBDServerURL=None,quiet=bool(False)):
     """
@@ -2256,6 +2257,13 @@ defaulting to %s"%(self.serverURL))
 
   def fetchInformation(self,triggerTime=None,window=300,version=99):
     """
+    Wrapper for fetchInformationDualWindow that mimics original
+    behavior
+    """
+    self.fetchInormationDualWindow(triggerTime,window,window,version)
+
+  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150,version=99):
+    """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
     into an HTML table.  The arguments allow you to query with trigger
@@ -2280,8 +2288,8 @@ defaulting to %s"%(self.serverURL))
         return
     try:
       engine=query_engine.LdbdQueryEngine(connection)
-      gpsEnd=int(triggerTime)+int(window)
-      gpsStart=int(triggerTime)-int(window)
+      gpsEnd=int(triggerTime)+int(backWindow)
+      gpsStart=int(triggerTime)-int(frontWindow)
       sqlString=self.dqvQuery%(version,gpsEnd,gpsStart)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
@@ -2346,11 +2354,11 @@ defaulting to %s"%(self.serverURL))
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
@@ -2365,15 +2373,52 @@ defaulting to %s"%(self.serverURL))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       else:
-        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
+
+  def generateMOINMOINTable(self,tableType="BOTH"):
+    """
+    Return a MOINMOIN table.
+    """
+    ligo=["L1","H1","H2","V1"]
+    channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
+    if self.triggerTime==int(-1):
+      return ""
+    myColor="grey"
+    rowString="|| %s || %s || %s || %s || %s || %s || %s || %s || %s || \n"
+    titleString="|| IFO || Flag || Ver || Start || Offset || Stop || Offset || Size || \n"
+    tableString=titleString
+    for ifo,name,version,comment,start,stop in self.resultList:
+      offset1=start-self.triggerTime
+      offset2=stop-self.triggerTime
+      size=int(stop-start)
+      if (offset1>=0) and (offset2>=0):
+        myColor="green"
+      if (offset1<=0) and (offset2<=0):
+        myColor="yellow"
+      if (offset1<=0) and (offset2>=0):
+        myColor="red"
+      if name.lower().__contains__('science'):
+        myColor="skyblue"
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+      else:
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+    tableString+="\n"
+    return tableString
+
+  
 #End class followupDQV
 
 ######################################################################
