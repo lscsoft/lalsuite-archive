@@ -47,7 +47,7 @@ parser.add_option("-X","--segment-url",action="store",type="string",\
 server that you want to query DQ Veto segment information from for\
 example ldbd://metaserver.phy.syr.edu:30015")
 parser.add_option("-w","--window",action="store",type="string",\
-                      metavar="frontWin,backWin",default=None,\
+                      metavar="frontWin,backWin",default="30,15",\
                       help="Using this argument you can specify a \
 asymetric window around the trigger time for performing DQ queries. \
 The two times should be postive values seperated by a comma. If only \
@@ -61,6 +61,12 @@ parser.add_option("-p","--output-format",action="store",type="string",\
                       metavar="OUTPUT_TYPE",default="MOINMOIN", \
                       help="The valid output options here are \
 LIST(python var), MOINMOIN, and HTML.")
+parser.add_option("-o","--output-file",action="store",type="string",\
+                  metavar="OUTPUTFILE.wiki",default="followupDQflagsTable.wiki",\
+                  help="This sets the name of the file to save the DQ\
+ result into.")
+                  
+
 
 ######################################################################
 
@@ -73,6 +79,7 @@ if opts.version:
 server=opts.segment_url
 triggerTime=opts.trigger_time
 outputType=opts.output_format
+outputFile=opts.output_file
 
 if len(opts.window.split(',')) == 1:
     frontWindow=backWindow=opts.window
@@ -82,7 +89,7 @@ if len(opts.window.split(',')) == 2:
         backWindow=frontWindow
 
 x=followupDQV(server)
-x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,99)
+x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow)
 result=""
 if outputType.upper().strip() == "LIST":
     result=x.generateResultList()
@@ -91,6 +98,8 @@ if outputType.upper().strip() == "MOINMOIN":
 if outputType.upper().strip() == "HTML":
     result=x.generateHTMLTable("DQ")
 
-sys.stdout.write("%s"%(result))
-sys.stdout.write("\n")
+fp=file(outputFile,"w")
+fp.writelines("%s"%(result))
+fp.close()
+
 

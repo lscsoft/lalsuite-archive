@@ -2169,6 +2169,9 @@ class followupDQV:
     determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
+#    MAX(segment_definer.version) as segment_definer.maxversion, \
+#    GROUP BY segment_definer.segment_def_id \
+#    segment_definer.version, \
     self.triggerTime=int(-1)
     self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
     if LDBDServerURL==None:
@@ -2192,11 +2195,11 @@ defaulting to %s"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id \
     AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND segment_definer.version >= %s AND \
-    NOT (segment.start_time > %s OR %s > \
-    segment.end_time)"""
-
+    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
+    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    """
   #End __init__()
+
   def __merge__(self,inputList=None):
     """
     Takes an input list of tuples representing start,stop and merges
@@ -2255,14 +2258,14 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
-  def fetchInformation(self,triggerTime=None,window=300,version=99):
+  def fetchInformation(self,triggerTime=None,window=300):
     """
     Wrapper for fetchInformationDualWindow that mimics original
     behavior
     """
-    self.fetchInormationDualWindow(triggerTime,window,window,version)
+    self.fetchInormationDualWindow(triggerTime,window,window)
 
-  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150,version=99):
+  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2287,10 +2290,10 @@ defaulting to %s"%(self.serverURL))
         self.resultList=list()
         return
     try:
-      engine=query_engine.LdbdQueryEngine(connection)
       gpsEnd=int(triggerTime)+int(backWindow)
       gpsStart=int(triggerTime)-int(frontWindow)
-      sqlString=self.dqvQuery%(version,gpsEnd,gpsStart)
+      sqlString=self.dqvQuery%(gpsEnd,gpsStart)
+      engine=query_engine.LdbdQueryEngine(connection)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
@@ -2392,8 +2395,8 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString="|| %s || %s || %s || %s || %s || %s || %s || %s || %s || \n"
-    titleString="|| IFO || Flag || Ver || Start || Offset || Stop || Offset || Size || \n"
+    rowString=""" ||<rowbgcolor="%s"> %s || || %s || || %s || || %s || || %s || || %s || || %s || || %s ||\n"""
+    titleString=""" ||<rowbgcolor="%s"> IFO || || Flag || || Ver || || Start || || Offset || || Stop || || Offset || || Size ||\n"""%(myColor)
     tableString=titleString
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
@@ -2409,12 +2412,12 @@ defaulting to %s"%(self.serverURL))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
       else:
-        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+        tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
     tableString+="\n"
     return tableString
 
