@@ -63,7 +63,7 @@ from pylal.xlal import date as xlaldate
 #Part of bandaid
 from xml import sax
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pysqlite2 import dbapi2 as sqlite3x
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):

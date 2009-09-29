@@ -14,7 +14,7 @@ from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import dbtables
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
