@@ -190,14 +190,14 @@ setup(
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
-		#Extension(
-		#	"pylal.xlal.datatypes.real8frequencyseries",
-		#	["src/xlal/datatypes/real8frequencyseries.c"],
-		#	include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
-		#	libraries = lal_pkg_config.libs,
-		#	library_dirs = lal_pkg_config.libdirs,
-		#	runtime_library_dirs = lal_pkg_config.libdirs
-		#),
+		Extension(
+			"pylal.xlal.datatypes.real8frequencyseries",
+			["src/xlal/datatypes/real8frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
 		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
