@@ -148,7 +148,8 @@ setup(
 	license = "See file LICENSE",
 	packages = [
 		"pylal",
-		"pylal.xlal"
+		"pylal.xlal",
+		"pylal.xlal.datatypes"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -169,6 +170,14 @@ setup(
 			"pylal.tools",
 			["src/tools.c"],
 			include_dirs = lal_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.datatypes.lalunit",
+			["src/xlal/datatypes/lalunit.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
