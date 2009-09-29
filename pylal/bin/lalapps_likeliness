@@ -181,15 +181,11 @@ class Summaries(object):
 			for j in range(len(self.signal_reputations[key])):
 				integral += self.signal_reputations[key][j][1]
 				self.signal_reputations[key][j] = (self.signal_reputations[key][j][0], integral)
-		#	print key,"num",self.signal_reputations[key]
 		self.signal_denominator_full = sum([l[-1][1] for l in self.signal_reputations.values()])
 		for on_instruments in self.signals.keys():
 			self.signal_denominator[on_instruments] = sum(self.signals[on_instruments])
-		#	print on_instruments,"denom",self.signal_denominator[on_instruments]
 			self.zero_lag_times[on_instruments] = self.seglists.intersection(frozenset(on_instruments)) - self.seglists.union(instruments - frozenset(on_instruments))
 			self.zero_lag_times[on_instruments] = abs(self.zero_lag_times[on_instruments])
-		#for key in self.signal_reputations.keys():
-		#	print "%s_%s efficiency factor ="%key, self.signal_reputations[key][-1][1]/self.signal_denominator[tuple(lsctables.instrument_set_from_ifos(key[0]))] 
 
 	def likelihood(self, on_instruments, participating_instruments, mchirp, mtotal, far, snr):
 		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
