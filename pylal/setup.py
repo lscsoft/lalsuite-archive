@@ -148,7 +148,8 @@ setup(
 	license = "See file LICENSE",
 	packages = [
 		"pylal",
-		"pylal.xlal"
+		"pylal.xlal",
+		"pylal.xlal.datatypes"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -174,9 +175,33 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.datatypes.lalunit",
+			["src/xlal/datatypes/lalunit.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.datatypes.ligotimegps",
+			["src/xlal/datatypes/ligotimegps.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8frequencyseries",
+			["src/xlal/datatypes/real8frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs

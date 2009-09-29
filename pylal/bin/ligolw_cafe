@@ -60,7 +60,7 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-from pylal.xlal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 ligolw_cafe.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 

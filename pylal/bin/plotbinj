@@ -46,7 +46,7 @@ from glue.ligolw import utils
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
