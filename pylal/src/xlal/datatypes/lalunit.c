@@ -33,7 +33,7 @@
 #include <lalunit.h>
 
 
-#define MODULE_NAME "pylal.xlal.datatypes.lalunit"
+#define MODULE_NAME PYLAL_LALUNIT_MODULE_NAME
 
 
 /*

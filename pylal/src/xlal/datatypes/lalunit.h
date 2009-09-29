@@ -30,6 +30,9 @@
 #include <lal/LALDatatypes.h>
 
 
+#define PYLAL_LALUNIT_MODULE_NAME "pylal.xlal.datatypes.lalunit"
+
+
 /*
  * ============================================================================
  *
@@ -48,9 +51,6 @@ typedef struct {
 } pylal_LALUnit;
 
 
-PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit);
-
-
 extern PyObject *pylal_LALUnitMeter;
 extern PyObject *pylal_LALUnitKiloGram;
 extern PyObject *pylal_LALUnitSecond;
@@ -58,3 +58,16 @@ extern PyObject *pylal_LALUnitAmpere;
 extern PyObject *pylal_LALUnitKelvin;
 extern PyObject *pylal_LALUnitStrain;
 extern PyObject *pylal_LALUnitADCCount;
+
+
+PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit);
+
+
+static PyObject *pylal_lalunit_import(void)
+{
+	PyObject *name = PyString_FromString(PYLAL_LALUNIT_MODULE_NAME);
+	PyObject *module;
+	module = PyImport_Import(name);
+	Py_DECREF(name);
+	return module;
+}
