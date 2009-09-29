@@ -43,3 +43,5 @@ __version__ = "$Revision$"[11:-2]
 
 
 from xlal.datatypes.lalunit import *
+from xlal.datatypes.ligotimegps import *
+#from xlal.datatypes.real8frequencyseries import *
