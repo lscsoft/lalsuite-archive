@@ -42,7 +42,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
