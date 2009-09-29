@@ -85,12 +85,12 @@ x=followupDQV(server)
 x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,99)
 result=""
 if outputType.upper().strip() == "LIST":
-    result=x.generateResultList
+    result=x.generateResultList()
 if outputType.upper().strip() == "MOINMOIN":
     result=x.generateMOINMOINTable("DQ")
 if outputType.upper().strip() == "HTML":
     result=x.generateHTMLTable("DQ")
 
-sys.stdout.write(result)
+sys.stdout.write("%s"%(result))
 sys.stdout.write("\n")
 
