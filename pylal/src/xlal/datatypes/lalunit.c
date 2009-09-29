@@ -86,17 +86,6 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
-PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
-{
-	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_LALUnit *new = (pylal_LALUnit *) PyType_GenericNew(&pylal_LALUnit_Type, empty_tuple, NULL);
-	Py_DECREF(empty_tuple);
-	new->unit = unit;
-	new->unit.powerOfTen += power_of_ten;
-	return (PyObject *) new;
-}
-
-
 static PyObject *__repr__(PyObject *self)
 {
 	static char s[50];

@@ -60,14 +60,21 @@ extern PyObject *pylal_LALUnitStrain;
 extern PyObject *pylal_LALUnitADCCount;
 
 
-PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit);
-
-
 static PyObject *pylal_lalunit_import(void)
 {
 	PyObject *name = PyString_FromString(PYLAL_LALUNIT_MODULE_NAME);
-	PyObject *module;
-	module = PyImport_Import(name);
+	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 	return module;
+}
+
+
+static PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
+{
+	PyObject *empty_tuple = PyTuple_New(0);
+	pylal_LALUnit *obj = (pylal_LALUnit *) PyType_GenericNew(&pylal_LALUnit_Type, empty_tuple, NULL);
+	Py_DECREF(empty_tuple);
+	obj->unit = unit;
+	obj->unit.powerOfTen += power_of_ten;
+	return (PyObject *) obj;
 }
