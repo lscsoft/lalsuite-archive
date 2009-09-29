@@ -20,7 +20,7 @@
 /*
  * ============================================================================
  *
- *               Python Wrapper For LAL's Noise Models Package
+ *                   Python Wrapper For LAL's Date Package
  *
  * ============================================================================
  */
@@ -28,49 +28,50 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
-#include <lal/LALNoiseModels.h>
+#include <lal/Date.h>
 
 
-#define MODULE_NAME "pylal.xlal.noisemodels"
+#define PYLAL_LIGOTIMEGPS_MODULE_NAME "pylal.xlal.datatypes.ligotimegps"
 
 
 /*
  * ============================================================================
  *
- *                                 Functions
+ *                              LIGOTimeGPS Type
  *
  * ============================================================================
  */
 
 
-static PyObject *pylal_XLALLIGOIPsd(PyObject *self, PyObject *args)
+static PyTypeObject *pylal_LIGOTimeGPS_Type;
+
+
+typedef struct {
+	PyObject_HEAD
+	LIGOTimeGPS gps;
+} pylal_LIGOTimeGPS;
+
+
+static PyObject *pylal_ligotimegps_import(void)
 {
-	double f;
+	PyObject *name = PyString_FromString(PYLAL_LIGOTIMEGPS_MODULE_NAME);
+	PyObject *module = PyImport_Import(name);
+	Py_DECREF(name);
 
-	if(!PyArg_ParseTuple(args, "d", &f))
-		return NULL;
+	name = PyString_FromString("LIGOTimeGPS");
+	pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_DECREF(name);
+	Py_INCREF(pylal_LIGOTimeGPS_Type);
 
-	return PyFloat_FromDouble(XLALLIGOIPsd(f));
+	return module;
 }
 
 
-/*
- * ============================================================================
- *
- *                            Module Registration
- *
- * ============================================================================
- */
-
-
-static struct PyMethodDef methods[] = {
-	{"XLALLIGOIPsd", pylal_XLALLIGOIPsd, METH_VARARGS, NULL},
-	{NULL,}
-};
-
-
-void initnoisemodels(void)
+static PyObject *pylal_LIGOTimeGPS_new(LIGOTimeGPS gps)
 {
-	/* commented out to silence warning;  uncomment when needed again */
-	/*PyObject *module =*/ Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's noisemodels package.");
+	pylal_LIGOTimeGPS *obj = (pylal_LIGOTimeGPS *) _PyObject_New(pylal_LIGOTimeGPS_Type);
+
+	XLALGPSSet(&obj->gps, gps.gpsSeconds, gps.gpsNanoSeconds);
+
+	return (PyObject *) obj;
 }

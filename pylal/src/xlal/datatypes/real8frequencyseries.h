@@ -20,7 +20,7 @@
 /*
  * ============================================================================
  *
- *               Python Wrapper For LAL's Noise Models Package
+ *                                  Preamble
  *
  * ============================================================================
  */
@@ -28,49 +28,53 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
-#include <lal/LALNoiseModels.h>
 
 
-#define MODULE_NAME "pylal.xlal.noisemodels"
+#define PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.real8frequencyseries"
 
 
 /*
  * ============================================================================
  *
- *                                 Functions
+ *                            REAL8FrequencySeries
  *
  * ============================================================================
  */
 
 
-static PyObject *pylal_XLALLIGOIPsd(PyObject *self, PyObject *args)
+static PyTypeObject *pylal_REAL8FrequencySeries_Type;
+
+
+typedef struct {
+	PyObject_HEAD
+	PyObject *owner;
+	REAL8FrequencySeries *series;
+} pylal_REAL8FrequencySeries;
+
+
+static PyObject *pylal_real8frequencyseries_import(void)
 {
-	double f;
+	PyObject *name = PyString_FromString(PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME);
+	PyObject *module = PyImport_Import(name);
+	Py_DECREF(name);
 
-	if(!PyArg_ParseTuple(args, "d", &f))
-		return NULL;
+	name = PyString_FromString("REAL8FrequencySeries");
+	pylal_REAL8FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_DECREF(name);
+	Py_INCREF(pylal_REAL8FrequencySeries_Type);
 
-	return PyFloat_FromDouble(XLALLIGOIPsd(f));
+	return module;
 }
 
 
-/*
- * ============================================================================
- *
- *                            Module Registration
- *
- * ============================================================================
- */
-
-
-static struct PyMethodDef methods[] = {
-	{"XLALLIGOIPsd", pylal_XLALLIGOIPsd, METH_VARARGS, NULL},
-	{NULL,}
-};
-
-
-void initnoisemodels(void)
+PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject *owner)
 {
-	/* commented out to silence warning;  uncomment when needed again */
-	/*PyObject *module =*/ Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's noisemodels package.");
+	PyObject *empty_tuple = PyTuple_New(0);
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(pylal_REAL8FrequencySeries_Type, empty_tuple, NULL);
+	Py_DECREF(empty_tuple);
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
+	obj->series = series;
+	return (PyObject *) obj;
 }

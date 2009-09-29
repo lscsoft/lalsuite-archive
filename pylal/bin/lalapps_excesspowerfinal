@@ -87,7 +87,7 @@ from pylal import ligolw_tisi
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
@@ -824,7 +824,7 @@ SELECT
 FROM
 	sim_burst
 		""", (contents.scn_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			detection_statistic = values[-1]
 			amplitude = self.amplitude_func(sim, None)
 			# FIXME:  this assumes all injections are done at

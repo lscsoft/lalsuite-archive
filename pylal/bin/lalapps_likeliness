@@ -45,7 +45,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import rate
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from scipy import interpolate
 import scipy
 import numpy
@@ -356,7 +356,7 @@ SELECT
 FROM
 	sim_inspiral
 	"""):
-		sim = contents.sim_inspiral_table._row_from_cols(values)
+		sim = contents.sim_inspiral_table.row_from_cols(values)
 		on_instruments = set([])
 		for ifo in background.seglists.keys():
 			if sim.get_end() in background.seglists[ifo]:

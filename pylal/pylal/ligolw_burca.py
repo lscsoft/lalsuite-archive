@@ -35,9 +35,9 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools
 from pylal.xlal.burstsearch import ExcessPowerCoincCompare
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"

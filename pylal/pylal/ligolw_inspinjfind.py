@@ -49,8 +49,8 @@ from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
-from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap

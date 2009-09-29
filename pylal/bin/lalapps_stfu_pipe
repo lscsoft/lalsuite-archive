@@ -18,12 +18,10 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
 from lalapps import inspiral
 
 #from pylal.fu_Condor import *
-
-
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
@@ -640,7 +638,11 @@ def link_data_find(cp):
 	except: pass
 
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
+	parser = OptionParser(
+		version = "%prog",
+		description = "The sqlite triggered follow-up pipeline"
+	)
+	parser.add_option("-b", "--base", metavar = "base", default = "cbc_followup_", help = "Set the prefix for output filenames (default = \"cbc_followup_\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")

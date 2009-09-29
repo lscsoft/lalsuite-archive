@@ -584,7 +584,7 @@ class DBTable(table.Table):
 		cursor = self.connection.cursor()
 		cursor.execute("SELECT * FROM %s" % self.dbtablename)
 		for values in cursor:
-			yield self._row_from_cols(values)
+			yield self.row_from_cols(values)
 
 	def _append(self, row):
 		# FIXME: in Python 2.5 use attrgetter() for attribute
@@ -610,7 +610,7 @@ class DBTable(table.Table):
 
 	append = _append
 
-	def _row_from_cols(self, values):
+	def row_from_cols(self, values):
 		"""
 		Given an iterable of values in the order of columns in the
 		database, construct and return a row object.  This is a
@@ -621,6 +621,8 @@ class DBTable(table.Table):
 		for c, v in zip(self.dbcolumnnames, values):
 			setattr(row, c, v)
 		return row
+	# backwards compatibility
+	_row_from_cols = row_from_cols
 
 	def unlink(self):
 		table.Table.unlink(self)

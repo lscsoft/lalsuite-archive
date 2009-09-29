@@ -50,7 +50,7 @@ import re
 from glue.ligolw import ligolw
 from glue.ligolw import array
 from glue.ligolw import utils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
