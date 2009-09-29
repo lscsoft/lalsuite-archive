@@ -37,7 +37,7 @@ from glue.lal import CacheEntry
 from glue.ligolw.utils import process as ligolw_process
 from pylal import inject
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"

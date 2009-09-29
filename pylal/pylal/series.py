@@ -40,7 +40,7 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import array
 from glue.ligolw import param
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
