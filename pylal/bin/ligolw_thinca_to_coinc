@@ -892,9 +892,11 @@ def retrieve_ring_boundaries(xmldoc):
 	#
 	# check that the (sorted) rings are non-intersecting
 	#
+	# FIXME:  shouldn't there only be exactly 1 ring?
+	#
 
 	for i in range(len(rings) - 1):
-		if rings[i].interesects(rings[i + 1]):
+		if rings[i].intersects(rings[i + 1]):
 			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
 
 	#
