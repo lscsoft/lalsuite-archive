@@ -20,7 +20,7 @@
 /*
  * ============================================================================
  *
- *             Python Wrapper For LAL's REAL8FrequencySeries Type
+ *                                  Preamble
  *
  * ============================================================================
  */
@@ -34,16 +34,16 @@
 #include <lal/Units.h>
 #include <lalunit.h>
 #include <ligotimegps.h>
-#include <real8frequencyseries.h>
+#include <complex16frequencyseries.h>
 
 
-#define MODULE_NAME PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME
+#define MODULE_NAME PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME
 
 
 /*
  * ============================================================================
  *
- *                                LALUnit Type
+ *                                    Type
  *
  * ============================================================================
  */
@@ -57,15 +57,15 @@
 static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	const char *s = NULL;
-	pylal_REAL8FrequencySeries *obj;
+	pylal_COMPLEX16FrequencySeries *obj;
 	LIGOTimeGPS zero = {0, 0};
 
 	if(!PyArg_ParseTuple(args, "|s", &s))
 		return NULL;
-	obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(type, args, kwds);
+	obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(type, args, kwds);
 	if(!obj)
 		return NULL;
-	obj->series = XLALCreateREAL8FrequencySeries(NULL, &zero, 0.0, 0.0, &lalDimensionlessUnit, 0);
+	obj->series = XLALCreateCOMPLEX16FrequencySeries(NULL, &zero, 0.0, 0.0, &lalDimensionlessUnit, 0);
 	obj->owner = NULL;
 	return (PyObject *) obj;
 }
@@ -73,12 +73,12 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 static void __del__(PyObject *self)
 {
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) self;
 	if(obj->owner)
 		Py_DECREF(obj->owner);
 	else
 		/* we are the owner */
-		XLALDestroyREAL8FrequencySeries(obj->series);
+		XLALDestroyCOMPLEX16FrequencySeries(obj->series);
 	self->ob_type->tp_free(self);
 }
 
@@ -86,7 +86,7 @@ static void __del__(PyObject *self)
 static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 {
 	const char *name = PyString_AsString(attr_name);
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) self;
 
 	if(!strcmp(name, "name"))
 		return PyString_FromString(obj->series->name);
@@ -100,7 +100,7 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 		return pylal_LALUnit_new(0, obj->series->sampleUnits);
 	if(!strcmp(name, "data")) {
 		npy_intp dims[] = {obj->series->data->length};
-		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, obj->series->data->data);
+		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_CDOUBLE, obj->series->data->data);
 		PyObject *copy;
 		if(!array)
 			return NULL;
@@ -121,7 +121,7 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 {
 	const char *name = PyString_AsString(attr_name);
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) self;
 
 	if(!strcmp(name, "name")) {
 		const char *s = PyString_AsString(value);
@@ -166,7 +166,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 	}
 	if(!strcmp(name, "data")) {
 		int n;
-		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
+		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_CDOUBLE)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
@@ -176,7 +176,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 		}
 		n = PyArray_DIM(value, 0);
 		if(n != obj->series->data->length)
-			obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
+			obj->series->data = XLALResizeCOMPLEX16Sequence(obj->series->data, 0, n);
 		memcpy(obj->series->data->data, PyArray_GETPTR1(value, 0), n * sizeof(*obj->series->data->data));
 		return 0;
 	}
@@ -190,15 +190,15 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
  */
 
 
-PyTypeObject _pylal_REAL8FrequencySeries_Type = {
+PyTypeObject _pylal_COMPLEX16FrequencySeries_Type = {
 	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(pylal_REAL8FrequencySeries),
+	.tp_basicsize = sizeof(pylal_COMPLEX16FrequencySeries),
 	.tp_dealloc = __del__,
-	.tp_doc = "REAL8FrequencySeries structure",
+	.tp_doc = "COMPLEX16FrequencySeries structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT,
 	.tp_getattro = __getattro__,
 	.tp_setattro = __setattro__,
-	.tp_name = MODULE_NAME ".REAL8FrequencySeries",
+	.tp_name = MODULE_NAME ".COMPLEX16FrequencySeries",
 	.tp_new = __new__
 };
 
@@ -212,21 +212,21 @@ PyTypeObject _pylal_REAL8FrequencySeries_Type = {
  */
 
 
-void initreal8frequencyseries(void)
+void initcomplex16frequencyseries(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8FrequencySeries type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's COMPLEX16FrequencySeries type.");
 
 	import_array();
 	pylal_lalunit_import();
 	pylal_ligotimegps_import();
 
 	/*
-	 * REAL8FrequencySeries
+	 * COMPLEX16FrequencySeries
 	 */
 
-	pylal_REAL8FrequencySeries_Type = &_pylal_REAL8FrequencySeries_Type;
-	if(PyType_Ready(pylal_REAL8FrequencySeries_Type) < 0)
+	pylal_COMPLEX16FrequencySeries_Type = &_pylal_COMPLEX16FrequencySeries_Type;
+	if(PyType_Ready(pylal_COMPLEX16FrequencySeries_Type) < 0)
 		return;
-	Py_INCREF(pylal_REAL8FrequencySeries_Type);
-	PyModule_AddObject(module, "REAL8FrequencySeries", (PyObject *) pylal_REAL8FrequencySeries_Type);
+	Py_INCREF(pylal_COMPLEX16FrequencySeries_Type);
+	PyModule_AddObject(module, "COMPLEX16FrequencySeries", (PyObject *) pylal_COMPLEX16FrequencySeries_Type);
 }

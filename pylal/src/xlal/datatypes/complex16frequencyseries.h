@@ -30,7 +30,7 @@
 #include <lal/LALDatatypes.h>
 
 
-#define PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.real8frequencyseries"
+#define PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.complex16frequencyseries"
 
 
 /*
@@ -42,35 +42,35 @@
  */
 
 
-static PyTypeObject *pylal_REAL8FrequencySeries_Type;
+static PyTypeObject *pylal_COMPLEX16FrequencySeries_Type;
 
 
 typedef struct {
 	PyObject_HEAD
 	PyObject *owner;
-	REAL8FrequencySeries *series;
-} pylal_REAL8FrequencySeries;
+	COMPLEX16FrequencySeries *series;
+} pylal_COMPLEX16FrequencySeries;
 
 
-static PyObject *pylal_real8frequencyseries_import(void)
+static PyObject *pylal_complex16frequencyseries_import(void)
 {
-	PyObject *name = PyString_FromString(PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME);
+	PyObject *name = PyString_FromString(PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME);
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
-	name = PyString_FromString("REAL8FrequencySeries");
-	pylal_REAL8FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	name = PyString_FromString("COMPLEX16FrequencySeries");
+	pylal_COMPLEX16FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
 	Py_DECREF(name);
-	Py_INCREF(pylal_REAL8FrequencySeries_Type);
+	Py_INCREF(pylal_COMPLEX16FrequencySeries_Type);
 
 	return module;
 }
 
 
-PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject *owner)
+PyObject *pylal_COMPLEX16FrequencySeries_new(COMPLEX16FrequencySeries *series, PyObject *owner)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(pylal_REAL8FrequencySeries_Type, empty_tuple, NULL);
+	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(pylal_COMPLEX16FrequencySeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
 	if(owner)
 		Py_INCREF(owner);

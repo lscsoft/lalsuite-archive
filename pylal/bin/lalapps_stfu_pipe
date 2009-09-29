@@ -7,22 +7,43 @@ try:
 except ImportError:
         # pre 2.5.x
         from pysqlite2 import dbapi2 as sqlite3
-import sys
+import sys, os, re, string, tempfile
+import ConfigParser
 
 from glue import segments
 from glue import segmentsUtils
+from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import dbtables
+from glue.ligolw import utils
+from glue import pipeline
 from pylal import db_thinca_rings
+from lalapps import inspiral
+
+#from pylal.fu_Condor import *
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
+###############################################################################
+##### UTILITY FUNCTIONS #######################################################
+###############################################################################
+
+def mkdir(output):
+	# MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
+	if not os.access(output,os.F_OK): os.makedirs(output)
+	else:
+		if not os.access(output,os.W_OK):
+			print >> sys.stderr, 'path '+output+' is not writable'
+			sys.exit(1)
+
+
+###############################################################################
+##### DB SUMMARY CLASS ########################################################
+###############################################################################
 
 class DB_summary(object):
 	
-	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False, base=None):
+	def __init__(self, connection, live_time_program, file_name, veto_segments_name = None, verbose = False, base=None):
 		"""
 		Compute and record some summary information about the
 		database.
@@ -31,6 +52,8 @@ class DB_summary(object):
 		self.base = base
 		self.connection = connection
 		xmldoc = dbtables.get_xml(connection)
+		self.file_name = filename
+		self.sim_file_name = None
 
 		cursor = connection.cursor()
 
@@ -41,6 +64,13 @@ class DB_summary(object):
 			self.sngl_inspiral_table = None
 		try:
 			self.sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+			# write out the injection file to use in later inspiral jobs
+			newxmldoc = ligolw.Document()
+			newxmldoc.appendChild(ligolw.LIGO_LW())
+			newxmldoc.childNodes[-1].appendChild(self.sim_inspiral_table)
+			self.sim_file_name = "sim_"+os.path.split(filename)[1].replace('sqlite','xml')
+			utils.write_filename(newxmldoc, self.sim_file_name, gz=False, verbose=verbose)
+
 		except ValueError:
 			self.sim_inspiral_table = None
 		try:
@@ -96,35 +126,85 @@ def create_is_playground_func(connection, playground_segs):
 	"""
 	connection.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
 
+class ProcParam(object):
+	def __init__(self, program, id, param, type, value):
+		self.program = program
+		self.process_id = id
+		self.param = param
+		self.type = type
+		self.value = value
+
+class Sngl(object):
+	def __init__(self, row, contents):
+		connection = contents.connection
+        	self.ifo = row[0]
+		self.snr = float(row[1])
+		self.chisq = float(row[2])
+		self.mass1 = float(row[3])
+		self.mass2 = float(row[4])
+		self.time = float(row[5])
+		self.process_id = row[6]
+		self.row = contents.sngl_inspiral_table.row_from_cols(row[7:])
+		self.inj_file_name = contents.sim_file_name
+
+		self.process_params = []
+
+		for val in connection.cursor().execute("""
+SELECT
+                program, process_id, param, type, value
+        FROM
+                process_params
+        WHERE
+                process_id == ?
+		""", (self.process_id,) ):
+			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
+
+class Coinc(object):
+	def __init__(self, row, contents):
+		connection = contents.connection
+		self.sngl_inspiral = {}
+		self.coinc_event_id = row[0]
+		self.combined_far = float(row[1])
+		self.snr = float(row[2])
+		self.time = float(row[3])
+		self.mass = float(row[4])
+		self.mchirp = float(row[5])
+		self.ifos = row[6]
+		self.instruments = row[7]
+		for val in connection.cursor().execute("""
+SELECT
+                sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, sngl_inspiral.mass1, sngl_inspiral.mass2, sngl_inspiral.end_time + sngl_inspiral.end_time_ns * 1.0e-9, sngl_inspiral.process_id, sngl_inspiral.*
+        FROM
+                sngl_inspiral
+                JOIN coinc_event_map ON (
+                        coinc_event_map.coinc_event_id == ?
+                )
+        WHERE
+                sngl_inspiral.event_id == coinc_event_map.event_id
+		""", (str(self.coinc_event_id),) ): 
+			self.sngl_inspiral.setdefault(val[0],None)
+			self.sngl_inspiral[val[0]] = Sngl(val, contents)
+
 class FUTriggers(object):
-	def __init__(self):
+	def __init__(self, num=10):
+		self.num = num
 		self.playground_candidates = []
 		self.candidates = []
 
-	def add_contents(self, contents, stat='combined_far',num=10):
+	def add_contents(self, contents, stat='combined_far'):
 		if contents.sim_inspiral_table:
 			#For now we only return summary information on non injections
 			return
-		self.base = contents.base
-		self.playground_candidates += contents.connection.cursor().execute("""
+		for row in contents.connection.cursor().execute("""
 SELECT
+	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
         coinc_inspiral.snr,
         coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
         coinc_inspiral.mass,
         coinc_inspiral.mchirp,
         coinc_inspiral.ifos,
-        coinc_event.instruments,
-        (SELECT
-                group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ")
-        FROM
-                sngl_inspiral
-                JOIN coinc_event_map ON (
-                        coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
-                )
-        WHERE
-                sngl_inspiral.event_id == coinc_event_map.event_id
-        )
+        coinc_event.instruments
 FROM
         coinc_inspiral
         JOIN coinc_event ON (
@@ -145,26 +225,19 @@ WHERE
 ORDER BY
         ?
 LIMIT ?
-		""", (stat, num) ).fetchall()
-		self.candidates += contents.connection.cursor().execute("""
+		""", (stat, self.num) ):
+			self.playground_candidates.append(Coinc(row, contents))
+
+		for row in contents.connection.cursor().execute("""
 SELECT
+	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
         coinc_inspiral.snr,
         coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
         coinc_inspiral.mass,
         coinc_inspiral.mchirp,
         coinc_inspiral.ifos,
-        coinc_event.instruments,
-        (SELECT
-                group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ")
-        FROM
-                sngl_inspiral
-                JOIN coinc_event_map ON (
-                        coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
-                )
-        WHERE
-                sngl_inspiral.event_id == coinc_event_map.event_id
-        )
+        coinc_event.instruments
 FROM
         coinc_inspiral
         JOIN coinc_event ON (
@@ -182,7 +255,387 @@ WHERE
 ORDER BY
         ?
 LIMIT ?
-		""", (stat, num) ).fetchall()
+		""", (stat, self.num) ):
+			self.candidates.append(Coinc(row, contents))
+
+	def topN(self):
+		if len(self.candidates) < self.num: self.num = len(self.candidates)
+		trigs = [(t.combined_far, t) for t in self.candidates]
+		trigs.sort()
+		self.candidates = [t[1] for t in trigs[0:self.num] ]
+
+                if len(self.playground_candidates) < self.num: self.num = len(self.playground_candidates)
+		trigs = [(t.combined_far, t) for t in self.playground_candidates]
+		trigs.sort()
+		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
+
+###############################################################################
+##### CONDOR JOB CLASSES ######################################################
+###############################################################################
+
+# DO SOME STANDARD STUFF FOR FU JOBS
+class FUJob(object):
+	"""
+	"""
+
+	def __init__(self):
+		pass
+
+	def setupJob(self, name, tag_base=None, cp=None):
+		# Give this job a name.  Then make directories for the log files and such
+		# This name is important since these directories will be included in
+		# the web tree.
+		self.name = name
+		if not os.path.exists(name):
+			os.mkdir(name)
+		if not os.path.exists(name+'/logs'):
+			os.mkdir(name+'/logs')
+		if not os.path.exists(name+'/Images'):
+			os.mkdir(name+'/Images')
+		# Set up the usual stuff and name the log files appropriately
+		self.tag_base = tag_base
+		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		self.set_sub_file(name+'.sub')
+		self.relPath = name + '/'
+		self.outputPath = os.getcwd() + '/' + name + '/'
+		self.set_stdout_file(self.outputPath+'/logs/'+name+'-$(macroid).out')
+		self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
+		if cp:
+			if cp.has_section("condor-memory-requirement") and cp.has_option("condor-memory-requirement",name):
+				requirement = cp.getint("condor-memory-requirement",name)
+				self.add_condor_cmd("Requirements", "(Memory > " + str(requirement) + ")")
+
+# QSCAN JOB CLASS
+class qscanJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	A qscan job
+	"""
+	def __init__(self, opts, cp, tag_base='QSCAN'):
+		"""
+		"""
+		self.__executable = string.strip(cp.get('fu-condor','qscan'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.setupJob(tag_base,None,cp)
+		self.setup_checkForDir()
+
+	def setup_checkForDir(self):
+		# create a shell script to check for the existence of the qscan output directory and rename it if needed
+		checkdir_script = open('checkForDir.sh','w')
+		checkdir_script.write("""
+#!/bin/bash
+if [ -d $1/$2 ]
+then
+matchingList=$(echo $(find $1 -name $2.bk*))
+COUNTER=1
+for file in $matchingList
+   do
+     let COUNTER=COUNTER+1
+   done
+mv $1/$2 $1/$2.bk.$COUNTER
+fi
+		""")
+		checkdir_script.close()
+		os.chmod(self.name + '/checkForDir.sh',0755)
+
+
+
+# A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
+class followUpInspJob(inspiral.InspiralJob,FUJob):
+
+	def __init__(self,cp,type='plot'):
+
+		inspiral.InspiralJob.__init__(self,cp)
+
+		if type == 'head':
+			self.set_executable(string.strip(cp.get('fu-condor','inspiral_head')))
+		self.name = 'followUpInspJob' + type
+		self.setupJob(self.name)
+
+# JOB CLASS FOR PRODUCING A SKYMAP
+class skyMapJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	Generates sky map data
+	"""
+	def __init__(self, options, cp, ra_res=1024, dec_res=512, sample_rate=4096, tag_base='SKY_MAP'):
+		"""
+		"""
+		self.__prog__ = 'lalapps_skyMapJob'
+		self.__executable = string.strip(cp.get('fu-condor','lalapps_skymap'))
+		self.__universe = "standard"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+		self.ra_res = ra_res
+		self.dec_res = dec_res
+		self.sample_rate = sample_rate
+
+# JOB CLASS FOR PRODUCING SKYMAP PLOT
+class skyMapPlotJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	Plots the sky map output of lalapps_skymap
+	"""
+	def __init__(self, options, cp, ra_res=1024, dec_res=512, sample_rate=4096, tag_base='SKY_PLOT'):
+ 		"""
+		"""
+		self.__prog__ = 'pylal_skyPlotJob'
+		self.__executable = string.strip(cp.get('fu-condor','pylal_skyPlotJob'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+		self.ra_res = ra_res
+		self.dec_res = dec_res
+		self.sample_rate = sample_rate
+
+# JOB CLASS FOR PLOTTING SNR AND CHISQ
+class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	A followup plotting job for snr and chisq time series
+	"""
+	def __init__(self, options, cp, tag_base='PLOT_FOLLOWUP'):
+		"""
+		"""
+		self.__prog__ = 'plotSNRCHISQJob'
+		self.__executable = string.strip(cp.get('fu-condor','plotsnrchisq'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+
+class qScanDataFindJob(pipeline.LSCDataFindJob,FUJob):
+	def __init__(self, config_file):
+    
+		self.name = 'qScanDataFind'
+    
+		# unfortunately the logs directory has to be created before we call LSCDataFindJob
+		try:
+			os.mkdir(self.name)
+			os.mkdir(self.name + '/logs')
+		except: pass
+		pipeline.LSCDataFindJob.__init__(self, self.name, self.name + '/logs', config_file)
+		self.setup_cacheconv(config_file)
+    
+	def setup_cacheconv(self,cp):
+		# create a shell script to call convertlalcache.pl if the value of $RETURN is 0
+		convert_script = open('cacheconv.sh','w')
+		convert_script.write("""
+#!/bin/bash
+if [ ${1} -ne 0 ] ; then
+      exit 1
+else
+      %s ${2} ${3}
+fi
+    		""" % string.strip(cp.get('fu-condor','convertcache')))
+		convert_script.close()
+		os.chmod('cacheconv.sh',0755)
+
+
+#############################################################################
+###### CONDOR NODE CLASSES ##################################################
+#############################################################################
+
+class FUNode:
+	"""
+	"""
+
+	def __init__(self):
+		pass
+
+	def setupNodeWeb(self, job, passItAlong=False, content=None, page=None,webOverride=None,cache=None):
+		self.jobName = job.name
+		if passItAlong:
+			self.add_var_opt("output-path",job.outputPath)
+			self.add_var_opt("enable-output","")
+		if cache:
+			cache.appendCache(job.name,job.outputPath)
+		try:
+			if self.outputCache:
+				cache.appendSubCache(job.name,self.outputCache)
+		except: pass
+
+class htQscanNode(pipeline.CondorDAGNode):
+	"""
+h(t) QScan node.  This node writes its output to the web directory specified in
+the inifile + the ifo and gps time.  For example:
+ 
+	/archive/home/channa/public_html/followup/htQscan/H1/999999999.999
+
+The omega scan command line is 
+
+	wpipeline scan -r -c H1_hoft.txt -f H-H1_RDS_C03_L2-870946612-870946742.qcache -o QSCAN/foreground-hoft-qscan/H1/870946677.52929688 870946677.52929688
+
+	"""
+	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[]):
+		"""
+		"""
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		self.add_var_arg('scan -r')
+		self.add_var_arg("-c " + cp.get('fu-ht-qscan', 'config').strip() )
+		self.add_var_arg("-f " + cp.get('fu-ht-qscan', 'cache').strip() )
+		
+		output = cp.get('fu-output','output-dir') + '/htQscan' + '/' + ifo
+		
+		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
+		mkdir(output)
+
+		self.add_var_arg("-o "+output+"/"+repr(time))
+		self.add_var_arg(repr(time))
+
+		self.set_pre_script("checkForDir.sh %s %s" %(output, repr(time)))
+
+		for node in p_nodes:
+			self.add_parent(node)
+		dag.add_node(self)
+					
+
+class htQscanDataFindNode(pipeline.LSCDataFindNode):
+    
+	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[]):
+
+		self.outputFileName = ""
+		pipeline.LSCDataFindNode.__init__(self,job)
+		self.outputFileName = self.setup_fu_trig(job, cp, time, ifo)
+
+		for node in p_nodes:
+			self.add_parent(node)
+		dag.add_node(self)
+
+	def setup_fu_trig(self, job, cp, time, ifo):	
+		# 1s is substracted to the expected startTime to make sure the window
+		# will be large enough. This is to be sure to handle the rouding to the
+		# next sample done by qscan.
+		self.set_type(ifo.upper()+"_RDS_C03_L2")
+		self.q_time = 64
+		self.set_observatory(ifo[0])
+		self.set_start(int( time - self.q_time - 1))
+		self.set_end(int( time + self.q_time + 1))
+		lalCache = self.get_output()
+		qCache = lalCache.rstrip("cache") + "qcache"
+		self.set_post_script("cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
+		return(qCache)
+
+
+class followUpInspNode(inspiral.InspiralNode,FUNode):
+
+  #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
+	def __init__(self, dag, job, cp, opts, sngl, p_nodes=[]):
+
+		tlen = 1.0
+		self.output_file_name = ""
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		#FIXME HANDLE INJECTION FILES AND datafind cache
+		# injFile = self.checkInjections(cp)
+		# self.set_injections( injFile )
+
+		self.set_trig_start( int(sngl.time - tlen + 0.5) )
+                self.set_trig_end( int(sngl.time + tlen + 0.5) )
+		self.add_var_opt("write-snrsq","")
+		self.add_var_opt("write-chisq","")
+		self.add_var_opt("write-spectrum","")
+		self.add_var_opt("write-template","")
+		self.add_var_opt("write-cdata","")
+
+		skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+
+		extension = ".xml"
+		for row in sngl.process_params:
+			param = row.param.strip("-")
+			value = row.value
+			# override some options
+			if param == 'snr-threshold': value = "0.1"
+			if param == 'do-rsq-veto': continue
+			if param == 'enable-rsq-veto': continue
+			if param == 'chisq-threshold': value = "1.0e+06"
+			if param == 'cluster-method': value = 'window'
+			if param == 'cluster-window': continue
+			if param in skipParams: continue
+			if param == 'injection-file': value = sngl.inj_file_name
+			self.add_var_opt(param,value)
+			if param == 'gps-end-time':
+				self.__end = value
+				self._AnalysisNode__end = int(value)
+			if param == 'gps-start-time':
+				self.__start = value
+				self._AnalysisNode__start = int(value)
+			if param == 'pad-data':
+				self._InspiralAnalysisNode__pad_data = int(value)
+			if param == 'ifo-tag':
+				self.__ifotag = value
+			if param == 'channel-name': self.inputIfo = value[0:2]
+			if param == 'write-compress':
+				extension = '.xml.gz'
+
+		self.add_var_opt('cluster-window',str( tlen / 2.))
+		self.add_var_opt('disable-rsq-veto',' ')
+		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + self.inputIfo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz')
+		self.set_bank(bankFile)
+
+		self.set_user_tag( "FOLLOWUP_" + repr(sngl.time) )
+		self.__usertag = "FOLLOWUP_" + repr(sngl.time)
+      
+		self.output_file_name = job.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+		self.outputCache = self.inputIfo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + self.inputIfo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+		self.add_var_opt("output-path",job.outputPath)
+
+		#add parents and put node in dag
+		for node in p_nodes: self.add_parent(node)
+		dag.add_node(self)
+
+	def write_trig_bank(sngl, name):
+		try:
+			os.mkdir('trig_bank')
+		except: pass
+		xmldoc = ligolw.Document()
+		xmldoc.appendChild(ligolw.LIGO_LW())
+		
+		process_params_table = lsctables.New(lsctables.ProcessParamsTable)
+		xmldoc.childNodes[-1].appendChild(process_params_table)
+
+		sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
+		xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
+		sngl_inspiral_table.append(sngl.row)
+
+		utils.write_filename(xmldoc, name, verbose=False, gz = True)
+		return name
+
+##############################################################################
+###### CONDOR DAG THINGY #####################################################
+##############################################################################
+
+class followUpDAG(pipeline.CondorDAG):
+	def __init__(self, config_file, cp):
+		log_path = cp.get('fu-output','log-path').strip()
+		self.basename = re.sub(r'\.ini',r'', config_file)
+		tempfile.tempdir = log_path
+		tempfile.template = self.basename + '.dag.log.'
+		logfile = tempfile.mktemp()
+		fh = open( logfile, "w" )
+		fh.close()
+		pipeline.CondorDAG.__init__(self,logfile)
+		self.set_dag_file(self.basename)
+		self.jobsDict = {}
+		self.node_id = 0
+		# The list remote_nodes will contain the list of nodes run remotely 
+		# (such as V1 qscans)
+		self.remote_nodes = []
+	def add_node(self,node):
+		self.node_id += 1
+		node.add_macro("macroid", self.node_id)
+		pipeline.CondorDAG.add_node(self, node)
+
+###############################################################################
+###### UTILITY FUNCTIONS ######################################################
+###############################################################################
+
+def link_data_find(cp):
+	cache = cp.get('fu-input', 'ihope-cache')
+	path = os.path.split(cache)[0]
+	datafind_dir = path + '/datafind/cache'
+	try:os.symlink(datafind_dir, 'cache')
+	except: pass
 
 def parse_command_line():
 	parser = OptionParser(
@@ -193,26 +646,55 @@ def parse_command_line():
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
+	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default stfu_pipe.ini")
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
 
-
-
-
-### MAIN ######################################################################
+###############################################################################
+##### MAIN ####################################################################
 ###############################################################################
 
+# Parse options and config files
 options, filenames = parse_command_line()
+cp = ConfigParser.ConfigParser()
+cp.read(options.config_file)
 
-trigs = FUTriggers()
+link_data_find(cp)
 
+# Initialize dag
+dag = followUpDAG(options.config_file,cp)
+
+# CONDOR JOB CLASSES
+qscan_data_find_job	= qScanDataFindJob(cp)
+qscan_job		= qscanJob(options,cp)
+insp_job		= followUpInspJob(cp)
+#inspJobNotrig   = followUpInspJob(cp,'notrig')
+plot_job		= plotSNRChisqJob(options,cp)
+#headInspJob     = followUpInspJob(cp, 'head')
+#cohInspJob      = followUpInspJob(cp, 'coh')
+#cohInspJobNotrig= followUpInspJob(cp, 'notrig')
+skyMapJob		= skyMapJob(options,cp)
+skyPlotJob		= skyMapPlotJob(options,cp)
+
+# CONDOR NODE CLASSES
+#ht_qscan_node = {}
+
+
+trigs = FUTriggers(num=options.number)
+
+###############################################################################
+##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
+###############################################################################
+
+# Extract the triggers from the databases
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	contents = DB_summary(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose, base=options.base)
+	contents = DB_summary(connection, options.live_time_program, working_filename, veto_segments_name = "vetoes", verbose = options.verbose)
 	#if contents.sim_inspiral_table is not None:
 	#	create_sim_coinc_view(connection)
 	create_is_playground_func(connection, contents.playground_segs)
@@ -220,4 +702,39 @@ for n, filename in enumerate(filenames):
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
-print trigs.candidates
+# find the top N triggers from all the databases
+trigs.topN()
+
+###############################################################################
+##### CONSTRUCT DAG ###########################################################
+###############################################################################
+
+# generate a playground set and full data set
+for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates)]:
+	for trig in candidates:
+		if options.verbose:
+			 print >>sys.stderr,"processing coinc @ %f with combined FAR %f" % (trig.time, trig.combined_far)
+
+		# SETUP JOBS FOR IFOS FOUND IN COINCIDENCE
+		for ifo, sngl_inspiral in trig.sngl_inspiral.items():
+			if options.verbose:
+				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
+
+			# h(t) QSCAN datafind Nodes
+			ht_qscan_data_find_node = htQscanDataFindNode(dag, qscan_data_find_job, cp, options, sngl_inspiral.time, ifo)
+
+			# h(t) QSCAN Nodes
+			ht_qscan_node = htQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node])
+
+
+			#for p in sngl_inspiral.process_params:
+			#	print key, p.param, p.value
+
+		# SETUP JOBS THAT REQUIRE COINC INFORMATION
+
+
+#### ALL FINNISH ####		
+dag.write_sub_files()
+dag.write_dag()
+dag.write_script()
+
