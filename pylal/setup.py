@@ -243,6 +243,7 @@ setup(
 		os.path.join("bin", "makeCheckListWiki.py"),
 		os.path.join("bin", "followupQueryDQ.py"),
 		os.path.join("bin", "followupQueryVeto.py"),
+		os.path.join("bin", "followupRatioTest.py"),
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),

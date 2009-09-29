@@ -2013,27 +2013,28 @@ class ratioTest:
     method.  It contains the probablity that this SNR ratio give a
     particular time of flight is physically probably. If an error is
     encountered method returns possible values of -98,-97,-96,-95,-94.
-    Err Codes:
-    -99 : ifo1 == ifo2
-    -98 : Pickle file not loaded
-    -97 : IFO \lambda not found
-    -96 : Specified Time Delay unphysical t > abs(t_max)
-    -95 : Interpolation function call failure
-    -94 : TOF not found!
-    -93 : Unknown problem
     """
+    errCode={
+      -99:"ifo1 == ifo2",
+      -98:"Pickle file not loaded",
+      -97:"IFO lambda not found",
+      -96:"Time Delay unphysical",
+      -95:"Interpolation function call failure",
+      -94:"TOF not found!",
+      -93:"Unknown problem"
+      }
     if (ifo1=="NULL") or (ifo2=="NULL") or (myRatio == None) or (myRatio==0):
-      return -99
+      return(errCode[-99])
     if not self.pickleLoaded:
       self.__loadPickle__()
     if not self.pickleLoaded:
-      return(-98)
+      return(errCode[-98])
     ifo1=ifo1.strip().upper()
     ifo2=ifo2.strip().upper()
     LV=None
     LV=self.fetchLambda(ifo1,ifo2)
     if LV == None and ifo1 != ifo2:
-      return float(-97)
+      return errCode[-97]
     #Check bound set ratio TO 1 return
     #Extract 3 data vectors
     (t,minR,maxR)=self.pickleData[ifo1][ifo2]
@@ -2043,7 +2044,7 @@ class ratioTest:
     rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
     (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
     if (newMinR.__len__() > 1 or newMaxR.__len__() > 1):
-      return float(-95)
+      return errCode[-95]
     else:
       newMinR=newMinR[0]
       newMaxR=newMaxR[0]
@@ -2057,8 +2058,66 @@ class ratioTest:
       #exp(-SNR/mu)
       myOutput=numpy.exp(-numpy.fabs(numpy.log(myRatio)*LV))
       return myOutput
-    return float(-94)
+    return errCode[-94]
   #End testRatio()
+
+  def checkPairs(self,ifoPairs=None):
+    """
+    Give a list of ifo pairs like [["LLO",SNR,End_Time],["LHO",SNR,End_Time]...]]
+    Return the results of the Ratio test as 2D list in form
+    [[IFO1,IFO2,URL,%Likely],[...],....]
+    """
+    pairingList=list()
+    for A,a in enumerate(ifoPairs):
+      for B,b in enumerate(ifoPairs):
+        if (A!=B) and not pairingList.__contains__([B,b,A,a]):
+          pairingList.append([A,a,B,b])
+    outputList=list()
+    for index1,data1,index2,data2 in pairingList:
+      ifoA=self.mapToObservatory(data1[0])
+      ifoB=self.mapToObservatory(data2[0])
+      if ifoA != ifoB:
+        gpsA=numpy.float64(data1[2])
+        gpsB=numpy.float64(data2[2])
+        snrA=float(data1[1])
+        snrB=float(data2[1])
+        try:
+          snrRatio=snrA/snrB
+        except:
+          snrRatio=0
+        gpsDiff=gpsA-gpsB
+        result=self.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+        myURL=self.findURL(ifoA,ifoB)
+        outputList.append([ifoA,ifoB,gpsDiff,snrRatio,myURL,result])
+    return outputList
+
+  def generateHTMLTable(self,outputList=None):
+    """
+    Creates a small snippet of HTML for display on web browser.
+    """
+    resultString=(" <table border=1px>\
+     <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th><th>Figure</th></tr>")
+    for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
+          myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+          myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+              (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+          resultString="%s %s"%(resultString,myString)
+    resultString=" %s </table>"%(resultString)
+    return resultString
+  
+  def generateMOINMOINTable(self,outputList=None):
+    """
+    Creates a small snippet of MOINMOIN wiki syntax for display on web browser.
+    """
+    #[[ImageLink(image,target[,width=width[,height=height]][,alt=alttag])]]    
+    resultString="|| IFO:IFO || || ToF || || Deff Ratio || || Probability || || Figure ||\n"
+    for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
+      myURL=str('[[ImageLink(%s,%s ,width=300,alt=RatioTestPlot)]]')%(pairURL,pairURL)
+      myString="|| %s:%s || || %2.4f || || %5.2f || || %1.3f || || %s ||\n"%\
+                (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+      resultString="%s%s"%(resultString,myString)
+    resultString="%s \n"%(resultString)
+    return resultString
 # End Class ratioTest()
 #############################################################################
 
