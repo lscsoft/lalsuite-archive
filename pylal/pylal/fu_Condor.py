@@ -107,7 +107,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "inspiral_head":"lalapps_inspiral"
       }
     }
