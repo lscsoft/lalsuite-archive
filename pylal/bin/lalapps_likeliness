@@ -311,8 +311,8 @@ SELECT
 	sim_inspiral.mass1 + sim_inspiral.mass2,
 	coinc_inspiral.%s,
 	-- Work out the correction factor for injection population distances
-	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr") 
-		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance 
+	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr")
+		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance
 		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
 		ELSE 1.0 END
 FROM
