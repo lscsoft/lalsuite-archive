@@ -52,7 +52,7 @@
  */
 
 
-static PyTypeObject pylal_REAL8Window_Type;
+static PyTypeObject *pylal_REAL8Window_Type;
 
 
 /*
@@ -123,7 +123,7 @@ static PyObject *pylal_REAL8Window___getattr__(PyObject *self, char *name)
  */
 
 
-static PyTypeObject pylal_REAL8Window_Type = {
+static PyTypeObject _pylal_REAL8Window_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_REAL8Window),
 	.tp_dealloc = pylal_REAL8Window___del__,
@@ -146,24 +146,24 @@ static PyTypeObject pylal_REAL8Window_Type = {
 
 static PyObject *pylal_REAL8Window_new(REAL8Window *w, PyObject *owner)
 {
-	PyObject *new;
+	pylal_REAL8Window *obj;
 
 	if(!w)
 		/* FIXME:  map XLAL error codes to Python exceptions */
 		return PyErr_NoMemory();
 
-	new = PyType_GenericNew(&pylal_REAL8Window_Type, NULL, NULL);
-	if(!new) {
+	obj = (pylal_REAL8Window *) PyType_GenericNew(pylal_REAL8Window_Type, NULL, NULL);
+	if(!obj) {
 		XLALDestroyREAL8Window(w);
 		return NULL;
 	}
 
-	((pylal_REAL8Window *) new)->window = w;
+	obj->window = w;
 	if(owner)
 		Py_INCREF(owner);
-	((pylal_REAL8Window *) new)->owner = owner;
+	obj->owner = owner;
 
-	return new;
+	return (PyObject *) obj;
 }
 
 
@@ -324,8 +324,9 @@ void initwindow(void)
 	import_array();
 
 	/* REAL8Window */
-	if(PyType_Ready(&pylal_REAL8Window_Type) < 0)
+	pylal_REAL8Window_Type = &_pylal_REAL8Window_Type;
+	if(PyType_Ready(pylal_REAL8Window_Type) < 0)
 		return;
-	Py_INCREF(&pylal_REAL8Window_Type);
-	PyModule_AddObject(module, "REAL8Window", (PyObject *) &pylal_REAL8Window_Type);
+	Py_INCREF(pylal_REAL8Window_Type);
+	PyModule_AddObject(module, "REAL8Window", (PyObject *) pylal_REAL8Window_Type);
 }
