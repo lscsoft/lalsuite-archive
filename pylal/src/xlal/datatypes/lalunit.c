@@ -150,7 +150,7 @@ static PyObject *__invert__(PyObject *self)
 
 static int __coerce__(PyObject **p1, PyObject **p2)
 {
-	if(!PyObject_TypeCheck(*p1, &pylal_LALUnit_Type)) {
+	if(!PyObject_TypeCheck(*p1, pylal_LALUnit_Type)) {
 		PyObject *o;
 		double power_of_ten;
 		if(!PyNumber_Check(*p1))
@@ -167,7 +167,7 @@ static int __coerce__(PyObject **p1, PyObject **p2)
 		*p1 = pylal_LALUnit_new(floor(power_of_ten), lalDimensionlessUnit);
 	} else
 		Py_INCREF(*p1);
-	if(!PyObject_TypeCheck(*p2, &pylal_LALUnit_Type)) {
+	if(!PyObject_TypeCheck(*p2, pylal_LALUnit_Type)) {
 		PyObject *o;
 		double power_of_ten;
 		if(!PyNumber_Check(*p2))
@@ -202,7 +202,7 @@ static PyNumberMethods as_number = {
 };
 
 
-PyTypeObject pylal_LALUnit_Type = {
+static PyTypeObject _pylal_LALUnit_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_LALUnit),
 	.tp_doc = "LALUnit structure",
@@ -234,10 +234,11 @@ void initlalunit(void)
 	 * LALUnit
 	 */
 
-	if(PyType_Ready(&pylal_LALUnit_Type) < 0)
+	pylal_LALUnit_Type = &_pylal_LALUnit_Type;
+	if(PyType_Ready(pylal_LALUnit_Type) < 0)
 		return;
-	Py_INCREF(&pylal_LALUnit_Type);
-	PyModule_AddObject(module, "LALUnit", (PyObject *) &pylal_LALUnit_Type);
+	Py_INCREF(pylal_LALUnit_Type);
+	PyModule_AddObject(module, "LALUnit", (PyObject *) pylal_LALUnit_Type);
 
 	/*
 	 * cached instances
