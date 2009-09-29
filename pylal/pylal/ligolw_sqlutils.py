@@ -461,7 +461,7 @@ def convert_duration( duration, convert_to ):
             the duration from a long int to a float.
         'min': to minutes - will divide by 60.
         'hr': to hours - will divide by 3600.
-        'd': to days - will divide by 86400.
+        'days': to days - will divide by 86400.
         'yr': to years - will divide by 31557600. 
             This is the Julian year, which is the
             accepted astronomical year
@@ -474,7 +474,7 @@ def convert_duration( duration, convert_to ):
         return duration / 60.
     elif convert_to == 'hr':
         return duration / 3600.
-    elif convert_to == 'd':
+    elif convert_to == 'days':
         return duration / 86400.
     elif convert_to == 'yr':
         return duration / 31557600.
