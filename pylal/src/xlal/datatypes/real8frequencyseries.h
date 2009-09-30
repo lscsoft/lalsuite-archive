@@ -30,7 +30,7 @@
 #include <lal/LALDatatypes.h>
 
 
-#define PYLAL_LALUNIT_MODULE_NAME "pylal.xlal.datatypes.lalunit"
+#define PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.real8frequencyseries"
 
 
 /*
@@ -42,45 +42,39 @@
  */
 
 
-static PyTypeObject *pylal_LALUnit_Type;
+static PyTypeObject *pylal_REAL8FrequencySeries_Type;
 
 
 typedef struct {
 	PyObject_HEAD
-	LALUnit unit;
-} pylal_LALUnit;
+	PyObject *owner;
+	REAL8FrequencySeries *series;
+} pylal_REAL8FrequencySeries;
 
 
-extern PyObject *pylal_LALUnitMeter;
-extern PyObject *pylal_LALUnitKiloGram;
-extern PyObject *pylal_LALUnitSecond;
-extern PyObject *pylal_LALUnitAmpere;
-extern PyObject *pylal_LALUnitKelvin;
-extern PyObject *pylal_LALUnitStrain;
-extern PyObject *pylal_LALUnitADCCount;
-
-
-static PyObject *pylal_lalunit_import(void)
+static PyObject *pylal_real8frequencyseries_import(void)
 {
-	PyObject *name = PyString_FromString(PYLAL_LALUNIT_MODULE_NAME);
+	PyObject *name = PyString_FromString(PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME);
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
-	name = PyString_FromString("LALUnit");
-	pylal_LALUnit_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	name = PyString_FromString("REAL8FrequencySeries");
+	pylal_REAL8FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
 	Py_DECREF(name);
-	Py_INCREF(pylal_LALUnit_Type);
+	Py_INCREF(pylal_REAL8FrequencySeries_Type);
 
 	return module;
 }
 
 
-static PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
+PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject *owner)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_LALUnit *obj = (pylal_LALUnit *) PyType_GenericNew(pylal_LALUnit_Type, empty_tuple, NULL);
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(pylal_REAL8FrequencySeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
-	obj->unit = unit;
-	obj->unit.powerOfTen += power_of_ten;
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
+	obj->series = series;
 	return (PyObject *) obj;
 }

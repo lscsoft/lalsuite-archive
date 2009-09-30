@@ -28,9 +28,10 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
+#include <lal/Date.h>
 
 
-#define PYLAL_LALUNIT_MODULE_NAME "pylal.xlal.datatypes.lalunit"
+#define PYLAL_LIGOTIMEGPS_MODULE_NAME "pylal.xlal.datatypes.ligotimegps"
 
 
 /*
@@ -42,45 +43,35 @@
  */
 
 
-static PyTypeObject *pylal_LALUnit_Type;
+static PyTypeObject *pylal_LIGOTimeGPS_Type;
 
 
 typedef struct {
 	PyObject_HEAD
-	LALUnit unit;
-} pylal_LALUnit;
+	LIGOTimeGPS gps;
+} pylal_LIGOTimeGPS;
 
 
-extern PyObject *pylal_LALUnitMeter;
-extern PyObject *pylal_LALUnitKiloGram;
-extern PyObject *pylal_LALUnitSecond;
-extern PyObject *pylal_LALUnitAmpere;
-extern PyObject *pylal_LALUnitKelvin;
-extern PyObject *pylal_LALUnitStrain;
-extern PyObject *pylal_LALUnitADCCount;
-
-
-static PyObject *pylal_lalunit_import(void)
+static PyObject *pylal_ligotimegps_import(void)
 {
-	PyObject *name = PyString_FromString(PYLAL_LALUNIT_MODULE_NAME);
+	PyObject *name = PyString_FromString(PYLAL_LIGOTIMEGPS_MODULE_NAME);
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
-	name = PyString_FromString("LALUnit");
-	pylal_LALUnit_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	name = PyString_FromString("LIGOTimeGPS");
+	pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
 	Py_DECREF(name);
-	Py_INCREF(pylal_LALUnit_Type);
+	Py_INCREF(pylal_LIGOTimeGPS_Type);
 
 	return module;
 }
 
 
-static PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
+static PyObject *pylal_LIGOTimeGPS_new(LIGOTimeGPS gps)
 {
-	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_LALUnit *obj = (pylal_LALUnit *) PyType_GenericNew(pylal_LALUnit_Type, empty_tuple, NULL);
-	Py_DECREF(empty_tuple);
-	obj->unit = unit;
-	obj->unit.powerOfTen += power_of_ten;
+	pylal_LIGOTimeGPS *obj = (pylal_LIGOTimeGPS *) _PyObject_New(pylal_LIGOTimeGPS_Type);
+
+	XLALGPSSet(&obj->gps, gps.gpsSeconds, gps.gpsNanoSeconds);
+
 	return (PyObject *) obj;
 }

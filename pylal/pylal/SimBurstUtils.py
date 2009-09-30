@@ -36,7 +36,7 @@ from pylal import date
 from pylal import inject
 from pylal import rate
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"

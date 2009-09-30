@@ -33,7 +33,7 @@
 #include <lalunit.h>
 
 
-#define MODULE_NAME "pylal.xlal.datatypes.lalunit"
+#define MODULE_NAME PYLAL_LALUNIT_MODULE_NAME
 
 
 /*
@@ -82,17 +82,6 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		Py_DECREF(new);
 		return NULL;
 	}
-	return (PyObject *) new;
-}
-
-
-PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
-{
-	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_LALUnit *new = (pylal_LALUnit *) PyType_GenericNew(&pylal_LALUnit_Type, empty_tuple, NULL);
-	Py_DECREF(empty_tuple);
-	new->unit = unit;
-	new->unit.powerOfTen += power_of_ten;
 	return (PyObject *) new;
 }
 
@@ -161,7 +150,7 @@ static PyObject *__invert__(PyObject *self)
 
 static int __coerce__(PyObject **p1, PyObject **p2)
 {
-	if(!PyObject_TypeCheck(*p1, &pylal_LALUnit_Type)) {
+	if(!PyObject_TypeCheck(*p1, pylal_LALUnit_Type)) {
 		PyObject *o;
 		double power_of_ten;
 		if(!PyNumber_Check(*p1))
@@ -178,7 +167,7 @@ static int __coerce__(PyObject **p1, PyObject **p2)
 		*p1 = pylal_LALUnit_new(floor(power_of_ten), lalDimensionlessUnit);
 	} else
 		Py_INCREF(*p1);
-	if(!PyObject_TypeCheck(*p2, &pylal_LALUnit_Type)) {
+	if(!PyObject_TypeCheck(*p2, pylal_LALUnit_Type)) {
 		PyObject *o;
 		double power_of_ten;
 		if(!PyNumber_Check(*p2))
@@ -213,7 +202,7 @@ static PyNumberMethods as_number = {
 };
 
 
-PyTypeObject pylal_LALUnit_Type = {
+static PyTypeObject _pylal_LALUnit_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_LALUnit),
 	.tp_doc = "LALUnit structure",
@@ -245,10 +234,11 @@ void initlalunit(void)
 	 * LALUnit
 	 */
 
-	if(PyType_Ready(&pylal_LALUnit_Type) < 0)
+	pylal_LALUnit_Type = &_pylal_LALUnit_Type;
+	if(PyType_Ready(pylal_LALUnit_Type) < 0)
 		return;
-	Py_INCREF(&pylal_LALUnit_Type);
-	PyModule_AddObject(module, "LALUnit", (PyObject *) &pylal_LALUnit_Type);
+	Py_INCREF(pylal_LALUnit_Type);
+	PyModule_AddObject(module, "LALUnit", (PyObject *) pylal_LALUnit_Type);
 
 	/*
 	 * cached instances

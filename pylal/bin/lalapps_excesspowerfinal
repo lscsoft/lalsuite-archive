@@ -87,7 +87,7 @@ from pylal import ligolw_tisi
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"

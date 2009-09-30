@@ -107,7 +107,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "inspiral_head":"lalapps_inspiral"
       }
     }
@@ -326,7 +326,7 @@ class plotSNRCHISQJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "plotsnrchisq":"plotsnrchisq_pipe"
       }
     }
@@ -404,7 +404,7 @@ class lalapps_skyMapJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "lalapps_skymap":"lalapps_skymap"
       }
     }
@@ -433,7 +433,7 @@ class pylal_skyPlotJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "pylal_skyPlotJob":"pylal_plot_inspiral_skymap"
       }
     }
@@ -687,7 +687,7 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "qscan":"wpipeline"
       }
     }
@@ -825,7 +825,7 @@ class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "submit_remote_scan":"submit_remote_scan.py"
       }
     }
@@ -908,9 +908,9 @@ class distributeQscanJob(pipeline.CondorDAGJob, webTheJob):
   A job to distribute the results of the qscans that have been run remotely (for LV search)
   """
   defaults={
-    "section":"condor"
+    "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "distribute_q":"distrib_fu_qscan_results.py"
       }
     }
@@ -1450,7 +1450,7 @@ class followupOddsPostJob(pipeline.CondorDAGJob,webTheJob):
   """
   defaults={
     "section":"condor",
-    "options",{
+    "options":{
       "universe":"vanilla",
       "oddsPostScript":"OddsPostProc.py"
       }
@@ -1875,7 +1875,7 @@ class followUpChiaJob(inspiral.ChiaJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "chia":"lalapps_coherent_inspiral"
       }
     }
@@ -1990,7 +1990,7 @@ class followUpCohireJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "cohire":"lalapps_cohire"
       }
     }
@@ -2066,7 +2066,7 @@ class plotChiaJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "plotchiatimeseries":"plotchiatimeseries"
       }
     }
@@ -2143,7 +2143,7 @@ class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "makechecklist":"makeCheckList.py"
       }
     }
@@ -2228,7 +2228,7 @@ class followupTriggerJob(pipeline.CondorDAGJob,webTheJob):
   defaults={
     "section":"condor",
     "options":{
-      "universe":"vanilla"
+      "universe":"vanilla",
       "fu_triggers":"fup_triggers.py"
       }
     }

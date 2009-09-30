@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 """
-This script queries the available DQ information given a gps time with
+This script queries the available Veto information given a gps time with
 an asymetric windows specified at command line. This routine will
 return a text string in MoinMoin as a table for inclusion in the
 candidate checklist.
@@ -94,9 +94,9 @@ result=""
 if outputType.upper().strip() == "LIST":
     result=x.generateResultList()
 if outputType.upper().strip() == "MOINMOIN":
-    result=x.generateMOINMOINTable("DQ")
+    result=x.generateMOINMOINTable("VETO")
 if outputType.upper().strip() == "HTML":
-    result=x.generateHTMLTable("DQ")
+    result=x.generateHTMLTable("VETO")
 
 if outputFile == None:
     sys.stdout.write("%s"%(result))
@@ -104,3 +104,5 @@ else:
     fp=file(outputFile,"w")
     fp.writelines("%s"%(result))
     fp.close()
+
+

@@ -36,8 +36,8 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
 	all
 except NameError:
