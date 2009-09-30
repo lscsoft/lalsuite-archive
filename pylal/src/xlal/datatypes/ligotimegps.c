@@ -458,7 +458,30 @@ static PyTypeObject _pylal_LIGOTimeGPS_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_as_number = &pylal_LIGOTimeGPS_as_number,
 	.tp_basicsize = sizeof(pylal_LIGOTimeGPS),
-	.tp_doc = "A GPS time with nanosecond precision",
+	.tp_doc =
+"A GPS time with nanosecond precision.  This is an immutable type.\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> LIGOTimeGPS(100.5)\n" \
+"LIGOTimeGPS(100, 500000000)\n" \
+">>> LIGOTimeGPS(\"100.5\")\n" \
+"LIGOTimeGPS(100, 500000000)\n" \
+">>> LIGOTimeGPS(100, 500000000)\n" \
+"LIGOTimeGPS(100, 500000000)\n" \
+">>> LIGOTimeGPS(0, 100500000000L)\n" \
+"LIGOTimeGPS(100, 500000000)\n" \
+">>> LIGOTimeGPS(100.2, 300000000)\n" \
+"LIGOTimeGPS(100, 500000000)\n" \
+">>> x = LIGOTimeGPS(100.5)\n" \
+">>> x.seconds\n" \
+"100\n" \
+">>> x.nanoseconds\n" \
+"500000000\n" \
+">>> str(x)\n" \
+"'100.5'\n" \
+">>> x + 100\n" \
+"LIGOTimeGPS(200,500000000)",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_init = pylal_LIGOTimeGPS___init__,
 	.tp_members = pylal_LIGOTimeGPS_members,
