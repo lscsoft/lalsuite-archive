@@ -160,6 +160,20 @@ SELECT
 		""", (self.process_id,) ):
 			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
 
+	def get_gps_start_time(self):
+		#FIXME probably really slow
+		for row in self.process_params:
+			if row.param == '--gps-start-time': 
+				return int(row.value)
+
+	def get_gps_end_time(self):
+		#FIXME probably really slow
+		for row in self.process_params:
+			if row.param == '--gps-end-time': 
+				return int(row.value)
+
+
+
 class Coinc(object):
 	def __init__(self, row, contents):
 		connection = contents.connection
@@ -413,10 +427,10 @@ class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
 		self.add_condor_cmd('getenv','True')
 		self.setupJob(self.__prog__,tag_base)
 
-class qScanDataFindJob(pipeline.LSCDataFindJob,FUJob):
-	def __init__(self, config_file):
+class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
+	def __init__(self, config_file, name='datafind'):
     
-		self.name = 'qScanDataFind'
+		self.name = name
     
 		# unfortunately the logs directory has to be created before we call LSCDataFindJob
 		try:
@@ -463,7 +477,7 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 		self.setupJob(self.__prog__,tag_base)
 
 #The class responsible for checking for know veto flags
-class findVetosJob(pipeline.CondorDAGJob,FuJob):
+class findVetosJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	A job instance that queries the segment database for known
 	types of active veto intervals.
@@ -484,7 +498,7 @@ class findVetosJob(pipeline.CondorDAGJob,FuJob):
 		self.setupJob(self.__prog__,tag_base)
 		
 #The class responsible for running one type of parameter consistency check
-class effDRatioJob(pipeline.CondorDAGjob,FuJob):
+class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	A job that performs parameter consitency check for a trigger
 	being followed up.
@@ -571,19 +585,19 @@ The omega scan command line is
 		dag.add_node(self)
 					
 
-class dataFindNode(pipeline.LSCDataFindNode):
+class htDataFindNode(pipeline.LSCDataFindNode):
     
-	def __init__(self, dag, job, cp, opts, time, ifo, qscan=False, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, ifo, qscan=False, p_nodes=[]):
 
 		self.outputFileName = ""
 		pipeline.LSCDataFindNode.__init__(self,job)
-		if qscan: self.outputFileName = self.setup_qscan(job, cp, time, ifo)
-
+		if qscan: self.outputFileName = self.setup_qscan(job, cp, sngl.time, ifo)
+		else: self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
 		for node in p_nodes:
 			self.add_parent(node)
 		dag.add_node(self)
 
-	def setup_qscan(self, job, cp, time, ifo):	
+	def setup_qscan(self, job, cp, time, ifo):
 		# 1s is substracted to the expected startTime to make sure the window
 		# will be large enough. This is to be sure to handle the rouding to the
 		# next sample done by qscan.
@@ -597,11 +611,26 @@ class dataFindNode(pipeline.LSCDataFindNode):
 		self.set_post_script("cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
 		return(qCache)
 
+	def setup_inspiral(self, job, cp, sngl, ifo):
+		# 1s is substracted to the expected startTime to make sure the window
+		# will be large enough. This is to be sure to handle the rouding to the
+		# next sample done by qscan.
+		self.set_type(ifo.upper()+"_RDS_C03_L2")
+		self.set_observatory(ifo[0])
+		self.set_start(sngl.get_gps_start_time())
+		self.set_end(sngl.get_gps_end_time())
+		lalCache = self.get_output()
+		return(lalCache)
+
+	def figure_out_type(self, time, ifo):
+		pass
+
+
 
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-	def __init__(self, dag, job, cp, opts, sngl, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, frame_cache, p_nodes=[]):
 
 		tlen = 1.0
 		self.output_file_name = ""
@@ -626,6 +655,7 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			param = row.param.strip("-")
 			value = row.value
 			# override some options
+			if param == 'frame-cache': value = frame_cache
 			if param == 'snr-threshold': value = "0.1"
 			if param == 'do-rsq-veto': continue
 			if param == 'enable-rsq-veto': continue
@@ -830,13 +860,14 @@ options, filenames = parse_command_line()
 cp = ConfigParser.ConfigParser()
 cp.read(options.config_file)
 
-link_data_find(cp)
+#link_data_find(cp)
 
 # Initialize dag
 dag = followUpDAG(options.config_file,cp)
 
 # CONDOR JOB CLASSES
-qscan_data_find_job	= qScanDataFindJob(cp)
+ht_data_find_job	= htDataFindJob(cp)
+q_ht_data_find_job	= htDataFindJob(cp, 'qdatafind')
 qscan_job		= qscanJob(options,cp)
 insp_job		= followUpInspJob(cp)
 #inspJobNotrig   = followUpInspJob(cp,'notrig')
@@ -890,16 +921,16 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 
 			# h(t) QSCAN datafind Nodes
-			ht_qscan_data_find_node = dataFindNode(dag, qscan_data_find_job, cp, options, sngl_inspiral.time, ifo, qscan=True)
+			ht_qscan_data_find_node = htDataFindNode(dag, q_ht_data_find_job, cp, options, sngl_inspiral, ifo, qscan=True)
 
 			# h(t) QSCAN Nodes
 			ht_qscan_node = htQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node])
 
 			#FIXME add inspiral datafind node
+			insp_datafind_node = htDataFindNode(dag, ht_data_find_job, cp, options, sngl_inspiral, ifo)
 
-			# inspiral Node FIXME add datafind as a parent
-			
-			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral)
+			# inspiral Node FIXME add datafind as a parent			
+			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, p_nodes=[insp_datafind_node])
 
 			#for p in sngl_inspiral.process_params:
 			#	print key, p.param, p.value
