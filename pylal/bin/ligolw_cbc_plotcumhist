@@ -152,12 +152,8 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
 
         else:
             # get min/max values
-            if zero_lag_list != []:
-                min_val = min(zero_lag_list)
-                max_val = max(zero_lag_list)
-            else:
-                min_val = min(min(slide_list) for slide_list in slide_dict.values())
-                max_val = max(max(slide_list) for slide_list in slide_dict.values())
+            min_val = min(zero_lag_list + [val for slide_list in slide_dict.values() for val in slide_list])
+            max_val = max(zero_lag_list + [val for slide_list in slide_dict.values() for val in slide_list])
 
             # create the bins
             bins = numpy.linspace(min_val, max_val, nbins+1, endpoint = True)
