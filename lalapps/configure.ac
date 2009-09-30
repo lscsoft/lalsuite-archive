@@ -12,33 +12,8 @@ AC_CONFIG_FILES([\
   misc/Makefile \
   src/Makefile \
   src/lalapps/Makefile \
-  src/calibration/Makefile \
-  src/frametools/Makefile \
-  src/findchirp/Makefile \
-  src/stochastic/Makefile \
-  src/power/Makefile \
-  src/ring/Makefile \
-  src/string/Makefile \
-  src/pulsar/Makefile \
-  src/pulsar/FDS_isolated/Makefile \
-  src/pulsar/FDS_isolated/ResamplingFstat/Makefile \
-  src/pulsar/Injections/Makefile \
-  src/pulsar/FDS_griphyn/Makefile \
-  src/pulsar/hough/Makefile \
-  src/pulsar/hough/src/Makefile \
-  src/pulsar/FDS_binary/Makefile \
-  src/pulsar/SideBand/Makefile \
-  src/pulsar/templateBanks/Makefile \
-  src/pulsar/TimingTests/Makefile \
-  src/pulsar/TDS_isolated/Makefile \
   src/inspiral/Makefile \
-  src/zmsearch/Makefile \
-  src/detresponse/Makefile \
-  src/pulsar/hough/src2/Makefile \
-  src/pulsar/MakeSFTs/Makefile \
-  src/pulsar/fscan/Makefile \
-  src/tracksearch/Makefile \
-  src/online/Makefile \
+  src/online/Makefile
 ])
 AM_INIT_AUTOMAKE([])
 AC_ARG_VAR(LALSUITE_BUILD,[Set if part of lalsuite build])
