@@ -205,7 +205,16 @@ static PyNumberMethods as_number = {
 static PyTypeObject _pylal_LALUnit_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_LALUnit),
-	.tp_doc = "LALUnit structure",
+	.tp_doc =
+"LALUnit structure.  This is an immutable type (it can be hashed, put into\n" \
+"sets, used as a dictionary key, etc.).\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> x = LALUnit(\"m\")\n" \
+">>> y = LALUnit(\"s\")\n" \
+">>> 1000 * x / y\n" \
+"LALUnit(\"10^3 m s^-1\")\n",
 	.tp_flags = Py_TPFLAGS_DEFAULT,
 	.tp_name = MODULE_NAME ".LALUnit",
 	.tp_new = __new__,
@@ -228,7 +237,8 @@ static PyTypeObject _pylal_LALUnit_Type = {
 
 void initlalunit(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's LALUnit type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
+"Wrapper for LAL's LALUnit type.  Several pre-defined unit constants are also provided.");
 
 	/*
 	 * LALUnit

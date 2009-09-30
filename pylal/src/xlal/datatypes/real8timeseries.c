@@ -20,7 +20,7 @@
 /*
  * ============================================================================
  *
- *             Python Wrapper For LAL's REAL8FrequencySeries Type
+ *               Python Wrapper For LAL's REAL8TimeSeries Type
  *
  * ============================================================================
  */
@@ -29,15 +29,15 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <lal/LALDatatypes.h>
-#include <lal/FrequencySeries.h>
+#include <lal/TimeSeries.h>
 #include <lal/Sequence.h>
 #include <lal/Units.h>
 #include <lalunit.h>
 #include <ligotimegps.h>
-#include <real8frequencyseries.h>
+#include <real8timeseries.h>
 
 
-#define MODULE_NAME PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME
+#define MODULE_NAME PYLAL_REAL8TIMESERIES_MODULE_NAME
 
 
 /*
@@ -57,16 +57,17 @@
 static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	const char *s = NULL;
-	pylal_REAL8FrequencySeries *obj;
+	pylal_REAL8TimeSeries *obj;
 	LIGOTimeGPS zero = {0, 0};
 
 	if(!PyArg_ParseTuple(args, "|s", &s))
 		return NULL;
-	obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(type, args, kwds);
+	obj = (pylal_REAL8TimeSeries *) PyType_GenericNew(type, args, kwds);
 	if(!obj)
 		return NULL;
-	obj->series = XLALCreateREAL8FrequencySeries(NULL, &zero, 0.0, 0.0, &lalDimensionlessUnit, 0);
+	obj->series = XLALCreateREAL8TimeSeries(NULL, &zero, 0.0, 0.0, &lalDimensionlessUnit, 0);
 	obj->owner = NULL;
+
 	return (PyObject *) obj;
 }
 
@@ -86,12 +87,12 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 
 static void __del__(PyObject *self)
 {
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	pylal_REAL8TimeSeries *obj = (pylal_REAL8TimeSeries *) self;
 	if(obj->owner)
 		Py_DECREF(obj->owner);
 	else
 		/* we are the owner */
-		XLALDestroyREAL8FrequencySeries(obj->series);
+		XLALDestroyREAL8TimeSeries(obj->series);
 	self->ob_type->tp_free(self);
 }
 
@@ -99,7 +100,7 @@ static void __del__(PyObject *self)
 static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 {
 	const char *name = PyString_AsString(attr_name);
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	pylal_REAL8TimeSeries *obj = (pylal_REAL8TimeSeries *) self;
 
 	if(!strcmp(name, "name"))
 		return PyString_FromString(obj->series->name);
@@ -107,8 +108,8 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 		return pylal_LIGOTimeGPS_new(obj->series->epoch);
 	if(!strcmp(name, "f0"))
 		return PyFloat_FromDouble(obj->series->f0);
-	if(!strcmp(name, "deltaF"))
-		return PyFloat_FromDouble(obj->series->deltaF);
+	if(!strcmp(name, "deltaT"))
+		return PyFloat_FromDouble(obj->series->deltaT);
 	if(!strcmp(name, "sampleUnits"))
 		return pylal_LALUnit_new(0, obj->series->sampleUnits);
 	if(!strcmp(name, "data")) {
@@ -134,7 +135,7 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 {
 	const char *name = PyString_AsString(attr_name);
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
+	pylal_REAL8TimeSeries *obj = (pylal_REAL8TimeSeries *) self;
 
 	if(!strcmp(name, "name")) {
 		const char *s = PyString_AsString(value);
@@ -162,11 +163,11 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 		obj->series->f0 = f0;
 		return 0;
 	}
-	if(!strcmp(name, "deltaF")) {
-		double deltaF = PyFloat_AsDouble(value);
+	if(!strcmp(name, "deltaT")) {
+		double deltaT = PyFloat_AsDouble(value);
 		if(PyErr_Occurred())
 			return -1;
-		obj->series->deltaF = deltaF;
+		obj->series->deltaT = deltaT;
 		return 0;
 	}
 	if(!strcmp(name, "sampleUnits")) {
@@ -203,15 +204,15 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
  */
 
 
-PyTypeObject _pylal_REAL8FrequencySeries_Type = {
+PyTypeObject _pylal_REAL8TimeSeries_Type = {
 	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(pylal_REAL8FrequencySeries),
+	.tp_basicsize = sizeof(pylal_REAL8TimeSeries),
 	.tp_dealloc = __del__,
-	.tp_doc = "REAL8FrequencySeries structure",
+	.tp_doc = "REAL8TimeSeries structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT,
 	.tp_getattro = __getattro__,
 	.tp_setattro = __setattro__,
-	.tp_name = MODULE_NAME ".REAL8FrequencySeries",
+	.tp_name = MODULE_NAME ".REAL8TimeSeries",
 	.tp_new = __new__,
 	.tp_init = __init__
 };
@@ -226,21 +227,21 @@ PyTypeObject _pylal_REAL8FrequencySeries_Type = {
  */
 
 
-void initreal8frequencyseries(void)
+void initreal8timeseries(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8FrequencySeries type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8TimeSeries type.");
 
 	import_array();
 	pylal_lalunit_import();
 	pylal_ligotimegps_import();
 
 	/*
-	 * REAL8FrequencySeries
+	 * REAL8TimeSeries
 	 */
 
-	pylal_REAL8FrequencySeries_Type = &_pylal_REAL8FrequencySeries_Type;
-	if(PyType_Ready(pylal_REAL8FrequencySeries_Type) < 0)
+	pylal_REAL8TimeSeries_Type = &_pylal_REAL8TimeSeries_Type;
+	if(PyType_Ready(pylal_REAL8TimeSeries_Type) < 0)
 		return;
-	Py_INCREF(pylal_REAL8FrequencySeries_Type);
-	PyModule_AddObject(module, "REAL8FrequencySeries", (PyObject *) pylal_REAL8FrequencySeries_Type);
+	Py_INCREF(pylal_REAL8TimeSeries_Type);
+	PyModule_AddObject(module, "REAL8TimeSeries", (PyObject *) pylal_REAL8TimeSeries_Type);
 }
