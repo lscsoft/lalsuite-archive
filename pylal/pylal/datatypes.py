@@ -25,10 +25,16 @@
 
 
 """
-This module imports all the modules in the pylal.xlal.datatypes subpackage.
-It is recommended that you import this module unless you require only
-exactly one or a few specific types in which case you can import the
-individual modules if that is easier.
+This is a convenience module providing all the LAL datatype wrappings from
+the pylal.xlal.datatypes subpackage in a single import.  It is recommended
+that you import this module unless you require only exactly one or a few
+specific types in which case you can import the individual modules if that
+is easier.
+
+Example:
+
+>>> from pylal import datatypes as laltypes
+>>> x = laltypes.REAL8TimeSeries()
 """
 
 
