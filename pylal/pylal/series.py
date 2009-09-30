@@ -62,11 +62,12 @@ def parse_COMPLEX16FrequencySeries(elem):
 	t, = elem.getElementsByTagName(ligolw.Time.tagName)
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
+	f0 = param.get_param(elem, u"f0")
 	return COMPLEX16FrequencySeries(
 		name = a.getAttribute(u"Name"),
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = param.get_pyvalue(elem, u"f0"),
-		deltaF = float(dims[0].getAttribute(u"Scale")),
+		f0 = f0.pcdata * float(LALUnit(f0.getAttribute(u"Unit")) / LALUnit("s^-1")),
+		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1] + 1j * a.array[2]
 	)
@@ -76,11 +77,12 @@ def parse_REAL8FrequencySeries(elem):
 	t, = elem.getElementsByTagName(ligolw.Time.tagName)
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
+	f0 = param.get_param(elem, u"f0")
 	return REAL8FrequencySeries(
 		name = a.getAttribute(u"Name"),
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = param.get_pyvalue(elem, u"f0"),
-		deltaF = float(dims[0].getAttribute(u"Scale")),
+		f0 = f0.pcdata * float(LALUnit(f0.getAttribute(u"Unit")) / LALUnit("s^-1")),
+		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]
 	)
@@ -90,11 +92,12 @@ def parse_REAL8TimeSeries(elem):
 	t, = elem.getElementsByTagName(ligolw.Time.tagName)
 	a, = elem.getElementsByTagName(ligolw.Array.tagName)
 	dims = a.getElementsByTagName(ligolw.Dim.tagName)
+	f0 = param.get_param(elem, u"f0")
 	return REAL8TimeSeries(
 		name = a.getAttribute(u"Name"),
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = param.get_pyvalue(elem, u"f0"),
-		deltaT = float(dims[0].getAttribute(u"Scale")),
+		f0 = f0.pcdata * float(LALUnit(f0.getAttribute(u"Unit")) / LALUnit("s^-1")),
+		deltaT = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]
 	)
