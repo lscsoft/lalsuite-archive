@@ -301,7 +301,7 @@ class FUJob(object):
 			cp.add_section(defaults["section"])
 		for key, val in defaults["options"].iteritems():
 			if not cp.has_option(defaults["section"], key):
-				cp.set(defaults["section"], val)
+				cp.set(defaults["section"], key, val)
 
 	def setupJob(self, name, tag_base=None, cp=None):
 		# Give this job a name.  Then make directories for the log files and such
