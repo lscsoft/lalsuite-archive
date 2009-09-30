@@ -23,31 +23,28 @@ return a text string in MoinMoin as a table for inclusion in the
 candidate checklist.
 """
 __author__  = "Cristina Valeria Torres <cristina.torres@ligo.org>"
-__date__    = '$Date$'
-__version__ = '$Revision$'
 __prog__    = 'followupQueryDQ.py'
 
 
 import optparse
 import sys
 import os
+from pylal import git_version
 from pylal.fu_utils import followupDQV
 
 sys.path.append('@PYTHONLIBDIR@')
 
 usage = """usage: %prog [options]"""
 
-parser = optparse.OptionParser(usage)
+parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
 #Add all options to setup the query
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
 parser.add_option("-X","--segment-url",action="store",type="string",\
                       metavar="URL",default=None,\
                       help="Using this argument specify a URL the LDBD \
 server that you want to query DQ Veto segment information from for\
 example ldbd://metaserver.phy.syr.edu:30015")
 parser.add_option("-w","--window",action="store",type="string",\
-                      metavar="frontWin,backWin",default=None,\
+                      metavar="frontWin,backWin",default="30,15",\
                       help="Using this argument you can specify a \
 asymetric window around the trigger time for performing DQ queries. \
 The two times should be postive values seperated by a comma. If only \
@@ -61,18 +58,22 @@ parser.add_option("-p","--output-format",action="store",type="string",\
                       metavar="OUTPUT_TYPE",default="MOINMOIN", \
                       help="The valid output options here are \
 LIST(python var), MOINMOIN, and HTML.")
+parser.add_option("-o","--output-file",action="store",type="string",\
+                  metavar="OUTPUTFILE.wiki",default=None,\
+                  help="This sets the name of the file to save the DQ\
+ result into.")
+                  
+
 
 ######################################################################
 
 (opts,args) = parser.parse_args()
 
-if opts.version:
-    print "%s %s %s %s"%(__prog__,__version__,__date__,__author__)
-    sys.exit(0)
 
 server=opts.segment_url
 triggerTime=opts.trigger_time
 outputType=opts.output_format
+outputFile=opts.output_file
 
 if len(opts.window.split(',')) == 1:
     frontWindow=backWindow=opts.window
@@ -82,15 +83,18 @@ if len(opts.window.split(',')) == 2:
         backWindow=frontWindow
 
 x=followupDQV(server)
-x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,99)
+x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow)
 result=""
 if outputType.upper().strip() == "LIST":
-    result=x.generateResultList
+    result=x.generateResultList()
 if outputType.upper().strip() == "MOINMOIN":
     result=x.generateMOINMOINTable("DQ")
 if outputType.upper().strip() == "HTML":
     result=x.generateHTMLTable("DQ")
 
-sys.stdout.write(result)
-sys.stdout.write("\n")
-
+if outputFile == None:
+    sys.stdout.write("%s"%(result))
+else:
+    fp=file(outputFile,"w")
+    fp.writelines("%s"%(result))
+    fp.close()

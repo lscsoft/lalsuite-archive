@@ -20,7 +20,7 @@
 /*
  * ============================================================================
  *
- *                   Python Wrapper For LAL's Date Package
+ *                                  Preamble
  *
  * ============================================================================
  */
@@ -37,7 +37,7 @@
 /*
  * ============================================================================
  *
- *                              LIGOTimeGPS Type
+ *                                    Type
  *
  * ============================================================================
  */
@@ -60,8 +60,8 @@ static PyObject *pylal_ligotimegps_import(void)
 
 	name = PyString_FromString("LIGOTimeGPS");
 	pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_DECREF(name);
 	Py_INCREF(pylal_LIGOTimeGPS_Type);
+	Py_DECREF(name);
 
 	return module;
 }

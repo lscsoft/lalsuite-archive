@@ -175,6 +175,14 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.datatypes.complex16frequencyseries",
+			["src/xlal/datatypes/complex16frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.datatypes.lalunit",
 			["src/xlal/datatypes/lalunit.c"],
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
@@ -199,9 +207,25 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.datatypes.real8timeseries",
+			["src/xlal/datatypes/real8timeseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.fft",
+			["src/xlal/fft.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
@@ -267,6 +291,8 @@ setup(
 		os.path.join("bin", "makeCheckList.py"),
 		os.path.join("bin", "makeCheckListWiki.py"),
 		os.path.join("bin", "followupQueryDQ.py"),
+		os.path.join("bin", "followupQueryVeto.py"),
+		os.path.join("bin", "followupRatioTest.py"),
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),

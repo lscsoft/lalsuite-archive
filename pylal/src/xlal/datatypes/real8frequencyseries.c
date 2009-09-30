@@ -71,6 +71,19 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
+static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	PyObject *key, *value;
+	Py_ssize_t pos = 0;
+
+	if(!kwds)
+		while(PyDict_Next(kwds, &pos, &key, &value))
+			if(PyObject_SetAttr(self, key, value) < 0)
+				return -1;
+	return 0;
+}
+
+
 static void __del__(PyObject *self)
 {
 	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
@@ -100,7 +113,7 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 		return pylal_LALUnit_new(0, obj->series->sampleUnits);
 	if(!strcmp(name, "data")) {
 		npy_intp dims[] = {obj->series->data->length};
-		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, obj->series->data->data);
+		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, obj->series->data->data);
 		PyObject *copy;
 		if(!array)
 			return NULL;
@@ -166,7 +179,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 	}
 	if(!strcmp(name, "data")) {
 		int n;
-		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_FLOAT64)) {
+		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
@@ -175,7 +188,8 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 			return -1;
 		}
 		n = PyArray_DIM(value, 0);
-		obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
+		if(n != obj->series->data->length)
+			obj->series->data = XLALResizeREAL8Sequence(obj->series->data, 0, n);
 		memcpy(obj->series->data->data, PyArray_GETPTR1(value, 0), n * sizeof(*obj->series->data->data));
 		return 0;
 	}
@@ -198,7 +212,8 @@ PyTypeObject _pylal_REAL8FrequencySeries_Type = {
 	.tp_getattro = __getattro__,
 	.tp_setattro = __setattro__,
 	.tp_name = MODULE_NAME ".REAL8FrequencySeries",
-	.tp_new = __new__
+	.tp_new = __new__,
+	.tp_init = __init__
 };
 
 

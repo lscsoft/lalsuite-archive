@@ -36,7 +36,7 @@
 /*
  * ============================================================================
  *
- *                                  LALUnit
+ *                                    Type
  *
  * ============================================================================
  */
@@ -68,8 +68,8 @@ static PyObject *pylal_lalunit_import(void)
 
 	name = PyString_FromString("LALUnit");
 	pylal_LALUnit_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_DECREF(name);
 	Py_INCREF(pylal_LALUnit_Type);
+	Py_DECREF(name);
 
 	return module;
 }
