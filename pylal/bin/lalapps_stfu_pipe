@@ -360,7 +360,7 @@ mv $1/$2 $1/$2.bk.$COUNTER
 fi
 		""")
 		checkdir_script.close()
-		os.chmod(self.name + '/checkForDir.sh',0755)
+		os.chmod('checkForDir.sh',0755)
 
 
 
