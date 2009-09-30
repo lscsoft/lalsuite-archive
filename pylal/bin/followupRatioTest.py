@@ -114,13 +114,13 @@ outputType=opts.output_format
 #
 test=ratioTest()
 test.setPickleLocation(pickleFile)
-#Create ifo,snr listing
+#Create ifo,snr,time listing if the opts are not(None)
 ifoPairs=list()
-if ifo1 != None and snr1 != None:
+if not any([x==None for x in [ifo1,snr1,time1]]):
     ifoPairs.append([ifo1,snr1,time1])
-if ifo2 != None and snr2 != None:
+if not any([x==None for x in [ifo2,snr2,time2]]):
     ifoPairs.append([ifo2,snr2,time2])
-if ifo3 != None and snr3 != None:
+if not any([x==None for x in [ifo3,snr3,time3]]):
     ifoPairs.append([ifo3,snr3,time3])
 #
 rawResults=test.checkPairs(ifoPairs)

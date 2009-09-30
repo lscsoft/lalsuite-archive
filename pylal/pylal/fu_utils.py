@@ -16,9 +16,10 @@ import sys
 import os, shutil
 import urllib
 try:
-  import sqlite3 as sqlite
+  import sqlite3
 except ImportError:
-  import sqlite
+  # pre 2.5.x
+  from pysqlite2 import dbapi2 as sqlite3
 
 from subprocess import *
 import copy
@@ -64,7 +65,7 @@ from pylal.xlal import date as xlaldate
 from xml import sax
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pysqlite2 import dbapi2 as sqlite3x
+
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -609,14 +610,14 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
   dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
   #Pull in sqlite data
   try:
-    sqlDB=sqlite3x.connect(sqlFile)
+    sqlDB=sqlite3.connect(sqlFile)
     sqlDBsock=sqlDB.cursor()
     #Query the SQL Coincs table to get the gpstimes of the top N events
     liveTimeProgram="thinca"
     rawSeglists = db_thinca_rings.get_thinca_zero_lag_segments(sqlDB, program_name = liveTimeProgram)
     playground_segs = segmentsUtils.S2playground(rawSeglists.extent_all())
     sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
-    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
+    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT ? """%(triggerCap)
     gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
     #Get sngl ID from coinc_map
     coincList=list()
@@ -2228,9 +2229,6 @@ class followupDQV:
     determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
-#    MAX(segment_definer.version) as segment_definer.maxversion, \
-#    GROUP BY segment_definer.segment_def_id \
-#    segment_definer.version, \
     self.triggerTime=int(-1)
     self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
     if LDBDServerURL==None:

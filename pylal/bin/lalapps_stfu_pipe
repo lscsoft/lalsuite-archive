@@ -281,6 +281,13 @@ class FUJob(object):
 	def __init__(self):
 		pass
 
+	def __conditionalLoadDefaults__(defaults,cp):
+		if not(cp.has_section(defaults["section"])):
+			cp.add_section(defaults["section"])
+		for key, val in defaults["options"].iteritems():
+			if not cp.has_option(defaults["section"], key):
+				cp.set(defaults["section"], val)
+
 	def setupJob(self, name, tag_base=None, cp=None):
 		# Give this job a name.  Then make directories for the log files and such
 		# This name is important since these directories will be included in
@@ -292,6 +299,8 @@ class FUJob(object):
 			os.mkdir(name+'/logs')
 		if not os.path.exists(name+'/Images'):
 			os.mkdir(name+'/Images')
+		if not os.path.exists(name+'/DataProducts'):
+			os.mkdir(name+'/DataProducts')
 		# Set up the usual stuff and name the log files appropriately
 		self.tag_base = tag_base
 		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
@@ -430,6 +439,70 @@ fi
 		convert_script.close()
 		os.chmod('cacheconv.sh',0755)
 
+#The class responsible for running the data quality flag finding job
+class findFlagsJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	A job which queries the ldbd database holding segment
+	information about the DQ flags.
+	"""
+	defaults={"section":"fu-condor",
+		  "options":{"universe":"local",
+			     "dqflags":"followupQueryDQ.py"}
+		  }
+
+	def __init__(self, opts, cp, tag_base="DQFLAGS"):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(findFlagsJob.defaults,cp)
+		self.__prog__ = 'findFlagsJob'
+		self.__executable = string.strip(cp.get('fu-condor','dqflags'))
+		self.__universe = string.strip(cp.get('fu-condor','universe'))
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+
+#The class responsible for checking for know veto flags
+class findVetosJob(pipeline.CondorDAGJob,FuJob):
+	"""
+	A job instance that queries the segment database for known
+	types of active veto intervals.
+	"""
+	defaults={"section":"fu-condor",
+		  "options":{"universe":"local",
+			     "vetoflags":"followupQueryDQ.py"}
+		  }
+	def __init__(self, opts,cp, tag_base="VETOS"):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(findVetosJob,cp)
+		self.__prog__ = 'findVetosJob'
+		self.__executable = string.strip(cp.get('fu-condor','vetosflags'))
+		self.__universe = string.strip(cp.get('fu-condor','universe'))
+		pipeline.CondorDagJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+		
+#The class responsible for running one type of parameter consistency check
+class effDRatioJob(pipeline.CondorDAGjob,FuJob):
+	"""
+	A job that performs parameter consitency check for a trigger
+	being followed up.
+	"""
+	defaults={"section":"fu-condor",
+		  "options":{"universe":"local",
+			     "effDRatio":"followupRatioTest.py"}
+		  }
+	def __init__(self, opts, cp, tag_base="effDRatioTest"):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(effDRatioJob.defaults,cp)
+		self.__prog__ = 'effDRatioTest'
+		self.__executable = string.strip(cp.get('fu-condor','effDRatio'))
+		self.__universe = string.strip(cp.get('fu-condor','universe'))
+		pipeline.CondorDagJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+
 
 #############################################################################
 ###### CONDOR NODE CLASSES ##################################################
@@ -442,6 +515,13 @@ class FUNode:
 	def __init__(self):
 		pass
 
+	def __conditionalLoadDefaults__(defaults,cp):
+		if not(cp.has_section(defaults["section"])):
+			cp.add_section(defaults["section"])
+		for key, val in defaults["options"].iteritems():
+			if not cp.has_option(defaults["section"], key):
+				cp.set(defaults["section"], val)
+	
 	def setupNodeWeb(self, job, passItAlong=False, content=None, page=None,webOverride=None,cache=None):
 		self.jobName = job.name
 		if passItAlong:
@@ -600,6 +680,93 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		utils.write_filename(xmldoc, name, verbose=False, gz = True)
 		return name
+
+class findFlagsNode(pipeline.CondorDAGNode):
+	"""
+	This class is resposible for setting up a node to perform a
+	query for the DQ flag for the trigger which under review.
+	EXAMPLE
+	followupQueryDQ.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="ldbd://segdb.ligo.caltech.edu:30015" --output-file=dqResults.wiki
+	"""
+	defaults={"section":"findFlags",
+		  "options":{"window":"60,15",
+			     "segment-url":"ldbd://segdb.ligo.caltech.edu:30015",
+			     "output-format":"moinmoin",
+			     "output-file":"dqResults.wiki"}
+		  }
+	def __init__(self, dag, job, cp, opts, time):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(findFlagsNode.defaults,cp)
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_var_opt("trigger-time",time)
+		#Output filename
+		oFilename="%s_%s"%(str(int(float(time))),cp.get('findFlags','output-file'))
+		self.add_var_opt("output-file",oFilename)
+		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
+		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
+		self.add_var_opt("window",cp.get('findFlags','window'))
+
+
+class findVetosNode(pipeline.CondorDAGNode):
+	"""
+	This class is responsible for creating a node in the dag which
+	queries the segment database for veto segments active around
+	the trigger time of the candidate.
+	Command line example:
+	followupQueryVeto.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="ldbd://segdb.ligo.caltech.edu:30015" --output-file=vetoResults.wiki
+	"""
+	defaults={"section":"findVetoes",
+		  "options":{"window":"60,15",
+			     "segment-url":"ldbd://segdb.ligo.caltech.edu:30015",
+			     "output-format":"moinmoin",
+			     "output-file":"vetoResults.wiki"}
+		  }
+	def __init__(self, dag, job, cp, opts, time):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(findVetosNode.defaults,cp)
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_var_opt("trigger-time",time)
+		#Output filename
+		oFilename="%s_%s"%(str(int(float(time))),cp.get('findFlags','output-file'))
+		self.add_var_opt("output-file",oFilename)
+		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
+		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
+		self.add_var_opt("window",cp.get('findFlags','window'))
+
+class effDRatioNode(pipeline.CondorDAGNode):
+	"""
+	This Node class performs a parameter consistency check using the
+	sites claiming to detect the trigger and the observed
+	effective distance at each site. A command line example is
+	below:
+	followupRatioTest.py -R /archive/home/ctorres/public_html/DQstuff/ratioTest.pickle -iL1 -jH1 -kV1 -I10 -J10 -K5 -A 1 -B 1 -C 1.0001 -pmoinmoin -o mmTable.wiki
+	"""
+	defaults={"section":"effDRatio",
+		  "options":{"output-file":"effDRatio.wiki",
+			     "output-format":"moinmoin",
+			     "snr-ratio-test":"/archive/home/ctorres/public_html/DQstuff/ratioTest.pickle"}
+		  }
+	def __init__(self, dag, job, cp, opts,\
+		     ifo1=None,snr1=None,time1=None\
+		     ifo2=None,snr2=None,time2=None\
+		     ifo3=None,snr3=None,time3=None\
+		     ):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(effDRatioNode.defaults,cp)
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_var_opt("IFO1",ifo1)
+		self.add_var_opt("IFO2",ifo2)
+		self.add_var_opt("IFO3",ifo3)
+		self.add_var_opt("snr1",ifo1)
+		self.add_var_opt("snr2",ifo2)
+		self.add_var_opt("snr3",ifo3)
+		self.add_var_opt("time1",time1)
+		self.add_var_opt("time2",time2)
+		self.add_var_opt("time3",time3)
+		
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
