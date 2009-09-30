@@ -23,24 +23,21 @@ return a text string in MoinMoin as a table for inclusion in the
 candidate checklist.
 """
 __author__  = "Cristina Valeria Torres <cristina.torres@ligo.org>"
-__date__    = '$Date$'
-__version__ = '$Revision$'
 __prog__    = 'followupCheckParamCons.py'
 
 
 import optparse
 import sys
 import os
+from pylal import git_version
 from pylal.fu_utils import ratioTest
 
 sys.path.append('@PYTHONLIBDIR@')
 
 usage = """usage: %prog [options]"""
 
-parser = optparse.OptionParser(usage)
+parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
 #Add all options to setup the query
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
 parser.add_option("-R","--snr-ratio-test",action="store",type="string",\
                   metavar="PATH2PICKLE",default=None,
                   help="Set the location of the data (pickle) file\
@@ -95,9 +92,6 @@ parser.add_option("-o","--output-file",action="store",type="string",\
 
 (opts,args) = parser.parse_args()
 
-if opts.version:
-    print "%s %s %s %s"%(__prog__,__version__,__date__,__author__)
-    sys.exit(0)
 
 pickleFile=opts.snr_ratio_test
 ifo1=opts.ifo1
