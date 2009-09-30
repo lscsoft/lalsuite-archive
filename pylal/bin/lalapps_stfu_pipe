@@ -489,7 +489,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
 	def __init__(self, opts,cp, tag_base="VETOS"):
 		"""
 		"""
-		self.__conditionalLoadDefaults__(findVetosJob,cp)
+		self.__conditionalLoadDefaults__(findVetosJob.defaults,cp)
 		self.__prog__ = 'findVetosJob'
 		self.__executable = string.strip(cp.get('fu-condor','vetosflags'))
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
