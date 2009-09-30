@@ -148,7 +148,8 @@ setup(
 	license = "See file LICENSE",
 	packages = [
 		"pylal",
-		"pylal.xlal"
+		"pylal.xlal",
+		"pylal.xlal.datatypes"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -174,9 +175,49 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.datatypes.complex16frequencyseries",
+			["src/xlal/datatypes/complex16frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.datatypes.lalunit",
+			["src/xlal/datatypes/lalunit.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.datatypes.ligotimegps",
+			["src/xlal/datatypes/ligotimegps.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8frequencyseries",
+			["src/xlal/datatypes/real8frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.fft",
+			["src/xlal/fft.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
@@ -185,6 +226,14 @@ setup(
 			"pylal.xlal.inject",
 			["src/xlal/inject.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.xlal.noisemodels",
+			["src/xlal/noisemodels.c"],
+			include_dirs = lal_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
@@ -212,6 +261,14 @@ setup(
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
+			"pylal.spawaveform",
+			["src/spawaveform.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
 		)
 	],
 	scripts = [
@@ -224,6 +281,10 @@ setup(
 		os.path.join("bin", "galaxies_in_polygon"),
 		os.path.join("bin", "lal_query_cache"),
 		os.path.join("bin", "makeCheckList.py"),
+		os.path.join("bin", "makeCheckListWiki.py"),
+		os.path.join("bin", "followupQueryDQ.py"),
+		os.path.join("bin", "followupQueryVeto.py"),
+		os.path.join("bin", "followupRatioTest.py"),
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
@@ -238,11 +299,7 @@ setup(
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotgrbl"),
 		os.path.join("bin", "plotlalseries"),
-		os.path.join("bin", "plotsiminspiral"),
 		os.path.join("bin", "plotnumgalaxies"),
-		os.path.join("bin", "calcMassCut"),
-		os.path.join("bin", "upperlimit.py"),
-		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
 		os.path.join("bin", "plotulvsmass"), 
 		os.path.join("bin", "plotifar"),
@@ -250,7 +307,6 @@ setup(
 		os.path.join("bin", "plotinspfound"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
-		os.path.join("bin", "plotinspdiff"),
 		os.path.join("bin", "plotinspmissed"),
 		os.path.join("bin", "plotnumtemplates"),
 		os.path.join("bin", "plotinspiralrange"),
@@ -274,8 +330,6 @@ setup(
 		os.path.join("bin", "pylal_query_dq"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "plotethinca"),
-		os.path.join("bin", "plotwindow"),
-		os.path.join("bin", "plotcoincwindow"),
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
 		os.path.join("bin", "plotsnrchi"),
@@ -286,14 +340,12 @@ setup(
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "plottisi"),
 		os.path.join("bin", "query_dagman_log"),
-		os.path.join("bin", "s3_statistic"),
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
-		os.path.join("bin", "hipecoire"),
-		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_ll2cache"),
+		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_stringfinal"),
@@ -305,6 +357,7 @@ setup(
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_inspinjfind"),
+		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_sicluster"),
@@ -314,14 +367,11 @@ setup(
 		os.path.join("bin", "ligolw_veto"),
 		os.path.join("bin", "ligolw_cbc_hardware_inj_page"),
 		os.path.join("bin", "ligolw_fr_to_science"),
-		os.path.join("bin", "inspiral_likelihood"),
-		os.path.join("bin", "inspiral_likelihood_hipe"),
 		os.path.join("bin", "KW_veto_setup"),
 		os.path.join("bin", "KW_veto_calc"),
 		os.path.join("bin", "KW_veto_plots"),
 		os.path.join("bin", "KW_veto_channelPage"),
 		os.path.join("bin", "KW_veto_reportPage"),
-		os.path.join("bin", "KW_veto_qscanSetup"),
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "plotskypoints"),
 		os.path.join("bin", "upper_limit_results"),
@@ -341,7 +391,9 @@ setup(
 		os.path.join("bin", "qsub_wscanlite.sh"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
-		os.path.join("bin", "wscanlite_in2p3.sh")
+		os.path.join("bin", "wscanlite_in2p3.sh"),
+		os.path.join("bin", "minifollowups"),
+		os.path.join("bin", "ligolw_cbc_plotcumhist")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

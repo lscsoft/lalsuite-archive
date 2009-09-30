@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -229,10 +227,10 @@ class VerticalBarHistogram(BasicPlot):
     def finalize(self, num_bins=20, normed=False):
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(self.data_sets)
-        bins = numpy.linspace(min_stat, max_stat, num_bins)
+        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
 
         # determine bar width; gets silly for more than a few data sets
-        width = (1 - 0.1 * len(self.data_sets)) * max_stat / num_bins
+        width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
 
         # make plot
         legends = []
@@ -243,9 +241,10 @@ class VerticalBarHistogram(BasicPlot):
             plot_kwargs.setdefault("alpha", 0.6)
             plot_kwargs.setdefault("align", "center")
             plot_kwargs.setdefault("width", width)
-           
+
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins, normed=normed, new=False)
+            y, x = numpy.histogram(data_set, bins=bins, normed=normed, new=True)
+            x = x[:-1]
 
             # stagger bins for pure aesthetics
             x += 0.1 * i * max_stat / num_bins
@@ -354,15 +353,16 @@ class CumulativeHistogramPlot(BasicPlot):
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(\
             self.fg_data_sets + self.bg_data_sets)
-        bins = numpy.linspace(min_stat, max_stat, num_bins)
+        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
         dx = bins[1] - bins[0]
 
         # plot foreground
         for data_set, plot_kwargs in \
             itertools.izip(self.fg_data_sets, self.fg_kwarg_sets):
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins, new=False)
+            y, x = numpy.histogram(data_set, bins=bins, new=True)
             y = y[::-1].cumsum()[::-1]
+            x = x[:-1]
 
             # plot
             y = numpy.array(y, dtype=numpy.float32)

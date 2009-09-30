@@ -1,4 +1,3 @@
-#!/usr/bin/env @PYTHONPROG@
 """
 This module contains condor jobs / node classes for the followup dag
 
@@ -70,14 +69,52 @@ def checkHipeCachePath(cp):
     print >> sys.stderr, "ERROR: failure in checkHipeCachePath()"
     return None
 
+###############################################################################
+### Following two methods are to check CP objects
+### If CP object missing section a temporary default valued
+### config parser (CP) object is generated
+###############################################################################
+
+def verifyCP(cp,defaults):
+  """
+  This method takes in a cp object and give a set of defaults check to
+  make sure the section in question exists and at least the options in
+  the default are specified with some value.  It return TRUE or FALSE
+  depending if the cp object contains the sections and options
+  specified by the input DEFAULTS.
+  """
+  return cp.has_section(defaults["section"]) and \
+  all(cp.has_option(defaults["section"], opt) for opt in defaults["options"])
+  # End verifyCP
+
+def modifyCP(cp,defaults):
+  """
+  Appended the configuration information in defaults into the config
+  parser (cp) object and return a copy of this newly update cp object.
+  """
+  if not(cp.has_section(defaults["section"])):
+    cp.add_section(defaults["section"])
+  for key, val in defaults["options"].iteritems():
+    if not cp.has_option(defaults["section"], key):
+      cp.set(defaults["section"], val)
+  #End modifyCP
+
+
+###############################################################################
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
 class followUpInspJob(inspiral.InspiralJob,webTheJob):
-
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "inspiral_head":"lalapps_inspiral"
+      }
+    }
   def __init__(self,cp,type='plot'):
-
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     inspiral.InspiralJob.__init__(self,cp)
-    
     if type == 'head':
       self.set_executable(string.strip(cp.get('condor','inspiral_head')))
     self.name = 'followUpInspJob' + type
@@ -286,9 +323,18 @@ class plotSNRCHISQJob(pipeline.CondorDAGJob,webTheJob):
   """
   A followup plotting job for snr and chisq time series
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "plotsnrchisq":"plotsnrchisq_pipe"
+      }
+    }
   def __init__(self, options, cp, tag_base='PLOT_FOLLOWUP'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'plotSNRCHISQJob'
     self.__executable = string.strip(cp.get('condor','plotsnrchisq'))
     self.__universe = "vanilla"
@@ -355,9 +401,18 @@ class lalapps_skyMapJob(pipeline.CondorDAGJob,webTheJob):
   """
   Generates sky map data
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "lalapps_skymap":"lalapps_skymap"
+      }
+    }
   def __init__(self, options, cp, tag_base='SKY_MAP'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'lalapps_skyMapJob'
     self.__executable = string.strip(cp.get('condor','lalapps_skymap'))
     self.__universe = "standard"
@@ -375,9 +430,18 @@ class pylal_skyPlotJob(pipeline.CondorDAGJob,webTheJob):
   """
   Plots the sky map output of lalapps_skymap
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "pylal_skyPlotJob":"pylal_plot_inspiral_skymap"
+      }
+    }
   def __init__(self, options, cp, tag_base='SKY_PLOT'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'pylal_skyPlotJob'
     self.__executable = string.strip(cp.get('condor','pylal_skyPlotJob'))
     self.__universe = "vanilla"
@@ -509,6 +573,14 @@ class pylal_skyPlotNode(pipeline.CondorDAGNode,webTheNode):
 ###############################################################################
 
 class followupDataFindJob(pipeline.LSCDataFindJob,webTheJob):
+  defaults={
+    "section":"condor",
+    "options":
+      {
+      "universe":"vanilla",
+      "datafind":"ligo_data_find"
+      }
+    }
 
   def __init__(self, config_file, source):
 
@@ -612,9 +684,19 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
   """
   A qscan job
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "qscan":"wpipeline"
+      }
+    }
+
   def __init__(self, opts, cp, tag_base='QSCAN'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
@@ -740,9 +822,20 @@ class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
   """
   A remote qscan job
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "submit_remote_scan":"submit_remote_scan.py"
+      }
+    }
+
   def __init__(self, opts, cp, tag_base='REMOTESCAN'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
+    
     if not os.path.exists(tag_base):
        os.mkdir(tag_base)
     self.setup_executable(tag_base)
@@ -814,7 +907,19 @@ class distributeQscanJob(pipeline.CondorDAGJob, webTheJob):
   """
   A job to distribute the results of the qscans that have been run remotely (for LV search)
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "distribute_q":"distrib_fu_qscan_results.py"
+      }
+    }
+
   def __init__(self,cp):
+    """
+    """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'distributeQscanJob'
     self.__executable = string.strip(cp.get('condor','distribute_q'))
     self.__universe = "vanilla"
@@ -856,7 +961,16 @@ class analyseQscanJob(pipeline.CondorDAGJob, webTheJob):
   """
   A followup analyseQscan job to interprete the qscans
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "analyseQscan":"analyseQscan.py"
+      }
+    }
   def __init__(self,options,cp,tag_base='ANALYSE_QSCAN'):
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'analyseQscanJob'
     self.__executable = string.strip(cp.get('condor','analyseQscan'))
     self.__universe = "vanilla"
@@ -975,9 +1089,18 @@ class h1h2QeventJob(pipeline.CondorDAGJob, webTheJob):
   """
   A h1h2 qevent job
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "qscan":"wpipeline"
+      }
+    }
   def __init__(self, opts, cp):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.name = 'h1h2QeventJob'
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
@@ -1112,9 +1235,18 @@ class FrCheckJob(pipeline.CondorDAGJob, webTheJob):
   """
   A followup job for checking frames
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "frame_check":"frame_check"
+      }
+    }
   def __init__(self, options, cp, tag_base='FRCHECK'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'FrCheckJob'
     self.__executable = string.strip(cp.get('condor','frame_check'))
     self.__universe = "vanilla"
@@ -1172,7 +1304,16 @@ class IFOstatus_checkJob(pipeline.CondorDAGJob, webTheJob):
   """
   A followup job for downloading summary plots
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "IFOstatus_check":"IFOstatus_check"
+      }
+    }
   def __init__(self, options, cp, tag_base='IFOSTATUS'):
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'IFOstatus_checkJob'
     self.__executable = string.strip(cp.get('condor','IFOstatus_check'))
     self.__universe = "local"
@@ -1209,9 +1350,18 @@ class followupoddsJob(pipeline.CondorDAGJob, webTheJob):
   """
   A model selection job
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "followupodds":"lalapps_inspnest"
+      }
+    }
   def __init__(self,options,cp,tag_base='FOLLOWUPODDS'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)    
     self.__prog__='followupoddsjob'
     self.__executable=string.strip(cp.get('condor','followupodds'))
     self.__universe="standard"
@@ -1298,9 +1448,18 @@ class followupOddsPostJob(pipeline.CondorDAGJob,webTheJob):
   """
   The post-processing of odds jobs
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "oddsPostScript":"OddsPostProc.py"
+      }
+    }
   def __init__(self,options,cp,tag_base='FOLLOWUPODDSPOST'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__='followupOddsPostJob'
     self.__executable=string.strip(cp.get('condor','oddsPostScript'))
     self.__universe="vanilla"
@@ -1366,12 +1525,21 @@ class followupOddsPostNode(pipeline.CondorDAGNode,webTheNode):
 ##############################################################################
 
 class followupmcmcJob(pipeline.CondorDAGJob, webTheJob):
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "followupmcmc":"lalapps_followupMcmc"
+      }
+    }
   """
   An mcmc job
   """
   def __init__(self, options, cp, tag_base='FOLLOWUPMCMC'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followupmcmcJob'
     self.__executable = string.strip(cp.get('condor','followupmcmc'))
     self.__universe = "standard"
@@ -1509,9 +1677,18 @@ class followupspinmcmcJob(pipeline.CondorDAGJob, webTheJob):
   """
   A spinning MCMC job
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "followupspinspiral":"SPINspiral"
+      }
+    }
   def __init__(self, options, cp, tag_base='FOLLOWUPSPINMCMC'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followupspinmcmcJob'
     self.__executable = string.strip(cp.get('condor','followupspinspiral'))
     self.__universe = "standard"
@@ -1570,9 +1747,18 @@ class plotmcmcJob(pipeline.CondorDAGJob, webTheJob):
   """
   A plot mcmc job
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "plotmcmc":"plotmcmc.py"
+      }
+    }
   def __init__(self, options, cp, tag_base='PLOTMCMC'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'plotmcmcJob'
     self.__executable = string.strip(cp.get('condor','plotmcmc'))
     self.__universe = "vanilla"
@@ -1686,9 +1872,18 @@ class followUpChiaJob(inspiral.ChiaJob,webTheJob):
   """
   Generates coherent inspiral data
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "chia":"lalapps_coherent_inspiral"
+      }
+    }
   def __init__(self, options, cp, tag_base='CHIA'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followUpChiaJob'
     self.__executable = string.strip(cp.get('condor','chia'))
     self.__universe = "standard"
@@ -1727,6 +1922,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("ra-step",string.strip(cp.get('chia','ra-step')))
       self.add_var_opt("dec-step",string.strip(cp.get('chia','dec-step')))
       self.add_var_opt("numCohTrigs",string.strip(cp.get('chia','numCohTrigs')))
+      self.add_var_opt("user-tag",str(trig.eventID))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
       bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
@@ -1752,7 +1948,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       hLengthAnalyzed = 1
       self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) - int(hLengthAnalyzed) )
       self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) + int(hLengthAnalyzed) )
-      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+      skipParams = ['minimal-match', 'bank-file', 'injection-file', 'trig-start-time', 'trig-end-time']
 
       if opts.plot_chia:
         dag.addNode(self,'chia')
@@ -1791,9 +1987,18 @@ class followUpCohireJob(pipeline.CondorDAGJob,webTheJob):
   """
   A clustering job for coherent inspiral triggers
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "cohire":"lalapps_cohire"
+      }
+    }
   def __init__(self, options, cp, tag_base='COHIRE'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followUpCohireJob'
     self.__executable = string.strip(cp.get('condor','cohire'))
     self.__universe = "vanilla"
@@ -1817,9 +2022,9 @@ class followUpCohireNode(pipeline.CondorDAGNode,webTheNode):
     if 1: #try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
-      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
-      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
       self.add_var_opt("input",inputFileName)
       self.add_var_opt("data-type","all_data")
       self.add_var_opt("output",outputXmlFile)
@@ -1858,9 +2063,19 @@ class plotChiaJob(pipeline.CondorDAGJob,webTheJob):
   """
   A followup plotting job for coherent inspiral search and null stat timeseries
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "plotchiatimeseries":"plotchiatimeseries"
+      }
+    }
+
   def __init__(self, options, cp, tag_base='PLOT_CHIA'):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'plotChiaJob'
     self.__executable = string.strip(cp.get('condor','plotchiatimeseries'))
     self.__universe = "vanilla"
@@ -1883,7 +2098,7 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
       self.add_var_opt("chiaXmlFile",chiaXmlFileName)
       self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
       self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]+1))
@@ -1925,9 +2140,18 @@ class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
   """
   A job to prepare the checklist of a candidate
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "makechecklist":"makeCheckList.py"
+      }
+    }
   def __init__(self, options, cp):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'CHECKLIST'
     self.__executable = string.strip(cp.get('condor','makechecklist'))
     self.__universe = "local"
@@ -1958,7 +2182,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       gpsList += repr(trig.gpsTime[ifo]) + ","
     self.add_var_opt("trigger-gps",gpsList.strip(","))
     self.add_var_opt("ifolist-in-coinc",ifolist)
-    self.add_var_opt("user-tag",str(trig.eventID)+"_"+ifolist)
+    self.add_var_opt("user-tag",str(trig.eventID)+"_"+ifolist+"_"+str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])))
     self.add_var_opt("ifo-times",trig.ifoTag)
     self.add_var_opt("ifo-tag",trig.ifoTag)
     if cp.has_option("followup-dq","input-sql"):
@@ -1967,6 +2191,9 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("segment-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
+    if cp.has_section("followup-analyse-qscan"):
+      if cp.has_option("followup-analyse-qscan","hoft-qscan-ref-channel"):
+        self.add_var_opt("hoft-channel-ref",cp.get("followup-analyse-qscan","hoft-qscan-ref-channel"))
 
     if cp.has_option("followup-foreground-qscan","remote-ifo"):
       remote_ifo = cp.get("followup-foreground-qscan","remote-ifo")
@@ -1998,9 +2225,18 @@ class followupTriggerJob(pipeline.CondorDAGJob,webTheJob):
   """
   A job to plot the triggers in the chunk
   """
+  defaults={
+    "section":"condor",
+    "options":{
+      "universe":"vanilla",
+      "fu_triggers":"fup_triggers.py"
+      }
+    }
   def __init__(self, options, cp):
     """
     """
+    if not(verifyCP(cp,self.defaults)):
+      modifyCP(cp,self.defaults)
     self.__prog__ = 'followUpTriggers'
     self.__executable = string.strip(cp.get('condor','fu_triggers'))
     self.__universe = "vanilla"

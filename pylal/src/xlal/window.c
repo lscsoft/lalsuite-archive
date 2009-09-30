@@ -52,7 +52,7 @@
  */
 
 
-static PyTypeObject pylal_REAL8Window_Type;
+static PyTypeObject *pylal_REAL8Window_Type;
 
 
 /*
@@ -70,6 +70,7 @@ static PyTypeObject pylal_REAL8Window_Type;
 typedef struct {
 	PyObject_HEAD
 	REAL8Window *window;
+	PyObject *owner;
 } pylal_REAL8Window;
 
 
@@ -80,9 +81,13 @@ typedef struct {
 
 static void pylal_REAL8Window___del__(PyObject *self)
 {
-	pylal_REAL8Window *window = (pylal_REAL8Window *) self;
+	pylal_REAL8Window *obj = (pylal_REAL8Window *) self;
 
-	XLALDestroyREAL8Window(window->window);
+	if(obj->owner)
+		Py_DECREF(obj->owner);
+	else
+		/* we are the owner */
+		XLALDestroyREAL8Window(obj->window);
 
 	self->ob_type->tp_free(self);
 }
@@ -118,7 +123,7 @@ static PyObject *pylal_REAL8Window___getattr__(PyObject *self, char *name)
  */
 
 
-static PyTypeObject pylal_REAL8Window_Type = {
+static PyTypeObject _pylal_REAL8Window_Type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_REAL8Window),
 	.tp_dealloc = pylal_REAL8Window___del__,
@@ -139,23 +144,26 @@ static PyTypeObject pylal_REAL8Window_Type = {
  */
 
 
-static PyObject *pylal_REAL8Window_from_REAL8Window(REAL8Window *w)
+static PyObject *pylal_REAL8Window_new(REAL8Window *w, PyObject *owner)
 {
-	PyObject *new;
+	pylal_REAL8Window *obj;
 
 	if(!w)
 		/* FIXME:  map XLAL error codes to Python exceptions */
 		return PyErr_NoMemory();
 
-	new = PyType_GenericNew(&pylal_REAL8Window_Type, NULL, NULL);
-	if(!new) {
+	obj = (pylal_REAL8Window *) PyType_GenericNew(pylal_REAL8Window_Type, NULL, NULL);
+	if(!obj) {
 		XLALDestroyREAL8Window(w);
 		return NULL;
 	}
 
-	((pylal_REAL8Window *) new)->window = w;
+	obj->window = w;
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
 
-	return new;
+	return (PyObject *) obj;
 }
 
 
@@ -166,7 +174,7 @@ static PyObject *pylal_XLALCreateRectangularREAL8Window(PyObject *self, PyObject
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateRectangularREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreateRectangularREAL8Window(length), NULL);
 }
 
 
@@ -177,7 +185,7 @@ static PyObject *pylal_XLALCreateHannREAL8Window(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateHannREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreateHannREAL8Window(length), NULL);
 }
 
 
@@ -188,7 +196,7 @@ static PyObject *pylal_XLALCreateWelchREAL8Window(PyObject *self, PyObject *args
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateWelchREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreateWelchREAL8Window(length), NULL);
 }
 
 
@@ -199,7 +207,7 @@ static PyObject *pylal_XLALCreateBartlettREAL8Window(PyObject *self, PyObject *a
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateBartlettREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreateBartlettREAL8Window(length), NULL);
 }
 
 
@@ -210,7 +218,7 @@ static PyObject *pylal_XLALCreateParzenREAL8Window(PyObject *self, PyObject *arg
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateParzenREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreateParzenREAL8Window(length), NULL);
 }
 
 
@@ -221,7 +229,7 @@ static PyObject *pylal_XLALCreatePapoulisREAL8Window(PyObject *self, PyObject *a
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreatePapoulisREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreatePapoulisREAL8Window(length), NULL);
 }
 
 
@@ -232,7 +240,7 @@ static PyObject *pylal_XLALCreateHammingREAL8Window(PyObject *self, PyObject *ar
 	if(!PyArg_ParseTuple(args, "i", &length))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateHammingREAL8Window(length));
+	return pylal_REAL8Window_new(XLALCreateHammingREAL8Window(length), NULL);
 }
 
 
@@ -244,7 +252,7 @@ static PyObject *pylal_XLALCreateKaiserREAL8Window(PyObject *self, PyObject *arg
 	if(!PyArg_ParseTuple(args, "id", &length, &beta))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateKaiserREAL8Window(length, beta));
+	return pylal_REAL8Window_new(XLALCreateKaiserREAL8Window(length, beta), NULL);
 }
 
 
@@ -256,7 +264,7 @@ static PyObject *pylal_XLALCreateCreightonREAL8Window(PyObject *self, PyObject *
 	if(!PyArg_ParseTuple(args, "id", &length, &beta))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateCreightonREAL8Window(length, beta));
+	return pylal_REAL8Window_new(XLALCreateCreightonREAL8Window(length, beta), NULL);
 }
 
 
@@ -268,7 +276,7 @@ static PyObject *pylal_XLALCreateTukeyREAL8Window(PyObject *self, PyObject *args
 	if(!PyArg_ParseTuple(args, "id", &length, &beta))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateTukeyREAL8Window(length, beta));
+	return pylal_REAL8Window_new(XLALCreateTukeyREAL8Window(length, beta), NULL);
 }
 
 
@@ -280,7 +288,7 @@ static PyObject *pylal_XLALCreateGaussREAL8Window(PyObject *self, PyObject *args
 	if(!PyArg_ParseTuple(args, "id", &length, &beta))
 		return NULL;
 
-	return pylal_REAL8Window_from_REAL8Window(XLALCreateGaussREAL8Window(length, beta));
+	return pylal_REAL8Window_new(XLALCreateGaussREAL8Window(length, beta), NULL);
 }
 
 
@@ -316,8 +324,9 @@ void initwindow(void)
 	import_array();
 
 	/* REAL8Window */
-	if(PyType_Ready(&pylal_REAL8Window_Type) < 0)
+	pylal_REAL8Window_Type = &_pylal_REAL8Window_Type;
+	if(PyType_Ready(pylal_REAL8Window_Type) < 0)
 		return;
-	Py_INCREF(&pylal_REAL8Window_Type);
-	PyModule_AddObject(module, "REAL8Window", (PyObject *) &pylal_REAL8Window_Type);
+	Py_INCREF(pylal_REAL8Window_Type);
+	PyModule_AddObject(module, "REAL8Window", (PyObject *) pylal_REAL8Window_Type);
 }

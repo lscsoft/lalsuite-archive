@@ -1,6 +1,6 @@
 # $Id$
 #
-# Copyright (C) 2008  Kipp C. Cannon
+# Copyright (C) 2008  Kipp C. Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -36,9 +36,8 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
-from pylal import tools
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
 	all
 except NameError:
@@ -61,7 +60,7 @@ __date__ = "$Date$"[7:-2]
 
 
 #
-# Use C row type for coinc_event_map table
+# Use C row classes for memory and speed
 #
 
 
@@ -139,11 +138,10 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, program = None, e_thinca_parameter = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
-		(u"--program", u"lstring", program),
 		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
 	]
 	if comment is not None:
@@ -181,8 +179,14 @@ InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 
 
 
 class InspiralCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc):
+	def __init__(self, xmldoc, vetoes = None, program = u"inspiral"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
+
+		#
+		# create a string uniquifier
+		#
+
+		self.uniquifier = {}
 
 		#
 		# find the coinc_inspiral table or create one if not found
@@ -193,6 +197,14 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		except ValueError:
 			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
+
+		#
+		# extract the coalesced out segment lists from lalapps_inspiral
+		#
+
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		if vetoes is not None:
+			self.seglists -= vetoes
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, effective_snr_factor):
 		#
@@ -229,6 +241,26 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
+
+		#
+		# record the instruments that were on at the time of the
+		# coinc.  note that the start time of the coinc must be
+		# unslid to compare with the instrument segment lists
+		#
+
+		tstart = coinc_inspiral.get_end()
+		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+
+		#
+		# save memory by re-using strings
+		#
+
+		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
+		coinc_inspiral.ifos = self.uniquifier.setdefault(coinc_inspiral.ifos, coinc_inspiral.ifos)
+
+		#
+		# done
+		#
 
 		return coinc
 
@@ -309,7 +341,12 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:])
+
+	# FIXME: get these from somewhere else
+	LAL_REARTH_SI = 6.378140e6 # m
+	LAL_C_SI = 299792458 # m s^-1
+
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
 def inspiral_coinc_compare(a, b, e_thinca_parameter):
@@ -355,7 +392,6 @@ def replicate_threshold(e_thinca_parameter, instruments):
 
 def ligolw_thinca(
 	xmldoc,
-	program,
 	process_id,
 	EventListType,
 	CoincTables,
@@ -363,8 +399,8 @@ def ligolw_thinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
-	get_max_segment_gap = lambda xmldoc, thresholds: float("inf"),
 	effective_snr_factor = 250.0,
+	veto_segments = None,
 	verbose = False
 ):
 	#
@@ -373,15 +409,20 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc)
+	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
+	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
-	# processes that can participate in a coincidence
+	# processes that can participate in a coincidence.  apply vetoes by
+	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, vetoes = veto_segments)
+	if veto_segments is not None:
+		for eventlist in eventlists.values():
+			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)
 
 	#
 	# set the \Delta t parameter on all the event lists
@@ -398,49 +439,32 @@ def ligolw_thinca(
 	# pair
 	#
 
-	avail_instruments = set(eventlists.keys())
-	thresholds = replicate_threshold(thresholds, avail_instruments)
+	thresholds = replicate_threshold(thresholds, set(eventlists))
 
 	#
-	# iterate over time slides
+	# construct offset vector assembly graph
 	#
 
-	time_slides = coinc_tables.get_ordered_time_slides()
-	for n, (time_slide_id, offsetdict) in enumerate(time_slides):
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
+
+	#
+	# loop over the items in time_slide_graph.head, producing all of
+	# those n-tuple coincidences
+	#
+
+	if verbose:
+		print >>sys.stderr, "constructing coincs for target offset vectors ..."
+	for n, node in enumerate(time_slide_graph.head):
 		if verbose:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(("%s = %+.16g s" % x) for x in sorted(offsetdict.items())))
-
-		#
-		# can we do it?
-		#
-
-		offset_instruments = set(offsetdict.keys())
-		if len(offset_instruments) < 2:
-			if verbose:
-				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
-			continue
-		if not offset_instruments.issubset(avail_instruments):
-			if verbose:
-				print >>sys.stderr, "\twarning: do not have data for instrument(s) %s: skipping" % ", ".join(offset_instruments - avail_instruments)
-			continue
-
-		#
-		# apply offsets to events
-		#
-
-		if verbose:
-			print >>sys.stderr, "\tapplying time offsets ..."
-		eventlists.set_offsetdict(offsetdict)
-
-		#
-		# search for and record coincidences
-		#
-
-		if verbose:
-			print >>sys.stderr, "\tsearching ..."
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
+		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
+			ntuple = [sngl_index[id] for id in coinc]
 			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
+		for coinc in node.unused_coincs:
+			ntuple = [sngl_index[id] for id in coinc]
+			if not ntuple_comparefunc(ntuple):
+				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 
 	#
 	# remove time offsets from events

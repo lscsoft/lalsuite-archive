@@ -63,7 +63,7 @@ from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import dbtables
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
@@ -111,12 +111,13 @@ def parse_command_line():
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False, wiki=None, base=None):
 		"""
 		Compute and record some summary information about the
 		database.
 		"""
 
+		self.base = base
 		self.connection = connection
 		xmldoc = dbtables.get_xml(connection)
 
@@ -182,6 +183,18 @@ class CoincDatabase(object):
 			print >>sys.stderr, "calculating background livetimes: ",
 		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
+		# The previous line is slow, if you are debugging some
+		# other feature you could just hardcode it like this
+		#self.background_livetime = {frozenset(["H1","H2"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
+		self.livetime_by_offset = {}
+		for key in self.background_livetime.keys():
+			self.livetime_by_offset[key] = {}
+			for time,vec in zip(self.background_livetime[key], self.offset_vectors):
+				vec = vec['L1']
+				if vec in self.livetime_by_offset[key].keys():
+					self.livetime_by_offset[key][vec] += time
+				else:
+					self.livetime_by_offset[key][vec] = time
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
@@ -208,6 +221,21 @@ class CoincDatabase(object):
 				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
 					print >>sys.stderr, "\t%s: %d" % (description, n)
 
+		if wiki:
+			wiki.write("database overview:\n\n")
+			for on_instruments in self.on_instruments_combos:
+				wiki.write("||zero-lag playground livetime for %s||%f s||\n" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments]))
+				wiki.write("||zero-lag nonplayground livetime for %s||%f s||\n" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments]))
+				wiki.write("||background livetime for %s ||%f s||\n" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments])))
+			if self.sngl_inspiral_table is not None:
+				wiki.write("||inspiral events|| %d||\n" % len(self.sngl_inspiral_table))
+			if self.sim_inspiral_table is not None:
+				wiki.write("||injections|| %d||\n" % len(self.sim_inspiral_table))
+			if self.time_slide_table is not None:
+				wiki.write("||time slides|| %d||\n" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0])
+			if self.coinc_def_table is not None:
+				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+					wiki.write("||%s||%d||\n" % (description, n) )
 
 
 #
@@ -219,7 +247,9 @@ class CoincDatabase(object):
 #
 
 
-def sim_end_time(sim, instrument):
+def sim_end_time(sim, instrument
+
+):
 	return sim.get_end(instrument[0])
 
 
@@ -305,6 +335,138 @@ def create_is_playground_func(connection, playground_segs):
 #
 
 
+class SummaryTable(object):
+	def __init__(self):
+		self.playground_candidates = []
+		self.candidates = []
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table:
+			#For now we only return summary information on non injections
+			return
+		self.base = contents.base
+		self.playground_candidates += contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments,
+	(SELECT
+		group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ")
+	FROM
+		sngl_inspiral
+		JOIN coinc_event_map ON (
+			coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
+		)
+	WHERE
+		sngl_inspiral.event_id == coinc_event_map.event_id
+	)
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+WHERE
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+		AND
+			time_slide.offset != 0
+	)
+ORDER BY
+	combined_far
+LIMIT 10
+		""").fetchall()
+		self.candidates += contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments,
+	(SELECT
+		group_concat(sngl_inspiral.ifo || ":" || sngl_inspiral.snr || ":" || sngl_inspiral.chisq || ":" || sngl_inspiral.mass1 || ":" || sngl_inspiral.mass2, " ")
+	FROM
+		sngl_inspiral
+		JOIN coinc_event_map ON (
+			coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
+		)
+	WHERE
+		sngl_inspiral.event_id == coinc_event_map.event_id
+	)
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+WHERE
+	NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+	)
+ORDER BY
+	combined_far
+LIMIT 10
+                """).fetchall()
+
+		self.livetime = {}
+		self.playground_livetime = {}
+		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
+			self.livetime.setdefault(on_instruments, 0.0)
+			self.playground_livetime.setdefault(on_instruments, 0.0)
+
+		for on_instruments, livetime in contents.nonplayground_livetime.items():
+			self.livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.playground_livetime.items():
+			self.playground_livetime[on_instruments] += livetime
+
+	def write_wiki_string(self, l, f, lt):
+		f.write('''
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+|| %s || %s || %s || %s || %s || %s || %s || %s || %s || %s ||
+''' % ("Rank", "combined FAR (Hz)","FAP", "FAP (1 yr)", "effective SNR", "end_time","total mass","chirp mass", "detectors", "detector time", "", "", "", "", "", "detector", "snr", "chisq", "mass1", "mass2"))
+		for i, values in enumerate(l):
+			values=list(values)
+			dets =  frozenset(dbtables.lsctables.instrument_set_from_ifos(values[8]))
+			values[1] = 1.0 - math.exp( 0.0 - values[1] * lt[dets] ) # compute FAPS
+			values[2] = 1.0 - math.exp( 0.0 - values[2] * 31556926 ) # seconds in a year
+			f.write('|| ' + str(i) + ' || %.2e || %.3f || %.3f || %.2f || %.4f || %.2f || %.2f || %s || %s ||\n' % tuple(values[:9]))
+			for ifo in values[9].split():
+				ifo = list(ifo.split(":"))
+				for i in range(1,len(ifo)): ifo[i] = float(ifo[i])
+				f.write('|| || || || || || %s || %.2f || %.2f || %.2f || %.2f ||\n' % tuple(ifo) )
+
+	def finish(self):
+		self.playground_candidates.sort()
+		self.candidates.sort()
+		f = open(self.base+'summary_table.txt','w')
+		f.write("=== Open box loudest 10 summary table ===\n")
+		self.write_wiki_string(self.candidates[:10], f, self.livetime)
+		f.close()
+		f = open(self.base+'playground_summary_table.txt','w')
+                f.write("=== Playground loudest 10 summary table ===\n")
+		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
+		f.close()
+		yield None, None, None
+
 class InjectionParameterDistributionPlots(object):
 	def __init__(self):
 		self.injections = {}
@@ -319,7 +481,8 @@ SELECT
 FROM
 	sim_inspiral
 			"""):
-			sim = contents.sim_inspiral_table._row_from_cols(values)
+			sim = contents.sim_inspiral_table.row_from_cols(values)
+			del sim.process_id, sim.source, sim.simulation_id
 			instruments = frozenset(instrument for instrument, segments in contents.seglists.items() if sim.get_end() in segments)
 			self.injections.setdefault(sim.waveform, []).append(sim)
 
@@ -369,7 +532,8 @@ SELECT
 FROM
 	sim_inspiral
 			"""):
-				sim = contents.sim_inspiral_table._row_from_cols(values)
+				sim = contents.sim_inspiral_table.row_from_cols(values)
+				del sim.process_id, sim.source, sim.simulation_id
 				if sim.get_end() in zero_lag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
 					if participating_instruments is not None:
@@ -450,8 +614,10 @@ FROM
 		AND coinc_event_map.event_id == sngl_inspiral.event_id
 	)
 		"""):
-			sim = contents.sim_inspiral_table._row_from_cols(values)
-			sngl = contents.sngl_inspiral_table._row_from_cols(values[n_simcolumns:])
+			sim = contents.sim_inspiral_table.row_from_cols(values)
+			sngl = contents.sngl_inspiral_table.row_from_cols(values[n_simcolumns:])
+			del sim.process_id, sim.source, sim.simulation_id
+			del sngl.process_id, sngl.search, sngl.channel, sngl.event_id
 			self.sim_sngl_pairs.setdefault((sim.waveform, sngl.ifo), []).append((sim, sngl))
 
 	def finish(self):
@@ -695,8 +861,8 @@ WHERE
 	coinc_event.coinc_def_id == ?
 	AND sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
 			""", (contents.ii_definer_id,)):
-				x = contents.sngl_inspiral_table._row_from_cols(values)
-				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				x = contents.sngl_inspiral_table.row_from_cols(values)
+				y = contents.sngl_inspiral_table.row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				is_background, is_playground = values[-2:]
 				instrument_pair = (x.ifo, y.ifo)
 				if instrument_pair not in self.points:
@@ -735,8 +901,8 @@ FROM
 WHERE
 	sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
 			"""):
-				x = contents.sngl_inspiral_table._row_from_cols(values)
-				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				x = contents.sngl_inspiral_table.row_from_cols(values)
+				y = contents.sngl_inspiral_table.row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				instrument_pair = (x.ifo, y.ifo)
 				if instrument_pair not in self.points:
 					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()
@@ -832,7 +998,7 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = numpy.array(background_stats, dtype = "double")
 	N = N.compress(mask)
 	x = x.compress(mask)
-	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
+	line1, = axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
 
 	#
 	# error bands
@@ -841,9 +1007,9 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = x.repeat(2)[1:]
 	x = numpy.concatenate((x, x[::-1]))
 	N = N.repeat(2)[:-1]
-	axes.fill(x, sigma_region(N, 3.0).clip(minN, maxN), alpha=0.25, facecolor=[0.75, 0.75, 0.75])
-	axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
-	axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
+	line2, = axes.fill(x, sigma_region(N, 3.0).clip(minN, maxN), alpha=0.25, facecolor=[0.75, 0.75, 0.75])
+	line3, = axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
+	line4, = axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
 
 	#
 	# zero-lag
@@ -851,13 +1017,13 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 
 	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
 	x = numpy.array(zerolag_stats, dtype = "double")
-	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+	line5, = axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
 
 	#
 	# done
 	#
 
-	axes.legend(("Zero-lag", "Expected Background, $N$", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
+	axes.legend((line5, line1, line4, line3, line2), ("Zero-lag", "Expected Background, $N$", r"$\pm\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm 3\sqrt{N}$"), loc="lower left")
 	if n_unrankable_zerolags:
 		if n_unrankable_zerolags > 1:
 			msg = r"%d Events" % n_unrankable_zerolags
@@ -973,6 +1139,177 @@ FROM
 				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), True
 
 
+class RateVsL1Offset(object):
+	def __init__(self):
+		self.livetime_by_offset = {}
+		self.num_triggers_by_offset = {}
+		self.num_triggers_by_offset_playground = {}
+		self.playground_livetime = {}
+		self.nonplayground_livetime = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is not None:
+			# skip injection documents
+			return
+
+		#
+		# setup all the default values for the structures to hld the data
+		#
+
+		for on_instruments in set(contents.playground_livetime) | set(contents.nonplayground_livetime):
+			self.playground_livetime.setdefault(on_instruments, 0.0)
+			self.nonplayground_livetime.setdefault(on_instruments, 0.0)
+		for on_instruments, livetime in contents.playground_livetime.items():
+			self.playground_livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.nonplayground_livetime.items():
+			self.nonplayground_livetime[on_instruments] += livetime
+
+		for on_instruments in contents.livetime_by_offset.keys():
+			self.livetime_by_offset.setdefault(on_instruments, {})
+			self.num_triggers_by_offset.setdefault(on_instruments, {})
+			self.num_triggers_by_offset_playground.setdefault(on_instruments, {})
+			for offset in contents.livetime_by_offset[on_instruments].keys():
+				self.livetime_by_offset[on_instruments].setdefault(offset, 0.)
+				self.num_triggers_by_offset[on_instruments].setdefault(offset, {})
+			self.num_triggers_by_offset[on_instruments].setdefault(0.0, {})
+			self.num_triggers_by_offset_playground[on_instruments].setdefault(0.0, {})
+
+		#
+		# save the analyzed time by offset vector
+		#
+
+		for on_instruments in contents.livetime_by_offset.keys():
+			for offset, time  in contents.livetime_by_offset[on_instruments].items():
+				self.livetime_by_offset[on_instruments][offset] += time
+
+		#
+		# load the triggers from the database
+		#
+
+		for on_instruments, ifos, seconds, nanoseconds, offset in connection.cursor().execute("""
+SELECT
+	coinc_event.instruments,
+	coinc_inspiral.ifos,
+	coinc_inspiral.end_time,
+	coinc_inspiral.end_time_ns,
+	time_slide.offset
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN time_slide ON (
+		time_slide.time_slide_id == coinc_event.time_slide_id
+	)
+WHERE
+	time_slide.instrument == 'L1'
+		"""):
+			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
+			if ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
+				self.num_triggers_by_offset[on_instruments][offset][ifos] += 1
+			else:
+				self.num_triggers_by_offset[on_instruments][offset][ifos] = 1
+			if offset == 0.0 and LIGOTimeGPS(seconds, nanoseconds) in contents.playground_segs:
+				if ifos in self.num_triggers_by_offset_playground[on_instruments][offset].keys():
+					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] += 1
+				else:
+					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] = 1
+
+	def finish(self):
+		#
+		# create structures to store the figures and associated data
+		#
+
+		figs = {}
+		playground_figs = {}
+		background_time = {}
+		background_num_triggers = {}
+		for on_instruments in self.num_triggers_by_offset.keys():
+			figs[on_instruments] = {}
+			playground_figs[on_instruments] = {}
+			background_time[on_instruments] = 0
+			background_num_triggers[on_instruments] = {}
+			for offset in self.num_triggers_by_offset[on_instruments].keys():
+				if offset != 0.0:
+					#
+					# add up the background time
+					#
+
+					background_time[on_instruments] += self.livetime_by_offset[on_instruments][offset]
+				for ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
+					if ifos not in background_num_triggers[on_instruments].keys():
+						background_num_triggers[on_instruments][ifos] = 0
+					if ifos not in figs[on_instruments].keys():
+						figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
+						playground_figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
+					if offset == 0:
+						#
+						# zero-lag is special
+						#
+
+						c = 'r'
+						time = self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]
+						if time == 0:
+							rate = 0
+						else:
+							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/time
+						if self.playground_livetime[on_instruments] == 0:
+							playground_rate = 0
+						else:
+							try:
+								playground_rate = float(self.num_triggers_by_offset_playground[on_instruments][offset][ifos])/self.playground_livetime[on_instruments]
+							except KeyError:
+								playground_rate = 0
+					else:
+						#
+						# background rates
+						#
+
+						c = 'b'
+						if self.livetime_by_offset[on_instruments][offset] == 0:
+							rate = 0
+						else:
+							background_num_triggers[on_instruments][ifos] += self.num_triggers_by_offset[on_instruments][offset][ifos]
+							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/self.livetime_by_offset[on_instruments][offset]
+
+					#
+					# add rate bar to the plot
+					#
+
+					figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
+					if offset == 0.0:
+						rate = playground_rate
+					playground_figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
+
+		for on_instruments in figs.keys():
+			for ifos in figs[on_instruments].keys():
+				#
+				# add a line for the mean and the 1 sigma errors
+				#
+
+				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
+				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]))**.5
+				if self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]:
+					figs[on_instruments][ifos][1].axhline(max(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] - sigma1/(self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]), 0.), color='k', linewidth=1, linestyle='--')
+					figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] + sigma1/(self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]), color='k', linewidth=1, linestyle='--')
+
+				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
+				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * self.playground_livetime[on_instruments])**.5
+				if self.playground_livetime[on_instruments]:
+					playground_figs[on_instruments][ifos][1].axhline(max(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] - sigma1/self.playground_livetime[on_instruments], 0.), color='k', linewidth=1, linestyle='--')
+					playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] + sigma1/self.playground_livetime[on_instruments], color='k', linewidth=1, linestyle='--')
+
+				#
+				# output the plots
+				#
+
+				ifos_txt = ifos.split(',')
+				ifos_txt.sort()
+				on_instruments_txt = list(on_instruments)
+				on_instruments_txt.sort()
+				yield figs[on_instruments][ifos][0], "plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), True
+				yield playground_figs[on_instruments][ifos][0], "playground_plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), False
+
 #
 # =============================================================================
 #
@@ -997,12 +1334,14 @@ options, filenames = parse_command_line()
 
 def new_plots(plots = None):
 	l = (
+                SummaryTable(),
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
 		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
 		RateVsThreshold(),
-		InjectionParameterDistributionPlots()
+		InjectionParameterDistributionPlots(),
+		RateVsL1Offset(),
 	)
 	if plots is None:
 		plots = range(len(l))
@@ -1013,12 +1352,15 @@ if options.plot_group is None:
 	options.plot_group = range(len(plots))
 
 
+wiki = open(options.base+"plotsummary.txt","w")
+
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	wiki.write("=== %d/%d: %s ===\n\n" % (n + 1, len(filenames), filename))
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose)
+	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose, wiki=wiki, base=options.base)
 	if contents.sim_inspiral_table is not None:
 		create_sim_coinc_view(connection)
 	create_is_playground_func(connection, contents.playground_segs)
@@ -1040,8 +1382,9 @@ filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot_group
 while len(plots):
 	for fig, filename_fragment, is_open_box in plots.pop(0).finish():
 		for format in options.format:
-			filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
-			if options.verbose:
-				print >>sys.stderr, "writing %s ..." % filename
-			fig.savefig(filename)
+			if filename_fragment and fig:
+				filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
+				if options.verbose:
+					print >>sys.stderr, "writing %s ..." % filename
+				fig.savefig(filename)
 	n += 1

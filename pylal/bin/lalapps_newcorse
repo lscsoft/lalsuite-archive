@@ -29,6 +29,7 @@
 
 
 import bisect
+import numpy
 from new import instancemethod
 from optparse import OptionParser
 try:
@@ -45,7 +46,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import rate
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
@@ -73,10 +74,11 @@ def parse_command_line():
 	)
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
-	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"oninstruments\"}", help = "Select the event categorization algorithm.  Required.")
+	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"ifos-oninstruments\",\"oninstruments\",\"none\"}", help = "Select the event categorization algorithm.  Required.")
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
 	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-n","--extrapolation-num",action="store",type="int",default=0, metavar="num",help="number of time-slide points to use in FAR extrapolation" )
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -84,7 +86,7 @@ def parse_command_line():
 	# categories and ranking
 	#
 
-	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "oninstruments"):
+	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "ifos-oninstruments", "oninstruments", "none"):
 		raise ValueError, "missing or unrecognized --categories option"
 	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
 		raise ValueError, "missing or unrecognized --rank-by option"
@@ -97,6 +99,11 @@ def parse_command_line():
 		if options.rank_by == "snr":
 			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "combined_far"
+
+	if options.categories in ("none"):
+		options.false_alarm_rate_column = "combined_far"
+	else:
+		options.false_alarm_rate_column = "false_alarm_rate"
 
 	#
 	# parse mass bins
@@ -127,6 +134,61 @@ def parse_command_line():
 #
 # =============================================================================
 #
+#                               Helper Functions
+#
+# =============================================================================
+#
+
+
+def extrapolation_coeffs(rank_by, N, reputations, t):
+	#
+	# calculate the FAR extrapolation coefficients
+	#
+
+	#
+	# get just the loudest N in reputations
+	#
+
+	if len(reputations) < 2:
+		print >>sys.stderr,"Warning: found a category with less than 2 background triggers, cannot perform extrapolation for this category"
+		return (0, (0, 0))
+
+	x = reputations[-N:]
+
+	if rank_by == "snr":
+		y = range(1, len(x) + 1, 1)
+		y.reverse()
+
+		Y0 = 0.
+		X0 = 0.
+
+		for idx in range(len(x)):
+			sigmasq = y[0]**2. / y[idx]
+			Y0 += numpy.log(1. * y[idx] / y[0]) / sigmasq
+			X0 += (x[idx]**2. - x[0]**2.) / sigmasq
+
+		B = Y0 / X0
+		A = y[0] * numpy.exp(-B * x[0]**2.)
+		return (len(x), (A, B))
+
+	elif rank_by == "uncombined-ifar":
+		A = float(len(x)) * x[0] / t
+		return (len(x), (A, 0))
+
+def extrapolate_reputation(rank_by, coeffs, reputation, t):
+	#
+	# calculate the FAN from the reputation and the extrapolation coefficients
+	#
+
+	if rank_by == "snr":
+		return coeffs[0] * numpy.exp(coeffs[1] * reputation**2.)
+	if rank_by == "uncombined-ifar":
+		return coeffs[0] * t / reputation
+
+
+#
+# =============================================================================
+#
 #                                 Book-Keeping
 #
 # =============================================================================
@@ -137,13 +199,29 @@ class Summaries(object):
 	def __init__(self, category_algorithm, rank_by, mass_bins = None):
 		if category_algorithm == "mchirp-ifos-oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category[0]
 		elif category_algorithm == "mtotal-ifos-oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category[0]
+		elif category_algorithm == "ifos-oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments)
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category[0]
 		elif category_algorithm == "oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
+			self.time_func = lambda self, on_instruments: on_instruments
+			self.category_to_time = lambda self, category: category
+		elif category_algorithm == "none":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: None
+			self.time_func = lambda self, on_instruments: None
+			self.category_to_time = lambda self, category: category
 		else:
 			raise ValueError, category_algorithm
 		self.category_func = instancemethod(self.category_func, self, self.__class__)
+		self.time_func = instancemethod(self.time_func, self, self.__class__)
+		self.category_to_time = instancemethod(self.category_to_time, self, self.__class__)
 
 		if rank_by == "snr":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
@@ -155,11 +233,16 @@ class Summaries(object):
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
 			raise ValueError, rank_by
+		self.rank_by = rank_by
 		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
 
 		self.mass_bins = mass_bins
 		self.reputations = {}
 		self.cached_livetime = {}
+		self.extrapolate = False
+		self.extrapolation_coeffs = {}
+		self.categories = []
+		self.times = []
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -173,18 +256,33 @@ class Summaries(object):
 		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
-				self.cached_livetime[on_instruments] += sum(livetimes)
+				self.cached_livetime[self.time_func(on_instruments)] += sum(livetimes)
 			except KeyError:
-				self.cached_livetime[on_instruments] = sum(livetimes)
+				self.cached_livetime[self.time_func(on_instruments)] = sum(livetimes)
 		if verbose:
 			print >>sys.stderr
 
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
+		if self.category_func(on_instruments, participating_instruments, mchirp, mtotal) not in self.categories:
+			self.categories.append(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
+		if self.time_func(on_instruments) not in self.times:
+			self.times.append(self.time_func(on_instruments))
 
 	def index(self):
 		for reputations in self.reputations.values():
 			reputations.sort()
+
+	def rate_extrapolation(self, N):
+		#
+		# calculate the FAR extrapolation coefficients for the different categories
+		#
+
+		self.extrapolate = True
+		for category in self.categories:
+			t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
+			reputations = self.reputations.setdefault(category, [])
+			self.extrapolation_coeffs[category] = extrapolation_coeffs(self.rank_by, N, reputations, t)
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		#
@@ -192,7 +290,8 @@ class Summaries(object):
 		# one if there are no reputations for this category)
 		#
 
-		reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
+		reputations = self.reputations.setdefault(category, [])
 
 		#
 		# len(x) - bisect.bisect_left(x, reputation) = number of
@@ -205,7 +304,11 @@ class Summaries(object):
 		# retrieve the livetime
 		#
 
-		t = self.cached_livetime.setdefault(on_instruments, 0.0)
+		t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
+		if self.extrapolate:
+			extrapolation_coeffs = self.extrapolation_coeffs.setdefault(category, (0, (0, 0)))
+			if n < extrapolation_coeffs[0]:
+				n = extrapolate_reputation(self.rank_by, extrapolation_coeffs[1], self.reputation_func(snr, uncombined_ifar, likelihood), t)
 
 		#
 		# return the rate of events above the given reputation
@@ -300,7 +403,7 @@ SELECT
 	coinc_inspiral.mchirp,
 	coinc_inspiral.mass,
 	coinc_inspiral.snr,
-	CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
+	CASE coinc_inspiral.%s WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.%s END,
 	coinc_event.likelihood
 FROM
 	coinc_event
@@ -318,7 +421,7 @@ WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
 			AND time_slide.offset != 0
 	)
-	"""):
+	""" % (options.false_alarm_rate_column, options.false_alarm_rate_column)):
 		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood)
 
 	#
@@ -330,7 +433,10 @@ WHERE
 
 
 background.index()
-
+if options.extrapolation_num:
+	if options.verbose:
+		print >>sys.stderr, "\tcalculating FAR extrapolation coefficients ..."
+	background.rate_extrapolation(options.extrapolation_num)
 
 #
 # iterate over database files assigning false-alarm rates to coincs
@@ -371,7 +477,7 @@ SET
 				coinc_inspiral.mchirp,
 				coinc_inspiral.mass,
 				coinc_inspiral.snr,
-				CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
+				CASE coinc_inspiral.%s WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.%s END,
 				coinc_event.likelihood
 			)
 		FROM
@@ -379,7 +485,7 @@ SET
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-	""" % options.populate_column)
+	""" % (options.populate_column, options.false_alarm_rate_column, options.false_alarm_rate_column) )
 	connection.commit()
 
 	#

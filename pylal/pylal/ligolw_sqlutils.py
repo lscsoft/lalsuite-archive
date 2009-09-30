@@ -296,7 +296,9 @@ class parse_coinc_options:
             rule = rule.strip().lstrip('[').rstrip(']').upper()
 
             # get coinc_instruments, instruments_on 
-            [ coinc_instruments, instruments_on ] = rule.split(' IN ')
+            if len(rule.split('IN')) != 2:
+                raise ValueError, "Must seperate coinc. types and on-instruments by 'in'"
+            [ coinc_instruments, instruments_on ] = rule.split('IN')
             instruments_on = instruments_on.strip()
             coinc_instruments = coinc_instruments.strip()
 
@@ -510,6 +512,10 @@ class Summaries:
     uncombined fars for the background. Therefore, it only stores slide triggers;
     for any zero-lag datatype sngl_slide_stats is just an empty list.
 
+    datatypes maps the list of datatypes for an experiment to the corresponding
+    experiment_summ_ids:
+    datatypes[experiment_id][datatype] = [esid1, esid2, etc.]
+
     frg_durs stores the duration for each experiment_summ_id. It's keys are 
     [experiment_id][experimen_summ_id].
 
@@ -534,13 +540,13 @@ class Summaries:
     coinc. trigger we are considering and there will only be 3 max_bkg_fars 
     stored for that entry.
 
-    zero_lag_ids stores the esid and datatype (all_data, playground, or exclude_play)
-    of the zero-lag slide for an experiment:
-        zero_lag_ids[ experiment_id ][ datatype ] = experiment_summ_id
+    zero_lag_ids stores the esid of all zero-lag "slides" of an experiment.
+        zero_lag_ids[ experiment_id ] = [experiment_summ_id1, experiment_summ_id2, etc.]
     """
     def __init__(self):
         self.bkg_stats = {}
         self.sngl_slide_stats = {}
+        self.datatypes = {}
         self.frg_durs = {}
         self.bkg_durs = {}
         self.max_bkg_fars = {}
@@ -551,13 +557,13 @@ class Summaries:
         Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if experiment_summ_id in self.zero_lag_ids[experiment_id].values():
+        # add the categories to the bkg_stats if they don't exist yet
+        if (experiment_id, ifos, param_group) not in self.bkg_stats:
+            self.bkg_stats[(experiment_id, ifos, param_group)] = []
+        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        else:
-            if (experiment_id, ifos, param_group) not in self.bkg_stats:
-                self.bkg_stats[(experiment_id, ifos, param_group)] = []
-            if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
-                self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        # only add the stats if they are slide
+        if not ( experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id] ):
             self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
@@ -570,11 +576,32 @@ class Summaries:
         for thislist in self.sngl_slide_stats.values():
             thislist.sort()
 
-    def append_zero_lag_id(self, experiment_id, zero_lag_esid, datatype):
+    def store_datatypes(self, experiment_id, experiment_summ_id, datatype):
+        """
+        Stores the experiment_summ_id associated with each datatype.
+        """
+        if experiment_id not in self.datatypes:
+            self.datatypes[experiment_id] = {}
+        if datatype not in self.datatypes[experiment_id]:
+            self.datatypes[experiment_id][datatype] = []
+        self.datatypes[experiment_id][datatype].append(experiment_summ_id)
+
+    def get_datatype(self, experiment_summ_id):
+        """
+        Retrieve the datatype for a given experiment_summ_id.
+        """
+        for eid in self.datatypes:
+            for datatype, esid_list in self.datatypes[eid].items():
+                if experiment_summ_id in esid_list:
+                    return datatype
+
+    def append_zero_lag_id(self, experiment_id, zero_lag_esid):
         """
         Adds a zero_lag_id to the zero_lag_ids dictionary.
         """
-        self.zero_lag_ids[experiment_id] = dict({ datatype: zero_lag_esid })
+        if experiment_id not in self.zero_lag_ids:
+            self.zero_lag_ids[experiment_id] = []
+        self.zero_lag_ids[experiment_id].append(zero_lag_esid)
 
     def append_duration(self, experiment_id, experiment_summ_id, duration):
         """
@@ -590,7 +617,7 @@ class Summaries:
         """
         for eid in self.frg_durs:
             for this_esid in self.frg_durs[eid]:
-                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid].values()])
+                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid]])
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
@@ -822,6 +849,8 @@ def clean_inspiral_tables( connection, verbose = False ):
     connection.commit()
 
     # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
     for table in table_names:
         table = table[0]
         if verbose:
@@ -832,7 +861,10 @@ def clean_inspiral_tables( connection, verbose = False ):
             'WHERE event_id NOT IN (',
                 'SELECT event_id',
                 'FROM coinc_event_map )' ])
-        connection.cursor().execute( sqlquery )
+        try:
+            connection.cursor().execute( sqlquery )
+        except:
+            pass
         connection.commit()
 
     if verbose:
