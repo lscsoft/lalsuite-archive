@@ -77,7 +77,7 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	PyObject *key, *value;
 	Py_ssize_t pos = 0;
 
-	if(!kwds)
+	if(kwds)
 		while(PyDict_Next(kwds, &pos, &key, &value))
 			if(PyObject_SetAttr(self, key, value) < 0)
 				return -1;
