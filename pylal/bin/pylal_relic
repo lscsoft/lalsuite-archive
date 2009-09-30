@@ -313,7 +313,8 @@ def parse_args():
 
     # GRB 070923
     parser.add_option("--grb070923", action="store_true", default=False,
-        help="specify if this code is analyzing GRB 070923 or a 'normal' GRB.")
+        help="enable this flag for 3+ IFO analyses; mangles mchirp values " \
+        "to keep coincidence types separate")
 
     options, arguments = parser.parse_args()
 
