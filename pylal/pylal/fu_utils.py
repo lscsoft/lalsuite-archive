@@ -456,7 +456,7 @@ def getForegroundTimes(cp,opts,ifo):
 # Function to get qscan background. 
 ##############################################################################
 
-def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
+def getQscanBackgroundTimes(cp, opts, ifo, segFile):
     times = []
     fileName = ''
     segmentListLength = 0

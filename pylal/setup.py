@@ -215,6 +215,14 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.fft",
+			["src/xlal/fft.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.inject",
 			["src/xlal/inject.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
