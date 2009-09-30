@@ -71,6 +71,19 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 
+static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	PyObject *key, *value;
+	Py_ssize_t pos = 0;
+
+	if(!kwds)
+		while(PyDict_Next(kwds, &pos, &key, &value))
+			if(PyObject_SetAttr(self, key, value) < 0)
+				return -1;
+	return 0;
+}
+
+
 static void __del__(PyObject *self)
 {
 	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) self;
@@ -199,7 +212,8 @@ PyTypeObject _pylal_REAL8FrequencySeries_Type = {
 	.tp_getattro = __getattro__,
 	.tp_setattro = __setattro__,
 	.tp_name = MODULE_NAME ".REAL8FrequencySeries",
-	.tp_new = __new__
+	.tp_new = __new__,
+	.tp_init = __init__
 };
 
 

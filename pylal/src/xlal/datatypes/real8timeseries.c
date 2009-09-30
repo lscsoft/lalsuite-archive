@@ -67,7 +67,21 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		return NULL;
 	obj->series = XLALCreateREAL8TimeSeries(NULL, &zero, 0.0, 0.0, &lalDimensionlessUnit, 0);
 	obj->owner = NULL;
+
 	return (PyObject *) obj;
+}
+
+
+static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	PyObject *key, *value;
+	Py_ssize_t pos = 0;
+
+	if(!kwds)
+		while(PyDict_Next(kwds, &pos, &key, &value))
+			if(PyObject_SetAttr(self, key, value) < 0)
+				return -1;
+	return 0;
 }
 
 
@@ -199,7 +213,8 @@ PyTypeObject _pylal_REAL8TimeSeries_Type = {
 	.tp_getattro = __getattro__,
 	.tp_setattro = __setattro__,
 	.tp_name = MODULE_NAME ".REAL8TimeSeries",
-	.tp_new = __new__
+	.tp_new = __new__,
+	.tp_init = __init__
 };
 
 
