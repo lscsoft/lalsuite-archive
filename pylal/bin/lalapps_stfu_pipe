@@ -360,7 +360,7 @@ mv $1/$2 $1/$2.bk.$COUNTER
 fi
 		""")
 		checkdir_script.close()
-		os.chmod(self.name + '/checkForDir.sh',0755)
+		os.chmod('checkForDir.sh',0755)
 
 
 
@@ -493,7 +493,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
 		self.__prog__ = 'findVetosJob'
 		self.__executable = string.strip(cp.get('fu-condor','vetosflags'))
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
-		pipeline.CondorDagJob.__init__(self,self.__universe,self.__executable)
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self.setupJob(self.__prog__,tag_base)
 		
@@ -514,7 +514,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 		self.__prog__ = 'effDRatioTest'
 		self.__executable = string.strip(cp.get('fu-condor','effDRatio'))
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
-		pipeline.CondorDagJob.__init__(self,self.__universe,self.__executable)
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self.setupJob(self.__prog__,tag_base)
 
@@ -878,7 +878,7 @@ skyMapJob		= skyMapJob(options,cp)
 skyPlotJob		= skyMapPlotJob(options,cp)
 findFlagsJob            = findFlagsJob(options,cp)
 findVetosJob            = findVetosJob(options,cp)
-effDRatioJob            = effDRatioJob(option,cp)
+effDRatioJob            = effDRatioJob(options,cp)
 
 # CONDOR NODE CLASSES
 #ht_qscan_node = {}
@@ -939,9 +939,9 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 		# SETUP JOBS THAT REQUIRE COINC INFORMATION (trig if
 		# of type Coinc)
-		effDRatioNode = effDRatioNode(dag,effDRatioJob,cp,options,trig)
-		findFlagsNode = findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
-		findVetosNode = findVetosNode(dag,findVetosJob,cp,options,trig.time)
+		#effDRatioNode = effDRatioNode(dag,effDRatioJob,cp,options,trig)
+		#findFlagsNode = findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
+		#findVetosNode = findVetosNode(dag,findVetosJob,cp,options,trig.time)
 
 #### ALL FINNISH ####		
 dag.write_sub_files()
