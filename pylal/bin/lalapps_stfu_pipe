@@ -713,7 +713,7 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		utils.write_filename(xmldoc, name, verbose=False, gz = True)
 		return name
 
-class findFlagsNode(pipeline.CondorDAGNode):
+class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	This class is resposible for setting up a node to perform a
 	query for the DQ flag for the trigger which under review.
@@ -740,7 +740,7 @@ class findFlagsNode(pipeline.CondorDAGNode):
 		self.add_var_opt("window",cp.get('findFlags','window'))
 		dag.add_node(self)
 
-class findVetosNode(pipeline.CondorDAGNode):
+class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	This class is responsible for creating a node in the dag which
 	queries the segment database for veto segments active around
@@ -768,7 +768,7 @@ class findVetosNode(pipeline.CondorDAGNode):
 		self.add_var_opt("window",cp.get('findFlags','window'))
 		dag.add_node(self)
 		
-class effDRatioNode(pipeline.CondorDAGNode):
+class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	This Node class performs a parameter consistency check using the
 	sites claiming to detect the trigger and the observed
