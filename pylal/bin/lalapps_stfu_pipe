@@ -14,6 +14,7 @@ from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
@@ -570,19 +571,19 @@ The omega scan command line is
 		dag.add_node(self)
 					
 
-class htQscanDataFindNode(pipeline.LSCDataFindNode):
+class dataFindNode(pipeline.LSCDataFindNode):
     
-	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, time, ifo, qscan=False, p_nodes=[]):
 
 		self.outputFileName = ""
 		pipeline.LSCDataFindNode.__init__(self,job)
-		self.outputFileName = self.setup_fu_trig(job, cp, time, ifo)
+		if qscan: self.outputFileName = self.setup_qscan(job, cp, time, ifo)
 
 		for node in p_nodes:
 			self.add_parent(node)
 		dag.add_node(self)
 
-	def setup_fu_trig(self, job, cp, time, ifo):	
+	def setup_qscan(self, job, cp, time, ifo):	
 		# 1s is substracted to the expected startTime to make sure the window
 		# will be large enough. This is to be sure to handle the rouding to the
 		# next sample done by qscan.
@@ -650,21 +651,22 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		self.add_var_opt('cluster-window',str( tlen / 2.))
 		self.add_var_opt('disable-rsq-veto',' ')
-		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + self.inputIfo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz')
+		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
 		self.set_bank(bankFile)
 
 		self.set_user_tag( "FOLLOWUP_" + repr(sngl.time) )
 		self.__usertag = "FOLLOWUP_" + repr(sngl.time)
       
-		self.output_file_name = job.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
-		self.outputCache = self.inputIfo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + self.inputIfo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+		self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+
 		self.add_var_opt("output-path",job.outputPath)
 
 		#add parents and put node in dag
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
 
-	def write_trig_bank(sngl, name):
+	def write_trig_bank(self,sngl, name):
 		try:
 			os.mkdir('trig_bank')
 		except: pass
@@ -674,7 +676,7 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		process_params_table = lsctables.New(lsctables.ProcessParamsTable)
 		xmldoc.childNodes[-1].appendChild(process_params_table)
 
-		sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
+		sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
 		xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
 		sngl_inspiral_table.append(sngl.row)
 
@@ -888,11 +890,16 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 
 			# h(t) QSCAN datafind Nodes
-			ht_qscan_data_find_node = htQscanDataFindNode(dag, qscan_data_find_job, cp, options, sngl_inspiral.time, ifo)
+			ht_qscan_data_find_node = dataFindNode(dag, qscan_data_find_job, cp, options, sngl_inspiral.time, ifo, qscan=True)
 
 			# h(t) QSCAN Nodes
 			ht_qscan_node = htQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node])
 
+			#FIXME add inspiral datafind node
+
+			# inspiral Node FIXME add datafind as a parent
+			
+			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral)
 
 			#for p in sngl_inspiral.process_params:
 			#	print key, p.param, p.value
