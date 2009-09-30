@@ -749,8 +749,8 @@ class effDRatioNode(pipeline.CondorDAGNode):
 			     "snr-ratio-test":"/archive/home/ctorres/public_html/DQstuff/ratioTest.pickle"}
 		  }
 	def __init__(self, dag, job, cp, opts,\
-		     ifo1=None,snr1=None,time1=None\
-		     ifo2=None,snr2=None,time2=None\
+		     ifo1=None,snr1=None,time1=None,\
+		     ifo2=None,snr2=None,time2=None,\
 		     ifo3=None,snr3=None,time3=None\
 		     ):
 		"""
