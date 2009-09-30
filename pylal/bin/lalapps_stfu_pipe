@@ -462,7 +462,7 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 		self.setupJob(self.__prog__,tag_base)
 
 #The class responsible for checking for know veto flags
-class findVetosJob(pipeline.CondorDAGJob,FuJob):
+class findVetosJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	A job instance that queries the segment database for known
 	types of active veto intervals.
@@ -483,7 +483,7 @@ class findVetosJob(pipeline.CondorDAGJob,FuJob):
 		self.setupJob(self.__prog__,tag_base)
 		
 #The class responsible for running one type of parameter consistency check
-class effDRatioJob(pipeline.CondorDAGjob,FuJob):
+class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	A job that performs parameter consitency check for a trigger
 	being followed up.
@@ -702,11 +702,11 @@ class findFlagsNode(pipeline.CondorDAGNode):
 		self.add_var_opt("trigger-time",time)
 		#Output filename
 		oFilename="%s_%s"%(str(int(float(time))),cp.get('findFlags','output-file'))
-		self.add_var_opt("output-file",oFilename)
+		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		dag.add_node(self)
 
 class findVetosNode(pipeline.CondorDAGNode):
 	"""
@@ -730,11 +730,12 @@ class findVetosNode(pipeline.CondorDAGNode):
 		self.add_var_opt("trigger-time",time)
 		#Output filename
 		oFilename="%s_%s"%(str(int(float(time))),cp.get('findFlags','output-file'))
-		self.add_var_opt("output-file",oFilename)
+		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		dag.add_node(self)
+		
 class effDRatioNode(pipeline.CondorDAGNode):
 	"""
 	This Node class performs a parameter consistency check using the
@@ -748,25 +749,23 @@ class effDRatioNode(pipeline.CondorDAGNode):
 			     "output-format":"moinmoin",
 			     "snr-ratio-test":"/archive/home/ctorres/public_html/DQstuff/ratioTest.pickle"}
 		  }
-	def __init__(self, dag, job, cp, opts,\
-		     ifo1=None,snr1=None,time1=None,\
-		     ifo2=None,snr2=None,time2=None,\
-		     ifo3=None,snr3=None,time3=None\
-		     ):
+	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(effDRatioNode.defaults,cp)
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.add_var_opt("IFO1",ifo1)
-		self.add_var_opt("IFO2",ifo2)
-		self.add_var_opt("IFO3",ifo3)
-		self.add_var_opt("snr1",ifo1)
-		self.add_var_opt("snr2",ifo2)
-		self.add_var_opt("snr3",ifo3)
-		self.add_var_opt("time1",time1)
-		self.add_var_opt("time2",time2)
-		self.add_var_opt("time3",time3)
-		
+		oFilename="%s_%s"%(str("%10.3f"%(coincEvent.time)).replace(".","_"),cp.get('effDRatio','output-file'))
+		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
+		#Grab Sngl propteries from Coinc object
+		index=1
+		for snglEvent in coincEvent.sngl_inspiral:
+			myIFO=snglEvent.ifo
+			mySNR=snglEvent.snr
+			myTIME=snglEvent.time
+			self.add_var_opt("ifo%i"%(index),myIFO)
+			self.add_var_opt("snr%i"%(index),mySNR)
+			self.add_var_opt("time%i"%(index),myTIME)
+		dag.add_node(self)		
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
@@ -844,6 +843,9 @@ plot_job		= plotSNRChisqJob(options,cp)
 #cohInspJobNotrig= followUpInspJob(cp, 'notrig')
 skyMapJob		= skyMapJob(options,cp)
 skyPlotJob		= skyMapPlotJob(options,cp)
+findFlagsJob            = findFlagsJob(options,cp)
+findVetosJob            = findVetosJob(options,cp)
+effDRatioJob            = effDRatioJob(option,cp)
 
 # CONDOR NODE CLASSES
 #ht_qscan_node = {}
@@ -897,8 +899,11 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			#for p in sngl_inspiral.process_params:
 			#	print key, p.param, p.value
 
-		# SETUP JOBS THAT REQUIRE COINC INFORMATION
-
+		# SETUP JOBS THAT REQUIRE COINC INFORMATION (trig if
+		# of type Coinc)
+		effDRatioNode = effDRatioNode(dag,effDRatioJob,cp,options,trig)
+		findFlagsNode = findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
+		findVetosNode = findVetosNode(dag,findVetosJob,cp,options,trig.time)
 
 #### ALL FINNISH ####		
 dag.write_sub_files()
