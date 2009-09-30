@@ -1,9 +1,9 @@
 import DB2
-from glue import LDBDServer
+from glue import LDBDWServer
 
 def application(environ, start_response):
     try:
-        server = LDBDServer.Server()
+        server = LDBDWServer.Server()
         return server(environ, start_response)
     except Exception, e:
         print >> environ['wsgi.errors'], "%s" % e
