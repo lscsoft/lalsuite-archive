@@ -437,7 +437,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		findVetos_Node = findVetosNode(dag,findVetosJob,cp,options,trig.time)
 		#Need a wiki creation Node and Job class with the following as input
 		exportCoincToDisk(trig)
-		
+
 #### ALL FINNISH ####		
 dag.write_sub_files()
 dag.write_dag()
