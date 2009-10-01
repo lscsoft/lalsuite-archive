@@ -143,6 +143,8 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
 
         figure(figure_number)
         y_min = 0.8
+        if title_txt != '':
+            title(title_txt, size = 'x-large')
 
         # check if have stats; if not, create an empty plot
         if zero_lag_list == [] and not any(slide_dict.values()):
@@ -211,8 +213,6 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                 xlim( gca().get_xlim()[::-1] )
             xlabel(re.sub('_', ' ', ranking_stat), size = 'x-large')
             ylabel('Number of Events', size = 'x-large')
-            if title_txt != '':
-                title(title_txt, size = 'x-large')
             grid(True)
 
             
@@ -454,8 +454,8 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
                     title_lbl = r','.join(sorted(ifos))
                     frg_marker = '^'
                 else:
-                    title_lbl = ' '.join([ param_name, param_ranges[(param_name, param_group)]['range'],
-                        r','.join(sorted(ifos)) ])
+                    title_lbl = ' '.join([ r','.join(sorted(ifos)), param_name,
+                        param_ranges[(param_name, param_group)]['range'] ])
                     frg_marker = param_ranges[(param_name, param_group)]['marker']
                 title_txt = ' '.join([ on_instr, datatype.upper(), title_lbl ])
                 # remove underscores to prevent errors
