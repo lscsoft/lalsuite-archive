@@ -19,6 +19,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from pylal import db_thinca_rings
+from pylal import stfu_pipe
 from lalapps import inspiral
 
 #from pylal.fu_Condor import *
@@ -429,7 +430,7 @@ cp.read(options.config_file)
 #link_data_find(cp)
 
 # Initialize dag
-dag = followUpDAG(options.config_file,cp)
+dag = stfu_pipe.followUpDAG(options.config_file,cp)
 
 trigs = FUTriggers(num=options.number)
 
@@ -488,25 +489,25 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 
 			# h(t) QSCAN datafind Nodes
-			ht_qscan_data_find_node = htDataFindNode(dag, q_ht_data_find_job, cp, options, sngl_inspiral, ifo, qscan=True)
+			ht_qscan_data_find_node = stfu_pipe.htDataFindNode(dag, q_ht_data_find_job, cp, options, sngl_inspiral, ifo, qscan=True)
 
 			# h(t) QSCAN Nodes
-			ht_qscan_node = htQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node])
+			ht_qscan_node = stfu_pipe.htQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node])
 
 			#FIXME add inspiral datafind node
-			insp_datafind_node = htDataFindNode(dag, ht_data_find_job, cp, options, sngl_inspiral, ifo)
+			insp_datafind_node = stfu_pipe.htDataFindNode(dag, ht_data_find_job, cp, options, sngl_inspiral, ifo)
 
 			# inspiral Node FIXME add datafind as a parent			
-			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, search, p_nodes=[insp_datafind_node])
+			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, p_nodes=[insp_datafind_node])
 
 			#for p in sngl_inspiral.process_params:
 			#	print key, p.param, p.value
 
 		# SETUP JOBS THAT REQUIRE COINC INFORMATION (trig if
 		# of type Coinc)
-		#effDRatioNode = effDRatioNode(dag,effDRatioJob,cp,options,coinc)
-		#findFlagsNode = findFlagsNode(dag,findFlagsJob,cp,options,coinc.time)
-		#findVetosNode = findVetosNode(dag,findVetosJob,cp,options,coinc.time)
+		#effDRatioNode = stfu_pipe.effDRatioNode(dag,effDRatioJob,cp,options,trig)
+		#findFlagsNode = stfu_pipe.findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
+		#findVetosNode = stfu_pipe.findVetosNode(dag,findVetosJob,cp,options,trig.time)
 
 #### ALL FINNISH ####		
 dag.write_sub_files()
