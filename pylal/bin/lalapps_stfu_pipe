@@ -7,7 +7,7 @@ try:
 except ImportError:
         # pre 2.5.x
         from pysqlite2 import dbapi2 as sqlite3
-import sys, os, re, string, tempfile
+import sys, os, re, string, tempfile, copy
 import ConfigParser
 
 from glue import segments
@@ -137,6 +137,7 @@ class ProcParam(object):
 
 class Sngl(object):
 	def __init__(self, row, contents):
+		self.contents = contents
 		connection = contents.connection
         	self.ifo = row[0]
 		self.snr = float(row[1])
@@ -172,6 +173,19 @@ SELECT
 			if row.param == '--gps-end-time': 
 				return int(row.value)
 
+	def switch_ifo(self,ifo):
+		self.ifo = ifo
+		self.process_params = []
+
+		for val in connection.cursor().execute("""
+SELECT * FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN process_params AS p2 ON p1.process_id == p2.process_id JOIN search_summary ON search_summary.process_id == p2.process_id WHERE p1.param = '--gps-start-time' AND p1.value <= ? AND p2.param = '--gps-end-time' AND p2.value > ? AND search_summary.ifos = ? LIMIT 1)
+		""", (self.time, self.time, self.ifo) ):
+			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))
+
+		for row in self.process_params:
+			if row.param == '--channel-name':  
+			
+		
 
 
 class Coinc(object):
@@ -185,7 +199,9 @@ class Coinc(object):
 		self.mass = float(row[4])
 		self.mchirp = float(row[5])
 		self.ifos = row[6]
+		self.ifos_set = frozenset(dbtables.lsctables.instrument_set_from_ifos(self.ifos))
 		self.instruments = row[7]
+		self.instruments_set = frozenset(dbtables.lsctables.instrument_set_from_ifos(self.instruments))
 		for val in connection.cursor().execute("""
 SELECT
                 sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, sngl_inspiral.mass1, sngl_inspiral.mass2, sngl_inspiral.end_time + sngl_inspiral.end_time_ns * 1.0e-9, sngl_inspiral.process_id, sngl_inspiral.*
@@ -199,6 +215,24 @@ SELECT
 		""", (str(self.coinc_event_id),) ): 
 			self.sngl_inspiral.setdefault(val[0],None)
 			self.sngl_inspiral[val[0]] = Sngl(val, contents)
+
+		for i in self.instruments_set:
+			if i not in self.ifos_set:
+				self.set_ifo_to_max_ifo(
+
+		
+	def max_trigger_ifo(self):
+		snr_tuple = [(sngl.snr, sngl.ifo) for sngl in self.sngl_inspiral]
+		return max(snr_tuple)[1]
+
+	def make_sngl_from_max_ifo(self, ifo):
+		sngl = copy.deepcopy(self.sngl_inspiral[self.max_trigger_ifo()])
+		sngl.switch_ifo(ifo)
+		return sngl
+		
+
+		
+			
 
 class FUTriggers(object):
 	def __init__(self, num=10):
@@ -681,7 +715,7 @@ class htDataFindNode(pipeline.LSCDataFindNode):
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-	def __init__(self, dag, job, cp, opts, sngl, frame_cache, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, frame_cache, tag, p_nodes=[]):
 
 		tlen = 1.0
 		self.output_file_name = ""
@@ -735,8 +769,8 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
 		self.set_bank(bankFile)
 
-		self.set_user_tag( "FOLLOWUP_" + repr(sngl.time) )
-		self.__usertag = "FOLLOWUP_" + repr(sngl.time)
+		self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
+		self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
       
 		self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
 		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
@@ -983,7 +1017,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			insp_datafind_node = htDataFindNode(dag, ht_data_find_job, cp, options, sngl_inspiral, ifo)
 
 			# inspiral Node FIXME add datafind as a parent			
-			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, p_nodes=[insp_datafind_node])
+			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, search, p_nodes=[insp_datafind_node])
 
 			#for p in sngl_inspiral.process_params:
 			#	print key, p.param, p.value
