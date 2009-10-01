@@ -141,6 +141,16 @@ static PyObject *__pow__(PyObject *self, PyObject *other, PyObject *modulo)
 }
 
 
+static PyObject *__float__(PyObject *self)
+{
+	if(!XLALUnitIsDimensionless(&((pylal_LALUnit *) self)->unit)) {
+		PyErr_SetString(PyExc_ValueError, "not dimensionless");
+		return NULL;
+	}
+	return PyFloat_FromDouble(pow(10, ((pylal_LALUnit *) self)->unit.powerOfTen));
+}
+
+
 static PyObject *__invert__(PyObject *self)
 {
 	LALUnit new;
@@ -198,7 +208,8 @@ static PyNumberMethods as_number = {
 	.nb_divide = __div__,
 	.nb_power = __pow__,
 	.nb_invert = __invert__,
-	.nb_coerce = __coerce__
+	.nb_coerce = __coerce__,
+	.nb_float = __float__
 };
 
 
