@@ -166,8 +166,14 @@ def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
     instances of rate.Bins.
     """
     # read unclustered background coincs
-    offsource_trigs = table.get_table(offsource_doc,
+    tables = table.getTablesByName(offsource_doc,
         lsctables.SnglInspiralTable.tableName)
+    if len(tables) == 1:
+      offsource_trigs = tables[0]
+    elif len(tables) == 0:
+      offsource_trigs = []
+    else:
+      raise ValueError, "why are there multiple SnglInspiral tables?"
     offsource_coincs = CoincInspiralUtils.coincInspiralTable(offsource_trigs,
         coinc_stat)
 
