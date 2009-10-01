@@ -452,6 +452,9 @@ class LIGOMetadata:
         except DB2.Warning, e:
           self.curs.execute('rollback')
           raise LIGOLwDBError, e[2]
+        except Exception, e:
+          self.curs.execute('rollback')
+          raise LIGOLwDBError, e[2]
       except KeyError:
         pass
     self.curs.execute('commit')
