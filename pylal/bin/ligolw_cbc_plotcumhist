@@ -23,10 +23,12 @@ import numpy
 import itertools
 
 from glue import git_version
+from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 
 from pylal import InspiralUtils
+from pylal import CoincInspiralUtils
 from pylal import ligolw_sqlutils as sqlutils
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -140,7 +142,7 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
     rank_by, bkg_correction = 1., frg_marker = '^', frg_color = 'b', title_txt = ''):
 
         figure(figure_number)
-        y_min = 1.0
+        y_min = 0.8
 
         # check if have stats; if not, create an empty plot
         if zero_lag_list == [] and not any(slide_dict.values()):
@@ -152,8 +154,8 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
 
         else:
             # get min/max values
-            min_val = min(zero_lag_list + [val for slide_list in slide_dict.values() for val in slide_list])
-            max_val = max(zero_lag_list + [val for slide_list in slide_dict.values() for val in slide_list])
+            min_val = min( zero_lag_list + list(iterutils.flatten(slide_dict.values())) )
+            max_val = max( zero_lag_list + list(iterutils.flatten(slide_dict.values())) )
 
             # create the bins
             bins = numpy.linspace(min_val, max_val, nbins+1, endpoint = True)
@@ -203,7 +205,7 @@ def plotcumhist(figure_number, zero_lag_list, slide_dict, nbins, ranking_stat,
                 y_min=1.0/(3 * len(slide_dict.keys()))
 
             # set limits, labels, and titles
-            ylim( ymin = y_min )
+            ylim( ymin = y_min, ymax = max(gca().get_ylim()[1], 1.2) )
             # flip limits for rank-by MIN
             if rank_by == 'MIN':
                 xlim( gca().get_xlim()[::-1] )
@@ -304,6 +306,7 @@ if opts.param_name:
 else:
     param_grouping = '0'
     param_name = 'no_binning'
+    param_ranges = { (param_name,0):{} }
 
 # Get all the experiment_ids
 sqlquery = """
@@ -318,6 +321,11 @@ sqlquery = """
 for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor().execute(sqlquery):
     on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
     on_instr = r','.join(sorted(on_instruments)) + r' Time:'
+    # figure out all possible ifo combinations and param_groupings for this experiment
+    categories = [ (frozenset(ifos), param_group)
+        for ifos in CoincInspiralUtils.get_ifo_combos(list(on_instruments))
+        for param_group in range(len(param_ranges.keys())) ]
+
     if opts.verbose:
         print >> sys.stdout, "Creating plots for %s" % on_instr
         print >> sys.stdout, "\tgetting data..."
@@ -357,9 +365,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             if opts.plot_playground_only and (datatype == 'all_data' or datatype == 'exclude_play'):
                 continue
             if datatype not in zero_lag_stats:
-                zero_lag_stats[datatype] = {}
-            if (ifos, param_group) not in zero_lag_stats[datatype]:
-                zero_lag_stats[datatype][(ifos, param_group)] = []
+                zero_lag_stats[datatype] = dict( [category, []] for category in categories ) 
             zero_lag_stats[datatype][(ifos, param_group)].append(stat)
         else:
             if esid not in slide_stats:
@@ -434,50 +440,51 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             tagList.append(name)
 
         #
-        # plots by coincidence and param-bin
+        # plots by coincidence and param-bin (only do if there is more then one category)
         #
-        for (ifos, param_group), zero_lag_list in zero_lag_stats[datatype].items():
-            fig_num += 1
-            figure_numbers.append(fig_num)
-            # construct the right slide-dict
-            slide_dict = dict([ [esid, slide_stats[esid][(ifos, param_group)]] for esid in slide_stats
-                if (ifos, param_group) in slide_stats[esid] ])
-            # set marker, title
-            if param_name == 'no_binning':
-                title_lbl = r','.join(sorted(ifos))
-                frg_marker = '^'
-            else:
-                title_lbl = ' '.join([ param_name, param_ranges[(param_name, param_group)]['range'],
-                    r','.join(sorted(ifos)) ])
-                frg_marker = param_ranges[(param_name, param_group)]['marker']
-            title_txt = ' '.join([ on_instr, datatype.upper(), title_lbl ])
-            # remove underscores to prevent errors
-            title_txt = re.sub('_', '-', title_txt)
-
-            plotcumhist( fig_num, zero_lag_list, slide_dict, opts.num_bins, plot_stat_name, rank_by,
-                bkg_correction = bkg_correction, frg_marker = frg_marker,
-                frg_color = InspiralUtils.get_coinc_ifo_colors( ifos ),
-                title_txt = title_txt )
-
-            if warn_msg != '':
-                text( 0,0, warn_msg, 
-                    va = 'bottom', ha = 'left',
-                    transform = figure(fig_num).gca().transAxes() )
+        if len(categories) > 1:
+            for (ifos, param_group), zero_lag_list in zero_lag_stats[datatype].items():
+                fig_num += 1
+                figure_numbers.append(fig_num)
+                # construct the right slide-dict
+                slide_dict = dict([ [esid, slide_stats[esid][(ifos, param_group)]] for esid in slide_stats
+                    if (ifos, param_group) in slide_stats[esid] ])
+                # set marker, title
+                if param_name == 'no_binning':
+                    title_lbl = r','.join(sorted(ifos))
+                    frg_marker = '^'
+                else:
+                    title_lbl = ' '.join([ param_name, param_ranges[(param_name, param_group)]['range'],
+                        r','.join(sorted(ifos)) ])
+                    frg_marker = param_ranges[(param_name, param_group)]['marker']
+                title_txt = ' '.join([ on_instr, datatype.upper(), title_lbl ])
+                # remove underscores to prevent errors
+                title_txt = re.sub('_', '-', title_txt)
     
-            if opts.enable_output:
-                param_tag = param_name
-                if opts.param_ranges:
-                    param_tag = '_'.join([ param_tag,
-                        `int(param_parser.param_ranges[param_group][0][1])`,
-                        `int(param_parser.param_ranges[param_group][1][1])` ])
-                plot_description = '_'.join([ param_tag, ''.join(sorted(ifos)), "cumhist",
-                    plot_stat_name.replace('*', 'x').replace('/', '_div_').replace('-', '_sub_').replace('$^{2}$', '_sq') ])
-                name = InspiralUtils.set_figure_tag( plot_description, 
-                    datatype_plotted = datatype.upper(), open_box = open_box )
-                fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
-                fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-                fnameList.append(fname)
-                tagList.append(name)
+                plotcumhist( fig_num, zero_lag_list, slide_dict, opts.num_bins, plot_stat_name, rank_by,
+                    bkg_correction = bkg_correction, frg_marker = frg_marker,
+                    frg_color = InspiralUtils.get_coinc_ifo_colors( ifos ),
+                    title_txt = title_txt )
+    
+                if warn_msg != '':
+                    text( 0,0, warn_msg, 
+                        va = 'bottom', ha = 'left',
+                        transform = figure(fig_num).gca().transAxes() )
+        
+                if opts.enable_output:
+                    param_tag = param_name
+                    if opts.param_ranges:
+                        param_tag = '_'.join([ param_tag,
+                            `int(param_parser.param_ranges[param_group][0][1])`,
+                            `int(param_parser.param_ranges[param_group][1][1])` ])
+                    plot_description = '_'.join([ param_tag, ''.join(sorted(ifos)), "cumhist",
+                        plot_stat_name.replace('*', 'x').replace('/', '_div_').replace('-', '_sub_').replace('$^{2}$', '_sq') ])
+                    name = InspiralUtils.set_figure_tag( plot_description, 
+                        datatype_plotted = datatype.upper(), open_box = open_box )
+                    fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+                    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+                    fnameList.append(fname)
+                    tagList.append(name)
 
 
     #
