@@ -37,6 +37,41 @@ def mkdir(output):
 			print >> sys.stderr, 'path '+output+' is not writable'
 			sys.exit(1)
 
+###############################################################################
+##### DATA  FUNCTIONS   #######################################################
+###############################################################################
+
+def exportCoincToDisk(Coinc=None,filename=None):
+	"""
+	This method takes an input from the Coinc Class and writes
+	that object to disk as ascii.  The output file created by this
+	method is intended to serve as input to new makechecklistwiki
+	script. This method returns the base filename in order to know
+	which file was just created with the data.
+	"""
+	#If directy coincHeadings not there make the directory if
+	#filename is None
+	headingDir="./coinc_headings"
+	idKeyStr="%s_%s_%s"%(str(Coinc.coinc_event_id),
+			     str(Coinc.ifos),
+			     str(Coinc.instruments))
+	if filename==None:
+		filename="coincEvent.info"
+		mkdir(headingDir)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+filename)
+	fp=open(filename,'w')
+	rowString="%s,%s,%s,%s,%s,%s\n"
+	content=list()
+	for ifo,snglEvent in Coinc.sngl_inspiral.items():
+		content.append(rowString%(snglEvent.ifo,
+					  snglEvent.snr,
+					  snglEvent.chisq,
+					  snglEvent.mass1,
+					  snglEvent.mass2,
+					  snglEvent.time))
+	fp.writelines(content)
+	fp.close()
+	return os.path.split(filename)[1]
 
 ###############################################################################
 ##### DB SUMMARY CLASS ########################################################
@@ -535,7 +570,7 @@ class FUNode:
 			cp.add_section(defaults["section"])
 		for key, val in defaults["options"].iteritems():
 			if not cp.has_option(defaults["section"], key):
-				cp.set(defaults["section"], val)
+				cp.set(defaults["section"], key, val)
 	
 	def setupNodeWeb(self, job, passItAlong=False, content=None, page=None,webOverride=None,cache=None):
 		self.jobName = job.name
@@ -841,13 +876,14 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		#Grab Sngl propteries from Coinc object
 		index=1
-		for snglEvent in coincEvent.sngl_inspiral:
+		for ifo,snglEvent in coincEvent.sngl_inspiral.items():
 			myIFO=snglEvent.ifo
 			mySNR=snglEvent.snr
 			myTIME=snglEvent.time
 			self.add_var_opt("ifo%i"%(index),myIFO)
 			self.add_var_opt("snr%i"%(index),mySNR)
 			self.add_var_opt("time%i"%(index),myTIME)
+			index=index+1
 		dag.add_node(self)		
 
 ##############################################################################
@@ -857,7 +893,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 class followUpDAG(pipeline.CondorDAG):
 	def __init__(self, config_file, cp):
 		log_path = cp.get('fu-output','log-path').strip()
-		self.basename = re.sub(r'\.ini',r'', config_file)
+		self.basename = re.sub(r'\.ini',r'', os.path.split(config_file)[1])
 		tempfile.tempdir = log_path
 		tempfile.template = self.basename + '.dag.log.'
 		logfile = tempfile.mktemp()
@@ -985,15 +1021,13 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			# inspiral Node FIXME add datafind as a parent			
 			insp_node = followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, p_nodes=[insp_datafind_node])
 
-			#for p in sngl_inspiral.process_params:
-			#	print key, p.param, p.value
-
-		# SETUP JOBS THAT REQUIRE COINC INFORMATION (trig if
-		# of type Coinc)
-		#effDRatioNode = effDRatioNode(dag,effDRatioJob,cp,options,trig)
-		#findFlagsNode = findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
-		#findVetosNode = findVetosNode(dag,findVetosJob,cp,options,trig.time)
-
+		##SETUP JOBS THAT REQUIRE COINC INFORMATION
+		effDRatio_Node = effDRatioNode(dag,effDRatioJob,cp,options,trig)
+		findFlags_Node = findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
+		findVetos_Node = findVetosNode(dag,findVetosJob,cp,options,trig.time)
+		#Need a wiki creation Node and Job class with the following as input
+		exportCoincToDisk(trig)
+		
 #### ALL FINNISH ####		
 dag.write_sub_files()
 dag.write_dag()
