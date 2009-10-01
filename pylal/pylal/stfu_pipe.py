@@ -40,7 +40,73 @@ from lalapps import inspiral
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
+###############################################################################
+##### UTILITY FUNCTIONS #######################################################
+###############################################################################
 
+
+def mkdir(output):
+        # MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
+        if not os.access(output,os.F_OK): os.makedirs(output)
+        else:
+                if not os.access(output,os.W_OK):
+                        print >> sys.stderr, 'path '+output+' is not writable'
+                        sys.exit(1)
+
+def figure_out_type(time, ifo):
+        """
+        Run boundaries (from CBC analyses):
+        VSR1: 863557214 - 875232014
+        S5:   815155213 - 875232014
+        VSR2/S6: 931035296 - ...
+        Frame types for S5/VSR1:
+        () For RDS_R_L1 data set:
+        type    channel_name
+        RDS_R_L1     H1:LSC-DARM_ERR
+        RDS_R_L1     H2:LSC-DARM_ERR
+        RDS_R_L1     L1:LSC-DARM_ERR
+        () For hoft data:
+        type    channel_name
+        H1_RDS_C03_L2  H1:LSC-STRAIN
+        H2_RDS_C03_L2  H2:LSC-STRAIN
+        L1_RDS_C03_L2  L1:LSC-STRAIN
+        HrecV2_16384Hz      V1:h_16384Hz
+        CODE RETURNS HOFT DATA
+        """
+        L1Types=(
+                ("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
+                ("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
+                )
+        H1Types=(
+                ("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
+                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                )
+        H2Types=(
+                ("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
+                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                )
+        V1Types=(
+                ("HrecV2_16384Hz","V1:h_16384Hz",863557214,875232014),
+                ("HrecOnline","V1:h_16384Hz",931035296,999999999)
+                )
+        channelMap={
+                "L1":L1Types,
+                "H1":H1Types,
+                "H2":H2Types,
+                "V1":V1Types
+                }
+        #Use the IFO type to select the channel type
+        foundType=""
+        foundChannel=""
+        for type,channel,start,stop in channelMap[ifo]:
+                if ((start<=time) and (time<=stop)):
+                        foundType=type
+                        foundChannel=channel
+                        break
+        if foundType == "":
+                print time,ifo
+                os.abort()
+        return str(foundType), str(foundChannel)
 
 ###############################################################################
 ##### CONDOR JOB CLASSES ######################################################
@@ -366,12 +432,12 @@ class htDataFindNode(pipeline.LSCDataFindNode):
                 # 1s is substracted to the expected startTime to make sure the window
                 # will be large enough. This is to be sure to handle the rouding to the
                 # next sample done by qscan.
-                self.set_type(self.figure_out_type(time,ifo))
-                self.set_type(ifo.upper()+"_RDS_C03_L2")
-                self.q_time = 64
+                type, channel = figure_out_type(time,ifo)
+                self.set_type(type)
+                self.q_time = float(cp.get("fu-q-datafind","search-time-range"))/2.
                 self.set_observatory(ifo[0])
-                self.set_start(int( time - self.q_time - 1))
-                self.set_end(int( time + self.q_time + 1))
+                self.set_start(int( time - self.q_time - 1.))
+                self.set_end(int( time + self.q_time + 1.))
                 lalCache = self.get_output()
                 qCache = lalCache.rstrip("cache") + "qcache"
                 self.set_post_script("cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
@@ -381,72 +447,19 @@ class htDataFindNode(pipeline.LSCDataFindNode):
                 # 1s is substracted to the expected startTime to make sure the window
                 # will be large enough. This is to be sure to handle the rouding to the
                 # next sample done by qscan.
-                self.set_type(self.figure_out_type(sngl.get_gps_start_time(),ifo))
+                type, channel = figure_out_type(sngl.get_gps_start_time(),ifo)
+                self.set_type(type)
                 self.set_observatory(ifo[0])
                 self.set_start(sngl.get_gps_start_time())
                 self.set_end(sngl.get_gps_end_time())
                 lalCache = self.get_output()
                 return(lalCache)
 
-        def figure_out_type(self, time, ifo):
-                """
-                Run boundaries (from CBC analyses):
-                VSR1: 863557214 - 875232014
-                S5:   815155213 - 875232014
-                VSR2/S6: 931035296 - ...
-                Frame types for S5/VSR1:
-                () For RDS_R_L1 data set:
-                type    channel_name
-                RDS_R_L1     H1:LSC-DARM_ERR
-                RDS_R_L1     H2:LSC-DARM_ERR
-                RDS_R_L1     L1:LSC-DARM_ERR
-                () For hoft data:
-                type    channel_name
-                H1_RDS_C03_L2  H1:LSC-STRAIN
-                H2_RDS_C03_L2  H2:LSC-STRAIN
-                L1_RDS_C03_L2  L1:LSC-STRAIN
-                HrecV2_16384Hz      V1:h_16384Hz
-                CODE RETURNS HOFT DATA
-                """
-                L1Types=(
-                        ("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
-                        ("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
-                        )
-                H1Types=(
-                        ("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
-                        ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
-                        )
-                H2Types=(
-                        ("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
-                        ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
-                        )
-                V1Types=(
-                        ("HrecV2_16384Hz","V1:h_16384Hz",863557214,875232014),
-                        ("HrecOnline","V1:h_16384Hz",931035296,999999999)
-                        )
-                channelMap={
-                        "L1":L1Types,
-                        "H1":H1Types,
-                        "H2":H2Types,
-                        "V1":V1Types
-                        }
-                #Use the IFO type to select the channel type
-                foundType=""
-                foundChannel=""
-                for type,channel,start,stop in channelMap[ifo]:
-                        if ((start<=time) and (time<=stop)):
-                                foundType=type
-                                foundChannel=channel
-                if foundType == "":
-                        print time,ifo
-                        os.abort()
-                return str(type)
-
 
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-        def __init__(self, dag, job, cp, opts, sngl, frame_cache, p_nodes=[]):
+        def __init__(self, dag, job, cp, opts, sngl, frame_cache, tag, p_nodes=[]):
 
                 tlen = 1.0
                 self.output_file_name = ""
@@ -500,8 +513,8 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
                 bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
                 self.set_bank(bankFile)
 
-                self.set_user_tag( "FOLLOWUP_" + repr(sngl.time) )
-                self.__usertag = "FOLLOWUP_" + repr(sngl.time)
+                self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
+                self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
       
                 self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
                 self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
