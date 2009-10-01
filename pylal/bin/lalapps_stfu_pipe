@@ -27,18 +27,6 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
-##### UTILITY FUNCTIONS #######################################################
-###############################################################################
-
-def mkdir(output):
-	# MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
-	if not os.access(output,os.F_OK): os.makedirs(output)
-	else:
-		if not os.access(output,os.W_OK):
-			print >> sys.stderr, 'path '+output+' is not writable'
-			sys.exit(1)
-
-###############################################################################
 ##### DATA  FUNCTIONS   #######################################################
 ###############################################################################
 
@@ -58,7 +46,7 @@ def exportCoincToDisk(Coinc=None,filename=None):
 			     str(Coinc.instruments))
 	if filename==None:
 		filename="coincEvent.info"
-		mkdir(headingDir)
+		stfu_pipe.mkdir(headingDir)
 		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+filename)
 	fp=open(filename,'w')
 	rowString="%s,%s,%s,%s,%s,%s\n"
@@ -73,61 +61,6 @@ def exportCoincToDisk(Coinc=None,filename=None):
 	fp.writelines(content)
 	fp.close()
 	return os.path.split(filename)[1]
-
-def figure_out_type(time, ifo):
-	"""
-	Run boundaries (from CBC analyses):
-	VSR1: 863557214 - 875232014
-	S5:   815155213 - 875232014
-	VSR2/S6: 931035296 - ...
-	Frame types for S5/VSR1:
-	() For RDS_R_L1 data set:
-	type    channel_name
-	RDS_R_L1     H1:LSC-DARM_ERR
-	RDS_R_L1     H2:LSC-DARM_ERR
-	RDS_R_L1     L1:LSC-DARM_ERR
-	() For hoft data:
-	type    channel_name
-	H1_RDS_C03_L2  H1:LSC-STRAIN
-	H2_RDS_C03_L2  H2:LSC-STRAIN
-	L1_RDS_C03_L2  L1:LSC-STRAIN
-	HrecV2_16384Hz      V1:h_16384Hz
-	CODE RETURNS HOFT DATA
-	"""
-	L1Types=(
-		("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
-		("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
-		)
-	H1Types=(
-		("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
-		("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
-		)
-	H2Types=(
-		("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
-		("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
-		)
-	V1Types=(
-		("HrecV2_16384Hz","V1:h_16384Hz",863557214,875232014),
-		("HrecOnline","V1:h_16384Hz",931035296,999999999)
-		)
-	channelMap={
-		"L1":L1Types,
-		"H1":H1Types,
-		"H2":H2Types,
-		"V1":V1Types
-		}
-	#Use the IFO type to select the channel type
-	foundType=""
-	foundChannel=""
-	for type,channel,start,stop in channelMap[ifo]:
-		if ((start<=time) and (time<=stop)):
-			foundType=type
-			foundChannel=channel
-			break
-	if foundType == "":
-		print time,ifo
-		os.abort()
-	return str(foundType), str(foundChannel)
 
 
 ###############################################################################
@@ -278,7 +211,7 @@ SELECT program, process_id, param, type, value FROM process_params AS proc_param
 		channel = None
 		for row in self.process_params:
 			if row.param == '--channel-name':  
-				type, channel = figure_out_type(self.time,ifo)
+				type, channel = stfu_pipe.figure_out_type(self.time,ifo)
 				row.value = channel
 				break
 		if not channel: 
