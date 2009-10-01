@@ -38,6 +38,41 @@ def mkdir(output):
 			print >> sys.stderr, 'path '+output+' is not writable'
 			sys.exit(1)
 
+###############################################################################
+##### DATA  FUNCTIONS   #######################################################
+###############################################################################
+
+def exportCoincToDisk(Coinc=None,filename=None):
+	"""
+	This method takes an input from the Coinc Class and writes
+	that object to disk as ascii.  The output file created by this
+	method is intended to serve as input to new makechecklistwiki
+	script. This method returns the base filename in order to know
+	which file was just created with the data.
+	"""
+	#If directy coincHeadings not there make the directory if
+	#filename is None
+	headingDir="./coinc_headings"
+	idKeyStr="%s_%s_%s"%(str(Coinc.coinc_event_id),
+			     str(Coinc.ifos),
+			     str(Coinc.instruments))
+	if filename==None:
+		filename="coincEvent.info"
+		mkdir(headingDir)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+filename)
+	fp=open(filename,'w')
+	rowString="%s,%s,%s,%s,%s,%s\n"
+	content=list()
+	for ifo,snglEvent in Coinc.sngl_inspiral.items():
+		content.append(rowString%(snglEvent.ifo,
+					  snglEvent.snr,
+					  snglEvent.chisq,
+					  snglEvent.mass1,
+					  snglEvent.mass2,
+					  snglEvent.time))
+	fp.writelines(content)
+	fp.close()
+	return os.path.split(filename)[1]
 
 def figure_out_type(time, ifo):
 	"""
@@ -500,14 +535,12 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			# inspiral Node FIXME add datafind as a parent			
 			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, p_nodes=[insp_datafind_node])
 
-			#for p in sngl_inspiral.process_params:
-			#	print key, p.param, p.value
-
-		# SETUP JOBS THAT REQUIRE COINC INFORMATION (trig if
-		# of type Coinc)
-		#effDRatioNode = stfu_pipe.effDRatioNode(dag,effDRatioJob,cp,options,trig)
-		#findFlagsNode = stfu_pipe.findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
-		#findVetosNode = stfu_pipe.findVetosNode(dag,findVetosJob,cp,options,trig.time)
+		##SETUP JOBS THAT REQUIRE COINC INFORMATION
+		effDRatio_Node = effDRatioNode(dag,effDRatioJob,cp,options,trig)
+		findFlags_Node = findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
+		findVetos_Node = findVetosNode(dag,findVetosJob,cp,options,trig.time)
+		#Need a wiki creation Node and Job class with the following as input
+		exportCoincToDisk(trig)
 
 #### ALL FINNISH ####		
 dag.write_sub_files()
