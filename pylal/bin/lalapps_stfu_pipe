@@ -469,11 +469,11 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, search, p_nodes=[insp_datafind_node])
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
-		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
-		#findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
-		#findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
+		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
+		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
+		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
 		#Need a wiki creation Node and Job class with the following as input
-		#exportCoincToDisk(trig)
+		exportCoincToDisk(coinc)
 
 #### ALL FINNISH ####		
 dag.write_sub_files()

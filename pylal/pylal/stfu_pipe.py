@@ -359,7 +359,7 @@ class FUNode:
                         cp.add_section(defaults["section"])
                 for key, val in defaults["options"].iteritems():
                         if not cp.has_option(defaults["section"], key):
-                                cp.set(defaults["section"], val)
+                                cp.set(defaults["section"], key, val)
 
         def setupNodeWeb(self, job, passItAlong=False, content=None, page=None,webOverride=None,cache=None):
                 self.jobName = job.name
@@ -619,7 +619,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
                 self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
                 #Grab Sngl propteries from Coinc object
                 index=1
-                for snglEvent in coincEvent.sngl_inspiral:
+                for ifo,snglEvent in coincEvent.sngl_inspiral.items():
                         myIFO=snglEvent.ifo
                         mySNR=snglEvent.snr
                         myTIME=snglEvent.time
