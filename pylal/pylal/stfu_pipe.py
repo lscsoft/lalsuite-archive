@@ -449,7 +449,8 @@ The omega scan command line is
 	def fix_config_for_science_run(self, config, time):
 		run = science_run(time)
 		config_path = os.path.split(config)
-		return os.path.join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
+		out = "/".join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
+		return out
 
 class fuDataFindNode(pipeline.LSCDataFindNode):
     
