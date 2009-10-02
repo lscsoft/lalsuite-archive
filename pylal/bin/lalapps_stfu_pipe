@@ -478,6 +478,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		exportCoincToDisk(coinc)
 
 #### ALL FINNISH ####		
+default_cp.write()
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()
