@@ -670,7 +670,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 class followUpDAG(pipeline.CondorDAG):
         def __init__(self, config_file, cp):
                 log_path = cp.get('fu-output','log-path').strip()
-                self.basename = re.sub(r'\.ini',r'', config_file)
+                self.basename = re.sub(r'\.ini',r'', os.path.split(config_file)[1])
                 tempfile.tempdir = log_path
                 tempfile.template = self.basename + '.dag.log.'
                 logfile = tempfile.mktemp()
