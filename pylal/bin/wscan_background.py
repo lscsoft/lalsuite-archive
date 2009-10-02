@@ -162,18 +162,21 @@ for ifo in ifos_list:
 
     for time in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
-      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,None,qscan=True,time,'rds')
+      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=time,data_type='rds')
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,None,qscan=True,time)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_type=time)
 
       # SETUP BACKGROUND QSCAN JOBS
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dHoftNode],"ht","bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dHoftNode],type="ht",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],"rds","bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],type="rds",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],"seismic","bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],type="seismic",variety="bg")
 
-
+#### ALL FINNISH ####
+dag.write_sub_files()
+dag.write_dag()
+dag.write_script()
 
 
