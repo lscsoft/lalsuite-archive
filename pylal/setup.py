@@ -358,6 +358,7 @@ setup(
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "ligolw_binjfind"),
+		os.path.join("bin", "ligolw_summmime"),
 		os.path.join("bin", "ligolw_bucluster"),
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
