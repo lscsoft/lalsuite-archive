@@ -15,10 +15,7 @@ except ImportError:
         # pre 2.5.x
         from pysqlite2 import dbapi2 as sqlite3
 
-import sys, os, copy, math
-import math
-import socket, time
-import re, string
+import sys, os, copy, math, time, math, subprocess, socket, re, string
 from optparse import *
 import tempfile
 import ConfigParser
@@ -52,6 +49,12 @@ def mkdir(output):
                 if not os.access(output,os.W_OK):
                         print >> sys.stderr, 'path '+output+' is not writable'
                         sys.exit(1)
+
+def science_run(time):
+	if time >= 815155213 and time <= 875232014: return 's5'
+	if time >= 931035296 and time <= 999999999: return 's6'
+	print >>sys.stderr, "COULD NOT DETERMINE SCIENCE RUN from %d" % (int(time),)
+	sys.exit(1)
 
 def figure_out_type(time, ifo, data_type='hoft'):
         """
@@ -425,7 +428,8 @@ The omega scan command line is
                   self.add_var_arg('scan')
                 else:
                   self.add_var_arg('scan -r')
-                self.add_var_arg("-c " + cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() )
+		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
+                self.add_var_arg("-c " + config )
 
                 output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
 
@@ -442,6 +446,10 @@ The omega scan command line is
                     self.add_parent(node)
                   dag.add_node(self)
 
+	def fix_config_for_science_run(self, config, time):
+		run = science_run(time)
+		config_path = os.path.split(config)
+		return os.path.join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
 
 class fuDataFindNode(pipeline.LSCDataFindNode):
     
@@ -689,4 +697,133 @@ class followUpDAG(pipeline.CondorDAG):
                 pipeline.CondorDAG.add_node(self, node)
 
 
+###############################################################################
+###### CONFIG PARSER WRAPPING #################################################
+###############################################################################
+class create_default_config(object):
+	def __init__(self, config=None):
+		cp = ConfigParser.ConfigParser()
+		self.cp = cp
+		self.time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
+		home_base = self.__home_dirs()
+		
+		# CONDOR SECTION NEEDED BY THINGS IN INSPIRAL.PY
+		cp.add_section("condor")
+		cp.set("condor","datafind",self.which("ligo_data_find"))
+		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
+		cp.set("condor","universe","standard")
+
+		# FU-CONDOR SECTION
+		cp.add_section("fu-condor")
+		cp.set("fu-condor","plotsnrchisq",self.which("plotsnrchisq_pipe"))
+		cp.set("fu-condor","lalapps_skymap",self.which("lalapps_skymap"))
+		cp.set("fu-condor","pylal_skyPlotJob",self.which("pylal_plot_inspiral_skymap"))
+		cp.set("fu-condor","datafind",self.which("ligo_data_find"))
+		cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
+		cp.set("fu-condor","query_dq",self.which("pylal_query_dq"))
+		#FIXME SET THIS TO SOMETHING THAT WORKS
+		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+
+
+		# fu-q-hoft-datafind SECTION
+		cp.add_section("fu-q-hoft-datafind")
+		cp.set("fu-q-hoft-datafind","search-time-range","128")
+
+		# fu-q-rds-datafind SECTION
+		cp.add_section("fu-q-rds-datafind")
+		cp.set("fu-q-rds-datafind","search-time-range","1024")
+		
+		# fu-fg-ht-qscan SECTION
+		cp.add_section("fu-fg-ht-qscan")
+		for config in ["H1config","H2config","L1config","V1config"]:
+			cp.set("fu-fg-ht-qscan",config,self.__qscan_config("s5_foreground_" + config[:2] + "_hoft_cbc.txt"))
+
+		# FU-SKYMAP SECTION
+		cp.add_section("fu-skymap")
+		cp.set("fu-skymap","ra-res","1024")
+		cp.set("fu-skymap","dec-res","512")
+		cp.set("fu-skymap","sample-rate","4096")
+
+		# FU-OUTPUT SECTION
+		cp.add_section("fu-output")
+		cp.set("fu-output","log-path",self.log_path())
+		cp.set("fu-output","output-dir",self.web_dir())
+		cp.set("fu-output","web-url", self.web_url())
+
+		# if we have an ini file override the options
+		if config: 
+			user_cp = ConfigParser.ConfigParser()
+			user_cp.read(config)
+		else:
+			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
+			try: 
+				user_cp = ConfigParser.ConfigParser()
+				user_cp.read('stfu_pipe.ini')
+			except: pass
+		# override the default options
+		if user_cp: self.overwrite_config(user_cp)
+
+	def get_cp(self):
+		return self.cp
+
+	def __qscan_config(self,config):
+		#FIXME why isn't there an environment variable for things in lalapps share?
+		path = self.which('lalapps_inspiral')
+		if path: path = os.path.split(path)[0]
+		else: 
+			print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, path)
+			raise ValueError
+			sys.exit(1)
+		out = path.replace('bin','share/lalapps') + '/' + config
+		if not os.path.isfile(out):
+			print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, out)
+			raise ValueError
+			sys.exit(1)
+		return out
+
+	def web_dir(self):
+		host = self.__get_hostname()
+		#FIXME add more hosts as you need them
+		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
+		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/' + self.time_now
+		print sys.stderr, "WARNING: could not find web directory, returning empty string"
+		return ''
+
+	def web_url(self):
+		host = self.__get_hostname()
+		#FIXME add more hosts as you need them
+		if 'ligo.caltech.edu' in host: return "https://ldas-jobs.ligo.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
+		if 'ligo-la.caltech.edu' in host: return "https://ldas-jobs.ligo-la.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
+		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
+		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas3.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
+		print sys.stderr, "WARNING: could not find web server, returning empty string"
+		return ''
+
+	def log_path(self):
+		host = self.__get_hostname()
+		#FIXME add more hosts as you need them
+		if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
+		if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
+		if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
+
+	def __get_hostname(self):
+		host = socket.getfqdn()
+		return host
+		
+	def __home_dirs(self):
+		return os.path.split(os.environ['HOME'])[0]
+		
+	def which(self,prog):
+		which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
+		out = which.stdout.read().strip()
+		if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
+		return out
+
+	def overwrite_config(self,config):
+		for section in config.sections():
+			if not cp.has_section(section): cp.add_section(section)
+			for option in config.options(section):
+				cp.set(section,option,config.get(section,option))
 
