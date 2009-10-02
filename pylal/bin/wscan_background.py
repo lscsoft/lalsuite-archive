@@ -170,7 +170,7 @@ for ifo in ifos_list:
       dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=time,data_type='rds')
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_type=time)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=time)
 
       # SETUP BACKGROUND QSCAN JOBS
       qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dHoftNode],type="ht",variety="bg")
