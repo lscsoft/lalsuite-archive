@@ -15,9 +15,12 @@ import time
 
 from glue import pipeline
 from glue import gpstime
+from glue.ligolw import dbtables
 from pylal import fu_utils
 from pylal import date
 from pylal import stfu_pipe
+
+from pylal import xlal
 
 ##############################################################################
 # Useful methods
@@ -25,32 +28,31 @@ from pylal import stfu_pipe
 def create_default_config(home_base):
     cp = ConfigParser.ConfigParser()
 
+    cp.add_section("condor")
+    cp.set("condor","datafind","ligo_data_find")
+
     cp.add_section("fu-condor")
-    cp.set("fu-condor","datafind","ligo_data_find")
     cp.set("fu-condor","convertcache","convertlalcache.pl")
     cp.set("fu-condor","qscan",home_base+"/cbc/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
     cp.set("fu-condor","query_dq","pylal_query_dq")
 
+    cp.add_section("datafind")
+
     cp.add_section("fu-q-rds-datafind")
-#    cp.set("fu-q-datafind","H1_type","H1_RDS_R_L1")
-#    cp.set("fu-q-datafind","L1_type","L1_RDS_R_L1")
-    cp.set("fu-q-datafind","search-time-range","1024")
-    cp.set("fu-q-datafind","remote-ifo","V1")
+    cp.set("fu-q-rds-datafind","search-time-range","1024")
+    cp.set("fu-q-rds-datafind","remote-ifo","V1")
 
     cp.add_section("fu-q-hoft-datafind")
-#    cp.set("fu-q-hoft-datafind","H1_type","H1_DMT_COO_L2")
-#    cp.set("fu-q-hoft-datafind","L1_type","L1_DMT_COO_L2")
-#    cp.set("fu-q-hoft-datafind","V1_type","V1_DMT_HREC")
     cp.set("fu-q-hoft-datafind","search-time-range","128")
 
-    cp.add_section("fu-background-qscan-times")
-    cp.set("fu-background-qscan-times","H1range","")
-    cp.set("fu-background-qscan-times","L1range","")
-    cp.set("fu-background-qscan-times","V1range","")
-    cp.set("fu-background-qscan-times","segment-min-len","2048")
-    cp.set("fu-background-qscan-times","segment-pading","64")
-    cp.set("fu-background-qscan-times","random-seed","1")
-    cp.set("fu-background-qscan-times","background-statistics","20")
+    cp.add_section("followup-background-qscan-times")
+    cp.set("followup-background-qscan-times","H1range","")
+    cp.set("followup-background-qscan-times","L1range","")
+    cp.set("followup-background-qscan-times","V1range","")
+    cp.set("followup-background-qscan-times","segment-min-len","2048")
+    cp.set("followup-background-qscan-times","segment-pading","64")
+    cp.set("followup-background-qscan-times","random-seed","1")
+    cp.set("followup-background-qscan-times","background-statistics","20")
 
     cp.add_section("fu-bg-rds-qscan")
     cp.set("fu-bg-rds-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
@@ -68,7 +70,7 @@ def create_default_config(home_base):
     cp.set("fu-bg-seismic-qscan","remote-ifo","V1")
 
     cp.add_section("fu-output")
-    cp.set("log-path","/usr1/" + os.getenv("USER"))
+    cp.set("fu-output","log-path","/usr1/" + os.getenv("USER"))
 
     return cp
 
@@ -77,6 +79,7 @@ def overwrite_config(cp,config):
     if not cp.has_section(section): cp.add_section(section)
     for option in config.options(section):
       cp.set(section,option,config.get(section,option))
+  return cp
 
 def get_times():
 
@@ -154,10 +157,12 @@ qscanBgJob      = stfu_pipe.qscanJob(opts,cp,'QSCANLITE')
 
 for ifo in ifos_list:
 
-    if cp.has_option("fu-background-qscan-times",ifo+"range") and not cp.get("fu-background-qscan-times",ifo+"range"):
+    if cp.has_option("followup-background-qscan-times",ifo+"range") and not cp.get("followup-background-qscan-times",ifo+"range"):
       ifo_range = get_times()
-      cp.set("fu-background-qscan-times",ifo+"range",ifo_range)
+      cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
 
+    # FIX ME: input argument segFile is not needed any more
+    segFile = {}
     times, timeListFile = fu_utils.getQscanBackgroundTimes(cp,opts,ifo,segFile)
 
     for time in times:
