@@ -49,6 +49,7 @@ from pylal import SnglBurstUtils
 from pylal import SimBurstUtils
 from pylal.xlal import inject
 from pylal.xlal import tools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 tools.cached_detector.update({
@@ -248,7 +249,7 @@ def magnitude_a(burst):
 
 
 def magnitude_b(burst):
-	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
+	gmst = date.XLALGreenwichMeanSiderealTime(LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
 	fplus, fcross = inject.XLALComputeDetAMResponse(tools.cached_detector[burst.ifo].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 

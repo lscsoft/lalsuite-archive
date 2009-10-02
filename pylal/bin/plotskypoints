@@ -34,9 +34,9 @@ from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import date
 from pylal import googlesky
-#from pylal.xlal import date
 from pylal.xlal import tools
 from pylal.xlal import inject
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import numpy
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
@@ -46,7 +46,7 @@ from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 
 from pylal import galaxyutils
 
-lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 def annotate_plot(x,y,t):
   xlabel(x)
@@ -58,7 +58,7 @@ def compute_delta_t_rms(gps,longitude,latitude,ifo_list,ifo_coincs,detector_loca
   tgeo={}
   # compute the geocentric time from each trigger
   for ifo in ifo_list:
-    tgeo[ifo] = gps[ifo] - date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
+    tgeo[ifo] = gps[ifo] - LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
     
   # compute differences in these geocentric times
   time={}
@@ -76,12 +76,12 @@ def compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list
   tref={}
   for ifo in ifo_list:
     tFromRefFreq = signal_duration(mass1[ifo],mass2[ifo],ref_freq)
-    tref[ifo] = date.LIGOTimeGPS(int(tFromRefFreq),1.e9*(tFromRefFreq-int(tFromRefFreq)))
+    tref[ifo] = LIGOTimeGPS(int(tFromRefFreq),1.e9*(tFromRefFreq-int(tFromRefFreq)))
     
   tgeo={}
   # compute the geocentric time from each trigger
   for ifo in ifo_list:
-    tgeo[ifo] = gps[ifo] - tref[ifo] - date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
+    tgeo[ifo] = gps[ifo] - tref[ifo] - LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
 
   # compute differences in these geocentric times
   time={}

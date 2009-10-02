@@ -103,8 +103,7 @@ def LALmetadata(array_elem):
 		comment = None
 
 	time_elem = lw_elem.getElementsByTagName(ligolw.Time.tagName)
-	# FIXME:  pylal.date.LIGOTimeGPS needs to be able to handle unicode
-	# input
+	# FIXME:  LIGOTimeGPS needs to be able to handle unicode input
 	epoch = LIGOTimeGPS(str(time_elem[0].pcdata))
 
 	param_elem = lw_elem.getElementsByTagName(ligolw.Param.tagName)

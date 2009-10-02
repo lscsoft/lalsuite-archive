@@ -23,6 +23,7 @@ from pylab import *
 from pylal import viz
 from pylal import date
 from pylal import xlal
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 usage = """ %prog [options]
 """
 
@@ -75,9 +76,9 @@ if not opts.output_path:
 
 currentDir = os.path.abspath(".")
 
-gps = xlal.date.LIGOTimeGPS(opts.gps_time.split('.')[0])
-gpsplus = xlal.date.LIGOTimeGPS(str(int(opts.gps_time.split('.')[0])+86400))
-gpsminus = xlal.date.LIGOTimeGPS(str(int(opts.gps_time.split('.')[0])-86400))
+gps = LIGOTimeGPS(opts.gps_time.split('.')[0])
+gpsplus = LIGOTimeGPS(str(int(opts.gps_time.split('.')[0])+86400))
+gpsminus = LIGOTimeGPS(str(int(opts.gps_time.split('.')[0])-86400))
 
 utc = xlal.date.XLALGPSToUTC(gps)
 
