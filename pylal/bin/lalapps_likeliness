@@ -210,7 +210,7 @@ class Summaries(object):
 			try:
 				# FIXME should we be using all injections (made|found) in a particular time
 				# or all injections (made|found) in all times for the signal denominator
-				val = numpy.log(signal_reputations[min(ns,len(signal_reputations)-1)][1]) - numpy.log(self.signal_denominator[tuple(on_instruments)]) - numpy.log(fap)
+				val = numpy.log(signal_reputations[min(ns,len(signal_reputations)-1)][1]) - numpy.log(self.signal_denominator_full*sum(self.zero_lag_times.values())/self.zero_lag_times[tuple(on_instruments)]) - numpy.log(fap)
 				return val
 			except ZeroDivisionError, e:
 				print >> sys.stderr, ns, signal_reputations, self.signal_denominator[tuple(on_instruments)], fap
