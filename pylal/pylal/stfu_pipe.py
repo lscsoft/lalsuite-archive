@@ -767,6 +767,9 @@ class create_default_config(object):
 		# override the default options
 		if user_cp: self.overwrite_config(user_cp)
 
+	def write():
+		self.cp.write(self.time + ".ini")
+
 	def get_cp(self):
 		return self.cp
 
