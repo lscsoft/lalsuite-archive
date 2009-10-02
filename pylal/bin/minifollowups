@@ -93,7 +93,7 @@ opts.figure_resolution = 50
 opts.output_path = opts.output_path + '/'
 opts.suffix = '_' + opts.suffix
 opts.verbose = True
-opts.followup_time_window = 50
+opts.followup_time_window = 10
 opts.user_tag = opts.cache_string
 
 if not os.path.isdir('Images'):

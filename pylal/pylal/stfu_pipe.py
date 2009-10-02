@@ -53,7 +53,7 @@ def mkdir(output):
                         print >> sys.stderr, 'path '+output+' is not writable'
                         sys.exit(1)
 
-def figure_out_type(time, ifo):
+def figure_out_type(time, ifo, data_type='hoft'):
         """
         Run boundaries (from CBC analyses):
         VSR1: 863557214 - 875232014
@@ -71,34 +71,58 @@ def figure_out_type(time, ifo):
         H2_RDS_C03_L2  H2:LSC-STRAIN
         L1_RDS_C03_L2  L1:LSC-STRAIN
         HrecV2_16384Hz      V1:h_16384Hz
-        CODE RETURNS HOFT DATA
+        Frame types for S6/VSR2:
+        () For RDS_R_L1 data set:
+        type    channel_name
+        H1_RDS_R_L1   H1:LSC-DARM_ERR
+        L1_RDS_R_L1   L1:LSC-DARM_ERR
+        () For hoft data:
+        H1_LDAS_C00_L2  H1:LDAS-STRAIN
+        L1_LDAS_C00_L2  L1:LDAS-STRAIN
+        HrecOnline      V1:h_16384Hz
         """
-        L1Types=(
+        L1HoftTypes=(
                 ("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
-                ("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
+                ("L1_LDAS_C00_L2","L1:LDAS-STRAIN",931035296,999999999)
                 )
-        H1Types=(
+        H1HoftTypes=(
                 ("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
-                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                ("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,999999999)
                 )
-        H2Types=(
+        H2HoftTypes=(
                 ("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
-                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                ("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,999999999)
                 )
-        V1Types=(
+        V1HoftTypes=(
                 ("HrecV2_16384Hz","V1:h_16384Hz",863557214,875232014),
                 ("HrecOnline","V1:h_16384Hz",931035296,999999999)
                 )
+        L1RdsTypes=(
+                ("RDS_R_L1","L1:LSC-DARM_ERR",815155213,875232014),
+                ("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
+                )
+        H1RdsTypes=(
+                ("RDS_R_L1","H1:LSC-DARM_ERR",815155213,875232014),
+                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                )
+        H2RdsTypes=(
+                ("RDS_R_L1","H2:LSC-DARM_ERR",815155213,875232014),
+                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                )
+        V1RdsTypes=(
+                ("","",863557214,875232014),
+                ("","",931035296,999999999)
+                )
         channelMap={
-                "L1":L1Types,
-                "H1":H1Types,
-                "H2":H2Types,
-                "V1":V1Types
+                "L1":{"hoft":L1HoftTypes,"rds":L1RdsTypes},
+                "H1":{"hoft":H1HoftTypes,"rds":H1RdsTypes},
+                "H2":{"hoft":H2HoftTypes,"rds":H2RdsTypes},
+                "V1":{"hoft":V1HoftTypes,"rds":V1RdsTypes}
                 }
         #Use the IFO type to select the channel type
         foundType=""
         foundChannel=""
-        for type,channel,start,stop in channelMap[ifo]:
+        for type,channel,start,stop in channelMap[ifo][data_type]:
                 if ((start<=time) and (time<=stop)):
                         foundType=type
                         foundChannel=channel
@@ -127,25 +151,27 @@ class FUJob(object):
                         if not cp.has_option(defaults["section"], key):
                                 cp.set(defaults["section"], key, val)
 
-        def setupJob(self, name, tag_base=None, cp=None):
+        def setupJob(self, name, dir= '', tag_base=None, cp=None):
                 # Give this job a name.  Then make directories for the log files and such
                 # This name is important since these directories will be included in
                 # the web tree.
+		mkdir(dir)
                 self.name = name
-                if not os.path.exists(name):
-                        os.mkdir(name)
-                if not os.path.exists(name+'/logs'):
-                        os.mkdir(name+'/logs')
-                if not os.path.exists(name+'/Images'):
-                        os.mkdir(name+'/Images')
-                if not os.path.exists(name+'/DataProducts'):
-                        os.mkdir(name+'/DataProducts')
+		self.relPath = dir + '/' + name
+		self.outputPath = os.getcwd() + '/' + self.relPath + '/'
+		#path = name + '/' + dir
+                if not os.path.exists(self.relPath):
+                        os.mkdir(self.relPath)
+                if not os.path.exists(self.relPath+'/logs'):
+                        os.mkdir(self.relPath+'/logs')
+                if not os.path.exists(self.relPath+'/Images'):
+                        os.mkdir(self.relPath+'/Images')
+                if not os.path.exists(self.relPath+'/DataProducts'):
+                        os.mkdir(self.relPath+'/DataProducts')
                 # Set up the usual stuff and name the log files appropriately
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(name+'.sub')
-                self.relPath = name + '/'
-                self.outputPath = os.getcwd() + '/' + name + '/'
                 self.set_stdout_file(self.outputPath+'/logs/'+name+'-$(macroid).out')
                 self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
                 if cp:
@@ -158,14 +184,17 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
         """
         A qscan job
         """
-        def __init__(self, opts, cp, tag_base='QSCAN'):
+        def __init__(self, opts, cp, dir='', tag_base='QSCAN'):
                 """
                 """
                 self.__executable = string.strip(cp.get('fu-condor','qscan'))
                 self.__universe = "vanilla"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-                self.setupJob(tag_base,None,cp)
+                self.setupJob(tag_base,dir=dir,cp=cp,tag_base=tag_base)
                 self.setup_checkForDir()
+
+	def is_dax(self):
+		return False
 
         def setup_checkForDir(self):
                 # create a shell script to check for the existence of the qscan output directory and rename it if needed
@@ -191,21 +220,21 @@ fi
 # A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
 class followUpInspJob(inspiral.InspiralJob,FUJob):
 
-        def __init__(self,cp,type='plot'):
+        def __init__(self,cp,dir='',type='plot'):
 
                 inspiral.InspiralJob.__init__(self,cp)
 
                 if type == 'head':
                         self.set_executable(string.strip(cp.get('fu-condor','inspiral_head')))
                 self.name = 'followUpInspJob' + type
-                self.setupJob(self.name)
+                self.setupJob(self.name, dir=dir, cp=cp)
 
 # JOB CLASS FOR PRODUCING A SKYMAP
 class skyMapJob(pipeline.CondorDAGJob,FUJob):
         """
         Generates sky map data
         """
-        def __init__(self, options, cp, ra_res=1024, dec_res=512, sample_rate=4096, tag_base='SKY_MAP'):
+        def __init__(self, options, cp, dir='', tag_base='SKY_MAP'):
                 """
                 """
                 self.__prog__ = 'lalapps_skyMapJob'
@@ -213,17 +242,18 @@ class skyMapJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = "standard"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
-                self.ra_res = ra_res
-                self.dec_res = dec_res
-                self.sample_rate = sample_rate
+                self.setupJob(self.__prog__,dir=dir, tag_base=tag_base)
 
+		self.ra_res = cp.get("fu-skymap", 'ra-res')
+		self.dec_res = cp.get("fu-skymap", 'dec-res')
+		self.sample_rate = cp.get("fu-skymap", 'sample-rate')
+		
 # JOB CLASS FOR PRODUCING SKYMAP PLOT
 class skyMapPlotJob(pipeline.CondorDAGJob,FUJob):
         """
         Plots the sky map output of lalapps_skymap
         """
-        def __init__(self, options, cp, ra_res=1024, dec_res=512, sample_rate=4096, tag_base='SKY_PLOT'):
+        def __init__(self, options, cp, dir='',tag_base='SKY_PLOT'):
                 """
                 """
                 self.__prog__ = 'pylal_skyPlotJob'
@@ -231,17 +261,18 @@ class skyMapPlotJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = "vanilla"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
-                self.ra_res = ra_res
-                self.dec_res = dec_res
-                self.sample_rate = sample_rate
+                self.setupJob(self.__prog__,dir=dir,tag_base=tag_base)
+
+		self.ra_res = cp.get("fu-skymap", 'ra-res')
+		self.dec_res = cp.get("fu-skymap", 'dec-res')
+		self.sample_rate = cp.get("fu-skymap", 'sample-rate')
 
 # JOB CLASS FOR PLOTTING SNR AND CHISQ
 class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
         """
         A followup plotting job for snr and chisq time series
         """
-        def __init__(self, options, cp, tag_base='PLOT_FOLLOWUP'):
+        def __init__(self, options, cp, dir='', tag_base='PLOT_FOLLOWUP'):
                 """
                 """
                 self.__prog__ = 'plotSNRCHISQJob'
@@ -249,10 +280,10 @@ class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = "vanilla"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base,dir=dir)
 
 class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
-        def __init__(self, config_file, name='datafind'):
+        def __init__(self, config_file, dir='', name='datafind'):
     
                 self.name = name
     
@@ -289,7 +320,7 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
                              "dqflags":"followupQueryDQ.py"}
                   }
 
-        def __init__(self, opts, cp, tag_base="DQFLAGS"):
+        def __init__(self, opts, cp, dir='', tag_base="DQFLAGS"):
                 """
                 """
                 self.__conditionalLoadDefaults__(findFlagsJob.defaults,cp)
@@ -298,7 +329,7 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
                 self.__universe = string.strip(cp.get('fu-condor','universe'))
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
 #The class responsible for checking for know veto flags
 class findVetosJob(pipeline.CondorDAGJob,FUJob):
@@ -310,7 +341,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
                   "options":{"universe":"local",
                              "vetoflags":"followupQueryDQ.py"}
                   }
-        def __init__(self, opts,cp, tag_base="VETOS"):
+        def __init__(self, opts,cp, dir='', tag_base="VETOS"):
                 """
                 """
                 self.__conditionalLoadDefaults__(findVetosJob.defaults,cp)
@@ -319,7 +350,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = string.strip(cp.get('fu-condor','universe'))
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
 #The class responsible for running one type of parameter consistency check
 class effDRatioJob(pipeline.CondorDAGJob,FUJob):
@@ -331,7 +362,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
                   "options":{"universe":"local",
                              "effDRatio":"followupRatioTest.py"}
                   }
-        def __init__(self, opts, cp, tag_base="effDRatioTest"):
+        def __init__(self, opts, cp, dir='', tag_base="effDRatioTest"):
                 """
                 """
                 self.__conditionalLoadDefaults__(effDRatioJob.defaults,cp)
@@ -340,7 +371,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = string.strip(cp.get('fu-condor','universe'))
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
 
 #############################################################################
@@ -373,9 +404,9 @@ class FUNode:
                                 cache.appendSubCache(job.name,self.outputCache)
                 except: pass
 
-class htQscanNode(pipeline.CondorDAGNode):
+class fuQscanNode(pipeline.CondorDAGNode):
         """
-h(t) QScan node.  This node writes its output to the web directory specified in
+QScan node.  This node writes its output to the web directory specified in
 the inifile + the ifo and gps time.  For example:
  
         /archive/home/channa/public_html/followup/htQscan/H1/999999999.999
@@ -385,16 +416,18 @@ The omega scan command line is
         wpipeline scan -r -c H1_hoft.txt -f H-H1_RDS_C03_L2-870946612-870946742.qcache -o QSCAN/foreground-hoft-qscan/H1/870946677.52929688 870946677.52929688
 
         """
-        def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[]):
+        def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
                 """
                 """
                 pipeline.CondorDAGNode.__init__(self,job)
 
-                self.add_var_arg('scan -r')
-                self.add_var_arg("-c " + cp.get('fu-ht-qscan', 'config').strip() )
-                self.add_var_arg("-f " + cp.get('fu-ht-qscan', 'cache').strip() )
+                if variety == "bg":
+                  self.add_var_arg('scan')
+                else:
+                  self.add_var_arg('scan -r')
+                self.add_var_arg("-c " + cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() )
 
-                output = cp.get('fu-output','output-dir') + '/htQscan' + '/' + ifo
+                output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
 
                 # CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
                 mkdir(output)
@@ -404,37 +437,39 @@ The omega scan command line is
 
                 self.set_pre_script("checkForDir.sh %s %s" %(output, repr(time)))
 
-                for node in p_nodes:
-                        self.add_parent(node)
-                dag.add_node(self)
+                if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()):
+                  for node in p_nodes:
+                    self.add_parent(node)
+                  dag.add_node(self)
 
 
-class htDataFindNode(pipeline.LSCDataFindNode):
+class fuDataFindNode(pipeline.LSCDataFindNode):
     
-        def __init__(self, dag, job, cp, opts, ifo, sngl=None, qscan=False, trigger_time=None, p_nodes=[]):
+        def __init__(self, dag, job, cp, opts, ifo, sngl=None, qscan=False, trigger_time=None, data_type="hoft", p_nodes=[]):
 
                 self.outputFileName = ""
                 pipeline.LSCDataFindNode.__init__(self,job)
                 if qscan:
                         if sngl: time = sngl.time
                         else: time = trigger_time
-                        self.outputFileName = self.setup_qscan(job, cp, time, ifo)
+                        self.outputFileName = self.setup_qscan(job, cp, time, ifo, data_type)
                 else:
                         if not sngl:
-                                print >> sys.stderr, "argument \"sngl\" should be provided to class htDataFindNode"
+                                print >> sys.stderr, "argument \"sngl\" should be provided to class fuDataFindNode"
                                 sys.exit(1)
                         self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
-                for node in p_nodes:
+                if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()):
+                    for node in p_nodes:
                         self.add_parent(node)
-                dag.add_node(self)
+                    dag.add_node(self)
 
-        def setup_qscan(self, job, cp, time, ifo):
+        def setup_qscan(self, job, cp, time, ifo, data_type):
                 # 1s is substracted to the expected startTime to make sure the window
                 # will be large enough. This is to be sure to handle the rouding to the
                 # next sample done by qscan.
-                type, channel = figure_out_type(time,ifo)
+                type, channel = figure_out_type(time,ifo,data_type)
                 self.set_type(type)
-                self.q_time = float(cp.get("fu-q-datafind","search-time-range"))/2.
+                self.q_time = float(cp.get("fu-q-"+data_type+"-datafind","search-time-range"))/2.
                 self.set_observatory(ifo[0])
                 self.set_start(int( time - self.q_time - 1.))
                 self.set_end(int( time + self.q_time + 1.))
@@ -635,7 +670,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 class followUpDAG(pipeline.CondorDAG):
         def __init__(self, config_file, cp):
                 log_path = cp.get('fu-output','log-path').strip()
-                self.basename = re.sub(r'\.ini',r'', config_file)
+                self.basename = re.sub(r'\.ini',r'', os.path.split(config_file)[1])
                 tempfile.tempdir = log_path
                 tempfile.template = self.basename + '.dag.log.'
                 logfile = tempfile.mktemp()
