@@ -155,29 +155,30 @@ else:
 dataJob         = stfu_pipe.htDataFindJob(cp,'qdatafind')
 qscanBgJob      = stfu_pipe.qscanJob(opts,cp,'QSCANLITE')
 
+ifo_range = get_times()
+
 for ifo in ifos_list:
 
     if cp.has_option("followup-background-qscan-times",ifo+"range") and not cp.get("followup-background-qscan-times",ifo+"range"):
-      ifo_range = get_times()
       cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
 
     # FIX ME: input argument segFile is not needed any more
     segFile = {}
     times, timeListFile = fu_utils.getQscanBackgroundTimes(cp,opts,ifo,segFile)
 
-    for time in times:
+    for qtime in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
-      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=time,data_type='rds')
+      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=time)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
 
       # SETUP BACKGROUND QSCAN JOBS
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dHoftNode],type="ht",variety="bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,p_nodes=[dHoftNode],type="ht",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],type="rds",variety="bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,p_nodes=[dNode],type="rds",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],type="seismic",variety="bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,p_nodes=[dNode],type="seismic",variety="bg")
 
 #### ALL FINNISH ####
 dag.write_sub_files()
