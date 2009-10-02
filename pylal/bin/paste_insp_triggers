@@ -35,7 +35,7 @@ from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process as ligolw_process
 from glue.segments import segment, segmentlist
 from pylal import llwapp
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
