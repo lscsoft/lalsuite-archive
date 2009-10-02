@@ -53,7 +53,7 @@ def mkdir(output):
                         print >> sys.stderr, 'path '+output+' is not writable'
                         sys.exit(1)
 
-def figure_out_type(time, ifo, data_type):
+def figure_out_type(time, ifo, data_type='hoft'):
         """
         Run boundaries (from CBC analyses):
         VSR1: 863557214 - 875232014
@@ -192,6 +192,9 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.setupJob(tag_base,dir=dir,cp=cp,tag_base=tag_base)
                 self.setup_checkForDir()
+
+	def is_dax(self):
+		return False
 
         def setup_checkForDir(self):
                 # create a shell script to check for the existence of the qscan output directory and rename it if needed
