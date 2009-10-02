@@ -427,7 +427,10 @@ The omega scan command line is
                   self.add_var_arg('scan -r')
                 self.add_var_arg("-c " + cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() )
 
-                output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
+                if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+                  output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
+                else:
+                  output = type + 'Qscan' + '/' + ifo
 
                 # CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
                 mkdir(output)
