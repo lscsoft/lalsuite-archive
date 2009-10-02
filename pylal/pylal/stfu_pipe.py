@@ -53,7 +53,7 @@ def mkdir(output):
                         print >> sys.stderr, 'path '+output+' is not writable'
                         sys.exit(1)
 
-def figure_out_type(time, ifo, data_type):
+def figure_out_type(time, ifo, data_type='hoft'):
         """
         Run boundaries (from CBC analyses):
         VSR1: 863557214 - 875232014
@@ -151,25 +151,27 @@ class FUJob(object):
                         if not cp.has_option(defaults["section"], key):
                                 cp.set(defaults["section"], key, val)
 
-        def setupJob(self, name, tag_base=None, cp=None):
+        def setupJob(self, name, dir= '', tag_base=None, cp=None):
                 # Give this job a name.  Then make directories for the log files and such
                 # This name is important since these directories will be included in
                 # the web tree.
+		mkdir(dir)
                 self.name = name
-                if not os.path.exists(name):
-                        os.mkdir(name)
-                if not os.path.exists(name+'/logs'):
-                        os.mkdir(name+'/logs')
-                if not os.path.exists(name+'/Images'):
-                        os.mkdir(name+'/Images')
-                if not os.path.exists(name+'/DataProducts'):
-                        os.mkdir(name+'/DataProducts')
+		self.relPath = dir + '/' + name
+		self.outputPath = os.getcwd() + '/' + self.relPath + '/'
+		#path = name + '/' + dir
+                if not os.path.exists(self.relPath):
+                        os.mkdir(self.relPath)
+                if not os.path.exists(self.relPath+'/logs'):
+                        os.mkdir(self.relPath+'/logs')
+                if not os.path.exists(self.relPath+'/Images'):
+                        os.mkdir(self.relPath+'/Images')
+                if not os.path.exists(self.relPath+'/DataProducts'):
+                        os.mkdir(self.relPath+'/DataProducts')
                 # Set up the usual stuff and name the log files appropriately
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(name+'.sub')
-                self.relPath = name + '/'
-                self.outputPath = os.getcwd() + '/' + name + '/'
                 self.set_stdout_file(self.outputPath+'/logs/'+name+'-$(macroid).out')
                 self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
                 if cp:
@@ -182,14 +184,17 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
         """
         A qscan job
         """
-        def __init__(self, opts, cp, tag_base='QSCAN'):
+        def __init__(self, opts, cp, dir='', tag_base='QSCAN'):
                 """
                 """
                 self.__executable = string.strip(cp.get('fu-condor','qscan'))
                 self.__universe = "vanilla"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-                self.setupJob(tag_base,None,cp)
+                self.setupJob(tag_base,dir=dir,cp=cp,tag_base=tag_base)
                 self.setup_checkForDir()
+
+	def is_dax(self):
+		return False
 
         def setup_checkForDir(self):
                 # create a shell script to check for the existence of the qscan output directory and rename it if needed
@@ -215,21 +220,21 @@ fi
 # A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
 class followUpInspJob(inspiral.InspiralJob,FUJob):
 
-        def __init__(self,cp,type='plot'):
+        def __init__(self,cp,dir='',type='plot'):
 
                 inspiral.InspiralJob.__init__(self,cp)
 
                 if type == 'head':
                         self.set_executable(string.strip(cp.get('fu-condor','inspiral_head')))
                 self.name = 'followUpInspJob' + type
-                self.setupJob(self.name)
+                self.setupJob(self.name, dir=dir, cp=cp)
 
 # JOB CLASS FOR PRODUCING A SKYMAP
 class skyMapJob(pipeline.CondorDAGJob,FUJob):
         """
         Generates sky map data
         """
-        def __init__(self, options, cp, ra_res=1024, dec_res=512, sample_rate=4096, tag_base='SKY_MAP'):
+        def __init__(self, options, cp, dir='', tag_base='SKY_MAP'):
                 """
                 """
                 self.__prog__ = 'lalapps_skyMapJob'
@@ -237,17 +242,18 @@ class skyMapJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = "standard"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
-                self.ra_res = ra_res
-                self.dec_res = dec_res
-                self.sample_rate = sample_rate
+                self.setupJob(self.__prog__,dir=dir, tag_base=tag_base)
 
+		self.ra_res = cp.get("fu-skymap", 'ra-res')
+		self.dec_res = cp.get("fu-skymap", 'dec-res')
+		self.sample_rate = cp.get("fu-skymap", 'sample-rate')
+		
 # JOB CLASS FOR PRODUCING SKYMAP PLOT
 class skyMapPlotJob(pipeline.CondorDAGJob,FUJob):
         """
         Plots the sky map output of lalapps_skymap
         """
-        def __init__(self, options, cp, ra_res=1024, dec_res=512, sample_rate=4096, tag_base='SKY_PLOT'):
+        def __init__(self, options, cp, dir='',tag_base='SKY_PLOT'):
                 """
                 """
                 self.__prog__ = 'pylal_skyPlotJob'
@@ -255,17 +261,18 @@ class skyMapPlotJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = "vanilla"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
-                self.ra_res = ra_res
-                self.dec_res = dec_res
-                self.sample_rate = sample_rate
+                self.setupJob(self.__prog__,dir=dir,tag_base=tag_base)
+
+		self.ra_res = cp.get("fu-skymap", 'ra-res')
+		self.dec_res = cp.get("fu-skymap", 'dec-res')
+		self.sample_rate = cp.get("fu-skymap", 'sample-rate')
 
 # JOB CLASS FOR PLOTTING SNR AND CHISQ
 class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
         """
         A followup plotting job for snr and chisq time series
         """
-        def __init__(self, options, cp, tag_base='PLOT_FOLLOWUP'):
+        def __init__(self, options, cp, dir='', tag_base='PLOT_FOLLOWUP'):
                 """
                 """
                 self.__prog__ = 'plotSNRCHISQJob'
@@ -273,10 +280,10 @@ class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = "vanilla"
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base,dir=dir)
 
 class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
-        def __init__(self, config_file, name='datafind'):
+        def __init__(self, config_file, dir='', name='datafind'):
     
                 self.name = name
     
@@ -313,7 +320,7 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
                              "dqflags":"followupQueryDQ.py"}
                   }
 
-        def __init__(self, opts, cp, tag_base="DQFLAGS"):
+        def __init__(self, opts, cp, dir='', tag_base="DQFLAGS"):
                 """
                 """
                 self.__conditionalLoadDefaults__(findFlagsJob.defaults,cp)
@@ -322,7 +329,7 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
                 self.__universe = string.strip(cp.get('fu-condor','universe'))
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
 #The class responsible for checking for know veto flags
 class findVetosJob(pipeline.CondorDAGJob,FUJob):
@@ -334,7 +341,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
                   "options":{"universe":"local",
                              "vetoflags":"followupQueryDQ.py"}
                   }
-        def __init__(self, opts,cp, tag_base="VETOS"):
+        def __init__(self, opts,cp, dir='', tag_base="VETOS"):
                 """
                 """
                 self.__conditionalLoadDefaults__(findVetosJob.defaults,cp)
@@ -343,7 +350,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = string.strip(cp.get('fu-condor','universe'))
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
 #The class responsible for running one type of parameter consistency check
 class effDRatioJob(pipeline.CondorDAGJob,FUJob):
@@ -355,7 +362,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
                   "options":{"universe":"local",
                              "effDRatio":"followupRatioTest.py"}
                   }
-        def __init__(self, opts, cp, tag_base="effDRatioTest"):
+        def __init__(self, opts, cp, dir='', tag_base="effDRatioTest"):
                 """
                 """
                 self.__conditionalLoadDefaults__(effDRatioJob.defaults,cp)
@@ -364,7 +371,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
                 self.__universe = string.strip(cp.get('fu-condor','universe'))
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.add_condor_cmd('getenv','True')
-                self.setupJob(self.__prog__,tag_base)
+                self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
 
 #############################################################################
@@ -663,7 +670,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 class followUpDAG(pipeline.CondorDAG):
         def __init__(self, config_file, cp):
                 log_path = cp.get('fu-output','log-path').strip()
-                self.basename = re.sub(r'\.ini',r'', config_file)
+                self.basename = re.sub(r'\.ini',r'', os.path.split(config_file)[1])
                 tempfile.tempdir = log_path
                 tempfile.template = self.basename + '.dag.log.'
                 logfile = tempfile.mktemp()
