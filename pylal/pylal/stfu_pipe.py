@@ -712,6 +712,9 @@ class create_default_config(object):
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
 		cp.set("condor","universe","standard")
+		
+		# DATAFIND SECTION
+		cp.add_section("datafind")
 
 		# FU-CONDOR SECTION
 		cp.add_section("fu-condor")
