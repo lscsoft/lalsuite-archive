@@ -53,7 +53,7 @@ def mkdir(output):
                         print >> sys.stderr, 'path '+output+' is not writable'
                         sys.exit(1)
 
-def figure_out_type(time, ifo):
+def figure_out_type(time, ifo, data_type):
         """
         Run boundaries (from CBC analyses):
         VSR1: 863557214 - 875232014
@@ -71,34 +71,58 @@ def figure_out_type(time, ifo):
         H2_RDS_C03_L2  H2:LSC-STRAIN
         L1_RDS_C03_L2  L1:LSC-STRAIN
         HrecV2_16384Hz      V1:h_16384Hz
-        CODE RETURNS HOFT DATA
+        Frame types for S6/VSR2:
+        () For RDS_R_L1 data set:
+        type    channel_name
+        H1_RDS_R_L1   H1:LSC-DARM_ERR
+        L1_RDS_R_L1   L1:LSC-DARM_ERR
+        () For hoft data:
+        H1_LDAS_C00_L2  H1:LDAS-STRAIN
+        L1_LDAS_C00_L2  L1:LDAS-STRAIN
+        HrecOnline      V1:h_16384Hz
         """
-        L1Types=(
+        L1HoftTypes=(
                 ("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
-                ("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
+                ("L1_LDAS_C00_L2","L1:LDAS-STRAIN",931035296,999999999)
                 )
-        H1Types=(
+        H1HoftTypes=(
                 ("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
-                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                ("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,999999999)
                 )
-        H2Types=(
+        H2HoftTypes=(
                 ("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
-                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                ("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,999999999)
                 )
-        V1Types=(
+        V1HoftTypes=(
                 ("HrecV2_16384Hz","V1:h_16384Hz",863557214,875232014),
                 ("HrecOnline","V1:h_16384Hz",931035296,999999999)
                 )
+        L1RdsTypes=(
+                ("RDS_R_L1","L1:LSC-DARM_ERR",815155213,875232014),
+                ("L1_RDS_R_L1","L1:LSC-DARM_ERR",931035296,999999999)
+                )
+        H1RdsTypes=(
+                ("RDS_R_L1","H1:LSC-DARM_ERR",815155213,875232014),
+                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                )
+        H2RdsTypes=(
+                ("RDS_R_L1","H2:LSC-DARM_ERR",815155213,875232014),
+                ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
+                )
+        V1RdsTypes=(
+                ("","",863557214,875232014),
+                ("","",931035296,999999999)
+                )
         channelMap={
-                "L1":L1Types,
-                "H1":H1Types,
-                "H2":H2Types,
-                "V1":V1Types
+                "L1":{"hoft":L1HoftTypes,"rds":L1RdsTypes},
+                "H1":{"hoft":H1HoftTypes,"rds":H1RdsTypes},
+                "H2":{"hoft":H2HoftTypes,"rds":H2RdsTypes},
+                "V1":{"hoft":V1HoftTypes,"rds":V1RdsTypes}
                 }
         #Use the IFO type to select the channel type
         foundType=""
         foundChannel=""
-        for type,channel,start,stop in channelMap[ifo]:
+        for type,channel,start,stop in channelMap[ifo][data_type]:
                 if ((start<=time) and (time<=stop)):
                         foundType=type
                         foundChannel=channel
@@ -373,9 +397,9 @@ class FUNode:
                                 cache.appendSubCache(job.name,self.outputCache)
                 except: pass
 
-class htQscanNode(pipeline.CondorDAGNode):
+class fuQscanNode(pipeline.CondorDAGNode):
         """
-h(t) QScan node.  This node writes its output to the web directory specified in
+QScan node.  This node writes its output to the web directory specified in
 the inifile + the ifo and gps time.  For example:
  
         /archive/home/channa/public_html/followup/htQscan/H1/999999999.999
@@ -385,16 +409,18 @@ The omega scan command line is
         wpipeline scan -r -c H1_hoft.txt -f H-H1_RDS_C03_L2-870946612-870946742.qcache -o QSCAN/foreground-hoft-qscan/H1/870946677.52929688 870946677.52929688
 
         """
-        def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[]):
+        def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
                 """
                 """
                 pipeline.CondorDAGNode.__init__(self,job)
 
-                self.add_var_arg('scan -r')
-                self.add_var_arg("-c " + cp.get('fu-ht-qscan', 'config').strip() )
-                self.add_var_arg("-f " + cp.get('fu-ht-qscan', 'cache').strip() )
+                if variety == "bg":
+                  self.add_var_arg('scan')
+                else:
+                  self.add_var_arg('scan -r')
+                self.add_var_arg("-c " + cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() )
 
-                output = cp.get('fu-output','output-dir') + '/htQscan' + '/' + ifo
+                output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
 
                 # CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
                 mkdir(output)
@@ -404,37 +430,39 @@ The omega scan command line is
 
                 self.set_pre_script("checkForDir.sh %s %s" %(output, repr(time)))
 
-                for node in p_nodes:
-                        self.add_parent(node)
-                dag.add_node(self)
+                if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()):
+                  for node in p_nodes:
+                    self.add_parent(node)
+                  dag.add_node(self)
 
 
-class htDataFindNode(pipeline.LSCDataFindNode):
+class fuDataFindNode(pipeline.LSCDataFindNode):
     
-        def __init__(self, dag, job, cp, opts, ifo, sngl=None, qscan=False, trigger_time=None, p_nodes=[]):
+        def __init__(self, dag, job, cp, opts, ifo, sngl=None, qscan=False, trigger_time=None, data_type="hoft", p_nodes=[]):
 
                 self.outputFileName = ""
                 pipeline.LSCDataFindNode.__init__(self,job)
                 if qscan:
                         if sngl: time = sngl.time
                         else: time = trigger_time
-                        self.outputFileName = self.setup_qscan(job, cp, time, ifo)
+                        self.outputFileName = self.setup_qscan(job, cp, time, ifo, data_type)
                 else:
                         if not sngl:
-                                print >> sys.stderr, "argument \"sngl\" should be provided to class htDataFindNode"
+                                print >> sys.stderr, "argument \"sngl\" should be provided to class fuDataFindNode"
                                 sys.exit(1)
                         self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
-                for node in p_nodes:
+                if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()):
+                    for node in p_nodes:
                         self.add_parent(node)
-                dag.add_node(self)
+                    dag.add_node(self)
 
-        def setup_qscan(self, job, cp, time, ifo):
+        def setup_qscan(self, job, cp, time, ifo, data_type):
                 # 1s is substracted to the expected startTime to make sure the window
                 # will be large enough. This is to be sure to handle the rouding to the
                 # next sample done by qscan.
-                type, channel = figure_out_type(time,ifo)
+                type, channel = figure_out_type(time,ifo,data_type)
                 self.set_type(type)
-                self.q_time = float(cp.get("fu-q-datafind","search-time-range"))/2.
+                self.q_time = float(cp.get("fu-q-"+data_type+"-datafind","search-time-range"))/2.
                 self.set_observatory(ifo[0])
                 self.set_start(int( time - self.q_time - 1.))
                 self.set_end(int( time + self.q_time + 1.))
