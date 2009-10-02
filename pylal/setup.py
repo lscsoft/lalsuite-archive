@@ -207,6 +207,14 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.datatypes.real8timeseries",
+			["src/xlal/datatypes/real8timeseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
@@ -327,7 +335,6 @@ setup(
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_exttrig_llmonitor"),
 		os.path.join("bin", "pylal_exttrig_llsummary"),
-		os.path.join("bin", "pylal_query_dq"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
@@ -350,6 +357,7 @@ setup(
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "ligolw_binjfind"),
+		os.path.join("bin", "ligolw_summmime"),
 		os.path.join("bin", "ligolw_bucluster"),
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),

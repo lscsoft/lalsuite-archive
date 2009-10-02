@@ -76,8 +76,8 @@ static PyObject *pylal_##__PYLAL_NAME__##_import(void)\
 \
 	name = PyString_FromString("__LAL_NAME__");\
 	pylal_##__LAL_NAME__##_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);\
-	Py_DECREF(name);\
 	Py_INCREF(pylal_##__LAL_NAME__##_Type);\
+	Py_DECREF(name);\
 \
 	return module;\
 }\

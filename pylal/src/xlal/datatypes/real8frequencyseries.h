@@ -60,8 +60,8 @@ static PyObject *pylal_real8frequencyseries_import(void)
 
 	name = PyString_FromString("REAL8FrequencySeries");
 	pylal_REAL8FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_DECREF(name);
 	Py_INCREF(pylal_REAL8FrequencySeries_Type);
+	Py_DECREF(name);
 
 	return module;
 }

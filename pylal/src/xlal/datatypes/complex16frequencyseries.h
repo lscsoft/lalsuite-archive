@@ -60,8 +60,8 @@ static PyObject *pylal_complex16frequencyseries_import(void)
 
 	name = PyString_FromString("COMPLEX16FrequencySeries");
 	pylal_COMPLEX16FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_DECREF(name);
 	Py_INCREF(pylal_COMPLEX16FrequencySeries_Type);
+	Py_DECREF(name);
 
 	return module;
 }
