@@ -7,7 +7,7 @@ try:
 except ImportError:
         # pre 2.5.x
         from pysqlite2 import dbapi2 as sqlite3
-import sys, os, re, string, tempfile
+import sys, os, re, string, tempfile, copy
 import ConfigParser
 
 from glue import segments
@@ -27,16 +27,40 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
-##### UTILITY FUNCTIONS #######################################################
+##### DATA  FUNCTIONS   #######################################################
 ###############################################################################
 
-def mkdir(output):
-	# MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
-	if not os.access(output,os.F_OK): os.makedirs(output)
-	else:
-		if not os.access(output,os.W_OK):
-			print >> sys.stderr, 'path '+output+' is not writable'
-			sys.exit(1)
+def exportCoincToDisk(Coinc=None,filename=None):
+	"""
+	This method takes an input from the Coinc Class and writes
+	that object to disk as ascii.  The output file created by this
+	method is intended to serve as input to new makechecklistwiki
+	script. This method returns the base filename in order to know
+	which file was just created with the data.
+	"""
+	#If directy coincHeadings not there make the directory if
+	#filename is None
+	headingDir="./coinc_headings"
+	idKeyStr="%s_%s_%s"%(str(Coinc.coinc_event_id),
+			     str(Coinc.ifos),
+			     str(Coinc.instruments))
+	if filename==None:
+		filename="coincEvent.info"
+		stfu_pipe.mkdir(headingDir)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+filename)
+	fp=open(filename,'w')
+	rowString="%s,%s,%s,%s,%s,%s\n"
+	content=list()
+	for ifo,snglEvent in Coinc.sngl_inspiral.items():
+		content.append(rowString%(snglEvent.ifo,
+					  snglEvent.snr,
+					  snglEvent.chisq,
+					  snglEvent.mass1,
+					  snglEvent.mass2,
+					  snglEvent.time))
+	fp.writelines(content)
+	fp.close()
+	return os.path.split(filename)[1]
 
 
 ###############################################################################
@@ -137,8 +161,9 @@ class ProcParam(object):
 		self.value = value
 
 class Sngl(object):
-	def __init__(self, row, contents):
-		connection = contents.connection
+	def __init__(self, row, contents,ignore_proc_params=False):
+		self.data_tuple = row
+		self.contents = contents
         	self.ifo = row[0]
 		self.snr = float(row[1])
 		self.chisq = float(row[2])
@@ -151,15 +176,16 @@ class Sngl(object):
 
 		self.process_params = []
 
-		for val in connection.cursor().execute("""
+		if not ignore_proc_params:
+			for val in self.contents.connection.cursor().execute("""
 SELECT
                 program, process_id, param, type, value
         FROM
                 process_params
         WHERE
                 process_id == ?
-		""", (self.process_id,) ):
-			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
+			""", (self.process_id,) ):
+				self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
 
 	def get_gps_start_time(self):
 		#FIXME probably really slow
@@ -173,12 +199,35 @@ SELECT
 			if row.param == '--gps-end-time': 
 				return int(row.value)
 
+	def switch_ifo(self,ifo):
+		self.ifo = ifo
+		self.process_params = []
+
+		for val in self.contents.connection.cursor().execute("""
+SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN process_params AS p2 ON p1.process_id == p2.process_id JOIN search_summary ON search_summary.process_id == p2.process_id WHERE p1.param = '--gps-start-time' AND p1.value <= ? AND p2.param = '--gps-end-time' AND p2.value > ? AND search_summary.ifos = ? LIMIT 1)
+		""", (self.time, self.time, self.ifo) ):
+			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))
+		#change necessary values in process params table
+		channel = None
+		for row in self.process_params:
+			if row.param == '--channel-name':  
+				type, channel = stfu_pipe.figure_out_type(self.time,ifo)
+				row.value = channel
+				break
+		if not channel: 
+			print sys.stderr, "Coudn't find process params for trigger aborting"
+			sys.exit(1)
+		#change necessary values in sngl_inspiral table
+		self.row.ifo = ifo	
+		self.row.channel = channel.split(':')[1]
+		
 
 
 class Coinc(object):
 	def __init__(self, row, contents):
-		connection = contents.connection
+		self.contents = contents
 		self.sngl_inspiral = {}
+		self.sngl_inspiral_coh = {}
 		self.coinc_event_id = row[0]
 		self.combined_far = float(row[1])
 		self.snr = float(row[2])
@@ -186,8 +235,10 @@ class Coinc(object):
 		self.mass = float(row[4])
 		self.mchirp = float(row[5])
 		self.ifos = row[6]
+		self.ifos_set = frozenset(dbtables.lsctables.instrument_set_from_ifos(self.ifos))
 		self.instruments = row[7]
-		for val in connection.cursor().execute("""
+		self.instruments_set = frozenset(dbtables.lsctables.instrument_set_from_ifos(self.instruments))
+		for val in self.contents.connection.cursor().execute("""
 SELECT
                 sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, sngl_inspiral.mass1, sngl_inspiral.mass2, sngl_inspiral.end_time + sngl_inspiral.end_time_ns * 1.0e-9, sngl_inspiral.process_id, sngl_inspiral.*
         FROM
@@ -201,6 +252,28 @@ SELECT
 			self.sngl_inspiral.setdefault(val[0],None)
 			self.sngl_inspiral[val[0]] = Sngl(val, contents)
 
+		# add instruments that were on but didn't participate in coinc
+		for ifo in self.instruments_set:
+			if ifo not in self.ifos_set:
+				self.sngl_inspiral[ifo] = self.make_sngl_from_max_ifo(ifo)
+		# make a list of sngls appropriate for the coherent code (use max template)
+		for ifo in self.instruments_set:
+			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
+		
+	def max_trigger_ifo(self):
+		snr_tuple = [(sngl.snr, sngl.ifo) for sngl in self.sngl_inspiral.values()]
+		return max(snr_tuple)[1]
+
+	def make_sngl_from_max_ifo(self, ifo):
+		max_sngl = self.sngl_inspiral[self.max_trigger_ifo()]
+		sngl = Sngl(max_sngl.data_tuple, max_sngl.contents, ignore_proc_params=True)
+		sngl.switch_ifo(ifo)
+		return sngl
+		
+
+		
+			
+
 class FUTriggers(object):
 	def __init__(self, num=10):
 		self.num = num
@@ -211,7 +284,7 @@ class FUTriggers(object):
 		if contents.sim_inspiral_table:
 			#For now we only return summary information on non injections
 			return
-		for row in contents.connection.cursor().execute("""
+		for i,row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -241,10 +314,11 @@ WHERE
 ORDER BY
         ?
 LIMIT ?
-		""", (stat, self.num) ):
+		""", (stat, self.num) )):
+			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.playground_candidates.append(Coinc(row, contents))
 
-		for row in contents.connection.cursor().execute("""
+		for i, row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -271,7 +345,8 @@ WHERE
 ORDER BY
         ?
 LIMIT ?
-		""", (stat, self.num) ):
+		""", (stat, self.num) )):
+			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.candidates.append(Coinc(row, contents))
 
 	def topN(self):
@@ -284,7 +359,6 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
-
 
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
@@ -326,26 +400,6 @@ cp.read(options.config_file)
 # Initialize dag
 dag = stfu_pipe.followUpDAG(options.config_file,cp)
 
-# CONDOR JOB CLASSES
-ht_data_find_job	= stfu_pipe.htDataFindJob(cp)
-q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, 'qdatafind')
-qscan_job		= stfu_pipe.qscanJob(options,cp)
-insp_job		= stfu_pipe.followUpInspJob(cp)
-#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig')
-plot_job		= stfu_pipe.plotSNRChisqJob(options,cp)
-#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head')
-#cohInspJob      = stfu_pipe.followUpInspJob(cp, 'coh')
-#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig')
-skyMapJob		= stfu_pipe.skyMapJob(options,cp)
-skyPlotJob		= stfu_pipe.skyMapPlotJob(options,cp)
-findFlagsJob            = stfu_pipe.findFlagsJob(options,cp)
-findVetosJob            = stfu_pipe.findVetosJob(options,cp)
-effDRatioJob            = stfu_pipe.effDRatioJob(options,cp)
-
-# CONDOR NODE CLASSES
-#ht_qscan_node = {}
-
-
 trigs = FUTriggers(num=options.number)
 
 ###############################################################################
@@ -375,38 +429,53 @@ trigs.topN()
 
 # generate a playground set and full data set
 for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates)]:
-	for trig in candidates:
+
+	# CONDOR JOB CLASSES
+	ht_data_find_job	= stfu_pipe.htDataFindJob(cp)
+	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, 'qdatafind')
+	qscan_job		= stfu_pipe.qscanJob(options,cp)
+	insp_job		= stfu_pipe.followUpInspJob(cp)
+	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig')
+	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp)
+	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head')
+	#cohInspJob      = stfu_pipe.followUpInspJob(cp, 'coh')
+	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig')
+	sky_map_job		= stfu_pipe.skyMapJob(options,cp)
+	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp)
+	find_flags_job            = stfu_pipe.findFlagsJob(options,cp)
+	find_vetos_job            = stfu_pipe.findVetosJob(options,cp)
+	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp)
+	
+	# LOOP OVER COINC EVENTS
+	for coinc in candidates:
 		if options.verbose:
-			 print >>sys.stderr,"processing coinc @ %f with combined FAR %f" % (trig.time, trig.combined_far)
+			 print >>sys.stderr,"processing coinc @ %f with combined FAR %f instruments %s" % (coinc.time, coinc.combined_far, coinc.instruments)
 
 		# SETUP JOBS FOR IFOS FOUND IN COINCIDENCE
-		for ifo, sngl_inspiral in trig.sngl_inspiral.items():
+		for ifo, sngl_inspiral in coinc.sngl_inspiral.items():
 			if options.verbose:
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 
 			# h(t) QSCAN datafind Nodes
-			ht_qscan_data_find_node = stfu_pipe.htDataFindNode(dag, q_ht_data_find_job, cp, options, sngl_inspiral, ifo, qscan=True)
+			ht_qscan_data_find_node = stfu_pipe.htDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, sngl_inspiral, qscan=True)
 
 			# h(t) QSCAN Nodes
-			ht_qscan_node = stfu_pipe.htQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node])
+			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node],"ht")
 
 			#FIXME add inspiral datafind node
-			insp_datafind_node = stfu_pipe.htDataFindNode(dag, ht_data_find_job, cp, options, sngl_inspiral, ifo)
+			insp_datafind_node = stfu_pipe.htDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl_inspiral)
 
 			# inspiral Node FIXME add datafind as a parent			
-			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, p_nodes=[insp_datafind_node])
+			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, search, p_nodes=[insp_datafind_node])
 
-			#for p in sngl_inspiral.process_params:
-			#	print key, p.param, p.value
-
-		# SETUP JOBS THAT REQUIRE COINC INFORMATION (trig if
-		# of type Coinc)
-		#effDRatioNode = stfu_pipe.effDRatioNode(dag,effDRatioJob,cp,options,trig)
-		#findFlagsNode = stfu_pipe.findFlagsNode(dag,findFlagsJob,cp,options,trig.time)
-		#findVetosNode = stfu_pipe.findVetosNode(dag,findVetosJob,cp,options,trig.time)
+		##SETUP JOBS THAT REQUIRE COINC INFORMATION
+		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
+		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
+		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
+		#Need a wiki creation Node and Job class with the following as input
+		exportCoincToDisk(coinc)
 
 #### ALL FINNISH ####		
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()
-

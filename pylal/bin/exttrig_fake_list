@@ -31,7 +31,7 @@ from glue.segments import segment, segmentlist
 from glue import lal
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 

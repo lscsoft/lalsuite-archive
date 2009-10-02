@@ -45,8 +45,8 @@ from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import llwapp
 from pylal import rate
-from pylal.date import LIGOTimeGPS
 from pylal import git_version
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
