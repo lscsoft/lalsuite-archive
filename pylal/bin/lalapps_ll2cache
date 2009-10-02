@@ -143,7 +143,7 @@ for n, filename in enumerate(filenames):
 		raise ValueError, "%s: no matching rows found in search summary table" % filename
 
 	# extract observatory
-	observatory = options.observatory or "+".join(sorted(seglists.keys()))
+	observatory = options.observatory.strip() or "+".join(sorted(seglists.keys()))
 
 	# extract description
 	if options.description:
@@ -157,7 +157,7 @@ for n, filename in enumerate(filenames):
 			raise ValueError, "%s: no matching rows found in search summary table" % filename
 		if len(description) > 1:
 			raise ValueError, "%s: comments in matching rows of search summary table are not identical" % filename
-		description = description.pop()
+		description = description.pop().strip() or None
 
 	# set URL
 	url = "file://localhost" + os.path.abspath(filename)
