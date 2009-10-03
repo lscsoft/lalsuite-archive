@@ -102,7 +102,7 @@ fi > septime_zero_lag.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${septime_path}"
-  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime)"
+  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime) --exclude-ifo-type H1,H2 --statistic effective_snr"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/septime-\$(cluster)-\$(process).err"
@@ -167,7 +167,7 @@ for injstring in BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ BNSLININJ BNSLO
   if [ 1 ]; then
     echo "universe = vanilla"
     echo "executable = ${septime_path}"
-    echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${injstring}_${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime)"
+    echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${injstring}_${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime) --exclude-ifo-type H1,H2 --statistic effective_snr"
     echo "getenv = True"
     echo "log = " `mktemp -p ${log_path}`
     echo "error = logs/septime-\$(cluster)-\$(process).err"

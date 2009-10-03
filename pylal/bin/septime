@@ -29,6 +29,7 @@ from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
 from pylal import llwapp
 from pylal import date
+from pylal import CoincInspiralUtils
 
 import matplotlib
 matplotlib.use('Agg')
@@ -77,7 +78,15 @@ def parse_command_line():
       metavar=" t1_slide",help="Slide T1 data by multiples of t1_slide" )
   parser.add_option("","--v1-slide",action="store",type="float",default=-1,\
       metavar=" v1_slide",help="Slide V1 data by multiples of v1_slide" )
+  parser.add_option("","--exclude-ifo-type",action="store",type="string",\
+      default="",metavar=" IFOTYPE",\
+      help="exclude ifo type" )
 
+  parser.add_option("-S","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in making plots, valid arguments are: "
+            "snr (DEFAULT), snr_over_chi, effective_snr, "
+            "bitten_l, bitten_lsq")
   parser.add_option("","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="veto file for all IFOS (format ligolw_segments)")
@@ -193,6 +202,19 @@ if coincfiles:
                  ReadSnglInspiralFromFiles(coincfiles,
                                            mangle_event_id = False,
                                            verbose=opts.verbose)
+
+  if opts.exclude_ifo_type:
+    statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
+
+    coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic) 
+     
+    coincTriggers = coincTriggers.removecoinctype(opts.exclude_ifo_type.split(","))
+
+    inspTriggers = lsctables.New(lsctables.SnglInspiralTable)
+    for coinc in coincTriggers:
+      tempifos,tempifolist = coinc.get_ifos()
+      for ifo in tempifolist:
+        inspTriggers.append(getattr(coinc, ifo))
 
   if inspTriggers:
     # perform the veto

@@ -195,7 +195,7 @@ def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
     min_val -= 0.5
     max_val += 0.5
 
-  bins = numpy.linspace(min_val, max_val, nbins)
+  bins = numpy.linspace(min_val, max_val + 0.001*(min(abs(min_val),abs(max_val))), nbins)
 
   # hist of the zero lag:
   if not zerolag_stats == None:
