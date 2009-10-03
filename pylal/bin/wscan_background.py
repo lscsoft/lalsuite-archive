@@ -56,18 +56,20 @@ def create_default_config(home_base):
     cp.set("followup-background-qscan-times","background-statistics","20")
 
     cp.add_section("fu-bg-rds-qscan")
-    cp.set("fu-bg-rds-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
-    cp.set("fu-bg-rds-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/H0H1-RDS_R_L1-cbc.txt")
+    cp.set("fu-bg-rds-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
+    cp.set("fu-bg-rds-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/H0H1-RDS_R_L1-cbc.txt")
+    cp.set("fu-bg-rds-qscan","V1config","")
     cp.set("fu-bg-rds-qscan","remote-ifo","V1")
 
     cp.add_section("fu-bg-ht-qscan")
-    cp.set("fu-bg-ht-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
-    cp.set("fu-bg-ht-qscan","H1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/H1_hoft_cbc.txt")
-    cp.set("fu-bg-ht-qscan","V1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
+    cp.set("fu-bg-ht-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
+    cp.set("fu-bg-ht-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/H1_hoft_cbc.txt")
+    cp.set("fu-bg-ht-qscan","V1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
 
     cp.add_section("fu-bg-seismic-qscan")
-    cp.set("fu-bg-seismic-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/L0-RDS_R_L1-seismic-cbc.txt")
-    cp.set("fu-bg-seismic-qscan","H1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/H0-RDS_R_L1-seismic-cbc.txt")
+    cp.set("fu-bg-seismic-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/L0-RDS_R_L1-seismic-cbc.txt")
+    cp.set("fu-bg-seismic-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/H0-RDS_R_L1-seismic-cbc.txt")
+    cp.set("fu-bg-seismic-qscan","V1config","")
     cp.set("fu-bg-seismic-qscan","remote-ifo","V1")
 
     cp.add_section("fu-output")
