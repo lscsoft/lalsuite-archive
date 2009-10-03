@@ -113,8 +113,8 @@ def figure_out_type(time, ifo, data_type='hoft'):
                 ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
                 )
         V1RdsTypes=(
-                ("","",863557214,875232014),
-                ("","",931035296,999999999)
+                ("raw","V1:Pr_B1_ACp",863557214,875232014),
+                ("raw","V1:Pr_B1_ACp",931035296,999999999)
                 )
         channelMap={
                 "L1":{"hoft":L1HoftTypes,"rds":L1RdsTypes},
@@ -131,7 +131,7 @@ def figure_out_type(time, ifo, data_type='hoft'):
                         foundChannel=channel
                         break
         if foundType == "":
-                print time,ifo
+                print time,ifo + " not found in method stfu_pipe.figure_out_type"
                 os.abort()
         return str(foundType), str(foundChannel)
 
