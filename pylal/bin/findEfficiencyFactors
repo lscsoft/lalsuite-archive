@@ -23,6 +23,7 @@ from glue.ligolw import utils
 from pylal import llwapp
 from glue import segments
 from pylal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw.utils import segments as glsegments
 
 ################################################################################
@@ -208,7 +209,7 @@ for (found_injfile, missed_injfile) in zip(found_injfiles, missed_injfiles):
   ifos_set = set(ifo_list)
   
   # extract the veto time appropriate to this segment
-  seg = segments.segmentlist([segments.segment(date.LIGOTimeGPS(start_time),date.LIGOTimeGPS(end_time))])
+  seg = segments.segmentlist([segments.segment(LIGOTimeGPS(start_time),LIGOTimeGPS(end_time))])
   tmp_vetoes = {}
   tmp_vetoes = vetoes.copy()
   for key in tmp_vetoes.keys():
