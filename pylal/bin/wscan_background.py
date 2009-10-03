@@ -21,6 +21,7 @@ from pylal import date
 from pylal import stfu_pipe
 
 from pylal import xlal
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ##############################################################################
 # Useful methods
@@ -86,7 +87,7 @@ def get_times():
   # determine the start time : 00:00:00 UTC from the day before
   # and the end time, 00:00:00 UTC the current day
 
-  gps = xlal.date.LIGOTimeGPS(gpstime.GpsSecondsFromPyUTC(time.time()))
+  gps = LIGOTimeGPS(gpstime.GpsSecondsFromPyUTC(time.time()))
   end_gps = int(date.utc_midnight(gps))
   start_gps = end_gps - 86400
 

@@ -2743,7 +2743,7 @@ def getiLogURL(time=None,ifo=None):
   outputURL=urls['default']
   if ((ifo==None) or (time==None)):
     return urls['default']
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
   if ('H1','H2','L1').__contains__(ifo.upper()):
@@ -2782,7 +2782,7 @@ def getDailyStatsURL(time=None):
     return defaultURL
   if int(time) <= stopS5:
     return s5Link
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
   outputLink=defaultURL+linkText

@@ -72,17 +72,20 @@ def parse_command_line():
 		usage = "%prog [options] filenames ...",
 		description = "Generates a LAL format cache file describing a collection of LIGO light-weight XML files.  The cache is constructed by parsing the search_summary table in each file to extract the instruments and time each file spans.  To allow long file lists to be processed, the filenames are interpreted as shell patterns (wildcard expansion is performed)."
 	)
-	parser.add_option("--description", metavar = "string", help = "Set all descriptions to this string.")
-	parser.add_option("--observatory", metavar = "string", help = "Set all observatories to this string.")
+	parser.add_option("--description", metavar = "string", help = "Set all descriptions to this string.  Use \"-\" for no description.  If not given then the description will be extracted from the search summary rows, and if the search summary rows do not provide a unique description an error is raised.")
+	parser.add_option("--observatory", metavar = "string", help = "Set all observatories to this string.  Use \"-\" for no observatory.  If not given then the union of the instruments from the search summary rows will be used to construct an \"observatory\" string.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
-	parser.add_option("-o", "--output", metavar = "filename", help = "Set output file (default = stdout).")
-	parser.add_option("-p", "--program", metavar = "name", help = "Obtain start and durations from search summary entries corresponding to the given program (default = whatever is there).")
+	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).")
+	parser.add_option("-p", "--program", metavar = "name", action = "append", help = "Obtain instruments, starts, durations, and descriptions from the search summary rows for this program (default = use all search summary rows).  Can be given multiple times to select rows from more than one program.")
 	options, filenames = parser.parse_args()
 
 	if options.output:
 		options.output = file(options.output, "w")
 	else:
 		options.output = sys.stdout
+
+	if options.program is not None:
+		options.program = set(options.program)
 
 	if filenames is None:
 		filenames = []
@@ -133,7 +136,8 @@ for n, filename in enumerate(filenames):
 
 	# extract process_ids for the requested program
 	if options.program is not None:
-		process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(options.program)
+		process_table = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+		process_ids = reduce(lambda a, b: a | b, map(process_table.get_ids_by_program, options.program))
 	else:
 		process_ids = None
 
@@ -143,7 +147,7 @@ for n, filename in enumerate(filenames):
 		raise ValueError, "%s: no matching rows found in search summary table" % filename
 
 	# extract observatory
-	observatory = options.observatory.strip() or "+".join(sorted(seglists.keys()))
+	observatory = (options.observatory and options.observatory.strip()) or "+".join(sorted(seglists.keys()))
 
 	# extract description
 	if options.description:
@@ -152,7 +156,7 @@ for n, filename in enumerate(filenames):
 		if process_ids is None:
 			description = set(searchsumm.getColumnByName("comment"))
 		else:
-			description = set([row.comment for row in searchsumm if row.process_id in process_ids])
+			description = set(row.comment for row in searchsumm if row.process_id in process_ids)
 		if len(description) < 1:
 			raise ValueError, "%s: no matching rows found in search summary table" % filename
 		if len(description) > 1:
