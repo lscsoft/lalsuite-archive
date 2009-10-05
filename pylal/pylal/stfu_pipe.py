@@ -402,6 +402,7 @@ class FUNode:
                                 cache.appendSubCache(job.name,self.outputCache)
                 except: pass
 
+# QSCAN NODE
 class fuQscanNode(pipeline.CondorDAGNode):
         """
 QScan node.  This node writes its output to the web directory specified in
@@ -454,6 +455,7 @@ The omega scan command line is
 		out = "/".join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
 		return out
 
+# DATAFIND NODE
 class fuDataFindNode(pipeline.LSCDataFindNode):
     
         def __init__(self, dag, job, cp, opts, ifo, sngl=None, qscan=False, trigger_time=None, data_type="hoft", p_nodes=[]):
@@ -503,6 +505,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
                 return(lalCache)
 
 
+# INSPIRAL NODE
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
@@ -589,6 +592,7 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
                 utils.write_filename(xmldoc, name, verbose=False, gz = True)
                 return name
 
+# FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
         """
         This class is resposible for setting up a node to perform a
@@ -616,6 +620,7 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
                 self.add_var_opt("window",cp.get('findFlags','window'))
                 dag.add_node(self)
 
+# FIND VETOS NODE 
 class findVetosNode(pipeline.CondorDAGNode,FUNode):
         """
         This class is responsible for creating a node in the dag which
@@ -644,6 +649,7 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
                 self.add_var_opt("window",cp.get('findFlags','window'))
                 dag.add_node(self)
 
+# EFFECTIVE DISTANCE RATIO NODE 
 class effDRatioNode(pipeline.CondorDAGNode,FUNode):
         """
         This Node class performs a parameter consistency check using the
@@ -674,6 +680,77 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
                         self.add_var_opt("snr%i"%(index),mySNR)
                         self.add_var_opt("time%i"%(index),myTIME)
                 dag.add_node(self)
+
+##############################################################################
+# job class for producing the skymap
+
+class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	A C code for computing the sky map
+	An example command line is:
+
+lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --l1-frame-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --v1-frame-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.gwf --event-id 866088314000001908 --ra-res 512 --dec-res 256 --h1-xml-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --l1-xml-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --v1-xml-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.xml.gz --output-file chad.txt
+	"""
+	def __init__(self,dag,job,cp, opts, coinc, sngl_node_dict, p_nodes=[]):
+		self.ifo_list = ["H1","L1","V1"]
+		#self.already_added_ifo_list = []
+
+		self.ra_res = job.ra_res
+		self.dec_res = job.dec_res
+		self.sample_rate = job.sample_rate
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.setupNode(job)
+		# required by pylal_skyPlotNode
+		# this program now gzips its files (otherwise they are really huge)
+		self.output_file_name = job.outputPath + self.id+".txt.gz"
+		self.add_var_opt("output-file",self.output_file_name)
+		self.add_var_opt("ra-res",self.ra_res)
+		self.add_var_opt("dec-res",self.dec_res)
+		#self.add_var_opt("event-id",trig.eventID)
+		# Initialize input files
+
+		for ifo in ['h1','h2','l1','v1']:
+			self.add_var_opt(ifo+"-frame-file","none")
+			self.add_var_opt(ifo+"-xml-file","none")
+			self.add_var_opt(ifo+"-channel-name","none")
+
+		# Overide the sample rate
+		self.add_var_opt("sample-rate",coinc.get_sample_rate())
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+	
+		# Now add the data we actually have
+		for ifo,sngl in sngl_node_dict.items():
+			self.add_var_opt(ifo+"-frame-file",sngl.output_file_name.replace(".xml",".gwf").strip(".gz"))
+			self.add_var_opt(ifo+"-xml-file",sngl.output_file_name)
+			self.add_var_opt(ifo+"-channel-name",ifo.upper()+":CBC-CData_"+str(sngl.row.event_id))
+
+		# Add parents and put this node in the dag
+		for node in p_nodes:
+			node.add_parent(node)
+		dag.add_node(self)
+
+	def append_insp_node(self,inspNode,ifo):
+		if ifo in self.ifo_list:
+			fileName = str(inspNode.output_file_name)
+			self.add_var_opt(ifo.lower()+"-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
+			self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
+			if inspNode.validNode: self.add_parent(inspNode)
+
+		else: pass #print >> sys.stderr, "WARNING: Already added " + ifo
+
+
+	def add_node_to_dag(self,dag,opts,trig):
+		if opts.sky_map:
+ 			dag.addNode(self,self.friendlyName)
+			self.validate()
+		else:
+			self.invalidate()
+			#print "couldn't add sky map job for " + str(trig.eventID)
+
+
+
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
