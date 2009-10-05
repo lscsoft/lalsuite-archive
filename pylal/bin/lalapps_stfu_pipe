@@ -256,6 +256,7 @@ SELECT
 		for ifo in self.instruments_set:
 			if ifo not in self.ifos_set:
 				self.sngl_inspiral[ifo] = self.make_sngl_from_max_ifo(ifo)
+
 		# make a list of sngls appropriate for the coherent code (use max template)
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
