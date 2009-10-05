@@ -113,8 +113,8 @@ def figure_out_type(time, ifo, data_type='hoft'):
                 ("H1_RDS_R_L1","H1:LSC-DARM_ERR",931035296,999999999)
                 )
         V1RdsTypes=(
-                ("","",863557214,875232014),
-                ("","",931035296,999999999)
+                ("raw","V1:Pr_B1_ACp",863557214,875232014),
+                ("raw","V1:Pr_B1_ACp",931035296,999999999)
                 )
         channelMap={
                 "L1":{"hoft":L1HoftTypes,"rds":L1RdsTypes},
@@ -131,7 +131,7 @@ def figure_out_type(time, ifo, data_type='hoft'):
                         foundChannel=channel
                         break
         if foundType == "":
-                print time,ifo
+                print time,ifo + " not found in method stfu_pipe.figure_out_type"
                 os.abort()
         return str(foundType), str(foundChannel)
 
@@ -202,8 +202,7 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
         def setup_checkForDir(self):
                 # create a shell script to check for the existence of the qscan output directory and rename it if needed
                 checkdir_script = open('checkForDir.sh','w')
-                checkdir_script.write("""
-#!/bin/bash
+                checkdir_script.write("""#!/bin/bash
 if [ -d $1/$2 ]
 then
 matchingList=$(echo $(find $1 -name $2.bk*))
@@ -301,13 +300,9 @@ class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
         def setup_cacheconv(self,cp):
                 # create a shell script to call convertlalcache.pl if the value of $RETURN is 0
                 convert_script = open('cacheconv.sh','w')
-                convert_script.write("""
-#!/bin/bash
-if [ ${1} -ne 0 ] ; then
-      exit 1
-else
-      %s ${2} ${3}
-fi
+		#FIXME changed convert cache script to not fail on previous error?
+                convert_script.write("""#!/bin/bash
+%s ${1} ${2}
                 """ % string.strip(cp.get('fu-condor','convertcache')))
                 convert_script.close()
                 os.chmod('cacheconv.sh',0755)
@@ -419,7 +414,7 @@ The omega scan command line is
         wpipeline scan -r -c H1_hoft.txt -f H-H1_RDS_C03_L2-870946612-870946742.qcache -o QSCAN/foreground-hoft-qscan/H1/870946677.52929688 870946677.52929688
 
         """
-        def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
+        def __init__(self, dag, job, cp, opts, time, ifo, frame_cache, p_nodes=[], type="ht", variety="fg"):
                 """
                 """
                 pipeline.CondorDAGNode.__init__(self,job)
@@ -431,12 +426,19 @@ The omega scan command line is
 		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
                 self.add_var_arg("-c " + config )
 
-                output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
+                if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+                  output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
+                else:
+                  output = type + 'Qscan' + '/' + ifo
 
                 # CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
                 mkdir(output)
 
                 self.add_var_arg("-o "+output+"/"+repr(time))
+		
+		# ADD FRAME CACHE FILE
+		self.add_var_arg("-f "+frame_cache)
+		
                 self.add_var_arg(repr(time))
 
                 self.set_pre_script("checkForDir.sh %s %s" %(output, repr(time)))
@@ -484,7 +486,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
                 self.set_end(int( time + self.q_time + 1.))
                 lalCache = self.get_output()
                 qCache = lalCache.rstrip("cache") + "qcache"
-                self.set_post_script("cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
+                self.set_post_script(os.getcwd()+"/cacheconv.sh %s %s" %(lalCache,qCache) )
                 return(qCache)
 
         def setup_inspiral(self, job, cp, sngl, ifo):
@@ -494,8 +496,9 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
                 type, channel = figure_out_type(sngl.get_gps_start_time(),ifo)
                 self.set_type(type)
                 self.set_observatory(ifo[0])
-                self.set_start(sngl.get_gps_start_time())
-                self.set_end(sngl.get_gps_end_time())
+		#FIXME use proper pad, not hardcode to 64
+                self.set_start(sngl.get_gps_start_time()-64)
+                self.set_end(sngl.get_gps_end_time()+64)
                 lalCache = self.get_output()
                 return(lalCache)
 
@@ -773,6 +776,13 @@ class create_default_config(object):
 	def get_cp(self):
 		return self.cp
 
+	def set_qscan_executable(self):
+		host = self.__get_hostname()
+		if 'phy.syr.edu' in host:
+			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+		else:
+			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")		
+
 	def __qscan_config(self,config):
 		#FIXME why isn't there an environment variable for things in lalapps share?
 		path = self.which('lalapps_inspiral')
@@ -793,6 +803,7 @@ class create_default_config(object):
 		#FIXME add more hosts as you need them
 		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
+		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
@@ -804,7 +815,8 @@ class create_default_config(object):
 		if 'ligo-la.caltech.edu' in host: return "https://ldas-jobs.ligo-la.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas3.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
+		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 

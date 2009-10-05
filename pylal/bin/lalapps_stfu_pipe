@@ -256,6 +256,7 @@ SELECT
 		for ifo in self.instruments_set:
 			if ifo not in self.ifos_set:
 				self.sngl_inspiral[ifo] = self.make_sngl_from_max_ifo(ifo)
+
 		# make a list of sngls appropriate for the coherent code (use max template)
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
@@ -462,7 +463,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral, qscan=True)
 
 			# h(t) QSCAN Nodes
-			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[ht_qscan_data_find_node],type="ht")
+			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
 
 			#FIXME add inspiral datafind node
 			insp_datafind_node = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
