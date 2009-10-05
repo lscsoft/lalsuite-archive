@@ -496,8 +496,9 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
                 type, channel = figure_out_type(sngl.get_gps_start_time(),ifo)
                 self.set_type(type)
                 self.set_observatory(ifo[0])
-                self.set_start(sngl.get_gps_start_time())
-                self.set_end(sngl.get_gps_end_time())
+		#FIXME use proper pad, not hardcode to 64
+                self.set_start(sngl.get_gps_start_time()-64)
+                self.set_end(sngl.get_gps_end_time()+64)
                 lalCache = self.get_output()
                 return(lalCache)
 
