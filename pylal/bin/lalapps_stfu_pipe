@@ -198,7 +198,13 @@ SELECT
 		for row in self.process_params:
 			if row.param == '--gps-end-time': 
 				return int(row.value)
-
+	
+	def get_sample_rate(self):
+		#FIXME probably really slow
+		for row in self.process_params:
+			if row.param == '--sample-rate': 
+				return int(row.value)
+		
 	def switch_ifo(self,ifo):
 		self.ifo = ifo
 		self.process_params = []
@@ -261,6 +267,11 @@ SELECT
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
 		
+	def get_sample_rate(self):
+		#FIXME NEEDS TO CHECK ALL SAMPLE RATES ARE THE SAME!
+		for sngl in self.sngl_inspiral.values():
+			return sngl.get_sample_rate()
+
 	def max_trigger_ifo(self):
 		snr_tuple = [(sngl.snr, sngl.ifo) for sngl in self.sngl_inspiral.values()]
 		return max(snr_tuple)[1]
@@ -449,6 +460,10 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	find_vetos_job            = stfu_pipe.findVetosJob(options,cp, dir=search)
 	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp, dir=search)
 	
+	# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
+	insp_datafind_node = {}
+	insp_node_skymap = {}
+
 	# LOOP OVER COINC EVENTS
 	for coinc in candidates:
 		if options.verbose:
@@ -456,21 +471,30 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 		# SETUP JOBS FOR IFOS FOUND IN COINCIDENCE
 		for ifo, sngl_inspiral in coinc.sngl_inspiral.items():
+			# VERBOSITY
 			if options.verbose:
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 
 			# h(t) QSCAN datafind Nodes
 			ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral, qscan=True)
-
 			# h(t) QSCAN Nodes
 			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+			# h(t) INSPIRAL datafind Node
+			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
+			# INSPIRAL NODE (for plots)
+			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node])
 
-			#FIXME add inspiral datafind node
-			insp_datafind_node = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
-
-			# inspiral Node FIXME add datafind as a parent			
-			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node.outputFileName, search, p_nodes=[insp_datafind_node])
-
+		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
+		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
+			# VERBOSITY
+			if options.verbose:
+				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
+			
+			# INSPIRAL JOB FOR SKYMAPS
+			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node])
+		
+		# SKYMAP JOBS
+		
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		#findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
