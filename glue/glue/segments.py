@@ -44,7 +44,7 @@ from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -408,12 +408,6 @@ class segment(tuple):
 		"""
 		return tuple.__new__(self.__class__, (self[0] + x, self[1] + x))
 
-	def duration(self):
-		"""
-		Returns the duration of the segment
-		"""
-		return float(self[1] - self[0])
-
 
 #
 # =============================================================================
@@ -471,7 +465,7 @@ class segmentlist(list):
 		if it is a segmentlist of m segments this operation is O(m
 		log n).
 
-		Note the difference between this operator, and the standard
+		Note the difference between this operator and the standard
 		Python "in" operator for sequence-like objects:  in the
 		case of standard sequence-like objects the in operator
 		checks for an exact match between the given item and one of
@@ -480,6 +474,8 @@ class segmentlist(list):
 		segments in the segmentlist.
 		"""
 		if isinstance(item, self.__class__):
+			# FIXME:  in Python >= 2.5, use all() builtin
+			# return all(seg in self for seg in item)
 			for seg in item:
 				if seg not in self:
 					return False
@@ -746,15 +742,6 @@ class segmentlist(list):
 			self[i] = self[i].shift(x)
 		return self
 
-	def duration(self):
-		"""
-		Return the duration of the segmentlist
-		"""
-		tmptime = 0.0
-		for seg in self:
-			tmptime += seg.duration()
-		return tmptime
-
 
 #
 # =============================================================================
@@ -929,8 +916,7 @@ class segmentlistdict(dict):
 		Return a dictionary of the results of func applied to each
 		of the segmentlist objects in self.
 		"""
-		# FIXME: use generator expressions in >= 2.4
-		return dict([(key, func(value)) for key, value in self.iteritems()])
+		return dict((key, func(value)) for key, value in self.iteritems())
 
 	def __abs__(self):
 		"""
@@ -952,8 +938,7 @@ class segmentlistdict(dict):
 		lists in the dictionary.
 		"""
 		segs = self.extent().values()
-		# FIXME: use generator expressions in >= 2.4
-		return segment(min([seg[0] for seg in segs]), max([seg[1] for seg in segs]))
+		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
 
 	def find(self, item):
 		"""
@@ -973,7 +958,9 @@ class segmentlistdict(dict):
 		return self
 
 	def __and__(self, other):
-		return self.copy().__iand__(other)
+		if sum(len(s) for s in self.values()) <= sum(len(s) for s in other.values()):
+			return self.copy().__iand__(other)
+		return other.copy().__iand__(self)
 
 	def __ior__(self, other):
 		for key, value in other.iteritems():
@@ -984,7 +971,9 @@ class segmentlistdict(dict):
 		return self
 
 	def __or__(self, other):
-		return self.copy().__ior__(other)
+		if sum(len(s) for s in self.values()) >= sum(len(s) for s in other.values()):
+			return self.copy().__ior__(other)
+		return other.copy().__ior__(self)
 
 	__iadd__ = __ior__
 	__add__ = __or__
@@ -1007,7 +996,9 @@ class segmentlistdict(dict):
 		return self
 
 	def __xor__(self, other):
-		return self.copy().__ixor__(other)
+		if sum(len(s) for s in self.values()) <= sum(len(s) for s in other.values()):
+			return self.copy().__ixor__(other)
+		return other.copy().__ixor__(self)
 
 	def __invert__(self):
 		new = self.copy()
@@ -1022,6 +1013,8 @@ class segmentlistdict(dict):
 		Returns True if any segmentlist in self intersects the
 		segment, otherwise returns False.
 		"""
+		# FIXME:  replace with any() when minimum version bumped to
+		# 2.5
 		for value in self.itervalues():
 			if value.intersects_segment(seg):
 				return True
@@ -1033,6 +1026,8 @@ class segmentlistdict(dict):
 		intersects the corresponding segmentlist in other;  returns
 		False otherwise.
 		"""
+		# FIXME:  replace with any() when minimum version bumped to
+		# 2.5
 		for key, value in other.iteritems():
 			if key in self and self[key].intersects(value):
 				return True
@@ -1044,6 +1039,8 @@ class segmentlistdict(dict):
 		corresponding segmentlist in self;  returns False
 		if this is not the case, or if other is empty.
 		"""
+		# FIXME:  replace with all() when minimum version bumped to
+		# 2.5
 		for key, value in other.iteritems():
 			if key not in self or not self[key].intersects(value):
 				return False
@@ -1055,6 +1052,8 @@ class segmentlistdict(dict):
 		corresponding segmentlist in other;  returns False
 		if this is not the case or if self is empty.
 		"""
+		# FIXME:  replace with all() when minimum version bumped to
+		# 2.5
 		for key, value in self.iteritems():
 			if key not in other or not other[key].intersects(value):
 				return False
@@ -1069,6 +1068,8 @@ class segmentlistdict(dict):
 		"""
 		if set(self.keys()) != set(other.keys()):
 			return False
+		# FIXME:  replace with all() when minimum version bumped to
+		# 2.5
 		for key, value in self.iteritems():
 			if not other[key].intersects(value):
 				return False
@@ -1131,13 +1132,16 @@ class segmentlistdict(dict):
 		"""
 		Return True if any segment in any list in self intersects
 		any segment in any list in other.  If the optional keys
-		argument is not None, then only segment lists for the given
-		keys are considered.  Keys not represented in both segment
-		lists are ignored.  If keys is None (the default) then all
-		segment lists are considered.
+		argument is not None, then it should be an iterable of keys
+		and only segment lists for those keys will be considered in
+		the test (instead of raising KeyError, keys not present in
+		both segment list dictionaries will be ignored).  If keys
+		is None (the default) then all segment lists are
+		considered.
 
 		This method is equivalent to the intersects() method, but
-		without requiring the keys to match.
+		without requiring the keys of the intersecting segment
+		lists to match.
 		"""
 		keys1 = set(self.keys())
 		keys2 = set(other.keys())
@@ -1145,10 +1149,11 @@ class segmentlistdict(dict):
 			keys = set(keys)
 			keys1 &= keys
 			keys2 &= keys
-		for key1 in keys1:
-			l = self[key1]
-			for key2 in keys2:
-				if l.intersects(other[key2]):
+		other = tuple(other[key] for key in keys2)
+		# FIXME:  replace with any() when min version bumped to 2.5
+		for a in (self[key] for key in keys1):
+			for b in other:
+				if a.intersects(b):
 					return True
 		return False
 
@@ -1160,7 +1165,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = segmentlist(self[keys.pop()])
+		seglist = shallowcopy(self[keys.pop()])
 		for key in keys:
 			seglist &= self[key]
 		return seglist
@@ -1173,7 +1178,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = segmentlist(self[keys.pop()])
+		seglist = shallowcopy(self[keys.pop()])
 		for key in keys:
 			seglist |= self[key]
 		return seglist
@@ -1188,13 +1193,7 @@ class segmentlistdict(dict):
 #
 
 
-#
-# FIXME:  commented out until LSCsegFind client/server protocol fixed.
-#
-
-
-#try:
-#	from __segments import *
-#except ImportError:
-#	pass
-
+try:
+	from __segments import *
+except ImportError:
+	pass

@@ -31,11 +31,6 @@ This module provides an implementation of the Table element that uses a
 database engine for storage.  On top of that it then re-implements a number
 of the tables from the lsctables module to provide versions of their
 methods that work against the SQL database.
-
-*** CAUTION *** the API exported by this module is NOT STABLE.  The code
-works well, and it hugely simplifies my life and it can yours too, but if
-you use it you will have to be willing to track changes as I make them.
-I'm still figuring out how this should work.
 """
 
 
@@ -52,6 +47,7 @@ try:
 except NameError:
 	from sets import Set as set
 
+
 import ligolw
 import table
 import lsctables
@@ -59,7 +55,7 @@ import types as ligolwtypes
 from glue import segments
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -81,26 +77,11 @@ def DBTable_set_connection(connection):
 	DBTable.connection = connection
 
 
-def DBTable_get_connection():
-	"""
-	Return the current connection object.
-	"""
-	return DBTable.connection
-
-
-def DBTable_commit():
-	"""
-	Run commit on the DBTable class' connection.
-	"""
-	DBTable.connection.commit()
-
-
 def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
 	"""
-	Experimental utility code for moving database files to a
-	(presumably local) working location for improved performance and
-	reduced fileserver load.  The API is not stable, don't use unless
-	you're prepared to track changes.
+	Utility code for moving database files to a (presumably local)
+	working location for improved performance and reduced fileserver
+	load.
 	"""
 	def mktmp(path, verbose = False):
 		fd, filename = tempfile.mkstemp(suffix = ".sqlite", dir = path)
@@ -187,6 +168,18 @@ class IOTrappedSignal(Exception):
 
 
 def put_connection_filename(filename, working_filename, verbose = False):
+	"""
+	This function reverses the effect of a previous call to
+	get_connection_filename(), restoring the working copy to its
+	original location if the two are different.  This function should
+	always be called after calling get_connection_filename() when the
+	file is no longer in use.
+
+	This function traps the signals used by Condor to evict jobs, which
+	reduces the risk of corrupting a document by the job terminating
+	part-way through the restoration of the file to its original
+	location.
+	"""
 	if working_filename != filename:
 		# initialize SIGTERM and SIGTSTP trap
 		global __llwapp_write_filename_got_sig
@@ -214,6 +207,18 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
+	"""
+	Like put_connection_filename(), but the working copy is simply
+	deleted instead of being copied back to its original location.
+	This is a useful performance boost if it is known that no
+	modifications were made to the file, for example if queries were
+	performed but no updates.
+
+	Note that the file is not deleted if the working copy and original
+	file are the same, so it is always safe to call this function after
+	a call to get_connection_filename() even if a separate working copy
+	is not created.
+	"""
 	if working_filename != filename:
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename
@@ -229,37 +234,50 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 #
 
 
-def DBTable_idmap_create():
+def idmap_create(connection):
 	"""
 	Create the _idmap_ table.  This table has columns "old" and "new"
 	containing text strings mapping old IDs to new IDs.  The old column
 	is a primary key (is indexed and must contain unique entries).  The
 	table is created as a temporary table, so it will be automatically
 	dropped when the database connection is closed.
+
+	This function is for internal use, it forms part of the code used
+	to re-map row IDs when merging multiple documents.
 	"""
-	DBTable.connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
+	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
 
 
-def DBTable_idmap_reset():
+def idmap_reset(connection):
 	"""
-	Erase the contents of the _idmap_ table.
+	Erase the contents of the _idmap_ table, but leave the table in
+	place.
+
+	This function is for internal use, it forms part of the code used
+	to re-map row IDs when merging multiple documents.
 	"""
-	DBTable.connection.cursor().execute("DELETE FROM _idmap_")
+	connection.cursor().execute("DELETE FROM _idmap_")
 
 
-def DBTable_idmap_get_new(old, tbl):
+def idmap_get_new(connection, old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
 	grabbing it from the _idmap_ table if one has already been assigned
 	to the old ID, or by using the current value of the Table
 	instance's next_id class attribute.  In the latter case, the new ID
 	is recorded in the _idmap_ table, and the class attribute
-	incremented by 1.  For internal use only.
+	incremented by 1.
+
+	This function is for internal use, it forms part of the code used
+	to re-map row IDs when merging multiple documents.
 	"""
-	cursor = DBTable.connection.cursor()
+	cursor = connection.cursor()
 	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
+		# a new ID has already been created for this old ID
 		return new[0]
+	# this ID was not found in _idmap_ table, assign a new ID and
+	# record it
 	new = unicode(tbl.get_next_id())
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
@@ -288,48 +306,52 @@ _sql_coldef_pattern = re.compile(r"\s*(?P<name>\w+)\s+(?P<type>\w+)[^,]*")
 #
 
 
-def DBTable_table_names():
+def get_table_names(connection):
 	"""
 	Return a list of the table names in the database.
 	"""
-	return [name for (name,) in DBTable.connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
+	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
-def DBTable_column_info(table_name):
+def get_column_info(connection, table_name):
 	"""
 	Return an in order list of (name, type) tuples describing the
-	columns for the given table.
+	columns in the given table.
 	"""
-	statement, = DBTable.connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
+	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
-def DBTable_get_xml():
+def get_xml(connection, table_names = None):
 	"""
 	Construct an XML document tree wrapping around the contents of the
-	currently connected database.  On success the return value is a
-	ligolw.LIGO_LW element containing the tables as children.
+	database.  On success the return value is a ligolw.LIGO_LW element
+	containing the tables as children.  Arguments are a connection to
+	to a database, and an optional list of table names to dump.  If
+	table_names is not provided the set is obtained from get_table_names()
 	"""
 	ligo_lw = ligolw.LIGO_LW()
-	for table_name in DBTable_table_names():
+
+	if table_names is None:
+		table_names = get_table_names(connection)
+
+	for table_name in table_names:
 		# build the table document tree.  copied from
 		# lsctables.New()
 		try:
 			cls = TableByName[table_name]
 		except KeyError:
 			cls = DBTable
-		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}))
-		colnamefmt = u"%s:%%s" % table_name
-		for column_name, column_type in DBTable_column_info(table_elem.dbtablename):
+		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}), connection = connection)
+		for column_name, column_type in get_column_info(connection, table_elem.dbtablename):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
 				column_type = table_elem.validcolumns[column_name]
 			else:
 				# guess the column type
 				column_type = ligolwtypes.FromSQLiteType[column_type]
-			table_elem.appendChild(table.Column(AttributesImpl({u"Name": colnamefmt % column_name, u"Type": column_type})))
-
+			table_elem.appendChild(table.Column(AttributesImpl({u"Name": u"%s:%s" % (table_name, column_name), u"Type": column_type})))
 		table_elem._end_of_columns()
 		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": u"%s:table" % table_name})))
 		ligo_lw.appendChild(table_elem)
@@ -350,12 +372,12 @@ class DBTable(table.Table):
 	A special version of the Table class using an SQL database for
 	storage.  Many of the features of the Table class are not available
 	here, but instead the user can use SQL to query the table's
-	contents.  Before use, the connection attribute must be set to a
-	Python DB-API 2.0 "connection" object.  The constraints attribute
-	can be set to a text string that will be added to the table's
-	CREATE statement where constraints go, for example you might wish
-	to set this to "PRIMARY KEY (event_id)" for a table with an
-	event_id column.
+	contents.
+
+	The constraints attribute can be set to a text string that will be
+	added to the table's CREATE statement where constraints go, for
+	example you might wish to set this to "PRIMARY KEY (event_id)" for
+	a table with an event_id column.
 
 	Note:  because the table is stored in an SQL database, the use of
 	this class imposes the restriction that table names be unique
@@ -370,16 +392,45 @@ class DBTable(table.Table):
 	and so on.  This can result in poor query performance.  It is also
 	possible to write a database' contents to a LIGO Light Weight XML
 	file even when the database contains unrecognized tables, but
-	without developer intervention the column types will be guessed.
+	without developer intervention the column types will be guessed
+	using a generic mapping of SQL types to LIGO Light Weight types.
+
+	Each instance of this class must be connected to a database, but
+	because the __init__() method must have the same signature as the
+	__init__() methods of other Element subclasses (so that this class
+	can be used as a drop-in replacement during document parsing), it
+	is not possible to pass a connection object into the __init__()
+	method as a separate argument.  Instead, the connection object is
+	passed into the __init__() method via a class attribute.  The
+	procedure is:  set the class attribute, create instances of the
+	class connected to that database, set the class attribute to a new
+	value, create instances of the class connected to a different
+	database, and so on.  A utility function is available for setting
+	the class attribute, and should be used.
+
+	Example:
+
+	import dbtables
+
+	# set class attribute
+	dbtables.DBTable_set_connection(connection)
+
+	# create a process table instance connected to that database
+	table_elem = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}))
 	"""
 	#
-	# Global Python DB-API 2.0 connection object shared by all code.
+	# When instances of this class are created, they initialize their
+	# connection attributes from the value of this class attribute at
+	# the time of their creation.  The value must be passed into the
+	# __init__() method this way because it cannot be passed in as a
+	# separate argument;  this class' __init__() method must have the
+	# same signature as normal Element subclasses.
 	#
 
 	connection = None
 
-	def __new__(cls, *args):
-		# does this class have table-specific metadata?
+	def __new__(cls, *args, **kwargs):
+		# does this class already have table-specific metadata?
 		if not hasattr(cls, "tableName"):
 			# no, try to retrieve it from lsctables
 			attrs, = args
@@ -390,11 +441,11 @@ class DBTable(table.Table):
 				# unknown table, give up
 				pass
 			else:
-				# found metadata, construct custom class.
-				# NOTE:  this works because when using
-				# SQL-backed tables there can only be ONE
-				# of any table in a document, which solves
-				# the problem of trying to share the
+				# found metadata, construct custom
+				# subclass.  NOTE:  this works because when
+				# using SQL-backed tables there can only be
+				# ONE of any table in a document, which
+				# solves the problem of trying to share the
 				# next_id attribute across multiple
 				# instances of a table.
 				class CustomDBTable(cls):
@@ -405,17 +456,31 @@ class DBTable(table.Table):
 					next_id = lsccls.next_id
 					RowType = lsccls.RowType
 					how_to_index = lsccls.how_to_index
-				return CustomDBTable.__new__(CustomDBTable, *args)
+
+				# save for re-use (required for ID
+				# remapping across multiple documents in
+				# ligolw_sqlite)
+				TableByName[name] = CustomDBTable
+
+				# replace input argument with new class
+				cls = CustomDBTable
 		return table.Table.__new__(cls, *args)
 
-	def __init__(self, *args):
-		"""
-		Initialize
-		"""
+	def __init__(self, *args, **kwargs):
+		# chain to parent class
 		table.Table.__init__(self, *args)
-		if self.connection is None:
-			raise ligolw.ElementError, "connection attribute not set"
+
+		# save the stripped name
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
+
+		# replace connection class attribute with an instance
+		# attribute
+		if "connection" in kwargs:
+			self.connection = kwargs.pop("connection")
+		else:
+			self.connection = self.connection
+
+		# pre-allocate a cursor for internal queries
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
@@ -440,7 +505,7 @@ class DBTable(table.Table):
 		self.last_maxrowid = self.maxrowid() or 0
 
 		# construct the SQL to be used to insert new rows
-		self.append_statement = "INSERT INTO " + self.dbtablename + " VALUES (" + ",".join("?" * len(self.dbcolumnnames)) + ")"
+		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), ",".join("?" * len(self.dbcolumnnames)))
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
@@ -483,7 +548,7 @@ class DBTable(table.Table):
 		if self.next_id is not None:
 			# assign (and record) a new ID before inserting the
 			# row to avoid collisions with existing rows
-			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(getattr(row, self.next_id.column_name), self))
+			setattr(row, self.next_id.column_name, idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
@@ -504,6 +569,7 @@ class DBTable(table.Table):
 
 	def unlink(self):
 		table.Table.unlink(self)
+		self.connection = None
 		self.cursor = None
 
 	def applyKeyMapping(self):
@@ -512,21 +578,17 @@ class DBTable(table.Table):
 		Loops over each row in the table, replacing references to
 		old row keys with the new values from the _idmap_ table.
 		"""
-		assignments = []
-		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in ligolwtypes.IDTypes and (self.next_id is None or colname != self.next_id.column_name)]:
-			assignments.append("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
-		if not assignments:
-			# table has no columns to update
-			return
-		# SQLite documentation says ROWID is monotonically
-		# increasing starting at 1 for the first row unless it ever
-		# wraps around, then it is randomly assigned.  ROWID is a
-		# 64 bit integer, so the only way it will wrap is if
-		# somebody sets it to a very high number manually.  This
-		# library does not do that, so I don't bother checking.
-		statement = "UPDATE " + self.dbtablename + " SET " + ", ".join(assignments) + " WHERE ROWID > %d" % self.last_maxrowid
-		self.cursor.execute(statement)
-		self.last_maxrowid = self.maxrowid() or 0
+		assignments = ", ".join("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname) for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in ligolwtypes.IDTypes and (self.next_id is None or colname != self.next_id.column_name))
+		if assignments:
+			# SQLite documentation says ROWID is monotonically
+			# increasing starting at 1 for the first row unless
+			# it ever wraps around, then it is randomly
+			# assigned.  ROWID is a 64 bit integer, so the only
+			# way it will wrap is if somebody sets it to a very
+			# high number manually.  This library does not do
+			# that, so I don't bother checking.
+			self.cursor.execute("UPDATE %s SET %s WHERE ROWID > %d" % (self.dbtablename, assignments, self.last_maxrowid))
+			self.last_maxrowid = self.maxrowid() or 0
 
 
 #
@@ -551,7 +613,7 @@ class ProcessTable(DBTable):
 		Return a set of the process IDs from rows whose program
 		string equals the given program.
 		"""
-		return set([id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,))])
+		return set(id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,)))
 
 
 class ProcessParamsTable(DBTable):
@@ -582,6 +644,10 @@ class SearchSummaryTable(DBTable):
 		list.  If process_ids is a list of process IDs, then only
 		rows with matching IDs are included otherwise all rows are
 		included.
+
+		Note:  the result is not coalesced, each segmentlist
+		contains the segments listed for that instrument as they
+		appeared in the table.
 		"""
 		# start a segment list dictionary
 		seglists = segments.segmentlistdict()
@@ -589,8 +655,11 @@ class SearchSummaryTable(DBTable):
 		# add segments from appropriate rows to segment list
 		# dictionary
 		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()])
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
 
 		# done
 		return seglists
@@ -664,9 +733,6 @@ class TimeSlideTable(DBTable):
 	def iterkeys(self):
 		raise NotImplementedError
 
-	def is_null(self, id):
-		return not self.cursor.execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (id,)).fetchone()[0]
-
 
 class CoincDefTable(DBTable):
 	tableName = lsctables.CoincDefTable.tableName
@@ -716,14 +782,14 @@ class CoincDefTable(DBTable):
 #
 
 
-def build_indexes(verbose = False):
+def build_indexes(connection, verbose = False):
 	"""
 	Using the how_to_index annotations in the table class definitions,
-	construct a set of indexes for the database at the current
+	construct a set of indexes for the database at the given
 	connection.
 	"""
-	cursor = DBTable_get_connection().cursor()
-	for table_name in DBTable_table_names():
+	cursor = connection.cursor()
+	for table_name in get_table_names(connection):
 		# FIXME:  figure out how to do this extensibly
 		if table_name in TableByName:
 			how_to_index = TableByName[table_name].how_to_index
@@ -736,6 +802,7 @@ def build_indexes(verbose = False):
 				print >>sys.stderr, "indexing %s table ..." % table_name
 			for index_name, cols in how_to_index.iteritems():
 				cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
+	connection.commit()
 
 
 #

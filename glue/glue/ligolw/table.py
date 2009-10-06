@@ -46,7 +46,7 @@ columns of the table.
 """
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -545,7 +545,7 @@ class Table(ligolw.Table, list):
 			if self.validcolumns is not None:
 				try:
 					if self.validcolumns[colname] != llwtype:
-						raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
+						raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s', expected type '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"), self.validcolumns[colname])
 				except KeyError:
 					raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
 			if colname in self.columnnames:

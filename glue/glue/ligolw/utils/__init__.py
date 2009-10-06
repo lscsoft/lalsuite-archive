@@ -33,7 +33,12 @@ Library of utility code for LIGO Light Weight XML applications.
 
 import codecs
 import gzip
-import md5
+try:
+	# >= 2.5.0
+	from hashlib import md5
+except ImportError:
+	# < 2.5.0
+	from md5 import new as md5
 import os
 import urllib2
 import urlparse
@@ -51,7 +56,7 @@ except:
 from glue.ligolw import ligolw
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -228,7 +233,7 @@ class MD5File(object):
 	def __init__(self, fileobj, md5obj = None):
 		self.fileobj = fileobj
 		if md5obj is None:
-			self.md5obj = md5.new()
+			self.md5obj = md5()
 		else:
 			self.md5obj = md5obj
 
@@ -331,7 +336,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
 	if url is not None:
-		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = file(path)
 		else:
@@ -452,7 +457,10 @@ def write_url(xmldoc, url, verbose = False, gz = False):
 	>>> from glue.ligolw import utils
 	>>> utils.write_url(xmldoc, "file:///data.xml")
 	"""
-	(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+	if url is None:
+		scheme, host, path = "", "", None
+	else:
+		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
 	else:

@@ -44,11 +44,8 @@ import sys
 
 
 from glue.lal import CacheEntry
-from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import dbtables
-from glue.ligolw import utils
-from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import ligolw_sqlite
 
 
 # so they can be inserted into a database
@@ -60,7 +57,7 @@ dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
 dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -101,67 +98,6 @@ def parse_command_line():
 	return options, (urls or [None])
 
 
-#
-# =============================================================================
-#
-#                                 Library Code
-#
-# =============================================================================
-#
-
-
-#
-# How to insert
-#
-
-
-def insert(urls, preserve_ids = True, verbose = False):
-	"""
-	Iterate over a sequence of URLs and parse and insert each one into
-	the database the dbtables.DBTable class is currently connected to.
-	"""
-	if not preserve_ids:
-		# enable ID remapping
-		dbtables.DBTable_idmap_create()
-		dbtables.DBTable.append = dbtables.DBTable._remapping_append
-	for n, url in enumerate(urls):
-		# load document (if enabled, row IDs are reassigned on
-		# input)
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		doc = utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz"))
-
-		# update references to row IDs
-		if not preserve_ids:
-			table_elems = doc.getElementsByTagName(ligolw.Table.tagName)
-			for i, tbl in enumerate(table_elems):
-				if verbose:
-					print >>sys.stderr, "updating IDs: %d%%\r" % (100 * i / len(table_elems)),
-				tbl.applyKeyMapping()
-			if verbose:
-				print >>sys.stderr, "updating IDs: 100%"
-
-			# reset ID mapping for next document
-			dbtables.DBTable_idmap_reset()
-
-		# delete cursors
-		doc.unlink()
-	dbtables.DBTable_commit()
-
-
-#
-# How to extract
-#
-
-
-def extract(filename, verbose = False):
-	xmldoc = ligolw.Document()
-	xmldoc.appendChild(dbtables.DBTable_get_xml())
-	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
-
-	# delete cursors
-	xmldoc.unlink()
-
 
 #
 # =============================================================================
@@ -176,77 +112,46 @@ def extract(filename, verbose = False):
 # Command line
 #
 
+if __name__ == '__main__':
+	options, urls = parse_command_line()
 
-options, urls = parse_command_line()
-
-
-will_write_to_file = (options.extract is None) or (urls != [None])
-will_replace_file = will_write_to_file and options.replace
-will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
-
-
-#
-# Open database
-#
-
-
-target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
-
-connection = sqlite3.connect(target)
-dbtables.DBTable_set_connection(connection)
-
-
-#
-# Synchronize ID generators with table contents
-#
-
-
-for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
-	table.sync_next_id()
-
-
-#
-# Insert files
-#
-
-
-if (options.extract is None) or (urls != [None]):
-	insert(urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
+	will_write_to_file = (options.extract is None) or (urls != [None])
+	will_replace_file = will_write_to_file and options.replace
+	will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
 	#
-	# construct indexes
+	# Open database
 	#
+	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 
-	dbtables.build_indexes(verbose = options.verbose)
+	connection = ligolw_sqlite.setup(target)
 
-
-#
-# Extract database contents
-#
-
-
-if options.extract is not None:
-	if options.extract == "-":
-		# stdout
-		options.extract = None
-	extract(options.extract, verbose = options.verbose)
+	#
+	# Insert files
+	#
+	if (options.extract is None) or (urls != [None]):
+		ligolw_sqlite.insert(connection, urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
 
-#
-# Close database
-#
+	#
+	# Extract database contents
+	#
+	if options.extract is not None:
+		if options.extract == "-":
+			# stdout
+			options.extract = None
+		ligolw_sqlite.extract(connection, options.extract, verbose = options.verbose)
 
 
-connection.close()
+	#
+	# Close database
+	#
+	connection.close()
 
+	#
+	# Move database to final location
+	#
+	dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
 
-#
-# Move database to final location
-#
-
-
-dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
-
-
-if options.verbose:
-	print >>sys.stderr, "done."
+	if options.verbose:
+		print >>sys.stderr, "done."

@@ -4,7 +4,7 @@ LDBDClient by connecting to the DB2 database.
 
 This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
 
-$Id$
+$Id: LDBDServer.py,v 1.54 2009/02/10 16:34:05 duncan Exp $
 
 This file is part of the Grid LSC User Environment (GLUE)
 
@@ -22,7 +22,7 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = '$Revision$'[11:-2]
+__version__ = '$Revision: 1.54 $'[11:-2]
 
 import os
 import sys
@@ -34,7 +34,11 @@ import socket
 import SocketServer
 import cPickle
 from glue import ldbd
-import rlsClient
+try:
+  import rlsClient
+except:
+  pass
+
 
 def dtd_uri_callback(uri):
   if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
@@ -48,9 +52,10 @@ def dtd_uri_callback(uri):
 
 def initialize(configuration,log):
   # define the global variables used by the server
-  global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
-  global dmt_proc_dict, dmt_seg_def_dict, indices
-  
+  global logger, max_bytes, xmlparser, dbobj, rls
+  global dmt_proc_dict, dmt_seg_def_dict, creator_db
+  global ldbd_com, db2_com, port
+
   # initialize the logger
   logger = log
   logger.info("Initializing server module %s" % __name__ )
@@ -59,9 +64,13 @@ def initialize(configuration,log):
   dbobj = ldbd.LIGOMetadataDatabase(configuration['dbname'])
   max_bytes = configuration['max_client_byte_string']
 
-  # create the xml and ligolw parsers
+  # initialize the ldbd commands and db2 command restrictions
+  port = configuration['port']
+  ldbd_com = configuration['ldbd_com'].split(',')
+  db2_com = configuration['db2_com'].split(',')
+
+  # create the xml parser
   xmlparser = pyRXP.Parser()
-  lwtparser = ldbd.LIGOLwParser()
 
   # use a local copy of the DTD, if one is available
   try:
@@ -84,15 +93,14 @@ def initialize(configuration,log):
   # initialize dictionaries for the dmt processes and segments definers
   dmt_proc_dict = {}
   dmt_seg_def_dict = {}
-  indices = xrange(sys.maxint)
+  creator_db = None
 
 def shutdown():
-  global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
+  global logger, max_bytes, xmlparser, dbobj, rls
   global dmt_proc_dict, dmt_seg_def_dict
   logger.info("Shutting down server module %s" % __name__ )
   if rls:
     del rls
-  del lwtparser
   del xmlparser
   del dbobj
   del dmt_proc_dict
@@ -144,7 +152,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       'INSERTDMT' : self.insertdmt
     }
 
-    try:
+    if True:
       # from the socket object create a file object
       self.sfile = self.request.makefile("rw")
       f = self.sfile
@@ -162,13 +170,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
-        logger.info("Bad input on socket: %s" % input)
+        logger.error("Bad input on socket: %s" % input)
         raise ServerHandlerException, "Last byte of input is not null byte"
-    except Exception, e:
-      logger.error("Error reading input on socket: %s" %  e)
-      return
-
-    logger.debug("Input on socket: %s" % input[0:-1])
+    #except Exception, e:
+    #  logger.error("Error reading input on socket: %s" %  e)
+    #  return
 
     try:
       # parse out the method and arguments 
@@ -183,6 +189,36 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         "Error parsing method and argument string: %s" % e
       self.__reply__(1, msg)
       return
+
+    # Set read and read/write access to different ports according to their configuration file
+    try:
+      # ldbd_com lists the allowed methodString for ldbd server based on the port number it is running on
+      if methodString in ldbd_com:
+        pass
+      else:
+        msg = "\nOnly authorized users can %s\n" % methodString
+        msg += "To %s, authorized users please explicitly append port number 30020 to " % methodString
+        msg += "your --server agument at command line" 
+        logmsg = "ldbd server on port %d DO NOT support %s" % (port, methodString)
+        logger.error(logmsg) 
+        self.__reply__(1,msg)
+        raise ServerHandlerException, msg 
+      # list allowed sql commands when methodString is QUERY
+      if methodString=='QUERY':
+        # get the sql command, for example "SELECT, UPDATE, INSERT"
+        # see if the command is in the .ini file "db2_com" variable 
+        dbcommand =  argStringList[0].split(' ')[0].upper()
+        if dbcommand in db2_com:
+          pass
+        else:
+           msg = 'ldbd server on port %d DO NOT support "%s"' % (port, dbcommand)
+           logger.error(msg) 
+           self.__reply__(1,msg)
+           raise ServerHandlerException, msg
+    except Exception, e:
+      logger.error("Error filtering allowed commands: %s" % e) 
+      return
+
                 
     try:
       # look up method in dictionary
@@ -253,7 +289,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj
+    global xmlparser, dbobj
 
     # get the query string and log it
     querystr = arg[0]
@@ -264,6 +300,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # execute the query
@@ -280,6 +317,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del lwtparser
     except Exception, e:
       logger.error(
         "Error deleting metadata object in method query: %s" % e)
@@ -295,7 +333,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj
+    global xmlparser, dbobj
 
     logger.debug("Method insert called")
 
@@ -308,6 +346,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display()
 
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
@@ -327,6 +366,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del lwtparser
     except Exception, e:
       logger.error(
         "Error deleting metadata object in method insert: %s" % e)
@@ -342,67 +382,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     @return: None
     """
-    global logger
-    global xmlparser, lwtparser, dbobj, rls
-
-    logger.debug("Method insertmap called")
-
-    if not rls:
-      msg = "server is not initialized for RLS connections"
-      logger.error(msg)
-      return (1, msg)
-
-    # assume failure
-    code = 1
-
-    try:
-      # unpickle the PFN/LFN mappings from the client
-      lfnpfn_dict = cPickle.loads(arg[1])
-      if not isinstance(lfnpfn_dict, dict):
-        raise ServerHandlerException, \
-          "LFN/PFN mapping from client is not dictionary"
-
-      # capture the remote users DN for insertion into the database
-      cred = self.request.get_delegated_credential()
-      remote_dn = cred.inquire_cred()[1].display()
-
-      # create a ligo metadata object
-      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
-
-      # parse the input string into a metadata object
-      ligomd.parse(arg[0])
-
-      # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
-
-      # add the lfns to the metadata insert to populate the lfn table
-      for lfn in lfnpfn_dict.keys():
-        ligomd.add_lfn(lfn)
-
-      # insert the metadata into the database
-      result = str(ligomd.insert())
-      logger.info("Method insert: %s rows affected by insert" % result)
-
-      # insert the PFN/LFN mappings into the RLS
-      for lfn in lfnpfn_dict.keys():
-        pfns = lfnpfn_dict[lfn]
-        if not isinstance( pfns, types.ListType ):
-          raise ServerHandlerException, \
-            "PFN must be a single string or a list of PFNs"
-        rls.lrc_create_lfn( lfn, pfns[0] )
-        for pfn in pfns[1:len(pfns)]:
-          rls.lrc_add( lfn, pfn )
-          
-      logger.info("Method insertmap: insert LFN mappings for %s" % 
-        str(lfnpfn_dict.keys()))
-      code = 0
-
-    except Exception, e:
-      result = ("Error inserting LFN/PFN mapping into RLS: %s" % e)
-      logger.error(result)
-      return (code,result)
-
-    return (code,result)
+    msg = "server is not initialized for RLS connections"
+    logger.error(msg)
+    return (1, msg)
 
   def insertdmt(self, arg):
     """
@@ -417,15 +399,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj
-    global dmt_proc_dict, dmt_seg_def_dict, indices
+    global xmlparser, dbobj
+    global dmt_proc_dict, dmt_seg_def_dict, creator_db
     proc_key = {}
     known_proc = {}
     seg_def_key = {}
 
-    msg = "Method dmtinsert called. Known processes %s, " % str(dmt_proc_dict)
-    msg += "known segment_definers %s" % str(dmt_seg_def_dict)
-    logger.debug(msg)
+    logger.debug( "Method dmtinsert called." )
+    logger.debug( "Known processes %s, " % str(dmt_proc_dict) )
+    logger.debug( "Known segment_definers %s" % str(dmt_seg_def_dict) )
 
     # assume failure
     code = 1
@@ -436,16 +418,22 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display().strip()
 
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
+      logger.debug("parsing xml data")
       ligomd.parse(arg[0])
 
+      # store the users dn in the process table
+      ligomd.set_dn(remote_dn)
+
       # determine the local creator_db number
-      sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
-      sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
-      ligomd.curs.execute(sql)
-      creator_db = ligomd.curs.fetchone()[0]
+      if creator_db is None:
+        sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
+        sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
+        ligomd.curs.execute(sql)
+        creator_db = ligomd.curs.fetchone()[0]
 
       # determine the locations of columns we need in the process table
       process_cols = ligomd.table['process']['orderedcol']
@@ -458,17 +446,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # determine and remove known entries from the process table
       rmv_idx = []
-      for (row,row_idx) in zip(ligomd.table['process']['stream'],indices):
+      for row_idx,row in enumerate(ligomd.table['process']['stream']):
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
-        logger.debug("Checking for process row with key %s" % str(uniq_proc))
         try:
-          proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
-          known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
-          logger.debug("removing known process row for key %s" % str(uniq_proc))
+          proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
+          known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
           rmv_idx.append(row_idx)
         except KeyError:
           # we know nothing about this process, so query the database
-          sql = "SELECT process_id FROM process WHERE "
+          sql = "SELECT BLOB(process_id) FROM process WHERE "
           sql += "creator_db = " + str(creator_db) + " AND "
           sql += "node = '" + row[node_col] + "' AND "
           sql += "program = '" + row[prog_col] + "' AND "
@@ -481,12 +467,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             dmt_proc_dict[uniq_proc] = row[pid_col]
           elif len(db_proc_ids) == 1:
             # the process_id exists in the database so use that insted
-            logger.debug("process row for key %s exists in database" 
-              % str(uniq_proc))
             dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
-            proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
-            known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
-            logger.debug("removing process row for key %s" % str(uniq_proc))
+            proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
+            known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
             rmv_idx.append(row_idx)
           else:
             # multiple entries for this process, needs human assistance
@@ -494,7 +477,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # delete the duplicate processs rows and clear the table if necessary
       newstream = []
-      for row,row_idx in zip(ligomd.table['process']['stream'],indices):
+      for row_idx,row in enumerate(ligomd.table['process']['stream']):
         try:
           rmv_idx.index(row_idx)
         except ValueError:
@@ -511,30 +494,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         pid_str += "'"
         known_proc[pid] = (pid_str, known_proc[pid])
 
-      # check that we have permission to update known process_id entries
-      for pid in known_proc.keys():
-        sql = "SELECT dn FROM gridcert WHERE process_id = " + known_proc[pid][0]
-        sql += "AND creator_db = " + str(creator_db)
-        ligomd.curs.execute(sql)
-        dn_db = ligomd.curs.fetchone()
-        if not dn_db:
-          msg = "Could not find DN for process %s" % known_proc[pid][0]
-          raise ServerHandlerException, msg
-        else:
-          dn = dn_db[0].strip()
-        if remote_dn != dn:
-          msg = "%s does not have permission to update row entries" % remote_dn
-          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
-          raise ServerHandlerException, msg
-        else:
-          logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
-
-      # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
-
       # determine the locations of columns we need in the segment_definer table
       seg_def_cols = ligomd.table['segment_definer']['orderedcol']
-      run_col = seg_def_cols.index('run')
       ifos_col = seg_def_cols.index('ifos')
       name_col = seg_def_cols.index('name')
       vers_col = seg_def_cols.index('version')
@@ -542,20 +503,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # determine and remove known entries in the segment_definer table
       rmv_idx = []
-      for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
-        uniq_def = (row[run_col],row[ifos_col],row[name_col],row[vers_col])
-        logger.debug("Checking for segment_definer row with key %s" 
-          % str(uniq_def))
+      for row_idx,row in enumerate(ligomd.table['segment_definer']['stream']):
+        uniq_def = (row[ifos_col],row[name_col],row[vers_col])
         try:
-          seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-          logger.debug("removing known segment_definer row for key %s" 
-            % str(uniq_def))
+          seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
           rmv_idx.append(row_idx)
         except KeyError:
           # we know nothing about this segment_definer, so query the database
-          sql = "SELECT segment_def_id FROM segment_definer WHERE "
+          sql = "SELECT BLOB(segment_def_id) FROM segment_definer WHERE "
           sql += "creator_db = " + str(creator_db) + " AND "
-          sql += "run = '" + row[run_col] + "' AND "
           sql += "ifos = '" + row[ifos_col] + "' AND "
           sql += "name = '" + row[name_col] + "' AND "
           sql += "version = " + str(row[vers_col])
@@ -565,17 +521,13 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             # this is a new segment_defintion with no existing entry
             dmt_seg_def_dict[uniq_def] = row[sdid_col]
           else:
-            logger.debug("segment_definer row for key %s exists in database" 
-              % str(uniq_def))
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
-            seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-            logger.debug("removing segment_definer row for key %s" 
-              % str(uniq_def))
+            seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
             rmv_idx.append(row_idx)
 
       # delete the necessary rows. if the table is empty, delete it
       newstream = []
-      for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
+      for row_idx,row in enumerate(ligomd.table['segment_definer']['stream']):
         try:
           rmv_idx.index(row_idx)
         except ValueError:
@@ -590,18 +542,18 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         if tabname == 'process':
           # we do nothing to the process table
           pass
-        elif tabname == 'segment_def_map':
+        elif tabname == 'segment' or tabname == 'segment_summary':
           # we need to update the process_id and the segment_def_id columns
           pid_col = table['orderedcol'].index('process_id')
           sdid_col = table['orderedcol'].index('segment_def_id')
           row_idx = 0
           for row in table['stream']:
             try:
-              repl_pid = proc_key[row[pid_col]]
+              repl_pid = proc_key[str(row[pid_col])]
             except KeyError:
               repl_pid = row[pid_col]
             try:
-              repl_sdid = seg_def_key[row[sdid_col]]
+              repl_sdid = seg_def_key[str(row[sdid_col])]
             except KeyError:
               repl_sdid = row[sdid_col]
             row = list(row)
@@ -615,7 +567,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           row_idx = 0
           for row in table['stream']:
             try:
-              repl_pid = proc_key[row[pid_col]]
+              repl_pid = proc_key[str(row[pid_col])]
               row = list(row)
               row[pid_col] = repl_pid
               table['stream'][row_idx] = tuple(row)
@@ -624,25 +576,35 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             row_idx += 1
 
       # insert the metadata into the database
+      logger.debug("inserting xml data")
       result = str(ligomd.insert())
+      logger.debug("insertion complete")
 
       # update the end time of known processes in the process table
       for pid in known_proc.keys():
         # first check to see if we are backfilling missing segments
-        sql = "SELECT end_time FROM process "
+        sql = "SELECT end_time,domain FROM process "
         sql += " WHERE process_id = " + known_proc[pid][0]
-        logger.debug(sql)
         ligomd.curs.execute(sql)
         last_end_time = ligomd.curs.fetchone()
+
+        # check the dn in the row we are about to update matches the users dn
+        dn = last_end_time[1].strip()
+        if remote_dn != dn:
+          msg = "%s does not have permission to update row entries" % remote_dn
+          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
+          raise ServerHandlerException, msg
+        else:
+          logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
+
         if int(known_proc[pid][1]) <= int(last_end_time[0]):
-          logger.info("Backfilling missing segments for process_id " +
+          logger.debug("Backfilling missing segments for process_id " +
             known_proc[pid][0] + " not updating end_time")
         else:
           # if we are not backfilling, update the end_time of the process
           sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
           sql += " WHERE process_id = " + known_proc[pid][0]
           sql += " AND end_time < " + str(known_proc[pid][1])
-          logger.debug(sql)
           ligomd.curs.execute(sql)
       ligomd.dbcon.commit()
 
@@ -654,12 +616,13 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       del ligomd
+      del lwtparser
       del known_proc
       del seg_def_key
       del proc_key
     except Exception, e:
       logger.error(
-        "Error deleting metadata object in method insert: %s" % e)
+        "Error deleting metadata object in method insertdmt: %s" % e)
 
     return (code,result)
 

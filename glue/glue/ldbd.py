@@ -39,48 +39,9 @@ import re
 import csv
 import exceptions
 try:
-  import mx.ODBC.DB2 as mxdb
-  from mx.ODBC.DB2 import SQL
+  import DB2
 except:
   pass
-
-try:
-  import thread
-except:
-  """
-  We're running on a single-threaded OS (or the Python interpreter has
-  not been compiled to support threads) so return a standard dictionary.
-  """
-  _tss = {}
-  def get_thread_storage():
-    return _tss
-  def destroy_thread_storage():
-    del _tss
-else:
-  _tss = {}
-  _tss_lock = thread.allocate_lock()
-  def get_thread_storage():
-    """Return a thread-specific storage dictionary."""
-    thread_id = thread.get_ident()
-    tss = _tss.get(thread_id)
-    if tss is None:
-      try:
-        _tss_lock.acquire()
-        _tss[thread_id] = tss = {}
-      finally:
-        _tss_lock.release()
-    return tss
-  def destroy_thread_storage():
-    """Destroy a thread-specific storage dictionary."""
-    thread_id = thread.get_ident()
-    tss = _tss.get(thread_id)
-    try:
-      _tss_lock.acquire()
-      del tss
-      del _tss[thread_id]
-    finally:
-      _tss_lock.release()
-    return
 
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
@@ -101,16 +62,14 @@ class LIGOLWStream(csv.Dialect):
 csv.register_dialect("LIGOLWStream",LIGOLWStream)
 
 
-class LIGOLwParseError(Exception):
+class LIGOLwParseError(exceptions.Exception):
   """Error parsing LIGO lightweight XML file"""
-  def __init__(self,args=None):
-    self.args = args
+  pass
 
 
-class LIGOLwDBError(Exception):
+class LIGOLwDBError(exceptions.Exception):
   """Error interacting with database"""
-  def __init__(self,args=None):
-    self.args = args
+  pass
 
 
 class Xlator(dict):
@@ -148,10 +107,10 @@ class LIGOMetadataDatabase:
     """
     self.database = database
     self.uniqueids = {}
-    conn = mxdb.Connect(database)
+    conn = DB2.connect(dsn=database, uid='', pwd='')
     curs = conn.cursor()
     curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM' "
-      "AND TYPE<>'A'")
+      "AND TYPE='T' ORDER BY PARENTS ASC")
     self.tables = curs.fetchall()
     curs.execute("SELECT tabname, colname FROM syscat.columns " +
       "WHERE typename = 'CHARACTER' AND length = 13 AND nulls = 'N'")
@@ -171,31 +130,26 @@ class UniqueIds:
   """
   Contains a dictionary of unique ids which can be queried based
   on name. If a unique id does not exist in the dictionaty, one
-  is fetched from the database. The unique id dictionary is specifc
-  to the thread of execution so that one ligolw parser can be used
-  in muitiple threads.
+  is fetched from the database. 
   """
   def __init__(self,curs):
     """
     curs = database cursor to the currently open database
     """
-    get_thread_storage()['uqids'] = {}
-    get_thread_storage()['curs'] = curs
-
-  def __del__(self):
-    destroy_thread_storage()
+    self.uqids = {}
+    self.curs = curs
 
   def lookup(self,istring):
     """
     istring = the ilwd:char string corresponding to a unique id
     """
     try:
-      return get_thread_storage()['uqids'][istring]
+      return self.uqids[istring]
     except KeyError:
-      curs = get_thread_storage()['curs']
-      curs.execute('VALUES GENERATE_UNIQUE()')
-      get_thread_storage()['uqids'][istring] = curs.fetchone()[0]
-      return get_thread_storage()['uqids'][istring]
+      curs = self.curs
+      curs.execute('VALUES BLOB(GENERATE_UNIQUE())')
+      self.uqids[istring] = curs.fetchone()[0]
+      return self.uqids[istring]
 
 
 class LIGOLwParser:
@@ -208,12 +162,6 @@ class LIGOLwParser:
     """
     Initializes a LIGO lightweight XML parser with the necessary 
     regular expressions and function for tuple translation
-
-    Before calling parsteuple() the user must tell the class
-    which unique id dictionary to use for the file by:
-    
-    p = LIGOLwParser()
-    p.unique = UniqueIds(mycursor)
     """
     self.tabrx = re.compile(r'(\A[a-z0-9_]+:|\A)([a-z0-9_]+):table\Z')
     self.colrx = re.compile(r'(\A[a-z0-9_]+:|\A)([a-z0-9_]+:|\A)([a-z0-9_]+)\Z')
@@ -330,6 +278,12 @@ class LIGOLwParser:
           if delim != ',':
             raise LIGOLwParseError, 'unable to handle stream delimiter: '+delim
 
+          # If the result set is empty tag[2] is an empty array, which causes
+          # the next step to fail.  Add an empty string in this case.
+          if len(tag[2]) == 0:
+            tag[2].append("")
+
+
           # strip newlines from the stream and parse it
           stream = csv.reader([re.sub(r'\n','',tag[2][0])],LIGOLWStream).next()
 
@@ -350,8 +304,11 @@ class LIGOLwParser:
                 lst[j][k] = None
               else:
                 lst[j][k] = self.types[table[tab]['column'][thiscol]](stream[i])
-            except KeyError, ValueError:
-              raise LIGOLwParseError, 'error translating data in stream'
+            except (KeyError, ValueError), errmsg:
+              msg = "stream translation error (%s) " % str(errmsg)
+              msg += "for column %s in table %s: %s -> %s" \
+                % (tab,thiscol,stream[i],str(table[tab])) 
+              raise LIGOLwParseError, msg
           table[tab]['stream'] = map(tuple,lst)
 
     # return the created table to the caller
@@ -376,8 +333,7 @@ class LIGOMetadata:
     """
     self.ldb = ldb
     if self.ldb:
-      self.dbcon = mxdb.Connect(self.ldb.database)
-      self.dbcon.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
+      self.dbcon = DB2.connect(dsn=self.ldb.database, uid='', pwd='')
       self.curs = self.dbcon.cursor()
     else:
       self.dbcon = None
@@ -442,27 +398,23 @@ class LIGOMetadata:
 
   def set_dn(self,dn):
     """
-    Add an gridcert table to a parsed LIGO_LW XML document.
+    Use the domain column in the process table to store the DN
 
     dn = dn to be added
     """
     try:
-      # get the process_id from the rows in the process table
-      pid_col = self.table['process']['orderedcol'].index('process_id')
-
-      # create a gridcert table
-      self.table['gridcert'] = {
-        'pos' : 0,
-        'column' : {'process_id' : 'ilwd:char', 'dn' : 'lstring'},
-        'stream' : [],
-        'query' : '',
-        'orderedcol' : ['process_id', 'dn' ]
-        }
-      for row in self.table['process']['stream']:
-        pid = row[pid_col]
-        self.table['gridcert']['stream'].append( (pid,dn) )
-    except KeyError:
-      pass
+      domain_col = self.table['process']['orderedcol'].index('domain')
+      for row_idx in range(len(self.table['process']['stream'])):
+        row_list = list(self.table['process']['stream'][row_idx])
+        row_list[domain_col] = dn
+        self.table['process']['stream'][row_idx] = tuple(row_list)
+    except ValueError:
+      self.table['process']['column']['domain'] = 'lstring'
+      self.table['process']['orderedcol'].append('domain')
+      for row_idx in range(len(self.table['process']['stream'])):
+        row_list = list(self.table['process']['stream'][row_idx])
+        row_list.append(dn)
+        self.table['process']['stream'][row_idx] = tuple(row_list)
     
   def insert(self):
     """Insert the object into the database"""
@@ -476,7 +428,7 @@ class LIGOMetadata:
       missingcols = [k for k in self.ldb.uniqueids[tab] 
         if k not in self.table[tab]['column']]
       for m in missingcols:
-        generate.append(',GENERATE_UNIQUE()')
+        generate.append(',BLOB(GENERATE_UNIQUE())')
         self.table[tab]['orderedcol'].append(m)
       # and construct the sql query
       self.table[tab]['query'] = ' '.join( 
@@ -487,18 +439,22 @@ class LIGOMetadata:
       tab = tabtup[0].lower()
       try:
         try: 
-          self.curs.execute(self.table[tab]['query'],
+          self.curs.executemany(self.table[tab]['query'],
             self.table[tab]['stream'])
           rowcount = self.curs.rowcount
-        except mxdb.Error, e:
-          self.dbcon.rollback()
-          raise LIGOLwDBError, e[2]
-        except mxdb.Warning, e:
-          self.dbcon.rollback()
+        except DB2.Error, e:
+          self.curs.execute('rollback')
+          msg = e[2] 
+          msg += self.xml() + '\n' 
+          msg += str(self.table[tab]['query']) + '\n' 
+          msg += str(self.table[tab]['stream']) + '\n'
+          raise LIGOLwDBError, msg
+        except DB2.Warning, e:
+          self.curs.execute('rollback')
           raise LIGOLwDBError, e[2]
       except KeyError:
         pass
-    self.dbcon.commit()
+    self.curs.execute('commit')
     return rowcount
 
 
@@ -538,7 +494,7 @@ class LIGOMetadata:
       }
     try:
       self.curs.execute(sql)
-    except mxdb.Error, e:
+    except DB2.Error, e:
       raise LIGOLwDBError, e[2]
     desc = self.curs.description
     for col,typ,disp,intsz,prec,sca,nul in desc:
@@ -550,7 +506,7 @@ class LIGOMetadata:
 
     try:
       self.table[tab]['stream'] = self.curs.fetchall()
-    except mxdb.Error, e:
+    except DB2.Error, e:
       raise LIGOLwDBError, e[2]
 
     return len(self.table[tab]['stream'])
@@ -561,6 +517,7 @@ class LIGOMetadata:
       raise LIGOLwDBError, 'attempt to convert empty table to xml'
     ligolw = """\
 <?xml version='1.0' encoding='utf-8' ?>
+<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
 <LIGO_LW>
 """
@@ -589,7 +546,10 @@ class LIGOMetadata:
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
-              ligolw += '"' + str(tupi) +'"'
+              ligolw += '"x\'' 
+              for ch in str(tupi):
+                ligolw += "%02x" % ord(ch)
+              ligolw += '\'"'
             elif re.match(r'\Alstring\Z',coltype):
               ligolw += '"'+self.strtoxml.xlat(str(tupi))+'"'
             elif re.match(r'\Areal_4\Z',coltype):

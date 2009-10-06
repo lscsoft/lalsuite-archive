@@ -34,17 +34,23 @@ Maintainership of the table definitions is left as an excercise to
 interested users.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
 
 from xml import sax
-# Python 2.3 compatibility
 try:
 	set
 except NameError:
+	# Python < 2.4
 	from sets import Set as set
+try:
+	any
+	all
+except NameError:
+	# Python < 2.5
+	from glue.iterutils import any, all
 
 
 from glue import segments
@@ -130,6 +136,78 @@ def HasNonLSCTables(elem):
 	return False
 
 
+def instrument_set_from_ifos(ifos):
+	"""
+	Convenience function for parsing the values stored in the "ifos"
+	and "instruments" columns found in many tables.  This function is
+	mostly for internal use by the .get_ifos() and .get_instruments()
+	methods of the corresponding row classes.  The mapping from input
+	to output is as follows (rules are applied in order):
+
+	input is None --> output is None
+
+	input contains "," --> output is set of strings split on "," with
+	leading and trailing whitespace stripped from each piece
+
+	input contains "+" --> output is set of strings split on "," with
+	leading and trailing whitespace stripped from each piece
+
+	else, after stripping input of leading and trailing whitespace,
+
+	input has an even length greater than two --> output is set of
+	two-character pieces
+
+	input is a non-empty string --> output is a set containing input as
+	single value
+
+	else output is an empty set.
+
+	NOTE:  the complexity of this algorithm is a consequence of there
+	being several conventions in use for encoding a set of instruments
+	into one of these columns;  it has been proposed that L.L.W.
+	documents standardize on the comma-delimited variant of the
+	encodings recognized by this function, and for this reason the
+	inverse function, ifos_from_instrument_set(), implements that
+	encoding only.
+	"""
+	if ifos is None:
+		return None
+	if u"," in ifos:
+		return set(ifo.strip() for ifo in ifos.split(u","))
+	if u"+" in ifos:
+		return set(ifo.strip() for ifo in ifos.split(u"+"))
+	ifos = ifos.strip()
+	if len(ifos) > 2 and not len(ifos) % 2:
+		# if ifos is a string with an even number of characters
+		# greater than two, split it into two-character pieces.
+		# FIXME:  remove this when the inspiral codes don't write
+		# ifos strings like this anymore
+		return set(ifos[n:n+2] for n in range(0, len(ifos), 2))
+	if ifos:
+		return set([ifos])
+	return set()
+
+
+def ifos_from_instrument_set(instruments):
+	"""
+	Convenience function to convert an iterable of instrument names
+	into a value suitable for storage in the "ifos" column found in
+	many tables.  This function is mostly for internal use by the
+	.set_ifos() methods of the corresponding row classes.  The input
+	can be None or an interable of zero or more instrument names, none
+	of which may contain "," or "+" characters.  The output is a single
+	string containing the instrument names concatenated using "," as a
+	delimiter.  Whitespace is allowed in instrument names but may not
+	be preserved.
+	"""
+	if instruments is None:
+		return None
+	instruments = sorted(instrument.strip() for instrument in instruments)
+	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
+		raise ValueError, instruments
+	return u",".join(instruments)
+
+
 #
 # =============================================================================
 #
@@ -169,7 +247,7 @@ class ProcessTable(table.Table):
 		Return a set containing the process IDs from rows whose
 		program string equals the given program.
 		"""
-		return set([row.process_id for row in self if row.program == program])
+		return set(row.process_id for row in self if row.program == program)
 
 
 class Process(object):
@@ -177,13 +255,17 @@ class Process(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 
 ProcessTable.RowType = Process
@@ -240,8 +322,13 @@ class ProcessParamsTable(table.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
-	# FIXME: these constraints break ID remapping in the DB backend
+	# FIXME: these constraints break ID remapping in the DB backend.
+	# an index is used instead.  switch back to the constraints when I
+	# can figure out how not to break remapping.
 	#constraints = "PRIMARY KEY (process_id, param)"
+	how_to_index = {
+		"pp_pip_index": ("process_id", "param"),
+	}
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
@@ -299,7 +386,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist([row.get_in() for row in self])
+		return segments.segmentlist(row.get_in() for row in self)
 
 	def get_outlist(self):
 		"""
@@ -309,7 +396,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist([row.get_out() for row in self])
+		return segments.segmentlist(row.get_out() for row in self)
 
 	def get_in_segmentlistdict(self, process_ids = None):
 		"""
@@ -324,8 +411,11 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in row.get_ifos()]))
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_in()])) for ifo in ifos))
 		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
@@ -341,8 +431,11 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()]))
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
 		return seglists
 
 
@@ -351,13 +444,17 @@ class SearchSummary(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_in(self):
 		"""
@@ -419,6 +516,329 @@ class SearchSummVars(object):
 
 
 SearchSummVarsTable.RowType = SearchSummVars
+
+
+#
+# =============================================================================
+#
+#                            experiment:table
+#
+# =============================================================================
+#
+
+
+ExpDefID = ilwd.get_ilwdchar_class(u"experiment", u"experiment_id")
+
+
+class ExperimentTable(table.Table):
+	tableName = "experiment:table"
+	validcolumns = {
+		"experiment_id": "ilwd:char",
+		"search_group": "lstring",
+		"search": "lstring",
+		"lars_id": "lstring",
+		"instruments": "lstring",
+		"gps_start_time": "int_4s",
+		"gps_end_time": "int_4s",
+		"comments": "lstring"
+	}
+	constraints = "PRIMARY KEY (experiment_id)"
+	next_id = ExpDefID(0)
+
+	def get_expr_id(self, search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = None):
+		"""
+		Return the expr_def_id for the row in the table whose
+		values match the givens.
+		If a matching row is not found, returns None.
+
+		@search_group: string representing the search group (e.g., cbc)
+		@serach: string representing search (e.g., inspiral)
+		@lars_id: string representing lars_id
+		@instruments: the instruments; must be a python set
+		@gps_start_time: string or int representing the gps_start_time of the experiment
+		@gps_end_time: string or int representing the gps_end_time of the experiment
+		"""
+		# create string from instrument set
+		instruments = ifos_from_instrument_set(instruments)
+
+		# look for the ID
+		for row in self:
+			if (row.search_group, row.search, row.lars_id, row.instruments, row.gps_start_time, row.gps_end_time, row.comments) == (search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments):
+				# found it
+				return row.experiment_id
+
+		# experiment not found in table
+		return None
+
+	def write_new_expr_id(self, search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = None):
+		"""
+		Creates a new def_id for the given arguments and returns it. 
+		If an entry already exists with these, will just return that id.
+
+		@search_group: string representing the search group (e.g., cbc)
+		@serach: string representing search (e.g., inspiral)
+		@lars_id: string representing lars_id
+		@instruments: the instruments; must be a python set
+		@gps_start_time: string or int representing the gps_start_time of the experiment
+		@gps_end_time: string or int representing the gps_end_time of the experiment
+		"""
+		
+		# check if id already exists
+		check_id = self.get_expr_id( search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = comments )
+		if check_id:
+			return check_id
+
+		# experiment not found in table
+		row = self.RowType()
+		row.experiment_id = self.get_next_id()
+		row.search_group = search_group
+		row.search = search
+		row.lars_id = lars_id
+		row.instruments = ifos_from_instrument_set(instruments)
+		row.gps_start_time = gps_start_time
+		row.gps_end_time = gps_end_time
+		row.comments = comments
+		self.append(row)
+
+		# return new ID
+		return row.experiment_id
+
+	def get_row_from_id(self, experiment_id):
+		"""
+		Returns row in matching the given experiment_id.
+		"""
+		row = [row for row in self if row.experiment_id == experiment_id]
+		if len(row) > 1:
+			raise ValueError, "Duplicate ids in experiment table"
+		if len(row) == 0:
+			raise ValueError, "id %s not found in table" %(`experiment_id`)
+
+		return row[0]
+
+
+class Experiment(object):
+	__slots__ = ExperimentTable.validcolumns.keys()
+
+	def get_instruments(self):
+		"""
+		Return a set of the instruments for this row.
+		"""
+		return instrument_set_from_ifos(self.instruments)
+
+	def set_instruments(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.instruments = ifos_from_instrument_set(instruments)
+
+
+ExperimentTable.RowType = Experiment
+
+
+#
+# =============================================================================
+#
+#                            experiment_summary:table
+#
+# =============================================================================
+#
+
+
+ExpSummID = ilwd.get_ilwdchar_class(u"experiment_summary", u"experiment_summ_id")
+
+
+class ExperimentSummaryTable(table.Table):
+	tableName = "experiment_summary:table"
+	validcolumns = {
+		"experiment_summ_id": "ilwd:char",
+		"experiment_id": "ilwd:char",
+		"time_slide_id": "ilwd:char",
+		"veto_def_name": "lstring",
+		"datatype": "lstring",
+		"sim_proc_id": "ilwd:char",
+		"duration": "int_4s",
+		"nevents": "int_4u"
+	}
+	constraints = "PRIMARY KEY (experiment_summ_id)"
+	how_to_index = {
+		"es_ei_index": ("experiment_id",),
+		"es_dt_index": ("datatype",)
+	}
+	next_id = ExpSummID(0)
+
+	datatypes = ['slide', 'all_data', 'playground', 'exclude_play', 'simulation']
+		
+
+	def as_id_dict(self):
+		"""
+		Return table as a dictionary mapping experiment_id, time_slide_id,
+		veto_def_name, and sim_proc_id (if it exists) to the expr_summ_id.
+		"""
+		d = {}
+		for row in self:
+			if row.experiment_id not in d:
+				d[row.experiment_id] = {}
+			if (row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) in d[row.experiment_id]:
+				# entry already exists, raise error
+				raise KeyError, "Duplicate entries in experiment_summary table" 
+			d[row.experiment_id][(row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id)] = row.experiment_summ_id
+
+		return d
+
+	def get_expr_summ_id(self, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = None):
+		"""
+		Return the expr_summ_id for the row in the table whose experiment_id, 
+		time_slide_id, veto_def_name, and datatype match the given. If sim_proc_id,
+		will retrieve the injection run matching that sim_proc_id.
+		If a matching row is not found, returns None.
+		"""
+
+		# look for the ID
+		for row in self:
+			if (row.experiment_id, row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) == (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id):
+				# found it
+				return row.experiment_summ_id
+
+		# if get to here, experiment not found in table
+		return None
+
+	def write_experiment_summ(self, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = None ):
+		"""
+		Writes a single entry to the experiment_summ table. This can be used
+		for either injections or non-injection experiments. However, it is
+		recommended that this only be used for injection experiments; for
+		non-injection experiments write_experiment_summ_set should be used to
+		ensure that an entry gets written for every time-slide performed.
+		"""
+		# check if entry alredy exists; if so, return value
+		check_id = self.get_expr_summ_id(experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = sim_proc_id)
+		if check_id:
+			return check_id
+
+		row = self.RowType()
+		row.experiment_summ_id = self.get_next_id()
+		row.experiment_id = experiment_id
+		row.time_slide_id = time_slide_id
+		row.veto_def_name = veto_def_name
+		row.datatype = datatype
+		row.sim_proc_id = sim_proc_id
+		row.nevents = None
+		row.duration = None
+		self.append(row)
+		
+		return row.experiment_summ_id
+
+	def write_non_injection_summary(self, experiment_id, time_slide_dict, veto_def_name, write_all_data = True, write_playground = True, write_exclude_play = True, return_dict = False):
+		"""
+		Method for writing a new set of non-injection experiments to the experiment
+		summary table. This ensures that for every entry in the 
+		experiment table, an entry for every slide is added to
+		the experiment_summ table, rather than just an entry for slides that
+		have events in them. Default is to write a 3 rows for zero-lag: one for
+		all_data, playground, and exclude_play. (If all of these are set to false,
+		will only slide rows.)
+		
+		Note: sim_proc_id is hard-coded to None because time-slides
+		are not performed with injections.
+
+		@experiment_id: the experiment_id for this experiment_summary set
+		@time_slide_dict: the time_slide table as a dictionary; used to figure out
+			what is zero-lag and what is slide
+		@veto_def_name: the name of the vetoes applied
+		@write_all_data: if set to True, writes a zero-lag row who's datatype column
+			is set to 'all_data'
+		@write_playground: same, but datatype is 'playground'
+		@write_exclude_play: same, but datatype is 'exclude_play'
+		@return_dict: if set to true, returns an id_dict of the table
+		"""
+		for slide_id in time_slide_dict:
+			# check if it's zero_lag or not
+			if not any( time_slide_dict[slide_id].values() ):
+				if write_all_data:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'all_data', sim_proc_id = None )
+				if write_playground:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'playground', sim_proc_id = None )
+				if write_exclude_play:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'exclude_play', sim_proc_id = None )
+			else:
+				self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'slide', sim_proc_id = None )
+
+		if return_dict:
+			return self.as_id_dict()
+
+
+	def add_nevents(self, experiment_summ_id, num_events, add_to_current = True):
+		"""
+		Add num_events to the nevents column in a specific entry in the table. If
+		add_to_current is set to False, will overwrite the current nevents entry in
+		the row with num_events. Otherwise, default is to add num_events to
+		the current value.
+
+		Note: Can subtract events by passing a negative number to num_events.
+		"""
+		for row in self:
+			if row.experiment_summ_id != experiment_summ_id:
+				continue
+			if row.nevents is None:
+				row.nevents = 0
+			if add_to_current:
+				row.nevents += num_events
+				return row.nevents
+			else:
+				row.nevents = num_events
+				return row.nevents
+				
+		# if get to here, couldn't find experiment_summ_id in the table
+		raise ValueError, "%s could not be found in the table" %(str(experiment_summ_id))
+
+
+class ExperimentSummary(object):
+	__slots__ = ExperimentSummaryTable.validcolumns.keys()
+
+
+ExperimentSummaryTable.RowType = ExperimentSummary
+
+
+#
+# =============================================================================
+#
+#                            experiment_map:table
+#
+# =============================================================================
+#
+
+
+class ExperimentMapTable(table.Table):
+	tableName = "experiment_map:table"
+	validcolumns = {
+		"experiment_summ_id": "ilwd:char",
+		"coinc_event_id": "ilwd:char",
+	}
+	how_to_index = {
+		"em_esi_index": ("experiment_summ_id",),
+		"em_cei_index": ("coinc_event_id",)
+	}
+
+	def get_experiment_summ_ids( self, coinc_event_id ):
+		"""
+		Gets all the experiment_summ_ids that map to a given coinc_event_id.
+		"""
+		experiment_summ_ids = []
+		for row in self:
+			if row.coinc_event_id == coinc_event_id:
+				experiment_summ_ids.append(row.experiment_summ_id)
+		if len(experiment_summ_ids) == 0:
+			raise ValueError, "%s could not be found in the experiment_map table." %(`coinc_event_id`)
+		return experiment_summ_ids
+
+
+class ExperimentMap(object):
+	__slots__ = ExperimentMapTable.validcolumns.keys()
+
+
+ExperimentMapTable.RowType = ExperimentMap
 
 
 #
@@ -610,13 +1030,17 @@ class MultiBurst(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
@@ -653,9 +1077,9 @@ class SnglInspiralID_old(object):
 
 	def new(self, row):
 		self.n += 1
-		y = self.n % 100000
-		x = self.n // 100000
-		return SnglInspiralID(x * 1000000000 + row.get_id_parts()[1] * 100000 + y)
+		a = self.n // 100000
+		b = self.n % 100000
+		return SnglInspiralID(a * 1000000000 + row.get_id_parts()[1] * 100000 + b)
 
 
 class SnglInspiralTable(table.Table):
@@ -702,10 +1126,10 @@ class SnglInspiralTable(table.Table):
 		"snr": "real_4",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
-                "bank_chisq": "real_4",
-                "bank_chisq_dof": "int_4s",
-                "cont_chisq": "real_4",
-                "cont_chisq_dof": "int_4s",
+		"bank_chisq": "real_4",
+		"bank_chisq_dof": "int_4s",
+		"cont_chisq": "real_4",
+		"cont_chisq_dof": "int_4s",
 		"sigmasq": "real_8",
 		"rsqveto_duration": "real_4",
 		"Gamma0": "real_4",
@@ -740,14 +1164,16 @@ class SnglInspiralTable(table.Table):
 		return mapping
 
 	def get_column(self,column):
-                if column == 'reduced_bank_chisq':
-                        return self.get_reduced_bank_chisq()
-                if column == 'reduced_cont_chisq':
-                        return self.get_reduced_cont_chisq()
+		if column == 'reduced_bank_chisq':
+			return self.get_reduced_bank_chisq()
+		if column == 'reduced_cont_chisq':
+			return self.get_reduced_cont_chisq()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
+		if column =='lvS5stat':
+			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
 			return self.get_chirp_dist()
 		else:
@@ -762,12 +1188,12 @@ class SnglInspiralTable(table.Table):
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
 
-	def get_effective_snr(self):    
+	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		chisq = self.get_column('chisq')
 		chisq_dof = self.get_column('chisq_dof')
-		return snr/ (1 + snr**2/250)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
-    
+		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_distance')
@@ -775,6 +1201,9 @@ class SnglInspiralTable(table.Table):
 
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
+
+	def get_lvS5stat(self):
+		return self.get_column('beta')
 
 	def ifocut(self,ifo):
 		ifoTrigs = table.new_from_template(self)
@@ -837,7 +1266,7 @@ class SnglInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend([row for row in self if row.get_slide_number() == slide_num])
+		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
 
@@ -850,11 +1279,19 @@ class SnglInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_effective_snr(self):
-		return self.snr/ (1 + self.snr**2/250)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+	def get_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
 
 	def get_far(self):
 		return self.alpha
+
+	def get_ifar(self):
+		if self.alpha < 0.000000001:
+			self.alpha = 0.000000001
+		return 1./self.alpha
+
+	def get_lvS5stat(self):
+		return self.beta
 
 	def get_id_parts(self):
 		"""
@@ -862,16 +1299,16 @@ class SnglInspiral(object):
 		event_id.
 		"""
 		int_event_id = int(self.event_id)
-		x = int_event_id // 1000000000
+		a = int_event_id // 1000000000
 		slidenum = (int_event_id % 1000000000) // 100000
-		y = int_event_id % 100000
-		return x, slidenum, y
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
 
 	def get_slide_number(self):
 		"""
 		Return the slide-number for this trigger
 		"""
-		x, slide_number, y = self.get_id_parts()
+		a, slide_number, b = self.get_id_parts()
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
@@ -883,14 +1320,64 @@ class SnglInspiral(object):
 			cmp(self.end_time, other.end_time) or
 			cmp(self.end_time_ns, other.end_time_ns) or
 			cmp(self.mass1, other.mass1) or
-			cmp(self.mass2, other.mass2)
+			cmp(self.mass2, other.mass2) or
+			cmp(self.search, other.search)
 		)
-		
-	def __hash__(self):
-		return hash((self.ifo, self.end_time, self.end_time_ns, self.mass1, self.mass2))
 
 
 SnglInspiralTable.RowType = SnglInspiral
+
+
+#
+# =============================================================================
+#
+#                             coinc_inspiral:table
+#
+# =============================================================================
+#
+
+
+class CoincInspiralTable(table.Table):
+	tableName = "coinc_inspiral:table"
+	validcolumns = {
+		"coinc_event_id": "ilwd:char",
+		"ifos": "lstring",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"mass": "real_8",
+		"mchirp": "real_8",
+		"snr": "real_8",
+		"false_alarm_rate": "real_8",
+		"combined_far": "real_8"
+	}
+	# FIXME:  like some other tables here, this table should have the
+	# constraint that the coinc_event_id column is a primary key.  this
+	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
+	# the constraint is being replaced with an index.
+	#constraints = "PRIMARY KEY (coinc_event_id)"
+	how_to_index = {
+		"ci_cei_index": ("coinc_event_id",)
+	}
+	interncolumns = ("coinc_event_id", "ifos")
+
+
+class CoincInspiral(object):
+	__slots__ = CoincInspiralTable.validcolumns.keys()
+
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	def set_ifos(self, ifos):
+		self.ifos = ifos_from_instrument_set(ifos)
+
+	def get_ifos(self):
+		return instrument_set_from_ifos(self.ifos)
+
+
+CoincInspiralTable.RowType = CoincInspiral
 
 
 #
@@ -910,7 +1397,6 @@ class SnglRingDownTable(table.Table):
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"ifo": "lstring",
-		"search": "lstring",
 		"channel": "lstring",
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
@@ -921,10 +1407,10 @@ class SnglRingDownTable(table.Table):
 		"mass": "real_4",
 		"spin": "real_4",
 		"epsilon": "real_4",
-                "num_clust_trigs": "int_4s",
-                "ds2_H1H2": "real_4",
-                "ds2_H1L1": "real_4",
-                "ds2_H2L1": "real_4",
+		"num_clust_trigs": "int_4s",
+		"ds2_H1H2": "real_4",
+		"ds2_H1L1": "real_4",
+		"ds2_H2L1": "real_4",
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"eff_dist": "real_4",
@@ -939,6 +1425,12 @@ class SnglRingDownTable(table.Table):
 
 class SnglRingDown(object):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
+
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 
 SnglRingDownTable.RowType = SnglRingDown
@@ -1055,27 +1547,41 @@ class MultiInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend([row for row in self if row.get_slide_number() == slide_num])
+		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a set of the instruments for this row.
+		"""
+		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_id_parts(self):
 		"""
 		Return the three pieces of the int_8s-style event_id.
 		"""
 		int_event_id = int(self.event_id)
-		x = int_event_id // 1000000000
+		a = int_event_id // 1000000000
 		slidenum = (int_event_id % 1000000000) // 100000
-		y = int_event_id % 100000
-		return x, slidenum, y
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
 
 	def get_slide_number(self):
 		"""
 		Return the slide-number for this trigger
 		"""
-		x, slide_number, y = self.get_id_parts()
+		a, slide_number, b = self.get_id_parts()
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
@@ -1149,12 +1655,12 @@ class SimInspiralTable(table.Table):
 		"eff_dist_g": "real_4",
 		"eff_dist_t": "real_4",
 		"eff_dist_v": "real_4",
-	        "numrel_mode_min": "int_4s",
-                "numrel_mode_max": "int_4s",
-                "numrel_data": "lstring",
-                "amp_order": "int_4s",
-                "taper": "lstring",
-                "bandpass": "int_4s",
+		"numrel_mode_min": "int_4s",
+		"numrel_mode_max": "int_4s",
+		"numrel_data": "lstring",
+		"amp_order": "int_4s",
+		"taper": "lstring",
+		"bandpass": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
@@ -1189,21 +1695,21 @@ class SimInspiralTable(table.Table):
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
-		for row in self:
-			time = row.get_end(site)
-			if time not in seglist:
-				keep.append(row)
+		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_end(self,site = None):
-		if not site:
+	def get_end(self, site = None):
+		if site is None:
 			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
+			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
+
+	def get_eff_dist(self, instrument):
+		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -1287,19 +1793,20 @@ class SimRingDownTable(table.Table):
 		"l_start_time": "int_4s",
 		"l_start_time_ns": "int_4s",
 		"start_time_gmst": "real_8",
-		"mass": "real_4",
 		"longitude": "real_4",
 		"latitude": "real_4",
 		"distance": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"epsilon": "real_4",
-		"spin": "real_4",
 		"frequency": "real_4",
 		"quality": "real_4",
+		"phase": "real_4",
+		"mass": "real_4",
+		"spin": "real_4",
+		"epsilon": "real_4",
+		"amplitude": "real_4",
 		"eff_dist_h": "real_4",
 		"eff_dist_l": "real_4",
-		"h0": "real_4",
 		"hrss": "real_4",
 		"hrss_h": "real_4",
 		"hrss_l": "real_4",
@@ -1312,6 +1819,13 @@ class SimRingDownTable(table.Table):
 
 class SimRingDown(object):
 	__slots__ = SimRingDownTable.validcolumns.keys()
+
+	def get_start(self, site = None):
+		if not site:
+			return LIGOTimeGPS(self.geocent_start_time, self.geocent_start_time_ns)
+		else:
+			site = site[0].lower()
+			return LIGOTimeGPS(getattr(self, site + '_start_time'), getattr(self, site + '_start_time_ns'))
 
 
 SimRingDownTable.RowType = SimRingDown
@@ -1581,9 +2095,8 @@ class SegmentTable(table.Table):
 		"start_time_ns": "int_4s",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
-		"active": "int_4s",
-		"segnum": "int_4s",
-		"insertion_time": "int_4s"
+		"segment_def_id": "ilwd:char",
+		"segment_def_cdb": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_id)"
 	next_id = SegmentID(0)
@@ -1594,7 +2107,7 @@ class Segment(object):
 	__slots__ = SegmentTable.validcolumns.keys()
 
 	def __cmp__(self, other):
-		return cmp(self.get(), other.get()) or cmp(self.get_active(), other.get_active())
+		return cmp(self.get(), other.get())
 
 	def get(self):
 		"""
@@ -1609,74 +2122,8 @@ class Segment(object):
 		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
 		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
 
-	def get_active(self):
-		"""
-		Return True if the segment is active, False if the segment
-		is inactive and None if neither is the case.
-		"""
-		if self.active == 1:
-			return True
-		if self.active == 0:
-			return False
-		if self.active is None:
-			return None
-		raise ValueError, self.active
-
-	def set_active(self, active):
-		"""
-		Sets the segment to active if active is True, to inactive
-		if active if False, and undefined if active is None.
-		"""
-		if active:
-			# Anything that is "True" --> 1
-			self.active = 1
-		elif active is None:
-			# None --> None
-			self.active = None
-		else:
-			# Antyhing that is "False" except None --> 0
-			self.active = 0
-		return self
-
 
 SegmentTable.RowType = Segment
-
-
-#
-# =============================================================================
-#
-#                            segment_def_map:table
-#
-# =============================================================================
-#
-
-
-SegmentDefMapID = ilwd.get_ilwdchar_class(u"segment_def_map", u"seg_def_map_id")
-
-
-class SegmentDefMapTable(table.Table):
-	tableName = "segment_def_map:table"
-	validcolumns = {
-		"creator_db": "int_4s",
-		"process_id": "ilwd:char",
-		"seg_def_map_id": "ilwd:char",
-		"segment_cdb": "int_4s",
-		"segment_id": "ilwd:char",
-		"segment_def_cdb": "int_4s",
-		"segment_def_id": "ilwd:char",
-		"state_vec_map": "int_4s",
-		"insertion_time": "int_4s"
-	}
-	constraints = "PRIMARY KEY (seg_def_map_id)"
-	next_id = SegmentDefMapID(0)
-	interncolumns = ("process_id", "segment_def_id")
-
-
-class SegmentDefMap(object):
-	__slots__ = SegmentDefMapTable.validcolumns.keys()
-
-
-SegmentDefMapTable.RowType = SegmentDefMap
 
 
 #
@@ -1697,13 +2144,10 @@ class SegmentDefTable(table.Table):
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
 		"segment_def_id": "ilwd:char",
-		"run": "lstring",
 		"ifos": "lstring",
 		"name": "lstring",
 		"version": "int_4s",
 		"comment": "lstring",
-		"state_vec_major": "int_4s",
-		"state_vec_minor": "int_4s",
 		"insertion_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_def_id)"
@@ -1716,16 +2160,85 @@ class SegmentDef(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 
 SegmentDefTable.RowType = SegmentDef
+
+
+#
+# =============================================================================
+#
+#                            segment_summary:table
+#
+# =============================================================================
+#
+
+
+SegmentSumID = ilwd.get_ilwdchar_class(u"segment_summary", u"segment_sum_id")
+
+
+class SegmentSumTable(table.Table):
+	tableName = "segment_summary:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd:char",
+		"segment_sum_id": "ilwd:char",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"comment": "lstring",
+		"segment_def_id": "ilwd:char",
+		"segment_def_cdb": "int_4s"
+	}
+	constraints = "PRIMARY KEY (segment_sum_id)"
+	next_id = SegmentSumID(0)
+	interncolumns = ("process_id","segment_def_id")
+
+	def get(self, segment_def_id = None):
+		"""
+		Return a segmentlist object describing the times spanned by
+		the segments carrying the given segment_def_id.  If
+		segment_def_id is None then all segments are returned.
+
+		Note:  the result is not coalesced, the segmentlist
+		contains the segments as they appear in the table.
+		"""
+		if segment_def_id is None:
+			return segments.segmentlist(row.get() for row in self)
+		return segments.segmentlist(row.get() for row in self if row.segment_def_id == segment_def_id)
+
+
+class SegmentSum(object):
+	__slots__ = SegmentSumTable.validcolumns.keys()
+
+	def get(self):
+		"""
+		Return the segment described by this row.
+		"""
+		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
+
+	def set(self, segment):
+		"""
+		Set the segment described by this row.
+		"""
+		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
+		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+
+
+SegmentSumTable.RowType = SegmentSum
+
 
 
 #
@@ -1752,6 +2265,11 @@ class TimeSlideTable(table.Table):
 	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
+	# FIXME:  this method is now only used by snglcoinc.py in pylal,
+	# and that use should be replaced with a call to this class'
+	# .as_dict() method.  A change request is pending for snglcoinc.py,
+	# so it's hard to make other modifications at the moment.  remember
+	# to take care of this later.
 	def get_offset_dict(self, id):
 		"""
 		Return a dictionary of instrument/offset pairs as described
@@ -1812,16 +2330,6 @@ class TimeSlideTable(table.Table):
 
 		# return new ID
 		return id
-
-	def is_null(self, id):
-		"""
-		Test that a time slide ID identifies an all-zero time
-		slide.
-		"""
-		for offset in self.get_offset_dict(id).itervalues():
-			if offset:
-				return False
-		return True
 
 
 class TimeSlide(object):
@@ -1920,12 +2428,13 @@ class CoincTable(table.Table):
 		"coinc_def_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
+		"instruments": "lstring",
 		"nevents": "int_4u",
 		"likelihood": "real_8"
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
 	next_id = CoincID(0)
-	interncolumns = ("process_id", "coinc_def_id", "time_slide_id")
+	interncolumns = ("process_id", "coinc_def_id", "time_slide_id", "instruments")
 	how_to_index = {
 		"ce_cdi_index": ("coinc_def_id",),
 		"ce_tsi_index": ("time_slide_id",)
@@ -1934,6 +2443,20 @@ class CoincTable(table.Table):
 
 class Coinc(object):
 	__slots__ = CoincTable.validcolumns.keys()
+
+	def get_instruments(self):
+		"""
+		Return a set of the instruments for this row.
+		"""
+		return instrument_set_from_ifos(self.instruments)
+
+	def set_instruments(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.instruments = ifos_from_instrument_set(instruments)
 
 
 CoincTable.RowType = Coinc
@@ -2056,6 +2579,94 @@ LIGOLWMonTable.RowType = LIGOLWMon
 #
 # =============================================================================
 #
+#                            veto_definer:table
+#
+# =============================================================================
+#
+
+
+class VetoDefTable(table.Table):
+	tableName = "veto_definer:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"ifo": "lstring",
+		"name": "lstring",
+		"version": "int_4s",
+		"category": "int_4s",
+		"start_time": "int_4s",
+		"end_time": "int_4s",
+		"start_pad": "int_4s",
+		"end_pad": "int_4s",
+		"comment": "lstring"
+	}
+	interncolumns = ("process_id","ifo")
+
+
+class VetoDef(object):
+	__slots__ = VetoDefTable.validcolumns.keys()
+
+VetoDefTable.RowType = VetoDef
+
+
+#
+# =============================================================================
+#
+#                               summ_mime:table
+#
+# =============================================================================
+#
+
+
+SummMimeID = ilwd.get_ilwdchar_class(u"summ_mime", u"summ_mime_id")
+
+
+class SummMimeTable(table.Table):
+	tableName = "summ_mime:table"
+	validcolumns = {
+		"origin": "lstring",
+		"process_id": "ilwd:char",
+		"filename": "lstring",
+		"submitter": "lstring",
+		"frameset_group": "lstring",
+		"segment_def_id": "ilwd:char",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"channel": "lstring",
+		"descrip": "lstring",
+		"mimedata": "blob",
+		"mimedata_length": "int_4s",
+		"mimetype": "lstring",
+		"comment": "lstring",
+		"summ_mime_id": "ilwd:char"
+	}
+	constraints = "PRIMARY KEY (summ_mime_id)"
+	next_id = SummMimeID(0)
+
+
+class SummMime(object):
+	__slots__ = SummMimeTable.validcolumns.keys()
+
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+
+SummMimeTable.RowType = SummMime
+
+
+#
+# =============================================================================
+#
 #                                Table Metadata
 #
 # =============================================================================
@@ -2073,9 +2684,12 @@ TableByName = {
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
 	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
+	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
+	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	table.StripTableName(CoincInspiralTable.tableName): CoincInspiralTable,
 	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
 	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
 	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
@@ -2088,14 +2702,16 @@ TableByName = {
 	table.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
 	table.StripTableName(FilterTable.tableName): FilterTable,
 	table.StripTableName(SegmentTable.tableName): SegmentTable,
-	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
 	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
+	table.StripTableName(SegmentSumTable.tableName): SegmentSumTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
-	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
+	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
+	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
+	table.StripTableName(SummMimeTable.tableName): SummMimeTable
 }
 
 

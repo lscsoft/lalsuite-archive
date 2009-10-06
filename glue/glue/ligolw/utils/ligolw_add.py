@@ -42,7 +42,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -132,11 +132,7 @@ def compare_table_cols(a, b):
 	(ignoring order) according to LIGO LW name conventions, return True
 	otherwise.
 	"""
-	acols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)]
-	acols.sort()
-	bcols = [(table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)]
-	bcols.sort()
-	return cmp(acols, bcols)
+	return cmp(sorted((table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in a.getElementsByTagName(ligolw.Column.tagName)), sorted((table.StripColumnName(col.getAttribute("Name")), col.getAttribute("Type")) for col in b.getElementsByTagName(ligolw.Column.tagName)))
 
 
 def merge_compatible_tables(elem):

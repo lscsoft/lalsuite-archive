@@ -2,7 +2,7 @@
 #
 # lightweight database dumper client
 #
-# $Id$
+# $Id: ldbdc,v 1.29 2007/11/06 15:55:17 duncan Exp $
 #
 # Copyright (C) 2003 Duncan Brown
 # 
@@ -46,13 +46,14 @@ def usage():
   msg = """\
 Usage: ldbdc.py [OPTIONS]
 
-  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
+  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30015)
   -j, --identity SUBJECT  the subject of the servers service certififcate
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -f, --pfn PFNLIST       a comma separated list of PFNs to insert
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
   -D, --dmt-segments      insert the XML data as DMT segment data
+  -a, --disable-gssapi    disable grid certificate authentication
   -p, --ping              ping the server
   -h, --help              print this message
 
@@ -65,7 +66,7 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:j:d:i:f:q:o:Dvph"
+shortop = "r:j:d:i:f:q:o:Dvpha"
 longop = [
   "server=",
   "identity=",
@@ -75,6 +76,7 @@ longop = [
   "query=",
   "output=",
   "dmt-segments",
+  "disable-gssapi",
   "ping",
   "help"
   ]
@@ -87,13 +89,14 @@ except getopt.GetoptError:
 
 # defaults
 hostPortString = None
-port = 30020
+port = 30015
 identity = None
 infile = None
 pfnlist = None
 outfile = None
 squery = None
 dmtsegs = None
+disableauth = None
 ping = None
 
 # environment variables override defaults but not
@@ -122,6 +125,8 @@ for o, a in opts:
     outfile = a
   elif o in ("-D", "--dmt-segments"):
     dmtsegs = 1
+  elif o in ("-D", "--disable-gssapi"):
+    disableauth = 1
   elif o in ("-p", "--ping"):
     ping = 1
 
@@ -162,6 +167,9 @@ if dmtsegs and pfnlist:
 
 if not identity:
   identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+
+if disableauth:
+  identity = None
 
 # open connection to LDBD Server
 try:

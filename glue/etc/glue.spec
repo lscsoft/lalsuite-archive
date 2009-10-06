@@ -6,14 +6,14 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.18
+Version:	1.28.1
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python
+Requires:	python python-cjson m2crypto
 BuildRequires:  python-devel
 Prefix:         %{_prefix}
 
@@ -43,8 +43,27 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitearch}/glue/
 %{_prefix}/bin/
 %{_prefix}/etc/
+%{_prefix}/var/
 
 %changelog
+* Mon Jul 27 2009 Duncan Brown <dabrown@physics.syr.edu>
+- First S6 release of glue
+
+* Wed Jul 01 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Pre S6 release of glue
+
+* Wed Jun 24 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Post E14 release of glue
+
+* Tue Jun 11 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Allow segment tools to see multiple ifos
+
+* Tue Jun 10 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Restored LSCdataFindcheck and fixed debian control files
+
+* Tue Jun 09 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Build for glue 1.19-1
+
 * Tue Jun 24 2008 Ping Wei <piwei@syr.edu>
 - Build for glue 1.18-1
 

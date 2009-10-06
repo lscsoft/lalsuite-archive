@@ -11,10 +11,7 @@
 
 PACKAGE = python-glue
 
-PREFIX = /usr
-DATAPREFIX = /
-SYSCONF = /etc/glue
-
+PREFIX = /opt/lscsoft/glue
 
 CFLAGS = -Wall -g
 
@@ -37,9 +34,10 @@ build: build-stamp
 build-stamp: configure-stamp 
 	dh_testdir
 
-	# Add here commands to compile the package.
 #	$(MAKE)
-	python setup.py build
+# moved to install
+
+	#python setup.py build
 
 	touch $@
 
@@ -48,9 +46,9 @@ clean:
 	dh_testroot
 	rm -f build-stamp configure-stamp
 
-	# Add here commands to clean up after the build process.
 #	-$(MAKE) clean
-	rm -rf build
+	-python2.4 setup.py clean --all
+	-rm -rf build
 	
 	dh_clean 
 
@@ -62,23 +60,38 @@ install: build
 
 	# Add here commands to install the package into debian/$(PACKAGE).
 #	$(MAKE) DESTDIR=$(CURDIR)/debian/$(PACKAGE) install
-	mkdir -p $(CURDIR)/debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)
-	python setup.py install \
-	    --root=$(CURDIR)/debian/$(PACKAGE) \
-	    --prefix=$(PREFIX) \
-	    --record=debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)/INSTALLED_FILES
-#	    --debian \
-# move etc files around:
-	mkdir -p $(CURDIR)/debian/$(PACKAGE)$(SYSCONF)
-	mv $(CURDIR)/debian/$(PACKAGE)$(PREFIX)/etc/* $(CURDIR)/debian/$(PACKAGE)$(SYSCONF)
-	rm -rf $(CURDIR)/debian/$(PACKAGE)$(PREFIX)/etc
+	mkdir -p $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue
+	set -e; \
+	for v in 2.5 2.4; do                                             \
+	        CFLAGS="$(CFLAGS)"                                  \
+		python$$v setup.py build;                                \
+	        CFLAGS="$(CFLAGS)"                                  \
+		python$$v setup.py install                          \
+	    	    --root=$(CURDIR)/debian/$(PACKAGE)              \
+		    --prefix=$(PREFIX)                              \
+		    --record=$(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue/INSTALLED_FILES; \
+		ls -lR $(CURDIR)/debian/$(PACKAGE)/$(PREFIX);            \
+		python$$v setup.py clean --all;                          \
+	done
+#	python setup.py install \
+#	    --root=$(CURDIR)/debian/$(PACKAGE) \
+#	    --prefix=$(PREFIX) \
+#	    --record=$(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue/INSTALLED_FILES
+	set -e; \
+	for i in `find debian -mindepth 2 -type f ! -perm 755`; do       \
+	        if head -n1 $$i | grep -q '^#!' ; then                   \
+	                chmod +x $$i;                                    \
+	        fi ;                                                     \
+	done
+	set -e; \
+	for i in `find debian/$(PACKAGE)/$(PREFIX)/bin -type f`; do      \
+		echo $$i;                                                \
+		if head -n1 $$i | grep -q '^#!.*python$$' ; then         \
+			sed -i '1s/python$$/python2.4/' $$i;             \
+		fi ;                                                     \
+	done
 
-# Build architecture-independent files here.
-binary-indep: build install
-# We have nothing to do by default.
-
-# Build architecture-dependent files here.
-binary-arch: build install
+binary: build install
 	dh_testdir
 	dh_testroot
 	dh_installchangelogs 
@@ -101,12 +114,11 @@ binary-arch: build install
 	dh_compress
 	dh_fixperms
 #	dh_perl
-#	dh_makeshlibs
+	dh_makeshlibs
 	dh_installdeb
-	dh_shlibdeps
+	LD_LIBRARY_PATH=$(PREFIX)/lib dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
 
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install configure
+.PHONY: build clean binary install configure
