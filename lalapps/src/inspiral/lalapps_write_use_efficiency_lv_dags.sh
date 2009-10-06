@@ -119,7 +119,7 @@ fi >  findTotalTimeAfterVetoes.sub
 if [ 1 ]; then
   echo "universe = local"
   echo "executable = ${finalclustering_path}"
-  echo "arguments = --zerolag-glob \$(macrozerolag) --slides-glob \$(macroslideglob) --statistic=lvS5stat --num-slides=50 --h1-triggers --h2-triggers --l1-triggers --v1-triggers --output-dir \$(macrooutputdir) --verbose --output-path . --coire-glob \$(macrocoireglob)  --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos} --gps-start-time ${month_gps_time} --gps-end-time ${month_gps_time}"
+  echo "arguments = --zerolag-glob \$(macrozerolag) --slides-glob \$(macroslideglob) --statistic=lvS5stat --num-slides=50 --h1-triggers --h2-triggers --l1-triggers --v1-triggers --output-dir \$(macrooutputdir) --verbose --output-path . --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos} --gps-start-time ${month_gps_time} --gps-end-time ${month_gps_time}"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/finalclustering-\$(cluster)-\$(process).err"
@@ -311,11 +311,11 @@ if [ 1 ]; then
 
   echo ""
   echo "JOB 1003c finalclustering.sub"
-  echo "VARS 1003c macrozerolag=\"CAT_3/all_data/*LIKELIHOOD_ALL_DATA*\" macroslideglob=\"CAT_3/all_data/*SLIDE*\" macrocoireglob=\"${ihope_full_data_files}\" macrooutputdir=\"reclustered_CAT_3_all_data\" "
+  echo "VARS 1003c macrozerolag=\"CAT_3/all_data/*LIKELIHOOD_ALL_DATA*\" macroslideglob=\"CAT_3/all_data/*SLIDE*\" macrooutputdir=\"reclustered_CAT_3_all_data\" "
 
   echo ""
   echo "JOB 1003d finalclustering.sub"
-  echo "VARS 1003d macrozerolag=\"CAT_3/exclude_play/*LIKELIHOOD_EXCLUDE*\" macroslideglob=\"CAT_3/exclude_play/*SLIDE*\" macrocoireglob=\"${ihope_full_data_files}\" macrooutputdir=\"reclustered_CAT_3_exclude_play\" "
+  echo "VARS 1003d macrozerolag=\"CAT_3/exclude_play/*LIKELIHOOD_EXCLUDE*\" macroslideglob=\"CAT_3/exclude_play/*SLIDE*\" macrooutputdir=\"reclustered_CAT_3_exclude_play\" "
 
   echo ""
   echo "JOB 1004 search_summary.sub"
