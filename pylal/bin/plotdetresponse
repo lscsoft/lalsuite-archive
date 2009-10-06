@@ -37,7 +37,7 @@ import numpy
 from pylal.xlal import inject
 from pylal.xlal import tools
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 

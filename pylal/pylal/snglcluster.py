@@ -34,7 +34,7 @@ from glue import segments
 from glue import iterutils
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 

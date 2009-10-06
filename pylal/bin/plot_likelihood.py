@@ -1,5 +1,5 @@
 #!/usr/bin/python
-__author__ = "Rahul Biswas <rahul@gravity.phys.uwm.edu>, Kipp Cannon <kcannon@ligo.caltech.edu>, Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
+__author__ = "Rahul Biswas <rahul@gravity.phys.uwm.edu>, Kipp Cannon <kipp.cannon@ligo.org>, Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
 
 
 
