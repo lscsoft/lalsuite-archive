@@ -371,7 +371,7 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
-
+	
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
 ###############################################################################
@@ -460,12 +460,13 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	find_vetos_job            = stfu_pipe.findVetosJob(options,cp, dir=search)
 	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp, dir=search)
 	
-	# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
-	insp_datafind_node = {}
-	insp_node_skymap = {}
-
 	# LOOP OVER COINC EVENTS
 	for coinc in candidates:
+
+		# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
+		insp_datafind_node = {}
+		insp_node_skymap = {}
+		
 		if options.verbose:
 			 print >>sys.stderr,"processing coinc @ %f with combined FAR %f instruments %s" % (coinc.time, coinc.combined_far, coinc.instruments)
 
@@ -482,7 +483,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			# h(t) INSPIRAL datafind Node
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
 			# INSPIRAL NODE (for plots)
-			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node])
+			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
 		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
@@ -491,9 +492,11 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 			
 			# INSPIRAL JOB FOR SKYMAPS
-			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node])
+			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 		
 		# SKYMAP JOBS
+
+		sky_node = stfu_pipe.lalapps_skyMapNode(dag, sky_map_job, cp, options, coinc, insp_node_skymap, p_nodes=insp_node_skymap.values())
 		
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
