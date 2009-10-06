@@ -195,6 +195,7 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.setupJob(tag_base,dir=dir,cp=cp,tag_base=tag_base)
 		self.setup_checkForDir()
+		self.setup_rm_lock()
 
 	def is_dax(self):
 		return False
@@ -217,7 +218,11 @@ fi
 		checkdir_script.close()
 		os.chmod('checkForDir.sh',0755)
 
-
+	def setup_rm_lock(self):
+		rm_lock_script = open('rmLock.sh','w')
+		rm_lock_script.write("#!/bin/bash\nif [ -e $1 ]\nthen\n\trm $1\nfi")
+		rm_lock_script.close()
+		os.chmod('rmLock.sh',0755)
 
 # A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
 class followUpInspJob(inspiral.InspiralJob,FUJob):
@@ -442,7 +447,9 @@ The omega scan command line is
 		
 		self.add_var_arg(repr(time))
 
-		self.set_pre_script("checkForDir.sh %s %s" %(output, repr(time)))
+		self.set_pre_script( "checkForDir.sh %s %s" %(output, repr(time)) )
+		#FIXME is deleting the lock file the right thing to do?
+		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
 		if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()):
 		  for node in p_nodes: self.add_parent(node)
