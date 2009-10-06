@@ -687,9 +687,6 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	A C code for computing the sky map
-	An example command line is:
-
-lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --l1-frame-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --v1-frame-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.gwf --event-id 866088314000001908 --ra-res 512 --dec-res 256 --h1-xml-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --l1-xml-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --v1-xml-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.xml.gz --output-file chad.txt
 	"""
 	def __init__(self,dag,job,cp, opts, coinc, sngl_node_dict, p_nodes=[]):
 		self.ifo_list = ["H1","L1","V1"]
@@ -699,16 +696,14 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
 		self.dec_res = job.dec_res
 		self.sample_rate = job.sample_rate
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.setupNode(job)
-		# required by pylal_skyPlotNode
+
 		# this program now gzips its files (otherwise they are really huge)
-		self.output_file_name = job.outputPath + self.id+".txt.gz"
+		self.output_file_name = job.outputPath + str(coinc.time) + ".txt.gz"
 		self.add_var_opt("output-file",self.output_file_name)
 		self.add_var_opt("ra-res",self.ra_res)
 		self.add_var_opt("dec-res",self.dec_res)
-		#self.add_var_opt("event-id",trig.eventID)
-		# Initialize input files
 
+		# Initialize input files
 		for ifo in ['h1','h2','l1','v1']:
 			self.add_var_opt(ifo+"-frame-file","none")
 			self.add_var_opt(ifo+"-xml-file","none")
@@ -717,39 +712,20 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
 		# Overide the sample rate
 		self.add_var_opt("sample-rate",coinc.get_sample_rate())
 
-		if not opts.disable_dag_categories:
-			self.set_category(job.name.lower())
+		#if not opts.disable_dag_categories:
+		#	self.set_category(job.name.lower())
 	
 		# Now add the data we actually have
-		for ifo,sngl in sngl_node_dict.items():
-			self.add_var_opt(ifo+"-frame-file",sngl.output_file_name.replace(".xml",".gwf").strip(".gz"))
-			self.add_var_opt(ifo+"-xml-file",sngl.output_file_name)
-			self.add_var_opt(ifo+"-channel-name",ifo.upper()+":CBC-CData_"+str(sngl.row.event_id))
+		for ifo, sngl in sngl_node_dict.items():
+			self.add_var_opt(ifo.lower()+"-frame-file",sngl.output_file_name.replace(".xml",".gwf").strip(".gz"))
+			self.add_var_opt(ifo.lower()+"-xml-file",sngl.output_file_name)
+		for ifo, sngl in coinc.sngl_inspiral_coh.items():
+			self.add_var_opt(ifo.lower()+"-channel-name",ifo.upper()+":CBC-CData_"+str(sngl.row.event_id))
 
 		# Add parents and put this node in the dag
 		for node in p_nodes:
 			node.add_parent(node)
 		dag.add_node(self)
-
-	def append_insp_node(self,inspNode,ifo):
-		if ifo in self.ifo_list:
-			fileName = str(inspNode.output_file_name)
-			self.add_var_opt(ifo.lower()+"-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
-			self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
-			if inspNode.validNode: self.add_parent(inspNode)
-
-		else: pass #print >> sys.stderr, "WARNING: Already added " + ifo
-
-
-	def add_node_to_dag(self,dag,opts,trig):
-		if opts.sky_map:
- 			dag.addNode(self,self.friendlyName)
-			self.validate()
-		else:
-			self.invalidate()
-			#print "couldn't add sky map job for " + str(trig.eventID)
-
-
 
 
 ##############################################################################
