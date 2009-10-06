@@ -110,10 +110,19 @@ def setup_database(database_location):
             print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host, port)
             sys.exit(1)
 
+
+
     elif database_location.startswith('ldbdi:'):
         port = 30016
-        host_and_port = database_location[len('ldbdi://'):]
+        host = database_location[len('ldbdi://'):]
         identity = None
+
+        from glue import LDBDClient
+        try:
+          client = LDBDClient.LDBDClient(host, port, identity)
+        except Exception, e:
+          print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host, port)
+          sys.exit(1)
     else:
         raise ValueError( "invalid url for segment database" )
     
