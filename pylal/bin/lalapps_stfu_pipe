@@ -18,6 +18,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
+from glue.ligolw import ilwd
 from pylal import db_thinca_rings
 from pylal import stfu_pipe
 from lalapps import inspiral
@@ -172,6 +173,8 @@ class Sngl(object):
 		self.time = float(row[5])
 		self.process_id = row[6]
 		self.row = contents.sngl_inspiral_table.row_from_cols(row[7:])
+		# reset event_id to ilwd_char type
+		self.row.event_id = ilwd.get_ilwdchar(self.row.event_id)
 		self.inj_file_name = contents.sim_file_name
 
 		self.process_params = []
@@ -234,7 +237,7 @@ class Coinc(object):
 		self.contents = contents
 		self.sngl_inspiral = {}
 		self.sngl_inspiral_coh = {}
-		self.coinc_event_id = row[0]
+		self.coinc_event_id = ilwd.get_ilwdchar(row[0])
 		self.combined_far = float(row[1])
 		self.snr = float(row[2])
 		self.time = float(row[3])
@@ -448,7 +451,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	ht_data_find_job	= stfu_pipe.htDataFindJob(cp, dir=search)
 	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, name='qdatafind', dir=search)
 	qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search)
-	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search)
+	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, type='plot')
+	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,type='skymap')	
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
@@ -492,7 +496,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 			
 			# INSPIRAL JOB FOR SKYMAPS
-			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
+			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job_skymap, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 		
 		# SKYMAP JOBS
 

@@ -541,6 +541,8 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
                         if param == 'chisq-threshold': value = "1.0e+06"
                         if param == 'cluster-method': value = 'window'
                         if param == 'cluster-window': continue
+			if param == 'userTag': continue
+			if param == 'user-tag': continue
                         if param in skipParams: continue
                         if param == 'injection-file': value = sngl.inj_file_name
                         self.add_var_opt(param,value)
@@ -720,7 +722,7 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt(ifo.lower()+"-frame-file",sngl.output_file_name.replace(".xml",".gwf").strip(".gz"))
 			self.add_var_opt(ifo.lower()+"-xml-file",sngl.output_file_name)
 		for ifo, sngl in coinc.sngl_inspiral_coh.items():
-			self.add_var_opt(ifo.lower()+"-channel-name",ifo.upper()+":CBC-CData_"+str(sngl.row.event_id))
+			self.add_var_opt( "%s-channel-name" % (ifo.lower(),), "%s:CBC-CData_%d" % (ifo.upper(), int(sngl.row.event_id)) )
 
 		# Add parents and put this node in the dag
 		for node in p_nodes:
