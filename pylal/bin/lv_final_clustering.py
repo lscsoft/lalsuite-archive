@@ -114,16 +114,6 @@ def parse_command_line():
   
   parser.add_option("","--zerolag-glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB zerolag files to read" )
-	
-  parser.add_option("","--coire-glob",action="store",type="string",\
-      default=None, metavar=" GLOB",help="GLOB coire files to read" )
-	    
-  parser.add_option("","--ihope-cache-file",action="store",type="string",\
-      default=None, help="name of the cache file including the path" )
-
-  parser.add_option("","--coire-pattern",\
-      default="", help="coire pattern")
-	
 	  
   parser.add_option("","--statistic",action="store",default='snr',\
       type="string",\
@@ -169,21 +159,6 @@ def parse_command_line():
 
   parser.add_option("", "--v1-triggers",action="store_true", default=False,\
       help="input files contain triggers from V1")
-	  
-  parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
-      metavar="SEC",help="time slid for H1 per slide number" )
-
-  parser.add_option("","--h2-slide-time",action="store",type="int",default=0,\
-      metavar="SEC",help="time slid for H2 per slide number" )
-
-  parser.add_option("","--l1-slide-time",action="store",type="int",default=5,\
-      metavar="SEC",help="time slid for L1 per slide number" )
-	
-  parser.add_option("","--g1-slide-time",action="store",type="int",default=0,\
-      metavar="SEC",help="time slid for G1 per slide number" )
-
-  parser.add_option("","--v1-slide-time",action="store",type="int",default=15,\
-      metavar="SEC",help="time slid for V1 per slide number" )
 	  
   parser.add_option("","--output-path",action="store",\
       type="string",default=None,  metavar="PATH",\
@@ -239,23 +214,12 @@ for ifo_combo in ifo_combos:
   #ifo_combo = ifo_combo.sort()
   ifo_times.append("".join(ifo_combo))
   
-#constructing shift vector for time slides.
-slides_shift_vector = {}
-for ifo in ifo_list:
-  slides_shift_vector[ifo] = getattr(opts, "%s_slide_time" % ifo.lower())
-
-
 # create output directory for clustered likelihood files
 try: os.mkdir(opts.output_dir)
 except: pass
 
 output_dir = opts.output_dir
 
-# get the rings  for unsliding from pre-septime coire files
-#Coire_Cache = lal.Cache.fromfile(open(opts.ihope_cache_file))
-#coire_files = Coire_Cache.sieve(description = opts.coire_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
-
-coire_files = glob.glob(opts.coire_glob)
 
 # constructing list of zerolag files
 zero_lag_files = glob.glob(opts.zerolag_glob)
@@ -303,25 +267,6 @@ if opts.ignore_IFO_times:
   slidesfiles = new_slidesfiles
 
 
-files_by_ifo_time = {}
-# sort files by their ifotimes
-for ifo_time in ifo_times:
-  files_by_ifo_time[ifo_time] = []
-
-for file in slidesfiles:
-  ifo_time=file.split("/")[-1].split("_")[0]
-  files_by_ifo_time[ifo_time].append(file)
-  
-files_by_ifo_time = {}
-# sort files by their ifotimes
-for ifo_time in ifo_times:
-  files_by_ifo_time[ifo_time] = []
-
-for file in slidesfiles:
-  ifo_time=file.split("/")[-1].split("_")[0]
-  files_by_ifo_time[ifo_time].append(file)
-  
-
 ############# CLUSTERING ##############################################################
 
 # Cluster zero lag
@@ -367,32 +312,11 @@ output_file.close()
 
 
 # Cluster time slides
-	
-# split files into those with L1V1 triggers and the rest
-L1V1_files = []
-Other_files = []
-for file in slidesfiles:
-  ifo_type=file.split("/")[-1].split("_")[1].split("-")[0]
-  if ifo_type == "L1V1":
-	L1V1_files.append(file)
-  else:
-	Other_files.append(file)
     
 if opts.verbose:
-  print "reading all non-L1V1 triggers ..."
-slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(Other_files, non_lsc_tables_ok=True)
-if opts.verbose:
-  print "done."
+  print "reading time slides  triggers ..."
+slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles, non_lsc_tables_ok=True)
  
-if (len(L1V1_files) > 0):
-  if opts.verbose:
-	print "reading L1V1 triggers"
-  # read in  L1V1 time slides triggers 
-  L1V1_slidesTriggers = ReadSnglInspiralSlidesFromFiles(L1V1_files, coire_files, shiftVector=slides_shift_vector, mangleEventId = False)
-  if opts.verbose:
-	print "done"
-  
-  slidesTriggers.extend(L1V1_slidesTriggers)
 
 # construct the time slides coincs
 slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
