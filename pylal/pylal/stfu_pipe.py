@@ -31,6 +31,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
+from glue import lal
 from pylal import db_thinca_rings
 from lalapps import inspiral
 
@@ -376,6 +377,31 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 		self.add_condor_cmd('getenv','True')
 		self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
 
+# Follow up chia job
+class followUpChiaJob(inspiral.ChiaJob,FUJob):
+	"""
+	Generates coherent inspiral data
+	"""
+	defaults={
+		"section":"condor",
+		"options":{
+		"universe":"vanilla",
+		"chia":"lalapps_coherent_inspiral"
+		}
+	}
+
+	def __init__(self, options, cp, dir='', tag_base='CHIA'):
+		"""
+		"""
+		self.__conditionalLoadDefaults__(followUpChiaJob.defaults,cp)
+		self.__prog__ = 'followUpChiaJob'
+		self.__executable = string.strip(cp.get('condor','chia'))
+		self.__universe = "standard"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self._InspiralAnalysisNode__pad_data = 0
+		self.setupJob(self.__prog__,tag_base)
+
 
 #############################################################################
 ###### CONDOR NODE CLASSES ##################################################
@@ -395,17 +421,9 @@ class FUNode:
 			if not cp.has_option(defaults["section"], key):
 				cp.set(defaults["section"], key, val)
 
-	def setupNodeWeb(self, job, passItAlong=False, content=None, page=None,webOverride=None,cache=None):
-		self.jobName = job.name
-		if passItAlong:
-			self.add_var_opt("output-path",job.outputPath)
-			self.add_var_opt("enable-output","")
-		if cache:
-			cache.appendCache(job.name,job.outputPath)
-		try:
-			if self.outputCache:
-				cache.appendSubCache(job.name,self.outputCache)
-		except: pass
+	def setupPlotNode(self, job):
+		self.add_var_opt("output-path",job.outputPath)
+		self.add_var_opt("enable-output","")
 
 # QSCAN NODE
 class fuQscanNode(pipeline.CondorDAGNode):
@@ -440,8 +458,10 @@ The omega scan command line is
 		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
 		mkdir(output)
 
-		self.add_var_arg("-o "+output+"/"+repr(time))
+		output_path = output+"/"+str(time)
+		self.add_var_arg("-o " + output_path)
 		
+		self.output_cache = lal.CacheEntry(ifo, "QSCAN", segments.segment(float(time), float(time)), "file://localhost/"+output_path)
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("-f "+frame_cache)
 		
@@ -477,6 +497,9 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 				print >> sys.stderr, "argument \"sngl\" should be provided to class fuDataFindNode"
 				sys.exit(1)
 			self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
+
+		self.output_cache = lal.CacheEntry(ifo, "DATAFIND", segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
+
 		if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()):
 		    for node in p_nodes:
 			self.add_parent(node)
@@ -578,6 +601,11 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
 		self.add_var_opt("output-path",job.outputPath)
+		self.output_cache = []
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, "INSPIRAL_"+self.__usertag, segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, "INSPIRAL_"+self.__usertag, segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
+		
+		self.output_frame_file = self.output_file_name.replace(extension,'.gwf')
 
 		#add parents and put node in dag
 		for node in p_nodes: self.add_parent(node)
@@ -730,6 +758,7 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 		for ifo, sngl in coinc.sngl_inspiral_coh.items():
 			self.add_var_opt( "%s-channel-name" % (ifo.lower(),), "%s:CBC-CData_%d" % (ifo.upper(), int(sngl.row.event_id)) )
 
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), "SKYMAP", segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
 		# Add parents and put this node in the dag
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -746,10 +775,12 @@ A python code for plotting the sky map
 		self.add_var_opt("map-data-file",skyMapNode.output_file_name)
 		self.add_var_opt("user-tag",str(coinc.time))
 		self.add_var_opt("ifo-tag",coinc.ifos)
-		self.add_var_opt("ifo-times",conc.instruments)
+		self.add_var_opt("ifo-times",coinc.instruments)
 		self.add_var_opt("ra-res",str(skyMapNode.ra_res))
 		self.add_var_opt("dec-res",str(skyMapNode.dec_res))
 		self.add_var_opt("stat-value", str(coinc.combined_far))
+		# setup default arguments for plot jobs
+		self.setupPlotNode(job)
 		# if this is a software injection pass along the information to the
 		# plotting code so that it can make a mark where the injection should have
 		# been :)
@@ -759,8 +790,91 @@ A python code for plotting the sky map
 			self.add_var_opt("injection-right-ascension",str(inj_ra))
 			self.add_var_opt("injection-declination",str(inj_dec))
 
+		self.output_file_name = skyMapNode.output_file_name.replace('.txt','.png')
+
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), "SKYMAP_PLOT", segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
+
+class followUpChiaNode(inspiral.ChiaNode,FUNode):
+	"""
+A C code for computing the coherent inspiral statistic.
+An example command line is:
+lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.900000e+01 --low-frequency-cutoff 4.000000e+01 --bank-file H1H2-COHBANK_COHERENT_H1H2_PLAYGROUND-823269333-600.xml --sample-rate 4096 --cohsnr-threshold 5.500000e+00 --ifo-tag H1H2 --frame-type LSC-STRAIN --H1-framefile H1-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823269286-2048.gwf --H2-framefile H2-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823268952-2048.gwf --gps-end-time 823269933 --gps-start-time 823269333 --write-cohsnr --write-cohnullstat --write-cohphasediff --write-events --verbose --debug-level 1
+	"""
+	#def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
+
+	#def __init__(self,job,trig,opts,dag,cp):
+	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, p_nodes = []):
+
+		# the use of this class would require some reorganisation in fu_Condor.py
+		# and webCondor.py in order to set up the jobs following the same scheme
+		# as the way it is done for the Inspiral pipeline...
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.output_file_name = ""
+		sngl = coinc.sngl_inspiral_coh.values()[0]
+
+		# These come from inspiral process param tables
+		self.add_var_opt( "segment-length", sngl.get_proc_param('segment-length') )
+		self.add_var_opt( "dynamic-range-exponent",sngl.get_proc_param('dynamic-range-exponent') )
+		self.add_var_opt( "low-frequency-cutoff", sngl.get_proc_param('low-frequency-cutoff') )
+		self.add_var_opt("sample-rate", sngl.get_proc_param('sample-rate') )
+		# come from config file		
+		self.add_var_opt("cohsnr-threshold",cp.get('chia','cohsnr-threshold'))
+		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
+		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
+		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
+		self.add_var_opt("user-tag","CHIA_"+str(coinc.time))
+		self.add_var_opt("ifo-tag",coinc.instruments)
+		self.add_var_opt("write-events","")
+		self.add_var_opt("write-compress","")
+ 		self.add_var_opt("debug-level","33")
+		self.add_var_opt("write-cohsnr","")
+		self.add_var_opt("write-cohnullstat","")
+		self.add_var_opt("write-h1h2nullstat","")
+		self.add_var_opt("write-cohh1h2snr","")
+		# required by followUpChiaPlotNode
+		bankFile = self.write_trigbank(coinc, 'trig_bank/' + coinc.instruments + '-COHBANK_FOLLOWUP_' + str(coinc.time) + '.xml.gz' )
+		#self.add_var_opt("verbose","")
+		self.set_bank(bankFile)
+		self._InspiralAnalysisNode__pad_data = 0
+
+		#CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
+		#self.setupNodeWeb(job,False,None,None,None,dag.cache)
+		self.add_var_opt("output-path",job.outputPath)
+
+		# Here we define the trig-start-time and the trig-end-time;
+		# The difference between these two times should be kept to 2s
+		# Otherwise change the clustering window also
+		hLengthAnalyzed = 1
+		self.add_var_opt("gps-start-time",int(coinc.time) - int(hLengthAnalyzed) )
+		self.add_var_opt("gps-end-time",int(coinc.time) + int(hLengthAnalyzed) )
+
+		for ifo,sngl in inspiral_node_dict.items():
+			self.add_var_opt(ifo.upper()+"-framefile", sngl.output_frame_file)
+
+		for node in p_nodes: self.add_parent(node)
+		dag.add_node(self)
+			
+	def write_trigbank(self, coinc, name):
+		try:
+			os.mkdir('trig_bank')
+		except: pass
+		xmldoc = ligolw.Document()
+		xmldoc.appendChild(ligolw.LIGO_LW())
+
+		process_params_table = lsctables.New(lsctables.ProcessParamsTable)
+		xmldoc.childNodes[-1].appendChild(process_params_table)
+
+		sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
+		xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
+		for ifo, sngl in coinc.sngl_inspiral_coh.items():
+			sngl_inspiral_table.append(sngl.row)
+		
+		utils.write_filename(xmldoc, name, verbose=False, gz = True)
+		return name
+		
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
@@ -782,10 +896,27 @@ class followUpDAG(pipeline.CondorDAG):
 		# The list remote_nodes will contain the list of nodes run remotely 
 		# (such as V1 qscans)
 		self.remote_nodes = []
+		self.output_cache = []
 	def add_node(self,node):
 		self.node_id += 1
 		node.add_macro("macroid", self.node_id)
 		pipeline.CondorDAG.add_node(self, node)
+		try: self.output_cache.extend(node.output_cache)
+		except:
+			try: self.output_cache.append(node.output_cache)
+			except: pass
+
+	def write_all(self):
+		self.write_sub_files()
+		self.write_dag()
+		self.write_script()
+		self.write_output_cache()
+
+	def write_output_cache(self):
+		f = open(self.basename+".cache",'w')
+		for c in self.output_cache:
+			f.write(str(c)+'\n')
+		f.close()
 
 
 ###############################################################################
@@ -843,6 +974,13 @@ class create_default_config(object):
 		cp.set("fu-output","log-path",self.log_path())
 		cp.set("fu-output","output-dir",self.web_dir())
 		cp.set("fu-output","web-url", self.web_url())
+
+		# CHIA SECTION
+		cp.add_section("chia")
+		cp.set('chia','cohsnr-threshold', "1")
+		cp.set('chia','ra-step', "6")
+		cp.set('chia','dec-step', "6")
+		cp.set('chia','numCohTrigs', "2000")
 
 		# if we have an ini file override the options
 		if config: 
