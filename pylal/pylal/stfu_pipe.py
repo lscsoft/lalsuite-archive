@@ -734,6 +734,33 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
 
+# job class for producing the skymap
+class pylal_skyPlotNode(pipeline.CondorDAGNode,FUNode):
+	"""
+A python code for plotting the sky map
+	"""
+	def __init__(self, dag, job,cp, opts, coinc, skyMapNode,p_nodes[]):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		#self.setupNode(job,True, dag.webPage.lastSection,page,None,None)
+		self.add_var_opt("map-data-file",skyMapNode.output_file_name)
+		self.add_var_opt("user-tag",str(coinc.time)
+		self.add_var_opt("ifo-tag",coinc.ifos)
+		self.add_var_opt("ifo-times",conc.instruments)
+		self.add_var_opt("ra-res",str(skyMapNode.ra_res))
+		self.add_var_opt("dec-res",str(skyMapNode.dec_res))
+		self.add_var_opt("stat-value", str(coinc.combined_far))
+		# if this is a software injection pass along the information to the
+		# plotting code so that it can make a mark where the injection should have
+		# been :)
+		if coinc.sim:
+			inj_ra = coinc.sim.longitude
+			inj_dec = coinc.sim.latitude
+			self.add_var_opt("injection-right-ascension",str(inj_ra))
+			self.add_var_opt("injection-declination",str(inj_dec))
+
+		for node in p_nodes: self.add_parent(node)
+		dag.add_node(self)
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
