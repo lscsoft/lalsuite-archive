@@ -190,23 +190,6 @@ SELECT
 			""", (self.process_id,) ):
 				self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
 
-	def extract_sim(self):
-		if self.contents.sim_inspiral_table:
-			sim_row = self.contents.connection.curser().execute("""
-SELECT
-		sim_inspiral.* 
-	FROM 
-		sim_inspiral
-	JOIN 
-		coinc_event_map AS mapA ON (mapA.event_id == sim_inspiral.simulation_id)
-	JOIN 
-		coinc_event_map AS mapB ON (mapA.coinc_event_id == mapB.coinc_event_id)
-	JOIN 
-		coinc_event ON (mapB.event_id == coinc_event.coinc_event_id)
-	WHERE 
-		coinc_event.coinc_event_id == ?
-"""
-
 	def get_gps_start_time(self):
 		#FIXME probably really slow
 		for row in self.process_params:
