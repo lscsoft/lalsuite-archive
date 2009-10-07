@@ -207,6 +207,11 @@ SELECT
 		for row in self.process_params:
 			if row.param == '--sample-rate': 
 				return int(row.value)
+
+	def get_proc_param(self, param):
+		for row in self.process_params:
+			if row.param.strip('-') == param.strip('-'):
+				return row.value
 		
 	def switch_ifo(self,ifo):
 		self.ifo = ifo
@@ -478,7 +483,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
-	#cohInspJob      = stfu_pipe.followUpInspJob(cp, 'coh', dir=search)
+	chia_job		= stfu_pipe.followUpChiaJob(options, cp, dir=search)
 	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig', dir=search)
 	sky_map_job		= stfu_pipe.skyMapJob(options,cp, dir=search)
 	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp, dir=search)
@@ -522,9 +527,11 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job_skymap, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 		
 		# SKYMAP JOBS
-
 		sky_node = stfu_pipe.lalapps_skyMapNode(dag, sky_map_job, cp, options, coinc, insp_node_skymap, p_nodes=insp_node_skymap.values())
 		sky_plot_node = stfu_pipe.pylal_skyPlotNode(dag, sky_plot_job, cp, options, coinc, sky_node, p_nodes = [sky_node])
+
+		# Coh insp job
+		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_skymap, p_nodes = insp_node_skymap.values())
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
