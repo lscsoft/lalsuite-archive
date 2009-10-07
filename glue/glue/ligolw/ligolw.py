@@ -240,6 +240,16 @@ class Element(object):
 		# the stupid things don't export a method to do it.
 		self.attributes._attrs[attrname] = unicode(value)
 
+	def removeAttribute(self, attrname):
+		# cafeful:  this digs inside an AttributesImpl object and
+		# modifies its internal data.  probably not a good idea,
+		# but I don't know how else to edit an attribute because
+		# the stupid things don't export a method to do it.
+		try:
+			del self.attributes._attrs[attrname]
+		except KeyError:
+			pass
+
 	def appendData(self, content):
 		"""
 		Add characters to the element's pcdata.
