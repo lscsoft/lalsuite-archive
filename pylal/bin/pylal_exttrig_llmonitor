@@ -5,14 +5,14 @@ import sys
 import pickle
 import time
 import subprocess
+import optparse
 import ConfigParser
 
 import matplotlib
 matplotlib.use('Agg')
 
-#from pylal import git_version
+from pylal import git_version
 from pylal import pylal_exttrig_llutils as peu
-
 
 ###################################################
 usage = """usage: pylal_exttrig_monitor config_file
@@ -53,6 +53,32 @@ ini_file = S6GRB_trigger_hipe.ini
 
 
 # -----------------------------------------------------
+def check_proxy():
+  """
+  Checks the status of the grid-proxy and sends an email 
+  if it runs out
+  """
+
+  my_email = 'Alexander.Dietz@lapp.in2p3.fr'
+  cmd = 'grid-proxy-info > grid.info'
+  peu.system_call(cmd)
+
+  flag = False  
+  for line in open('grid.info'):
+    if 'timeleft' in line:
+      flag = True
+      time_in_hours = int(line.split()[2].split(':')[0])
+      if time_in_hours<40:
+        peu.send_mail('Grid Cert aging, %d hleft'%time_in_hours,'Have to renew grid certificate',[my_email])
+      if time_in_hours==0:
+        peu.send_mail('Grid Cert expired. Suspended further actions.',\
+                      'Need renew grid certificate NOW.',[my_email])
+        sys.exit(0)
+
+  if not flag:
+    peu.send_mail('Grid Cert not available','Have to init grid certificate',[my_email])
+
+# -----------------------------------------------------
 def check_status(out_name):
   """
   check the status of the given output file of a DAG
@@ -75,7 +101,7 @@ def check_status(out_name):
 
 
 # -----------------------------------------------------
-def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
+def start_new_analysis(monitor_list, grb_name, grb_ra, grb_dec, grb_time):
   """
   Start a new analysis of a GRB with a separate call.
   All data are given in strings.
@@ -93,17 +119,20 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
 
   analysis_path = cp.get('paths','main')+'/GRB'+grb_name
   cvs_path = cp.get('paths','cvs')+'/'
-  seg_file = cp.get('paths','main')+'/plot_segments_GRB%s.png' % grb_name
+  seg_file = cp.get('paths','main')+'/plot_segments_grb%s.png' % grb_name
 
   # initialize a new DAG
-  peu.info("New GRB found in the parse list: GRB %s"%grb_name)
+  peu.info("New GRB found in the parse list: GRB %s at GPS %d"%(grb_name, grb_time))
   exttrig_dag = peu.ExttrigDag(grb_name = grb_name, grb_ra = grb_ra, \
                             grb_de=grb_dec, grb_time = grb_time)
 
+  glue_dir = os.getenv('GLUE_LOCATION')
+  lalapps_dir = os.getenv('LALAPPS_LOCATION')
+  pylal_dir = os.getenv('PYLAL_LOCATION')
   exttrig_dag.set_paths(input_dir=cp.get('paths','cvs'), \
-                        glue_dir= cp.get('paths','glue'), \
-                        pylal_dir = cp.get('paths','pylal'), \
-                        lalapps_dir= cp.get('paths','lalapps'),\
+                        glue_dir= glue_dir, \
+                        pylal_dir = pylal_dir, \
+                        lalapps_dir= lalapps_dir,\
                         main_dir=cp.get('paths','main'),\
                         condor_log_path = cp.get('paths','condor_log_path'),\
                         log_file=log_file)
@@ -117,21 +146,26 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
   ifo_times = "".join(ifo_list)
   exttrig_dag.calculate_optimality()
 
-  # decide 
+  # decide
+  maindir = cp.get('paths','main') 
   if len(ifo_list)<2:
     peu.info("GRB%s: insufficient multi-IFO data to construct an "\
          "off-source segment. This GRB will be marked with NoData."%grb_name)
 
     # multiple notifications
-    subject = "New GRB found (%s); not enough data " % grb_name
-    email_msg = "The analysis of GRB%s has not been started because "\
+    subject = "Not enough data for GRB%s " % grb_name
+    email_msg = "A new GRB (%s) was found, but the analysis has not been started because "\
                 "not enough data is available\n" % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
                  (grb_time, grb_ra, grb_dec)    
     peu.send_mail(subject, email_msg)  
 
+    # cleaning up
+    cmd = 'mv %s/*grb%s* Files_Unused_GRB/' % (maindir, grb_name)
+    peu.system_call(cmd)
+
     # add this GRB to the database, marked wit NoData
-    exttrig_dag.update_database(0)
+    dag_dict = exttrig_dag.update_database(0)
   
   else:
     # run the creation functions
@@ -140,10 +174,14 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     exttrig_dag.prepare_analysis_directory()
     exttrig_dag.start_analysis()
     check_condor = exttrig_dag.check_analysis_directory()
-    exttrig_dag.update_database(check_condor)
+    dag_dict = exttrig_dag.update_database(check_condor)
+
+    # cleaning up
+    cmd = 'mv %s/*grb%s* %s'%(maindir, grb_name, analysis_path)
+    peu.system_call(cmd)
 
     # multiple notifications
-    subject = "New GRB found (%s); analysis started " %grb_name
+    subject = "New analysis started for  GRB%s " %grb_name
     email_msg = 'The analysis of GRB%s has started\n' % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
                  (grb_time, grb_ra, grb_dec)
@@ -151,47 +189,88 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     email_msg += 'The DAG is located at : %s\n'% analysis_path
     peu.send_mail(subject, email_msg)
 
+  # store the new GRB in the monitor list
+  monitor_list.append(dag_dict)
 
 # -----------------------------------------------------
-def check_gcn(gcn_file, grbs_processed):
+def check_gcn( monitor_list, opts):
   """
   This function checks for any new information
   in the GCN alert file, provided by Isabel
   """
 
-  # copy the latest file
+  # get the alert filenames and their locations 
+  alert_loc = cp.get('alerts','alert_location')
+  main_loc = cp.get('paths','main')
   alert_file = cp.get('alerts','alert_file')
-  alert_host = cp.get('alerts','alert_host')
-  cmd = 'scp %s:%s %s >> ~/cp.log 2>&1' % (alert_host, alert_file, gcn_file)
+  circular_file = cp.get('alerts','circular_file')
+  
+  # copy all relevant files to the working directory
+  cmd = 'scp %s %s >> ~/cp.log 2>&1' % (alert_loc, main_loc)
   peu.system_call(cmd)
 
+  grbs_processed = [obj['name'] for obj in monitor_list]
+  grbs_duration = [obj['duration'] for obj in monitor_list]
+
+  # reset the counter
+  counter = 0
+
   # open the file
-  f = open(gcn_file)
+  f = open(alert_file)
   for line in f:
-    
     # leave out any empty line or any commented line
     if len(line)>1 and line[0]!="#":
       
+      # extract the useful information
       words = line.split()
       grb_name = words[2]
-      if grb_name not in grbs_processed:
+      grb_duration = float(words[12])
 
-        # we found a new GRB!!
-        grb_ra = float(words[3])
-        grb_dec = float(words[4])
-        grb_time_sec = float(words[8])
+      if grb_name in grbs_processed:
+        continue
 
-        # convert the date into a time format
-        # to compute the GPS time of the trigger
-        grb_date = grb_name[:6]
-        time0 = time.mktime(time.strptime(grb_date, "%y%m%d"))
-        grb_gps_time = time0 + grb_time_sec - peu.offset_gps_to_linux
+      if opts.check_number:
+        if counter>opts.check_number:
+          continue
 
-        # and prepare the call for a new analysis
-        start_new_analysis(grb_name, grb_ra, grb_dec, grb_gps_time)
+      if opts.grb:
+        if grb_name!=opts.grb:
+          continue
+            
+      counter += 1
+      #grb_name not in grbs_processed:
+      # TAKE OUT/ TO DO/ CHECK
+      #continue
+
+      # we found a new GRB!!
+      grb_ra = float(words[3])
+      grb_dec = float(words[4])
+      grb_time = words[10]
+      grb_date = grb_name[:6]
+
+      # convert the date to GPS
+      grb_gps_time = peu.get_gps_from_asc(grb_date, grb_time)
+
+      # and prepare the call for a new analysis
+      start_new_analysis(monitor_list, grb_name, grb_ra, grb_dec, grb_gps_time)
         
-        # and add the processed GRB to the list to avoid double analysis
-        grbs_processed.append(grb_name)
+      # and add the processed GRB to the list of processed GRB's to avoid double analysis
+      grbs_processed.append(grb_name)
+     
+#      else: 
+        # check if there is a new duration value
+        # this has to be put into an else, because the used lists
+        # are only populated with the initial content of monitor_list
+        # and so do not have the names of the newly added GRBs       
+        
+        # get the index of the two lists
+#        index_grb = grbs_processed.index(grb_name)
+#        if grbs_duration[index_grb] != grb_duration and grb_duration>0.0:
+
+          # sets a value
+#          monitor_list[index_grb]['duration'] = grb_duration
+
+  # NEED TO UPDATE DURATION INFORMATION!!!
 
   f.close()
         
@@ -209,7 +288,7 @@ def start_ligolw(dag, dag_name):
   peu.system_call(cmd)
  
   # and start the not-implemented post processing
-  dag['status']='Running'
+  dag['status']=0
   dag['stage']='Ligolw'
 
   peu.info('  The LIGOLW stage for GRB %s has been started'%dag['name'])
@@ -227,15 +306,6 @@ def start_post(dag, dp):
   command = 'mkdir -p '+html_path
   peu.system_call(command)
 
-  # Have to use ALL the stupid pythonpath environments?
-  pylal_dir = cp.get('paths','pylal')
-  glue_dir = cp.get('paths','glue')
-  pythonpath = '%s/lib64/python2.4/site-packages:%s/lib/python2.4/site-packages:'\
-               '%s/lib64/python2.4/site-packages:%s/lib/python2.4/site-packages:'\
-               %(pylal_dir, pylal_dir, glue_dir, glue_dir)
-  #pythonpath = '%s/lib64/python2.4/site-packages:%s/lib/python2.4/site-packages:%s'\
-  #             %(pylal_dir, pylal_dir, os.getenv('PYTHONPATH'))
-
   # replace the in-file and create the DAG file
   f = file('sed.file','w')
   f.write("s/@GRBNAME@/GRB%s/g\n"%dag['name'])
@@ -248,7 +318,6 @@ def start_post(dag, dp):
   f.write("s/@DECLINATION@/%f/g\n"%float(dag['declination']))
   f.write("s=@OUTPUTPATH@=%s=g\n"%html_path)
   f.write("s/@LOGNAME@/%s/g\n" % os.getenv("LOGNAME"))
-  f.write("s=@PYTHONPATH@=%s=g\n"%pythonpath)
   f.close()
 
   # run the sed command
@@ -261,7 +330,7 @@ def start_post(dag, dp):
 
   # change the stage and status for this GRB
   peu.info('  The postprocessing stage for this GRB analysis has been started')
-  dag['status']='Running'
+  dag['status']=0
   dag['stage']='Post'
 
   return dag
@@ -289,19 +358,50 @@ def analysis_finalized(dag):
   peu.info('  The analysis for GRB %s has completed successfully!' % grb_name)
 
   # set the new status so 'finished'
-  dag['status']='Finished'
+  dag['status']=2
   return dag
 
+
+# -----------------------------------------------------
+def parse_args():
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
+
+    # cache input
+    parser.add_option("--config-file", help="Configuration file")
+
+    parser.add_option("--nocheck", action="store_true", default=False, \
+        help="Does not check for new GRB if this option is given")
+    parser.add_option("--check-number", type="int", default=None, 
+        help="Specifies the number of new GRB to process.")
+    parser.add_option( "--grb", default=None,
+        help="Specifies the name of a GRB to check")
+
+    options, arguments = parser.parse_args()
+
+    # check that mandatory switches are present
+    for opt in (["config_file"]):
+        if getattr(options, opt) is None:
+            raise ValueError, "Option '--%s' is always required" % opt.replace("_", "-")
+
+    if options.check_number is not None and options.grb is not None:
+      raise ValueError, "Only option '--check-number' or '--grb' can be specified, not both together."
+
+    return options, arguments
 
 # -----------------------------------------------------
 # main code
 # -----------------------------------------------------
 
-# read the single required argument and parse the config file
-config_file = sys.argv[1]
+# parsing the command arguments
+opts, args = parse_args()
+
+# read the config parser
 cp = ConfigParser.ConfigParser()
-cp.read(config_file)
+cp.read(opts.config_file)
 peu.cp = cp
+
+# check the command to check the time left on the proxy
+check_proxy()
 
 # read the list of DAGs to monitor
 monitor_file = cp.get('paths','main')+'/llmonitor.pickle'
@@ -313,10 +413,7 @@ except IOError:
   monitor_list = []
   pickle.dump(monitor_list, file(monitor_file,'w'))
 
-
-peu.generate_summary(monitor_file)
-
-# get the list of email adresses
+# get the list of email adresses and dagman.out names
 email_adresses = cp.get('notifications','email').replace(',',' ').split()
 ini_file = cp.get('data','ini_file')
 dag_name = ini_file.split('.')[0]
@@ -325,18 +422,13 @@ outfile_ligolw = dag_name + '_ligolw.dag.dagman.out'
 outfile_post = 'postproc.dag.dagman.out' 
 
 # put an info to the log-file
-peu.info('pylal_exttrig_llmonitor is executed')
+peu.info('pylal_exttrig_llmonitor is executed with llutils at %s'%peu.__file__)
 
-# loop over each DAG
-grbs_processed = []
-
+# main loop over each entry in the monitor dictionary
 for dag_dict in monitor_list:
 
-  # create a list of all GRBs which have been processed
-  grbs_processed.append(dag_dict['name'])
-
   # continue of the current DAG is marked as finished
-  if dag_dict['status']=='Finished' or dag_dict['status']=='NoData':
+  if dag_dict['status']==2 or dag_dict['status']==10:
     continue
 
   # put basic info into log file
@@ -357,55 +449,56 @@ for dag_dict in monitor_list:
 
   if status == 0:
     # The DAG is running
-    dag_dict['status']=='Running'
+    dag_dict['status']=0
     peu.info('  DAG for %s is running' % dag_dict['name'])
 
   elif status<0:
     # The DAG has aborted
-    if dag_dict['status']=='Running':
+    if dag_dict['status']==0:
       
       # notify because of error
+      dag_dict['status']=status
       if status==-1:
         peu.notify(dag_dict, 'DAG exited on error')
       elif status==-2:
         peu.notify(dag_dict, 'DAG file vanished!?')          
 
-    # set the new DAG status
-    dag_dict['status']='Aborted' 
-
   elif status == 1:
     
     # The DAG has finished
-    if dag_dict['status']=='Running':      
+    if dag_dict['status']==0:      
       # notify or make further steps: ligolw_add and postprocessing 
       peu.notify(dag_dict, 'DAG completed!')
-    dag_dict['status']='Completed'
+    dag_dict['status']=1
     
     # start the next step: the ligolwadd step
     if dag_dict['stage']=='Post':
       dag_dict = analysis_finalized(dag_dict)
 
-    # ligolw ready: start the next step: the postprocessing step
-    #if dag_dict['stage']=='Ligolw':
-    #  dag_dict = start_post(dag_dict)
-
     # inspiral ready: start the next step: the ligolwadd step
     if dag_dict['stage']=='Inspiral':
-      #dag_dict = start_ligolw(dag_dict, dag_name)
       dag_dict = start_post(dag_dict, cp)
 
   peu.info('  %s: Stage: %s  Status: %s' % (dag_dict['name'], dag_dict['stage'], dag_dict['status']))
 
 
-# write out the new status
-pickle.dump(monitor_list, file(monitor_file,'w'))
-
 #
 # Check for any new GCN alert
 #
-check_gcn(cp.get('paths','gcn_file'), grbs_processed)
+if not opts.nocheck:
+  check_gcn(monitor_list, opts)
+
+
+# write out the new status
+pickle.dump(monitor_list, file(monitor_file,'w'))
+
+# Update the duration information using the circular file
+peu.update_duration(monitor_file, opts)
+
     
 #
 # Update the summary page of all GRBs
 #
-peu.generate_summary(monitor_file)
+publish_path = cp.get('paths','publishing_path')
+publish_url = cp.get('paths','publishing_url')
+peu.generate_summary(monitor_file, publish_path, publish_url)

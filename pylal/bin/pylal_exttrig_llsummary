@@ -43,10 +43,25 @@ ifos_list = ['H1L1V1', 'H1L1', 'H1V1', 'L1V1']
 
 
 # the html template. File html_template.html
-html_template ='<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>summary of this GRB <a href="http://grad40.as.utexas.edu/grblog.php?view=burst&amp;GRB=macrogrbname">here</a><br>google sky kml-file <a href="macrokml">here</a><br>onsource loudest triggers <a href="macroxml">here</a><br>segments availability <a href="macrosegplot">here</a><table style="text-align: left;" border="0" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td><a href="macroplot1link" title="Loudest by Mchirp H1L1V1"><img alt="Loudest by Mchirp H1L1V1" src="macroplot1thumb" border="2" width="300"></a></td><td><a href="macroplot2link" title="Loudest by Mchirp H1L1"><img alt="Loudest by Mchirp H1L1" src="macroplot2thumb" border="2" width="300"></a></td></tr><tr><td><a href="macroplot3link" title="Loudest by Mchirp H1V1"><img alt="Loudest by Mchirp H1V1" src="macroplot3thumb" border="2" width="300"></a></td><td><a href="macroplot4link" title="Loudest by Mchirp L1V1"><img alt="Loudest by Mchirp L1V1" src="macroplot4thumb" border="2" width="300"></a>&nbsp;</td></tr></tbody></table>macrostattable</body></html>'
+html_template ="""
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>
+summary of this GRB <a href="http://grad40.as.utexas.edu/grblog.php?view=burst&amp;GRB=macrogrbname">here</a><br>
+google sky kml-file <a href="macrokml">here</a><br>
+segments availability <a href="macrosegplot">here</a><br>
+"""
 
 
+#segments availability <a href="macrosegplot">here</a>
+#<br><hr>
+#<a href="macrosanity3">plotnumtemplates</a><br>
+#<a href="macrosanity1a">plotinspiral H1</a>  <a href="macrosanity1b">plotinspiral L1</a>  <a href="macrosanity1c">plotinspiral V1</a><br>
+#<a href="macrosanity2">plotthinca</a><br>
+#<a href="macrosanity4">grbstats</a><br>
+#<hr><br>
+#<table style="text-align: left;" border="0" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td><a href="macroplot1link" title="Loudest by Mchirp H1L1V1"><img alt="Loudest by Mchirp H1L1V1" src="macroplot1thumb" border="2" width="300"></a></td><td><a href="macroplot2link" title="Loudest by Mchirp H1L1"><img alt="Loudest by Mchirp H1L1" src="macroplot2thumb" border="2" width="300"></a></td></tr><tr><td><a href="macroplot3link" title="Loudest by Mchirp H1V1"><img alt="Loudest by Mchirp H1V1" src="macroplot3thumb" border="2" width="300"></a></td><td><a href="macroplot4link" title="Loudest by Mchirp L1V1"><img alt="Loudest by Mchirp L1V1" src="macroplot4thumb" border="2" width="300"></a>&nbsp;</td></tr></tbody></table>macrostattable</body></html>'
 
+
+html_template_results = 'onsource triggers xml <a href="macroxml">here</a><br><hr><br><table style="text-align: left;" border="0" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td><a href="macroplot1link" title="Loudest by Mchirp H1L1V1"><img alt="Loudest by Mchirp H1L1V1" src="macroplot1thumb" border="2" width="300"></a></td><td><a href="macroplot2link" title="Loudest by Mchirp H1L1"><img alt="Loudest by Mchirp H1L1" src="macroplot2thumb" border="2" width="300"></a></td></tr><tr><td><a href="macroplot3link" title="Loudest by Mchirp H1V1"><img alt="Loudest by Mchirp H1V1" src="macroplot3thumb" border="2" width="300"></a></td><td><a href="macroplot4link" title="Loudest by Mchirp L1V1"><img alt="Loudest by Mchirp L1V1" src="macroplot4thumb" border="2" width="300"></a>&nbsp;</td></tr></tbody></table>macrostattable</body></html>'
 
 
 # the kml template. File kml_template.kml
@@ -118,15 +133,85 @@ def create_html(grb_name, opts):
   html = html.replace('macrora','%.2f'%opts.right_ascension)
   html = html.replace('macrodec','%.2f'%opts.declination)
 
+  # put in the sanity plot links TODO: take out probably
+  gps_duration = opts.gps_end_time-opts.gps_start_time
+  ident = '%s-%9d-%d' % (opts.user_tag, opts.gps_start_time, gps_duration)
+  html = html.replace('macrosanity3','H1L1V1-plotnumtemplates_%s.html'%ident)
+  html = html.replace('macrosanity1a','H1-plotinspiral_SECOND_H1_%s.html'%ident)
+  html = html.replace('macrosanity1b','L1-plotinspiral_SECOND_L1_%s.html'%ident)
+  html = html.replace('macrosanity1c','V1-plotinspiral_SECOND_V1_%s.html'%ident)
+  html = html.replace('macrosanity2','%s-plotthinca_%s.html'%(opts.ifo_times, ident))
+  html = html.replace('macrosanity4','pylal_grbtimeslide_stats_%s.html'% ident)
+
+
   return html
+
+
+# --------------------------------
+def create_sanity_page(html, grb_name, opts):
+  """
+  Function to create the complete sanity page 
+  with general information, links to selected images
+  and links to special plot pages. 
+  @param html:
+  @param grb_name: name of the GRB (e.g. 090811, 091010B)
+  @param opts: The option structure of this code call
+  """
+
+    def file_replace(filenamein):
+        gps_duration = opts.gps_end_time-opts.gps_start_time
+        ident = '%9d-%d' % (opts.gps_start_time, gps_duration)
+        
+        fn = copy.deepcopy(filenamein)
+        fn = fn.replace('MACIDENT',ident)
+        fn = fn.replace('MACIFOS',opts.ifo_times)
+        fn = fn.replace('MACGRB',grb_name)        
+        return fn
+        
+    page_sections = {}
+    page_sections['numtemplates']={'page':'H1L1V1-plotnumtemplates_GRBMACGRB-MACIDENT.html',\
+                                   'images':['H1L1V1-plotnumtemplates_GRBMACGRB_banksize-MACIDENT.png']}
+    page_sections['inspiralH1']={'page':'H1-plotinspiral_SECOND_H1_GRBMACGRB-MACIDENT.html',\
+                             'images':['H1-plotinspiral_SECOND_H1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
+                                       'H1-plotinspiral_SECOND_H1_GRBMACGRB_snr_histogram-MACIDENT.png']}
+    page_sections['inspiralL1']={'page':'L1-plotinspiral_SECOND_L1_GRBMACGRB-MACIDENT.html',\
+                                 'images':['L1-plotinspiral_SECOND_L1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
+                                           'L1-plotinspiral_SECOND_L1_GRBMACGRB_snr_histogram-MACIDENT.png']}
+    page_sections['inspiralV1']={'page':'V1-plotinspiral_SECOND_V1_GRBMACGRB-MACIDENT.html',\
+                                 'images':['V1-plotinspiral_SECOND_V1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
+                                           'V1-plotinspiral_SECOND_V1_GRBMACGRB_snr_histogram-MACIDENT.png']}    
+    page_sections['thinca']={'page':'MACIFOS-plotthinca_GRBMACGRB-MACIDENT.html',\
+                             'images':['MACIFOS-plotthinca_GRBMACGRB_cum_hist_effective_snr-MACIDENT.png']}
+    page_sections['grbstats'] = {'page':'pylal_grbtimeslide_stats_GRBMACGRB-MACIDENT.html',
+                                 'images':['pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png',\
+                                           'pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png',\
+                                           'pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png']}
+    
+    for key in ['numtemplates','inspiralH1','inspiralL1','inspiralV1','thinca','grbstats']:
+
+        section = page_sections[key]
+        html+='<hr>'
+        
+        page = file_replace(section['page'])
+        images = [file_replace(image) for image in section['images']]
+        
+        for image in images:
+            html += '<a href="Images/%s" title="%s"><img src="Images/%s" border="2" width="300"></a>' %\
+                    (image, image, image)
+            
+        html += '<br>Detailed results on the <a href="%s">%s summary page</a>' %\
+                (page, key)
+            
+    return html
+
 
 # --------------------------------
 def write_file(root_dir, filename, content):
   """
   Writes a file to disk.
-  @param root_dir: directory where to write the file
-  @param filename: name of the file
-  @param content: contents of the file
+  @param root_dir: directory where to create the file
+  @param filename: name of the file to be created
+  @param content: contents of the file to be written
   """
   
   f = open(root_dir+'/'+filename,'w')
@@ -372,11 +457,16 @@ if len(onsource_coincs) > len(mc_bins):
 columns = ["ifos","mc_bin", "event_id"] \
           + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifo_list] \
           + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
-             "<em>P</em>(c|0)"]
+             "FAP"]
+output_list = []
 rows = []
 for index_ifos, ifos in enumerate(ifos_list):
   for index_bins, (bin_low, bin_upper) in \
           enumerate(zip(fixed_mc_bins.lower(), fixed_mc_bins.upper())):
+
+    # prepare dictionary to save the data
+    output_dict = {'event_id':None,'snrH':None,'snrL':None,'snrV':None}
+                   
 
     # retrieve all coincs for this ifo combination
     ifos_coinc = onsource_coincs.getChirpMass(bin_low, bin_upper)
@@ -389,8 +479,11 @@ for index_ifos, ifos in enumerate(ifos_list):
         break
       
     row = ["%s"%ifos, "[%.2f, %.2f)" % (bin_low, bin_upper)]
+    output_dict['ifos'] = ifos
+    output_dict['mc-bins'] = [bin_low, bin_upper]
     if use_coinc:
       row += [use_coinc.event_id]
+      output_dict['event_id']=use_coinc.event_id
     else:
       row += ['&mdash']
 
@@ -399,6 +492,7 @@ for index_ifos, ifos in enumerate(ifos_list):
         try:
           trig = getattr(use_coinc, ifo)
           row += ["%.4g"%trig.get_effective_snr()]
+          output_dict['snr'+ifo[0].upper()]=trig.get_effective_snr()
         except:
           row += ["&mdash"]
 
@@ -406,16 +500,26 @@ for index_ifos, ifos in enumerate(ifos_list):
       pc0 = onsource_fap_by_mc[index_pc0]
       row += ["%.4g" % use_coinc.stat, "%.4g" % \
              grbsummary.get_mean_mchirp(use_coinc),"%.4g" % pc0]
+      output_dict['snr_effective']=use_coinc.stat
+      output_dict['mchirp']=grbsummary.get_mean_mchirp(use_coinc)
+      output_dict['prob']=pc0
       
     else:
       row += ['&mdash','&mdash','&mdash','&mdash','&mdash','&mdash']
 
     # add this row to the roes
     rows.append(row)
+    output_list.append(output_dict)
 
 # add this table to the html file
 statistic_table = make_html_table(rows, columns)
 page.write(statistic_table)
+
+# write the pickle file containing all numerical informations
+filename = '%s/llsummary_GRB%s.pickle'%(opts.output_path, grb_name)
+f = file(filename,'w')
+pickle.dump(output_list, f)
+f.close()
       
 #
 # Create the two main plots
@@ -465,16 +569,6 @@ write_file(opts.output_path, kml_filename, kml)
 ## create the basic html file
 html = create_html(grb_name, opts)
 
-# set the links for the plots
-for index, plots in enumerate(list_overview_plots):
-  filename = 'Images/'+os.path.basename(plots)
-  thumbname = filename.replace('.png','_thumb.png')
-
-  # replace the html tag
-  html = html.replace('macroplot%dlink'%(index+1), filename)
-  html = html.replace('macroplot%dthumb'%(index+1), thumbname)
-
-  
 # populate the antenna factor table
 for ifo in ['H1','H2','L1','G1','V1']:
   
@@ -489,23 +583,48 @@ for ifo in ['H1','H2','L1','G1','V1']:
 
 # copy the segment plot
 segplot = 'plot_segments_GRB%s.png' % grb_name
-command = 'cp ../../../%s %s' % (segplot, opts.output_path)
+command = 'cp ../../../%s %s 2>/dev/null' % (segplot, opts.output_path)
 subprocess.call(command, shell=True)
 
 
 # put in some more links and copy needed files
 html = html.replace('macrokml',kml_filename)
 shutil.copy(opts.onsource_xml, opts.output_path)
-html = html.replace('macroxml', opts.onsource_xml)
-html = html.replace('macrostattable', statistic_table)
+#html = html.replace('macrostattable', statistic_table)
 html = html.replace('macrosegplot', segplot)
 
-# put some status information
+
+## Create the two different html pages, split here from the 
+## common sub-page
+
+html_results = html+html_template_results
+html_sanity = html
+
+## Add the XML link to the results page
+html_results = html_results.replace('macroxml', opts.onsource_xml)
+html_results = html_results.replace('macrostattable', statistic_table)
+
+
+# and set the links for the plots for the results-html
+for index, plots in enumerate(list_overview_plots):
+  filename = 'Images/'+os.path.basename(plots)
+  thumbname = filename.replace('.png','_thumb.png')
+
+  # replace the html tag
+  html_results = html_results.replace('macroplot%dlink'%(index+1), filename)
+  html_results = html_results.replace('macroplot%dthumb'%(index+1), thumbname)
+
+
+## Update the other page with sanity plots
+html_sanity = create_sanity_page(html_sanity, grb_name, opts)
+
+# put some status information TODO
 text = "<hr>This page has been created at %s\n"%time.asctime(time.localtime())
 text += "Version used: "+ git_version.verbose_msg
 
 # write the html file
-write_file(opts.output_path, 'pylal_exttrig_llsummary_'+grb_name+'.html' , html)
+write_file(opts.output_path, 'pylal_exttrig_llsummary_'+grb_name+'-OPENBOX.html' , html_results)
+write_file(opts.output_path, 'pylal_exttrig_llsummary_'+grb_name+'-sanity.html' , html_sanity)
 
 # now copy the files if required
 if opts.output_path_html:

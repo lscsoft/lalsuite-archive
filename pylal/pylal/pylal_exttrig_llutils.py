@@ -9,6 +9,7 @@ import ConfigParser
 import optparse
 import pickle
 import glob
+from datetime import datetime
 
 import numpy as np
 import matplotlib
@@ -23,14 +24,15 @@ from glue.ligolw import utils
 from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
+from pylal.xlal import date
 
 # the config parser to be used in some of the functions
 cp = None
 
 template_trigger_hipe = "./lalapps_trigger_hipe"\
-  " --h1-segments H1-science.txt" \
-  " --l1-segments L1-science.txt" \
-  " --v1-segments V1-science.txt" \
+  " --h1-segments H1-science_grb%s.txt" \
+  " --l1-segments L1-science_grb%s.txt" \
+  " --v1-segments V1-science_grb%s.txt" \
   " --list %s" \
   " --grb %s --onsource-left 5" \
   " --onsource-right 1 --config-file %s" \
@@ -41,7 +43,7 @@ template_trigger_hipe = "./lalapps_trigger_hipe"\
 
 ifo_list = ['H1','L1','V1']
 
-offset_gps_to_linux = 315982785
+offset_gps_to_linux = 315964800 # see http://www.epochconverter.com/ for 6 Jan 1980 00:00:00 GPS = 000000000
 
 total_summary_prefix = """
 <body style="color: rgb(0, 0, 0); background-color: rgb(221, 255, 255);" alink="#000099" link="#000099" vlink="#990099">
@@ -71,8 +73,9 @@ Date of last creation: %s<br><br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">H1<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">L1<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">V1<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Sanity<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Result<br>
-  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Link<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Box<br>
 """
 
 # -----------------------------------------------------
@@ -80,9 +83,14 @@ def system_call(command):
   """
   Makes a system call
   """
-  info("  External command executed: "+command)
-  #subprocess.call(command.split())
-  os.system(command)
+  l = logfile_name()
+
+  # put the command used into the log file
+  info(" > "+command)
+  
+  # and the output (and error) of the command as well
+  subprocess.call(command+' >%s 2>%s '%(l,l), shell=True)
+  #os.system(command)
 
 # -----------------------------------------------------
 def get_time():
@@ -92,20 +100,58 @@ def get_time():
   return time.asctime(time.gmtime())
 
 # -----------------------------------------------------
+def get_gps_from_asc(date_string, time_string):
+  """
+  Computes the correct GPS time from the date and time
+  as given in text strings.
+  """
+
+  # convert the date and times (as read from the trigger file)
+  # into tuples
+  print date_string, time_string
+  a = time.strptime(date_string, "%y%m%d")
+  time_list = time_string.split('.')
+  b = time.strptime(time_list[0], "%H:%M:%S")
+  if len(time_list)==2:
+    nsecs = time_list[1]
+    nsecs += (9-len(nsecs))*'0'
+    nano_seconds = int(nsecs) 
+    print nano_seconds
+  else:
+    nano_seconds = 0
+
+  # populate a datetime tuple
+  tm = datetime(a[0], a[1], a[2], b[3], b[4], b[5]).timetuple()
+  # and parse it, the last three entries populated as well,
+  # to the wrapped XLALUTCToGPS function.
+  gpstime = date.XLALUTCToGPS(tm)
+
+  return int(gpstime)
+
+
+# -----------------------------------------------------
+def logfile_name():
+  """
+  Creates the file of the logfile; used in 'info' and 'system_call'
+  """
+  return cp.get('paths','main')+'/llmonitor.log'
+
+# -----------------------------------------------------
 def info(text):
   """
   Prints an info into the log-file
   """
   msg = get_time() + ': '+text
   
-  log_file = cp.get('paths','main')+'/llmonitor.log'
+  log_file = logfile_name()
   logfile = open(log_file,'a')
   logfile.write(msg+'\n')
   logfile.close()
 
+  print text
 
 # -----------------------------------------------------
-def send_mail(subject, msg):
+def send_mail(subject, msg, email_adresses = None):
   """
   Function to send an email to a certain adress
   """
@@ -121,12 +167,16 @@ def send_mail(subject, msg):
   f.write(message)
   f.close()
 
-  # call the command
-  email_adresses = cp.get('notifications','email').replace(',',' ').split()
+  # select the recipients
+  if not email_adresses:
+    email_adresses = cp.get('notifications','email').replace(',',' ').split()
+
+  # send the message to all recipients
   for address in email_adresses:
     command = "mail -s '%s' %s < %s" % (subject, address, tmp_file)
     system_call(command)
-  
+ 
+  info('Email content: '+msg) 
 
 # -----------------------------------------------------
 def notify(dag, message):
@@ -140,7 +190,7 @@ def notify(dag, message):
        (dag['name'], message)
 
   # construct the message for the email
-  email_msg = 'Automatic notification from pylal_otex at time %s\n\n'%\
+  email_msg = 'Automatic notification from pylal_exttrig_llutils at time %s\n\n'%\
               get_time()
   email_msg += subject+'\n'
   email_msg += 'Stage currently executed: %s\n'%dag['stage']
@@ -221,11 +271,74 @@ def get_empty_exttrig_row():
   row.event_status = 0
   return row
 
+
 # --------------------------------------
-def generate_summary(monitor_file):
+def update_duration(monitor_file, opts):
+  """
+  Updates any given duration info from the circular file
+  and stores it into the monitor file
+  """
+
+  circular_file = cp.get('paths','main')+'/'+cp.get('alerts','circular_file')
+
+  # Read the duration from the circular file
+  dict_duration = {}
+  for line in file(circular_file):
+    parts = line.split()
+    
+    grb_name = parts[2]
+    duration = float(parts[12])
+
+    # store the duration. A value of zero means it is unknown
+    if duration>0:
+      dict_duration[grb_name]=duration
+
+  # Read the list of all processed GRBs
+  monitor_list = pickle.load(file(monitor_file))
+  for grb in monitor_list:
+    grb_name = grb['name']
+    
+    # update the duration information when available
+    if grb_name in dict_duration:
+      grb['duration'] = dict_duration[grb_name]
+
+  # write out the updated data to the pickle file
+  pickle.dump(monitor_list, file(monitor_file,'w'))
+
+
+# --------------------------------------
+def obtain_results(item):
+  """
+  Obtain the result, i.e the smallest p(c|0)
+  """
+
+  name = item['name']
+  path_to_result = '%s/GRB%s/postprocessing/output/llsummary_GRB%s.pickle' %\
+     (item['path'], name, name)
+  data = pickle.load(file(path_to_result))
+
+
+  min_prob = 2.0
+  for coinc in data:
+    if 'prob' in coinc:
+      p = coinc['prob']
+      if p<min_prob:
+        min_prob = p
+
+  return min_prob
+
+
+
+# --------------------------------------
+def generate_summary(monitor_file, publish_path, publish_url):
+  """
+  Generating summary page, with the openbox results
+  properly linked or not...
+  """
+  status_msg = {-2:'<font color="#FF0000">DAGFILE</font>', -1:'<font color="#FF0000">ERROR</font>', \
+                 0:'Running',1:'DAG Complete',2:'<font color="#00aa00">Finished</font>',10:'<font color="#666666">NoData</font>'}
 
   def add(table, text):
-    #print text
     return table + '<td>' +str(text)+'</td>' 
 
   # Read the list of all processed GRBs
@@ -238,7 +351,7 @@ def generate_summary(monitor_file):
   table = total_summary_prefix % get_time()
 
   # Loop over all GRBs in reverse order
-  for i in index[::-1]:
+  for number, i in enumerate(index[::-1]):
 
     item = monitor_list[i]
     name = item['name']
@@ -248,9 +361,11 @@ def generate_summary(monitor_file):
     else:
       table += '<tr style="background-color: rgb(255, 200, 200);">'
 
-    table = add(table, i+1)
+    if name=='090713':
+      print 'utils: ', name, item['status'], status_msg[item['status']], item
+    table = add(table, number+1)
     table = add(table, name) 
-    table = add(table, item['status'])
+    table = add(table, status_msg[item['status']])
     table = add(table, item['triggertime'])
     asctime = time.asctime(time.gmtime(item['triggertime']+offset_gps_to_linux))
     table = add(table, asctime)
@@ -270,22 +385,39 @@ def generate_summary(monitor_file):
       else:
         table = add(table, '%.2f'%item['qvalues'][ifo])
 
+    
+    if item['status'] == 2:
+     
+      #Add link to sanity
+      htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity.html' % (name, name)
+      table = add(table, '<a href="%s">link</a>'%htmlfile) 
 
-    if item['status'] == 'Finished':
-      table = add(table, 'RESULTS')
-      htmlfile = cp.get('paths','publishing_url')+'GRB%s/pylal_exttrig_llsummary_%s.html' % (name, name)
-      table = add(table, '<a href="%s">link</a>'%htmlfile)
+      # Add link to box
+      if item['openbox']:
+        # add result    
+        result = obtain_results(item)
+        if result<2:
+          table = add(table, '%.2f'%result)
+        else:        
+          table = add(table, 'no cand.')
+
+        # and link to the openbox details
+        htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s.html' % (name, name)
+        table = add(table, '<a href="%s">link</a>'%htmlfile)
+      else:
+        # box closed otherwise
+        table = add(table,'box closed')
+        table = add(table,'box closed')
     else:
+      # no data available if analysis not finished
+      table = add(table, '&mdash')
       table = add(table, '&mdash')
       table = add(table, '&mdash')
 
     table +='</tr>'
 
-    # Processing only the one having no data of having finished
-    #if item['stage']=='NoData' or item['stage']=='Finished'
-    #table += ""
-    
-    filename = cp.get('paths','publishing_path')+'/total_summary.html'
+    # write out the complete html file
+    filename = publish_path +'/total_summary.html'
     f = open(filename,'w')
     f.write(table)
     f.close()
@@ -307,6 +439,10 @@ class ExttrigDag(object):
     self.time = int(grb_time)
 
     self.qvalues = {}
+
+    self.use_offline_data = False
+    self.type_online = {'H1':'H1_DMT_C00_L2', 'L1':'L1_DMT_C00_L2', 'V1':'V1_DMT_HREC'}
+    self.type_offline = {'H1':'H1_LDAS_C00_L2','L1':'L1_LDAS_C00_L2','V1':'HrecOnline'}
 
   # -----------------------------------------------------
   def set_paths(self, input_dir=None, glue_dir=None, pylal_dir = None,\
@@ -384,8 +520,34 @@ class ExttrigDag(object):
     tbl.extend([row])
     
     # write out the trigger file
-    self.trigger_file = 'GRB%s.xml' % self.name
+    self.trigger_file = 'grb%s.xml' % self.name
     utils.write_filename(xmldoc, self.trigger_file)
+
+  # -----------------------------------------------------
+  def create_call_datafind_online(self, starttime, endtime, ifo, output_location):
+    """
+    Creates a call to the function 'lalapps_online_datafind' to find
+    the data. To be used only for data from the last 2 weeks...
+    """
+    executable = self.lalapps_dir+'/bin/lalapps_online_datafind'
+
+    #type = self.type_online[ifo]
+    cmd = "%s --ifo %s --gps-start-time %d --gps-end-time %d --output %s" % \
+            (executable, ifo, starttime, endtime, output_location)
+    return cmd
+
+
+  # -----------------------------------------------------
+  def create_call_datafind_offline(self,starttime, endtime, ifo, output_location):
+    """
+    Creates a call to the function 'ligo_data_find' to find
+    the data after more than ~2 weeks. Don't ask me...
+    """
+    executable = self.glue_dir+'/bin/ligo_data_find --url-type file --lal-cache'
+
+    cmd = "%s --type %s --observatory %s --gps-start-time %d --gps-end-time %d > %s" %\
+          (executable, self.type_offline[ifo], ifo[0].upper(), starttime, endtime, output_location)
+    return cmd
 
   # -----------------------------------------------------
   def run_datafind(self):
@@ -397,30 +559,74 @@ class ExttrigDag(object):
     cmd = 'mkdir -p '+cache_dir
     system_call(cmd)
 
-    executable = self.lalapps_dir+'/bin/lalapps_online_datafind'
-    #print self.offsource_segment
-    #print executable
+    # get the start and end-time
     starttime = self.offsource_segment[0]
     endtime = self.offsource_segment[1]
 
     # and run the datafind command for each IFO, putting
     # the cache files directly into them
     for ifo in ifo_list:
-      if ifo=='V1':
-        cache_filename = "V-V1_DMT_HREC-%9d-%9d.cache" % (starttime, endtime)
-      else:
-        cache_filename = "%s-DMT_C00_L2-%9d-%9d.cache" %(ifo[0].upper(), starttime, endtime)
 
-      cmd = "%s --ifo %s --gps-start-time %d --gps-end-time %d --output %s/%s" % \
-            (executable, ifo, starttime, endtime, cache_dir, cache_filename)
+      # create common cache-file names
+      output_location = '%s/%s-DATA-%9d-%9d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
+
+      # decide: should I use online data (deleted after a month or so)
+      # or do I require offline data? That changes everything...
+      if self.use_offline_data:
+        cmd = self.create_call_datafind_offline(starttime, endtime, ifo, output_location)
+      else:
+        cmd = self.create_call_datafind_online(starttime, endtime, ifo, output_location)
+
       system_call(cmd)
+
+  # -----------------------------------------------------
+  def check_data_to_use(self):
+    """
+    Checking the difference between now and the requested data
+    to indentify if we can use online data or have to use
+    offline data
+    """ 
+
+    # get the start time
+    starttime = self.offsource_segment[0]
+
+    # calculate the difference and test
+    timediff = time.time() - offset_gps_to_linux - starttime
+    self.use_offline_data = False
+    if timediff>1000000:
+      self.use_offline_data = True
+
+  # -----------------------------------------------------
+  def update_inifile(self, list_replacements):
+    """
+    Function to conveniently replace some of the parameters
+    in the ini-file by specific values.
+    """ 
+
+    # read the config ini-file
+    config_file = '%s/%s' % (self.analysis_dir, self.ini_file)
+    pc = ConfigParser.ConfigParser()
+    pc.read(config_file)
+     
+    # Replacement loop
+    for replacement in list_replacements:
+      pc.set(replacement[0], replacement[1], replacement[2])
+
+    # write out new ini-file
+    cp_file = open(config_file, 'w')
+    pc.write(cp_file)
+    cp_file.close()
+
 
 
   # -----------------------------------------------------
-  def prepare_analysis_directory(self, skip_rundag = False):
+  def prepare_analysis_directory(self):
     #
     # Now create directories and copy a bunch of files
     #
+
+    # check if to use online or offline data
+    self.check_data_to_use()
     
     # Create the main directory
     if False and os.path.exists(self.analysis_dir):
@@ -437,16 +643,23 @@ class ExttrigDag(object):
     cmd = 'cp %s %s/' % (self.trigger_file, self.analysis_dir)
     system_call(cmd)
 
+    # Make some neccessary replacements in the config (ini) file
+    list_replacements = [['pipeline', 'user-tag', 'GRB%s'%self.name]]
+    if self.use_offline_data:
+      list_replacements.append(['input', 'ligo-channel', 'LDAS-STRAIN'])
+    self.update_inifile(list_replacements)
+
+
     # replace some arguments in the ini-file
-    config_file = '%s/%s' % (self.analysis_dir, self.ini_file)
-    pc = ConfigParser.ConfigParser()
-    pc.read(config_file)
-    pc.set("pipeline", "user-tag", "GRB%s" %self.name)
+    #config_file = '%s/%s' % (self.analysis_dir, self.ini_file)
+    #pc = ConfigParser.ConfigParser()
+    #pc.read(config_file)
+    #pc.set("pipeline", "user-tag", "GRB%s" %self.name)
 
     # write out new ini-file
-    cp_file = open(config_file, 'w')
-    pc.write(cp_file)
-    cp_file.close()
+    #cp_file = open(config_file, 'w')
+    #pc.write(cp_file)
+    #cp_file.close()
 
 
     # copy executables
@@ -462,13 +675,13 @@ class ExttrigDag(object):
       (self.glue_dir, self.analysis_dir)
     system_call(cmd)
 
-    cmd = 'cd %s/bin; cp pylal_relic pylal_exttrig_llsummary %s' % \
+    cmd = 'cd %s/bin; cp pylal_relic pylal_exttrig_llsummary plotinspiral plotnumtemplates plotthinca pylal_grbtimeslide_stats %s' % \
       (self.pylal_dir, self.analysis_dir)
     system_call(cmd)
 
 
     # copy the segment files
-    cmd = 'cp %s/*-science.txt %s' % (self.main_dir, self.analysis_dir)
+    cmd = 'mv %s/*-science_grb%s.txt %s' % (self.main_dir, self.name, self.analysis_dir)
     system_call(cmd)
 
     #
@@ -476,10 +689,10 @@ class ExttrigDag(object):
     #
     cmd = 'cd %s;' % self.analysis_dir
     cmd += template_trigger_hipe % \
-           (self.trigger_file, self.name, self.ini_file, self.condor_log_path)
+           (self.name, self.name, self.name, self.trigger_file, self.name, self.ini_file, self.condor_log_path)
     system_call(cmd)
 
-    # TODO HERE
+    # Call a subfunction to run the datafind command
     self.run_datafind()
 
     # Prepare the postprocesing directory at this stage
@@ -497,10 +710,7 @@ class ExttrigDag(object):
     cmd = 'cd %s;' % self.analysis_dir
     cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
     cmd += 'condor_submit_dag %s' % self.dag_file
-    if skip_rundag:
-      info("Execution of condor_submit skipped. Command would have been: "+cmd)
-    else:
-      system_call(cmd)
+    system_call(cmd)
 
   # -----------------------------------------------------
   def check_analysis_directory(self):
@@ -554,15 +764,18 @@ class ExttrigDag(object):
                  'dag-name':self.dag_file,\
                  'ifos':'', 'condorlogpath':'',\
                  'triggertime':self.time,\
-                 'right_ascension': self.ra,'declination':self.de,
-                 'qvalues':self.qvalues}
+                 'right_ascension': self.ra,'declination':self.de,\
+                 'duration':-1.0, 'duration_ref':-1,\
+                 'redshift':-1.0, 'redshift_ref':-1,\
+                 'qvalues':self.qvalues,\
+                 'openbox':False}
 
     if has_data ==0:
       # Not enough data has been found. The data is stored,
       # but no analysis is started
       dag_dict['starttime'] = None
       dag_dict['endtime'] = None
-      dag_dict['status'] = 'NoData'
+      dag_dict['status'] = 10
       dag_dict['stage'] = 'NoData'
       dag_dict['ifos'] = ''
       dag_dict['condorlogpath'] = ''
@@ -573,23 +786,24 @@ class ExttrigDag(object):
       # The DAG is either running or has not started.
       # The status of the DAG will be checked then in the next round
       if has_data==1:
-        dag_dict['status'] = 'Running'
+        dag_dict['status'] = 0
       if has_data ==-1:
-        dag_dict['status'] = 'Aborted'
+        dag_dict['status'] = -1
       dag_dict['stage'] = 'Inspiral' 
       dag_dict['ifos'] = self.ifos
       dag_dict['condorlogpath'] = self.condor_log_path
 
     # update the monitor file
-    monitor_list = pickle.load(file(self.monitor_file))
-    monitor_list.append(dag_dict)
-    pickle.dump(monitor_list, file(self.monitor_file,'w'))
+    #monitor_list = pickle.load(file(self.monitor_file))
+    #monitor_list.append(dag_dict)
+    #pickle.dump(monitor_list, file(self.monitor_file,'w'))
 
     if has_data:
       info('The GRB %s has been added to the database'%self.name)
     else:
       info('The GRB %s has been added to the database with NoData.'%self.name)
 
+    return dag_dict
 
   # -----------------------------------------------------
   def get_minimum_scienceseg_length(self):
@@ -632,8 +846,8 @@ class ExttrigDag(object):
 
     for ifo, seg in zip(ifo_list, seg_names):
 
-      segxmlfile = "%s/segments%s.xml" % (self.main_dir, ifo)
-      segtxtfile = "%s/%s-science.txt" % (self.main_dir, ifo)
+      segxmlfile = "%s/segments%s_grb%s.xml" % (self.main_dir, ifo, self.name)
+      segtxtfile = "%s/%s-science_grb%s.txt" % (self.main_dir, ifo, self.name)
 
       cmd = "%s/bin/ligolw_segment_query --database --query-segments --include-segments '%s' --gps-start-time %d --gps-end-time %d "\
                   "> %s" %\
@@ -655,7 +869,7 @@ class ExttrigDag(object):
 
     # get the segment dicts
     for ifo in ifo_list:
-      ifo_segfile = '%s/%s-science.txt' % (self.main_dir, ifo)
+      ifo_segfile = '%s/%s-science_grb%s.txt' % (self.main_dir, ifo, self.name)
       if ifo_segfile is not None:
         tmplist = segmentsUtils.fromsegwizard(open(ifo_segfile))
         segdict[ifo] = segments.segmentlist([s for s in tmplist \
@@ -698,7 +912,8 @@ class ExttrigDag(object):
       effective_segdict = segdict.map(lambda sl: sl & effective_window)
       plot = PlotSegmentsPlot(trigger)
       plot.add_contents(effective_segdict)
-      plot.set_window(offSourceSegment, plot_offset)
+      if offSourceSegment:
+        plot.set_window(offSourceSegment, plot_offset)
       plot.highlight_segment(onSourceSegment)
       plot.finalize()
       plot.ax.set_title('Segments for GRB '+self.name)
