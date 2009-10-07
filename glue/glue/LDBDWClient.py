@@ -168,6 +168,7 @@ def findCredential():
         if os.environ.has_key('X509_USER_KEY'):
             certFile = os.environ['X509_USER_CERT']
             keyFile = os.environ['X509_USER_KEY']
+            return certFile, keyFile
 
     # search for proxy file on disk
     uid = os.getuid()
