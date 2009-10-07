@@ -334,6 +334,42 @@ class Param(Element):
 	validchildren = [u"Comment"]
 	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
 
+	def get_unit(self, unit):
+		"""
+		Retrieve the value of the "Unit" attribute.
+		"""
+		return self.getAttribute(u"Unit")
+
+	def set_unit(self, unit):
+		"""
+		Set the value of the "Unit" attribute.
+		"""
+		self.setAttribute(u"Unit", unicode(value))
+
+	def del_unit(self):
+		"""
+		Remove the "Unit" attribute.
+		"""
+		self.removeAttribute(u"Unit")
+
+	def get_dataunit(self, unit):
+		"""
+		Retrieve the value of the "DataUnit" attribute.
+		"""
+		return self.getAttribute(u"DataUnit")
+
+	def set_dataunit(self, unit):
+		"""
+		Set the value of the "DataUnit" attribute.
+		"""
+		self.setAttribute(u"DataUnit", unicode(value))
+
+	def del_dataunit(self):
+		"""
+		Remove the "DataUnit" attribute.
+		"""
+		self.removeAttribute(u"DataUnit")
+
 
 class Table(Element):
 	"""
