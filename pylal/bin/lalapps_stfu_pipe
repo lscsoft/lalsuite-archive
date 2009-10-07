@@ -418,7 +418,7 @@ def parse_command_line():
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
-	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default stfu_pipe.ini")
+	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
@@ -524,7 +524,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		# SKYMAP JOBS
 
 		sky_node = stfu_pipe.lalapps_skyMapNode(dag, sky_map_job, cp, options, coinc, insp_node_skymap, p_nodes=insp_node_skymap.values())
-		
+		sky_plot_node = stfu_pipe.pylal_skyPlotNode(dag, sky_plot_job, cp, options, coinc, sky_node, p_nodes = [sky_node])
+
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		#findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
@@ -534,6 +535,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 #### ALL FINNISH ####		
 default_cp.write()
-dag.write_sub_files()
-dag.write_dag()
-dag.write_script()
+dag.write_all()
+#dag.write_sub_files()
+#dag.write_dag()
+#dag.write_script()
