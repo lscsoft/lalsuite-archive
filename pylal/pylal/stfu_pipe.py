@@ -744,7 +744,7 @@ A python code for plotting the sky map
 		pipeline.CondorDAGNode.__init__(self,job)
 		#self.setupNode(job,True, dag.webPage.lastSection,page,None,None)
 		self.add_var_opt("map-data-file",skyMapNode.output_file_name)
-		self.add_var_opt("user-tag",str(coinc.time)
+		self.add_var_opt("user-tag",str(coinc.time))
 		self.add_var_opt("ifo-tag",coinc.ifos)
 		self.add_var_opt("ifo-times",conc.instruments)
 		self.add_var_opt("ra-res",str(skyMapNode.ra_res))
