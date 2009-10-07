@@ -238,7 +238,7 @@ class Element(object):
 		# modifies its internal data.  probably not a good idea,
 		# but I don't know how else to edit an attribute because
 		# the stupid things don't export a method to do it.
-		self.attributes._attrs[attrname] = str(value)
+		self.attributes._attrs[attrname] = unicode(value)
 
 	def appendData(self, content):
 		"""
