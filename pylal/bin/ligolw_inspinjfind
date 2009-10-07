@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #
-# $Id: ligolw_binjfind,v 1.74 2009/03/08 01:40:04 kipp Exp $
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -40,13 +38,14 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_inspinjfind
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "$Revision: 1.74 $"[11:-2]
-__date__ = "$Date: 2009/03/08 01:40:04 $"[7:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -60,7 +59,7 @@ __date__ = "$Date: 2009/03/08 01:40:04 $"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id: ligolw_binjfind,v 1.74 2009/03/08 01:40:04 kipp Exp $",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "Accepts as input one or more LIGO Light Weight XML files, each containing burst candidates and a list of injections, and adds entries to the coincidence tables indicating which burst events match which injections."
 	)

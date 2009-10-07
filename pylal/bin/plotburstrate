@@ -46,12 +46,13 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import rate
 from pylal.date import XLALGPSToUTC, UTCMidnights
+from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -65,11 +66,11 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = """usage: %prog [options] cachename ...
 
 Generate long time scale trigger rate plot, getting trigger file names from LAL
-cache files.""",
-		version = "%prog CVS $Id$"
+cache files."""
 	)
 	parser.add_option("-s", "--gps-start-time", metavar = "seconds", help = "Set start time of plot in GPS seconds (required).")
 	parser.add_option("-e", "--gps-end-time", metavar = "seconds", help = "Set end time of plot in GPS seconds (required).")

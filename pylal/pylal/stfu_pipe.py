@@ -195,6 +195,7 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.setupJob(tag_base,dir=dir,cp=cp,tag_base=tag_base)
 		self.setup_checkForDir()
+		self.setup_rm_lock()
 
 	def is_dax(self):
 		return False
@@ -217,7 +218,11 @@ fi
 		checkdir_script.close()
 		os.chmod('checkForDir.sh',0755)
 
-
+	def setup_rm_lock(self):
+		rm_lock_script = open('rmLock.sh','w')
+		rm_lock_script.write("#!/bin/bash\nif [ -e $1 ]\nthen\n\trm $1\nfi")
+		rm_lock_script.close()
+		os.chmod('rmLock.sh',0755)
 
 # A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
 class followUpInspJob(inspiral.InspiralJob,FUJob):
@@ -442,7 +447,9 @@ The omega scan command line is
 		
 		self.add_var_arg(repr(time))
 
-		self.set_pre_script("checkForDir.sh %s %s" %(output, repr(time)))
+		self.set_pre_script( "checkForDir.sh %s %s" %(output, repr(time)) )
+		#FIXME is deleting the lock file the right thing to do?
+		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
 		if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()):
 		  for node in p_nodes: self.add_parent(node)
@@ -727,6 +734,33 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
 
+# job class for producing the skymap
+class pylal_skyPlotNode(pipeline.CondorDAGNode,FUNode):
+	"""
+A python code for plotting the sky map
+	"""
+	def __init__(self, dag, job,cp, opts, coinc, skyMapNode, p_nodes = []):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		#self.setupNode(job,True, dag.webPage.lastSection,page,None,None)
+		self.add_var_opt("map-data-file",skyMapNode.output_file_name)
+		self.add_var_opt("user-tag",str(coinc.time))
+		self.add_var_opt("ifo-tag",coinc.ifos)
+		self.add_var_opt("ifo-times",conc.instruments)
+		self.add_var_opt("ra-res",str(skyMapNode.ra_res))
+		self.add_var_opt("dec-res",str(skyMapNode.dec_res))
+		self.add_var_opt("stat-value", str(coinc.combined_far))
+		# if this is a software injection pass along the information to the
+		# plotting code so that it can make a mark where the injection should have
+		# been :)
+		if coinc.sim:
+			inj_ra = coinc.sim.longitude
+			inj_dec = coinc.sim.latitude
+			self.add_var_opt("injection-right-ascension",str(inj_ra))
+			self.add_var_opt("injection-declination",str(inj_dec))
+
+		for node in p_nodes: self.add_parent(node)
+		dag.add_node(self)
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
