@@ -34,12 +34,13 @@ from optparse import OptionParser
 from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import git_version
 from pylal import ligolw_bucluster
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -53,7 +54,7 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "Run a single-instrument burst clustering algorithm on the sngl_burst events contained in LIGO Light Weight XML files.  Files can be listed on the command line and/or in one or more LAL cache files.  If no files are named, then input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip-compressed."
 	)

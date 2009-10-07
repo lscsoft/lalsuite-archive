@@ -40,6 +40,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import date
+from pylal import git_version
 from pylal import llwapp
 from pylal import rate
 from pylal import SnglBurstUtils
@@ -48,8 +49,8 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -62,7 +63,9 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
+	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg
+	)
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburst_", help = "set the prefix for output filenames (default = plotburst_)")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-i", "--input-cache", metavar = "filename", default = None, help = "get file names from this LAL cache file")

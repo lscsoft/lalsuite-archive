@@ -44,12 +44,13 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
+from pylal import git_version
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 # so they can be inserted into a database
@@ -75,7 +76,7 @@ T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.d
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [filename ...]",
 		description = "%prog analyzes a collection of SQLite3 database files containing ligolw_burca outputs, and measures probability distributions for a variety of parameters computed from the coincidences therein.  The distributions are written to a likelihood data file in XML format, which can be used by ligolw_burca for the excesspower2 algorithm in which a second pass assigns likelihoods to each coincidence.  The command line arguments are used to provide shell patterns for the files from which to obtain injection and backgroun coincidences.  If file names are given on the command line following the arguments, then likelihood data is loaded from those files and added to the output."
 	)
