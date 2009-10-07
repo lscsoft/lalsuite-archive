@@ -190,6 +190,23 @@ SELECT
 			""", (self.process_id,) ):
 				self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
 
+	def extract_sim(self):
+		if self.contents.sim_inspiral_table:
+			sim_row = self.contents.connection.curser().execute("""
+SELECT
+		sim_inspiral.* 
+	FROM 
+		sim_inspiral
+	JOIN 
+		coinc_event_map AS mapA ON (mapA.event_id == sim_inspiral.simulation_id)
+	JOIN 
+		coinc_event_map AS mapB ON (mapA.coinc_event_id == mapB.coinc_event_id)
+	JOIN 
+		coinc_event ON (mapB.event_id == coinc_event.coinc_event_id)
+	WHERE 
+		coinc_event.coinc_event_id == ?
+"""
+
 	def get_gps_start_time(self):
 		#FIXME probably really slow
 		for row in self.process_params:
@@ -269,6 +286,28 @@ SELECT
 		# make a list of sngls appropriate for the coherent code (use max template)
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
+
+		self.extract_sim()
+
+	def extract_sim(self):
+		#FIXME FINISH!
+		if self.contents.sim_inspiral_table:
+			self.sim = self.contents.connection.curser().execute("""
+SELECT
+		sim_inspiral.* 
+	FROM 
+		sim_inspiral
+	JOIN 
+		coinc_event_map AS mapA ON (mapA.event_id == sim_inspiral.simulation_id)
+	JOIN 
+		coinc_event_map AS mapB ON (mapA.coinc_event_id == mapB.coinc_event_id)
+	JOIN 
+		coinc_event ON (mapB.event_id == coinc_event.coinc_event_id)
+	WHERE 
+		coinc_event.coinc_event_id == ?
+			""", (str(self.coinc_event_id),) ).fetchone()
+
+		else: self.sim = None
 		
 	def get_sample_rate(self):
 		#FIXME NEEDS TO CHECK ALL SAMPLE RATES ARE THE SAME!
