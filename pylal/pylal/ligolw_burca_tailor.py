@@ -42,6 +42,7 @@ from pylal import date
 from pylal import inject
 from pylal import llwapp
 from pylal import rate
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -58,7 +59,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #

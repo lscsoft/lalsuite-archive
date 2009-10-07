@@ -44,6 +44,7 @@ from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -52,9 +53,9 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -68,7 +69,7 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "%prog does blah blah blah."
 	)
@@ -76,7 +77,7 @@ def parse_command_line():
 	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
 	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"ifos-oninstruments\",\"oninstruments\",\"none\"}", help = "Select the event categorization algorithm.  Required.")
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
-	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
+	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"combined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-n","--extrapolation-num",action="store",type="int",default=0, metavar="num",help="number of time-slide points to use in FAR extrapolation" )
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -88,7 +89,7 @@ def parse_command_line():
 
 	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "ifos-oninstruments", "oninstruments", "none"):
 		raise ValueError, "missing or unrecognized --categories option"
-	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
+	if options.rank_by not in ("snr", "uncombined-ifar", "combined-ifar", "likelihood"):
 		raise ValueError, "missing or unrecognized --rank-by option"
 
 	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
@@ -96,14 +97,16 @@ def parse_command_line():
 			raise ValueError, "--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "false_alarm_rate"
 	else:
-		if options.rank_by == "snr":
-			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "combined_far"
 
-	if options.categories in ("none"):
+	if options.categories in ("none") or options.rank_by in ("combined-ifar"):
 		options.false_alarm_rate_column = "combined_far"
 	else:
 		options.false_alarm_rate_column = "false_alarm_rate"
+
+	if options.rank_by in ("combined-ifar", "likelihood"):
+		if options.extrapolation_num:
+			raise ValueError, "extrapolation not implemented for --rank-by %s"%(options.rank_by)
 
 	#
 	# parse mass bins
@@ -226,6 +229,10 @@ class Summaries(object):
 		if rank_by == "snr":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
 		elif rank_by == "uncombined-ifar":
+			# cast to float so this does the right thing when
+			# we get "inf" as a string
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: float(uncombined_ifar)
+		elif rank_by == "combined-ifar":
 			# cast to float so this does the right thing when
 			# we get "inf" as a string
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: float(uncombined_ifar)

@@ -21,6 +21,7 @@ from pylal import date
 from pylal import stfu_pipe
 
 from pylal import xlal
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ##############################################################################
 # Useful methods
@@ -55,18 +56,20 @@ def create_default_config(home_base):
     cp.set("followup-background-qscan-times","background-statistics","20")
 
     cp.add_section("fu-bg-rds-qscan")
-    cp.set("fu-bg-rds-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
-    cp.set("fu-bg-rds-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/H0H1-RDS_R_L1-cbc.txt")
+    cp.set("fu-bg-rds-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
+    cp.set("fu-bg-rds-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/H0H1-RDS_R_L1-cbc.txt")
+    cp.set("fu-bg-rds-qscan","V1config","")
     cp.set("fu-bg-rds-qscan","remote-ifo","V1")
 
     cp.add_section("fu-bg-ht-qscan")
-    cp.set("fu-bg-ht-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
-    cp.set("fu-bg-ht-qscan","H1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/H1_hoft_cbc.txt")
-    cp.set("fu-bg-ht-qscan","V1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
+    cp.set("fu-bg-ht-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
+    cp.set("fu-bg-ht-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/H1_hoft_cbc.txt")
+    cp.set("fu-bg-ht-qscan","V1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
 
     cp.add_section("fu-bg-seismic-qscan")
-    cp.set("fu-bg-seismic-qscan","L1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/L0-RDS_R_L1-seismic-cbc.txt")
-    cp.set("fu-bg-seismic-qscan","H1config-file",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/H0-RDS_R_L1-seismic-cbc.txt")
+    cp.set("fu-bg-seismic-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/L0-RDS_R_L1-seismic-cbc.txt")
+    cp.set("fu-bg-seismic-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/H0-RDS_R_L1-seismic-cbc.txt")
+    cp.set("fu-bg-seismic-qscan","V1config","")
     cp.set("fu-bg-seismic-qscan","remote-ifo","V1")
 
     cp.add_section("fu-output")
@@ -86,7 +89,7 @@ def get_times():
   # determine the start time : 00:00:00 UTC from the day before
   # and the end time, 00:00:00 UTC the current day
 
-  gps = xlal.date.LIGOTimeGPS(gpstime.GpsSecondsFromPyUTC(time.time()))
+  gps = LIGOTimeGPS(gpstime.GpsSecondsFromPyUTC(time.time()))
   end_gps = int(date.utc_midnight(gps))
   start_gps = end_gps - 86400
 
@@ -155,29 +158,30 @@ else:
 dataJob         = stfu_pipe.htDataFindJob(cp,'qdatafind')
 qscanBgJob      = stfu_pipe.qscanJob(opts,cp,'QSCANLITE')
 
+ifo_range = get_times()
+
 for ifo in ifos_list:
 
     if cp.has_option("followup-background-qscan-times",ifo+"range") and not cp.get("followup-background-qscan-times",ifo+"range"):
-      ifo_range = get_times()
       cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
 
     # FIX ME: input argument segFile is not needed any more
     segFile = {}
     times, timeListFile = fu_utils.getQscanBackgroundTimes(cp,opts,ifo,segFile)
 
-    for time in times:
+    for qtime in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
-      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=time,data_type='rds')
+      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_type=time)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
 
       # SETUP BACKGROUND QSCAN JOBS
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dHoftNode],type="ht",variety="bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,p_nodes=[dHoftNode],type="ht",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],type="rds",variety="bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,p_nodes=[dNode],type="rds",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,time,ifo,p_nodes=[dNode],type="seismic",variety="bg")
+      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,p_nodes=[dNode],type="seismic",variety="bg")
 
 #### ALL FINNISH ####
 dag.write_sub_files()

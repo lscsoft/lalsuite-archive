@@ -148,11 +148,11 @@ class Server(object):
     self.configuration = configuration
 
     # define dispatches
-    mySelector.add('/LDBD/ping[.{format}]', POST=self.ping, GET=self.ping)
-    mySelector.add('/LDBD/query[.{format}]', POST=self.query)
-    mySelector.add('/LDBD/insert[.{format}]', POST=self.insert)
-    mySelector.add('/LDBD/insertmap[.{format}]', POST=self.insertmap)
-    mySelector.add('/LDBD/insertdmt[.{format}]', POST=self.insertdmt)
+    mySelector.add('/ldbd/ping[.{format}]', POST=self.ping, GET=self.ping)
+    mySelector.add('/ldbd/query[.{format}]', POST=self.query)
+    mySelector.add('/ldbd/insert[.{format}]', POST=self.insert)
+    mySelector.add('/ldbd/insertmap[.{format}]', POST=self.insertmap)
+    mySelector.add('/ldbd/insertdmt[.{format}]', POST=self.insertdmt)
 
   def __call__(self, environ, start_response):
     """

@@ -505,29 +505,34 @@ def getQscanBackgroundTimes(cp, opts, ifo, segFile):
             segmentString="ITF_SCIENCEMODE"
           segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,segmentString,segmentMin,segmentPading)
         segmentListLength = segmentList.__len__()
-        segmentListStart = segmentList.__getitem__(0).start()
-        segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        seed = cp.getint('followup-background-qscan-times','random-seed')
-        statistics = cp.getint('followup-background-qscan-times','background-statistics')
+        if segmentListLength == 0:
+          print "No Science Segments found for " + ifo
 
-        random.seed(seed)
-        counter = 0
-        times = []
+        else:          
+          segmentListStart = segmentList.__getitem__(0).start()
+          segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        while counter < statistics:
-          gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
-          testList = copy.deepcopy(segmentList)
-          secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
-          if testList.intersection(secondList):
-            times.append(gps)
-            counter = counter + 1
-          else:
-            continue
-        # Save the list of times in a file (for possibly re-using it later)
-        timeList = floatToStringList(times)
-        fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
-        saveRandomTimes(timeList,fileName)
+          seed = cp.getint('followup-background-qscan-times','random-seed')
+          statistics = cp.getint('followup-background-qscan-times','background-statistics')
+
+          random.seed(seed)
+          counter = 0
+          times = []
+
+          while counter < statistics:
+            gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
+            testList = copy.deepcopy(segmentList)
+            secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
+            if testList.intersection(secondList):
+              times.append(gps)
+              counter = counter + 1
+            else:
+              continue
+          # Save the list of times in a file (for possibly re-using it later)
+          timeList = floatToStringList(times)
+          fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
+          saveRandomTimes(timeList,fileName)
 
       # Use the time-list file if provided
       if segmentListLength == 0 and not len(timeListFile) == 0:
@@ -982,7 +987,7 @@ def getSciSegs(ifo=None,
       serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
     connection=None
-    serverURL=serverURL.strip("ldbd://")
+    #serverURL=serverURL.strip("ldbd://")
     connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
     sys.stderr.write("Error connection to %s\n"\
@@ -2738,7 +2743,7 @@ def getiLogURL(time=None,ifo=None):
   outputURL=urls['default']
   if ((ifo==None) or (time==None)):
     return urls['default']
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
   if ('H1','H2','L1').__contains__(ifo.upper()):
@@ -2777,7 +2782,7 @@ def getDailyStatsURL(time=None):
     return defaultURL
   if int(time) <= stopS5:
     return s5Link
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
   outputLink=defaultURL+linkText

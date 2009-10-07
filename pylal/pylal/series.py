@@ -37,6 +37,7 @@ the DMT to store time- and frequency-series data in XML files,
 
 from glue.ligolw import ligolw
 from glue.ligolw import param
+from pylal import git_version
 from pylal.xlal.datatypes.complex16frequencyseries import COMPLEX16FrequencySeries
 from pylal.xlal.datatypes.lalunit import LALUnit
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -45,8 +46,8 @@ from pylal.xlal.datatypes.real8timeseries import REAL8TimeSeries
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #

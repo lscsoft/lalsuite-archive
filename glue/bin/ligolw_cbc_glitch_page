@@ -123,7 +123,7 @@ def generate_html(outf, triggers, colors):
 
         print >>outf, '    <td>'
         for name, value in trig[-1].items():
-            if not name.startswith('DMT'):
+            if name.find('Light') != -1 or name.find('Up') != -1 or name.find('Calibrated') != -1:
                 print >>outf, '      <b>%s</b><br>' % name
             else:
                 print >>outf, '      %s %s %s<br>' % (name, value[0], value[2])

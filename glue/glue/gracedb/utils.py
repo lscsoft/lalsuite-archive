@@ -238,9 +238,9 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   f.close()
   omega_data = dict(zip(omega_list[::2],omega_list[1::2]))  
   # basic error checking
-  for key in omega_data:
-    if not (key in omega_vars):
-      raise ValueError, "Unknown variable"
+# for key in omega_data:
+#   if not (key in omega_vars):
+#     raise ValueError, "Unknown variable"
     
   #create the content for the event.log file
   log_data = '\nLog File created '\
