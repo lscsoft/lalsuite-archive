@@ -739,7 +739,7 @@ class pylal_skyPlotNode(pipeline.CondorDAGNode,FUNode):
 	"""
 A python code for plotting the sky map
 	"""
-	def __init__(self, dag, job,cp, opts, coinc, skyMapNode,p_nodes[]):
+	def __init__(self, dag, job,cp, opts, coinc, skyMapNode, p_nodes = []):
 
 		pipeline.CondorDAGNode.__init__(self,job)
 		#self.setupNode(job,True, dag.webPage.lastSection,page,None,None)
