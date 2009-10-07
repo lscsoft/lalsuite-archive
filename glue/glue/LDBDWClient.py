@@ -294,7 +294,7 @@ class LDBDClient(object):
     else:
         h = httplib.HTTPConnection(server)
 
-    url = "/LDBD/ping.json"
+    url = "/ldbd/ping.json"
     headers = {"Content-type" : "application/json"}
     data = ""
     body = cjson.encode(data)
@@ -328,7 +328,7 @@ class LDBDClient(object):
     else:
         h = httplib.HTTPConnection(server)
 
-    url = "/LDBD/query.json"
+    url = "/ldbd/query.json"
     headers = {"Content-type" : "application/json"}
     body = cjson.encode(sql)
 
@@ -361,7 +361,7 @@ class LDBDClient(object):
     else:
         h = httplib.HTTPConnection(server)
 
-    url = "/LDBD/insert.json"
+    url = "/ldbd/insert.json"
     headers = {"Content-type" : "application/json"}
     body = cjson.encode(xmltext)
 
@@ -393,7 +393,7 @@ class LDBDClient(object):
     else:
         h = httplib.HTTPConnection(server)
 
-    url = "/LDBD/insertmap.json"
+    url = "/ldbd/insertmap.json"
     headers = {"Content-type" : "application/json"}
 
     pmsg = cPickle.dumps(lfnpfn_dict)
@@ -429,7 +429,7 @@ class LDBDClient(object):
     else:
         h = httplib.HTTPConnection(server)
 
-    url = "/LDBD/insertdmt.json"
+    url = "/ldbd/insertdmt.json"
     headers = {"Content-type" : "application/json"}
     body = cjson.encode(xmltext)
 
