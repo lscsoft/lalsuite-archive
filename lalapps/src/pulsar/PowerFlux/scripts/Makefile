@@ -4,7 +4,7 @@ UPLOAD_FILES=make_run.tcl split.tcl get_param.tcl make_1800_sfts.tcl \
 	generate_injection_batch.tcl make_sft_injection_run.tcl split_dataset.tcl \
 	split_sfti.tcl make_second_sft_injection_run.tcl normalize_sft_name.tcl \
 	make_native_sft_injection_run.tcl reshape_sfti.tcl archive.tcl keyed_split.tcl \
-	make_split_run.tcl find_outlier_matches.tcl
+	make_split_run.tcl find_outlier_matches.tcl make_outlier_histogram.tcl
 
 all:
 
