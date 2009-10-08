@@ -238,9 +238,6 @@ def check_gcn( monitor_list, opts):
           continue
             
       counter += 1
-      #grb_name not in grbs_processed:
-      # TAKE OUT/ TO DO/ CHECK
-      #continue
 
       # we found a new GRB!!
       grb_ra = float(words[3])
@@ -257,21 +254,6 @@ def check_gcn( monitor_list, opts):
       # and add the processed GRB to the list of processed GRB's to avoid double analysis
       grbs_processed.append(grb_name)
      
-#      else: 
-        # check if there is a new duration value
-        # this has to be put into an else, because the used lists
-        # are only populated with the initial content of monitor_list
-        # and so do not have the names of the newly added GRBs       
-        
-        # get the index of the two lists
-#        index_grb = grbs_processed.index(grb_name)
-#        if grbs_duration[index_grb] != grb_duration and grb_duration>0.0:
-
-          # sets a value
-#          monitor_list[index_grb]['duration'] = grb_duration
-
-  # NEED TO UPDATE DURATION INFORMATION!!!
-
   f.close()
         
 
@@ -295,7 +277,12 @@ def start_ligolw(dag, dag_name):
   return dag
 
 # ----------------------------------------------------
-def start_post(dag, dp):
+def start_post(dag, cp):
+  """
+  Execute the postprocessing stage
+  @param dag: the DAG instance
+  @param cp: the object of the configuration file
+  """
 
   # create the postprocessing directory
   path = "%s/GRB%s/postprocessing/"%(dag['path'],dag['name'])
@@ -370,21 +357,29 @@ def parse_args():
     parser.add_option("--config-file", help="Configuration file")
 
     parser.add_option("--nocheck", action="store_true", default=False, \
-        help="Does not check for new GRB if this option is given")
+        help="If this flag is set, the codes does not check for a new GRB.")
     parser.add_option("--check-number", type="int", default=None, 
-        help="Specifies the number of new GRB to process.")
+        help="Specifies the number of new GRBs to be processed.")
     parser.add_option( "--grb", default=None,
-        help="Specifies the name of a GRB to check")
+        help="Specifies the name of a GRB to check.")
+    parser.add_option( "--with-injections",default=False, \
+        help="If this flag is set, an injection run is started as well.")
+    parser.add_option("--injection-config",default=None,\
+        help="Specifies the injection ini file (if required).")
 
     options, arguments = parser.parse_args()
 
     # check that mandatory switches are present
     for opt in (["config_file"]):
         if getattr(options, opt) is None:
-            raise ValueError, "Option '--%s' is always required" % opt.replace("_", "-")
+            raise ValueError, "Option '--%s' is always required!" % opt.replace("_", "-")
 
     if options.check_number is not None and options.grb is not None:
-      raise ValueError, "Only option '--check-number' or '--grb' can be specified, not both together."
+      raise ValueError, "Only option '--check-number' or '--grb' can be specified, not both together!"
+
+    if options.with_injections and not options.injection_config:
+      raise ValueError, "injection ini-file must be specified with '--injection-config'"\
+                        " if the option '--with-injections' is set!"
 
     return options, arguments
 
