@@ -89,8 +89,8 @@ def system_call(command):
   info(" > "+command)
   
   # and the output (and error) of the command as well
-  subprocess.call(command+' >%s 2>%s '%(l,l), shell=True)
-  #os.system(command)
+  #subprocess.call(command+' >%s 2>%s '%(l,l), shell=True)
+  os.system(command +' >%s 2>%s '%(l,l))
 
 # -----------------------------------------------------
 def get_time():
