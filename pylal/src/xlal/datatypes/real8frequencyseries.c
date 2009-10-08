@@ -179,10 +179,12 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 	}
 	if(!strcmp(name, "data")) {
 		int n;
+		/* require array of double precision floats */
 		if(!PyArray_Check(value) || (PyArray_TYPE(value) != NPY_DOUBLE)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
+		/* require exactly 1 dimension */
 		if(((PyArrayObject *) value)->nd != 1) {
 			PyErr_SetObject(PyExc_ValueError, value);
 			return -1;

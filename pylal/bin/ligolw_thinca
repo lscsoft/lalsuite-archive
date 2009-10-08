@@ -45,14 +45,15 @@ from glue.ligolw.utils import segments as ligolw_segments
 # people stop using Macs, which ever comes first).
 del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
 lsctables.SnglInspiralID = lsctables.ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
+from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -82,7 +83,7 @@ lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = ligolw_thinca.Sng
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "%prog implements the inspiral coincidence algorithm for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
 	)
