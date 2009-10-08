@@ -334,13 +334,13 @@ class Param(Element):
 	validchildren = [u"Comment"]
 	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
 
-	def get_unit(self, unit):
+	def get_unit(self):
 		"""
 		Retrieve the value of the "Unit" attribute.
 		"""
 		return self.getAttribute(u"Unit")
 
-	def set_unit(self, unit):
+	def set_unit(self, value):
 		"""
 		Set the value of the "Unit" attribute.
 		"""
@@ -352,13 +352,13 @@ class Param(Element):
 		"""
 		self.removeAttribute(u"Unit")
 
-	def get_dataunit(self, unit):
+	def get_dataunit(self):
 		"""
 		Retrieve the value of the "DataUnit" attribute.
 		"""
 		return self.getAttribute(u"DataUnit")
 
-	def set_dataunit(self, unit):
+	def set_dataunit(self, value):
 		"""
 		Set the value of the "DataUnit" attribute.
 		"""
