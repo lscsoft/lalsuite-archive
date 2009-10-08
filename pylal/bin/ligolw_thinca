@@ -164,6 +164,8 @@ for n, filename in enumerate(filenames):
 		comment = options.comment,
 		force = options.force,
 		e_thinca_parameter = options.e_thinca_parameter,
+		effective_snr_factor = options.effective_snr_factor,
+		vetoes_name = options.vetoes_name,
 		verbose = options.verbose
 	)
 
