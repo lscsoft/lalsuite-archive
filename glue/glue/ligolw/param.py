@@ -34,6 +34,7 @@ High-level support for Param elements.
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
+from xml.sax.xmlreader import AttributesImpl as Attributes
 
 
 import ligolw
@@ -98,12 +99,24 @@ def getParamsByName(elem, name):
 #
 
 
-def new_param(name, type, value, comment = None):
+def new_param(name, type, value, start = None, scale = None, unit = None, dataunit = None, comment = None):
 	"""
-	Construct a LIGO Light Weight XML Param document subtree.
+	Construct a LIGO Light Weight XML Param document subtree.  FIXME:
+	document keyword arguments.
 	"""
-	elem = Param({u"Name": u"%s:param" % name, u"Type": type})
+	# FIXME:  I have no idea how most of the attributes should be
+	# encoded, I don't even know what they're supposed to be.
+	attrs = {u"Name": u"%s:param" % name, u"Type": type}
+	if start is not None:
+		attrs[u"Start"] = unicode(start)
+	if scale is not None:
+		attrs[u"Scale"] = ligolwtypes.FormatFunc["real_8"](scale)
+	elem = Param(Attributes(attrs))
 	elem.pcdata = value
+	if unit is not None:
+		elem.set_unit(unit)
+	if dataunit is not None:
+		elem.set_dataunit(dataunit)
 	if comment is not None:
 		elem.appendChild(ligolw.Comment())
 		elem.childNodes[-1].pcdata = comment
@@ -121,12 +134,13 @@ def get_param(xmldoc, name):
 	return params[0]
 
 
-def from_pyvalue(name, value, comment = None):
+def from_pyvalue(name, value, **kwargs):
 	"""
 	Convenience wrapper for new_param() that constructs a Param element
-	from an instance of a Python builtin type.
+	from an instance of a Python builtin type.  See new_param() for a
+	description of the valid keyword arguments.
 	"""
-	return new_param(name, ligolwtypes.FromPyType[value.__class__], value, comment = comment)
+	return new_param(name, ligolwtypes.FromPyType[value.__class__], value, **kwargs)
 
 
 def get_pyvalue(xml, name):
@@ -188,7 +202,7 @@ class Param(ligolw.Param):
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + ligolw.Indent)
-		if self.pcdata:
+		if self.pcdata is not None:
 			# we have to strip quote characters from string
 			# formats (see comment above)
 			file.write(indent + ligolw.Indent)
