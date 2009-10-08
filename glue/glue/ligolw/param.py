@@ -202,7 +202,7 @@ class Param(ligolw.Param):
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + ligolw.Indent)
-		if self.pcdata:
+		if self.pcdata is not None:
 			# we have to strip quote characters from string
 			# formats (see comment above)
 			file.write(indent + ligolw.Indent)
