@@ -41,20 +41,21 @@ import sys
 
 from glue import segments
 from glue.ligolw import lsctables
+from glue.ligolw import table
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
-from scipy import interpolate
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import scipy
 import numpy
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -68,7 +69,7 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "%prog does blah blah blah."
 	)
@@ -176,38 +177,44 @@ class Summaries(object):
 
 	def likelihood_summarize(self):
 		instruments = set(self.seglists)
-		for l in self.signal_reputations.values():
+		for key in self.signal_reputations.keys():
 			integral = 0
-			for j in range(len(l)-1):
-				integral += l[j][1]
-				l[j] = (l[j][0], integral)
+			for j in range(len(self.signal_reputations[key])):
+				integral += self.signal_reputations[key][j][1]
+				self.signal_reputations[key][j] = (self.signal_reputations[key][j][0], integral)
 		self.signal_denominator_full = sum([l[-1][1] for l in self.signal_reputations.values()])
 		for on_instruments in self.signals.keys():
 			self.signal_denominator[on_instruments] = sum(self.signals[on_instruments])
-			self.zero_lag_times[on_instruments] = self.seglists.intersection(on_instruments) - self.seglists.union(instruments - on_instruments)
+			self.zero_lag_times[on_instruments] = self.seglists.intersection(frozenset(on_instruments)) - self.seglists.union(instruments - frozenset(on_instruments))
+			self.zero_lag_times[on_instruments] = abs(self.zero_lag_times[on_instruments])
 
-	def likelihood(self, on_instruments, participating_instruments, mchirp, mtotal, far):
+	def likelihood(self, on_instruments, participating_instruments, mchirp, mtotal, far, snr):
+		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
+		if category not in self.signal_reputations.keys():
+#			print >>sys.stderr, "self.signal_reputations does not contain key =", category
+			return numpy.log(0)
 		signal_reputations = self.signal_reputations[self.category_func(on_instruments, participating_instruments, mchirp, mtotal)]
+		on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
 		if self.lvstat:
-			signal_reputations = signal_reputations[-1][1]
 			try:
-				val = numpy.log(signal_reputations/self.signal_denominator[on_instrument]/far + 1.)
+				val = numpy.log(signal_reputations[-1][1]) - numpy.log(self.signal_denominator[tuple(on_instruments)]) - numpy.log(far)
 				return val
 			except ZeroDivisionError, e:
-				print >> sys.stderr, signal_reputations, time_reputations, far
+				print >> sys.stderr, signal_reputations, self.signal_denominator[tuple(on_instruments)], far
 				print >>sys.stderr, "Divide by Zero in lvstat ranking"
 				raise e
 
 		else:
-			ns = bisect.bisect_right(signal_reputations, (far, 0))
-			fap = 1. - numpy.exp(-self.zero_lag_times[on_instruments]*far)
+			ns = bisect.bisect_right(signal_reputations, (far, float(numpy.inf)))
+			fan = far*float(self.zero_lag_times[tuple(on_instruments)])
+			fap = 1. - numpy.exp(-fan)
 			try:
 				# FIXME should we be using all injections (made|found) in a particular time
 				# or all injections (made|found) in all times for the signal denominator
-				val = numpy.log(signal_reputations[ns][1]/self.signal_denominator[on_instrument]) - numpy.log(fap)
+				val = numpy.log(signal_reputations[min(ns,len(signal_reputations)-1)][1]) - numpy.log(self.signal_denominator_full*sum(self.zero_lag_times.values())/self.zero_lag_times[tuple(on_instruments)]) - numpy.log(fap)
 				return val
 			except ZeroDivisionError, e:
-				print >> sys.stderr, ns, len(signal_reputations), self.signal_denominator[on_instrument], fap
+				print >> sys.stderr, ns, signal_reputations, self.signal_denominator[tuple(on_instruments)], fap
 				print >>sys.stderr, "Divide by Zero in likelihood ranking"
 				raise e
 
@@ -302,11 +309,11 @@ SELECT
 	coinc_inspiral.ifos,
 	coinc_inspiral.mchirp,
 	coinc_inspiral.mass,
-	sim_inspiral.mass1 + sim_inspiral.mass2
+	sim_inspiral.mass1 + sim_inspiral.mass2,
 	coinc_inspiral.%s,
 	-- Work out the correction factor for injection population distances
-	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr") 
-		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance 
+	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr")
+		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance
 		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
 		ELSE 1.0 END
 FROM
@@ -329,41 +336,35 @@ WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
 			AND time_slide.offset != 0
 	)
-	""" % .background.false_alarm_rate_column):
-		if self.lvstat:
-			if sim_mtotal > 6:
-				continue
+	""" % background.false_alarm_rate_column ):
+		#if background.lvstat:
+			#if sim_mtotal > 6.:
+			#	continue
 		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, far, distance)
 
 	#
 	# figure out all injections made in a particular time
 	#
 
-	for values in contents.connection.cursor().execute("""
+	for end_time, end_time_ns, distance in connection.cursor().execute("""
 SELECT
-	sim_inspiral.*,
-	(
-		SELECT
-			coinc_inspiral.ifos
-		FROM
-			sim_coinc_map
-			JOIN coinc_inspiral ON (
-				coinc_inspiral.coinc_event_id == sim_coinc_map.coinc_event_id
-			)
-		WHERE
-			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
-	)
+	sim_inspiral.geocent_end_time,
+	sim_inspiral.geocent_end_time_ns,
+	-- Work out the correction factor for injection population distances
+	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr") 
+		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance 
+		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
+		ELSE 1.0 END
 FROM
 	sim_inspiral
 	"""):
-		sim = contents.sim_inspiral_table._row_from_cols(values)
+		sim_time = LIGOTimeGPS(end_time, end_time_ns)
 		on_instruments = set([])
 		for ifo in background.seglists.keys():
-			if sim.get_end() in background.seglists[ifo]:
+			if sim_time in background.seglists[ifo]:
 				on_instruments |= set([ifo])
-		if not len(on_instruments):
-			on_instruments = frozenset(on_instruments)
-			distance = sim.distance
+		if len(on_instruments):
+			on_instruments = tuple(on_instruments)
 			background.add_sim(on_instruments, distance)
 
 	#
@@ -397,7 +398,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	# FIXME, sort of a hack tying it to one specific algorithm, do we make it a new algorithm?
-	connection.create_function("likeliness", 5, background.likelihood)
+	connection.create_function("likeliness", 6, background.likelihood)
 	if options.verbose:
 		print >>sys.stderr, "\tcalculating and recording likelihood ..."
 	connection.cursor().execute("""
@@ -411,7 +412,8 @@ SET
 				coinc_inspiral.ifos,
 				coinc_inspiral.mchirp,
 				coinc_inspiral.mass,
-				coinc_inspiral.combined_far
+				coinc_inspiral.combined_far,
+				coinc_inspiral.snr
 			)
 		FROM
 			coinc_inspiral

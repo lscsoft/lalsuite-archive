@@ -63,15 +63,16 @@ from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import dbtables
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
+from pylal import git_version
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>, Chad Hanna <channa@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>, Chad Hanna <channa@ligo.caltech.edu>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -84,7 +85,9 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
+	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg
+	)
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
@@ -183,8 +186,9 @@ class CoincDatabase(object):
 			print >>sys.stderr, "calculating background livetimes: ",
 		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
-		# The previous line is slow, if you are debugging some other feature you could just hardcode it like this
-		# self.background_livetime = {frozenset(["H1","L1"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
+		# The previous line is slow, if you are debugging some
+		# other feature you could just hardcode it like this
+		#self.background_livetime = {frozenset(["H1","H2"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
 		self.livetime_by_offset = {}
 		for key in self.background_livetime.keys():
 			self.livetime_by_offset[key] = {}
@@ -480,7 +484,7 @@ SELECT
 FROM
 	sim_inspiral
 			"""):
-			sim = contents.sim_inspiral_table._row_from_cols(values)
+			sim = contents.sim_inspiral_table.row_from_cols(values)
 			del sim.process_id, sim.source, sim.simulation_id
 			instruments = frozenset(instrument for instrument, segments in contents.seglists.items() if sim.get_end() in segments)
 			self.injections.setdefault(sim.waveform, []).append(sim)
@@ -531,7 +535,7 @@ SELECT
 FROM
 	sim_inspiral
 			"""):
-				sim = contents.sim_inspiral_table._row_from_cols(values)
+				sim = contents.sim_inspiral_table.row_from_cols(values)
 				del sim.process_id, sim.source, sim.simulation_id
 				if sim.get_end() in zero_lag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
@@ -613,8 +617,8 @@ FROM
 		AND coinc_event_map.event_id == sngl_inspiral.event_id
 	)
 		"""):
-			sim = contents.sim_inspiral_table._row_from_cols(values)
-			sngl = contents.sngl_inspiral_table._row_from_cols(values[n_simcolumns:])
+			sim = contents.sim_inspiral_table.row_from_cols(values)
+			sngl = contents.sngl_inspiral_table.row_from_cols(values[n_simcolumns:])
 			del sim.process_id, sim.source, sim.simulation_id
 			del sngl.process_id, sngl.search, sngl.channel, sngl.event_id
 			self.sim_sngl_pairs.setdefault((sim.waveform, sngl.ifo), []).append((sim, sngl))
@@ -860,8 +864,8 @@ WHERE
 	coinc_event.coinc_def_id == ?
 	AND sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
 			""", (contents.ii_definer_id,)):
-				x = contents.sngl_inspiral_table._row_from_cols(values)
-				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				x = contents.sngl_inspiral_table.row_from_cols(values)
+				y = contents.sngl_inspiral_table.row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				is_background, is_playground = values[-2:]
 				instrument_pair = (x.ifo, y.ifo)
 				if instrument_pair not in self.points:
@@ -900,8 +904,8 @@ FROM
 WHERE
 	sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
 			"""):
-				x = contents.sngl_inspiral_table._row_from_cols(values)
-				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				x = contents.sngl_inspiral_table.row_from_cols(values)
+				y = contents.sngl_inspiral_table.row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				instrument_pair = (x.ifo, y.ifo)
 				if instrument_pair not in self.points:
 					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()

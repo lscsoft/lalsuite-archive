@@ -16,9 +16,10 @@ import sys
 import os, shutil
 import urllib
 try:
-  import sqlite3 as sqlite
+  import sqlite3
 except ImportError:
-  import sqlite
+  # pre 2.5.x
+  from pysqlite2 import dbapi2 as sqlite3
 
 from subprocess import *
 import copy
@@ -63,8 +64,8 @@ from pylal.xlal import date as xlaldate
 #Part of bandaid
 from xml import sax
 from pylal import db_thinca_rings
-from pylal.date import LIGOTimeGPS
-from pysqlite2 import dbapi2 as sqlite3x
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -455,7 +456,7 @@ def getForegroundTimes(cp,opts,ifo):
 # Function to get qscan background. 
 ##############################################################################
 
-def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
+def getQscanBackgroundTimes(cp, opts, ifo, segFile):
     times = []
     fileName = ''
     segmentListLength = 0
@@ -504,29 +505,34 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
             segmentString="ITF_SCIENCEMODE"
           segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,segmentString,segmentMin,segmentPading)
         segmentListLength = segmentList.__len__()
-        segmentListStart = segmentList.__getitem__(0).start()
-        segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        seed = cp.getint('followup-background-qscan-times','random-seed')
-        statistics = cp.getint('followup-background-qscan-times','background-statistics')
+        if segmentListLength == 0:
+          print "No Science Segments found for " + ifo
 
-        random.seed(seed)
-        counter = 0
-        times = []
+        else:          
+          segmentListStart = segmentList.__getitem__(0).start()
+          segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        while counter < statistics:
-          gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
-          testList = copy.deepcopy(segmentList)
-          secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
-          if testList.intersection(secondList):
-            times.append(gps)
-            counter = counter + 1
-          else:
-            continue
-        # Save the list of times in a file (for possibly re-using it later)
-        timeList = floatToStringList(times)
-        fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
-        saveRandomTimes(timeList,fileName)
+          seed = cp.getint('followup-background-qscan-times','random-seed')
+          statistics = cp.getint('followup-background-qscan-times','background-statistics')
+
+          random.seed(seed)
+          counter = 0
+          times = []
+
+          while counter < statistics:
+            gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
+            testList = copy.deepcopy(segmentList)
+            secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
+            if testList.intersection(secondList):
+              times.append(gps)
+              counter = counter + 1
+            else:
+              continue
+          # Save the list of times in a file (for possibly re-using it later)
+          timeList = floatToStringList(times)
+          fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
+          saveRandomTimes(timeList,fileName)
 
       # Use the time-list file if provided
       if segmentListLength == 0 and not len(timeListFile) == 0:
@@ -609,14 +615,14 @@ def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
   dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
   #Pull in sqlite data
   try:
-    sqlDB=sqlite3x.connect(sqlFile)
+    sqlDB=sqlite3.connect(sqlFile)
     sqlDBsock=sqlDB.cursor()
     #Query the SQL Coincs table to get the gpstimes of the top N events
     liveTimeProgram="thinca"
     rawSeglists = db_thinca_rings.get_thinca_zero_lag_segments(sqlDB, program_name = liveTimeProgram)
     playground_segs = segmentsUtils.S2playground(rawSeglists.extent_all())
     sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
-    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT %s """%(triggerCap)
+    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT ? """%(triggerCap)
     gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
     #Get sngl ID from coinc_map
     coincList=list()
@@ -981,7 +987,7 @@ def getSciSegs(ifo=None,
       serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
     connection=None
-    serverURL=serverURL.strip("ldbd://")
+    #serverURL=serverURL.strip("ldbd://")
     connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
     sys.stderr.write("Error connection to %s\n"\
@@ -2013,27 +2019,28 @@ class ratioTest:
     method.  It contains the probablity that this SNR ratio give a
     particular time of flight is physically probably. If an error is
     encountered method returns possible values of -98,-97,-96,-95,-94.
-    Err Codes:
-    -99 : ifo1 == ifo2
-    -98 : Pickle file not loaded
-    -97 : IFO \lambda not found
-    -96 : Specified Time Delay unphysical t > abs(t_max)
-    -95 : Interpolation function call failure
-    -94 : TOF not found!
-    -93 : Unknown problem
     """
+    errCode={
+      -99:"ifo1 == ifo2",
+      -98:"Pickle file not loaded",
+      -97:"IFO lambda not found",
+      -96:"Time Delay unphysical",
+      -95:"Interpolation function call failure",
+      -94:"TOF not found!",
+      -93:"Unknown problem"
+      }
     if (ifo1=="NULL") or (ifo2=="NULL") or (myRatio == None) or (myRatio==0):
-      return -99
+      return(errCode[-99])
     if not self.pickleLoaded:
       self.__loadPickle__()
     if not self.pickleLoaded:
-      return(-98)
+      return(errCode[-98])
     ifo1=ifo1.strip().upper()
     ifo2=ifo2.strip().upper()
     LV=None
     LV=self.fetchLambda(ifo1,ifo2)
     if LV == None and ifo1 != ifo2:
-      return float(-97)
+      return errCode[-97]
     #Check bound set ratio TO 1 return
     #Extract 3 data vectors
     (t,minR,maxR)=self.pickleData[ifo1][ifo2]
@@ -2043,7 +2050,7 @@ class ratioTest:
     rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
     (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
     if (newMinR.__len__() > 1 or newMaxR.__len__() > 1):
-      return float(-95)
+      return errCode[-95]
     else:
       newMinR=newMinR[0]
       newMaxR=newMaxR[0]
@@ -2057,8 +2064,66 @@ class ratioTest:
       #exp(-SNR/mu)
       myOutput=numpy.exp(-numpy.fabs(numpy.log(myRatio)*LV))
       return myOutput
-    return float(-94)
+    return errCode[-94]
   #End testRatio()
+
+  def checkPairs(self,ifoPairs=None):
+    """
+    Give a list of ifo pairs like [["LLO",SNR,End_Time],["LHO",SNR,End_Time]...]]
+    Return the results of the Ratio test as 2D list in form
+    [[IFO1,IFO2,URL,%Likely],[...],....]
+    """
+    pairingList=list()
+    for A,a in enumerate(ifoPairs):
+      for B,b in enumerate(ifoPairs):
+        if (A!=B) and not pairingList.__contains__([B,b,A,a]):
+          pairingList.append([A,a,B,b])
+    outputList=list()
+    for index1,data1,index2,data2 in pairingList:
+      ifoA=self.mapToObservatory(data1[0])
+      ifoB=self.mapToObservatory(data2[0])
+      if ifoA != ifoB:
+        gpsA=numpy.float64(data1[2])
+        gpsB=numpy.float64(data2[2])
+        snrA=float(data1[1])
+        snrB=float(data2[1])
+        try:
+          snrRatio=snrA/snrB
+        except:
+          snrRatio=0
+        gpsDiff=gpsA-gpsB
+        result=self.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+        myURL=self.findURL(ifoA,ifoB)
+        outputList.append([ifoA,ifoB,gpsDiff,snrRatio,myURL,result])
+    return outputList
+
+  def generateHTMLTable(self,outputList=None):
+    """
+    Creates a small snippet of HTML for display on web browser.
+    """
+    resultString=(" <table border=1px>\
+     <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th><th>Figure</th></tr>")
+    for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
+          myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+          myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+              (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+          resultString="%s %s"%(resultString,myString)
+    resultString=" %s </table>"%(resultString)
+    return resultString
+  
+  def generateMOINMOINTable(self,outputList=None):
+    """
+    Creates a small snippet of MOINMOIN wiki syntax for display on web browser.
+    """
+    #[[ImageLink(image,target[,width=width[,height=height]][,alt=alttag])]]    
+    resultString="|| IFO:IFO || || ToF || || Deff Ratio || || Probability || || Figure ||\n"
+    for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
+      myURL=str('[[ImageLink(%s,%s ,width=300,alt=RatioTestPlot)]]')%(pairURL,pairURL)
+      myString="|| %s:%s || || %2.4f || || %5.2f || || %1.3f || || %s ||\n"%\
+                (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+      resultString="%s%s"%(resultString,myString)
+    resultString="%s \n"%(resultString)
+    return resultString
 # End Class ratioTest()
 #############################################################################
 
@@ -2158,6 +2223,7 @@ class followupDQV:
   information and veto segment information put into the segment
   database.  This class will replace the previously defined class of
   followupdqdb.
+  Contact: Cristina Valeria Torres
   """
   def __init__(self,LDBDServerURL=None,quiet=bool(False)):
     """
@@ -2191,11 +2257,11 @@ defaulting to %s"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id \
     AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND segment_definer.version >= %s AND \
-    NOT (segment.start_time > %s OR %s > \
-    segment.end_time)"""
-
+    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
+    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    """
   #End __init__()
+
   def __merge__(self,inputList=None):
     """
     Takes an input list of tuples representing start,stop and merges
@@ -2254,7 +2320,14 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
-  def fetchInformation(self,triggerTime=None,window=300,version=99):
+  def fetchInformation(self,triggerTime=None,window=300):
+    """
+    Wrapper for fetchInformationDualWindow that mimics original
+    behavior
+    """
+    self.fetchInormationDualWindow(triggerTime,window,window)
+
+  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2279,10 +2352,10 @@ defaulting to %s"%(self.serverURL))
         self.resultList=list()
         return
     try:
+      gpsEnd=int(triggerTime)+int(backWindow)
+      gpsStart=int(triggerTime)-int(frontWindow)
+      sqlString=self.dqvQuery%(gpsEnd,gpsStart)
       engine=query_engine.LdbdQueryEngine(connection)
-      gpsEnd=int(triggerTime)+int(window)
-      gpsStart=int(triggerTime)-int(window)
-      sqlString=self.dqvQuery%(version,gpsEnd,gpsStart)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
@@ -2346,11 +2419,11 @@ defaulting to %s"%(self.serverURL))
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
@@ -2365,15 +2438,52 @@ defaulting to %s"%(self.serverURL))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       else:
-        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
+
+  def generateMOINMOINTable(self,tableType="BOTH"):
+    """
+    Return a MOINMOIN table.
+    """
+    ligo=["L1","H1","H2","V1"]
+    channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
+    if self.triggerTime==int(-1):
+      return ""
+    myColor="grey"
+    rowString=""" ||<rowbgcolor="%s"> %s || || %s || || %s || || %s || || %s || || %s || || %s || || %s ||\n"""
+    titleString=""" ||<rowbgcolor="%s"> IFO || || Flag || || Ver || || Start || || Offset || || Stop || || Offset || || Size ||\n"""%(myColor)
+    tableString=titleString
+    for ifo,name,version,comment,start,stop in self.resultList:
+      offset1=start-self.triggerTime
+      offset2=stop-self.triggerTime
+      size=int(stop-start)
+      if (offset1>=0) and (offset2>=0):
+        myColor="green"
+      if (offset1<=0) and (offset2<=0):
+        myColor="yellow"
+      if (offset1<=0) and (offset2>=0):
+        myColor="red"
+      if name.lower().__contains__('science'):
+        myColor="skyblue"
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      else:
+        tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+    tableString+="\n"
+    return tableString
+
+  
 #End class followupDQV
 
 ######################################################################
@@ -2633,7 +2743,7 @@ def getiLogURL(time=None,ifo=None):
   outputURL=urls['default']
   if ((ifo==None) or (time==None)):
     return urls['default']
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
   if ('H1','H2','L1').__contains__(ifo.upper()):
@@ -2672,7 +2782,7 @@ def getDailyStatsURL(time=None):
     return defaultURL
   if int(time) <= stopS5:
     return s5Link
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
   outputLink=defaultURL+linkText

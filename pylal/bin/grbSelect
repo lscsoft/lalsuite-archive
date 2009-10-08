@@ -31,6 +31,7 @@ from pylal import antenna
 from pylal import date
 from pylal import grbsummary
 from pylal import CoincInspiralUtils
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 import matplotlib
 matplotlib.use('Agg')
@@ -493,7 +494,7 @@ for ind in index:
 
   # set the time
   line = addColumnEntry( line , '%d' %  grb.start_time)
-  gps = date.LIGOTimeGPS(grb.start_time )
+  gps = LIGOTimeGPS(grb.start_time )
   d = date.XLALGPSToUTC(gps)
   line = addColumnEntry( line ,'%s %02d %d %02d:%02d:%02d' %\
                          (month[d[1]-1], d[2], d[0], d[3], d[4], d[5]))

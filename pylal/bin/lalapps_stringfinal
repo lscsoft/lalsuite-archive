@@ -53,10 +53,11 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import segments
+from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 SnglBurstUtils.matplotlib.rcParams.update({
@@ -72,9 +73,9 @@ SnglBurstUtils.matplotlib.rcParams.update({
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -88,7 +89,7 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version="%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input files ending in \".gz\" are assumed to be gzip-compressed, and if no files are specified on the command line then input is read from stdin."
 	)
@@ -161,7 +162,7 @@ WHERE
 			AND time_slide.offset != 0
 	)
 		""", (contents.bb_definer_id,)):
-			self.sngl_burst_table.append(contents.sngl_burst_table._row_from_cols(values))
+			self.sngl_burst_table.append(contents.sngl_burst_table.row_from_cols(values))
 
 	def finish(self, filename, verbose = False):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
@@ -486,7 +487,7 @@ FROM
 		AND recovered_snr.ifo == ?
 	)
 		""", (self.loudest_survivor_inst,)):
-			sim = contents.sim_burst_table._row_from_cols(values[:-1])
+			sim = contents.sim_burst_table.row_from_cols(values[:-1])
 			snr = values[-1]
 			found = snr is not None
 			if SimBurstUtils.injection_was_made(sim, contents.seglists, self.instruments):

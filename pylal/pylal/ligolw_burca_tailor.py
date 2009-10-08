@@ -42,6 +42,7 @@ from pylal import date
 from pylal import inject
 from pylal import llwapp
 from pylal import rate
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -58,7 +59,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -343,7 +344,7 @@ ORDER BY
 	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the event
-				event = database.sngl_burst_table._row_from_cols(values)
+				event = database.sngl_burst_table.row_from_cols(values)
 
 				# add to list
 				events.append(event)
@@ -384,7 +385,7 @@ WHERE
 	sim_coinc_event.coinc_def_id == ?
 		""", (database.sce_definer_id,)):
 			# retrieve the injection and the coinc_event_id
-			sim = database.sim_burst_table._row_from_cols(values)
+			sim = database.sim_burst_table.row_from_cols(values)
 			coinc_event_id = values[-1]
 
 			# retrieve the list of the sngl_bursts in this
@@ -414,7 +415,7 @@ ORDER BY
 	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the burst event
-				event = database.sngl_burst_table._row_from_cols(values)
+				event = database.sngl_burst_table.row_from_cols(values)
 
 				# add to list
 				events.append(event)

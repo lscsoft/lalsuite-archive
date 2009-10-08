@@ -45,8 +45,8 @@ from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import llwapp
 from pylal import rate
-from pylal.date import LIGOTimeGPS
 from pylal import git_version
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
@@ -166,8 +166,14 @@ def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
     instances of rate.Bins.
     """
     # read unclustered background coincs
-    offsource_trigs = table.get_table(offsource_doc,
+    tables = table.getTablesByName(offsource_doc,
         lsctables.SnglInspiralTable.tableName)
+    if len(tables) == 1:
+      offsource_trigs = tables[0]
+    elif len(tables) == 0:
+      offsource_trigs = []
+    else:
+      raise ValueError, "why are there multiple SnglInspiral tables?"
     offsource_coincs = CoincInspiralUtils.coincInspiralTable(offsource_trigs,
         coinc_stat)
 
@@ -309,7 +315,8 @@ def parse_args():
 
     # GRB 070923
     parser.add_option("--grb070923", action="store_true", default=False,
-        help="specify if this code is analyzing GRB 070923 or a 'normal' GRB.")
+        help="enable this flag for 3+ IFO analyses; mangles mchirp values " \
+        "to keep coincidence types separate")
 
     options, arguments = parser.parse_args()
 

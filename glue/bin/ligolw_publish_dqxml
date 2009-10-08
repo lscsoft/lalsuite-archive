@@ -35,8 +35,6 @@ import logging.handlers
 
 from optparse import OptionParser
 
-from glue import LDBDClient
-from glue import gsiserverutils
 from glue import lal
 from glue import segments
 from glue import gpstime
@@ -95,15 +93,42 @@ if not options.server:
 if options.server.find(':') < 0:
   # no port specified
   host = options.server
+  port = 30015
 else:
   # server and port specified
   host, portString = options.server.split(':')
   port = int(portString)
 identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
+
+
+def openconn(host,port,identity):
+  if port != 443:
+    try:
+      from glue import LDBDClient
+      from glue import gsiserverutils
+      myClient = LDBDClient.LDBDClient(host, port, identity)
+
+    except Exception, e:
+      print >>sys.stderr, \
+        "Unable to connect to LDBDServer %s:%d" % (host, port)
+      if gsiserverutils.checkCredentials():
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Enter '%s --help' for usage" % sys.argv[0]
+      sys.exit(1)
+  else:
+    try:
+      from glue import LDBDWClient
+      myClient = LDBDWClient.LDBDClient(host, port, identity)
+    except Exception,e:
+      print >>sys.stderr, "Unable to connect to LDBDServer %s:%d, %s" % (host, port, str(e))
+      sys.exit(1)
+  return myClient
+
+
 if options.ping:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
-  msg = myClient.ping()
+  client = openconn(host, port, identity)
+  msg = client.ping()
   print msg
   sys.exit(0)
 
@@ -176,8 +201,8 @@ try:
       xmltext = fh.read()
       fh.close()
       logger.debug("inserting %s" % infile)
-      myClient = LDBDClient.LDBDClient(host, port, identity)
-      result = myClient.insertdmt(xmltext)
+      client = openconn(host, port, identity)
+      result = client.insertdmt(xmltext)
       del xmltext
     except KeyboardInterrupt:
       logger.info("caught keyboard interrupt")
@@ -214,3 +239,4 @@ except Exception, e:
 logger.info("exiting")
 os.unlink(options.pid_file)
 sys.exit(0)
+
