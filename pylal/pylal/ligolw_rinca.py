@@ -125,7 +125,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, vetoes_name = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -137,6 +137,8 @@ def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None,
 		params += [(u"--force", None, None)]
 	if save_small_coincs is not None:
 		params += [(u"--save-small-coincs", None, None)]
+	if vetoes_name is not None:
+		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -168,7 +170,7 @@ RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, d
 
 
 class RingdownCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, program = u"ring"):
+	def __init__(self, xmldoc, vetoes = None, program = u"ring"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
@@ -192,6 +194,8 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		#
 
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		if vetoes is not None:
+			self.seglists -= vetoes
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		#
@@ -379,6 +383,7 @@ def ligolw_rinca(
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
 	small_coincs = False,
+	veto_segments = None,
 	verbose = False
 ):
 	#
@@ -387,16 +392,20 @@ def ligolw_rinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc)
+	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
-	# processes that can participate in a coincidence
+	# processes that can participate in a coincidence.  apply vetoes by
+	# removing events from the lists that fall in vetoed segments
 	#
 
 	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglRingdownTable.tableName)
+	if veto_segments is not None:
+		for eventlist in eventlists.values():
+			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_start() not in veto_segments[event.ifo]), eventlist)
 
 	#
 	# set the \Delta t parameter on all the event lists
