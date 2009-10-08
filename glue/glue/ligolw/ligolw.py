@@ -533,6 +533,14 @@ class Time(Element):
 			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
 		Element.__init__(self, attrs)
 
+	def write(self, file = sys.stdout, indent = u""):
+		if self.pcdata:
+			file.write(self.start_tag(indent))
+			file.write(xmlescape(self.pcdata))
+			file.write(self.end_tag(u"") + u"\n")
+		else:
+			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+
 
 class Document(Element):
 	"""
