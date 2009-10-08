@@ -169,7 +169,6 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 		PyObject *str = PyUnicode_AsASCIIString(seconds);
 		if(!str)
 			return -1;
-		Py_DECREF(seconds);
 		seconds = str;
 	}
 	if(PyString_Check(seconds)) {
