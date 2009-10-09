@@ -645,6 +645,7 @@ class default_config():
   def __init__(path_to_ihope):
     self.path = path_to_ihope
     cp = ConfigParser.ConfigParser()
+    self.cp = cp
 
     #setup executables
     cp.add_section('condor')
@@ -672,10 +673,51 @@ class default_config():
     for cat in ['CAT_2','CAT_3']:
       for ifo in ['H1','H2','L1','V1']:
          self.set_veto_segment(cp, "input", cat, ifo)
-        
+     
+    #setup output    
+    cp.add_section('output')
+    cp.set("output","logpath", self.log_path())
+    cp.set("output","web_page", self.web_url())
+    cp.set("output", "web_dir", self.web_dir())
     # check if a config file already exists and override the options. then write out 
     # whatever the final version looks like
     self.overwrite_config(cp)
+    
+
+  def log_path(self):
+     host = self.__get_hostname()
+     #FIXME add more hosts as you need them
+     if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
+     if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
+     if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
+     if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
+
+
+  def web_dir(self):
+     host = self.__get_hostname()
+     #FIXME add more hosts as you need them
+     if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/post_process_pipe/' + self.get_gps()
+     if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/post_process_pipe/' + self.get_gps()
+     if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/post_process_pipe/' + self.get_gps()
+     if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/post_process_pipe' + self.get_gps()
+     print sys.stderr, "WARNING: could not find web directory, returning empty string"
+     return ''
+
+  def web_url(self):
+    host = self.__get_hostname()
+    #FIXME add more hosts as you need them
+    if 'ligo.caltech.edu' in host: return "https://ldas-jobs.ligo.caltech.edu/~" +os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'ligo-la.caltech.edu' in host: return "https://ldas-jobs.ligo-la.caltech.edu/~" +os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/post_process_pipe/' + self.get_gps()
+    print sys.stderr, "WARNING: could not find web server, returning empty string"
+    return ''
+
+  def __get_hostname(self):
+    host = socket.getfqdn()
+    return host
 
   def path_to_sql(self, sqlfile):
      # FIXME this is a stupid way to find the path... changes to lalapps share??
@@ -739,11 +781,13 @@ class default_config():
 
 print >> sys.stderr, "\n...WELCOME FRIENDOS...\n"
 
-cp = ConfigParser.ConfigParser()
-try: cp.read("hm_post.ini")
-except: 
-  print "couldn't find hm_post.ini"
-  sys.exit(1)
+cp = default_config(sys.argv[1]).cp
+
+#cp = ConfigParser.ConfigParser()
+#try: cp.read("hm_post.ini")
+#except: 
+#  print "couldn't find hm_post.ini"
+#  sys.exit(1)
 
 try: os.mkdir("logs")
 except: pass
