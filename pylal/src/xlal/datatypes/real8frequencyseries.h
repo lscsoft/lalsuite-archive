@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
+#include <lal/FrequencySeries.h>
 
 
 #define PYLAL_REAL8FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.real8frequencyseries"

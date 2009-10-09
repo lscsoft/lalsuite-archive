@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
+#include <lal/TimeSeries.h>
 
 
 #define PYLAL_REAL8TIMESERIES_MODULE_NAME "pylal.xlal.datatypes.real8timeseries"

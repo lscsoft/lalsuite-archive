@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
+#include <lal/FrequencySeries.h>
 
 
 #define PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.complex16frequencyseries"
