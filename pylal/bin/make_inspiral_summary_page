@@ -27,7 +27,7 @@ class wiki(object):
     if not html:
       s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
       self.file.write(s)
-   else: 
+    else: 
       s = '<a href='+webserver+'/'+path+'><img width=300 src=' +webserver+'/'+thumb+'></img></a>'
       self.hfile.write(s)
 
@@ -77,7 +77,7 @@ class wiki(object):
         print >>sys.stderr, "WARNING: couldn't find " + table + ", continuing"
 
 
-  def read_range_summary(self, summary, base_name, html=False)
+  def read_range_summary(self, summary, base_name, html=False):
 
     if not html:
       try:
