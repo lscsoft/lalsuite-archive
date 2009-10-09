@@ -81,6 +81,7 @@ PyObject *pylal_COMPLEX16FrequencySeries_new(COMPLEX16FrequencySeries *series, P
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
+	XLALDestroyCOMPLEX16FrequencySeries(obj->series);
 	obj->series = series;
 	return (PyObject *) obj;
 }

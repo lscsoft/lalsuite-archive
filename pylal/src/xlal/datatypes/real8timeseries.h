@@ -81,6 +81,7 @@ PyObject *pylal_REAL8TimeSeries_new(REAL8TimeSeries *series, PyObject *owner)
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
+	XLALDestroyREAL8TimeSeries(obj->series);
 	obj->series = series;
 	return (PyObject *) obj;
 }

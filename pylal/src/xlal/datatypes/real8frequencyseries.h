@@ -81,6 +81,7 @@ PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject 
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
+	XLALDestroyREAL8FrequencySeries(obj->series);
 	obj->series = series;
 	return (PyObject *) obj;
 }
