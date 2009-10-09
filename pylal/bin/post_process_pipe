@@ -20,7 +20,7 @@ import urlparse
 from UserDict import UserDict
 sys.path.append('@PYTHONLIBDIR@')
 import subprocess
-
+import glob
 ##############################################################################
 # import the modules we need to build the pipeline
 from glue import iterutils
@@ -640,12 +640,16 @@ def get_doubles(instruments):
     comb=','.join(comb)
   return comb
 
-class default_config():
-
-  def __init__(path_to_ihope):
+class default_config(object):
+  def __init__(self,path_to_ihope):
     self.path = path_to_ihope
     cp = ConfigParser.ConfigParser()
     self.cp = cp
+
+    # if we detect a config file just use it instead
+    if '.ini' in path_to_ihope: 
+      self.overwrite_config(cp)
+      return
 
     #setup executables
     cp.add_section('condor')
@@ -660,14 +664,18 @@ class default_config():
     cp.set("condor","far_plot",self.which("lalapps_cbc_plotsummary"))
     cp.set("condor","ul_plot",self.which("search_upper_limit_by_m1_m2"))
     cp.set("condor","summary_page",self.which("make_inspiral_summary_page"))
- 
+    cp.set("condor", "mvsc_get_doubles.py", self.which("mvsc_get_doubles")) 
+    cp.set("condor", "mvsc_update_sql.py", self.which("mvsc_update_sql"))          
+    cp.set("condor", "sprbaggerdecisiontreeapp", self.which("SprBaggerDecisionTreeApp"))
+    cp.set("condor", "SprOutputWriterApp", self.which("SprOutputWriterApp"))
+
     #setup input
     cp.add_section('input')
     cp.set("input", "injcache", self.get_ihope_cache())
     cp.set("input", "fulldatacache", self.get_ihope_cache())
     cp.set("input", "eff_snr_fac", "50")
-    cp.set("input", "simplify.sql", self.path_to_sql("simplify.sql"))
-    cp.set("input", "cluster.sql", self.path_to_sql("cluster.sql"))
+    cp.set("input", "simplify", self.path_to_sql("simplify.sql"))
+    cp.set("input", "cluster", self.path_to_sql("cluster.sql"))
     cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
     # FIXME more cats?
     for cat in ['CAT_2','CAT_3']:
@@ -681,7 +689,7 @@ class default_config():
     cp.set("output", "web_dir", self.web_dir())
     # check if a config file already exists and override the options. then write out 
     # whatever the final version looks like
-    self.overwrite_config(cp)
+    #self.overwrite_config(cp)
     
 
   def log_path(self):
@@ -735,23 +743,30 @@ class default_config():
 
      return out 
 
-  def set_veto_segment(self,cp, sec, cat, ifo)
+  def set_veto_segment(self,cp, sec, cat, ifo):
     #FIXME stupid special cases
-    if cat = 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
-    if cat = 'CAT_2': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_2_name(ifo))
+    if cat == 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
+    if cat == 'CAT_2': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_2_name(ifo))
 
   def __cat_3_name(self,ifo):
-    return "%s/segments/%s-COMBINED_CAT_3_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    out = "%s/segments/%s-COMBINED_CAT_3_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
  
   def __cat_2_name(self, ifo):
-    return "%s/segments/%s-CATEGORY_2_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
-  
+    out = "%s/segments/%s-CATEGORY_2_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
+
   def get_ihope_cache(self):
     #FIXME this is probably a stupid assumption
     return glob.glob(self.path+'/'+'*ihope*.cache')[0]
 
   def get_gps(self):
-    return os.path.split(self.path)[1]
+    gps = os.path.split(self.path.rstrip('/'))[1]
+    gpslist = gps.split('-')
+    return gpslist[0] + '-' + str(int(gpslist[1]) - int(gpslist[0]))
+    #return os.path.split(self.path.rstrip('/'))[1]
 
   def which(self,prog):
     which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
@@ -764,30 +779,48 @@ class default_config():
 
   def overwrite_config(self, cp):
     config = ConfigParser.ConfigParser()
-    try: config.read("hm_post.ini"):
+    try: 
+      config.read("hm_post.ini")
       for section in config.sections():
         if not cp.has_section(section): cp.add_section(section)
         for option in config.options(section):
-          cp.set(section,option,config.get(section,option)
-    except ValueError: pass
+          cp.set(section,option,config.get(section,option))
+    except:
+      pass
 
     # write out the file
     f = open("hm_post.ini","w")
     cp.write(f)
     f.close()
+
+def help():
+  print >> sys.stderr, """
+
+USAGE WITHOUT CONFIG FILE: 
+
+	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014
+
+USAGE WITH CONFIG FILE (to override defaults):
+
+        post_process_pipe hm_post.ini
+
+HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN ONCE TO GET THE 
+DEFAULTS.  IT WILL THEN WRITE A FILE hm_post.ini IN YOUR DIRECTORY THAT YOU 
+CAN EDIT AND THEN RUN AGAIN USING THE EDITED CONFIG FILE
+
+  """
+  sys.exit(0)
+
 ###############################################################################
 # MAIN PROGRAM
 ###############################################################################
 
+if len(sys.argv) == 1: help()
+if "help" in sys.argv[1]: help()
+
 print >> sys.stderr, "\n...WELCOME FRIENDOS...\n"
 
 cp = default_config(sys.argv[1]).cp
-
-#cp = ConfigParser.ConfigParser()
-#try: cp.read("hm_post.ini")
-#except: 
-#  print "couldn't find hm_post.ini"
-#  sys.exit(1)
 
 try: os.mkdir("logs")
 except: pass
