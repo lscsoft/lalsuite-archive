@@ -56,12 +56,9 @@
 
 static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-	const char *s = NULL;
 	pylal_COMPLEX16FrequencySeries *obj;
 	LIGOTimeGPS zero = {0, 0};
 
-	if(!PyArg_ParseTuple(args, "|s", &s))
-		return NULL;
 	obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(type, args, kwds);
 	if(!obj)
 		return NULL;
