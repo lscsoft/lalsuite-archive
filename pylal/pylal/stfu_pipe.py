@@ -830,7 +830,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
 		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
 		self.add_var_opt("user-tag","CHIA_"+str(coinc.time))
-		self.add_var_opt("ifo-tag",coinc.instruments)
+		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
 		self.add_var_opt("write-events","")
 		self.add_var_opt("write-compress","")
  		self.add_var_opt("debug-level","33")
@@ -839,9 +839,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("write-h1h2nullstat","")
 		self.add_var_opt("write-cohh1h2snr","")
 		# required by followUpChiaPlotNode
-		bankFile = self.write_trigbank(coinc, 'trig_bank/' + coinc.instruments + '-COHBANK_FOLLOWUP_' + str(coinc.time) + '.xml.gz' )
-		#self.add_var_opt("verbose","")
-		self.set_bank(bankFile)
+
+                hLengthAnalyzed = 1
 		self._InspiralAnalysisNode__pad_data = 0
 
 		#CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
@@ -851,9 +850,15 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		# Here we define the trig-start-time and the trig-end-time;
 		# The difference between these two times should be kept to 2s
 		# Otherwise change the clustering window also
-		hLengthAnalyzed = 1
-		self.add_var_opt("gps-start-time",int(coinc.time) - int(hLengthAnalyzed) )
-		self.add_var_opt("gps-end-time",int(coinc.time) + int(hLengthAnalyzed) )
+		self.start = int(coinc.time) - int(hLengthAnalyzed)
+		self.end = int(coinc.time) + int(hLengthAnalyzed)
+
+		self.add_var_opt("gps-start-time",self.start)
+		self.add_var_opt("gps-end-time",self.end)
+
+                bankname = 'trig_bank/%s-COHBANK_FOLLOWUP_%s-%d-%d.xml.gz' % (coinc.instruments.replace(',',''), str(coinc.time), int(coinc.time) - int(hLengthAnalyzed), 2 * int(hLengthAnalyzed))
+		bankFile = self.write_trigbank(coinc, bankname)
+		self.set_bank(bankFile)
 
 		for ifo,sngl in inspiral_node_dict.items():
 			self.add_var_opt(ifo.upper()+"-framefile", sngl.output_frame_file)
@@ -868,8 +873,44 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		xmldoc = ligolw.Document()
 		xmldoc.appendChild(ligolw.LIGO_LW())
 
+		# ADD A PROCESS TABLE
 		process_params_table = lsctables.New(lsctables.ProcessParamsTable)
 		xmldoc.childNodes[-1].appendChild(process_params_table)
+#		row = process_params_table.RowType()
+#		process_id = row.process_id = process_params_table.get_next_id()
+#		row.program = "omega_to_coinc"
+#		row.version = None	
+#		row.cvs_repository = None
+#		row.cvs_entry_time = None
+#		row.comment = "trigbank made by stfu pipeline"
+#		row.is_online = None
+#		row.node = None
+#		row.username = None
+#		row.unix_procid = None
+#		row.start_time = None
+#		row.end_time = None
+#		row.jobid = None
+#		row.domain = None
+#		row.ifos = ifos
+#		process_params_table.append(row)
+
+		# ADD A SEARCH SUMMARY TABLE
+		search_summary_table = lsctables.New(lsctables.SearchSummaryTable)
+		xmldoc.childNodes[-1].appendChild(search_summary_table)
+		row = search_summary_table.RowType()
+		#FIXME THIS IS PROBABLY NOT HOW TO DO IT
+		row.process_id = "process:process_id:0"
+		row.shared_object = None
+		row.lalwrapper_cvs_tag = None
+		row.lal_cvs_tag = None
+		row.comment = "Awesome"
+		row.ifos = coinc.instruments
+		#FIXME adjust for what omega actually analyzed 
+		row.set_in(segments.segment(LIGOTimeGPS(self.start,0), LIGOTimeGPS(self.end,0)))
+		row.set_out(segments.segment(LIGOTimeGPS(self.start,0), LIGOTimeGPS(self.end,0)))
+		row.nevents = None
+		row.nnodes = None
+		search_summary_table.append(row)
 
 		sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
 		xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
@@ -937,7 +978,7 @@ class create_default_config(object):
 		cp.add_section("condor")
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
-                cp.set("condor","lalapps_coherent_inspiral", self.which("lalapps_coherent_inspiral"))
+                cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
 		
 		# DATAFIND SECTION
@@ -950,7 +991,7 @@ class create_default_config(object):
 		cp.set("fu-condor","pylal_skyPlotJob",self.which("pylal_plot_inspiral_skymap"))
 		cp.set("fu-condor","datafind",self.which("ligo_data_find"))
 		cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
-		cp.set("fu-condor","lalapps_coherent_inspiral", self.which("lalapps_coherent_inspiral"))
+		cp.set("fu-condor","chia", self.which("lalapps_coherent_inspiral"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
