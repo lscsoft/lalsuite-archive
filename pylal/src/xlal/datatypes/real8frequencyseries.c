@@ -145,7 +145,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 		return 0;
 	}
 	if(!strcmp(name, "epoch")) {
-		if(!PyObject_TypeCheck(value, pylal_LIGOTimeGPS_Type)) {
+		if(!PyObject_TypeCheck(value, &pylal_LIGOTimeGPS_Type)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
@@ -167,7 +167,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
 		return 0;
 	}
 	if(!strcmp(name, "sampleUnits")) {
-		if(!PyObject_TypeCheck(value, pylal_LALUnit_Type)) {
+		if(!PyObject_TypeCheck(value, &pylal_LALUnit_Type)) {
 			PyErr_SetObject(PyExc_TypeError, value);
 			return -1;
 		}
@@ -202,7 +202,7 @@ static int __setattro__(PyObject *self, PyObject *attr_name, PyObject *value)
  */
 
 
-PyTypeObject _pylal_REAL8FrequencySeries_Type = {
+PyTypeObject pylal_real8frequencyseries_type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_REAL8FrequencySeries),
 	.tp_dealloc = __del__,
@@ -237,9 +237,9 @@ void initreal8frequencyseries(void)
 	 * REAL8FrequencySeries
 	 */
 
-	pylal_REAL8FrequencySeries_Type = &_pylal_REAL8FrequencySeries_Type;
-	if(PyType_Ready(pylal_REAL8FrequencySeries_Type) < 0)
+	_pylal_REAL8FrequencySeries_Type = &pylal_real8frequencyseries_type;
+	if(PyType_Ready(&pylal_REAL8FrequencySeries_Type) < 0)
 		return;
-	Py_INCREF(pylal_REAL8FrequencySeries_Type);
-	PyModule_AddObject(module, "REAL8FrequencySeries", (PyObject *) pylal_REAL8FrequencySeries_Type);
+	Py_INCREF(&pylal_REAL8FrequencySeries_Type);
+	PyModule_AddObject(module, "REAL8FrequencySeries", (PyObject *) &pylal_REAL8FrequencySeries_Type);
 }

@@ -82,7 +82,7 @@ static PyObject *pylal_XLALUnitaryWindowREAL8Sequence(PyObject *self, PyObject *
 		.data = NULL
 	};
 
-	if(!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &array, pylal_REAL8Window_Type, &window))
+	if(!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &array, &pylal_REAL8Window_Type, &window))
 		return NULL;
 	/* requier double precision floats */
 	if(PyArray_TYPE(array) != NPY_DOUBLE) {

@@ -43,7 +43,8 @@
  */
 
 
-static PyTypeObject *pylal_LIGOTimeGPS_Type;
+static PyTypeObject *_pylal_LIGOTimeGPS_Type = NULL;
+#define pylal_LIGOTimeGPS_Type (*_pylal_LIGOTimeGPS_Type)
 
 
 typedef struct {
@@ -59,8 +60,8 @@ static PyObject *pylal_ligotimegps_import(void)
 	Py_DECREF(name);
 
 	name = PyString_FromString("LIGOTimeGPS");
-	pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(pylal_LIGOTimeGPS_Type);
+	_pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_LIGOTimeGPS_Type);
 	Py_DECREF(name);
 
 	return module;
@@ -69,7 +70,7 @@ static PyObject *pylal_ligotimegps_import(void)
 
 static PyObject *pylal_LIGOTimeGPS_new(LIGOTimeGPS gps)
 {
-	pylal_LIGOTimeGPS *obj = (pylal_LIGOTimeGPS *) _PyObject_New(pylal_LIGOTimeGPS_Type);
+	pylal_LIGOTimeGPS *obj = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
 
 	XLALGPSSet(&obj->gps, gps.gpsSeconds, gps.gpsNanoSeconds);
 

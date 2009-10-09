@@ -50,7 +50,7 @@ static PyObject *pylal_XLALWhitenCOMPLEX16FrequencySeries(PyObject *self, PyObje
 	pylal_COMPLEX16FrequencySeries *fseries;
 	pylal_REAL8FrequencySeries *psd;
 
-	if(!PyArg_ParseTuple(args, "O!O!:XLALWhitenCOMPLEX16FrequencySeries", pylal_COMPLEX16FrequencySeries_Type, &fseries, pylal_REAL8FrequencySeries_Type, &psd))
+	if(!PyArg_ParseTuple(args, "O!O!:XLALWhitenCOMPLEX16FrequencySeries", &pylal_COMPLEX16FrequencySeries_Type, &fseries, &pylal_REAL8FrequencySeries_Type, &psd))
 		return NULL;
 
 	if(!XLALWhitenCOMPLEX16FrequencySeries(fseries->series, psd->series)) {

@@ -42,7 +42,8 @@
  */
 
 
-static PyTypeObject *pylal_REAL8Window_Type;
+static PyTypeObject *_pylal_REAL8Window_Type = NULL;
+#define pylal_REAL8Window_Type (*_pylal_REAL8Window_Type)
 
 
 typedef struct {
@@ -59,8 +60,8 @@ static PyObject *pylal_real8window_import(void)
 	Py_DECREF(name);
 
 	name = PyString_FromString("REAL8Window");
-	pylal_REAL8Window_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(pylal_REAL8Window_Type);
+	_pylal_REAL8Window_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_REAL8Window_Type);
 	Py_DECREF(name);
 
 	return module;
@@ -70,7 +71,7 @@ static PyObject *pylal_real8window_import(void)
 static PyObject *pylal_REAL8Window_new(REAL8Window *window, PyObject *owner)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_REAL8Window *obj = (pylal_REAL8Window *) PyType_GenericNew(pylal_REAL8Window_Type, empty_tuple, NULL);
+	pylal_REAL8Window *obj = (pylal_REAL8Window *) PyType_GenericNew(&pylal_REAL8Window_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
 	if(!obj) {
 		if(!owner)

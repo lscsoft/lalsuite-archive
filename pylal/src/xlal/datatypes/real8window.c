@@ -105,7 +105,7 @@ static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 }
 
 
-static PyTypeObject _pylal_REAL8Window_Type = {
+static PyTypeObject pylal_real8window_type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_REAL8Window),
 	.tp_dealloc = __del__,
@@ -133,9 +133,9 @@ void initreal8window(void)
 	import_array();
 
 	/* REAL8Window */
-	pylal_REAL8Window_Type = &_pylal_REAL8Window_Type;
-	if(PyType_Ready(pylal_REAL8Window_Type) < 0)
+	_pylal_REAL8Window_Type = &pylal_real8window_type;
+	if(PyType_Ready(&pylal_REAL8Window_Type) < 0)
 		return;
-	Py_INCREF(pylal_REAL8Window_Type);
-	PyModule_AddObject(module, "REAL8Window", (PyObject *) pylal_REAL8Window_Type);
+	Py_INCREF(&pylal_REAL8Window_Type);
+	PyModule_AddObject(module, "REAL8Window", (PyObject *) &pylal_REAL8Window_Type);
 }

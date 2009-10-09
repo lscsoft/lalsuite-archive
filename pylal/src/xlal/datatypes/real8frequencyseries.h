@@ -43,7 +43,8 @@
  */
 
 
-static PyTypeObject *pylal_REAL8FrequencySeries_Type;
+static PyTypeObject *_pylal_REAL8FrequencySeries_Type = NULL;
+#define pylal_REAL8FrequencySeries_Type (*_pylal_REAL8FrequencySeries_Type)
 
 
 typedef struct {
@@ -60,8 +61,8 @@ static PyObject *pylal_real8frequencyseries_import(void)
 	Py_DECREF(name);
 
 	name = PyString_FromString("REAL8FrequencySeries");
-	pylal_REAL8FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(pylal_REAL8FrequencySeries_Type);
+	_pylal_REAL8FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_REAL8FrequencySeries_Type);
 	Py_DECREF(name);
 
 	return module;
@@ -71,7 +72,7 @@ static PyObject *pylal_real8frequencyseries_import(void)
 PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject *owner)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(pylal_REAL8FrequencySeries_Type, empty_tuple, NULL);
+	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(&pylal_REAL8FrequencySeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
 	if(!obj) {
 		if(!owner)
