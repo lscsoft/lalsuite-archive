@@ -24,6 +24,8 @@ class PkgConfig(object):
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 lal_pkg_config = PkgConfig("lal")
+# FIXME:  works for GCC only!!!
+lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
 
 def remove_root(path, root):
@@ -180,7 +182,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.lalunit",
@@ -188,7 +191,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.ligotimegps",
@@ -196,7 +200,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.real8frequencyseries",
@@ -204,7 +209,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.real8timeseries",
@@ -212,7 +218,17 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8window",
+			["src/xlal/datatypes/real8window.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.date",
@@ -220,7 +236,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.fft",
@@ -228,7 +245,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.inject",
@@ -236,7 +254,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.noisemodels",
@@ -244,7 +263,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.tools",
@@ -252,15 +272,17 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.window",
-			["src/xlal/window.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			["src/xlal/window.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.burstsearch",
@@ -268,7 +290,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.spawaveform",

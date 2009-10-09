@@ -208,10 +208,11 @@ class Summaries(object):
 			ns = bisect.bisect_right(signal_reputations, (far, float(numpy.inf)))
 			fan = far*float(self.zero_lag_times[tuple(on_instruments)])
 			fap = 1. - numpy.exp(-fan)
+			time_frac = float(self.zero_lag_times[tuple(on_instruments)])/float(sum(self.zero_lag_times.values()))
 			try:
 				# FIXME should we be using all injections (made|found) in a particular time
 				# or all injections (made|found) in all times for the signal denominator
-				val = numpy.log(signal_reputations[min(ns,len(signal_reputations)-1)][1]) - numpy.log(self.signal_denominator_full*sum(self.zero_lag_times.values())/self.zero_lag_times[tuple(on_instruments)]) - numpy.log(fap)
+				val = numpy.log(signal_reputations[min(ns,len(signal_reputations)-1)][1]) - numpy.log(self.signal_denominator_full/time_frac) - numpy.log(fap)
 				return val
 			except ZeroDivisionError, e:
 				print >> sys.stderr, ns, signal_reputations, self.signal_denominator[tuple(on_instruments)], fap
@@ -263,6 +264,8 @@ for n, filename in enumerate(filenames):
 	if "sim_inspiral" in dbtables.get_table_names(connection):
 		if options.verbose:
 			print >>sys.stderr, "\tdatabase contains sim_inspiral table, ignore this this for livetime calculation ..."
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 		continue
 
 	#
@@ -301,6 +304,8 @@ for n, filename in enumerate(filenames):
 	if "sim_inspiral" not in dbtables.get_table_names(connection):
 		if options.verbose:
 			print >>sys.stderr, "\tdatabase does not contains sim_inspiral table, continuing ..."
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 		continue
 
 	for on_instruments, participating_instruments, mchirp, mtotal, sim_mtotal, far, distance in connection.cursor().execute("""

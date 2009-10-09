@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
+#include <lal/TimeSeries.h>
 
 
 #define PYLAL_REAL8TIMESERIES_MODULE_NAME "pylal.xlal.datatypes.real8timeseries"
@@ -72,6 +73,11 @@ PyObject *pylal_REAL8TimeSeries_new(REAL8TimeSeries *series, PyObject *owner)
 	PyObject *empty_tuple = PyTuple_New(0);
 	pylal_REAL8TimeSeries *obj = (pylal_REAL8TimeSeries *) PyType_GenericNew(pylal_REAL8TimeSeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
+	if(!obj) {
+		if(!owner)
+			XLALDestroyREAL8TimeSeries(series);
+		return NULL;
+	}
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;

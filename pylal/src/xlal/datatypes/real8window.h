@@ -27,11 +27,10 @@
 
 
 #include <Python.h>
-#include <lal/LALDatatypes.h>
-#include <lal/FrequencySeries.h>
+#include <lal/Window.h>
 
 
-#define PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.complex16frequencyseries"
+#define PYLAL_REAL8WINDOW_MODULE_NAME "pylal.xlal.datatypes.real8window"
 
 
 /*
@@ -43,44 +42,44 @@
  */
 
 
-static PyTypeObject *pylal_COMPLEX16FrequencySeries_Type;
+static PyTypeObject *pylal_REAL8Window_Type;
 
 
 typedef struct {
 	PyObject_HEAD
 	PyObject *owner;
-	COMPLEX16FrequencySeries *series;
-} pylal_COMPLEX16FrequencySeries;
+	REAL8Window *window;
+} pylal_REAL8Window;
 
 
-static PyObject *pylal_complex16frequencyseries_import(void)
+static PyObject *pylal_real8window_import(void)
 {
-	PyObject *name = PyString_FromString(PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME);
+	PyObject *name = PyString_FromString(PYLAL_REAL8WINDOW_MODULE_NAME);
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
-	name = PyString_FromString("COMPLEX16FrequencySeries");
-	pylal_COMPLEX16FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(pylal_COMPLEX16FrequencySeries_Type);
+	name = PyString_FromString("REAL8Window");
+	pylal_REAL8Window_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(pylal_REAL8Window_Type);
 	Py_DECREF(name);
 
 	return module;
 }
 
 
-PyObject *pylal_COMPLEX16FrequencySeries_new(COMPLEX16FrequencySeries *series, PyObject *owner)
+static PyObject *pylal_REAL8Window_new(REAL8Window *window, PyObject *owner)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(pylal_COMPLEX16FrequencySeries_Type, empty_tuple, NULL);
+	pylal_REAL8Window *obj = (pylal_REAL8Window *) PyType_GenericNew(pylal_REAL8Window_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
 	if(!obj) {
 		if(!owner)
-			XLALDestroyCOMPLEX16FrequencySeries(series);
+			XLALDestroyREAL8Window(window);
 		return NULL;
 	}
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
-	obj->series = series;
+	obj->window = window;
 	return (PyObject *) obj;
 }

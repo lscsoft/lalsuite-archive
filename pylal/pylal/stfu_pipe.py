@@ -159,18 +159,22 @@ class FUJob(object):
 		# Give this job a name.  Then make directories for the log files and such
 		# This name is important since these directories will be included in
 		# the web tree.
-		mkdir(dir)
+                if dir and not os.path.isdir(dir):
+		  os.mkdir(dir)
 		self.name = name
-		self.relPath = dir + '/' + name
+                if dir:
+		  self.relPath = dir + '/' + name
+                else:
+                  self.relPath = name
+                #path = name + '/' + dir
 		self.outputPath = os.getcwd() + '/' + self.relPath + '/'
-		#path = name + '/' + dir
-		if not os.path.exists(self.relPath):
+		if not os.path.isdir(self.relPath):
 			os.mkdir(self.relPath)
-		if not os.path.exists(self.relPath+'/logs'):
+		if not os.path.isdir(self.relPath+'/logs'):
 			os.mkdir(self.relPath+'/logs')
-		if not os.path.exists(self.relPath+'/Images'):
+		if not os.path.isdir(self.relPath+'/Images'):
 			os.mkdir(self.relPath+'/Images')
-		if not os.path.exists(self.relPath+'/DataProducts'):
+		if not os.path.isdir(self.relPath+'/DataProducts'):
 			os.mkdir(self.relPath+'/DataProducts')
 		# Set up the usual stuff and name the log files appropriately
 		self.tag_base = tag_base
@@ -471,7 +475,7 @@ The omega scan command line is
 		#FIXME is deleting the lock file the right thing to do?
 		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
-		if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()):
+		if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()==ifo):
 		  for node in p_nodes: self.add_parent(node)
 		  dag.add_node(self)
 
@@ -500,7 +504,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 
 		self.output_cache = lal.CacheEntry(ifo, "DATAFIND", segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
 
-		if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()):
+		if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()==ifo):
 		    for node in p_nodes:
 			self.add_parent(node)
 		    dag.add_node(self)
