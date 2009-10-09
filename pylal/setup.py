@@ -396,6 +396,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "extractCommand"),
 		os.path.join("bin", "OddsPostProc.py"),
+		os.path.join("bin", "make_inspiral_summary_page"),
 		os.path.join("bin", "mvsc_update_sql"),
 		os.path.join("bin", "mvsc_get_doubles"),
 		os.path.join("bin", "mvsc_dag"),
