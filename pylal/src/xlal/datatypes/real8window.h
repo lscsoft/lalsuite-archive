@@ -80,6 +80,7 @@ static PyObject *pylal_REAL8Window_new(REAL8Window *window, PyObject *owner)
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
+	XLALDestroyREAL8Window(obj->window);
 	obj->window = window;
 	return (PyObject *) obj;
 }
