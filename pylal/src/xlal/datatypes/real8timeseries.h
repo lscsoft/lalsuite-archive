@@ -72,6 +72,11 @@ PyObject *pylal_REAL8TimeSeries_new(REAL8TimeSeries *series, PyObject *owner)
 	PyObject *empty_tuple = PyTuple_New(0);
 	pylal_REAL8TimeSeries *obj = (pylal_REAL8TimeSeries *) PyType_GenericNew(pylal_REAL8TimeSeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
+	if(!obj) {
+		if(!owner)
+			XLALDestroyREAL8TimeSeries(series);
+		return NULL;
+	}
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
