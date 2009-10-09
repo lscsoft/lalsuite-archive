@@ -1,6 +1,6 @@
-#!/usr/bin/env @PYTHONPROG@
+#!/usr/bin/python
 """
-This program makes the S5 high mass post processing dag
+This program makes an SQLITE / coinc table based post processing DAG
 """
 
 __author__ = 'Chad Hanna <channa@caltech.edu>'
@@ -20,7 +20,7 @@ import urlparse
 from UserDict import UserDict
 sys.path.append('@PYTHONLIBDIR@')
 import subprocess
-
+import glob
 ##############################################################################
 # import the modules we need to build the pipeline
 from glue import iterutils
@@ -205,7 +205,7 @@ class sqlite_job(pipeline.CondorDAGJob):
     """
     self.__prog__ = 'sqlite3'
     self.__executable = string.strip(cp.get('condor','sqlite3'))
-    self.__universe = string.strip(cp.get('condor','sqlite3_universe'))
+    self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd("input","$(macroinput)")
     self.add_condor_cmd('getenv','True')
@@ -640,17 +640,187 @@ def get_doubles(instruments):
     comb=','.join(comb)
   return comb
 
+class default_config(object):
+  def __init__(self,path_to_ihope):
+    self.path = path_to_ihope
+    cp = ConfigParser.ConfigParser()
+    self.cp = cp
+
+    # if we detect a config file just use it instead
+    if '.ini' in path_to_ihope: 
+      self.overwrite_config(cp)
+      return
+
+    #setup executables
+    cp.add_section('condor')
+    cp.set("condor","sqlite3",self.which("sqlite3"))
+    cp.set("condor","ligolw_sqlite",self.which("ligolw_sqlite"))
+    cp.set("condor","ligolw_inspinjfind",self.which("ligolw_inspinjfind"))
+    cp.set("condor","lalapps_newcorse",self.which("lalapps_newcorse"))
+    cp.set("condor","ligolw_segments",self.which("ligolw_segments"))
+    cp.set("condor","ligolw_thinca_to_coinc",self.which("ligolw_thinca_to_coinc"))
+    cp.set("condor","bash",self.which("bash"))
+    cp.set("condor","hm_upperlimit",self.which("search_volume_by_m1_m2"))
+    cp.set("condor","far_plot",self.which("lalapps_cbc_plotsummary"))
+    cp.set("condor","ul_plot",self.which("search_upper_limit_by_m1_m2"))
+    cp.set("condor","summary_page",self.which("make_inspiral_summary_page"))
+    cp.set("condor", "mvsc_get_doubles.py", self.which("mvsc_get_doubles")) 
+    cp.set("condor", "mvsc_update_sql.py", self.which("mvsc_update_sql"))          
+    cp.set("condor", "sprbaggerdecisiontreeapp", self.which("SprBaggerDecisionTreeApp"))
+    cp.set("condor", "SprOutputWriterApp", self.which("SprOutputWriterApp"))
+
+    #setup input
+    cp.add_section('input')
+    cp.set("input", "injcache", self.get_ihope_cache())
+    cp.set("input", "fulldatacache", self.get_ihope_cache())
+    cp.set("input", "eff_snr_fac", "50")
+    cp.set("input", "simplify", self.path_to_sql("simplify.sql"))
+    cp.set("input", "cluster", self.path_to_sql("cluster.sql"))
+    cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
+    # FIXME more cats?
+    for cat in ['CAT_2','CAT_3']:
+      for ifo in ['H1','H2','L1','V1']:
+         self.set_veto_segment(cp, "input", cat, ifo)
+     
+    #setup output    
+    cp.add_section('output')
+    cp.set("output","logpath", self.log_path())
+    cp.set("output","web_page", self.web_url())
+    cp.set("output", "web_dir", self.web_dir())
+    # check if a config file already exists and override the options. then write out 
+    # whatever the final version looks like
+    #self.overwrite_config(cp)
+    
+
+  def log_path(self):
+     host = self.__get_hostname()
+     #FIXME add more hosts as you need them
+     if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
+     if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
+     if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
+     if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
+
+
+  def web_dir(self):
+     host = self.__get_hostname()
+     #FIXME add more hosts as you need them
+     if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/post_process_pipe/' + self.get_gps()
+     if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/post_process_pipe/' + self.get_gps()
+     if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/post_process_pipe/' + self.get_gps()
+     if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/post_process_pipe' + self.get_gps()
+     print sys.stderr, "WARNING: could not find web directory, returning empty string"
+     return ''
+
+  def web_url(self):
+    host = self.__get_hostname()
+    #FIXME add more hosts as you need them
+    if 'ligo.caltech.edu' in host: return "https://ldas-jobs.ligo.caltech.edu/~" +os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'ligo-la.caltech.edu' in host: return "https://ldas-jobs.ligo-la.caltech.edu/~" +os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/post_process_pipe/' + self.get_gps()
+    if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/post_process_pipe/' + self.get_gps()
+    print sys.stderr, "WARNING: could not find web server, returning empty string"
+    return ''
+
+  def __get_hostname(self):
+    host = socket.getfqdn()
+    return host
+
+  def path_to_sql(self, sqlfile):
+     # FIXME this is a stupid way to find the path... changes to lalapps share??
+     path = self.which('lalapps_inspiral')
+     if path: path = os.path.split(path)[0]
+     else: 
+       print >>sys.stderr, "COULD NOT FIND SQL FILES %s IN %s, ABORTING" % (sqlfile, path)
+       raise ValueError
+       sys.exit(1)
+     out = path.replace('bin','share/lalapps') + '/' + sqlfile
+     if not os.path.isfile(out):
+       print >>sys.stderr, "COULD NOT FIND SQL FILES %s IN %s, ABORTING" % (sqlfile, path)
+       raise ValueError
+       sys.exit(1)
+
+     return out 
+
+  def set_veto_segment(self,cp, sec, cat, ifo):
+    #FIXME stupid special cases
+    if cat == 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
+    if cat == 'CAT_2': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_2_name(ifo))
+
+  def __cat_3_name(self,ifo):
+    out = "%s/segments/%s-COMBINED_CAT_3_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
+ 
+  def __cat_2_name(self, ifo):
+    out = "%s/segments/%s-CATEGORY_2_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
+
+  def get_ihope_cache(self):
+    #FIXME this is probably a stupid assumption
+    return glob.glob(self.path+'/'+'*ihope*.cache')[0]
+
+  def get_gps(self):
+    gps = os.path.split(self.path.rstrip('/'))[1]
+    gpslist = gps.split('-')
+    return gpslist[0] + '-' + str(int(gpslist[1]) - int(gpslist[0]))
+    #return os.path.split(self.path.rstrip('/'))[1]
+
+  def which(self,prog):
+    which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
+    out = which.stdout.read().strip()
+    if not out: 
+      print >>sys.stderr, "ERROR: could not find %s in your path, have you built the proper software and source the proper env. scripts?" % (prog,prog)
+      raise ValueError
+      sys.exit(1)
+    return out
+
+  def overwrite_config(self, cp):
+    config = ConfigParser.ConfigParser()
+    try: 
+      config.read("hm_post.ini")
+      for section in config.sections():
+        if not cp.has_section(section): cp.add_section(section)
+        for option in config.options(section):
+          cp.set(section,option,config.get(section,option))
+    except:
+      pass
+
+    # write out the file
+    f = open("hm_post.ini","w")
+    cp.write(f)
+    f.close()
+
+def help():
+  print >> sys.stderr, """
+
+USAGE WITHOUT CONFIG FILE: 
+
+	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014
+
+USAGE WITH CONFIG FILE (to override defaults):
+
+        post_process_pipe hm_post.ini
+
+HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN ONCE TO GET THE 
+DEFAULTS.  IT WILL THEN WRITE A FILE hm_post.ini IN YOUR DIRECTORY THAT YOU 
+CAN EDIT AND THEN RUN AGAIN USING THE EDITED CONFIG FILE
+
+  """
+  sys.exit(0)
+
 ###############################################################################
 # MAIN PROGRAM
 ###############################################################################
 
+if len(sys.argv) == 1: help()
+if "help" in sys.argv[1]: help()
+
 print >> sys.stderr, "\n...WELCOME FRIENDOS...\n"
 
-cp = ConfigParser.ConfigParser()
-try: cp.read("hm_post.ini")
-except: 
-  print "couldn't find hm_post.ini"
-  sys.exit(1)
+cp = default_config(sys.argv[1]).cp
 
 try: os.mkdir("logs")
 except: pass

@@ -937,6 +937,7 @@ class create_default_config(object):
 		cp.add_section("condor")
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
+                cp.set("condor","lalapps_coherent_inspiral", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
 		
 		# DATAFIND SECTION
@@ -949,7 +950,6 @@ class create_default_config(object):
 		cp.set("fu-condor","pylal_skyPlotJob",self.which("pylal_plot_inspiral_skymap"))
 		cp.set("fu-condor","datafind",self.which("ligo_data_find"))
 		cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
-		cp.set("fu-condor","query_dq",self.which("pylal_query_dq"))
 		cp.set("fu-condor","lalapps_coherent_inspiral", self.which("lalapps_coherent_inspiral"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
