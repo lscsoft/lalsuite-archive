@@ -159,11 +159,15 @@ class FUJob(object):
 		# Give this job a name.  Then make directories for the log files and such
 		# This name is important since these directories will be included in
 		# the web tree.
-		mkdir(dir)
+                if dir:
+		  mkdir(dir)
 		self.name = name
-		self.relPath = dir + '/' + name
+                if dir:
+		  self.relPath = dir + '/' + name
+                else:
+                  self.relPath = name
+                #path = name + '/' + dir
 		self.outputPath = os.getcwd() + '/' + self.relPath + '/'
-		#path = name + '/' + dir
 		if not os.path.exists(self.relPath):
 			os.mkdir(self.relPath)
 		if not os.path.exists(self.relPath+'/logs'):

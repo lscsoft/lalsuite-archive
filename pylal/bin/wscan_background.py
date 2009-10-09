@@ -156,7 +156,7 @@ else:
 
 # CONDOR JOB CLASSES
 dataJob         = stfu_pipe.htDataFindJob(cp,'qdatafind')
-qscanBgJob      = stfu_pipe.qscanJob(opts,cp,'QSCANLITE')
+qscanBgJob      = stfu_pipe.qscanJob(opts,cp)
 
 ifo_range = get_times()
 
