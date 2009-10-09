@@ -215,6 +215,14 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
+			"pylal.xlal.datatypes.real8window",
+			["src/xlal/datatypes/real8window.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
@@ -256,8 +264,8 @@ setup(
 		),
 		Extension(
 			"pylal.xlal.window",
-			["src/xlal/window.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			["src/xlal/window.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs

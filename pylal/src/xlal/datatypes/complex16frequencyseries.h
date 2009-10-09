@@ -72,6 +72,11 @@ PyObject *pylal_COMPLEX16FrequencySeries_new(COMPLEX16FrequencySeries *series, P
 	PyObject *empty_tuple = PyTuple_New(0);
 	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(pylal_COMPLEX16FrequencySeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
+	if(!obj) {
+		if(!owner)
+			XLALDestroyCOMPLEX16FrequencySeries(series);
+		return NULL;
+	}
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;

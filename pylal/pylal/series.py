@@ -35,14 +35,22 @@ the DMT to store time- and frequency-series data in XML files,
 """
 
 
+import numpy
+
+
 from glue.ligolw import ligolw
+from glue.ligolw import array as ligolwarray
 from glue.ligolw import param
+from glue.ligolw import types as ligolwtypes
 from pylal import git_version
 from pylal.xlal.datatypes.complex16frequencyseries import COMPLEX16FrequencySeries
 from pylal.xlal.datatypes.lalunit import LALUnit
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes.real8frequencyseries import REAL8FrequencySeries
 from pylal.xlal.datatypes.real8timeseries import REAL8TimeSeries
+
+
+Attributes = ligolw.sax.xmlreader.AttributesImpl
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -53,10 +61,35 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                                     Body
+#                                   XML I/O
 #
 # =============================================================================
 #
+
+
+#
+# COMPLEX16FrequencySeries
+#
+
+
+def build_COMPLEX16FrequencySeries(series, comment = None):
+	elem = ligolw.LIGO_LW(Attributes({u"Name": u"COMPLEX16FrequencySeries"}))
+	if comment is not None:
+		elem.appendChild(ligolw.Comment()).pcdata = comment
+	# FIXME:  make Time class smart so we don't have to build it by
+	# hand
+	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
+	data = series.data
+	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, numpy.real(data), numpy.imag(data)))
+	a = ligolwarray.from_array(series.name, data, dim_names = (u"Frequency", u"Frequency,Real,Imaginary"))
+	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
+	dim0.setAttribute(u"Unit", unicode(LALUnit("s^-1")))
+	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
+	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaF))
+	elem.appendChild(a)
+	return elem
 
 
 def parse_COMPLEX16FrequencySeries(elem):
@@ -66,12 +99,39 @@ def parse_COMPLEX16FrequencySeries(elem):
 	f0 = param.get_param(elem, u"f0")
 	return COMPLEX16FrequencySeries(
 		name = a.getAttribute(u"Name"),
+		# FIXME:  make Time class smart so we don't have to parse
+		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.getAttribute(u"Unit")) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
 		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1] + 1j * a.array[2]
 	)
+
+
+#
+# REAL8FrequencySeries
+#
+
+
+def build_REAL8FrequencySeries(series, comment = None):
+	elem = ligolw.LIGO_LW(Attributes({u"Name": u"REAL8FrequencySeries"}))
+	if comment is not None:
+		elem.appendChild(ligolw.Comment()).pcdata = comment
+	# FIXME:  make Time class smart so we don't have to build it by
+	# hand
+	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
+	data = series.data
+	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, data))
+	a = ligolwarray.from_array(series.name, data, dim_names = (u"Frequency", u"Frequency,Real"))
+	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
+	dim0.setAttribute(u"Unit", unicode(LALUnit("s^-1")))
+	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
+	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaF))
+	elem.appendChild(a)
+	return elem
 
 
 def parse_REAL8FrequencySeries(elem):
@@ -81,12 +141,39 @@ def parse_REAL8FrequencySeries(elem):
 	f0 = param.get_param(elem, u"f0")
 	return REAL8FrequencySeries(
 		name = a.getAttribute(u"Name"),
+		# FIXME:  make Time class smart so we don't have to parse
+		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.getAttribute(u"Unit")) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
 		deltaF = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s^-1")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]
 	)
+
+
+#
+# REAL8TimeSeries
+#
+
+
+def build_REAL8TimeSeries(series, comment = None):
+	elem = ligolw.LIGO_LW(Attributes({u"Name": u"REAL8TimeSeries"}))
+	if comment is not None:
+		elem.appendChild(ligolw.Comment()).pcdata = comment
+	# FIXME:  make Time class smart so we don't have to build it by
+	# hand
+	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
+	elem.appendChild(param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
+	data = series.data
+	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, data))
+	a = ligolwarray.from_array(series.name, data, dim_names = (u"Time", u"Time,Real"))
+	a.setAttribute(u"Unit", unicode(series.sampleUnits))
+	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]
+	dim0.setAttribute(u"Unit", unicode(LALUnit("s")))
+	dim0.setAttribute(u"Start", ligolwtypes.FormatFunc[u"real_8"](series.f0))
+	dim0.setAttribute(u"Scale", ligolwtypes.FormatFunc[u"real_8"](series.deltaT))
+	elem.appendChild(a)
+	return elem
 
 
 def parse_REAL8TimeSeries(elem):
@@ -96,8 +183,10 @@ def parse_REAL8TimeSeries(elem):
 	f0 = param.get_param(elem, u"f0")
 	return REAL8TimeSeries(
 		name = a.getAttribute(u"Name"),
+		# FIXME:  make Time class smart so we don't have to parse
+		# it by hand
 		epoch = LIGOTimeGPS(t.pcdata),
-		f0 = f0.pcdata * float(LALUnit(f0.getAttribute(u"Unit")) / LALUnit("s^-1")),
+		f0 = f0.pcdata * float(LALUnit(f0.get_unit()) / LALUnit("s^-1")),
 		deltaT = float(dims[0].getAttribute(u"Scale")) * float(LALUnit(dims[0].getAttribute(u"Unit")) / LALUnit("s")),
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]

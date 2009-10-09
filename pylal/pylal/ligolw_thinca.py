@@ -138,7 +138,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -148,6 +148,10 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
+	if effective_snr_factor is not None:
+		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
+	if vetoes_name is not None:
+		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -419,7 +423,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, vetoes = veto_segments)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)

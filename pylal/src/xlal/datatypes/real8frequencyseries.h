@@ -72,6 +72,11 @@ PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject 
 	PyObject *empty_tuple = PyTuple_New(0);
 	pylal_REAL8FrequencySeries *obj = (pylal_REAL8FrequencySeries *) PyType_GenericNew(pylal_REAL8FrequencySeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
+	if(!obj) {
+		if(!owner)
+			XLALDestroyREAL8FrequencySeries(series);
+		return NULL;
+	}
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
