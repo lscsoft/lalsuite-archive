@@ -56,3 +56,4 @@ from xlal.datatypes.lalunit import *
 from xlal.datatypes.ligotimegps import *
 from xlal.datatypes.real8frequencyseries import *
 from xlal.datatypes.real8timeseries import *
+from xlal.datatypes.real8window import *
