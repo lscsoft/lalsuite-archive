@@ -1,6 +1,6 @@
-#!/usr/bin/env @PYTHONPROG@
+#!/usr/bin/python
 """
-This program makes the S5 high mass post processing dag
+This program makes an SQLITE / coinc table based post processing DAG
 """
 
 __author__ = 'Chad Hanna <channa@caltech.edu>'
@@ -205,7 +205,7 @@ class sqlite_job(pipeline.CondorDAGJob):
     """
     self.__prog__ = 'sqlite3'
     self.__executable = string.strip(cp.get('condor','sqlite3'))
-    self.__universe = string.strip(cp.get('condor','sqlite3_universe'))
+    self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd("input","$(macroinput)")
     self.add_condor_cmd('getenv','True')
@@ -640,6 +640,99 @@ def get_doubles(instruments):
     comb=','.join(comb)
   return comb
 
+class default_config():
+
+  def __init__(path_to_ihope):
+    self.path = path_to_ihope
+    cp = ConfigParser.ConfigParser()
+
+    #setup executables
+    cp.add_section('condor')
+    cp.set("condor","sqlite3",self.which("sqlite3"))
+    cp.set("condor","ligolw_sqlite",self.which("ligolw_sqlite"))
+    cp.set("condor","ligolw_inspinjfind",self.which("ligolw_inspinjfind"))
+    cp.set("condor","lalapps_newcorse",self.which("lalapps_newcorse"))
+    cp.set("condor","ligolw_segments",self.which("ligolw_segments"))
+    cp.set("condor","ligolw_thinca_to_coinc",self.which("ligolw_thinca_to_coinc"))
+    cp.set("condor","bash",self.which("bash"))
+    cp.set("condor","hm_upperlimit",self.which("search_volume_by_m1_m2"))
+    cp.set("condor","far_plot",self.which("lalapps_cbc_plotsummary"))
+    cp.set("condor","ul_plot",self.which("search_upper_limit_by_m1_m2"))
+    cp.set("condor","summary_page",self.which("make_inspiral_summary_page"))
+ 
+    #setup input
+    cp.add_section('input')
+    cp.set("input", "injcache", self.get_ihope_cache())
+    cp.set("input", "fulldatacache", self.get_ihope_cache())
+    cp.set("input", "eff_snr_fac", "50")
+    cp.set("input", "simplify.sql", self.path_to_sql("simplify.sql"))
+    cp.set("input", "cluster.sql", self.path_to_sql("cluster.sql"))
+    cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
+    # FIXME more cats?
+    for cat in ['CAT_2','CAT_3']:
+      for ifo in ['H1','H2','L1','V1']:
+         self.set_veto_segment(cp, "input", cat, ifo)
+        
+    # check if a config file already exists and override the options. then write out 
+    # whatever the final version looks like
+    self.overwrite_config(cp)
+
+  def path_to_sql(self, sqlfile):
+     # FIXME this is a stupid way to find the path... changes to lalapps share??
+     path = self.which('lalapps_inspiral')
+     if path: path = os.path.split(path)[0]
+     else: 
+       print >>sys.stderr, "COULD NOT FIND SQL FILES %s IN %s, ABORTING" % (sqlfile, path)
+       raise ValueError
+       sys.exit(1)
+     out = path.replace('bin','share/lalapps') + '/' + sqlfile
+     if not os.path.isfile(out):
+       print >>sys.stderr, "COULD NOT FIND SQL FILES %s IN %s, ABORTING" % (sqlfile, path)
+       raise ValueError
+       sys.exit(1)
+
+     return out 
+
+  def set_veto_segment(self,cp, sec, cat, ifo)
+    #FIXME stupid special cases
+    if cat = 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
+    if cat = 'CAT_2': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_2_name(ifo))
+
+  def __cat_3_name(self,ifo):
+    return "%s/segments/%s-COMBINED_CAT_3_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+ 
+  def __cat_2_name(self, ifo):
+    return "%s/segments/%s-CATEGORY_2_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+  
+  def get_ihope_cache(self):
+    #FIXME this is probably a stupid assumption
+    return glob.glob(self.path+'/'+'*ihope*.cache')[0]
+
+  def get_gps(self):
+    return os.path.split(self.path)[1]
+
+  def which(self,prog):
+    which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
+    out = which.stdout.read().strip()
+    if not out: 
+      print >>sys.stderr, "ERROR: could not find %s in your path, have you built the proper software and source the proper env. scripts?" % (prog,prog)
+      raise ValueError
+      sys.exit(1)
+    return out
+
+  def overwrite_config(self, cp):
+    config = ConfigParser.ConfigParser()
+    try: config.read("hm_post.ini"):
+      for section in config.sections():
+        if not cp.has_section(section): cp.add_section(section)
+        for option in config.options(section):
+          cp.set(section,option,config.get(section,option)
+    except ValueError: pass
+
+    # write out the file
+    f = open("hm_post.ini","w")
+    cp.write(f)
+    f.close()
 ###############################################################################
 # MAIN PROGRAM
 ###############################################################################
