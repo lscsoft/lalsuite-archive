@@ -195,6 +195,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.datatypes.complex16timeseries",
+			["src/xlal/datatypes/complex16timeseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.datatypes.lalunit",
 			["src/xlal/datatypes/lalunit.c"],
 			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],

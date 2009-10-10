@@ -14,6 +14,7 @@ __date__ = git_version.date
 __all__ = [
 	"complex16fftplan",
 	"complex16frequencyseries",
+	"complex16timeseries",
 	"lalunit",
 	"ligotimegps",
 	"real8fftplan",
