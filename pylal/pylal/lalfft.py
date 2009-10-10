@@ -33,6 +33,7 @@ rather than importing xlal.fft directly.
 
 
 import git_version
+from xlal.datatypes.complex16fftplan import COMPLEX16FFTPlan
 from xlal.datatypes.real8fftplan import REAL8FFTPlan
 from xlal.fft import *
 
@@ -49,6 +50,14 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
+
+
+def XLALCreateForwardCOMPLEX16FFTPlan(size, measurelvl = 0):
+	return COMPLEX16FFTPlan(size, 1, measurelvl)
+
+
+def XLALCreateReverseCOMPLEX16FFTPlan(size, measurelvl = 0):
+	return COMPLEX16FFTPlan(size, 0, measurelvl)
 
 
 def XLALCreateForwardREAL8FFTPlan(size, measurelvl = 0):

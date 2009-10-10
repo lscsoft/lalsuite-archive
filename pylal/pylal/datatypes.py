@@ -38,7 +38,7 @@ Example:
 """
 
 
-from pylal import git_version
+import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -51,6 +51,7 @@ __date__ = git_version.date
 #
 
 
+from xlal.datatypes.complex16fftplan import *
 from xlal.datatypes.complex16frequencyseries import *
 from xlal.datatypes.lalunit import *
 from xlal.datatypes.ligotimegps import *
