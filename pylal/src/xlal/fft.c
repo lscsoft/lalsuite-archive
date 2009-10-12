@@ -53,14 +53,14 @@
 
 static PyObject *pylal_XLALCOMPLEX16TimeFreqFFT(PyObject *self, PyObject *args)
 {
-	COMPLEX16FrequencySeries *fser;
-	COMPLEX16TimeSeries *tser;
-	COMPLEX16FFTPlan *plan;
+	pylal_COMPLEX16FrequencySeries *fser;
+	pylal_COMPLEX16TimeSeries *tser;
+	pylal_COMPLEX16FFTPlan *plan;
 
 	if(!PyArg_ParseTuple(args, "O!O!O!", &pylal_COMPLEX16FrequencySeries_Type, &fser, &pylal_COMPLEX16TimeSeries_Type, &tser, &pylal_COMPLEX16FFTPlan_Type, &plan))
 		return NULL;
 
-	if(XLALCOMPLEX16TimeFreqFFT(fser, tser, plan)) {
+	if(XLALCOMPLEX16TimeFreqFFT(fser->series, tser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
 		XLALClearErrno();
 		return NULL;
@@ -73,14 +73,14 @@ static PyObject *pylal_XLALCOMPLEX16TimeFreqFFT(PyObject *self, PyObject *args)
 
 static PyObject *pylal_XLALCOMPLEX16FreqTimeFFT(PyObject *self, PyObject *args)
 {
-	COMPLEX16TimeSeries *tser;
-	COMPLEX16FrequencySeries *fser;
-	COMPLEX16FFTPlan *plan;
+	pylal_COMPLEX16TimeSeries *tser;
+	pylal_COMPLEX16FrequencySeries *fser;
+	pylal_COMPLEX16FFTPlan *plan;
 
 	if(!PyArg_ParseTuple(args, "O!O!O!", &pylal_COMPLEX16TimeSeries_Type, &tser, &pylal_COMPLEX16FrequencySeries_Type, &fser, &pylal_COMPLEX16FFTPlan_Type, &plan))
 		return NULL;
 
-	if(XLALCOMPLEX16FreqTimeFFT(tser, fser, plan)) {
+	if(XLALCOMPLEX16FreqTimeFFT(tser->series, fser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
 		XLALClearErrno();
 		return NULL;
@@ -93,14 +93,14 @@ static PyObject *pylal_XLALCOMPLEX16FreqTimeFFT(PyObject *self, PyObject *args)
 
 static PyObject *pylal_XLALREAL8TimeFreqFFT(PyObject *self, PyObject *args)
 {
-	COMPLEX16FrequencySeries *fser;
-	REAL8TimeSeries *tser;
-	REAL8FFTPlan *plan;
+	pylal_COMPLEX16FrequencySeries *fser;
+	pylal_REAL8TimeSeries *tser;
+	pylal_REAL8FFTPlan *plan;
 
 	if(!PyArg_ParseTuple(args, "O!O!O!", &pylal_COMPLEX16FrequencySeries_Type, &fser, &pylal_REAL8TimeSeries_Type, &tser, &pylal_REAL8FFTPlan_Type, &plan))
 		return NULL;
 
-	if(XLALREAL8TimeFreqFFT(fser, tser, plan)) {
+	if(XLALREAL8TimeFreqFFT(fser->series, tser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
 		XLALClearErrno();
 		return NULL;
@@ -113,14 +113,14 @@ static PyObject *pylal_XLALREAL8TimeFreqFFT(PyObject *self, PyObject *args)
 
 static PyObject *pylal_XLALREAL8FreqTimeFFT(PyObject *self, PyObject *args)
 {
-	REAL8TimeSeries *tser;
-	COMPLEX16FrequencySeries *fser;
-	REAL8FFTPlan *plan;
+	pylal_REAL8TimeSeries *tser;
+	pylal_COMPLEX16FrequencySeries *fser;
+	pylal_REAL8FFTPlan *plan;
 
 	if(!PyArg_ParseTuple(args, "O!O!O!", &pylal_REAL8TimeSeries_Type, &tser, &pylal_COMPLEX16FrequencySeries_Type, &fser, &pylal_REAL8FFTPlan_Type, &plan))
 		return NULL;
 
-	if(XLALREAL8FreqTimeFFT(tser, fser, plan)) {
+	if(XLALREAL8FreqTimeFFT(tser->series, fser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
 		XLALClearErrno();
 		return NULL;
@@ -176,6 +176,8 @@ void initfft(void)
 
 	pylal_complex16fftplan_import();
 	pylal_complex16frequencyseries_import();
+	pylal_complex16timeseries_import();
 	pylal_real8fftplan_import();
 	pylal_real8frequencyseries_import();
+	pylal_real8timeseries_import();
 }
