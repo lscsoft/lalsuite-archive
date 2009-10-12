@@ -54,7 +54,8 @@ def recurseTreeFnmatch(parentPath=".",myRegex=None,traverseTree=False):
             for myFile in files:
                 normFilename=os.path.normpath(os.path.join(root,myFile))
                 if myShellEx != None:
-                    match=re.search(myShellEx,normFilename)
+                    if fnmatch.fnmatch(normFilename,myShellEx):
+                        match=normFilename
                 else:
                     match=normFilename
                 matchingFiles.append(match)
@@ -131,7 +132,9 @@ def extractMedia(xmlTable=None,filename=None,extractTree=False):
         if ((filename==row.filename) or \
                 (filename == os.path.split(row.filename)[1])):
             if extractTree:
-                os.makedirs(os.path.split(filename)[0])
+                myPath=os.path.split(filename)[0]
+                if myPath!="":
+                    os.makedirs(myPath)
                 file(filename,'w').write(row.mimedata)
             else:
                 file(os.path.split(filename)[1],'w').write(row.mimedata)
