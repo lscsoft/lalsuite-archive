@@ -38,6 +38,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -46,9 +47,9 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -62,7 +63,7 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "Removes sngl_burst events from XML files according to a variety of criteria.  Files named on the command line are read one-by-one, and over-written with the new files.  If no files are named on the command line, input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip compressed.  Note that, for the most part, this program does not understand coincidence information, and so if an injection or burst event is removed that participates in a coincidence, this program simply deletes the entire coincidence as well (before applying the --coinc-only cut)."
 	)

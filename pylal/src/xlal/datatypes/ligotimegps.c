@@ -52,7 +52,7 @@
 
 static int pylal_LIGOTimeGPS_Check(PyObject *obj)
 {
-	return obj ? PyObject_TypeCheck(obj, pylal_LIGOTimeGPS_Type) : 0;
+	return obj ? PyObject_TypeCheck(obj, &pylal_LIGOTimeGPS_Type) : 0;
 }
 
 
@@ -98,7 +98,7 @@ static int pyobject_to_ligotimegps(PyObject *obj, LIGOTimeGPS *gps)
  */
 
 
-static PyObject *pylal_LIGOTimeGPS___abs__(PyObject *self)
+static PyObject *__abs__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -111,7 +111,7 @@ static PyObject *pylal_LIGOTimeGPS___abs__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
+static PyObject *__add__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS self_gps;
 	LIGOTimeGPS other_gps;
@@ -127,7 +127,7 @@ static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___div__(PyObject *self, PyObject *other)
+static PyObject *__div__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS self_gps;
 	/* FIXME:  what about type(other) == LIGOTimeGPS */
@@ -144,7 +144,7 @@ static PyObject *pylal_LIGOTimeGPS___div__(PyObject *self, PyObject *other)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___float__(PyObject *self)
+static PyObject *__float__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -155,7 +155,7 @@ static PyObject *pylal_LIGOTimeGPS___float__(PyObject *self)
 }
 
 
-static int pylal_LIGOTimeGPS___init__(PyObject *self, PyObject *args, PyObject *kwds)
+static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
 	PyObject *seconds;
@@ -169,7 +169,6 @@ static int pylal_LIGOTimeGPS___init__(PyObject *self, PyObject *args, PyObject *
 		PyObject *str = PyUnicode_AsASCIIString(seconds);
 		if(!str)
 			return -1;
-		Py_DECREF(seconds);
 		seconds = str;
 	}
 	if(PyString_Check(seconds)) {
@@ -190,7 +189,7 @@ static int pylal_LIGOTimeGPS___init__(PyObject *self, PyObject *args, PyObject *
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___int__(PyObject *self)
+static PyObject *__int__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -201,7 +200,7 @@ static PyObject *pylal_LIGOTimeGPS___int__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___long__(PyObject *self)
+static PyObject *__long__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -212,7 +211,7 @@ static PyObject *pylal_LIGOTimeGPS___long__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___mod__(PyObject *self, PyObject *other)
+static PyObject *__mod__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS gps;
 	const double other_double = PyFloat_AsDouble(other);
@@ -229,7 +228,7 @@ static PyObject *pylal_LIGOTimeGPS___mod__(PyObject *self, PyObject *other)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___mul__(PyObject *self, PyObject *other)
+static PyObject *__mul__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS gps;
 	double factor;
@@ -253,7 +252,7 @@ static PyObject *pylal_LIGOTimeGPS___mul__(PyObject *self, PyObject *other)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___neg__(PyObject *self)
+static PyObject *__neg__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -266,7 +265,7 @@ static PyObject *pylal_LIGOTimeGPS___neg__(PyObject *self)
 }
 
 
-static int pylal_LIGOTimeGPS___nonzero__(PyObject *self)
+static int __nonzero__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -277,7 +276,7 @@ static int pylal_LIGOTimeGPS___nonzero__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS_ns(PyObject *self, PyObject *args)
+static PyObject *ns(PyObject *self, PyObject *args)
 {
 	LIGOTimeGPS gps;
 
@@ -288,7 +287,7 @@ static PyObject *pylal_LIGOTimeGPS_ns(PyObject *self, PyObject *args)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___pos__(PyObject *self)
+static PyObject *__pos__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -299,19 +298,19 @@ static PyObject *pylal_LIGOTimeGPS___pos__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___reduce__(PyObject *self, PyObject *args)
+static PyObject *__reduce__(PyObject *self, PyObject *args)
 {
 	LIGOTimeGPS gps;
 
 	if(!pyobject_to_ligotimegps(self, &gps))
 		return NULL;
 
-	Py_INCREF(pylal_LIGOTimeGPS_Type);
-	return Py_BuildValue("(O,(i,i))", pylal_LIGOTimeGPS_Type, gps.gpsSeconds, gps.gpsNanoSeconds);
+	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	return Py_BuildValue("(O,(i,i))", &pylal_LIGOTimeGPS_Type, gps.gpsSeconds, gps.gpsNanoSeconds);
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___repr__(PyObject *self)
+static PyObject *__repr__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 
@@ -322,7 +321,7 @@ static PyObject *pylal_LIGOTimeGPS___repr__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS_richcompare(PyObject *self, PyObject *other, int op_id)
+static PyObject *richcompare(PyObject *self, PyObject *other, int op_id)
 {
 	LIGOTimeGPS self_gps;
 	LIGOTimeGPS other_gps;
@@ -373,7 +372,7 @@ static PyObject *pylal_LIGOTimeGPS_richcompare(PyObject *self, PyObject *other, 
 }
 
 
-static long pylal_LIGOTimeGPS_hash(PyObject *self)
+static long __hash__(PyObject *self)
 {
 	LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
 	long hash = (long) gps->gpsSeconds ^ (long) gps->gpsNanoSeconds;
@@ -381,7 +380,7 @@ static long pylal_LIGOTimeGPS_hash(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
+static PyObject *__str__(PyObject *self)
 {
 	LIGOTimeGPS gps;
 	char str[22];
@@ -403,7 +402,7 @@ static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
 }
 
 
-static PyObject *pylal_LIGOTimeGPS___sub__(PyObject *self, PyObject *other)
+static PyObject *__sub__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS self_gps;
 	LIGOTimeGPS other_gps;
@@ -424,39 +423,39 @@ static PyObject *pylal_LIGOTimeGPS___sub__(PyObject *self, PyObject *other)
  */
 
 
-static struct PyMemberDef pylal_LIGOTimeGPS_members[] = {
+static struct PyMemberDef members[] = {
 	{"seconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
 	{"nanoseconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
 	{NULL,}
 };
 
 
-static PyNumberMethods pylal_LIGOTimeGPS_as_number = {
-	.nb_absolute = pylal_LIGOTimeGPS___abs__,
-	.nb_add = pylal_LIGOTimeGPS___add__,
-	.nb_divide = pylal_LIGOTimeGPS___div__,
-	.nb_float =  pylal_LIGOTimeGPS___float__,
-	.nb_int = pylal_LIGOTimeGPS___int__,
-	.nb_long = pylal_LIGOTimeGPS___long__,
-	.nb_remainder = pylal_LIGOTimeGPS___mod__,
-	.nb_multiply = pylal_LIGOTimeGPS___mul__,
-	.nb_negative = pylal_LIGOTimeGPS___neg__,
-	.nb_nonzero = pylal_LIGOTimeGPS___nonzero__,
-	.nb_positive = pylal_LIGOTimeGPS___pos__,
-	.nb_subtract = pylal_LIGOTimeGPS___sub__,
+static PyNumberMethods as_number = {
+	.nb_absolute = __abs__,
+	.nb_add = __add__,
+	.nb_divide = __div__,
+	.nb_float =  __float__,
+	.nb_int = __int__,
+	.nb_long = __long__,
+	.nb_remainder = __mod__,
+	.nb_multiply = __mul__,
+	.nb_negative = __neg__,
+	.nb_nonzero = __nonzero__,
+	.nb_positive = __pos__,
+	.nb_subtract = __sub__,
 };
 
 
-static struct PyMethodDef pylal_LIGOTimeGPS_methods[] = {
-	{"ns", pylal_LIGOTimeGPS_ns, METH_NOARGS, NULL},
-	{"__reduce__", pylal_LIGOTimeGPS___reduce__, METH_NOARGS, NULL},
+static struct PyMethodDef methods[] = {
+	{"ns", ns, METH_NOARGS, NULL},
+	{"__reduce__", __reduce__, METH_NOARGS, NULL},
 	{NULL,}
 };
 
 
-static PyTypeObject _pylal_LIGOTimeGPS_Type = {
+static PyTypeObject pylal_ligotimegps_type = {
 	PyObject_HEAD_INIT(NULL)
-	.tp_as_number = &pylal_LIGOTimeGPS_as_number,
+	.tp_as_number = &as_number,
 	.tp_basicsize = sizeof(pylal_LIGOTimeGPS),
 	.tp_doc =
 "A GPS time with nanosecond precision.  This is an immutable type.\n" \
@@ -483,15 +482,15 @@ static PyTypeObject _pylal_LIGOTimeGPS_Type = {
 ">>> x + 100\n" \
 "LIGOTimeGPS(200,500000000)",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_init = pylal_LIGOTimeGPS___init__,
-	.tp_members = pylal_LIGOTimeGPS_members,
-	.tp_methods = pylal_LIGOTimeGPS_methods,
+	.tp_init = __init__,
+	.tp_members = members,
+	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".LIGOTimeGPS",
 	.tp_new = PyType_GenericNew,
-	.tp_repr = pylal_LIGOTimeGPS___repr__,
-	.tp_richcompare = pylal_LIGOTimeGPS_richcompare,
-	.tp_hash = pylal_LIGOTimeGPS_hash,
-	.tp_str = pylal_LIGOTimeGPS___str__,
+	.tp_repr = __repr__,
+	.tp_richcompare = richcompare,
+	.tp_hash = __hash__,
+	.tp_str = __str__,
 };
 
 
@@ -509,9 +508,9 @@ void initligotimegps(void)
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's LIGOTimeGPS type.");
 
 	/* LIGOTimeGPS */
-	pylal_LIGOTimeGPS_Type = &_pylal_LIGOTimeGPS_Type;
-	if(PyType_Ready(pylal_LIGOTimeGPS_Type) < 0)
+	_pylal_LIGOTimeGPS_Type = &pylal_ligotimegps_type;
+	if(PyType_Ready(&pylal_LIGOTimeGPS_Type) < 0)
 		return;
-	Py_INCREF(pylal_LIGOTimeGPS_Type);
-	PyModule_AddObject(module, "LIGOTimeGPS", (PyObject *) pylal_LIGOTimeGPS_Type);
+	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	PyModule_AddObject(module, "LIGOTimeGPS", (PyObject *) &pylal_LIGOTimeGPS_Type);
 }

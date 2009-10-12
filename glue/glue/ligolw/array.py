@@ -47,6 +47,7 @@ import numpy
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
+from xml.sax.xmlreader import AttributesImpl as Attributes
 
 
 from glue import iterutils
@@ -118,17 +119,17 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({u"Name": u"%s:array" % name, u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]})
+	doc = Array(Attributes({u"Name": u"%s:array" % name, u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
 		attrs = {}
 		if dim_names is not None:
 			attrs[u"Name"] = dim_names[n]
-		child = ligolw.Dim(attrs)
+		child = ligolw.Dim(Attributes(attrs))
 		child.pcdata = unicode(dim)
 		doc.appendChild(child)
-	child = ArrayStream({u"Type": u"Local", u"Delimiter": u" "})
+	child = ArrayStream(Attributes({u"Type": u"Local", u"Delimiter": u" "}))
 	doc.appendChild(child)
 	doc.array = array
 	return doc

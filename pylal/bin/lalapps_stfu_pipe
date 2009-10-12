@@ -18,6 +18,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
+from glue.ligolw import ilwd
 from pylal import db_thinca_rings
 from pylal import stfu_pipe
 from lalapps import inspiral
@@ -172,6 +173,8 @@ class Sngl(object):
 		self.time = float(row[5])
 		self.process_id = row[6]
 		self.row = contents.sngl_inspiral_table.row_from_cols(row[7:])
+		# reset event_id to ilwd_char type
+		self.row.event_id = ilwd.get_ilwdchar(self.row.event_id)
 		self.inj_file_name = contents.sim_file_name
 
 		self.process_params = []
@@ -204,6 +207,11 @@ SELECT
 		for row in self.process_params:
 			if row.param == '--sample-rate': 
 				return int(row.value)
+
+	def get_proc_param(self, param):
+		for row in self.process_params:
+			if row.param.strip('-') == param.strip('-'):
+				return row.value
 		
 	def switch_ifo(self,ifo):
 		self.ifo = ifo
@@ -234,7 +242,7 @@ class Coinc(object):
 		self.contents = contents
 		self.sngl_inspiral = {}
 		self.sngl_inspiral_coh = {}
-		self.coinc_event_id = row[0]
+		self.coinc_event_id = ilwd.get_ilwdchar(row[0])
 		self.combined_far = float(row[1])
 		self.snr = float(row[2])
 		self.time = float(row[3])
@@ -266,6 +274,28 @@ SELECT
 		# make a list of sngls appropriate for the coherent code (use max template)
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
+
+		self.extract_sim()
+
+	def extract_sim(self):
+		#FIXME FINISH!
+		if self.contents.sim_inspiral_table:
+			self.sim = self.contents.connection.curser().execute("""
+SELECT
+		sim_inspiral.* 
+	FROM 
+		sim_inspiral
+	JOIN 
+		coinc_event_map AS mapA ON (mapA.event_id == sim_inspiral.simulation_id)
+	JOIN 
+		coinc_event_map AS mapB ON (mapA.coinc_event_id == mapB.coinc_event_id)
+	JOIN 
+		coinc_event ON (mapB.event_id == coinc_event.coinc_event_id)
+	WHERE 
+		coinc_event.coinc_event_id == ?
+			""", (str(self.coinc_event_id),) ).fetchone()
+
+		else: self.sim = None
 		
 	def get_sample_rate(self):
 		#FIXME NEEDS TO CHECK ALL SAMPLE RATES ARE THE SAME!
@@ -371,7 +401,7 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
-
+	
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
 ###############################################################################
@@ -393,7 +423,7 @@ def parse_command_line():
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
-	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default stfu_pipe.ini")
+	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
@@ -448,11 +478,12 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	ht_data_find_job	= stfu_pipe.htDataFindJob(cp, dir=search)
 	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, name='qdatafind', dir=search)
 	qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search)
-	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search)
+	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, type='plot')
+	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,type='skymap')	
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
-	#cohInspJob      = stfu_pipe.followUpInspJob(cp, 'coh', dir=search)
+	chia_job		= stfu_pipe.followUpChiaJob(options, cp, dir=search)
 	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig', dir=search)
 	sky_map_job		= stfu_pipe.skyMapJob(options,cp, dir=search)
 	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp, dir=search)
@@ -460,12 +491,13 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	find_vetos_job            = stfu_pipe.findVetosJob(options,cp, dir=search)
 	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp, dir=search)
 	
-	# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
-	insp_datafind_node = {}
-	insp_node_skymap = {}
-
 	# LOOP OVER COINC EVENTS
 	for coinc in candidates:
+
+		# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
+		insp_datafind_node = {}
+		insp_node_skymap = {}
+		
 		if options.verbose:
 			 print >>sys.stderr,"processing coinc @ %f with combined FAR %f instruments %s" % (coinc.time, coinc.combined_far, coinc.instruments)
 
@@ -481,8 +513,9 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
 			# h(t) INSPIRAL datafind Node
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
+
 			# INSPIRAL NODE (for plots)
-			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node])
+			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
 		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
@@ -491,10 +524,15 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 			
 			# INSPIRAL JOB FOR SKYMAPS
-			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node])
+			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job_skymap, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 		
 		# SKYMAP JOBS
-		
+		sky_node = stfu_pipe.lalapps_skyMapNode(dag, sky_map_job, cp, options, coinc, insp_node_skymap, p_nodes=insp_node_skymap.values())
+		sky_plot_node = stfu_pipe.pylal_skyPlotNode(dag, sky_plot_job, cp, options, coinc, sky_node, p_nodes = [sky_node])
+
+		# Coh insp job
+		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_skymap, p_nodes = insp_node_skymap.values())
+
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		#findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
@@ -504,6 +542,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 #### ALL FINNISH ####		
 default_cp.write()
-dag.write_sub_files()
-dag.write_dag()
-dag.write_script()
+dag.write_all()
+#dag.write_sub_files()
+#dag.write_dag()
+#dag.write_script()

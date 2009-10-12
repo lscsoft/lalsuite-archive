@@ -38,9 +38,12 @@ Example:
 """
 
 
+import git_version
+
+
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -48,8 +51,12 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
+from xlal.datatypes.complex16fftplan import *
 from xlal.datatypes.complex16frequencyseries import *
+from xlal.datatypes.complex16timeseries import *
 from xlal.datatypes.lalunit import *
 from xlal.datatypes.ligotimegps import *
+from xlal.datatypes.real8fftplan import *
 from xlal.datatypes.real8frequencyseries import *
 from xlal.datatypes.real8timeseries import *
+from xlal.datatypes.real8window import *

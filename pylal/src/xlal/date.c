@@ -53,7 +53,7 @@ static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
 	pylal_LIGOTimeGPS *s;
 
 	/* LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O!:XLALGPSToINT8NS", pylal_LIGOTimeGPS_Type, &s))
+	if(!PyArg_ParseTuple(args, "O!:XLALGPSToINT8NS", &pylal_LIGOTimeGPS_Type, &s))
 		return NULL;
 
 	/* long */
@@ -70,7 +70,7 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "L:XLALINT8NSToGPS", &ns))
 		return NULL;
 
-	new = (pylal_LIGOTimeGPS *) _PyObject_New(pylal_LIGOTimeGPS_Type);
+	new = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
 	XLALINT8NSToGPS(&new->gps, ns);
 
 	/* LIGOTimeGPS */
@@ -169,7 +169,7 @@ static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
 	struct tm utc;
 
 	/* LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O!:XLALGPSToUTC", pylal_LIGOTimeGPS_Type, &gps))
+	if(!PyArg_ParseTuple(args, "O!:XLALGPSToUTC", &pylal_LIGOTimeGPS_Type, &gps))
 		return NULL;
 	if(gps->gps.gpsNanoSeconds) {
 		PyErr_SetString(PyExc_TypeError, "cannot convert non-integer seconds");
@@ -242,7 +242,7 @@ static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 	double equation_of_equinoxes;
 
 	/* LIGOTimeGPS, float */
-	if(!PyArg_ParseTuple(args, "O!d:XLALGreenwichSiderealTime", pylal_LIGOTimeGPS_Type, &gps, &equation_of_equinoxes))
+	if(!PyArg_ParseTuple(args, "O!d:XLALGreenwichSiderealTime", &pylal_LIGOTimeGPS_Type, &gps, &equation_of_equinoxes))
 		return NULL;
 
 	/* float */
@@ -283,7 +283,7 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 	PyObject *result;
 
 	/* 3-element list, 3-element list, float, float, LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "OOddO!:XLALArrivalTimeDiff", &pos1, &pos2, &ra, &dec, pylal_LIGOTimeGPS_Type, &gps))
+	if(!PyArg_ParseTuple(args, "OOddO!:XLALArrivalTimeDiff", &pos1, &pos2, &ra, &dec, &pylal_LIGOTimeGPS_Type, &gps))
 		return NULL;
 	pos1 = PyArray_FromAny(pos1, PyArray_DescrFromType(NPY_FLOAT64), 1, 1, NPY_CONTIGUOUS, NULL);
 	if(!pos1) {

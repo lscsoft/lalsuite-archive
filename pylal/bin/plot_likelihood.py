@@ -1,5 +1,5 @@
 #!/usr/bin/python
-__author__ = "Rahul Biswas <rahul@gravity.phys.uwm.edu>, Kipp Cannon <kcannon@ligo.caltech.edu>, Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
+__author__ = "Rahul Biswas <rahul@gravity.phys.uwm.edu>, Kipp Cannon <kipp.cannon@ligo.org>, Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
 
 
 
@@ -21,6 +21,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue import segments
 
+from pylal import git_version
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import ligolw_burca_tailor
@@ -44,7 +45,10 @@ Script to generate histogram of snrs in various coincidences, for background (ti
 ###############################################################################
 
 
-parser = OptionParser( usage )
+parser = OptionParser(
+	version = "Name: %%prog\n%s" % git_version.verbose_msg,
+	usage
+)
 
 parser.add_option("-G","--found-glob",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \

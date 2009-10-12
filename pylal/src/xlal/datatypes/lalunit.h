@@ -42,7 +42,8 @@
  */
 
 
-static PyTypeObject *pylal_LALUnit_Type;
+static PyTypeObject *_pylal_LALUnit_Type = NULL;
+#define pylal_LALUnit_Type (*_pylal_LALUnit_Type)
 
 
 typedef struct {
@@ -67,8 +68,8 @@ static PyObject *pylal_lalunit_import(void)
 	Py_DECREF(name);
 
 	name = PyString_FromString("LALUnit");
-	pylal_LALUnit_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(pylal_LALUnit_Type);
+	_pylal_LALUnit_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_LALUnit_Type);
 	Py_DECREF(name);
 
 	return module;
@@ -78,7 +79,7 @@ static PyObject *pylal_lalunit_import(void)
 static PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_LALUnit *obj = (pylal_LALUnit *) PyType_GenericNew(pylal_LALUnit_Type, empty_tuple, NULL);
+	pylal_LALUnit *obj = (pylal_LALUnit *) PyType_GenericNew(&pylal_LALUnit_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
 	obj->unit = unit;
 	obj->unit.powerOfTen += power_of_ten;
