@@ -28,6 +28,7 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
+#include <lal/FrequencySeries.h>
 
 
 #define PYLAL_COMPLEX16FREQUENCYSERIES_MODULE_NAME "pylal.xlal.datatypes.complex16frequencyseries"
@@ -42,7 +43,8 @@
  */
 
 
-static PyTypeObject *pylal_COMPLEX16FrequencySeries_Type;
+static PyTypeObject *_pylal_COMPLEX16FrequencySeries_Type = NULL;
+#define pylal_COMPLEX16FrequencySeries_Type (*_pylal_COMPLEX16FrequencySeries_Type)
 
 
 typedef struct {
@@ -59,8 +61,8 @@ static PyObject *pylal_complex16frequencyseries_import(void)
 	Py_DECREF(name);
 
 	name = PyString_FromString("COMPLEX16FrequencySeries");
-	pylal_COMPLEX16FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(pylal_COMPLEX16FrequencySeries_Type);
+	_pylal_COMPLEX16FrequencySeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_COMPLEX16FrequencySeries_Type);
 	Py_DECREF(name);
 
 	return module;
@@ -70,7 +72,7 @@ static PyObject *pylal_complex16frequencyseries_import(void)
 PyObject *pylal_COMPLEX16FrequencySeries_new(COMPLEX16FrequencySeries *series, PyObject *owner)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
-	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(pylal_COMPLEX16FrequencySeries_Type, empty_tuple, NULL);
+	pylal_COMPLEX16FrequencySeries *obj = (pylal_COMPLEX16FrequencySeries *) PyType_GenericNew(&pylal_COMPLEX16FrequencySeries_Type, empty_tuple, NULL);
 	Py_DECREF(empty_tuple);
 	if(!obj) {
 		if(!owner)
@@ -80,6 +82,7 @@ PyObject *pylal_COMPLEX16FrequencySeries_new(COMPLEX16FrequencySeries *series, P
 	if(owner)
 		Py_INCREF(owner);
 	obj->owner = owner;
+	XLALDestroyCOMPLEX16FrequencySeries(obj->series);
 	obj->series = series;
 	return (PyObject *) obj;
 }

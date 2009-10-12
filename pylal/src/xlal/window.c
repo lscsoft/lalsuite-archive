@@ -29,6 +29,7 @@
 
 
 #include <Python.h>
+#include <numpy/arrayobject.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Window.h>
 #include <misc.h>
@@ -41,9 +42,14 @@
 /*
  * ============================================================================
  *
- *                                 Functions
+ *                                 Utilities
  *
  * ============================================================================
+ */
+
+
+/*
+ * Add input error checking to pylal_REAL8Window_new()
  */
 
 
@@ -55,6 +61,49 @@ static PyObject *new(REAL8Window *w, PyObject *owner)
 	}
 
 	return pylal_REAL8Window_new(w, owner);
+}
+
+
+/*
+ * ============================================================================
+ *
+ *                                 Functions
+ *
+ * ============================================================================
+ */
+
+
+static PyObject *pylal_XLALUnitaryWindowREAL8Sequence(PyObject *self, PyObject *args)
+{
+	PyArrayObject *array;
+	pylal_REAL8Window *window;
+	REAL8Sequence sequence = {
+		.length = 0,
+		.data = NULL
+	};
+
+	if(!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &array, &pylal_REAL8Window_Type, &window))
+		return NULL;
+	/* requier double precision floats */
+	if(PyArray_TYPE(array) != NPY_DOUBLE) {
+		PyErr_SetObject(PyExc_TypeError, (PyObject *) array);
+		return NULL;
+	}
+	/* require exactly 1 dimension */
+	if(array->nd != 1) {
+		PyErr_SetObject(PyExc_ValueError, (PyObject *) array);
+		return NULL;
+	}
+
+	sequence.length = PyArray_DIM(array, 0);
+	sequence.data = PyArray_GETPTR1(array, 0);
+	if(!XLALUnitaryWindowREAL8Sequence(&sequence, window->window)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 
@@ -193,6 +242,7 @@ static PyObject *pylal_XLALCreateGaussREAL8Window(PyObject *self, PyObject *args
 
 
 static struct PyMethodDef methods[] = {
+	{"XLALUnitaryWindowREAL8Sequence", pylal_XLALUnitaryWindowREAL8Sequence, METH_VARARGS, NULL},
 	{"XLALCreateRectangularREAL8Window", pylal_XLALCreateRectangularREAL8Window, METH_VARARGS, NULL},
 	{"XLALCreateHannREAL8Window", pylal_XLALCreateHannREAL8Window, METH_VARARGS, NULL},
 	{"XLALCreateWelchREAL8Window", pylal_XLALCreateWelchREAL8Window, METH_VARARGS, NULL},
@@ -213,5 +263,6 @@ void initwindow(void)
 	/* commented out to silence warning */
 	/*PyObject *module = */Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's window package.");
 
+	import_array();
 	pylal_real8window_import();
 }

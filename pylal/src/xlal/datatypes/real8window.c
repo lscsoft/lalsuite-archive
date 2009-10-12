@@ -20,7 +20,7 @@
 /*
  * ============================================================================
  *
- *                 Python Wrapper For LAL's REAL8Window Type
+ *                                  Preamble
  *
  * ============================================================================
  */
@@ -29,6 +29,7 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <lal/LALDatatypes.h>
+#include <lal/Sequence.h>
 #include <lal/Window.h>
 #include <real8window.h>
 
@@ -39,15 +40,29 @@
 /*
  * ============================================================================
  *
- *                              REAL8Window Type
+ *                                    Type
  *
  * ============================================================================
  */
 
 
-/*
- * Methods
- */
+static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+	REAL8Sequence *sequence = XLALCreateREAL8Sequence(0);
+	pylal_REAL8Window *obj;
+
+	if(!sequence)
+		/* FIXME:  set exception */
+		return NULL;
+
+	obj = (pylal_REAL8Window *) PyType_GenericNew(type, args, kwds);
+	if(!obj)
+		return NULL;
+	obj->window = XLALCreateREAL8WindowFromSequence(sequence);
+	obj->owner = NULL;
+	/* FIXME:  check for failure in XLALCreateREAL8WindowFromSequence() */
+	return (PyObject *) obj;
+}
 
 
 static void __del__(PyObject *self)
@@ -64,17 +79,18 @@ static void __del__(PyObject *self)
 }
 
 
-static PyObject *__getattr__(PyObject *self, char *name)
+static PyObject *__getattro__(PyObject *self, PyObject *attr_name)
 {
-	pylal_REAL8Window *window = (pylal_REAL8Window *) self;
+	const char *name = PyString_AsString(attr_name);
+	pylal_REAL8Window *obj = (pylal_REAL8Window *) self;
 
 	if(!strcmp(name, "sumofsquares"))
-		return PyFloat_FromDouble(window->window->sumofsquares);
+		return PyFloat_FromDouble(obj->window->sumofsquares);
 	if(!strcmp(name, "sum"))
-		return PyFloat_FromDouble(window->window->sum);
+		return PyFloat_FromDouble(obj->window->sum);
 	if(!strcmp(name, "data")) {
-		npy_intp dims[] = {window->window->data->length};
-		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, window->window->data->data);
+		npy_intp dims[] = {obj->window->data->length};
+		PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT64, obj->window->data->data);
 		if(array) {
 			/* incref self to prevent data from disappearing
 			 * while array is still in use, and tell numpy to
@@ -89,20 +105,15 @@ static PyObject *__getattr__(PyObject *self, char *name)
 }
 
 
-/*
- * Type
- */
-
-
-static PyTypeObject _pylal_REAL8Window_Type = {
+static PyTypeObject pylal_real8window_type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_basicsize = sizeof(pylal_REAL8Window),
 	.tp_dealloc = __del__,
 	.tp_doc = "REAL8Window structure",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_getattr = __getattr__,
+	.tp_getattro = __getattro__,
 	.tp_name = MODULE_NAME ".REAL8Window",
-	.tp_new = PyType_GenericNew
+	.tp_new = __new__
 };
 
 
@@ -122,9 +133,9 @@ void initreal8window(void)
 	import_array();
 
 	/* REAL8Window */
-	pylal_REAL8Window_Type = &_pylal_REAL8Window_Type;
-	if(PyType_Ready(pylal_REAL8Window_Type) < 0)
+	_pylal_REAL8Window_Type = &pylal_real8window_type;
+	if(PyType_Ready(&pylal_REAL8Window_Type) < 0)
 		return;
-	Py_INCREF(pylal_REAL8Window_Type);
-	PyModule_AddObject(module, "REAL8Window", (PyObject *) pylal_REAL8Window_Type);
+	Py_INCREF(&pylal_REAL8Window_Type);
+	PyModule_AddObject(module, "REAL8Window", (PyObject *) &pylal_REAL8Window_Type);
 }

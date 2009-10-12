@@ -25,20 +25,17 @@
 
 
 """
-This is a convenience module providing all the LAL datatype wrappings from
-the pylal.xlal.datatypes subpackage in a single import.  It is recommended
-that you import this module unless you require only exactly one or a few
-specific types in which case you can import the individual modules if that
-is easier.
-
-Example:
-
->>> from pylal import datatypes as laltypes
->>> x = laltypes.REAL8TimeSeries()
+This module is a wrapper of the xlal.fft module, supplementing the C
+code in that module with additional features that are more easily
+implemented in Python.  It is recommended that you import this module
+rather than importing xlal.fft directly.
 """
 
 
 import git_version
+from xlal.datatypes.complex16fftplan import COMPLEX16FFTPlan
+from xlal.datatypes.real8fftplan import REAL8FFTPlan
+from xlal.fft import *
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -47,16 +44,25 @@ __date__ = git_version.date
 
 
 #
-# remember to keep this list up to date
+# =============================================================================
+#
+#                              Function Wrappers
+#
+# =============================================================================
 #
 
 
-from xlal.datatypes.complex16fftplan import *
-from xlal.datatypes.complex16frequencyseries import *
-from xlal.datatypes.complex16timeseries import *
-from xlal.datatypes.lalunit import *
-from xlal.datatypes.ligotimegps import *
-from xlal.datatypes.real8fftplan import *
-from xlal.datatypes.real8frequencyseries import *
-from xlal.datatypes.real8timeseries import *
-from xlal.datatypes.real8window import *
+def XLALCreateForwardCOMPLEX16FFTPlan(size, measurelvl = 0):
+	return COMPLEX16FFTPlan(size, 1, measurelvl)
+
+
+def XLALCreateReverseCOMPLEX16FFTPlan(size, measurelvl = 0):
+	return COMPLEX16FFTPlan(size, 0, measurelvl)
+
+
+def XLALCreateForwardREAL8FFTPlan(size, measurelvl = 0):
+	return REAL8FFTPlan(size, 1, measurelvl)
+
+
+def XLALCreateReverseREAL8FFTPlan(size, measurelvl = 0):
+	return REAL8FFTPlan(size, 0, measurelvl)

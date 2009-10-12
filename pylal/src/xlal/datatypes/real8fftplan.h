@@ -27,11 +27,10 @@
 
 
 #include <Python.h>
-#include <lal/LALDatatypes.h>
-#include <lal/Date.h>
+#include <lal/RealFFT.h>
 
 
-#define PYLAL_LIGOTIMEGPS_MODULE_NAME "pylal.xlal.datatypes.ligotimegps"
+#define PYLAL_REAL8FFTPLAN_MODULE_NAME "pylal.xlal.datatypes.real8fftplan"
 
 
 /*
@@ -43,36 +42,46 @@
  */
 
 
-static PyTypeObject *_pylal_LIGOTimeGPS_Type = NULL;
-#define pylal_LIGOTimeGPS_Type (*_pylal_LIGOTimeGPS_Type)
+static PyTypeObject *_pylal_REAL8FFTPlan_Type = NULL;
+#define pylal_REAL8FFTPlan_Type (*_pylal_REAL8FFTPlan_Type)
 
 
 typedef struct {
 	PyObject_HEAD
-	LIGOTimeGPS gps;
-} pylal_LIGOTimeGPS;
+	PyObject *owner;
+	REAL8FFTPlan *plan;
+} pylal_REAL8FFTPlan;
 
 
-static PyObject *pylal_ligotimegps_import(void)
+static PyObject *pylal_real8fftplan_import(void)
 {
-	PyObject *name = PyString_FromString(PYLAL_LIGOTIMEGPS_MODULE_NAME);
+	PyObject *name = PyString_FromString(PYLAL_REAL8FFTPLAN_MODULE_NAME);
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
-	name = PyString_FromString("LIGOTimeGPS");
-	_pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	name = PyString_FromString("REAL8FFTPlan");
+	_pylal_REAL8FFTPlan_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_REAL8FFTPlan_Type);
 	Py_DECREF(name);
 
 	return module;
 }
 
 
-static PyObject *pylal_LIGOTimeGPS_new(LIGOTimeGPS gps)
+static PyObject *pylal_REAL8FFTPlan_new(REAL8FFTPlan *plan, PyObject *owner)
 {
-	pylal_LIGOTimeGPS *obj = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
-
-	XLALGPSSet(&obj->gps, gps.gpsSeconds, gps.gpsNanoSeconds);
-
+	PyObject *empty_tuple = PyTuple_New(0);
+	pylal_REAL8FFTPlan *obj = (pylal_REAL8FFTPlan *) PyType_GenericNew(&pylal_REAL8FFTPlan_Type, empty_tuple, NULL);
+	Py_DECREF(empty_tuple);
+	if(!obj) {
+		if(!owner)
+			XLALDestroyREAL8FFTPlan(plan);
+		return NULL;
+	}
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
+	XLALDestroyREAL8FFTPlan(obj->plan);
+	obj->plan = plan;
 	return (PyObject *) obj;
 }

@@ -28,10 +28,10 @@
 
 #include <Python.h>
 #include <lal/LALDatatypes.h>
-#include <lal/Date.h>
+#include <lal/TimeSeries.h>
 
 
-#define PYLAL_LIGOTIMEGPS_MODULE_NAME "pylal.xlal.datatypes.ligotimegps"
+#define PYLAL_COMPLEX16TIMESERIES_MODULE_NAME "pylal.xlal.datatypes.complex16timeseries"
 
 
 /*
@@ -43,36 +43,46 @@
  */
 
 
-static PyTypeObject *_pylal_LIGOTimeGPS_Type = NULL;
-#define pylal_LIGOTimeGPS_Type (*_pylal_LIGOTimeGPS_Type)
+static PyTypeObject *_pylal_COMPLEX16TimeSeries_Type = NULL;
+#define pylal_COMPLEX16TimeSeries_Type (*_pylal_COMPLEX16TimeSeries_Type)
 
 
 typedef struct {
 	PyObject_HEAD
-	LIGOTimeGPS gps;
-} pylal_LIGOTimeGPS;
+	PyObject *owner;
+	COMPLEX16TimeSeries *series;
+} pylal_COMPLEX16TimeSeries;
 
 
-static PyObject *pylal_ligotimegps_import(void)
+static PyObject *pylal_complex16timeseries_import(void)
 {
-	PyObject *name = PyString_FromString(PYLAL_LIGOTIMEGPS_MODULE_NAME);
+	PyObject *name = PyString_FromString(PYLAL_COMPLEX16TIMESERIES_MODULE_NAME);
 	PyObject *module = PyImport_Import(name);
 	Py_DECREF(name);
 
-	name = PyString_FromString("LIGOTimeGPS");
-	_pylal_LIGOTimeGPS_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
-	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	name = PyString_FromString("COMPLEX16TimeSeries");
+	_pylal_COMPLEX16TimeSeries_Type = (PyTypeObject *) PyDict_GetItem(PyModule_GetDict(module), name);
+	Py_INCREF(&pylal_COMPLEX16TimeSeries_Type);
 	Py_DECREF(name);
 
 	return module;
 }
 
 
-static PyObject *pylal_LIGOTimeGPS_new(LIGOTimeGPS gps)
+PyObject *pylal_COMPLEX16TimeSeries_new(COMPLEX16TimeSeries *series, PyObject *owner)
 {
-	pylal_LIGOTimeGPS *obj = (pylal_LIGOTimeGPS *) _PyObject_New(&pylal_LIGOTimeGPS_Type);
-
-	XLALGPSSet(&obj->gps, gps.gpsSeconds, gps.gpsNanoSeconds);
-
+	PyObject *empty_tuple = PyTuple_New(0);
+	pylal_COMPLEX16TimeSeries *obj = (pylal_COMPLEX16TimeSeries *) PyType_GenericNew(&pylal_COMPLEX16TimeSeries_Type, empty_tuple, NULL);
+	Py_DECREF(empty_tuple);
+	if(!obj) {
+		if(!owner)
+			XLALDestroyCOMPLEX16TimeSeries(series);
+		return NULL;
+	}
+	if(owner)
+		Py_INCREF(owner);
+	obj->owner = owner;
+	XLALDestroyCOMPLEX16TimeSeries(obj->series);
+	obj->series = series;
 	return (PyObject *) obj;
 }
