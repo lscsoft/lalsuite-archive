@@ -55,10 +55,9 @@ def recurseTreeFnmatch(parentPath=".",myRegex=None,traverseTree=False):
                 normFilename=os.path.normpath(os.path.join(root,myFile))
                 if myShellEx != None:
                     if fnmatch.fnmatch(normFilename,myShellEx):
-                        match=normFilename
+                        matchingFiles.append(normFilename)
                 else:
-                    match=normFilename
-                matchingFiles.append(match)
+                    matchingFiles.append(normFilename)
     else:
         level01=dirTreeGuide.next()
         #Select only the files in '.'
