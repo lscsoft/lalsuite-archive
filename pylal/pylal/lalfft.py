@@ -32,8 +32,13 @@ rather than importing xlal.fft directly.
 """
 
 
+import numpy
+
+
 import git_version
+from xlal.datatypes.complex16frequencyseries import COMPLEX16FrequencySeries
 from xlal.datatypes.complex16fftplan import COMPLEX16FFTPlan
+from xlal.datatypes.lalunit import lalSecondUnit
 from xlal.datatypes.real8fftplan import REAL8FFTPlan
 from xlal.fft import *
 
@@ -66,3 +71,44 @@ def XLALCreateForwardREAL8FFTPlan(size, measurelvl = 0):
 
 def XLALCreateReverseREAL8FFTPlan(size, measurelvl = 0):
 	return REAL8FFTPlan(size, 0, measurelvl)
+
+
+#
+# =============================================================================
+#
+#                                  Utilities
+#
+# =============================================================================
+#
+
+
+def prepare_fseries_for_real8tseries(series):
+	"""
+	Construct a COMPLEX16FrequencySeries object suitable for storing
+	the Fourier transform of a REAL8TimeSeries object.
+	"""
+	n = len(series.data)
+	return COMPLEX16FrequencySeries(
+		name = series.name,
+		epoch = series.epoch,
+		f0 = series.f0,	# note: non-zero f0 not supported by LAL
+		deltaF = 1.0 / (n * series.deltaT),
+		sampleUnits = series.sampleUnits * lalSecondUnit,
+		data = numpy.zeros((n / 2 + 1,), dtype = "cdouble")
+	)
+
+
+def prepare_fseries_for_complex16tseries(series):
+	"""
+	Construct a COMPLEX16FrequencySeries object suitable for storing
+	the Fourier transform of a COMPLEX16TimeSeries object.
+	"""
+	n = len(series.data)
+	return COMPLEX16FrequencySeries(
+		name = series.name,
+		epoch = series.epoch,
+		f0 = series.f0,	# note: non-zero f0 not supported by LAL
+		deltaF = 1.0 / (n * series.deltaT),
+		sampleUnits = series.sampleUnits * lalSecondUnit,
+		data = numpy.zeros((n,), dtype = "cdouble")
+	)
