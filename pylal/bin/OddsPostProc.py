@@ -189,7 +189,7 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
     x,y=numpy.meshgrid(xax,yax)
     samp=array([xdat,ydat])
     kde=stats.kde.gaussian_kde(samp)
-    grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    grid_coords = numpy.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
     z = kde(grid_coords.T)
     z = z.reshape(Nx,Ny)
     asp=xax.ptp()/yax.ptp()
