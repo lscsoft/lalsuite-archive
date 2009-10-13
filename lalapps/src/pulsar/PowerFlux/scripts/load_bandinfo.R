@@ -1,14 +1,13 @@
 require("lattice")
 require("RMySQL")
 
+p<-function(...) {
+	return(paste(..., sep=""))
+	}
 
 source("params.R")
 
 con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
-
-p<-function(...) {
-	return(paste(..., sep=""))
-	}
 
 fn<-p(prefix, "band_info", suffix)
 fnout<-p(fn)
