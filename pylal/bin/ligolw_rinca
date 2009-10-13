@@ -37,6 +37,7 @@ from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import git_version
 from pylal import ligolw_rinca
 from pylal import llwapp
@@ -82,7 +83,8 @@ def parse_command_line():
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--ds-sq-threshold", metavar = "float", type = "float", help = "Set the metrical coincidence algorithm's threshold (required).")
-	parser.add_option("-s", "--save-small-coincs", action = "store_true", help = "Save the m-coincidences to file where m < num_ifos")
+	parser.add_option("-s", "--save-small-coincs", action = "store_true", help = "Also record m-coincidences where m < n_{instruments}.")
+	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -156,6 +158,7 @@ for n, filename in enumerate(filenames):
 		force = options.force,
 		ds_sq_threshold = options.ds_sq_threshold,
 		save_small_coincs = options.save_small_coincs,
+		vetoes_name = options.vetoes_name,
 		verbose = options.verbose
 	)
 
@@ -175,6 +178,29 @@ for n, filename in enumerate(filenames):
 		row.event_id = tbl.get_next_id()
 
 	#
+	# Extract veto segments if present.
+	#
+	#
+	# FIXME:  using the tools in the glue.ligolw.utils.segments module
+	# it's not hard to modify the veto segments in the .xml to be just
+	# those that intersect the search summary segments.  That way, if
+	# multiple documents are inserted into the same database, or merged
+	# with ligolw_add, the veto lists will not get duplicated.
+	#
+
+	if not ligolw_segments.has_segment_tables(xmldoc):
+		if options.verbose:
+			print >>sys.stderr, "warning: no segment definitions found, vetoes will not be applied"
+		vetoes = None
+	elif not ligolw_segments.has_segment_tables(xmldoc, options.vetoes_name):
+		if options.verbose:
+			print >>sys.stderr, "warning: document contains segment definitions but none named \"%s\", vetoes will not be applied" % options.vetoes_name
+		vetoes = None
+	else:
+		vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()
+
+
+	#
 	# Run coincidence algorithm.
 	#
 
@@ -187,6 +213,7 @@ for n, filename in enumerate(filenames):
 		event_comparefunc = ligolw_rinca.ringdown_coinc_compare,
 		thresholds = options.ds_sq_threshold,
 		small_coincs = options.save_small_coincs,
+		veto_segments = vetoes,
 		verbose = options.verbose
 	)
 

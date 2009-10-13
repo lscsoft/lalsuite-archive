@@ -52,7 +52,7 @@
 
 static int pylal_LIGOTimeGPS_Check(PyObject *obj)
 {
-	return obj ? PyObject_TypeCheck(obj, pylal_LIGOTimeGPS_Type) : 0;
+	return obj ? PyObject_TypeCheck(obj, &pylal_LIGOTimeGPS_Type) : 0;
 }
 
 
@@ -305,8 +305,8 @@ static PyObject *__reduce__(PyObject *self, PyObject *args)
 	if(!pyobject_to_ligotimegps(self, &gps))
 		return NULL;
 
-	Py_INCREF(pylal_LIGOTimeGPS_Type);
-	return Py_BuildValue("(O,(i,i))", pylal_LIGOTimeGPS_Type, gps.gpsSeconds, gps.gpsNanoSeconds);
+	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	return Py_BuildValue("(O,(i,i))", &pylal_LIGOTimeGPS_Type, gps.gpsSeconds, gps.gpsNanoSeconds);
 }
 
 
@@ -453,7 +453,7 @@ static struct PyMethodDef methods[] = {
 };
 
 
-static PyTypeObject _pylal_LIGOTimeGPS_Type = {
+static PyTypeObject pylal_ligotimegps_type = {
 	PyObject_HEAD_INIT(NULL)
 	.tp_as_number = &as_number,
 	.tp_basicsize = sizeof(pylal_LIGOTimeGPS),
@@ -508,9 +508,9 @@ void initligotimegps(void)
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's LIGOTimeGPS type.");
 
 	/* LIGOTimeGPS */
-	pylal_LIGOTimeGPS_Type = &_pylal_LIGOTimeGPS_Type;
-	if(PyType_Ready(pylal_LIGOTimeGPS_Type) < 0)
+	_pylal_LIGOTimeGPS_Type = &pylal_ligotimegps_type;
+	if(PyType_Ready(&pylal_LIGOTimeGPS_Type) < 0)
 		return;
-	Py_INCREF(pylal_LIGOTimeGPS_Type);
-	PyModule_AddObject(module, "LIGOTimeGPS", (PyObject *) pylal_LIGOTimeGPS_Type);
+	Py_INCREF(&pylal_LIGOTimeGPS_Type);
+	PyModule_AddObject(module, "LIGOTimeGPS", (PyObject *) &pylal_LIGOTimeGPS_Type);
 }
