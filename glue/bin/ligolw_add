@@ -63,7 +63,7 @@ def parse_command_line():
 	Parse the command line, return an options object and a list of URLs.
 	"""
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [url ...]",
 		description = "Combines one or more LIGO Light Weight XML files into a single output file.  The output is written to stdout or to the filename specified by --output.  In addition to regular files, many common URL types can be read such as http:// and ftp://.  Any input files or URLs whose names end in \".gz\" are assumed to be gzip-compressed, and will be uncompressed while reading.  If the output file's name ends in \".gz\", the output document will be gzip-compressed while writing.  Table elements contained in the document will be merged so that there is not more than one table of any given name in the output.  To accomplish this, any tables in the input documents that share the same name must have compatible columns, meaning the same column names with matching types (but not necessarily in the same order)."
 	)

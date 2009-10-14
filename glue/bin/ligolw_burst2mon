@@ -57,7 +57,7 @@ __date__ = git_version.date
 
 
 parser = OptionParser(
-	version = "%prog CVS $Id$"
+	version = "Name: %%prog\n%s" % git_version.verbose_msg
 )
 parser.add_option("-c", "--comment", metavar = "text", default = "", help = "set process comment")
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
