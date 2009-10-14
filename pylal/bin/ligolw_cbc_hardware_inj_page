@@ -210,15 +210,18 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 	totalinj={}
 	totalfound={}
 	statelist={}
+	# Write table header
 	for ifo in ifos:
 		print >>outfile, '<th>'+ifo+'</th>'
 		totalinj[ifo]=0
 		totalfound[ifo]=0
 		statelist[ifo]=[]
-
+	# Write table contents
 	for inj in injections:
-		print 'processing '+str(inj.get_end("H"))
-		if(inj.get_end("H") < opts.gps_start_time or inj.get_end("H") > opts.gps_end_time): continue
+		if(int(inj.get_end("H")) < opts.gps_start_time or int(inj.get_end("H")) > opts.gps_end_time):
+			print 'skipping %d'%(inj.get_end("H"))
+			continue
+		print 'processing '+str(inj.get_end("H"))	
 		print >>outfile,'<tr><td>%.3f</td>' % (inj.geocent_end_time)
 		print >>outfile,'<td>%.3f</td><td>%.3f</td><td>%.3f</td>'% (inj.mass1,inj.mass2,inj.distance)
 		for ifo in ifos:
@@ -226,7 +229,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 			print >>outfile,get_ifo_result_string((injected,analysed,found))
 			totalinj[ifo]=totalinj[ifo]+injected
 			totalfound[ifo]=totalfound[ifo]+found
-			statelist[ifo].append((opts.gps_start_time,inj,injected,analysed,found))
+			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected,analysed,found))
 		print >>outfile,'</tr>'
 	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered / Injected</td>'
 	for ifo in ifos:
@@ -235,14 +238,43 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 	print >>outfile,'</table>'
 	
 	# Generate plot for injections
-	#for ifo in ifos:
-#		thisplot=matplotlib.plot()
-#		for tup in statelist[ifo]:
-#			if tup(2):
-#				if tup(4): # plot a found
-#				else: #plot a missed
+	import pylab
+	for ifo in ifos:
+		foundx=[]
+		foundy=[]
+		missedx=[]
+		missedy=[]
+		nax=[]
+		nay=[]
+		thisplot=pylab.figure()
+		for tup in statelist[ifo]:
+			if tup[2]:
+				if tup[4]==1: # plot a found
+					print 'Add a found'
+					foundx.append(int(tup[0]))
+					foundy.append(tup[1].get_eff_dist(ifo[0]))
+				elif tup[3]: 
+					print 'Add a missed'
+					missedx.append(int(tup[0]))
+					missedy.append(tup[1].get_eff_dist(ifo[0]))
+				else:
+					print 'Not analysed'
+					nax.append(int(tup[0]))
+					nay.append(tup[1].get_eff_dist(ifo[0]))
+		pylab.plot(foundx,foundy,'gx',label='Found')
+		thisplot.hold()
+		pylab.plot(missedx,missedy,'ro',label='Missed')
+		pylab.plot(nax,nay,'y+',label='Not Analysed')
+		thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
+		pylab.title(ifo+' Hardware injections')
+		pylab.xlabel('GPS time')
+		pylab.ylabel('Effective Distance (Mpc)')
+		pylab.legend()
 		# save figure
-
+		print 'save figure'
+		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
+		thisplot.savefig(plotname)
+		print >>outfile,'<img src="'+plotname+'">'
 	print >>outfile,'</body></html>'
 	return
 
