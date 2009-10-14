@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2007  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -34,13 +32,14 @@ rather than importing xlal.burstsearch directly.
 """
 
 
-from xlal.burstsearch import *
-from xlal.burstsearch import XLALEPGetTimingParameters as __XLALEPGetTimingParameters
+from pylal import git_version
+from pylal.xlal.burstsearch import *
+from pylal.xlal.burstsearch import XLALEPGetTimingParameters as __XLALEPGetTimingParameters
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #

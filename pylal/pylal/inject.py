@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -37,13 +35,14 @@ rather than importing xlal.inject directly.
 import math
 
 
-from xlal.tools import *
-from xlal.inject import *
+from pylal import git_version
+from pylal.xlal.tools import *
+from pylal.xlal.inject import *
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
