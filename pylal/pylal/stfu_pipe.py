@@ -155,19 +155,19 @@ class FUJob(object):
 			if not cp.has_option(defaults["section"], key):
 				cp.set(defaults["section"], key, val)
 
-	def setupJob(self, name, dir= '', tag_base=None, cp=None):
+	def setupJob(self, name='job', dir= '', tag_base=None, cp=None):
 		# Give this job a name.  Then make directories for the log files and such
 		# This name is important since these directories will be included in
 		# the web tree.
                 if dir and not os.path.isdir(dir):
 		  os.mkdir(dir)
-		self.name = name
+		self.name = name + "_" + tag_base + "_" + os.path.split(dir.rstrip('/'))[1]
                 if dir:
-		  self.relPath = dir + '/' + name
+		  self.relPath = dir + '/' + self.name
                 else:
-                  self.relPath = name
-                #path = name + '/' + dir
+                  self.relPath = self.name
 		self.outputPath = os.getcwd() + '/' + self.relPath + '/'
+		self.tag_base = tag_base
 		if not os.path.isdir(self.relPath):
 			os.mkdir(self.relPath)
 		if not os.path.isdir(self.relPath+'/logs'):
@@ -178,10 +178,11 @@ class FUJob(object):
 			os.mkdir(self.relPath+'/DataProducts')
 		# Set up the usual stuff and name the log files appropriately
 		self.tag_base = tag_base
-		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
-		self.set_sub_file(name+'.sub')
-		self.set_stdout_file(self.outputPath+'/logs/'+name+'-$(macroid).out')
-		self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
+		try: self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		except: pass
+		self.set_sub_file(self.name+'.sub')
+		self.set_stdout_file(self.outputPath+'/logs/'+self.name+'-$(macroid).out')
+		self.set_stderr_file(self.outputPath+'/logs/'+self.name+'-$(macroid).err')
 		if cp:
 			if cp.has_section("condor-memory-requirement") and cp.has_option("condor-memory-requirement",name):
 				requirement = cp.getint("condor-memory-requirement",name)
@@ -192,13 +193,14 @@ class qscanJob(pipeline.CondorDAGJob, FUJob):
 	"""
 	A qscan job
 	"""
-	def __init__(self, opts, cp, dir='', tag_base='QSCAN'):
+	def __init__(self, opts, cp, dir='', tag_base=''):
 		"""
 		"""
 		self.__executable = string.strip(cp.get('fu-condor','qscan'))
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-		self.setupJob(tag_base,dir=dir,cp=cp,tag_base=tag_base)
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
 		self.setup_checkForDir()
 		self.setup_rm_lock()
 
@@ -232,29 +234,33 @@ fi
 # A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
 class followUpInspJob(inspiral.InspiralJob,FUJob):
 
-	def __init__(self,cp,dir='',type='plot'):
+	def __init__(self,cp,dir='', tag_base=''):
 
 		inspiral.InspiralJob.__init__(self,cp)
 
-		if type == 'head':
+		if tag_base == 'head':
 			self.set_executable(string.strip(cp.get('fu-condor','inspiral_head')))
-		self.name = 'followUpInspJob' + type
-		self.setupJob(self.name, dir=dir, cp=cp)
+		#self.name = 'followUpInspJob' + type
+
+		self.name = os.path.split(self.get_executable().rstrip('/'))[1]
+		self.setupJob(name=self.name, dir=dir, cp=cp, tag_base=tag_base)
 
 # JOB CLASS FOR PRODUCING A SKYMAP
 class skyMapJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	Generates sky map data
 	"""
-	def __init__(self, options, cp, dir='', tag_base='SKY_MAP'):
+	def __init__(self, options, cp, dir='', tag_base=''):
 		"""
 		"""
-		self.__prog__ = 'lalapps_skyMapJob'
+		#self.__prog__ = 'lalapps_skyMapJob'
 		self.__executable = string.strip(cp.get('fu-condor','lalapps_skymap'))
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,dir=dir, tag_base=tag_base)
+
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.setupJob(name=self.name,dir=dir, tag_base=tag_base)
 
 		self.ra_res = cp.get("fu-skymap", 'ra-res')
 		self.dec_res = cp.get("fu-skymap", 'dec-res')
@@ -265,15 +271,16 @@ class skyMapPlotJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	Plots the sky map output of lalapps_skymap
 	"""
-	def __init__(self, options, cp, dir='',tag_base='SKY_PLOT'):
+	def __init__(self, options, cp, dir='',tag_base=''):
 		"""
 		"""
-		self.__prog__ = 'pylal_skyPlotJob'
+		#self.__prog__ = 'pylal_skyPlotJob'
 		self.__executable = string.strip(cp.get('fu-condor','pylal_skyPlotJob'))
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,dir=dir,tag_base=tag_base)
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.setupJob(name=self.name,dir=dir,tag_base=tag_base)
 
 		self.ra_res = cp.get("fu-skymap", 'ra-res')
 		self.dec_res = cp.get("fu-skymap", 'dec-res')
@@ -284,27 +291,37 @@ class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	A followup plotting job for snr and chisq time series
 	"""
-	def __init__(self, options, cp, dir='', tag_base='PLOT_FOLLOWUP'):
+	def __init__(self, options, cp, dir='', tag_base=''):
 		"""
 		"""
-		self.__prog__ = 'plotSNRCHISQJob'
+		#self.__prog__ = 'plotSNRCHISQJob'
 		self.__executable = string.strip(cp.get('fu-condor','plotsnrchisq'))
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,tag_base=tag_base,dir=dir)
+
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.setupJob(name=self.name,tag_base=tag_base,dir=dir)
 
 class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
-	def __init__(self, config_file, dir='', name='datafind'):
+	def __init__(self, config_file, dir='', tag_base=''):
     
-		self.name = name
+		#self.name = name
     
 		# unfortunately the logs directory has to be created before we call LSCDataFindJob
-		try:
-			os.mkdir(self.name)
-			os.mkdir(self.name + '/logs')
-		except: pass
-		pipeline.LSCDataFindJob.__init__(self, self.name, self.name + '/logs', config_file)
+		#try:
+		#	os.mkdir(self.name)
+		#	os.mkdir(self.name + '/logs')
+		#except: pass
+
+		self.__executable = string.strip(config_file.get('condor','datafind'))
+
+		# MUST DO THIS FIRST SO THE LOG DIRECTORIES ARE MADE
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+
+		self.setupJob(name=self.name, tag_base=tag_base, dir=dir)
+
+		pipeline.LSCDataFindJob.__init__(self, self.relPath, self.relPath + '/logs', config_file)
 		self.setup_cacheconv(config_file)
     
 	def setup_cacheconv(self,cp):
@@ -328,16 +345,18 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 			     "dqflags":"followupQueryDQ.py"}
 		  }
 
-	def __init__(self, opts, cp, dir='', tag_base="DQFLAGS"):
+	def __init__(self, opts, cp, dir='', tag_base=""):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(findFlagsJob.defaults,cp)
-		self.__prog__ = 'findFlagsJob'
+		#self.__prog__ = 'findFlagsJob'
 		self.__executable = string.strip(cp.get('fu-condor','dqflags'))
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+
+		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 #The class responsible for checking for know veto flags
 class findVetosJob(pipeline.CondorDAGJob,FUJob):
@@ -349,16 +368,18 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
 		  "options":{"universe":"local",
 			     "vetoflags":"followupQueryDQ.py"}
 		  }
-	def __init__(self, opts,cp, dir='', tag_base="VETOS"):
+	def __init__(self, opts,cp, dir='', tag_base=""):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(findVetosJob.defaults,cp)
-		self.__prog__ = 'findVetosJob'
+		#self.__prog__ = 'findVetosJob'
 		self.__executable = string.strip(cp.get('fu-condor','vetoflags'))
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+
+		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 #The class responsible for running one type of parameter consistency check
 class effDRatioJob(pipeline.CondorDAGJob,FUJob):
@@ -370,16 +391,18 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 		  "options":{"universe":"local",
 			     "effDRatio":"followupRatioTest.py"}
 		  }
-	def __init__(self, opts, cp, dir='', tag_base="effDRatioTest"):
+	def __init__(self, opts, cp, dir='', tag_base=""):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(effDRatioJob.defaults,cp)
-		self.__prog__ = 'effDRatioTest'
+		#self.__prog__ = 'effDRatioTest'
 		self.__executable = string.strip(cp.get('fu-condor','effDRatio'))
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,tag_base=tag_base, dir=dir)
+
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 # Follow up chia job
 class followUpChiaJob(inspiral.ChiaJob,FUJob):
@@ -394,17 +417,19 @@ class followUpChiaJob(inspiral.ChiaJob,FUJob):
 		}
 	}
 
-	def __init__(self, options, cp, dir='', tag_base='CHIA'):
+	def __init__(self, options, cp, dir='', tag_base=''):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(followUpChiaJob.defaults,cp)
-		self.__prog__ = 'followUpChiaJob'
+		#self.__prog__ = 'followUpChiaJob'
 		self.__executable = string.strip(cp.get('condor','chia'))
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self._InspiralAnalysisNode__pad_data = 0
-		self.setupJob(self.__prog__,tag_base)
+
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 
 #############################################################################
@@ -465,7 +490,7 @@ The omega scan command line is
 		output_path = output+"/"+str(time)
 		self.add_var_arg("-o " + output_path)
 		
-		self.output_cache = lal.CacheEntry(ifo, "QSCAN", segments.segment(float(time), float(time)), "file://localhost/"+output_path)
+		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(float(time), float(time)), "file://localhost/"+output_path)
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("-f "+frame_cache)
 		
@@ -502,7 +527,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 				sys.exit(1)
 			self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
 
-		self.output_cache = lal.CacheEntry(ifo, "DATAFIND", segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
+		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
 
 		if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()==ifo):
 		    for node in p_nodes:
@@ -606,8 +631,8 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		self.add_var_opt("output-path",job.outputPath)
 		self.output_cache = []
-		self.output_cache.append(lal.CacheEntry(sngl.ifo, "INSPIRAL_"+self.__usertag, segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name))
-		self.output_cache.append(lal.CacheEntry(sngl.ifo, "INSPIRAL_"+self.__usertag, segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
 		
 		self.output_frame_file = self.output_file_name.replace(extension,'.gwf')
 
@@ -762,7 +787,7 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 		for ifo, sngl in coinc.sngl_inspiral_coh.items():
 			self.add_var_opt( "%s-channel-name" % (ifo.lower(),), "%s:CBC-CData_%d" % (ifo.upper(), int(sngl.row.event_id)) )
 
-		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), "SKYMAP", segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
 		# Add parents and put this node in the dag
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -796,7 +821,7 @@ A python code for plotting the sky map
 
 		self.output_file_name = skyMapNode.output_file_name.replace('.txt','.png')
 
-		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), "SKYMAP_PLOT", segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -980,7 +1005,10 @@ class create_default_config(object):
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
                 cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
-		
+		# SECTIONS TO SHUT UP WARNINGS
+		cp.add_section("inspiral")
+		cp.add_section("data")	 
+	
 		# DATAFIND SECTION
 		cp.add_section("datafind")
 

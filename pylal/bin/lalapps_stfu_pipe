@@ -475,11 +475,11 @@ trigs.topN()
 for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates)]:
 
 	# CONDOR JOB CLASSES
-	ht_data_find_job	= stfu_pipe.htDataFindJob(cp, dir=search)
-	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, name='qdatafind', dir=search)
-	qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search)
-	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, type='plot')
-	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,type='skymap')	
+	ht_data_find_job	= stfu_pipe.htDataFindJob(cp, dir=search, tag_base='datafind')
+	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, tag_base='qdatafind', dir=search)
+	qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, tag_base='plot')
+	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,tag_base='skymap')	
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
