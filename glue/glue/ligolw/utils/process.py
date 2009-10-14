@@ -36,7 +36,7 @@ import os
 import socket
 import StringIO
 import time
-import pwd
+
 
 from glue import gpstime
 from glue.ligolw import ligolw
@@ -57,6 +57,30 @@ __date__ = "$Date$"[7:-2]
 #
 # =============================================================================
 #
+
+
+def get_username():
+	"""
+	Try to retrieve the username from a variety of sources.  First the
+	environment variable LOGNAME is tried, if that is not set the
+	environment variable USERNAME is tried, if that is not set the
+	password database is consulted (only on Unix systems, if the import
+	of the pwd module succedes), finally if that fails KeyError is
+	raised.
+	"""
+	try:
+		return os.environ["LOGNAME"]
+	except KeyError:
+		pass
+	try:
+		return os.environ["USERNAME"]
+	except KeyError:
+		pass
+	try:
+		import pwd
+		return pwd.getpwuid(os.getuid())[0]
+	except ImportError, KeyError:
+		raise KeyError
 
 
 def append_process(xmldoc, program = None, version = None, cvs_repository = None, cvs_entry_time = None, comment = None, is_online = False, jobid = 0, domain = None, ifos = None):
@@ -93,7 +117,10 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	process.comment = comment
 	process.is_online = int(is_online)
 	process.node = socket.gethostname()
-	process.username = pwd.getpwuid(os.getuid())[0]
+	try:
+		process.username = get_username()
+	except KeyError:
+		process.username = None
 	process.unix_procid = os.getpid()
 	process.start_time = gpstime.GpsSecondsFromPyUTC(time.time())
 	process.end_time = None
