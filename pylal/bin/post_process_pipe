@@ -984,7 +984,7 @@ for cat in cats:
     print >> sys.stderr, "\tprocessing injection %2.f %%\r" % (float(injnum+1) / len(injcache) * 100.00,),
 
     type = "_".join(inj.description.split("_")[2:])
-    tcache = parse_cache_for_thinca_to_coinc('THINCA_SECOND_', type, cat, timestr, INJCACHE, inspiral_second_list,num=250)
+    tcache = parse_cache_for_thinca_to_coinc('THINCA_SECOND_', type, cat, timestr, INJCACHE, inspiral_second_list,num=250, slide=False)
     url = inj.url
 
     for c in tcache.out:
