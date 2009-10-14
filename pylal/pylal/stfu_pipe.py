@@ -901,23 +901,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		# ADD A PROCESS TABLE
 		process_params_table = lsctables.New(lsctables.ProcessParamsTable)
 		xmldoc.childNodes[-1].appendChild(process_params_table)
-#		row = process_params_table.RowType()
-#		process_id = row.process_id = process_params_table.get_next_id()
-#		row.program = "omega_to_coinc"
-#		row.version = None	
-#		row.cvs_repository = None
-#		row.cvs_entry_time = None
-#		row.comment = "trigbank made by stfu pipeline"
-#		row.is_online = None
-#		row.node = None
-#		row.username = None
-#		row.unix_procid = None
-#		row.start_time = None
-#		row.end_time = None
-#		row.jobid = None
-#		row.domain = None
-#		row.ifos = ifos
-#		process_params_table.append(row)
 
 		# ADD A SEARCH SUMMARY TABLE
 		search_summary_table = lsctables.New(lsctables.SearchSummaryTable)
