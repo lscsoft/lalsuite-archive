@@ -209,7 +209,7 @@ class sqlite_job(pipeline.CondorDAGJob):
     self.__executable = string.strip(cp.get('condor','sqlite3'))
     self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.add_condor_cmd("input","$(macroinput)")
+    #self.add_condor_cmd("input","$(macroinput)")
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
@@ -459,8 +459,9 @@ class sqlite_node(pipeline.CondorDAGNode):
   def __init__(self, job, dag, database, sqlfile, p_node=[]):
 
     pipeline.CondorDAGNode.__init__(self,job)
-    self.add_file_arg(database)
-    self.add_macro("macroinput", sqlfile)
+    #self.add_file_arg(database)
+    #self.add_macro("macroinput", sqlfile)
+    self.add_var_arg(database + " "  + " < " + sqlfile)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
