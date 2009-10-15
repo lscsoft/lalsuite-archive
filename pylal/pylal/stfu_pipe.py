@@ -450,13 +450,13 @@ A followup plotting job for coherent inspiral search and null stat timeseries
 	def __init__(self, options, cp, dir, tag_base=''):
 		"""
 		"""
-		if not(verifyCP(cp,self.defaults)): modifyCP(cp,self.defaults)
-		self.__executable = string.strip(cp.get('condor','plotchiatimeseries'))
+		#if not(verifyCP(cp,self.defaults)): modifyCP(cp,self.defaults)
+		self.__executable = string.strip(cp.get('fu-condor','plotchiatimeseries'))
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.add_condor_cmd('getenv','True')
-		self.setupJob(self.__prog__,tag_base)
+		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 
 #############################################################################
@@ -871,6 +871,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
+                user_tag = "CHIA_"+str(coinc.time)
+
 		# These come from inspiral process param tables
 		self.add_var_opt( "segment-length", sngl.get_proc_param('segment-length') )
 		self.add_var_opt( "dynamic-range-exponent",sngl.get_proc_param('dynamic-range-exponent') )
@@ -881,7 +883,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
 		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
-		self.add_var_opt("user-tag","CHIA_"+str(coinc.time))
+		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
 		self.add_var_opt("write-events","")
 		self.add_var_opt("write-compress","")
@@ -907,6 +909,17 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
 		self.add_var_opt("gps-start-time",self.start)
 		self.add_var_opt("gps-end-time",self.end)
+
+		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+
+ 		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+
+		self.output_cache = []
+
+		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name)))
+
+		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_frame_file)))
+
 
                 bankname = 'trig_bank/%s-COHBANK_FOLLOWUP_%s-%d-%d.xml.gz' % (coinc.instruments.replace(',',''), str(coinc.time), int(coinc.time) - int(hLengthAnalyzed), 2 * int(hLengthAnalyzed))
 		bankFile = self.write_trigbank(coinc, bankname)
@@ -993,6 +1006,43 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
                 for node in p_nodes: self.add_parent(node)
                 dag.add_node(self)
 		#if not opts.disable_dag_categories: self.set_category(job.name.lower())
+
+
+##############################################################################
+# node class for plotting coherent inspiral search and null stat timeseries
+
+class plotChiaNode(pipeline.CondorDAGNode, FUNode):
+	"""
+Runs an instance of a plotChia followup job
+	"""
+
+	def __init__(self, dag, job, cp, opts, coinc, chia_node, insp_node_dict, p_nodes=[]):
+	#def __init__(self,job,chiaXmlFilePath,trig,cohireNode,dag,page,opts,cp):
+		"""
+job = A CondorDAGJob that can run an instance of plotChiaJob followup.
+		"""
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.output_file_name = ""
+		user_tag = "PLOT_CHIA_" + str(coinc.time)
+		self.add_var_opt("chiaXmlFile",chia_node.output_file_name)
+		self.add_var_opt("gps-start-time",int(coinc.time-1))
+		self.add_var_opt("gps-end-time",int(coinc.time+1))
+		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))
+		self.add_var_opt("user-tag",user_tag)
+		self.add_var_opt("ifo-tag","".join(coinc.ifos.split(",")))
+		self.add_var_opt("ifo-times","".join(coinc.instruments.split(",")))
+		self.setupPlotNode(job)
+
+		for node in p_nodes: self.add_parent(node)
+		dag.add_node(self)
+
+		for ifo, insp in insp_node_dict.items():
+			self.add_var_arg("--"+ifo.upper()+"-framefile "+ insp.output_frame_file)
+
+		#if not opts.disable_dag_categories: self.set_category(job.name.lower())
+
+
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
@@ -1104,6 +1154,7 @@ class create_default_config(object):
 		cp.set('chia','ra-step', "6")
 		cp.set('chia','dec-step', "6")
 		cp.set('chia','numCohTrigs', "2000")
+		cp.set('chia', 'sample-rate', "4096")
 
 		# if we have an ini file override the options
 		if config: 
