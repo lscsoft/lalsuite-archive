@@ -925,8 +925,11 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		bankFile = self.write_trigbank(coinc, bankname)
 		self.set_bank(bankFile)
 
+		arg_str = ''
 		for ifo,sngl in inspiral_node_dict.items():
-			self.add_var_opt(ifo.upper()+"-framefile", sngl.output_frame_file)
+			arg_str += " --" + ifo.upper()+"-framefile " + sngl.output_frame_file
+
+		self.add_var_arg(arg_str)
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -1030,9 +1033,15 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("gps-end-time",int(coinc.time+1))
 		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))
 		self.add_var_opt("user-tag",user_tag)
-		self.add_var_opt("ifo-tag","".join(coinc.ifos.split(",")))
-		self.add_var_opt("ifo-times","".join(coinc.instruments.split(",")))
+		ifos = "".join(coinc.ifos.split(","))
+		instruments = "".join(coinc.instruments.split(","))
+		self.add_var_opt("ifo-tag",ifos)
+		self.add_var_opt("ifo-times",instruments)
 		self.setupPlotNode(job)
+
+		self.output_file_name = "%s-plotchiatimeseries_%s_%s-%d-%d.cache" % ( instruments, ifos, "PLOT_CHIA_" + str(coinc.time), int(coinc.time-1), int(coinc.time+1) - int(coinc.time-1) )
+
+		self.output_cache = lal.CacheEntry(instruments, job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)

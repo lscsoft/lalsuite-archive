@@ -356,9 +356,9 @@ WHERE
                         time_slide.offset != 0
         )
 ORDER BY
-        ?
+        combined_far
 LIMIT ?
-		""", (stat, self.num) )):
+		""", (self.num,) )):
 			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.playground_candidates.append(Coinc(row, contents))
 
@@ -387,9 +387,9 @@ WHERE
                         time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
         )
 ORDER BY
-        ?
+        combined_far
 LIMIT ?
-		""", (stat, self.num) )):
+		""", (self.num,) )):
 			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.candidates.append(Coinc(row, contents))
 
