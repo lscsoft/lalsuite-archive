@@ -62,7 +62,6 @@ static PyObject *pylal_XLALCOMPLEX16TimeFreqFFT(PyObject *self, PyObject *args)
 
 	if(XLALCOMPLEX16TimeFreqFFT(fser->series, tser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
-		XLALClearErrno();
 		return NULL;
 	}
 
@@ -82,7 +81,6 @@ static PyObject *pylal_XLALCOMPLEX16FreqTimeFFT(PyObject *self, PyObject *args)
 
 	if(XLALCOMPLEX16FreqTimeFFT(tser->series, fser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
-		XLALClearErrno();
 		return NULL;
 	}
 
@@ -102,7 +100,6 @@ static PyObject *pylal_XLALREAL8TimeFreqFFT(PyObject *self, PyObject *args)
 
 	if(XLALREAL8TimeFreqFFT(fser->series, tser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
-		XLALClearErrno();
 		return NULL;
 	}
 
@@ -122,7 +119,6 @@ static PyObject *pylal_XLALREAL8FreqTimeFFT(PyObject *self, PyObject *args)
 
 	if(XLALREAL8FreqTimeFFT(tser->series, fser->series, plan->plan)) {
 		pylal_set_exception_from_xlalerrno();
-		XLALClearErrno();
 		return NULL;
 	}
 
@@ -141,7 +137,6 @@ static PyObject *pylal_XLALWhitenCOMPLEX16FrequencySeries(PyObject *self, PyObje
 
 	if(!XLALWhitenCOMPLEX16FrequencySeries(fseries->series, psd->series)) {
 		pylal_set_exception_from_xlalerrno();
-		XLALClearErrno();
 		return NULL;
 	}
 

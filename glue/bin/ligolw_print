@@ -58,7 +58,7 @@ from glue.ligolw import utils
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [url ...]",
 		description = "Prints the contents of table elements from one or more LIGO Light Weight XML files to stdout in delimited ASCII format.  In addition to regular files, the program can read from many common URLs such as http:// and ftp://.  Any filename or URL that ends in \".gz\" is assumed to be gzip-compressed, and will be decompressed on input.  If no filenames or URLs are given, then input is read from stdin."
 	)

@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2008  Kipp C. Cannon, Drew G. Keppel
+# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,6 +32,7 @@ import sys
 from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
@@ -45,9 +44,9 @@ except NameError:
 	from glue.iterutils import all as all
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
