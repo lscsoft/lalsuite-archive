@@ -517,6 +517,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			# INSPIRAL NODE (for plots)
 			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 
+			plot_node = stfu_pipe.plotSNRCHISQNode(dag, plot_job, cp, options, sngl_inspiral, coinc, insp_node, p_nodes=[insp_node])
+
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
 		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
 			# VERBOSITY

@@ -432,6 +432,33 @@ class followUpChiaJob(inspiral.ChiaJob,FUJob):
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 
+##############################################################################
+# jobs class for plotting coherent inspiral search and null stat timeseries
+
+class plotChiaJob(pipeline.CondorDAGJob,FUJob):
+	"""
+A followup plotting job for coherent inspiral search and null stat timeseries
+	"""
+	defaults={
+		"section":"condor",
+		"options":{
+		"universe":"vanilla",
+		"plotchiatimeseries":"plotchiatimeseries"
+		}
+	}
+
+	def __init__(self, options, cp, dir, tag_base=''):
+		"""
+		"""
+		if not(verifyCP(cp,self.defaults)): modifyCP(cp,self.defaults)
+		self.__executable = string.strip(cp.get('condor','plotchiatimeseries'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(self.__prog__,tag_base)
+
+
 #############################################################################
 ###### CONDOR NODE CLASSES ##################################################
 #############################################################################
@@ -927,7 +954,45 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		
 		utils.write_filename(xmldoc, name, verbose=False, gz = True)
 		return name
-		
+
+##############################################################################
+# node class for plot snr chisq
+
+class plotSNRCHISQNode(pipeline.CondorDAGNode,FUNode):
+	"""
+Runs an instance of a plotSNRCHISQ followup job
+	"""
+	def __init__(self, dag, job, cp, opts, sngl, coinc, sngl_node, p_nodes=[]):
+	#def __init__(self,job,ifo,fileName,trig,page,dag,inspiralNode,opts,ifoString=None):
+		"""
+job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
+		"""
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.output_file_name = ""
+		self.add_var_opt("frame-file",sngl_node.output_frame_file)
+		self.add_var_opt("inspiral-xml-file",sngl_node.output_file_name)
+
+		duration = 2.0 # width of the time series to be displayed
+		self.add_var_opt("plot-width",duration)
+
+		self.add_var_opt("gps",sngl.time)
+		self.add_var_opt("gps-start-time",sngl.time-duration*.5)
+		self.add_var_opt("gps-end-time",sngl.time+duration*.5)
+
+		self.add_var_opt("ifo-times", coinc.instruments)
+		self.add_var_opt("ifo-tag", sngl.ifo)
+
+		self.add_var_opt("user-tag","FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time))
+
+		self.output_file_name = "%s-plotsnrchisq_pipe_%s_%s-%d-%d.cache" % ( coinc.instruments, sngl.ifo, "FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time), int(sngl.time-duration*.5), int(sngl.time+duration*.5) - int(sngl.time-duration*.5) )
+
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+
+		self.setupPlotNode(job)
+
+                for node in p_nodes: self.add_parent(node)
+                dag.add_node(self)
+		#if not opts.disable_dag_categories: self.set_category(job.name.lower())
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
@@ -1003,6 +1068,7 @@ class create_default_config(object):
 		cp.set("fu-condor","datafind",self.which("ligo_data_find"))
 		cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
 		cp.set("fu-condor","chia", self.which("lalapps_coherent_inspiral"))
+		cp.set("fu-condor","plotchiatimeseries", self.which("plotchiatimeseries"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
