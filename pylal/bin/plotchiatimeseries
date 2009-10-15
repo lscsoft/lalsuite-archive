@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 """
 Time-series plots of coherent CBC statistics and null-statistics.
 
@@ -29,13 +29,15 @@ from pylab import *
 # sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
-from pylal.fu_utils import *
 from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import ligolw
+#from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import ligolw
 from glue.ligolw import utils
+#from glue.ligolw import ligolw
+#from pylal.fu_utils import *
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import MultiInspiralUtils
@@ -73,6 +75,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     opts.suffix = "-" + str(int(gpsStart)) + "-" + str(duration)
 
     maxSNR = 0.0
+    maxIndex = 0
     for row_index,row in enumerate(multiInspiralTable):
       eventID = int(row.event_id)
       if not str(eventID) in user_tag:
@@ -183,7 +186,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     timePoints = segLenSec * sampleRate
 
     cohNetSNRFrameName = 'Coherent_SNR_' + str(eventID)
-    cohNetSNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+    cohNetSNRFrameFile = chiaXmlFile.replace('.xml.gz','.gwf')
     cohNetSNR_tuple = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,0)
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
@@ -670,7 +673,8 @@ opts.version = git_version.verbose_msg.replace('\n','<br>')
 extension = opts.chiaXmlFile.split('.')[-1]
 if extension == 'gz': gz = True
 else: gz = False
-doc = utils.load_filename(opts.chiaXmlFile,None,gz)
+print opts.chiaXmlFile,gz
+doc = utils.load_filename(opts.chiaXmlFile,verbose=False, gz=gz, xmldoc=None, contenthandler=None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 multiInspiralTable = table.getTablesByName(doc,lsctables.MultiInspiralTable.tableName)
 if len(multiInspiralTable) == 0:
