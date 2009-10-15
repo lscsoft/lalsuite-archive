@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,10 +32,6 @@ class for use with SAX2 parsers, and a convenience function for
 constructing a parser.
 """
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
-
 
 import re
 import sys
@@ -46,7 +40,13 @@ from xml.sax.saxutils import escape as xmlescape
 from xml.sax.saxutils import unescape as xmlunescape
 
 
-import types as ligolwtypes
+from glue import git_version
+from glue.ligolw import types as ligolwtypes
+
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -238,7 +238,17 @@ class Element(object):
 		# modifies its internal data.  probably not a good idea,
 		# but I don't know how else to edit an attribute because
 		# the stupid things don't export a method to do it.
-		self.attributes._attrs[attrname] = str(value)
+		self.attributes._attrs[attrname] = unicode(value)
+
+	def removeAttribute(self, attrname):
+		# cafeful:  this digs inside an AttributesImpl object and
+		# modifies its internal data.  probably not a good idea,
+		# but I don't know how else to edit an attribute because
+		# the stupid things don't export a method to do it.
+		try:
+			del self.attributes._attrs[attrname]
+		except KeyError:
+			pass
 
 	def appendData(self, content):
 		"""
@@ -323,6 +333,42 @@ class Param(Element):
 	tagName = u"Param"
 	validchildren = [u"Comment"]
 	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
+
+	def get_unit(self):
+		"""
+		Retrieve the value of the "Unit" attribute.
+		"""
+		return self.getAttribute(u"Unit")
+
+	def set_unit(self, value):
+		"""
+		Set the value of the "Unit" attribute.
+		"""
+		self.setAttribute(u"Unit", unicode(value))
+
+	def del_unit(self):
+		"""
+		Remove the "Unit" attribute.
+		"""
+		self.removeAttribute(u"Unit")
+
+	def get_dataunit(self):
+		"""
+		Retrieve the value of the "DataUnit" attribute.
+		"""
+		return self.getAttribute(u"DataUnit")
+
+	def set_dataunit(self, value):
+		"""
+		Set the value of the "DataUnit" attribute.
+		"""
+		self.setAttribute(u"DataUnit", unicode(value))
+
+	def del_dataunit(self):
+		"""
+		Remove the "DataUnit" attribute.
+		"""
+		self.removeAttribute(u"DataUnit")
 
 
 class Table(Element):
@@ -486,6 +532,14 @@ class Time(Element):
 		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
 			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
 		Element.__init__(self, attrs)
+
+	def write(self, file = sys.stdout, indent = u""):
+		if self.pcdata:
+			file.write(self.start_tag(indent))
+			file.write(xmlescape(self.pcdata))
+			file.write(self.end_tag(u"") + u"\n")
+		else:
+			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
 
 
 class Document(Element):

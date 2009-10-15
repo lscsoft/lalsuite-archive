@@ -303,7 +303,7 @@ if opts.verbose:
 background = sqlutils.Summaries()
 
 # get information about all rows in the experiment summary table
-sqlquery = ''.join(["""
+sqlquery = """
     SELECT
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
@@ -311,12 +311,11 @@ sqlquery = ''.join(["""
         experiment_summary.datatype
     FROM
         experiment_summary
-    WHERE
-        experiment_summary.datatype != "simulation" """])
+    """
 for eid, esid, duration, datatype in connection.cursor().execute( sqlquery ):
     background.append_duration(eid, esid, duration)
     if datatype != "slide":
-        background.append_zero_lag_id( eid, esid, datatype )
+        background.append_zero_lag_id( eid, esid )
 
 # calculate the background duration for each experiment_summary_id 
 background.calc_bkg_durs()
@@ -327,7 +326,7 @@ if opts.group_by_ifos:
 else:
   ifo_grouping = '"ALL_IFOS"'
 
-# get all the non-injection triggers
+# get all the triggers
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
@@ -343,8 +342,7 @@ sqlquery = ''.join([ """
         experiment_summary, experiment_map ON (
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
             AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
-    WHERE 
-        experiment_summary.datatype != "simulation" """])
+    """])
 
 if opts.debug:
     import time
@@ -391,8 +389,7 @@ sqlquery = ''.join(["""
             FROM 
                 experiment_summary, experiment_map
             WHERE
-                experiment_summary.datatype != "simulation"
-                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 if opts.debug:
     print >> sys.stderr, sqlquery

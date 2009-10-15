@@ -332,6 +332,9 @@ struct gengetopt_args_info
   int tail_veto_arg;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum (default='10').  */
   char * tail_veto_orig;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum original value given at command line.  */
   const char *tail_veto_help; /**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum help description.  */
+  int cache_granularity_arg;	/**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin (default='-1').  */
+  char * cache_granularity_orig;	/**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin original value given at command line.  */
+  const char *cache_granularity_help; /**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -435,6 +438,7 @@ struct gengetopt_args_info
   unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */
   unsigned int half_window_given ;	/**< @brief Whether half-window was given.  */
   unsigned int tail_veto_given ;	/**< @brief Whether tail-veto was given.  */
+  unsigned int cache_granularity_given ;	/**< @brief Whether cache-granularity was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;

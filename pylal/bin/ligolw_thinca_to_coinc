@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -56,15 +54,16 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -114,7 +113,7 @@ del lsctables.SnglInspiralTable.updateKeyMapping
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] --output-prefix filename",
 		description = "Converts thinca output files to coinc tables format.  Files whose names end in \".gz\" are assumed to be gzip-compressed.  If an ihope cache is provided then all second-stage thinca files found in the cache will be processed, grouped by run tag.  Otherwise, one or both of a zero-lag or time-slide thinca output file must be provided."
 	)
@@ -234,11 +233,14 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 		print >>sys.stderr, "retrieving lalapps_inspiral metadata ..."
 
 	#
-	# choose the metadata URLs for this document
+	# choose the metadata URLs for this document.  because the input
+	# includes search_summ_vars rows from both the slides and
+	# non-slides thinca jobs, each url gets listed twice so we use
+	# set() to uniquify the list.
 	#
 
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
-	urls = sorted(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file")
+	urls = sorted(set(metadata_cache[row.string] for row in table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName) if row.process_id in process_ids and row.name == "input_file"))
 
 	#
 	# insert the metadata from the URLs into xmldoc, remapping IDs to
@@ -889,9 +891,11 @@ def retrieve_ring_boundaries(xmldoc):
 	#
 	# check that the (sorted) rings are non-intersecting
 	#
+	# FIXME:  shouldn't there only be exactly 1 ring?
+	#
 
 	for i in range(len(rings) - 1):
-		if rings[i].interesects(rings[i + 1]):
+		if rings[i].intersects(rings[i + 1]):
 			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
 
 	#
@@ -918,12 +922,6 @@ def get_playground_segments(all_data_segments):
 #
 # For sngl_inspiral <--> sngl_inspiral coincidences
 #
-
-
-def check_for_thinca_id_overflow(event):
-	a, b, c = event.get_id_parts()
-	if a >= 100000000 and c == 99999:
-		raise ValueError, "found sngl_inspiral with ID ending in 99999 (\"%s\"):  overflow occured in lalapps_thinca's ID assignment, time slide indexes are corrupted" % str(event.event_id)
 
 
 def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, verbose = False):
@@ -1019,7 +1017,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
-				check_for_thinca_id_overflow(event)
 				event.event_id = sngl_inspiral_table.get_next_id()
 			continue
 
@@ -1052,7 +1049,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		#
 
 		for event in events:
-			check_for_thinca_id_overflow(event)
 			coincmap = coinc_event_map_table.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id = sngl_inspiral_table.get_next_id()

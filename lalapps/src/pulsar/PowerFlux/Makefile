@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.33-64
+VERSION=1.4.35-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -13,7 +13,7 @@ OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
 OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 #OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
-OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
+OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -msse3 -U_FORTIFY_SOURCE
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC
 CC=gcc $(CFLAGS)
@@ -25,7 +25,7 @@ PYTHON_OBJS=$(COMMON_OBJS) candidates.o fine_grid.o
 
 OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
-OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o
+OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o
 
 FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
 
@@ -397,10 +397,11 @@ upload: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.a: powerflux-condor powerflux-mt powerflux-condor2
-	globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-	globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
+	#globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	#globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	#globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	globus-scp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	globus-scp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
@@ -416,10 +417,11 @@ upload.l: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
-upload.c: powerflux-condor powerflux-mt powerflux-condor2
+upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	globus-scp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
+	globus-scp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.m: powerflux-condor powerflux-mt

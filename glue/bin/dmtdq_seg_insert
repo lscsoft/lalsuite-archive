@@ -29,6 +29,7 @@ import exceptions
 import re
 
 try:
+  from glue import LDBDWClient
   from glue import LDBDClient
   from glue import gsiserverutils
 except ImportError, e:
@@ -102,6 +103,26 @@ if not hostPortString:
   print >>sys.stderr, "Enter 'dmtdq_seg_insert --help' for usage"
   sys.exit(1)
 
+def openconn(host,port,identity):
+  if port != 443:
+    try:
+      myClient = LDBDClient.LDBDClient(host, port, identity)
+
+    except Exception, e:
+      print >>sys.stderr, \
+        "Unable to connect to LDBDServer %s:%d" % (host, port)
+      if gsiserverutils.checkCredentials():
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Enter '%s --help' for usage" % sys.argv[0]
+      sys.exit(1)
+  else:
+    try:
+      myClient = LDBDWClient.LDBDClient(host, port, identity)
+    except Exception,e:
+      print >>sys.stderr, "Unable to connect to LDBDServer %s:%d, %s" % (host, port, str(e))
+      sys.exit(1)
+  return myClient
+
 if hostPortString.find(':') < 0:
   # no port specified
   host = hostPortString
@@ -118,7 +139,7 @@ if not ping and not infile:
 # open connection to LDBD Server
 identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 try:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
+  myClient = openconn(host, port, identity)
 
 except Exception, e:
   print >>sys.stderr, \

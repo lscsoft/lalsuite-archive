@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -45,12 +43,13 @@ from scipy.signal import signaltools
 
 from glue import iterutils
 from glue import segments
+from pylal import git_version
 from pylal import window
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -617,6 +616,9 @@ class BinnedRatios(object):
 		self.numerator = BinnedArray(bins, dtype = dtype)
 		self.denominator = BinnedArray(bins, dtype = dtype)
 
+	def __getitem__(self, coords):
+		return self.numerator[coords] / self.denominator[coords]
+
 	def bins(self):
 		return self.numerator.bins
 
@@ -1013,7 +1015,7 @@ def binned_array_from_xml(xml, name):
 	return a new rate.BinnedArray object from the data contained
 	therein.
 	"""
-	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
 	try:
 		xml, = xml
 	except ValueError:
@@ -1044,7 +1046,7 @@ def binned_ratios_from_xml(xml, name):
 	return a new rate.BinnedRatios object from the data contained
 	therein.
 	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
+	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedratios" % name]
 	ratios = BinnedRatios(NDBins())
 	ratios.numerator = binned_array_from_xml(xml, u"numerator")
 	ratios.denominator = binned_array_from_xml(xml, u"denominator")

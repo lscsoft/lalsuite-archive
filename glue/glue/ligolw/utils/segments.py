@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2008  Kipp C. Cannon
+# Copyright (C) 2008  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,6 +29,7 @@ Ask Kipp to document this!
 """
 
 
+from glue import git_version
 from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
@@ -39,9 +38,9 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -288,6 +287,26 @@ def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
 	entry's metadata.
 	"""
 	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
+
+
+def has_segment_tables(xmldoc, name = None):
+	"""
+	Return True if the document contains a complete set of segment
+	tables.  Returns False otherwise.  If name is given and not None
+	then the return value is True only if the document's segment
+	tables, if present, contain a segment list by that name.
+	"""
+	try:
+		def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+	except ValueError:
+		return False
+	try:
+		table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+	except ValueError:
+		return False
+	if name is not None and name not in set(row.name for row in def_table):
+		return False
+	return True
 
 
 def segmenttable_get_by_name(xmldoc, name):

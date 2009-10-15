@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2008  Kipp C. Cannon, Drew G. Keppel
+# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,10 +32,11 @@ import sys
 from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
 	all
 except NameError:
@@ -45,9 +44,9 @@ except NameError:
 	from glue.iterutils import all as all
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -125,7 +124,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, vetoes_name = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -137,6 +136,8 @@ def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None,
 		params += [(u"--force", None, None)]
 	if save_small_coincs is not None:
 		params += [(u"--save-small-coincs", None, None)]
+	if vetoes_name is not None:
+		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -168,7 +169,7 @@ RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, d
 
 
 class RingdownCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc):
+	def __init__(self, xmldoc, vetoes = None, program = u"ring"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
@@ -187,6 +188,14 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 			self.coinc_ringdown_table = lsctables.New(lsctables.CoincRingdownTable)
 			xmldoc.childNodes[0].appendChild(self.coinc_ringdown_table)
 
+		#
+		# extract the coalesced out segment lists from lalapps_ring
+		#
+
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		if vetoes is not None:
+			self.seglists -= vetoes
+
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		#
 		# populate the coinc_event and coinc_event_map tables
@@ -194,30 +203,46 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
 
-		# FIXME:  set the instruments attribute
-
 		#
 		# populate the coinc_ringdown table:
 		#
-		# - start_time is the start time of the first trigger in
-		#   alphabetical order by instrument (!?) time-shifted
-		#   according to the coinc's offset vector
+		# - start_time is the SNR-weighted mean of the start times
+		# - frequency and quality are the SNR-weighted means of the
+		#   frequencies and qualities
 		# - snr is root-sum-square of SNRs
 		# - false-alarm rate is blank
 		#
-
-		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 		coinc_ringdown = self.coinc_ringdown_table.RowType()
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
+		# do time arithmetic using floats relative to epoch
 		coinc_ringdown.set_start(events[0].get_start() + sum(event.snr * float(event.get_start() - events[0].get_start()) for event in events) / sum(event.snr for event in events))
 		coinc_ringdown.set_ifos(event.ifo for event in events)
-		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
 		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
 		self.coinc_ringdown_table.append(coinc_ringdown)
+
+		#
+		# record the instruments that were on at the time of the
+		# coinc.  note that the start time of the coinc must be
+		# unslid to compare with the instrument segment lists
+		#
+
+		tstart = coinc_ringdown.get_start()
+		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+
+		#
+		# save memory by re-using strings
+		#
+
+		coinc.instruments = self.uniquifier.setdefault(coinc.instruments, coinc.instruments)
+		coinc_ringdown.ifos = self.uniquifier.setdefault(coinc_ringdown.ifos, coinc_ringdown.ifos)
+
+		#
+		# done
+		#
 
 		return coinc
 
@@ -357,6 +382,7 @@ def ligolw_rinca(
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
 	small_coincs = False,
+	veto_segments = None,
 	verbose = False
 ):
 	#
@@ -365,16 +391,20 @@ def ligolw_rinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc)
+	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglRingdownTable.tableName))
 
 	#
 	# build the event list accessors, populated with events from those
-	# processes that can participate in a coincidence
+	# processes that can participate in a coincidence.  apply vetoes by
+	# removing events from the lists that fall in vetoed segments
 	#
 
 	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglRingdownTable.tableName)
+	if veto_segments is not None:
+		for eventlist in eventlists.values():
+			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_start() not in veto_segments[event.ifo]), eventlist)
 
 	#
 	# set the \Delta t parameter on all the event lists
@@ -397,7 +427,7 @@ def ligolw_rinca(
 	# construct offset vector assembly graph
 	#
 
-	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.get_time_slides(), verbose = verbose)
+	time_slide_graph = snglcoinc.TimeSlideGraph(coinc_tables.time_slide_index, verbose = verbose)
 
 	#
 	# loop over the items in time_slide_graph.head, producing all of

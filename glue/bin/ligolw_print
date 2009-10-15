@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -33,7 +31,7 @@ Print things from LIGO LW XML files.  Inspired by lwtprint from LIGOTools.
 """
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -60,7 +58,7 @@ from glue.ligolw import utils
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [url ...]",
 		description = "Prints the contents of table elements from one or more LIGO Light Weight XML files to stdout in delimited ASCII format.  In addition to regular files, the program can read from many common URLs such as http:// and ftp://.  Any filename or URL that ends in \".gz\" is assumed to be gzip-compressed, and will be decompressed on input.  If no filenames or URLs are given, then input is read from stdin."
 	)
@@ -128,9 +126,6 @@ def ContentHandler(xmldoc):
 	return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
 
 
-utils.ContentHandler = ContentHandler
-
-
 #
 # =============================================================================
 #
@@ -194,12 +189,21 @@ if options.constrain_lsc_tables:
 
 
 #
+# If specific columns have been requested, don't load any others.
+#
+
+
+if options.column is not None:
+	table.Table.loadcolumns = set(options.column)
+
+
+#
 # Loop over input URLs
 #
 
 
 for url in urls:
-	xmldoc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin").endswith(".gz"))
+	xmldoc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin").endswith(".gz"), contenthandler = ContentHandler)
 	table.InterningRowBuilder.strings.clear()
 	for elem in ligolw.WalkChildren(xmldoc):
 		if elem.tagName == ligolw.Table.tagName:

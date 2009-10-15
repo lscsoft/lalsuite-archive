@@ -1,4 +1,3 @@
-#!/usr/bin/env @PYTHONPROG@
 """
 followup utilities
 
@@ -17,9 +16,10 @@ import sys
 import os, shutil
 import urllib
 try:
-  import sqlite3 as sqlite
+  import sqlite3
 except ImportError:
-  import sqlite
+  # pre 2.5.x
+  from pysqlite2 import dbapi2 as sqlite3
 
 from subprocess import *
 import copy
@@ -50,6 +50,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw import dbtables
 from pylal import CoincInspiralUtils
 from glue import iterutils
 from glue import pipeline
@@ -60,6 +61,10 @@ from lalapps import inspiralutils
 from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
 from pylal.xlal import date as xlaldate
+#Part of bandaid
+from xml import sax
+from pylal import db_thinca_rings
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -300,6 +305,10 @@ class getCache(UserDict):
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
       except:
         print "couldn't get inspiral process params for " + str(trig.eventID)
+        print "gpsTime:",trig.gpsTime
+        print "wildType:",wildType
+        print "ifoTag:",trig.ifoTag
+        print "ifolist_in_coinc:",trig.ifolist_in_coinc
         inspiral_process_params = []
       return inspiral_process_params
     else:
@@ -315,30 +324,48 @@ class getCache(UserDict):
       return inspiral_process_params, sngl
 
   def readTriggerFiles(self,cp,opts):
-   
-    if not self.cache or self.triggerTag == "":
-      xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
-      triggerList = glob.glob(xml_glob) 
+    #Patch CVT 
+    numtrigs=0
+    if cp.has_option('followup-triggers','sqlite-triggers'):
+      sqliteTriggerFile=cp.get('followup-triggers','sqlite-triggers')
+      if cp.has_option('followup-triggers','num-trigs'):
+        numtrigs=cp.get('followup-triggers','num-trigs')
+      else:
+        numtrigs=100
+      excludeTags=""
+      found, coincs, search = _bandaid_(sqliteTriggerFile,numtrigs,getstatistic('far',"",""),excludeTags)
     else:
-      triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
-      triggerList = self.getListFromCache(triggerCache)
+      if not self.cache or self.triggerTag == "":
+        #If using multiple XML files (CVT)
+        xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
+        triggerList = glob.glob(xml_glob) 
+      else:
+        #Search for XML matching string self.triggerTag (CVT)
+        triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
+        triggerList = self.getListFromCache(triggerCache)
+        #Variable triggerList is a list of XML files to search(CVT)
 
-    # if the option "--convert-eventid" is called, a copy of the xml file 
-    # is made under LOCAL_XML_COPY, and the event_id is converted
-    # from int_8s to ilwd:char
-    if opts.convert_eventid:
-      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
-    elif opts.create_localcopy:
-      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
-      
-    numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
-    statistic =  string.strip(cp.get('followup-triggers','statistic'))
-    bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
-    blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    if cp.has_option('followup-triggers','exclude-tags'):
-      excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
-    else: excludedTags = None
-    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
+      # if the option "--convert-eventid" is called, a copy of the xml file 
+      # is made under LOCAL_XML_COPY, and the event_id is converted
+      # from int_8s to ilwd:char
+      if opts.convert_eventid:
+        triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
+      elif opts.create_localcopy:
+        triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
+
+      numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
+      statistic =  string.strip(cp.get('followup-triggers','statistic'))
+      bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
+      blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
+      #triggerList 
+      if cp.has_option('followup-triggers','exclude-tags'):
+        excludedTags = string.strip(cp.get('followup-triggers','exclude-tags'))
+      else:
+        excludedTags = None      
+      found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb),excludedTags)
+    print "COINC VARIABLE (fu_utils):",coincs,type(coincs)
+    if coincs==None:
+      print "COINCS object is None!\n"
     return numtrigs, found, coincs, search
 
 
@@ -429,7 +456,7 @@ def getForegroundTimes(cp,opts,ifo):
 # Function to get qscan background. 
 ##############################################################################
 
-def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
+def getQscanBackgroundTimes(cp, opts, ifo, segFile):
     times = []
     fileName = ''
     segmentListLength = 0
@@ -478,29 +505,34 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
             segmentString="ITF_SCIENCEMODE"
           segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,segmentString,segmentMin,segmentPading)
         segmentListLength = segmentList.__len__()
-        segmentListStart = segmentList.__getitem__(0).start()
-        segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        seed = cp.getint('followup-background-qscan-times','random-seed')
-        statistics = cp.getint('followup-background-qscan-times','background-statistics')
+        if segmentListLength == 0:
+          print "No Science Segments found for " + ifo
 
-        random.seed(seed)
-        counter = 0
-        times = []
+        else:          
+          segmentListStart = segmentList.__getitem__(0).start()
+          segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        while counter < statistics:
-          gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
-          testList = copy.deepcopy(segmentList)
-          secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
-          if testList.intersection(secondList):
-            times.append(gps)
-            counter = counter + 1
-          else:
-            continue
-        # Save the list of times in a file (for possibly re-using it later)
-        timeList = floatToStringList(times)
-        fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
-        saveRandomTimes(timeList,fileName)
+          seed = cp.getint('followup-background-qscan-times','random-seed')
+          statistics = cp.getint('followup-background-qscan-times','background-statistics')
+
+          random.seed(seed)
+          counter = 0
+          times = []
+
+          while counter < statistics:
+            gps = float(segmentListStart) + float(segmentListEnd - segmentListStart)*random.random()
+            testList = copy.deepcopy(segmentList)
+            secondList = [pipeline.ScienceSegment(tuple([0,int(gps),int(gps)+1,1]))]        
+            if testList.intersection(secondList):
+              times.append(gps)
+              counter = counter + 1
+            else:
+              continue
+          # Save the list of times in a file (for possibly re-using it later)
+          timeList = floatToStringList(times)
+          fileName = "timeList-" + ifo + "-" + repr(seed) + "-" + repr(statistics) + "-" + repr(segmentListStart) + "-" + repr(segmentListEnd) + ".txt"
+          saveRandomTimes(timeList,fileName)
 
       # Use the time-list file if provided
       if segmentListLength == 0 and not len(timeListFile) == 0:
@@ -557,6 +589,144 @@ def floatToStringList(listin):
 # function to read in a list of files and extract the simInspiral tables
 # and sngl_inspiral tables
 ##############################################################################
+
+##############################################################################
+#
+# This is a section of code the "BANDAID"
+#
+##############################################################################
+
+def _bandaid_(sqlFile,triggerCap=100,statistic=None,excludeTags=None):
+  """
+  Sqlite bandaid put in place until pipeline re-write.
+  Cristina Valeria Torres: Tue-Sep-08-2009:200909081422
+  hacked from the get_xml method.
+  """
+  sims=None
+  search=None
+  coincs=None
+  #Create emtpy table object
+  #Build by Hand
+  snglInspiralTable=lsctables.SnglInspiralTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SnglInspiralTable.tableName}))
+  colnamefmt = u":".join(snglInspiralTable.tableName.split(":")[:-1]) + u":%s"
+  for key, value in snglInspiralTable.validcolumns.items():
+    snglInspiralTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+  snglInspiralTable._end_of_columns()
+  dataStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':snglInspiralTable.tableName})).config(snglInspiralTable)
+  #Pull in sqlite data
+  try:
+    sqlDB=sqlite3.connect(sqlFile)
+    sqlDBsock=sqlDB.cursor()
+    #Query the SQL Coincs table to get the gpstimes of the top N events
+    liveTimeProgram="thinca"
+    rawSeglists = db_thinca_rings.get_thinca_zero_lag_segments(sqlDB, program_name = liveTimeProgram)
+    playground_segs = segmentsUtils.S2playground(rawSeglists.extent_all())
+    sqlDB.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
+    oString00=""" SELECT coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9, coinc_event.coinc_event_id   FROM coinc_inspiral JOIN coinc_event ON (coinc_event.coinc_event_id  == coinc_inspiral.coinc_event_id) WHERE NOT  is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)   AND NOT EXISTS(SELECT * FROM time_slide WHERE   time_slide.time_slide_id == coinc_event.time_slide_id AND   time_slide.offset != 0) ORDER BY combined_far LIMIT ? """%(triggerCap)
+    gpsTimesToFetch=sqlDBsock.execute(oString00).fetchall()
+    #Get sngl ID from coinc_map
+    coincList=list()
+    for item in gpsTimesToFetch:
+      coincID=item[1]
+      coincList.append(coincID)
+    idString="SELECT event_id FROM coinc_event_map WHERE "
+    for cID in coincList:
+      idString=idString+""" (coinc_event_id == "%s") OR """%(cID)
+    idString=idString.rstrip("OR ")
+    snglEventIDs=sqlDBsock.execute(idString).fetchall()
+    # Create piece of query string 
+    oString01=oString02=""
+    for eventInfo in snglEventIDs:
+      eventID=eventInfo[0]
+      oString01=oString01+""" (event_id == "%s") OR """%(eventID)
+    oString01=oString01.rstrip("OR ")
+    for col in snglInspiralTable.columnnames:
+      oString02="%s,%s"%(str(oString02),str(col))
+    oString02=oString02.lstrip(",")
+    oString03="SELECT %s FROM sngl_inspiral WHERE %s"%(oString02,oString01,)
+    sqlDBsock.execute(oString03)
+    #Qusery coinc table using cut and paste of chads script lalapps_cbc_plotsummary
+    #select %s from sngl_inspiral table where END_TIME-1 <= x+ns <= END_TIME+1
+    results=sqlDBsock.fetchall()
+    #Create tmp sngl table to speed things up
+    oString07="""CREATE TEMPORARY TABLE sngl_inspiral_temp AS %s"""%(oString03)
+    sqlDBsock.execute(oString07)
+    #Grab mapping of coinc event to sngl event ids
+    #Remap sngl event ids
+    newResults=list()
+    for elem in results:
+      newID=sqlDBsock.execute("""SELECT coinc_event_id FROM coinc_event_map WHERE event_id == '%s'"""%(elem[14])).fetchall()
+      newRow=list()
+      for item in elem:
+        newRow.append(item)
+      newRow[14]=newID[0][0].replace("coinc_event:coinc_event_id:","sngl_inspiral:event_id:")
+      newResults.append(newRow)
+    oldResults=results
+    results=newResults
+    delim=dataStream.getAttribute("Delimiter")
+    dataString=""
+    for elem in results:
+      for elem2 in elem:
+        dataString="%s%s%s"%(dataString,delim,str(elem2))
+    dataString=str(dataString+",").lstrip(delim)
+    snglInspiralTable.appendChild(dataStream)  
+    dataStream.appendData(dataString)  
+    fp=open('completeSNGLINSPIRALTABLE.xml','w')
+    snglInspiralTable.write(file=fp)
+    fp.close()
+    # SETUP SEARCH SUMMARY TABLE
+    #Create a search summary table to return here
+    SearchSummaryTable=lsctables.SearchSummaryTable(sax.xmlreader.AttributesImpl({u"Name":lsctables.SearchSummaryTable.tableName}))
+    colnamefmt = u":".join(SearchSummaryTable.tableName.split(":")[:-1]) + u":%s"
+    for key, value in SearchSummaryTable.validcolumns.items():
+      SearchSummaryTable.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": value})))
+      SearchSummaryTable._end_of_columns()
+      SearchSummaryStream=table.TableStream(sax.xmlreader.AttributesImpl({u'Name':SearchSummaryTable.tableName})).config(SearchSummaryTable)
+    oString05=""
+    for col in SearchSummaryTable.columnnames:
+      oString05="%s,search_summary.%s"%(str(oString05),str(col))
+    oString05=oString05.lstrip(",")
+    oString04=""" SELECT %s FROM search_summary LEFT OUTER JOIN sngl_inspiral_temp ON (search_summary.process_id == sngl_inspiral_temp.process_id) WHERE """%(oString05)
+    for eventInfo in snglEventIDs:
+      eventID=eventInfo[0]
+      oString04=oString04+""" ( sngl_inspiral_temp.event_id == "%s" ) OR """%(eventID)
+    oString04=oString04.rstrip("OR ")
+    #Take SQL result and put into the searchsummarystream
+    searchSummaryRecords=sqlDBsock.execute(oString04).fetchall()
+    dataString=""
+    for elem in searchSummaryRecords:
+      for elem2 in elem:
+                dataString="%s%s%s"%(dataString,delim,str(elem2))
+    dataString=str(dataString+",").lstrip(delim)
+    SearchSummaryTable.appendChild(SearchSummaryStream)
+    SearchSummaryStream.appendData(dataString)
+    fp2=open('completeSearchSummaryTable.xml','w')
+    SearchSummaryTable.write(file=fp2)
+    fp2.close()
+    search=SearchSummaryTable
+  except:
+    sys.stderr.write("Error converting SQLITE file %s \n"%(sqlFile))
+    sys.stderr.write("Generating empty sngl_inspiral table xmldoc object.\n")
+    sys.stderr.flush()
+    dataString=''
+    coincs=snglInspiralTable
+    raise
+  #Mimicking method readfiles from here on out
+  if statistic == None:
+    coincs=snglInspiralTable
+  else:
+    coincInspiralTable = \
+                       CoincInspiralUtils.coincInspiralTable(snglInspiralTable,statistic)
+    coincs=coincInspiralTable
+
+  return sims,coincs,search
+
+##############################################################################
+#
+# End the BANDAID
+#
+##############################################################################
+
 def readFiles(fileGlob,statistic=None,excludedTags=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
@@ -817,7 +987,7 @@ def getSciSegs(ifo=None,
       serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
     connection=None
-    serverURL=serverURL.strip("ldbd://")
+    #serverURL=serverURL.strip("ldbd://")
     connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
     sys.stderr.write("Error connection to %s\n"\
@@ -1849,27 +2019,28 @@ class ratioTest:
     method.  It contains the probablity that this SNR ratio give a
     particular time of flight is physically probably. If an error is
     encountered method returns possible values of -98,-97,-96,-95,-94.
-    Err Codes:
-    -99 : ifo1 == ifo2
-    -98 : Pickle file not loaded
-    -97 : IFO \lambda not found
-    -96 : Specified Time Delay unphysical t > abs(t_max)
-    -95 : Interpolation function call failure
-    -94 : TOF not found!
-    -93 : Unknown problem
     """
+    errCode={
+      -99:"ifo1 == ifo2",
+      -98:"Pickle file not loaded",
+      -97:"IFO lambda not found",
+      -96:"Time Delay unphysical",
+      -95:"Interpolation function call failure",
+      -94:"TOF not found!",
+      -93:"Unknown problem"
+      }
     if (ifo1=="NULL") or (ifo2=="NULL") or (myRatio == None) or (myRatio==0):
-      return -99
+      return(errCode[-99])
     if not self.pickleLoaded:
       self.__loadPickle__()
     if not self.pickleLoaded:
-      return(-98)
+      return(errCode[-98])
     ifo1=ifo1.strip().upper()
     ifo2=ifo2.strip().upper()
     LV=None
     LV=self.fetchLambda(ifo1,ifo2)
     if LV == None and ifo1 != ifo2:
-      return float(-97)
+      return errCode[-97]
     #Check bound set ratio TO 1 return
     #Extract 3 data vectors
     (t,minR,maxR)=self.pickleData[ifo1][ifo2]
@@ -1879,7 +2050,7 @@ class ratioTest:
     rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
     (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
     if (newMinR.__len__() > 1 or newMaxR.__len__() > 1):
-      return float(-95)
+      return errCode[-95]
     else:
       newMinR=newMinR[0]
       newMaxR=newMaxR[0]
@@ -1893,8 +2064,66 @@ class ratioTest:
       #exp(-SNR/mu)
       myOutput=numpy.exp(-numpy.fabs(numpy.log(myRatio)*LV))
       return myOutput
-    return float(-94)
+    return errCode[-94]
   #End testRatio()
+
+  def checkPairs(self,ifoPairs=None):
+    """
+    Give a list of ifo pairs like [["LLO",SNR,End_Time],["LHO",SNR,End_Time]...]]
+    Return the results of the Ratio test as 2D list in form
+    [[IFO1,IFO2,URL,%Likely],[...],....]
+    """
+    pairingList=list()
+    for A,a in enumerate(ifoPairs):
+      for B,b in enumerate(ifoPairs):
+        if (A!=B) and not pairingList.__contains__([B,b,A,a]):
+          pairingList.append([A,a,B,b])
+    outputList=list()
+    for index1,data1,index2,data2 in pairingList:
+      ifoA=self.mapToObservatory(data1[0])
+      ifoB=self.mapToObservatory(data2[0])
+      if ifoA != ifoB:
+        gpsA=numpy.float64(data1[2])
+        gpsB=numpy.float64(data2[2])
+        snrA=float(data1[1])
+        snrB=float(data2[1])
+        try:
+          snrRatio=snrA/snrB
+        except:
+          snrRatio=0
+        gpsDiff=gpsA-gpsB
+        result=self.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+        myURL=self.findURL(ifoA,ifoB)
+        outputList.append([ifoA,ifoB,gpsDiff,snrRatio,myURL,result])
+    return outputList
+
+  def generateHTMLTable(self,outputList=None):
+    """
+    Creates a small snippet of HTML for display on web browser.
+    """
+    resultString=(" <table border=1px>\
+     <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th><th>Figure</th></tr>")
+    for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
+          myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+          myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+              (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+          resultString="%s %s"%(resultString,myString)
+    resultString=" %s </table>"%(resultString)
+    return resultString
+  
+  def generateMOINMOINTable(self,outputList=None):
+    """
+    Creates a small snippet of MOINMOIN wiki syntax for display on web browser.
+    """
+    #[[ImageLink(image,target[,width=width[,height=height]][,alt=alttag])]]    
+    resultString="|| IFO:IFO || || ToF || || Deff Ratio || || Probability || || Figure ||\n"
+    for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
+      myURL=str('[[ImageLink(%s,%s ,width=300,alt=RatioTestPlot)]]')%(pairURL,pairURL)
+      myString="|| %s:%s || || %2.4f || || %5.2f || || %1.3f || || %s ||\n"%\
+                (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+      resultString="%s%s"%(resultString,myString)
+    resultString="%s \n"%(resultString)
+    return resultString
 # End Class ratioTest()
 #############################################################################
 
@@ -1994,6 +2223,7 @@ class followupDQV:
   information and veto segment information put into the segment
   database.  This class will replace the previously defined class of
   followupdqdb.
+  Contact: Cristina Valeria Torres
   """
   def __init__(self,LDBDServerURL=None,quiet=bool(False)):
     """
@@ -2027,11 +2257,11 @@ defaulting to %s"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id \
     AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND segment_definer.version >= %s AND \
-    NOT (segment.start_time > %s OR %s > \
-    segment.end_time)"""
-
+    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
+    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    """
   #End __init__()
+
   def __merge__(self,inputList=None):
     """
     Takes an input list of tuples representing start,stop and merges
@@ -2090,7 +2320,14 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
-  def fetchInformation(self,triggerTime=None,window=300,version=99):
+  def fetchInformation(self,triggerTime=None,window=300):
+    """
+    Wrapper for fetchInformationDualWindow that mimics original
+    behavior
+    """
+    self.fetchInormationDualWindow(triggerTime,window,window)
+
+  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2115,10 +2352,10 @@ defaulting to %s"%(self.serverURL))
         self.resultList=list()
         return
     try:
+      gpsEnd=int(triggerTime)+int(backWindow)
+      gpsStart=int(triggerTime)-int(frontWindow)
+      sqlString=self.dqvQuery%(gpsEnd,gpsStart)
       engine=query_engine.LdbdQueryEngine(connection)
-      gpsEnd=int(triggerTime)+int(window)
-      gpsStart=int(triggerTime)-int(window)
-      sqlString=self.dqvQuery%(version,gpsEnd,gpsStart)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
@@ -2182,11 +2419,11 @@ defaulting to %s"%(self.serverURL))
       return ""
     myColor="grey"
     rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
     tableString=""
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th><th>Comment</th></tr>"
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
@@ -2201,15 +2438,52 @@ defaulting to %s"%(self.serverURL))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       else:
-        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size,comment)
+        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
+
+  def generateMOINMOINTable(self,tableType="BOTH"):
+    """
+    Return a MOINMOIN table.
+    """
+    ligo=["L1","H1","H2","V1"]
+    channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
+    if self.triggerTime==int(-1):
+      return ""
+    myColor="grey"
+    rowString=""" ||<rowbgcolor="%s"> %s || || %s || || %s || || %s || || %s || || %s || || %s || || %s ||\n"""
+    titleString=""" ||<rowbgcolor="%s"> IFO || || Flag || || Ver || || Start || || Offset || || Stop || || Offset || || Size ||\n"""%(myColor)
+    tableString=titleString
+    for ifo,name,version,comment,start,stop in self.resultList:
+      offset1=start-self.triggerTime
+      offset2=stop-self.triggerTime
+      size=int(stop-start)
+      if (offset1>=0) and (offset2>=0):
+        myColor="green"
+      if (offset1<=0) and (offset2<=0):
+        myColor="yellow"
+      if (offset1<=0) and (offset2>=0):
+        myColor="red"
+      if name.lower().__contains__('science'):
+        myColor="skyblue"
+      if tableType.upper().strip() == "DQ":
+        if not name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      elif tableType.upper().strip() == "VETO":
+        if name.upper().startswith("UPV"):
+          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      else:
+        tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+    tableString+="\n"
+    return tableString
+
+  
 #End class followupDQV
 
 ######################################################################
@@ -2469,7 +2743,7 @@ def getiLogURL(time=None,ifo=None):
   outputURL=urls['default']
   if ((ifo==None) or (time==None)):
     return urls['default']
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
   if ('H1','H2','L1').__contains__(ifo.upper()):
@@ -2508,7 +2782,7 @@ def getDailyStatsURL(time=None):
     return defaultURL
   if int(time) <= stopS5:
     return s5Link
-  gpsTime=xlaldate.LIGOTimeGPS(time)
+  gpsTime=LIGOTimeGPS(time)
   Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
   linkText="%s/%s/%s/"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
   outputLink=defaultURL+linkText

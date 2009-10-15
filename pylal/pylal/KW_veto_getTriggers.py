@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#
 # Copyright (C) 2009  Tomoki Isogai
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -195,7 +194,7 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     from glue.ligolw import utils
     # speed hacks
     # replace Glue's pure Python LIGOTimeGPS class with pyLAL's C version
-    from pylal.xlal.date import LIGOTimeGPS
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
     lsctables.LIGOTimeGPS = LIGOTimeGPS 
 
     # Enable column interning to save memory

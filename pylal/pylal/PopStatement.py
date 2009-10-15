@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -159,7 +157,7 @@ class PopStatement(object):
                                                 pop_background_by_trial)
         
         # and an instance for the IFAR data 
-        data_ifar = GRBdata(grb_name, inj_ifar, off_ifar, on_ifar)
+        data_ifar = GRBdata(grb_name, inj_ifar, off_ifar, on_ifar[0])
         
         # store the samples
         self.lik_by_grb.append(data_lik)

@@ -35,6 +35,7 @@ from pylal.xlal import date
 from pylal import date
 from pylal.xlal import inject
 from pylal.xlal import tools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
@@ -59,7 +60,7 @@ def response( gpsTime, rightAscension, declination, inclination,
   
   The returned values are: (f-plus, f-cross, f-average, q-value).
   
-  Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'H1' )
+  Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'radians', 'H1' )
   """
   
   # check the input arguments
@@ -81,7 +82,7 @@ def response( gpsTime, rightAscension, declination, inclination,
     raise ValueError, "Unknown unit %s" % unit
 
   # calculate GMST if the GPS time
-  gps=date.LIGOTimeGPS( gpsTime )
+  gps=LIGOTimeGPS( gpsTime )
   gmst_rad = date.XLALGreenwichMeanSiderealTime(gps)
 
   # create detector-name map
@@ -164,7 +165,7 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   if det1 == det2:
     return 0.0
   
-  gps = date.LIGOTimeGPS( gpsTime )
+  gps = LIGOTimeGPS( gpsTime )
 
   # create detector-name map
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',

@@ -17,6 +17,10 @@ parser=OptionParser()
 parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
 parser.add_option("-N","--Nlive",dest="Nlive",help="number of live points for each of the files")
 parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+parser.add_option("--inco0",dest="inco0",action="append",help="single-ifo runs for 0th ifo")
+parser.add_option("--inco1",dest="inco1",action="append",help="single-ifo runs for 1th ifo")
+parser.add_option("--inco2",dest="inco2",action="append",help="single-ifo runs for 2th ifo")
+parser.add_option("--inco3",dest="inco3",action="append",help="single-ifo runs for 3th ifo")
 
 (opts,args)=parser.parse_args()
 
@@ -57,6 +61,21 @@ def nest2pos(samps,Nlive):
     pos=samps[posidx,:]
     return pos
 
+def nestZ(d,Nlive):
+    logw = log(1 - exp(-1.0/Nlive))
+    logZ = logw + d[0,-1]
+    logw = logw - 1.0/Nlive
+    len=size(d,0)
+    H=0
+    for i in linspace(1,len-2,len):
+        logZnew=logadd(logZ,logw+d[i,-1])
+        H = exp(logw + d[i,-1] -logZnew)*d[i,-1] \
+            + exp(logZ-logZnew)*(H+logZ) - logZnew
+        logw = logw - 1.0/Nlive
+        logZ=logZnew
+    return (logZ,H)
+
+incoflag=0
 outdir=opts.outpath
 Nlive=int(opts.Nlive)
 print 'Loading ' + opts.data[0]
@@ -65,6 +84,41 @@ for infile in opts.data[1:]:
     print 'Loading ' + infile
     tmp=load(infile)
     d=numpy.vstack((d,tmp))
+
+inco=[]
+
+if opts.inco0 is not None:
+    incoflag=1
+    inco0=load(opts.inco0[0])
+    for infile in opts.inco0[1:]:
+        print 'Loading ' + infile
+        tmp=load(infile)
+        inco0=numpy.vstack((inco0,tmp))
+    inco.append(inco0)
+if opts.inco1 is not None:
+    incoflag=2
+    inco1=load(opts.inco1[0])
+    for infile in opts.inco1[1:]:
+        print 'Loading ' + infile
+        tmp=load(infile)
+        inco1=numpy.vstack((inco1,tmp))
+    inco.append(inco1)
+if opts.inco2 is not None:
+    incoflag=3
+    inco2=load(opts.inco2[0])
+    for infile in opts.inco2[1:]:
+        print 'Loading ' + infile
+        tmp=load(infile)
+        inco2=numpy.vstack((inco2,tmp))
+    inco.append(inco2)
+if opts.inco3 is not None:
+    incoflag=4
+    inco3=load(opts.inco3[0])
+    for infile in opts.inco3[1:]:
+        print 'Loading ' + infile
+        tmp=load(infile)
+        inco3=numpy.vstack((inco3,tmp))
+    inco.append(inco3)
 
 Bfile = opts.data[0]+'_B.txt'
 print 'Looking for '+Bfile
@@ -83,6 +137,14 @@ d=d[sidx,:]
 d[:,0]=exp(d[:,0])
 print 'Exponentiated mc'
 maxL = d[-1,-1]
+
+Zinco=0
+for incox in inco:
+    leninc=size(incox,0)
+    sidx=argsort(incox[:,-1])
+    incox=incox[sidx,:]
+    (Zincox,Hinco)=nestZ(incox,Nlive)
+    Zinco=Zinco+Zincox
 
 print 'maxL = ' + str(maxL)
 # Maximum likelihood point
@@ -105,19 +167,6 @@ print '||'+out+'||'
 
 print 'Applying nested sampling algorithm to ' + str(len) + ' samples'
 
-def nestZ(d,Nlive):
-    logw = log(1 - exp(-1.0/Nlive))
-    logZ = logw + d[0,-1]
-    logw = logw - 1.0/Nlive
-    len=size(d,0)
-    H=0
-    for i in linspace(1,len-2,len):
-        logZnew=logadd(logZ,logw+d[i,-1])
-        H = exp(logw + d[i,-1] -logZnew)*d[i,-1] \
-            + exp(logZ-logZnew)*(H+logZ) - logZnew
-        logw = logw - 1.0/Nlive
-        logZ=logZnew
-    return (logZ,H)
 
 (logZ,H)=nestZ(d,Nlive)
 
@@ -140,7 +189,7 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
     x,y=numpy.meshgrid(xax,yax)
     samp=array([xdat,ydat])
     kde=stats.kde.gaussian_kde(samp)
-    grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    grid_coords = numpy.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
     z = kde(grid_coords.T)
     z = z.reshape(Nx,Ny)
     asp=xax.ptp()/yax.ptp()
@@ -215,6 +264,7 @@ htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>'+str(
 if(Bflag==1): htmlfile.write('<h4>log Bayes Factor: '+str(BayesFactor)+'</h4><br>')
 htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bits.<br>')
 if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d[-1,-1]-NoiseZ)+'<br>')
+if(incoflag!=0): htmlfile.write('Odds of coherent vs incoherent: '+str(exp(logZ-Zinco))+'<br>')
 htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(len)+' NS samples using '+str(Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
 htmlfile.write('<table border=1><tr>')

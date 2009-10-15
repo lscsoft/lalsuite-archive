@@ -70,7 +70,7 @@ def get_thinca_rings_by_available_instruments(connection, program_name = "thinca
 
   xmldoc = dbtables.get_xml(connection)
   seglists = segments.segmentlistdict()
-  for row in map(dbtables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)._row_from_cols, connection.cursor().execute("""
+  for row in map(dbtables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).row_from_cols, connection.cursor().execute("""
 SELECT
   search_summary.*
 FROM

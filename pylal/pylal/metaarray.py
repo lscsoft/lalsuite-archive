@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
   MetaArray - a subclass of ndarray that holds metadata and preserves it across
             array operations.

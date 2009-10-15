@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon, Drew G. Keppel
+# Copyright (C) 2006  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -39,13 +37,14 @@ import sys
 from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_tisi
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -294,12 +293,7 @@ class CoincTables(object):
 
 		# find the time_slide table
 		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-
-	def get_time_slides(self):
-		"""
-		Return the time_slide_id --> offset vector dictionary.
-		"""
-		return self.time_slide_table.as_dict()
+		self.time_slide_index = self.time_slide_table.as_dict()
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""

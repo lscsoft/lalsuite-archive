@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Copyright (C) 2009  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it

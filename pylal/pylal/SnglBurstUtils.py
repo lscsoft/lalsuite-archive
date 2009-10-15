@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -154,7 +152,7 @@ SELECT sngl_burst.* FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 	""", (coinc_event_id,)):
-		yield contents.sngl_burst_table._row_from_cols(values)
+		yield contents.sngl_burst_table.row_from_cols(values)
 
 
 #

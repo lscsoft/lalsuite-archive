@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -44,14 +42,14 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import lsctables
-from glue.ligolw import types as ligolwtypes
 from glue.ligolw.utils import process as ligolwprocess
+from pylal import git_version
 from pylal.date import XLALUTCToGPS
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -175,7 +173,12 @@ def append_process(*args, **kwargs):
 	# FIXME:  remove the "" case when the git metadata business is
 	# sorted out
 	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None and kwargs["cvs_entry_time"] != "":
-		process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S")).seconds
+		try:
+			# try the git_version format first
+			process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y-%m-%d %H:%M:%S +0000")).seconds
+		except ValueError:
+			# fall back to the old cvs format
+			process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S")).seconds
 	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
 

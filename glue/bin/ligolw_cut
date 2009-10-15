@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -37,15 +35,16 @@ from optparse import OptionParser
 import sys
 
 
+from glue import git_version
 from glue.ligolw import ligolw
 from glue.ligolw import table
 #from glue.ligolw import lsctables
 from glue.ligolw import utils
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -59,7 +58,7 @@ __version__ = "$Revision$"[11:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
 		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Any file name ending in \".gz\" is assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
 	)

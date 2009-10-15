@@ -30,6 +30,7 @@ from optparse import OptionParser
 import sys
 
 from glue.ligolw import ligolw
+from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import SnglInspiralUtils
 from pylal import ligolw_sicluster
@@ -38,6 +39,11 @@ __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
+#
+# Use interning row builder to save memory.
+#
+
+lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 #
 # =============================================================================
@@ -51,8 +57,7 @@ def parse_command_line():
   parser = OptionParser(version = "%prog CVS $Id$")
   parser.add_option("--comment", metavar = "text", default = "", 
     help = "set comment string in process table")
-  parser.add_option("-w", "--cluster-window", type="float", 
-    default = "0", action = "store", 
+  parser.add_option("-w", "--cluster-window", type="float", action = "store", 
     help = "duration of snr clustering window in seconds (required)")
   parser.add_option("-t", "--snr-threshold", type="float", 
     default = "0", action = "store", 
@@ -65,14 +70,10 @@ def parse_command_line():
     help = "be verbose")
   options, filenames = parser.parse_args()
 
-  if options.cluster_window == 0:
+  if options.cluster_window is None:
     raise Exception, \
       "missing required command line argument --cluster-window"
-    options.bailoutfunc = None
-
-  options.testfunc = SnglInspiralUtils.CompareSnglInspiral
-  options.clusterfunc = ligolw_sicluster.SnglInspiralCluster
-  options.bailoutfunc = SnglInspiralUtils.CompareSnglInspiralByEndTime
+  options.cluster_window = lsctables.LIGOTimeGPS(options.cluster_window)
 
   return options, (filenames or [None])
 

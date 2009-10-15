@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #
-# $Id$
-#
-# Copyright (C) 2007  Kipp C. Cannon
+# Copyright (C) 2007  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -83,16 +81,17 @@ import sys
 from glue import iterutils
 from glue import segments
 from glue.ligolw import dbtables
+from pylal import git_version
 from pylal import ligolw_tisi
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -118,7 +117,7 @@ dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 def parse_command_line():
 	parser = OptionParser(
-		version="%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] -i|--injections-glob pattern -b|--background-glob pattern",
 		description = "%prog performs the final, summary, stages of an upper-limit excess power search for burst-like gravitational waves."
 	)
@@ -824,7 +823,7 @@ SELECT
 FROM
 	sim_burst
 		""", (contents.scn_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
+			sim = contents.sim_burst_table.row_from_cols(values)
 			detection_statistic = values[-1]
 			amplitude = self.amplitude_func(sim, None)
 			# FIXME:  this assumes all injections are done at

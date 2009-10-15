@@ -222,12 +222,14 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dq_active'),
     os.path.join('bin','ligolw_dq_active_cats'),
+    os.path.join('bin','ligolw_dq_grapher'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
-    os.path.join('bin','segdb_coalesce'), ],
+    os.path.join('bin','segdb_coalesce'),
+    os.path.join('bin', 'ligolw_print_tables') ],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
@@ -238,6 +240,7 @@ setup(
         os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw.xsl'),
         os.path.join('etc','ligolw.js'),
+        os.path.join('etc','LDBDWServer.wsgi'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),

@@ -20,7 +20,7 @@ try:
 except ImportError:
     # pre 2.5.x
     from pysqlite2 import dbapi2 as sqlite3
-import sys,os
+import sys,os,re
 import copy
 import bisect
 
@@ -260,7 +260,7 @@ rc('text', usetex=True)
 # param_ranges_legend, which has the following form:
 # param_ranges_legend[(param_name, group_number)]: {'range': string }, {'marker': marker}, {'linestyle': linestyle}
 param_ranges_legend = {}
-trigsymbols = itertools.cycle(( '^', 'o', 's' ))
+trigsymbols = itertools.cycle(( 'v', 'o', 's' ))
 linestyles = itertools.cycle(( ':', '-.', '--' ))
 if opts.param_name:
     param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name,
@@ -300,11 +300,8 @@ if plot_datatype not in lsctables.ExperimentSummaryTable.datatypes:
 if plot_datatype == "slide" or plot_datatype == "simulation":
     raise ValueError, "--datatype must be either all_data, playground, or exclude_play"
 
-# stick datatype plotted in filename
-if opts.user_tag:
-    opts.user_tag = '_'.join([ opts.user_tag, plot_datatype.upper(), 'PLOTTED'])
-else:
-    opts.user_tag = '_'.join([ plot_datatype.upper(), 'PLOTTED' ])
+# determine whether or not this is open box for later naming
+open_box = (plot_datatype == "all_data") or (plot_datatype == "exclude_play")
 
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
@@ -318,7 +315,6 @@ connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 if opts.verbose:
     print >> sys.stdout, "Getting information about all available experiments..."
 
-experiment_ids = {}
 sqlquery = """
     SELECT
         experiment_id,
@@ -358,8 +354,13 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             experiment_summary.experiment_id == ?"""
     for esid, duration, datatype in connection.cursor().execute( sqlquery, (eid,) ):
         background.append_duration(eid, esid, duration)
+        background.store_datatypes(eid, esid, datatype)
         if datatype != "slide":
-            background.append_zero_lag_id(eid, esid, datatype)
+            background.append_zero_lag_id(eid, esid)
+
+    # check that there is only a single plot_datatype entry for this experiment
+    if len(background.datatypes[eid][plot_datatype]) > 1:
+        raise ValueError, "more than one %s entry found for experiment %s" %(plot_datatype, eid)
 
     # calculate the background durations
     background.calc_bkg_durs()
@@ -398,9 +399,9 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         if opts.plot_uncombined:
             ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
-            # since the ufar_summaries class doesn't know about zero-lag esides,
+            # since the ufar_summaries class doesn't know about zero-lag esids,
             # we must remove the zero-lag stats from it's bkg_stats list by hand
-            if esid in background.zero_lag_ids[eid].values():
+            if esid in background.zero_lag_ids[eid]:
                 ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
         if opts.plot_combined:
             if opts.group_by_ifos:
@@ -408,7 +409,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             else:
                 ifo_group = "ALL_IFOS"
             cfar_summaries.add_to_bkg_stats(eid, esid, ifo_group, "ALL_PARAM_BINS", cfar)
-            if esid in background.zero_lag_ids[eid].values():
+            if esid in background.zero_lag_ids[eid]:
                 cfar_summaries.bkg_stats[(eid, ifo_group, "ALL_PARAM_BINS")].remove(cfar)
 
     # calculate max-bkg fars
@@ -515,13 +516,16 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     tagList = [] # ditto
 
     # get the esid of the zero-lag for this eid
-    zero_esid = background.zero_lag_ids[ eid ][ plot_datatype ]
+    zero_esid = background.datatypes[ eid ][ plot_datatype ][0]
 
     # set bkg_correction: this is the zero-lag duration of the plot_datatype divided
     # by the all_data duration; this is needed to set the background correctly
-    if 'all_data' in background.zero_lag_ids[eid]:
-        all_data_zero_esid = background.zero_lag_ids[eid]['all_data']
-        bkg_correction = background.frg_durs[eid][zero_esid] / background.frg_durs[eid][all_data_zero_esid]
+    all_data_dur = 0
+    if 'all_data' in background.datatypes[eid]:
+        all_data_dur = background.frg_durs[eid][background.datatypes[eid]['all_data'][0]]
+
+    if all_data_dur != 0:
+        bkg_correction = background.frg_durs[eid][zero_esid] / all_data_dur
     else: # if not all_data, just set bkg_correction to 1. to avoid errors
         bkg_correction = 1.
     
@@ -537,8 +541,13 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         figure_number += 1
 
         # check that there's something to plot; if there isn't, just make an empty plot
-        if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
-            text( 0.5, 0.5, "No uncombined fars found for this experiment.", 
+        if len(ufar_summaries.sngl_slide_stats.keys()) == 0 or background.frg_durs[eid][zero_esid] == 0:
+            msg = ''
+            if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
+                msg = "No uncombined fars found for this experiment."
+            if background.frg_durs[eid][zero_esid] == 0:
+                msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+            text( 0.5, 0.5, msg, 
                 ha = 'center', va = 'center' )
             xlabel( r"No data", size='x-large' )
             ylabel( r"No data", size='x-large' )
@@ -625,7 +634,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if xmax < 1./ufars[-1]:
                     xmax = 1./ufars[-1]
                 if ymax < uncombined_cumnum[category][0]:
-                    ymax = uncombined_cumnum[category]
+                    ymax = uncombined_cumnum[category][0]
 
 
             #
@@ -733,17 +742,20 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             ylim(ymin,ymax)
             xlabel( r"Uncombined Inverse False Alarm Rate (yr)", size='x-large' )
             ylabel( r"Cumulative \#", size='x-large' )
+            title_txt = ' '.join([ lsctables.ifos_from_instrument_set(on_inst), "Time:",
+                re.sub('_','-', plot_datatype.upper()), "Cum. Num. vs Uncombined IFAR"])
+            title(title_txt, size='x-large')
 
         #
         #   Make the Plot
         #
         if opts.enable_output:
-            name = "cumhist_uncombined_ifar"
-            txt = "Cumulative Histogram of Uncombined IFAR"
+            name = InspiralUtils.set_figure_tag("cumhist_uncombined_ifar", 
+                datatype_plotted = plot_datatype.upper(), open_box = open_box)
             fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
             fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
             fnameList.append(fname)
-            tagList.append(txt)
+            tagList.append(name)
 
 
     #
@@ -898,6 +910,9 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             ylim(ymin,ymax)
             xlabel( r"Inverse False Alarm Rate (yr)", size='x-large' )
             ylabel( r"Cumulative \#", size='x-large' )
+            title_txt = ' '.join([ lsctables.ifos_from_instrument_set(on_inst), "Time:",
+                re.sub('_','-', plot_datatype.upper()), "Cum. Num. vs Combined IFAR"])
+            title(title_txt, size='x-large')
 
             # Make the legend
             legend()
@@ -906,12 +921,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         #   Make the Plot
         #
         if opts.enable_output:
-            name = "cumhist_combined_ifar"
-            txt = "Cumulative Histogram of Combined IFAR"
+            name = InspiralUtils.set_figure_tag("cumhist_combined_ifar", 
+                datatype_plotted = plot_datatype.upper(), open_box = open_box)
             fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
             fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
             fnameList.append(fname)
-            tagList.append(txt)
+            tagList.append(name)
 
     #
     #   Create the html page for this experiment id
@@ -920,7 +935,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     if opts.enable_output:
         if opts.verbose:
             print >> sys.stdout, "\twriting html file and cache."
-        html_filename = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList, tagList )
+        html_filename = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList, tagList, 
+            html_tag = plot_datatype.upper() + '_PLOTTED', add_box_flag = True )
         InspiralUtils.write_cache_output( InspiralUtilsOpts, html_filename, fnameList )
     
     if opts.show_plot:

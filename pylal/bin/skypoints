@@ -41,6 +41,7 @@ from pylal import date
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 
@@ -49,7 +50,7 @@ from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 from pylal import galaxyutils
 
 
-lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 pi = numpy.pi
 
 ##############################################################################
@@ -196,13 +197,13 @@ class SkyPoints(object):
     
       if self.ref_freq:
         tFromRefFreq = self.get_signal_duration(ifo)
-        tref[ifo] = date.LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
+        tref[ifo] = LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
       else:
         tref[ifo] = 0.0   
         
       #compute the geocentric time from each trigger
       tgeo[ifo] = self.gps[ifo] - tref[ifo] - \
-                  date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(self.detector_locations[ifo],\
+                  LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(self.detector_locations[ifo],\
                                                             earth_center,longitude,latitude,self.gps[ifo]))  
       
     #compute differences in these geocentric times
