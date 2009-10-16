@@ -23,13 +23,14 @@ return a text string in MoinMoin as a table for inclusion in the
 candidate checklist.
 """
 __author__  = "Cristina Valeria Torres <cristina.torres@ligo.org>"
-__prog__    = 'followupCheckParamCons.py'
+__prog__    = 'followupRatioTest.py'
 
 
 import optparse
 import sys
 import os
 from pylal import git_version
+from numpy import any
 from pylal.fu_utils import ratioTest
 
 sys.path.append('@PYTHONLIBDIR@')
@@ -117,6 +118,9 @@ if not any([x==None for x in [ifo2,snr2,time2]]):
 if not any([x==None for x in [ifo3,snr3,time3]]):
     ifoPairs.append([ifo3,snr3,time3])
 #
+if len(ifoPairs)<2:
+    raise Exception, "Insufficient IFO input arguments!"
+
 rawResults=test.checkPairs(ifoPairs)
 #
 if outputType.upper().strip() == "LIST":
