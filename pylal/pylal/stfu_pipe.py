@@ -771,6 +771,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt("ifo%i"%(index),myIFO)
 			self.add_var_opt("snr%i"%(index),mySNR)
 			self.add_var_opt("time%i"%(index),myTIME)
+			index=index+1
 		dag.add_node(self)
 
 ##############################################################################
