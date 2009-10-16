@@ -892,6 +892,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("write-cohnullstat","")
 		self.add_var_opt("write-h1h2nullstat","")
 		self.add_var_opt("write-cohh1h2snr","")
+		self.add_var_opt("maximize-over-chirp","")
 		# required by followUpChiaPlotNode
 
                 hLengthAnalyzed = 1
@@ -910,9 +911,14 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("gps-start-time",self.start)
 		self.add_var_opt("gps-end-time",self.end)
 
-		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
- 		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		#FIXME do --cohNullStatFrameFile when I understand it
+		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+
+ 		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
+ 		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
+
 
 		self.output_cache = []
 
@@ -1029,6 +1035,10 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.output_file_name = ""
 		user_tag = "PLOT_CHIA_" + str(coinc.time)
 		self.add_var_opt("chiaXmlFile",chia_node.output_file_name)
+		self.add_var_opt("chiaFrameFile",chia_node.output_frame_file)
+		self.add_var_opt("cohH1H2SNRFrameFile",chia_node.h1h2coh_output_frame_file)
+		self.add_var_opt("H1H2NullStatFrameFile",chia_node.h1h2null_output_frame_file)
+		#FIXME do --cohNullStatFrameFile when I understand it
 		self.add_var_opt("gps-start-time",int(coinc.time-1))
 		self.add_var_opt("gps-end-time",int(coinc.time+1))
 		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))

@@ -25,23 +25,17 @@ import ConfigParser
 import urlparse
 from types import *
 from pylab import *
-# sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
-# sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
 from glue import segments
 from glue import segmentsUtils
-#from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import ligolw
 from glue.ligolw import utils
-#from glue.ligolw import ligolw
-#from pylal.fu_utils import *
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import MultiInspiralUtils
-#from pylal import webUtils
 from pylal import git_version
 from glue import markup
 from glue import pipeline
@@ -52,7 +46,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInspiralTable,ifoTag,frameDict,user_tag=None):
+def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,ifoTag,frameDict,user_tag=None):
  
     ifoH1 = 0
     ifoH2 = 0
@@ -186,7 +180,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     timePoints = segLenSec * sampleRate
 
     cohNetSNRFrameName = 'Coherent_SNR_' + str(eventID)
-    cohNetSNRFrameFile = chiaXmlFile.replace('.xml.gz','.gwf')
+    cohNetSNRFrameFile = opts.chiaFrameFile 
     cohNetSNR_tuple = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,0)
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
@@ -197,9 +191,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     expectCohH1H2snr = 0
 
     #Read in the coherent H1H2 SNR data from frame-file
-    if ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
+    if ifoH1 == 1 and ifoH2 == 1 and numIfos > 2 and opts.cohH1H2SNRFrameFile and os.path.isfile(opts.cohH1H2SNRFrameFile):
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)      
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1_' + str(eventID) + '-'  + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNRFrameFile = opts.cohH1H2SNRFrameFile 
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
@@ -207,7 +201,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       expectCohH1H2snr = 1 
     elif ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
       cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf' 
+      cohH1H2SNRFrameFile = opts.chiaFrameFile 
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
@@ -349,15 +343,15 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       tagList.append("Plot of Phase Difference in H1-H2 (zoomed)")
 
     #Read in the coherent H1H2 SNR data from frame-file
-    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
+    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2 and opts.cohH1H2SNRFrameFile and os.path.isfile(opts.cohH1H2SNRFrameFile):
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNRFrameFile = opts.cohH1H2SNRFrameFile 
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
     elif expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
       cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
-      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNRFrameFile = opts.chiaFrameFile 
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
@@ -367,9 +361,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     # This assumes that null-stat is for H1-H2 and not a 3-ifo 
     # or 4-ifo one. This is okay for S5 12-18month, but needs to be
     # updated for LV searches
-    if ifoH1 == 1 and ifoH2 == 1:
+    if ifoH1 == 1 and ifoH2 == 1 and opts.H1H2NullStatFrameFile and os.path.isfile(opts.H1H2NullStatFrameFile):
       H1H2NullStatFrameName = 'Coherent_H1H2_NullStat_' + str(eventID)
-      H1H2NullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      H1H2NullStatFrameFile = opts.H1H2NullStatFrameFile #os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       H1H2NullStat_tuple = Fr.frgetvect(H1H2NullStatFrameFile,H1H2NullStatFrameName)
       H1H2NullStatSq = H1H2NullStat_tuple[0]
       del H1H2NullStat_tuple
@@ -448,9 +442,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       tagList.append("Plot of Null Statistic-squared in H1-H2 and SNR in weaker ifo")
 
     # Network null-stream versus weakest ifo SNR:
-    if not (ifoH1 == 1 and ifoH2 == 1 and numIfos == 3 ) and not (numIfos < 3):
+    if not (ifoH1 == 1 and ifoH2 == 1 and numIfos == 3 ) and not (numIfos < 3) and opts.cohNullStatFrameFile and os.path.isfile(opts.cohNullStatFrameFile):
       cohNullStatFrameName = 'Coherent_NullStat_' + str(eventID)
-      cohNullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_NULL_STAT_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohNullStatFrameFile = opts.cohNullStatFrameFile #os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_NULL_STAT_1_' + str(eventID) + '-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohNullStat_tuple = Fr.frgetvect(cohNullStatFrameFile,cohNullStatFrameName)
       cohNullStatSq = cohNullStat_tuple[0]
       del cohNullStat_tuple
@@ -605,6 +599,18 @@ parser.add_option("-O","--enable-output",action="store_true",\
 parser.add_option("-x","--chiaXmlFile", action="store",type="string", \
     metavar=" XML",help="use chia-file")
 
+parser.add_option("","--chiaFrameFile", action="store",type="string", \
+    metavar=" GWF",help="use chia-frame-file")
+
+parser.add_option("","--cohH1H2SNRFrameFile", default=None, action="store",type="string", \
+    metavar=" GWF",help="use chia-frame-file")
+
+parser.add_option("","--H1H2NullStatFrameFile", default=None, action="store",type="string", \
+    metavar=" GWF",help="use chia-frame-file")
+
+parser.add_option("","--cohNullStatFrameFile", default=None, action="store",type="string", \
+    metavar=" GWF",help="use chia-frame-file")
+
 parser.add_option("-T","--user-tag", action="store",type="string", \
     default=None, metavar=" USERTAG",help="user tag for the output file name")
 
@@ -673,7 +679,6 @@ opts.version = git_version.verbose_msg.replace('\n','<br>')
 extension = opts.chiaXmlFile.split('.')[-1]
 if extension == 'gz': gz = True
 else: gz = False
-print opts.chiaXmlFile,gz
 doc = utils.load_filename(opts.chiaXmlFile,verbose=False, gz=gz, xmldoc=None, contenthandler=None)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 multiInspiralTable = table.getTablesByName(doc,lsctables.MultiInspiralTable.tableName)
@@ -684,4 +689,4 @@ elif len(multiInspiralTable) > 1:
   print >> sys.sderr, "document should not contain more than 1 multi_inspiral table"
   sys.exit(1)
 else:
-  plotchiatimeseries(opts,args,opts.output_path,opts.chiaXmlFile,proc,multiInspiralTable[0],opts.ifo_tag,frameDict,opts.user_tag)
+  plotchiatimeseries(opts,args,opts.output_path,proc,multiInspiralTable[0],opts.ifo_tag,frameDict,opts.user_tag)
