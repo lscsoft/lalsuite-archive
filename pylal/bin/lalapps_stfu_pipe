@@ -42,9 +42,9 @@ def exportCoincToDisk(Coinc=None,filename=None):
 	#If directy coincHeadings not there make the directory if
 	#filename is None
 	headingDir="./coinc_headings"
-	idKeyStr="%s__%s__%s"%(str(Coinc.coinc_event_id),
-				str(Coinc.time),
-				str(Coinc.instruments))
+	idKeyStr="%s__%s__%s"%(str(Coinc.time),
+			       str(Coinc.instruments),
+			       str(Coinc.coinc_event_id))
 	if filename==None:
 		filename="coincEvent.info"
 		stfu_pipe.mkdir(headingDir)
