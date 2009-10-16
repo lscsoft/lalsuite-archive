@@ -1069,6 +1069,9 @@ class create_default_config(object):
 		cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
 		cp.set("fu-condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("fu-condor","plotchiatimeseries", self.which("plotchiatimeseries"))
+                cp.set("fu-condor","effDRatio", self.which("followupRatioTest.py"))
+                cp.set("fu-condor","vetoflags", self.which("followupQueryDQ.py"))
+                cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
