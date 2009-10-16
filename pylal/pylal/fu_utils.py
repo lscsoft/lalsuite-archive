@@ -2336,11 +2336,12 @@ defaulting to %s"%(self.serverURL))
     desired. The version argument will fetch segments with that
     version or higher.
     """
+    triggerTime=float(triggerTime)
     if triggerTime==int(-1):
       os.stdout.write("Specify trigger time please.\n")
       return
     else:
-      self.triggerTime = int(triggerTime)
+      self.triggerTime = float(triggerTime)
       try:
         connection=None
         serverURL=self.serverURL
