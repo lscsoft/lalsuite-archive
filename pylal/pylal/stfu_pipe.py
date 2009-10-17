@@ -366,7 +366,7 @@ class findVetosJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	defaults={"section":"fu-condor",
 		  "options":{"universe":"local",
-			     "vetoflags":"followupQueryDQ.py"}
+			     "vetoflags":"followupQueryVeto.py"}
 		  }
 	def __init__(self, opts,cp, dir='', tag_base=""):
 		"""
@@ -771,6 +771,7 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt("ifo%i"%(index),myIFO)
 			self.add_var_opt("snr%i"%(index),mySNR)
 			self.add_var_opt("time%i"%(index),myTIME)
+			index=index+1
 		dag.add_node(self)
 
 ##############################################################################
@@ -1138,6 +1139,9 @@ class create_default_config(object):
 		cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
 		cp.set("fu-condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("fu-condor","plotchiatimeseries", self.which("plotchiatimeseries"))
+                cp.set("fu-condor","effDRatio", self.which("followupRatioTest.py"))
+                cp.set("fu-condor","vetoflags", self.which("followupQueryVeto.py"))
+                cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
