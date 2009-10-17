@@ -1,10 +1,9 @@
 #!/usr/bin/python
 
-from glue import gpstime
+from glue import cbcwebpage
 
 
-
-page = cbcpage(title="cbc web page", path='./', css=copy_ihope_style(), script=script_dict(), verbose=True)
+page = cbcwebpage.cbcpage(title="cbc web page")
 
 page.add_subpage("page1","my new page")
 
@@ -16,4 +15,3 @@ page.subpages["page1"].sections["sec1"].sections["what"].p("I rock")
 page.subpages["page1"].sections["sec1"].sections["what"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
 
 page.write()
-
