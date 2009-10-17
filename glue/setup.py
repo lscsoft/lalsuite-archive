@@ -233,6 +233,7 @@ setup(
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
+        os.path.join('etc','cbcwebpage.css'),
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
