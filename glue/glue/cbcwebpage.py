@@ -269,11 +269,11 @@ page = cbcpage(title="cbc web page", path='./', css=copy_ihope_style(), script=s
 
 page.add_subpage("page1","my new page")
 
-page.subpages["page1"].add_section("bitch","yo bitch")
-page.subpages["page1"].sections["bitch"].p("I rock")
-page.subpages["page1"].sections["bitch"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
-page.subpages["page1"].sections["bitch"].add_section("what","whats up?")
-page.subpages["page1"].sections["bitch"].sections["what"].p("I rock")
-page.subpages["page1"].sections["bitch"].sections["what"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
+page.subpages["page1"].add_section("sec1","yo")
+page.subpages["page1"].sections["sec1"].p("I rock")
+page.subpages["page1"].sections["sec1"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
+page.subpages["page1"].sections["sec1"].add_section("what","whats up?")
+page.subpages["page1"].sections["sec1"].sections["what"].p("I rock")
+page.subpages["page1"].sections["sec1"].sections["what"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
 
 page.write()
