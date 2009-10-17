@@ -1,10 +1,39 @@
-#!/usr/bin/python
+# Copyright (C) 2009 Chad Hanna
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
 
 from glue import markup
 from glue.markup import oneliner as e
+from glue import git_version
+
 import subprocess
 import os, sys, time
 import shutil
+
+__author__ = "Chad Hanna <channa@caltech.edu>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
@@ -125,10 +154,7 @@ class _section(markup.page):
 		self.level = level 
 		self.tag = tag
 		self.id = tag + self.secnum
-		
 		self.tables = 0
-		#self.add('<h%d><a id="toggle_%s" href="javascript:toggle2(\'div_%s\', \'toggle_%s\');">[Show]</a> %s. %s </h%d>' % (level, self.id, secnum, self.id, secnum, title, level) )
-
 		self.add('<div class="contenu"><h%d id="toggle_%s" onclick="javascript:toggle2(\'div_%s\', \'toggle_%s\');"> %s. %s </h%d>' % (level, self.id, secnum, self.id, secnum, title, level) )
 		self.div(id="div_"+secnum , style='display:none;')
 
@@ -235,9 +261,6 @@ class cbcpage(markup.page):
 			self.div.close()
 			self.div(id_='iframecontent')
 			self.add('<p id="placeholder">Please select a report section on the left.</p>')
-			#self.add('<script type="text/javascript">')
-			#self.add("""loadFrame('""" + 'index2' + """.html')""")
-			#self.add('</script>')
 			self.div.close()
 			self.div.close()
 
@@ -252,28 +275,11 @@ class cbcpage(markup.page):
 	def add_section(self, tag, title="", level=2):
 		"""
 		"""
-		#print "hello"
-		#return
 		secnum = len(self.sections.values()) + 1
 		self.section_ids.append([secnum, tag])
-		#print secnum
 		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), level=level)
 
 	def add_table(self, two_d_data, title="", caption="", tag="table"):
 		self.tables += 1
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num="T:"+str(self.tables))
 		self.content.extend(table.get_content())
-
-
-page = cbcpage(title="cbc web page", path='./', css=copy_ihope_style(), script=script_dict(), verbose=True)
-
-page.add_subpage("page1","my new page")
-
-page.subpages["page1"].add_section("sec1","yo")
-page.subpages["page1"].sections["sec1"].p("I rock")
-page.subpages["page1"].sections["sec1"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
-page.subpages["page1"].sections["sec1"].add_section("what","whats up?")
-page.subpages["page1"].sections["sec1"].sections["what"].p("I rock")
-page.subpages["page1"].sections["sec1"].sections["what"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
-
-page.write()
