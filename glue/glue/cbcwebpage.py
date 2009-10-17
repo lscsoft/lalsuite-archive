@@ -78,16 +78,16 @@ def script_dict():
 	return script
 
 
-def copy_ihope_style(stylefile="write_ihope_style.css", base_dir="."):
+def copy_ihope_style(stylefile="cbcwebpage.css", base_dir="."):
 
 	# FIXME this is a stupid way to find the path... changes to build scripts, set env var?
-	path = which('lalapps_inspiral')
+	path = which('ligo_data_find')
 	if path: path = os.path.split(path)[0]
 	else: 
 		print >>sys.stderr, "COULD NOT FIND STYLE FILES %s IN %s, ABORTING" % (stylefile, path)
 		raise ValueError
 		sys.exit(1)
-	out = path.replace('bin','share/lalapps') + '/' + stylefile
+	out = path.replace('bin','etc') + '/' + stylefile
 	if not os.path.isfile(out):
 		print >>sys.stderr, "COULD NOT FIND STYLE FILES %s IN %s, ABORTING" % (stylefile, path)
 		raise ValueError
@@ -186,6 +186,8 @@ class cbcpage(markup.page):
 	def __init__(self, title="cbc web page", path='./', css=None, script=None, verbose=False):
 		"""
 		"""
+		if not css: css = copy_ihope_style()
+		if not script: script = script_dict()
 		self.verbose = verbose
 		self._style = css
 		self._title = title
