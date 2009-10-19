@@ -389,6 +389,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	defaults={"section":"fu-condor",
 		  "options":{"universe":"local",
+			     "snr-ratio-test":"/archive/home/ctorres/public_html/DQstuff/ratioTest.pickle",
 			     "effDRatio":"followupRatioTest.py"}
 		  }
 	def __init__(self, opts, cp, dir='', tag_base=""):
@@ -400,7 +401,6 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
@@ -762,6 +762,8 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		pipeline.CondorDAGNode.__init__(self,job)
 		oFilename="%s_%s"%(str("%10.3f"%(coincEvent.time)).replace(".","_"),cp.get('effDRatio','output-file'))
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
+		self.add_var_opt("output-format",cp.get('effDRatio','output-format'))
+		self.add_var_opt("snr-ratio-test",cp.get('effDRatio','snr-ratio-test'))
 		#Grab Sngl propteries from Coinc object
 		index=1
 		for ifo,snglEvent in coincEvent.sngl_inspiral.items():
@@ -772,6 +774,10 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt("snr%i"%(index),mySNR)
 			self.add_var_opt("time%i"%(index),myTIME)
 			index=index+1
+		for rIndex in range(index,3+1):
+			self.add_var_opt("ifo%i"%(rIndex),None)
+			self.add_var_opt("snr%i"%(rIndex),None)
+			self.add_var_opt("time%i"%(rIndex),None)
 		dag.add_node(self)
 
 ##############################################################################
