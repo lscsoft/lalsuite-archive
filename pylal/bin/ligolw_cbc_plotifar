@@ -446,6 +446,14 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 max_bkg_fars[esid][(ifos, param_group)] = min_bkg_ufar[esid]
             else:
                 max_bkg_fars[esid][(ifos, param_group)] = this_num / background.bkg_durs[esid]
+    
+    # set any missing max_bkg_fars to the corresponding min_bkg_ufar (this can happen if
+    # a cateogory has foreground, but no background)
+    for (eid, esid, ifos, param_group) in ufar_summaries.sngl_slide_stats:
+        if esid not in max_bkg_fars:
+            max_bkg_fars[esid] = {}
+        if (ifos, param_group) not in max_bkg_fars[esid]:
+            max_bkg_fars[esid][(ifos, param_group)] = min_bkg_ufar[esid]
 
     #
     #   Sort and calculate cumulative historgram values
