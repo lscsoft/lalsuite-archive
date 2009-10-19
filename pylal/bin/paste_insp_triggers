@@ -32,7 +32,6 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process as ligolw_process
 from glue.segments import segment, segmentlist
-from pylal import llwapp
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -150,7 +149,7 @@ def paste_triggers_into(source_doc, dest_doc, verbose=False):
     new_trigs.sort(key=lsctables.SnglInspiral.get_end)
 
 def parse_args():
-    parser = optparse.OptionParser(version=__version__)
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
     parser.add_option("--source", metavar="SRC",
         help="file from which triggers are taken")
     parser.add_option("--destination", metavar="DEST",
@@ -264,7 +263,7 @@ if source_segs not in dest_segs:
 paste_triggers_into(src_doc, dest_doc, verbose=opts.verbose)
 
 # close out metadata
-llwapp.set_process_end_time(process_table)
+ligolw_process.set_process_end_time(process_table)
 
 # write file to disk
 utils.write_filename(dest_doc, opts.output_filename, opts.verbose,
