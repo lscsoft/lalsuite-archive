@@ -115,7 +115,7 @@ def get_confidence_band(p_by_L, rank_by_L, CL, MC_fac, N):
     if not numpy.isscalar(N):
         raise ValueError, "N must be a scalar"
     if MC_fac < 0:
-        raise ValueError, "MC error correction factor must be positive"
+        raise ValueError, "MC error correction factor must be non-negative"
 
     MC_err = MC_fac * numpy.sqrt(CL * (1 - CL) / N)
 
