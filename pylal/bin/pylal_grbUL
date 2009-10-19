@@ -188,7 +188,7 @@ def parse_args():
              "of standard deviation SIGMA in pixels (default: no smoothing)")
     parser.add_option("--nonuniform-smoothing-D", type="float", metavar="SIZE",
         help="enable a non-uniform smoothing of p(L|D) over D with a kernel "\
-        "that varies proportionally to SIZE*D (default: no smoothing)")
+        "that varies proportionally to sqrt(SIZE)*D (default: no smoothing)")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
