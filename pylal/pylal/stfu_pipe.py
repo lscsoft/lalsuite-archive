@@ -849,7 +849,9 @@ A python code for plotting the sky map
 
 		self.output_file_name = skyMapNode.output_file_name.replace('.txt','.png')
 
-		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_file_name = "%s-plot_inspiral_skymap_%s_%s-unspecified-gpstime.cache" % ( coinc.instruments, coinc.ifos, str(coinc.time))
+
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -1007,9 +1009,9 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
 
 		self.add_var_opt("user-tag","FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time))
 
-		self.output_file_name = "%s-plotsnrchisq_pipe_%s_%s-%d-%d.cache" % ( coinc.instruments, sngl.ifo, "FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time), int(sngl.time-duration*.5), int(sngl.time+duration*.5) - int(sngl.time-duration*.5) )
+		self.output_file_name = "%s-plotsnrchisq_pipe_%s_%s-%d-%d.cache" % ( coinc.instruments, sngl.ifo, "FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time), int(sngl.time-duration*.5), math.ceil(sngl.time+duration*.5) - int(sngl.time-duration*.5) )
 
-		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_cache = lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(sngl.time), float(sngl.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
 		self.setupPlotNode(job)
 
@@ -1050,9 +1052,9 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("ifo-times",instruments)
 		self.setupPlotNode(job)
 
-		self.output_file_name = "%s-plotchiatimeseries_%s_%s-%d-%d.cache" % ( instruments, ifos, "PLOT_CHIA_" + str(coinc.time), int(coinc.time-1), int(coinc.time+1) - int(coinc.time-1) )
+		self.output_file_name = "%s-plotchiatimeseries_%s_%s-%d-%d.cache" % ( instruments, ifos, "PLOT_CHIA_" + str(coinc.time), int(coinc.time-1), math.ceil(int(coinc.time+1)) - int(coinc.time-1) )
 
-		self.output_cache = lal.CacheEntry(instruments, job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_cache = lal.CacheEntry(instruments, job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)

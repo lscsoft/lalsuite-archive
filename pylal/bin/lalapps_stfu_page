@@ -1,17 +1,242 @@
 #!/usr/bin/python
 
+import sys, os, socket, re
+import glob, math
 from glue import cbcwebpage
+from glue import lal
+from glue import segments
+
+#class cache_parser(object):
+#	def __init__(self, cachefile):
+
+def parse_plot_cache_for_image(cache, basepath, tag):
+	out = None
+	#FIXME make faster
+	for l in cache:
+		if re.match('.*'+tag+'.*', l):
+			img = basepath + '/' + l 
+			out =  (img.strip(), img.replace('.png', '_thumb.png').strip())
+			break
+	if not out:
+		print >>sys.stderr, "couldn't find %s in requested %s" % (tag, str(cache))
+		raise ValueError
+	return out
+
+def parse_plot_cache_for_all_images(cache, basepath):
+	out = []
+	#FIXME make faster
+	for l in cache:
+		if re.match('.*.png', l):
+			img = basepath + '/' + l 
+			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
+	if not out:
+		print >>sys.stderr, "couldn't images in requested %s" % (str(cache),)
+		raise ValueError
+	return out
+	
+
+def cache_parser(cachefile):
+	coinc = {}
+	f = open(cachefile)
+	out_cache = []
+	for l in f.readlines():
+		if "COINC_INFO" in l: 
+			c = l.split()
+			coinc.setdefault(c[1].replace('COINC_INFO_',''),[]).append(c[4].replace('file://localhost',''))
+		else: out_cache.append(lal.CacheEntry(l))
+	return coinc, out_cache
+
+class Coinc(object):
+	def __init__(self, coinc, search, cache):
+		self.cache = cache
+		# set up some useful cache views
+		self.htqscan_cache = self.parse_cache_by_desc("WPIPELINE_FG_HT_"+search.upper())
+		self.plotsnrchisq_cache = self.parse_cache_by_desc("PLOTSNRCHISQ_PIPE__"+search.upper())
+		self.plotchia_cache = self.parse_cache_by_desc("PLOTCHIATIMESERIES__"+search.upper())
+		self.skymap_cache = self.parse_cache_by_desc("PYLAL_PLOT_INSPIRAL_SKYMAP__"+search.upper())
+
+		f = open(coinc)
+		line = f.readlines()
+		d = line[1].split()
+		self.dir = d[0]
+		self.rank = d[1]
+		self.cfar = d[2]
+		self.coincsnr = d[3]	
+		self.ifos = d[4]
+		self.instruments = d[5]
+		self.coinctime = d[6]
+		self.coincmass = d[7]
+		self.time = {}
+		self.snr = {}
+		self.chisq = {}
+		self.mass1 = {}
+		self.mass2 = {}
+		for l in line[3:]:
+			#don't look at ifos not found in coincidence since the parameters are stolen from another ifo
+			d = l.split()
+                        if d[1].strip() not in self.ifos: d[3:] = ["0" for i in d[3:]]
+			self.time[d[1]] = d[2]
+			self.snr[d[1]] = d[3]
+			self.chisq[d[1]] = d[4]
+			self.mass1[d[1]] = d[5]
+			self.mass2[d[1]] = d[6]
+	
+	def parse_cache_by_desc(self, tag, cache=None):
+		out = []
+		#FIXME make this faster
+		if not cache: cache = self.cache
+		for l in cache:
+			if tag in l.description:
+				out.append(l)
+		if not out:
+			print >>sys.stderr, "couldn't find %s in requested %s" % (tag, str(cache))
+			raise ValueError
+			sys.exit(1)
+		return out
+
+	def parse_cache_by_time_and_ifo(self, time, ifo, cache=None):
+		#FIXME make this faster
+		if not cache: cache = self.cache
+		out = []
+		for l in cache:
+			#print float(time), float(l.segment[0]), str(ifo), str(l.observatory)
+			if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory): out.append(l)
+		if not out:
+			print >>sys.stderr, "couldn't find %f for %s in requested %s" % (time, ifo, str(cache))
+			raise ValueError
+			sys.exit(1)
+		return out
+		
+	def write_param_table(self, page):
+		page.add_section("param", "Parameter table for %s" % (self.coinctime,))
+		params = [["<b>RANK</b>", "<b>CFAR</b>",  "<b>TIME</b>", "<b>SNR</b>", "<b>MASS</b>","<b>IFOS</b>","<b>INSTRUMENTS</b>"],[self.rank, self.cfar, self.coinctime, self.coincsnr, self.coincmass, self.ifos, self.instruments]]
+		page.sections["param"].add_table(params, title="Coinc Parameter Table", caption="Coinc parameters for the event", tag="coincparamtable")
+		
+		params = [["<b>IFO</b>","<b>TIME</b>", "<b>SNR</b>",  "<b>CHISQ</b>", "<b>MASS1</b>", "<b>MASS2</b>"]]
+		for ifo, data in self.time.items():
+			params.append([ifo, self.time[ifo], self.snr[ifo], self.chisq[ifo], self.mass1[ifo], self.mass2[ifo]])
+		page.sections["param"].add_table(params, title="Sngl Parameter Table", caption="Sngl parameters for the event", tag="snglparamtable")
+
+	def add_htqscan(self, page):
+		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
+		img_row = []
+		ifo_row = []
+		# since qscans are already by default on web space, they are handled differently
+		for ifo, time in self.time.items():
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
+			page.sections["htqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
+			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.png'
+			img_glob = glob.glob(pat)
+			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.thumb.png'
+			thumb_glob = glob.glob(pat)
+			ifo_row.append(ifo)
+			img_row.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
+
+		page.sections["htqscan"].add_table([ifo_row, img_row], "h(t) Qscans", "A table with 3 detector h(t) qscans", tag="htqscan")
+		
+	def add_plotsnrchisq(self, page):
+		page.add_section("plotsnrchisq", "SNR, Chisq and template time series for %s" % (self.coinctime,))
+		img_row = []
+		ifo_row = []
+		table = []
+		for ifo, time in self.time.items():
+			# Parse plotting codes nearly useless "cache" file
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
+			cfile = c[0].url.replace('file://localhost','')
+			path = os.path.split(cfile.rstrip('/'))[0] 
+			clist = open(cfile).readlines()
+			plots = ['snr-','snr_zoom-', 'rsq-', 'rsq_zoom-', 'chisq-', 'chisq_zoom-', 'PSD-', 'fft_of_template_and_asd-', 'template-', 'white_template-']
+			plot_list = []
+			for plot in plots:
+				img, thumb = parse_plot_cache_for_image(clist, path, plot)
+				plot_list.append(cbcwebpage._imagelinkcpy(img,thumb,plot))			
+			img_row.append(plot_list)
+			ifo_row.append(ifo)
+		table.append(ifo_row)
+		for row in zip(*img_row): table.append(row)
+		page.sections["plotsnrchisq"].add_table(table, "Plots of inspiral stuff", "Plots of snr, snrzoom, rsq, rsqzoom, chisq, chisqzoom, PSD, fft of templates and PSD, template and whitened template by ifo", tag="plotsnrchisq")
+
+	def add_plotchia(self, page):
+		page.add_section("plotchia", "Coherent Code Plots for %s" % (self.coinctime,))
+		img_row = []
+		ifo_row = []
+		table = []
+		plot_list = []
+
+		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.plotchia_cache)
+		cfile = c[0].url.replace('file://localhost','')
+		path = os.path.split(cfile.rstrip('/'))[0] 
+		try: clist = open(cfile).readlines()
+		except:	
+			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
+			page.sections["plotchia"].add("<br><b>plot chia job did not finish correctly</b><br>")
+			return
+
+		for num, plot in enumerate(parse_plot_cache_for_all_images(clist, path)):
+			plot_list.append(cbcwebpage._imagelinkcpy(plot[0],plot[1],"chia"+str(num)))
+		# group by 3s
+		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
+		page.sections["plotchia"].add_table(plot_list, "Plots of coherent inspiral stuff", "all of plotchiatimeseries output", tag="plotchia")
+
+	def add_skymap(self,page):
+		page.add_section("skymap", "Sky Map for %s" % (self.coinctime,))
+		img_row = []
+		ifo_row = []
+		table = []
+		plot_list = []
+
+		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
+		cfile = c[0].url.replace('file://localhost','')
+		path = os.path.split(cfile.rstrip('/'))[0] 
+		try: clist = open(cfile).readlines()
+		except:	
+			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
+			page.sections["skymap"].add("<br><b>skymap job did not finish correctly</b><br>")
+			return
+
+		for num, plot in enumerate(parse_plot_cache_for_all_images(clist, path)):
+			plot_list.append(cbcwebpage._imagelinkcpy(plot[0],plot[1],"skymap"+str(num)))
+		# group by 3s
+		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
+		page.sections["skymap"].add_table(plot_list, "Sky map", "lalapps skymap plot", tag="plotchia")
+				
+
+###############################################################################
+##### MAIN ####################################################################
+###############################################################################	
+		
+
+# PARSE THE CACHE
+coinc_info, cache = cache_parser(sys.argv[1])
+
+# LOOP OVER DIFFERENT "SEARCHES" LIKE FULL DATA ETC, 
+for search, coincs in coinc_info.items():
+	events = []
+
+	# pull out the events and sort them
+	for coinc in coincs:
+		events.append(Coinc(coinc, search, cache))
+	events.sort(key=lambda x: x.rank)
+
+	# make the page
+	page = cbcwebpage.cbcpage(title="Followup " + search)
+	
+	# loop over the followed up events
+	for event in events:
+		print >>sys.stderr, "processing coinc@%s in %s" % (event.coinctime, search)
+		key = (str(event.coinctime))
+		#print key
+		page.add_subpage(key,"my new page",link_text=key)
+		#section for param table
+		event.write_param_table(page.subpages[key])
+		#section for qscans
+		event.add_htqscan(page.subpages[key])
+		#section for snr plots etc
+		event.add_plotsnrchisq(page.subpages[key])
+		#section for plotchia
+		event.add_plotchia(page.subpages[key])
+		#section for skymap
+		event.add_skymap(page.subpages[key])
+	page.write(search)
 
 
-page = cbcwebpage.cbcpage(title="cbc web page")
-
-page.add_subpage("page1","my new page")
-
-page.subpages["page1"].add_section("sec1","yo")
-page.subpages["page1"].sections["sec1"].p("I rock")
-page.subpages["page1"].sections["sec1"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
-page.subpages["page1"].sections["sec1"].add_section("what","whats up?")
-page.subpages["page1"].sections["sec1"].sections["what"].p("I rock")
-page.subpages["page1"].sections["sec1"].sections["what"].add_table([[1,2],[3,4]],title="sweet ass-table", caption="See XKCD")
-
-page.write()

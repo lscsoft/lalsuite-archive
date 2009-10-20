@@ -27,7 +27,7 @@ from glue.markup import oneliner as e
 from glue import git_version
 
 import subprocess
-import os, sys, time
+import os, sys, time, socket
 import shutil
 
 __author__ = "Chad Hanna <channa@caltech.edu>"
@@ -38,6 +38,20 @@ __date__ = git_version.date
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
 ###############################################################################
+def web_path_to_url(path):
+	host = socket.getfqdn()
+	pl = path.rstrip('/').split('/')
+
+	#FIXME add more hosts as you need them
+	if 'ligo.caltech.edu' in host: return "https://ldas-jobs.ligo.caltech.edu/~" +pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
+	if 'ligo-la.caltech.edu' in host: return "https://ldas-jobs.ligo-la.caltech.edu/~" +pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
+	if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
+	if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
+	if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + pl[pl.index('public_html')-1] + '/' + '/'.join(pl[pl.index('public_html')+1:])
+	if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + pl[pl.index('WWW')-1] + '/' + '/'.join(pl[pl.index('WWW')+1:])
+	print sys.stderr, "WARNING: could not find web server, returning empty string"
+	return ''
+
 
 def create_toggle(filename="toggle.js"):
 	"""
@@ -121,10 +135,46 @@ class _subpage_id(object):
 		self.link_text = link_text
 		self.closed_flag = closed_flag
 
+class _imagelink(markup.page):
+	def __init__(self, imageurl, thumburl, tag="img", width=240):
+		markup.page.__init__(self, mode="strict_html")
+		self.add("<a href=%s><img src=%s width=%d></a>" % (imageurl, thumburl, width))
+
+	def get_content(self):
+		return self.content
+		
+class _imagelinkcpy(markup.page):
+	def __init__(self, imagepath, thumbpath=None, tag="img", width=240):
+		markup.page.__init__(self, mode="strict_html")
+		try: os.mkdir('Images')
+		except: pass
+		#So that you can give it a url
+		imagepath.replace('file://localhost','').strip()
+		imgname = os.path.split(imagepath.rstrip('/'))[1]
+		shutil.copy(imagepath, 'Images/')
+		if not thumbpath:
+			thumbname = 'Images/' + "thumb_" + imgname
+			command = 'convert ' + 'Images/' + imgname + ' -resize 300x300 -antialias ' + thumbname
+			popen = subprocess.Popen(command.split())
+			popen.communicate()
+			status = popen.returncode
+			imgname = 'Images/' + imgname
+		else:
+			thumbpath.replace('file://localhost','').strip()
+			thumbname = os.path.split(thumbpath.rstrip('/'))[1]
+			shutil.copy(thumbpath, 'Images/')
+			thumbname = 'Images/' + thumbname
+			imgname = 'Images/' + imgname
+		self.add("<a href=%s><img src=%s width=%d></a>" % (imgname, thumbname, width))
+
+	def get_content(self):
+		return self.content
+	
+
 class _table(markup.page):
 	def __init__(self, two_d_data, title="", caption="", tag="table", num="1"):
 		markup.page.__init__(self, mode="strict_html")
-		self.br
+		self.add("<br>")
 		if title: 
 			self.b("%s. %s" %(num, title.upper()) )
 	
@@ -138,7 +188,7 @@ class _table(markup.page):
 			self.tr.close()
 		self.table.close()
 		if self.caption: self.i("%s. %s" %(num, caption))
-		self.br
+		self.add("<br>")
 
 	def get_content(self):
 		return self.content			
