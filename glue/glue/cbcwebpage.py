@@ -252,7 +252,7 @@ class cbcpage(markup.page):
 		
 		self.subpages = {}
 		self.subpage_ids = [] 
-		
+		self.external_frames = []	
 		
 		self.sections = {}
 		self.section_ids = []
@@ -284,6 +284,9 @@ class cbcpage(markup.page):
 		#FIXME DO SOMETHING
 		pass
 
+	def add_external_frame(self, linkurl, linktext):
+		self.external_frames.append([linkurl, linktext])
+
 	def write(self, file_name="index"):
 
 		if self.subpage_ids:
@@ -300,6 +303,10 @@ class cbcpage(markup.page):
 				self.subpages[id].write(secfname)
 				self.div(class_="menuitem")
 				self.add('\t<a class="menulink" href="javascript:loadFrame(\'%s.html\');"> %d: %s </a>\n' % (secfname, num, secid.link_text) )
+				self.div.close()
+			for i, ext_frame in enumerate(self.external_frames):
+				self.div(class_="menuitem")
+				self.add('\t<a class="menulink" href="javascript:loadFrame(\'%s\');"> %d: %s </a>\n' % (ext_frame[0], num+i, ext_frame[1]) )
 				self.div.close()
 			self.div.close()
 			self.div.close()
