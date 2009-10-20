@@ -84,11 +84,16 @@ class upper_limit(object):
       dbtables.discard_connection_filename(f, working_filename, verbose = opts.verbose)
       dbtables.DBTable_set_connection(None)      
 
+    # remove redundant instruments
+    self.instruments = list(set(self.instruments))
     # FIXME Do these have to be done by instruments?
     self.segments -= self.veto_segments
 
     # compute far, segments and livetime by instruments
+    print self.far
+    print self.instruments
     for i in self.instruments:
+      print i
       self.far[i] = min(self.far[i])
       # FIXME this bombs if any of the FARS are zero. maybe it should continue
       # and just remove that instrument combo from the calculation
@@ -167,7 +172,7 @@ class upper_limit(object):
     for inst, far in connection.cursor().execute(query):
       inst = frozenset(lsctables.instrument_set_from_ifos(inst))
       self.far.setdefault(inst,[])
-      self.far[inst].append(far)
+      if far: self.far[inst].append(far)
     query = 'DROP TABLE distinct_instruments'
     connection.cursor().execute(query)
 

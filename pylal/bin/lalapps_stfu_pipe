@@ -19,6 +19,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from glue.ligolw import ilwd
+from glue import lal
 from pylal import db_thinca_rings
 from pylal import stfu_pipe
 from lalapps import inspiral
@@ -31,7 +32,7 @@ dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 ##### DATA  FUNCTIONS   #######################################################
 ###############################################################################
 
-def exportCoincToDisk(Coinc=None,filename=None):
+def exportCoincToDisk(coinc, dir, cnt, dag, filename=None):
 	"""
 	This method takes an input from the Coinc Class and writes
 	that object to disk as ascii.  The output file created by this
@@ -41,24 +42,31 @@ def exportCoincToDisk(Coinc=None,filename=None):
 	"""
 	#If directy coincHeadings not there make the directory if
 	#filename is None
-	headingDir="./coinc_headings"
-	idKeyStr="%s__%s__%s"%(str(Coinc.coinc_event_id),
-				str(Coinc.time),
-				str(Coinc.instruments))
+	headingDir= dir + "/coinc_info"
+	instruments = "".join(coinc.instruments.split(','))
+	ifos = "".join(coinc.ifos.split(','))
+
+	idKeyStr="%s_%s" % (str(coinc.time), instruments)
 	if filename==None:
 		filename="coincEvent.info"
 		stfu_pipe.mkdir(headingDir)
-		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+filename)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
 	fp=open(filename,'w')
-	rowString="%s,%s,%s,%s,%s,%s\n"
+	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
+	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, float(coinc.combined_far), float(coinc.snr), ifos, instruments, float(coinc.time), float(coinc.mass)) )
+	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
+	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 	content=list()
-	for ifo,snglEvent in Coinc.sngl_inspiral.items():
-		content.append(rowString%(snglEvent.ifo,
-					  snglEvent.snr,
-					  snglEvent.chisq,
-					  snglEvent.mass1,
-					  snglEvent.mass2,
-					  snglEvent.time))
+	for ifo,snglEvent in coinc.sngl_inspiral.items():
+		content.append(rowString%(dir, 
+					  snglEvent.ifo,
+					  float(snglEvent.time),  
+					  float(snglEvent.snr),
+					  float(snglEvent.chisq),
+					  float(snglEvent.mass1),
+					  float(snglEvent.mass2)))
+	cache = lal.CacheEntry(instruments, "COINC_INFO_"+dir.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(filename))
+	dag.output_cache.append(cache)
 	fp.writelines(content)
 	fp.close()
 	return os.path.split(filename)[1]
@@ -354,9 +362,9 @@ WHERE
                         time_slide.offset != 0
         )
 ORDER BY
-        ?
+        combined_far
 LIMIT ?
-		""", (stat, self.num) )):
+		""", (self.num,) )):
 			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.playground_candidates.append(Coinc(row, contents))
 
@@ -385,9 +393,9 @@ WHERE
                         time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
         )
 ORDER BY
-        ?
+        combined_far
 LIMIT ?
-		""", (stat, self.num) )):
+		""", (self.num,) )):
 			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.candidates.append(Coinc(row, contents))
 
@@ -484,6 +492,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
 	chia_job		= stfu_pipe.followUpChiaJob(options, cp, dir=search)
+	plot_chia_job 		= stfu_pipe.plotChiaJob(options, cp, dir=search)
 	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig', dir=search)
 	sky_map_job		= stfu_pipe.skyMapJob(options,cp, dir=search)
 	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp, dir=search)
@@ -492,7 +501,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp, dir=search)
 	
 	# LOOP OVER COINC EVENTS
-	for coinc in candidates:
+	for coinc_cnt, coinc in enumerate(candidates):
 
 		# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
 		insp_datafind_node = {}
@@ -534,13 +543,14 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 		# Coh insp job
 		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_skymap, p_nodes = insp_node_skymap.values())
+		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia_node, insp_node_skymap, p_nodes=[chia_node])
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
-		#effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
-		#findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
-		#findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
+		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
+		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
+		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
 		#Need a wiki creation Node and Job class with the following as input
-		exportCoincToDisk(coinc)
+		exportCoincToDisk(coinc, search, coinc_cnt, dag)
 
 #### ALL FINNISH ####		
 default_cp.write()

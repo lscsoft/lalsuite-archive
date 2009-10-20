@@ -407,6 +407,7 @@ setup(
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_stfu_pipe"),
+		os.path.join("bin", "lalapps_stfu_page"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "ligolw_binjfind"),
 		os.path.join("bin", "ligolw_summmime"),

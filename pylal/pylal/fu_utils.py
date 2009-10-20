@@ -2045,7 +2045,6 @@ class ratioTest:
     #Extract 3 data vectors
     (t,minR,maxR)=self.pickleData[ifo1][ifo2]
     if not(min(t)<=timeOfFlight<=max(t)):
-      print min(t),timeOfFlight,max(t)
       return float(0)
     rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
     (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
@@ -2336,11 +2335,12 @@ defaulting to %s"%(self.serverURL))
     desired. The version argument will fetch segments with that
     version or higher.
     """
+    triggerTime=float(triggerTime)
     if triggerTime==int(-1):
       os.stdout.write("Specify trigger time please.\n")
       return
     else:
-      self.triggerTime = int(triggerTime)
+      self.triggerTime = float(triggerTime)
       try:
         connection=None
         serverURL=self.serverURL
