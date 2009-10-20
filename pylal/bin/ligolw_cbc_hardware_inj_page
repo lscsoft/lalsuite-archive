@@ -69,8 +69,10 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 	Return indicator of status for this injection
 	"""
 	if(successful_inj.has_key(ifo)) and (successful_inj[ifo] is not None):
-		injected=1
-	else: injected = 0
+	        if time in successful_inj[ifo]:
+			injected=1
+		else: injected = 0
+	else: injected=0
 	xml_files = get_xml_files(filenames,time,ifo)
 	if not xml_files:
 		analysed=0
@@ -209,12 +211,14 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 			'</title></head><body><table border=1><tr bgcolor="#9999ff"><th>GPS end time</th><th>Mass 1</th><th>Mass 2</th><th>Distance (Mpc)</th>'
 	totalinj={}
 	totalfound={}
+	totalanalysed={}
 	statelist={}
 	# Write table header
 	for ifo in ifos:
 		print >>outfile, '<th>'+ifo+'</th>'
 		totalinj[ifo]=0
 		totalfound[ifo]=0
+		totalanalysed[ifo]=0
 		statelist[ifo]=[]
 	# Write table contents
 	for inj in injections:
@@ -228,12 +232,13 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 			(injected,analysed,found)=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
 			print >>outfile,get_ifo_result_string((injected,analysed,found))
 			totalinj[ifo]=totalinj[ifo]+injected
+			totalanalysed[ifo]=totalanalysed[ifo]+analysed
 			totalfound[ifo]=totalfound[ifo]+found
 			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected,analysed,found))
 		print >>outfile,'</tr>'
-	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered / Injected</td>'
+	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td>'
 	for ifo in ifos:
-		print >>outfile,'<td>%i / %i</td>'%(totalfound[ifo],totalinj[ifo])
+		print >>outfile,'<td>%i / %i / %i</td>'%(totalfound[ifo],totalanalysed[ifo],totalinj[ifo])
 	print >>outfile,'</tr>'
 	print >>outfile,'</table>'
 	
@@ -266,10 +271,12 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		pylab.plot(missedx,missedy,'ro',label='Missed')
 		pylab.plot(nax,nay,'y+',label='Not Analysed')
 		thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
+		thisplot.gca().set_ybound(0,500)
 		pylab.title(ifo+' Hardware injections')
 		pylab.xlabel('GPS time')
 		pylab.ylabel('Effective Distance (Mpc)')
 		pylab.legend()
+		pylab.grid(b=True)
 		# save figure
 		print 'save figure'
 		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
