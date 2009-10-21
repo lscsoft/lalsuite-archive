@@ -923,9 +923,9 @@ def do_skypoints(coinc,coinctable=None):
     #      galdoc = ligolw.Document()
     #      galdoc.appendChild(ligolw.LIGO_LW())
     #      galdoc.childNodes[0].appendChild(galtable)
-          xmldoc.childNodes[0].appendChild(galtable)
-          if opts.output:
-            gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
+        xmldoc.childNodes[0].appendChild(galtable)
+        if opts.output:
+          gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
           if opts.online_input:
             gal_name = bname + '_'+str(skymap.time)+'_galaxies.xml'
             output_files.append(gal_name)
