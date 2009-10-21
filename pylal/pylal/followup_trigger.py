@@ -1337,7 +1337,7 @@ class FollowupTrigger:
           markeredgecolor='r',markersize=10, markeredgewidth=1)
 
 
-    legy = 'Decisive effective distance [Mpc]'
+    legy = 'Second smallest eff. distance [Mpc]'
     title_text = legend+' vs '+legy
     pylab.title( opts.title + ' '+title_text+' in '+opts.ifo_times+\
                  ' times', size='x-large')
