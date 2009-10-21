@@ -41,7 +41,8 @@ from pylal import date
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+#from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.date import LIGOTimeGPS
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 
