@@ -21,8 +21,6 @@ them into another.
 """
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$" [7:-2]
 
 import optparse
 import sys
@@ -36,6 +34,7 @@ from glue.ligolw.utils import process as ligolw_process
 from glue.segments import segment, segmentlist
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
+from pylal import git_version
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -101,8 +100,8 @@ def append_process(doc, options):
     """
     Append a process table and a process_params table to doc.
     """
-    process = ligolw_process.append_process(doc, "paste_triggers", __version__,
-                                    "lscsoft", __date__)
+    process = ligolw_process.append_process(doc, "paste_insp_triggers",
+        git_version.tag or git_version.id, "lalsuite", git_version.date)
 
     def map_val(name, val):
         """
@@ -147,7 +146,7 @@ def paste_triggers_into(source_doc, dest_doc, verbose=False):
     new_trigs.sort(key=lsctables.SnglInspiral.get_end)
 
 def parse_args():
-    parser = optparse.OptionParser(version=__version__)
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
     parser.add_option("--source", metavar="SRC",
         help="file from which triggers are taken")
     parser.add_option("--destination", metavar="DEST",
