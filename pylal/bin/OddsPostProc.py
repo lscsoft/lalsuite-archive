@@ -124,40 +124,54 @@ def nestPar(d,Nlive):
 incoflag=0
 outdir=opts.outpath
 Nlive=int(opts.Nlive)
-print 'Loading ' + opts.data[0]
 
 inco=[]
+iBfiles=[]
+
+def getBfile(datname):
+    Bfile=datname+'_B.txt'
+    print 'Looking for '+Bfile
+    if os.access(Bfile,os.R_OK):
+        outstat = loadtxt(Bfile)
+        return outstat
+    else:
+        return None
+
 def loaddata(datalist):
-    out=[]
-    a=loadtxt(datalist[0])
-    for infile in datalist[1:]:
-        print 'Loading ' + infile
-        tmp=loadtxt(infile)
-        out.append(a)
-    return out
+    out = list(map(loadtxt,datalist))
+    Bfiles = list(map(getBfile,datalist))
+    if not None in Bfiles: # Subtract off the noise evidence
+        for (outfile,Bfile) in zip(out,Bfiles):
+            outfile[:,-1]-=Bfile[2]
+    return out,Bfiles
 
-d=loaddata(opts.data)
-
+# Load in the main data
+(d,Bfiles)=loaddata(opts.data)
+if not None in Bfiles:
+    Bflag=1
+else:
+    Bflag=0
+# Load in the single-IFo data if specified
 if opts.inco0 is not None:
     incoflag=1
-    inco.append(loaddata(opts.inco0))
+    (a,iBfile)=loaddata(opts.inco0)
+    inco.append(a)
+    iBfiles.append(iBfile)
 if opts.inco1 is not None:
     incoflag=2
-    inco.append(loaddata(opts.inco1))
+    (a,iBfile)=loaddata(opts.inco1)
+    inco.append(a)
+    iBfiles.append(iBfile)
 if opts.inco2 is not None:
     incoflag=3
-    inco.append(loaddata(opts.inco2))
+    (a,iBfile)=loaddata(opts.inco2)
+    inco.append(a)
+    iBfiles.append(iBfile)
 if opts.inco3 is not None:
     incoflag=4
-    inco.append(loaddata(opts.inco3))
-
-Bfile = opts.data[0]+'_B.txt'
-print 'Looking for '+Bfile
-if os.access(Bfile,os.R_OK):
-    outstat = loadtxt(Bfile)
-    NoiseZ = outstat[2]
-    Bflag=1
-else: Bflag=0
+    (a,iBfile)=loaddata(opts.inco3)
+    inco.append(a)
+    iBfiles.append(iBfile)
 
 #len=size(d,0)
 Nd=size(d[0],1)
@@ -169,10 +183,7 @@ print 'Exponentiated mc'
 
 Zinco=0
 for incox in inco:
-    leninc=size(incox,0)
-    sidx=argsort(incox[:,-1])
-    incox=incox[sidx,:]
-    (Zincox,Hinco)=nestZ(incox,Nlive)
+    (Zincox,Hinco,d_inco_s,d_weights)=nestPar(incox,Nlive)
     Zinco=Zinco+Zincox
 
 print 'Applying parallelised nested sampling algorithm to samples'
@@ -202,7 +213,7 @@ print '||'+out+'||'
 
 
 if(Bflag==1):
-    BayesFactor = logZ - NoiseZ
+    BayesFactor = logZ
     print 'log B = '+str(BayesFactor)
     
 myfig=figure(1,figsize=(6,4),dpi=80)
@@ -287,7 +298,7 @@ htmlfile=open(outdir+'/posplots.html','w')
 htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>'+str(means[2])+' inspnest Posterior PDFs</h3>')
 if(Bflag==1): htmlfile.write('<h4>log Bayes Factor: '+str(BayesFactor)+'</h4><br>')
 htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bits.<br>')
-if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d_sorted[-1,-1]-NoiseZ)+'<br>')
+if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d_sorted[-1,-1])+'<br>')
 if(incoflag!=0): htmlfile.write('Odds of coherent vs incoherent: '+str(exp(logZ-Zinco))+'<br>')
 htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(size(d_sorted,0))+' NS samples using '+str(size(opts.data,0)*Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
