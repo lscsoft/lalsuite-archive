@@ -514,10 +514,17 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
 	        0.   ,  0.   ,  0.   ,  0.   ])
 	"""
-	array = numpy.zeros((len(bins),), dtype = dtype)
-	for i, (a, b) in enumerate(zip(bins.lower(), bins.upper())):
-		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-	return array
+        lower = bins.lower()
+        upper = bins.upper()
+        # make an intersection of the segment list with the extend of the bins
+        # need to use lower/upper instead of min/max because the latter sometimes
+        # merely correspond to low and high parameters used to construct the binning
+        # (see, for example, the atan binning)
+        seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
+        array = numpy.zeros((len(bins),), dtype = dtype)
+        for i, (a, b) in enumerate(zip(lower, upper)):
+                array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
+        return array
 
 
 #
