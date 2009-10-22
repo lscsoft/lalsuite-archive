@@ -73,6 +73,8 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 			injected=1
 		else: injected = 0
 	else: injected=0
+	if(injected==0):
+		return (0,0,0)
 	xml_files = get_xml_files(filenames,time,ifo)
 	if not xml_files:
 		analysed=0
@@ -97,6 +99,9 @@ def get_ifo_result_string(key):
  	if not analysed: return "<td bgcolor=#ff9900>Not analysed</td>"
 	if not found: return "<td bgcolor=#ff2222>Missed</td>"
 	else: return "<td bgcolor=#22ff22>Found</td>"	
+
+def chirp_dist(inj,ifo):
+	return inj.get_eff_dist(ifo[0])*(2.8*.25**(3.0/5.0)/inj.mchirp)**(5.0/6.0)
 
 # =============================================================================
 def list_results(ifo, time, segment_url, filenames, successful_inj, outfile):
@@ -257,24 +262,24 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 				if tup[4]==1: # plot a found
 					print 'Add a found'
 					foundx.append(int(tup[0]))
-					foundy.append(tup[1].get_eff_dist(ifo[0]))
+					foundy.append(chirp_dist(tup[1],ifo))
 				elif tup[3]: 
 					print 'Add a missed'
 					missedx.append(int(tup[0]))
-					missedy.append(tup[1].get_eff_dist(ifo[0]))
+					missedy.append(chirp_dist(tup[1],ifo))
 				else:
 					print 'Not analysed'
 					nax.append(int(tup[0]))
-					nay.append(tup[1].get_eff_dist(ifo[0]))
-		pylab.plot(foundx,foundy,'gx',label='Found')
+					nay.append(chirp_dist(tup[1],ifo))
+		pylab.plot(foundx,foundy,'go',label='Found')
 		thisplot.hold()
 		pylab.plot(missedx,missedy,'ro',label='Missed')
 		pylab.plot(nax,nay,'y+',label='Not Analysed')
 		thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
-		thisplot.gca().set_ybound(0,500)
+		thisplot.gca().set_ybound(0,100)
 		pylab.title(ifo+' Hardware injections')
 		pylab.xlabel('GPS time')
-		pylab.ylabel('Effective Distance (Mpc)')
+		pylab.ylabel('Chirp Distance (Mpc)')
 		pylab.legend()
 		pylab.grid(b=True)
 		# save figure
@@ -321,14 +326,14 @@ parser.add_option("-s", "--segment-db", metavar = "segment_url", \
     default = "ldbd://segdb.ligo.caltech.edu:30015", \
     help = "URL pointing to segment database") 
 
-parser.add_option("-d","--mbta-dir", action="store",\
-    type="string",default="/archive/home/cbc/mbta/triggers", help="Directory contianing MBTA trigger files",metavar="MBTA_DIR")
+parser.add_option("-d","--trig-dir", action="store",\
+    type="string",default="/archive/home/cbc/mbta/triggers", help="Directory contianing trigger files",metavar="TRIG_DIR")
 
 opts,args  = parser.parse_args()
 if opts.outfile is None:
         parser.error("Please specify an output file using the -o option")
 
-filenames = segmentdb_utils.get_all_files_in_range(opts.mbta_dir, opts.gps_start_time, opts.gps_end_time)
+filenames = segmentdb_utils.get_all_files_in_range(opts.trig_dir, opts.gps_start_time, opts.gps_end_time)
 
 # =============================================================================
 ifos = []
@@ -367,13 +372,13 @@ for ifo in ifos:
         "--segment-url", opts.segment_db] )
     if retcode != 0:
         print >>sys.stderr, "Segment call failed."
-        exit(1)
+        sys.exit(1)
     x = subprocess.Popen(["ligolw_print", "-t", "segment", "-c", "start_time",
         "-c", "end_time", "-d" " ", out_xml], stdout=subprocess.PIPE)
     retcode = x.wait()
     if retcode != 0:
         print >>sys.stderr, "Segment call failed."
-        exit(1)
+        sys.xit(1)
 
     hwinj_done[ifo] = segmentsUtils.fromsegwizard(x.stdout.readlines())
 
