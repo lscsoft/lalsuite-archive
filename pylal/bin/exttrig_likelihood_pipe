@@ -2,16 +2,12 @@
 """
 exttrig_likelihood_pope - generates steps to test likelihood or to open the box
 
-$Id$
-
 This script generates a condor DAG(?) for the last step of the 
 inspiral exttrig pipeline, which is either to create likelihood plots
 with a fake onsource trial or to open the box with the real onsource data.
 """
 
 __author__ = 'Alexander Dietz <Alexander.Dietz@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
