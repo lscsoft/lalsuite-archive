@@ -257,27 +257,42 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		nax=[]
 		nay=[]
 		thisplot=pylab.figure()
-		for tup in statelist[ifo]:
-			if tup[2]:
-				if tup[4]==1: # plot a found
-					print 'Add a found'
-					foundx.append(int(tup[0]))
-					foundy.append(chirp_dist(tup[1],ifo))
-				elif tup[3]: 
-					print 'Add a missed'
-					missedx.append(int(tup[0]))
-					missedy.append(chirp_dist(tup[1],ifo))
-				else:
-					print 'Not analysed'
-					nax.append(int(tup[0]))
-					nay.append(chirp_dist(tup[1],ifo))
-		pylab.plot(foundx,foundy,'go',label='Found')
-		thisplot.hold()
-		pylab.plot(missedx,missedy,'ro',label='Missed')
-		pylab.plot(nax,nay,'y+',label='Not Analysed')
+#		for tup in statelist[ifo]:
+#			if tup[2]:
+#				if tup[4]==1: # plot a found
+#					print 'Add a found'
+#					foundx.append(int(tup[0]))
+#					foundy.append(chirp_dist(tup[1],ifo))
+#				elif tup[3]: 
+#					print 'Add a missed'
+#					missedx.append(int(tup[0]))
+#					missedy.append(chirp_dist(tup[1],ifo))
+#				else:
+#					print 'Not analysed'
+#					nax.append(int(tup[0]))
+#					nay.append(chirp_dist(tup[1],ifo))
+		def isBNS(tup):
+			return tup[1].mass1<2.0 and tup[1].mass2<2.0
+		def isNSBH(tup):
+			return (tup[1].mass1<2.0 and tup[1].mass2>2.0) or (tup[1].mass2<2.0 and tup[1].mass1>2.0)
+		def isBBH(tup):
+			return (tup[1].mass1>2.0 and tup[1].mass2>2.0)
+		# Plot BNS
+		for (filt,symb,injtype) in zip((isBNS,isNSBH,isBBH) , ('+','x','o'),('BNS','NSBH','BBH')):
+			results=filter(filt,statelist[ifo])
+			print (filt,symb,injtype)
+			if results is not None:
+				(foundx,foundy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[4]==1,results)),map(lambda i: chirp_dist(i[1].ifo),filter(lambda tup: tup[4]==1,results)))
+				(missedx,missedy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[4]==1,results)),map(lambda i: chirp_dist(i[1].ifo),filter(lambda tup: tup[4]!=1 and tup[3],results)))
+				(nax,nay)=(map(lambda i: int(i[0]), filter(lambda tup: tup[4]==1,results)),map(lambda i: chirp_dist(i[1].ifo),filter(lambda tup: tup[4]!=1 and not tup[3],results)))
+
+			pylab.plot(foundx,foundy,'g'+'symb',label='Found '+injtype)
+			thisplot.hold()
+			pylab.plot(missedx,missedy,'r'+'symb',label='Missed '+injtype)
+			pylab.plot(nax,nay,'y'+'symb',label='Not Analysed '+injtype)
 		thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
 		thisplot.gca().set_ybound(0,100)
-		pylab.title(ifo+' Hardware injections')
+		pylab.title(ifo+' Hardware injections '+ opts.gps_start_time+' - '+opts.gps_end_time)
 		pylab.xlabel('GPS time')
 		pylab.ylabel('Chirp Distance (Mpc)')
 		pylab.legend()
