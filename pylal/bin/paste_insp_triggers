@@ -224,8 +224,6 @@ if opts.take_offsource_trial is not None:
         dest_segs[0][0] - (source_segs[0][0] + (opts.take_offsource_trial - 1)*abs(dest_segs))
     opts.restrict_source_times = True
 
-    print opts.shift_triggers
-
 # shift source triggers as appropriate
 if opts.shift_triggers is not None:
     shift_time = LIGOTimeGPS(opts.shift_triggers)
