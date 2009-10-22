@@ -394,7 +394,7 @@ else:
         log_L_by_m2, pL0_by_m2):
         row = ["[%.2f, %.2f)" % m2_range]
 
-        m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+        m2_coincs = [mchirp_dict[mc_ind]]
 
         if len(m2_coincs) == 0:
             row.append("&mdash;")
