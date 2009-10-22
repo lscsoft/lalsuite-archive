@@ -399,7 +399,8 @@ class summary_page_job(pipeline.CondorDAGJob):
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
-    self.add_opt("webserver", string.strip(cp.get('output','web_page')))
+    self.add_opt("webserver-dir", string.strip(cp.get('output','web_dir')))
+    self.web_url = string.strip(cp.get('output','web_page'))
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 
@@ -565,12 +566,20 @@ class summary_page_node(pipeline.CondorDAGNode):
   """
   """
   def __init__(self, job, dag, open_box=None, base_name=None, p_node=[]):
+    self.base_name = base_name
+    self.open_box = open_box
+    self.web_url = job.web_url
     pipeline.CondorDAGNode.__init__(self,job)
     if open_box: self.add_var_arg("--open-box")
     if base_name: self.add_var_opt("output-name-tag", base_name)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
+
+  def geturl(self):
+    if self.open_box: return '%s/%s%s.html' % (self.web_url, self.base_name, "open_box")
+    else: return '%s/%s%s.html' % (self.web_url, self.base_name, "playground")
+
 
 def ifo_combos(ifosegdict):
   ifos = []
@@ -1065,4 +1074,6 @@ dag.write_script()
 #print "\n\nYour database output should be...\n"
 #for cat in cats:
 #  print "\t" + cat + ":\n", " ".join(db[cat]) + "\n"
-print "\n\n\tnow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
+print "\n\n\tYour output web pages will be:\n\n"
+for node in  summaryPageNode.values(): print "\t\t\t%s\n" %(node.geturl(),)
+print "\n\n\tNow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
