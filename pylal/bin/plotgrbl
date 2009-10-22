@@ -75,28 +75,6 @@ trace_m2_bin = 0
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
 
-def get_mean_mchirp_GRB070923(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    return modified_mean_mchirp
-
 def get_fap(snr_by_mc):
     """
     Return the false alarm probability, the probability of obtaining snr_by_mc
