@@ -87,7 +87,11 @@ def create_relic_call(cp, opts, onsource_file=None):
     call+= ' --onsource-glob ' +onsource_file 
     call+= ' --write-onsource'
     call+= ' --user-tag '+input_user_tag+'_'+opts.user_tag
-    
+
+  # for multiple IFO pairs, must invoke --grb070923 option
+  if len(opts.ifo_tag) > 4:
+    call += ' --grb070923'
+
   # create veto file containing offsource overlaping vetoes
   veto_files = create_list_veto_files(opts, [2])
 
