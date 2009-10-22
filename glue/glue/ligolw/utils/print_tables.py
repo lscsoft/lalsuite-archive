@@ -99,8 +99,8 @@ def smart_round( val, decimal_places = 2):
 # =============================================================================
 #
 
-def print_tables(xmldoc, output, output_format, tableList = [], round_floats = True, decimal_places = 2, title = None,
-    print_table_names = True):
+def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
+    round_floats = True, decimal_places = 2, title = None, print_table_names = True):
     """
     Method to print tables in an xml file in other formats.
     Input is an xmldoc, output is a file object containing the
@@ -113,6 +113,10 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
      to convert all the tables found in the xmldoc. Tables
      not converted will not be included in the returned file
      object.
+    @columnList: only print the columns listed, in the order given. 
+     This applies to all tables (if a table doesn't have a listed column, it's just
+     skipped). To specify a column in a specific table, use table_name:column_name.
+     Default is to print all columns.
     @round_floats: If turned on, will smart_round floats to specifed
      number of places.
     @decimal_places: If round_floats turned on, will smart_round to this
@@ -138,7 +142,16 @@ def print_tables(xmldoc, output, output_format, tableList = [], round_floats = T
     # cycle over the tables in the xmldoc
     for table_name in tableList:
         this_table = table.get_table(xmldoc, table_name)
-        col_names = [col.getAttribute("Name").split(":")[-1] for col in this_table.getElementsByTagName(u'Column')]
+        if columnList == []:
+            col_names = [ col.getAttribute("Name").split(":")[-1]
+                for col in this_table.getElementsByTagName(u'Column') ]
+        else:
+            col_names = []
+            for requested_column in columnList:
+                col_names.extend( actual_column.getAttribute("Name").split(":")[-1]
+                for actual_column in this_table.getElementsByTagName(u'Column')
+                    if requested_column in actual_column.getAttribute("Name")
+                    and actual_column.getAttribute("Name").split(":")[-1] not in col_names )
         # start the table and print table name
         print >> output, tx
         if print_table_names:

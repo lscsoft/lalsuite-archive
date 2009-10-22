@@ -389,6 +389,7 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	defaults={"section":"fu-condor",
 		  "options":{"universe":"local",
+			     "snr-ratio-test":"/archive/home/ctorres/public_html/DQstuff/ratioTest.pickle",
 			     "effDRatio":"followupRatioTest.py"}
 		  }
 	def __init__(self, opts, cp, dir='', tag_base=""):
@@ -400,7 +401,6 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 		self.__universe = string.strip(cp.get('fu-condor','universe'))
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
@@ -762,6 +762,8 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		pipeline.CondorDAGNode.__init__(self,job)
 		oFilename="%s_%s"%(str("%10.3f"%(coincEvent.time)).replace(".","_"),cp.get('effDRatio','output-file'))
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
+		self.add_var_opt("output-format",cp.get('effDRatio','output-format'))
+		self.add_var_opt("snr-ratio-test",cp.get('effDRatio','snr-ratio-test'))
 		#Grab Sngl propteries from Coinc object
 		index=1
 		for ifo,snglEvent in coincEvent.sngl_inspiral.items():
@@ -772,6 +774,10 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt("snr%i"%(index),mySNR)
 			self.add_var_opt("time%i"%(index),myTIME)
 			index=index+1
+		for rIndex in range(index,3+1):
+			self.add_var_opt("ifo%i"%(rIndex),None)
+			self.add_var_opt("snr%i"%(rIndex),None)
+			self.add_var_opt("time%i"%(rIndex),None)
 		dag.add_node(self)
 
 ##############################################################################
@@ -849,7 +855,9 @@ A python code for plotting the sky map
 
 		self.output_file_name = skyMapNode.output_file_name.replace('.txt','.png')
 
-		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_file_name = "%s-plot_inspiral_skymap_%s_%s-unspecified-gpstime.cache" % ( coinc.instruments, coinc.ifos, str(coinc.time))
+
+		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -1007,9 +1015,9 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
 
 		self.add_var_opt("user-tag","FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time))
 
-		self.output_file_name = "%s-plotsnrchisq_pipe_%s_%s-%d-%d.cache" % ( coinc.instruments, sngl.ifo, "FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time), int(sngl.time-duration*.5), int(sngl.time+duration*.5) - int(sngl.time-duration*.5) )
+		self.output_file_name = "%s-plotsnrchisq_pipe_%s_%s-%d-%d.cache" % ( coinc.instruments, sngl.ifo, "FOLLOWUP_PLOTSNRCHISQ_" + str(sngl.time), int(sngl.time-duration*.5), math.ceil(sngl.time+duration*.5) - int(sngl.time-duration*.5) )
 
-		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_cache = lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(sngl.time), float(sngl.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
 		self.setupPlotNode(job)
 
@@ -1050,9 +1058,9 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("ifo-times",instruments)
 		self.setupPlotNode(job)
 
-		self.output_file_name = "%s-plotchiatimeseries_%s_%s-%d-%d.cache" % ( instruments, ifos, "PLOT_CHIA_" + str(coinc.time), int(coinc.time-1), int(coinc.time+1) - int(coinc.time-1) )
+		self.output_file_name = "%s-plotchiatimeseries_%s_%s-%d-%d.cache" % ( instruments, ifos, "PLOT_CHIA_" + str(coinc.time), int(coinc.time-1), math.ceil(int(coinc.time+1)) - int(coinc.time-1) )
 
-		self.output_cache = lal.CacheEntry(instruments, job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+		self.output_cache = lal.CacheEntry(instruments, job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)

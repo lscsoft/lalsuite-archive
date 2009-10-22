@@ -163,10 +163,10 @@ def parse_command_line():
             "Specify how many triggers to print. Default is 10. "
             )
     parser.add_option( "", "--convert-durations", action = "store", type = "string", default = "s",
-        metavar = "s, min, hr, d, OR yr",
+        metavar = "s, min, hr, days, OR yr",
         help =
             "Convert the duration from seconds to a different unit of time. Options are: " +
-            "s (seconds), min (minutes), hr (hours), d (days), or yr (years). " +
+            "s (seconds), min (minutes), hr (hours), days (days), or yr (years). " +
             "(Setting to s is the equivalent of a no-op.)"
             )
 
@@ -188,7 +188,7 @@ def parse_command_line():
     if options.datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
         raise ValueError, "Unrecognized datatype %s. See help for options." % options.datatype
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
-        options.convert_durations.strip().lower() == "hr" or options.convert_durations.strip().lower() == "d" or
+        options.convert_durations.strip().lower() == "hr" or options.convert_durations.strip().lower() == "days" or
         options.convert_durations.strip().lower() == "yr"):
         raise ValueError, "--convert-duration must be either s, min, hr, d, or yr"
 

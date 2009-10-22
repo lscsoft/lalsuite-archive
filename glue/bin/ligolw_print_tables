@@ -71,6 +71,15 @@ def parse_command_line():
             "To specify multiple tables, give the argument multiple times. " +
             "All the tables must exist in the xml file(s)."
             )
+    parser.add_option("-c", "--column", action = "append", type = "string",
+        default = [],
+        help =
+            "Only print the given column (default is to print all columns). " +
+            "This applies to all tables with a column having the given name(s)." +
+            "To specify a column in a specific table, use table_name:column_name. " +
+            "To specify multiple columns, give the argument multiple times (order given " +
+            "will be the order printed). "
+            )
     parser.add_option("-r", "--round-floats", action = "store", type = "int",
         default = None,
         help =
@@ -127,8 +136,8 @@ print_table_names = not options.no_table_names
 # convert the files
 for xmldoc, title in zip(xmldocs, titles):
     print_tables.print_tables(xmldoc, options.output, options.output_format, tableList = options.table,
-        round_floats = round_floats, decimal_places = options.round_floats, title = title,
-        print_table_names = print_table_names)
+        columnList = options.column, round_floats = round_floats, decimal_places = options.round_floats, 
+        title = title, print_table_names = print_table_names)
 
 # close and exit
 options.output.close()

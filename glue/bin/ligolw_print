@@ -31,21 +31,22 @@ Print things from LIGO LW XML files.  Inspired by lwtprint from LIGOTools.
 """
 
 
-__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
-
-
 from optparse import OptionParser
 
 
-from glue.lal import CacheEntry
+from glue import git_version
 from glue import segmentsUtils
+from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import array
 from glue.ligolw import utils
 from glue import git_version
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 
 #
 # =============================================================================
