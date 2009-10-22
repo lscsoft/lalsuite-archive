@@ -681,9 +681,7 @@ class parse_cache_for_thinca_to_coinc(object):
 def get_doubles(instruments):
   all_ifos = instruments.strip().split(',')
   ifo_combinations = list(iterutils.choices(all_ifos,2))
-  for comb in ifo_combinations:
-    comb=','.join(comb)
-  return comb
+  return ifo_combinations
 
 class default_config(object):
   def __init__(self,path_to_ihope):
@@ -948,6 +946,10 @@ zl_rank_node = {}
 #mvsc_update_sql
 update_job = mvsc_update_sql_job(cp)
 update_node = {}
+
+for comb in get_doubles(instruments):
+  comb = ','.join(comb)
+  print comb
 
 #############################################
 
