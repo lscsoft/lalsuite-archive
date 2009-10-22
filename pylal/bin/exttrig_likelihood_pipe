@@ -149,7 +149,7 @@ def create_paste_call(cp, opts):
   call+=' --destination '+dest_filename
   call+=' --paste-strategy delete_all'
   call+=' --output-filename '   +output_filename
-  call+=' --event-id-type int_8s --restrict-source-times --verbose'
+  call+=' --restrict-source-times --verbose'
 
   if opts.fake=='offsource':
     call+= ' --take-offsource-trial '+str(opts.trial)
