@@ -139,6 +139,10 @@ class SkyPoints(object):
       self.time = min(row.end_time for row in snglinsptab)
       self.snr = dict((row.ifo, row.snr) for row in snglinsptab)
       self.gps = dict((row.ifo, row.get_end()) for row in snglinsptab)
+      self.gps["V1"] = LIGOTimeGPS(self.gps["V1"].seconds,self.gps["V1"].nanoseconds*1.0e7)
+      self.gps["L1"] = LIGOTimeGPS(self.gps["L1"].seconds,self.gps["L1"].nanoseconds*1.0e6)
+      self.gps["H1"] = LIGOTimeGPS(self.gps["H1"].seconds,self.gps["H1"].nanoseconds*1.0e6)
+      print self.gps
       self.effective_distances = dict((row.ifo,row.eff_distance) for row in\
                                       snglinsptab)
       ifos = ('H1', 'L1', 'V1')
@@ -161,7 +165,7 @@ class SkyPoints(object):
       raise ValueError, "Can't have old style coincs and specify --coinc-table!"
     
     # gather injection parameters if possible
-    if injection:
+    if injection and not coinctable:
       self.injection = True
       self.longitude_inj = getattr(coinc,"sim").longitude
       self.latitude_inj = getattr(coinc,"sim").latitude
@@ -183,6 +187,34 @@ class SkyPoints(object):
         self.inj_color = 'r'
       else:
         self.inj_color = 'b'
+    elif injection and coinctable:
+      xmldoc = utils.load_filename(coinctable)
+      siminsptab = tab.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+      row = siminsptab[0]
+      
+      self.injection = True
+      self.longitude_inj = row.longitude
+      self.latitude_inj = row.latitude
+      self.eff_distances_inj = {}
+      self.eff_distances_inj["H1"] = row.eff_dist_h
+      self.eff_distances_inj["L1"] = row.eff_dist_l
+      self.eff_distances_inj["V1"] = row.eff_dist_v
+      self.mass1_inj = row.mass1
+      self.mass2_inj = row.mass2
+      self.delta_t_rms_inj = self.get_delta_t_rms(self.longitude_inj,\
+                                                  self.latitude_inj)
+      self.delta_D_rms_inj = self.get_delta_D_rms(self.longitude_inj,\
+                                                  self.latitude_inj)
+      self.L_inj = self.get_L(self.longitude_inj,self.latitude_inj)
+      self.sky_area_inj = 0.0
+      if self.narrow_threshold <= self.L_inj <= self.wide_threshold:
+        self.inj_color = 'y'
+      elif self.narrow_threshold > self.L_inj:
+        self.inj_color = 'r'
+      else:
+        self.inj_color = 'b'
+      
+      
     else:
       self.injection = False
       
@@ -200,7 +232,7 @@ class SkyPoints(object):
         tFromRefFreq = self.get_signal_duration(ifo)
         tref[ifo] = LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
       else:
-        tref[ifo] = 0.0   
+        tref[ifo] = 0.0
         
       #compute the geocentric time from each trigger
       tgeo[ifo] = self.gps[ifo] - tref[ifo] - \
@@ -243,6 +275,8 @@ class SkyPoints(object):
     distance this is just the squared Deff integrated over inclination and polarization which
     is proportional to (F+^2 + Fx^2)^(-1)
     """
+
+    #return 0.0
     gmst = {}
     D_marg_sq = {}
     F_plus = {}
@@ -276,6 +310,7 @@ class SkyPoints(object):
     compute L, the 'likelihood-like' quantity for a given point
     currently normalizes delta t to 1ms (harcoded)
     """
+    #return self.get_delta_t_rms(longitude,latitude)
     return self.get_delta_t_rms(longitude,latitude)*1000 + self.get_delta_D_rms(longitude,latitude)
     
   def gridsky(self,coarse_res,fine_res,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon):
@@ -357,6 +392,16 @@ class SkyPoints(object):
     print "wrap_lon", wrap_lon
     print "######"
 
+    ####testing####
+   # figure()
+   # for pt in points:
+   #   plot(asarray([pt[1]]),asarray([pt[0]]),'bx')
+   # xlabel("Right Ascension (radians)")
+   # ylabel("Declination (radians)")
+   # title("Coarse Grid")
+   # show()
+    ###end testing###
+
     return points
   
   def sphdist(self,p1,p2):
@@ -427,6 +472,7 @@ class SkyPoints(object):
     coarse_L = []
     if plot_name:
       figure()
+
     
     for point in coarse_grid:
       longitude = point[1]
@@ -437,6 +483,7 @@ class SkyPoints(object):
     
     Lmin_coarse = min([pt[1] for pt in coarse_L])
     coarse_hotspots = []
+    coarse_clusters = []
     for pt in coarse_L:
       if pt[1] <= 3*Lmin_coarse:
         coarse_hotspots.append(pt[0])
@@ -446,7 +493,10 @@ class SkyPoints(object):
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'bx')
     pt_step = pi*numpy.sqrt(2.0)*2*self.coarse_res/180.0
     dmax = self.sphdist((0,0), (pt_step,pt_step))
-    coarse_clusters = self.find_clusters(coarse_hotspots,dmax)
+    if len(coarse_hotspots) > 0.5*len(coarse_grid):
+      coarse_clusters=[coarse_hotspots]
+    else:
+      coarse_clusters = self.find_clusters(coarse_hotspots,dmax)
     
     fine_L = []
     cluster_count = 0
@@ -457,23 +507,37 @@ class SkyPoints(object):
       latmax = max(lats)
       lonmin = min(lons)
       lonmax = max(lons)
+
+      if latmin < -0.5*pi:
+        latmin = -0.5*pi
+      if lonmin < 0.0:
+        lonmin = 0.0
+      if latmax > 0.5*pi:
+        latmax = 0.5*pi
+      if lonmax > 2*pi:
+        lonmax = 2*pi
+      
       
       #if latmax-latmin > pi or lonmin-lonmax > pi/2 check to see whether
       #grids are oriented to wrap around the short (wrap_x = 1) or long (wrap_x = 0) way
       wrap_lat = 0
       wrap_lon = 0
-      if (latmax - latmin > 0.5*pi) or (lonmax-lonmin > pi):
+      if (latmax - latmin > 0.5*pi) or (lonmax - lonmin > pi)\
+             and (latmax < 0.5*pi) and (latmin > -0.5*pi) \
+             and (lonmax < 2*pi) and (lonmin > 0.0):
         for pt in cluster:
-          if not (latmax >= pt[0] >= latmin):
+          if not (latmax >= pt[0] >= latmin) and (0.5*pi >= pt[0] >= -0.5*pi):
+            print "lat = ", pt[0]
             wrap_lat = 1
-          if not (lonmax >= pt[1] >= lonmin):
+          if not (lonmax >= pt[1] >= lonmin) and (2*pi >= pt[1] >= 0.0):
+            print "lon = ", pt[1]
             wrap_lon = 1
           if (wrap_lat == 1) and (wrap_lon == 1):
             break
       
       fine_grid = self.gridsky(self.coarse_res,self.fine_res,latmin,latmax,\
                                lonmin,lonmax,wrap_lat,wrap_lon)
-
+      
       for point in fine_grid:
         longitude = point[1]
         latitude = point[0]
@@ -506,13 +570,16 @@ class SkyPoints(object):
         self.narrow_region.append(pt)
         if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
+      else:
+        self.leftover_region.append(pt)
    #   else:
    #     continue
 
     if plot_name:
+      plot(asarray([fine_L[0][0][1]]),asarray([fine_L[0][0][0]]), 'ms')
       if self.injection:
         plot(asarray([self.longitude_inj]),\
-             asarray([self.latitude_inj]),self.inj_color+'o')
+             asarray([self.latitude_inj]),self.inj_color+'*')
 
       axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
       xlabel("Right Ascension (radians)")
