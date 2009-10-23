@@ -1,267 +1,204 @@
-#!/usr/bin/env /usr/bin/python
-
-import shutil
-import os
-import sys
-import glob
-import ConfigParser
-import subprocess
+#!/usr/bin/python
+import sys, os, socket, re
+import glob, math, shutil
+from glue import cbcwebpage
+from glue import lal
+from glue import segments
 from optparse import OptionParser
 
-class wiki(object):
-  def __init__(self,open_box=False,fname="wiki.txt"):
-    if open_box: fname = "open_box_" + fname
-    self.fname = fname
-    self.file = open(fname,"w")
-    self.hfile = open(fname.replace('.txt','.html'),"w")
 
-  def image_link(self,path,webserver,webserver_dir, html=False):
-    thumb = "thumb_" + path
-    command = 'convert ' + path + ' -resize 300x300 -antialias ' + thumb
-    print command
-    popen = subprocess.Popen(command.split())
-    popen.communicate()
-    status = popen.returncode
-    shutil.copy(path, webserver_dir)
-    shutil.copy(thumb, webserver_dir)
-    if not html:
-      s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
-      self.file.write(s)
-    else: 
-      s = '<a href='+webserver+'/'+path+'><img width=300 src=' +webserver+'/'+thumb+'></img></a>'
-      self.hfile.write(s)
+def image_glob(pat):
+	image_list = []
+	for image in glob.glob(pat):
+		if 'thumb' in image: continue
+		else: image_list.append(image)
+	image_list.sort()
+	plot_list = [cbcwebpage._imagelinkcpy(plot) for plot in image_list]
+	return [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
 
-  def image_table(self,image_list, webserver, html=False):
-    if not image_list: return
-   
-    if not html:
-      for j, i in enumerate(image_list):
-        if not (j) % 3: self.file.write("\n\n||")
-        self.image_link(i, webserver)
-        self.file.write("||")
-      self.file.write("\n\n")
-    else: 
-      self.hfile.write('\n<table>\n')
-      for j, i in enumerate(image_list):
-        if j == 0: self.hfile.write("\n<tr>")
-        if j !=0 and not (j % 3): self.hfile.write("\n</tr><tr>")
-        self.hfile.write('<td>')
-        self.image_link(i, webserver, html=True)
-        self.hfile.write("</td>")
-      self.hfile.write('\n</table>\n')
+def wiki_table_parse(file):
+	#FIXME assumes table files of the form
+	# === title ===
+	# ||data||data||
+	# ||data||data||
 
-  
-  def read_table(self, table, html=False):
-    if not html:
-      try:
-        for l in open(base_name+"playground_summary_table.txt").readlines(): self.file.write(l)
-      except: print >>sys.stderr, "WARNING: couldn't find playground summary, continuing"
-
-    else:
-      try:
-        #self.section(" ".join(table.strip('.txt').split('_')))
-        self.hfile.write('\n<table>\n')
-        for l in open(table).readlines():
-          if "=" in l:
-            self.hfile.write('\n</table>\n')
-            self.section(l.replace('=',''),html=True)
-            self.hfile.write('\n<table>\n')
-            continue
-          self.hfile.write('<tr>')
-          for i, c in enumerate(l.split('||')):
-            self.hfile.write('<td>' + c + '</td>')
-          self.hfile.write('</tr>')
-        self.hfile.write('\n</table>\n')
-      except:
-        self.hfile.write('\n</table>')
-        print >>sys.stderr, "WARNING: couldn't find " + table + ", continuing"
-
-
-  def read_range_summary(self, summary, base_name, html=False):
-
-    if not html:
-      try:
-        filenames = page.image_glob(summary)
-        files = [open(f).readlines() for f in filenames]
-        for f in filenames:
-          self.file.write("|| '''!%s''' || || || || ||" % (f.replace('range_summary.txt','').replace(base_name, "").replace('_','').replace('-',''),) )
-        self.file.write("\n")
-        for i in range(len(files[0])):
-          for f in files:
-            self.file.write(f[i].strip())
-          self.file.write("\n")
-        self.file.write("\n")
-      except: print >>sys.stderr, "WARNING: couldn't find Range summary , continuing"
-    else:
-      try:
-        filenames = page.image_glob(summary)
-        files = [open(f).readlines() for f in filenames]
-        self.hfile.write("<tr>")
-        for f in filenames:
-          self.hfile.write("<td> '''!%s''' </td><td> </td><td> </td><td> </td><td> </td>" % (f.replace('range_summary.txt','').replace(base_name, "").replace('_','').replace('-',''),) )
-        self.hfile.write("</tr>\n")
-        for i in range(len(files[0])):
-          self.hfile.write("<tr>")
-          for f in files:
-            self.hfile.write("<td> " + " </td><td> ".join(f[i].strip().strip("||").split("||")) + " </td>")
-          self.hfile.write("</tr>\n")
-        self.hfile.write("\n")
-      except: print >>sys.stderr, "WARNING: couldn't find Range summary , continuing"
-
-
-  def image_glob(self, pat):
-    image_list = []
-    for image in glob.glob(pat):
-      if 'thumb' in image: continue
-      else: image_list.append(image)
-    image_list.sort()
-    return image_list
-
-  def section(self,title):
-    s = "=== "+title.strip()+" ===\n"
-    self.file.write(s)
-
-    s = "\n<h3>"+title.strip()+"</h3>\n<hr>\n"
-    self.hfile.write(s)
-
-  def write(self,val, html=False):
-    if not html: self.file.write(val)
-    else: self.hfile.write(val)
-
-  def finish(self):
-    self.file.close()  
-    self.hfile.close()
+	tabs = []
+	titles = []
+	tab = []
+	for line in open(file).readlines():
+		if '===' in line: 
+			titles.append(line.replace("=",""))
+			if tab: tabs.append(tab) 
+			tab = []
+		if '||' in line: tab.append(line.split('||'))
+	tabs.append(tab)
+	return tabs, titles
+			
 
 def parse_command_line():
-  parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog computes mass/mass upperlimit")
-  parser.add_option("--webserver", help = "Set the webserver path.  Required.  Example https://ldas-jobs.ligo.caltech.edu/~channa/highmass_months_23-24_summary_page")
-  parser.add_option("--webserver-dir", help = "Set the directory for the webserver.  Required.  Example /archive/home/channa/public_html/highmass_months_23-24_summary_page")
-  parser.add_option("--open-box", action = "store_true", help = "Produce open box page")
-  parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the basename for image search")
-  opts, filenames = parser.parse_args()
+	parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog summary web page")
+	#parser.add_option("--webserver", help = "Set the webserver path.  Required.  Example https://ldas-jobs.ligo.caltech.edu/~channa/highmass_months_23-24_summary_page")
+	parser.add_option("--webserver-dir", help = "Set the directory for the webserver.  Required.  Example /archive/home/channa/public_html/highmass_months_23-24_summary_page")
+	parser.add_option("--open-box", action = "store_true", help = "Produce open box page")
+	parser.add_option("--output-name-tag",default = "", metavar = "name", help = "Set the basename for image search")
 
-  if not opts.webserver:
-    print >>sys.stderr, "must specify a webserver"
-    sys.exit(1)
-  return opts, filenames
+	opts, filenames = parser.parse_args()
+	return opts, filenames
 
-###########################################################
-# MAIN
-###########################################################
+opts, files = parse_command_line()
 
-opts, filenames = parse_command_line()
-
-webserver = opts.webserver
-webserver_dir = opts.webserver_dir
-
-open_box = opts.open_box
 base_name = opts.output_name_tag
+search = base_name.replace('_',' ')
 
-if open_box: print >>sys.stderr, "WARNING: OPENING THE BOX"
+page = cbcwebpage.cbcpage(title="Summary " + search )
 
-page = wiki(open_box, fname=base_name+"wiki.txt")
+#page.add_subpage("playground","Playground", "Playground")
 
-page.section("Injection Parameters")
+### INJ PARAM PAGE ###
+page.add_subpage("injection_params","Injection Parameters", "Injection Parameters")
+page.subpages["injection_params"].add_section("injection_input","Injected Parameters m1 and m2")
+imgtable = image_glob(base_name+'6_sim_dist*.png')
+page.subpages["injection_params"].sections["injection_input"].add_table(imgtable, "Injection parameter plots", "m1 and m2 plane")
 
-image_list = page.image_glob(base_name+'6_sim_dist*.png') 
-page.image_table(image_list,webserver, webserver_dir)
+### INJ ACC PAGE ###
+page.add_subpage("injection_params_acc","Injection Parameters Accuracy", "Injection Accuracy")
+page.subpages["injection_params_acc"].add_section("mchirp_param_acc","Mchirp Parameter Accuracy")
+imgtable = image_glob(base_name+'2_mchirp_acc_frac_*.png')
+page.subpages["injection_params_acc"].sections["mchirp_param_acc"].add_table(imgtable, "Mchirp Accuracy", "Accuracy of chirp mass")
+page.subpages["injection_params_acc"].add_section("eta_param_acc","Eta Parameter Accuracy")
+imgtable = image_glob(base_name+'2_eta_acc_frac_*.png')
+page.subpages["injection_params_acc"].sections["eta_param_acc"].add_table(imgtable, "Eta Accuracy", "Accuracy of eta")
+page.subpages["injection_params_acc"].add_section("time_param_acc","Time Parameter Accuracy")
+imgtable = image_glob(base_name+'2_t_acc_*.png')
+page.subpages["injection_params_acc"].sections["time_param_acc"].add_table(imgtable, "Time Accuracy", "Accuracy of time")
 
-page.section("Found / Missed")
-image_list = page.image_glob(base_name+'1_deff_vs_mchirp_*.png')
-page.image_table(image_list,webserver, webserver_dir)
-image_list = page.image_glob(base_name+'1_deff_vs_t_*.png')
-page.image_table(image_list,webserver, webserver_dir)
+### MISSED FOUND ###
+page.add_subpage("missed_found","Missed Found", "Missed Found")
+page.subpages["missed_found"].add_section("found_missed_mchirp","Found / Missed Chirp Mass")
+imgtable = image_glob(base_name+'1_deff_vs_mchirp_*.png')
+page.subpages["missed_found"].sections["found_missed_mchirp"].add_table(imgtable, "Missed Found vs Mchirp", "Effective distance of found and missed injections")
+page.subpages["missed_found"].add_section("found_missed_time","Found / Missed Time")
+imgtable = image_glob(base_name+'1_deff_vs_t_*.png')
+page.subpages["missed_found"].sections["found_missed_time"].add_table(imgtable, "Missed Found vs Time", "Effective distance of found and missed injections")
 
-page.section("Parameter Accuracy")
-image_list = page.image_glob(base_name+'2_mchirp_acc_frac_*.png')
-page.image_table(image_list,webserver, webserver_dir)
-image_list = page.image_glob(base_name+'2_eta_acc_frac_*.png')
-page.image_table(image_list,webserver, webserver_dir)
-image_list = page.image_glob(base_name+'2_t_acc_*.png')
-page.image_table(image_list,webserver, webserver_dir)
+### CHISQ ###
+page.add_subpage("playchisq","Playground Chi-squared", "Playground Chi-squared")
+page.subpages["playchisq"].add_section("chisq","Playground Chi-squared vs SNR")
+imgtable = image_glob(base_name+'3_playground_chi2_vs_rho_*.png')
+page.subpages["playchisq"].sections["chisq"].add_table(imgtable, "Chi-squared Vs SNR", "Chi-squared vs snr is cool")
 
-page.section("Playground Chi-squared")
-image_list = page.image_glob(base_name+'3_playground_chi2_vs_rho_*.png')
-page.image_table(image_list,webserver, webserver_dir)
+### Effective SNR ###
+page.add_subpage("playeffsnr","Playground Effective SNR", "Effective SNR")
+page.subpages["playeffsnr"].add_section("effsnr","Playground Effective SNR")
+imgtable = image_glob(base_name+'4_playground_rho_*.png')
+page.subpages["playeffsnr"].sections["effsnr"].add_table(imgtable, "Effective SNR", "Effective SNR scatter")
 
-page.section("Playground Effective SNR scatter")
-image_list = page.image_glob(base_name+'4_playground_rho_*.png')
-page.image_table(image_list,webserver, webserver_dir)
+### Time Slide ###
+page.add_subpage("playts","Playground Time slide plots", "Playground Time slides")
+page.subpages["playts"].add_section("ts","Playground Time Slides")
+imgtable = image_glob(base_name+'7_playground_plot_slides_*.png')
+page.subpages["playts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset")
 
-page.section("Time slide plots")
-image_list = page.image_glob(base_name + '7_playground_plot_slides_*.png')
-page.image_table(image_list,webserver, webserver_dir)
+### Money Plots ###
+page.add_subpage("playmoney","Playground Money Plots", "Playground Money Plots")
+page.subpages["playmoney"].add_section("snr","Playground SNR Histogram")
+imgtable = image_glob(base_name+'5_playground_count_vs_snr_*.png')
+page.subpages["playmoney"].sections["snr"].add_table(imgtable, "Effective SNR hist", "Cumulative Effective SNR histogram")
+page.subpages["playmoney"].add_section("ifar","Playground IFAR Histogram")
+imgtable = image_glob(base_name+'5_playground_count_vs_ifar_*.png')
+page.subpages["playmoney"].sections["ifar"].add_table(imgtable, "IFAR hist", "Cumulative IFAR histogram")
+page.subpages["playmoney"].add_section("table","Playground Loudest Table")
+tab,name = wiki_table_parse(base_name+'playground_summary_table.txt')
+page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
 
-page.section("Playground SNR")
-image_list = page.image_glob(base_name+'5_playground_count_vs_snr_*.png')
-page.image_table(image_list,webserver, webserver_dir)
 
-page.section("Playground Ifar")
-image_list = page.image_glob(base_name+'5_playground_count_vs_ifar*.png')
-page.image_table(image_list,webserver, webserver_dir)
+if opts.open_box:
+	print >>sys.stderr, "WARNING: OPENING THE BOX"
+	### CHISQ ###
+	page.add_subpage("chisq","Chi-squared", "Chi-squared")
+	page.subpages["chisq"].add_section("chisq","Chi-squared vs SNR")
+	imgtable = image_glob(base_name+'3_chi2_vs_rho_*.png')
+	page.subpages["chisq"].sections["chisq"].add_table(imgtable, "Chi-squared Vs SNR", "Chi-squared vs snr is cool")
 
-page.read_table(base_name+'playground_summary_table.txt')
-page.read_table(base_name+'playground_summary_table.txt',html=True)
+	### Effective SNR ###
+	page.add_subpage("effsnr","Effective SNR", "Effective SNR")
+	page.subpages["effsnr"].add_section("effsnr","Effective SNR")
+	imgtable = image_glob(base_name+'4_rho_*.png')
+	page.subpages["effsnr"].sections["effsnr"].add_table(imgtable, "Effective SNR", "Effective SNR scatter")
 
-if open_box:
-    print >>sys.stderr, "WARNING: OPENING THE BOX"
+	### Time Slide ###
+	page.add_subpage("ts","Time slide plots", "Time slides")
+	page.subpages["ts"].add_section("ts","Time Slides")
+	imgtable = image_glob(base_name+'7_plot_slides_*.png')
+	page.subpages["ts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset")
 
-    page.section("Full Data Chi-squared")
-    image_list = page.image_glob(base_name+'3_chi2_vs_rho_*.png')
-    page.image_table(image_list,webserver, webserver_dir)
+	### Money Plots ###
+	page.add_subpage("money","Money Plots", "Money Plots")
+	page.subpages["money"].add_section("snr","Playground SNR Histogram")
+	imgtable = image_glob(base_name+'5_count_vs_snr_*.png')
+	page.subpages["money"].sections["snr"].add_table(imgtable, "Effective SNR hist", "Cumulative Effective SNR histogram")
+	page.subpages["money"].add_section("ifar","IFAR Histogram")
+	imgtable = image_glob(base_name+'5_count_vs_ifar_*.png')
+	page.subpages["money"].sections["ifar"].add_table(imgtable, "IFAR hist", "Cumulative IFAR histogram")
+	page.subpages["money"].add_section("table","Loudest Table")
+	tab,name = wiki_table_parse(base_name+'summary_table.txt')
+	page.subpages["money"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Events")
 
-    page.section("Full Data Effective SNR scatter")
-    image_list = page.image_glob(base_name+'4_rho_*.png')
-    page.image_table(image_list,webserver, webserver_dir)
+	### UPPER LIMIT PLOTS ###
+	page.add_subpage("ul","Upper Limit Plots", "Upper Limit Plots")
 
-    page.section("Time slide plots")
-    image_list = page.image_glob(base_name + '7_plot_slides_*.png')
-    page.image_table(image_list,webserver, webserver_dir)
+	range_summs = glob.glob(base_name+'-*_range_summary.txt')
+	for rs in range_summs:
+		tag = rs.replace('_',' ').replace('.txt','')
+		page.subpages["ul"].add_section(tag,rs)
+		tab,name = wiki_table_parse(rs)
+		page.subpages["ul"].sections[tag].add_table(tab[0], "Range Summary", "Range summary")
 
-    page.section("Full Data SNR")
-    image_list = page.image_glob(base_name+'5_count_vs_snr_*.png')
-    page.image_table(image_list,webserver, webserver_dir)
+	page.subpages["ul"].add_section("vt","Volume x time")
+	imgtable = image_glob(base_name+'-*_volume_time.png')
+	page.subpages["ul"].sections["vt"].add_table(imgtable, "Volume x time", "mass1 mass2 volume x time")
 
-    page.section("Full Data Ifar")
-    image_list = page.image_glob(base_name+'5_count_vs_ifar_*.png')
-    page.image_table(image_list,webserver, webserver_dir)
+	page.subpages["ul"].add_section("evt","Error on Volume x time")
+	imgtable = image_glob(base_name+'-*_fractional_error.png')
+	page.subpages["ul"].sections["evt"].add_table(imgtable, "Error on Volume x time", "Error on mass1 mass2 volume x time")
 
-    page.read_table(basename+'summary_table.txt')
-    page.read_table(basename+'summary_table.txt',html=True)
+	page.subpages["ul"].add_section("l","Lambda")
+	imgtable = image_glob(base_name+'-*_lambda.png')
+	page.subpages["ul"].sections["l"].add_table(imgtable, "Lambda", "likelihood fg/bg @ loudest event")
 
-    # UPPER LIMIT PLOTS
-    #ifos_list = [f.replace('volume_time.png','') for f in page.image_glob('*volume_time.png')]
-    #ifos_string = ",".join(ifos_list)
-    page.section("Volume x time ")
+	page.subpages["ul"].add_section("p","Posterior")
+	imgtable = image_glob(base_name+'-*_posterior.png')
+	page.subpages["ul"].sections["p"].add_table(imgtable, "Posterior", "Poseterior on the rate")
 
-    page.read_range_summary(base_name+'-*_range_summary.txt', basename)
-    page.read_range_summary(base_name+'-*_range_summary.txt', basename, html=True)
+	page.subpages["ul"].add_section("ul","90% Upper limit")
+	imgtable = image_glob(base_name+'-*_upper_limit.png')
+	page.subpages["ul"].sections["ul"].add_table(imgtable, "90% Upper limit", "90% upper limit")
 
-    image_list = page.image_glob(base_name+'-*_volume_time.png') 
-    page.image_table(image_list,webserver, webserver_dir)
+	page.subpages["ul"].add_section("cul","Combined 90% Upper limit")
+	imgtable = [[cbcwebpage._imagelinkcpy(base_name+'upper_limit.png'), cbcwebpage._imagelinkcpy(base_name+'posterior.png')]]
+	page.subpages["ul"].sections["cul"].add_table(imgtable, "Combined 90% Upper limit", "Combined 90% upper limit")
 
-    page.section("error on Volume x time ")
-    image_list = page.image_glob(base_name+'-*_fractional_error.png')
-    page.image_table(image_list,webserver, webserver_dir)
+# PAGE FOR DATABASE SUMMARY
+page.add_subpage("databasesummary","Database Summary", "Database Summary")
+tabs, names = wiki_table_parse(base_name+"plotsummary.txt")
+print len(tabs), len(names)
+for i, name in enumerate(names):
+	tag = name.strip().replace(' ','').replace('/','').replace(':','').replace('.','')
+	page.subpages["databasesummary"].add_section(tag,name)
+	page.subpages["databasesummary"].sections[tag].add_table(tabs[i], "Database Overview", "Database Overview")
+	
+### ALL DONE WITH PLAYGROUND ###
+if opts.open_box: page.write(base_name+"open_box")
+else: page.write(base_name+"playground")
 
-    page.section("lambda ")
-    image_list = page.image_glob(base_name+'-*_lambda.png')
-    page.image_table(image_list,webserver, webserver_dir)
-
-    page.section("Selected posteriors ")
-    image_list = page.image_glob(base_name+'-*_posterior.png') 
-    page.image_table(image_list,webserver, webserver_dir)
-
-    page.section("upper limit ")
-    image_list = page.image_glob(base_name+'-*_upper_limit.png') 
-    page.image_table(image_list,webserver, webserver_dir)
-
-    page.section("Combined upper limit")
-    image_list = [base_name+'upper_limit.png', base_name+'posterior.png']
-    page.image_table(image_list,webserver, webserver_dir)
-
-try: 
-  for l in open(base_name+"plotsummary.txt").readlines(): page.write(l)
-except: print >>sys.stderr, "WARNING couldn't find plotsummary.txt"
-
-page.finish()
+# copy the output
+if opts.webserver_dir:
+	try: os.makedirs(opts.webserver_dir)
+	except: pass
+	for f in page.fnames: 
+		shutil.copy(f,opts.webserver_dir)
+	#FIXME not the best way to do this, I should explicitely save file names
+	try: os.mkdir(opts.webserver_dir+'/Images')
+	except: pass
+	for f in glob.glob('Images/*.png'):
+		shutil.copy(f,opts.webserver_dir+'/Images')
