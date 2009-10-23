@@ -16,7 +16,7 @@
 
 #include "Python.h"
 #include "numpy/arrayobject.h"
-#include "FrameL.h"
+#include "lal/LALFrameL.h"
 
 #if PY_VERSION_HEX < 0x02040000
 #define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
@@ -494,15 +494,15 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         // kind, x_unit, y_unit, type, and subType have default values
         temp = PyDict_GetItemString(framedict, "kind");
         if (temp != NULL) {strcpy(kind, PyString_AsString(temp));}
-        else {sprintf(kind,"PROC");}
+        else {sprintf(kind, "PROC");}
 
         temp = PyDict_GetItemString(framedict, "x_unit");
         if (temp != NULL) {strcpy(x_unit, PyString_AsString(temp));}
-        else {sprintf(x_unit, blank);}
+        else {strcpy(x_unit, blank);}
 
         temp = PyDict_GetItemString(framedict, "y_unit");
         if (temp != NULL) {strcpy(y_unit, PyString_AsString(temp));}
-        else {sprintf(y_unit, blank);}
+        else {strcpy(y_unit, blank);}
 
         temp = PyDict_GetItemString(framedict, "type");
         if (temp != NULL) {type = (int)PyInt_AsLong(temp);}
