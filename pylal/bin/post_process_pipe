@@ -1075,7 +1075,7 @@ for cat in cats:
   for key in rank_node:
     finished_rank_nodes.extend(rank_node[key].values())
 
-  update_node[cat] = mvsc_update_sql_node(update_job, dag, files='*'+base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+base_name+'*.sqlite',p_node=finished_rank_nodes+zl_rank_node.values())
+  update_node[cat] = mvsc_update_sql_node(update_job, dag, files='*'+base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+cat+'*'+timestr+'.sqlite',p_node=finished_rank_nodes+zl_rank_node.values())
 
 
 ###############################################
