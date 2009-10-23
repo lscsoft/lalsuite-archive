@@ -547,8 +547,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
-		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
-		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc)
+		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
+		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
 		#Need a wiki creation Node and Job class with the following as input
 		exportCoincToDisk(coinc, search, coinc_cnt, dag)
 

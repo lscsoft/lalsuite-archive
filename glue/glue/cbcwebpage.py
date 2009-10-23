@@ -89,7 +89,7 @@ def script_dict():
 	tog = create_toggle()
 	script[tog] = 'javascript'
 	script['http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
-	return script
+	return (script, [tog])
 
 
 def copy_ihope_style(stylefile="cbcwebpage.css", base_dir="."):
@@ -237,7 +237,9 @@ class cbcpage(markup.page):
 		"""
 		"""
 		if not css: css = copy_ihope_style()
-		if not script: script = script_dict()
+		scdict = script_dict()
+		if not script: script = scdict[0]
+		scriptfiles = scdict[1]
 		self.verbose = verbose
 		self._style = css
 		self._title = title
@@ -252,13 +254,14 @@ class cbcpage(markup.page):
 		
 		self.subpages = {}
 		self.subpage_ids = [] 
-		
+		self.external_frames = []	
 		
 		self.sections = {}
 		self.section_ids = []
 
 		self.tables = 0
-		
+		self.fnames = scriptfiles + [css]	
+
 	def add_subpage(self, tag, title, link_text=None):
 		""" 
 		"""
@@ -284,6 +287,9 @@ class cbcpage(markup.page):
 		#FIXME DO SOMETHING
 		pass
 
+	def add_external_frame(self, linkurl, linktext):
+		self.external_frames.append([linkurl, linktext])
+
 	def write(self, file_name="index"):
 
 		if self.subpage_ids:
@@ -297,9 +303,13 @@ class cbcpage(markup.page):
 				id = secid.id
 				if secid.closed_flag == 0: self.close_subpage(id)
 				secfname = file_name + "_" + id
-				self.subpages[id].write(secfname)
+				self.fnames.append(self.subpages[id].write(secfname))
 				self.div(class_="menuitem")
 				self.add('\t<a class="menulink" href="javascript:loadFrame(\'%s.html\');"> %d: %s </a>\n' % (secfname, num, secid.link_text) )
+				self.div.close()
+			for i, ext_frame in enumerate(self.external_frames):
+				self.div(class_="menuitem")
+				self.add('\t<a class="menulink" href="javascript:loadFrame(\'%s\');"> %d: %s </a>\n' % (ext_frame[0], num+i, ext_frame[1]) )
 				self.div.close()
 			self.div.close()
 			self.div.close()
@@ -320,9 +330,11 @@ class cbcpage(markup.page):
 		self.section_ids.sort()
 		for num, key in self.section_ids:
 			self.content.extend(self.sections[key].get_content())
+		self.fnames.append('%s/%s.html' % (self.path, file_name))
 		pagefile = file('%s/%s.html' % (self.path, file_name), 'w')
 		pagefile.write(str(self))
 		pagefile.close()
+		return '%s/%s.html' % (self.path, file_name)
 			
 	def add_section(self, tag, title="", level=2):
 		"""
@@ -335,3 +347,4 @@ class cbcpage(markup.page):
 		self.tables += 1
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num="T:"+str(self.tables))
 		self.content.extend(table.get_content())
+

@@ -342,6 +342,8 @@ class SummaryTable(object):
 	def __init__(self):
 		self.playground_candidates = []
 		self.candidates = []
+		self.livetime = {}
+		self.playground_livetime = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table:
@@ -430,8 +432,6 @@ ORDER BY
 LIMIT 10
                 """).fetchall()
 
-		self.livetime = {}
-		self.playground_livetime = {}
 		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.livetime.setdefault(on_instruments, 0.0)
 			self.playground_livetime.setdefault(on_instruments, 0.0)

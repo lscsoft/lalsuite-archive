@@ -199,7 +199,11 @@ class Coinc(object):
 		# group by 3s
 		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
 		page.sections["skymap"].add_table(plot_list, "Sky map", "lalapps skymap plot", tag="plotchia")
-				
+	
+	def add_checklist(self, page):
+		page.add_section("checklist", "Detection Checklist for %s" % (self.coinctime,))
+		page.sections["checklist"].add("<a href=https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/followup_%s>DETECTION CHECKLIST FOR %s</a><br>" % (self.coinctime,self.coinctime))
+		page.sections["checklist"].add('<i>NOTE IF PAGE DOES NOT EXIST CHOOSE "FUCheckListTemplate" FROM THE TEMPLATE SECTION<br>')
 
 ###############################################################################
 ##### MAIN ####################################################################
@@ -237,6 +241,9 @@ for search, coincs in coinc_info.items():
 		event.add_plotchia(page.subpages[key])
 		#section for skymap
 		event.add_skymap(page.subpages[key])
+		#checklist
+		event.add_checklist(page.subpages[key])
+	#page.add_external_frame("https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/Test_of_new_Bare_Bones_Checklist_Page","checklist")
 	page.write(search)
 
 
