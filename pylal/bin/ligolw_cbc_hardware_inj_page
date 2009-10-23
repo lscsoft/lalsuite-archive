@@ -53,15 +53,13 @@ def readInjLog(fname):
 
 def get_xml_files(filenames,time,ifo):
 	# Decide on the xml files to read
-    xml_files = []
-
-    for fname in filenames:
-        tm, dur = fname.split('-')[-2:]
-        tm      = int(tm)
-        dur     = int(dur[:-4])
-	if time >= tm and time <= (tm + dur) and ifo in fname:
-        	xml_files.append(fname)
-    return xml_files
+	def filt_fn(filename,time,ifo):
+		tm,dur=filename.split('-')[-2:]
+		tm=int(tm)
+		dur=int(dur[:-4])
+		return time>=tm and time<=(tm+dur) and ifo in filename
+	
+	return filter(lambda fn: filt_fn(fn,time,ifo),filenames)
 # =============================================================================
 
 def check_ifo_result(ifo,time,filenames,successful_inj):
@@ -280,19 +278,19 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		# Plot BNS
 		for (filt,symb,injtype) in zip((isBNS,isNSBH,isBBH) , ('+','x','o'),('BNS','NSBH','BBH')):
 			results=filter(filt,statelist[ifo])
-			print (filt,symb,injtype)
+			#print (filt,symb,injtype)
 			if results is not None:
-				(foundx,foundy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[4]==1,results)),map(lambda i: chirp_dist(i[1].ifo),filter(lambda tup: tup[4]==1,results)))
-				(missedx,missedy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[4]==1,results)),map(lambda i: chirp_dist(i[1].ifo),filter(lambda tup: tup[4]!=1 and tup[3],results)))
-				(nax,nay)=(map(lambda i: int(i[0]), filter(lambda tup: tup[4]==1,results)),map(lambda i: chirp_dist(i[1].ifo),filter(lambda tup: tup[4]!=1 and not tup[3],results)))
+				(foundx,foundy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4],results)))
+				(missedx,missedy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4]!=1 and tup[3],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4]!=1 and tup[3],results)))
+				#(nax,nay)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4]!=1 and not tup[3],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4]!=1 and not tup[3],results)))
 
-			pylab.plot(foundx,foundy,'g'+'symb',label='Found '+injtype)
+			pylab.plot(foundx,foundy,'g'+symb,label='Found '+injtype)
 			thisplot.hold()
-			pylab.plot(missedx,missedy,'r'+'symb',label='Missed '+injtype)
-			pylab.plot(nax,nay,'y'+'symb',label='Not Analysed '+injtype)
+			pylab.plot(missedx,missedy,'r'+symb,label='Missed '+injtype)
+			#pylab.plot(nax,nay,'y'+symb,label='Not Analysed '+injtype)
 		thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
 		thisplot.gca().set_ybound(0,100)
-		pylab.title(ifo+' Hardware injections '+ opts.gps_start_time+' - '+opts.gps_end_time)
+		pylab.title(ifo+' Hardware injections '+ str(opts.gps_start_time) +' - '+ str(opts.gps_end_time))
 		pylab.xlabel('GPS time')
 		pylab.ylabel('Chirp Distance (Mpc)')
 		pylab.legend()
