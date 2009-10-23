@@ -255,20 +255,6 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		nax=[]
 		nay=[]
 		thisplot=pylab.figure()
-#		for tup in statelist[ifo]:
-#			if tup[2]:
-#				if tup[4]==1: # plot a found
-#					print 'Add a found'
-#					foundx.append(int(tup[0]))
-#					foundy.append(chirp_dist(tup[1],ifo))
-#				elif tup[3]: 
-#					print 'Add a missed'
-#					missedx.append(int(tup[0]))
-#					missedy.append(chirp_dist(tup[1],ifo))
-#				else:
-#					print 'Not analysed'
-#					nax.append(int(tup[0]))
-#					nay.append(chirp_dist(tup[1],ifo))
 		def isBNS(tup):
 			return tup[1].mass1<2.0 and tup[1].mass2<2.0
 		def isNSBH(tup):
