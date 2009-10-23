@@ -684,14 +684,14 @@ def get_doubles(instruments):
   return ifo_combinations
 
 class default_config(object):
-  def __init__(self,path_to_ihope):
+  def __init__(self,path_to_ihope, ini_file_to_write=None):
     self.path = path_to_ihope
     cp = ConfigParser.ConfigParser()
     self.cp = cp
 
     # if we detect a config file just use it instead
     if '.ini' in path_to_ihope: 
-      self.overwrite_config(cp)
+      self.overwrite_config(cp, path_to_ihope)
       return
 
     #setup executables
@@ -714,10 +714,10 @@ class default_config(object):
 
     #setup input
     cp.add_section('input')
+    cp.set("input", "ihope-dir", path_to_ihope)
     cp.set("input", "injcache", self.get_ihope_cache())
     cp.set("input", "fulldatacache", self.get_ihope_cache())
     cp.set("input", "eff_snr_fac", "50")
-    cp.set("input", "mass-bins", "0,50,85,inf")
     cp.set("input", "simplify", self.path_to_sql("simplify.sql"))
     cp.set("input", "cluster", self.path_to_sql("cluster.sql"))
     cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
@@ -725,12 +725,25 @@ class default_config(object):
     for cat in ['CAT_2','CAT_3']:
       for ifo in ['H1','H2','L1','V1']:
          self.set_veto_segment(cp, "input", cat, ifo)
-     
+
+    cp.add_section("newcorse1")
+    cp.set("newcorse1", "categories", "mtotal-ifos-oninstruments")
+    cp.set("newcorse1", "rank-by", "snr")
+    cp.set("newcorse1", "mass-bins", "0,50,85,inf")
+
+    cp.add_section("newcorse2")
+    cp.set("newcorse2","categories", "oninstruments")
+    cp.set("newcorse2","rank-by", "uncombined-ifar")
+
     #setup output    
     cp.add_section('output')
     cp.set("output","logpath", self.log_path())
     cp.set("output","web_page", self.web_url())
     cp.set("output", "web_dir", self.web_dir())
+    if inifile_to_write: 
+      cp.write(open(inifile_to_write,"w"))
+      print >>sys.stderr, "\t\tyour ini file was written to %s\n\n" % (inifile_to_write,)
+      sys.exit(0)
     # check if a config file already exists and override the options. then write out 
     # whatever the final version looks like
     #self.overwrite_config(cp)
@@ -821,10 +834,10 @@ class default_config(object):
       sys.exit(1)
     return out
 
-  def overwrite_config(self, cp):
+  def overwrite_config(self, cp, inifile):
     config = ConfigParser.ConfigParser()
     try: 
-      config.read("hm_post.ini")
+      config.read(inifile)
       for section in config.sections():
         if not cp.has_section(section): cp.add_section(section)
         for option in config.options(section):
@@ -832,26 +845,24 @@ class default_config(object):
     except:
       pass
 
-    # write out the file
-    f = open("hm_post.ini","w")
-    cp.write(f)
-    f.close()
-
 def help():
   print >> sys.stderr, """
+THERE ARE THREE WAYS TO RUN THIS PROGRAM
 
-USAGE WITHOUT CONFIG FILE: 
+(1) USAGE WITHOUT CONFIG FILE: 
 
-	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014
+	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014 
 
-USAGE WITH CONFIG FILE (to override defaults):
+(2) USAGE TO MAKE A CONFIG FILE BUT NOT THE DAG [ini file to write]
 
-        post_process_pipe hm_post.ini
+	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014 my_ini_file.ini
 
-HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN ONCE TO GET THE 
-DEFAULTS.  IT WILL THEN WRITE A FILE hm_post.ini IN YOUR DIRECTORY THAT YOU 
-CAN EDIT AND THEN RUN AGAIN USING THE EDITED CONFIG FILE
+(3) USAGE ONCE YOU HAVE A CONFIG FILE (to override defaults):
 
+        post_process_pipe my_ini_file.ini
+
+HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN IN MODE (2) AND THEN
+EDIT THE INIFLE BY HAND AND RUN IN MODE (3)
   """
   sys.exit(0)
 
@@ -861,15 +872,17 @@ CAN EDIT AND THEN RUN AGAIN USING THE EDITED CONFIG FILE
 
 if len(sys.argv) == 1: help()
 if "help" in sys.argv[1]: help()
-
-#FIXME this depends too much on dir structure of ihope
-timestr = os.path.split(sys.argv[1].rstrip('/'))[1]
-start_time = timestr.split('-')[0]
-end_time = timestr.split('-')[1]
+if len(sys.argv) == 3: inifile_to_write = sys.argv[2]
+else: inifile_to_write = None
 
 print >> sys.stderr, "\n...WELCOME FRIENDOS...\n"
 
-cp = default_config(sys.argv[1]).cp
+cp = default_config(sys.argv[1], inifile_to_write).cp
+
+#FIXME this depends too much on dir structure of ihope
+timestr = os.path.split(cp.get("input","ihope-dir").rstrip('/'))[1]
+start_time = timestr.split('-')[0]
+end_time = timestr.split('-')[1]
 
 try: os.mkdir("logs")
 except: pass
@@ -1023,10 +1036,10 @@ for cat in cats:
   base_name = cat + "_" + timestr + "_"
 
   #to compute uncombined far
-  lalappsNewcorseNode[cat] = lalapps_newcorse_node(lalappsNewcorseJob, dag, segNode[cat].name, " ".join(db[cat]),  p_nodes[cat], string.strip(cp.get('input',"mass-bins")), categories="mtotal-ifos-oninstruments", rank="snr", ext_num=5);
+  lalappsNewcorseNode[cat] = lalapps_newcorse_node(lalappsNewcorseJob, dag, segNode[cat].name, " ".join(db[cat]),  p_nodes[cat], string.strip(cp.get('newcorse1',"mass-bins")), categories=cp.get("newcorse1","categories"), rank=cp.get("newcorse1","rank-by"), ext_num=5);
 
   #to compute combined far 
-  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [lalappsNewcorseNode[cat]], mass_bins=None, categories="oninstruments", rank="uncombined-ifar", ext_num=1);
+  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [lalappsNewcorseNode[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
 
   # lalapps_cbc_plotsummary plots
   farPlotNode[cat] = far_plot_node(farPlotJob, dag, " ".join(db[cat]), [lalappsNewcorseNodeCombined[cat]], base=base_name);
@@ -1062,7 +1075,7 @@ for cat in cats:
   for key in rank_node:
     finished_rank_nodes.extend(rank_node[key].values())
 
-  update_node[cat] = mvsc_update_sql_node(update_job, dag, files='*'+base_name+'*.dat',infofiles='*'+base_name+'*.info',databases='*'+base_name+'*.sqlite',p_node=finished_rank_nodes+zl_rank_node.values())
+  update_node[cat] = mvsc_update_sql_node(update_job, dag, files='*'+base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+base_name+'*.sqlite',p_node=finished_rank_nodes+zl_rank_node.values())
 
 
 ###############################################
