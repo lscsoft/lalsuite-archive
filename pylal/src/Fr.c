@@ -5,7 +5,6 @@
     Functions: frgetvect, frputvect
 
     See individual docstrings for more information.
-    $Id$
 
     Requires: numpy, FrameL
 */
@@ -34,8 +33,7 @@ const char FrDocstring[] =
 "    Functions: frgetvect, frgetvect1d, frputvect\n"
 "    See individual docstrings for more information.\n"
 "\n"
-"    Requires: numpy (>=1.0), FrameL\n"
-"    $Id$\n";
+"    Requires: numpy (>=1.0), FrameL\n";
 
 /* Some helper functions */
 /* The PyDict_ExtractX functions will extract objects of a certain type from
