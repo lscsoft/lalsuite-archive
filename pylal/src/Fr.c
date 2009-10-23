@@ -14,9 +14,9 @@
 #define CHECK_ERROR if (PyErr_Occurred()) {Py_XDECREF(framedict); Py_DECREF(channellist_iter); FrameFree(frame); return NULL;}
 #define MAX_VECT_DIMS 10
 
-#include "Python.h"
-#include "numpy/arrayobject.h"
-#include "lal/LALFrameL.h"
+#include <Python.h>
+#include <numpy/arrayobject.h>
+#include <lal/LALFrameL.h>
 
 #if PY_VERSION_HEX < 0x02040000
 #define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
