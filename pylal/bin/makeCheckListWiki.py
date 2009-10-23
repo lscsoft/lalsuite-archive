@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2009 Cristina Valeria Torres
 #
@@ -45,6 +45,8 @@ import time
 import urllib
 import fnmatch
 import shutil
+from pylal import stfu_pipe
+from glue import cbcwebpage
 from pylal import git_version
 sys.path.append('@PYTHONLIBDIR@')
 
@@ -55,7 +57,7 @@ sys.path.append('@PYTHONLIBDIR@')
 # Custom methods for building wiki checklists
 ####################################################################
 
-def scanTreeFnMatch(parentPath='.',levels=int(0),filemask='coincEvent.info'):
+def scanTreeFnMatch(parentPath='.',levels=int(100),filemask='*'):
   """
   This recurses the subdirectories of parentPath 0,1,...,N levels.  It
   returns a list of files who match FILEMASK.
@@ -79,7 +81,7 @@ def matchFiles(fileList=None,jobString=None,instruments=None,ifos=None,time=None
   """
   matchList=list()
   for thisFile in fileList:
-    tPath,tFile=os.path.split(thisFile)
+    tPath,tFile=os.path.split(thisFile.replace(",",""))
     if (tFile.__contains__(jobString) and \
         tFile.__contains__(instruments) and \
         tFile.__contains__(ifos) and \
@@ -195,8 +197,9 @@ class wiki(object):
     else:
       for row in range(0,obj.rows):
         for col in range(0,obj.cols):
-          tableContent="%s || %s ||"%(tableContent,obj.data[row][col])
-        tableContent="%s\n\n"%(tableContent)
+          tableContent="%s|| %s "%(tableContent,obj.data[row][col].rstrip().lstrip())
+        tableContent="%s ||\n"%(tableContent)
+    tableContent="%s\n"%(tableContent)
     self.content.append(tableContent)                      
 
   def write(self):
@@ -223,78 +226,50 @@ class wiki(object):
 # the checklist is written to disk at the end of the method run
 ####################################################################
 
-def prepareChecklist(exportedCoincEventFile=None,\
-                     publicationLocation=os.path.normpath('.'),\
-                     fuDirectoryTree=None):
+def prepareChecklist(wikiFilename=None,
+                     wikiCoinc=None):
   """
-  This method is pointed to the top coinc event information.  From
-  this information the disk structure is searched, moved into the
-  pubication location, the wiki content is then written to the
-  publication location. Inside publication directory will be one
-  directory for each checklist that will be created.
+  Method to prepare a checklist where data products are isolated in
+  directory.
   """
   #
-  #Load up data in CoincEventFile
-  metaText=[x.strip("\n") for x in file(exportedCoincEventFile).readlines()]
-  metaCoinc=metaText[1].split()
-  metaSngl=[]
-  for snglRow in metaText.__getslice__(3,len(metaText)):
-    metaSngl.append(snglRow.split())
+  # Check to see if wiki file with name already exists
   #
-  # Setup page and dir name schemas
-  #
-  myInstruments=metaCoinc[5]
-  myIfos=metaCoinc[4]
-  myTime=metaCoinc[6]
-  filenameBase="CHECKLIST_%s_%s_%s"%(metaCoinc[0],\
-                                     metaCoinc[6],\
-                                     metaCoinc[4])
-  checkListLocation=os.path.normpath(publicationLocation+"/"+filenameBase)
-  if not os.path.exists(checkListLocation):
-    os.makedirs(checkListLocation)
-  #
-  # Copy files to publication location
-  #
-  sourceFiles=matchFiles(fuDirectoryTree,
-                                  "",\
-                                  myInstruments,\
-                                  myIfos,\
-                                  myTime)
-  destFiles=[os.path.normpath(publicationLocation+"/"+\
-                              filenameBase+"/"+\
-                              x.lstrip(os.path.commonprefix(sourceFiles))) \
-             for x in sourceFiles]
-  for index in range(0,len(sourceFiles)):
-    pathToMake=os.path.split(destFiles[index])[0]
-    if not os.path.exists(pathToMake):
-      os.makedirs(os.path.split(destFiles[index])[0])
-    shutil.copy2(sourceFiles[index],destFiles[index])
+  maxCount=0
+  while os.path.exists(wikiFilename) and maxCount < 10:
+    sys.stdout.write("File %s already exists.\n"%\
+                     os.path.split(wikiFilename)[1])
+    wikiFilename=wikiFilename+".wiki"
+    maxCount=maxCount+1
   #
   #Create the wikipage object etc
   #
-  wikiPage=wiki(os.path.normpath(publicationLocation+"/"+filenameBase+"/"+filenameBase+".wiki"))
+  wikiPage=wiki(wikiFilename)
   #
-  #Create COINC table
+  # Create top two trigger params tables
   #
   cTable=wikiPage.wikiTable(2,8)
-  cTable.data[0]=[
-    "Trigger Type",
-    "Rank",
-    "FAR",
-    "SNR",
-    "IFOS(Coinc)",
-    "Instruments(Active)",
-    "Coincidence Time (s)",
-    "Total Mass (mSol)"
+  cTable.data=[
+    ["Trigger Type",
+     "Rank",
+     "FAR",
+     "SNR",
+     "IFOS(Coinc)",
+     "Instruments(Active)",
+     "Coincidence Time (s)",
+     "Total Mass (mSol)"
+     ],
+    ["%s"%(wikiCoinc.type),
+     "%s"%(wikiCoinc.rank),
+     "%s"%(wikiCoinc.far),
+     "%s"%(wikiCoinc.snr),
+     "%s"%(wikiCoinc.ifos),
+     "%s"%(wikiCoinc.instruments),
+     "%s"%(wikiCoinc.time),
+     "%s"%(wikiCoinc.mass)
+     ]
     ]
-  for index in range(0,len(metaCoinc)):
-    cTable.data[1][index]=metaCoinc[index]
-  #
-  #Create parameter table
-  #
-  ifoCount=len(metaSngl)
-  colCount=6
-  pTable=wikiPage.wikiTable(ifoCount+1,colCount)
+  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls)+1,6)
   pTable.data[0]=[
     "IFO",
     "GPS Time(s)",
@@ -303,13 +278,19 @@ def prepareChecklist(exportedCoincEventFile=None,\
     "Mass 1",
     "Mass 2"
     ]
-  #Loop over the information for each IFO 
-  for row in range(1,ifoCount+1):
-    for col in range(0,colCount):
-      pTable.data[row][col]=metaSngl[row-1][col+1]
-
+  for row in range(1,len(wikiCoinc.sngls)+1):
+    pTable.data[row]=[
+      "%s"%(wikiCoinc.sngls[row-1].ifo),
+      "%s"%(wikiCoinc.sngls[row-1].time),
+      "%s"%(wikiCoinc.sngls[row-1].snr),
+      "%s"%(wikiCoinc.sngls[row-1].chisqr),
+      "%s"%(wikiCoinc.sngls[row-1].mass1),
+      "%s"%(wikiCoinc.sngls[row-1].mass2)
+      ]
   #Write the tables into the Wiki object
+  wikiPage.putText("Coincident Trigger Event Information\n")
   wikiPage.insertTable(cTable)
+  wikiPage.putText("Corresponding Single IFO Trigger Information\n")
   wikiPage.insertTable(pTable)
 
   #Generate a table of contents to appear after candidate params table
@@ -346,15 +327,6 @@ def prepareChecklist(exportedCoincEventFile=None,\
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
   #Select the DQ information to be included here
-  for dataProduct in matchFiles(fuDirectoryTree,\
-                                "findFlags",\
-                                myInstruments,\
-                                myIfos,\
-                                myTime):
-    if dataProduct.strip("\n").endswith(".wiki"):
-      wikiPage.putText(file(dataProduct).readlines())
-    else:
-      wikiePage.putText("Generate a link for "+str(dataProduct)+"\n")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -459,15 +431,11 @@ def prepareChecklist(exportedCoincEventFile=None,\
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
-  wikiLinkLHOlog=wikiPage.makeExternalLink(
-    "http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector",
-    "Hanford Electronic Log"
-    )
-  wikiLinkLLOlog=wikiPage.makeExternalLink(
-    "http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector",
-    "Livingston Electronic Log"
-    )
-  wikiPage.putText("%s\n %s\n"%(wikiLinkLHOlog,wikiLinkLLOlog))
+  wikiLinkLHOlog=wikiPage.makeExternalLink(stfu_pipe.getiLogURL(myCoinc.time,"H1"),
+                                           "Hanford eLog")
+  wikiLinkLLOlog=wikiPage.makeExternalLink(stfu_pipe.getiLogURL(myCoinc.time,"L1"),
+                                           "Livingston eLog")
+  wikiPage.putText("%s\n\n%s\n"%(wikiLinkLHOlog,wikiLinkLLOlog))
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -481,15 +449,17 @@ def prepareChecklist(exportedCoincEventFile=None,\
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
-  wikiLinkGlitchS5=wikiPage.makeExternalLink(
-      "http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift",
-      "Glitch Reports for S5"
-      )
-  wikiLinkGlitchS6=wikiPage.makeExternalLink(
+  if int(wikiCoinc.time) >= 875232014:
+    wikiLinkGlitch=wikiPage.makeExternalLink(
       "https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies",
       "Glitch Reports for S6"
       )
-  wikiPage.putText("%s\n %s\n"%(wikiLinkGlitchS5,wikiLinkGlitchS6))
+  else:
+    wikiLinkGlitch=wikiPage.makeExternalLink(
+      "http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift",
+      "Glitch Reports for S5"
+      )
+  wikiPage.putText("%s\n"%(wikiLinkGlitch))
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -694,29 +664,98 @@ def prepareChecklist(exportedCoincEventFile=None,\
 ####################################################################
 
 ####################################################################
+# Coinc definition
+####################################################################
+class coinc(object):
+  """
+  """
+  def __init__(self,coincInfoFile=None):
+    """
+    """
+    if os.path.exists(coincInfoFile):
+      inputData=open(coincInfoFile).readlines()
+    else:
+      Raise,"Error coinc info file not found!"
+    #First line header
+    #Second line is the Coinc Information
+    rawCoinc=dict()
+    rawCoincKeys=list()
+    rawCoincData=list()
+    rawCoincKeys=[x.replace("#","") for x in inputData[0].split()]
+    rawCoincData=[x.replace(" ","") for x in inputData[1].split()]
+    for i in range(0,len(rawCoincKeys)):
+      rawCoinc[rawCoincKeys[i]]=rawCoincData[i]
+    #Setup Coinc
+    self.type=str(rawCoinc["DIR"])
+    self.rank=float(rawCoinc["RANK"])
+    self.far=float(rawCoinc["FAR"])
+    self.snr=float(rawCoinc["SNR"])
+    self.ifos=str(rawCoinc["IFOS"])
+    self.instruments=str(rawCoinc["INSTRUMENTS"])
+    self.time=float(rawCoinc["TIME"])
+    self.mass=float(rawCoinc["MASS"])
+    #Remaining header for sngl information
+    rawSngl=list()
+    rawSnglKeys=list()
+    rawSnglData=list()
+    rawSnglKeys=[x.replace("#","") for x in inputData[2].split()]
+    rawSnglData=[x.split() for x in inputData[3:]]
+    #Setup associated sngl data
+    self.sngls=list()
+    for rData in rawSnglData:
+      tmp=dict()
+      for i in range(0,len(rData)):
+        tmp[rawSnglKeys[i]]=rData[i]
+      s=sngl
+      s.type=str(tmp["DIR"])
+      s.ifo=str(tmp["IFO"])
+      s.snr=float(tmp["SNR"])
+      s.chisqr=float(tmp["CHISQ"])
+      s.mass1=float(tmp["MASS1"])
+      s.mass2=float(tmp["MASS2"])
+      self.sngls.append(s)
+      del tmp
+
+####################################################################
+# Sngl definition
+####################################################################
+class sngl(object):
+  """
+  """
+  type=None
+  ifo=None
+  time=None
+  snr=None
+  chisqr=None
+  mass1=None
+  mass2=None
+
+  
+####################################################################
+# Cache file parser
+####################################################################
+
+####################################################################
 # Main part of script
 ####################################################################
-
-####################################################################
-# The command line arguements used to construct this page
-# the options drive the creation of the page
-####################################################################
-#get hostname and username?
 usage = """usage: %prog [options]"""
 userURL="~%s/"%(os.getenv("USER"))
+userHOME="%s"%(os.getenv("HOME"))
 hostnameURL="http://%s/"%(socket.gethostbyaddr(socket.gethostname())[0])
-
+#
+defaultWeblink="%s%sWEBPATH"%(hostnameURL,userURL)
 parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
 parser.add_option("-w","--webserver",action="store",type="string",\
-                    default="http:\\%s%s\_DEFAULT_"%(hostnameURL,userURL),\
-                    metavar="WEBLINK", help="This sets the URL to \
-associate to all the links generated in the MoinMoin Wiki file.")
+                    default=defaultWeblink,\
+                    metavar="myURL/WEBPATH", help="This sets the URL to \
+associate to all the links generated in the MoinMoin Wiki file.\
+ Example : %s"%defaultWeblink)
 
 parser.add_option("-p","--publication-directory",\
                   action="store",type="string",\
-                  default=None,\
+                  metavar="WEBPATH", default=None,\
                   help="Set this option so that it is consistent \
-with --webserver option.")
+with --webserver option. Example %s/WEBPATH"%userHOME)
 
 parser.add_option("-f","--followup-directory",\
                   action="store",type="string",\
@@ -727,22 +766,39 @@ will build checklists for all the events processed \
 in this directory structure.")
                     
 (opts,args) = parser.parse_args()
+followup_directory=os.path.normpath(opts.followup_directory)
+publication_directory=os.path.normpath(opts.publication_directory)
 #
-#1)Scan the '--followup-directory' for directory 'coinc_headings'
-#2)Process each file present inside
-#2a) Push the data products to '--publication-directory'
-#2b) Create the wiki page and place it at top of event directory
-#2c) Can all the content into an XML file placed next to wiki file
-#
-allFilesInTree=scanTreeFnMatch(os.path.normpath(opts.followup_directory),\
-                               levels=40,\
-                               filemask="*")
-for checklistFile in \
-    scanTreeFnMatch(os.path.normpath(opts.followup_directory),\
-                    levels=20,\
-                    filemask="*coincEvent.info"):
-  print "Creating checklist for CoincEvent file:",checklistFile
-  prepareChecklist(os.path.normpath(checklistFile),\
-                   os.path.normpath(opts.publication_directory),\
-                   allFilesInTree)
+sourceFiles=scanTreeFnMatch(followup_directory)
+for coincFile in scanTreeFnMatch(filemask="*coincEvent.info"):
+  sys.stdout.write("Creating checklist for CoincEvent file:%s\n"%(coincFile))
+  myCoinc=coinc(coincFile)
+  myFilename="CHECKLIST_%s_%s_%s_%s.wiki"%(myCoinc.type,
+                                           myCoinc.ifos,
+                                           myCoinc.instruments,
+                                           myCoinc.time)
+  myDirectory=myFilename.rstrip(".wiki")
+  #
+  #Create directory for checklist in publication location
+  #
+  mySourcePath=followup_directory
+  myDestPath=publication_directory+"/"+myDirectory+"/"
+  if not os.path.exists(myDestPath):
+    os.makedirs(myDestPath)
+  #
+  #Copy the output files associated with this trigger
+  #
+  sourceFiles=scanTreeFnMatch(mySourcePath,filemask="*%s*"%(myCoinc.time))
+  for mySngl in myCoinc.sngls:
+    sourceFiles.extend(scanTreeFnMatch(mySourcePath,filemask="*%s*%s*"%(mySngl.ifo,mySngl.time)))
+  cPath=os.path.commonprefix(sourceFiles)
+  for myFile in sourceFiles:
+    myDestFile=myFile.replace(cPath,myDestPath)
+    if not os.path.exists(os.path.split(myDestFile)[0]):
+      os.makedirs(os.path.split(myDestFile)[0])
+    shutil.copy2(myFile,myDestFile)
+  #
+  #Generate the initial wiki checklist
+  #
+  prepareChecklist(myDestPath+"/"+myFilename,myCoinc)
   
