@@ -2358,6 +2358,8 @@ defaulting to %s"%(self.serverURL))
       engine=query_engine.LdbdQueryEngine(connection)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
+      if len(queryResult) < 1:
+        sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     except Exception, errMsg:
       sys.stderr.write("Query failed %s \n"%(serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
