@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_COMPLEX16FFTPLAN_H_
+#define _PYLAL_XLAL_DATATYPES_COMPLEX16FFTPLAN_H_
+
+
 #include <Python.h>
 #include <lal/ComplexFFT.h>
 
@@ -85,3 +89,6 @@ static PyObject *pylal_COMPLEX16FFTPlan_new(COMPLEX16FFTPlan *plan, PyObject *ow
 	obj->plan = plan;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_COMPLEX16FFTPLAN_H_ */
