@@ -94,6 +94,7 @@ def nestPar(d,Nlive):
     maxes=array(maxes)
     maxes.sort()
     N=len(d)
+    print 'N chains = '+str(N)
     logw = log(1.0-exp(-1.0/(N*Nlive)))
     H=0
     alldat=reduce(lambda x,y: hstack([x,y]) , map(lambda x: x[:,-1],d))
@@ -238,12 +239,13 @@ ylabel('eta')
 grid()
 myfig.savefig(outdir+'/Meta.png')
 
-myfig.clear()
-plot2Dkernel(pos[:,5],pos[:,6],100,100)
-xlabel('RA')
-ylabel('dec')
-grid()
-myfig.savefig(outdir+'/RAdec.png')
+if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
+	myfig.clear()
+	plot2Dkernel(pos[:,5],pos[:,6],100,100)
+	xlabel('RA')
+	ylabel('dec')
+	grid()
+	myfig.savefig(outdir+'/RAdec.png')
 
 myfig.clear()
 plot2Dkernel(pos[:,7],pos[:,8],100,100)
@@ -285,7 +287,10 @@ paramnames=('Mchirp (Msun)','eta','geocenter time ISCO','phi_c','Distance (Mpc)'
 
 for i in range(0,Nd-1):
     for j in range(i+1,Nd-1):
-        plot2Dkernel(pos[:,i],pos[:,j],50,50)
+	print str(i)+','+str(j)+': '+str(size(unique(pos[:,i]))) + ' '+ str(size(unique(pos[:,j])))
+        if(size(unique(pos[:,i]))<2 or size(unique(pos[:,j]))<2):
+		continue
+	plot2Dkernel(pos[:,i],pos[:,j],50,50)
         xlabel(paramnames[i])
         ylabel(paramnames[j])
         grid()
