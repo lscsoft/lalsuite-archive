@@ -305,7 +305,7 @@ class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base,dir=dir)
 
-class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
+class fuDataFindJob(pipeline.LSCDataFindJob,FUJob):
 	def __init__(self, config_file, dir='', tag_base=''):
     
 		#self.name = name
@@ -529,7 +529,7 @@ The omega scan command line is
 		#FIXME is deleting the lock file the right thing to do?
 		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
-		if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()==ifo):
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and dag.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 		  for node in p_nodes: self.add_parent(node)
 		  dag.add_node(self)
 
@@ -557,11 +557,10 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 			self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
 
 		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
-
-		if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()==ifo):
-		    for node in p_nodes:
-			self.add_parent(node)
-		    dag.add_node(self)
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and dag.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
+			for node in p_nodes:
+				self.add_parent(node)
+			dag.add_node(self)
 
 	def setup_qscan(self, job, cp, time, ifo, data_type):
 		# 1s is substracted to the expected startTime to make sure the window
@@ -1097,9 +1096,6 @@ class followUpDAG(pipeline.CondorDAG):
 		self.set_dag_file(self.basename)
 		self.jobsDict = {}
 		self.node_id = 0
-		# The list remote_nodes will contain the list of nodes run remotely 
-		# (such as V1 qscans)
-		self.remote_nodes = []
 		self.output_cache = []
 	def add_node(self,node):
 		self.node_id += 1
@@ -1121,7 +1117,6 @@ class followUpDAG(pipeline.CondorDAG):
 		for c in self.output_cache:
 			f.write(str(c)+'\n')
 		f.close()
-
 
 ###############################################################################
 ###### CONFIG PARSER WRAPPING #################################################
@@ -1195,6 +1190,12 @@ class create_default_config(object):
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
 
+		# REMOTE JOBS SECTION
+		cp.add_section("fu-remote-jobs")
+		remoteIfos,remoteJobs = self.get_remote_jobs()
+		cp.set('fu-remote-jobs','remote-ifos',remoteIfos)
+		cp.set('fu-remote-jobs','remote-jobs',remoteJobs)
+
 		# if we have an ini file override the options
 		if config: 
 			user_cp = ConfigParser.ConfigParser()
@@ -1257,6 +1258,15 @@ class create_default_config(object):
 		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
+
+	def get_remote_jobs(self):
+		host = self.__get_hostname()
+                #FIXME add more hosts as you need them
+		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
+			remote_ifos = "V1"
+			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data"
+			return remote_ifos, remote_jobs
+		return '', ''
 
 	def log_path(self):
 		host = self.__get_hostname()

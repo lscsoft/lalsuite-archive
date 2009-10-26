@@ -155,8 +155,11 @@ else:
   dag = stfu_pipe.followUpDAG("wscan_background.ini",cp)
 
 # CONDOR JOB CLASSES
-dataJob         = stfu_pipe.htDataFindJob(cp,'qdatafind')
-qscanBgJob      = stfu_pipe.qscanJob(opts,cp)
+htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
+rdsdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_RDS',dir='')
+htQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_HT',dir='')
+rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
+seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
 
 ifo_range = get_times()
 
@@ -171,17 +174,17 @@ for ifo in ifos_list:
 
     for qtime in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
-      dNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
+      dNode = stfu_pipe.fuDataFindNode(dag,rdsdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,dataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
 
       # SETUP BACKGROUND QSCAN JOBS
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path(),p_nodes=[dHoftNode],type="ht",variety="bg")
+      qHtBgNode = stfu_pipe.fuQscanNode(dag,htQscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path(),p_nodes=[dHoftNode],type="ht",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="rds",variety="bg")
+      qRdsBgNode = stfu_pipe.fuQscanNode(dag,rdsQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="rds",variety="bg")
 
-      qBgNode = stfu_pipe.fuQscanNode(dag,qscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
+      qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
 #### ALL FINNISH ####
 dag.write_sub_files()
