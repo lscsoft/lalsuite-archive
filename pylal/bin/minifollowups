@@ -133,8 +133,10 @@ if opts.input_xml_summary:
         event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>''' 
   if opts.output_html_table is not None:
     output = open(opts.output_html_table,'w')
+    tableList = ['loudest_events']
+    columnList = ['rank', 'combined_far', 'false_alarm_rate', 'snr', 'end_time', 'end_time_ns', 'mass', 'mchirp', 'ifos', 'instruments_on', 'duration']
     print_tables.print_tables(summTable, output, "html",\
-        tableList = ['loudest_events'],round_floats = True, \
+        tableList = tableList,columnList = columnList,round_floats = True, \
         decimal_places = 2, title = None,print_table_names = False)
     output.close()
 

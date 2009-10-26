@@ -21,6 +21,8 @@ import tempfile
 import ConfigParser
 import urlparse
 from UserDict import UserDict
+from pylal.xlal import date as xlaldate
+
 sys.path.append('@PYTHONLIBDIR@')
 
 from glue import segments
@@ -698,14 +700,16 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
-	def __init__(self, dag, job, cp, opts, time):
+	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(findFlagsNode.defaults,cp)
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.add_var_opt("trigger-time",time)
+		self.add_var_opt("trigger-time",coincEvent.time)
 		#Output filename
-		oFilename="%s_%s"%(str(int(float(time))),cp.get('findFlags','output-file'))
+		oFilename="%s-findFlags_%s_%s.wiki"%(coincEvent.instruments,
+						     coincEvent.ifos,
+						     coincEvent.time)		
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
@@ -727,14 +731,16 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
-	def __init__(self, dag, job, cp, opts, time):
+	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
 		"""
 		self.__conditionalLoadDefaults__(findVetosNode.defaults,cp)
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.add_var_opt("trigger-time",time)
+		self.add_var_opt("trigger-time",coincEvent.time)
 		#Output filename
-		oFilename="%s_%s"%(str(int(float(time))),cp.get('findFlags','output-file'))
+		oFilename="%s-findVetos_%s_%s.wiki"%(coincEvent.instruments,
+						     coincEvent.ifos,
+						     coincEvent.time)		
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
@@ -760,7 +766,9 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		"""
 		self.__conditionalLoadDefaults__(effDRatioNode.defaults,cp)
 		pipeline.CondorDAGNode.__init__(self,job)
-		oFilename="%s_%s"%(str("%10.3f"%(coincEvent.time)).replace(".","_"),cp.get('effDRatio','output-file'))
+		oFilename="%s-effDRatio_%s_%s.wiki"%(coincEvent.instruments,
+						     coincEvent.ifos,
+						     coincEvent.time)
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		self.add_var_opt("output-format",cp.get('effDRatio','output-format'))
 		self.add_var_opt("snr-ratio-test",cp.get('effDRatio','snr-ratio-test'))
@@ -1276,3 +1284,34 @@ class create_default_config(object):
 			for option in config.options(section):
 				cp.set(section,option,config.get(section,option))
 
+#A loose method to retrieve the iLog url given a integer for of
+#GPStimeA
+def getiLogURL(time=None,ifo=None):
+  """
+  This method returns a URL string to point you to ilog day page for
+  specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
+  """
+  time=int(float(time))
+  dateString="%s/%s/%s"
+  urls={
+    'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+    'V1':"https://pub3.ego-gw.it/logbook/",
+    'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+    'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
+&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
+    }
+  outputURL=urls['default']
+  if ((ifo==None) or (time==None)):
+    return urls['default']
+  gpsTime=LIGOTimeGPS(time)
+  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
+  gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
+  if ('H1','H2','L1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]%gpsStamp
+  if ('V1').__contains__(ifo.upper()):
+    outputURL=urls[ifo.upper()]
+  return outputURL
+#End def getiLogURL

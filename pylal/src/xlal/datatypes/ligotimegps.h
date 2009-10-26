@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_LIGOTIMEGPS_H_
+#define _PYLAL_XLAL_DATATYPES_LIGOTIMEGPS_H_
+
+
 #include <Python.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Date.h>
@@ -76,3 +80,6 @@ static PyObject *pylal_LIGOTimeGPS_new(LIGOTimeGPS gps)
 
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_LIGOTIMEGPS_H_ */

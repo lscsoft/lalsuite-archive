@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_REAL8FFTPLAN_H_
+#define _PYLAL_XLAL_DATATYPES_REAL8FFTPLAN_H_
+
+
 #include <Python.h>
 #include <lal/RealFFT.h>
 
@@ -85,3 +89,6 @@ static PyObject *pylal_REAL8FFTPlan_new(REAL8FFTPlan *plan, PyObject *owner)
 	obj->plan = plan;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_REAL8FFTPLAN_H_ */
