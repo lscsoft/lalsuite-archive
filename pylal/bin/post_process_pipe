@@ -722,7 +722,7 @@ class default_config(object):
     cp.set("input", "cluster", self.path_to_sql("cluster.sql"))
     cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
     # FIXME more cats?
-    for cat in ['CAT_2','CAT_3']:
+    for cat in ['CAT_2','CAT_3', 'CAT_4', 'CAT_5']:
       for ifo in ['H1','H2','L1','V1']:
          self.set_veto_segment(cp, "input", cat, ifo)
 
@@ -804,6 +804,18 @@ class default_config(object):
     #FIXME stupid special cases
     if cat == 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
     if cat == 'CAT_2': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_2_name(ifo))
+    if cat == 'CAT_4': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_4_name(ifo))
+    if cat == 'CAT_5': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_5_name(ifo))
+
+  def __cat_5_name(self,ifo):
+    out = "%s/segments/%s-COMBINED_CAT_5_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
+
+  def __cat_4_name(self,ifo):
+    out = "%s/segments/%s-COMBINED_CAT_4_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
 
   def __cat_3_name(self,ifo):
     out = "%s/segments/%s-COMBINED_CAT_3_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
@@ -986,7 +998,7 @@ for cat in cats:
 
     print >> sys.stderr, "\tprocessing non-inj %2.f %%\r" % (float(typenum+1) / len(types) * 100.00,),
 
-    tcache = parse_cache_for_thinca_to_coinc('THINCA_SECOND_', type, cat, timestr, FULLDATACACHE, inspiral_second_list,num=25)
+    tcache = parse_cache_for_thinca_to_coinc('THINCA_SECOND_', type, cat, timestr, FULLDATACACHE, inspiral_second_list,num=10)
     for c in tcache.out:
       key = type+cat+c.strcnt
       ligolwThincaToCoincNode[key] = ligolw_thinca_to_coinc_node(ligolwThincaToCoincJob, dag, c.parsed_cache, segNode[cat].output, segNode[cat].name, c.prefix, start_time, end_time, effsnrfac=string.strip(cp.get('input',"eff_snr_fac")), instruments=instruments, p_node=[segNode[cat]]);
@@ -1038,28 +1050,11 @@ for cat in cats:
   #to compute uncombined far
   lalappsNewcorseNode[cat] = lalapps_newcorse_node(lalappsNewcorseJob, dag, segNode[cat].name, " ".join(db[cat]),  p_nodes[cat], string.strip(cp.get('newcorse1',"mass-bins")), categories=cp.get("newcorse1","categories"), rank=cp.get("newcorse1","rank-by"), ext_num=5);
 
-  #to compute combined far 
-  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [lalappsNewcorseNode[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
-
-  # lalapps_cbc_plotsummary plots
-  farPlotNode[cat] = far_plot_node(farPlotJob, dag, " ".join(db[cat]), [lalappsNewcorseNodeCombined[cat]], base=base_name);
-
-  # upper limit
-  hmUpperlimitNode[cat] = hm_upperlimit_node(hmUpperlimitJob, dag, base_name, " ".join(db[cat]), p_node=[lalappsNewcorseNodeCombined[cat]]);
-
-  # upper limit plots
-  hmUpperlimitPlotNode[cat] = ul_plot_node(hmUpperlimitPlotJob, dag, hmUpperlimitNode[cat].output_by_combo(ifo_combinations[cat]), [hmUpperlimitNode[cat]]);
-
-  # Summary pages (open and closed box)
-  summaryPageNode[cat] = summary_page_node(summaryPageJob, dag, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat]]);
-  summaryPageNode[cat+"open"] = summary_page_node(summaryPageJob, dag, open_box=True, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat]]);
-
-
   ############# MUSIC STUFF (A LOOP OVER DOUBLES) #############################
   
   for comb in get_doubles(instruments):
     comb = ','.join(comb)
-    get_node[cat+comb] = mvsc_get_doubles_node(get_job, dag, comb, db[cat], trainingstr=base_name+"training",testingstr=base_name+"testing",zerolagstr=base_name+"zerolag",p_node=[hmUpperlimitNode[cat]])
+    get_node[cat+comb] = mvsc_get_doubles_node(get_job, dag, comb, db[cat], trainingstr=base_name+"training",testingstr=base_name+"testing",zerolagstr=base_name+"zerolag",p_node=[lalappsNewcorseNode[cat]])
 
     for i in range(get_node[cat+comb].number):
       file_for_this_set = get_node[cat+comb].out_file_group[i]
@@ -1076,6 +1071,22 @@ for cat in cats:
     finished_rank_nodes.extend(rank_node[key].values())
 
   update_node[cat] = mvsc_update_sql_node(update_job, dag, files='*'+base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+cat+'*'+timestr+'.sqlite',p_node=finished_rank_nodes+zl_rank_node.values())
+
+  #to compute combined far 
+  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [update_node[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
+
+  # lalapps_cbc_plotsummary plots
+  farPlotNode[cat] = far_plot_node(farPlotJob, dag, " ".join(db[cat]), [lalappsNewcorseNodeCombined[cat]], base=base_name);
+
+  # upper limit
+  hmUpperlimitNode[cat] = hm_upperlimit_node(hmUpperlimitJob, dag, base_name, " ".join(db[cat]), p_node=[lalappsNewcorseNodeCombined[cat]]);
+
+  # upper limit plots
+  hmUpperlimitPlotNode[cat] = ul_plot_node(hmUpperlimitPlotJob, dag, hmUpperlimitNode[cat].output_by_combo(ifo_combinations[cat]), [hmUpperlimitNode[cat]]);
+
+  # Summary pages (open and closed box)
+  summaryPageNode[cat] = summary_page_node(summaryPageJob, dag, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat], farPlotNode[cat]]);
+  summaryPageNode[cat+"open"] = summary_page_node(summaryPageJob, dag, open_box=True, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat], farPlotNode[cat]]);
 
 
 ###############################################
