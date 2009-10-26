@@ -1284,34 +1284,94 @@ class create_default_config(object):
 			for option in config.options(section):
 				cp.set(section,option,config.get(section,option))
 
+
+
+#A get links to ifo FOMS[1,2,3]
+def getFOMLinks(gpsTime=int(0),ifo=("default")):
+	"""
+	Simple method returns a list of links to FOMs ordered by FOM #
+	The list is 2D ie:
+	[['ifo,shift',LINKtoImage,LinktoThumb],['ifo,shift',LinktoImage,LinkToThumb]...]
+	images marked [Eve,Owl,Day] via [p3,p2,p1] in filenames
+	this methd only for S6 and later
+	"""
+	urls={
+		"default":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+		"V1":"http://wwwcascina.virgo.infn.it/DetectorOperations/index.htm",
+		"L1":"https://llocds.ligo-la.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
+		"H1":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
+		"H2":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif"
+		}
+	outputURLs=list()
+	if ((ifo==None) or (time==None)):
+		sys.stdout.write("getFOMLinks called incorrectly \
+using default opts instead!\n")
+		return [urls['default']]
+	#Create date string
+	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(gpsTime)))
+	tStamp="%s%s%s"%(Y,M,D)
+	shiftLabels=['p1','p2','p3']
+	shiftTxt={'p3':'Eve',
+		  'p2':'Owl',
+		  'p1':'Day'}
+	fomLabels=[1,2,3]
+	ifoTag=ifo.upper().lstrip().rstrip()
+	if ('H1','H2','L1').__contains__(ifoTag):
+		for sL in shiftLabels:
+			for fL in fomLabels:
+				outputURLs.append(["%s,%s"%(ifoTag,shiftTxt[sL]),
+						   urls[ifoTag]%(tStamp,tStamp,sL,fL,""),
+						   urls[ifoTag]%(tStamp,tStamp,sL,fL,"Thumb")
+						   ])
+	if ('V1').__contains__(ifoTag):
+		outputURLs.append(['V1',urls(ifoTag),''])
+	return outputURLs
+
+#A simple method to convert GPS time to human readable for for
+#checklist
+def gpsTimeToReadableDate(gpsTime=float(0)):
+	"""
+	Pass in int form of gps time.
+	"""
+	lGTime=LIGOTimeGPS(int(gpsTime))
+	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(lGTime)
+	timeStamp=str("%s-%s-%s  %s:%s:%s UTC"%(str(Y).zfill(4),
+						str(M).zfill(2),
+						str(D).zfill(2),
+						str(h).zfill(2),
+						str(m).zfill(2),
+						str(s).zfill(2)))
+	return timeStamp
+
 #A loose method to retrieve the iLog url given a integer for of
 #GPStimeA
 def getiLogURL(time=None,ifo=None):
-  """
-  This method returns a URL string to point you to ilog day page for
-  specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
-  """
-  time=int(float(time))
-  dateString="%s/%s/%s"
-  urls={
-    'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
-    'V1':"https://pub3.ego-gw.it/logbook/",
-    'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
-&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
-    'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
-&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
-    'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s\
-&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
-    }
-  outputURL=urls['default']
-  if ((ifo==None) or (time==None)):
-    return urls['default']
-  gpsTime=LIGOTimeGPS(time)
-  Y,M,D,doy,h,m,s,ns,junk=xlaldate.XLALGPSToUTC(gpsTime)
-  gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
-  if ('H1','H2','L1').__contains__(ifo.upper()):
-    outputURL=urls[ifo.upper()]%gpsStamp
-  if ('V1').__contains__(ifo.upper()):
-    outputURL=urls[ifo.upper()]
-  return outputURL
+	"""
+	This method returns a URL string to point you to ilog day page for
+	specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
+	"""
+	time=int(float(time))
+	dateString="%s/%s/%s"
+	urls={
+		'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+		'V1':"https://pub3.ego-gw.it/logbook/index.php?area=logbook&ref=search&datefrom=%s&dateto=%s",
+		'L1':"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+		'H1':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to=",
+		'H2':"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?task=view&date_to_view=%s&group=detector&keywords_to_highlight=&text_to_highlight=&anchor_to_scroll_to="
+		}
+	outputURL=urls['default']
+	if ((ifo==None) or (time==None)):
+		return urls['default']
+	gpsTime=LIGOTimeGPS(time)
+	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(gpsTime)
+	gpsStamp=dateString%(str(M).zfill(2),str(D).zfill(2),str(Y).zfill(4))
+	if ('H1','H2','L1').__contains__(ifo.upper()):
+		outputURL=urls[ifo.upper()]%gpsStamp
+	if ('V1').__contains__(ifo.upper()):
+		gpsTimePO=LIGOTimeGPS(time+(24*3600))		
+		Y2,M2,D2,h2,m2,s2,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(gpsTimePO)
+		gpsStampPlusOne=dateString%(str(M2).zfill(2),str(D2).zfill(2),str(Y2).zfill(4))
+		outputURL=urls[ifo.upper()]%(gpsStamp,gpsStampPlusOne)
+	return outputURL
+
 #End def getiLogURL
