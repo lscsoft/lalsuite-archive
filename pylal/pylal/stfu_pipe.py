@@ -529,7 +529,7 @@ The omega scan command line is
 		#FIXME is deleting the lock file the right thing to do?
 		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
-		if not(cp.has_option('fu-remote-jobs','remote-jobs') and dag.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 		  for node in p_nodes: self.add_parent(node)
 		  dag.add_node(self)
 
@@ -557,7 +557,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 			self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
 
 		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
-		if not(cp.has_option('fu-remote-jobs','remote-jobs') and dag.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 			for node in p_nodes:
 				self.add_parent(node)
 			dag.add_node(self)
