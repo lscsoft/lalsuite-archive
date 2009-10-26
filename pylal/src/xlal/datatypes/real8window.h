@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_REAL8WINDOW_H_
+#define _PYLAL_XLAL_DATATYPES_REAL8WINDOW_H_
+
+
 #include <Python.h>
 #include <lal/Window.h>
 
@@ -85,3 +89,6 @@ static PyObject *pylal_REAL8Window_new(REAL8Window *window, PyObject *owner)
 	obj->window = window;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_REAL8WINDOW_H_ */

@@ -5,7 +5,6 @@
     Functions: frgetvect, frputvect
 
     See individual docstrings for more information.
-    $Id$
 
     Requires: numpy, FrameL
 */
@@ -14,9 +13,9 @@
 #define CHECK_ERROR if (PyErr_Occurred()) {Py_XDECREF(framedict); Py_DECREF(channellist_iter); FrameFree(frame); return NULL;}
 #define MAX_VECT_DIMS 10
 
-#include "Python.h"
-#include "numpy/arrayobject.h"
-#include "lal/LALFrameL.h"
+#include <Python.h>
+#include <numpy/arrayobject.h>
+#include <lal/LALFrameL.h>
 
 #if PY_VERSION_HEX < 0x02040000
 #define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
@@ -34,8 +33,7 @@ const char FrDocstring[] =
 "    Functions: frgetvect, frgetvect1d, frputvect\n"
 "    See individual docstrings for more information.\n"
 "\n"
-"    Requires: numpy (>=1.0), FrameL\n"
-"    $Id$\n";
+"    Requires: numpy (>=1.0), FrameL\n";
 
 /* Some helper functions */
 /* The PyDict_ExtractX functions will extract objects of a certain type from
