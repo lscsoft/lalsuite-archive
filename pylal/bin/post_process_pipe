@@ -601,7 +601,7 @@ def ifo_seg_dict(cp):
   instruments = set()
   cat_list = set()
   ifos = ['H1','H2','L1','V1']
-  cats = ['CAT_2', 'CAT_3']
+  cats = ['CAT_2', 'CAT_3','CAT_4','CAT_5']
   combos = {}
   for c in cats:
     out[c] = {}
