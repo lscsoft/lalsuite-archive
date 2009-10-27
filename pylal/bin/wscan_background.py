@@ -8,7 +8,7 @@ __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
 
-import os, sys
+import os, sys, subprocess
 from optparse import *
 import ConfigParser
 import time
@@ -17,25 +17,22 @@ from glue import pipeline
 from glue import gpstime
 from glue.ligolw import dbtables
 from pylal import fu_utils
-from pylal import date
 from pylal import stfu_pipe
-
-from pylal import xlal
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ##############################################################################
 # Useful methods
 
-def create_default_config(home_base):
+class create_default_config(object):
+  def __init__(self,home_base):
     cp = ConfigParser.ConfigParser()
 
     cp.add_section("condor")
-    cp.set("condor","datafind","ligo_data_find")
+    cp.set("condor","datafind",self.which("ligo_data_find"))
 
     cp.add_section("fu-condor")
-    cp.set("fu-condor","convertcache","convertlalcache.pl")
-    cp.set("fu-condor","qscan",home_base+"/cbc/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
-    cp.set("fu-condor","query_dq","pylal_query_dq")
+    cp.set("fu-condor","datafind",self.which("ligo_data_find"))
+    cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
+    cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
     cp.add_section("datafind")
 
@@ -54,25 +51,58 @@ def create_default_config(home_base):
     cp.set("followup-background-qscan-times","random-seed","1")
     cp.set("followup-background-qscan-times","background-statistics","20")
 
-    cp.add_section("fu-bg-rds-qscan")
-    cp.set("fu-bg-rds-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
-    cp.set("fu-bg-rds-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/H0H1-RDS_R_L1-cbc.txt")
-    cp.set("fu-bg-rds-qscan","V1config","")
-
+    # fu-bg-ht-qscan SECTION
     cp.add_section("fu-bg-ht-qscan")
-    cp.set("fu-bg-ht-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
-    cp.set("fu-bg-ht-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/H1_hoft_cbc.txt")
-    cp.set("fu-bg-ht-qscan","V1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
+    for config in ["H1config","H2config","L1config","V1config"]:
+      cp.set("fu-bg-ht-qscan",config,self.__qscan_config("s5_background_" + self.__config_name(config[:2],'hoft') + ".txt"))
 
+    # fu-bg-rds-qscan SECTION
+    cp.add_section("fu-bg-rds-qscan")
+    for config in ["H1config","H2config","L1config","V1config"]:
+      cp.set("fu-bg-rds-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt"))
+
+    # fu-bg-seismic-qscan SECTION
     cp.add_section("fu-bg-seismic-qscan")
-    cp.set("fu-bg-seismic-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/L0-RDS_R_L1-seismic-cbc.txt")
-    cp.set("fu-bg-seismic-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/H0-RDS_R_L1-seismic-cbc.txt")
-    cp.set("fu-bg-seismic-qscan","V1config","")
+    for config in ["H1config","H2config","L1config","V1config"]:
+      cp.set("fu-bg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
 
     cp.add_section("fu-output")
     cp.set("fu-output","log-path","/usr1/" + os.getenv("USER"))
 
-    return cp
+    self.cp = cp
+
+  def __qscan_config(self,config):
+    #FIXME why isn't there an environment variable for things in lalapps share?
+    path = self.which('lalapps_inspiral')
+    if path: path = os.path.split(path)[0]
+    else:
+      print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, path)
+      raise ValueError
+      sys.exit(1)
+    out = path.replace('bin','share/lalapps') + '/' + config
+    if not os.path.isfile(out):
+      print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, out)
+      raise ValueError
+      sys.exit(1)
+    return out
+
+  def __config_name(self,ifo,type):
+    fileMap={
+            "L1":{"hoft":"L1_hoft_cbc","rds":"L0L1-RDS_R_L1-cbc","seismic":"L0L1-RDS_R_L1-seismic-cbc"},
+            "H1":{"hoft":"H1_hoft_cbc","rds":"H0H1-RDS_R_L1-cbc","seismic":"H0H1-RDS_R_L1-seismic-cbc"},
+            "H2":{"hoft":"H2_hoft_cbc","rds":"H0H2-RDS_R_L1-cbc","seismic":"H0H2-RDS_R_L1-seismic-cbc"},
+            "V1":{"hoft":"V1_hoft_cbc","rds":"V1-raw-cbc","seismic":"V1-raw-seismic-cbc"}
+            }
+    return fileMap[ifo][type]
+
+  def which(self,prog):
+    which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
+    out = which.stdout.read().strip()
+    if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
+    return out
+
+  def get_cp(self):
+    return self.cp
 
 def overwrite_config(cp,config):
   for section in config.sections():
@@ -80,18 +110,6 @@ def overwrite_config(cp,config):
     for option in config.options(section):
       cp.set(section,option,config.get(section,option))
   return cp
-
-def get_times():
-
-  # determine the start time : 00:00:00 UTC from the day before
-  # and the end time, 00:00:00 UTC the current day
-
-  gps = LIGOTimeGPS(gpstime.GpsSecondsFromPyUTC(time.time()))
-  end_gps = int(date.utc_midnight(gps))
-  start_gps = end_gps - 86400
-
-  print "Start time : "+str(start_gps)+"   End Time : "+str(end_gps)
-  return str(start_gps)+","+str(end_gps)
 
 
 ##############################################################################
@@ -113,20 +131,20 @@ parser.add_option("-v", "--version",action="store_true",default=False,\
 parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
 
-parser.add_option("-m", "--datafind",action="store_true",\
-    default=False, help="use datafind to get qscan/trends data")
+#parser.add_option("-m", "--datafind",action="store_true",\
+#    default=False, help="use datafind to get qscan/trends data")
 
-parser.add_option("-M", "--hoft-datafind",action="store_true",\
-    default=False, help="use datafind to get hoft data (for qscan)")
+#parser.add_option("-M", "--hoft-datafind",action="store_true",\
+#    default=False, help="use datafind to get hoft data (for qscan)")
 
-parser.add_option("-Q", "--background-qscan",action="store_true",\
-    default=False, help="do qscans over a list of times")
+#parser.add_option("-Q", "--background-qscan",action="store_true",\
+#    default=False, help="do qscans over a list of times")
 
-parser.add_option("-N", "--background-hoft-qscan",action="store_true",\
-    default=False, help="do hoft qscans over a list of times")
+#parser.add_option("-N", "--background-hoft-qscan",action="store_true",\
+#    default=False, help="do hoft qscans over a list of times")
 
-parser.add_option("-S", "--background-seis-qscan",action="store_true",\
-    default=False, help="do seismic qscans over a list of times")
+#parser.add_option("-S", "--background-seis-qscan",action="store_true",\
+#    default=False, help="do seismic qscans over a list of times")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -137,7 +155,8 @@ if opts.version:
 
 #############################################################################
 
-cp = create_default_config(home_base)
+default_cp = create_default_config(home_base)
+cp = default_cp.get_cp()
 if opts.config_file: 
  config = ConfigParser.ConfigParser()
  config.read(opts.config_file)
@@ -158,7 +177,8 @@ htQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_HT',dir='')
 rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
 seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
 
-ifo_range = get_times()
+ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
+# print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
 
 for ifo in ifos_list:
 
@@ -184,8 +204,7 @@ for ifo in ifos_list:
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
 #### ALL FINNISH ####
-dag.write_sub_files()
-dag.write_dag()
-dag.write_script()
-
+time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
+cp.write(open(time_now + "-" + ifo_range.replace(',','_')+ ".ini","w"))
+dag.write_all()
 
