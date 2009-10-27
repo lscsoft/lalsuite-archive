@@ -15,13 +15,13 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 
-import sys, os, copy, math, time, math, subprocess, socket, re, string
+import sys, os, copy, math, math, subprocess, socket, re, string
+import time as time_method
 from optparse import *
 import tempfile
 import ConfigParser
 import urlparse
 from UserDict import UserDict
-from pylal.xlal import date as xlaldate
 
 sys.path.append('@PYTHONLIBDIR@')
 
@@ -36,7 +36,8 @@ from glue import pipeline
 from glue import lal
 from pylal import db_thinca_rings
 from lalapps import inspiral
-
+from pylal import date
+from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -58,6 +59,16 @@ def science_run(time):
 	if time >= 931035296 and time <= 999999999: return 's6'
 	print >>sys.stderr, "COULD NOT DETERMINE SCIENCE RUN from %d" % (int(time),)
 	sys.exit(1)
+
+def get_day_boundaries(time):
+
+  # determine the start Time : 00:00:00 UTC from the day before
+  # and the end time, 00:00:00 UTC the current day
+
+  gps = LIGOTimeGPS(time)
+  start_gps = int(date.utc_midnight(gps))
+  end_gps = start_gps + 86400
+  return str(start_gps),str(end_gps)
 
 def figure_out_type(time, ifo, data_type='hoft'):
 	"""
@@ -502,16 +513,25 @@ The omega scan command line is
 		pipeline.CondorDAGNode.__init__(self,job)
 
 		if variety == "bg":
-		  self.add_var_arg('scan')
+			self.add_var_arg('scan')
+			preString = "omega/" + science_run(time).upper() + "/background"
 		else:
-		  self.add_var_arg('scan -r')
+			self.add_var_arg('scan -r')
+			preString = "omega/" + science_run(time).upper() + "/foreground"
 		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
 		self.add_var_arg("-c " + config )
 
-		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
-		  output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
+		if type == "ht":
+			dataString = figure_out_type(time, ifo, 'hoft')[0]
 		else:
-		  output = type + 'Qscan' + '/' + ifo
+			dataString = figure_out_type(time, ifo, 'rds')[0]
+		if dataString[:2]!=ifo:
+			dataString = ifo + "_" + dataString
+		timeString = "-".join(get_day_boundaries(int(time)))
+		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+		  output = cp.get('fu-output','output-dir') + '/' + preString + '/' + dataString + '/' + timeString
+		else:
+		  output = preString + '/' + dataString + '/' + timeString
 
 		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
 		mkdir(output)
@@ -1125,7 +1145,7 @@ class create_default_config(object):
 	def __init__(self, config=None):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
-		self.time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
+		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
 		home_base = self.__home_dirs()
 		
 		# CONDOR SECTION NEEDED BY THINGS IN INSPIRAL.PY
