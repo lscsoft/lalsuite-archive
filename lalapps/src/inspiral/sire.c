@@ -66,12 +66,12 @@ RCSID("$Id$");
 #define ADD_PROCESS_PARAM( pptype, format, ppvalue ) \
   this_proc_param = this_proc_param->next = (ProcessParamsTable *) \
 calloc( 1, sizeof(ProcessParamsTable) ); \
-LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", \
+snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", \
     PROGRAM_NAME ); \
-LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--%s", \
+snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--%s", \
     long_options[option_index].name ); \
-LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "%s", pptype ); \
-LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
+snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "%s", pptype ); \
+snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 
 #define MAX_PATH 4096
 
@@ -158,7 +158,6 @@ int main( int argc, char *argv[] )
 {
   /* lal initialization variables */
   LALStatus status = blank_status;
-  LALLeapSecAccuracy accuracy = LALLEAPSEC_LOOSE;
 
   /*  program option variables */
   extern int vrbflg;
@@ -248,20 +247,19 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) 
     calloc( 1, sizeof(ProcessTable) );
-  LAL_CALL( LALGPSTimeNow ( &status, &(proctable.processTable->start_time),
-        &accuracy ), &status );
+  XLALGPSTimeNow(&(proctable.processTable->start_time));
   if (strcmp(CVS_REVISION,"$Revi" "sion$"))
     {
       LAL_CALL( populate_process_table( &status, proctable.processTable, 
-					PROGRAM_NAME, CVS_REVISION,
-					CVS_SOURCE, CVS_DATE ), &status );
+                                        PROGRAM_NAME, CVS_REVISION,
+                                        CVS_SOURCE, CVS_DATE ), &status );
     }
   else
     {
       LAL_CALL( populate_process_table( &status, proctable.processTable, 
-					PROGRAM_NAME, lalappsGitCommitID,
-					lalappsGitGitStatus,
-					lalappsGitCommitDate ), &status );
+                                        PROGRAM_NAME, lalappsGitCommitID,
+                                        lalappsGitGitStatus,
+                                        lalappsGitCommitDate ), &status );
     }
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
@@ -360,11 +358,11 @@ int main( int argc, char *argv[] )
 
         this_proc_param = this_proc_param->next = (ProcessParamsTable *)
           calloc( 1, sizeof(ProcessParamsTable) );
-        LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", 
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s", 
             PROGRAM_NAME );
-        LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "-userTag" );
-        LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-        LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
+        snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "-userTag" );
+        snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+        snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
             optarg );
         break;
 
@@ -378,7 +376,7 @@ int main( int argc, char *argv[] )
         }
         else
         {
-          LALSnprintf( comment, LIGOMETA_COMMENT_MAX, "%s", optarg);
+          snprintf( comment, LIGOMETA_COMMENT_MAX, "%s", optarg);
         }
         break;
 
@@ -387,7 +385,7 @@ int main( int argc, char *argv[] )
             "Patrick Brady, Duncan Brown and Steve Fairhurst\n"
             "CVS Version: " CVS_ID_STRING "\n"
             "CVS Tag: " CVS_NAME_STRING "\n" );
-	fprintf( stdout, lalappsGitID );
+        fprintf( stdout, lalappsGitID );
         exit( 0 );
         break;
 
@@ -666,11 +664,11 @@ int main( int argc, char *argv[] )
   /* fill the comment, if a user has specified it, or leave it blank */
   if ( ! *comment )
   {
-    LALSnprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
+    snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
   }
   else
   {
-    LALSnprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX,
+    snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX,
         "%s", comment );
   }
 
@@ -789,12 +787,12 @@ int main( int argc, char *argv[] )
   {
     this_proc_param = this_proc_param->next = (ProcessParamsTable *) 
       calloc( 1, sizeof(ProcessParamsTable) ); 
-    LALSnprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
         PROGRAM_NAME ); 
-    LALSnprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
         "--sort-triggers" );
-    LALSnprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" ); 
-    LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, " " );
+    snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" ); 
+    snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, " " );
   }
 
   /* read in the veto file (if specified */
@@ -895,7 +893,7 @@ int main( int argc, char *argv[] )
     }
 
     /* read the summ value table as well. */
-  	XLALReadSummValueFile(&summValueList, inFileNameList[j]);
+    XLALReadSummValueFile(&summValueList, inFileNameList[j]);
     
     /*
      *
@@ -1156,8 +1154,7 @@ int main( int argc, char *argv[] )
 
   /* write out the process and process params tables */
   if ( vrbflg ) fprintf( stdout, "process... " );
-  LAL_CALL( LALGPSTimeNow ( &status, &(proctable.processTable->end_time),
-        &accuracy ), &status );
+  XLALGPSTimeNow(&(proctable.processTable->end_time));
   LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, process_table ), 
       &status );
   LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, proctable, 

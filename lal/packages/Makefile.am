@@ -2,8 +2,6 @@
 SUBDIRS = \
 	std \
 	tools \
-	sample \
-	hello \
 	factories \
 	vectorops \
 	utilities \
@@ -14,7 +12,6 @@ SUBDIRS = \
 	window \
 	fft \
 	clremoval \
-	stochastic \
 	inspiral \
 	noisemodels \
 	bank \
@@ -24,12 +21,8 @@ SUBDIRS = \
 	houghpulsar \
 	burstsearch \
 	tracksearch \
-	tfclusters \
-	slopefilters \
-	block \
 	timefreq \
-	support \
-	framedata
+	support
 
 include-links:
 	@set fnord $(MAKEFLAGS); amf=$$2; \

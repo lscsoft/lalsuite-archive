@@ -301,12 +301,6 @@ from pylal import viz
 from numpy import histogram
 rc('text', usetex=True)
 
-
-## mangle the event-IDs in the case of the exttrig analysis
-mangleEventID = False
-if opts.ext_trig:
-  mangleEventID = True
-
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a,\
@@ -414,7 +408,7 @@ coincTriggers = CoincInspiralUtils.coincInspiralTable()
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id = mangleEventID,
+                                           mangle_event_id = True,
                                            verbose=opts.verbose)
   
   # perform the veto
@@ -481,7 +475,7 @@ if offsourcefiles:
   # read the off-source triggers
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(offsourcefiles,
-                                           mangle_event_id = mangleEventID,
+                                           mangle_event_id = True,
                                            verbose=opts.verbose)
   # perform the veto
   if opts.offsource_veto_file:
@@ -536,7 +530,7 @@ if offsourcefiles:
 if slidefiles:
   inspSlide = SnglInspiralUtils.\
               ReadSnglInspiralFromFiles(slidefiles,
-                                        mangle_event_id = mangleEventID,
+                                        mangle_event_id = True,
                                         verbose=opts.verbose)
   
   # if there are no triggers, skip remaining slide stuff

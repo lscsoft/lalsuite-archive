@@ -595,10 +595,10 @@ LALSTPNWaveformForInjection (
     waveform->psi = ppnParams->psi;
 
 
-    LALSnprintf( waveform->a->name, 	LALNameLength, "STPN inspiral amplitudes" );
-    LALSnprintf( waveform->f->name, 	LALNameLength, "STPN inspiral frequency" );
-    LALSnprintf( waveform->phi->name, 	LALNameLength, "STPN inspiral phase" );
-    LALSnprintf( waveform->shift->name, LALNameLength, "STPN inspiral polshift" );
+    snprintf( waveform->a->name, 	LALNameLength, "STPN inspiral amplitudes" );
+    snprintf( waveform->f->name, 	LALNameLength, "STPN inspiral frequency" );
+    snprintf( waveform->phi->name, 	LALNameLength, "STPN inspiral phase" );
+    snprintf( waveform->shift->name, LALNameLength, "STPN inspiral polshift" );
 
 
     /* --- fill some output ---*/
@@ -938,6 +938,8 @@ LALSTPNWaveformEngine (
 				 -(110.0/9.0) * (-1987.0/3080.0) ) * params->eta
 			      -(155.0/96.0)*params->eta*params->eta - (35.0/5184.0)*params->eta*params->eta*params->eta );
     break;
+  default:
+    ABORT( status, LALINSPIRALH_EORDERMISSING, LALINSPIRALH_MSGEORDERMISSING );
   }
 
   if (params->order == LAL_PNORDER_THREE)

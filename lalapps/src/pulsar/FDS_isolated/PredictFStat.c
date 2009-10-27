@@ -297,8 +297,8 @@ initUserVars (LALStatus *status, UserInput_t *uvar )
   LALregREALUserStruct(status,	h0,		's', UVAR_OPTIONAL, "Overall GW amplitude h0 [alternative to {aPlus, aCross}]");
   LALregREALUserStruct(status,	cosi,		'i', UVAR_OPTIONAL, "Inclination angle of rotation axis cos(iota) [alternative to {aPlus, aCross}]");
 
-  LALregREALUserStruct(status,	psi,		'Y', UVAR_REQUIRED, "Polarisation angle in radians");
-  LALregREALUserStruct(status,	phi0,		'Y', UVAR_OPTIONAL, "Initial GW phase phi0 in radians");
+  LALregREALUserStruct(status,	psi,		 0, UVAR_REQUIRED, "Polarisation angle in radians");
+  LALregREALUserStruct(status,	phi0,		 0, UVAR_OPTIONAL, "Initial GW phase phi0 in radians");
 
   LALregREALUserStruct(status,	Alpha,		'a', UVAR_REQUIRED, "Sky position alpha (equatorial coordinates) in radians");
   LALregREALUserStruct(status,	Delta,		'd', UVAR_REQUIRED, "Sky position delta (equatorial coordinates) in radians");
@@ -346,13 +346,13 @@ InitEphemeris (LALStatus * status,
 
   if ( ephemDir )
     {
-      LALSnprintf(EphemEarth, FNAME_LENGTH, "%s/earth%s.dat", ephemDir, ephemYear);
-      LALSnprintf(EphemSun, FNAME_LENGTH, "%s/sun%s.dat", ephemDir, ephemYear);
+      snprintf(EphemEarth, FNAME_LENGTH, "%s/earth%s.dat", ephemDir, ephemYear);
+      snprintf(EphemSun, FNAME_LENGTH, "%s/sun%s.dat", ephemDir, ephemYear);
     }
   else
     {
-      LALSnprintf(EphemEarth, FNAME_LENGTH, "earth%s.dat", ephemYear);
-      LALSnprintf(EphemSun, FNAME_LENGTH, "sun%s.dat",  ephemYear);
+      snprintf(EphemEarth, FNAME_LENGTH, "earth%s.dat", ephemYear);
+      snprintf(EphemSun, FNAME_LENGTH, "sun%s.dat",  ephemYear);
     }
   EphemEarth[FNAME_LENGTH-1]=0;
   EphemSun[FNAME_LENGTH-1]=0;
@@ -362,8 +362,6 @@ InitEphemeris (LALStatus * status,
    */
   edat->ephiles.earthEphemeris = EphemEarth;
   edat->ephiles.sunEphemeris = EphemSun;
-
-  edat->leap = (INT2) XLALGPSLeapSeconds ( epoch.gpsSeconds );
 
   TRY (LALInitBarycenter(status->statusPtr, edat), status);
 
@@ -480,7 +478,7 @@ InitPFS ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
     Tsft = 1.0 / catalog->data[0].header.deltaF;
     startTime = catalog->data[0].header.epoch;
     endTime   = catalog->data[GV.numSFTs-1].header.epoch;
-    LALAddFloatToGPS(status->statusPtr, &endTime, &endTime, Tsft );	/* can't fail */
+    XLALGPSAdd(&endTime, Tsft);
     duration = GPS2REAL8(endTime) - GPS2REAL8 (startTime);
   }
 

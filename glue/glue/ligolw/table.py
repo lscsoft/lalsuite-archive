@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -46,11 +44,6 @@ columns of the table.
 """
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
-
-
 import copy
 import re
 import sys
@@ -58,9 +51,15 @@ from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
 
 
-import ligolw
-import tokenizer
-import types as ligolwtypes
+from glue import git_version
+from glue.ligolw import ligolw
+from glue.ligolw import tokenizer
+from glue.ligolw import types as ligolwtypes
+
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -209,6 +208,25 @@ def reassign_ids(elem):
 			tbl.updateKeyMapping(mapping)
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		tbl.applyKeyMapping(mapping)
+
+
+def reset_next_ids(classes):
+	"""
+	For each class in the list, if the .next_id attribute is not None
+	(meaning the table has an ID generator associated with it), set
+	.next_id to 0.  This has the effect of reset the ID generators, and
+	is useful in applications that process multiple documents and wish
+	to reset all the ID generators between documents so that the
+	assigned IDs don't grow without bound as each document is
+	processed.
+
+	Example:
+
+	>>> reset_next_ids(lsctables.TableByName.values())
+	"""
+	for cls in classes:
+		if cls.next_id is not None:
+			cls.set_next_id(type(cls.next_id)(0))
 
 
 #

@@ -66,11 +66,13 @@ Train a FIR filter aout of order p on the data x.
   /* compute correlations */
   npad = (UINT4)pow(2.0,ceil(log((REAL4)(x->length))/log(2.0)));
 
-  LALCreateForwardRealFFTPlan(status->statusPtr, &pfwd, npad, 0 );
-  CHECKSTATUSPTR (status);
+  pfwd = XLALCreateForwardREAL4FFTPlan( npad, 0 );
+  if (pfwd == NULL)
+    ABORTXLAL(status);
 
-  LALCreateReverseRealFFTPlan(status->statusPtr, &pinv, npad, 0 );
-  CHECKSTATUSPTR (status);
+  pinv = XLALCreateReverseREAL4FFTPlan( npad, 0 );
+  if (pinv == NULL)
+    ABORTXLAL(status);
 
   LALCCreateVector( status->statusPtr, &Hvec, npad/2 + 1);
   CHECKSTATUSPTR (status);
@@ -84,22 +86,20 @@ Train a FIR filter aout of order p on the data x.
   memcpy(r,x->data,x->length * sizeof(REAL4));
   bzero(r + x->length, (npad - x->length) * sizeof(REAL4));
 
-  LALForwardRealFFT(status->statusPtr, Hvec, &rv, pfwd);
-  CHECKSTATUSPTR (status);
+  if (XLALREAL4ForwardFFT(Hvec, &rv, pfwd) != 0)
+    ABORTXLAL(status);
 
   for(i=0;i<Hvec->length;i++) {
     Hvec->data[i].re = (Hvec->data[i].re*Hvec->data[i].re + Hvec->data[i].im*Hvec->data[i].im)/((REAL4)(npad*(x->length-1)));
     Hvec->data[i].im = 0.0;
   }
- 
-  LALReverseRealFFT(status->statusPtr, &rv, Hvec, pinv);
-  CHECKSTATUSPTR (status);
-  
-  LALDestroyRealFFTPlan(status->statusPtr, &pinv);
-  CHECKSTATUSPTR (status);
 
-  LALDestroyRealFFTPlan(status->statusPtr, &pfwd);
-  CHECKSTATUSPTR (status);
+  if (XLALREAL4ReverseFFT(&rv, Hvec, pinv) != 0)
+    ABORTXLAL(status);
+
+  XLALDestroyREAL4FFTPlan(pinv);
+
+  XLALDestroyREAL4FFTPlan(pfwd);
 
   LALCDestroyVector( status->statusPtr, &Hvec);
   CHECKSTATUSPTR (status);
@@ -111,12 +111,12 @@ Train a FIR filter aout of order p on the data x.
 
   R[p-1] = r[0];
   for(i=0;i<p-1;i++) {
-    R[p-i-2] = R[i+p] = r[i+1]; 
+    R[p-i-2] = R[i+p] = r[i+1];
   }
 
   y = (REAL4 *)LALMalloc(p * sizeof(REAL4));
   if(!y) {ABORT(status, LPCH_EMEM, LPCH_MSGEMEM);}
-  
+
   for(i=0;i<p;i++) {
     y[i] = -r[i+1];
   }
@@ -151,7 +151,7 @@ Train a FIR filter aout of order p on the data x.
     CHECKSTATUSPTR (status);
 
     a0 = aout->data[0];
-	      
+
     for(i=0;i<aout->length;i++) {
       aout->data[0] /= a0;
     }
@@ -202,7 +202,7 @@ Reflects poles and zeroes of a inside the complex unit circle.
 
     rtr = (REAL4 *)LALCalloc(m, sizeof(REAL4));
     if(!rtr) {ABORT(status, LPCH_EMEM, LPCH_MSGEMEM);}
-    
+
     rti = (REAL4 *)LALCalloc(m, sizeof(REAL4));
     if(!rti) {ABORT(status, LPCH_EMEM, LPCH_MSGEMEM);}
 
@@ -254,7 +254,7 @@ Reflects poles and zeroes of a inside the complex unit circle.
     LALFree(ari);
     LALFree(rtr+1);
     LALFree(rti+1);
-       
+
   }
 
   /* Normal exit */

@@ -131,6 +131,7 @@ const char *gengetopt_args_info_help[] = {
   "      --fine-grid-skymarks=INT  use sky marks from the fine grid, this uses \n                                  constant spindown  (default=`0')",
   "      --half-window=INT         number of bins to exclude to the left and to \n                                  the right of highest point when computing \n                                  linear statistics  (default=`20')",
   "      --tail-veto=INT           do not report outlier if its frequency is \n                                  within that many bins from the tail - happens \n                                  with steep spectrum  (default=`10')",
+  "      --cache-granularity=INT   granularity of power cache frequency shift \n                                  resolution, in fractions of a frequency bin  \n                                  (default=`-1')",
     0
 };
 
@@ -284,6 +285,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->fine_grid_skymarks_given = 0 ;
   args_info->half_window_given = 0 ;
   args_info->tail_veto_given = 0 ;
+  args_info->cache_granularity_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -475,6 +477,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->half_window_orig = NULL;
   args_info->tail_veto_arg = 10;
   args_info->tail_veto_orig = NULL;
+  args_info->cache_granularity_arg = -1;
+  args_info->cache_granularity_orig = NULL;
   
 }
 
@@ -587,6 +591,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->fine_grid_skymarks_help = gengetopt_args_info_help[100] ;
   args_info->half_window_help = gengetopt_args_info_help[101] ;
   args_info->tail_veto_help = gengetopt_args_info_help[102] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[103] ;
   
 }
 
@@ -830,6 +835,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->fine_grid_skymarks_orig));
   free_string_field (&(args_info->half_window_orig));
   free_string_field (&(args_info->tail_veto_orig));
+  free_string_field (&(args_info->cache_granularity_orig));
   
   
 
@@ -1070,6 +1076,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "half-window", args_info->half_window_orig, 0);
   if (args_info->tail_veto_given)
     write_into_file(outfile, "tail-veto", args_info->tail_veto_orig, 0);
+  if (args_info->cache_granularity_given)
+    write_into_file(outfile, "cache-granularity", args_info->cache_granularity_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1732,6 +1740,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "fine-grid-skymarks",	1, NULL, 0 },
         { "half-window",	1, NULL, 0 },
         { "tail-veto",	1, NULL, 0 },
+        { "cache-granularity",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -3138,6 +3147,20 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.tail_veto_given), optarg, 0, "10", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "tail-veto", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* granularity of power cache frequency shift resolution, in fractions of a frequency bin.  */
+          else if (strcmp (long_options[option_index].name, "cache-granularity") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->cache_granularity_arg), 
+                 &(args_info->cache_granularity_orig), &(args_info->cache_granularity_given),
+                &(local_args_info.cache_granularity_given), optarg, 0, "-1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "cache-granularity", '-',
                 additional_error))
               goto failure;
           

@@ -180,7 +180,7 @@ for key in keys:
 #########################################
 # start the plot with the a semilogy axis
 figure()
-semilogy(ularray[:,0],opts.ymax + 0.0*ularray[:,0],'w+')
+semilogy(ularray[:,0],opts.ymax + 0.0*ularray[:,0],'w+',label='_nolegend_')
 hold(True)
 
 ###########################
@@ -190,16 +190,16 @@ barColor=['0.8','0.5']
 #####################################
 # plot the unmarginalized upper limit
 bar(left=ularray[:,0],width=ularray[:,1],height=1.0+opts.ymax-ularray[:,2],
-    bottom=ularray[:,2],color=barColor[0])
+    bottom=ularray[:,2],color=barColor[0],label='unmarginalized')
 
 ##############################################
 # add the marginalized upper limit to the plot
 bar(left=ularray[:,0],width=ularray[:,1],height=1.0+opts.ymax-ularray[:,3],
-    bottom=ularray[:,3],color=barColor[1])
+    bottom=ularray[:,3],color=barColor[1],label='marginalized')
 
 ##########################
 # add a legend to the plot
-leg=legend(('','unmarginalized','marginalized'),loc='lower left')
+leg=legend(loc='lower left')
 leg_text=leg.get_texts()
 setp(leg_text,fontsize='x-large')
 leg_boxes=leg.get_patches()

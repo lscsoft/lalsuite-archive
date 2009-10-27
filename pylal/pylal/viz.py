@@ -96,8 +96,7 @@ def readcolfrom2tables(table1, table2, col_name ):
   """
   
   if len(table1) != len(table2):
-    print >>sys.stderr, "number of events in table1 and table2 must be equal"
-    sys.exit(1)
+    raise ValueError, "number of events in table1 and table2 must be equal"
  
   if len(table1):
     if ("ifo" in table1.validcolumns.keys()):
@@ -131,7 +130,10 @@ def timeindays(col_data ):
     - S3:         [751658413, 757699213]
     - S4:         [793130413, 795679213]
     - S5:         [815119213, 875232014]
-  @param col_data: array containing times
+    - E13:        [924606015, 924865215]
+    - E14:        [928875615, 929134815]
+    - S6:         [930960015, ?????????]
+  @param col_data: array containing times in GPS seconds
   """
   lvtimes = [700000000, 700086400]
   v1times = [811132263, 811143059]
@@ -140,10 +142,14 @@ def timeindays(col_data ):
   s4times = [793130413, 795679213]
   s5times = [815119213, 875232014]
   e13times = [924606015, 924865215]
+  e14times = [928875615, 929134815]
+  s6time = 930960015
 
   if len(col_data) == 0: return col_data
 
-  if col_data[0] > s2times[0] and col_data[0] < s2times[1]:
+  if col_data[0] > s6time:
+    start = s6time
+  elif col_data[0] > s2times[0] and col_data[0] < s2times[1]:
     start = s2times[0]
   elif col_data[0] > s3times[0] and col_data[0] < s3times[1]:
     start = s3times[0]
@@ -157,9 +163,10 @@ def timeindays(col_data ):
     start = v1times[0]
   elif col_data[0] > e13times[0] and col_data[0] < e13times[1]:
     start = e13times[0]
+  elif col_data[0] > e14times[0] and col_data[0] < e14times[1]:
+    start = e14times[0]
   else:
-    print >> sys.stderr, "events not from a known science run"
-    sys.exit(1)
+    raise ValueError, "events not from a known science run"
 
   col_data = (col_data - start)/(60 * 60 * 24.0)
 
@@ -797,7 +804,7 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     
     bins = []
     if width:
-      for i in range(-nbins,nbins):
+      for i in range(-nbins,nbins + 1):
         bins.append(width * i/nbins)
     
     # creates the histogram and take plot_type into account  
@@ -805,10 +812,11 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
       data = log10(data)
 
 
-    if bins:
-      ydata, xdata, patches = hist(data,bins)
+    if len(bins) != 0:
+      ydata, xdata = numpy.histogram(data, bins, new=True)
     else:
-      ydata, xdata, patches = hist(data,nbins)
+      ydata, xdata = numpy.histogram(data, nbins, new=True)
+    xdata = xdata[:-1]
 
     width = xdata[1] - xdata[0]
 
@@ -1017,18 +1025,18 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     min_val -= 0.5
     max_val += 0.5
     
-  bins = numpy.linspace(min_val, max_val, nbins)
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   # hist of the zero lag:
   if trigs:
-    zero_dist, xbin = numpy.histogram(snr, bins)
+    zero_dist, _ = numpy.histogram(snr, bins, new=True)
     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
 
   # hist of the slides:
   if slide_trig_list:
     cum_dist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins)
+      num_slide, _ = numpy.histogram(slide_snr, bins, new=True)
       cum_slide = num_slide[::-1].cumsum()[::-1]
       cum_dist_slide.append(cum_slide)
     cum_dist_slide = numpy.array(cum_dist_slide)
@@ -1038,32 +1046,30 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       slide_mean *= 600./6370.
       slide_std *= sqrt(600./6370.)
 
+  ds = (bins[1] - bins[0]) / 2
   if "bitten_l" in stat:
-     xvals=bins
+    lefts = bins[:-1]
+    centers = bins[:-1] + ds
   else:
-     xvals=bins*bins
+    lefts = bins[:-1]**2
+    centers = (bins[:-1] + ds)**2
 
   figure()
   # plot zero lag
   if trigs:
-    semilogy(xvals,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
+    semilogy(centers,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
         markersize=12)
-  
+
   # plot time slides
   if slide_trig_list and len(slide_snr_list):
-    ds = (bins[1] - bins[0]) / 2
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
-    tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
-    if "bitten_l" in stat:
-      p=fill((tmpx-ds),tmpy, facecolor='y')
-    else:
-      p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
-    setp(p, alpha=0.3)
-    
+    semilogy(centers,asarray(slide_mean), 'r+', markersize=12)
+    tmpx, tmpy = makesteps(lefts, slide_min, slide_mean + slide_std)
+    fill(tmpx, tmpy, facecolor='y', alpha=0.3)
+
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
   elif stat: xlab = 'combined ' + stat.replace('_',' ')
   else: xlab = 'Combined Statistic'
@@ -1136,51 +1142,47 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     # NB: this is numpy.histogram's default behavior for equal max and min
     min_val -= 0.5
     max_val += 0.5
-    
-  bins = numpy.linspace(min_val, max_val, nbins)
+
+  bins = numpy.linspace(min_val, max_val, nbins + 1, endpoint=True)
 
   # hist of the zero lag:
   if trigs:
-    [zero_dist,bin,info] = hist(snr,bins)
-    hist_zero = zero_dist
+    hist_zero, _ = numpy.histogram(snr, bins, new=True)
 
   # hist of the slides:
   if slide_trigs:
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins)
+      num_slide, _ = numpy.histogram(slide_snr, bins, new=True)
       hist_slide.append(num_slide)
     hist_slide = numpy.array(hist_slide)
     slide_mean = hist_slide.mean(axis=0)
     slide_std = hist_slide.std(axis=0)
 
+  ds = (bins[1] - bins[0]) / 2
   if "bitten_l" in stat:
-     xvals=bins
+    lefts = bins[:-1]
+    centers = bins[:-1] + ds
   else:
-     xvals=bins*bins;
+    lefts = bins[:-1]**2
+    centers = (bins[:-1] + ds)**2
 
-  clf()
-  hold(True)
+  figure()
   # plot zero lag
   if trigs and len(trigs):
-    semilogy(xvals,hist_zero+0.0001,'r^',markerfacecolor="b",\
+    semilogy(centers, hist_zero + 0.0001, 'r^', markerfacecolor="b",\
         markersize=12)
 
   # plot time slides
   if slide_trigs and len(slide_snr_list):
-    ds = (bins[1] - bins[0]) / 2
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
-    tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
-    if "bitten_l" in stat:
-       p=fill((tmpx-ds),tmpy, facecolor='y')
-    else:
-       p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
-    setp(p, alpha=0.3)
+    semilogy(centers, asarray(slide_mean), 'r+', markersize=12)
+    tmpx, tmpy = makesteps(lefts, slide_min, slide_mean + slide_std)
+    fill(tmpx, tmpy, facecolor='y', alpha=0.3)
 
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
   else: xlab = 'Combined Statistic'
@@ -1229,21 +1231,25 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
       missedVal = log10(missedVal)
 
     if len(foundVal):
-      step = (max(foundVal) - min(foundVal)) /nbins
-      bins = arange(min(foundVal),max(foundVal), step )
+      bins = numpy.linspace(min(foundVal), max(foundVal), nbins + 1,
+                            endpoint=True)
+      step = bins[1] - bins[0]
+      plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
+        plotbins = bins[0:-1] + foundVal[0]/4.0
     else:
-      step = (max(missedVal) - min(missedVal)) /nbins
-      bins = arange(min(missedVal),max(missedVal), step )
+      bins = numpy.linspace(min(missedVal), max(missedVal), nbins + 1,
+                            endpoint=True)
+      step = bins[1] - bins[0]
+      plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
+        plotbins = bins[0:-1] + missedVal[0]/4.0
+    num_found, _ = numpy.histogram(foundVal, bins, new=True)
+    num_missed, _ = numpy.histogram(missedVal, bins, new=True)
+
     fig_num = gcf().number
-    figure(100)
-    [num_found,binsf,stuff] = hist(foundVal, bins)
-    [num_missed,binsm,stuff] = hist(missedVal ,bins)
-    close(100)
-    
     figure(fig_num)
     num_found = array(num_found,'d')
     eff = num_found / (num_found + num_missed)
@@ -1251,25 +1257,25 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     error = array(error)
 
     if plot_type == 'log':
-      bins = 10**bins
+      plotbins = 10**plotbins
       if plot_name:
-        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2, label = plot_name)
       else:
-        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2)
       if errors:
-        errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
+        errorbar(plotbins, eff, error,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth = 2, label = plot_name, \
             fmt = plotsym)
               
     else:
       if errors:
-        errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
+        errorbar(plotbins, eff, error, fmt = plotsym, markersize=12,\
             markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
       else:
-        plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        plot(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
 
     xlabel(col_name.replace("_"," "), size='x-large')
@@ -1323,36 +1329,27 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
   if (plot_type == 'frac_hist'):
     tmp_diff /= tmpvar1
 
-  fig_num = gcf().number
-  figure(100)
   if hist_width[0] and hist_width[1]:
-    bins = []
-    
-    for i in range(nbins):
-      bins.append(hist_width[0] + (hist_width[1] - hist_width[0]) * i / nbins)
-  
-    out = hist(tmp_diff,bins)
+    bins = numpy.linspace(hist_width[0], hist_width[1], nbins + 1,
+                          endpoint=True)
+    height, _ = numpy.histogram(tmp_diff, bins=bins, new=True)
   else:
-    out = hist(tmp_diff,nbins)
-  clf()
+    height, bins = numpy.histogram(tmp_diff, bins=nbins, new=True)
+  bins = bins[:-1]
+
+  fig_num = gcf().number
   figure(fig_num)
   
-  width = out[1][1] - out[1][0]
+  width = (bins[1] - bins[0]) / total_hists
   
-  height = out[0]
   if hist_norm:
     height = height / float(hist_norm)
-  width = width / total_hists
   left = []
-  for val in out[1]:
+  for val in bins:
     val = val + (width * hist_num)/2
     left.append(val)
  
- 
-  try:
-    bar(left,height,width,color=histcolors[hist_num])
-  except:
-    print 'problem in histdiff, using bar. skipped'
+  bar(left,height,width,color=histcolors[hist_num])
 
   # figtext(0.13,0.8 - 0.1* hist_num," mean = %6.3e" % mean(tmp_diff))
   # figtext(0.13,0.75 - 0.1 * hist_num,'sigma = %6.3e' % std(tmp_diff))

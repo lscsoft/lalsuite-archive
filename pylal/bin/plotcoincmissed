@@ -33,11 +33,9 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from glue import lal
 from glue.ligolw import lsctables
-from pylal import followup_missed
 
 from glue import markup
 from glue.markup import oneliner as extra
-
 
 #################################################################
 usage = """Usage: %prog [options] 
@@ -71,6 +69,9 @@ def parse_command_line():
   parser.add_option("", "--missed-pattern",
     help="sieve the cache for missed injection files with this pattern."\
     "This should be the pattern for missed injections in coincidence")
+  parser.add_option("", "--inj-string", default=None,
+    help="Sieve the cache and discard all files that do not match this pattern."\
+    "This should be the injection string such as BNSINJ or PHENOM_INJ")
 
   # followup details
   parser.add_option("","--do-followup",action="store_true",\
@@ -159,6 +160,7 @@ def get_coinc_triggers(opts, observatory, pattern):
 def get_injections(ifos = None, pattern = None, verbose=False):
   injcache = cache.sieve(ifos = ifos, description = pattern)
   injFiles = injcache.checkfilesexist()[0].pfnlist()
+
   if verbose:
     print "\n reading the following injection files..."
     for file in injFiles:
@@ -187,18 +189,20 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-
+from pylal import followup_trigger
 
 # generate the cache and missed cache
 cache = lal.Cache.fromfile(open(opts.cache_file))
-missed_cache = cache.sieve(description=opts.missed_pattern)
+cache = cache.sieve(description = opts.inj_string)
+missed_cache = cache.sieve(description='*' + opts.missed_pattern,\
+                           exact_match=True)
 
 ifolist = ["H1", "H2", "L1","V1"]
 coincMissed = lsctables.New(lsctables.SimInspiralTable)
 
 # initialize the followup class
 if opts.do_followup:
-  followup = followup_missed.FollowupMissed( cache, missed_cache, opts)
+  followup = followup_trigger.FollowupTrigger(cache, opts)
 
 # and the page
 page = markup.page()
@@ -211,6 +215,8 @@ for entry in missed_cache:
   page.h2(ifos)
   page.ul()
   missed_inj= SimInspiralUtils.ReadSimInspiralFromFiles([entry.path()])
+  if missed_inj is None:
+    continue
 
   single_found = {}
   single_found_times = {}
@@ -232,7 +238,7 @@ for entry in missed_cache:
       coincMissed.append( inj )
       if opts.do_followup:
         followup.setTag( "TEST")
-        followuphtml = followup.followup( inj, "H1", opts.followup_tag )
+        followuphtml = followup.from_missed(inj)
         page = add_href(page, followuphtml, "details here")
   page.ul.close()
 
@@ -250,7 +256,7 @@ if opts.enable_output is True:
   html_file.close()
 
   if opts.do_followup:
-    fnameList =  followup.fnameList 
+    fnameList =  followup.fname_list 
     InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
     

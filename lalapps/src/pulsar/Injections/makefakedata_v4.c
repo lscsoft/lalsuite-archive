@@ -526,9 +526,11 @@ main(int argc, char *argv[])
 void
 InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
 {
+  static const char *fn = "InitMakefakedata()";
+
   CHAR *channelName = NULL;
 
-  INITSTATUS( status, "InitMakefakedata", rcsid );
+  INITSTATUS( status, fn, rcsid );
   ATTATCHSTATUSPTR (status);
 
   /* register all user-variables */
@@ -847,18 +849,22 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
 	/* check if anything matched */
 	if ( catalog->length == 0 )
 	  {
-	    printf ("\nNo noise-SFTs matching the constraints (IFO, start+duration, timestamps) were found!\n\n");
+	    XLALPrintError ("%s: No noise-SFTs matching the constraints (IFO, start+duration, timestamps) were found!\n", fn);
 	    ABORT (status,  MAKEFAKEDATAC_EBAD,  MAKEFAKEDATAC_MSGEBAD);
 	  }
-
-	/* get timestamps from the matched SFTs */
-	TRY ( LALSFTtimestampsFromCatalog ( status->statusPtr, &cfg->timestamps, catalog ), status );
 
 	/* load effective frequency-band from noise-SFTs */
 	fMin = cfg->fmin_eff;
 	fMax = fMin + cfg->fBand_eff;
 	TRY ( LALLoadSFTs( status->statusPtr, &(cfg->noiseSFTs), catalog, fMin, fMax ), status );
 	TRY ( LALDestroySFTCatalog ( status->statusPtr, &catalog ), status );
+
+	/* get timestamps from the loaded noise SFTs */
+	if ( ( cfg->timestamps = XLALgetSFTtimestamps ( cfg->noiseSFTs )) == NULL ) {
+          XLALPrintError ("%s: XLALgetSFTtimestamps() failed to obtain timestamps from SFTvector.\n", fn );
+          ABORT (status,  MAKEFAKEDATAC_EBAD,  MAKEFAKEDATAC_MSGEBAD);
+        }
+
 
       } /* if uvar_noiseSFTs */
 
@@ -904,7 +910,7 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
       t0 = cfg->timestamps->data[0];
       t1 = cfg->timestamps->data[cfg->timestamps->length - 1 ];
 
-      TRY (LALDeltaFloatGPS(status->statusPtr, &duration, &t1, &t0), status);
+      duration = XLALGPSDiff(&t1, &t0);
       duration += uvar_Tsft;
 
       cfg->startTimeGPS = cfg->timestamps->data[0];
@@ -993,14 +999,6 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
     edat.ephiles.earthEphemeris = earthdata;
     edat.ephiles.sunEphemeris   = sundata;
 
-    edat.leap = XLALGPSLeapSeconds( cfg->startTimeGPS.gpsSeconds );
-    {
-      INT4 err = xlalErrno;
-      if ( err != XLAL_SUCCESS ) {
-	ABORT ( status, err, "XLALLeapSeconds() failed!\n");
-      }
-    }
-
     /* Init ephemerides */
     TRY( LALInitBarycenter(status->statusPtr, &edat), status);
     LALFree(earthdata);
@@ -1085,7 +1083,12 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
 
     /* set random-number generator seed: either taken from user or from /dev/urandom */
     if ( LALUserVarWasSet ( &uvar_randSeed ) )
-      cfg->randSeed = uvar_randSeed;
+      {
+        if ( uvar_randSeed == 0 ) {
+          XLALPrintError ("WARNING: setting randSeed==0 results in the system clock being used as a random seed!\n");
+        }
+        cfg->randSeed = uvar_randSeed;
+      }
     else
       {
 	FILE *devrandom;
@@ -1121,7 +1124,7 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
     }
   else if (LALUserVarWasSet(&uvar_refTime))
     {
-      TRY ( LALFloatToGPS(status->statusPtr, &(cfg->pulsar.Doppler.refTime), &uvar_refTime), status);
+      XLALGPSSetREAL8(&(cfg->pulsar.Doppler.refTime), uvar_refTime);
     }
   else if (LALUserVarWasSet(&uvar_refTimeMJD))
     {
@@ -1563,7 +1566,7 @@ LoadTransferFunctionFromActuation(LALStatus *status,
       ABORT (status, MAKEFAKEDATAC_EMEM, MAKEFAKEDATAC_MSGEMEM);
     }
 
-  LALSnprintf ( ret->name, LALNameLength-1, "Transfer-function from: %s", fname );
+  snprintf ( ret->name, LALNameLength-1, "Transfer-function from: %s", fname );
   ret->name[LALNameLength-1]=0;
 
   /* initialize loop */

@@ -26,8 +26,6 @@ __title__ = "Followup missed injections"
 import os, sys, exceptions, copy
 from math import sqrt, pi
 
-import matplotlib
-matplotlib.use('Agg')
 from pylab import rcParams, fill, figtext, figure, plot, axes, axis, xlabel, ylabel, title, close, grid, legend
 try:
   set

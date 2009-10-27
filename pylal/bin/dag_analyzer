@@ -88,7 +88,7 @@ class DAGParser:
       if 'EXITING' in self.content[-1]:
         if 'STATUS 0' in self.content[-1]:
           self.status = 3 # DAG stopped: Finish
-        if 'STATUS 1' in self.content[-1]:
+        if 'STATUS 1' in self.content[-1] or 'STATUS 2' in self.content[-1]:
           self.status = 2 # DAG stopped: Error
 
     
@@ -328,6 +328,7 @@ def check_subdags(dag_file, directory, verbose = False):
   
 #################################  
 
+time0 = time.time()
 
 ## make the glob
 directory = './'
@@ -504,4 +505,8 @@ print "The TOTAL running time of all DAG's is %.1f hours (%.1f days) | "\
 
 asc_start = time.asctime(time.gmtime(total_starttime))
 asc_end = time.asctime(time.gmtime(total_endtime))
-print "Run took place from %s to %s" % (asc_start, asc_end) 
+print "Run took place from %s to %s" % (asc_start, asc_end)
+
+
+print "The runtime of this script was ", time.time()-time0
+

@@ -244,7 +244,6 @@ void LALRadstoRA(LALStatus *status, CHAR *RA, REAL8 rads);
 void LALRadstoDEC(LALStatus *status, CHAR *DEC, REAL8 rads);
 void GPStoTDBMJD(LALStatus *status,MJDTime *TDBMJD,LIGOTimeGPS GPS);
 void MultiplyInterval(LALStatus *status,LALTimeInterval *newinterval,LALTimeInterval interval,INT4 factor);
-int snprintf(char *str, size_t size, const char *format, ...);
 
 /*============================================================
  * FUNCTION definitions
@@ -260,7 +259,6 @@ main(int argc, char *argv[]){
   REAL8 alpha, delta;
   EphemerisData *edat = NULL;
   CHAR EphemEarth[1024], EphemSun[1024];
-  LALLeapSecFormatAndAcc formatAndAcc = {LALLEAPSEC_GPSUTC, LALLEAPSEC_LOOSE};
   INT4 leap0,leap;
   LIGOTimeGPS epoch;
   LIGOTimeGPS TstartSSB, TendSSB, TendGPS;
@@ -276,7 +274,7 @@ main(int argc, char *argv[]){
   MJDTime *TOA = NULL;
   CHAR tempstr[15];
   CHAR *tempstr2;
-  CHAR TrefMJDstr[20],TstartMJDstr[20],TfinishMJDstr[20],TOAstr[20];
+  CHAR TstartMJDstr[20],TfinishMJDstr[20],TOAstr[20];
   PulsarSignalParams pulsarparams;
   CHAR parfile[256];
   CHAR timfile[256];
@@ -373,14 +371,14 @@ main(int argc, char *argv[]){
 
   /* deal with ephemeris files and compute leap seconds */
   edat = LALCalloc(1, sizeof(EphemerisData));
-  LALSnprintf(EphemEarth, 1024, "%s/earth%s.dat", uvar.ephemdir, uvar.ephemyear);
-  LALSnprintf(EphemSun, 1024, "%s/sun%s.dat", uvar.ephemdir, uvar.ephemyear);
+  snprintf(EphemEarth, 1024, "%s/earth%s.dat", uvar.ephemdir, uvar.ephemyear);
+  snprintf(EphemSun, 1024, "%s/sun%s.dat", uvar.ephemdir, uvar.ephemyear);
   edat->ephiles.earthEphemeris = EphemEarth;
   edat->ephiles.sunEphemeris = EphemSun;
-  LALLeapSecs (&status, &leap0, &epoch, &formatAndAcc);
-  edat->leap = (INT2) leap0;
+  leap0 = XLALGPSLeapSeconds (epoch.gpsSeconds);
+
   if (lalDebugLevel) fprintf(stdout,"STATUS : leap seconds = %d\n",leap0);
-  
+
   /* initialise the barycenter routines */
   LALInitBarycenter(&status, edat);
   if (lalDebugLevel) fprintf(stdout,"STATUS : Initiated Barycenter\n");
@@ -560,7 +558,8 @@ main(int argc, char *argv[]){
 
   /* define TOA end time in GPS */
   temp = uvar.DurationMJD*86400.0;
-  LALAddFloatToGPS(&status,&TendGPS,&TstartGPS,temp);
+  TendGPS = TstartGPS;
+  XLALGPSAdd(&TendGPS, temp);
   if (lalDebugLevel) fprintf(stdout,"STATUS : GPS end time of TOAs = %d %d\n",TendGPS.gpsSeconds,TendGPS.gpsNanoSeconds);
 
   /* generate SSB end time in GPS (force integer seconds) */
@@ -598,7 +597,7 @@ main(int argc, char *argv[]){
     if (lalDebugLevel) fprintf(stdout,"STATUS : current t = %d %d\n",tnow.gpsSeconds,tnow.gpsNanoSeconds);
 
     /* define current t-tref */
-    LALDeltaFloatGPS(&status,&dtref,&tnow,&TrefSSB_TDB_GPS);
+    dtref = XLALGPSDiff(&tnow,&TrefSSB_TDB_GPS);
     if (lalDebugLevel) fprintf(stdout,"STATUS : current (t - tref) = %9.12f\n",dtref);
 
     dtcor = 1;
@@ -620,7 +619,8 @@ main(int argc, char *argv[]){
     }
 
     /* define time of zero phase */
-    LALAddFloatToGPS(&status,&TSSB[i],&TrefSSB_TDB_GPS,dtref);
+    TSSB[i] = TrefSSB_TDB_GPS;
+    XLALGPSAdd(&TSSB[i], dtref);
     if (lalDebugLevel) fprintf(stdout,"STATUS : TSSB[%d] = %d %d\n",i,TSSB[i].gpsSeconds,TSSB[i].gpsNanoSeconds);
  
   }
@@ -645,10 +645,10 @@ main(int argc, char *argv[]){
 	return(TEMPOCOMPARISONC_ESUB);
       }
       if (lalDebugLevel) fprintf(stdout,"STATUS : SSB -> detector conversion gives discrepancies of %e sec\n",diff);
-      
+
       /* recompute leap seconds incase they've changed */
-      LALLeapSecs (&status, &leap, &TDET, &formatAndAcc); 
-      
+      leap = XLALGPSLeapSeconds (TDET.gpsSeconds);
+
       /* must now convert to an MJD time for TEMPO */
       /* Using UTC conversion as used by Matt in his successful comparison */
       UTCGPStoMJD (&status,&tempTOA,&TDET,leap);
@@ -812,7 +812,7 @@ initUserVars (LALStatus *status, int argc, char *argv[], UserVariables_t *uvar)
   LALregREALUserStruct ( status, 	DurationMJD, 	'D', UVAR_OPTIONAL, 	"Full duration of TOAs (in days) [Default = 1800 ~ 5 years]");
   LALregSTRINGUserStruct ( status,      PSRJ,           'n', UVAR_OPTIONAL, 	"Name of pulsar [Default = TEST]");
   LALregSTRINGUserStruct ( status,      Observatory,    'O', UVAR_OPTIONAL, 	"TEMPO observatory name (GBT,ARECIBO,NARRABRI,NANSHAN,DSS_43,PARKES,JODRELL,VLA,NANCAY,COE,SSB) [Default = JODRELL]");
-  LALregBOOLUserStruct ( status,        randparams,     'r', UVAR_OPTIONAL, 	"Override sky position with random values [Default = FALSE]");
+  LALregBOOLUserStruct ( status,        randparams,      0, UVAR_OPTIONAL, 	"Override sky position with random values [Default = FALSE]");
   LALregINTUserStruct ( status, 	seed,     	'o', UVAR_OPTIONAL, 	"The random seed (integer) [Default = 0 = clock]");
 
   /* read all command line variables */

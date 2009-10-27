@@ -11,6 +11,11 @@ foreach {var value} {
 	set $var $value
 	}
 
+foreach {var value} $argv {
+	global $var
+	set $var $value
+	}
+
 proc get_header { name } {
 set FILE [open $name "r"]
 fconfigure $FILE -encoding binary -translation binary

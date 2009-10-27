@@ -12,12 +12,12 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with with program; see the file COPYING. If not, write to the 
- *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, 
+ *  along with with program; see the file COPYING. If not, write to the
+ *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
 
-/** \defgroup UserInput 
+/** \defgroup UserInput
  * \ingroup support
  * \author Reinhard Prix
  * \date $Date$
@@ -25,8 +25,8 @@
  *
  * More documentation on how to use this module will appear here soon!!
  */
- 
-/** \file 
+
+/** \file
  * \ingroup UserInput
  * \author Reinhard Prix
  * \date $Date$
@@ -60,6 +60,7 @@ NRCSID( USERINPUTH, "$Id$");
 #define USERINPUTH_EONECONFIG   10
 #define USERINPUTH_ERECFORMAT   11
 #define USERINPUTH_EXLAL	12
+#define USERINPUTH_ENAMECOLL    13
 
 
 #define USERINPUTH_MSGENULL 	"Arguments contained an unexpected null pointer."
@@ -74,6 +75,7 @@ NRCSID( USERINPUTH, "$Id$");
 #define USERINPUTH_MSGEONECONFIG "Currently one ONE config-file can be specified using '@'"
 #define USERINPUTH_MSGERECFORMAT   "Unknown format for recording user-input"
 #define USERINPUTH_MSGEXLAL	"Failure in XLAL function"
+#define USERINPUTH_MSGENAMECOLL "Commandline option assigned more than once"
 
 /*@}*/
 /*************************************************** </lalErrTable> */
@@ -132,42 +134,42 @@ typedef enum {
 } UserVarLogFormat;
 
 /* Function prototypes */
-void LALRegisterREALUserVar(LALStatus *, 
-			    const CHAR *name, 
-			    CHAR optchar, 
+void LALRegisterREALUserVar(LALStatus *,
+			    const CHAR *name,
+			    CHAR optchar,
 			    UserVarState flag,
-			    const CHAR *helpstr, 
+			    const CHAR *helpstr,
 			    REAL8 *cvar);
 
-void LALRegisterINTUserVar (LALStatus *,  
-			    const CHAR *name, 
-			    CHAR optchar, 
-			    UserVarState flag, 
-			    const CHAR *helpstr, 
+void LALRegisterINTUserVar (LALStatus *,
+			    const CHAR *name,
+			    CHAR optchar,
+			    UserVarState flag,
+			    const CHAR *helpstr,
 			    INT4 *cvar);
 
-void 
-LALRegisterBOOLUserVar (LALStatus *, 
-			const CHAR *name, 
-			CHAR optchar, 
+void
+LALRegisterBOOLUserVar (LALStatus *,
+			const CHAR *name,
+			CHAR optchar,
 			UserVarState flag,
-			const CHAR *helpstr, 
+			const CHAR *helpstr,
 			BOOLEAN *cvar);
 
 void
 LALRegisterSTRINGUserVar (LALStatus *,
 			  const CHAR *name,
-			  CHAR optchar, 
+			  CHAR optchar,
 			  UserVarState flag,
-			  const CHAR *helpstr, 
+			  const CHAR *helpstr,
 			  CHAR **cvar);
 
 void
 LALRegisterLISTUserVar (LALStatus *,
 			const CHAR *name,
-			CHAR optchar, 
+			CHAR optchar,
 			UserVarState flag,
-			const CHAR *helpstr, 
+			const CHAR *helpstr,
 			LALStringVector **cvar);
 
 

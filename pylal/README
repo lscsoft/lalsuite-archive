@@ -22,15 +22,6 @@ Note: matplotlib and numpy are now part of the standard LSCSOFT stack
 
   yum groupinstall "LSCSOFT"
 
-However, there is a small bug in the matplotlib rpm which can be fixed
-by finding the .matplotlibrc file by typing:
-
-  locate .matplotlibrc
-
-then opening the file and replacing the line
-   "numerix      : Numeric"
-by "numerix      : numpy"
-
 ------------------------------------------------------------------------------
 
 1. Determine your Python version
@@ -47,25 +38,6 @@ example:
 
 If you do not have version 2.4 or greater installed, contact your system
 administrator for help installing Python.
-
-Set the environment variable PYTHON to be the name of your python
-version 2 executable. For example if your executable is named python,
-bash or sh users should type:
-
-  export PYTHON=python
-
-and csh users should type:
-
-  setenv PYTHON python
-
-If your executable is named python2, bash or sh users should type:
-
-  export PYTHON=python2
-
-and csh users should type:
-
-  setenv PYTHON python2
-
 
 ------------------------------------------------------------------------------
 

@@ -126,7 +126,6 @@ int main(int argc, const char *argv[]) {
   LALDetector DetectorH,DetectorL;
   SkyPosition SourcePos;
   LALGPSandAcc gpsandacc;
-  gpsandacc.accuracy=LALLEAPSEC_STRICT;
   LALDetAndSource DetandSrc;
   LALSource sourceF;
   sourceF.orientation=1.0;
@@ -146,7 +145,6 @@ int main(int argc, const char *argv[]) {
 
   (*edat).ephiles.earthEphemeris = earthdata;
   (*edat).ephiles.sunEphemeris =   sundata;
-  (*edat).leap=13;
   LALInitBarycenter(&status, edat);
  
   double  frequencies[3]={freq-fbin,freq,freq+fbin},

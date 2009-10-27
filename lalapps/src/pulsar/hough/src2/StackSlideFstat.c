@@ -68,13 +68,13 @@ static int smallerStackSlide(const void *a,const void *b) {
 */
 void StackSlideVecF(LALStatus *status,
                     SemiCohCandidateList  *out,        /* output candidates */
-                    REAL8FrequencySeriesVector *vecF,  /* vector with Fstat values or any REAL8FrequencySeriesVector */
+                    REAL4FrequencySeriesVector *vecF,  /* vector with Fstat values or any REAL8FrequencySeriesVector */
                     SemiCoherentParams *params)        /* input parameters  */
 {
   REAL8FrequencySeries stackslideSum;  /* The output of StackSliding the vecF values */
   
   REAL8 *pstackslideData;  /* temporary pointer */
-  REAL8 *pFVecData;        /* temporary pointer */
+  REAL4 *pFVecData;        /* temporary pointer */
 
   REAL8 pixelFactor;
   REAL8 alphaStart, alphaEnd, dAlpha, thisAlpha;
@@ -146,7 +146,7 @@ void StackSlideVecF(LALStatus *status,
   fdot = params->fdot;
   tsMid = params->tsMid;
   refTimeGPS = params->refTime;  
-  TRY ( LALGPStoFloat( status->statusPtr, &refTime, &refTimeGPS), status);
+  refTime = XLALGPSGetREAL8(&refTimeGPS);
 
   /* allocate memory for StackSlide of Fvec values */
   stackslideSum.epoch = vecF->data[0].epoch; /* just use the epoch of the first stack */
@@ -189,7 +189,7 @@ void StackSlideVecF(LALStatus *status,
 
   for (k=0; k<nStacks; k++) {
     REAL8 tMidStack;
-    TRY ( LALGPStoFloat ( status->statusPtr, &tMidStack, tsMid->data + k), status);
+    tMidStack = XLALGPSGetREAL8(tsMid->data + k);
     timeDiffV->data[k] = tMidStack - refTime;
   }
 
@@ -361,13 +361,13 @@ void StackSlideVecF(LALStatus *status,
            This is similar to StackSlideVecF but adapted to calculate the hough number count and to be as 
 	   similar to Hough as possible but without using the hough look-up-tables.
     \param out SemiCohCandidateList is a list of candidates
-    \param vecF is a vector of Fstat frequency series or any REAL8FrequencySeriesVector.
+    \param vecF is a vector of Fstat frequency series or any REAL4FrequencySeriesVector.
     \param params is a pointer to SemiCoherentParams
     \out SemiCohCandidateList is a list of candidates
 */
 void StackSlideVecF_HoughMode(LALStatus *status,
 			      SemiCohCandidateList  *out,        /**< output candidates */
-			      REAL8FrequencySeriesVector *vecF,  /**< vector with Fstat values or any REAL8FrequencySeriesVector */
+			      REAL4FrequencySeriesVector *vecF,  /**< vector with Fstat values or any REAL8FrequencySeriesVector */
 			      SemiCoherentParams *params)        /**< input parameters  */
 {
 
@@ -445,7 +445,7 @@ void StackSlideVecF_HoughMode(LALStatus *status,
   fdot = params->fdot;
   tsMid = params->tsMid;
   refTimeGPS = params->refTime;
-  TRY ( LALGPStoFloat( status->statusPtr, &refTime, &refTimeGPS), status);
+  refTime = XLALGPSGetREAL8(&refTimeGPS);
 
   /* set patch size */
   /* this is supposed to be the "educated guess"
@@ -461,8 +461,7 @@ void StackSlideVecF_HoughMode(LALStatus *status,
   
   for (k=0; k<nStacks; k++) {
     REAL8 tMidStack;
-
-    TRY ( LALGPStoFloat ( status->statusPtr, &tMidStack, tsMid->data + k), status);
+    tMidStack = XLALGPSGetREAL8(tsMid->data + k);
     timeDiffV->data[k] = tMidStack - refTime;
   }
 

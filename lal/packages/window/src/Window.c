@@ -69,7 +69,7 @@ static REAL4Window *XLALREAL4Window_from_REAL8Window(REAL8Window *orig)
 
 	if(!orig)
 		XLAL_ERROR_NULL(func, XLAL_EFUNC);
-		
+
 	new = XLALMalloc(sizeof(*new));
 	data = XLALCreateREAL4Sequence(orig->data->length);
 
@@ -271,11 +271,11 @@ REAL4Window *XLALCreateREAL4WindowFromSequence(REAL4Sequence *sequence)
 
 
 /**
- * Multiply a REAL8Sequence by a REAL8Window with a normalization that
- * preserves the RMS of stationary noise.  If the window's length is N and
- * its sum-of-squares is S, then the input sequence is multiplied by the
- * window and \sqrt{N / S}.  Returns the address of the REAL8Sequence or
- * NULL on failure.
+ * Multiply a REAL8Sequence in-place by a REAL8Window with a normalization
+ * that preserves the variance of a zero-mean stationary Gaussian random
+ * process.  If the window's length is N samples and its sum-of-squares is
+ * S, then the input sequence is multiplied by the window * \sqrt{N / S}.
+ * Returns the address of the REAL8Sequence or NULL on failure.
  */
 
 

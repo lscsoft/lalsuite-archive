@@ -226,15 +226,11 @@ void get_AM_response(INT64 gps, float latitude, float longitude, float orientati
 	float *plus, float *cross)
 {
 LALStatus status={level:0, statusPtr:NULL};
-INT4 tmp_leapsecs;
-LALGPSandAcc gps_and_acc;
-LALLeapSecFormatAndAcc leapsec_info={LALLEAPSEC_GPSUTC, LALLEAPSEC_STRICT};
 LALSource source;
 LALDetAndSource det_and_source={NULL, NULL};
 LALDetAMResponse response;
 
 memset(&gps_and_acc, 0, sizeof(gps_and_acc));
-gps_and_acc.accuracy=leapsec_info.accuracy;
 gps_and_acc.gps.gpsSeconds=gps; 
 gps_and_acc.gps.gpsNanoSeconds=0;
 
@@ -246,9 +242,6 @@ source.equatorialCoords.latitude=latitude;
 
 det_and_source.pDetector=&detector;
 det_and_source.pSource=&source;
-
-/* TODO : find out why DetAMResponse does not care about leap seconds, but
-   DetectorVel does */
 
 LALComputeDetAMResponse(&status, &response, &det_and_source, &gps_and_acc);
 TESTSTATUS(&status);
@@ -262,16 +255,11 @@ void get_detector_vel(INT64 gps, float *velocity)
 LALStatus status={level:0, statusPtr:NULL};
 REAL8 det_velocity[3];
 LALGPSandAcc gps_and_acc;
-LALLeapSecFormatAndAcc  leapsec_info={LALLEAPSEC_GPSUTC, LALLEAPSEC_STRICT};
-/* LIGOTimeGPS gps; */
 int i;
 
 memset(&gps_and_acc, 0, sizeof(gps_and_acc));
-gps_and_acc.accuracy=leapsec_info.accuracy;
-gps_and_acc.gps.gpsSeconds=gps; 
+gps_and_acc.gps.gpsSeconds=gps;
 gps_and_acc.gps.gpsNanoSeconds=0;
- 
-ephemeris.leap = (INT2)XLALGPSLeapSeconds((INT4)gps); 
 
 LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), detector, &ephemeris);
 TESTSTATUS(&status);
@@ -284,8 +272,7 @@ fprintf(stderr,"powerflux: det_velocity=(%g,%g,%g)\n",
 	);
 fprintf(stderr,"gps=%d (nano=%d)\n",gps_and_acc.gps.gpsSeconds, gps_and_acc.gps.gpsNanoSeconds);
 fprintf(stderr,"detector=%s\n", detector.frDetector.name);
-fprintf(stderr,"powerflux leap=%d nE=%d nS=%d dE=%g dS=%g\n", 
-	ephemeris.leap,
+fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 	ephemeris.nentriesE,
 	ephemeris.nentriesS,
 	ephemeris.dtEtable,

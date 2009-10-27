@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --defined 800000000 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --defined 800000000 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_0  > wanted
 echo TEST_SEG_1 >> wanted
 echo TEST_SEG_2 >> wanted
@@ -15,7 +15,7 @@ then
 fi
 
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --defined 800000010 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --defined 800000010 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_2  > wanted
 echo TEST_SEG_3 >> wanted
 
@@ -27,7 +27,7 @@ then
         exit 1 
 fi
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --defined --include-segments H1:TEST_SEG_2 800000010 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --defined --include-segments H1:TEST_SEG_2 800000010 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_2  > wanted
 
 diff result wanted  >& /dev/null
@@ -38,7 +38,7 @@ then
         exit 1 
 fi
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --active 800000003 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --active 800000003 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_0  > wanted
 echo TEST_SEG_3 >> wanted
 
@@ -50,7 +50,7 @@ then
         exit 1 
 fi
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --active 800000003 --include-segments H1:TEST_SEG_0 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --active 800000003 --include-segments H1:TEST_SEG_0 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_0  > wanted
 
 diff result wanted  >& /dev/null
@@ -61,7 +61,7 @@ then
         exit 1 
 fi
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --active 800000003 800000005 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --active 800000003 800000005 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_0  > wanted
 echo TEST_SEG_1 >> wanted
 echo TEST_SEG_3 >> wanted
@@ -74,7 +74,7 @@ then
         exit 1 
 fi
 
-ligolw_dq_query --segment file://dq_query_testdoc.xml --active --end-pad 5 800000003 | ligolw_print -t segment_definer -c name > result
+ligolw_dq_query --segment file://dq_query_testdoc-800000000-16.xml --active --end-pad 5 800000003 | ligolw_print -t segment_definer -c name > result
 echo TEST_SEG_0  > wanted
 echo TEST_SEG_1 >> wanted
 echo TEST_SEG_3 >> wanted

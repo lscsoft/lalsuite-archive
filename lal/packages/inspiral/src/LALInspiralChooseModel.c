@@ -446,6 +446,7 @@ static REAL8 Fp7(REAL8 v, expnCoeffs *ak)
    return (flux);
 }
 
+#if 0
 /*  <lalVerbatim file="LALInspiralChooseModelCP"> */
 static REAL8 Fp8(REAL8 v, expnCoeffs *ak)
 { /* </lalVerbatim>  */
@@ -464,6 +465,7 @@ static REAL8 Fp8(REAL8 v, expnCoeffs *ak)
    flux *= (1.+  log(v/ak->vlsoP4) * (l6*v6 + l8*v8) ) ;
    return (flux);
 }
+#endif
 
 /*  <lalVerbatim file="LALInspiralChooseModelCP"> */
 void
@@ -507,6 +509,9 @@ LALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
             ak->vn = ak->vlso = vlso = ak->vlsoT0;
             f->dEnergy = dEt0;
             f->flux = Ft0;
@@ -546,6 +551,9 @@ LALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
 
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
             f->dEnergy = dEt2;
@@ -583,6 +591,9 @@ LALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
             f->dEnergy = dEt2;
             f->flux = Ft3;
@@ -638,6 +649,9 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -682,6 +696,9 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -727,6 +744,9 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -768,6 +788,9 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
@@ -791,6 +814,9 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case IMRPhenomA:
+         case IMRPhenomB:
+         case IMRPhenomFA:
+         case IMRPhenomFB:
             ak->vn = ak->vlso = vlso = ak->vlsoP6;
             f->dEnergy = dEp6;
             f->flux = Fp7;
@@ -871,6 +897,9 @@ LALInspiralChooseModel(
  case BCV:
  case BCVSpin:
  case IMRPhenomA:
+ case IMRPhenomB:
+ case IMRPhenomFA:
+ case IMRPhenomFB:
    ak->tn = 100.;
    break;
  case Eccentricity:

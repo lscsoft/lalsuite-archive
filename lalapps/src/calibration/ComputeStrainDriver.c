@@ -76,6 +76,7 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #include <lal/Units.h>
 #include <lal/LALString.h>
 #include <lal/FrequencySeries.h>
+#include <lal/LALVCSInfo.h>
 #include <lalapps.h>
 
 #include "LALASCIIFileRead.h"
@@ -104,30 +105,17 @@ NRCSID(COMPUTESTRAINDRIVERC, "$Id$");
 
 /* STRUCTURES */
 struct CommandLineArgsTag {
-  REAL8 f;                 /* Frequency of the calibration line */
   REAL8 To;                /* factors integration time */
-  REAL8 G0Re;              /* Real part of open loop gain at cal line freq.*/
-  REAL8 G0Im;              /* Imaginary part of open loop gain at cal line freq. */
-  REAL8 D0Re;              /* Real part of digital filter at cal line freq.*/
-  REAL8 D0Im;              /* Imaginary part of digital filter at cal line freq. */
-  REAL8 W0Re;              /* Real part of whitening filter at cal line freq.*/
-  REAL8 W0Im;              /* Imaginary part of whitening filter at cal line freq. */
   INT4 GPSStart;           /* Start GPS time for the segment to be calibrated */
   INT4 GPSEnd;             /* End GPS time for the segment to be calibrated */
   INT4 testsensing;
   INT4 testactuation;
   char *FrCacheFile;       /* Frame cache file for corresponding time */
-  char *exc_chan;          /* excitation channel name */    
-  char *darm_chan;         /* darm channel name */ 
-  char *darmerr_chan;      /* darm_err  channel name */ 
-  char *asq_chan;          /* asq channel name */
-  char *sv_chan;           /* state vector channel name */
-  char *lax_chan;          /* light in x-arm channel name */
-  char *lay_chan;          /* light in y-arm channel name */
+  char *ifo;               /* interferometer name (H1, H2, L1) */
   char *filterfile;        /* file with filter coefficients */
   char *frametype;
   char *strainchannel;
-  char *datadirL1;
+  char *datadirL1;         /* (deprecated) */
   char *datadirL2;
   INT4 checkfilename;
 } CommandLineArgs;
@@ -141,18 +129,18 @@ StrainOut OutputData;
 INT4 duration;
 LIGOTimeGPS gpsStartepoch;
 
-REAL4TimeSeries StateVector;
-REAL4TimeSeries LAX;
-REAL4TimeSeries LAY;
-
 INT4TimeSeries OutputDQ;  /* data quality */
 
 static LALStatus status;
 INT4 lalDebugLevel=0;
 FrCache *framecache;                                           /* frame reading variables */
 FrStream *framestream=NULL;
-char ifo[2];
-char filtercvsinfo[16384];
+char sv_cname[] = "Xn:IFO-SV_STATE_VECTOR",                      /* channel names */
+    lax_cname[] = "Xn:LSC-LA_PTRX_NORM", lay_cname[] = "Xn:LSC-LA_PTRY_NORM",
+    asq_cname[] = "Xn:LSC-DARM_ERR",  /* temporary hack: set name of (unused) asq to darm_err */
+    dctrl_cname[] = "Xn:LSC-DARM_CTRL",
+    derr_cname[] = "Xn:LSC-DARM_ERR", exc_cname[] = "Xn:LSC-DARM_CTRL_EXC_DAQ";
+
 
 /***************************************************************************/
 /* to avoid a warning */
@@ -160,68 +148,67 @@ int gethostname(char *name, size_t len);
 /* int getdomainname(char *name, size_t len); */
 
 
-/* FUNCTION PROTOTYPES */
+/* FUNCTION PROTOTYPES (defined static so they cannot be used outside) */
 /* Reads the command line */
-int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA);
+static int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA);
 
 /* Reads T seconds of AS_Q, EXC, and DARM_CTRL data */
-int ReadData(struct CommandLineArgsTag CLA);
+static int ReadData(struct CommandLineArgsTag CLA);
 
 /* Writes frame file */
-int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA);
+static int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA);
 
 /* Frees the memory */
-int FreeMem(void);                                        
+static int FreeMem(void);
 
 /************************************* MAIN PROGRAM *************************************/
 
 int main(int argc,char *argv[])
 {
-
   if (ReadCommandLine(argc,argv,&CommandLineArgs)) return 1;
 
   /* Check whether files exist before proceeding */
   if (CommandLineArgs.checkfilename)
     {
-      char fname[FILENAME_MAX];
+      /* char fname[FILENAME_MAX]; */  /* *** DEPRECATED *** */
       char fname2[FILENAME_MAX];
       char site;
       INT4 t0, dt;
 
-      site = CommandLineArgs.darmerr_chan[0];
+      site = CommandLineArgs.ifo[0];
       
       t0 = CommandLineArgs.GPSStart+InputData.wings;
       dt = CommandLineArgs.GPSEnd-CommandLineArgs.GPSStart-2*InputData.wings;
 
-      LALSnprintf( fname, sizeof( fname ), "%s/%c-%s%s-%d-%d.gwf", CommandLineArgs.datadirL1,site, CommandLineArgs.frametype,"_L1", t0, dt );
-      LALSnprintf( fname2, sizeof( fname ), "%s/%c-%s%s-%d-%d.gwf", CommandLineArgs.datadirL2,site, CommandLineArgs.frametype,"_L2", t0, dt );
+      /* snprintf( fname, sizeof( fname ), "%s/%c-%s%s-%d-%d.gwf", CommandLineArgs.datadirL1,site, CommandLineArgs.frametype,"_L1", t0, dt ); */  /* *** DEPRECATED *** */
+      snprintf( fname2, sizeof( fname2 ), "%s/%c-%s%s-%d-%d.gwf", CommandLineArgs.datadirL2,site, CommandLineArgs.frametype,"_L2", t0, dt );
 
-      if (access(fname, F_OK) == 0) {
-	fprintf(stdout, "Frame file %s exists. Exiting.\n",fname);
-	return 0;
-      }
+    /*   if (access(fname, F_OK) == 0) { */
+	/* fprintf(stdout, "Frame file %s exists. Exiting.\n",fname); */
+	/* return 0; */
+    /*   } */  /* *** DEPRECATED *** */
       if (access(fname2, F_OK) == 0) {
 	fprintf(stdout, "Frame file %s exists. Exiting.\n",fname2);
 	return 0;
       }
     }
 
-  if (ReadData(CommandLineArgs)) return 2;
-
   if (XLALReadFiltersFile(CommandLineArgs.filterfile, &InputData)) return 3;
+
+  if (ReadData(CommandLineArgs)) return 2;
 
   LALComputeStrain(&status, &OutputData, &InputData);
   TESTSTATUS( &status );
 
-  XLALComputeDQ(StateVector.data->data, StateVector.data->length/OutputDQ.data->length,
-                LAX.data->data, LAY.data->data, LAX.data->length/OutputDQ.data->length,
+  XLALComputeDQ(InputData.StateVector.data->data, InputData.StateVector.data->length/OutputDQ.data->length,
+                InputData.LAX.data->data, InputData.LAY.data->data, InputData.LAX.data->length/OutputDQ.data->length,
                 OutputData.alphabeta.data->data, OutputData.alphabeta.data->length/OutputDQ.data->length,
                 0, 0, InputData.wings,
                 0,   /* how can I actually know if it is missing in the DMT or not?? */
                 OutputDQ.data->data, OutputDQ.data->length);
 
   if (WriteFrame(argc,argv,CommandLineArgs)) return 4;
-       
+
   if(FreeMem()) return 5;
 
   return 0;
@@ -266,6 +253,11 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   char gammaimName[] = "Xn:CAL-OLOOP_FAC_Im";
   char dqName[] = "Xn:LSC-DATA_QUALITY_VECTOR";
 
+  char *cnames[] = { alphaName, gammaName, alphaimName, gammaimName, dqName };
+
+  for (i = 0; i < 5; i++)
+      memcpy(cnames[i], CLA.ifo, 2);  /* set the proper name of the channels */
+
   /*re-size h(t) and data time series*/
   if(!XLALResizeREAL8TimeSeries(&(OutputData.h), (int)(InputData.wings/OutputData.h.deltaT),
 			   OutputData.h.data->length-2*(UINT4)(InputData.wings/OutputData.h.deltaT)))
@@ -281,14 +273,13 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
     XLAL_ERROR(func, XLAL_EFUNC);
 
   /* Resize State Vector and Data Quality time series */
-  if(!XLALResizeREAL4TimeSeries(&(StateVector), (int)(InputData.wings/StateVector.deltaT),
-               StateVector.data->length-2*(UINT4)(InputData.wings/StateVector.deltaT)))  /* safe for the *input* state vector?? */
+  if(!XLALResizeREAL4TimeSeries(&(InputData.StateVector), (int)(InputData.wings/InputData.StateVector.deltaT),
+               InputData.StateVector.data->length-2*(UINT4)(InputData.wings/InputData.StateVector.deltaT)))
     XLAL_ERROR(func, XLAL_EFUNC);
   if(!XLALResizeINT4TimeSeries(&(OutputDQ), (int)(InputData.wings/OutputDQ.deltaT),
 			   OutputDQ.data->length-2*(UINT4)(InputData.wings/OutputDQ.deltaT)))
     XLAL_ERROR(func, XLAL_EFUNC);
-  strncpy(OutputDQ.name,
-          memcpy(dqName, OutputData.h.name, 2), sizeof( OutputDQ.name  ) );
+  strncpy(OutputDQ.name, dqName, sizeof(OutputDQ.name));   /* also set the name of the channel */
 
   /* Resize DARM_CTRL, DARM_ERR, EXC and AS_Q*/
   if(!XLALResizeREAL4TimeSeries(&(InputData.DARM), (int)(InputData.wings/InputData.DARM.deltaT),
@@ -304,22 +295,16 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
 			   InputData.AS_Q.data->length-2*(UINT4)(InputData.wings/InputData.AS_Q.deltaT)))
     XLAL_ERROR(func, XLAL_EFUNC);
   
-  /* Names for factors time series */
-  memcpy( alphaName, OutputData.h.name, 2 );
-  memcpy( gammaName, OutputData.h.name, 2 );
-  memcpy( alphaimName, OutputData.h.name, 2 );
-  memcpy( gammaimName, OutputData.h.name, 2 );
-  
   /* based on IFO name, choose the correct detector */
-  if ( 0 == strncmp( OutputData.h.name, "H2:", 3 ) )
+  if ( 0 == strcmp(CLA.ifo, "H2") )
     detectorFlags = LAL_LHO_2K_DETECTOR_BIT;
-  else if ( 0 == strncmp( OutputData.h.name, "H1:", 3 ) )
+  else if ( 0 == strcmp( CLA.ifo, "H1") )
     detectorFlags = LAL_LHO_4K_DETECTOR_BIT;
-  else if ( 0 == strncmp( OutputData.h.name, "L1:", 3 ) )
+  else if ( 0 == strcmp( CLA.ifo, "L1") )
     detectorFlags = LAL_LLO_4K_DETECTOR_BIT;
   else
     return 1;  /* Error: not a recognized name */
-  site = OutputData.h.name[0];
+  site = CLA.ifo[0];
   
   /* based on series metadata, generate standard filename */
   FrDuration = OutputData.h.deltaT * OutputData.h.data->length;
@@ -327,8 +312,8 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   dt = ceil( XLALGPSGetREAL8( &OutputData.h.epoch ) + FrDuration ) - t0;
   if ( t0 < 0 || dt < 1 )
     return 1;  /* Error: invalid time or FrDuration */
-  LALSnprintf( fname, sizeof( fname ), "%s/%c-%s%s-%d-%d.gwf", CLA.datadirL1,site, CLA.frametype,"_L1", t0, dt );
-  LALSnprintf( tmpfname, sizeof( tmpfname ), "%s.tmp", fname );
+  snprintf( fname, sizeof( fname ), "%s/%c-%s%s-%d-%d.gwf", CLA.datadirL1,site, CLA.frametype,"_L1", t0, dt );
+  snprintf( tmpfname, sizeof( tmpfname ), "%s.tmp", fname );
 
   /* Harwired numbers in call to XLALFrameNew: */
   /* Run number is set to 0, this is an annoying thing to have to
@@ -339,17 +324,17 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
 
   /* Here's where I need to add a bunch of things */
   /* Add cvs header */
-  LALSnprintf( headerinfo, sizeof( headerinfo), "Code header info: %s",CVS_HEADER);
+  snprintf( headerinfo, sizeof( headerinfo), "Code header info: %s",CVS_HEADER);
   FrHistoryAdd( frame, headerinfo);
 
   /* Add lalapps info */
-  LALSnprintf( lalappsconfargs, sizeof( lalappsconfargs), "LALApps Info:\n                          LALApps Version: %s\n                          CVS Tag: %s\n                          Configure Date: %s\n                          Configure Arguments: %s", 
+  snprintf( lalappsconfargs, sizeof( lalappsconfargs), "LALApps Info:\n                          LALApps Version: %s\n                          CVS Tag: %s\n                          Configure Date: %s\n                          Configure Arguments: %s", 
 	       LALAPPS_VERSION , LALAPPS_CVS_TAG , LALAPPS_CONFIGURE_DATE , LALAPPS_CONFIGURE_ARGS );
   FrHistoryAdd( frame, lalappsconfargs);  
 
   /* Add lal info */
-  LALSnprintf( lalconfargs, sizeof( lalconfargs), "LAL Info:\n                          LAL Version: %s\n                          CVS Tag: %s\n                          Configure Date: %s\n                          Configure Arguments: %s", 
-	       LAL_VERSION , LAL_CVS_TAG , LAL_CONFIGURE_DATE , LAL_CONFIGURE_ARGS );
+  snprintf( lalconfargs, sizeof( lalconfargs), "LAL Info:\n                          LAL Version: %s\n                          Git Tag: %s\n                          Git ID: %s\n                          Configure Date: %s\n                          Configure Arguments: %s",
+	       LAL_VERSION , lalHeaderVCSInfo.vcsTag, lalHeaderVCSInfo.vcsId, LAL_CONFIGURE_DATE , LAL_CONFIGURE_ARGS );
   FrHistoryAdd( frame, lalconfargs);  
 
   /* Create string with all command line arguments and add it to history */
@@ -365,20 +350,20 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   /* hostname and user */
   gethostname(hostname,sizeof(hostname));
   getdomainname(domainname,sizeof(domainname));
-  LALSnprintf( hostnameanduser, sizeof( hostnameanduser), "Made by user: %s. Made on machine: %s.%s",getlogin(),hostname,domainname);
+  snprintf( hostnameanduser, sizeof( hostnameanduser), "Made by user: %s. Made on machine: %s.%s",getlogin(),hostname,domainname);
   FrHistoryAdd( frame, hostnameanduser);
   
   /* Frequency range of validity (FIXME: This should be updated regularly somehow) */
   FrHistoryAdd( frame, "Frequency validity range: 40Hz-5kHz.");
 
   /* String containing the filter file cvs info (first line in filter file) */
-  FrHistoryAdd( frame, filtercvsinfo);
+  FrHistoryAdd( frame, InputData.filter_vc_info);
 
   /* Add in the h(t) data */
   XLALFrameAddREAL8TimeSeriesProcData( frame, &OutputData.h);
 
   /* Add in the state vector data */
-  XLALFrameAddREAL4TimeSeriesProcData( frame, &StateVector);
+  XLALFrameAddREAL4TimeSeriesProcData( frame, &InputData.StateVector);
 
   /* Add in the data quality data */
   XLALFrameAddINT4TimeSeriesProcData( frame, &OutputDQ);
@@ -417,8 +402,8 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
     char fname2[FILENAME_MAX];
     char tmpfname2[FILENAME_MAX];
 
-    LALSnprintf( fname2, sizeof( fname2 ), "%s/%c-%s%s-%d-%d.gwf", CLA.datadirL2,site, CLA.frametype,"_L2", t0, dt );
-    LALSnprintf( tmpfname2, sizeof( tmpfname2 ), "%s.tmp", fname2 );
+    snprintf( fname2, sizeof( fname2 ), "%s/%c-%s%s-%d-%d.gwf", CLA.datadirL2,site, CLA.frametype,"_L2", t0, dt );
+    snprintf( tmpfname2, sizeof( tmpfname2 ), "%s.tmp", fname2 );
     
     /* write first to tmpfile then rename it */
     frfile = FrFileONew( tmpfname2, -1); /* 1 = GZIP */
@@ -460,13 +445,13 @@ static FrChanIn chanin_lay;  /* light in y-arm */
   chanin_lax.type  = ADCDataChannel;
   chanin_lay.type  = ADCDataChannel;
 
-  chanin_asq.name  = CLA.asq_chan;
-  chanin_darm.name = CLA.darm_chan;
-  chanin_darmerr.name = CLA.darmerr_chan;
-  chanin_exc.name  = CLA.exc_chan; 
-  chanin_sv.name  = CLA.sv_chan;
-  chanin_lax.name  = CLA.lax_chan;
-  chanin_lay.name  = CLA.lay_chan;
+  chanin_asq.name  = asq_cname;
+  chanin_darm.name = dctrl_cname;
+  chanin_darmerr.name = derr_cname;
+  chanin_exc.name  = exc_cname;
+  chanin_sv.name  = sv_cname;
+  chanin_lax.name  = lax_cname;
+  chanin_lay.name  = lay_cname;
 
   /* create Frame cache, open frame stream and delete frame cache */
   LALFrCacheImport(&status,&framecache,CommandLineArgs.FrCacheFile);
@@ -495,11 +480,11 @@ static FrChanIn chanin_lay;  /* light in y-arm */
   TESTSTATUS( &status );
   LALFrGetREAL4TimeSeries(&status,&InputData.DARM_ERR,&chanin_darmerr,framestream);
   TESTSTATUS( &status );
-  LALFrGetREAL4TimeSeries(&status,&StateVector,&chanin_sv,framestream);
+  LALFrGetREAL4TimeSeries(&status,&InputData.StateVector,&chanin_sv,framestream);
   TESTSTATUS( &status );
-  LALFrGetREAL4TimeSeries(&status,&LAX,&chanin_lax,framestream);
+  LALFrGetREAL4TimeSeries(&status,&InputData.LAX,&chanin_lax,framestream);
   TESTSTATUS( &status );
-  LALFrGetREAL4TimeSeries(&status,&LAY,&chanin_lay,framestream);
+  LALFrGetREAL4TimeSeries(&status,&InputData.LAY,&chanin_lay,framestream);
   TESTSTATUS( &status );
 
   /* Allocate space for data vectors */
@@ -511,11 +496,11 @@ static FrChanIn chanin_lay;  /* light in y-arm */
   TESTSTATUS( &status );
   LALSCreateVector(&status,&InputData.EXC.data,(UINT4)(duration/InputData.EXC.deltaT +0.5));
   TESTSTATUS( &status );
-  LALSCreateVector(&status,&StateVector.data,(UINT4)(duration/StateVector.deltaT +0.5));
+  LALSCreateVector(&status,&InputData.StateVector.data,(UINT4)(duration/InputData.StateVector.deltaT +0.5));
   TESTSTATUS( &status );
-  LALSCreateVector(&status,&LAX.data,(UINT4)(duration/LAX.deltaT +0.5));
+  LALSCreateVector(&status,&InputData.LAX.data,(UINT4)(duration/InputData.LAX.deltaT +0.5));
   TESTSTATUS( &status );
-  LALSCreateVector(&status,&LAY.data,(UINT4)(duration/LAX.deltaT +0.5));
+  LALSCreateVector(&status,&InputData.LAY.data,(UINT4)(duration/InputData.LAX.deltaT +0.5));
   TESTSTATUS( &status );
 
   /* Read in the data */
@@ -541,72 +526,65 @@ static FrChanIn chanin_lay;  /* light in y-arm */
 
   LALFrSetPos(&status,&pos1,framestream);
   TESTSTATUS( &status );
-  LALFrGetREAL4TimeSeries(&status,&StateVector,&chanin_sv,framestream);
+  LALFrGetREAL4TimeSeries(&status,&InputData.StateVector,&chanin_sv,framestream);
   TESTSTATUS( &status );
 
   LALFrSetPos(&status,&pos1,framestream);
   TESTSTATUS( &status );
-  LALFrGetREAL4TimeSeries(&status,&LAX,&chanin_lax,framestream);
+  LALFrGetREAL4TimeSeries(&status,&InputData.LAX,&chanin_lax,framestream);
   TESTSTATUS( &status );
 
   LALFrSetPos(&status,&pos1,framestream);
   TESTSTATUS( &status );
-  LALFrGetREAL4TimeSeries(&status,&LAY,&chanin_lay,framestream);
+  LALFrGetREAL4TimeSeries(&status,&InputData.LAY,&chanin_lay,framestream);
   TESTSTATUS( &status );
 
   LALFrClose(&status,&framestream);
   TESTSTATUS( &status );
 
   /* Set the rest of the input variables */
-  InputData.Go.re=CLA.G0Re;
-  InputData.Go.im=CLA.G0Im;
-  InputData.Do.re=CLA.D0Re;
-  InputData.Do.im=CLA.D0Im;
-  InputData.Wo.re=CLA.W0Re;
-  InputData.Wo.im=CLA.W0Im;
-  InputData.f=CLA.f;
   InputData.To=CLA.To;
 
   /* check input data epoch agrees with command line arguments */
-  if ( InputData.AS_Q.epoch.gpsSeconds != CLA.GPSStart )
+  if ( InputData.DARM_ERR.epoch.gpsSeconds != CLA.GPSStart )
     {
       fprintf(stderr,"GPS start time of data (%d) does not agree with requested start time (%d). Exiting.", 
-	      InputData.AS_Q.epoch.gpsSeconds, CLA.GPSStart);
+	      InputData.DARM_ERR.epoch.gpsSeconds, CLA.GPSStart);
       return 1;
     }
 
   /* Allocate output data */
-  OutputData.h.epoch=InputData.AS_Q.epoch;
-  OutputData.h.deltaT=InputData.AS_Q.deltaT;
+  OutputData.h.epoch=InputData.DARM_ERR.epoch;
+  OutputData.h.deltaT=InputData.DARM_ERR.deltaT;
   LALDCreateVector(&status,&OutputData.h.data,(UINT4)(duration/OutputData.h.deltaT +0.5));
   TESTSTATUS( &status );
 
-  OutputData.hC.epoch=InputData.AS_Q.epoch;
-  OutputData.hC.deltaT=InputData.AS_Q.deltaT;
+  OutputData.hC.epoch=InputData.DARM_ERR.epoch;
+  OutputData.hC.deltaT=InputData.DARM_ERR.deltaT;
   LALDCreateVector(&status,&OutputData.hC.data,(UINT4)(duration/OutputData.hC.deltaT +0.5));
   TESTSTATUS( &status );
 
-  OutputData.hR.epoch=InputData.AS_Q.epoch;
-  OutputData.hR.deltaT=InputData.AS_Q.deltaT;
+  OutputData.hR.epoch=InputData.DARM_ERR.epoch;
+  OutputData.hR.deltaT=InputData.DARM_ERR.deltaT;
   LALDCreateVector(&status,&OutputData.hR.data,(UINT4)(duration/OutputData.hR.deltaT +0.5));
   TESTSTATUS( &status );
 
-  OutputData.alpha.epoch=InputData.AS_Q.epoch;
+  OutputData.alpha.epoch=InputData.DARM_ERR.epoch;
   OutputData.alpha.deltaT=CLA.To;
   LALZCreateVector(&status,&OutputData.alpha.data,(UINT4)(duration/OutputData.alpha.deltaT +0.5));
   TESTSTATUS( &status );
 
-  OutputData.alphabeta.epoch=InputData.AS_Q.epoch;
+  OutputData.alphabeta.epoch=InputData.DARM_ERR.epoch;
   OutputData.alphabeta.deltaT=CLA.To;
   LALZCreateVector(&status,&OutputData.alphabeta.data,(UINT4)(duration/OutputData.alphabeta.deltaT +0.5));
   TESTSTATUS( &status );
 
-  OutputData.beta.epoch=InputData.AS_Q.epoch;
+  OutputData.beta.epoch=InputData.DARM_ERR.epoch;
   OutputData.beta.deltaT=CLA.To;
   LALZCreateVector(&status,&OutputData.beta.data,(UINT4)(duration/OutputData.beta.deltaT +0.5));
   TESTSTATUS( &status );
 
-  OutputDQ.epoch=StateVector.epoch;
+  OutputDQ.epoch=InputData.StateVector.epoch;
   OutputDQ.deltaT=1;  /* Data Quality channel written at 1 Hz */
   LALI4CreateVector(&status,&OutputDQ.data,(UINT4)(duration/OutputDQ.deltaT +0.5));
   TESTSTATUS( &status );
@@ -622,64 +600,38 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
 {
   INT4 errflg=0;
   struct option long_options[] = {
-    {"cal-line-freq",       required_argument, NULL,           'f'},
-    {"factors-time",        required_argument, NULL,           't'},
-    {"filters-file",        required_argument, NULL,           'F'},
-    {"frame-cache",         required_argument, NULL,           'C'},
-    {"exc-channel",         required_argument, NULL,           'E'},
-    {"asq-channel",         required_argument, NULL,           'A'},
-    {"darm-channel",        required_argument, NULL,           'D'},
-    {"darmerr-channel",     required_argument, NULL,           'R'},
-    {"sv-channel",          required_argument, NULL,           'V'},
-    {"lax-channel",         required_argument, NULL,           'L'},
-    {"lay-channel",         required_argument, NULL,           'Y'},
-    {"gps-start-time",      required_argument, NULL,           's'},
-    {"gps-end-time",        required_argument, NULL,           'e'},
-    {"olg-re",              required_argument, NULL,           'i'},
-    {"olg-im",              required_argument, NULL,           'j'},
-    {"servo-re",            required_argument, NULL,           'k'},
-    {"servo-im",            required_argument, NULL,           'l'},
-    {"whitener-re",         required_argument, NULL,           'm'},
-    {"whitener-im",         required_argument, NULL,           'n'},
-    {"wings",               required_argument, NULL,           'o'},
-    {"test-sensing",        no_argument, NULL,                 'r'},
-    {"test-actuation",      no_argument, NULL,                 'c'},
-    {"delta",               no_argument, NULL,                 'd'},
-    {"no-factors",          no_argument, NULL,                 'u'},
-    {"td-fir",              no_argument, NULL,                 'x'},
-    {"require-histories",   required_argument, NULL,           'H'},
-    {"frame-type",          required_argument, NULL,           'T'},
-    {"strain-channel",      required_argument, NULL,           'S'},
-    {"data-dirL1",          required_argument, NULL,           'z'},
-    {"data-dirL2",          required_argument, NULL,           'p'},
-    {"check-file-exists",   no_argument, NULL,                 'v'},
-    {"darm-err-only",       no_argument, NULL,                 'w'},
-    {"gamma-fudge-factor",  required_argument, NULL,           'y'},
-    {"help",                no_argument, NULL,                 'h'},
+    {"factors-time",        required_argument, NULL,  't'},
+    {"filters-file",        required_argument, NULL,  'F'},
+    {"frame-cache",         required_argument, NULL,  'C'},
+    {"ifo",                 required_argument, NULL,  'i'},
+    {"gps-start-time",      required_argument, NULL,  's'},
+    {"gps-end-time",        required_argument, NULL,  'e'},
+    {"wings",               required_argument, NULL,  'o'},
+    {"test-sensing",        no_argument,       NULL,  'r'},
+    {"test-actuation",      no_argument,       NULL,  'c'},
+    {"delta",               no_argument,       NULL,  'd'},
+    {"no-factors",          no_argument,       NULL,  'u'},
+    {"td-fir",              no_argument,       NULL,  'x'},
+    {"require-histories",   required_argument, NULL,  'H'},
+    {"frame-type",          required_argument, NULL,  'T'},
+    {"strain-channel",      required_argument, NULL,  'S'},
+    {"data-dirL1",          required_argument, NULL,  'z'},
+    {"data-dirL2",          required_argument, NULL,  'p'},
+    {"check-file-exists",   no_argument,       NULL,  'v'},
+    {"darm-err-only",       no_argument,       NULL,  'w'},
+    {"gamma-fudge-factor",  required_argument, NULL,  'y'},
+    {"help",                no_argument,       NULL,  'h'},
     {0, 0, 0, 0}
   };
-  char args[] = "hrcduxf:C:A:E:D:R:F:s:e:i:j:k:l:m:n:t:o:H:T:S:z:v:wy:p:";
+  char args[] = "hrcdux:C:F:s:e:i:t:o:H:T:S:z:v:wy:p:";
   
   /* Initialize default values */
-  CLA->f=0.0;
   CLA->To=0.0;
   CLA->FrCacheFile=NULL;
   CLA->filterfile=NULL;
-  CLA->exc_chan=NULL;
-  CLA->darm_chan=NULL;
-  CLA->darmerr_chan=NULL;
-  CLA->asq_chan=NULL;
-  CLA->sv_chan=NULL;
-  CLA->lax_chan=NULL;
-  CLA->lay_chan=NULL;
+  CLA->ifo=NULL;
   CLA->GPSStart=0;
   CLA->GPSEnd=0;
-  CLA->G0Re=0.0;
-  CLA->G0Im=0.0;
-  CLA->D0Re=0.0;
-  CLA->D0Im=0.0;
-  CLA->W0Re=0.0;
-  CLA->W0Im=0.0;
   CLA->testsensing=0;
   CLA->testactuation=0;
   CLA->frametype=NULL;
@@ -708,10 +660,6 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
 
     switch ( c )
     {
-    case 'f':
-      /* calibration line frequency */
-      CLA->f=atof(optarg);
-      break;
     case 't':
       /* factors integration time */
       CLA->To=atof(optarg);
@@ -724,34 +672,22 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
       /* name of filter cache file */
       CLA->filterfile=optarg;
       break;
-    case 'E':
-      /* name of excitation channel */
-      CLA->exc_chan=optarg;
-      break;    
-    case 'A':
-      /* name of as_q channel */
-      CLA->asq_chan=optarg;
-      break;    
-    case 'D':
-      /* name of darm channel */
-      CLA->darm_chan=optarg;
-      break;    
-    case 'R':
-      /* name of darm err channel */
-      CLA->darmerr_chan=optarg;
-      break;    
-    case 'V':
-      /* name of state vector channel */
-      CLA->sv_chan=optarg;
-      break;    
-    case 'L':
-      /* name of light in x-arm channel */
-      CLA->lax_chan=optarg;
-      break;   
-    case 'Y':
-      /* name of light in y-arm channel */
-      CLA->lay_chan=optarg;
-      break;    
+    case 'i':
+      /* name of interferometer */
+      if (strcmp(optarg, "H1") != 0 && strcmp(optarg, "H2") != 0 &&
+          strcmp(optarg, "L1") != 0) {
+        fprintf(stderr, "Bad ifo: %s   (must be H1, H2 or L1)\n", optarg);
+        exit(1);
+      }
+      CLA->ifo=optarg;
+      {
+        int i;
+        char *cnames[] = { sv_cname, lax_cname, lay_cname, asq_cname,
+                           dctrl_cname, derr_cname, exc_cname };
+        for (i = 0; i < 7; i++)
+          memcpy(cnames[i], CLA->ifo, 2);  /* set channel names appropiately */
+      }
+      break;
     case 's':
       /* GPS start */
       CLA->GPSStart=atof(optarg);
@@ -760,37 +696,13 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
       /* GPS end */
       CLA->GPSEnd=atof(optarg);
       break;
-    case 'i':
-      /* real part of OLG */
-      CLA->G0Re=atof(optarg);
-      break;
-    case 'j':
-      /* imaginary part of OLG */
-      CLA->G0Im=atof(optarg);
-      break;
-    case 'k':
-      /*  real part of servo*/
-      CLA->D0Re=atof(optarg);
-      break;
-    case 'l':
-      /*  imaginary part of servo */
-      CLA->D0Im=atof(optarg);
-      break;
-    case 'm':
-      /*  real part of servo*/
-      CLA->W0Re=atof(optarg);
-      break;
-    case 'n':
-      /*  imaginary part of servo */
-      CLA->W0Im=atof(optarg);
-      break;
     case 'd':
       /*  use unit impulse*/
       InputData.delta=1;
       break;
     case 'r':
       /*  output residual signal */
-      CLA->testsensing=1; 
+      CLA->testsensing=1;
       break;
     case 'c':
       /* output control signal */
@@ -809,19 +721,19 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
       InputData.fftconv=0;
       break;
     case 'T':
-      CLA->frametype=optarg;       
+      CLA->frametype=optarg;
       break;
     case 'S':
-      CLA->strainchannel=optarg;       
+      CLA->strainchannel=optarg;
       break;
     case 'z':
-      CLA->datadirL1=optarg;       
+      CLA->datadirL1=optarg;
       break;
     case 'p':
-      CLA->datadirL2=optarg;       
+      CLA->datadirL2=optarg;
       break;
     case 'v':
-      CLA->checkfilename=1;       
+      CLA->checkfilename=1;
       break;
     case 'w':
       /* don't use calibration factors in the strain computation */
@@ -832,40 +744,27 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
       break;
     case 'h':
       /* print usage/help message */
-      fprintf(stdout,"Arguments are:\n");
-      fprintf(stdout,"\tcal-line-freq (-f)\tFLOAT\t Calibration line frequency in Hz.\n");
-      fprintf(stdout,"\tfactors-time (-t)\tFLOAT\t Factors integration time in seconds.\n");
-      fprintf(stdout,"\tolg-re (-i)\tFLOAT\t Real part of the open loop gain at the calibration line frequency.\n");
-      fprintf(stdout,"\tolg-im (-j)\tFLOAT\t Imaginary part of the open loop gain at the calibration line frequency.\n");
-      fprintf(stdout,"\tservo-re (-k)\tFLOAT\t Real part of the digital filter at the calibration line frequency.\n");
-      fprintf(stdout,"\tservo-im (-l)\tFLOAT\t Imaginary part of digital filter at the calibration line frequency.\n");
-      fprintf(stdout,"\twhitener-re (-m)\tFLOAT\t Real part of the whitening filter at the calibration line frequency.\n");
-      fprintf(stdout,"\twhitener-im (-n)\tFLOAT\t Imaginary part of whitening filter at the calibration line frequency.\n");
-      fprintf(stdout,"\tgps-start-time (-s)\tINT\t GPS start time.\n");
-      fprintf(stdout,"\tgps-end-time (-e)\tINT\t GPS end time.\n");
-      fprintf(stdout,"\tfilters-file (-F)\tSTRING\t Name of file containing filters and histories.\n");
-      fprintf(stdout,"\tframe-cache (-C)\tSTRING\t Name of frame cache file.\n");
-      fprintf(stdout,"\tasq-channel (-A)\tSTRING\t AS_Q channel name (eg, L1:LSC-AS_Q).\n");
-      fprintf(stdout,"\texc-channel (-E)\tSTRING\t Excitation channel name (eg, L1:LSC-ETMX_EXC_DAQ).\n");
-      fprintf(stdout,"\tdarm-channel (-D)\tSTRING\t Darm channel name (eg, L1:LSC-DARM_CTRL).\n");
-      fprintf(stdout,"\tdarmerr-channel (-R)\tSTRING\t Darm ERR channel name (eg, L1:LSC-DARM_ERR).\n");
-      fprintf(stdout,"\tsv-channel (-V)\tSTRING\t State Vector channel name (eg, L1:IFO-SV_STATE_VECTOR).\n");
-      fprintf(stdout,"\tlax-channel (-L)\tSTRING\t Light in X-arm channel name (eg, L1:LSC-LA_PTRX_NORM).\n");
-      fprintf(stdout,"\tlay-channel (-Y)\tSTRING\t Light in Y-arm channel name (eg, L1:LSC-LA_PTRY_NORM).\n");
-      fprintf(stdout,"\twings (-o)\tINTEGER\t Size of wings in seconds.\n");
-      fprintf(stdout,"\ttest-sensing (-r)\tFLAG\t Output residual strain only.\n");
-      fprintf(stdout,"\ttest-actuation (-c)\tFLAG\t Output control strain only.\n");
-      fprintf(stdout,"\tdelta (-d)\tFLAG\t Use unit impulse.\n");
-      fprintf(stdout,"\tno-factors (-u)\tFLAG\t Do not use factors in strain computation.\n");
-      fprintf(stdout,"\ttd-fir (-x)\tFLAG\t Use time-domain FIR filtering (default is FFT convolution).\n");
-      fprintf(stdout,"\tgamma-fudge-factor (-y)\tFLOAT\t Fudge factor used to adjust factor values. Gamma is divided by that value.\n");
-      fprintf(stdout,"\tframe-type (-T)\tSTRING\t Frame type to be written (eg, H1_RDS_C01_LX).\n");
-      fprintf(stdout,"\tstrain-channel (-S)\tSTRING\t Strain channel name in frame (eg, H1:LSC-STRAIN).\n");
-      fprintf(stdout,"\tdata-dirL1 (-z)\tSTRING\t Ouput L1 frame to this directory (eg, /tmp/S4/H1/) [DEPRECATED].\n");
-      fprintf(stdout,"\tdata-dirL2 (-z)\tSTRING\t Ouput L2 frame to this directory (eg, /tmp/S4/H1/).\n");
-      fprintf(stdout,"\tcheck-file-exists (-w)\tFLAG\t Checks frame files exist and if they do it exits gracefully.\n");
-      fprintf(stdout,"\tdarm-err-only (-w)\tFLAG\t Do darm_err only calibration. Default is to use darm_err and darm_ctrl. For first epoch of S5.\n");
-      fprintf(stdout,"\thelp (-h)\tFLAG\t This message.\n");
+      printf("Arguments are:\n"
+"\t-t, --factors-time    FLOAT     Factors integration time in seconds.\n"
+"\t-s, --gps-start-time  INT       GPS start time.\n"
+"\t-e, --gps-end-time    INT       GPS end time.\n"
+"\t-F, --filters-file    STRING    Name of file containing filters and histories.\n"
+"\t-C, --frame-cache     STRING    Name of frame cache file.\n"
+"\t-i, --ifo             STRING    Name of the interferometer (H1, H2, L1).\n"
+"\t-o, --wings           INTEGER   Size of wings in seconds.\n"
+"\t-r, --test-sensing    FLAG      Output residual strain only.\n"
+"\t-c, --test-actuation  FLAG      Output control strain only.\n"
+"\t-d, --delta           FLAG      Use unit impulse.\n"
+"\t-u, --no-factors      FLAG      Do not use factors in strain computation.\n"
+"\t-x, --td-fir          FLAG      Use time-domain FIR filtering (default is FFT convolution).\n"
+"\t-y, --gamma-fudge-factor FLOAT  Fudge factor used to adjust factor values. Gamma is divided by that value.\n"
+"\t-T, --frame-type      STRING    Frame type to be written (eg, H1_RDS_C01_LX).\n"
+"\t-S, --strain-channel  STRING    Strain channel name in frame (eg, H1:LSC-STRAIN).\n"
+"\t-z, --data-dirL1      STRING    Ouput L1 frame to this directory (eg, /tmp/S4/H1/) [DEPRECATED].\n"
+"\t-p, --data-dirL2      STRING    Ouput L2 frame to this directory (eg, /tmp/S4/H1/).\n"
+"\t-v, --check-file-exists FLAG    Checks frame files exist and if they do it exits gracefully.\n"
+"\t-w, --darm-err-only   FLAG      Do darm_err only calibration. Default is to use darm_err and darm_ctrl. For first epoch of S5.\n"
+"\t-h, --help            FLAG      This message.\n");
       exit(0);
       break;
     default:
@@ -877,118 +776,52 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
     }
   }
 
-  if(CLA->f == 0.0)
-    {
-      fprintf(stderr,"No calibration line frequency specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
   if(CLA->To == 0.0)
     {
       fprintf(stderr,"No integration time for the factors specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }      
-  if(CLA->G0Re == 0.0 )
-    {
-      fprintf(stderr,"No real part of open loop gain specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }
-  if(CLA->G0Im == 0.0 )
-    {
-      fprintf(stderr,"No imaginary part of open loop gain specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }
-  if(CLA->D0Re == 0.0 )
-    {
-      fprintf(stderr,"No real part of digital filter specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }
-  if(CLA->D0Im == 0.0 )
-    {
-      fprintf(stderr,"No imaginary part of digital filter specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }
   if(CLA->GPSStart == 0)
     {
       fprintf(stderr,"No GPS start time specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }
   if(CLA->GPSEnd == 0)
     {
       fprintf(stderr,"No GPS end time specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }
   if(CLA->FrCacheFile == NULL)
     {
       fprintf(stderr,"No frame cache file specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }      
   if(CLA->filterfile == NULL)
     {
       fprintf(stderr,"No filter file specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }      
-   if(CLA->exc_chan == NULL)
+   if(CLA->ifo == NULL)
     {
-      fprintf(stderr,"No excitation channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"No ifo specified.\n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
-    }      
-   if(CLA->darm_chan == NULL)
-    {
-      fprintf(stderr,"No darm channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
-   if(CLA->sv_chan == NULL)
-    {
-      fprintf(stderr,"No state vector channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
-   if(CLA->lax_chan == NULL)
-    {
-      fprintf(stderr,"No light in x-arm channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
-   if(CLA->lay_chan == NULL)
-    {
-      fprintf(stderr,"No light in y-arm  channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
-   if(CLA->darmerr_chan == NULL)
-    {
-      fprintf(stderr,"No darm err channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
-   if(CLA->asq_chan == NULL)
-    {
-      fprintf(stderr,"No asq channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
-      return 1;
-    }      
+    }
    if(CLA->frametype == NULL)
     {
       fprintf(stderr,"No frame type specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }      
    if(CLA->strainchannel == NULL)
     {
       fprintf(stderr,"No strain channel specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }      
    if(CLA->datadirL1 != NULL)
@@ -999,7 +832,7 @@ int ReadCommandLine(int argc,char *argv[],struct CommandLineArgsTag *CLA)
    if(CLA->datadirL2 == NULL)
     {
       fprintf(stderr,"No L2 frame directory specified.\n");
-      fprintf(stderr,"Try ./ComputeStrainDriver -h \n");
+      fprintf(stderr,"Try %s -h \n", argv[0]);
       return 1;
     }
    if ( (InputData.wings < 2) || (InputData.wings%2 != 0) )
@@ -1030,11 +863,11 @@ int FreeMem(void)
   TESTSTATUS( &status );
   LALSDestroyVector(&status,&InputData.EXC.data);
   TESTSTATUS( &status );
-  LALSDestroyVector(&status,&StateVector.data);
+  LALSDestroyVector(&status,&InputData.StateVector.data);
   TESTSTATUS( &status );
-  LALSDestroyVector(&status,&LAX.data);
+  LALSDestroyVector(&status,&InputData.LAX.data);
   TESTSTATUS( &status );
-  LALSDestroyVector(&status,&LAY.data);
+  LALSDestroyVector(&status,&InputData.LAY.data);
   TESTSTATUS( &status );
 
   /* Free filters */

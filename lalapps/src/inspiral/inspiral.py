@@ -10,8 +10,9 @@ __version__ = '$Revision$'[11:-2]
 
 import string
 import exceptions
-import sys,os
+import sys,os, re
 from glue import pipeline
+from glue import lal
 
 
 class InspiralError(exceptions.Exception):
@@ -302,6 +303,64 @@ class ThincaJob(InspiralAnalysisJob):
       else:
         self.add_opt(opt,arg)
   
+
+class ThincaToCoincJob(InspiralAnalysisJob):
+  """
+  A ThincaToCoinc job. The static options are read from the
+  section [thinca_to_coinc] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'thinca_to_coinc'
+    sections = ['thinca_to_coinc']
+    extension = 'xml'
+    InspiralAnalysisJob.__init__(self, cp, sections, exec_name, extension, dax)
+    self.add_condor_cmd('getenv', 'True')
+    self.__experiment_start_time = None
+    self.__experiment_end_time = None
+    # overwrite standard log file names
+    self.set_stdout_file('logs/' + exec_name + '-$(cluster)-$(process).out')
+    self.set_stderr_file('logs/' + exec_name + '-$(cluster)-$(process).err')
+
+  def set_experiment_start_time(self, experiment_start_time):
+    """
+    Sets the experiment-start-time option. This is a required option.
+    @experiment_start_time: gps start time of the experiment the thinca_to_coinc
+    job is in.
+    """
+    self.add_opt('experiment-start-time', experiment_start_time)
+    self.__experiment_start_time = experiment_start_time
+
+  def set_experiment_end_time(self, experiment_end_time):
+    """
+    Sets the experiment-end-time option. This is a required option.
+    @experiment_end_time: gps end time of the experiment the thinca_to_coinc
+    job is in.
+    """
+    self.add_opt('experiment-end-time', experiment_end_time)
+    self.__experiment_end_time = experiment_end_time
+
+  def get_experiment_start_time(self, experiment_start_time):
+    """
+    Returns the value of the experiment-start-time option.
+    """
+    return self.__experiment_start_time
+
+  def get_experiment_end_time(self, experiment_end_time):
+    """
+    Returns the value of the experiment-end-time option.
+    """
+    return self.__experiment_start_time
+
+  def set_simulation(self):
+    """
+    Adds the simulation argument to the job.
+    """
+    self.add_opt('simulation', None)
+
+
 class SireJob(InspiralAnalysisJob):
   """
   A lalapps_sire job used by the inspiral pipeline. The stdout and stderr from
@@ -393,6 +452,25 @@ class ChiaJob(InspiralAnalysisJob):
     sections = ['chia']
     extension = 'xml'
     InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
+
+
+class InspInjFindJob(InspiralAnalysisJob):
+  """
+  An inspinjfind job. The static options are read from the [inspinjfind]
+  section in the cp file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: a ConfigParser object from which the options are read.
+    """
+    exec_name = 'inspinjfind'
+    sections = ['inspinjfind']
+    extension = 'xml'
+    InspiralAnalysisJob.__init__(self, cp, sections, exec_name, extension, dax)
+    self.add_condor_cmd('getenv', 'True')
+    # overwrite standard log file names
+    self.set_stdout_file('logs/' + exec_name + '-$(cluster)-$(process).out')
+    self.set_stderr_file('logs/' + exec_name + '-$(cluster)-$(process).err')
 
 
 #############################################################################
@@ -994,6 +1072,124 @@ class ThincaNode(InspiralAnalysisNode):
     return filename
 
 
+class ThincaToCoincNode(InspiralAnalysisNode):
+  """
+  A ThincaToCoincNode runs an instance of a ThincaToCoincJob 
+  in a DAG.
+  """
+  def __init__(self, job):
+    """
+    @job: A ThincaToCoincJob.
+    """
+    InspiralAnalysisNode.__init__(self, job)
+    self.__input_cache = None
+    self.__instruments = None
+    self.__zero_lag_file = None
+    self.__time_slide_file = None
+    self.__veto_segments = None
+    self.__veto_segments_name = None
+
+  def set_input_cache(self, input_cache_name):
+    """
+    @input_cache_name: cache file for thinca_to_coinc to
+      read.
+    """
+    self.add_file_opt( 'ihope-cache', input_cache_name )
+    self.__input_cache = input_cache_name
+
+  def get_input_cache(self):
+    """
+    Returns input cache file for this node.
+    """
+    return self.__input_cache
+
+  def get_output_from_cache(self):
+    """
+    Returns a list of files that this node will generate using the input_cache.
+    The output file names are the same as the input urls, but with the 
+    zero_lag 'THINCA' file replaced with 'THINCA_TO_COINC', and with the
+    filepaths  pointing to the current directory in which the
+    thinca_to_coinc node is being run.
+    """
+    if not self.__input_cache:
+      raise ValueError, "no input-cache specified"
+    # open the input cache file
+    fp = open(self.__input_cache, 'r')
+    input_cache = lal.Cache().fromfile(fp).sieve( description = 'THINCA_SECOND' )
+    output_files = [ \
+      '/'.join([ os.getcwd(), 
+      re.sub('THINCA', 'THINCA_TO_COINC', os.path.basename(entry.url)) ]) for entry in input_cache \
+      ]
+    return output_files
+
+  def set_instruments(self, instruments):
+    """
+    @instruments: instruments that are on for the
+     THINCA files thinca_to_coinc is operating on.
+    """
+    self.add_var_opt('instruments', instruments)
+    self.__instruments = instruments
+
+  def get_instruments(self):
+    """
+    Returns instruments for this node.
+    """
+    return self.__instruments
+
+  def set_veto_segments(self, veto_segments):
+    """
+    @veto_segments: name of xml file containing the vetoes to apply
+    """
+    self.add_var_opt('veto-segments', veto_segments)
+    self.__veto_segments = veto_segments
+
+  def get_veto_segments(self):
+    """
+    Returns the name of the veto-segments file for this node.
+    """
+    return self.__veto_segments
+
+  def set_veto_segments_name(self, veto_segments_name):
+    """
+    @veto_segments_name: name of vetoes in the vetoes xml file to
+    apply.
+    """
+    self.add_var_opt('veto-segments-name', veto_segments_name)
+    self.__veto_segments_name = veto_segments_name
+
+  def get_veto_segments_name(self):
+    """
+    Returns the name of the vetoes applied for this node.
+    """
+    return self.__veto_segments_name
+
+  def set_zero_lag_file(self, zero_lag_file):
+    """
+    Sets zero_lag_file for input.
+    """
+    self.add_file_opt( 'zero-lag-file', zero_lag_file )
+    self.__zero_lag_file = zero_lag_file
+
+  def get_zero_lag_file(self):
+    """
+    Returns zero_lag_file.
+    """
+    return self.__zero_lag_file
+
+  def set_time_slide_file(self, time_slide_file):
+    """
+    Sets the time_slide_file for input.
+    """
+    self.add_file_opt( 'time-slide-file', time_slide_file )
+    self.__time_slide_file = time_slide_file
+
+  def get_time_slide_file(self):
+    """
+    Returns the time_slide_file.
+    """
+    return self.__time_slide_file
+
+
 class SireNode(InspiralAnalysisNode):
   """
   A SireNode runs an instance of the single inspiral reader code in a Condor
@@ -1236,7 +1432,7 @@ class CoireNode(InspiralAnalysisNode):
     self.add_var_opt('input',input_file)
 
   def set_output_tag(self):
-    fname = "COIRE"
+    fname = self.job().get_exec_name().upper() 
     if self.get_slides(): fname += "_SLIDE"
     if self.get_inj_file():
       fname += "_" + \
@@ -1420,6 +1616,24 @@ class ChiaNode(InspiralAnalysisNode):
     self.add_output_file(filename)
 
     return filename
+
+
+class InspInjFindNode( InspiralAnalysisNode ):
+  """
+  An InspInjFindNode runs an instance of the InspInjJob in a
+  Condor DAG.
+  """
+  def __init__(self, job):
+    """
+    @job: A CondorDAGJob that can run an instance of ligolw_inspinjfind.
+    """
+    InspiralAnalysisNode.__init__(self, job)
+
+  def get_input_from_cache(self, cache):
+    """
+    Retrieves
+    """
+    self.add_var_arg(filename)
 
 
 ##############################################################################
@@ -1759,6 +1973,7 @@ class PlotSnrchiNode(InspiralPlottingNode):
     job = A CondorDAGJob that can run an instance of plotsnrchi.
     """
     InspiralPlottingNode.__init__(self,job)
+
 #############################################################################
 
 class PlotGRBtimeslideStatsJob(InspiralAnalysisJob):
@@ -1787,6 +2002,456 @@ class PlotGRBtimeslideStatsNode(InspiralAnalysisNode):
     job = A CondorDAGJob that can run an instance of pylal_grbtimeslide_stats.
     """
     InspiralAnalysisNode.__init__(self,job)
+
+#############################################################################
+
+class MiniFollowupsJob(InspiralPlottingJob):
+  """
+  A minifollowups job. Static options are read from the
+  [minifollowups] section in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'minifollowups'
+    sections = ['minifollowups']
+    extension = None
+    InspiralPlottingJob.__init__(self, cp, sections, exec_name, extension, dax)
+
+
+class MiniFollowupsNode(InspiralPlottingNode):
+  """
+  A mininfollowups node.
+  """
+  def __init__(self, job):
+    """
+    @job: a MiniFollowupsJob
+    """
+    InspiralAnalysisNode.__init__(self, job)
+    self.__cache_file = None
+    self.__cache_string = None
+    self.__prefix = None
+    self.__suffix = None
+    self.__input_xml = None
+    self.__input_xml_summary = None
+    self.__output_html_table = None
+
+  def set_cache_file(self, cache_file):
+    """
+    Set the ihope cache file to use.
+    """
+    self.add_file_opt( 'cache-file', cache_file )
+    self.__cache_file = cache_file
+
+  def get_cache_file(self):
+    """
+    Returns the cache file that's set.
+    """
+    return self.__cache_file
+
+  def set_cache_string(self, cache_string):
+    """
+    Set the ihope cache file to use.
+    """
+    self.add_file_opt( 'cache-string', cache_string )
+    self.__cache_string = cache_string
+
+  def get_cache_string(self):
+    """
+    Returns the cache file that's set.
+    """
+    return self.__cache_string
+
+  def set_prefix(self, prefix):
+    """
+    Sets the prefix option, which is used for plot names.
+    """
+    self.add_var_opt( 'prefix', prefix )
+    self.__prefix = prefix
+
+  def get_prefix(self):
+    """
+    Return the prefix that's set.
+    """
+    return self.__prefix
+
+  def set_suffix(self, suffix):
+    """
+    Sets the suffix option, which is used for plot names.
+    """
+    self.add_var_opt( 'suffix', suffix )
+    self.__suffix = suffix
+
+  def get_suffix(self):
+    """
+    Return the suffix that's set.
+    """
+    return self.__suffix
+
+  def set_input_xml(self, input_xml):
+    """
+    Sets the input xml.
+    """
+    self.add_var_opt( 'input-xml', input_xml)
+    self.__input_xml = input_xml
+
+  def get_input_xml(self):
+    """
+    Return the input_xml that's set.
+    """
+    return self.__input_xml
+
+  def set_input_xml_summary(self, input_xml_summary):
+    """
+    Sets the input xml.
+    """
+    self.add_var_opt( 'input-xml-summary', input_xml_summary)
+    self.__input_xml_summary = input_xml_summary
+  
+  def get_input_xml_summary(self):
+    """
+    Return the input_xml_summary that's set.
+    """
+    return self.__input_xml_summary
+  
+  def set_output_html_table(self, output_html_table):
+    """
+    Sets the input xml.
+    """
+    self.add_var_opt( 'output-html-table', output_html_table)
+    self.__output_html_table = output_html_table
+  
+  def get_output_html_table(self):
+    """
+    Return the output_html_table that's set.
+    """
+    return self.__output_html_table
+
+
+#############################################################################
+# following are types of pipeline.SqliteJobs and Nodes
+
+class DBSimplifyJob(pipeline.SqliteJob):
+  """
+  A DBSimplify job. The static options are read from the section
+  [dbsimplify] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'dbsimplify'
+    sections = ['dbsimplify']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class DBSimplifyNode(pipeline.SqliteNode):
+  """
+  A DBSimplify node.
+  """
+  def __init__(self, job):
+    """
+    @job: a DBSimplifyJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+
+
+class ComputeDurationsJob(pipeline.SqliteJob):
+  """
+  A ComputeDurations job. The static options are read from the section
+  [compute_durations] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'compute_durations'
+    sections = ['compute_durations']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class ComputeDurationsNode(pipeline.SqliteNode):
+  """
+  A ComputeDurations node.
+  """
+  def __init__(self, job):
+    """
+    @job: a ComputeDurationsJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+
+
+class DBAddInjJob(pipeline.SqliteJob):
+  """
+  A DBAddInj job. The static options are read from the section
+  [dbaddinj] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'dbaddinj'
+    sections = ['dbaddinj']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class DBAddInjNode(pipeline.SqliteNode):
+  """
+  A DBAddInj node.
+  """
+  def __init__(self, job ):
+    """
+    @job: a DBAddInj job
+    """
+    pipeline.SqliteNode.__init__(self, job)
+    self.__injection_file = None
+
+  def set_injection_file( self, injection_file ):
+    """
+    @injection_file: Injection file for dbaddinj to
+    add to the database.
+    """
+    self.add_file_opt( 'injection-file', injection_file )
+    self.__injection_file = injection_file
+
+  def get_injection_file( self ):
+    """
+    Returns injection file for this node.
+    """
+    return self._injection_file
+
+
+class ClusterCoincsJob(pipeline.SqliteJob):
+  """
+  A cluster coincs job. The static options are read from the section
+  [cluster_coincs] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'cluster_coincs'
+    sections = ['cluster_coincs']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class ClusterCoincsNode(pipeline.SqliteNode):
+  """
+  A ClusterCoincs node.
+  """
+  def __init__(self, job):
+    """
+    @job: a ClusterCoincsJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+
+
+class CFarJob(pipeline.SqliteJob):
+  """
+  A cfar job. The static options are read from the section [cfar] in
+  the ini file.
+  """
+  def __init__(self, cp, sections, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    @sections: list of sections for cp to read from
+    """
+    exec_name = 'cfar'
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class CFarNode(pipeline.SqliteNode):
+  """
+  A CFar node.
+  """
+  def __init__(self, job):
+    """
+    @job: a CFarJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+
+
+class PrintLCJob(pipeline.SqliteJob):
+  """
+  A printlc job. The static options are read from the section [printlc] in
+  the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    @sections: list of sections for cp to read from
+    """
+    exec_name = 'printlc'
+    sections = ['printlc']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class PrintLCNode(pipeline.SqliteNode):
+  """
+  A PrintLC node.
+  """
+  def __init__(self, job):
+    """
+    @job: a PrintLCJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+    self.__datatype = None
+    self.__extract_to_xml = None
+    self.__exclude_coincs = None
+    self.__include_only_coincs = None
+
+  def set_datatype(self, datatype):
+    """
+    Sets datatype option.
+    """
+    self.add_var_opt('datatype', datatype)
+    self.__datatype = datatype
+
+  def get_datatype(self):
+    """
+    Gets datatype.
+    """
+    return self.__datatype
+
+  def set_extract_to_xml(self, xml_filename):
+    """
+    Sets the extract-to-xml option.
+    """
+    self.add_var_opt('extract-to-xml', xml_filename)
+    self.__extract_to_xml = xml_filename
+
+  def get_extract_to_xml(self):
+    """
+    Gets xml-filename if extract-to-xml is set.
+    """
+    return self.__extract_to_xml
+
+  def set_exclude_coincs(self, exclude_coincs):
+    """
+    Sets exclude-coincs option.
+    """
+    self.add_var_opt('exclude-coincs', exclude_coincs)
+    self.__exclude_coincs = exclude_coincs
+
+  def get_exclude_coincs(self):
+    """
+    Gets exclude-coincs option.
+    """
+    return self.__exclude_coincs
+
+  def set_include_only_coincs(self, include_only_coincs):
+    """
+    Sets include-only-coincs option.
+    """
+    self.add_var_opt('include-only-coincs', include_only_coincs)
+    self.__include_only_coincs = include_only_coincs
+
+  def get_include_only_coincs(self):
+    """
+    Gets include-only-coincs option.
+    """
+    return self.__include_only_coincs
+
+
+class PlotSlidesJob(pipeline.SqliteJob):
+  """
+  A plotslides job. The static options are read from the sections [plot_input]
+  and [plotslides].
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'plotslides'
+    sections = ['plot_input', 'plotslides']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+  def set_plot_playground_only(self):
+    """
+    Sets plot-playground-only option. This causes job to only plot playground.
+    """
+    self.add_var_opt('plot-playground-only')
+
+
+class PlotSlidesNode(pipeline.SqliteNode):
+  """
+  A PlotSlides node.
+  """
+  def __init__(self, job):
+    """
+    @job: a PlotSlidesJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+
+
+class PlotCumhistJob(pipeline.SqliteJob):
+  """
+  A plotcumhist job. The static options are read from the sections [plot_input] and
+  [plotcumhist].
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'plotcumhist'
+    sections = ['plot_input', 'plotcumhist']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+  def set_plot_playground_only(self):
+    """
+    Sets plot-playground-only option. This causes job to only plot playground.
+    """
+    self.add_var_opt('plot-playground-only')
+
+
+class PlotCumhistNode(pipeline.SqliteNode):
+  """
+  A PlotCumhist node.
+  """
+  def __init__(self, job):
+    """
+    @job: a PlotCumhist Job
+    """
+    pipeline.SqliteNode.__init__(self, job)
+
+
+class PlotIfarJob(pipeline.SqliteJob):
+  """
+  A plotifar job. The static options are read from the [plotifar] section.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'plotifar'
+    sections = ['plot_input','plotifar']
+    pipeline.SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class PlotIfarNode(pipeline.SqliteNode):
+  """
+  A PlotIfar node.
+  """
+  def __init__(self, job):
+    """
+    @job: a PlotIfarJob
+    """
+    pipeline.SqliteNode.__init__(self, job)
+    self.__datatype = None
+
+  def set_datatype(self, datatype):
+    """
+    Sets datatype option.
+    """
+    self.add_var_opt('datatype', datatype)
+    self.__datatype = datatype
+
+  def get_datatype(self):
+    """
+    Gets datatype.
+    """
+    return self.__datatype
 
 ##############################################################################
 # some functions to make life easier later

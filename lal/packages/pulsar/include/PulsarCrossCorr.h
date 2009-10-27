@@ -13,22 +13,22 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with with program; see the file COPYING. If not, write to the 
- *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, 
+ *  along with with program; see the file COPYING. If not, write to the
+ *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
 
 /**
  * \author Christine Chung, Badri Krishnan, John Whelan
  * \date 2008
- * \file 
+ * \file
  * \ingroup pulsar
  * \brief Header-file for LAL routines for CW cross-correlation searches
  *
  * $Id$
  *
  */
- 
+
 /*
  *   Protection against double inclusion (include-loop protection)
  *     Note the naming convention!
@@ -49,7 +49,7 @@
 #include <glob.h>
 #endif
 #include <time.h>
-#include <errno.h> 
+#include <errno.h>
 
 #include <lal/AVFactories.h>
 #include <lal/Date.h>
@@ -89,7 +89,7 @@ NRCSID (PULSARCROSSCORRH, "$Id$");
 /******************************************************
  *  Error codes and messages.
  */
- 
+
 #define PULSARCROSSCORR_ENULL 1
 #define PULSARCROSSCORR_ENONULL 2
 #define PULSARCROSSCORR_EVAL 3
@@ -213,7 +213,9 @@ void LALCalculateUalpha(LALStatus *status,
 			CrossCorrBeamFn beamfnsI,
 			CrossCorrBeamFn beamfnsJ,
 			REAL8     sigmasq,
-			REAL8     *psi);
+			REAL8     *psi,
+			COMPLEX16 *gplus,
+			COMPLEX16 *gcross);
 
 void LALCalculateCrossCorrPower(LALStatus       *status,
 				REAL8	        *out,
@@ -223,6 +225,16 @@ void LALCalculateCrossCorrPower(LALStatus       *status,
 void LALNormaliseCrossCorrPower(LALStatus        *status,
 				REAL8		 *out,
 				COMPLEX16Vector  *ualpha,
+				REAL8Vector      *sigmaAlphasq);
+
+void LALCalculateEstimators(LALStatus    *status,
+				REAL8 *aplussq1,
+				REAL8   *aplussq2,
+				REAL8   *acrossq1,
+				REAL8 *acrossq2,
+				COMPLEX16Vector  *yalpha,
+				COMPLEX16Vector  *gplus,
+				COMPLEX16Vector  *gcross,
 				REAL8Vector      *sigmaAlphasq);
 
 /* ****************************************************** */

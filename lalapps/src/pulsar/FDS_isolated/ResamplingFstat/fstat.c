@@ -40,18 +40,7 @@ struct freq
   double *fk;
 };
 
-/*int LALSnprintf( char *str, size_t size, const char *fmt, ... )
-{
-  int n;
-  va_list ap;
-  va_start( ap, fmt );
-  n = vsnprintf( str, size, fmt, ap );
-  va_end( ap );
-  return n;
-}
-*/
-
- /****** Given a GPS time, returns a double precision value of the time ******/
+/****** Given a GPS time, returns a double precision value of the time ******/
 inline double gettime(LIGOTimeGPS t)
 {
   return t.gpsSeconds+t.gpsNanoSeconds*1e-9;
@@ -646,7 +635,6 @@ int main(int argc, char **argv)
   detector = lalCachedDetectors[LALDetectorIndexLHODIFF]; 
   edata.ephiles.earthEphemeris = EARTHDATA;               
   edata.ephiles.sunEphemeris = SUNDATA;                   
-  edata.leap = 13;
   
   /****** Initializing earth data set edata ******/
   LALInitBarycenter( &status, &edata);          

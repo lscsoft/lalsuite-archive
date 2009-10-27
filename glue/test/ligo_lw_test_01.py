@@ -1,7 +1,7 @@
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy
 import sys
 
@@ -14,7 +14,7 @@ xmldoc = utils.load_filename("ligo_lw_test_01.xml", verbose = True)
 for n, a in enumerate(xmldoc.getElementsByTagName(ligolw.Array.tagName)):
 	print >>sys.stderr, "found %s array '%s'" % ("x".join(map(str, a.array.shape)), a.getAttribute("Name"))
 	fig = figure.Figure()
-	FigureCanvasAgg(fig)
+	FigureCanvas(fig)
 	axes = fig.gca()
 	axes.loglog()
 	axes.grid(True)

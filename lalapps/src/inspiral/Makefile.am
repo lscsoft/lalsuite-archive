@@ -20,6 +20,7 @@ BBHINJSRC 	= bbhinj.c
 BLINDINJSRC 	= blindinj.c
 SPLITBANKSRC 	= splitbank.c
 TRIGBANKSRC 	= trigbank.c
+TRIGSCANSRC 	= trigscan.c
 INSPFRINJSRC 	= inspfrinj.c
 GWF2XMLSRC 	= gwf2xml.c
 SPININJSRC 	= spininj.c
@@ -47,7 +48,7 @@ bin_PROGRAMS = lalapps_inspiral lalapps_tmpltbank \
                lalapps_inspinj lalapps_injcut lalapps_splitbank \
                lalapps_minj lalapps_bbhinj lalapps_blindinj \
                lalapps_inspfrinj lalapps_gwf2xml \
-               lalapps_thinca lalapps_trigbank \
+               lalapps_thinca lalapps_trigbank lalapps_trigscan \
                lalapps_spininj lalapps_coherent_inspiral lalapps_cohire \
                lalapps_coherentbank lalapps_coinext \
                lalapps_randombank lalapps_ninja lalapps_fr_ninja \
@@ -71,6 +72,7 @@ lalapps_bbhinj_SOURCES 		= $(BBHINJSRC)
 lalapps_blindinj_SOURCES 	= $(BLINDINJSRC)
 lalapps_splitbank_SOURCES 	= $(SPLITBANKSRC)
 lalapps_trigbank_SOURCES 	= $(TRIGBANKSRC)
+lalapps_trigscan_SOURCES 	= $(TRIGSCANSRC)
 lalapps_spininj_SOURCES 	= $(SPININJSRC)
 lalapps_inspfrinj_SOURCES 	= $(INSPFRINJSRC)
 lalapps_gwf2xml_SOURCES 	= $(GWF2XMLSRC)
@@ -100,7 +102,8 @@ bin_SCRIPTS = lalapps_inspiral_pipe lalapps_inspiral_hipe \
               lalapps_followup_pipe lalapps_plot_hipe \
               lalapps_ihope_status lalapps_write_ihope_page \
 	      lalapps_compare_ini lalapps_link_old_ihope \
-	      lalapps_generate_upper_limits lalapps_followup_page
+	      lalapps_generate_upper_limits lalapps_followup_page \
+	      lalapps_cbc_pipedown
 pkgpython_DATA = inspiral.py inspiralutils.py
 endif
 
@@ -160,9 +163,14 @@ lalapps_generate_upper_limits: $(srcdir)/generate_upper_limits.in python_config.
 lalapps_followup_page: $(srcdir)/followup_page.in python_config.sed
 	sed -f python_config.sed $(srcdir)/followup_page.in > lalapps_followup_page
 	chmod +x lalapps_followup_page
+lalapps_cbc_pipedown: $(srcdir)/cbc_pipedown.in python_config.sed
+	sed -f python_config.sed $(srcdir)/cbc_pipedown.in > lalapps_cbc_pipedown
+	chmod +x lalapps_cbc_pipedown
 
 
-pkgdata_DATA = BNSMasses.dat inspsrcs100Mpc.complete inspsrcs100Mpc.errors inspiral_pipe.ini inspiral_hipe.ini online.ini online_inject_bbh.ini ihope.ini followup_pipe.ini plot_hipe.ini write_ihope_page.ini write_ihope_style.css
+pkgdata_DATA = BNSMasses.dat inspsrcs100Mpc.complete inspsrcs100Mpc.errors inspiral_pipe.ini inspiral_hipe.ini online.ini online_inject_bbh.ini ihope.ini cbc_pipedown.ini followup_pipe.ini plot_hipe.ini write_ihope_page.ini write_ihope_style.css s5_background_H0H1-RDS_R_L1-cbc.txt s5_background_H0H1-RDS_R_L1-seismic-cbc.txt s5_background_H0H2-RDS_R_L1-cbc.txt s5_background_H0H2-RDS_R_L1-seismic-cbc.txt s5_background_H1_hoft_cbc.txt s5_background_H2_hoft_cbc.txt s5_background_L0L1-RDS_R_L1-cbc.txt s5_background_L0L1-RDS_R_L1-seismic-cbc.txt s5_background_L1_hoft_cbc.txt s5_background_V1-raw-cbc.txt s5_background_V1-raw-seismic-cbc.txt s5_background_V1_hoft_cbc.txt s5_foreground_H0H1-RDS_R_L1-cbc.txt s5_foreground_H0H1-RDS_R_L1-seismic-cbc.txt s5_foreground_H0H2-RDS_R_L1-cbc.txt s5_foreground_H0H2-RDS_R_L1-seismic-cbc.txt s5_foreground_H1_hoft_cbc.txt s5_foreground_H2_hoft_cbc.txt s5_foreground_L0L1-RDS_R_L1-cbc.txt s5_foreground_L0L1-RDS_R_L1-seismic-cbc.txt s5_foreground_L1_hoft_cbc.txt s5_foreground_V1-raw-cbc.txt s5_foreground_V1-raw-seismic-cbc.txt s5_foreground_V1_hoft_cbc.txt s6_foreground_H0H1-RDS_R_L1-cbc.txt s6_foreground_H0H1-RDS_R_L1-seismic-cbc.txt s6_foreground_H1_hoft_cbc.txt s6_foreground_L0L1-RDS_R_L1-cbc.txt s6_foreground_L0L1-RDS_R_L1-seismic-cbc.txt s6_foreground_L1_hoft_cbc.txt s6_foreground_V1-raw-cbc.txt s6_foreground_V1-raw-seismic-cbc.txt s6_foreground_V1_hoft_cbc.txt remove_h1h2.sql cluster.sql simplify.sql
+
+
 EXTRA_DIST = $(INSPIRALSRC) $(TMPLTBANKSRC) \
              $(SIRESRC) $(COIRESRC) $(SIVASRC) $(MINJSRC) \
              $(INCASRC) $(COHERESRC) $(INSPINJSRC) \
@@ -172,7 +180,7 @@ EXTRA_DIST = $(INSPIRALSRC) $(TMPLTBANKSRC) \
              inspiral_online_pipe_inject.in check_hipe_times.in \
 	     followup_pipe.in plot_hipe.in  write_ihope_page.in\
 	     compare_ini.in link_old_ihope.in generate_upper_limits.in\
-	     followup_page.in $(DATA)
+	     followup_page.in cbc_pipedown.in $(DATA)
 
 INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_srcdir)/misc
 LDADD = $(top_builddir)/src/lalapps/liblalapps.la

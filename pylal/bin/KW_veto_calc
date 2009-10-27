@@ -1,785 +1,584 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+#
+# Copyright (C) 2009 Tomoki Isogai
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 """
+%prog --ifo=IFO --trigger_files=File --segment_file=File --channel=Channel --positive_window=Second --negative_window=Second [options]
+
 Tomoki Isogai (isogait@carleton.edu)
 
-Input:
-    ifo: Ifo to be analyzed. One of H1, H2, L1, or V1
-    trigger file: A file that contains time and snr of triggers to be used.
-    segment file: A file that contains segments to be analyzed. This has to be 
-                  Segwizard like format. Both 2 and 4 columns are supported, but
-                  they have to be consistant (comments have to be erased.)
-    channel: A channel name to be analyzed. 
-             example) h1_darmerr, Pr_B1_ACq
-             See LIGO_channels.txt or VIRGO_channels.txt for the exact names to 
-             be used.
-    minimum snr for triggers: Snr value (int) by which inspiral triggers are 
-                              filtered. (default: 8)
-    half window size: Half of the veto window size around KW triggers, float 
-                      value in second.
-                      For example, 1 means +-1 second acound KW triggers
-    minimum threshold: Minimum threshold KW significance (int) to be analyzed. 
-                       (Default: 50)
-    maximum threshold: Maximum threshold KW significance (int) to be analyzed.
-                       (Default: 5000) 
-    resolution: Step interval threshold (int) to be raised. (Default: 50)
-                For example, minimum threshold 50, maximum threshold 5000,
-                resolution 50 means to calculate each value for threshold 
-                KW significance of 50, 100, 150, 200, ... 4900, 4950, 5000.
-    critical use percentage: the program recognizes channels that goes beyand 
-                             this use percentage (int) as veto candidate channel
-                             (Default: 50)
-    output directory: A directory for output
-    name tag: Name tag for output files.
-    output file extension: Extension for output file. This specifies the format 
-                           of file: txt, pickle, mat files are supported.
-                           Scipy is necessary for .mat.
-    qscan option: If true, program will create time/KW significance list file 
-                  for qscan based on KW triggers analyzed.
-    injection option: If true, program will create a file that shows which HW 
-                      injection are vetoed.
-    injection time file: A file that contains times of HW injections.
-                         Those times will be filtered by analyzed segments.
-                         The code assumed the first column is the times.
-    verbose: If true, the program outputs progress messages to stdout.
-    
-    
-Output: 2(+3) files
-1. A file with "veto_data" in its name 
-   This file contains figures below for each threshold:
-   1. KW significance threshold
-   2. number of coincident KW triggers
-   3. number of total KW triggers
-   4. use percentage
-   5. dead time
-   6. dead time percentage
-   7. number of vetoed inspiral triggers
-   8. veto efficiency
-   9. Use percentage / random. Random is the use percentage for using the
-      same number of triggers (Total KW), but imagining that their times were
-      random
-   10. Veto efficiency / deadtime
-   Also contains total inspiral trigger number and total analyzed time.
-   
-2. A file with suffix "plot_data.pickle"
-   This file contains data for 
-   a) time series (vs snr/KW significance) of inspiral/KW triggers
-   b) histogram (snr vs number of triggers) for all and vetoed inspiral triggers
-   The dictionary stores the following. Key name of the dictionary is in ().
-      - all KW triggers ('KWtrigs')
-      - all inspiral trigger ('inspTrigs')
-      For veto candidate channle, in addition to above
-      - KW triggers above critical threshold ('totalKW')
-      - coincident KW triggers above critical threshold ('coinKW')
-      - vetoed inspiral triggers ('vetoedTrigs')
-   They are all in the format [[time list],[snr list]]
-
-3. A file with suffix "veto_segs.txt" (Only for channel that goes beyand the 
-   defined used percentage)
-   This file contains a vetoed time segment list at the threshold where the 
-   defined used percentage is achieved.
-   
-4. A file with "qscantimes" in its name (optional)
-   This file contains a list of time and snr for sample qscans
-   Two KW triggers are chosen randomly for each 100 KW significance.
-
-5. A file with suffix "injection.txt" (optional)
-   This file contains a list of injection times in analyzed segments, and a list
-   of vetoed injection times.
-
-NOTE:
-need to be ran at cit (yet)
-only applicable for S5/VSR1 so far (because KW triggers location is hardcoded.)
-To use mat file for input or output, scipy is needed in the $PYTHONPATH
-
-$Id$
+For a given channel, this program calculates the following veto statistics at each KW significance threshold specified:
+Used percentage, # of coincident KW trigs above threshold, # of total KW trigs above threshold, # of vetoed GW triggers, veto efficiency at threshold, dead time, dead time percentage, used percentage over random used percentage, efficiency over dead time percentage.
+Random used percentage is calculated as:
+(total GW trigger number) x (dead time percentage) / (total KW triggers above the threshold)
+Thresholds at which the code calculates those values are specified by --min_thresh, --max_thresh, --resolution. For example, with --min_thresh=50, --max_thresh=500 and --resolution=50, the code will calculate at each of 50, 100, 150, 200, 250, 300, 350, 400, 450, 500 KW significance threshold.
+The supported ifo is H1, H2, L1 and V1. 
+Unless you specify --KW_location, the code assumes that KW triggers are in the default location specified in KW_veto_getKW.py.
+You can supply multiple GW trigger files and the code will take a union.
+Both KW and GW triggers will be cut by --segment_file and --min_snr/--min_thresh. GW triggers are considered to be coincident if it falls into +(--positive_window), -(--negative_window) of KW triggers.
+Supported output format is txt, txt.gz, pickle, pickle.gz, mat, db (sqlite database). The sqlite database containing all the data will be created in addition.
 """
+
+# =============================================================================
+#
+#                              PREANBLE
+#
+# =============================================================================
+
+
 from __future__ import division
+import sys
+import os
 import optparse
-import sys, os
-from cPickle import dump
+
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils
-from pylal import KW_veto_getTriggers, KW_veto_getKW
+
+from pylal import KW_veto_getTriggers
+from pylal import KW_veto_getKW
+from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__date__ = "7/10/2009"
+__version__ = "2.0"
 
 def parse_commandline():
     """
     Parse the options given in the command-line and do error checking
     """
-    parser = optparse.OptionParser(usage=__doc__,\
-                                   version="$Id: KW_veto_calc,v 1.00 2008/7/15")
-    parser.add_option("-i", "--ifo", help="ifo to be analyzed")
-    parser.add_option("-t", "--trigger_file",
-                      help="file which contains GW triggers")
-    parser.add_option("-s", "--segment_file",
-                      help="file which contains segments to be analyzed")
-    parser.add_option("-c", "--channel", help="channel to be analyzed")
-    parser.add_option("-f","--trigger_filter",default=8,type="float",
-                      help="minimum snr to filter triggers")
-    parser.add_option("-w","--half_window",type="float",
-                      help="half of veto-window size in second")
+    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+    parser.add_option("-i", "--ifo", help="IFO to be analyze. Required.")
+    parser.add_option("-t", "--trigger_files", action="append", default=[],
+                      help="Files containing GW triggers. Can be provided multiple times to specify more than one files. A union will be taken. Required.")
+    parser.add_option("-K", "--KW_location",default=None,
+                      help="Location of KW trigger folder if you are not using the folders specified in --help in KW_veto_getKW.py.")
+    parser.add_option("-S", "--segment_file",
+                      help="File which contains segments to be analyzed. Required.")
+    parser.add_option("-c", "--channel", help="Channel to be analyzed. Required.")
+    parser.add_option("-C", "--critical_usedPer", type="int", default=50,
+                      help="Code recognizes channels above this used percentage as veto candidate channel. (Default: 50)")
+    parser.add_option("-s","--min_snr", default=8, type="float",
+                      help="Minimum SNR to filter triggers. (Default: 8)")
+    parser.add_option("-p","--positive_window",type="float",
+                      help="Positive veto-window size in second. Required.")
+    parser.add_option("-n","--negative_window",type="float",
+                      help="Negative veto-window size in second. Required.")
     parser.add_option("-m", "--min_thresh",default=50,type="int",
-                      help="minimum threshold to be analyzed")
+                      help="Minimum threshold to be analyzed. (Default: 50)")
     parser.add_option("-M", "--max_thresh",default=5000,type="int",
-                      help="maximum threshold to be analyzed")
+                      help="Maximum threshold to be analyzed. (Default: 5000)")
     parser.add_option("-r", "--resolution",default=50,type="int",
-                      help="threshold step interval")
-    parser.add_option("-C", "--critical_useper",default=50,type="int",
-                      help="the program recognize channels above this "+\
-                           "use percentage as veto candidate channel")
-    parser.add_option("-o","--out_dir",default="result",help="output directory")
-    parser.add_option("-n","--name_tag",default="",
-                      help="name tag for output file")
+                      help="The code raise threshold at this interval. (Default: 50)")
+    parser.add_option("-I", "--injection_file", default=None,
+                      help="File that contains HW injection times. If given, code will check safety against those HW injections.")
+    parser.add_option("-o","--out_dir",default="result",
+                      help="Output directory. (Default: result)")
+    parser.add_option("-l","--scratch_dir",default=".",
+                      help="Scratch directory to be used for database engine. Specify local scratch directory for better performance and less fileserver load. (Default: current directory)")
+    parser.add_option("-N","--name_tag",default="",
+                      help="Name tag for output file. (Default: )")
     parser.add_option("-e","--extension",default=".txt",
-                      help="extension for output file, see above for"+
-                           "supported formats")
-    parser.add_option("-q","--qscan", action="store_true", default=False,
-                      help="prepare time list for qscan")
-    parser.add_option("-I","--injection", action="store_true", default=False,
-                      help="check vetoed injection times")
-    parser.add_option("-a","--injection_time_file",\
-                      help="file that contains times of HW injections")
+                      help="Extension for output file. See --help for supported formats. (Default: .txt)")
     parser.add_option("-v", "--verbose", action="store_true",
-                      default=False, help="run verbosely")
+                      default=False, help="Run verbosely. (Default: False)")
     
     opts, args = parser.parse_args()
-    
+   
     ########################## sanity check ####################################
     
     # check if necessary input exists
-    for o in ("ifo","trigger_file","segment_file","channel","half_window"):
-        if getattr(opts,o) is None:
-            print >>sys.stderr, "Error: --%s is a required parameter"%o
-            sys.exit(1)
+    for o in ("ifo","segment_file","channel","positive_window","negative_window"):
+      if getattr(opts,o) is None:
+        parser.error("Error: --%s is a required parameter"%o)
             
-    if opts.injection==True:
-        if opts.injection_time_file==None:
-            print >> sys.stderr, "Error: --injection_time_file is required "+\
-                                 "to check injections"
-            sys.exit(1)
-            
+    if opts.trigger_files == []:
+      parser.error("Error: --trigger_files is a required parameter")
+
     # check if ifo is supported
-    # make it upper case first?
+    opts.ifo = opts.ifo.upper()
     if opts.ifo not in ['H1','H2','L1','V1']:
-        print >>sys.stderr, "Error: ifo has to be H1, H2, L1 or V1"
-        sys.exit(1)
+      parser.error("Error: ifo has to be H1, H2, L1 or V1")
         
     # create output directory if not exist yet
     if not os.path.exists(opts.out_dir): os.mkdir(opts.out_dir)
+    
+    # check if scratch directory exists
+    if not os.path.exists(opts.scratch_dir):
+      parser.error("Error: %s does not exist"%opts.scratch_dir)
         
     # check if necessary files exist
-    for f in [opts.trigger_file, opts.segment_file]:
-        if not os.path.isfile(f):
-            print >>sys.stderr, "Error: %s not found"%f
-            sys.exit(1)
-    if opts.injection and not os.path.isfile(opts.injection_time_file):
-            print >>sys.stderr, "Error: %s not found"%opts.injection_time_file
-            sys.exit(1)
+    for f in opts.trigger_files + [opts.segment_file]:
+      if not os.path.isfile(f):
+        parser.error("Error: %s not found"%f)
             
     # check the output extension
-    if opts.extension[0]!=".": opts.extension="."+opts.extension
-    if opts.extension not in (".txt",".pickle",".mat"):
-        print >>sys.stderr, "Error: output extension has to be .txt, "+\
-                            ".pickle. or .mat"
-        sys.exit(1)
-    # for mat file, check if scipy is in the path
-    if opts.extension == ".mat":
-        try:
-            import scipy.io
-        except (ImportError):
-            raise ImportError,\
-            "Error: scipy has to be in the path to save in a mat file"
-            
+    if not opts.extension.startswith("."): opts.extension="."+opts.extension
+    if opts.extension not in (".txt",".txt.gz",".pickle",".pickle.gz",".mat",".db"):
+      parser.error("Error: unsupported file extension %s. See -help for supported formats."%opts.extension)
+        
     # veto_window 0 is not interesting and might cause trouble in the code
-    if opts.half_window==0:
-        print >> sys.stderr, "veto window size cannot be 0"
+    if opts.positive_window == 0 and opts.negative_window == 0:
+      parser.error("Error: veto window size cannot be 0.")
+
+    if opts.injection_file != None:
+      if not os.path.isfile(opts.injection_file):
+        print >> sys.stderr, "--injection_file %s is not found."%injection_file
         sys.exit(1)
         
+    #
+    # Convert paths to absolute paths so that it can later be referenced by
+    # other codes without trouble
+    #
+
+    opts.trigger_files = map(os.path.abspath,opts.trigger_files)
+    opts.segment_file = os.path.abspath(opts.segment_file)
+    opts.out_dir = os.path.abspath(opts.out_dir)
+    opts.scratch_dir = os.path.abspath(opts.scratch_dir)
+    if opts.injection_file != None:
+      opts.injection_file = os.path.abspath(opts.injection_file)
+ 
     ######################### show parameters ##################################
+
     if opts.verbose:
-        print "Running vetoStats..."
-        print
-        print "********************** PARAMETERS ******************************"
-        print 'ifo:'; print opts.ifo;
-        print 'trigger file:'; print opts.trigger_file; 
-        print 'segment file:'; print opts.segment_file; 
-        print 'channel:'; print opts.channel; 
-        print 'minimum snr to filter triggers'; print opts.trigger_filter;
-        print 'half of veto window size:'; print opts.half_window; 
-        print 'minimum threshold:'; print opts.min_thresh;
-        print 'maximum threshold:'; print opts.max_thresh;
-        print 'threshold step interval:'; print opts.resolution;
-        print 'critical use percentage:'; print opts.critical_useper;
-        print 'output directory:'; print opts.out_dir
-        print 'output file name tag:'; print opts.name_tag;
-        print 'output file extension:'; print opts.extension;
-        print 'qscan preparation:'; print opts.qscan;
-        print 'injection check:'; print opts.injection;
-        print 'injection time file'; print opts.injection_time_file;
-        print
+        print >> sys.stderr, "Running KW_veto_calc..."
+        print >> sys.stderr, "Version: %s"%__version__
+        print >> sys.stderr, ""
+        print >> sys.stderr, "***************** PARAMETERS ********************"
+        for o in opts.__dict__.items():
+          print >> sys.stderr, o[0]+":"
+          print >> sys.stderr, o[1]
+        print >> sys.stderr, "" 
         
     return opts
     
-        
-def sort_KWtrigs(inspTrigs,KWtrigs,half_window):
+def find_coincidence(master_cur, KWcur, GWcur):
     """
-    This function 1) sorts KW triggers by their significance from high to low 
-    and 2) sorts out KW triggers that are coincident with inspiral triggers.
-    Then the function returns 1) coin_KWtrigs: sorted list of KW triggers that 
-    are coincident with inspiral triggers and 2) sorted_trigs: sorted KW 
-    triggers.
+    This function find coincident triggers, and make tables 'KWtrigs' and
+    'GWtrigs' for KW and GW triggers respectively.
+
+    Both tables contain columns:
+    ID: integer ID of each event
+    GPSTime: GPS time of each event
+
+   'KWtrigs' table also contain columns:
+    KWSignificance: KW significance of each event 
+    CoincidenceGWTrigID: ID number of GW events that the trigger is coincident
+                         to for coincident event, and 'No Coincidence' for 
+                         non-coincident event
+   
+    'GWtrigs' table also contain columns:
+    SNR: SNR of each event
+    coincidence: 1 for coincident event and 0 for non-coincident event
     """
-    ## sort KW events by significance, high to low
-    # sorted KW is a list of tuples in the form (time, snr)
     
-    sortedKW=sorted(zip(KWtrigs[0],KWtrigs[1]),cmp = KW_compare)
-    
-    ## check coincident KW triggers
-    # set time window around insp triggers instead of KW triggers because
-    # some channels have enormous number of KW triggers
-    # (As long as pre window and post window size are the same, (and that is the
-    # case in this program), the result is the same)
-    # make a segment list of those windowed times and check which KW triggers
-    # fall in those times
-    
-    coin_segment=segmentlist([segment(trigTime-half_window,trigTime+\
-                                     half_window) for trigTime in inspTrigs[0]])
-    
-    # loop over KW events and check which one is coincident
-    # make a list of times and snr from tuples of the form (time, snr)
-    
-    sorted_coin_time=[]; sorted_coin_snr=[]; sorted_time=[]; sorted_snr=[]
-    for t in sortedKW:
-        if t[0] in coin_segment:
-            # coincident triggers
-            sorted_coin_time.append(t[0])
-            sorted_coin_snr.append(t[1])
-        # all triggers
-        sorted_time.append(t[0])
-        sorted_snr.append(t[1])
-    # make them in the form [[time list],[snr list]]
-    coin_KWtrigs=[sorted_coin_time,sorted_coin_snr]
-    sorted_trigs=[sorted_time,sorted_snr]
-    
-    return coin_KWtrigs, sorted_trigs
-    
-def KW_compare(x, y):
-    """
-    Comparison rule  to sort trigs by significance from high to low
-    x, y are in the form (time,snr)
-    """
-    if x[1]<y[1]: return 1
-    elif x[1]==y[1]: return 0
-    else: return -1 # case where x[1]>y[1]
-                  
-def above_thresh(sorted_trigs, thresh):
-    """
-    Given a threshold and triggers sorted by significance form high to low, this
-    function returns index number which represents the number of triggers above 
-    the threshold.
-    """
-    new_index=0
-    for significance in sorted_trigs[1]: #sorted_trigs[1] is the snr list
-        if significance>=thresh:
-            new_index+=1
+    def CoincidenceGWTrigID(IDs):
+      """
+      return comma separated IDs of coincident GW trigs to the coincident
+      KW trig;
+      return a string 'No Coincidence' for non-coincident KW trig.
+      """
+      return len(IDs) > 0 and ",".join(map(str, IDs)) or 'No Coincidence'
+          
+    def get_next(index, trigList, trigs):
+      """
+      Get the next trigger only when necessary so that we can maintain the 
+      KWlist short.
+      fetchone() returns None when no more trigger is available - don't add
+      None to the list.
+      """
+      if index >= len(trigList):
+        next = trigs.fetchone()
+        if next is not None:
+          trigList.append(KWtrig(next))
+      return trigList
+ 
+    class KWtrig:
+      """
+      Class that represents KW trigger.
+      IDs is IDs of coincident GW triggers.
+      """
+      def __init__(self, trig):
+        """
+        trig is assumed to be a tuple (GPSTime, KWSignificance) from fetchone()
+        """
+        self.GPSTime = trig[0]
+        self.KWSignificance = trig[1]
+        self.IDs = []
+
+      def add_ID(self, ID):
+         self.IDs.append(ID)
+   
+    ## initialize tables to put data in
+    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, CoincidenceGWTrigID text)")
+    master_cur.execute("create table GWtrigs (ID integer primary key, GPSTime double, SNR double, coincidence int)")
+
+    ## get KW triggers
+    KWtrigs = KWcur.execute("select * from KWtrigs order by GPSTime asc")
+ 
+    # KWlist is a list that contains KWtrig instances and used to hold
+    # the necessary KW trigs to revisit.
+    # get_next() function ensures that this list would stay in the minimum size
+    # possible; (the number of KW coincidences to one GW trig) + 1
+    first =  KWtrigs.fetchone()
+    if first != None:
+      KWlist = [KWtrig(first)]
+    else: # case where we don't have any KW
+      KWlist = []
+
+    # Strategy is that going through each triggers miminum number possilbe.
+    # It visits each GW trigger exactly once, and it revisits only coincident
+    # KW triggers and the one right next to them (needed because one trigger
+    # can be coincident to multiple triggers.)
+    # GW[0] is GPS time of the GW trigger, GW[1] is SNR of the GW trigger
+
+    for GW_id, GW in enumerate(GWcur.execute("select * from GWtrigs order by GPSTime asc")):
+      i = 0 # track index of current trigger in KWlist
+      GWcoinc = False # track if this GW trigger is in coincidence
+      while True: # loop over KW triggers
+        ## End Case: when KW triggers finish first
+        if i == len(KWlist):
+          break
+
+        KW = KWlist[i]
+        if KW.GPSTime + opts.positive_window >= GW[0]:
+          if KW.GPSTime - opts.negative_window <= GW[0]:
+            ## Case 1: Coincidence
+            GWcoinc = True
+            # add 1 to GW_id because actual ID starts from 1 and not 0
+            KWlist[i].add_ID(GW_id + 1)
+            i += 1
+            KWlist = get_next(i, KWlist, KWtrigs)
+
+          else:
+            # Case 2: No coincidence and  GW < KW in GPS time
+            # GW trigger is not coincident with this particular KW trigger
+            break
+
         else:
-            break
-    return new_index
-    
-def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
-                                 segment_file, critical_usePer, qscan, verbose):
-    """
-    This is the main function which calculates all the information about veto.
-    This function determines/calculates:
-    1)  the threshold at which KW triggers number goes to 0
-    2)  coincident KW triggers number at each threshold
-    3)  total KW triggers number at each threshold
-    4)  usePercentage (concident KW triggers number/ total KW triggers number) 
-        for each threshold
-    5)  vetoed inspiral triggers number for each threshold
-    6)  veto efficiency (vetoed inspiral triggers number / total inspiral 
-        triggers number) for each threshold
-    7)  dead time (time duration of veto segments) for each threshold
-    8)  dead time percentage (dead time / total time duration of analyzed 
-        segments) for each threshold
-    9)  if this channel goes over the defined use percentage (candidate channel)
-    10) threshold at which the use percentage goes over the defined value
-    11) the snr information about inspiral triggers for no vetoed case and for 
-        vetoed case at the threshold in 10) - to be used to make histogram of
-        number of inspiral triggers vs their snr
-    12) veto segment list at the threshold in 10)
-    
-    
-    Input coin_KWtrigs and KWtrigs are assumed to be sorted by their 
-    significance from high to low
-    """
-    
-    ###################### derive necessary values #############################
-    
-    ## total time duration of analyzed segments
-    # to be used as the denominator of dead time percentage calculation
-    # already checked it is not 0 in get_KW()
-    seg_list=segmentsUtils.fromsegwizard(open(segment_file),coltype=float,\
-                                                        strict=False)
-    totalTime=abs(seg_list)
-    
-    # begining and ending of analyzed time
-    # those will be used for time series
-    start_time=seg_list[0][0]; end_time=seg_list[-1][1]
-    
-    del seg_list
-    
-    plot_data={'start_time':start_time,'end_time':end_time}
-    
-    ## total number of inspiral triggers 
-    # to be used as the denominator of veto efficiency calculation
-    # already checked it is not 0 in get_triggers()
-    totalTrigNum=len(trigs[0]);
-    
-    ########################### initialize #####################################
-    
-    candidate=False; # indicates this channel is candidate veto channel or not
-    
-    # to avoid confusion, initialize critical threshold value as negative value
-    critical_thresh=-1 
-    
-    usePercentage = []; coinKW = []; totalKW = []; thresh = []
-    deadTime = []; deadTimePer = []; vetoedNum = []; vetoEff = []
-    usePer_over_random = []; eff_over_DT = []
-    
-    # coin_index represents the number of coincident KW triggers above threshold
-    # initialize it as the number of all the coincident KW events
-    coin_index=len(coin_KWtrigs[0])
-    
-    # total_index represents the number of total KW triggers above threshold
-    # initialize it as the number of all the KW events
-    total_index=len(KWtrigs[0])
-    
-    # veto segment list
-    # initialize with no element and for candidate channel, replace it with 
-    # appropriate list later
-    veto_segs = segmentlist()
-    
-    # veto segments list arranged in the order of sorted KW triggers
-    # cut off this list as threshold goes higher
-    vetoedTime = segmentlist([segment(KWtime-half_window,KWtime+\
-                                      half_window) for KWtime in KWtrigs[0]])
-    
-    # plot_data stores data needed for plotting 1) histogram of insp triggers:
-    # number vs snr 2) time series of KW triggers and insp triggers.
-    # For candidate channel, times and snrs of vetoed insp triggers 
-    # when veto is applied at "critical threshold" will be added
-    plot_data["KWtrigs"]=KWtrigs
-    plot_data["inspTrigs"]=trigs
-    vetoedTrigsTime=[];vetoedTrigsSnr=[] 
-    
-    ####################### loop over each threshold ###########################
-    # loop over and calculates values for each threshold
-    for t in thresh_list:
-        thresh.append(t)
-        # index represents number of triggers for this threshold
-        coin_index=above_thresh(coin_KWtrigs,t)
-        total_index=above_thresh(KWtrigs,t)
-        coinKW.append(coin_index)
-        totalKW.append(total_index)
-        ## update the veto segment list and calculate dead time percentage
-        vetoedTime = segmentlist(vetoedTime[:total_index])
-        # sort and merge segments
-        sorted_vetoedSegs = segmentlist(vetoedTime).coalesce()
-        dT=abs(sorted_vetoedSegs) # dT is the dead time for the threshold
-        deadTime.append(dT)
-        deadTimePer.append(100*dT/totalTime)
-        ## calculate use percentage
-        if total_index!=0: # handle 0 division
-            usePer=100*coin_index/total_index
-            usePercentage.append(usePer)
-            ## check if this is a veto candidate channel
-            if not candidate and usePer > critical_usePer:
-                candidate=True; critical_thresh = t
-                # this part is activated only for candidate channel at threshold
-                # where used percentage goes over specified value
-                
-                # store data of KW triggers to make time series later
-                plot_data["totalKW"]=\
-                     [KWtrigs[0][:total_index],KWtrigs[1][:total_index]]
-                plot_data["coinKW"]=\
-                     [coin_KWtrigs[0][:coin_index],coin_KWtrigs[1][:coin_index]]
-                     
-                # store veto segments list at the critical threshold
-                veto_segs=sorted_vetoedSegs
-                
-        else: # case where total KW trigger is 0
-            # include the first threshold where total KW is 0 
-            # but not the rest (break)
-            usePercentage.append(0) 
-            deadTime.append(0)
-            deadTimePer.append(0)
-            vetoedNum.append(0)
-            vetoEff.append(0)
-            usePer_over_random.append(0)
-            eff_over_DT.append(0)
-            break
-        
-        ## calculate the number of vetoed inspiral triggers and veto efficiency
-        vetoedTrigCounter=0
-        
-        for i in xrange(len(trigs[0])): # i corresponds to insp trigs number
-            # check each insp trig if the time fall into veto segs
-            # trigs[0][i] is time of each insp trig
-            if trigs[0][i] in sorted_vetoedSegs: 
-                vetoedTrigCounter += 1
-                if t==critical_thresh: 
-                    vetoedTrigsTime.append(trigs[0][i]) # time
-                    vetoedTrigsSnr.append(trigs[1][i]) # snr
-        # add vetoed insp trigs number and veto efficiency
-        vetoedNum.append(vetoedTrigCounter)
-        vetoEff.append(100*vetoedTrigCounter/totalTrigNum)
-        randomPercentage=totalTrigNum*deadTimePer[-1]/totalKW[-1]
-        usePer_over_random.append(usePercentage[-1]/randomPercentage)
-        eff_over_DT.append(vetoEff[-1]/deadTimePer[-1])
-        
-    ######################## end of threshold loop #############################
-    
-    # store data about vetoed insp triggers for histgram
-    plot_data["vetoedTrigs"]=[vetoedTrigsTime,vetoedTrigsSnr]
-    
-    ################### store threshold independent values #####################
-    
-    # append total time duration at the end of dead time list
-    deadTime.append(totalTime)
-    
-    # append total insp trigs number at the end of vetoed insp trigs number
-    vetoedNum.append(totalTrigNum)
-    
-    return thresh,coinKW,totalKW,usePercentage,vetoedNum,vetoEff,deadTime,\
-           deadTimePer,usePer_over_random,eff_over_DT,plot_data,veto_segs,\
-           candidate
-    
-    
-def qscan_prep(min_thresh, KWtrigs, qscan_timefile_name):
-    """
-    this function prepares time and snr list file for sample qscans
-    randomly pick two events for every 100 KW significance
-    input KWtrigs have to be sorted by their significance from high to low
-    """
-    import random
-    
-    lines=["%# times for qscans, randam","%# times            snr"] # header
-    
-    KWsig = min_thresh # start from the minimum KW significance threshold
-    totalNum = len(KWtrigs[0]) # number of all the KW triggers
-    index = 1 # represents ....
-    
-    # keep in mind KW trigger are sorted by significance from high to low but
-    # the program goes from low to high significance
-    while totalNum > index: 
-        KWsig+=100
-        # count the number of KW trigs for this significance step
-        counter=0
-        while (index+counter)<=totalNum and KWtrigs[1][-(index+counter)]<KWsig:
-            counter+=1
-        # case 1: three are more than 2 triggers 
-        # randomly pick two triggers
-        if counter > 2:
-            selected_i=random.sample(xrange(index,index+counter),2)
-            for i in sorted(selected_i):
-                time=KWtrigs[0][-i]
-                snr=KWtrigs[1][-i]
-                lines.append("%f"%time+" "*(20-len("%f"%time))+"%f"%snr) # align
-        # case 2: less than or equal to 2 triggers
-        # dump all of them
-        else: 
-            for i in xrange(index,index+counter):
-                time=KWtrigs[0][-i]
-                snr=KWtrigs[1][-i]
-                lines.append("%f"%time+" "*(20-len("%f"%time))+"%f"%snr) # align
-        index+=counter
-    ## save the result
-    open(qscan_timefile_name,'w').write("\n".join(lines))
-    
-def injection_count(ifo,veto_seg,analyze_segment,injection_time_file,out_name):
-    """
-    This function checks if veto candidate channels vetoes HW injection to see
-    veto safety.
-    """
-    # read injection times from the file and filter by analyze segment
-    injection_file = open(injection_time_file)
-    analyze_segs = segmentsUtils.fromsegwizard(open(analyze_segment),\
-                                        coltype=float,strict=False)
-    injection_times=[]
-    for line in injection_file:
-        if line.strip()!="" and line[0]!="#" and line[0]!="%":
-            i_time=float(line.strip())
-            if i_time in analyze_segs:
-                injection_times.append(i_time)
+          # Case 3: No coincidence and  KW < GW in GPS time
+          t = KWlist.pop(0)
+          # add GW trig in the table
+          master_cur.execute("insert into KWtrigs (GPSTime, KWSignificance, CoincidenceGWTrigID) values (?,?,?)",(t.GPSTime, t.KWSignificance, CoincidenceGWTrigID(t.IDs)))
+          KWlist = get_next(0, KWlist, KWtrigs)
+
+      ######################### end of while loop #############################
       
-    # check which injections are vetoed
-    vetoed_injection=[]
-    for t in injection_times:
-        if t in veto_seg:
-            vetoed_injection.append(t)
-            
-    # calculate expected injections number:
-    # total injection * dead time / analyzed time
-    expectedNum =\
-         len(injection_times) * abs(veto_seg) / abs(analyze_segs)
-            
-    # save the result in txt format
-    line=["Vetoed Injections / Total Injections in analyzed segments:"+\
-          " %d / %d"%(len(vetoed_injection),len(injection_times))]
-    line.append("Expected Number: %.4f"%expectedNum)
-    line.append("")
-    line.append("Vetoed Injections:")
-    for t in vetoed_injection: line.append("%f"%t)
-    line.append("")
-    line.append("Injections in analyzed segments:")
-    for t in injection_times: line.append("%f"%t)
-    open(out_name,"w").write("\n".join(line))
-    
-def save_result(outputName,output):
-    """
-    save the output in a file
-    txt, pickle, mat file are supported
-    adapted from io.py by Nickolas Fotopoulas and modified
-    """
-    # decide the format of the file from the file name
-    if outputName == '':
-        raise ValueError, "Empty filename"
-    ext = os.path.splitext(outputName)[-1]
-    # case 1: txt file
-    if ext == ".txt":
-        # print total insp triggers number and total time duration of seg file
-        totalTrigNum=output["vetoedNum"][-1]
-        totalTime=output["deadTimes"][-1]
-        line=['%%#totalTrigNum: %s'%totalTrigNum,\
-                                                '%%#totalTime(s): %s'%totalTime]
-        # head line of columns
-        line.append("%#thresh  coincidentKW   totalKW   use %        "+\
-                   "deadTime(s)    deadTime %     vetoedTrigNum  "+\
-                   "vetoEfficiency %    use %/random    efficiency/deadTime")
-        # convert values to string to write in txt file
-        thresh=[str(t) for t in output["thresh"]]
-        coinKW=[str(c) for c in output["coinKW"]]
-        totalKW=[str(t) for t in output["totalKW"]]
-        usePercentage=[str(round(u,4)) for u in output["usePercentage"]]
-        deadTime=[str(round(d,4)) for d in output["deadTimes"]]
-        deadTimePer=[str(round(d,5)) for d in output["deadTimePer"]]
-        vetoedNum=[str(n) for n in output["vetoedNum"]]
-        vetoEff=[str(round(v,4)) for v in output["vetoEff"]]
-        use_random=[str(round(v,4)) for v in output["use_random"]]
-        eff_DT=[str(round(v,4)) for v in output["eff_DT"]]
-        
-        # make columns of veto info
-        # align nicely
-        for info in zip(thresh,coinKW,totalKW,usePercentage,deadTime,\
-                        deadTimePer,vetoedNum,vetoEff,use_random,eff_DT):
-            line.append(info[0]+" "*(10-len(info[0]))+\
-                        info[1]+" "*(15-len(info[1]))+\
-                        info[2]+" "*(10-len(info[2]))+\
-                        info[3]+" "*(13-len(info[3]))+\
-                        info[4]+" "*(15-len(info[4]))+\
-                        info[5]+" "*(15-len(info[5]))+\
-                        info[6]+" "*(15-len(info[6]))+\
-                        info[7]+" "*(20-len(info[7]))+\
-                        info[8]+" "*(15-len(info[8]))+\
-                        info[9])
-        open(outputName,"w").write("\n".join(line))            
-    # case 2: pickle file
-    if ext == ".pickle":
-        dump(output,open(outputName,"w"),-1) # -1 means newest format
-    # case 3: mat file
-    if ext == ".mat":
-        import scipy.io
-        scipy.io.savemat(outputName,output)
-    
-def main(opts):
-    """
-    1. read in insp triggers
-    2. read in KW triggers
-    3. sort and check coincident events
-    4. calculate necessary values (used percentage etc.)
-    5. Save the result.
-    """
-    
-    # short notation
-    min_thresh = opts.min_thresh
-    max_thresh = opts.max_thresh
-    thresh_step = opts.resolution
-    half_window = opts.half_window
-    
-    # initialize it as true to get throught the first loop
-    memory_out = True
-    
-    
-    
-    ########################################################################
-    # read in the inspiral triggers
-    ########################################################################
-    
-    if opts.verbose: print "reading in inspiral triggers..."
-    
-    # trigs is in the form [[times list],[snr list]]
-    # triggers will be filtered by seg file and minimum threshold
-    trigs=KW_veto_getTriggers.main(opts.trigger_file,opts.trigger_filter,\
-                                             opts.segment_file,opts.verbose)
-    
-    # save in txt file for the report page sake
-    out_name="%s-%s-triggers.txt"%(opts.name_tag,opts.ifo)
-    if not os.path.isfile(out_name):
-        trigs_dict = {"times": trigs[0], "snr": trigs[1]}
-        KW_veto_getTriggers.save_dict(out_name,trigs_dict)
-    
-    # in case we have too many KW triggers, step up minimum threshold by 100,
-    # issues a message, and try again
-    while memory_out:
-      try:
-          
-        # make the list of KW significance theshold to be analyzed
-        output = {"thresh": range(min_thresh,max_thresh+1,thresh_step)}
-          
-        ########################################################################
-        # get KW triggers for the channel
-        ########################################################################
-        
-        if opts.verbose: print "reading in KW triggers..."
-        # KWtrigs is in the form [[times list],[snr list]]
-        # filtered by seg file
-        KWtrigs=KW_veto_getKW.get_trigs(opts.ifo,opts.channel,opts.segment_file,\
-                                 min_thresh,opts.verbose)
-        
-        ########################################################################
-        # sort and check coincident events
-        ########################################################################
-        
-        if opts.verbose: 
-            print "sorting and checking KW triggers for coincidence..."
-        # coin_KWtrigs is a list of KW triggers that are coincident with insp
-        # triggers
-        # sorted_KWtrigs are just all the KW triggers, sorted 
-        # Both coin_KWtrigs and sorted_KWtrigs are sorted by KW significance 
-        # from high to low. Both in the form [[times list],[snr list]]
-        coin_KWtrigs,sorted_KWtrigs=sort_KWtrigs(trigs,KWtrigs,half_window)
-        del KWtrigs # no longer needed
-        
-        ########################################################################
-        # calculate information about veto
-        ########################################################################
-        
-        # thresh: list of KW significance threshold analyzed
-        # coinKW: list of number of coincident KW triggers above each threshold
-        # totalKW: list of number of KW triggers abave each threshold
-        # usePercentage: list of used percentage for each threshold
-        # vetoedNum: list of number of vetoed insp triggers for each threshold
-        # vetoEff: list of veto efficiency at each threshold
-        # deadTime: list of dead time at each threshold
-        # deadTimePer: list of dead time percentage at each threshold
-        # plot_data: dictionary whose keys are 'KWtrigs' (all KW triggers), 
-        #            'inspTrigs' (all insp trigger), and in addition for 
-        #            candidate channel, 'totalKW' (KW triggers above critical
-        #            threshold), 'coinKW' (coincident KW triggers above critical
-        #            threshold), 'vetoedTrigs' (vetoed insp triggers at critical 
-        #            threshold), where critical threshold is where the channel 
-        #            attains the specified used percentage all are list in the 
-        #            form [[time list],[snr list]]
-        # veto_segs: veto segment list at critical threshold
-        #            it's just segmentlist() for non candidate channel
-        
-        if opts.verbose: print "calculating veto information..."
-        
-        # vetoStats is the function that calculates all the values
-        thresh, coinKW, totalKW, usePercentage, vetoedNum, vetoEff, deadTimes,\
-        deadTimePer, usePer_over_random,eff_over_DT, plot_data, veto_segs,\
-        candidate =\
-          vetoStats(output["thresh"], trigs,coin_KWtrigs, sorted_KWtrigs,\
-                    half_window, opts.segment_file, opts.critical_useper,\
-                    opts.qscan, opts.verbose)
-        
-        del coin_KWtrigs, trigs 
-        
-        # convert them into a dictionary for output
-        output = {"thresh": thresh, "coinKW": coinKW, "totalKW": totalKW,\
-                  "usePercentage": usePercentage, "deadTimes": deadTimes,\
-                  "deadTimePer": deadTimePer, "vetoedNum": vetoedNum,\
-                  "vetoEff": vetoEff,"use_random": usePer_over_random,\
-                  "eff_DT": eff_over_DT}
-                  
-        memory_out = False
-                  
-      except (MemoryError):
-        # give up if the code still have memory error with minmum thresh 1000 
-        # higher than the original
-        if min_thresh > opts.min_thresh+1000:
-            print >> sys.stderr, """
-            Error: the code failed with MemoryError
-                   you might want to consider using smaller segment list
-            """
-            raise MemoryError
-          
-        memory_out = True
-        # when memory error occurs, use higher min_thresh (that reduces the 
-        # number of KW triggers)
-        min_thresh += 100
-            
-        # issue a warning message that min_thresh is raised
-        print >> sys.stderr, """
-        Warning: Encountered Memory Error.
-                 Re-calculating using minimum threshold of %d
-        """%(min_thresh)
-        
-        # clear up memory
-        for v in ('KWtrigs','coinKWtrigs','sorted_KWtrigs','thresh','coinKW',\
-                  'totalKW','usePercentage','vetoedNum','vetoEff','deadTimes',\
-                  'deadTimePer','plot_data','veto_segs','output'):
-            if v in locals(): del locals()[v]
-        
-    ############################################################################
-    # save the result
-    ############################################################################
-    
-    ## define file names
-    # common prefix
-    filePrefix = os.path.join(opts.out_dir,"-".join(\
-      [opts.name_tag,opts.ifo.upper(),opts.channel,str(half_window)]))
-    vetoDataFile = filePrefix+"-veto_data"+opts.extension
-    plotDataFile = filePrefix+"-plot_data.pickle"
-    vetoSegsFile = filePrefix+"-veto_segs.txt"
-    qscanTimeFile = filePrefix+"-qscanTimes.txt"
-    injectionFile = filePrefix+"-injection.txt"
-    
-    if opts.verbose: 
-        print "saving the result in %s, %s, %s..."\
-                             %(vetoDataFile,plotDataFile,vetoSegsFile)
+      # add KW trig in the table
+      master_cur.execute("insert into GWtrigs (GPSTime, SNR, Coincidence) values (?,?,?)",(GW[0], GW[1], GWcoinc))
 
-    # save the main result in specified format
-    save_result(vetoDataFile,output)
+    ## End Case:  Dump the rest of KW triggers when GW triggers finish first
+    for KW in KWlist + map(lambda x: KWtrig(x), KWtrigs.fetchall()):
+      master_cur.execute("insert into KWtrigs (GPSTime, KWSignificance, CoincidenceGWTrigID) values (?,?,?)", (KW.GPSTime, KW.KWSignificance, CoincidenceGWTrigID(KW.IDs)))
     
-    # save data for plotting in pickle
-    dump(plot_data,open(plotDataFile,"w"),-1) #-1 means newest format
-    
-    # save veto segment list for candidate
-    if candidate:
-        segmentsUtils.tosegwizard(open(vetoSegsFile,"w"),veto_segs,\
-                                                              coltype=float)
-        
-    ## qscan preparation (optional)
-    if opts.qscan and candidate:
-        if opts.verbose: print "creating time files for qscan..."
-        qscan_prep(opts.min_thresh,sorted_KWtrigs,qscanTimeFile)
-        
-    # save injection information (optional)
-    if candidate and opts.injection:
-        if opts.verbose: print "checking HW injections..."
-        injection_count(opts.ifo.upper(),veto_segs,\
-                 opts.segment_file,opts.injection_time_file,injectionFile)
+    return master_cur
 
-    if opts.verbose: print "KW_veto_calc for %s triggers * %s done!"\
-                                                    %(opts.ifo,opts.channel)
+
+def calc_stats():
+  """
+  This function calculates statistics of the veto at each threshold and store
+  the result in database.
+  In addition, this generates veto segments at the threshold at which the used
+   percentage exceeds predifined value.
+  """
+
+  ## initialize
+  totalTime = abs(analyzed_segs)
+  totalKW_counter = 0
+  coinKW_counter =  0
+  vetoedGW = set()
+  vetoed_segs = segmentlist()
+  candidate = False
+  result = []
+
+  ## get KW triggers
+  KWtrigs = cursor.execute("select GPSTime, KWSignificance, CoincidenceGWTrigID from KWtrigs order by KWSignificance desc")
+  KW = KWtrigs.fetchone()
+ 
+  # t is the threshold
+  for t in sorted(range(opts.min_thresh, opts.max_thresh, opts.resolution),reverse=True):
+    while KW is not None and KW[1] >= t:
+      if KW[2] != 'No Coincidence': 
+        # Coincident Event
+        coinKW_counter += 1
+        vetoedGW |= set(KW[2].split(","))
+      # All Event
+      totalKW_counter += 1
+      vetoed_segs.append(KW_veto_utils.get_segment(KW[0],
+                           opts.positive_window,opts.negative_window))
+
+      # get the next trigger
+      KW = KWtrigs.fetchone()
+
+    ## store the result
+    deadTime = abs(vetoed_segs) # avoid calculate it again and again 
+    # round to 2 decimal points for float values
+    result.append((
+    t, # threshold
+    "%.2f"%(100 * coinKW_counter / (totalKW_counter or 1)), # used percentage
+    coinKW_counter, # number of coincident KW events above the threshold
+    totalKW_counter, # number of KW events above the threshold
+    len(vetoedGW), # number of vetoed GW triggers
+    "%.2f"%(100 * len(vetoedGW) / totalGWNum), # efficiency
+    deadTime, # dead time
+    "%.4f"%(100 * deadTime / totalTime), # dead time percentage
+    # used percentage / random used percentage
+    "%.2f"%(len(vetoedGW) * totalTime / totalGWNum / (deadTime or 1)),
+    # efficiency / dead time percentage
+    "%.2f"%(coinKW_counter * totalTime / totalGWNum / (deadTime or 1))
+    ))
+  
+  ######################### End of for Loop  #################################
+ 
+  ## set up the table for result
+  cursor.execute("create table result (threshold int, usedPercentage double, coincidentKW int, totalKW int, vetoedGW int, efficiency double, deadTime int, deadTimePercentage double, usedPer_over_randomUsedPer double, efficiency_over_deadTimePer double)")
+
+  ## insert the result
+  for r in sorted(result): # sort by threshold from low to high
+    cursor.execute("insert into result (threshold, usedPercentage, coincidentKW, totalKW, vetoedGW, efficiency, deadTime, deadTimePercentage, usedPer_over_randomUsedPer, efficiency_over_deadTimePer) values (?,?,?,?,?,?,?,?,?,?)", r)
+    if r[4] == 0: 
+      # r[4] is total KW number
+      # it's not interesting once we hit 0 for total KW number, so stop
+      break
+       
+def get_veto_segs(veto_thresh):
+  """
+  Create a veto segment list with a given KW significance threshold.
+  Take an intersection with analyzed segments so that all the veto segments
+  stays in analyzed segs.
+  """
+  veto_times = cursor.execute("select GPSTime from KWtrigs where KWSignificance >= ?",(veto_thresh,))
+  veto_segs = segmentlist([KW_veto_utils.get_segment(t[0], opts.positive_window, opts.negative_window) for t in veto_times])
+  return veto_segs.coalesce().__iand__(analyzed_segs)
+
+def injection_check(cur, injection_file, veto_segments, totalTime):
+  """
+  """
+  all_injection_times = [float(time) for time in open(injection_file).readlines() if not time.startswith("#") and time != "/n"]
+
+  injection_times = [t for t in all_injection_times if t in analyzed_segs]
+  injection_times.sort()
+
+  cursor.execute("create table injections (GPSTime float, vetoed txt)")
+  Nvetoed = 0
+  print injection_times, "times"
+  for i in injection_times:
+    print i
+    try:
+      i = float(i)
+    except(ValueError):
+      print >> sys.stderr, ("--injection_file contains non-number.")
+      raise
+    if i in veto_segments:
+      Nvetoed += 1
+      cur.execute("insert into injections (GPSTime, vetoed) values (?,?)", (i,"Vetoed"))
+    else:
+      cur.execute("insert into injections (GPSTime, vetoed) values (?,?)", (i,"Not Vetoed"))
     
-if __name__=="__main__":
-    # parse commandline
-    opts = parse_commandline()
-    # do the work
-    main(opts)
+  Nexp = len(injection_times) * abs(veto_segments) / totalTime
+ 
+  import scipy.stats
+  prob = 1 - scipy.stats.poisson.cdf(Nvetoed - 1, Nexp)
+  if prob > 10**-7:
+    safety = "Pass"
+  else:
+    safety = "Unsafe"
+
+  return cur, Nvetoed, "%.2f"%Nexp, "%.2e"%prob, safety
+
+#==============================================================================
+#
+#                                MAIN
+#
+#==============================================================================
+    
+## parse command line
+opts = parse_commandline()
+
+# segments to be analyzed  
+analyzed_segs = KW_veto_utils.read_segfile(opts.segment_file)
+
+"""
+1. read in GW triggers
+2. read in KW triggers
+3. check coincident events
+4. calculate statistical values (used percentage etc.)
+5. Save the result
+"""
+
+try: # include in finally cause so that we can erase tmp files in any case
+
+  ########################################################################
+  # 1. Read in the inspiral triggers
+  ########################################################################
+
+  if opts.verbose: print >> sys.stderr, "reading in GW triggers..."
+
+  # triggers are filtered by seg file and minimum threshold
+  GWdbname, GW_working_filename, GWconnection, GWcursor, totalGWNum = \
+     KW_veto_getTriggers.get_trigs(opts.trigger_files,analyzed_segs,
+     opts.min_snr,opts.name_tag,opts.scratch_dir,verbose=opts.verbose)
+
+  ########################################################################
+  # 2. Get KW triggers for the channel
+  ########################################################################
+  
+  if opts.verbose: print >> sys.stderr, "reading in KW triggers..."
+  # KW trigs are filtered by seg file and minimum threshold
+  KWdbname, KW_working_filename, KWconnection, KWcursor, opts.channel = \
+          KW_veto_getKW.get_trigs(opts.channel, analyzed_segs, opts.min_thresh,
+           trigs_loc=opts.KW_location,name_tag=opts.name_tag,
+            scratch_dir=opts.scratch_dir,verbose=opts.verbose)
+  
+  ########################################################################
+  # 3. Check coincident events
+  ########################################################################
+
+  ## initialize master database
+  ## define other file names as well for later use
+  # common prefix:
+  # (tag)-(IFO)-(channel name)-(start time)-(duration)
+
+  start_time = int(analyzed_segs[0][0])
+  end_time = int(analyzed_segs[-1][1])
+  duration = end_time - start_time
+  filePrefix = os.path.join(opts.out_dir, "-".join([opts.name_tag, 
+                         opts.ifo.upper(), opts.channel,
+                         str(start_time), str(duration)]))
+  dbFile = filePrefix + "-data.db"
+  resultFile  = '%s-result%s'%(filePrefix,opts.extension)  
+  GWtrigsFile = '%s-GWtrigs%s'%(filePrefix,opts.extension) 
+  KWtrigsFile = '%s-KWtrigs%s'%(filePrefix,opts.extension)
+  vetoSegFile = '%s-vetoSegments%s'%(filePrefix,opts.extension)
+
+  # if the file already exists, rename the old one
+  KW_veto_utils.rename(dbFile)
+
+  global working_filename # so that it can be erased when error occurs
+  working_filename = KW_veto_utils.get_connection_filename(\
+                     dbFile, tmp_path=opts.scratch_dir, verbose=opts.verbose)
+
+  connection = sqlite3.connect(working_filename)
+  cursor = connection.cursor()
+  
+  if opts.verbose: 
+      print >> sys.stderr, "checking KW triggers for coincidence..."
+  # mark coincident triggers
+  cursor = find_coincidence(cursor,KWcursor,GWcursor)
+  
+  connection.commit()
+
+  KWconnection.close()
+  del KWcursor
+  del KWconnection
+  GWconnection.close()
+  del GWcursor
+  del GWconnection
+  
+  ########################################################################
+  # 4. calculate statistics of veto
+  # - for candidate channel, make veto segments.
+  ########################################################################
+  
+  if opts.verbose: print >> sys.stderr, "calculating veto statistics..."
+  
+  # calc_stats is the function that calculates all the values
+  calc_stats()
+  connection.commit()
+
+  ## for candidate channel, get veto segs and check injection....   
+  candidate_data = KW_veto_utils.get_candidate(cursor,opts.critical_usedPer)
+  if candidate_data != None:
+      if opts.verbose:
+        print >> sys.stderr, "candidate channel!"
+        print >> sys.stderr, "creating veto segments..."
+      veto_segments = get_veto_segs(candidate_data[0])
+      # store in the database
+      KW_veto_utils.write_segs_db(cursor,veto_segments,"veto_segments")
+      connection.commit()
+      # save in a file
+      segmentsUtils.tosegwizard(open(vetoSegFile,'w'),veto_segments)
+      if opts.verbose:
+        print >> sys.stderr, "checking safety with HW injections..."
+      if opts.injection_file != None:
+        cursor, Nvetoed, Nexp, probability, safety = \
+                         injection_check(cursor, opts.injection_file,\
+                         veto_segments, abs(analyzed_segs))
+  
+  if candidate_data == None or opts.injection_file == None:
+
+    Nvetoed = "n/a"
+    Nexp = "n/a"
+    probability = "n/a"
+    safety = "n/a"
+
+  ############################################################################
+  # 5. save the result
+  ############################################################################
+
+  # for the sake of keeping track of varialbes for later use, store them in the database
+  opts.trigger_files = ",".join(opts.trigger_files)
+  params = opts.__dict__.items()
+  params.append(("filePrefix",os.path.basename(filePrefix)))
+  params.append(("totalGWtrigsNum",totalGWNum))
+  params.append(("totalTime",int(abs(analyzed_segs))))
+  params.append(("start_time",start_time))
+  params.append(("end_time",end_time))
+  params.append(("resultFile",resultFile))
+  params.append(("GWtrigsFile",GWtrigsFile))
+  params.append(("KWtrigsFile",KWtrigsFile))
+  params.append(("vetoSegFile",vetoSegFile))
+  params.append(("HWInjNvetoed",Nvetoed))
+  params.append(("HWInjNexp",Nexp))
+  params.append(("HWInjProbability",probability))
+  params.append(("safety",safety))
+  cursor.execute("create table params (var_name txt, value)")
+  cursor.executemany("insert into params values (?,?)", params)
+  connection.commit()
+
+  # also save the analyzed segment into the database
+  cursor = KW_veto_utils.write_segs_db(cursor,analyzed_segs,"analyzed_segs")  
+  connection.commit()
+
+  if opts.verbose: 
+    print >> sys.stderr, "saving the result in %s, %s, %s..."\
+                         %(resultFile, GWtrigsFile, KWtrigsFile)
+
+  ## write in files
+  KW_veto_utils.save_db(cursor, 'ALL', dbFile, working_filename, order_by = None, verbose = opts.verbose)
+  if opts.extension != '.db':
+    KW_veto_utils.save_db(cursor, 'result', resultFile, working_filename, order_by = 'threshold asc', verbose = opts.verbose)
+    KW_veto_utils.save_db(cursor, 'GWtrigs', GWtrigsFile, working_filename, order_by = 'GPSTime asc', verbose = opts.verbose)
+    KW_veto_utils.save_db(cursor, 'KWtrigs', KWtrigsFile, working_filename, order_by = 'GPSTime asc', verbose = opts.verbose)
+
+finally:
+  # clean up all the tmp databases
+  for db in ("KW_working_filename","GW_working_filename","working_filename"):
+    if globals().has_key(db):
+      db = globals()[db]
+      if opts.verbose:
+        print >> sys.stderr, "removing temporary workspace '%s'..."%db
+      os.remove(db)
+  
+if opts.verbose: 
+  print >> sys.stderr, "KW_veto_calc for %s triggers * %s done!"\
+                                                %(opts.ifo,opts.channel)    

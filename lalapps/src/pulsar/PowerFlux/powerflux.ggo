@@ -127,4 +127,5 @@ option "compute-skymaps" - "allocate memory and compute skymaps with final resul
 option "fine-grid-skymarks" - "use sky marks from the fine grid, this uses constant spindown" int default="0" no
 option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear statistics" int default="20" no
 option "tail-veto" - "do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum" int default="10" no
+option "cache-granularity" - "granularity of power cache frequency shift resolution, in fractions of a frequency bin" int default="-1" no
 

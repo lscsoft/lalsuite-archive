@@ -22,12 +22,12 @@
  **** </lalVerbatim> */
 
 /**** <lalLaTeX>
- * 
+ *
  * \subsection{Program \texttt{ComplexFFTTest.c}}
  * \label{ss:ComplexFFTTest.c}
- * 
+ *
  * Tests the routines in \verb+ComplexFFT.h+.
- * 
+ *
  * \subsection*{Usage}
  * \begin{verbatim}
  * ComplexFFTTest [options]
@@ -37,7 +37,7 @@
  *   -v         verbose: print extra information
  *   -d level   set lalDebugLevel to level
  * \end{verbatim}
- * 
+ *
  * \subsubsection*{Description}
  * \subsubsection*{Exit codes}
  * \begin{tabular}{|c|l|}
@@ -48,12 +48,12 @@
  * \tt 1 & Subroutine failed.            \\
  * \hline
  * \end{tabular}
- * 
+ *
  * \subsubsection*{Uses}
  * \subsubsection*{Notes}
- * 
+ *
  * \vfill{\footnotesize\input{ComplexFFTTestCV}}
- * 
+ *
  **** </lalLaTeX> */
 
 #include <stdio.h>
@@ -73,6 +73,7 @@
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
 #include <lal/ComplexFFT.h>
+#include <config.h>
 
 #define CODES_(x) #x
 #define CODES(x) CODES_(x)
@@ -104,7 +105,11 @@ int
 main( int argc, char *argv[] )
 {
   const UINT4 n   = 17;
+#if LAL_CUDA_ENABLED
+  const REAL4 eps = 1e-4;
+#else
   const REAL4 eps = 1e-6;
+#endif
 
   static LALStatus  status;
   ComplexFFTPlan   *pfwd = NULL;

@@ -17,14 +17,14 @@
 *  MA  02111-1307  USA
 */
 
-/*----------------------------------------------------------------------- 
- * 
+/*-----------------------------------------------------------------------
+ *
  * File Name: CoherentInspiralInputTest.c
  *
  * Author: Seader, S. E.  Brown, D.
- * 
+ *
  * Revision: $Id$
- * 
+ *
  *-----------------------------------------------------------------------
  */
 
@@ -53,7 +53,6 @@
 #include <lal/AVFactories.h>
 #include <lal/LALConstants.h>
 #include <lal/FrameStream.h>
-#include <lal/DataBuffer.h>
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXML.h>
@@ -168,8 +167,8 @@ int main( int argc, char *argv[] )
  */
 static void
 TestStatus (
-    LALStatus  *status, 
-    const char *ignored, 
+    LALStatus  *status,
+    const char *ignored,
     int         exitcode
            )
 {

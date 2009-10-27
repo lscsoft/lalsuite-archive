@@ -17,37 +17,39 @@
 *  MA  02111-1307  USA
 */
 
-/*----------------------------------------------------------------------- 
- * 
+/*-----------------------------------------------------------------------
+ *
  * File Name: FindChirpBankVeto.c
  *
  * Author: Brown D. A., and Hanna, C.
- * 
+ *
  * Revision: $Id$
- * 
+ *
  *-----------------------------------------------------------------------
  */
 
-#if 0 
+#if 0
 <lalVerbatim file="FindChirpBankVetoCV">
 Author: Brown, D. A., and Hanna, C.
 $Id$
-</lalVerbatim> 
+</lalVerbatim>
 
 <lalLaTeX>
 \vfill{\footnotesize\input{FindChirpBankVetoCV}}
-</lalLaTeX> 
+</lalLaTeX>
 #endif
 
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
 #include <lal/AVFactories.h>
-#include <lal/DataBuffer.h>
 #include <lal/LALInspiral.h>
 #include <lal/FindChirp.h>
 #include <math.h>
 
 NRCSID (FINDCHIRPBANKVETOC, "$Id$");
+
+/* macro to "use" unused function parameters */
+#define UNUSED(expr) do { (void)(expr); } while(0)
 
 /* Some static function prototypes */
 
@@ -85,7 +87,7 @@ XLALFindChirpCreateSubBanks(
   /* if there are no templates return NULL */
   if ( ! bankSize )
     return NULL;
-  
+
   if ( ! numSubBanks )
   {
     /* the bank is smaller than the subbank size, so return the entire */
@@ -127,15 +129,15 @@ XLALFindChirpCreateSubBanks(
   {
     if ( ! subBankHead )
     {
-      thisSubBank = subBankHead = 
+      thisSubBank = subBankHead =
         (FindChirpSubBank *) LALCalloc( 1, sizeof(FindChirpSubBank) );
     }
     else
     {
-      thisSubBank = thisSubBank->next = 
+      thisSubBank = thisSubBank->next =
         (FindChirpSubBank *) LALCalloc( 1, sizeof(FindChirpSubBank) );
     }
-    
+
     thisSubBank->subBankSize = bankSizes[i];
 
     /* store the size of the biggest bank */
@@ -146,7 +148,7 @@ XLALFindChirpCreateSubBanks(
   }
 
   /* chop up the template bank into subbanks */
-  for ( thisSubBank = subBankHead, nextTmplt = bankHead; thisSubBank; 
+  for ( thisSubBank = subBankHead, nextTmplt = bankHead; thisSubBank;
       thisSubBank = thisSubBank->next )
   {
     thisTmplt = nextTmplt;
@@ -165,7 +167,7 @@ XLALFindChirpCreateSubBanks(
 }
 
 
-REAL4 
+REAL4
 XLALComputeFullChisq(
     FindChirpBankVetoData      *bankVetoData,
     FindChirpFilterInput       *input,
@@ -178,8 +180,12 @@ XLALComputeFullChisq(
 )
 
 {
-  INT4 stIX, fftIX; 
+  INT4 stIX, fftIX;
   REAL4 fftNorm, powerNorm, signalPower, Sdothsq, chisq;
+
+  /* bankVetoData and i are unused in function */
+  UNUSED(bankVetoData);
+  UNUSED(i);
 
   stIX = input->fcTmplt->tmplt.tC / params->deltaT  + 1.0;
   fftIX = input->segment->dataPower->data->length - 1;
@@ -188,13 +194,13 @@ XLALComputeFullChisq(
   /* it is the minimum power of the ~15 segments used in the PSD */
   /* this helps to avoid negative chisq values for short templates in crappy */
   /* data */
-  
-  
-  powerNorm = input->segment->dataPower->data->data[fftIX] 
+
+
+  powerNorm = input->segment->dataPower->data->data[fftIX]
                   / fftNorm / fftNorm ;
 
   signalPower = (input->segment->dataPower->data->data[snrIX] -
-                       input->segment->dataPower->data->data[snrIX-stIX]) 
+                       input->segment->dataPower->data->data[snrIX-stIX])
                     / fftNorm / fftNorm;
 
   /* this is just the snr squared */
@@ -204,18 +210,18 @@ XLALComputeFullChisq(
   /* in the time domain and frequency domain because of the complex matched */
   /* filter ?? I have used 0.25 * the SNR^2 */
   chisq =  signalPower*fftNorm/powerNorm - 0.25 * (Sdothsq * norm);
-  
-  if (chisq < 1) chisq = 1; 
-  *dof = stIX; 
+
+  if (chisq < 1) chisq = 1;
+  *dof = stIX;
   return chisq;
 
 }
 
-void 
-XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData, 
+void
+XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData,
                     FindChirpSubBank *vetoBank,
                     FindChirpDataParams *params,
-                    REAL4 dynRange, 
+                    REAL4 dynRange,
                     REAL4 fLow,
                     REAL4 deltaF,
                     REAL4 deltaT )
@@ -227,6 +233,9 @@ XLALBankVetoCCMat ( FindChirpBankVetoData *bankVetoData,
   UINT4 tmpLen = bankVetoData->fcInputArray[0]->fcTmplt->data->length;
   REAL4 ABr, ABi, Br, Bi, sqResp;
   UINT4 stIX = floor( fLow / deltaF );
+
+  /* deltaT is unused in this function */
+  UNUSED(deltaT);
 
   for ( i = 0; i < iSize; i++ )
   {
@@ -299,8 +308,8 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
   UINT4 j = 0;
   REAL4 ii,jj,ji,denomFac,phi_i, phi_j, chi_i, chi_r;
   UINT4 iSize = bankVetoData->length;
-  
-  iSNR_r = bankVetoData->qVecArray[i]->data[snrIX].re 
+
+  iSNR_r = bankVetoData->qVecArray[i]->data[snrIX].re
          * sqrt(bankVetoData->fcInputArray[i]->fcTmplt->norm);
   iSNR_i = bankVetoData->qVecArray[i]->data[snrIX].im
          * sqrt(bankVetoData->fcInputArray[i]->fcTmplt->norm);
@@ -327,7 +336,7 @@ XLALComputeBankVeto( FindChirpBankVetoData *bankVetoData,
              * sqrt(bankVetoData->fcInputArray[j]->fcTmplt->norm);
       jSNR = sqrt(jSNR_r*jSNR_r + jSNR_i*jSNR_i);
 
-      chi_r = (jSNR_r*cos(0.0-phi_j) - jSNR_i*sin(0.0-phi_j)) - 
+      chi_r = (jSNR_r*cos(0.0-phi_j) - jSNR_i*sin(0.0-phi_j)) -
               ji / sqrt(ii*jj) * (iSNR_r);
 
       chi_i = (jSNR_r*sin(0.0-phi_j) + jSNR_i*cos(0.0-phi_j)) -
@@ -431,8 +440,8 @@ XLALFindChirpSortTemplatesByLevel( InspiralTemplate *bankHead, UINT4 num)
 
 static int compareTemplateByLevel (const void * a, const void * b)
 {
-  REAL4 mVal1 = (*((const InspiralTemplate**)a))->level;
-  REAL4 mVal2 =   (*((const InspiralTemplate**)b))->level;
+  REAL4 mVal1 = (*(InspiralTemplate * const *) a)->level;
+  REAL4 mVal2 = (*(InspiralTemplate * const *) b)->level;
 
   if ( mVal1 > mVal2 ) return 1;
   if ( mVal1 == mVal2 ) return 0;
@@ -443,8 +452,8 @@ static int compareTemplateByLevel (const void * a, const void * b)
 
 static int compareTemplateByChirpMass (const void * a, const void * b)
 {
-  REAL4 mVal1 = (*((const InspiralTemplate**)a))->chirpMass;
-  REAL4 mVal2 =   (*((const InspiralTemplate**)b))->chirpMass;
+  REAL4 mVal1 = (*(InspiralTemplate * const *) a)->chirpMass;
+  REAL4 mVal2 = (*(InspiralTemplate * const *) b)->chirpMass;
 
   if ( mVal1 > mVal2 ) return 1;
   if ( mVal1 == mVal2 ) return 0;

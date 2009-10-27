@@ -17,7 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-#include <lal/DataBuffer.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpSP.h>
 
@@ -45,9 +44,9 @@ int SPInit(
     FindChirpDataParams  **spDataParams,
     FindChirpInitParams     *initParams,
     REAL4 srate,
-    REAL4 fmin,
+    REAL4 f_min,
     REAL4 dynRange,
-    UINT4 trunc
+    UINT4 lal_trunc
     );
 
 int SPFini(
@@ -59,9 +58,9 @@ int TDInit(
     FindChirpDataParams **tdDataParams,
     FindChirpInitParams    *initParams,
     REAL4 srate,
-    REAL4 fmin,
+    REAL4 f_min,
     REAL4 dynRange,
-    UINT4 trunc
+    UINT4 lal_trunc
     );
 
 int TDFini(
@@ -73,9 +72,9 @@ int Init(
     FindChirpDataParams  **DataParams,
     FindChirpInitParams   *initParams,
     REAL4 srate,
-    REAL4 fmin,
+    REAL4 f_min,
     REAL4 dynRange,
-    UINT4 trunc
+    UINT4 lal_trunc
     );
 
 int Fini(
@@ -98,7 +97,7 @@ int TDFilter(
     DataSegmentVector *dataSegVec,
     REAL4 mass1,
     REAL4 mass2,
-    REAL4 fmax,
+    REAL4 f_max,
     FindChirpFilterInput *filterInput,
     FindChirpFilterParams *filterParams,
     FindChirpSegmentVector *fcSegVec,
@@ -110,8 +109,8 @@ int MakeData(
     REAL4 mass1,
     REAL4 mass2,
     REAL4 srate,
-    REAL4 fmin,
-    REAL4 fmax
+    REAL4 f_min,
+    REAL4 f_max
     );
 
 int MakeDataACTD(

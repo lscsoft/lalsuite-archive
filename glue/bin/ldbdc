@@ -30,6 +30,7 @@ import re
 
 try:
   from glue import LDBDClient
+  from glue import LDBDWClient
   from glue import gsiserverutils
 except ImportError, e:
   print >> sys.stderr, """
@@ -53,6 +54,7 @@ Usage: ldbdc.py [OPTIONS]
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
   -D, --dmt-segments      insert the XML data as DMT segment data
+  -a, --disable-gssapi    disable grid certificate authentication
   -p, --ping              ping the server
   -h, --help              print this message
 
@@ -65,7 +67,7 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:j:d:i:f:q:o:Dvph"
+shortop = "r:j:d:i:f:q:o:Dvpha"
 longop = [
   "server=",
   "identity=",
@@ -75,6 +77,7 @@ longop = [
   "query=",
   "output=",
   "dmt-segments",
+  "disable-gssapi",
   "ping",
   "help"
   ]
@@ -94,6 +97,7 @@ pfnlist = None
 outfile = None
 squery = None
 dmtsegs = None
+disableauth = None
 ping = None
 
 # environment variables override defaults but not
@@ -122,6 +126,8 @@ for o, a in opts:
     outfile = a
   elif o in ("-D", "--dmt-segments"):
     dmtsegs = 1
+  elif o in ("-D", "--disable-gssapi"):
+    disableauth = 1
   elif o in ("-p", "--ping"):
     ping = 1
 
@@ -163,17 +169,28 @@ if dmtsegs and pfnlist:
 if not identity:
   identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
-# open connection to LDBD Server
-try:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
+if disableauth:
+  identity = None
 
-except Exception, e:
-  print >>sys.stderr, \
-    "Unable to connect to LDBD Server %s:%d" % (host, port)
-  if gsiserverutils.checkCredentials():
-    print >>sys.stderr, "Got the following error : " + str(e)
-    print >>sys.stderr, "Enter 'ldbdc --help' for usage"
-  sys.exit(1)
+# open connection to LDBD Server
+if port in (30015,30020,30021,30022,30023):
+  try:
+    myClient = LDBDClient.LDBDClient(host, port, identity)
+
+  except Exception, e:
+    print >>sys.stderr, \
+      "Unable to connect to LDBD Server %s:%d" % (host, port)
+    if gsiserverutils.checkCredentials():
+      print >>sys.stderr, "Got the following error : " + str(e)
+      print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+    sys.exit(1)
+elif port==443:
+  try:
+    myClient = LDBDWClient.LDBDClient(host,port,identity)
+  except Exception, e:
+    print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host,port)
+    sys.exit(1)
+
 
 try:
   if ping:

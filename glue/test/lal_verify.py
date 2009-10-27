@@ -81,7 +81,7 @@ class test_LIGOTimeGPS(unittest.TestCase):
 
 	def test_pylal_comparison(self):
 		try:
-			from pylal.xlal.date import LIGOTimeGPS as pylalLIGOTimeGPS
+			from pylal.datatypes import LIGOTimeGPS as pylalLIGOTimeGPS
 		except ImportError:
 			print >>sys.stderr, "pylal not available:  skipping test"
 			return
@@ -116,7 +116,7 @@ class test_LIGOTimeGPS(unittest.TestCase):
 			try:
 				# FIXME:  max allowed discrepancy should be
 				# smaller
-				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 2e-8, True)
+				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 3e-8, True)
 			except AssertionError, s:
 				raise AssertionError, "%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(pylalop(pylalLIGOTimeGPS(arg1), arg2)))
 

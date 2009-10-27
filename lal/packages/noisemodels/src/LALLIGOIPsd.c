@@ -22,6 +22,8 @@
 #include <lal/LALAtomicDatatypes.h>
 #include <lal/LALNoiseModels.h>
 
+/* macro to "use" unused function parameters */
+#define UNUSED(expr) do { (void)(expr); } while (0)
 
 NRCSID (LALLIGOIPSDC,"$Id$");
 
@@ -40,6 +42,10 @@ NRCSID (LALLIGOIPSDC,"$Id$");
  * \right)^{-56} + 0.16 \left( \frac{f}{f_0} \right)^{-4.52} + 0.52 + 0.32
  * \left( \frac{f}{f_0} \right)^2 \right]
  * \end{equation}
+ *
+ * Multiply the return value of this function by 2 \Delta f to put it in
+ * the same units as used by the LAL average spectrum functions like
+ * XLALWhitenCOMPLEX16FrequencySeries().
  */
 
 
@@ -47,7 +53,7 @@ REAL8 XLALLIGOIPsd(REAL8 f)
 {
 	double f_over_f0 = f / 150;
 
-	return 9e-46 * (pow(4.49 * f_over_f0, -56) + 0.16 * pow(f_over_f0, -4.52) + 0.52 + 0.32 * pow(f_over_f0, 2)); 
+	return 9e-46 * (pow(4.49 * f_over_f0, -56) + 0.16 * pow(f_over_f0, -4.52) + 0.52 + 0.32 * pow(f_over_f0, 2));
 }
 
 
@@ -58,8 +64,11 @@ REAL8 XLALLIGOIPsd(REAL8 f)
  */
 
 
-void LALLIGOIPsd(LALStatus *status, REAL8 *psd, REAL8 f) 
+void LALLIGOIPsd(LALStatus *status, REAL8 *psd, REAL8 f)
 {
+  /* status is unused in this function */
+  UNUSED(status);
+
 	/* Deprecation warning temporarily commented out to make life
 	 * easier for the nightly build --- please update calling code */
 	/*XLALPrintDeprecationWarning("LALLIGOIPsd", "XLALLIGOIPsd");*/

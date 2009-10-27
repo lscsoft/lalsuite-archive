@@ -38,6 +38,82 @@ __version__ = "$Revision$"
 
 # Following utilities can be used with any coinc_table
 
+def concatenate( *args ):
+    """
+    SQLite doesn't have a tuple type built-in. This can be frustrating if one
+    needs to compare values from multiple columns when doing queries. For example,
+    if one wanted to do something like:
+
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE (a.val1, a.val2) IN (
+            SELECT (b.val1, b.val2) 
+            FROM b)
+        ''')
+    
+    an error would be raised.
+
+    This function tries to alleiviate the problem by giving the ability to concatenate
+    results from multiple columns into a single colon-seperated string. These strings can then be
+    compared directly. So, in the above example, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_function("concatenate", 2, sqlutils.concatenate)
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE concatenate(a.val1, a.val2) IN (
+            SELECT concatenate(b.val1, b.val2) 
+            FROM b)
+    ''')
+
+    Note that the create_function method must be called first with the number of 
+    values that will be passed to concatenate before using it in any query.
+    """
+    return ':'.join([str(val) for val in args])
+
+class aggregate_concatenate:
+    """
+    This class builds on the concatenate method to allow string concatenation
+    across multiple columns and rows. These strings can then be compared in
+    SQLite. For example, if one wanted to match ids from two different tables that share
+    the same values, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_aggregate("agg_concatenate", 2, sqlutils.aggregate_concatenate)
+    connection.cursor().execute('''
+        SELECT a.id, b.id
+        FROM a, b
+        WHERE
+            (
+                SELECT agg_concatenate(a.val1, a.val2) 
+                FROM a 
+                GROUP BY id
+                ORDER BY a.val1, a.val2 ASC
+           ) == (
+                SELECT agg_concatenate(b.val1, b.val2) 
+                FROM b 
+                GROUP BY id
+                ORDER BY b.val1, b.val2 ASC
+           )
+    ''')
+
+    In the strings that are created, rows are seperated by ",", columns by ":".
+
+    Note that the create_aggregate method must be called first with the number of 
+    values that will be passed to aggregate_concatenate before using it in any query.
+    """
+    def __init__(self):
+        self.result = ''
+    def step(self, *args):
+        self.result = ','.join([ self.result, concatenate(*args) ])
+        #elf.result.append(concatenate(*args))
+    def finalize(self):
+        return self.result.lstrip(',')
+        #return ','.join(sorted(self.result))
+    
+
 class parse_param_ranges:
     
     param = None
@@ -90,7 +166,7 @@ class parse_param_ranges:
                 lowerbndry = '>'
                 lowerparam = float( lowerparam.lstrip('(') )
             else:
-                raise ValueError, "Parameter range %s not formatted correctly!" % this_range
+                raise ValueError, "Parameter range %s not formatted correctly" % this_range
   
             # get upper-bound (similar to lower bound method)
             upperparam = this_range.split(',')[1].strip()
@@ -101,7 +177,7 @@ class parse_param_ranges:
                 upperbndry = '<'
                 upperparam = float( upperparam.rstrip(')') )
             else:
-                raise ValueError, "Parameter range %s not formatted correctly!" % this_range
+                raise ValueError, "Parameter range %s not formatted correctly" % this_range
 
             # add param to filters
             self.param_ranges.append( ( (lowerbndry, lowerparam), (upperbndry, upperparam) ))
@@ -134,8 +210,8 @@ class parse_param_ranges:
             lowerparam = str( range[0][1] )
             upperbndry = range[1][0]
             upperparam = str( range[1][1] )
-            self.param_filters.append( ' '.join([ self.param, lowerbndry, lowerparam, 
-              'AND', self.param, upperbndry, upperparam ]) )
+            self.param_filters.append( ' '.join([ '(', self.param, lowerbndry, lowerparam, 
+              'AND', self.param, upperbndry, upperparam, ')' ]) )
 
         return self.param_filters
 
@@ -220,7 +296,9 @@ class parse_coinc_options:
             rule = rule.strip().lstrip('[').rstrip(']').upper()
 
             # get coinc_instruments, instruments_on 
-            [ coinc_instruments, instruments_on ] = rule.split(' IN ')
+            if len(rule.split('IN')) != 2:
+                raise ValueError, "Must seperate coinc. types and on-instruments by 'in'"
+            [ coinc_instruments, instruments_on ] = rule.split('IN')
             instruments_on = instruments_on.strip()
             coinc_instruments = coinc_instruments.strip()
 
@@ -285,18 +363,18 @@ class parse_coinc_options:
                     this_coincfilter = ' '.join([ this_coincfilter, 'AND (' ])
                     for coinc_instruments in self.coinc_types[ instruments_on ]:
                         this_coincfilter = ''.join([ this_coincfilter,
-                            'coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
+                            ' coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
                     # strip the last 'OR' and replace with a ')' to close out the coinc_instruments
                     this_coincfilter = this_coincfilter.rstrip('OR') + ')'
             # if instruments_on is 'ALL', just add what coincs to filter
             elif instruments_on == 'ALL' and 'ALL' not in self.coinc_types[ instruments_on ]:
                 for coinc_instruments in self.coinc_types[ instruments_on ]:
                     this_coincfilter = ''.join([ this_coincfilter,
-                        'coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
+                        ' coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
                 # strip the last 'OR'
                 this_coincfilter = this_coincfilter.rstrip('OR')
 
-            self.coinc_filters.append(this_coincfilter)
+            self.coinc_filters.append( ''.join([ '(', this_coincfilter, ')' ]) )
 
         return self.coinc_filters
             
@@ -383,7 +461,7 @@ def convert_duration( duration, convert_to ):
             the duration from a long int to a float.
         'min': to minutes - will divide by 60.
         'hr': to hours - will divide by 3600.
-        'd': to days - will divide by 86400.
+        'days': to days - will divide by 86400.
         'yr': to years - will divide by 31557600. 
             This is the Julian year, which is the
             accepted astronomical year
@@ -396,7 +474,7 @@ def convert_duration( duration, convert_to ):
         return duration / 60.
     elif convert_to == 'hr':
         return duration / 3600.
-    elif convert_to == 'd':
+    elif convert_to == 'days':
         return duration / 86400.
     elif convert_to == 'yr':
         return duration / 31557600.
@@ -422,24 +500,28 @@ class Summaries:
     database for making calculation of uncombined fars and combined fars quick 
     and efficient.
     
-    bkgstats groups triggers by experiment_id, ifos, and param_group 
+    bkg_stats groups triggers by experiment_id, ifos, and param_group 
     (param_group is an arbitrary integer representing the param bin, e.g., 
-    mchirp [2,8), to which a trigger belongs; if no binning is done, then 
+    mchirp [3.48,7.4), to which a trigger belongs; if no binning is done, then
     it is 0 for all triggers). It stores ALL the triggers in all the time 
-    slides and zero-lag within that group.
+    slides (except zero-lag) within that group.
 
-    frgstats groups triggers by experiment_id, experiment_summ_id, ifos, and 
+    sngl_slide_stats groups triggers by experiment_id, experiment_summ_id, ifos, and 
     param_group. It therefore groups all triggers within each time slide 
-    separately. If the time-slide is not zero-lag, zero-lag triggers are also 
-    added (see calc_ufar below for reasoning).
+    separately. It is used to subtract triggers within the same slide when calculating
+    uncombined fars for the background. Therefore, it only stores slide triggers;
+    for any zero-lag datatype sngl_slide_stats is just an empty list.
+
+    datatypes maps the list of datatypes for an experiment to the corresponding
+    experiment_summ_ids:
+    datatypes[experiment_id][datatype] = [esid1, esid2, etc.]
 
     frg_durs stores the duration for each experiment_summ_id. It's keys are 
     [experiment_id][experimen_summ_id].
 
     bkg_durs stores the background duration for each time-slide and zero-lag, 
-    i.e., for each experiment_summ_id. This is the sum of all the frg_durs 
-    sharing the same experiment_id - the duration of the zero-lag and the 
-    given experiment_summ_id.
+    i.e., for each experiment_summ_id. This is the sum of all other slide
+    datatypes sharing the same experiment_id except for the given slide. 
 
     max_bkg_fars stores the maximum background fars of all the categories 
     within each time slide. It's keys are (experiment_summ_id, ifo_group). 
@@ -448,7 +530,7 @@ class Summaries:
     If opts.combine_fars is set to across_all a category is defined by the 
     param bin in which a trigger exists and the ifos that took part in the 
     trigger. So, if there are three param bins and we've excluded H2,L1 triggers 
-    in H1,H2,L1 time, then there are 6 categories for H1,H2,L1 time: three
+    in H1,H2,L1 time, then there are 6 categories for H1,H2,L1 time: three param
     bins each for H1,L1 and H1,H2,L1 coincident triggrs. Thus, ifo_group will 
     be set to "ALL_IFOS" and there will be 6 max_bkg_fars stored for each 
     experiment_summ_id in triple time.
@@ -458,54 +540,68 @@ class Summaries:
     coinc. trigger we are considering and there will only be 3 max_bkg_fars 
     stored for that entry.
 
-    zero_lag_ids stores the esid of the zero-lag slide for an experiment; 
-    it therefore is keyed by experiment_ids.
+    zero_lag_ids stores the esid of all zero-lag "slides" of an experiment.
+        zero_lag_ids[ experiment_id ] = [experiment_summ_id1, experiment_summ_id2, etc.]
     """
     def __init__(self):
-        self.bkgstats = {}
-        self.frgstats = {}
+        self.bkg_stats = {}
+        self.sngl_slide_stats = {}
+        self.datatypes = {}
         self.frg_durs = {}
         self.bkg_durs = {}
         self.max_bkg_fars = {}
         self.zero_lag_ids = {}
 
-    def add_to_bkgstats(self, experiment_id, experiment_summ_id, ifos, param_group, stat):
+    def add_to_bkg_stats(self, experiment_id, experiment_summ_id, ifos, param_group, stat):
         """
-        Adds a stat to bkgstats and frgstats. What stat is added is determined on the command
+        Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if (experiment_id, ifos, param_group) not in self.bkgstats:
-            self.bkgstats[(experiment_id, ifos, param_group)] = []
-        self.bkgstats[(experiment_id, ifos, param_group)].append( stat )
-        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.frgstats:
-            self.frgstats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        self.frgstats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
+        # add the categories to the bkg_stats if they don't exist yet
+        if (experiment_id, ifos, param_group) not in self.bkg_stats:
+            self.bkg_stats[(experiment_id, ifos, param_group)] = []
+        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
+            self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        # only add the stats if they are slide
+        if not ( experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id] ):
+            self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
+            self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
-    def sort_bkgstats(self):
+    def sort_bkg_stats(self):
         """
-        Sorts each list in bkgstats from smallest to largest value.
+        Sorts each list in bkg_stats and sngl_slide_stats from smallest to largest value.
         """
-        for thislist in self.bkgstats.values():
+        for thislist in self.bkg_stats.values():
             thislist.sort()
+        for thislist in self.sngl_slide_stats.values():
+            thislist.sort()
+
+    def store_datatypes(self, experiment_id, experiment_summ_id, datatype):
+        """
+        Stores the experiment_summ_id associated with each datatype.
+        """
+        if experiment_id not in self.datatypes:
+            self.datatypes[experiment_id] = {}
+        if datatype not in self.datatypes[experiment_id]:
+            self.datatypes[experiment_id][datatype] = []
+        self.datatypes[experiment_id][datatype].append(experiment_summ_id)
+
+    def get_datatype(self, experiment_summ_id):
+        """
+        Retrieve the datatype for a given experiment_summ_id.
+        """
+        for eid in self.datatypes:
+            for datatype, esid_list in self.datatypes[eid].items():
+                if experiment_summ_id in esid_list:
+                    return datatype
 
     def append_zero_lag_id(self, experiment_id, zero_lag_esid):
         """
         Adds a zero_lag_id to the zero_lag_ids dictionary.
         """
-        self.zero_lag_ids[experiment_id] = zero_lag_esid
-
-    def add_zero_lag_to_frgstats_and_sort( self ):
-        """
-        Adds the zero_lag triggers to every entry in frgstats except for
-        the zero-lag entry. Then sorts the concatenated lists.
-        """
-        for params in self.frgstats:
-            eid, esid = params[0], params[1]
-            # following checks that this eid and esid are not zero lag and that
-            # there are foreground triggers
-            if (eid, esid) not in self.zero_lag_ids.items() and (eid, self.zero_lag_ids[eid], params[2], params[3]) in self.frgstats:
-                self.frgstats[ params ] = self.frgstats[ params ] + self.frgstats[ (eid, self.zero_lag_ids[eid], params[2], params[3])]
-            self.frgstats[params].sort()
+        if experiment_id not in self.zero_lag_ids:
+            self.zero_lag_ids[experiment_id] = []
+        self.zero_lag_ids[experiment_id].append(zero_lag_esid)
 
     def append_duration(self, experiment_id, experiment_summ_id, duration):
         """
@@ -520,14 +616,8 @@ class Summaries:
         Sums the background durs for each time-slide (experiment_summ_id).
         """
         for eid in self.frg_durs:
-            for esid in self.frg_durs[eid]:
-                # if zero_lag this_frg_dur should just be the zero_lag duration
-                if esid == self.zero_lag_ids[eid]:
-                    this_frg_dur = self.frg_durs[eid][esid]
-                # if not zero_lag, this_frg_dur should be this slide's durtion + the zero_lag duration
-                else:
-                    this_frg_dur = self.frg_durs[eid][esid] + self.frg_durs[eid][self.zero_lag_ids[eid]]
-                self.bkg_durs[esid] = sum(self.frg_durs[eid].values()) - this_frg_dur
+            for this_esid in self.frg_durs[eid]:
+                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid]])
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
@@ -554,35 +644,40 @@ class Summaries:
         a stat value greater than or equal to the trigger's stat value and 
         dividing by the background duration for that slide.
         To do this quickly, bisect.bisect_left is used (see python 
-        documentation for more info) on the bkgstats list. Since bkgstats 
-        contains all the triggers in all the slides -- including zero-lag -- 
-        for some experiment_id, this will result in counting both the zero-lag 
-        triggers and the triggers that are in the same slide (given by the esid)
-        as the trigger we are considering. To correct for this, the trigger's 
-        place in the frgstats list is subtracted from  this value (this is why 
-        zero-lag triggers are added to all the frgstats except for the zero-lag). 
-        Thus, the "background" considered for some trigger are all the triggers 
-        sharing the same experiment_id, excluding zero-lag triggers and triggers
-        in the same time-slide as the trigger. This means that uncombined far
-        for non-zero-lag triggers will use one less time slide than zero-lag triggers.
+        documentation for more info) on the bkg_stats list. Since bkg_stats 
+        contains all the triggers in all the slides for some experiment_id,
+        this will result in counting the triggers that are in the same slide
+        (given by the esid) as the trigger we are considering (except for zero-lag).
+        To correct for this, the trigger's place in it's sngl_slide_stats list is
+        subtracted from this value. The "background" considered for some trigger is
+        therefore all the triggers sharing the same experiment_id, excluding
+        zero-lag triggers and triggers in the same time-slide as the trigger. This
+        means that uncombined far for non-zero-lag triggers will use one less time
+        slide than zero-lag triggers.
         """
         return (\
-            ( len(self.bkgstats[(eid, ifos, param_group)]) - bisect.bisect_left(self.bkgstats[(eid, ifos, param_group)], stat) ) \
+            ( len(self.bkg_stats[(eid, ifos, param_group)]) - bisect.bisect_left(self.bkg_stats[(eid, ifos, param_group)], stat) ) \
             - \
-            ( len(self.frgstats[(eid, esid, ifos, param_group)]) - bisect.bisect_left(self.frgstats[(eid, esid, ifos, param_group)], stat) ) \
+            ( len(self.sngl_slide_stats[(eid, esid, ifos, param_group)]) - bisect.bisect_left(self.sngl_slide_stats[(eid, esid, ifos, param_group)], stat) ) \
             ) / self.bkg_durs[esid]
 
     def calc_ufar_by_min(self, eid, esid, ifos, param_group, stat):
         """
         Same as calc_ufar_by_max, except that the uncombined far is calculated
-        by counting background triggers that  have a stat value less than or 
+        by counting background triggers that have a stat value less than or 
         equal to the given stat. (Done by using bisect.bisect_right as opposed to 
         len(list) - bisect.bisect_left).
+        Note: if stat is 0, will just return 0. This is because a 0 when caclulating
+        FARs by minimum value is equivalent to inf. when caclulating FARs by maximum
+        value.
         """
+        if stat == 0.:
+            return stat
+
         return ( \
-            bisect.bisect_right(self.bkgstats[(eid, ifos, param_group)], stat) \
+            bisect.bisect_right(self.bkg_stats[(eid, ifos, param_group)], stat) \
             - \
-            bisect.bisect_right(self.frgstats[(eid, esid, ifos, param_group)], stat) \
+            bisect.bisect_right(self.sngl_slide_stats[(eid, esid, ifos, param_group)], stat) \
             ) / self.bkg_durs[esid]
 
     def calc_cfar( self, esid, ifo_group, ufar ):
@@ -648,13 +743,13 @@ def join_experiment_tables_to_coinc_inspiral():
     the only table listed in the FROM statement is the coinc_inspiral).
     """
 
-    join_conditions = ' '.join([ 
-          'JOIN experiment, experiment_summary, experiment_map',
-          'ON experiment.experiment_id == experiment_summary.experiment_id',
-              'AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id',
-              'AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id' ])
-
-    return join_conditions
+    return """ 
+    JOIN
+        experiment, experiment_summary, experiment_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )"""
 
 
 def apply_inclusion_rules_to_coinc_inspiral( connection, exclude_coincs = None, include_coincs = None, 
@@ -754,6 +849,8 @@ def clean_inspiral_tables( connection, verbose = False ):
     connection.commit()
 
     # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
     for table in table_names:
         table = table[0]
         if verbose:
@@ -764,7 +861,10 @@ def clean_inspiral_tables( connection, verbose = False ):
             'WHERE event_id NOT IN (',
                 'SELECT event_id',
                 'FROM coinc_event_map )' ])
-        connection.cursor().execute( sqlquery )
+        try:
+            connection.cursor().execute( sqlquery )
+        except:
+            pass
         connection.commit()
 
     if verbose:

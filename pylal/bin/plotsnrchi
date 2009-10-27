@@ -72,7 +72,8 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=20):
   if len(slide_val):
     slide_val = log10(slide_val)
     
-  bins = arange(min_val, max_val , (max_val - min_val) /nbins )
+  bins = arange(min_val, max_val + (max_val - min_val) /nbins ,\
+         (max_val - min_val) /nbins )
   if len(trig_val):
     [trigs,bins,stuff] = hist(trig_val, bins, normed=True)
   if len(inj_val):
@@ -80,8 +81,9 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=20):
   if len(slide_val):
     [slide,bins,stuff] = hist(slide_val, bins, normed=True)
   close(100)
+  plotbins = bins[0:-1] + (max_val - min_val) /(2.* nbins)
 
-  bins = 10**bins
+  bins = 10**plotbins
   trig_val = 10**trig_val
   inj_val = 10**inj_val
   slide_val = 10**slide_val

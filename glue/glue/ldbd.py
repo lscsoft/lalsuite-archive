@@ -62,16 +62,14 @@ class LIGOLWStream(csv.Dialect):
 csv.register_dialect("LIGOLWStream",LIGOLWStream)
 
 
-class LIGOLwParseError(Exception):
+class LIGOLwParseError(exceptions.Exception):
   """Error parsing LIGO lightweight XML file"""
-  def __init__(self,args=None):
-    self.args = args
+  pass
 
 
-class LIGOLwDBError(Exception):
+class LIGOLwDBError(exceptions.Exception):
   """Error interacting with database"""
-  def __init__(self,args=None):
-    self.args = args
+  pass
 
 
 class Xlator(dict):
@@ -454,6 +452,9 @@ class LIGOMetadata:
         except DB2.Warning, e:
           self.curs.execute('rollback')
           raise LIGOLwDBError, e[2]
+        #except Exception, e:
+        #  self.curs.execute('rollback')
+        #  raise LIGOLwDBError, e[2]
       except KeyError:
         pass
     self.curs.execute('commit')
@@ -519,6 +520,7 @@ class LIGOMetadata:
       raise LIGOLwDBError, 'attempt to convert empty table to xml'
     ligolw = """\
 <?xml version='1.0' encoding='utf-8' ?>
+<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
 <LIGO_LW>
 """

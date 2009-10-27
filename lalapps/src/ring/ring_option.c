@@ -188,11 +188,15 @@ int ring_parse_options( struct ring_params *params, int argc, char **argv )
         {
           localparams.injectType = 3;
         }
+        else if( ! strcmp( "Phenom", optarg ) )
+        {
+          localparams.injectType = 4;
+        }
         else
         {
           localparams.injectType = -1;
           fprintf( stderr, "invalid --injection_type:\n"
-              "(must be ringdown, imr, imr_ringdown or EOBNR\n" );
+              "(must be ringdown, imr, imr_ringdown, EOBNR or Phenom)\n" );
           exit( 1 );
         }
         break;
@@ -455,28 +459,28 @@ int ring_params_sanity_check( struct ring_params *params )
     {
       if ( strlen( params->userTag ) && strlen( params->ifoTag ) )
       {
-        LALSnprintf( params->outputFile, sizeof( params->outputFile ),
+        snprintf( params->outputFile, sizeof( params->outputFile ),
           "%s-RING_%s_%s-%d-%d.xml", params->ifoName, 
           params->ifoTag, params->userTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( strlen( params->userTag ) && !strlen( params->ifoTag ) )
       {
-        LALSnprintf( params->outputFile, sizeof( params->outputFile ),
+        snprintf( params->outputFile, sizeof( params->outputFile ),
           "%s-RING_%s-%d-%d.xml", params->ifoName, 
           params->userTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else if ( !strlen( params->userTag ) && strlen( params->ifoTag ) )
       {
-        LALSnprintf( params->outputFile, sizeof( params->outputFile ),
+        snprintf( params->outputFile, sizeof( params->outputFile ),
           "%s-RING_%s-%d-%d.xml", params->ifoName, 
           params->ifoTag, params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );
       }
       else 
       {
-        LALSnprintf( params->outputFile, sizeof( params->outputFile ),
+        snprintf( params->outputFile, sizeof( params->outputFile ),
           "%s-RING-%d-%d.xml", params->ifoName, 
           params->startTime.gpsSeconds,
           (int)ceil( params->duration ) );

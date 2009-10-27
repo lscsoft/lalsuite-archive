@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -53,12 +51,13 @@ except:
 	os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
 
 
+from glue import git_version
 from glue.ligolw import ligolw
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 __all__ = []
@@ -85,6 +84,7 @@ class IOTrappedSignal(Exception):
 		return "trapped signal %d" % self.signum
 
 
+# FIXME:  remove, use parameter passed to load_*() functions instead
 ContentHandler = ligolw.LIGOLWContentHandler
 
 
@@ -264,7 +264,7 @@ class MD5File(object):
 		return self.fileobj.close()
 
 
-def load_fileobj(fileobj, gz = False, xmldoc = None):
+def load_fileobj(fileobj, gz = False, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file object fileobj, and return the
 	contents as a LIGO Light Weight document tree.  The file object
@@ -287,11 +287,11 @@ def load_fileobj(fileobj, gz = False, xmldoc = None):
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
-	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	ligolw.make_parser((contenthandler or ContentHandler)(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 
 
-def load_filename(filename, verbose = False, gz = False, xmldoc = None):
+def load_filename(filename, verbose = False, gz = False, xmldoc = None, contenthandler = None):
 	"""
 	Parse the contents of the file identified by filename, and return
 	the contents as a LIGO Light Weight document tree.  Helpful
@@ -313,13 +313,13 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc)
+	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 	return xmldoc
 
 
-def load_url(url, verbose = False, gz = False, xmldoc = None):
+def load_url(url, verbose = False, gz = False, xmldoc = None, contenthandler = None):
 	"""
 	This function has the same behaviour as load_filename() but accepts
 	a URL instead of a filename.  Any source from which Python's
@@ -343,13 +343,13 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
-	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc)
+	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc, contenthandler = contenthandler)
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, url or "")
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False):
+def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  The file object need not be seekable.  The
@@ -390,7 +390,7 @@ def write_fileobj(xmldoc, fileobj, gz = False):
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	xmldoc.write(fileobj)
+	xmldoc.write(fileobj, xsl_file = xsl_file)
 	fileobj.flush()
 	del fileobj
 
@@ -405,7 +405,7 @@ def write_fileobj(xmldoc, fileobj, gz = False):
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False):
+def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = None):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	file name filename.  Friendly verbosity messages are printed while
@@ -434,7 +434,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = file(filename, "w")
 	else:
 		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz)
+	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file)
 	fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")

@@ -32,7 +32,7 @@ import os
 import glob
 import tempfile
 
-import glue.segments
+from glue.segments import segmentlist, segment
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -40,6 +40,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 
+from glue.segmentdb import query_engine
 from glue.segmentdb import segmentdb_utils
 
 from glue import gpstime
@@ -62,6 +63,11 @@ def parse_command_line():
     Parse the command line, return an options object
     """
 
+    def require(flag, message):
+        if not flag:
+            print >>sys.stdout, message
+            sys.exit(1)
+
     parser = OptionParser(
         version     = "%prog CVS $Header$",
         usage       = "%prog --trigger-dir dir --segments url --html-file file --ifo ifo --timestamp-file [other options]",
@@ -69,6 +75,7 @@ def parse_command_line():
 	)
 
     parser.add_option("-t", "--trigger-dir",   metavar="dir",  help = "Location of XML files containing sngl_inspiral tables")
+    parser.add_option("-e", "--trigger-db",    metavar="database",  help = "Location of an already-created sqlite database")
     parser.add_option("-s", "--segments",      metavar="url",  help = "URL to contact for DQ flags (ldbd: or file:)")
     parser.add_option("-f", "--html-file",     metavar="file", help = "Location of html file to write")
     parser.add_option("-i", "--ifo",           metavar="ifo",  help = "IFO")
@@ -79,12 +86,17 @@ def parse_command_line():
     parser.add_option("-b", "--gps-start-time",  metavar="gps_start_time", help = "Provide an explicit start time, rather than using the timestamp file")
     parser.add_option("-n", "--gps-end-time",  metavar="gps_end_time", help = "Provide an explicit end time, rather than using now")
 
+    parser.add_option("-a", "--omega-conf",       metavar="omega_conf",      help = "Omega configuration file")
+    parser.add_option("-c", "--omega-frame-dir",  metavar="omega_frame_dir", help = "Top level directory of frame files for omega")
+    parser.add_option("-d", "--omega-out-dir",    metavar="omega_out_dir",   help = "Output directory for omega results")
+
     options, others = parser.parse_args()
 
     # Make sure we have all required parameters
-    if not (options.trigger_dir and options.segments and options.ifo and options.timestamp_file and options.html_file):
-        print "Usgae: %prog --trigger-dir dir --segments url --html-file file --ifo ifo --timestamp-file [other options]"
-        sys.exit(-1)
+    require(options.trigger_dir or options.trigger_db, "Missing required argument [--trigger-dir | --trigger-db]")
+    require(options.ifo, "Missing required argument --ifo")
+    require(options.html_file, "Missing required argument --html-file")
+    require(options.timestamp_file or (options.gps_start_time and options.gps_end_time), "Missing required argument [--timestamp-file | --gps-start-time --gps-end-time]")
 
     return options
 
@@ -94,18 +106,24 @@ def generate_html(outf, triggers, colors):
     # echo "<p><tt><a href=\"${xmlfile}\">${xmlfile}</a></tt>" >> ${htmlfile}
     print >>outf, '<p>'
     print >>outf, '<table border=1>'
-    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>f_final</th><th>ttotal</th><th>Q scan</th><th>&Omega; scan</th><th>DQ flags</th></tr>'
+    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>&chi;<sup>2</sup></th><th>&Omega; scan</th><th>DQ flags</th></tr>'
 
     for count, trig in enumerate(triggers):
         print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
-        for res in trig[:-1]:
+
+        print >>outf, '    <td>%s</td>' % (trig[0])
+
+        end_time_utc = os.popen('tconvert %d' % trig[1]).next().strip()
+        print >>outf, '    <td>%s</td>' % (end_time_utc)
+
+        for res in trig[1:-1]:
             print >>outf, '    <td>%s</td>' % res
-        print >>outf, '    <td><a href="http://ldas-jobs.ligo-wa.caltech.edu/~inspiralbns/qscans/%d.%d">Q scan</a></td><td>Coming soon!</td></td>' % (trig[1], trig[2])
+        
+        print >>outf, '    <td><a href="omega/%s/index.html">&Omega; scan</a></td>' % (trig[1])
 
         print >>outf, '    <td>'
-
         for name, value in trig[-1].items():
-            if not name.startswith('DMT'):
+            if name.find('Light') != -1 or name.find('Up') != -1 or name.find('Calibrated') != -1:
                 print >>outf, '      <b>%s</b><br>' % name
             else:
                 print >>outf, '      %s %s %s<br>' % (name, value[0], value[2])
@@ -120,66 +138,49 @@ def generate_html(outf, triggers, colors):
 
 
 
-def setup_files(dir_name, gps_start_time, gps_end_time):
-    # Filter out the ones that are outside our time range
-    xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
+def setup_files(dir_name, db_name, gps_start_time, gps_end_time):
+    if db_name:
+        temp_db    = None
+        connection = sqlite3.connect(db_name)
+    else:
+        # Filter out the ones that are outside our time range
+        xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
-    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
-    os.close(handle)
+        handle, temp_db = tempfile.mkstemp(suffix='.sqlite')
+        os.close(handle)
 
-    target     = dbtables.get_connection_filename(temp_db, None, True, False)
-    connection = ligolw_sqlite.setup(target)
+        target     = dbtables.get_connection_filename(temp_db, None, True, False)
+        connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files)
+        ligolw_sqlite.insert(connection, xml_files)
 
     return temp_db, connection
     
 
+def get_times_with_flags(gps_start_time, gps_end_time):
+    # Find times where there were no DQ flags, rather than checking the time of each trigger
+    segment_connection = segmentdb_utils.setup_database(os.environ['S6_SEGMENT_SERVER'])
+    engine             = query_engine.LdbdQueryEngine(segment_connection)
 
-#
-# =============================================================================
-#
-#                                     Main
-#
-# =============================================================================
-#
+    sql  = "SELECT start_time, end_time FROM segment "
+    sql += " WHERE NOT (%s > segment.end_time OR segment.start_time > %s) " % (gps_start_time, gps_end_time)
+    sql += " AND segment.segment_def_id IN (SELECT DISTINCT segment_definer.segment_def_id FROM segment_definer, segment_summary "
+    sql += "                                WHERE segment_definer.ifos = '%s' " % options.ifo
+    sql += "                                AND segment_definer.segment_def_id = segment_summary.segment_def_id "
+    sql += "                                AND segment_summary.segment_def_cdb = segment_definer.creator_db "
+    sql += "                                AND segment_definer.name NOT IN ('DMT-SCIENCE', 'DMT-LIGHT', 'DMT-UP', 'DMT-CALIBRATED', 'DMT-INJECTION') "
+    sql += "                                AND NOT (%s > segment.end_time OR segment.start_time > %s)) " % (gps_start_time, gps_end_time)
 
-if __name__ == '__main__':
-    options = parse_command_line()    
+    times_with_flags = segmentlist([segment(row[0], row[1]) for row in engine.query(sql)])
+    times_with_flags.coalesce()
 
-    kcount = int(options.known_count)
-    ucount = int(options.unknown_count)
-
-    # Run up to now or the user-provided time
-    if options.gps_end_time:
-        gps_end_time = int(options.gps_end_time)
-    else:
-        gps_end_time = gpstime.GpsSecondsFromPyUTC(time.time())
-
-    # Find the last time we ran (in principle we could get this from the time
-    # stamp on the HTML file, but we should allow for the possibility that 
-    # someone might hand-edit that file)
-    if options.gps_start_time:
-        gps_start_time = int(options.gps_start_time)
-    elif os.path.exists(options.timestamp_file):
-        f = open(options.timestamp_file)
-        gps_start_time = int(f.next())
-        f.close()
-    else:
-        # Looks like we've never run before, start a day ago
-        gps_start_time = gps_end_time - (60 * 60 * 24)
+    return times_with_flags
 
 
-    # Load the relevant trigger XML files into a sqlite DB and
-    # get a connection
-    temp_db, connection = setup_files(options.trigger_dir, gps_start_time, gps_end_time)
+def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, count):
+    if not abs(valid_times):
+        return []
 
-    # Did we find any triggers?  If not there won't even be a sngl_inspiral
-    # table, so the normal query will fail
-
-    have_triggers = connection.cursor().execute("SELECT COUNT(*) FROM sqlite_master WHERE name = 'sngl_inspiral'").fetchone()[0]
-
-    
     # Note, the S5 version of this script had the condition
     #    search = 'FindChirpSPtwoPN' 
     # The triggers from MBTA don't set this, alough it could if desirable.
@@ -211,14 +212,13 @@ if __name__ == '__main__':
     #
     # So we have to be a little trickier...
     #
-    if have_triggers:
-        rows = connection.cursor().execute("""SELECT sngl_inspiral.ifo, 
+
+    rows = connection.cursor().execute("""SELECT sngl_inspiral.ifo, 
              sngl_inspiral.end_time,
              sngl_inspiral.end_time_ns,
              sngl_inspiral.snr, 
              sngl_inspiral.eff_distance,
-             sngl_inspiral.f_final, 
-             sngl_inspiral.ttotal
+             sngl_inspiral.chisq
       FROM sngl_inspiral 
       WHERE (cast(sngl_inspiral.end_time as char) || " -- " || cast(sngl_inspiral.snr as char)) IN
              (SELECT cast(end_time as char) || " -- " || cast(MAX(snr) as char)
@@ -231,23 +231,20 @@ if __name__ == '__main__':
               ORDER BY snr desc)
       AND sngl_inspiral.ifo = ? 
       ORDER BY snr DESC""",  (gps_start_time, gps_end_time, options.ifo, options.min_glitch_snr, options.ifo) )
-    else:
-        # Use an empty array so the rest of the code will flow through and
-        # update the page accordingly
-        rows = []
 
+    ret = []
+    i   = 0
 
-    # ligolw_sicluster --cluster-window ${clusterwindow} --sort-descending-snr ${xmlfile}
-
-    known_trigs   = []
-    unknown_trigs = []
-    
-    for ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot in rows:
+    for ifo, end_time, end_time_ns, snr, eff_dist, chisq in rows:
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
     
-        # Find the flags on at this time
+        if trig_time not in valid_times:
+            continue
+
+        # Find the flags on at this time.  We need this even for "unknown" times, since
+        # we need to check for DMT-SCIENCE etc
         flags = {}
 
         pipe  = os.popen('ligolw_dq_query --segment=%s --include-segments %s --in-segments-only --report %d' % (options.segments, ifo, end_time))
@@ -269,26 +266,97 @@ if __name__ == '__main__':
                 del flags[flag]
 
         if len(ifo_status) > 0:
-            ifo_status = ifo_status[:-1]
-
-
-        if len(flags) == 0:
-            if len(unknown_trigs) < ucount:
-                flags[ifo_status] = True
-                unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
-        elif len(known_trigs) < kcount:
+            ifo_status        = ifo_status[:-1]
             flags[ifo_status] = True
-            known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
 
-        os.system('nohup condor_run "~qonline/qscan/bin/qscan.sh %d.%d" < /dev/null &>/dev/null &' % (end_time, end_time_ns))
+        ret.append((ifo, end_time, end_time_ns, snr, eff_dist, chisq, flags))
 
-        # Print no more than the top ten known and unknown triggers
-        # (the ranking is done by the 'ODRER BY snr DESC' in the query above)
-    
-        if len(known_trigs) == kcount and len(unknown_trigs) == ucount:
+
+        i += 1
+
+        if i > count:
             break
-    
-    
+
+    return ret
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+if __name__ == '__main__':
+    options = parse_command_line()    
+
+    # Do we have everything we need for omage scans?
+    omega_ok = options.omega_conf and options.omega_frame_dir and options.omega_out_dir
+
+    if not omega_ok:
+        print >>sys.stderr, "Warning: Missing omega options, omega scans will not be run"
+
+
+    kcount = int(options.known_count)
+    ucount = int(options.unknown_count)
+
+    # Run up to now or the user-provided time
+    if options.gps_end_time:
+        gps_end_time = int(options.gps_end_time)
+    else:
+        gps_end_time = gpstime.GpsSecondsFromPyUTC(time.time())
+
+    # Find the last time we ran (in principle we could get this from the time
+    # stamp on the HTML file, but we should allow for the possibility that 
+    # someone might hand-edit that file)
+    if options.gps_start_time:
+        gps_start_time = int(options.gps_start_time)
+    elif os.path.exists(options.timestamp_file):
+        f = open(options.timestamp_file)
+        gps_start_time = int(f.next())
+        f.close()
+    else:
+        # Looks like we've never run before, start a day ago
+        gps_start_time = gps_end_time - (60 * 60 * 24)
+
+
+    # Load the relevant trigger XML files into a sqlite DB and
+    # get a connection
+    temp_db, connection = setup_files(options.trigger_dir, options.trigger_db, gps_start_time, gps_end_time)
+
+    # Did we find any triggers?  If not there won't even be a sngl_inspiral
+    # table, so the normal query will fail
+
+    have_triggers = connection.cursor().execute("SELECT COUNT(*) FROM sqlite_master WHERE name = 'sngl_inspiral'").fetchone()[0]
+
+    if have_triggers: 
+        times_with_flags    = get_times_with_flags(gps_start_time, gps_end_time)
+        times_without_flags = segmentlist([segment(gps_start_time,gps_end_time)]) - times_with_flags
+
+        known_trigs   = get_triggers_in_times(options, gps_start_time, gps_end_time, times_with_flags, kcount)
+        unknown_trigs = get_triggers_in_times(options, gps_start_time, gps_end_time, times_without_flags, ucount)
+    else:
+        # Use an empty array so the rest of the code will flow through and
+        # update the page accordingly
+        known_trigs    = []
+        unknown_trigs  = []
+
+    # ligolw_sicluster --cluster-window ${clusterwindow} --sort-descending-snr ${xmlfile}
+
+    # Do the omega scans if requested
+    if omega_ok:
+        for ifo, end_time, end_time_ns, snr, eff_dist, chisq, flags in (known_trigs + unknown_trigs):
+            # The frames may live in a directory with subdirectories by time.  If the given directory
+            # contains a '%d' populate it with the first 4 digits of the time.
+            full_path = options.omega_frame_dir
+
+            if full_path.find('%d') != -1:
+                full_path = full_path % (end_time / 100000)
+
+            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
+
+
     # Convert to html, prepend to the file.
     out_tmp = StringIO.StringIO()
    
@@ -323,7 +391,8 @@ if __name__ == '__main__':
         print >>f,  gps_end_time
         f.close()
 
-    # Clean up after ourselves.
-    os.remove(temp_db)
+    # If we created our own database, clean up after ourselves.
+    if temp_db:
+        os.remove(temp_db)
 
 

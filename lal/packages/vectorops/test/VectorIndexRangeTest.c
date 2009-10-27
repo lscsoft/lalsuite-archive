@@ -88,9 +88,10 @@ extern int   optind;
 int lalDebugLevel = 0;
 BOOLEAN verbose_p = FALSE;
 
+#if 0
 static void
 usage(char **argv);
-
+#endif
 
 static void
 test_status(LALStatus *status, const char *expected_codes, int exit_code);
@@ -164,7 +165,7 @@ main(int argc, char **argv)
   if (verbose_p)
     {
       printf(" - - - - - - - -\n");
-      printf("y = %#x\n", (unsigned int)y);
+      printf("y = %p\n", (void *)y);
       printf("y->length = %d\n", y->length);
     }
 
@@ -362,10 +363,10 @@ trail_status_maybe(LALStatus *status)
   if (lalDebugLevel & 15)
     {
       printf("TRAIL STATUS:\n");
-      printf("  status = %#x\n", (unsigned int)status);
+      printf("  status = %p\n", (void *)status);
       if (status)
-        printf("  status->statusPtr = %#x\n",
-               (unsigned int)(status->statusPtr));
+        printf("  status->statusPtr = %p\n",
+               (void *)(status->statusPtr));
       printf("\n");
 
       if (status)
@@ -377,9 +378,11 @@ trail_status_maybe(LALStatus *status)
 }
 
 
+#if 0
 static void
 usage(char **argv)
 {
   fprintf(stderr, "%s: read the code\n", argv[0]);
   exit(0);
 }
+#endif

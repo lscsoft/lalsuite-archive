@@ -149,7 +149,6 @@ LALCheckMemoryLeaks()
 ********************************************   </lalLaTeX> */
 
 #include <lal/LALStdlib.h>
-#include <getopt.h>
 
 NRCSID (MAKEFAKEDATAC, "$Id$");
 
@@ -174,8 +173,9 @@ NRCSID (MAKEFAKEDATAC, "$Id$");
 
 /***************************************************/
 
+#include "getopt.h"
+
 #include <time.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -340,6 +340,12 @@ COMPLEX8Vector *fvecn = NULL;
 RealFFTPlan *pfwd = NULL;
 
 INT4 lalDebugLevel = 1;
+
+/* Note: apparently including unistd.h leads to a bus-error using getopt() on MacOSX,
+ * most likely due to a header/lib conflict with the included getopt source in LALsuite.
+ * We therefore define the getpid() prototype here and avoid including unistd.h
+ */
+pid_t getpid(void);
 
 /* Prototypes for the functions defined in this file */
 int read_commandline_and_file(LALStatus *, int argc, char *argv[]);
@@ -895,7 +901,6 @@ int prepare_baryinput(LALStatus* status){
   edat=(EphemerisData *)LALMalloc(sizeof(EphemerisData));
   (*edat).ephiles.earthEphemeris = earthdata;
   (*edat).ephiles.sunEphemeris =   sundata;
-  (*edat).leap=13; 
   
   /* Read in ephemerides */  
   LALInitBarycenter(status, edat);
@@ -1176,7 +1181,6 @@ int write_modulated_amplitudes_file(LALStatus* status){
     gps.gpsSeconds=timestamps[i].gpsSeconds;
     gps.gpsNanoSeconds=timestamps[i].gpsNanoSeconds;
     gpsandacc.gps=gps;
-    gpsandacc.accuracy=LALLEAPSEC_STRICT;
 
     LALComputeDetAMResponse(status, &amresp, &detectorandsource, &gpsandacc);
     fprintf(fp,"%f  %f\n",amresp.plus,amresp.cross);
@@ -1696,7 +1700,7 @@ int read_commandline_and_file(LALStatus* status, int argc,char *argv[]) {
 	error( "SSB time argument to -S = %f must be non-negative and <= 1.e-9\n", (double)temptime);
 	exit(1);
       }
-      LALFloatToGPS(status, &SSBpulsarparams, &temptime);
+      XLALGPSSetREAL8(&SSBpulsarparams, temptime);
       break;
     case 'X':
       /* include x axis in time strain output */

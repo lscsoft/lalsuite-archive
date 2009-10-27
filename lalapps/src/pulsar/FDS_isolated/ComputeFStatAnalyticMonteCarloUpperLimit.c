@@ -270,21 +270,14 @@ int main(int argc, char *argv[]) {
     
     /* Create the file names */	
     if (ephem_dir) {
-      LALSnprintf(ephemeris.ephiles.earthEphemeris, buf, "%s/earth%s.dat", ephem_dir, ephem_year);
-      LALSnprintf(ephemeris.ephiles.sunEphemeris, buf, "%s/sun%s.dat", ephem_dir, ephem_year);
+      snprintf(ephemeris.ephiles.earthEphemeris, buf, "%s/earth%s.dat", ephem_dir, ephem_year);
+      snprintf(ephemeris.ephiles.sunEphemeris, buf, "%s/sun%s.dat", ephem_dir, ephem_year);
     }
     else {
-      LALSnprintf(ephemeris.ephiles.earthEphemeris, buf, "earth%s.dat", ephem_year);
-      LALSnprintf(ephemeris.ephiles.sunEphemeris, buf, "sun%s.dat", ephem_year);
+      snprintf(ephemeris.ephiles.earthEphemeris, buf, "earth%s.dat", ephem_year);
+      snprintf(ephemeris.ephiles.sunEphemeris, buf, "sun%s.dat", ephem_year);
     }
-    
-    /* Get the leap seconds */
-    ephemeris.leap = (INT2)XLALGPSLeapSeconds(catalog->data[0].header.epoch.gpsSeconds);
-    if (xlalErrno != XLAL_SUCCESS) {
-      LALPrintError("XLALGPSLeapSeconds failed\n");
-      return EXIT_FAILURE;
-    }
-    
+
     /* Load ephemeris */
     LogPrintf(LOG_DEBUG, "Loading ephemeris ... ");
     LAL_CALL(LALInitBarycenter(&status, &ephemeris), &status);

@@ -99,6 +99,13 @@ SKY_GRID *patch_grid=NULL;
 
 char *output_dir;
 
+/* Give up and add this so compilation works on Ubuntu */
+void __stack_chk_fail(void)
+{
+fprintf(stderr, "stack-protector: Stack is corrupted\n");
+exit(-1);
+}
+
 
 void *do_alloc(long a, long b)
 {
@@ -554,14 +561,14 @@ if(args_info.dataset_given) {
 for(i=0;i<d_free;i++) {
 	fprintf(LOG, "FMedians: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
 	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].TMedians[j]);
+	fprintf(LOG, "\n");
 	}
-fprintf(LOG, "\n");
 
 for(i=0;i<d_free;i++) {
 	fprintf(LOG, "new_weighted_mean: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
 	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].new_weighted_mean[j]);
+	fprintf(LOG, "\n");
 	}
-fprintf(LOG, "\n");
 
 if(args_info.sky_marks_file_given) {
 	FILE *f;

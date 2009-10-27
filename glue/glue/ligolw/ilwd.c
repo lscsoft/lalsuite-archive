@@ -193,8 +193,12 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 		Py_INCREF(new);
 	} else {
 		/* we weren't passed a string or an int or an ilwdchar
-		 * instance:  type error */
+		 * instance:  if args contains exactly 1 object then this
+		 * is a type error, otherwise it's a wrong number of
+		 * arguments error */
 		Py_DECREF(new);
+		if(PyArg_ParseTuple(args, "O", &new))
+			PyErr_SetObject(PyExc_TypeError, new);
 		new = NULL;
 	}
 

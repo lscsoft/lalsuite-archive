@@ -74,7 +74,7 @@ int inject_signal(
   
   /* copy injectFile to injFile (to get rid of const qual) */
   strncpy( injFile, injectFile, sizeof( injFile ) - 1 );
-  LALSnprintf( name, sizeof( name ), "%s_INJ", series->name );
+  snprintf( name, sizeof( name ), "%s_INJ", series->name );
   strncpy( ifoName, series->name, 2 );
   ifoName[2] = 0;
 
@@ -94,7 +94,7 @@ int inject_signal(
       for ( thisInject = ringList; thisInject; thisInject = thisInject->next )
             ++numInject;
     break;
-    case imr_inject: case imr_ring_inject: case EOBNR_inject:
+    case imr_inject: case imr_ring_inject: case EOBNR_inject: case Phenom_inject:
       numInject = 
         SimInspiralTableFromLIGOLw( &injectList, injFile, startSec, stopSec );
       break;
@@ -140,7 +140,7 @@ int inject_signal(
         LAL_CALL( LALFindChirpInjectIMR( &status, series, injectList, ringList, 
               response, injectSignalType ), &status );
         break;        
-      case EOBNR_inject:
+      case EOBNR_inject: case Phenom_inject:
         LAL_CALL( LALFindChirpInjectSignals( &status, series, injectList, response ), &status );
         break;
       default:
@@ -162,7 +162,7 @@ int inject_signal(
         ringinjections.simRingdownTable = ringList;
                  
         /* create the output file name */
-        LALSnprintf( fname, sizeof(fname), "HL-INJECTIONS_0-%d-%d.xml", 
+        snprintf( fname, sizeof(fname), "HL-INJECTIONS_0-%d-%d.xml", 
             startSec, stopSec - startSec );
         fprintf( stdout, "Writing the injection details to %s\n", fname);
     

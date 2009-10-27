@@ -261,15 +261,11 @@ LALCreateTwoIFOCoincList(
   {
 
     /* calculate the time of the trigger */
-    LALGPStoINT8( status->statusPtr, &currentTriggerNS[0],
-        &(currentTrigger[0]->end_time) );
-    CHECKSTATUSPTR( status );
+    currentTriggerNS[0] = XLALGPSToINT8NS( &(currentTrigger[0]->end_time) );
 
     /* set next trigger for comparison */
     currentTrigger[1] = currentTrigger[0]->next;
-    LALGPStoINT8( status->statusPtr, &currentTriggerNS[1],
-          &(currentTrigger[1]->end_time) );
-    CHECKSTATUSPTR( status );
+    currentTriggerNS[1] = XLALGPSToINT8NS( &(currentTrigger[1]->end_time) );
 
     while ( (currentTriggerNS[1] - currentTriggerNS[0]) < maxTimeDiff )
     {
@@ -314,11 +310,7 @@ LALCreateTwoIFOCoincList(
 
       if ( (currentTrigger[1] = currentTrigger[1]->next) )
       {
-        LALGPStoINT8( status->statusPtr, &currentTriggerNS[1],
-            &(currentTrigger[1]->end_time) );
-	BEGINFAIL (status) {
-	  XLALFreeCoincInspiral( &coincHead );
-	} ENDFAIL (status);
+        currentTriggerNS[1] = XLALGPSToINT8NS( &(currentTrigger[1]->end_time) );
       }
       else
       {
@@ -949,7 +941,8 @@ XLALExtractSnglInspiralFromCoinc(
         else if ( gpsStartTime )
         {
           eventId->id = LAL_INT8_C(1000000000) *
-            (INT8) gpsStartTime->gpsSeconds + (INT8) eventNum;
+            (INT8) (gpsStartTime->gpsSeconds + eventNum/100000) +
+            (INT8) (eventNum % 100000);
         }
         else
         {
@@ -1364,7 +1357,7 @@ XLALGenerateCoherentBank(
         currentTrigger->next = NULL;
         currentTrigger->event_id = NULL;
         /* set the ifo */
-        LALSnprintf( currentTrigger->ifo, LIGOMETA_IFO_MAX, ifo );
+        snprintf(currentTrigger->ifo, LIGOMETA_IFO_MAX, "%s", ifo);
         /* set the event id */
         currentTrigger->event_id = LALCalloc( 1, sizeof(EventIDColumn) );
         if ( !(currentTrigger->event_id) )

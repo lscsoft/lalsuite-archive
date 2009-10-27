@@ -115,9 +115,9 @@ INT4 MCMCPriorTest(
 
 REAL8 NestPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
-REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
+REAL8 NestPriorHighMass(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
-void NestInitInj(LALMCMCParameter *parameter, void *iT);
+REAL8 GRBPrior(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 void NestInitInjNINJA(LALMCMCParameter *parameter, void *iT);
 
@@ -126,19 +126,11 @@ void NestInitInjNINJAHighMass(LALMCMCParameter *parameter, void *iT);
 
 int ParamInRange(LALMCMCParameter *parameter);
 
-REAL8 MCMCLikelihoodMultiIFO(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
-
-REAL8 MCMCLikelihood1IFO(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter, int idx);
-
-void MCMCInit1IFO(LALMCMCParameter *parameter, SnglInspiralTable *inspiralTable);
-
 extern REAL4Vector *model;
 extern REAL4Vector *Tmodel;
-extern REAL8Sequence **topdown_sum;
+extern REAL8Vector **topdown_sum;
 extern REAL8 *normalisations;
 
-
-REAL8 MCMCLikelihoodMultiCoherent(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 
 REAL8 MCMCSTLikelihoodMultiCoherentF(LALMCMCInput *inputMCMC,LALMCMCParameter *parameter);
 

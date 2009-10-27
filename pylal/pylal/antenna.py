@@ -35,6 +35,7 @@ from pylal.xlal import date
 from pylal import date
 from pylal.xlal import inject
 from pylal.xlal import tools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
@@ -59,14 +60,13 @@ def response( gpsTime, rightAscension, declination, inclination,
   
   The returned values are: (f-plus, f-cross, f-average, q-value).
   
-  Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'H1' )
+  Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'radians', 'H1' )
   """
   
   # check the input arguments
   if gpsTime<600000000 or gpsTime>1000000000:
-    print >>sys.stderr, "ERROR. gps time %d not within reasonable range."\
+    raise ValueError, "ERROR. gps time %d not within reasonable range."\
           % (gpsTime)
-    sys.exit(1)
 
   if unit =='radians':
     ra_rad = rightAscension
@@ -79,11 +79,10 @@ def response( gpsTime, rightAscension, declination, inclination,
     psi_rad = polarization/180.0*pi
     iota_rad = inclination/180.0*pi
   else:
-    print "Unknown unit %s" % unit
-    sys.exit(1)
-    
+    raise ValueError, "Unknown unit %s" % unit
+
   # calculate GMST if the GPS time
-  gps=date.LIGOTimeGPS( gpsTime )
+  gps=LIGOTimeGPS( gpsTime )
   gmst_rad = date.XLALGreenwichMeanSiderealTime(gps)
 
   # create detector-name map
@@ -92,16 +91,14 @@ def response( gpsTime, rightAscension, declination, inclination,
   try:
     detector=detMap[det]
   except KeyError:
-    print >>sys.stderr, "ERROR. Key %s is not a valid detector name."\
+    raise ValueError, "ERROR. Key %s is not a valid detector name."\
           % (det)
-    sys.exit(0)
 
   # get detector
   if detector not in tools.cached_detector.keys():
-    print >>sys.stderr, "%s is not a cached detector.  "\
+    raise ValueError, "%s is not a cached detector.  "\
           "Cached detectors are: %s" \
           % (det, tools.cached_detector.keys())
-    sys.exit(1)
 
   # get the correct response data
   response = tools.cached_detector[detector].response
@@ -143,9 +140,8 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
 
   # check the input arguments
   if gpsTime<600000000 or gpsTime>2000000000:
-    print >>sys.stderr, "ERROR. gps time %d not within reasonable range."\
+    raise ValueError, "ERROR. gps time %d not within reasonable range."\
           % (gpsTime)
-    sys.exit(1)
 
   if unit =='radians':
     ra_rad = rightAscension
@@ -154,25 +150,22 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
     ra_rad = rightAscension/180.0*pi
     de_rad = declination/180.0*pi
   else:
-    print "Unknown unit %s" % unit
-    sys.exit(1)
-    
+    raise ValueError, "Unknown unit %s" % unit
+
   # check input values
   if ra_rad<0.0 or ra_rad> 2*pi:
-    print >>sys.stderr, "ERROR. right ascension=%f "\
+    raise ValueError, "ERROR. right ascension=%f "\
           "not within reasonable range."\
           % (rightAscension)
-    sys.exit(1)
 
   if de_rad<-pi or de_rad> pi:
-    print >>sys.stderr, "ERROR. declination=%f not within reasonable range."\
+    raise ValueError, "ERROR. declination=%f not within reasonable range."\
           % (declination)
-    sys.exit(1)
-    
+
   if det1 == det2:
     return 0.0
   
-  gps = date.LIGOTimeGPS( gpsTime )
+  gps = LIGOTimeGPS( gpsTime )
 
   # create detector-name map
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',

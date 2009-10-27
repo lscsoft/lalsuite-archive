@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -69,12 +67,13 @@ References:
 import base64
 
 
-import ilwd
+from glue import git_version
+from glue.ligolw import ilwd
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -217,10 +216,32 @@ FromNumPyType = {
 #
 # =============================================================================
 #
-#                  Conversion To and From Native SQLite Types
+#                 Conversion To and From Native Database Types
 #
 # =============================================================================
 #
+
+
+ToMySQLType = {
+	u"char_s": "CHAR(20)",
+	u"char_v": "VARCHAR(64)",
+	u"ilwd:char": "VARCHAR(64)",
+	u"ilwd:char_u": "BLOB",
+	u"blob": "BLOB",
+	u"lstring": "VARCHAR(255)",
+	u"string": "VARCHAR(255)",
+	u"int_2s": "SMALLINT",
+	u"int_2u": "SMALLINT",
+	u"int_4s": "INTEGER",
+	u"int_4u": "INTEGER",
+	u"int_8s": "BIGINT",
+	u"int_8u": "BIGINT",
+	u"int": "INTEGER",
+	u"real_4": "FLOAT",
+	u"real_8": "DOUBLE",
+	u"float": "FLOAT",
+	u"double": "DOUBLE"
+}
 
 
 ToSQLiteType = {

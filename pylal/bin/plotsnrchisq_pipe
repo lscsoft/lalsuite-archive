@@ -27,7 +27,6 @@ import numpy
 # sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
-from pylal.fu_utils import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw

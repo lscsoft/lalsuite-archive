@@ -108,7 +108,7 @@ LALFindChirpACTDFilterSegment (
 
   /* check that the workspace vectors exist */
   ASSERT( params->qVecACTD, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->qtildeVecACTD, status, FINDCHIRPH_ENULL, 
+  ASSERT( params->qtildeVecACTD, status, FINDCHIRPH_ENULL,
           FINDCHIRPH_MSGENULL );
 
   /* check that the chisq parameter and input structures exist */
@@ -116,11 +116,11 @@ LALFindChirpACTDFilterSegment (
   ASSERT( params->chisqInput, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* if a rhosqVec vector has been created, check we can store data in it */
-  if ( params->rhosqVec ) 
+  if ( params->rhosqVec )
   {
-    ASSERT( params->rhosqVec->data->data, status, 
+    ASSERT( params->rhosqVec->data->data, status,
         FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-    ASSERT( params->rhosqVec->data, status, 
+    ASSERT( params->rhosqVec->data, status,
         FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   }
 
@@ -133,7 +133,7 @@ LALFindChirpACTDFilterSegment (
   }
 
   /* if we are doing a chisq, check we can store the data */
-  if ( input->segment->chisqBinVec->length ) 
+  if ( input->segment->chisqBinVec->length )
   {
     ASSERT( params->chisqVec, status,
         FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
@@ -198,7 +198,7 @@ LALFindChirpACTDFilterSegment (
   deltaT = params->deltaT;
 
   deltaF = 1.0 / ( deltaT * (REAL8)(numPoints)  );
-  /*kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
+  /*kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ?
   input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;*/
   /* Craig: I suspect the limits of integration are incorrect. I will
      artificially set it to numPoints/2. */
@@ -219,18 +219,18 @@ LALFindChirpACTDFilterSegment (
   deltaEventIndex = (UINT4) rint( (input->fcTmplt->tmplt.tC / deltaT) + 1.0 );
 
   /* ignore corrupted data at start and end */
-  params->ignoreIndex = ignoreIndex = 
+  params->ignoreIndex = ignoreIndex =
     ( input->segment->invSpecTrunc / 2 ) + deltaEventIndex;
 
   if ( lalDebugLevel & LALINFO )
   {
     CHAR infomsg[256];
 
-    LALSnprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg),
+    snprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg),
         "m1 = %e m2 = %e => %e seconds => %d points\n"
-        "invSpecTrunc = %d => ignoreIndex = %d\n", 
-        input->fcTmplt->tmplt.mass1, input->fcTmplt->tmplt.mass2, 
-        input->fcTmplt->tmplt.tC , deltaEventIndex, 
+        "invSpecTrunc = %d => ignoreIndex = %d\n",
+        input->fcTmplt->tmplt.mass1, input->fcTmplt->tmplt.mass2,
+        input->fcTmplt->tmplt.tC , deltaEventIndex,
         input->segment->invSpecTrunc, ignoreIndex );
     LALInfo( status, infomsg );
   }
@@ -248,7 +248,7 @@ LALFindChirpACTDFilterSegment (
   {
     CHAR infomsg[256];
 
-    LALSnprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg), 
+    snprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg),
         "filtering from %d to %d\n",
         ignoreIndex, numPoints - ignoreIndex );
     LALInfo( status, infomsg );
@@ -285,12 +285,12 @@ LALFindChirpACTDFilterSegment (
       ABORTXLAL( status );
     }
   }
-  
 
 
-  /* 
+
+  /*
    *
-   * calculate signal to noise squared 
+   * calculate signal to noise squared
    *
    */
 
@@ -300,7 +300,7 @@ LALFindChirpACTDFilterSegment (
     memset( params->rhosqVec->data->data, 0, numPoints * sizeof( REAL4 ) );
 
   if (params->cVec )
-    memset( params->cVec->data->data, 0, numPoints * sizeof( COMPLEX8 ) ); 
+    memset( params->cVec->data->data, 0, numPoints * sizeof( COMPLEX8 ) );
 
 
   /* normalisation */
@@ -313,11 +313,11 @@ LALFindChirpACTDFilterSegment (
 */
 
   /* if full snrsq vector is required, store the snrsq */
-  if ( params->rhosqVec ) 
+  if ( params->rhosqVec )
   {
     memcpy( params->rhosqVec->name, input->segment->data->name,
         LALNameLength * sizeof(CHAR) );
-    memcpy( &(params->rhosqVec->epoch), &(input->segment->data->epoch), 
+    memcpy( &(params->rhosqVec->epoch), &(input->segment->data->epoch),
         sizeof(LIGOTimeGPS) );
     params->rhosqVec->deltaT = input->segment->deltaT;
 
@@ -335,11 +335,11 @@ LALFindChirpACTDFilterSegment (
   }
 
 /*
-  if ( params->cVec ) 
+  if ( params->cVec )
   {
     memcpy( params->cVec->name, input->segment->data->name,
         LALNameLength * sizeof(CHAR) );
-    memcpy( &(params->cVec->epoch), &(input->segment->data->epoch), 
+    memcpy( &(params->cVec->epoch), &(input->segment->data->epoch),
         sizeof(LIGOTimeGPS) );
     params->cVec->deltaT = input->segment->deltaT;
 
@@ -353,7 +353,7 @@ LALFindChirpACTDFilterSegment (
   }
 */
 
-  #if 0 
+  #if 0
   /* This is done in FindChirpClusterEvents now!!*/
   /* determine if we need to compute the chisq vector */
   if ( input->segment->chisqBinVec->length )
@@ -373,7 +373,7 @@ LALFindChirpACTDFilterSegment (
     if ( haveEvent )
     {
       /* compute the chisq vector for this segment */
-      memset( params->chisqVec->data, 0, 
+      memset( params->chisqVec->data, 0,
           params->chisqVec->length * sizeof(REAL4) );
 
       /* pointers to chisq input */
@@ -387,15 +387,15 @@ LALFindChirpACTDFilterSegment (
       /* compute the chisq bin boundaries for this template */
       if ( ! params->chisqParams->chisqBinVec->data )
       {
-        LALFindChirpComputeChisqBins( status->statusPtr, 
+        LALFindChirpComputeChisqBins( status->statusPtr,
             params->chisqParams->chisqBinVec, input->segment, kmax );
         CHECKSTATUSPTR( status );
       }
 
       /* compute the chisq threshold: this is slow! */
-      LALFindChirpChisqVeto( status->statusPtr, params->chisqVec, 
+      LALFindChirpChisqVeto( status->statusPtr, params->chisqVec,
           params->chisqInput, params->chisqParams );
-      CHECKSTATUSPTR (status); 
+      CHECKSTATUSPTR (status);
     }
   }
   #endif

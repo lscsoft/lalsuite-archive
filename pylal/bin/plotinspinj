@@ -798,7 +798,7 @@ if opts.hist_ethinca:
   ep_max = max([max(eps) for eps in ethinca_list])
   hists = {}
   for ifo in ifos:
-    hists[ifo] = histogram(eps, bins=opts.nbins, range=[0, ep_max])
+    hists[ifo] = histogram(eps, bins=opts.nbins, range=[0, ep_max], new=False)
   # y_list, x_list = zip(*[histogram(eps, bins=opts.nbins, range=[0, ep_max]) \
   #                        for eps in ethinca_list])
   

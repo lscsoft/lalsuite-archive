@@ -7,6 +7,7 @@ from glue.ligolw import utils
 from pylal.inject import light_travel_time
 from pylal.tools import XLALCalculateEThincaParameter
 from pylal.xlal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import glue.iterutils
 import numpy
 import cmath
@@ -253,7 +254,7 @@ class coincInspiralTable:
       gpstimes={}
       for ifo in ifos:
         if hasattr(self,ifo):
-          gpstimes[ifo]= date.LIGOTimeGPS(getattr(self, ifo).end_time, getattr(self, ifo).end_time_ns)
+          gpstimes[ifo]= LIGOTimeGPS(getattr(self, ifo).end_time, getattr(self, ifo).end_time_ns)
       return gpstimes
 
     def __iter__(self):
@@ -533,8 +534,7 @@ class coincInspiralTable:
     self.sim_table = sim_inspiral
     # check that the number of sims matches the number of coincs:
     if len(self) != len(sim_inspiral):
-      print >> sys.stderr, "Number of injections doesn't match number of coincs"
-      sys.exit(1)
+      raise ValueError, "Number of injections doesn't match number of coincs"
 
     for i in range(len(self)):
       self[i].add_sim(sim_inspiral[i])

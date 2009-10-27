@@ -332,7 +332,8 @@ typedef enum
   ring_inject,
   imr_inject,
   imr_ring_inject,
-  EOBNR_inject
+  EOBNR_inject,
+  Phenom_inject
 }
 inject_type;
 
@@ -668,7 +669,7 @@ SnglInspiralTable *
 XLALVetoSingleInspiral (
     SnglInspiralTable          *eventHead,
     LALSegList                 *vetoSegs,
-    CHAR 		       *ifo
+    const CHAR                 *ifo
     );
 
 SnglInspiralTable *
@@ -712,22 +713,20 @@ LALIfoCountSingleInspiral(
     InterferometerNumber        ifoNumber
     );
 
-void
-LALTimeSlideSegList(
-    LALStatus                  *status,
+int
+XLALTimeSlideSegList(
     LALSegList                 *seglist,
-    LIGOTimeGPS                *startTime,
-    LIGOTimeGPS                *endTime,
-    LIGOTimeGPS                *slideTimes
+    const LIGOTimeGPS          *ringStartTime,
+    const LIGOTimeGPS          *ringEndTime,
+    const LIGOTimeGPS          *slideTimes
     );
 
 void
-LALTimeSlideSingleInspiral(
-    LALStatus                  *status,
+XLALTimeSlideSingleInspiral(
     SnglInspiralTable          *input,
-    LIGOTimeGPS                *startTime,
-    LIGOTimeGPS                *endTime,
-    LIGOTimeGPS                 slideTimes[]
+    const LIGOTimeGPS          *ringStartTime,
+    const LIGOTimeGPS          *ringEndTime,
+    const LIGOTimeGPS           slideTimes[]
     );
 
 SnglInspiralTable *
@@ -1594,7 +1593,17 @@ XLALCoincSimRingdownTest (
     CoincRingdownTable **missedCoincHead
     );
 
+REAL8
+XLAL2DRinca(
+    SnglRingdownTable         *aPtr,
+    SnglRingdownTable         *bPtr
+    );
 
+REAL8
+XLAL3DRinca(
+    SnglRingdownTable         *aPtr,
+    SnglRingdownTable         *bPtr
+    );
 
 /* coinc ringdown */
 

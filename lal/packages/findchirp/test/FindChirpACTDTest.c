@@ -18,7 +18,6 @@ Provides the necessary function to test the AmpCorPPN filter.
 
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
-#include <lal/DataBuffer.h>
 #include <lal/LALInspiral.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpSP.h>
@@ -90,7 +89,7 @@ static void print_usage()
   fprintf( stderr, " --num-points N                : Specify time array length \n");
   fprintf( stderr, " --print-max                   : Calculate & display maximum\n\n\n");
   return;
-}                   
+}
 
 LALStatus status;
 int lalDebugLevel = 1;
@@ -453,8 +452,8 @@ int main( int argc, char **argv )
   /* create objects needed by  filters */
   fprintf( stderr, "Creating structures and variables...    " );
   Start( &dataSegVec, &filterInput, &filterParams, &fcSegVec, &initParams );
-  fprintf( stderr, "      Done!\n" );  
-  
+  fprintf( stderr, "      Done!\n" );
+
 
   /* set filter parameters, e.g., thresholds for events */
   filterParams->deltaT         = 1.0 / srate;
@@ -657,7 +656,7 @@ int main( int argc, char **argv )
  
   fprintf( stderr, "Testing ACTDTemplate...                 " );
 
-  LALFindChirpACTDTemplate( &status, filterInput->fcTmplt, &mytmplt, 
+  LALFindChirpACTDTemplate( &status, filterInput->fcTmplt, &mytmplt,
                             tmpltParams  );
   TEST_STATUS( &status );
 
@@ -682,7 +681,7 @@ int main( int argc, char **argv )
         fprintf( fpTwo, "%.5e ", i * srate /( numPoints ) );
         for( j=0; j < NACTDVECS; ++j )
         {
-          fprintf( fpTwo, "%.5e %.5e ", 
+          fprintf( fpTwo, "%.5e %.5e ",
           filterInput->fcTmplt->ACTDtilde->data[i+j*(numPoints/2+1)].re,
           filterInput->fcTmplt->ACTDtilde->data[i+j*(numPoints/2+1)].im );
         }
@@ -692,7 +691,7 @@ int main( int argc, char **argv )
     fclose( fp );
     fclose( fpTwo );
   }
-  fprintf( stderr, "      Done!\n" );  
+  fprintf( stderr, "      Done!\n" );
 
   LALFindChirpTDData( &status, fcSegVec, dataSegVec, dataParams );
   TEST_STATUS( &status );
@@ -892,7 +891,7 @@ int main( int argc, char **argv )
 }
 
 
-
+
 /*
  *
  * Start(), Stop()
@@ -956,7 +955,7 @@ int Stop(
   return 0;
 }
 
-
+
 /*
  *
  * Init(), Fini()
@@ -999,7 +998,7 @@ int Fini(
   FindChirpDataParams  **dataParams
         )
 {
-  
+
   LALFindChirpTemplateFinalize( &status, tmpltParams );
   TEST_STATUS( &status );
 
@@ -1010,7 +1009,6 @@ int Fini(
   return 0;
 }
 
-
 /*  
  *  
  * MakeDataACTD()
@@ -1030,7 +1028,7 @@ int MakeDataACTD(
     INT4  amp,
     REAL8 dynRange
     )
-{ 
+{
   InspiralTemplate tmplt;
   UINT4 k;
   UINT4 n, nspec;
@@ -1109,7 +1107,7 @@ int MakeDataACTD(
     {
       dataSegVec->data->spec->data->data[k] = 0.0;
     }
-  
+
 
     dataSegVec->data->resp->data->data[k].re = 1. / dynRange;
     dataSegVec->data->resp->data->data[k].im = 0;

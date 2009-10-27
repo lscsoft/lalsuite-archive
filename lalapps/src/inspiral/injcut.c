@@ -81,17 +81,17 @@ RCSID( "$Id$" );
 
 /* all units are in kpc since this is what GalacticInspiralParamStruc expects */
 static ProcessParamsTable *next_process_param( 
-	const char *name, 
-	const char *type,
-    	const char *fmt, ... );
+        const char *name, 
+        const char *type,
+            const char *fmt, ... );
 
 extern int vrbflg;
 
 
 ProcessParamsTable *next_process_param( 
-	const char *name, 
-	const char *type,
-    	const char *fmt, ... )
+        const char *name, 
+        const char *type,
+            const char *fmt, ... )
 {
   ProcessParamsTable *pp;
   va_list ap;
@@ -104,12 +104,12 @@ ProcessParamsTable *next_process_param(
   }
   strncpy( pp->program, PROGRAM_NAME, LIGOMETA_PROGRAM_MAX );
   if ( ! strcmp( name, "userTag" ) || ! strcmp( name, "user-tag" ) )
-    LALSnprintf( pp->param, LIGOMETA_PARAM_MAX, "-userTag" );
+    snprintf( pp->param, LIGOMETA_PARAM_MAX, "-userTag" );
   else
-    LALSnprintf( pp->param, LIGOMETA_PARAM_MAX, "--%s", name );
+    snprintf( pp->param, LIGOMETA_PARAM_MAX, "--%s", name );
   strncpy( pp->type, type, LIGOMETA_TYPE_MAX );
   va_start( ap, fmt );
-  LALVsnprintf( pp->value, LIGOMETA_VALUE_MAX, fmt, ap );
+  vsnprintf( pp->value, LIGOMETA_VALUE_MAX, fmt, ap );
   va_end( ap );
 
   return pp;
@@ -119,7 +119,6 @@ ProcessParamsTable *next_process_param(
 int main( int argc, char *argv[] )
 {
   LALStatus             status = blank_status;
-  LALLeapSecAccuracy    accuracy = LALLEAPSEC_LOOSE;
   /* command line options */
   CHAR         *massCut = NULL;     /* mass cut type */
   REAL4         minMass = -1;       /* minimum mass */
@@ -168,22 +167,21 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) 
     calloc( 1, sizeof(ProcessTable) );
-  LAL_CALL( LALGPSTimeNow ( &status, &(proctable.processTable->start_time),
-        &accuracy ), &status );
+  XLALGPSTimeNow(&(proctable.processTable->start_time));
   if (strcmp(CVS_REVISION,"$Revi" "sion$"))
     {
       LAL_CALL( populate_process_table( &status, proctable.processTable, 
-					PROGRAM_NAME, CVS_REVISION,
-					CVS_SOURCE, CVS_DATE ), &status );
+                                        PROGRAM_NAME, CVS_REVISION,
+                                        CVS_SOURCE, CVS_DATE ), &status );
     }
   else
     {
       LAL_CALL( populate_process_table( &status, proctable.processTable, 
-					PROGRAM_NAME, lalappsGitCommitID,
-					lalappsGitGitStatus,
-					lalappsGitCommitDate ), &status );
+                                        PROGRAM_NAME, lalappsGitCommitID,
+                                        lalappsGitGitStatus,
+                                        lalappsGitCommitDate ), &status );
     }
-  LALSnprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
+  snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
 
@@ -333,7 +331,7 @@ int main( int argc, char *argv[] )
             "Drew Keppel\n"
             "CVS Version: " CVS_ID_STRING "\n"
             "CVS Tag: " CVS_NAME_STRING "\n" );
-	fprintf( stdout, lalappsGitID );
+        fprintf( stdout, lalappsGitID );
         exit( 0 );
         break;
         
@@ -476,9 +474,8 @@ int main( int argc, char *argv[] )
       &status );
 
   /* write the process table */
-  LALSnprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, "H1H2L1" );
-  LAL_CALL( LALGPSTimeNow ( &status, &(proctable.processTable->end_time),
-        &accuracy ), &status );
+  snprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, "H1H2L1" );
+  XLALGPSTimeNow(&(proctable.processTable->end_time));
   LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, process_table ), 
       &status );
   LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, proctable, 

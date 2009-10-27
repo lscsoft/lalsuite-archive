@@ -405,8 +405,6 @@ void InitEphemeris (LALStatus * status,
   
   CHAR EphemEarth[FNAME_LENGTH];	/* filename of earth-ephemeris data */
   CHAR EphemSun[FNAME_LENGTH];	/* filename of sun-ephemeris data */
-  LALLeapSecFormatAndAcc formatAndAcc = {LALLEAPSEC_GPSUTC, LALLEAPSEC_STRICT};
-  INT4 leap;
 
   INITSTATUS( status, "InitEphemeris", rcsid );
   ATTATCHSTATUSPTR (status);
@@ -416,13 +414,13 @@ void InitEphemeris (LALStatus * status,
 
   if ( ephemDir )
     {
-      LALSnprintf(EphemEarth, FNAME_LENGTH, "%s/earth%s.dat", ephemDir, ephemYear);
-      LALSnprintf(EphemSun, FNAME_LENGTH, "%s/sun%s.dat", ephemDir, ephemYear);
+      snprintf(EphemEarth, FNAME_LENGTH, "%s/earth%s.dat", ephemDir, ephemYear);
+      snprintf(EphemSun, FNAME_LENGTH, "%s/sun%s.dat", ephemDir, ephemYear);
     }
   else
     {
-      LALSnprintf(EphemEarth, FNAME_LENGTH, "earth%s.dat", ephemYear);
-      LALSnprintf(EphemSun, FNAME_LENGTH, "sun%s.dat",  ephemYear);
+      snprintf(EphemEarth, FNAME_LENGTH, "earth%s.dat", ephemYear);
+      snprintf(EphemSun, FNAME_LENGTH, "sun%s.dat",  ephemYear);
     }
   EphemEarth[FNAME_LENGTH-1]=0;
   EphemSun[FNAME_LENGTH-1]=0;
@@ -432,9 +430,6 @@ void InitEphemeris (LALStatus * status,
    */
   edat->ephiles.earthEphemeris = EphemEarth;
   edat->ephiles.sunEphemeris = EphemSun;
-    
-  TRY (LALLeapSecs (status->statusPtr, &leap, &epoch, &formatAndAcc), status);
-  edat->leap = (INT2) leap;
 
   TRY ( LALInitBarycenter(status->statusPtr, edat), status);
 

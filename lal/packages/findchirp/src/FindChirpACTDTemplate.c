@@ -1,4 +1,4 @@
-#if 0 
+#if 0
 <lalVerbatim file="FindChirpACTDTemplateCV">
 Author: Brown, D. A., Creighton, J. D. E. and Mckechan, D. J. A.
 $Id: FindChirpACTDTemplate.c,v 1.2.2.4.2.1 2009/03/31 11:25:18 spxcar Exp $
@@ -17,7 +17,7 @@ form that can be used by the \texttt{FindChirpACTDFilter()} function.
 \idx{LALFindChirpACTDTemplate()}
 \idx{LALFindChirpACTDNormalize()}
 
-The function \texttt{LALFindChirpACTDTemplate()} creates a time 
+The function \texttt{LALFindChirpACTDTemplate()} creates a time
 domain template using LALGeneratePPNAmpCorInspiral().
 
 \subsubsection*{Algorithm}
@@ -35,14 +35,13 @@ LALDestroyVector()
 \subsubsection*{Notes}
 
 \vfill{\footnotesize\input{FindChirpACTDTemplateCV}}
-</lalLaTeX> 
+</lalLaTeX>
 #endif
 
 #include <math.h>
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
 #include <lal/SeqFactories.h>
-#include <lal/DataBuffer.h>
 #include <lal/LALInspiral.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpTD.h>
@@ -96,32 +95,32 @@ LALFindChirpACTDTemplate(
       FINDCHIRPACTDH_EACTDV, FINDCHIRPACTDH_MSGEACTDV ); 
 
   /* check that the output structures exist */
-  ASSERT( fcTmplt, status, 
+  ASSERT( fcTmplt, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
   ASSERT( fcTmplt->ACTDtilde, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
   ASSERT( fcTmplt->ACTDtilde->length == NACTDTILDEVECS, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcTmplt->ACTDtilde->data, status, 
+  ASSERT( fcTmplt->ACTDtilde->data, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
 
   /* check that the parameter structure exists */
-  ASSERT( params, status, 
+  ASSERT( params, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
-  ASSERT( params->ACTDVecs, status, 
+  ASSERT( params->ACTDVecs, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
-  ASSERT( params->ACTDVecs->length == NACTDVECS, status, 
+  ASSERT( params->ACTDVecs->length == NACTDVECS, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->ACTDVecs->data, status, 
+  ASSERT( params->ACTDVecs->data, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
 
 
   /* check we have an fft plan for the template */
-  ASSERT( params->fwdPlan, status, 
+  ASSERT( params->fwdPlan, status,
       FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
 
   /* check that the timestep is positive */
-  ASSERT( params->deltaT > 0, status, 
+  ASSERT( params->deltaT > 0, status,
       FINDCHIRPTDH_EDELT, FINDCHIRPTDH_MSGEDELT );
 
   /* check that the input exists */
@@ -131,7 +130,7 @@ LALFindChirpACTDTemplate(
   if( params->approximant != AmpCorPPN )
   {
     ABORT( status, FINDCHIRPTDH_EMAPX, FINDCHIRPTDH_MSGEMAPX );
-  }  
+  }
 
   /* store deltaT and zero out the time domain waveform vector */
   deltaT = params->deltaT;
@@ -273,8 +272,8 @@ LALFindChirpACTDTemplate(
   CHECKSTATUSPTR( status );
 
   LALSDestroyVector( status->statusPtr, &(waveform.f->data) );
-   
-   
+
+
   CHECKSTATUSPTR( status );
 
   LALDDestroyVector( status->statusPtr, &(waveform.phi->data) );
@@ -286,12 +285,12 @@ LALFindChirpACTDTemplate(
   LALFree( waveform.a );
   LALFree( waveform.f );
   LALFree( waveform.phi );
-    
+
   /* waveform parameters needed for findchirp filter */
   tmplt->approximant = params->approximant;
   tmplt->tC = ppnParams.tc;
   tmplt->fFinal = ppnParams.fStop;
-    
+
   fcTmplt->tmpltNorm = params->dynRange / ( cannonDist * 1.0e6 * LAL_PC_SI );
   fcTmplt->tmpltNorm *= fcTmplt->tmpltNorm;
 
@@ -301,7 +300,7 @@ LALFindChirpACTDTemplate(
    * Loop over each template and apply tapering/band passing etc
    *
    */
-    
+
   /* Create a temporary vector to avoid mishaps */
   if( ( tmpACTDVec = XLALCreateREAL4Vector( numPoints ) ) == NULL )
   {
@@ -310,7 +309,7 @@ LALFindChirpACTDTemplate(
   
   for( i = istart; i < istop; i++ )
   {
-    memcpy( tmpACTDVec->data, ACTDVecs[i].data,  
+    memcpy( tmpACTDVec->data, ACTDVecs[i].data,
                numPoints * sizeof( *( ACTDVecs[i].data ) ) );
 
     /* Taper the waveform if required */
@@ -345,7 +344,7 @@ LALFindChirpACTDTemplate(
       /* We want to shift the template to the middle of the vector so */
       /* that band-passing will work properly */
       shift = ( numPoints - j ) / 2;
-      memmove( tmpACTDVec->data + shift, tmpACTDVec->data, 
+      memmove( tmpACTDVec->data + shift, tmpACTDVec->data,
                                        j * sizeof( *( tmpACTDVec->data ) ) );
 
       memset( tmpACTDVec->data, 0, shift * sizeof( *( tmpACTDVec->data ) ) );
@@ -370,20 +369,11 @@ LALFindChirpACTDTemplate(
         bpVector.length = numPoints;
         bpVector.data   = tmpACTDVec->data;
       }
-      
 
-      /* If the harmonic is not in our bandwidth we mega band pass it */
-      if( bpfLow >= bpfFinal )
-      {
-        bpfLow = 0.98 * tmplt->fLower;
-        bpfFinal = 1.02* ( tmplt->fLower + 1. );
-      }
-      else
-      {
-        /* Adjust frequencies according to the harmonic */
-        bpfLow = 0.98 * tmplt->fLower ;
-        bpfFinal = 1.02 * tmplt->fFinal * ( ( REAL4 )( i ) + 1. ) / 2.;
-      }
+      /* Adjust frequencies according to the harmonic */
+      bpfLow = 0.98 * tmplt->fLower ;
+      bpfFinal = 1.02 * tmplt->fFinal * ( ( REAL4 )( i ) + 1. ) / 2.;
+
 
       if ( XLALBandPassInspiralTemplate( &bpVector, bpfLow,
                    tmplt->fFinal, sampleRate ) == XLAL_FAILURE )
@@ -393,10 +383,10 @@ LALFindChirpACTDTemplate(
 
       /* Now we need to do the shift to the end. */
       memcpy( tmpACTDVec->data, tmpACTDVec->data + ( numPoints + j ) / 2,
-         ( numPoints - ( numPoints + j ) / 2 )  
+         ( numPoints - ( numPoints + j ) / 2 )
                * sizeof( *(tmpACTDVec->data) ) );
       memcpy( tmpACTDVec->data + numPoints - ( numPoints + j ) / 2,
-         tmpACTDVec->data, ( numPoints + j ) /2 
+         tmpACTDVec->data, ( numPoints + j ) /2
                * sizeof( *( tmpACTDVec->data ) ) );
 
     }
@@ -404,13 +394,13 @@ LALFindChirpACTDTemplate(
     {
       /* No need for so much shifting around if not band passing */
       /* shift chirp to end of vector so it is the correct place for filter */
-        memmove( tmpACTDVec->data + numPoints - j, tmpACTDVec->data, 
+        memmove( tmpACTDVec->data + numPoints - j, tmpACTDVec->data,
                                         j * sizeof( *( tmpACTDVec->data ) ) );
-        memset( tmpACTDVec->data, 0, 
+        memset( tmpACTDVec->data, 0,
                         ( numPoints - j ) * sizeof( *( tmpACTDVec->data ) ) );
     }
 
-    memcpy( ACTDVecs[i].data, tmpACTDVec->data, 
+    memcpy( ACTDVecs[i].data, tmpACTDVec->data,
                            numPoints * sizeof( *( tmpACTDVec->data ) ) );
 
   }
@@ -429,7 +419,7 @@ LALFindChirpACTDTemplate(
   /* fft harmonics */
   for( i = istart; i < istop; ++i)
   {
-    if ( XLALREAL4ForwardFFT( &ACTDtilde[i], &ACTDVecs[i], 
+    if ( XLALREAL4ForwardFFT( &ACTDtilde[i], &ACTDVecs[i],
          params->fwdPlan ) == XLAL_FAILURE )
     {
       ABORTXLAL( status );
@@ -446,7 +436,7 @@ LALFindChirpACTDTemplate(
   /* print the template normalization constant */
   if ( lalDebugLevel & LALINFO )
   {
-    LALSnprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg), 
+    snprintf( infomsg, sizeof(infomsg) / sizeof(*infomsg),
         "tmpltNorm = %e\n", fcTmplt->tmpltNorm );
     LALInfo( status, infomsg );
   }
@@ -508,7 +498,7 @@ LALFindChirpACTDNormalize(
 
   numPoints   = fcTmplt->ACTDtilde->vectorLength;
   numTDPoints = 2 * ( numPoints - 1 );
- 
+
   deltaT = tmpltParams->deltaT;
 
   for( i = 0; i < NACTDTILDEVECS; ++i )
