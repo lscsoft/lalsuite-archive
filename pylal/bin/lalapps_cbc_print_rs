@@ -128,6 +128,8 @@ class SelectedSegmentsTable(table.Table):
         "segment_duration":"int_4u",
         "num_triggers":"int_4u",
         "trigger_rate":"real_8",
+        "num_tmplts":"int_4u",
+        "trigger_rate_per_tmplt":"real_8",
         "average_snr":"real_8",
         "max_snr":"real_8",
         "median_snr":"real_8",
@@ -280,6 +282,8 @@ if opts.merge_with_loudest_events:
                 selected_seg.segment_duration = seg.segment_duration
                 selected_seg.num_triggers = seg.num_triggers
                 selected_seg.trigger_rate = seg.trigger_rate
+                selected_seg.num_tmplts = seg.num_tmplts
+                selected_seg.trigger_rate_per_tmplt = seg.trigger_rate_per_tmplt
                 selected_seg.average_snr = seg.average_snr
                 selected_seg.max_snr = seg.max_snr
                 selected_seg.median_snr = seg.median_snr
@@ -298,7 +302,7 @@ else:
         opts.output = open(opts.output, 'w')
     tableList = []
     columnList = []
-    if rate_table is not None:
+    if opts.rate_stats: 
         thislist = [ 
             "file_type",
             "ifo",
@@ -306,10 +310,12 @@ else:
             "max_rate",
             "min_rate",
             "median_rate",
-            "standard_deviation" ]
+            "standard_deviation",
+            "average_num_tmplts",
+            "average_rate_per_tmplt" ]
         columnList.extend( ':'.join(["rate_statistics",colname]) for colname in thislist )
         tableList.append('rate_statistics')
-    if glitch_table is not None:
+    if opts.glitchiest_files:
         thislist = [ 
             "ifo",
             "file_type",
@@ -319,6 +325,8 @@ else:
             "segment_duration",
             "num_triggers",
             "trigger_rate",
+            "num_tmplts",
+            "trigger_rate_per_tmplt",
             "average_snr",
             "max_snr",
             "median_snr",
@@ -327,7 +335,7 @@ else:
             "daily_ihope_page"]
         columnList.extend( ':'.join(['glitchiest_files',colname]) for colname in thislist )
         tableList.append('glitchiest_files')
-    if quiet_table is not None:
+    if opts.quietest_files:
         col_list = [ 
             "ifo",
             "file_type",
@@ -337,6 +345,8 @@ else:
             "segment_duration",
             "num_triggers",
             "trigger_rate",
+            "num_tmplts",
+            "trigger_rate_per_tmplt",
             "average_snr",
             "max_snr",
             "median_snr",
@@ -345,7 +355,7 @@ else:
             "daily_ihope_page"]
         columnList.extend( ':'.join(['quietest_files',colname]) for colname in thislist )
         tableList.append('quietest_files')
-    if selected_segs_table is not None:
+    if opts.merge_with_loudest_events:
         thislist = [
             'coinc_event_rank',
             'coinc_event_end_time',
@@ -361,6 +371,8 @@ else:
             'segment_duration',
             'num_triggers',
             'trigger_rate',
+            'num_tmplts',
+            'trigger_rate_per_tmplt',
             'average_snr',
             'max_snr',
             'median_snr',
