@@ -1070,7 +1070,8 @@ for cat in cats:
   for key in rank_node:
     finished_rank_nodes.extend(rank_node[key].values())
 
-  update_node[cat] = mvsc_update_sql_node(update_job, dag, files= '"*' +base_name+'*.dat"',infofiles='"*'+base_name+'*_info.pat"',databases='"*'+cat+'*'+timestr+'.sqlite"',p_node=finished_rank_nodes+zl_rank_node.values())
+  update_p_nodes = finished_rank_nodes+zl_rank_node.values()
+  update_node[cat] = mvsc_update_sql_node(update_job, dag, files= '*' +base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+cat+'*'+timestr+'.sqlite',p_node=update_p_nodes)
 
   #to compute combined far 
   lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [update_node[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
