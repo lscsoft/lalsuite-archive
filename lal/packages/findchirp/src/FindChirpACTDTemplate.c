@@ -238,25 +238,22 @@ LALFindChirpACTDTemplate(
   }
 
   /* compute h(t) */
-  /* legacy - length is the lentgh of the vectors */
+  /* legacy - length is the length of the vectors rather than vector Length */
   
-  /* If a harmonic is not in band don't loop over it */  
-  if( - ppnParams.fStopIn / 2.0 <= params->fLow )
-    istart++;
-  if( - ppnParams.fStopIn  <= params->fLow )
-    istart++;
-
-  /* delta varies between 0 and 1 
-   * Let us try a delta threshold of 0.25 such that if delta < 0.25 the
-   * 1st and 3rd harmonics are not included.
-   * This equates to eta > 0.2344
-   */
-  if( ppnParams.eta_real8 > 0.2344 )
+  /* This will make all 0 if eta = 0.25 and 2nd harmonic not in band! */
+  if( ppnParams.eta_real8 > 0.24999999 )
   {
     istart = 1;
     istop  = 2;
   }
-  
+  /* If a harmonic is not in band don't loop over it */  
+  if( istart == 0 && - ppnParams.fStopIn / 2.0 <= params->fLow )
+    istart++;
+  if( - ppnParams.fStopIn  <= params->fLow )
+    istart++;
+  /* Signal generation would have failed if 3rd harmonic not in band */
+
+
 
   for ( j = 0; j < waveform.a->data->length; ++j )
   {
@@ -285,7 +282,6 @@ LALFindChirpACTDTemplate(
 
   LALSDestroyVector( status->statusPtr, &(ppnParams.ppn) );
   CHECKSTATUSPTR( status );
-
   LALFree( waveform.h );
   LALFree( waveform.a );
   LALFree( waveform.f );
