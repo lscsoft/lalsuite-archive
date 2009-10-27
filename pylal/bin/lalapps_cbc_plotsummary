@@ -332,7 +332,7 @@ def create_is_playground_func(connection, playground_segs):
 #
 # =============================================================================
 #
-#                      Injection Parameter Distributions
+#                      Summary Table
 #
 # =============================================================================
 #
@@ -430,7 +430,7 @@ WHERE
 ORDER BY
 	combined_far
 LIMIT 10
-                """).fetchall()
+		""").fetchall()
 
 		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.livetime.setdefault(on_instruments, 0.0)
@@ -465,10 +465,18 @@ LIMIT 10
 		self.write_wiki_string(self.candidates[:10], f, self.livetime)
 		f.close()
 		f = open(self.base+'playground_summary_table.txt','w')
-                f.write("=== Playground loudest 10 summary table ===\n")
+		f.write("=== Playground loudest 10 summary table ===\n")
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
 		f.close()
 		yield None, None, None
+
+#
+# =============================================================================
+#
+#                      Injection Parameter Distributions
+#
+# =============================================================================
+#
 
 class InjectionParameterDistributionPlots(object):
 	def __init__(self):
@@ -1337,7 +1345,7 @@ options, filenames = parse_command_line()
 
 def new_plots(plots = None):
 	l = (
-                SummaryTable(),
+		SummaryTable(),
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
