@@ -41,7 +41,6 @@ def create_default_config(home_base):
 
     cp.add_section("fu-q-rds-datafind")
     cp.set("fu-q-rds-datafind","search-time-range","1024")
-    cp.set("fu-q-rds-datafind","remote-ifo","V1")
 
     cp.add_section("fu-q-hoft-datafind")
     cp.set("fu-q-hoft-datafind","search-time-range","128")
@@ -59,7 +58,6 @@ def create_default_config(home_base):
     cp.set("fu-bg-rds-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/L0L1-RDS_R_L1-cbc.txt")
     cp.set("fu-bg-rds-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/standard_configuration/H0H1-RDS_R_L1-cbc.txt")
     cp.set("fu-bg-rds-qscan","V1config","")
-    cp.set("fu-bg-rds-qscan","remote-ifo","V1")
 
     cp.add_section("fu-bg-ht-qscan")
     cp.set("fu-bg-ht-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/hoft_configuration/L1_hoft_cbc.txt")
@@ -70,7 +68,6 @@ def create_default_config(home_base):
     cp.set("fu-bg-seismic-qscan","L1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/L0-RDS_R_L1-seismic-cbc.txt")
     cp.set("fu-bg-seismic-qscan","H1config",home_base+"/cbc/FOLLOWUP_QSCAN_STUFF_S6/wscan/configurations/background/seismic_configuration/H0-RDS_R_L1-seismic-cbc.txt")
     cp.set("fu-bg-seismic-qscan","V1config","")
-    cp.set("fu-bg-seismic-qscan","remote-ifo","V1")
 
     cp.add_section("fu-output")
     cp.set("fu-output","log-path","/usr1/" + os.getenv("USER"))

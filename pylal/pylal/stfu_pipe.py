@@ -1168,7 +1168,17 @@ class create_default_config(object):
 		# fu-fg-ht-qscan SECTION
 		cp.add_section("fu-fg-ht-qscan")
 		for config in ["H1config","H2config","L1config","V1config"]:
-			cp.set("fu-fg-ht-qscan",config,self.__qscan_config("s5_foreground_" + config[:2] + "_hoft_cbc.txt"))
+			cp.set("fu-fg-ht-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'hoft') + ".txt"))
+
+		# fu-fg-rds-qscan SECTION
+		cp.add_section("fu-fg-rds-qscan")
+		for config in ["H1config","H2config","L1config","V1config"]:
+			cp.set("fu-fg-rds-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt"))
+
+		# fu-fg-seismic-qscan SECTION
+		cp.add_section("fu-fg-seismic-qscan")
+		for config in ["H1config","H2config","L1config","V1config"]:
+			cp.set("fu-fg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
 
 		# FU-SKYMAP SECTION
 		cp.add_section("fu-skymap")
@@ -1221,6 +1231,15 @@ class create_default_config(object):
 			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		else:
 			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")		
+
+	def __config_name(self,ifo,type):
+		fileMap={
+			"L1":{"hoft":"L1_hoft_cbc","rds":"L0L1-RDS_R_L1-cbc","seismic":"L0L1-RDS_R_L1-seismic-cbc"},
+			"H1":{"hoft":"H1_hoft_cbc","rds":"H0H1-RDS_R_L1-cbc","seismic":"H0H1-RDS_R_L1-seismic-cbc"},
+			"H2":{"hoft":"H2_hoft_cbc","rds":"H0H2-RDS_R_L1-cbc","seismic":"H0H2-RDS_R_L1-seismic-cbc"},
+			"V1":{"hoft":"V1_hoft_cbc","rds":"V1-raw-cbc","seismic":"V1-raw-seismic-cbc"}
+			}	
+		return fileMap[ifo][type]
 
 	def __qscan_config(self,config):
 		#FIXME why isn't there an environment variable for things in lalapps share?
