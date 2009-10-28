@@ -84,27 +84,29 @@ class Coinc(object):
 	def parse_cache_by_desc(self, tag, cache=None):
 		out = []
 		#FIXME make this faster
-		if not cache: cache = self.cache
+		if cache is None: cache = self.cache
+		if not cache: return out
 		for l in cache:
 			if tag in l.description:
 				out.append(l)
 		if not out:
-			print >>sys.stderr, "couldn't find %s in requested %s" % (tag, str(cache))
-			raise ValueError
-			sys.exit(1)
+			print >>sys.stderr, "couldn't find %s in requested cache" % (tag, )
+			#raise ValueError
+			#sys.exit(1)
 		return out
 
 	def parse_cache_by_time_and_ifo(self, time, ifo, cache=None):
-		#FIXME make this faster
-		if not cache: cache = self.cache
 		out = []
+		#FIXME make this faster
+		if cache is None: cache = self.cache
+		if not cache: return out
 		for l in cache:
 			#print float(time), float(l.segment[0]), str(ifo), str(l.observatory)
 			if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory): out.append(l)
 		if not out:
-			print >>sys.stderr, "couldn't find %f for %s in requested %s" % (time, ifo, str(cache))
-			raise ValueError
-			sys.exit(1)
+			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (time, ifo)
+			#raise ValueError
+			#sys.exit(1)
 		return out
 		
 	def write_param_table(self, page):
@@ -118,6 +120,10 @@ class Coinc(object):
 		page.sections["param"].add_table(params, title="Sngl Parameter Table", caption="Sngl parameters for the event", tag="snglparamtable")
 
 	def add_htqscan(self, page):
+		for ifo, time in self.time.items():
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
+			if not c: return # get out of here if these jobs were not found
+
 		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -135,6 +141,11 @@ class Coinc(object):
 		page.sections["htqscan"].add_table([ifo_row, img_row], "h(t) Qscans", "A table with 3 detector h(t) qscans", tag="htqscan")
 		
 	def add_plotsnrchisq(self, page):
+		for ifo, time in self.time.items():
+			# Parse plotting codes nearly useless "cache" file
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
+			if not c: return # get out of here if these jobs were not found
+		
 		page.add_section("plotsnrchisq", "SNR, Chisq and template time series for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -142,7 +153,9 @@ class Coinc(object):
 		for ifo, time in self.time.items():
 			# Parse plotting codes nearly useless "cache" file
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
+			print str(c[0])
 			cfile = c[0].url.replace('file://localhost','')
+			print cfile
 			path = os.path.split(cfile.rstrip('/'))[0] 
 			clist = open(cfile).readlines()
 			plots = ['snr-','snr_zoom-', 'rsq-', 'rsq_zoom-', 'chisq-', 'chisq_zoom-', 'PSD-', 'fft_of_template_and_asd-', 'template-', 'white_template-']
@@ -157,13 +170,15 @@ class Coinc(object):
 		page.sections["plotsnrchisq"].add_table(table, "Plots of inspiral stuff", "Plots of snr, snrzoom, rsq, rsqzoom, chisq, chisqzoom, PSD, fft of templates and PSD, template and whitened template by ifo", tag="plotsnrchisq")
 
 	def add_plotchia(self, page):
+		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.plotchia_cache)
+		if not c: return # if the job didn't finish return
+
 		page.add_section("plotchia", "Coherent Code Plots for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
 		table = []
 		plot_list = []
 
-		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.plotchia_cache)
 		cfile = c[0].url.replace('file://localhost','')
 		path = os.path.split(cfile.rstrip('/'))[0] 
 		try: clist = open(cfile).readlines()
@@ -179,6 +194,9 @@ class Coinc(object):
 		page.sections["plotchia"].add_table(plot_list, "Plots of coherent inspiral stuff", "all of plotchiatimeseries output", tag="plotchia")
 
 	def add_skymap(self,page):
+		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
+		if not c: return # if the job didn't finish return
+
 		page.add_section("skymap", "Sky Map for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -213,6 +231,7 @@ class Coinc(object):
 # PARSE THE CACHE
 coinc_info, cache = cache_parser(sys.argv[1])
 
+print coinc_info, cache
 # LOOP OVER DIFFERENT "SEARCHES" LIKE FULL DATA ETC, 
 for search, coincs in coinc_info.items():
 	events = []

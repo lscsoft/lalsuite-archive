@@ -15,13 +15,13 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 
-import sys, os, copy, math, time, math, subprocess, socket, re, string
+import sys, os, copy, math, math, subprocess, socket, re, string
+import time as time_method
 from optparse import *
 import tempfile
 import ConfigParser
 import urlparse
 from UserDict import UserDict
-from pylal.xlal import date as xlaldate
 
 sys.path.append('@PYTHONLIBDIR@')
 
@@ -36,7 +36,8 @@ from glue import pipeline
 from glue import lal
 from pylal import db_thinca_rings
 from lalapps import inspiral
-
+from pylal import date
+from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -58,6 +59,16 @@ def science_run(time):
 	if time >= 931035296 and time <= 999999999: return 's6'
 	print >>sys.stderr, "COULD NOT DETERMINE SCIENCE RUN from %d" % (int(time),)
 	sys.exit(1)
+
+def get_day_boundaries(time):
+
+  # determine the start Time : 00:00:00 UTC from the day before
+  # and the end time, 00:00:00 UTC the current day
+
+  gps = LIGOTimeGPS(time)
+  start_gps = int(date.utc_midnight(gps))
+  end_gps = start_gps + 86400
+  return str(start_gps),str(end_gps)
 
 def figure_out_type(time, ifo, data_type='hoft'):
 	"""
@@ -305,7 +316,7 @@ class plotSNRChisqJob(pipeline.CondorDAGJob,FUJob):
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base,dir=dir)
 
-class htDataFindJob(pipeline.LSCDataFindJob,FUJob):
+class fuDataFindJob(pipeline.LSCDataFindJob,FUJob):
 	def __init__(self, config_file, dir='', tag_base=''):
     
 		#self.name = name
@@ -502,16 +513,25 @@ The omega scan command line is
 		pipeline.CondorDAGNode.__init__(self,job)
 
 		if variety == "bg":
-		  self.add_var_arg('scan')
+			self.add_var_arg('scan')
+			preString = "omega/" + science_run(time).upper() + "/background"
 		else:
-		  self.add_var_arg('scan -r')
+			self.add_var_arg('scan -r')
+			preString = "omega/" + science_run(time).upper() + "/foreground"
 		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
 		self.add_var_arg("-c " + config )
 
-		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
-		  output = cp.get('fu-output','output-dir') + '/' + type + 'Qscan' + '/' + ifo
+		if type == "ht":
+			dataString = figure_out_type(time, ifo, 'hoft')[0]
 		else:
-		  output = type + 'Qscan' + '/' + ifo
+			dataString = figure_out_type(time, ifo, 'rds')[0]
+		if dataString[:2]!=ifo:
+			dataString = ifo + "_" + dataString
+		timeString = "-".join(get_day_boundaries(int(time)))
+		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+		  output = cp.get('fu-output','output-dir') + '/' + preString + '/' + dataString + '/' + timeString
+		else:
+		  output = preString + '/' + dataString + '/' + timeString
 
 		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
 		mkdir(output)
@@ -529,7 +549,7 @@ The omega scan command line is
 		#FIXME is deleting the lock file the right thing to do?
 		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
-		if not(cp.has_option('fu-'+variety+'-'+type+'-qscan','remote-ifo') and cp.get('fu-'+variety+'-'+type+'-qscan','remote-ifo').strip()==ifo):
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 		  for node in p_nodes: self.add_parent(node)
 		  dag.add_node(self)
 
@@ -557,11 +577,10 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 			self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
 
 		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
-
-		if not qscan or not(cp.has_option('fu-q-'+data_type+'-datafind','remote-ifo') and cp.get('fu-q-'+data_type+'-datafind','remote-ifo').strip()==ifo):
-		    for node in p_nodes:
-			self.add_parent(node)
-		    dag.add_node(self)
+		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
+			for node in p_nodes:
+				self.add_parent(node)
+			dag.add_node(self)
 
 	def setup_qscan(self, job, cp, time, ifo, data_type):
 		# 1s is substracted to the expected startTime to make sure the window
@@ -1097,9 +1116,6 @@ class followUpDAG(pipeline.CondorDAG):
 		self.set_dag_file(self.basename)
 		self.jobsDict = {}
 		self.node_id = 0
-		# The list remote_nodes will contain the list of nodes run remotely 
-		# (such as V1 qscans)
-		self.remote_nodes = []
 		self.output_cache = []
 	def add_node(self,node):
 		self.node_id += 1
@@ -1122,7 +1138,6 @@ class followUpDAG(pipeline.CondorDAG):
 			f.write(str(c)+'\n')
 		f.close()
 
-
 ###############################################################################
 ###### CONFIG PARSER WRAPPING #################################################
 ###############################################################################
@@ -1130,7 +1145,7 @@ class create_default_config(object):
 	def __init__(self, config=None):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
-		self.time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
+		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
 		home_base = self.__home_dirs()
 		
 		# CONDOR SECTION NEEDED BY THINGS IN INSPIRAL.PY
@@ -1173,7 +1188,17 @@ class create_default_config(object):
 		# fu-fg-ht-qscan SECTION
 		cp.add_section("fu-fg-ht-qscan")
 		for config in ["H1config","H2config","L1config","V1config"]:
-			cp.set("fu-fg-ht-qscan",config,self.__qscan_config("s5_foreground_" + config[:2] + "_hoft_cbc.txt"))
+			cp.set("fu-fg-ht-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'hoft') + ".txt"))
+
+		# fu-fg-rds-qscan SECTION
+		cp.add_section("fu-fg-rds-qscan")
+		for config in ["H1config","H2config","L1config","V1config"]:
+			cp.set("fu-fg-rds-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt"))
+
+		# fu-fg-seismic-qscan SECTION
+		cp.add_section("fu-fg-seismic-qscan")
+		for config in ["H1config","H2config","L1config","V1config"]:
+			cp.set("fu-fg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
 
 		# FU-SKYMAP SECTION
 		cp.add_section("fu-skymap")
@@ -1194,6 +1219,12 @@ class create_default_config(object):
 		cp.set('chia','dec-step', "6")
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
+
+		# REMOTE JOBS SECTION
+		cp.add_section("fu-remote-jobs")
+		remoteIfos,remoteJobs = self.get_remote_jobs()
+		cp.set('fu-remote-jobs','remote-ifos',remoteIfos)
+		cp.set('fu-remote-jobs','remote-jobs',remoteJobs)
 
 		# if we have an ini file override the options
 		if config: 
@@ -1220,6 +1251,15 @@ class create_default_config(object):
 			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		else:
 			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")		
+
+	def __config_name(self,ifo,type):
+		fileMap={
+			"L1":{"hoft":"L1_hoft_cbc","rds":"L0L1-RDS_R_L1-cbc","seismic":"L0L1-RDS_R_L1-seismic-cbc"},
+			"H1":{"hoft":"H1_hoft_cbc","rds":"H0H1-RDS_R_L1-cbc","seismic":"H0H1-RDS_R_L1-seismic-cbc"},
+			"H2":{"hoft":"H2_hoft_cbc","rds":"H0H2-RDS_R_L1-cbc","seismic":"H0H2-RDS_R_L1-seismic-cbc"},
+			"V1":{"hoft":"V1_hoft_cbc","rds":"V1-raw-cbc","seismic":"V1-raw-seismic-cbc"}
+			}	
+		return fileMap[ifo][type]
 
 	def __qscan_config(self,config):
 		#FIXME why isn't there an environment variable for things in lalapps share?
@@ -1257,6 +1297,15 @@ class create_default_config(object):
 		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
+
+	def get_remote_jobs(self):
+		host = self.__get_hostname()
+                #FIXME add more hosts as you need them
+		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
+			remote_ifos = "V1"
+			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data"
+			return remote_ifos, remote_jobs
+		return '', ''
 
 	def log_path(self):
 		host = self.__get_hostname()

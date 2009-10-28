@@ -71,6 +71,40 @@ def exportCoincToDisk(coinc, dir, cnt, dag, filename=None):
 	fp.close()
 	return os.path.split(filename)[1]
 
+def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
+	"""
+	"""
+	#If directy coincHeadings not there make the directory if
+	#filename is None
+	headingDir= dir + "/coinc_info"
+	ifos = tevent.instruments
+	instruments =tevent.instruments
+	time = tevent.time
+
+	idKeyStr="%s_%s" % (str(time), instruments)
+	if filename==None:
+		filename="coincEvent.info"
+		stfu_pipe.mkdir(headingDir)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
+	fp=open(filename,'w')
+	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
+	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, 0, 0, ifos, instruments, float(time), 0) )
+	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
+	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+	content=list()
+	for ifo in tevent.ifos:
+		content.append(rowString%(dir, 
+					  ifo,
+					  float(time),  
+					  float(0),
+					  float(0),
+					  float(0),
+					  float(0)))
+	cache = lal.CacheEntry(instruments, "COINC_INFO_"+dir.upper(), segments.segment(float(time), float(time)), "file://localhost/"+os.path.abspath(filename))
+	dag.output_cache.append(cache)
+	fp.writelines(content)
+	fp.close()
+	return os.path.split(filename)[1]
 
 ###############################################################################
 ##### DB SUMMARY CLASS ########################################################
@@ -409,6 +443,23 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
+
+class time_only_event(object):
+	def __init__(self, ifostr, time):
+		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.instruments = ifostr
+		self.time = float(time)
+
+class time_only_events(object):
+	def __init__(self, timestr):
+		self.events = []
+		if not timestr: return
+		values = timestr.split(',')
+		for value in values:
+			ifos = value.split(':')[0]
+			time = value.split(':')[1]
+			self.events.append(time_only_event(ifos,time))
+
 	
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
@@ -432,6 +483,7 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
 	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
+	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
@@ -453,6 +505,29 @@ cp = default_cp.get_cp()
 dag = stfu_pipe.followUpDAG(options.config_file,cp)
 
 trigs = FUTriggers(num=options.number)
+
+###############################################################################
+##### DO FOLLOW UPS ON GPS TIME ONLY ##########################################
+###############################################################################
+
+search='gps_only'
+q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='qdatafind', dir=search)
+qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+
+gpsevents = time_only_events(options.gps_times)
+
+for cnt, event in enumerate(gpsevents.events):
+	for ifo in event.ifos:
+		if options.verbose:
+			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
+		# h(t) QSCAN datafind Nodes
+		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
+		# h(t) QSCAN Nodes
+		ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+		# FIXME ADD MORE JOBS
+
+		# write the event info to disk and cache for stfu_page
+	exportGPSEventToDisk(event, search, cnt, dag)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
@@ -483,9 +558,12 @@ trigs.topN()
 for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates)]:
 
 	# CONDOR JOB CLASSES
-	ht_data_find_job	= stfu_pipe.htDataFindJob(cp, dir=search, tag_base='datafind')
-	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, tag_base='qdatafind', dir=search)
-	qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+	ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, dir=search, tag_base='HT')
+	q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='Q_HT', dir=search)
+	q_rds_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='Q_RDS', dir=search)
+	ht_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+	rds_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_RDS')
+	seis_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
 	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, tag_base='plot')
 	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,tag_base='skymap')	
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
@@ -518,8 +596,14 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 			# h(t) QSCAN datafind Nodes
 			ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral, qscan=True)
+			# RDS QSCAN datafind Nodes
+			rds_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag,q_rds_data_find_job, cp, options, ifo, sngl=sngl_inspiral, qscan=True, data_type="rds")
 			# h(t) QSCAN Nodes
-			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+			ht_qscan_node = stfu_pipe.fuQscanNode(dag, ht_qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+			# RDS QSCAN Nodes
+			rds_qscan_node = stfu_pipe.fuQscanNode(dag, rds_qscan_job, cp, options, sngl_inspiral.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="rds")
+			# SEIS RDS QSCAN Nodes
+			seis_qscan_node = stfu_pipe.fuQscanNode(dag, seis_qscan_job, cp, options, sngl_inspiral.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="seismic")
 			# h(t) INSPIRAL datafind Node
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
 

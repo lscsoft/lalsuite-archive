@@ -151,7 +151,7 @@ class use_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = self.file_to_rank.replace('.pat','.dat')
-    self.add_file_arg("-a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+    self.add_file_arg("-A -a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     self.add_output_file(self.ranked_file)
 # I need to figure out how to parse these options
     for p in p_node:
