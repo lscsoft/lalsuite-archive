@@ -75,44 +75,57 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
 
 
 def setup_database(database_location):
-    from glue import LDBDClient
-    from glue import gsiserverutils
-
     """Determine if we are using the secure or insecure server"""
     if database_location.startswith('ldbd:'):
-        port = 30015
-        host_and_port = database_location[len('ldbd://'):]
-        identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
+       identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
+       host_and_port = database_location[len('ldbd://'):]
+       if host_and_port.find(':') < 0:
+          host = host_and_port
+          port = 30015
+       else:
+          # server and port specified
+          host, portString = host_and_port.split(':')
+          port = int(portString)
+
+       identity += host
+       client = None
+        
+       if port != 443:
+          from glue import LDBDClient
+          from glue import gsiserverutils
+          try:
+            client = LDBDClient.LDBDClient(host, port, identity)
+          except Exception, e:
+            print >>sys.stderr, \
+              "Unable to connect to LDBD Server %s:%d" % (host, port)
+            if gsiserverutils.checkCredentials():
+              print >>sys.stderr, "Got the following error : " + str(e)
+              print >>sys.stderr, "Run with --help' for usage"
+            sys.exit(1)
+       else:
+          from glue import LDBDWClient
+          try:
+            client = LDBDWClient.LDBDClient(host, port, identity)
+          except Exception, e:
+            print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host, port)
+            sys.exit(1)
+
+
+
     elif database_location.startswith('ldbdi:'):
         port = 30016
-        host_and_port = database_location[len('ldbdi://'):]
+        host = database_location[len('ldbdi://'):]
         identity = None
+
+        from glue import LDBDClient
+        try:
+          client = LDBDClient.LDBDClient(host, port, identity)
+        except Exception, e:
+          print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host, port)
+          sys.exit(1)
     else:
         raise ValueError( "invalid url for segment database" )
     
-    """Opens a connection to a LDBD Server"""
-    if host_and_port.find(':') < 0:
-        host = host_and_port
-    else:
-        # server and port specified
-        host, portString = host_and_port.split(':')
-        port = int(portString)
-
-    if identity:
-        identity += host
-
-    # open connection to LDBD Server
-    client = None
-
-    try:
-        client = LDBDClient.LDBDClient(host, port, identity)
-    except Exception, e:
-        print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-        if gsiserverutils.checkCredentials():
-            print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Run with --help' for usage"
-        sys.exit(-1)
 
     return client
 

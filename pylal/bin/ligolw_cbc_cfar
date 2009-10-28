@@ -315,7 +315,7 @@ sqlquery = """
 for eid, esid, duration, datatype in connection.cursor().execute( sqlquery ):
     background.append_duration(eid, esid, duration)
     if datatype != "slide":
-        background.append_zero_lag_id( eid, esid, datatype )
+        background.append_zero_lag_id( eid, esid )
 
 # calculate the background duration for each experiment_summary_id 
 background.calc_bkg_durs()

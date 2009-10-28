@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -45,12 +43,13 @@ from scipy.signal import signaltools
 
 from glue import iterutils
 from glue import segments
+from pylal import git_version
 from pylal import window
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -515,10 +514,17 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
 	        0.   ,  0.   ,  0.   ,  0.   ])
 	"""
-	array = numpy.zeros((len(bins),), dtype = dtype)
-	for i, (a, b) in enumerate(zip(bins.lower(), bins.upper())):
-		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-	return array
+        lower = bins.lower()
+        upper = bins.upper()
+        # make an intersection of the segment list with the extend of the bins
+        # need to use lower/upper instead of min/max because the latter sometimes
+        # merely correspond to low and high parameters used to construct the binning
+        # (see, for example, the atan binning)
+        seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
+        array = numpy.zeros((len(bins),), dtype = dtype)
+        for i, (a, b) in enumerate(zip(lower, upper)):
+                array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
+        return array
 
 
 #

@@ -1,8 +1,6 @@
 #!/usr/bin/python
 #
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -44,11 +42,13 @@ from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import date
+from pylal import git_version
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import SimBurstUtils
 from pylal.xlal import inject
 from pylal.xlal import tools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 tools.cached_detector.update({
@@ -58,9 +58,9 @@ tools.cached_detector.update({
 })
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -74,7 +74,7 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "%prog CVS $Id$"
+		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "Set the prefix for output filenames (default = \"plotburca_\").")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\").")
@@ -240,7 +240,7 @@ EXCEPT
 		sc_coinc_event.coinc_def_id == ?
 		AND sc_coinc_event.time_slide_id == bb_coinc_event.time_slide_id
 	""", (contents.bb_definer_id, contents.sb_definer_id, contents.sc_definer_id)):
-		yield contents.coinc_table._row_from_cols(values)
+		yield contents.coinc_table.row_from_cols(values)
 
 
 def magnitude_a(burst):
@@ -248,7 +248,7 @@ def magnitude_a(burst):
 
 
 def magnitude_b(burst):
-	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
+	gmst = date.XLALGreenwichMeanSiderealTime(LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
 	fplus, fcross = inject.XLALComputeDetAMResponse(tools.cached_detector[burst.ifo].response, SimBurstUtils.MW_CENTER_J2000_RA_RAD, SimBurstUtils.MW_CENTER_J2000_DEC_RAD, 0.0, gmst)
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
@@ -302,7 +302,7 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
-			coinc = contents.coinc_event_table._row_from_cols(values)
+			coinc = contents.coinc_event_table.row_from_cols(values)
 			not_zero_lag = values[-1]
 			if not_zero_lag:
 				self.n_foreground += 1
@@ -339,7 +339,7 @@ FROM
 WHERE
 	sim_coinc.coinc_def_id == ?
 			""", (contents.sc_definer_id,)):
-				coinc = contents.coinc_event_table._row_from_cols(values)
+				coinc = contents.coinc_event_table.row_from_cols(values)
 				self.n_injections += 1
 				try:
 					self.coinc_injection_bins[self.coords(contents, coinc.coinc_event_id)] += 1
@@ -439,7 +439,7 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
-			coinc = contents.coinc_event_table._row_from_cols(values)
+			coinc = contents.coinc_event_table.row_from_cols(values)
 			not_zero_lag = values[-1]
 			x, y = self.coords(contents, coinc.coinc_event_id)
 			if not_zero_lag:
@@ -476,7 +476,7 @@ FROM
 WHERE
 	sim_coinc.coinc_def_id == ?
 			""", (contents.sc_definer_id,)):
-				coinc = contents.coinc_event_table._row_from_cols(values)
+				coinc = contents.coinc_event_table.row_from_cols(values)
 				self.n_injections += 1
 				try:
 					self.coinc_injection_bins[self.coords(contents, coinc.coinc_event_id)] += 1

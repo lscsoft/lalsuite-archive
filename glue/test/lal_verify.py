@@ -81,7 +81,7 @@ class test_LIGOTimeGPS(unittest.TestCase):
 
 	def test_pylal_comparison(self):
 		try:
-			from pylal.xlal.date import LIGOTimeGPS as pylalLIGOTimeGPS
+			from pylal.datatypes import LIGOTimeGPS as pylalLIGOTimeGPS
 		except ImportError:
 			print >>sys.stderr, "pylal not available:  skipping test"
 			return

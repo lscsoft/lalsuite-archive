@@ -30,6 +30,7 @@ import re
 
 try:
   from glue import LDBDClient
+  from glue import LDBDWClient
   from glue import gsiserverutils
 except ImportError, e:
   print >> sys.stderr, """
@@ -172,16 +173,24 @@ if disableauth:
   identity = None
 
 # open connection to LDBD Server
-try:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
+if port in (30015,30020,30021,30022,30023):
+  try:
+    myClient = LDBDClient.LDBDClient(host, port, identity)
 
-except Exception, e:
-  print >>sys.stderr, \
-    "Unable to connect to LDBD Server %s:%d" % (host, port)
-  if gsiserverutils.checkCredentials():
-    print >>sys.stderr, "Got the following error : " + str(e)
-    print >>sys.stderr, "Enter 'ldbdc --help' for usage"
-  sys.exit(1)
+  except Exception, e:
+    print >>sys.stderr, \
+      "Unable to connect to LDBD Server %s:%d" % (host, port)
+    if gsiserverutils.checkCredentials():
+      print >>sys.stderr, "Got the following error : " + str(e)
+      print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+    sys.exit(1)
+elif port==443:
+  try:
+    myClient = LDBDWClient.LDBDClient(host,port,identity)
+  except Exception, e:
+    print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host,port)
+    sys.exit(1)
+
 
 try:
   if ping:

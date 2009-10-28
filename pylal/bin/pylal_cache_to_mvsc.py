@@ -36,7 +36,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal.tools import XLALCalculateEThincaParameter
-from pylal.date import LIGOTimeGPS
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 def new_coincs_from_coincs(coincTable, coinc_stat):
   """

@@ -107,8 +107,11 @@ class LdbdQueryEngine(QueryEngine):
 		xml = self.client.query(sql)
 		
 		# This is a kludge around bug 2317
-		self.client.__disconnect__()
-		self.client.__connect__(self.client.host, self.client.port, self.client.identity)
+                try:
+		  self.client.__disconnect__()
+		  self.client.__connect__(self.client.host, self.client.port, self.client.identity)
+                except:
+                  pass
 
 		self.ligomd.parse(xml)
 		res = self.ligomd.table

@@ -29,6 +29,7 @@ from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
 from pylal import llwapp
 from pylal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 import matplotlib
 matplotlib.use('Agg')
@@ -179,8 +180,8 @@ vetoes.coalesce()
 # extract the veto time appropriate to this segment
 
 seg = segments.segmentlist(
-    [segments.segment(date.LIGOTimeGPS(opts.gps_start_time),
-                      date.LIGOTimeGPS(opts.gps_end_time))])
+    [segments.segment(LIGOTimeGPS(opts.gps_start_time),
+                      LIGOTimeGPS(opts.gps_end_time))])
 for key in vetoes.keys():
   vetoes[key] &= seg
 

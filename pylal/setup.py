@@ -24,6 +24,8 @@ class PkgConfig(object):
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 lal_pkg_config = PkgConfig("lal")
+# FIXME:  works for GCC only!!!
+lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
 
 def remove_root(path, root):
@@ -148,7 +150,8 @@ setup(
 	license = "See file LICENSE",
 	packages = [
 		"pylal",
-		"pylal.xlal"
+		"pylal.xlal",
+		"pylal.xlal.datatypes"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -174,12 +177,103 @@ setup(
 			runtime_library_dirs = lal_pkg_config.libdirs
 		),
 		Extension(
-			"pylal.xlal.date",
-			["src/xlal/date.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			"pylal.xlal.datatypes.complex16fftplan",
+			["src/xlal/datatypes/complex16fftplan.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.complex16frequencyseries",
+			["src/xlal/datatypes/complex16frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.complex16timeseries",
+			["src/xlal/datatypes/complex16timeseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.lalunit",
+			["src/xlal/datatypes/lalunit.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.ligotimegps",
+			["src/xlal/datatypes/ligotimegps.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8fftplan",
+			["src/xlal/datatypes/real8fftplan.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8frequencyseries",
+			["src/xlal/datatypes/real8frequencyseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8timeseries",
+			["src/xlal/datatypes/real8timeseries.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.real8window",
+			["src/xlal/datatypes/real8window.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.date",
+			["src/xlal/date.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.fft",
+			["src/xlal/fft.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.inject",
@@ -187,7 +281,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.noisemodels",
@@ -195,7 +290,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.tools",
@@ -203,19 +299,30 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.window",
-			["src/xlal/window.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			["src/xlal/window.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.burstsearch",
 			["src/xlal/burstsearch.c"],
+			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.spawaveform",
+			["src/spawaveform.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,
@@ -232,6 +339,10 @@ setup(
 		os.path.join("bin", "galaxies_in_polygon"),
 		os.path.join("bin", "lal_query_cache"),
 		os.path.join("bin", "makeCheckList.py"),
+		os.path.join("bin", "makeCheckListWiki.py"),
+		os.path.join("bin", "followupQueryDQ.py"),
+		os.path.join("bin", "followupQueryVeto.py"),
+		os.path.join("bin", "followupRatioTest.py"),
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
@@ -274,7 +385,7 @@ setup(
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_exttrig_llmonitor"),
 		os.path.join("bin", "pylal_exttrig_llsummary"),
-		os.path.join("bin", "pylal_query_dq"),
+		os.path.join("bin", "pylal_exttrig_llopenbox"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
@@ -295,8 +406,12 @@ setup(
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
+		os.path.join("bin", "lalapps_stfu_pipe"),
+		os.path.join("bin", "wscan_background.py"),
+		os.path.join("bin", "lalapps_stfu_page"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "ligolw_binjfind"),
+		os.path.join("bin", "ligolw_summmime"),
 		os.path.join("bin", "ligolw_bucluster"),
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
@@ -333,9 +448,16 @@ setup(
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "extractCommand"),
 		os.path.join("bin", "OddsPostProc.py"),
+		os.path.join("bin", "make_inspiral_summary_page"),
+		os.path.join("bin", "mvsc_update_sql"),
+		os.path.join("bin", "mvsc_get_doubles"),
+		os.path.join("bin", "mvsc_dag"),
+		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
 		os.path.join("bin", "qsub_wscan.sh"),
 		os.path.join("bin", "qsub_wscanlite.sh"),
+		os.path.join("bin", "search_volume_by_m1_m2"),
+		os.path.join("bin", "search_upper_limit_by_m1_m2"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),

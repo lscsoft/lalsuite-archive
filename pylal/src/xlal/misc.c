@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Copyright (C) 2009  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -105,7 +103,7 @@ PyObject *pylal_exception_from_errno(enum XLALErrorValue code, const char **msg)
 void pylal_set_exception_from_xlalerrno(void)
 {
 	const char *msg;
-
-	PyErr_SetString(pylal_exception_from_errno(XLALGetBaseErrno(), &msg), msg);
+	PyObject *exc = pylal_exception_from_errno(XLALGetBaseErrno(), &msg);
+	PyErr_SetString(exc, msg);
 	XLALClearErrno();
 }

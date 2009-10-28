@@ -222,6 +222,7 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dq_active'),
     os.path.join('bin','ligolw_dq_active_cats'),
+    os.path.join('bin','ligolw_dq_grapher'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
@@ -232,6 +233,7 @@ setup(
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
+        os.path.join('etc','cbcwebpage.css'),
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
@@ -239,6 +241,7 @@ setup(
         os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw.xsl'),
         os.path.join('etc','ligolw.js'),
+        os.path.join('etc','LDBDWServer.wsgi'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),

@@ -1,0 +1,210 @@
+#!/usr/bin/env python
+
+__version__ = "$Revision$"
+__date__ = "$Date$"
+__prog__ = "wscan_background.py"
+__Id__ = "$Id$"
+__title__ = "Generate bakground of omega scans"
+
+##############################################################################
+
+import os, sys, subprocess
+from optparse import *
+import ConfigParser
+import time
+
+from glue import pipeline
+from glue import gpstime
+from glue.ligolw import dbtables
+from pylal import fu_utils
+from pylal import stfu_pipe
+
+##############################################################################
+# Useful methods
+
+class create_default_config(object):
+  def __init__(self,home_base):
+    cp = ConfigParser.ConfigParser()
+
+    cp.add_section("condor")
+    cp.set("condor","datafind",self.which("ligo_data_find"))
+
+    cp.add_section("fu-condor")
+    cp.set("fu-condor","datafind",self.which("ligo_data_find"))
+    cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
+    cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+
+    cp.add_section("datafind")
+
+    cp.add_section("fu-q-rds-datafind")
+    cp.set("fu-q-rds-datafind","search-time-range","1024")
+
+    cp.add_section("fu-q-hoft-datafind")
+    cp.set("fu-q-hoft-datafind","search-time-range","128")
+
+    cp.add_section("followup-background-qscan-times")
+    cp.set("followup-background-qscan-times","H1range","")
+    cp.set("followup-background-qscan-times","L1range","")
+    cp.set("followup-background-qscan-times","V1range","")
+    cp.set("followup-background-qscan-times","segment-min-len","2048")
+    cp.set("followup-background-qscan-times","segment-pading","64")
+    cp.set("followup-background-qscan-times","random-seed","1")
+    cp.set("followup-background-qscan-times","background-statistics","20")
+
+    # fu-bg-ht-qscan SECTION
+    cp.add_section("fu-bg-ht-qscan")
+    for config in ["H1config","H2config","L1config","V1config"]:
+      cp.set("fu-bg-ht-qscan",config,self.__qscan_config("s5_background_" + self.__config_name(config[:2],'hoft') + ".txt"))
+
+    # fu-bg-rds-qscan SECTION
+    cp.add_section("fu-bg-rds-qscan")
+    for config in ["H1config","H2config","L1config","V1config"]:
+      cp.set("fu-bg-rds-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt"))
+
+    # fu-bg-seismic-qscan SECTION
+    cp.add_section("fu-bg-seismic-qscan")
+    for config in ["H1config","H2config","L1config","V1config"]:
+      cp.set("fu-bg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
+
+    cp.add_section("fu-output")
+    cp.set("fu-output","log-path","/usr1/" + os.getenv("USER"))
+
+    self.cp = cp
+
+  def __qscan_config(self,config):
+    #FIXME why isn't there an environment variable for things in lalapps share?
+    path = self.which('lalapps_inspiral')
+    if path: path = os.path.split(path)[0]
+    else:
+      print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, path)
+      raise ValueError
+      sys.exit(1)
+    out = path.replace('bin','share/lalapps') + '/' + config
+    if not os.path.isfile(out):
+      print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, out)
+      raise ValueError
+      sys.exit(1)
+    return out
+
+  def __config_name(self,ifo,type):
+    fileMap={
+            "L1":{"hoft":"L1_hoft_cbc","rds":"L0L1-RDS_R_L1-cbc","seismic":"L0L1-RDS_R_L1-seismic-cbc"},
+            "H1":{"hoft":"H1_hoft_cbc","rds":"H0H1-RDS_R_L1-cbc","seismic":"H0H1-RDS_R_L1-seismic-cbc"},
+            "H2":{"hoft":"H2_hoft_cbc","rds":"H0H2-RDS_R_L1-cbc","seismic":"H0H2-RDS_R_L1-seismic-cbc"},
+            "V1":{"hoft":"V1_hoft_cbc","rds":"V1-raw-cbc","seismic":"V1-raw-seismic-cbc"}
+            }
+    return fileMap[ifo][type]
+
+  def which(self,prog):
+    which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
+    out = which.stdout.read().strip()
+    if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
+    return out
+
+  def get_cp(self):
+    return self.cp
+
+def overwrite_config(cp,config):
+  for section in config.sections():
+    if not cp.has_section(section): cp.add_section(section)
+    for option in config.options(section):
+      cp.set(section,option,config.get(section,option))
+  return cp
+
+
+##############################################################################
+#MAIN PROGRAM
+##############################################################################
+
+home_dir = os.getenv("HOME")
+home_base = "/".join(home_dir.split("/")[0:-1])
+
+######################## OPTION PARSING  #####################################
+usage = """usage: %prog [options]
+"""
+
+parser = OptionParser( usage )
+
+parser.add_option("-v", "--version",action="store_true",default=False,\
+    help="print version information and exit")
+
+parser.add_option("-f","--config-file",action="store",type="string",\
+    default="",help="configuration file is optional")
+
+#parser.add_option("-m", "--datafind",action="store_true",\
+#    default=False, help="use datafind to get qscan/trends data")
+
+#parser.add_option("-M", "--hoft-datafind",action="store_true",\
+#    default=False, help="use datafind to get hoft data (for qscan)")
+
+#parser.add_option("-Q", "--background-qscan",action="store_true",\
+#    default=False, help="do qscans over a list of times")
+
+#parser.add_option("-N", "--background-hoft-qscan",action="store_true",\
+#    default=False, help="do hoft qscans over a list of times")
+
+#parser.add_option("-S", "--background-seis-qscan",action="store_true",\
+#    default=False, help="do seismic qscans over a list of times")
+
+command_line = sys.argv[1:]
+(opts,args) = parser.parse_args()
+
+if opts.version:
+  print "$Id$"
+  sys.exit(0)
+
+#############################################################################
+
+default_cp = create_default_config(home_base)
+cp = default_cp.get_cp()
+if opts.config_file: 
+ config = ConfigParser.ConfigParser()
+ config.read(opts.config_file)
+ cp = overwrite_config(cp,config)
+
+ifos_list = ['H1','H2','L1','G1','V1','T1']
+
+#Initialize dag
+if opts.config_file:
+  dag = stfu_pipe.followUpDAG(opts.config_file,cp)
+else:
+  dag = stfu_pipe.followUpDAG("wscan_background.ini",cp)
+
+# CONDOR JOB CLASSES
+htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
+rdsdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_RDS',dir='')
+htQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_HT',dir='')
+rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
+seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
+
+ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
+# print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
+
+for ifo in ifos_list:
+
+    if cp.has_option("followup-background-qscan-times",ifo+"range") and not cp.get("followup-background-qscan-times",ifo+"range"):
+      cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
+
+    # FIX ME: input argument segFile is not needed any more
+    segFile = {}
+    times, timeListFile = fu_utils.getQscanBackgroundTimes(cp,opts,ifo,segFile)
+
+    for qtime in times:
+      # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
+      dNode = stfu_pipe.fuDataFindNode(dag,rdsdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
+
+      # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
+
+      # SETUP BACKGROUND QSCAN JOBS
+      qHtBgNode = stfu_pipe.fuQscanNode(dag,htQscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path(),p_nodes=[dHoftNode],type="ht",variety="bg")
+
+      qRdsBgNode = stfu_pipe.fuQscanNode(dag,rdsQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="rds",variety="bg")
+
+      qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
+
+#### ALL FINNISH ####
+time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
+cp.write(open(time_now + "-" + ifo_range.replace(',','_')+ ".ini","w"))
+dag.write_all()
+

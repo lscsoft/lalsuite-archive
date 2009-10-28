@@ -31,6 +31,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 
 from pylal import InspiralUtils
+from pylal import CoincInspiralUtils
 
 
 # ============================================================================
@@ -209,41 +210,46 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
             continue
         tot_events[ esid ] = tot_nevents
     
-    # get number of events for each coinc type
-    if opts.verbose:
-        print >> sys.stdout, "\tcollecting number of events per coincident ifo..."
-    # if plotting playground only, turn on playground filter
-    if opts.plot_playground_only:
-        playground_filter = """
-            AND ( experiment_summary.datatype == "playground"
-                OR experiment_summary.datatype == "slide" )
-            """
+    # if the number of on_instruments, get information for each individual coinc_type
+    if len(on_instruments) > 2:
+
+        # get number of events for each coinc type
+        if opts.verbose:
+            print >> sys.stdout, "\tcollecting number of events per coincident ifo..."
+        # if plotting playground only, turn on playground filter
+        if opts.plot_playground_only:
+            playground_filter = """
+                AND ( experiment_summary.datatype == "playground"
+                    OR experiment_summary.datatype == "slide" )
+                """
+        else:
+            playground_filter = ''
+        # determine all possible coinc_ifos from the on_instruments
+        coinc_ifos = dict( [frozenset(ifos), {}] for ifos in CoincInspiralUtils.get_ifo_combos(list(on_instruments)) ) 
+        sqlquery = ''.join(["""
+            SELECT
+                experiment_summary.experiment_summ_id,
+                experiment_summary.datatype,
+                coinc_inspiral.ifos,
+                COUNT(experiment_map.coinc_event_id)
+            FROM
+                experiment_summary
+            JOIN
+                coinc_inspiral, experiment_map ON (
+                    experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                    AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
+            WHERE
+                experiment_summary.datatype != "simulation"
+                AND experiment_summary.experiment_id == """, '"', this_eid, '"',
+                playground_filter, """ 
+            GROUP BY
+                experiment_summary.experiment_summ_id, experiment_summary.datatype, coinc_inspiral.ifos"""])
+        for esid, datatype, ifo_set, ifos_nevents in connection.cursor().execute(sqlquery):
+            ifo_set = lsctables.instrument_set_from_ifos(ifo_set)
+            coinc_ifos[frozenset(ifo_set)][ esid ] = ifos_nevents
+
     else:
-        playground_filter = ''
-    coinc_ifos = {}
-    sqlquery = ''.join(["""
-        SELECT
-            experiment_summary.experiment_summ_id,
-            experiment_summary.datatype,
-            coinc_inspiral.ifos,
-            COUNT(experiment_map.coinc_event_id)
-        FROM
-            experiment_summary
-        JOIN
-            coinc_inspiral, experiment_map ON (
-                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
-        WHERE
-            experiment_summary.datatype != "simulation"
-            AND experiment_summary.experiment_id == """, '"', this_eid, '"',
-            playground_filter, """ 
-        GROUP BY
-            experiment_summary.experiment_summ_id, experiment_summary.datatype, coinc_inspiral.ifos"""])
-    for esid, datatype, ifo_set, ifos_nevents in connection.cursor().execute(sqlquery):
-        ifo_set = lsctables.instrument_set_from_ifos(ifo_set)
-        if frozenset(ifo_set) not in coinc_ifos:
-            coinc_ifos[frozenset(ifo_set)] = {}
-        coinc_ifos[frozenset(ifo_set)][ esid ] = ifos_nevents
+        coinc_ifos = {}
 
     # remap slide_numbers so that zero_lag esids have slide_num 0
     # also plug in any missing data in coinc_ifos; this can happen

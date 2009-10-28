@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2007  Kipp C. Cannon
+# Copyright (C) 2007  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,11 +32,12 @@ import sys
 
 
 from glue.ligolw import lsctables
+from pylal import git_version
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -312,7 +311,7 @@ AS
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
 		# retrieve sngl_burst events
-		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
+		events = map(database.sngl_burst_table.row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
 
 		# compute and store likelihood ratio
 		cursor.execute("""

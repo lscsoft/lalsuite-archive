@@ -1,7 +1,5 @@
 /*
- * $Id$
- *
- * Copyright (C) 2006  Kipp C. Cannon
+ * Copyright (C) 2006  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -26,6 +24,10 @@
  *
  * ============================================================================
  */
+
+
+#ifndef _PYLAL_XLAL_TOOLS_H_
+#define _PYLAL_XLAL_TOOLS_H_
 
 
 #include <Python.h>
@@ -154,3 +156,6 @@ typedef struct {
 	long process_id_i;
 	EventIDColumn event_id;
 } pylal_SimInspiralTable;
+
+
+#endif /* _PYLAL_XLAL_TOOLS_H_ */

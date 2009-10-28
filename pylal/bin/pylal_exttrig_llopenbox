@@ -1,0 +1,41 @@
+#!/usr/bin/python
+
+import os
+import sys
+import pickle
+import ConfigParser
+
+from pylal import pylal_exttrig_llutils as peu
+
+cp = ConfigParser.ConfigParser()
+cp.read('llmonitor.conf')
+
+# get the GRB name as only argument
+grb_name = sys.argv[1]
+
+# load the GRB data
+monitor_file = 'llmonitor.pickle'
+monitor_list = pickle.load(file(monitor_file))
+
+# loop over and find the correct one
+for grb in monitor_list:
+  if grb['name']==grb_name:
+   
+    # set the openbox
+    grb['openbox']=True
+    print "Box for GRB %s opened..." % grb_name
+
+
+#rewrite the files
+pickle.dump(monitor_list, file(monitor_file,'w'))
+
+#
+# Update the summary page of all GRBs
+#
+publish_path = cp.get('paths','publishing_path')
+publish_url = cp.get('paths','publishing_url')
+peu.generate_summary(monitor_file, publish_path, publish_url)
+
+
+
+
