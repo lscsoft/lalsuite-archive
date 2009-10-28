@@ -225,8 +225,8 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
     """
     """
     self.__prog__ = 'ligolw_sqlite'
-    self.__executable = string.strip(cp.get('condor','ligolw_sqlite'))#string.strip(cp.get('condor','bash'))
-    #self.ligolw_sqlite = string.strip(cp.get('condor','ligolw_sqlite'))
+    self.__executable = string.strip(cp.get('condor','ligolw_sqlite'))
+    tmp_dir = string.strip(cp.get('input','tmp-dir'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
@@ -235,7 +235,17 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    if tmp_dir: self.add_opt("tmp-space", tmp_dir)
+    self.setup_fix_sngl_table_missing_prescript()
 
+  def setup_fix_sngl_table_missing_prescript(self):
+    # create a shell script to fix missing sngl tables
+    script = open('fix_missing_sngls.py','w')
+    self.prescript = 'fix_missing_sngls.py'
+    script.write("""#!/usr/bin/python
+    """)
+    script.close()
+    os.chmod('fix_missing_sngls.py',0755)
 
 class ligolw_inspinjfind_job(pipeline.CondorDAGJob):
   """
@@ -417,19 +427,15 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
     if input_cache: cline += " --input-cache " + input_cache + " "
     for xml in xml_list: cline += xml + " "
     self.add_var_arg(cline)
-
-    #FIXME the node id will be incremented when it is added, so we do +1 by hand here
-    #fn = "bash_scripts/ligolw_sqlite"+str(dag.node_id+1)+".sh"
-    #f = open(fn,"w")
-    #if cache_pat: 
-    #  f.write("find $PWD -name '*" + cache_pat + "*.xml.gz' -print | sed -e 's?^?- - - - file://localhost?' > ligolw_sqlite_" + cache_pat + ".cache\n")
-    #f.write(cline)
-    #f.close
-    #self.add_file_arg(fn)
+    if input_cache: self.add_fix_files_prescript(input_cache)
 
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
+
+  def add_fix_files_prescript(self, cache):
+    self.set_pre_script("%s %s" % (job.prescript, cache))
+
 
 class ligolw_thinca_to_coinc_node(pipeline.CondorDAGNode):
   """
@@ -714,6 +720,7 @@ class default_config(object):
 
     #setup input
     cp.add_section('input')
+    cp.set("input", "tmp-dir", self.local_disk())
     cp.set("input", "ihope-dir", path_to_ihope)
     cp.set("input", "injcache", self.get_ihope_cache())
     cp.set("input", "fulldatacache", self.get_ihope_cache())
@@ -721,6 +728,7 @@ class default_config(object):
     cp.set("input", "simplify", self.path_to_sql("simplify.sql"))
     cp.set("input", "cluster", self.path_to_sql("cluster.sql"))
     cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
+    cp.set("input", "all_sql", self.combined_sql('all.sql', [self.path_to_sql("simplify.sql"),self.path_to_sql("remove_h1h2.sql"),self.path_to_sql("cluster.sql")]))
     # FIXME more cats?
     for cat in ['CAT_2','CAT_3', 'CAT_4', 'CAT_5']:
       for ifo in ['H1','H2','L1','V1']:
@@ -800,6 +808,26 @@ class default_config(object):
 
      return out 
 
+  def local_disk(self):
+    #FIXME
+    return self.log_path()
+
+  def combined_sql(self, fname, flist):
+    localdisk = self.local_disk()
+    f = open(fname, 'w')
+    f.write("PRAGMA temp_store_directory = '%s';\n" % (localdisk,))
+    f.close()
+    return './' + self.cat(flist, fname)
+
+  def cat(self, flist, fname):
+    print fname
+    ofile = open(fname, 'a')
+    for f in flist:
+      print f
+      ofile.write("".join(open(f).readlines()))
+    ofile.close()
+    return fname 
+   
   def set_veto_segment(self,cp, sec, cat, ifo):
     #FIXME stupid special cases
     if cat == 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
@@ -937,9 +965,10 @@ for cat in cats:
 
 #Some initialization
 ligolwThincaToCoincNode = {}
-sqliteNodeSimplify = {}
-sqliteNodeRemoveH1H2 = {}
-sqliteNodeCluster = {}
+sqliteNodeAll = {}
+#sqliteNodeSimplify = {}
+#sqliteNodeRemoveH1H2 = {}
+#sqliteNodeCluster = {}
 ligolwSqliteNode = {}
 ligolwSqliteNodeInjDBtoXML = {}
 ligolwSqliteNodeInjXMLtoDB = {}
@@ -1006,11 +1035,12 @@ for cat in cats:
       except: db[cat] = [c.database]
       xml_list = [segNode[cat].output]
       ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]], replace=True);
-      sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
-      sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
-      sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]); 
+      sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
+      #sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]); 
       # keep track of parents
-      p_nodes[cat].append(sqliteNodeCluster[key])
+      p_nodes[cat].append(sqliteNodeAll[key])
 
   ###############################################
   # INJECTION THINCA TO COINC AND CLUSTERING ETC
@@ -1031,10 +1061,11 @@ for cat in cats:
       except: db[cat] = [c.database]
       xml_list = [url, segNode[cat].output]
       ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]], replace=True);
-      sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
-      sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
-      sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]);
-      ligolwSqliteNodeInjDBtoXML[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[sqliteNodeCluster[key]], replace=False, extract=True);
+      sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
+      #sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]);
+      ligolwSqliteNodeInjDBtoXML[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[sqliteNodeAll[key]], replace=False, extract=True);
       ligolwInspinjfindNode[key] = ligolw_inspinjfind_node(ligolwInspinjfindJob, dag, c.xml, p_node=[ligolwSqliteNodeInjDBtoXML[key]]);
       ligolwSqliteNodeInjXMLtoDB[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[ligolwInspinjfindNode[key]], replace=True);
       # keep track of parent nodes
@@ -1072,6 +1103,8 @@ for cat in cats:
 
   update_p_nodes = finished_rank_nodes+zl_rank_node.values()
   update_node[cat] = mvsc_update_sql_node(update_job, dag, files= '*' +base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+cat+'*'+timestr+'.sqlite',p_node=update_p_nodes)
+
+  ############# END MUSIC STUFF (A LOOP OVER DOUBLES) #########################
 
   #to compute combined far 
   lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [update_node[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
