@@ -217,6 +217,43 @@ class sqlite_job(pipeline.CondorDAGJob):
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 
+class fix_singles_job(pipeline.CondorDAGJob):
+  def __init__(self, cp, tag_base='FIX_SNGLS'):
+    self.__prog__ = 'fix_missing_sngls.py'
+    self.__executable = self.setup_fix_sngl_table_missing_prescript()
+    self.__universe = string.strip('vanilla')
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    #self.add_condor_cmd("input","$(macroinput)")
+    self.add_condor_cmd('getenv','True')
+    self.tag_base = tag_base
+    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+    self.set_sub_file(tag_base+'.sub')
+    self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+    self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+
+
+  def setup_fix_sngl_table_missing_prescript(self):
+    # create a shell script to fix missing sngl tables
+    script = open('fix_missing_sngls.py','w')
+    prescript = './fix_missing_sngls.py'
+    script.write("""#!/usr/bin/python
+import sys
+from glue.lal import CacheEntry
+from glue.ligolw import lsctables, utils
+for filename in (CacheEntry(line).path() for line in file(sys.argv[1])):
+        xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"))
+        try:
+                lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+        except:
+                xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SnglInspiralTable, columns = ("process_id", "ifo", "search", "channel", "end_time", "end_time_ns", "end_time_gmst", "impulse_time", "impulse_time_ns", "template_duration", "event_duration", "amplitude", "eff_distance", "coa_phase", "mass1", "mass2", "mchirp", "mtotal", "eta", "kappa", "chi", "tau0", "tau2", "tau3", "tau4", "tau5", "ttotal", "psi0", "psi3", "alpha", "alpha1", "alpha2", "alpha3", "alpha4", "alpha5", "alpha6", "beta", "f_final", "snr", "chisq", "chisq_dof", "bank_chisq", "bank_chisq_dof", "cont_chisq", "cont_chisq_dof", "sigmasq", "rsqveto_duration", "Gamma0", "Gamma1", "Gamma2", "Gamma3", "Gamma4", "Gamma5", "Gamma6", "Gamma7", "Gamma8", "Gamma9", "event_id")))
+                utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"))
+    """)
+    script.close()
+    os.chmod('fix_missing_sngls.py',0755)
+    return prescript
+
+
+
 class ligolw_sqlite_job(pipeline.CondorDAGJob):
   """
   A ligolw_sqlite job
@@ -236,26 +273,7 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
     if tmp_dir: self.add_opt("tmp-space", tmp_dir)
-    self.setup_fix_sngl_table_missing_prescript()
 
-  def setup_fix_sngl_table_missing_prescript(self):
-    # create a shell script to fix missing sngl tables
-    script = open('fix_missing_sngls.py','w')
-    self.prescript = 'fix_missing_sngls.py'
-    script.write("""#!/usr/bin/python
-import sys
-from glue.lal import CacheEntry
-from glue.ligolw import lsctables, utils
-for filename in (CacheEntry(line).path() for line in file(sys.argv[1])):
-        xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"))
-        try:
-                lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-        except:
-                xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SnglInspiralTable, columns = ("process_id", "ifo", "search", "channel", "end_time", "end_time_ns", "end_time_gmst", "impulse_time", "impulse_time_ns", "template_duration", "event_duration", "amplitude", "eff_distance", "coa_phase", "mass1", "mass2", "mchirp", "mtotal", "eta", "kappa", "chi", "tau0", "tau2", "tau3", "tau4", "tau5", "ttotal", "psi0", "psi3", "alpha", "alpha1", "alpha2", "alpha3", "alpha4", "alpha5", "alpha6", "beta", "f_final", "snr", "chisq", "chisq_dof", "bank_chisq", "bank_chisq_dof", "cont_chisq", "cont_chisq_dof", "sigmasq", "rsqveto_duration", "Gamma0", "Gamma1", "Gamma2", "Gamma3", "Gamma4", "Gamma5", "Gamma6", "Gamma7", "Gamma8", "Gamma9", "event_id")))
-                utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"))
-    """)
-    script.close()
-    os.chmod('fix_missing_sngls.py',0755)
 
 class ligolw_inspinjfind_job(pipeline.CondorDAGJob):
   """
@@ -437,15 +455,22 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
     if input_cache: cline += " --input-cache " + input_cache + " "
     for xml in xml_list: cline += xml + " "
     self.add_var_arg(cline)
-    if input_cache: self.add_fix_files_prescript(job, input_cache)
 
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
 
-  def add_fix_files_prescript(self, job, cache):
-    self.set_pre_script("%s %s" % (job.prescript, cache))
+class fix_singles_node(pipeline.CondorDAGNode):
+  """
+  """
+  def __init__(self, job, dag, input_cache, p_node=[], replace=True, extract=False):
 
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_var_arg(input_cache)
+
+    for p in p_node:
+      self.add_parent(p)
+    dag.add_node(self)
 
 class ligolw_thinca_to_coinc_node(pipeline.CondorDAGNode):
   """
@@ -953,6 +978,7 @@ inspiral_second_list = filter(expr.search,open(FULLDATACACHE).readlines())
 
 
 #Setup jobs
+fixSnglsJob = fix_singles_job(cp)
 sqliteJob = sqlite_job(cp)
 ligolwSqliteJob = ligolw_sqlite_job(cp)
 ligolwInspinjfindJob = ligolw_inspinjfind_job(cp)
@@ -972,6 +998,7 @@ for cat in cats:
   segNode[cat] = ligolw_segments_node(ligolwSegmentsJob, dag, seg_dict[cat], "vetoes", "vetoes_"+cat+".xml.gz");
 
 #Some initialization
+fixSnglsNode = {}
 ligolwThincaToCoincNode = {}
 sqliteNodeAll = {}
 #sqliteNodeSimplify = {}
@@ -1035,10 +1062,11 @@ for cat in cats:
     for c in tcache.out:
       key = type+cat+c.strcnt
       ligolwThincaToCoincNode[key] = ligolw_thinca_to_coinc_node(ligolwThincaToCoincJob, dag, c.parsed_cache, segNode[cat].output, segNode[cat].name, c.prefix, start_time, end_time, effsnrfac=string.strip(cp.get('input',"eff_snr_fac")), instruments=instruments, p_node=[segNode[cat]]);
+      fixSnglsNode[key] = fix_singles_node(fixSnglsJob, dag, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]])
       try: db[cat].append(c.database) 
       except: db[cat] = [c.database]
       xml_list = [segNode[cat].output]
-      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]], replace=True);
+      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
       sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
       #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
       #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
@@ -1061,10 +1089,11 @@ for cat in cats:
     for c in tcache.out:
       key = type+cat+c.strcnt
       ligolwThincaToCoincNode[key] = ligolw_thinca_to_coinc_node(ligolwThincaToCoincJob, dag, c.parsed_cache, segNode[cat].output, segNode[cat].name, c.prefix, start_time, end_time, effsnrfac=string.strip(cp.get('input',"eff_snr_fac")), instruments=instruments, p_node=[segNode[cat]]);
+      fixSnglsNode[key] = fix_singles_node(fixSnglsJob, dag, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]])
       try: db[cat].append(c.database)
       except: db[cat] = [c.database]
       xml_list = [url, segNode[cat].output]
-      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]], replace=True);
+      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
       sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
       #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
       #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
