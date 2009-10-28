@@ -830,10 +830,8 @@ class default_config(object):
     return './' + self.cat(flist, fname)
 
   def cat(self, flist, fname):
-    print fname
     ofile = open(fname, 'a')
     for f in flist:
-      print f
       ofile.write("".join(open(f).readlines()))
     ofile.close()
     return fname 
@@ -1010,10 +1008,6 @@ zl_rank_node = {}
 #mvsc_update_sql
 update_job = mvsc_update_sql_job(cp)
 update_node = {}
-
-for comb in get_doubles(instruments):
-  comb = ','.join(comb)
-  print comb
 
 #############################################
 
