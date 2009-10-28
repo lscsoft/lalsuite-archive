@@ -296,7 +296,7 @@ class Reserve(Command):
         try:
             info = objectify(server.info("", location))
             found = True
-        except Exception, reason:
+        except xmlrpclib.Fault, reason:
             if not reason.faultString.endswith('not found'): raise
 
         if found:
