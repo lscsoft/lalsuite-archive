@@ -1680,8 +1680,33 @@ init_fc_ul();
 init_fc_ll();
 verify_limits();
 
+
 /* Account for power loss due to Hann windowing */
-upper_limit_comp=1.0/0.85;
+if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
+	if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
+		/* Matched filter correctly reconstructs power in the bin */
+		upper_limit_comp=1.0; 
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
+		/* 3 bins should contain the entire signal, regardless
+		   of positioning */
+		upper_limit_comp=sqrt(3.0);
+		} else 
+	if(!strcasecmp(args_info.averaging_mode_arg, "1") || !strcasecmp(args_info.averaging_mode_arg, "one")){
+		/* 0.85 is a ratio between amplitude of 
+		   half-bin centered signal and bin centered signal
+		   *amplitude*
+
+		   */
+		upper_limit_comp=1.0/0.85;
+		} else 
+		{
+		fprintf(stderr, "ERROR: do not know how to compensate upper limits for averaging mode \"%s\", try specifying upper_limit_comp option directly\n", args_info.averaging_mode_arg);
+		}
+	} else {
+	upper_limit_comp=atof(args_info.upper_limit_comp_arg);
+	}
+fprintf(LOG, "upper limit compensation factor: %8f\n", upper_limit_comp);
 
 
 // // /*	/* Extra factor to convert to amplitude from RMS power */

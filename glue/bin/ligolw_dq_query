@@ -86,7 +86,12 @@ from glue.ligolw import dbtables
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = pwd.getpwuid(os.getuid())[0]
+
+try:
+  USER_NAME = os.getlogin()
+except:
+  USER_NAME = pwd.getpwuid(os.getuid())[0]
+
 
 
 
@@ -157,8 +162,8 @@ def parse_command_line():
 
     # Make sure we know who to contact for data
     if options.segment_url:
-        if options.segment_url.startswith('ldbd:'):
-            database_location = options.segment_url[len('ldbd://'):]
+        if options.segment_url.startswith('ldbd'):
+            database_location = options.segment_url
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
         else:
@@ -179,7 +184,7 @@ def parse_command_line():
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
-        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
+        database_location = os.environ['S6_SEGMENT_SERVER']
     elif options.dmt_files:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
@@ -296,7 +301,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
         for ifo, name, version, start_time, end_time in rows:
             full_name = get_full_name(ifo, name, version)
             in_times[full_name] = [start_time, end_time]
-            print '%-45s[%d %d %d)' % (full_name, start_time, tm, end_time)
+            print '%-45s [%d %d %d)' % (full_name, start_time, tm, end_time)
 
         if not in_segments_only:
             # Segments we are between. Latest end time before of interest.
@@ -328,7 +333,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
             for key in out_times:
                 if key not in in_times:
                     value = out_times[key]
-                    print '%-45s%s %d %s' % (key, value[0], tm, value[1])
+                    print '%-45s %s %d %s' % (key, value[0], tm, value[1])
 
 
 def run_active(doc, process_id, engine, include_segments, times):

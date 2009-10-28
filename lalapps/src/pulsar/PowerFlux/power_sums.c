@@ -11,6 +11,7 @@
 #include "dataset.h"
 #include "grid.h"
 #include "skymarks.h"
+#include "summing_context.h"
 #include "cmdline.h"
 
 extern struct gengetopt_args_info args_info;
@@ -115,7 +116,7 @@ for(i=0;i<count;i++) {
 free(ps);
 }
 
-void accumulate_power_sums(POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
+void accumulate_power_sums(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
 {
 int segment_count;
 SEGMENT_INFO *si, *si_local;
@@ -136,6 +137,8 @@ int *group_segment_count;
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
 
 float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for amplitude response and bin shift estimation */
+
+//fprintf(stderr, "%p %p %d %lf %lf 0x%08x\n", ctx, ps, count, gps_start, gps_stop, veto_mask);
 
 for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
@@ -217,7 +220,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	for(k=0;k<group_count;k++) {
  		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
 		if(group_segment_count[k]<1)continue;
-		reset_simple_cache(group_segment_count[k], count);
+		ctx->reset_cache(ctx, group_segment_count[k], count);
 	
 		/* loop over templates */
 		ps_local=ps;
@@ -236,7 +239,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				si_local++;
 				}
 	
-			accumulate_single_bin_power_sum_cached1(groups[k], group_segment_count[k], ps_local->pps);
+			//accumulate_single_bin_power_sum_cached1(groups[k], group_segment_count[k], ps_local->pps);
+			ctx->accumulate_power_sum_cached(ctx, groups[k], group_segment_count[k], ps_local->pps);
 			ps_local++;
 			}
 		}

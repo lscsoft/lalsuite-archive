@@ -40,7 +40,7 @@ CREATE TABLE process
 -- Node on which it was run
       node               VARCHAR(64) NOT NULL,
 -- Unix username
-      username           CHAR(16) NOT NULL,
+      username           CHAR(64) NOT NULL,
 -- Unix process ID
       unix_procid        INTEGER NOT NULL,
 -- Start time (GPS seconds)

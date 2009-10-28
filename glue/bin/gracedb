@@ -7,6 +7,21 @@ import os, sys
 DEFAULT_SERVICE_URL = "https://archie.phys.uwm.edu/gracedb/cli"
 
 #-----------------------------------------------------------------
+# Util routines
+
+def error(*message):
+    message = "".join(message) + "\n"
+    sys.stderr.write("ERROR: " + message)
+
+def warning(*message):
+    message = "".join(message) + "\n"
+    sys.stderr.write("WARNING: " + message)
+
+def output(*message):
+    message = "".join(message) + "\n"
+    sys.stdout.write(message)
+
+#-----------------------------------------------------------------
 # HTTP/S Proxy classses
 # Taken from: http://code.activestate.com/recipes/456195/
 
@@ -156,14 +171,14 @@ def checkProxy(fname):
             cert.get_ext('proxyCertInfo')
         except LookupError:
             # Really, there shouldn't be an undefined extension.
-            print "Warning: You seem to be using a pre-RFC proxy."
-            print "Try doing grid-proxy-init -rfc"
+            warning("Warning: You seem to be using a pre-RFC proxy.\n"
+                    "Try doing grid-proxy-init -rfc")
     except ImportError:
-        print "Warning: Cannot load M2Crypto.  Not able to check proxy"
-        print "   If you are getting errors, perhaps you are not using"
-        print '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?'
-        print "To enable proxy checking, install m2crypto (CentOS, RedHat),"
-        print "python-m2crypto (Debian) or py25-m2crypto (MacPorts)"
+        warning("Warning: Cannot load M2Crypto.  Not able to check proxy\n"
+                "   If you are getting errors, perhaps you are not using\n"
+                '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?\n'
+                "To enable proxy checking, install m2crypto (CentOS, RedHat),\n"
+                "python-m2crypto (Debian) or py25-m2crypto (MacPorts)")
 
 def findUserCredentials(warnOnOldProxy=1):
 
@@ -219,36 +234,56 @@ class Client:
                                                 key_file=key, cert_file=cert)
         self.url = url
 
-    def send(self, method, **kw):
+    def send(self, method, httpmethod="POST", **kw):
         try:
             kw['cli'] = 'true'
+            kw['cli_version'] = "1"
             kw = urllib.urlencode(kw)
+            headers = {'connection' : 'keep-alive'}
             url = "%s/%s" % (self.url, method)
-            self.conn.request("POST", url, kw, {})
-            return self.conn.getresponse().read()
+            self.conn.request(httpmethod, url, kw, headers)
+            response = self.conn.getresponse()
+            rv = response.read()
         except Exception, e:
-            return "ERROR: " + str(e)
+            return { 'error':  "client send exception: " + str(e) }
+        # XXX Bad!  Should be JSON conversion
+        try:
+            return eval(rv)
+        except Exception, e:
+            return {'error': "while parsing:%s\nclient send exception: %s" % (rv, str(e))}
 
     def upload(self, method, fields, files):
+        # Do an tiny GET request to get SSL primed.
+        # Large initial SSL/POST requests will choke the server.
+        r = self.send('ping', 'POST', ack='priming')
+        if 'error' in r and r['error']:
+            return r
         try:
             fields += [('cli', 'true')]
+            fields += [('cli_version', "1")]
             content_type, body = encode_multipart_formdata(fields, files)
             headers = {
                 'content-type': content_type,
                 'content-length': str(len(body)),
+                'connection': 'keep-alive',
             }
             url = "%s/%s" % (self.url, method)
             self.conn.request("POST", url, body, headers)
             response = self.conn.getresponse()
-            return response.read()
+            rv = response.read()
         except Exception, e:
-            return "ERROR: " + str(e)
+            return { "error" : "client upload exception: " + str(e) }
+        # XXX should be JSON conversion
+        try:
+            return eval(rv)
+        except Exception, e:
+            return {'error': "while parsing:%s\nclient upload exception: %s" % (rv, str(e))}
 
 #-----------------------------------------------------------------
 # Main 
 
 
-if __name__ == "__main__":
+def main():
     usage ="""%%prog [options] GROUP TYPE EVENTFILE
    where GROUP is one of %(groups)s
          TYPE is one of %(types)s
@@ -312,7 +347,7 @@ Longer strings will be truncated.""" % {
         op.error("not enough arguments")
     elif args[0] == 'ping':
         msg = " ".join(args[1:]) or "PING"
-        print client.send('ping', ack=msg)
+        response = client.send('ping', ack=msg)
     elif args[0] == 'upload':
         if len(args) < 3:
             op.error("not enough arguments for upload")
@@ -328,13 +363,13 @@ Longer strings will be truncated.""" % {
             files = [ ('upload', filename, sys.stdin.read()) ]
         else:
             files = [ ('upload', filename, open(filename,'r').read()) ]
-        print client.upload('upload', fields, files)
+        response = client.upload('upload', fields, files)
     elif args[0] == 'log':
         if len(args) < 3:
             op.error("not enough arguments for log")
         graceid = args[1]
         message = " ".join(args[2:])
-        print client.send('log', graceid=graceid, message=message)
+        response = client.send('log', graceid=graceid, message=message)
     elif len(args) == 3:
         group = args[0]
         type = args[1]
@@ -343,7 +378,7 @@ Longer strings will be truncated.""" % {
         if type in typeCodeMap:
             type = typeCodeMap[type]
         else:
-            print "Type must be one of: ", ", ".join(typeCodeMap.keys())
+            error("Type must be one of: ", ", ".join(typeCodeMap.keys()))
             sys.exit(1)
 
         fields = [
@@ -358,15 +393,30 @@ Longer strings will be truncated.""" % {
 
         response = client.upload("create", fields, files)
 
-        if response:
-            if response.startswith('ERROR'):
-                print response
-                sys.exit(1)
-            else:
-                print "UID: ", response
-                sys.exit(0)
-        else:
-            print "There was a problem.  Did you do grid-proxy-init -rfc?"
+        if not response:
+            error("There was a problem.  Did you do grid-proxy-init -rfc?")
             sys.exit(1)
     else:
         op.error("")
+        sys.exit(1)
+
+    # Output the response.
+
+    exitCode = 0
+    if ('error' in response) and response['error']:
+        error(response['error'])
+        exitCode = 1
+    if ('warning' in response) and response['warning']:
+        warning(response['warning'])
+    if ('output' in response) and response['output']:
+        output(response['output'])
+
+    return exitCode
+
+if __name__ == "__main__":
+    try:
+        code = main()
+    except Exception, e:
+        error(str(e))
+        sys.exit(1)
+    sys.exit(code)

@@ -1,6 +1,6 @@
 #!/usr/bin/env tclsh
 
-puts "instance\tfirst_bin\tdataset\tbin\tz\tstrength\tflag"
+puts "instance\tfirst_bin\tband\tdataset\tbin\tz\tstrength\tflag"
 while { ! [eof stdin] } {
 	gets stdin line
 	if { $line == "" } { continue }

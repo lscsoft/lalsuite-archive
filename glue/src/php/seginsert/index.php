@@ -33,6 +33,7 @@ require './scripts/header.php';
         <option value="SCI-HIGH_MICROSEISMIC_ELOG (High microseismic levels described in the elog)">SCI-HIGH_MICROSEISMIC_ELOG (High microseismic levels described in the elog)</option>
         <option value="SCI-HIGH_WIND_ELOG (High winds described in the elog)">SCI-HIGH_WIND_ELOG (High winds described in the elog)</option>
         <option value="SCI-HUMAN_INTRUSION_ELOG (Human intrusion into the LVEA described in the elog)">SCI-HUMAN_INTRUSION_ELOG (Human intrusion into the LVEA described in the elog)</option>
+        <option value="SCI-LOW_POWER_ELOG (low power laser operation described in the elog)">SCI-LOW_POWER_ELOG (low power laser operation described in the elog)</option>
         <option value="SCI-NONSTAND_CONFIG_ELOG (Nonstandard configuration described in the elog)">SCI-NONSTAND_CONFIG_ELOG (Nonstandard configuration described in the elog)</option>
         <option value="SCI-SEISMIC_ELOG (Seismic event of unknown cause described in the elog)">SCI-SEISMIC_ELOG (Seismic event described in the elog)</option>
         <option value="SCI-TRAIN_ELOG (Passing train causing high seismic levels described in the elog)">SCI-TRAIN_ELOG (Passing train causing high seismic levels described in the elog)</option>

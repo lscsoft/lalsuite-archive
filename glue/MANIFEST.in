@@ -11,6 +11,7 @@ include src/conf/s6_qreplication/lho/*
 include src/conf/s6_qreplication/llo/*
 include src/conf/s6_qreplication/cit/*
 include src/php/README
+include src/php/dq_report/*
 include src/php/seginsert/*
 include src/php/seginsert/img/*
 include src/php/seginsert/scripts/*
