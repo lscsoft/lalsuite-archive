@@ -409,6 +409,21 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
+
+class time_only_event(object):
+	def __init__(self, ifostr, time):
+		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.time = float(time)
+
+class time_only_events(object):
+	def __init__(self, timestr):
+		self.events = []
+		values = timestr.split(',')
+		for value in values:
+			ifos = value.split(':')[0]
+			time = value.split(':')[1]
+			self.events.append(time_only_event(ifos,time))
+
 	
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
@@ -432,6 +447,7 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
 	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
+	parser.add_option("-g", "--gps-times", default=None, help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
@@ -453,6 +469,26 @@ cp = default_cp.get_cp()
 dag = stfu_pipe.followUpDAG(options.config_file,cp)
 
 trigs = FUTriggers(num=options.number)
+
+###############################################################################
+##### DO FOLLOW UPS ON GPS TIME ONLY ##########################################
+###############################################################################
+
+search='gps_only'
+q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, tag_base='qdatafind', dir=search)
+qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+
+gpsevents = time_only_events(options.gps_times)
+
+for event in gpsevents.events:
+	for ifo in event.ifos:
+		if options.verbose:
+			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
+		# h(t) QSCAN datafind Nodes
+		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
+		# h(t) QSCAN Nodes
+		ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
