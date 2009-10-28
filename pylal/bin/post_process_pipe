@@ -787,6 +787,8 @@ class default_config(object):
       cp.write(open(inifile_to_write,"w"))
       print >>sys.stderr, "\t\tyour ini file was written to %s\n\n" % (inifile_to_write,)
       sys.exit(0)
+    cp.write(open("hm_post.ini","w"))
+    print >>sys.stderr, "\t\tyour ini file was written to %s\n\n" % ("hm_post.ini",)
     # check if a config file already exists and override the options. then write out 
     # whatever the final version looks like
     #self.overwrite_config(cp)
@@ -796,7 +798,7 @@ class default_config(object):
      host = self.__get_hostname()
      #FIXME add more hosts as you need them
      if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
-     if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
+     if 'phys.uwm.edu' in host: return '/localscratch/' + os.environ['USER']
      if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
      if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
 
@@ -845,6 +847,12 @@ class default_config(object):
 
   def local_disk(self):
     #FIXME
+    host = self.__get_hostname()
+    #FIXME add more hosts as you need them
+    #if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
+    #if 'phys.uwm.edu' in host: return '/localscratch/' + os.environ['USER']
+    #if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
+    #if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
     return self.log_path()
 
   def combined_sql(self, fname, flist):
