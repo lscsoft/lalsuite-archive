@@ -111,6 +111,10 @@ page.subpages["playmoney"].add_section("table","Playground Loudest Table")
 tab,name = wiki_table_parse(base_name+'playground_summary_table.txt')
 page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
 
+### Likelihood plots ###
+page.add_subpage("playlikelihood","Playground Likelihood", "Playground Likelihood")
+page.subpages["playlikelihood"].add_section("MVSC","MVSC Playground Likelihood scatter plot")
+imgtable = image_glob(base_name+'8_MVSC_likelihood_scatterplot*.png')
 
 if opts.open_box:
 	print >>sys.stderr, "WARNING: OPENING THE BOX"
