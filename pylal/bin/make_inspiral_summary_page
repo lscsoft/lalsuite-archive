@@ -115,6 +115,7 @@ page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", 
 page.add_subpage("playlikelihood","Playground Likelihood", "Playground Likelihood")
 page.subpages["playlikelihood"].add_section("MVSC","MVSC Playground Likelihood scatter plot")
 imgtable = image_glob(base_name+'8_MVSC_likelihood_scatterplot*.png')
+page.subpages["playlikelihood"].sections["MVSC"].add_table(imgtable, "MVSC plot", "MVSC Effective SNR scatter plot")
 
 if opts.open_box:
 	print >>sys.stderr, "WARNING: OPENING THE BOX"
