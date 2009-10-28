@@ -71,6 +71,40 @@ def exportCoincToDisk(coinc, dir, cnt, dag, filename=None):
 	fp.close()
 	return os.path.split(filename)[1]
 
+def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
+	"""
+	"""
+	#If directy coincHeadings not there make the directory if
+	#filename is None
+	headingDir= dir + "/coinc_info"
+	ifos = tevent.instruments
+	instruments =tevent.instruments
+	time = tevent.time
+
+	idKeyStr="%s_%s" % (str(time), instruments)
+	if filename==None:
+		filename="coincEvent.info"
+		stfu_pipe.mkdir(headingDir)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
+	fp=open(filename,'w')
+	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
+	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, 0, 0, ifos, instruments, float(time), 0) )
+	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
+	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+	content=list()
+	for ifo in tevent.ifos:
+		content.append(rowString%(dir, 
+					  ifo,
+					  float(time),  
+					  float(0),
+					  float(0),
+					  float(0),
+					  float(0)))
+	cache = lal.CacheEntry(instruments, "COINC_INFO_"+dir.upper(), segments.segment(float(time), float(time)), "file://localhost/"+os.path.abspath(filename))
+	dag.output_cache.append(cache)
+	fp.writelines(content)
+	fp.close()
+	return os.path.split(filename)[1]
 
 ###############################################################################
 ##### DB SUMMARY CLASS ########################################################
@@ -413,6 +447,7 @@ LIMIT ?
 class time_only_event(object):
 	def __init__(self, ifostr, time):
 		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.instruments = ifostr
 		self.time = float(time)
 
 class time_only_events(object):
@@ -476,12 +511,12 @@ trigs = FUTriggers(num=options.number)
 ###############################################################################
 
 search='gps_only'
-q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, tag_base='qdatafind', dir=search)
+q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='qdatafind', dir=search)
 qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
 
 gpsevents = time_only_events(options.gps_times)
 
-for event in gpsevents.events:
+for cnt, event in enumerate(gpsevents.events):
 	for ifo in event.ifos:
 		if options.verbose:
 			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
@@ -489,7 +524,10 @@ for event in gpsevents.events:
 		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
 		# h(t) QSCAN Nodes
 		ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+		# FIXME ADD MORE JOBS
 
+		# write the event info to disk and cache for stfu_page
+		exportGPSEventToDisk(event, search, cnt, dag)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
