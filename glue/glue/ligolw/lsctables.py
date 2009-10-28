@@ -1194,6 +1194,20 @@ class SnglInspiralTable(table.Table):
 		chisq_dof = self.get_column('chisq_dof')
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
+	def get_new_snr(self, index=6.0):
+		# the kwarg 'index' is to be assigned to the parameter chisq_index occurring in the .ini files etc
+		# the parameter nhigh gives the asymptotic behaviour d (ln chisq) / d (ln rho) at large rho
+		# nhigh=2 means chisq~rho^2 along contours of new_snr as expected from the behaviour of mismatched templates
+		snr = self.get_column('snr')
+		chisq = self.get_column('chisq')
+		chisq_dof = self.get_column('chisq_dof')
+		rchisq = chisq/ (2*chisq_dof - 2)
+		nhigh = 2.
+		if rchisq > 1.:
+			return snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return snr
+
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_distance')
