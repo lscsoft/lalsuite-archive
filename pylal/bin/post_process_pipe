@@ -243,6 +243,16 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
     script = open('fix_missing_sngls.py','w')
     self.prescript = 'fix_missing_sngls.py'
     script.write("""#!/usr/bin/python
+import sys
+from glue.lal import CacheEntry
+from glue.ligolw import lsctables, utils
+for filename in (CacheEntry(line).path() for line in file(sys.argv[1])):
+        xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"))
+        try:
+                lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+        except:
+                xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SnglInspiralTable, columns = ("process_id", "ifo", "search", "channel", "end_time", "end_time_ns", "end_time_gmst", "impulse_time", "impulse_time_ns", "template_duration", "event_duration", "amplitude", "eff_distance", "coa_phase", "mass1", "mass2", "mchirp", "mtotal", "eta", "kappa", "chi", "tau0", "tau2", "tau3", "tau4", "tau5", "ttotal", "psi0", "psi3", "alpha", "alpha1", "alpha2", "alpha3", "alpha4", "alpha5", "alpha6", "beta", "f_final", "snr", "chisq", "chisq_dof", "bank_chisq", "bank_chisq_dof", "cont_chisq", "cont_chisq_dof", "sigmasq", "rsqveto_duration", "Gamma0", "Gamma1", "Gamma2", "Gamma3", "Gamma4", "Gamma5", "Gamma6", "Gamma7", "Gamma8", "Gamma9", "event_id")))
+                utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"))
     """)
     script.close()
     os.chmod('fix_missing_sngls.py',0755)
@@ -427,13 +437,13 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
     if input_cache: cline += " --input-cache " + input_cache + " "
     for xml in xml_list: cline += xml + " "
     self.add_var_arg(cline)
-    if input_cache: self.add_fix_files_prescript(input_cache)
+    if input_cache: self.add_fix_files_prescript(job, input_cache)
 
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
 
-  def add_fix_files_prescript(self, cache):
+  def add_fix_files_prescript(self, job, cache):
     self.set_pre_script("%s %s" % (job.prescript, cache))
 
 
