@@ -199,7 +199,7 @@ hwinj_done = {}
 for ifo in ifos:
     # set the segment name
     if ifo == "V1":
-        seg_name = "INJECTION_CBC"
+        seg_name = "INJECTION_INSPIRAL"
     else:
         seg_name = "DMT-INJECTION_INSPIRAL"
     # query for segments

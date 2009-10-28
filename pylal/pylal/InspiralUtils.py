@@ -1,4 +1,3 @@
-#!/usr/bin/python
 """
 Utilities for the inspiral plotting functions
 """
@@ -13,6 +12,7 @@ import math
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.iterutils import any
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import git_version
@@ -160,12 +160,34 @@ def message(opts, text):
     print text
   return text+'<br>\n'
 
-def set_figure_name(opts, text):
+def set_figure_tag( plot_description, datatype_plotted = '', open_box = True ):
+  """
+  Returns a string containing a standard naming convention for the tag part of a figure name.
+  The convention used is:
+  ${plot_description}_${DATATYPE}_PLOTTED(_OPEN_BOX)
+
+  @plot_description: a description of the plot
+  @datatype_plotted: datatype that appears in the plot. If specified, '_PLOTTED' will be
+   added after the datatype
+  @open_box: whether or not looking at the plot constitutes opening the box
+   If set to True, _OPEN_BOX will be added to the file name. If set False, no flag
+   will be added.
+  """
+  if datatype_plotted != '':
+    datatype_plotted = '_'.join([ '', datatype_plotted, 'PLOTTED' ])
+  if open_box is True:
+    box_flag = '_OPEN_BOX'
+  else:
+    box_flag = ''
+
+  return ''.join([ plot_description, datatype_plotted, box_flag ])
+
+def set_figure_name(opts, figure_tag):
   """
   return a string containing a standard output name for pylal 
   plotting functions.
   """
-  fname = "Images/" + opts.prefix + "_"+text + opts.suffix + ".png"
+  fname = ''.join([ "Images/", opts.prefix, "_", figure_tag, opts.suffix, ".png" ])
   
   if opts.output_path is not None:
     fname = opts.output_path + fname
@@ -184,7 +206,6 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
   @param number: number of triggers to list
   @param format: desired output format; can be either 'html' or 'wiki'
   """
-
   # set format
   if format == 'html':
     tx = '<table border = "1">'
@@ -219,7 +240,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
     CoincSummTable = CoincSummTable + tx + thx + coincComment + xr 
     CoincSummTable = CoincSummTable + \
         rx + ' Rank ' + xccx + ' followup ' + xccx + 'Coinc IFOs' + xccx +\
-	statTag + xccx + 'False Alarm Probability' + xccx + ' end_time ' + \
+        statTag + xccx + 'False Alarm Probability' + xccx + ' end_time ' + \
         xccx + ' end_time_ns ' + xccx + ' mass1 ' + xccx + ' mass2 ' + xccx + ' mchirp ' + \
         xccx + ' eta ' + xccx + ' snr ' + xccx + ' chisq ' + xccx + ' effective_snr ' + xr
     for coinc in coincTable:
@@ -234,7 +255,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
         followupFile = followupOpts.prefix  \
             + '_followup_' + str(followup.number) + followupOpts.suffix\
             + '.html'
-	followupLink = '<a href="./' + followupFile +'"> here </a>'
+        followupLink = '<a href="./' + followupFile +'"> here </a>'
       if format == 'html':
         CoincSummTable = CoincSummTable + '<td rowspan=' + str(coinc.numifos) + '>' + followupLink + xccx
       elif format == 'wiki':
@@ -253,8 +274,9 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
   return CoincSummTable
 
 def write_html_output(opts, args, fnameList, tagLists, \
-			doThumb=True, cbcweb = False, mapList = [],\
-			comment=None, CoincSummTable=None ):
+      doThumb=True, cbcweb = False, mapList = [],\
+      comment=None, CoincSummTable=None,\
+      html_tag = '', add_box_flag=False):
   """
   @param opts: The options from the calling code
   @param args: The args from the calling code
@@ -263,7 +285,26 @@ def write_html_output(opts, args, fnameList, tagLists, \
   @param doThumb: Uses the _thumb file as the sourcs for the images
   @param cbcweb: Creates the output as a CBC webpage
   @param mapList: A list of dictionaries to create the image maps
+  @html_tag: tag to add to html filename
+  @add_box_flag: Adds _OPEN_BOX to the html file name if any
+   of the files in filelist have "_OPEN_BOX" in their name. Otherwise,
+   will add "_CLOSED_BOX" to the file name. These flags go between
+   opts.prefix and opts.suffix
   """
+
+  prefix = opts.prefix
+  # add the html_tag if desired
+  if html_tag != '':
+    prefix += '_' + html_tag
+  # add the box-flag to the prefix if desired
+  if add_box_flag:
+    box_flag = ''
+    if any(fname for fname in fnameList if 'OPEN_BOX' in fname):
+      box_flag ='_OPEN_BOX'
+    else:
+      box_flag = '_CLOSED_BOX'
+    # add the box flag to the prefix
+    prefix += box_flag
 
   # -- the HTML document and output cache file
   # -- initialise the web page calling init_page
@@ -275,14 +316,14 @@ def write_html_output(opts, args, fnameList, tagLists, \
   else:
     page.h1(opts.name + " results")
 
-  page.p(opts.prefix + opts.suffix)
+  page.p(prefix + opts.suffix)
   page.hr()
 
   # -- filename
   if cbcweb:
-    html_filename = opts.prefix + opts.suffix +"_publish.html"
+    html_filename = prefix + opts.suffix +"_publish.html"
   else:
-    html_filename = opts.prefix + opts.suffix +".html"  
+    html_filename = prefix + opts.suffix +".html"  
   if opts.output_path:
     html_filename = opts.output_path + html_filename
   html_file = file(html_filename, "w")
@@ -349,9 +390,7 @@ def write_cache_output(opts, html_filename,fnameList):
   write the output cache file of theplotting functions
   """
 
-  output_cache_name = opts.prefix + opts.suffix +'.cache'
-  if opts.output_path:
-    output_cache_name = opts.output_path + output_cache_name
+  output_cache_name = '.'.join([html_filename.rstrip('.html'), 'cache'])
   this = open(output_cache_name, 'w')
   if opts.enable_output:
     this.write(os.path.basename(html_filename) + '\n')

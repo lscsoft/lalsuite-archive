@@ -177,11 +177,11 @@ page._escape = False
 doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
 doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
 
-title = "Detection Checklist for candidate " + str(opts.trigger_id)
+title = "Detection Checklist for candidate " + str(opts.trigger_gps.split(",")[0].strip())
 page.init(title=title, doctype=doctype)
 #page.init(title=title)
 page.h1()
-page.add("Detection Checklist for Candidate " + str(opts.trigger_id))
+page.add("Detection Checklist for Candidate " + str(opts.trigger_gps.split(",")[0].strip()) + " " + opts.ifolist_in_coinc + " in " + opts.ifo_times)
 page.h1.close()
 
 page.h2()
@@ -348,6 +348,13 @@ followupTriggerFile = getFileMatchingTrigger("followUpTriggers",opts.trigger_id,
 if followupTriggerFile:
   fu_triggers.append(followupTriggerFile)
 
+#Set reusable channel wiki link string
+channelWikiLinks="<br>\
+<a href=\"https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki\">\
+LSC Channel Wiki</a><br>\
+<a href=\"https://pub3.ego-gw.it/itf/channelsdb/\">\
+Virgo Channel Wiki</a><br>"
+
 # build the checklist table
 page.h2()
 page.add("Follow-up tests")
@@ -464,11 +471,11 @@ if dqTable=="":
     defaultServer=opts.defaultldbd
   else:
     defaultServer=None
-  windowSize=int(300)
+  windowSize=int(150)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)
-  dqTable=x.generateHTMLTable()
+  dqTable=x.generateHTMLTable("DQ")
 #
 # Insert the new text string of a table using markup.py functions
 page.td(dqTable)
@@ -478,6 +485,9 @@ page.tr.close()
 
 
 # Row #2
+#Repopulate veto table assume S5 segment DB
+if vetoTable == "":
+  vetoTable=x.generateHTMLTable("VETO")
 page.tr()
 page.td("#2 Veto investigations")
 page.td("Does the candidate survive the veto investigations performed at its time ?")
@@ -494,15 +504,13 @@ page.td()
 page.tr.close()
 
 # Row #3
+eventTime=int(float(gpstime0))
 page.tr()
 page.td("#3 Ifo status")
 page.td("Are the interferometers operating normally with a reasonable level of sensitivity around the time of the candidate ?")
 page.td()
-ifoStatusLinks = "<a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:"
-for j,ifo in enumerate(ifolist):
-  ifoStatusLinks += " <a href=\"" + dailyStat[j] + "\">" + ifo + "</a>"
-#file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n","") + "<br>" + dateScSeg)
-page.td(ifoStatusLinks)
+linkText="<a href=\"%s\">Daily Stats pages</a> "%(fu_utils.getDailyStatsURL(eventTime))
+page.td(linkText)
 page.td()
 page.tr.close()
 
@@ -547,6 +555,8 @@ for j,ifo in enumerate(ifolist):
 seismicQscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   seismicQscanLinks += " <a href=\"" + analyse_seismic_qscan[j] + "\">" + ifo + "</a>"
+#Add channel wiki VIRGO and LIGO
+seismicQscanLinks += channelWikiLinks
 page.td(seismicQscanLinks)
 page.td()
 page.tr.close()
@@ -569,6 +579,7 @@ for k in range(0,len(opts.ifo_times)-1,2):
 qscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   qscanLinks += " <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>"
+qscanLinks += channelWikiLinks
 page.td(qscanLinks)
 page.td()
 page.tr.close()
@@ -590,28 +601,34 @@ for k in range(0,len(opts.ifo_times)-1,2):
 qscanLinks += "<br>Background information on qscans:"
 for j,ifo in enumerate(ifolist):
   qscanLinks += " <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>"
+qscanLinks += channelWikiLinks
+page.td(qscanLinks)
 page.td()
 page.tr.close()
 
 
 # Row #8
+gpsEventTime=int(float(gpstime0))
 page.tr()
 page.td("#8 Elog")
 page.td("Were the instruments behaving normally according to the comments posted by the sci-mons or the operators in the e-log ?")
 page.td()
-elogLinks = "<a href=\"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Hanford elog</a><br>\n"
-elogLinks += "<a href=\"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Livingston elog</a>"
+elogLinks = "<a href=\"%s\">Livingston</a>, "%(fu_utils.getiLogURL(gpsEventTime,'L1'))
+elogLinks += "<a href=\"%s\">Hanford</a>, "%(fu_utils.getiLogURL(gpsEventTime,'H1'))
+elogLinks += "<a href=\"%s\">Virgo</a><br>"%(fu_utils.getiLogURL(gpsEventTime,'V1'))
 page.td(elogLinks)
 page.td()
 page.tr.close()
 
 
 # Row #9
+gpsEventTime=int(float(gpstime0))
 page.tr()
 page.td("#9 Glitch report")
 page.td("Were the instruments behaving normally according to the weekly glitch report ?")
 page.td()
-page.td("<a href=\"http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift\">Glitch reports</a><br>")
+linkText="<a href=\"%s\">Glitch Report</a><br>"%(fu_utils.getGlitchReportURL(gpsEventTime))
+page.td(linkText)
 page.td()
 page.tr.close()
 

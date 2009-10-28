@@ -271,7 +271,8 @@ def get_coire_triggers( opts, ifo, pattern, times ):
       for file in trigFiles:
         print file
 
-  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles( trigFiles )
+  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles( trigFiles,
+      mangle_event_id = True )
   coincTriggers = CoincInspiralUtils.coincInspiralTable( inspTriggers, \
                              CoincInspiralUtils.coincStatistic( "snr") )
   

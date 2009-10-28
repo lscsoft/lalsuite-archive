@@ -1,7 +1,5 @@
 /*
- * $Id$
- *
- * Copyright (C) 2006  Kipp C. Cannon
+ * Copyright (C) 2006  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -26,6 +24,10 @@
  *
  * ============================================================================
  */
+
+
+#ifndef _PYLAL_XLAL_TOOLS_H_
+#define _PYLAL_XLAL_TOOLS_H_
 
 
 #include <Python.h>
@@ -97,6 +99,37 @@ typedef struct {
 /*
  * ============================================================================
  *
+ *                           SnglRingdownTable Type
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Type
+ */
+
+
+extern PyTypeObject pylal_SnglRingdownTable_Type;
+
+
+/*      
+ * Structure
+ */
+
+
+typedef struct {
+	PyObject_HEAD
+	SnglRingdownTable sngl_ringdown;
+	/* FIXME:  these should be incorporated into the LAL structure */
+	long process_id_i;
+	EventIDColumn event_id;
+} pylal_SnglRingdownTable;
+
+
+/*
+ * ============================================================================
+ *
  *                           SimInspiralTable Type
  *
  * ============================================================================
@@ -123,3 +156,6 @@ typedef struct {
 	long process_id_i;
 	EventIDColumn event_id;
 } pylal_SimInspiralTable;
+
+
+#endif /* _PYLAL_XLAL_TOOLS_H_ */

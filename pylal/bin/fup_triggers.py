@@ -10,6 +10,9 @@ import sys, os
 from optparse import *
 
 from glue import lal
+
+import matplotlib
+matplotlib.use("Agg")
 from pylal import followup_trigger
 
 ##############################################################################

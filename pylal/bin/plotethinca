@@ -338,6 +338,10 @@ if filelists:
   for filegroup in filelists:
     # read raw triggers
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose, mangle_event_id=True,old_document=opts.old_document) 
+    if not (inspTriggers):
+      print >> sys.stderr, "No triggers found, exiting gracefully."
+      sys.exit(0)
+
     populate_mtotal(inspTriggers)
 
     # perform the veto
@@ -354,7 +358,6 @@ if filelists:
     # append them to our list
     coincTriggersList.append(newCoincs)
 
-
 slideTriggersList = []
 if slidefilelists:
   shift_vector = {"H1": opts.h1_slide_time, "H2": opts.h2_slide_time,
@@ -362,7 +365,7 @@ if slidefilelists:
   for filegroup in slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
-      shift_vector, verbose=opts.verbose)
+      shift_vector, mangleEventId=True, verbose=opts.verbose)
 
     if slideTriggers == None:
       slideTriggers = []
@@ -727,7 +730,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     
     if coincTriggersList:
       xVals = [[x.stat for x in coincs] for coincs in [coincs_list[ifos_index]]]
-      y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,range=[0, stat_max]) for xVal in xVals])
+      y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,range=[0, stat_max], new=True) for xVal in xVals])
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x = x[0:-1] + stat_max/(2.*opts.num_bins)
@@ -741,7 +744,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       hold(True)
       xSlideVals = [[x.stat for x in slides] for slides in [slides_list[ifos_index]]]
       y_list, x_list = zip(*[histogram(xSlideVal, bins=opts.num_bins,
-          range=[0, stat_max]) for xSlideVal in xSlideVals])
+          range=[0, stat_max], new=True) for xSlideVal in xSlideVals])
       if not coincTriggersList:
         n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
@@ -781,7 +784,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
 
     if slideTriggersList:
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
-          range=[0, ep_max]) for eps in [ethinca_slides_list[ifos_index]]])
+          range=[0, ep_max], new=True) for eps in \
+          [ethinca_slides_list[ifos_index]]])
       if coincTriggersList:
         thisNumInjections = len(ethinca_list[ifos_index])
         normalization = opts.injection_window*thisNumInjections/ \
@@ -802,7 +806,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     if coincTriggersList:
       hold(True)
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,\
-          range=[0, ep_max]) for eps in [ethinca_list[ifos_index]]])
+          range=[0, ep_max], new=True) for eps in [ethinca_list[ifos_index]]])
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x = x[0:-1] + ep_max/(2.*opts.num_bins)

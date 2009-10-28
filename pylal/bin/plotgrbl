@@ -27,9 +27,6 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "plotgrbl"
 __title__ = "GRB likelihood diagnostics"
 
@@ -77,28 +74,6 @@ trace_m2_bin = 0
 
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
-
-def get_mean_mchirp_GRB070923(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    return modified_mean_mchirp
 
 def get_fap(snr_by_mc):
     """
@@ -187,9 +162,16 @@ def parse_args():
 # parse arguments
 opts, args = parse_args()
 
+# GRB 070923 issue
+if 'V' in opts.ifo_tag:
+  get_mean_mchirp = grbsummary.get_mean_mchirp_lv
+else:
+  get_mean_mchirp = grbsummary.get_mean_mchirp
+
+
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
+InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 html_footer = ""
 
 ##############################################################################
@@ -335,18 +317,19 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
-    all_ifos = ['H1','L1','V1']
+    all_ifos = ['H1','H2','L1','V1']
     columns = ["mc_bin", "event_id"] \
         + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
         "<sub>eff,obs</sub> | 0)"]
     rows = []
+
     ## split up the coincs before
     mchirp_dict = {}
     for coinc in onsource_coincs:
       ifo_text = ''
-      mc = get_mean_mchirp_GRB070923(coinc)
+      mc = get_mean_mchirp(coinc)
       for ifo in all_ifos:
         if hasattr(coinc, ifo):
           ifo_text+=ifo
@@ -354,15 +337,14 @@ else:
       index = mc_bins[mc]
       mchirp_dict[index]=coinc
 
-
+    mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     for index, (low, hi, pc0) in \
         enumerate(zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc)):
         row = ["[%.2f, %.2f)" % (low, hi)]
-        #mc_coincs = onsource_coincs.getChirpMass(low, hi)
-	try:
-	  mc_coincs = mchirp_dict[index]
-	except:
-	  mc_coincs = None
+        try:
+          mc_coincs = mchirp_dict[index]
+        except:
+          mc_coincs = None
 
         if mc_coincs is None:
             row += ["&mdash;"] * (len(columns) - len(row))
@@ -376,7 +358,7 @@ else:
                 text+=["%.4g" % trig.get_effective_snr()]
 	      except:
 	        text+=['&mdash;']
-	
+         	
             row += [c.event_id] +text\
                 + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
                    "%.4g" % pc0]
@@ -389,7 +371,6 @@ else:
     temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
 
-    mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
     columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
         "<em>P</em>(<em>L</em>(<em>m</em><sub>2</sub>) &gt; "\
@@ -409,8 +390,8 @@ else:
             raise ValueError, "there should be exactly one or zero coincs"
         row.extend(["%.4g" % log_L, "%.4g" % pL0])
         rows.append(row)
-    html_footer += make_html_table(rows, columns)
 
+    html_footer += make_html_table(rows, columns)
 
 ################################################################################
 # plots

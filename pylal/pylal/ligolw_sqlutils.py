@@ -38,6 +38,82 @@ __version__ = "$Revision$"
 
 # Following utilities can be used with any coinc_table
 
+def concatenate( *args ):
+    """
+    SQLite doesn't have a tuple type built-in. This can be frustrating if one
+    needs to compare values from multiple columns when doing queries. For example,
+    if one wanted to do something like:
+
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE (a.val1, a.val2) IN (
+            SELECT (b.val1, b.val2) 
+            FROM b)
+        ''')
+    
+    an error would be raised.
+
+    This function tries to alleiviate the problem by giving the ability to concatenate
+    results from multiple columns into a single colon-seperated string. These strings can then be
+    compared directly. So, in the above example, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_function("concatenate", 2, sqlutils.concatenate)
+    connection.cursor().execute('''
+        SELECT *
+        FROM a 
+        WHERE concatenate(a.val1, a.val2) IN (
+            SELECT concatenate(b.val1, b.val2) 
+            FROM b)
+    ''')
+
+    Note that the create_function method must be called first with the number of 
+    values that will be passed to concatenate before using it in any query.
+    """
+    return ':'.join([str(val) for val in args])
+
+class aggregate_concatenate:
+    """
+    This class builds on the concatenate method to allow string concatenation
+    across multiple columns and rows. These strings can then be compared in
+    SQLite. For example, if one wanted to match ids from two different tables that share
+    the same values, one would do:
+
+    from pylal import ligolw_sqlutils as sqlutils
+    connection.create_aggregate("agg_concatenate", 2, sqlutils.aggregate_concatenate)
+    connection.cursor().execute('''
+        SELECT a.id, b.id
+        FROM a, b
+        WHERE
+            (
+                SELECT agg_concatenate(a.val1, a.val2) 
+                FROM a 
+                GROUP BY id
+                ORDER BY a.val1, a.val2 ASC
+           ) == (
+                SELECT agg_concatenate(b.val1, b.val2) 
+                FROM b 
+                GROUP BY id
+                ORDER BY b.val1, b.val2 ASC
+           )
+    ''')
+
+    In the strings that are created, rows are seperated by ",", columns by ":".
+
+    Note that the create_aggregate method must be called first with the number of 
+    values that will be passed to aggregate_concatenate before using it in any query.
+    """
+    def __init__(self):
+        self.result = ''
+    def step(self, *args):
+        self.result = ','.join([ self.result, concatenate(*args) ])
+        #elf.result.append(concatenate(*args))
+    def finalize(self):
+        return self.result.lstrip(',')
+        #return ','.join(sorted(self.result))
+    
+
 class parse_param_ranges:
     
     param = None
@@ -220,7 +296,9 @@ class parse_coinc_options:
             rule = rule.strip().lstrip('[').rstrip(']').upper()
 
             # get coinc_instruments, instruments_on 
-            [ coinc_instruments, instruments_on ] = rule.split(' IN ')
+            if len(rule.split('IN')) != 2:
+                raise ValueError, "Must seperate coinc. types and on-instruments by 'in'"
+            [ coinc_instruments, instruments_on ] = rule.split('IN')
             instruments_on = instruments_on.strip()
             coinc_instruments = coinc_instruments.strip()
 
@@ -383,7 +461,7 @@ def convert_duration( duration, convert_to ):
             the duration from a long int to a float.
         'min': to minutes - will divide by 60.
         'hr': to hours - will divide by 3600.
-        'd': to days - will divide by 86400.
+        'days': to days - will divide by 86400.
         'yr': to years - will divide by 31557600. 
             This is the Julian year, which is the
             accepted astronomical year
@@ -396,7 +474,7 @@ def convert_duration( duration, convert_to ):
         return duration / 60.
     elif convert_to == 'hr':
         return duration / 3600.
-    elif convert_to == 'd':
+    elif convert_to == 'days':
         return duration / 86400.
     elif convert_to == 'yr':
         return duration / 31557600.
@@ -434,6 +512,10 @@ class Summaries:
     uncombined fars for the background. Therefore, it only stores slide triggers;
     for any zero-lag datatype sngl_slide_stats is just an empty list.
 
+    datatypes maps the list of datatypes for an experiment to the corresponding
+    experiment_summ_ids:
+    datatypes[experiment_id][datatype] = [esid1, esid2, etc.]
+
     frg_durs stores the duration for each experiment_summ_id. It's keys are 
     [experiment_id][experimen_summ_id].
 
@@ -458,13 +540,13 @@ class Summaries:
     coinc. trigger we are considering and there will only be 3 max_bkg_fars 
     stored for that entry.
 
-    zero_lag_ids stores the esid and datatype (all_data, playground, or exclude_play)
-    of the zero-lag slide for an experiment:
-        zero_lag_ids[ experiment_id ][ datatype ] = experiment_summ_id
+    zero_lag_ids stores the esid of all zero-lag "slides" of an experiment.
+        zero_lag_ids[ experiment_id ] = [experiment_summ_id1, experiment_summ_id2, etc.]
     """
     def __init__(self):
         self.bkg_stats = {}
         self.sngl_slide_stats = {}
+        self.datatypes = {}
         self.frg_durs = {}
         self.bkg_durs = {}
         self.max_bkg_fars = {}
@@ -475,13 +557,13 @@ class Summaries:
         Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if experiment_summ_id in self.zero_lag_ids[experiment_id].values():
+        # add the categories to the bkg_stats if they don't exist yet
+        if (experiment_id, ifos, param_group) not in self.bkg_stats:
+            self.bkg_stats[(experiment_id, ifos, param_group)] = []
+        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        else:
-            if (experiment_id, ifos, param_group) not in self.bkg_stats:
-                self.bkg_stats[(experiment_id, ifos, param_group)] = []
-            if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
-                self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        # only add the stats if they are slide
+        if not ( experiment_id in self.zero_lag_ids and experiment_summ_id in self.zero_lag_ids[experiment_id] ):
             self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
             self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
@@ -494,11 +576,32 @@ class Summaries:
         for thislist in self.sngl_slide_stats.values():
             thislist.sort()
 
-    def append_zero_lag_id(self, experiment_id, zero_lag_esid, datatype):
+    def store_datatypes(self, experiment_id, experiment_summ_id, datatype):
+        """
+        Stores the experiment_summ_id associated with each datatype.
+        """
+        if experiment_id not in self.datatypes:
+            self.datatypes[experiment_id] = {}
+        if datatype not in self.datatypes[experiment_id]:
+            self.datatypes[experiment_id][datatype] = []
+        self.datatypes[experiment_id][datatype].append(experiment_summ_id)
+
+    def get_datatype(self, experiment_summ_id):
+        """
+        Retrieve the datatype for a given experiment_summ_id.
+        """
+        for eid in self.datatypes:
+            for datatype, esid_list in self.datatypes[eid].items():
+                if experiment_summ_id in esid_list:
+                    return datatype
+
+    def append_zero_lag_id(self, experiment_id, zero_lag_esid):
         """
         Adds a zero_lag_id to the zero_lag_ids dictionary.
         """
-        self.zero_lag_ids[experiment_id] = dict({ datatype: zero_lag_esid })
+        if experiment_id not in self.zero_lag_ids:
+            self.zero_lag_ids[experiment_id] = []
+        self.zero_lag_ids[experiment_id].append(zero_lag_esid)
 
     def append_duration(self, experiment_id, experiment_summ_id, duration):
         """
@@ -514,7 +617,7 @@ class Summaries:
         """
         for eid in self.frg_durs:
             for this_esid in self.frg_durs[eid]:
-                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid].values()])
+                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid]])
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
@@ -746,6 +849,8 @@ def clean_inspiral_tables( connection, verbose = False ):
     connection.commit()
 
     # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
     for table in table_names:
         table = table[0]
         if verbose:
@@ -756,7 +861,10 @@ def clean_inspiral_tables( connection, verbose = False ):
             'WHERE event_id NOT IN (',
                 'SELECT event_id',
                 'FROM coinc_event_map )' ])
-        connection.cursor().execute( sqlquery )
+        try:
+            connection.cursor().execute( sqlquery )
+        except:
+            pass
         connection.commit()
 
     if verbose:

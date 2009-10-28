@@ -33,11 +33,9 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from glue import lal
 from glue.ligolw import lsctables
-from pylal import followup_trigger
 
 from glue import markup
 from glue.markup import oneliner as extra
-
 
 #################################################################
 usage = """Usage: %prog [options] 
@@ -71,6 +69,9 @@ def parse_command_line():
   parser.add_option("", "--missed-pattern",
     help="sieve the cache for missed injection files with this pattern."\
     "This should be the pattern for missed injections in coincidence")
+  parser.add_option("", "--inj-string", default=None,
+    help="Sieve the cache and discard all files that do not match this pattern."\
+    "This should be the injection string such as BNSINJ or PHENOM_INJ")
 
   # followup details
   parser.add_option("","--do-followup",action="store_true",\
@@ -188,11 +189,13 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-
+from pylal import followup_trigger
 
 # generate the cache and missed cache
 cache = lal.Cache.fromfile(open(opts.cache_file))
-missed_cache = cache.sieve(description=opts.missed_pattern)
+cache = cache.sieve(description = opts.inj_string)
+missed_cache = cache.sieve(description='*' + opts.missed_pattern,\
+                           exact_match=True)
 
 ifolist = ["H1", "H2", "L1","V1"]
 coincMissed = lsctables.New(lsctables.SimInspiralTable)

@@ -27,8 +27,6 @@ import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
-from pylal import followup_trigger
-from numpy import histogram
 
 import itertools
 import numpy
@@ -214,7 +212,7 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-from numpy import histogram
+from pylal import followup_trigger
 # turning off LaTex for now because of bugs
 rc('text', usetex=True)
 

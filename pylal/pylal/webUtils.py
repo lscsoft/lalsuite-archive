@@ -1,4 +1,3 @@
-#!/usr/bin/env @PYTHONPROG@
 """
 followup Web page classes
 

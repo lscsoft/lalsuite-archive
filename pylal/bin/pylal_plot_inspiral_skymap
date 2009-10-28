@@ -38,7 +38,7 @@ def injection(RAbin, DECbin, probs, injRA, injDEC):
   print Area[ix_above_prob].sum(), Area[ix_below_prob].sum()
   return Area[ix_above_prob].sum() / Area.sum() # should be 4 pi
 
-def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None):
+def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None, mass_1=None, mass_2=None, spin_1_x=None, spin_1_y=None, spin_1_z=None, spin_2_x=None, spin_2_y=None, spin_2_z=None, distance=None ):
 
   M = pylab.load(map_data_file)
   RA = M[:,0]; DEC = M[:,1]; PROB = M[:,2]
@@ -57,25 +57,33 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   pylab.contourf(RAbin.centres(), DECbin.centres(), Z, 250)
   pylab.xlabel('RA')
   pylab.ylabel('DEC')
-
-  ofile = open(figname.replace(".png",".txt"),'w')
-  injRank = None
-  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z, injRA, injDEC)
-  print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
-  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
-  ofile.close()
-  
-  #*****************************
-  if injRank: plttxt ="Ra: %.3f DEC: %.3f \ninjRank: %.3e InjRA %.3f InjDEC: %.3f" % (RA[maxIX], DEC[maxIX], injRank, injRA, injDEC)
-  
-  if injRank: injRApylab.title(plttxt) 
-  #*****************************
-
   if injRA and injDEC: pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
   pylab.xlim((min(RA),max(RA)))
   pylab.ylim((min(DEC),max(DEC)))
   pylab.gca().set_aspect(1)
   pylab.subplots_adjust(wspace=0.0,hspace=0.0)
+
+  ofile = open(figname.replace(".png",".txt"),'w')
+
+  if injRA and injDEC:
+    injRank = injection(RAbin, DECbin, Z, injRA, injDEC)
+    print >>ofile, '#Prob', 'RA', 'DEC, injRA, injDEC, areaRank, stat, mass_1, mass_2, spin_1_x, spin_1_y, spin_1_z, spin_2_x, spin_2_y', 'spin_2_z', 'distance'
+    print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value, mass_1, mass_2, spin_1_x, spin_1_y, spin_1_z, spin_2_x, spin_2_y, spin_2_z, distance
+    ofile.close()
+  else:
+    injRank = None
+    print >>ofile, '#Prob', 'RA', 'DEC, injRA, injDEC, areaRank, stat, mass_1, mass_2, spin_1_x, spin_1_y, spin_1_z, spin_2_x, spin_2_y', 'spin_2_z', 'distance'
+    print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value, mass_1, mass_2, spin_1_x, spin_1_y, spin_1_z, spin_2_x, spin_2_y, spin_2_z, distance
+    ofile.close()
+
+
+##### PRINTS PARAMETERS ONTO IMAGE #####
+
+  if injRank: plttxt ="RA: %.3f DEC: %.3f \nInjRA %.3f InjDEC: %.3f injRank (sqrdeg): %.3f" % (RA[maxIX], DEC[maxIX], injRA, injDEC, injRank*41253)
+  else: plttxt ="RA: %.3f DEC: %.3f" % (RA[maxIX], DEC[maxIX])
+  pylab.title(plttxt)
+ 
+########################################
 
   pylab.subplot(2,1,2)
   pylab.contourf(RAbin.centres(), DECbin.centres(), numpy.exp(Z), 250)
@@ -86,8 +94,6 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   pylab.ylim((min(DEC),max(DEC)))
   pylab.gca().set_aspect(1)
   pylab.subplots_adjust(wspace=0.0,hspace=0.0)
-
-  
 
   # Save and close we are done
   InspiralUtils.savefig_pylal(figname)
@@ -133,6 +139,28 @@ parser.add_option("-D","--injection-declination",action="store",type="float",\
     metavar=" DEC_INJ",help="injection has declination DEC_INJ")
 parser.add_option("-S","--stat-value",action="store",type="float",default=0.0,\
     metavar=" STAT",help="injection has found stat value STAT")
+parser.add_option("-z","--injection-mass1",action="store",type="float",\
+    metavar=" MASS_1",help="mass of the first star")
+parser.add_option("-y","--injection-mass2",action="store",type="float",\
+    metavar=" MASS_2 ",help="mass of the second star")
+
+parser.add_option("-x","--injection-spin1x",action="store",type="float",\
+    metavar=" INJ_SPIN_1_X ",help="spin of the first star in x direction")
+parser.add_option("-w","--injection-spin1y",action="store",type="float",\
+    metavar=" INJ_SPIN_1_Y ",help="spin of first star in y direction")
+parser.add_option("-e","--injection-spin1z",action="store",type="float",\
+    metavar=" INJ_SPIN_1_Z ",help="spin of first star in Z direction")
+
+parser.add_option("-a","--injection-spin2x",action="store",type="float",\
+    metavar=" INJ_SPIN_1_X ",help="spin of the second star in x direction")
+parser.add_option("-b","--injection-spin2y",action="store",type="float",\
+    metavar=" INJ_SPIN_1_Y ",help="spin of second star in y direction")
+parser.add_option("-c","--injection-spin2z",action="store",type="float",\
+    metavar=" INJ_SPIN_1_Z ",help="spin of second star in Z direction")
+
+parser.add_option("-g","--injection-distance",action="store",type="float",\
+    metavar=" DISTANCE ",help="distance to system")
+
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -147,7 +175,7 @@ tagList = []
 
 figname = InspiralUtils.set_figure_name(opts,"skylocation")
 
-plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
+plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value, opts.injection_mass1, opts.injection_mass2, opts.injection_spin1x, opts.injection_spin1y, opts.injection_spin1z, opts.injection_spin2x, opts.injection_spin2y, opts.injection_spin2z, opts.injection_distance)
 
 fnameList.append(figname)
 tagList.append("Inspiral sky location probability")

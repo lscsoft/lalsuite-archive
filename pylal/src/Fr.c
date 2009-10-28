@@ -5,7 +5,6 @@
     Functions: frgetvect, frputvect
 
     See individual docstrings for more information.
-    $Id$
 
     Requires: numpy, FrameL
 */
@@ -14,9 +13,9 @@
 #define CHECK_ERROR if (PyErr_Occurred()) {Py_XDECREF(framedict); Py_DECREF(channellist_iter); FrameFree(frame); return NULL;}
 #define MAX_VECT_DIMS 10
 
-#include "Python.h"
-#include "numpy/arrayobject.h"
-#include "FrameL.h"
+#include <Python.h>
+#include <numpy/arrayobject.h>
+#include <lal/LALFrameL.h>
 
 #if PY_VERSION_HEX < 0x02040000
 #define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
@@ -24,7 +23,6 @@
 #define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
 #endif
 
-static PyObject *version;
 static PyObject *author;
 static PyObject *PyExc_FrError;
 
@@ -35,8 +33,7 @@ const char FrDocstring[] =
 "    Functions: frgetvect, frgetvect1d, frputvect\n"
 "    See individual docstrings for more information.\n"
 "\n"
-"    Requires: numpy (>=1.0), FrameL\n"
-"    $Id$\n";
+"    Requires: numpy (>=1.0), FrameL\n";
 
 /* Some helper functions */
 /* The PyDict_ExtractX functions will extract objects of a certain type from
@@ -495,15 +492,15 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         // kind, x_unit, y_unit, type, and subType have default values
         temp = PyDict_GetItemString(framedict, "kind");
         if (temp != NULL) {strcpy(kind, PyString_AsString(temp));}
-        else {sprintf(kind,"PROC");}
+        else {sprintf(kind, "PROC");}
 
         temp = PyDict_GetItemString(framedict, "x_unit");
         if (temp != NULL) {strcpy(x_unit, PyString_AsString(temp));}
-        else {sprintf(x_unit, blank);}
+        else {strcpy(x_unit, blank);}
 
         temp = PyDict_GetItemString(framedict, "y_unit");
         if (temp != NULL) {strcpy(y_unit, PyString_AsString(temp));}
-        else {sprintf(y_unit, blank);}
+        else {strcpy(y_unit, blank);}
 
         temp = PyDict_GetItemString(framedict, "type");
         if (temp != NULL) {type = (int)PyInt_AsLong(temp);}
@@ -837,19 +834,15 @@ static PyMethodDef FrMethods[] = {
 };
 
 PyMODINIT_FUNC initFr(void) {
-    PyObject *m, *temp;
+    PyObject *m;
     m = Py_InitModule3("pylal.Fr", FrMethods, FrDocstring);
 
     import_array();
 
     PyExc_FrError = PyErr_NewException("Fr.FrError", NULL, NULL);
-    temp = PyString_FromString("$Revision$");
-    version = PySequence_GetSlice(temp, (Py_ssize_t)11, (Py_ssize_t)-2);
-    Py_DECREF(temp);
     author = PyString_FromString("Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>");
 
     Py_INCREF(PyExc_FrError);  // Recommended by extending & embedding doc
     PyModule_AddObject(m, "FrError", PyExc_FrError);
     PyModule_AddObject(m, "__author__", author);
-    PyModule_AddObject(m, "__version__", version);
 };

@@ -27,19 +27,15 @@ import sys
 
 from glue.lal import Cache, CacheEntry
 from glue.segments import segment
-from pylal.date import LIGOTimeGPS
+from pylal import git_version
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"[11:-2]
-__id__ = "$Id$"
 
 def format_cache(cache):
     return "\n".join(map(str, cache))
 
-parser = optparse.OptionParser(version=__version__)
-
-parser.add_option("--cache-file", help="the LAL cache to query")
+parser = optparse.OptionParser(usage="%prog [options] CACHEFILE",
+    version=git_version.verbose_msg)
 
 # query options
 parser.add_option("--select-description", metavar="PAT", help="select " \
@@ -64,11 +60,15 @@ parser.add_option("--only-missing", dest="print_which", action="store_const",
 opts, args = parser.parse_args()
 
 if opts.within_segment is not None:
-    start, end = map(LIGOTimeGPS, opts.within_segment.split(","))
+    start, end = map(int, opts.within_segment.split(","))
     opts.within_segment = segment(start, end)
 
+if len(args) != 1:
+    parser.print_usage(sys.stderr)
+    sys.exit(2)
+
 # read cache
-cache = Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
+cache = Cache.fromfile(open(args[0]), coltype=int)
 
 # do query
 sieved_cache = cache.sieve(description=opts.select_description,
@@ -78,13 +78,16 @@ sieved_cache = cache.sieve(description=opts.select_description,
 
 # take action
 if opts.print_which == "all":
-    print format_cache(sieved_cache)
+    if len(sieved_cache) > 0:
+        print format_cache(sieved_cache)
 elif opts.print_which == "only_missing":
     found, missing = sieved_cache.checkfilesexist(on_missing="ignore")
-    print format_cache(missing)
+    if len(missing) > 0:
+        print format_cache(missing)
 elif opts.print_which == "only_found":
     found, missing = sieved_cache.checkfilesexist(on_missing="ignore")
-    print format_cache(found)
+    if len(found) > 0:
+        print format_cache(found)
 else:
     raise ValueError, "should never get here; file a bug report"
 

@@ -10,6 +10,7 @@ __Id__ = "$Id$"
 
 import sys
 import os
+from os import path
 import gzip
 from optparse import *
 import re
@@ -40,6 +41,8 @@ from pylal import date
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
+#from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.date import LIGOTimeGPS
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 
@@ -48,7 +51,7 @@ from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 from pylal import galaxyutils
 
 
-lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 pi = numpy.pi
 
 ##############################################################################
@@ -63,7 +66,7 @@ class SkyPoints(object):
   """
   def __init__(self, coinc,detector_locations,detector_responses,coarse_res,\
                fine_res,wide_threshold,narrow_threshold,ref_freq=0.0,\
-               injection=False):
+               injection=False, coinctable=None):
     """
     coinc: a coincInspiralTable containing coincident triggers
     injection: boolean to determine whether or not to collect injection
@@ -74,21 +77,14 @@ class SkyPoints(object):
 
     self.longitude = 0.0 
     self.latitude = 0.0
-    self.time = min(coinc.get_gps_times()[ifo] for ifo in\
-                    coinc.get_gps_times())
     self.detector_locations = detector_locations
     self.detector_responses = detector_responses
-    self.snr= dict((trig.ifo,getattr(coinc,trig.ifo).snr)\
-                   for trig in coinc)
-    self.gps = dict((trig.ifo,trig.get_end())\
-                    for trig in coinc)
-    self.effective_distances = dict((trig.ifo,\
-                                    getattr(coinc,trig.ifo).eff_distance)\
-                                    for trig in coinc)
+
     self.coarse_res = coarse_res
     self.fine_res = fine_res
     self.wide_threshold = wide_threshold
     self.narrow_threshold = narrow_threshold
+    self.coinc_type = ''
     self.ifo_coincs = []
     self.ifo_list = []
     self.narrow_region = []
@@ -96,31 +92,80 @@ class SkyPoints(object):
     self.leftover_region = []
     self.num_sky_blobs = 0
 
-    self.coinc_type, full_ifo_list = coinc.get_ifos() 
-    if self.coinc_type != "H1L1V1" and self.coinc_type != "H1H2L1V1":
-      self.no_coincs = 1
-    else:
-      self.no_coincs = 0
+    if coinc:
+
+      self.time = min(coinc.get_gps_times()[ifo] for ifo in\
+                      coinc.get_gps_times())
+      self.snr= dict((trig.ifo,getattr(coinc,trig.ifo).snr)\
+                     for trig in coinc)
+      self.gps = dict((trig.ifo,trig.get_end())\
+                      for trig in coinc)
+      self.effective_distances = dict((trig.ifo,\
+                                       getattr(coinc,trig.ifo).eff_distance)\
+                                      for trig in coinc)
+   
+      self.coinc_type, full_ifo_list = coinc.get_ifos() 
+      if self.coinc_type != "H1L1V1" and self.coinc_type != "H1H2L1V1":
+        self.no_coincs = 1
+      else:
+        self.no_coincs = 0
     
-    #remove H2 if it's there 
-    for ifo in full_ifo_list:
-      if ifo != "H2":
+      #remove H2 if it's there 
+      for ifo in full_ifo_list:
+        if ifo != "H2":
+          self.ifo_list.append(ifo)
+      self.ifo_coincs.extend(list(glue.iterutils.choices(self.ifo_list, 2)))
+    
+      if ref_freq:
+        self.ref_freq = ref_freq
+        self.mass1 = dict((trig.ifo,getattr(coinc,trig.ifo).mass1)\
+                          for trig in coinc)
+        self.mass2 = dict((trig.ifo,getattr(coinc,trig.ifo).mass2)\
+                          for trig in coinc)
+      else:
+        self.ref_freq = 0.0
+        self.mass1 = 0.0
+        self.mass2 = 0.0
+
+    elif coinctable:
+
+      xmldoc = utils.load_filename(coinctable)
+      if tab.get_table(xmldoc,lsctables.CoincTable.tableName)[0].nevents != 3:
+        print >>sys.stdout, "Need a three detector coincidence."
+        sys.exit(0) 
+      
+      snglinsptab = tab.get_table(xmldoc,lsctables.SnglInspiralTable.tableName)
+      
+      self.time = min(row.end_time for row in snglinsptab)
+      self.snr = dict((row.ifo, row.snr) for row in snglinsptab)
+      self.gps = dict((row.ifo, row.get_end()) for row in snglinsptab)
+      self.gps["V1"] = LIGOTimeGPS(self.gps["V1"].seconds,self.gps["V1"].nanoseconds*1.0e7)
+      self.gps["L1"] = LIGOTimeGPS(self.gps["L1"].seconds,self.gps["L1"].nanoseconds*1.0e6)
+      self.gps["H1"] = LIGOTimeGPS(self.gps["H1"].seconds,self.gps["H1"].nanoseconds*1.0e6)
+      print self.gps
+      self.effective_distances = dict((row.ifo,row.eff_distance) for row in\
+                                      snglinsptab)
+      ifos = ('H1', 'L1', 'V1')
+      for ifo in ifos:
+        self.coinc_type = self.coinc_type + ifo
         self.ifo_list.append(ifo)
-    self.ifo_coincs.extend(list(glue.iterutils.choices(self.ifo_list, 2)))
-    
-    if ref_freq:
-      self.ref_freq = ref_freq
-      self.mass1 = dict((trig.ifo,getattr(coinc,trig.ifo).mass1)\
-                          for trig in coinc)
-      self.mass2 = dict((trig.ifo,getattr(coinc,trig.ifo).mass2)\
-                          for trig in coinc)
+      self.ifo_coincs.extend(list(glue.iterutils.choices(self.ifo_list, 2)))
+      self.no_coincs = 0
+      
+      if ref_freq:
+        self.ref_freq = ref_freq
+        self.mass1 = dict((row.ifo, row.mass1) for row in snglinsptab)
+        self.mass2 = dict((row.ifo, row.mass2) for row in snglinsptab)
+      else:
+        self.ref_freq = 0.0
+        self.mass1 = 0.0
+        self.mass2 = 0.0
+
     else:
-      self.ref_freq = 0.0
-      self.mass1 = 0.0
-      self.mass2 = 0.0
+      raise ValueError, "Can't have old style coincs and specify --coinc-table!"
     
     # gather injection parameters if possible
-    if injection:
+    if injection and not coinctable:
       self.injection = True
       self.longitude_inj = getattr(coinc,"sim").longitude
       self.latitude_inj = getattr(coinc,"sim").latitude
@@ -142,6 +187,34 @@ class SkyPoints(object):
         self.inj_color = 'r'
       else:
         self.inj_color = 'b'
+    elif injection and coinctable:
+      xmldoc = utils.load_filename(coinctable)
+      siminsptab = tab.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+      row = siminsptab[0]
+      
+      self.injection = True
+      self.longitude_inj = row.longitude
+      self.latitude_inj = row.latitude
+      self.eff_distances_inj = {}
+      self.eff_distances_inj["H1"] = row.eff_dist_h
+      self.eff_distances_inj["L1"] = row.eff_dist_l
+      self.eff_distances_inj["V1"] = row.eff_dist_v
+      self.mass1_inj = row.mass1
+      self.mass2_inj = row.mass2
+      self.delta_t_rms_inj = self.get_delta_t_rms(self.longitude_inj,\
+                                                  self.latitude_inj)
+      self.delta_D_rms_inj = self.get_delta_D_rms(self.longitude_inj,\
+                                                  self.latitude_inj)
+      self.L_inj = self.get_L(self.longitude_inj,self.latitude_inj)
+      self.sky_area_inj = 0.0
+      if self.narrow_threshold <= self.L_inj <= self.wide_threshold:
+        self.inj_color = 'y'
+      elif self.narrow_threshold > self.L_inj:
+        self.inj_color = 'r'
+      else:
+        self.inj_color = 'b'
+      
+      
     else:
       self.injection = False
       
@@ -157,13 +230,13 @@ class SkyPoints(object):
     
       if self.ref_freq:
         tFromRefFreq = self.get_signal_duration(ifo)
-        tref[ifo] = date.LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
+        tref[ifo] = LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
       else:
-        tref[ifo] = 0.0   
+        tref[ifo] = 0.0
         
       #compute the geocentric time from each trigger
       tgeo[ifo] = self.gps[ifo] - tref[ifo] - \
-                  date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(self.detector_locations[ifo],\
+                  LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(self.detector_locations[ifo],\
                                                             earth_center,longitude,latitude,self.gps[ifo]))  
       
     #compute differences in these geocentric times
@@ -202,6 +275,8 @@ class SkyPoints(object):
     distance this is just the squared Deff integrated over inclination and polarization which
     is proportional to (F+^2 + Fx^2)^(-1)
     """
+
+    #return 0.0
     gmst = {}
     D_marg_sq = {}
     F_plus = {}
@@ -235,6 +310,7 @@ class SkyPoints(object):
     compute L, the 'likelihood-like' quantity for a given point
     currently normalizes delta t to 1ms (harcoded)
     """
+    #return self.get_delta_t_rms(longitude,latitude)
     return self.get_delta_t_rms(longitude,latitude)*1000 + self.get_delta_D_rms(longitude,latitude)
     
   def gridsky(self,coarse_res,fine_res,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon):
@@ -316,6 +392,16 @@ class SkyPoints(object):
     print "wrap_lon", wrap_lon
     print "######"
 
+    ####testing####
+   # figure()
+   # for pt in points:
+   #   plot(asarray([pt[1]]),asarray([pt[0]]),'bx')
+   # xlabel("Right Ascension (radians)")
+   # ylabel("Declination (radians)")
+   # title("Coarse Grid")
+   # show()
+    ###end testing###
+
     return points
   
   def sphdist(self,p1,p2):
@@ -373,7 +459,7 @@ class SkyPoints(object):
       clusters.remove(clusters[loc2])
       clusters.remove(clusters[loc1])
   
-  def compute_skypoints(self,plot=None):
+  def compute_skypoints(self,plot_name=None):
     """
     this method
       (1) grids the sky coarsely
@@ -384,8 +470,9 @@ class SkyPoints(object):
     """
     coarse_grid = self.gridsky(0,self.coarse_res,-0.5*pi,0.5*pi,0,2*pi,0,0)
     coarse_L = []
-    if plot:
+    if plot_name:
       figure()
+
     
     for point in coarse_grid:
       longitude = point[1]
@@ -396,16 +483,20 @@ class SkyPoints(object):
     
     Lmin_coarse = min([pt[1] for pt in coarse_L])
     coarse_hotspots = []
+    coarse_clusters = []
     for pt in coarse_L:
       if pt[1] <= 3*Lmin_coarse:
         coarse_hotspots.append(pt[0])
       else:
         self.leftover_region.append(pt)
-        if plot:
+        if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'bx')
     pt_step = pi*numpy.sqrt(2.0)*2*self.coarse_res/180.0
     dmax = self.sphdist((0,0), (pt_step,pt_step))
-    coarse_clusters = self.find_clusters(coarse_hotspots,dmax)
+    if len(coarse_hotspots) > 0.5*len(coarse_grid):
+      coarse_clusters=[coarse_hotspots]
+    else:
+      coarse_clusters = self.find_clusters(coarse_hotspots,dmax)
     
     fine_L = []
     cluster_count = 0
@@ -416,23 +507,37 @@ class SkyPoints(object):
       latmax = max(lats)
       lonmin = min(lons)
       lonmax = max(lons)
+
+      if latmin < -0.5*pi:
+        latmin = -0.5*pi
+      if lonmin < 0.0:
+        lonmin = 0.0
+      if latmax > 0.5*pi:
+        latmax = 0.5*pi
+      if lonmax > 2*pi:
+        lonmax = 2*pi
+      
       
       #if latmax-latmin > pi or lonmin-lonmax > pi/2 check to see whether
       #grids are oriented to wrap around the short (wrap_x = 1) or long (wrap_x = 0) way
       wrap_lat = 0
       wrap_lon = 0
-      if (latmax - latmin > 0.5*pi) or (lonmax-lonmin > pi):
+      if (latmax - latmin > 0.5*pi) or (lonmax - lonmin > pi)\
+             and (latmax < 0.5*pi) and (latmin > -0.5*pi) \
+             and (lonmax < 2*pi) and (lonmin > 0.0):
         for pt in cluster:
-          if not (latmax >= pt[0] >= latmin):
+          if not (latmax >= pt[0] >= latmin) and (0.5*pi >= pt[0] >= -0.5*pi):
+            print "lat = ", pt[0]
             wrap_lat = 1
-          if not (lonmax >= pt[1] >= lonmin):
+          if not (lonmax >= pt[1] >= lonmin) and (2*pi >= pt[1] >= 0.0):
+            print "lon = ", pt[1]
             wrap_lon = 1
           if (wrap_lat == 1) and (wrap_lon == 1):
             break
       
       fine_grid = self.gridsky(self.coarse_res,self.fine_res,latmin,latmax,\
                                lonmin,lonmax,wrap_lat,wrap_lon)
-
+      
       for point in fine_grid:
         longitude = point[1]
         latitude = point[0]
@@ -459,27 +564,30 @@ class SkyPoints(object):
           self.sky_area_inj += pi*self.fine_res*self.fine_res
       if self.narrow_threshold <= pt[1] <= self.wide_threshold:
         self.wide_region.append(pt)
-        if plot:
+        if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'yx')
       elif self.narrow_threshold > pt[1]:
         self.narrow_region.append(pt)
-        if plot:
+        if plot_name:
           plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
+      else:
+        self.leftover_region.append(pt)
    #   else:
    #     continue
 
-    if plot:
+    if plot_name:
+      plot(asarray([fine_L[0][0][1]]),asarray([fine_L[0][0][0]]), 'ms')
       if self.injection:
         plot(asarray([self.longitude_inj]),\
-             asarray([self.latitude_inj]),self.inj_color+'o')
+             asarray([self.latitude_inj]),self.inj_color+'*')
 
       axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
       xlabel("Right Ascension (radians)")
       ylabel("Declination (radians)")
       title("Skymap for Trigger at "+str(self.time))
-      savefig(plot)
+      savefig(plot_name)
   
-      if not show_plot:
+      if not opts.show_plot:
         close()
       
   def get_narrow_region(self):
@@ -523,18 +631,12 @@ class SkyLocTable(table.Table):
   validcolumns = {
     "end_time": "int_4s",
     "comb_snr": "real_4",
-    "h1_snr": "real_4",
-    "l1_snr": "real_4",
-    "v1_snr": "real_4",
     "ra": "real_4",
     "dec": "real_4",
-    "narrow_area": "real_4",
-    "wide_area": "real_4",
-    "h1_eff_distance": "real_4",
-    "l1_eff_distance": "real_4",
-    "v1_eff_distance": "real_4",
+    "area_60pct": "real_4",
+    "area_90pct": "real_4",
+    "min_eff_distance": "real_4",
     "skymap": "lstring",
-    "galaxies": "lstring",
     "grid": "lstring"
     }
     
@@ -610,7 +712,7 @@ LVAlertTable.RowType = LVAlertRow
 #
 ##############################################################################
 
-def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,gals_fname,\
+def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,\
                          skyloctable):
   """
   given an instance of SkyPoints, populate and return skyloctable
@@ -621,22 +723,19 @@ def populate_SkyLocTable(skypoints,skymap_fname,grid_fname,gals_fname,\
   row.comb_snr = numpy.sqrt(skypoints.snr["H1"]*skypoints.snr["H1"] +\
                             skypoints.snr["L1"]*skypoints.snr["L1"] +\
                             skypoints.snr["V1"]*skypoints.snr["V1"])
-  row.h1_snr = skypoints.snr["H1"]
-  row.l1_snr = skypoints.snr["L1"]
-  row.v1_snr = skypoints.snr["V1"]
   row.ra = skypoints.longitude
   row.dec = skypoints.latitude
-  row.narrow_area = pi*skypoints.fine_res*skypoints.fine_res\
-                    *len(skypoints.narrow_region)
-  row.wide_area = pi*skypoints.coarse_res*skypoints.coarse_res\
-                  *len(skypoints.wide_region)
-  row.h1_eff_distance = skypoints.effective_distances["H1"]
-  row.l1_eff_distance = skypoints.effective_distances["L1"]
-  row.v1_eff_distance = skypoints.effective_distances["V1"]
-  row.skymap = skymap_fname
-  row.grid = grid_fname
-  row.galaxies = gals_fname
-  
+  row.area_60pct = pi*skypoints.fine_res*skypoints.fine_res\
+                   *len(skypoints.narrow_region)
+  row.area_90pct = pi*skypoints.fine_res*skypoints.fine_res\
+                   *len(skypoints.wide_region)
+  row.min_eff_distance = min([skypoints.effective_distances["H1"],\
+                              skypoints.effective_distances["L1"],\
+                              skypoints.effective_distances["V1"]])
+  row.skymap = os.path.basename(str(skymap_fname))
+  row.grid = os.path.basename(str(grid_fname))
+ # row.galaxies = gals_fname
+
   skyloctable.append(row)
   
 def populate_SkyLocInjTable(skypoints,skylocinjtable):
@@ -663,6 +762,9 @@ def populate_SkyLocInjTable(skypoints,skylocinjtable):
   row.v1_eff_distance = skypoints.eff_distances_inj["V1"]
   row.mass1 = skypoints.mass1_inj
   row.mass2 = skypoints.mass2_inj
+
+
+
 
   skylocinjtable.append(row)
 
@@ -701,7 +803,7 @@ def plot_skypoints(skypoints,output=None,show_plot=False):
       for pt in skypoints.narrow_region:
         plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
     #if there's an injection plot it and color it appropriately
-    if skymap.injection:
+    if skypoints.injection:
       plot(asarray([skypoints.longitude_inj]),\
            asarray([skypoints.latitude_inj]),skypoints.inj_color+'o')
 
@@ -842,6 +944,70 @@ def get_galaxies_in_region(skypoints,catalog,boundaries):
       numpy.array(boundaries[i])))
    
   return galaxies
+
+def do_skypoints(coinc,coinctable=None):
+
+  skymap = SkyPoints(coinc, detector_locations, detector_responses,  opts.coarse_resolution, opts.fine_resolution,\
+                     opts.L_wide_threshold, opts.L_narrow_threshold,opts.reference_frequency,opts.injection, coinctable)
+  if skymap.no_coincs:
+    return
+  else:
+    if opts.plotpoints:
+      plot_name = bname + '_' + str(skymap.time)+'.png'
+      plot_skypoints(skymap,plot_name,opts.show_plot)
+      if opts.online_input:
+        output_files.append(plot_name)
+    else:
+      plot_name = ''
+
+    print plot_name
+    skymap.compute_skypoints(plot_name)
+    print "lon = ", skymap.longitude
+    print "lat = ",skymap.latitude
+
+    #write the grids
+    grid_name = bname + '_' + str(skymap.time)+'.txt.gz'
+    write_grids(skymap,grid_name)
+    if opts.online_input:
+      output_files.append(grid_name)
+
+    #make plots if they're asked for
+   # if opts.plotpoints:
+   #   plot_name = bname + '_' + str(skymap.time)+'.png'
+   #   plot_skypoints(skymap,plot_name,opts.show_plot)
+
+   # else:
+   #   plot_name = ''
+    populate_SkyLocTable(skymap,plot_name,grid_name,sky_loc_table)
+    if opts.plotgalaxies:
+      narrow, wide = find_boundaries(skymap)
+      galaxies = get_galaxies_in_region(skymap,catalog,wide)
+      gal_name = 'none found'
+      if galaxies:
+        galtable = lsctables.New(GalaxyTable)
+        for galaxy in get_galaxies_in_region(skymap,catalog,narrow):
+          populate_GalaxyTable(skymap,galaxy,galtable)
+    #      galdoc = ligolw.Document()
+    #      galdoc.appendChild(ligolw.LIGO_LW())
+    #      galdoc.childNodes[0].appendChild(galtable)
+        xmldoc.childNodes[0].appendChild(galtable)
+        if opts.output:
+          gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
+          if opts.online_input:
+            gal_name = bname + '_'+str(skymap.time)+'_galaxies.xml'
+            output_files.append(gal_name)
+    #      gal_output = open(gal_name, 'w')
+    #      galdoc.write(gal_output)
+    #      gal_output.close
+          
+    else:
+      gal_name = ''
+
+    #populate the tables
+    #print gal_name
+    #populate_SkyLocTable(skymap,plot_name,grid_name,gal_name,sky_loc_table)
+    if opts.injection:
+      populate_SkyLocInjTable(skymap,sky_loc_inj_table)
                                                         
 
 ##############################################################################
@@ -926,9 +1092,9 @@ def parse_command_line():
   parser.add_option("-j","--inj-output",action="store",type="string",default=None,\
                     help="name of the xml file to store injection data in")
   parser.add_option("-k","--sky-data",action="store",type="string",default=None,\
-                    help="name of the (gzipped) text file to store grids and L values")
-   
-
+                    help="name of the (gzipped) text file to store grids and L values")  
+  parser.add_option("-z","--coinc-table",action="store_true",default=False,\
+                    help="specify that input uses coinc tables")
   (options,args) = parser.parse_args()
 
   if options.enable_google_sky_output and (options.google_map_key is None):
@@ -985,41 +1151,21 @@ if opts.glob is not None:
       else:
         coincfiles.append(file)
 
-if opts.online_input:
-  if opts.online_input == '-':
-    host, full_path, general_dir, uid = \
-          lvautils.get_LVAdata_from_stdin(sys.stdin) 
-  else:
-    host, full_path, general_dir, uid = \
-          lvautils.get_LVAdata_from_file(opts.online_input)
-  coincfiles.append(full_path)
+#if opts.online_input:
+#  if opts.online_input == '-':
+#    host, full_path, general_dir, uid = \
+#          lvautils.get_LVAdata_from_stdin(sys.stdin) 
+#  else:
+#    host, full_path, general_dir, uid = \
+#          lvautils.get_LVAdata_from_file(opts.online_input)
+#  coincfiles.append(full_path)
+
   
 # check if the file lists are not empty
 if not (coincfiles or slidefiles):
   print >>sys.stdout, "No files match your description."
   sys.exit(0)
 
-inspTriggers = None
-coincTriggers = CoincInspiralUtils.coincInspiralTable()
-
-if coincfiles:
-  if opts.injection:
-    inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
-    mangle_event_id = True
-  else:
-    mangle_event_id = False
-
-  inspTriggers = SnglInspiralUtils.\
-                 ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id,
-                                           verbose=None)
-  if opts.injection:
-    inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
-  
-  # construct the coincs
-  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
-  if opts.injection:
-    coincTriggers.add_sim_inspirals(inspInj)
 
 detector_locations = {}
 detector_locations["L1"] =tools.cached_detector["LLO_4k"].location   
@@ -1034,88 +1180,60 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 
 #set the base filename for everything
 if opts.output:
-  bname = opts.output[:-4]
+  base = os.path.split(opts.output)[1][:-4]
+  path = os.path.split(opts.output)[0]
+  bname = os.path.join(path,base)
 if opts.online_input:
   bname = general_dir + '/SKYPOINTS_ONLINE_' + uid
   output_files = []
+
+
   
 #create the xml output and initiate the tables
 xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
 sky_loc_table = lsctables.New(SkyLocTable)
+xmldoc.childNodes[0].appendChild(sky_loc_table)
 if opts.injection:
   sky_loc_inj_table = lsctables.New(SkyLocInjTable)
 #make it work with XSL stylesheet
 ligolw.Header += u"""\n\n"""\
-                 +u"""<?xml-stylesheet type="text/xsl" href="ligolw-cbc3.xsl"?>"""\
+                 +u"""<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>"""\
                  +u"""\n\n"""
 
 
-for coinc in coincTriggers:
-  skymap = SkyPoints(coinc, detector_locations, detector_responses,  opts.coarse_resolution, opts.fine_resolution,\
-                     opts.L_wide_threshold, opts.L_narrow_threshold,opts.reference_frequency,opts.injection)
-  if skymap.no_coincs:
-    continue
-  else:
-    if opts.plotpoints:
-      plot_name = bname + '_' + str(skymap.time)+'.png'
-      plot_skypoints(skymap,plot_name,opts.show_plot)
-      if opts.online_input:
-        output_files.append(plot_name)
-    else:
-      plot_name = ''
+if opts.coinc_table:
 
-    
-    skymap.compute_skypoints(plot_name)
-    print "lon = ", skymap.longitude
-    print "lat = ",skymap.latitude
+  do_skypoints(None,coincfiles[0])
 
-    #write the grids
-    grid_name = bname + '_' + str(skymap.time)+'.txt.gz'
-    write_grids(skymap,grid_name)
-    if opts.online_input:
-      output_files.append(grid_name)
+else:
+  
+  inspTriggers = None
+  coincTriggers = CoincInspiralUtils.coincInspiralTable()
 
-    #make plots if they're asked for
-   # if opts.plotpoints:
-   #   plot_name = bname + '_' + str(skymap.time)+'.png'
-   #   plot_skypoints(skymap,plot_name,opts.show_plot)
-
-   # else:
-   #   plot_name = ''
-    
-    if opts.plotgalaxies:
-      narrow, wide = find_boundaries(skymap)
-      galaxies = get_galaxies_in_region(skymap,catalog,wide)
-      gal_name = 'none found'
-      if galaxies:
-        galtable = lsctables.New(GalaxyTable)
-        for galaxy in get_galaxies_in_region(skymap,catalog,narrow):
-          populate_GalaxyTable(skymap,galaxy,galtable)
-          galdoc = ligolw.Document()
-          galdoc.appendChild(ligolw.LIGO_LW())
-          galdoc.childNodes[0].appendChild(galtable)     
-          if opts.output:
-            gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
-          if opts.online_input:
-            gal_name = bname + '_'+str(skymap.time)+'_galaxies.xml'
-            output_files.append(gal_name)
-          gal_output = open(gal_name, 'w')
-          galdoc.write(gal_output)
-          gal_output.close
-          
-    else:
-      gal_name = ''
-
-    #populate the tables
-    print gal_name
-    populate_SkyLocTable(skymap,plot_name,grid_name,gal_name,sky_loc_table)
+  if coincfiles:
     if opts.injection:
-      populate_SkyLocInjTable(skymap,sky_loc_inj_table)
+      inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
+      mangle_event_id = True
+    else:
+      mangle_event_id = False
+
+      inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(coincfiles,
+                                           mangle_event_id,
+                                           verbose=None)  
+    # construct the coincs
+    coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+    if opts.injection:
+      coincTriggers.add_sim_inspirals(inspInj)
+
+    for coinc in coincTriggers:
+      do_skypoints(coinc)
 
   
 #finish up by writing output
-xmldoc.childNodes[0].appendChild(sky_loc_table)
+#xmldoc.childNodes[0].appendChild(sky_loc_table)
+
 if opts.injection:
   xmldoc.childNodes[0].appendChild(sky_loc_inj_table)
 
@@ -1126,7 +1244,7 @@ if opts.injection:
 #llwapp.set_process_end_time(process)
 if opts.online_input:
   output_fname = bname + '.xml'
-  output_files.append(output_fname)
+#  output_files.append(output_fname)
 else:
   output_fname = opts.output
 

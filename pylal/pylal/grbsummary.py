@@ -209,6 +209,36 @@ def get_mean_mchirp(coinc):
     """
     return sum(t.mchirp for t in coinc) / coinc.numifos
 
+def get_mean_mchirp_lv(coinc):
+    """
+    Return the arithmetic average of the mchirps of all triggers in coinc,
+    taking into account the four different type of coincidences with LV.
+    """
+    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
+
+    ifos = ''
+    for ifo in ['H1','L1','V1']:
+      if hasattr(coinc, ifo):
+        ifos += ifo
+    print ifos, mean_mchirp
+    if ifos=='H1L1V1':
+      modified_mean_mchirp = mean_mchirp
+    elif ifos=='H1L1':
+      modified_mean_mchirp = mean_mchirp+20.0
+    elif ifos=='H1V1':
+      modified_mean_mchirp = mean_mchirp+40.0
+    elif ifos=='L1V1':
+      modified_mean_mchirp = mean_mchirp+60.0
+    else:
+      modified_mean_mchirp = -1
+
+    if mean_mchirp<0.0 or mean_mchirp>20.0:
+      raise ValueError, "The given mean_mchirp of %.2f is outside the "\
+                        " allowed range [0,20]." % mean_mchirp
+
+    return modified_mean_mchirp
+
+
 ##############################################################################
 # XML convenience code
 ##############################################################################

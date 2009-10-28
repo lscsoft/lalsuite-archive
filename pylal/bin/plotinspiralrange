@@ -119,8 +119,8 @@ def plotinspiralrange_histogram(opts):
     opts.range_min = log10(opts.range_min)
     opts.range_max = log10(opts.range_max)
 
-  bins = arange(opts.range_min,opts.range_max, \
-      (opts.range_max - opts.range_min)/ opts.nbins)
+  bins = numpy.linspace(opts.range_min, opts.range_max, opts.nbins,
+    endpoint=True)
 
   if opts.plot_type == 'log':
     bins = 10**bins
@@ -132,7 +132,8 @@ def plotinspiralrange_histogram(opts):
     Range = inspiralSumm[ifo].getColumnByName('value').asarray()
     startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
     style = colors[ifo]
-    num[ifo], bins = numpy.histogram(Range, bins, new=False)
+    num[ifo], bins = numpy.histogram(Range, bins, new=True)
+    bins = bins[:-1]
 
   for ifo in inspiralSumm.keys():
     if opts.plot_type == 'log':
@@ -142,8 +143,9 @@ def plotinspiralrange_histogram(opts):
       plot(stairsX, stairsY, colors[ifo], linewidth=2, label=ifo)
 
   leg=legend()
-  ltext=leg.get_texts()
-  setp(ltext, fontsize='x-large')
+  if len(inspiralSumm.keys()):
+    ltext=leg.get_texts()
+    setp(ltext, fontsize='x-large')
   xlim(opts.range_min, opts.range_max)
   xticks(fontsize='x-large')
   yticks(fontsize='x-large')
@@ -189,8 +191,9 @@ def plotinspiralrange_range_versus_time(opts):
       semilogy(startTime, Range, style, label=ifo,\
           markersize=12, markeredgewidth=1)
   leg=legend()
-  ltext=leg.get_texts()
-  setp(ltext, fontsize='x-large')
+  if len(inspiralSumm.keys()):
+    ltext=leg.get_texts()
+    setp(ltext, fontsize='x-large')
   xlabel('Days after start of run', size='x-large')
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
@@ -251,9 +254,10 @@ def plotinspiralrange_range_versus_total_mass(opts):
   axis(Axes)
   lines=gca().get_lines()
   leg=legend(loc='upper left')
-  ltext=leg.get_texts()
+  if len(massInspiralSumm.keys()):
+    ltext=leg.get_texts()
+    setp(ltext, fontsize='x-large')
   setp(lines, linewidth=2, markeredgewidth=2, markersize=10)
-  setp(ltext, fontsize='x-large')
   xticks(fontsize='x-large')
   yticks(fontsize='x-large')
   xlabel('Total Mass ($M_\odot$)', size='x-large')
@@ -440,10 +444,8 @@ from pylal import viz
 InspiralUtils.message(opts, "Parsing the cache file...wait...")
 inspiralFiles = get_filelist(opts)
  
-
 # -- Read in the summ values from the inspiral/tmpltbank  files
 inspiralSumm, massInspiralSumm = InspiralUtils.readHorizonDistanceFromSummValueTable(inspiralFiles, opts.verbose)
-
 
 # ============================================================================
 # Make plot of range vs time
