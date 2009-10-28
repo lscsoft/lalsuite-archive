@@ -261,15 +261,15 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 			return (tup[1].mass1<2.0 and tup[1].mass2>2.0) or (tup[1].mass2<2.0 and tup[1].mass1>2.0)
 		def isBBH(tup):
 			return (tup[1].mass1>2.0 and tup[1].mass2>2.0)
-		# Plot BNS
+		# Plot each type of injection
 		for (filt,symb,injtype) in zip((isBNS,isNSBH,isBBH) , ('+','x','o'),('BNS','NSBH','BBH')):
 			results=filter(filt,statelist[ifo])
-			#print (filt,symb,injtype)
+			# Build a list of found and missed
 			if results is not None:
 				(foundx,foundy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4],results)))
 				(missedx,missedy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4]!=1 and tup[3],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4]!=1 and tup[3],results)))
 				#(nax,nay)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4]!=1 and not tup[3],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4]!=1 and not tup[3],results)))
-
+			# Found in green, missed in red
 			pylab.plot(foundx,foundy,'g'+symb,label='Found '+injtype)
 			thisplot.hold()
 			pylab.plot(missedx,missedy,'r'+symb,label='Missed '+injtype)
