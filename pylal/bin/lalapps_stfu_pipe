@@ -527,7 +527,7 @@ for cnt, event in enumerate(gpsevents.events):
 		# FIXME ADD MORE JOBS
 
 		# write the event info to disk and cache for stfu_page
-		exportGPSEventToDisk(event, search, cnt, dag)
+	exportGPSEventToDisk(event, search, cnt, dag)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
