@@ -401,6 +401,7 @@ setup(
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
+		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
