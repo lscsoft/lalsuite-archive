@@ -552,8 +552,8 @@ The omega scan command line is
 		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
-		  for node in p_nodes: self.add_parent(node)
-		  dag.add_node(self)
+			for node in p_nodes: self.add_parent(node)
+			dag.add_node(self)
 
 	def fix_config_for_science_run(self, config, time):
 		run = science_run(time)
@@ -1305,7 +1305,7 @@ class create_default_config(object):
                 #FIXME add more hosts as you need them
 		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
 			remote_ifos = "V1"
-			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data"
+			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground"
 			return remote_ifos, remote_jobs
 		return '', ''
 
