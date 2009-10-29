@@ -34,9 +34,9 @@ matplotlib.rcParams.update({
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
 	"legend.fontsize": 8.0,
-	"figure.dpi": 600,
-	"savefig.dpi": 600,
-	"text.usetex": True	# render all text with TeX
+	"figure.dpi": 300,
+	"savefig.dpi": 300,
+	"text.usetex": True
 })
 from matplotlib import figure
 from matplotlib import patches
@@ -122,7 +122,6 @@ for n, filename in enumerate(filenames):
 
 	for name, ratios in binned_ratios_extractor(xmldoc):
 		xcoords, ycoords = ratios.numerator.bins.centres()
-		data = numpy.transpose(ratios.numerator.array)
 
 		outname = "%s_num.png" % name
 		if options.verbose:
