@@ -172,11 +172,11 @@ class Summaries(object):
 		# FIXME should be key2[1] vs key2[0]
 		for key1 in self.slices_bins.keys():
 			for key2 in self.slices_bins[key1].keys():
-				tablename = "binned_ratio_"+"".join(key1)+"_"
+				tablename = "".join(key1)+"_"
 				if len(key2[0]) > 1 or len(key2[1]) > 1:
-					tablename += "".join(key2[0]) + "_vs_" + "".join(key2[1])
+					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
 				else:
-					tablename += "_vs_".join(key2)
+					tablename += "_vs_".join(key2[::-1])
 				if options.verbose:
 					print >>sys.stderr, "\tsmoothing %s ..." % tablename
 				rate.filter_binned_ratios(self.slices_bins[key1][key2], rate.gaussian_window2d(self.slices_bins[key1][key2].numerator.bins.shape[0]/30, self.slices_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
