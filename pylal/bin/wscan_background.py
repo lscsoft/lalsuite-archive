@@ -8,7 +8,7 @@ __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
 
-import os, sys, subprocess, string
+import os, sys, subprocess, string, socket
 from optparse import *
 import ConfigParser
 import time
@@ -67,8 +67,15 @@ class create_default_config(object):
     for config in ["H1config","H2config","L1config","V1config"]:
       cp.set("fu-bg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
 
+    # OUTPUT SECTION
     cp.add_section("fu-output")
     cp.set("fu-output","log-path","/usr1/" + os.getenv("USER"))
+
+    # REMOTE JOBS SECTION
+    cp.add_section("fu-remote-jobs")
+    remoteIfos,remoteJobs = self.get_remote_jobs()
+    cp.set('fu-remote-jobs','remote-ifos',remoteIfos)
+    cp.set('fu-remote-jobs','remote-jobs',remoteJobs)
 
     self.cp = cp
 
@@ -95,6 +102,19 @@ class create_default_config(object):
             "V1":{"hoft":"V1_hoft_cbc","rds":"V1-raw-cbc","seismic":"V1-raw-seismic-cbc"}
             }
     return fileMap[ifo][type]
+
+  def get_remote_jobs(self):
+    host = self.__get_hostname()
+    #FIXME add more hosts as you need them
+    if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
+      remote_ifos = "V1"
+      remote_jobs = "ligo_data_find_Q_RDS_,wpipeline_BG_RDS_,wpipeline_BG_SEIS_RDS_"
+      return remote_ifos, remote_jobs
+    return '', ''
+
+  def __get_hostname(self):
+    host = socket.getfqdn()
+    return host
 
   def which(self,prog):
     which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
@@ -157,6 +177,9 @@ parser.add_option("-v", "--version",action="store_true",default=False,\
 parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
 
+parser.add_option("-i","--ifos",action="store",type="string",\
+    default="H1L1V1",help="list of requested ifos")
+
 #parser.add_option("-m", "--datafind",action="store_true",\
 #    default=False, help="use datafind to get qscan/trends data")
 
@@ -188,7 +211,10 @@ if opts.config_file:
  config.read(opts.config_file)
  cp = overwrite_config(cp,config)
 
-ifos_list = ['H1','H2','L1','G1','V1','T1']
+ifos_list = []
+for j in range(0,len(opts.ifos)-1,2):
+  ifo = opts.ifos[j:j+2]
+  ifos_list.append(ifo)
 
 #Initialize dag
 if opts.config_file:
