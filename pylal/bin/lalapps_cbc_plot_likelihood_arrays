@@ -127,3 +127,6 @@ for n, filename in enumerate(filenames):
 		fig.savefig("%s_num.png" % name)
 		fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.denominator.array))
 		fig.savefig("%s_den.png" % name)
+		ratios.logregularize()
+		fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.ratio()))
+		fig.savefig("%s_ratio.png" % name)
