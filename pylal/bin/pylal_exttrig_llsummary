@@ -158,36 +158,36 @@ def create_sanity_page(html, grb_name, opts):
   @param opts: The option structure of this code call
   """
 
-    def file_replace(filenamein):
-        gps_duration = opts.gps_end_time-opts.gps_start_time
-        ident = '%9d-%d' % (opts.gps_start_time, gps_duration)
+  def file_replace(filenamein):
+    gps_duration = opts.gps_end_time-opts.gps_start_time
+    ident = '%9d-%d' % (opts.gps_start_time, gps_duration)
         
-        fn = copy.deepcopy(filenamein)
-        fn = fn.replace('MACIDENT',ident)
-        fn = fn.replace('MACIFOS',opts.ifo_times)
-        fn = fn.replace('MACGRB',grb_name)        
-        return fn
+    fn = copy.deepcopy(filenamein)
+    fn = fn.replace('MACIDENT',ident)
+    fn = fn.replace('MACIFOS',opts.ifo_times)
+    fn = fn.replace('MACGRB',grb_name)        
+    return fn
         
-    page_sections = {}
-    page_sections['numtemplates']={'page':'H1L1V1-plotnumtemplates_GRBMACGRB-MACIDENT.html',\
+  page_sections = {}
+  page_sections['numtemplates']={'page':'H1L1V1-plotnumtemplates_GRBMACGRB-MACIDENT.html',\
                                    'images':['H1L1V1-plotnumtemplates_GRBMACGRB_banksize-MACIDENT.png']}
-    page_sections['inspiralH1']={'page':'H1-plotinspiral_SECOND_H1_GRBMACGRB-MACIDENT.html',\
+  page_sections['inspiralH1']={'page':'H1-plotinspiral_SECOND_H1_GRBMACGRB-MACIDENT.html',\
                              'images':['H1-plotinspiral_SECOND_H1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
                                        'H1-plotinspiral_SECOND_H1_GRBMACGRB_snr_histogram-MACIDENT.png']}
-    page_sections['inspiralL1']={'page':'L1-plotinspiral_SECOND_L1_GRBMACGRB-MACIDENT.html',\
+  page_sections['inspiralL1']={'page':'L1-plotinspiral_SECOND_L1_GRBMACGRB-MACIDENT.html',\
                                  'images':['L1-plotinspiral_SECOND_L1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
                                            'L1-plotinspiral_SECOND_L1_GRBMACGRB_snr_histogram-MACIDENT.png']}
-    page_sections['inspiralV1']={'page':'V1-plotinspiral_SECOND_V1_GRBMACGRB-MACIDENT.html',\
+  page_sections['inspiralV1']={'page':'V1-plotinspiral_SECOND_V1_GRBMACGRB-MACIDENT.html',\
                                  'images':['V1-plotinspiral_SECOND_V1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
                                            'V1-plotinspiral_SECOND_V1_GRBMACGRB_snr_histogram-MACIDENT.png']}    
-    page_sections['thinca']={'page':'MACIFOS-plotthinca_GRBMACGRB-MACIDENT.html',\
+  page_sections['thinca']={'page':'MACIFOS-plotthinca_GRBMACGRB-MACIDENT.html',\
                              'images':['MACIFOS-plotthinca_GRBMACGRB_cum_hist_effective_snr-MACIDENT.png']}
-    page_sections['grbstats'] = {'page':'pylal_grbtimeslide_stats_GRBMACGRB-MACIDENT.html',
+  page_sections['grbstats'] = {'page':'pylal_grbtimeslide_stats_GRBMACGRB-MACIDENT.html',
                                  'images':['pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png',\
                                            'pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png',\
                                            'pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png']}
     
-    for key in ['numtemplates','inspiralH1','inspiralL1','inspiralV1','thinca','grbstats']:
+  for key in ['numtemplates','inspiralH1','inspiralL1','inspiralV1','thinca','grbstats']:
 
         section = page_sections[key]
         html+='<hr>'
@@ -202,7 +202,7 @@ def create_sanity_page(html, grb_name, opts):
         html += '<br>Detailed results on the <a href="%s">%s summary page</a>' %\
                 (page, key)
             
-    return html
+  return html
 
 
 # --------------------------------

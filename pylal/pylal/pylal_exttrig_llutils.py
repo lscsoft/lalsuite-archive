@@ -212,7 +212,7 @@ def send_mail(subject, msg, email_adresses = None):
   #info('email','Email content: '+msg) 
 
 # -----------------------------------------------------
-def notify(grb, message):
+def notify(grb, dag, message):
   """
   Makes an email notification to all recipients listed
   in the config file.
@@ -228,7 +228,8 @@ def notify(grb, message):
   email_msg = 'Automatic notification from pylal_exttrig_llutils at time %s\n\n'%\
               get_time()
   email_msg += subject+'\n'
-  email_msg += 'The DAG is located at : %s\n'% grb.analysis_dir
+  email_msg += 'The analysis dir is %s\n' % grb.analysis_dir
+  email_msg += ' and the dagfils is %s\n' % dag.get_outname()
 
   # send the email to all recipients
   send_mail(subject, message)
@@ -248,13 +249,6 @@ def get_dag_part(ini_file):
   """
   dag_part = ini_file.split('.')[0]
   return dag_part
-
-## # --------------------------------------
-## def get_segment_lists():
-##   """
-##   Function to download the latest segment lists
-##   """
-##   raise NotImplementedError
 
 # --------------------------------------
 def get_empty_exttrig_row():
@@ -530,7 +524,7 @@ def generate_summary(publish_path, publish_url):
         table = add(table, '<a href="%s">onoff</a> &mdash '%htmlfile)
 
       # Add link to box
-      if item['openbox']:
+      if grb.openbox:
         # add result    
         result = obtain_results(grb)
         if result<2:
@@ -723,64 +717,72 @@ class AnalysisDag(object):
   """
   
   # -----------------------------------------------------
-  def __init__(self, name, type, stage, inifile, injfile, analysis_dir):
+  def __init__(self, name, type, analysis_dir):
     """
     Initializing this class with all the needed information
     @param name: name of the GRB
     @param type: what dag is this? onoff/inj
-    @param stage: stage of the dag, like uberdag or ligolwdag
-    @param inifile: inifile for this DAG
-    @param injfile: injection file for this DAG
+    #@param stage: stage of the dag, like uberdag or ligolwdag
+    #@param inifile: inifile for this DAG
+    #@param injfile: injection file for this DAG
     @param analysis_dir: path to the analysis directory
     """
 
     # store the input data
     self.name = name
     self.type = type
-    self.stage = stage
-    self.inifile = inifile
-    self.injfile = injfile
+    #self.stage = stage
+    #self.inifile = inifile
+    #self.injfile = injfile
     self.analysis_dir = analysis_dir
+
+    self.dagname = None
 
     self.status = 0
     self.status_dict = {1:'inspiral',2:'ligolw',3:'postproc'}
 
   # --------------------------------------
+  def set_dagname(self, name):
+    """
+    Sets the current name of the DAG
+    @param name: name of the .dag file
+    """
+    self.dagname = name
+
+  # --------------------------------------
   def get_basename(self):
     """
-    returns basename from the ini-file.
+    returns basename without any ending.
     """
-    basename = self.inifile.split('.')[0]
-    return self.analysis_dir+'/'+basename+'_'+self.type
-
+    return self.analysis_dir+'/'+self.dagname[:-4]
+  
   # --------------------------------------
   def get_outname(self):
     """
     Returns the outname of this DAG
     """
-    return self.get_dagname()+'.dagman.out'
+    return self.dagname+'.dagman.out'
 
   # --------------------------------------
   def get_dagname(self):
     """
     Returns the name of the DAG file
     """
-    return self.get_basename()+'_'+self.stage+'.dag'  
-  
+    return self.dagname
+ 
   # --------------------------------------
   def get_shname(self):
     """
     Returns the name of the sh file
     """
-    return self.get_basename()+'_'+self.stage+'.sh'
-
+    return self.get_basename()+'.sh'
 
   # --------------------------------------
-  def set_stage(self, stage):
-    """
-    Sets the stage (like uberdag or ligolwdag)
-    """
-    self.stage = stage
+#  def set_stage(self, stage):
+#    """
+#    Sets the stage (like uberdag or ligolwdag)
+#    """
+#    self.stage = stage
 
   # --------------------------------------
   def start(self):
@@ -831,7 +833,7 @@ class AnalysisDag(object):
     return text
 
   # --------------------------------------
-  def check_status(self):
+  def check_status(self, grb, dag):
     """
     Updating the status for this DAG,
     and return the fstat value
@@ -852,10 +854,10 @@ class AnalysisDag(object):
     # change the status if the DAG was running before
     if self.status>0:
       if fstat == -1:
-        peu.notify(grb_dict, 'DAG exited on error')
+        notify(grb, dag, 'DAG exited on error')
         self.status = -self.status
       elif fstat==-2:
-        peu.notify(grb_dict, 'DAG file vanished!?')
+        notify(grb, dag, 'DAG file vanished!?')
         self.status = -6
 
     return fstat
@@ -915,6 +917,10 @@ class GRB(object):
   # -----------------------------------------------------
   def set_addresses(self, addresses):
     self.addresses = addresses
+
+  # -----------------------------------------------------
+  def get_basic_dagname(self):
+    return  self.analysis_dir+'/'+self.inifile[:-4]
 
   # -----------------------------------------------------
   def make_links(self, sourcedir, destdir, list_exec):
@@ -1155,10 +1161,13 @@ class GRB(object):
     system_call(self.name, cmd)
 
     # update the two DAG instances
-    dag0 = AnalysisDag(self.name, 'onoff','uberdag',self.inifile, self.injfile, self.analysis_dir)
-    self.dag['onoff'] = dag0
-    dag1 = AnalysisDag(self.name, 'inj','uberdag',self.inifile, self.injfile, self.analysis_dir)
-    self.dag['inj'] = dag1
+    self.dag['onoff'] = AnalysisDag(self.name, 'onoff', self.analysis_dir)
+    self.dag['inj'] = AnalysisDag(self.name, 'inj', self.analysis_dir)
+
+    dagfile = self.get_basic_dagname()+'_onoff_uberdag.dag'
+    self.dag['onoff'].set_dagname(dagfile)
+    dagfile = self.get_basic_dagname()+'_inj_uberdag.dag'
+    self.dag['inj'].set_dagname(dagfile)
 
     # create the sed file
     self.create_sed_file()
@@ -1184,8 +1193,7 @@ class GRB(object):
       
       # send an email about this problem
       subject = 'Problems starting condor DAG'     
-      email_msg = 'The condor DAG %s was not started' % dag.get_dagname
-      email_msg += 'The DAG is located at : %s\n'% self.analysis_dir
+      email_msg = 'The condor DAG %s was not started.\n' % dag.get_dagname()
       send_mail(subject, email_msg)  
 
       # set the status
@@ -1250,7 +1258,10 @@ class GRB(object):
 
       # 'convert' the data from the xml format to a useable format...
       # TODO: change the other places to accept the xml format
-      doc = utils.load_filename(segxmlfile)
+      try:
+        doc = utils.load_filename(segxmlfile)
+      except:
+        raise IOError, "Error reading file ", segxmlfile
       segs = table.get_table(doc, "segment")
       seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
       segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
