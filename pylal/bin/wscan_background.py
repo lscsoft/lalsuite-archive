@@ -8,7 +8,7 @@ __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
 
-import os, sys, subprocess
+import os, sys, subprocess, string
 from optparse import *
 import ConfigParser
 import time
@@ -33,6 +33,7 @@ class create_default_config(object):
     cp.set("fu-condor","datafind",self.which("ligo_data_find"))
     cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
     cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+    cp.set("fu-condor","setuplogfile",self.which("wscan_bg_setup_log.py"))
 
     cp.add_section("datafind")
 
@@ -111,6 +112,31 @@ def overwrite_config(cp,config):
       cp.set(section,option,config.get(section,option))
   return cp
 
+class setupLogFileJob(pipeline.CondorDAGJob,stfu_pipe.FUJob):
+
+	def __init__(self,opts,cp):
+		self.__executable = string.strip(cp.get('fu-condor','setuplogfile'))
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.setupJob(name=self.name,cp=cp,dir='',tag_base='')
+
+class setupLogFileNode(pipeline.CondorDAGNode):
+
+	def __init__(self,dag,job,cp,time_range,tag='start',p_nodes=[]):
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_var_arg(tag + "-run")
+		self.add_var_opt("log-name",time_range.replace(",","_")+".log")
+		outputString = "omega/" + stfu_pipe.science_run(int(time_range.split(",")[0])).upper() + "/background"
+		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+			output = cp.get('fu-output','output-dir') + '/' + outputString
+		else:
+			output = outputString
+		self.add_var_opt("--output-path",output)
+
+		for node in p_nodes:
+			self.add_parent(node)
+		dag.add_node(self)
 
 ##############################################################################
 #MAIN PROGRAM
@@ -176,9 +202,13 @@ rdsdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_RDS',dir='')
 htQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_HT',dir='')
 rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
 seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
+setupLogJob	= setupLogFileJob(opts,cp)
 
 ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
 # print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
+
+start_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'start')
+end_node_parents = []
 
 for ifo in ifos_list:
 
@@ -191,10 +221,10 @@ for ifo in ifos_list:
 
     for qtime in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
-      dNode = stfu_pipe.fuDataFindNode(dag,rdsdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
+      dNode = stfu_pipe.fuDataFindNode(dag,rdsdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds',p_nodes=[start_node])
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,p_nodes=[start_node])
 
       # SETUP BACKGROUND QSCAN JOBS
       qHtBgNode = stfu_pipe.fuQscanNode(dag,htQscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path(),p_nodes=[dHoftNode],type="ht",variety="bg")
@@ -202,6 +232,12 @@ for ifo in ifos_list:
       qRdsBgNode = stfu_pipe.fuQscanNode(dag,rdsQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="rds",variety="bg")
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
+
+      end_node_parents.append(qHtBgNode)
+      end_node_parents.append(qRdsBgNode)
+      end_node_parents.append(qSeisBgNode)
+
+end_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'terminate',end_node_parents)
 
 #### ALL FINNISH ####
 time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
