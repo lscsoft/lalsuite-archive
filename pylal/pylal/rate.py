@@ -668,6 +668,13 @@ class BinnedArray(object):
 		"""
 		self.array /= self.bins.volumes()
 
+	def to_pdf(self):
+		"""
+		Convert into a probability density.
+		"""
+		self.array /= self.array.sum()  # sum = 1
+		self.to_density()
+
 	def logregularize(self, epsilon = 2**-1074):
 		"""
 		Find bins <= 0, and set them to epsilon, This has the
@@ -766,6 +773,14 @@ class BinnedRatios(object):
 		Return the number of bins with non-zero denominator.
 		"""
 		return numpy.sum(self.denominator.array != 0)
+
+	def to_pdf(self):
+		"""
+		Convert the numerator and denominator into a pdf.
+		"""
+		self.numerator.to_pdf()
+		self.denominator.to_pdf()
+
 
 
 #
@@ -1000,6 +1015,19 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	"""
 	filter_array(binned_array.array, filterdata, cyclic = cyclic)
 	binned_array.to_density()
+
+
+def marginalize(binned_ratio, dim):
+	"""
+	Return a BinnedRatio where dimension 'dim' has been
+	summed over. Useful to get a pdf marginalized over 'dim'.
+	"""
+	bins = binned_ratio.bins()
+	br = BinnedRatios(NDBins(list(bins[:dim]) + list(bins[dim+1:])))
+	br.numerator.array   = numpy.sum(binned_ratio.numerator.array, dim)
+	br.denominator.array = numpy.sum(binned_ratio.denominator.array, dim)
+
+	return br
 
 
 #
