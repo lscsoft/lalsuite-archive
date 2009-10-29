@@ -39,6 +39,7 @@ matplotlib.rcParams.update({
 	"text.usetex": True	# render all text with TeX
 })
 from matplotlib import figure
+from matplotlib import patches
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy
 from optparse import OptionParser
@@ -97,9 +98,8 @@ def binned_ratios_plot(title, xcoords, ycoords, data):
 	axes.loglog()
 	cset = axes.contour(xcoords, ycoords, data, 9)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
+	axes.add_patch(patches.Rectangle((min(xcoords), min(ycoords)), max(xcoords) - min(xcoords), max(ycoords) - min(ycoords), edgecolor = "k", fill = False))
 	axes.set_title(title)
-	axes.set_xlim([min(xcoords), max(xcoords)])
-	axes.set_ylim([min(ycoords), max(ycoords)])
 	return fig
 
 
