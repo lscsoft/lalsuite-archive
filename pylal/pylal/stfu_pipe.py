@@ -525,6 +525,8 @@ The omega scan command line is
 			dataString = figure_out_type(time, ifo, 'hoft')[0]
 		else:
 			dataString = figure_out_type(time, ifo, 'rds')[0]
+		if type == "seismic":
+			dataString = dataString + "_SEIS"
 		if dataString[:2]!=ifo:
 			dataString = ifo + "_" + dataString
 		timeString = "-".join(get_day_boundaries(int(time)))
