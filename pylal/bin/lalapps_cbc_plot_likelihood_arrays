@@ -91,12 +91,12 @@ def binned_ratios_extractor(xmldoc):
 		yield name, rate.binned_ratios_from_xml(xmldoc, name)
 
 
-def binned_ratios_plot(title, xcoords, ycoords, data):
+def binned_ratios_plot(title, xcoords, ycoords, data, ncontours = 9):
 	fig = figure.Figure()
 	FigureCanvas(fig)
 	axes = fig.gca()
 	axes.loglog()
-	cset = axes.contour(xcoords, ycoords, data, 9)
+	cset = axes.contour(xcoords, ycoords, data, ncontours)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 	axes.add_patch(patches.Rectangle((min(xcoords), min(ycoords)), max(xcoords) - min(xcoords), max(ycoords) - min(ycoords), edgecolor = "k", fill = False))
 	axes.set_title(title)
@@ -123,10 +123,22 @@ for n, filename in enumerate(filenames):
 	for name, ratios in binned_ratios_extractor(xmldoc):
 		xcoords, ycoords = ratios.numerator.bins.centres()
 		data = numpy.transpose(ratios.numerator.array)
+
+		outname = "%s_num.png" % name
+		if options.verbose:
+			print >>sys.stderr, "writing %s ..." % outname
 		fig = binned_ratios_plot("%s Numerator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.numerator.array))
-		fig.savefig("%s_num.png" % name)
+		fig.savefig(outname)
+
+		outname = "%s_den.png" % name
+		if options.verbose:
+			print >>sys.stderr, "writing %s ..." % outname
 		fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.denominator.array))
-		fig.savefig("%s_den.png" % name)
+		fig.savefig(outname)
+
+		outname = "%s_ratio.png" % name
+		if options.verbose:
+			print >>sys.stderr, "writing %s ..." % outname
 		ratios.logregularize()
-		fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.ratio()))
-		fig.savefig("%s_ratio.png" % name)
+		fig = binned_ratios_plot("%s Likelihood Ratio" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.ratio())), ncontours = 49)
+		fig.savefig(outname)
