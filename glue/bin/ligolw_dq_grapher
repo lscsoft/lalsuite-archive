@@ -57,8 +57,14 @@ def make_figure(dd,width):
     for k in kk:
       if ifo == k[0:2]:
         times = dd[k]
-        y = i * np.ones(times[2]-times[0])
-        t = np.linspace(times[0],times[2],times[2]-times[0]) - times[1]
+        start = times[0] - times[1]
+        if start < (-1*width):
+          start = -1*width
+        stop  = times[2] - times[1]
+        if stop > width:
+          stop = width
+        t = np.linspace(start,stop,start-stop)
+        y = i * np.ones(np.shape(t))
         cc = 'r'
         if k.find('UP:') > -1 or k.find('LIGHT:') > -1 or k.find('SCIENCE:') > -1 or k.find('CALIBRATED:') > -1:
           cc = 'g'
