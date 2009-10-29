@@ -157,6 +157,9 @@ parser.add_option("-v", "--version",action="store_true",default=False,\
 parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
 
+parser.add_option("-i","--ifos",action="store",type="string",\
+    default="H1L1V1",help="list of requested ifos")
+
 #parser.add_option("-m", "--datafind",action="store_true",\
 #    default=False, help="use datafind to get qscan/trends data")
 
@@ -188,7 +191,10 @@ if opts.config_file:
  config.read(opts.config_file)
  cp = overwrite_config(cp,config)
 
-ifos_list = ['H1','H2','L1','G1','V1','T1']
+ifo_list = []
+for j in range(0,len(opts.ifos)-1,2):
+  ifo = opts.ifos[j:j+2]
+  ifos_list.append(ifo)
 
 #Initialize dag
 if opts.config_file:
