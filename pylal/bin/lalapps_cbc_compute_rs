@@ -11,9 +11,9 @@
 description = \
 """
 Compiles rate statistics about an ihope run and creates a rate_statistics table
-and a file_rank table. The rate_statistics gives the average trigger rate for the
-specified file type per ifo. The file_rank table ranks the files by trigger rate
-gives the average trigger rate and average snr for each file.
+and a file_statistics table. The rate_statistics gives the average trigger rate for the
+specified file type per ifo. The file_statistics table lists statistics about each file,
+including where the file ranks for different statistics.
 """
 import os, sys, time, datetime, re
 import numpy
@@ -31,7 +31,7 @@ from glue.ligolw.utils import process
 from pylal.xlal.date import XLALGPSToUTC
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-__prog__ = "lalapps_cbc_compute_rs"
+__prog__ = "lalapps_cbc_compile_rfs"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 
 # =============================================================================
@@ -51,10 +51,13 @@ def parse_command_line():
         usage   = "%prog [--file-type] [options] ihope.cache1 ihope.cache2 ...",
         description = description )
 
-    parser.add_option( "-t", "--file-type", action = "store", type = "string",
-        default = None,                  
+    parser.add_option( "-t", "--file-type", action = "append", type = "string",
+        default = [],
         help = 
-            "Required. The type of files to compute rates for; e.g., 'INSPIRAL_FIRST_FULL_DATA'. " +
+            "The type of files to compute rates for; e.g., 'INSPIRAL_FIRST_FULL_DATA'. " +
+            "To specify multiple file types, give the argument several times; at least one file-type " +
+            "is required. The order given will be the order saved to the output xml. " +
+            "Tmpltbank statistics will be re-used when possible. "
             "Note: This is an exact-match sieve. For example, THINCA_SECOND*FULL_DATA will only match " +
             "THICNA_SECOND*FULL_DATA files; THINCA_SECOND*FULL_DATA* will match THINCA_SECOND*FULL_DATA, " +
             "THINCA_SECOND*FULL_DATA_CAT_2, etc."
@@ -82,8 +85,8 @@ def parse_command_line():
 
     (options, filenames) = parser.parse_args()
 
-    if not options.file_type:
-        raise ValueError, "--file-type is a required option"
+    if options.file_type == []:
+        raise ValueError, "Must specify at least one --file-type."
 
     return options, filenames
 
@@ -186,11 +189,11 @@ class RateStatistics(object):
             return None
         return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
 
-class FileRankTable(table.Table):
-    tableName = "file_rank:table"
+class FileStatisticsTable(table.Table):
+    tableName = "file_statistics:table"
     validcolumns = {
         "ifo":"lstring",
-        "rank":"int_4u",
+        "num_files":"int_4u",
         "file_type":"lstring",
         "file_location":"lstring",
         "file_name":"lstring",
@@ -199,19 +202,25 @@ class FileRankTable(table.Table):
         "segment_duration":"int_4u",
         "num_events":"int_4u",
         "trigger_rate":"real_8",
+        "trigger_rate_rank":"int_4u",
         "num_tmplts":"real_8",
         "trigger_rate_per_tmplt":"real_8",
+        "trigger_rate_per_tmplt_rank":"int_4u",
         "average_snr":"real_8",
+        "average_snr_rank":"int_4u",
         "max_snr":"real_8",
+        "max_snr_rank":"int_4u",
         "min_snr":"real_8",
         "median_snr":"real_8",
+        "median_snr_rank":"int_4u",
         "snr_standard_deviation":"real_8",
+        "snr_standard_deviation_rank":"int_4u",
         "daily_ihope_page":"lstring",
         "elog_page":"lstring"
         }
 
-class FileRank(object):
-    __slots__ = FileRankTable.validcolumns.keys()
+class FileStatistics(object):
+    __slots__ = FileStatisticsTable.validcolumns.keys()
 
     def set_elog_page(self):
         # set site_address
@@ -236,7 +245,7 @@ class FileRank(object):
 
 # connect rows to the tables
 RateStatisticsTable.RowType = RateStatistics
-FileRankTable.RowType = FileRank
+FileStatisticsTable.RowType = FileStatistics
 
 #
 #   Classes for gathering statistics about the files
@@ -276,6 +285,22 @@ class FileList:
                 self.avg_rate[ifo] = self.max_rate[ifo] = self.min_rate[ifo] = self.med_rate[ifo] = self.std_rate[ifo] = 0. 
         del rates
 
+    def set_relative_ranks(self):
+        for ifo in sorted(self.get_distinct_ifos()):
+            selected_files = [file for file in self.files if ifo in file.ifos]
+            for n, file in enumerate(sorted(selected_files, key=lambda file: file.rate[ifo], reverse=True)):
+                file.rate_rank[ifo] = n+1
+            for n, file in enumerate(sorted(selected_files, key=lambda file: file.rate_per_tmplt[ifo], reverse=True)):
+                file.rate_per_tmplt_rank[ifo] = n+1
+            for n, file in enumerate(sorted(selected_files, key=lambda file: file.avg_stat[ifo], reverse=True)):
+                file.avg_stat_rank[ifo] = n+1
+            for n, file in enumerate(sorted(selected_files, key=lambda file: file.max_stat[ifo], reverse=True)):
+                file.max_stat_rank[ifo] = n+1
+            for n, file in enumerate(sorted(selected_files, key=lambda file: file.median_stat[ifo], reverse=True)):
+                file.median_stat_rank[ifo] = n+1
+            for n, file in enumerate(sorted(selected_files, key=lambda file: file.std_stat[ifo], reverse=True)):
+                file.std_stat_rank[ifo] = n+1
+
 
 class FileStats:
     def __init__(self, filename):
@@ -285,20 +310,28 @@ class FileStats:
         self.xmldoc = None
         self.search_summ_table = None
         self.sngl_insp_table = None
-        self.stats_list = None
         self.out_list = None
         self.seg_start = None
         self.seg_end = None
         self.duration = None
         self.ifos = None
+        self.stats_list = {}
         self.num_events = {}
         self.events_by_param = {}
         self.rate = {}
-        self.avg_stat = {} 
+        self.rate_rank = {}
+        self.num_tmplts = {}
+        self.rate_per_tmplt = {}
+        self.rate_per_tmplt_rank = {}
+        self.avg_stat = {}
+        self.avg_stat_rank = {}
         self.max_stat = {}
+        self.max_stat_rank = {}
         self.min_stat = {}
         self.median_stat = {}
+        self.median_stat_rank = {}
         self.std_stat = {}
+        self.std_stat_rank = {}
         self.daily_ihope_page = {}
 
     def load_file(self):
@@ -324,9 +357,12 @@ class FileStats:
         self.ifos = set([ ifo for row in self.search_summ_table for ifo in row.get_ifos() ])
         if self.ifos == set([]):
             self.ifos = set([row.ifo for row in self.sngl_insp_table])
+        for ifo in self.ifos:
+            self.stats_list[ifo] = []
+            self.rate[ifo] = self.rate_per_tmplt[ifo] = self.avg_stat[ifo] = self.max_stat[ifo] = self.min_stat[ifo] = self.median_stat[ifo] = self.std_stat[ifo] = \
+            self.rate_rank[ifo] = self.rate_per_tmplt_rank[ifo] = self.avg_stat_rank[ifo] = self.max_stat_rank[ifo] = self.median_stat_rank[ifo] = self.std_stat_rank[ifo] = None
 
     def get_stats_list(self, stat):
-        self.stats_list = dict([ [ifo, []] for ifo in self.ifos ])
         for row in self.sngl_insp_table:
             self.stats_list[row.ifo].append( getattr(row, stat) )
 
@@ -345,8 +381,6 @@ class FileStats:
                 self.min_stat[ifo] = numpy.min(stat_vals)
                 self.median_stat[ifo] = numpy.median(stat_vals)
                 self.std_stat[ifo] = numpy.std(stat_vals)
-            else:
-                self.avg_stat[ifo] = self.max_stat[ifo] = self.min_stat[ifo] = self.median_stat[ifo] = self.std_stat[ifo] = 0.
 
     def get_seg_times(self):
         self.out_list = self.search_summ_table.get_outlist()
@@ -354,16 +388,19 @@ class FileStats:
             raise ValueError, "more than one in start/end time for file %s" % self.name
         self.seg_start, self.seg_end = self.out_list[0][0].seconds, self.out_list[0][1].seconds
 
-    def set_daily_ihope_page(self, pages_location = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"):
-        utctime = XLALGPSToUTC(LIGOTimeGPS(self.seg_start, 0))
-        self.daily_ihope_page = "%s/%s/%s/" %(pages_location, time.strftime("%Y%m", utctime), time.strftime("%Y%m%d", utctime))
+    def get_num_tmplts(self, tmpltbank_filelist):
+        for ifo in self.ifos:
+            self.num_tmplts[ifo] = [tmpltfile.num_events[ifo] for tmpltfile in tmpltbank_filelist.files if ifo in tmpltfile.ifos and self.seg_start in tmpltfile.out_list].pop()
 
-    def compute_rate(self, stat):
-        self.compute_stats(stat)
-        self.get_seg_times()
+    def compute_rate(self):
         self.duration = self.seg_end - self.seg_start
         if self.duration != 0:
             self.rate = dict([ [ifo, float(self.num_events[ifo])/self.duration] for ifo in self.ifos ])
+            self.rate_per_tmplt = dict([ [ifo, float(self.rate[ifo])/self.num_tmplts[ifo]] for ifo in self.ifos if ifo in self.num_tmplts and self.num_tmplts[ifo] != 0])
+
+    def set_daily_ihope_page(self, pages_location = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"):
+        utctime = XLALGPSToUTC(LIGOTimeGPS(self.seg_start, 0))
+        self.daily_ihope_page = "%s/%s/%s/" %(pages_location, time.strftime("%Y%m", utctime), time.strftime("%Y%m%d", utctime))
 
 # =============================================================================
 #
@@ -373,107 +410,134 @@ class FileStats:
     
 opts, cachefiles = parse_command_line() 
 
-if opts.verbose:
-    print >> sys.stderr, "Reading cache file(s)..."
-ihope_cache = lal.Cache().fromfilenames( cachefiles)
-
-tmpltbank_sieve = re.sub('(INSPIRAL_FIRST)|(INSPIRAL_SECOND)|(THINCA_FIRST)|(THINCA_SECOND)', 'TMPLTBANK', opts.file_type)
-tmpltbank_sieve = re.sub('CAT_[0-9]_VETO', '', tmpltbank_sieve)
-tmpltbank_cache = ihope_cache.sieve( description = tmpltbank_sieve )
-if opts.verbose:
-    print >> sys.stderr, "Getting tmpltbank information..."
-    num_files = float(len(tmpltbank_cache))
-tmpltbank_filelist = FileList()
-for n, entry in enumerate(tmpltbank_cache):
-    if opts.verbose:
-        print >> sys.stderr, "\tfile %i / %i\r" % (n+1, num_files),
-    tmpltbankfile = FileStats( entry.path() )
-    tmpltbankfile.load_file()
-    tmpltbankfile.get_ifos()
-    tmpltbankfile.get_stats_list('event_id')
-    tmpltbankfile.get_seg_times()
-    tmpltbankfile.set_num_events()
-    # for tmpltbank files, just set rate to num_events
-    tmpltbankfile.rate = tmpltbankfile.num_events
-    tmpltbankfile.close_file()
-    tmpltbank_filelist.append_file(tmpltbankfile)
-tmpltbank_filelist.compute_rate_stats()
-
-selected_cache = ihope_cache.sieve( description = opts.file_type, exact_match = True )
-if opts.verbose:
-    print >> sys.stderr, "Gathering statistics..."
-    num_files = float(len(selected_cache))
-
-filelist = FileList()
-for n, entry in enumerate(selected_cache):
-    if opts.verbose:
-        print >> sys.stderr, "\tfile %i / %i\r" % (n+1, num_files),
-    if opts.force and not os.path.isfile(entry.path()):
-        print >> sys.stderr, "\nWarning: File %s not found. Skipping..." % entry.path()
-        continue
-    inspfile = FileStats( entry.path() )
-    inspfile.load_file()
-    inspfile.compute_rate('snr')
-    inspfile.set_daily_ihope_page(pages_location = opts.daily_ihope_pages_location)
-    inspfile.close_file()
-    filelist.append_file(inspfile)
-
-filelist.compute_rate_stats()
-if opts.verbose:
-    print >> sys.stderr, ""
-
 #
-#   Save results to tables
+#   Create output xml doc
 #
-
 ratedoc = ligolw.Document()
 # setup the LIGOLW tag
 ratedoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-proc_id = process.register_to_xmldoc(ratedoc, __prog__, opts.__dict__)
+#proc_id = process.register_to_xmldoc(ratedoc, __prog__, opts.__dict__)
 # add the tables
 rate_table = lsctables.New(RateStatisticsTable)
-rank_table = lsctables.New(FileRankTable)
+fs_table = lsctables.New(FileStatisticsTable)
 # connect the tables to the document
 ratedoc.childNodes[0].appendChild(rate_table)
-ratedoc.childNodes[0].appendChild(rank_table)
+ratedoc.childNodes[0].appendChild(fs_table)
 
-for ifo in sorted(filelist.get_distinct_ifos()):
-    rate_row = RateStatistics()
-    rate_row.ifo = ifo
-    rate_row.file_type = opts.file_type
-    rate_row.average_rate = filelist.avg_rate[ifo]
-    rate_row.max_rate = filelist.max_rate[ifo]
-    rate_row.min_rate = filelist.min_rate[ifo]
-    rate_row.median_rate = filelist.med_rate[ifo]
-    rate_row.standard_deviation = filelist.std_rate[ifo]
-    rate_row.average_num_tmplts = tmpltbank_filelist.avg_rate[ifo]
-    rate_row.average_rate_per_tmplt = filelist.avg_rate[ifo]/tmpltbank_filelist.avg_rate[ifo]
-    rate_table.append(rate_row)
-    selected_files = [file for file in filelist.files if ifo in file.ifos]
-    selected_files.sort( key=lambda file: file.rate[ifo], reverse=True )
-    for n, file in enumerate(selected_files):
-        rank_row = FileRank()
-        rank_row.ifo = ifo
-        rank_row.rank = n + 1
-        rank_row.file_type = opts.file_type
-        rank_row.file_location = os.path.dirname(file.name)
-        rank_row.file_name = os.path.basename(file.name)
-        rank_row.out_start_time = file.seg_start
-        rank_row.out_start_time_utc = time.strftime("%a %d %b %Y %H:%M:%S", XLALGPSToUTC(LIGOTimeGPS(file.seg_start, 0)))
-        rank_row.segment_duration = file.duration
-        rank_row.num_events = file.num_events[ifo]
-        rank_row.trigger_rate = file.rate[ifo]
-        rank_row.num_tmplts = [tmpltfile.num_events[ifo] for tmpltfile in tmpltbank_filelist.files if ifo in tmpltfile.ifos and file.seg_start in tmpltfile.out_list].pop()
-        rank_row.trigger_rate_per_tmplt = rank_row.trigger_rate / rank_row.num_tmplts
-        rank_row.average_snr = file.avg_stat[ifo]
-        rank_row.max_snr = file.max_stat[ifo]
-        rank_row.min_snr = file.min_stat[ifo]
-        rank_row.median_snr = file.median_stat[ifo]
-        rank_row.snr_standard_deviation = file.std_stat[ifo]
-        rank_row.daily_ihope_page = ''.join(['<a href="', file.daily_ihope_page, '">link</a>'])
-        rank_row.set_elog_page()
-        rank_table.append(rank_row)
+#
+#   Read cache file and cycle over file-types
+#
+if opts.verbose:
+    print >> sys.stderr, "Reading cache file(s)..."
+ihope_cache = lal.Cache().fromfilenames( cachefiles)
+
+tmpltbank_sieve = ''
+for file_type in opts.file_type:
+
+    if opts.verbose:
+        print >> sys.stderr, "Analyzing %s..." % file_type
+
+    this_tmpltbank = re.sub('(INSPIRAL_FIRST)|(INSPIRAL_SECOND)|(THINCA_FIRST)|(THINCA_SECOND)', 'TMPLTBANK', file_type)
+    this_tmpltbank = re.sub('_CAT_[0-9]_VETO', '', this_tmpltbank)
+    
+    # if this_tmpltbank doesn't match tmpltbank_sieve, get the tmpltbank stats
+    if this_tmpltbank != tmpltbank_sieve:
+        tmpltbank_sieve = this_tmpltbank
+        tmpltbank_cache = ihope_cache.sieve( description = tmpltbank_sieve )
+        if opts.verbose:
+            print >> sys.stderr, "\tgetting tmpltbank information..."
+            num_files = float(len(tmpltbank_cache))
+        tmpltbank_filelist = FileList()
+        for n, entry in enumerate(tmpltbank_cache):
+            if opts.verbose:
+                print >> sys.stderr, "\t\tfile %i / %i\r" % (n+1, num_files),
+            tmpltbankfile = FileStats( entry.path() )
+            tmpltbankfile.load_file()
+            tmpltbankfile.get_ifos()
+            tmpltbankfile.get_stats_list('event_id')
+            tmpltbankfile.get_seg_times()
+            tmpltbankfile.set_num_events()
+            # for tmpltbank files, just set rate to num_events
+            tmpltbankfile.rate = tmpltbankfile.num_events
+            tmpltbankfile.close_file()
+            tmpltbank_filelist.append_file(tmpltbankfile)
+        tmpltbank_filelist.compute_rate_stats()
+        if opts.verbose:
+            print >> sys.stderr, ""
+
+    selected_cache = ihope_cache.sieve( description = file_type, exact_match = True )
+    if opts.verbose:
+        print >> sys.stderr, "\tgathering statistics..."
+        num_files = float(len(selected_cache))
+    
+    filelist = FileList()
+    for n, entry in enumerate(selected_cache):
+        if opts.verbose:
+            print >> sys.stderr, "\t\tfile %i / %i\r" % (n+1, num_files),
+        if opts.force and not os.path.isfile(entry.path()):
+            print >> sys.stderr, "\nWarning: File %s not found. Skipping..." % entry.path()
+            continue
+        inspfile = FileStats( entry.path() )
+        inspfile.load_file()
+        inspfile.compute_stats('snr')
+        inspfile.get_seg_times()
+        inspfile.get_num_tmplts(tmpltbank_filelist)
+        inspfile.compute_rate()
+        inspfile.set_daily_ihope_page(pages_location = opts.daily_ihope_pages_location)
+        inspfile.close_file()
+        filelist.append_file(inspfile)
+    
+    filelist.compute_rate_stats()
+    filelist.set_relative_ranks()
+
+    if opts.verbose:
+        print >> sys.stderr, ""
+    
+    #
+    #   Save results to tables
+    #
+    for ifo in sorted(filelist.get_distinct_ifos()):
+        rate_row = RateStatistics()
+        rate_row.ifo = ifo
+        rate_row.file_type = file_type
+        rate_row.average_rate = filelist.avg_rate[ifo]
+        rate_row.max_rate = filelist.max_rate[ifo]
+        rate_row.min_rate = filelist.min_rate[ifo]
+        rate_row.median_rate = filelist.med_rate[ifo]
+        rate_row.standard_deviation = filelist.std_rate[ifo]
+        rate_row.average_num_tmplts = tmpltbank_filelist.avg_rate[ifo]
+        rate_row.average_rate_per_tmplt = filelist.avg_rate[ifo]/tmpltbank_filelist.avg_rate[ifo]
+        rate_table.append(rate_row)
+        selected_files = [file for file in filelist.files if ifo in file.ifos]
+        for file in selected_files:
+            fs = FileStatistics()
+            fs.ifo = ifo
+            fs.num_files = len(selected_files)
+            fs.file_type = file_type
+            fs.file_location = os.path.dirname(file.name)
+            fs.file_name = os.path.basename(file.name)
+            fs.out_start_time = file.seg_start
+            fs.out_start_time_utc = time.strftime("%a %d %b %Y %H:%M:%S", XLALGPSToUTC(LIGOTimeGPS(file.seg_start, 0)))
+            fs.segment_duration = file.duration
+            fs.num_events = file.num_events[ifo]
+            fs.trigger_rate = file.rate[ifo]
+            fs.trigger_rate_rank = file.rate_rank[ifo]
+            fs.num_tmplts = file.num_tmplts[ifo] 
+            fs.trigger_rate_per_tmplt = file.rate_per_tmplt[ifo] 
+            fs.trigger_rate_per_tmplt_rank = file.rate_per_tmplt_rank[ifo]
+            fs.average_snr = file.avg_stat[ifo]
+            fs.average_snr_rank = file.avg_stat_rank[ifo]
+            fs.max_snr = file.max_stat[ifo]
+            fs.max_snr_rank = file.max_stat_rank[ifo]
+            fs.min_snr = file.min_stat[ifo]
+            fs.median_snr = file.median_stat[ifo]
+            fs.median_snr_rank = file.median_stat_rank[ifo]
+            fs.snr_standard_deviation = file.std_stat[ifo]
+            fs.snr_standard_deviation_rank = file.std_stat_rank[ifo]
+            fs.daily_ihope_page = ''.join(['<a href="', file.daily_ihope_page, '">link</a>'])
+            fs.set_elog_page()
+            fs_table.append(fs)
 
 # save the results
 utils.write_filename( ratedoc, opts.output, xsl_file = "ligolw.xsl")
