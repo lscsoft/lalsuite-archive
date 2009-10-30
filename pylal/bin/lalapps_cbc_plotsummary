@@ -185,10 +185,10 @@ class CoincDatabase(object):
 		if verbose:
 			print >>sys.stderr, "calculating background livetimes: ",
 		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
-		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
+		#self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
 		# The previous line is slow, if you are debugging some
 		# other feature you could just hardcode it like this
-		#self.background_livetime = {frozenset(["H1","H2"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
+		self.background_livetime = {frozenset(["H1","H2"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
 		self.livetime_by_offset = {}
 		for key in self.background_livetime.keys():
 			self.livetime_by_offset[key] = {}
@@ -571,21 +571,21 @@ FROM
 					self.zerolag_likelihood.append(likelihood)
 					self.zerolag_combined_eff_snr.append(combined_eff_snr)
 # map all the 0 likelihoods to lowest non-zero likelihood and all 'inf' likelihoods to the highest non-infinity likelihood 
-			all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
-			unique_likelihoods = set(all_likelihoods)
-			unique_likelihoods = list(unique_likelihoods)
-			unique_likelihoods.sort()
-			min_likelihood = unique_likelihoods[1]
-			max_likelihood = unique_likelihoods[-2]
-			for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
-				for i in range(len(likelihood_list)):
-					if likelihood_list[i] == 0:
-						likelihood_list[i] = min_likelihood
-					if likelihood_list[i] == float('inf'):
-						likelihood_list[i] = max_likelihood
-			self.timeslide_likelihood.sort()
 
 	def finish(self):
+		all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
+		unique_likelihoods = set(all_likelihoods)
+		unique_likelihoods = list(unique_likelihoods)
+		unique_likelihoods.sort()
+		min_likelihood = unique_likelihoods[1]
+		max_likelihood = unique_likelihoods[-2]
+		for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
+			for i in range(len(likelihood_list)):
+				if likelihood_list[i] == 0:
+					likelihood_list[i] = min_likelihood
+				if likelihood_list[i] == float('inf'):
+					likelihood_list[i] = max_likelihood
+		self.timeslide_likelihood.sort()
 		fig, axes = create_plot(r"likelihood from MVSC", r"combined effective SNR", aspect = 1.0)
 		axes.hold(1)
 		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='injections')	
