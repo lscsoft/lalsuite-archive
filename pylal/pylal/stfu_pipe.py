@@ -551,6 +551,9 @@ The omega scan command line is
 		#FIXME is deleting the lock file the right thing to do?
 		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
 
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 			for node in p_nodes: self.add_parent(node)
 			dag.add_node(self)
@@ -579,6 +582,10 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 			self.outputFileName = self.setup_inspiral(job, cp, sngl, ifo)
 
 		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(self.get_start(), self.get_end()), "file://localhost/"+os.path.abspath(self.outputFileName))
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 			for node in p_nodes:
 				self.add_parent(node)
@@ -686,6 +693,9 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		
 		self.output_frame_file = self.output_file_name.replace(extension,'.gwf')
 
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		#add parents and put node in dag
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -735,6 +745,10 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		dag.add_node(self)
 
 # FIND VETOS NODE 
@@ -766,6 +780,9 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
 		dag.add_node(self)
 
 # EFFECTIVE DISTANCE RATIO NODE 
@@ -807,6 +824,10 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt("ifo%i"%(rIndex),None)
 			self.add_var_opt("snr%i"%(rIndex),None)
 			self.add_var_opt("time%i"%(rIndex),None)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		dag.add_node(self)
 
 ##############################################################################
@@ -840,9 +861,6 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 		# Overide the sample rate
 		self.add_var_opt("sample-rate",coinc.get_sample_rate())
 
-		#if not opts.disable_dag_categories:
-		#	self.set_category(job.name.lower())
-	
 		# Now add the data we actually have
 		for ifo, sngl in sngl_node_dict.items():
 			self.add_var_opt(ifo.lower()+"-frame-file",sngl.output_file_name.replace(".xml",".gwf").strip(".gz"))
@@ -851,6 +869,10 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt( "%s-channel-name" % (ifo.lower(),), "%s:CBC-CData_%d" % (ifo.upper(), int(sngl.row.event_id)) )
 
 		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name))
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		# Add parents and put this node in the dag
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -887,6 +909,9 @@ A python code for plotting the sky map
 		self.output_file_name = "%s-plot_inspiral_skymap_%s_%s-unspecified-gpstime.cache" % ( coinc.instruments, coinc.ifos, str(coinc.time))
 
 		self.output_cache = lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
 
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
@@ -975,6 +1000,9 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
 		self.add_var_arg(arg_str)
 
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
 			
@@ -1050,9 +1078,11 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
 
 		self.setupPlotNode(job)
 
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
                 for node in p_nodes: self.add_parent(node)
                 dag.add_node(self)
-		#if not opts.disable_dag_categories: self.set_category(job.name.lower())
 
 
 ##############################################################################
@@ -1091,13 +1121,15 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 
 		self.output_cache = lal.CacheEntry(instruments, job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+job.outputPath + '/' + self.output_file_name)
 
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
 		for node in p_nodes: self.add_parent(node)
 		dag.add_node(self)
 
 		for ifo, insp in insp_node_dict.items():
 			self.add_var_arg("--"+ifo.upper()+"-framefile "+ insp.output_frame_file)
 
-		#if not opts.disable_dag_categories: self.set_category(job.name.lower())
 
 
 
@@ -1106,7 +1138,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 ##############################################################################
 
 class followUpDAG(pipeline.CondorDAG):
-	def __init__(self, config_file, cp):
+	def __init__(self, config_file, cp, opts):
 		log_path = cp.get('fu-output','log-path').strip()
 		self.basename = re.sub(r'\.ini',r'', os.path.split(config_file)[1])
 		tempfile.tempdir = log_path
@@ -1119,6 +1151,10 @@ class followUpDAG(pipeline.CondorDAG):
 		self.jobsDict = {}
 		self.node_id = 0
 		self.output_cache = []
+		if not opts.disable_dag_categories:
+			for cp_opt in cp.options('condor-max-jobs'):
+					self.add_maxjobs_category(cp_opt,cp.getint('condor-max-jobs',cp_opt))
+
 	def add_node(self,node):
 		self.node_id += 1
 		node.add_macro("macroid", self.node_id)
@@ -1227,6 +1263,15 @@ class create_default_config(object):
 		remoteIfos,remoteJobs = self.get_remote_jobs()
 		cp.set('fu-remote-jobs','remote-ifos',remoteIfos)
 		cp.set('fu-remote-jobs','remote-jobs',remoteJobs)
+
+		# CONDOR MAX JOBS SECTION
+		cp.add_section("condor-max-jobs")
+		cp.set("condor-max-jobs","ligo_data_find_HT_full_data","3")
+		cp.set("condor-max-jobs","ligo_data_find_Q_HT_full_data","3")
+		cp.set("condor-max-jobs","ligo_data_find_Q_RDS_full_data","3")
+                cp.set("condor-max-jobs","ligo_data_find_HT_playground","3")
+                cp.set("condor-max-jobs","ligo_data_find_Q_HT_playground","3")
+                cp.set("condor-max-jobs","ligo_data_find_Q_RDS_playground","3")
 
 		# if we have an ini file override the options
 		if config: 

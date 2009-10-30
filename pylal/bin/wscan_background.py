@@ -77,6 +77,16 @@ class create_default_config(object):
     cp.set('fu-remote-jobs','remote-ifos',remoteIfos)
     cp.set('fu-remote-jobs','remote-jobs',remoteJobs)
 
+    # CONDOR MAX JOBS SECTION
+    cp.add_section("condor-max-jobs")
+    cp.set("condor-max-jobs","ligo_data_find_Q_HT_","3")
+    cp.set("condor-max-jobs","ligo_data_find_Q_RDS_","3")
+    cp.set("condor-max-jobs","ligo_data_find_Q_HT_","3")
+    cp.set("condor-max-jobs","ligo_data_find_Q_RDS_","3")
+    cp.set("condor-max-jobs","wpipeline_BG_HT_","150")
+    cp.set("condor-max-jobs","wpipeline_BG_RDS_","150")
+    cp.set("condor-max-jobs","wpipeline_BG_SEIS_RDS_","150")
+
     self.cp = cp
 
   def __qscan_config(self,config):
@@ -180,6 +190,9 @@ parser.add_option("-f","--config-file",action="store",type="string",\
 parser.add_option("-i","--ifos",action="store",type="string",\
     default="H1L1V1",help="list of requested ifos")
 
+parser.add_option("", "--disable-dag-categories",action="store_true",\
+    default=False,help="disable the internal dag category maxjobs")
+
 #parser.add_option("-m", "--datafind",action="store_true",\
 #    default=False, help="use datafind to get qscan/trends data")
 
@@ -233,7 +246,8 @@ time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
 cp.write(open(time_now + "-" + range_string + ".ini","w"))
 
 #Initialize dag
-dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp)
+dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp,opts)
+
 
 # CONDOR JOB CLASSES
 htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
