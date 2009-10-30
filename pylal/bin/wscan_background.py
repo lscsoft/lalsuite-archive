@@ -216,11 +216,24 @@ for j in range(0,len(opts.ifos)-1,2):
   ifo = opts.ifos[j:j+2]
   ifos_list.append(ifo)
 
+#Get the start-end times of yesterday...
+ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
+# print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
+
+range_string = ""
+#Check the time ranges for each ifo in the ini file and , if they are left empty fill them with yesterday's start-end times.
+for ifo_index,ifo in enumerate(ifos_list):
+    if cp.has_option("followup-background-qscan-times",ifo+"range"):
+      if not cp.get("followup-background-qscan-times",ifo+"range"):
+        cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
+      range_string = string.strip(cp.get("followup-background-qscan-times",ifo+"range")).replace(',','_')
+
+#Get current UTC time to be used in the ini file name
+time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
+cp.write(open(time_now + "-" + range_string + ".ini","w"))
+
 #Initialize dag
-if opts.config_file:
-  dag = stfu_pipe.followUpDAG(opts.config_file,cp)
-else:
-  dag = stfu_pipe.followUpDAG("wscan_background.ini",cp)
+dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp)
 
 # CONDOR JOB CLASSES
 htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
@@ -230,16 +243,10 @@ rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
 seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
 setupLogJob	= setupLogFileJob(opts,cp)
 
-ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
-# print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
-
 start_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'start')
 end_node_parents = []
 
 for ifo in ifos_list:
-
-    if cp.has_option("followup-background-qscan-times",ifo+"range") and not cp.get("followup-background-qscan-times",ifo+"range"):
-      cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
 
     # FIX ME: input argument segFile is not needed any more
     segFile = {}
@@ -266,7 +273,6 @@ for ifo in ifos_list:
 end_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'terminate',end_node_parents)
 
 #### ALL FINNISH ####
-time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
-cp.write(open(time_now + "-" + ifo_range.replace(',','_')+ ".ini","w"))
+
 dag.write_all()
 
