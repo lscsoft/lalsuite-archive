@@ -155,7 +155,7 @@ class setupLogFileNode(pipeline.CondorDAGNode):
 
 	def __init__(self,dag,job,cp,time_range,tag='start'):
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.add_var_arg(tag + "-run")
+		self.add_var_arg("--" + tag + "-run")
 		self.add_var_opt("log-name",time_range.replace(",","_")+".log")
 		outputString = "omega/" + stfu_pipe.science_run(int(time_range.split(",")[0])).upper() + "/background"
 		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
