@@ -164,9 +164,10 @@ class setupLogFileNode(pipeline.CondorDAGNode):
 			output = outputString
 		self.add_var_opt("--output-path",output)
 
-		for node in dag.get_nodes():
-			if isinstance(node,stfu_pipe.fuQscanNode):
-				self.add_parent(node)
+		if tag == 'terminate':
+			for node in dag.get_nodes():
+				if isinstance(node,stfu_pipe.fuQscanNode):
+					self.add_parent(node)
 		dag.add_node(self)
 
 ##############################################################################
