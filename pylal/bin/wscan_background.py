@@ -153,7 +153,7 @@ class setupLogFileJob(pipeline.CondorDAGJob,stfu_pipe.FUJob):
 
 class setupLogFileNode(pipeline.CondorDAGNode):
 
-	def __init__(self,dag,job,cp,time_range,tag='start',p_nodes=[]):
+	def __init__(self,dag,job,cp,time_range,tag='start'):
 		pipeline.CondorDAGNode.__init__(self,job)
 		self.add_var_arg(tag + "-run")
 		self.add_var_opt("log-name",time_range.replace(",","_")+".log")
@@ -164,8 +164,9 @@ class setupLogFileNode(pipeline.CondorDAGNode):
 			output = outputString
 		self.add_var_opt("--output-path",output)
 
-		for node in p_nodes:
-			self.add_parent(node)
+		for node in dag.get_nodes():
+			if isinstance(node,stfu_pipe.fuQscanNode):
+				self.add_parent(node)
 		dag.add_node(self)
 
 ##############################################################################
@@ -258,7 +259,6 @@ seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
 setupLogJob	= setupLogFileJob(opts,cp)
 
 start_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'start')
-end_node_parents = []
 
 for ifo in ifos_list:
 
@@ -280,11 +280,7 @@ for ifo in ifos_list:
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
-      end_node_parents.append(qHtBgNode)
-      end_node_parents.append(qRdsBgNode)
-      end_node_parents.append(qSeisBgNode)
-
-end_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'terminate',end_node_parents)
+end_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'terminate')
 
 #### ALL FINNISH ####
 
