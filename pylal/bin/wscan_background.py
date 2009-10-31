@@ -149,6 +149,7 @@ class setupLogFileJob(pipeline.CondorDAGJob,stfu_pipe.FUJob):
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
 		self.setupJob(name=self.name,cp=cp,dir='',tag_base='')
 
 class setupLogFileNode(pipeline.CondorDAGNode):
@@ -156,13 +157,13 @@ class setupLogFileNode(pipeline.CondorDAGNode):
 	def __init__(self,dag,job,cp,time_range,tag='start'):
 		pipeline.CondorDAGNode.__init__(self,job)
 		self.add_var_arg("--" + tag + "-run")
-		self.add_var_opt("log-name",time_range.replace(",","_")+".log")
-		outputString = "omega/" + stfu_pipe.science_run(int(time_range.split(",")[0])).upper() + "/background"
+		self.add_var_opt("log-name",time_range+".log")
+		outputString = "omega/" + stfu_pipe.science_run(int(time_range.split("_")[0])).upper() + "/background"
 		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
 			output = cp.get('fu-output','output-dir') + '/' + outputString
 		else:
 			output = outputString
-		self.add_var_opt("--output-path",output)
+		self.add_var_opt("output-path",output)
 
 		if tag == 'terminate':
 			for node in dag.get_nodes():
@@ -259,7 +260,7 @@ rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
 seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
 setupLogJob	= setupLogFileJob(opts,cp)
 
-start_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'start')
+start_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'start')
 
 for ifo in ifos_list:
 
@@ -281,7 +282,7 @@ for ifo in ifos_list:
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
-end_node = setupLogFileNode(dag,setupLogJob,cp,ifo_range,'terminate')
+end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
 
 #### ALL FINNISH ####
 
