@@ -246,7 +246,6 @@ for ifo_index,ifo in enumerate(ifos_list):
 
 #Get current UTC time to be used in the ini file name
 time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
-cp.write(open(time_now + "-" + range_string + ".ini","w"))
 
 #Initialize dag
 dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp,opts)
@@ -285,6 +284,6 @@ for ifo in ifos_list:
 end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
 
 #### ALL FINNISH ####
-
+cp.write(open(time_now + "-" + range_string + ".ini","w"))
 dag.write_all()
 
