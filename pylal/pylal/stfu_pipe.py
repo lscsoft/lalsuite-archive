@@ -533,7 +533,7 @@ The omega scan command line is
 		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
 		  output = cp.get('fu-output','output-dir') + '/' + preString + '/' + dataString + '/' + timeString
 		else:
-		  output = preString + '/' + dataString + '/' + timeString
+		  output = os.getcwd() + '/' + preString + '/' + dataString + '/' + timeString
 
 		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
 		mkdir(output)
