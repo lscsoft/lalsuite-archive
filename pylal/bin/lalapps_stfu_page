@@ -51,6 +51,7 @@ class Coinc(object):
 		self.cache = cache
 		# set up some useful cache views
 		self.htqscan_cache = self.parse_cache_by_desc("WPIPELINE_FG_HT_"+search.upper())
+		self.seismicqscan_cache = self.parse_cache_by_desc("WPIPELINE_FG_SEIS_RDS_"+search.upper())
 		self.plotsnrchisq_cache = self.parse_cache_by_desc("PLOTSNRCHISQ_PIPE__"+search.upper())
 		self.plotchia_cache = self.parse_cache_by_desc("PLOTCHIATIMESERIES__"+search.upper())
 		self.skymap_cache = self.parse_cache_by_desc("PYLAL_PLOT_INSPIRAL_SKYMAP__"+search.upper())
@@ -84,27 +85,29 @@ class Coinc(object):
 	def parse_cache_by_desc(self, tag, cache=None):
 		out = []
 		#FIXME make this faster
-		if not cache: cache = self.cache
+		if cache is None: cache = self.cache
+		if not cache: return out
 		for l in cache:
 			if tag in l.description:
 				out.append(l)
 		if not out:
-			print >>sys.stderr, "couldn't find %s in requested %s" % (tag, str(cache))
-			raise ValueError
-			sys.exit(1)
+			print >>sys.stderr, "couldn't find %s in requested cache" % (tag, )
+			#raise ValueError
+			#sys.exit(1)
 		return out
 
 	def parse_cache_by_time_and_ifo(self, time, ifo, cache=None):
-		#FIXME make this faster
-		if not cache: cache = self.cache
 		out = []
+		#FIXME make this faster
+		if cache is None: cache = self.cache
+		if not cache: return out
 		for l in cache:
 			#print float(time), float(l.segment[0]), str(ifo), str(l.observatory)
 			if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory): out.append(l)
 		if not out:
-			print >>sys.stderr, "couldn't find %f for %s in requested %s" % (time, ifo, str(cache))
-			raise ValueError
-			sys.exit(1)
+			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (time, ifo)
+			#raise ValueError
+			#sys.exit(1)
 		return out
 		
 	def write_param_table(self, page):
@@ -118,6 +121,10 @@ class Coinc(object):
 		page.sections["param"].add_table(params, title="Sngl Parameter Table", caption="Sngl parameters for the event", tag="snglparamtable")
 
 	def add_htqscan(self, page):
+		for ifo, time in self.time.items():
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
+			if not c: return # get out of here if these jobs were not found
+
 		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -133,8 +140,43 @@ class Coinc(object):
 			img_row.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
 
 		page.sections["htqscan"].add_table([ifo_row, img_row], "h(t) Qscans", "A table with 3 detector h(t) qscans", tag="htqscan")
+
+	def add_seismicqscan(self, page):
+		for ifo, time in self.time.items():
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
+			if not c: return # get out of here if these jobs were not found
+
+		page.add_section("seismicqscan", "Seismic Qscan for %s" % (self.coinctime,))
+		img_row = []
+		ifo_row = []
+		# since qscans are already by default on web space, they are handled differently
+		for ifo, time in self.time.items():
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
+			page.sections["seismicqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
+			plots = ['*LSC-DARM_ERR_8.00_spectrogram_whitened.png', '*PEM-LVEA_SEISX_8.00_spectrogram_whitened.png', '*PEM-LVEA_SEISY_8.00_spectrogram_whitened.png','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.png']
+			thumbs = ['*LSC-DARM_ERR_8.00_spectrogram_whitened.thumb.png', '*PEM-LVEA_SEISX_8.00_spectrogram_whitened.thumb.png', '*PEM-LVEA_SEISY_8.00_spectrogram_whitened.thumb.png','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.thumb.png']
+			plot_list = []
+			for i,plot in enumerate(plots):
+				thumb = thumbs[i]
+				pat = c[0].url.replace('file://localhost','')+'/' + plot
+				img_glob = glob.glob(pat)
+				pat = c[0].url.replace('file://localhost','')+'/' + thumb
+				thumb_glob = glob.glob(pat)
+				if img_glob and thumb_glob: 
+					plot_list.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
+			img_row.append(plot_list)
+			ifo_row.append(ifo)
+
+		table = [ifo_row]
+		for row in zip(*img_row): table.append(row)
+		page.sections["seismicqscan"].add_table(table, "Seismic Qscans", "A table with 3 detector seismic qscans", tag="seismicqscan")
 		
 	def add_plotsnrchisq(self, page):
+		for ifo, time in self.time.items():
+			# Parse plotting codes nearly useless "cache" file
+			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
+			if not c: return # get out of here if these jobs were not found
+		
 		page.add_section("plotsnrchisq", "SNR, Chisq and template time series for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -157,13 +199,15 @@ class Coinc(object):
 		page.sections["plotsnrchisq"].add_table(table, "Plots of inspiral stuff", "Plots of snr, snrzoom, rsq, rsqzoom, chisq, chisqzoom, PSD, fft of templates and PSD, template and whitened template by ifo", tag="plotsnrchisq")
 
 	def add_plotchia(self, page):
+		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.plotchia_cache)
+		if not c: return # if the job didn't finish return
+
 		page.add_section("plotchia", "Coherent Code Plots for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
 		table = []
 		plot_list = []
 
-		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.plotchia_cache)
 		cfile = c[0].url.replace('file://localhost','')
 		path = os.path.split(cfile.rstrip('/'))[0] 
 		try: clist = open(cfile).readlines()
@@ -179,6 +223,9 @@ class Coinc(object):
 		page.sections["plotchia"].add_table(plot_list, "Plots of coherent inspiral stuff", "all of plotchiatimeseries output", tag="plotchia")
 
 	def add_skymap(self,page):
+		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
+		if not c: return # if the job didn't finish return
+
 		page.add_section("skymap", "Sky Map for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -229,12 +276,13 @@ for search, coincs in coinc_info.items():
 	for event in events:
 		print >>sys.stderr, "processing coinc@%s in %s" % (event.coinctime, search)
 		key = (str(event.coinctime))
-		#print key
 		page.add_subpage(key,"my new page",link_text=key)
 		#section for param table
 		event.write_param_table(page.subpages[key])
 		#section for qscans
 		event.add_htqscan(page.subpages[key])
+		#section for seismic qscans
+		event.add_seismicqscan(page.subpages[key])
 		#section for snr plots etc
 		event.add_plotsnrchisq(page.subpages[key])
 		#section for plotchia
