@@ -324,10 +324,8 @@ class ATanLogarithmicBins(Bins):
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
-		self.min = math.log(self.min)
-		self.max = math.log(self.max)
-		self.mid = (self.min + self.max) / 2.0
-		self.scale = math.pi / float(self.max - self.min)
+		self.mid = (math.log(self.min) + math.log(self.max)) / 2.0
+		self.scale = math.pi / float(math.log(self.max) - math.log(self.min))
 		self.delta = 1.0 / n
 
 	def __getitem__(self, x):
@@ -347,9 +345,9 @@ class ATanLogarithmicBins(Bins):
 		try:
 			x = math.log(x)
 		except OverflowError:
-			if x == 0:
-				x = 0
-			else:
+			# overflow errors come from 0 and inf.  0 is mapped
+			# to zero so that's a no-op;  inf maps to 1
+			if x != 0:
 				x = 1
 		else:
 			x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
