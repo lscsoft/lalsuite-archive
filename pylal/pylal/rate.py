@@ -456,7 +456,7 @@ class NDBins(tuple):
 	of the binning.
 
 	Example:
-	
+
 	>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 	>>> x[1, 1]
 	(0, 0)
