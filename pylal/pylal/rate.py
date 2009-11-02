@@ -297,6 +297,77 @@ class ATanBins(Bins):
 		x[-1] = float("+inf")
 		return x
 
+
+class ATanLogarithmicBins(Bins):
+	"""
+	Provides the same binning as the ATanBins class but in the
+	logarithm of the variable.  The min and max parameters set the
+	bounds of the interval of approximately logarithmically-spaced
+	bins.  In a sense, these are where the roll-over from
+	logarithmically-spaced bins to asymptotically diminishing bin
+	density occurs.  There is a total of n bins.
+
+	Example:
+
+	>>> x = ATanLogarithmicBins(+1.0, +1000.0, 11)
+	>>> x[0]
+	0
+	>>> x[30]
+	5
+	>>> x[float("+inf")]
+	10
+	>>> x.centres()
+	array([  7.21636246e-06,   2.56445876e-01,   2.50007148e+00,
+		 7.69668960e+00,   1.65808715e+01,   3.16227766e+01,
+		 6.03104608e+01,   1.29925988e+02,   3.99988563e+02,
+		 3.89945831e+03,   1.38573971e+08])
+	"""
+	def __init__(self, min, max, n):
+		Bins.__init__(self, min, max, n)
+		self.min = math.log(self.min)
+		self.max = math.log(self.max)
+		self.mid = (self.min + self.max) / 2.0
+		self.scale = math.pi / float(self.max - self.min)
+		self.delta = 1.0 / n
+
+	def __getitem__(self, x):
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError, x
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
+		# map log(x) to the domain [0, 1]
+		try:
+			x = math.log(x)
+		except OverflowError:
+			if x == 0:
+				x = 0
+			else:
+				x = 1
+		else:
+			x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
+		if x < 1:
+			return int(math.floor(x / self.delta))
+		# x == 1, special "measure zero" corner case
+		return len(self) - 1
+
+	def lower(self):
+		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid)
+
+	def centres(self):
+		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid)
+
+	def upper(self):
+		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid)
+
+
 class IrregularBins(Bins):
 	"""
 	Bins with arbitrary, irregular spacing.  We only require strict
