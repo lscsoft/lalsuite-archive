@@ -436,6 +436,7 @@ setup(
 		os.path.join("bin", "KW_veto_plots"),
 		os.path.join("bin", "KW_veto_channelPage"),
 		os.path.join("bin", "KW_veto_reportPage"),
+		os.path.join("bin", "KW_veto_insert"),
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
 		os.path.join("bin", "plotskypoints"),
 		os.path.join("bin", "upper_limit_results"),

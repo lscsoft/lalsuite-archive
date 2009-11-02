@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 # Copyright (C) 2009  Larne Pekowsky, Ping Wei
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -281,6 +283,13 @@ def write_segs_db(cur,seg_list,tableName):
 
   return cur
 
+def write_segs(segs,file_name):
+  """
+  Take glue.segments.segmentlist and write in a ascii file in a form compatible
+  to the segment database.
+  """
+  open(file_name,'w').write("\n".join(["%d %d"%(s[0],s[1]) for s in segs]))
+
 # read segment file
 def read_segfile(segfile):
   """
@@ -331,7 +340,40 @@ def read_segfile_xml(segfile,verbose):
                                        (e.tagName == ligolw.Table.tagName)):
     for row in table_elem:
       seg_list.append(segment(row.start_time, row.end_time))
+  xmldoc.unlink()
   return seg_list
+
+def find_version_xml(segfile,seg,verbose):
+  """
+  Find out the version of the flag for the given seg.
+  """
+  from glue.ligolw import ligolw
+  from glue.ligolw import table
+  from glue.ligolw import utils
+
+  def ContentHandler(xmldoc):
+    return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
+               (name == ligolw.Table.tagName) and\
+               (table.StripTableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
+
+  utils.ContentHandler = ContentHandler
+
+  xmldoc = utils.load_url(segfile, verbose = verbose,gz = segfile.endswith(".gz"))
+  for n, table_elem in enumerate(xmldoc.getElements(lambda e:\
+                                       (e.tagName == ligolw.Table.tagName))):
+    if n == 0:
+      definer = {}
+      for row in table_elem:
+        if row.name != "RESULT":
+          definer[str(row.segment_def_id).split(":")[-1]] = row.version
+
+    if n == 1:
+      for row in table_elem:
+        if seg[0] >= row.start_time and seg[1] <= row.end_time:
+          if str(row.segment_def_id).split(":")[-1] in definer.keys():
+            xmldoc.unlink()
+            return definer[str(row.segment_def_id).split(":")[-1]]
+
 
 def get_segment(eventTime, pos_window, neg_window):
   """ 
