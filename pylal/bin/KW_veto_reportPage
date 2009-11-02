@@ -42,6 +42,7 @@ except ImportError:
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils
 
+from pylal import git_version
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
@@ -52,7 +53,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+    parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
     parser.add_option("-r", "--result_dir",
                       help="Directory with result files from KW_veto_calc. Required.")
     parser.add_option("-m","--min_coinc_num", default=0, type="int",
@@ -78,7 +79,7 @@ def parse_commandline():
     if opts.verbose:
         print >> sys.stderr, ""
         print >> sys.stderr, "running KW_veto_reportPage..."
-        print >> sys.stderr, "version: %s..."%__version__
+        print >> sys.stderr, git_version.verbose_msg
         print >> sys.stderr, ""
         print >> sys.stderr, "*************** PARAMETERS **********************"
         for o in opts.__dict__.items():
@@ -147,7 +148,7 @@ def report_page():
       safety = channel_info[chan][2]
 
       # exclude channels that we know they are not safe
-      if data != None and data[2] >= opts.min_coinc_num and chan.find("DARM_ERR")==-1 and chan.find("DARM_CTRL")==-1 and chan.find("AS_I")==-1 and chan.find("AS_Q")==-1 and chan.find("PR_B1_ACP")==-1:
+      if data != None and data[2] >= opts.min_coinc_num and chan.find("DARM_ERR")==-1 and chan.find("DARM_CTRL")==-1 and chan.find("AS_I")==-1 and chan.find("AS_Q")==-1 and chan.find("PR_B1_ACP_40_1250")==-1 and chan.find("OMC_READOUT_OUT_DAQ")==-1:
         color = safety[3] == "Unsafe" and "yellow" or "white"
         table.append("""
                 <tr bgcolor="%s">
@@ -239,13 +240,6 @@ for chan_file in files_list:
     # (vetoed # of HW injection, expectation number of vetoed HW injection, probability that at least N are vetoed given the expectation number, safety using 10^-7 as a threshold on probability)
     channel_info[params["channel"]] = (params["filePrefix"],KW_veto_utils.get_candidate(cursor,params["critical_usedPer"]),(params['HWInjNvetoed'],params['HWInjNexp'],params['HWInjProbability'],params['safety']))
  
-    # create output directory if not exist
-    baseDir = os.path.join(opts.out_dir,'%s_webpage'%params['name_tag'])
-    if not os.path.exists(baseDir):
-      if opts.verbose:
-        print >> sys.stderr, "creating output directory %s..."%baseDir
-      os.makedirs(baseDir)
-
     connection.close()
   finally:
     # erase temporal database
@@ -254,6 +248,13 @@ for chan_file in files_list:
       if opts.verbose:
         print >> sys.stderr, "removing temporary workspace '%s'..." % db
       os.remove(db)
+
+# create output directory if not exist
+baseDir = os.path.join(opts.out_dir,'%s_webpage'%params['name_tag'])
+if not os.path.exists(baseDir):
+  if opts.verbose:
+    print >> sys.stderr, "creating output directory %s..."%baseDir
+  os.makedirs(baseDir)
 
 # make the page
 report_page()
