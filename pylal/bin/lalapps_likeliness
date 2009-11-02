@@ -147,7 +147,7 @@ class Summaries(object):
 				if key in [('snr', 'chisq')]:
 					self.slices_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanLogarithmicBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
 				elif key in [('snr', 'mtotal'), ('chisq', 'mtotal')]:
-					self.slices_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.LinearBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
+					self.slices_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
 				else:
 					print >>sys.stderr,"ERROR: binning not implemented for ",key
 					sys.exit(1)
