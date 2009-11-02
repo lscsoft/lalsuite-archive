@@ -1044,7 +1044,8 @@ def bins_to_xml(bins):
 		row.type = {
 			LinearBins: "lin",
 			LogarithmicBins: "log",
-			ATanBins: "atan"
+			ATanBins: "atan",
+			ATanLogarithmicBins: "atanlog"
 		}[bin.__class__]
 		row.min = bin.min
 		row.max = bin.max
@@ -1067,7 +1068,8 @@ def bins_from_xml(xml):
 		binnings[row.order] = {
 			"lin": LinearBins,
 			"log": LogarithmicBins,
-			"atan": ATanBins
+			"atan": ATanBins,
+			"atanlog": ATanLogarithmicBins
 		}[row.type](row.min, row.max, row.n)
 	if None in binnings:
 		raise ValueError, "no binning for dimension %d" % binnings.find(None)
