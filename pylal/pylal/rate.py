@@ -374,6 +374,67 @@ class IrregularBins(Bins):
 	def centres(self):
 		return (self.lower() + self.upper()) / 2
 
+class Categories(Bins):
+	"""
+	Categories is a many-to-one mapping from a value to an integer category
+	index. A value belongs to a category if it is contained in the category's
+	defining collection.
+
+	Example with discrete values:
+	>>> categories = Categories([
+		set((frozenset(("H1", "L1")), frozenset(("H1", "V1")))),
+		set((frozenset(("H1", "L1", "V1")),))
+		])
+	>>> print categories[frozenset(("H1", "L1"))]
+	0
+	>>> print categories[frozenset(("H1", "V1"))]
+	0
+	>>> print categories[frozenset(("H1", "L1", "V1"))]
+	1
+
+	Example with continuous values:
+	>>> from glue.segments import *
+	>>> categories = Categories([segmentlist([segment(1, 3), segment(5, 7)]),
+	                             segmentlist([segment(0, PosInfinity)])])
+	>>> print categories[2]
+	0
+	>>> print categories[4]
+	1
+	>>> print categories[-1]
+	KeyError: -1
+	"""
+	def __init__(self, categories):
+		"""
+		categories is an iterable of containers defining the categories.
+		(Recall that containers are collections that support the "in"
+		operator.) Objects will be mapped to the integer index of the
+		container that contains them.
+		"""
+		self.containers = tuple(categories)  # need to assert an order
+		self.n = len(categories)
+
+		# enable NDBins to read range, but do not enable treatment as numbers
+		self.min = None
+		self.max = None
+
+	def __getitem__(self, value):
+		"""
+		Return i if value is contained in i-th container. If value
+		is not contained in any of the containers, raise an IndexError.
+		"""
+		for i, s in enumerate(self.containers):
+			if value in s:
+				return i
+		raise IndexError, value
+
+	def __cmp__(self, other):
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp(self.containers, other.containers)
+
+	def __centres__(self):
+		return self.containers
+
 class NDBins(tuple):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
