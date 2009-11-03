@@ -296,6 +296,9 @@ struct gengetopt_args_info
   int nchunks_arg;	/**< @brief Partition the timebase into this many chunks for sub period analysis (default='5').  */
   char * nchunks_orig;	/**< @brief Partition the timebase into this many chunks for sub period analysis original value given at command line.  */
   const char *nchunks_help; /**< @brief Partition the timebase into this many chunks for sub period analysis help description.  */
+  int split_ifos_arg;	/**< @brief Split interferometers in separate chunks (default='1').  */
+  char * split_ifos_orig;	/**< @brief Split interferometers in separate chunks original value given at command line.  */
+  const char *split_ifos_help; /**< @brief Split interferometers in separate chunks help description.  */
   double weight_cutoff_fraction_arg;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight (default='0.04').  */
   char * weight_cutoff_fraction_orig;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight original value given at command line.  */
   const char *weight_cutoff_fraction_help; /**< @brief Discard sfts with small weights that contribute this fraction of total weight help description.  */
@@ -308,7 +311,7 @@ struct gengetopt_args_info
   int tmedian_noise_level_arg;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) (default='1').  */
   char * tmedian_noise_level_orig;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) original value given at command line.  */
   const char *tmedian_noise_level_help; /**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) help description.  */
-  int summing_step_arg;	/**< @brief integration step size, in seconds (default='864000').  */
+  double summing_step_arg;	/**< @brief integration step size, in seconds.  */
   char * summing_step_orig;	/**< @brief integration step size, in seconds original value given at command line.  */
   const char *summing_step_help; /**< @brief integration step size, in seconds help description.  */
   int max_first_shift_arg;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function (default='10').  */
@@ -335,6 +338,15 @@ struct gengetopt_args_info
   int cache_granularity_arg;	/**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin (default='-1').  */
   char * cache_granularity_orig;	/**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin original value given at command line.  */
   const char *cache_granularity_help; /**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin help description.  */
+  int sidereal_group_count_arg;	/**< @brief separate SFTs in that many groups by frequency shift.  */
+  char * sidereal_group_count_orig;	/**< @brief separate SFTs in that many groups by frequency shift original value given at command line.  */
+  const char *sidereal_group_count_help; /**< @brief separate SFTs in that many groups by frequency shift help description.  */
+  int time_group_count_arg;	/**< @brief separate SFTs in that many groups by gps time.  */
+  char * time_group_count_orig;	/**< @brief separate SFTs in that many groups by gps time original value given at command line.  */
+  const char *time_group_count_help; /**< @brief separate SFTs in that many groups by gps time help description.  */
+  double phase_mismatch_arg;	/**< @brief maximal phase mismatch over coherence length to assume when using loosely coherent mode (default='1.570796').  */
+  char * phase_mismatch_orig;	/**< @brief maximal phase mismatch over coherence length to assume when using loosely coherent mode original value given at command line.  */
+  const char *phase_mismatch_help; /**< @brief maximal phase mismatch over coherence length to assume when using loosely coherent mode help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -426,6 +438,7 @@ struct gengetopt_args_info
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
+  unsigned int split_ifos_given ;	/**< @brief Whether split-ifos was given.  */
   unsigned int weight_cutoff_fraction_given ;	/**< @brief Whether weight-cutoff-fraction was given.  */
   unsigned int per_dataset_weight_cutoff_fraction_given ;	/**< @brief Whether per-dataset-weight-cutoff-fraction was given.  */
   unsigned int power_max_median_factor_given ;	/**< @brief Whether power-max-median-factor was given.  */
@@ -439,6 +452,9 @@ struct gengetopt_args_info
   unsigned int half_window_given ;	/**< @brief Whether half-window was given.  */
   unsigned int tail_veto_given ;	/**< @brief Whether tail-veto was given.  */
   unsigned int cache_granularity_given ;	/**< @brief Whether cache-granularity was given.  */
+  unsigned int sidereal_group_count_given ;	/**< @brief Whether sidereal-group-count was given.  */
+  unsigned int time_group_count_given ;	/**< @brief Whether time-group-count was given.  */
+  unsigned int phase_mismatch_given ;	/**< @brief Whether phase-mismatch was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;

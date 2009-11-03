@@ -1,7 +1,7 @@
 PACKAGE=\"powerflux\"
 VERSION=1.4.35-64
 LALROOT=./../../../../
-LALROOT=/opt/lscsoft/lal/
+LALROOT=/home/vdergach/opt/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -L. -lpng
@@ -400,7 +400,7 @@ upload: powerflux-condor powerflux-mt
 upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	#globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
 	#globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-	#globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
 	globus-scp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	globus-scp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	

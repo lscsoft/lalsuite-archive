@@ -1687,6 +1687,10 @@ if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 		/* Matched filter correctly reconstructs power in the bin */
 		upper_limit_comp=1.0; 
 		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "loose")) {
+		/* Loose mode uses matched filter which correctly reconstructs power in the bin */
+		upper_limit_comp=1.0; 
+		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 		/* 3 bins should contain the entire signal, regardless
 		   of positioning */

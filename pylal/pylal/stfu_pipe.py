@@ -519,6 +519,8 @@ The omega scan command line is
 			self.add_var_arg('scan -r')
 			preString = "omega/" + science_run(time).upper() + "/foreground"
 		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
+		if cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() != config:
+			cp.set('fu-'+variety+'-'+type+'-qscan',ifo+'config',config)
 		self.add_var_arg("-c " + config )
 
 		if type == "ht":
