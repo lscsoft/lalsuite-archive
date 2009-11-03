@@ -101,12 +101,15 @@ def parse_command_line():
             "triggers that fall within the parameter ranges. " 
             )
     parser.add_option( "", "--param-ranges", action = "store", default = None,
-        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
         help = 
             "Requires --param-name. Specify the parameter ranges " +
             "to select triggers in. A '(' or ')' implies an open " +
             "boundary, a '[' or ']' a closed boundary. To specify " +
-            "multiple ranges, separate each range by a ';'. If " +
+            "multiple ranges, separate each range by a ';'. To " +
+            "specify a single value, just type that value with no " +
+            "parentheses or brackets. To specify not equal to a single " +
+            "value, put a '!' before the value. If " +
             "multiple ranges are specified, the triggers picked for " +
             "ranking will come from the union of the ranges."
             )

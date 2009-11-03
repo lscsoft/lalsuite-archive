@@ -138,6 +138,8 @@ class parse_param_ranges:
          follow these format rules:
             * A '(' or ')' implies an open boundary, a '[' or ']' a closed boundary.
             * To specify multiple ranges, separate each range by a ';'.
+            * To specify equal to a single value, just specify the value, e.g., '2.3'
+            * To specify not-equal to a single value, put a ! infront of the value, e.g., '!2.3'.
         @verbose: be verbose
         """
         if verbose:
@@ -155,36 +157,51 @@ class parse_param_ranges:
         ranges = param_ranges_opt.split(';')
 
         for this_range in ranges:
-
-            # get lower-bound
-            lowerparam = this_range.split(',')[0].strip()
-            # check if lower boundary open or closed
-            if lowerparam.find('[') != -1:
-                lowerbndry = '>='
-                lowerparam = float( lowerparam.lstrip('[') )
-            elif lowerparam.find('(') != -1:
-                lowerbndry = '>'
-                lowerparam = float( lowerparam.lstrip('(') )
+            
+            # check if it's a range or number
+            if re.search('\]|\[|\)|\(', this_range) is None:
+                this_range = this_range.strip()
+                # check if it's a not equal
+                if this_range.startswith('!'):
+                    btest = '!='
+                    param = this_range.lstrip('!')
+                else:
+                    btest = '=='
+                    param = this_range
+                # try to convert to a float; if can't just leave as string
+                try:
+                    param = float(param)
+                except ValueError:
+                    pass
+                self.param_ranges.append( ((btest, param),) )
+                
             else:
-                raise ValueError, "Parameter range %s not formatted correctly" % this_range
-  
-            # get upper-bound (similar to lower bound method)
-            upperparam = this_range.split(',')[1].strip()
-            if upperparam.find(']') != -1:
-                upperbndry = '<='
-                upperparam = float( upperparam.rstrip(']') )
-            elif upperparam.find(')') != -1:
-                upperbndry = '<'
-                upperparam = float( upperparam.rstrip(')') )
-            else:
-                raise ValueError, "Parameter range %s not formatted correctly" % this_range
+                # get lower-bound
+                lowerparam = this_range.split(',')[0].strip()
+                # check if lower boundary open or closed
+                if lowerparam.find('[') != -1:
+                    lowerbndry = '>='
+                    lowerparam = float( lowerparam.lstrip('[') )
+                elif lowerparam.find('(') != -1:
+                    lowerbndry = '>'
+                    lowerparam = float( lowerparam.lstrip('(') )
+                else:
+                    raise ValueError, "Parameter range %s not formatted correctly" % this_range
+      
+                # get upper-bound (similar to lower bound method)
+                upperparam = this_range.split(',')[1].strip()
+                if upperparam.find(']') != -1:
+                    upperbndry = '<='
+                    upperparam = float( upperparam.rstrip(']') )
+                elif upperparam.find(')') != -1:
+                    upperbndry = '<'
+                    upperparam = float( upperparam.rstrip(')') )
+                else:
+                    raise ValueError, "Parameter range %s not formatted correctly" % this_range
 
-            # add param to filters
-            self.param_ranges.append( ( (lowerbndry, lowerparam), (upperbndry, upperparam) ))
+                # add param to filters
+                self.param_ranges.append( ((lowerbndry, lowerparam), (upperbndry, upperparam)) )
 
-        if verbose:
-            print >> sys.stderr, "done."
-    
 
     def get_param_name( self ):
         return self.param
@@ -206,12 +223,21 @@ class parse_param_ranges:
         self.param_filters = []
         # construct paramfilter for SQL statement
         for range in self.param_ranges:
-            lowerbndry = range[0][0]
-            lowerparam = str( range[0][1] )
-            upperbndry = range[1][0]
-            upperparam = str( range[1][1] )
-            self.param_filters.append( ' '.join([ '(', self.param, lowerbndry, lowerparam, 
-              'AND', self.param, upperbndry, upperparam, ')' ]) )
+            if len(range) == 1:
+                btest = range[0][0]
+                param = range[0][1]
+                if isinstance(param, str):
+                    param = param.join(['"','"'])
+                else:
+                    param = str(param)
+                self.param_filters.append( ' '.join([ self.param, btest, param ]) )
+            else:
+                lowerbndry = range[0][0]
+                lowerparam = str( range[0][1] )
+                upperbndry = range[1][0]
+                upperparam = str( range[1][1] )
+                self.param_filters.append( ' '.join([ '(', self.param, lowerbndry, lowerparam, 
+                  'AND', self.param, upperbndry, upperparam, ')' ]) )
 
         return self.param_filters
 
@@ -222,29 +248,38 @@ class parse_param_ranges:
         which value param_range it falls in.
         """
         for n, range in enumerate(self.param_ranges):
-            # set boundry conditions and parameters
-            lowerbndry = range[0][0]
-            lowerparam = range[0][1]
-            upperbndry = range[1][0]
-            upperparam = range[1][1]
-            # the following works by checking what the boundaries are
-            # and then checking if the param value is within those boundaries:
-            # if [a,b]
-            if ((lowerbndry, upperbndry) == ('>=', '<=')) and \
-               (param_value >= lowerparam and param_value <= upperparam):
-                return n
-            # if (a,b]
-            if ((lowerbndry, upperbndry) == ('>', '<=')) and \
-               (param_value > lowerparam and param_value <= upperparam):
-                return n
-            # if [a,b)
-            if ((lowerbndry, upperbndry) == ('>=', '<')) and \
-               (param_value >= lowerparam and param_value < upperparam):
-                return n
-            # if (a,b)
-            if ((lowerbndry, upperbndry) == ('>', '<')) and \
-               (param_value > lowerparam and param_value < upperparam):
-                return n
+            # see if it's a range or boolean test
+            if len(range) == 1:
+                btest = range[0][0]
+                param = range[0][1]
+                if btest == '==' and param == param_value:
+                    return n
+                if btest == '!=' and param != param_value:
+                    return n
+            else:
+                # set boundry conditions and parameters
+                lowerbndry = range[0][0]
+                lowerparam = range[0][1]
+                upperbndry = range[1][0]
+                upperparam = range[1][1]
+                # the following works by checking what the boundaries are
+                # and then checking if the param value is within those boundaries:
+                # if [a,b]
+                if ((lowerbndry, upperbndry) == ('>=', '<=')) and \
+                   (param_value >= lowerparam and param_value <= upperparam):
+                    return n
+                # if (a,b]
+                if ((lowerbndry, upperbndry) == ('>', '<=')) and \
+                   (param_value > lowerparam and param_value <= upperparam):
+                    return n
+                # if [a,b)
+                if ((lowerbndry, upperbndry) == ('>=', '<')) and \
+                   (param_value >= lowerparam and param_value < upperparam):
+                    return n
+                # if (a,b)
+                if ((lowerbndry, upperbndry) == ('>', '<')) and \
+                   (param_value > lowerparam and param_value < upperparam):
+                    return n
 
         # if get to here, param_value falls outside all the ranges; 
         # just return None
