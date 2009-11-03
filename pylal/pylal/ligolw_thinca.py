@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2008  Kipp C. Cannon, Drew G. Keppel
+# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,10 +32,11 @@ import sys
 from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
 	all
 except NameError:
@@ -45,9 +44,9 @@ except NameError:
 	from glue.iterutils import all as all
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -138,7 +137,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -148,6 +147,10 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
 		params += [(u"--force", None, None)]
+	if effective_snr_factor is not None:
+		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
+	if vetoes_name is not None:
+		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -419,7 +422,7 @@ def ligolw_thinca(
 	# removing events from the lists that fall in vetoed segments
 	#
 
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName, vetoes = veto_segments)
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglInspiralTable.tableName)
 	if veto_segments is not None:
 		for eventlist in eventlists.values():
 			iterutils.inplace_filter((lambda event: event.ifo not in veto_segments or event.get_end() not in veto_segments[event.ifo]), eventlist)

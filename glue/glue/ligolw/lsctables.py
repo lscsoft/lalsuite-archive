@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,10 +32,6 @@ Maintainership of the table definitions is left as an excercise to
 interested users.
 """
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
-
 
 from xml import sax
 try:
@@ -53,12 +47,18 @@ except NameError:
 	from glue.iterutils import any, all
 
 
+from glue import git_version
 from glue import segments
 from glue.lal import LIGOTimeGPS
-import ligolw
-import table
-import types as ligolwtypes
-import ilwd
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import types as ligolwtypes
+from glue.ligolw import ilwd
+
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -1203,6 +1203,20 @@ class SnglInspiralTable(table.Table):
 		chisq = self.get_column('chisq')
 		chisq_dof = self.get_column('chisq_dof')
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+
+	def get_new_snr(self, index=6.0):
+		# the kwarg 'index' is to be assigned to the parameter chisq_index occurring in the .ini files etc
+		# the parameter nhigh gives the asymptotic behaviour d (ln chisq) / d (ln rho) at large rho
+		# nhigh=2 means chisq~rho^2 along contours of new_snr as expected from the behaviour of mismatched templates
+		snr = self.get_column('snr')
+		chisq = self.get_column('chisq')
+		chisq_dof = self.get_column('chisq_dof')
+		rchisq = chisq/ (2*chisq_dof - 2)
+		nhigh = 2.
+		if rchisq > 1.:
+			return snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return snr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')

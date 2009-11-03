@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -28,8 +26,22 @@
 DOM-like library for handling LIGO Light Weight XML files.
 """
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
-__all__ = ["ligolw", "types", "ilwd", "table", "array", "param", "lsctables", "utils"]
+from glue import git_version
+
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+
+__all__ = [
+	"ligolw",
+	"types",
+	"ilwd",
+	"table",
+	"array",
+	"param",
+	"lsctables",
+	"utils"
+]

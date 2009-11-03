@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -47,17 +45,19 @@ import numpy
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
+from xml.sax.xmlreader import AttributesImpl as Attributes
 
 
+from glue import git_version
 from glue import iterutils
-import ligolw
-import tokenizer
-import types as ligolwtypes
+from glue.ligolw import ligolw
+from glue.ligolw import tokenizer
+from glue.ligolw import types as ligolwtypes
 
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -118,17 +118,17 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({u"Name": u"%s:array" % name, u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]})
+	doc = Array(Attributes({u"Name": u"%s:array" % name, u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]}))
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
 		attrs = {}
 		if dim_names is not None:
 			attrs[u"Name"] = dim_names[n]
-		child = ligolw.Dim(attrs)
+		child = ligolw.Dim(Attributes(attrs))
 		child.pcdata = unicode(dim)
 		doc.appendChild(child)
-	child = ArrayStream({u"Type": u"Local", u"Delimiter": u" "})
+	child = ArrayStream(Attributes({u"Type": u"Local", u"Delimiter": u" "}))
 	doc.appendChild(child)
 	doc.array = array
 	return doc

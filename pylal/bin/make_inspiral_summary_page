@@ -1,0 +1,209 @@
+#!/usr/bin/python
+import sys, os, socket, re
+import glob, math, shutil
+from glue import cbcwebpage
+from glue import lal
+from glue import segments
+from optparse import OptionParser
+
+
+def image_glob(pat):
+	image_list = []
+	for image in glob.glob(pat):
+		if 'thumb' in image: continue
+		else: image_list.append(image)
+	image_list.sort()
+	plot_list = [cbcwebpage._imagelinkcpy(plot) for plot in image_list]
+	return [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
+
+def wiki_table_parse(file):
+	#FIXME assumes table files of the form
+	# === title ===
+	# ||data||data||
+	# ||data||data||
+
+	tabs = []
+	titles = []
+	tab = []
+	for line in open(file).readlines():
+		if '===' in line: 
+			titles.append(line.replace("=",""))
+			if tab: tabs.append(tab) 
+			tab = []
+		if '||' in line: tab.append(line.split('||'))
+	tabs.append(tab)
+	return tabs, titles
+			
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog summary web page")
+	#parser.add_option("--webserver", help = "Set the webserver path.  Required.  Example https://ldas-jobs.ligo.caltech.edu/~channa/highmass_months_23-24_summary_page")
+	parser.add_option("--webserver-dir", help = "Set the directory for the webserver.  Required.  Example /archive/home/channa/public_html/highmass_months_23-24_summary_page")
+	parser.add_option("--open-box", action = "store_true", help = "Produce open box page")
+	parser.add_option("--output-name-tag",default = "", metavar = "name", help = "Set the basename for image search")
+
+	opts, filenames = parser.parse_args()
+	return opts, filenames
+
+opts, files = parse_command_line()
+
+base_name = opts.output_name_tag
+search = base_name.replace('_',' ')
+
+page = cbcwebpage.cbcpage(title="Summary " + search )
+
+#page.add_subpage("playground","Playground", "Playground")
+
+### INJ PARAM PAGE ###
+page.add_subpage("injection_params","Injection Parameters", "Injection Parameters")
+page.subpages["injection_params"].add_section("injection_input","Injected Parameters m1 and m2")
+imgtable = image_glob(base_name+'6_sim_dist*.png')
+page.subpages["injection_params"].sections["injection_input"].add_table(imgtable, "Injection parameter plots", "m1 and m2 plane")
+
+### INJ ACC PAGE ###
+page.add_subpage("injection_params_acc","Injection Parameters Accuracy", "Injection Accuracy")
+page.subpages["injection_params_acc"].add_section("mchirp_param_acc","Mchirp Parameter Accuracy")
+imgtable = image_glob(base_name+'2_mchirp_acc_frac_*.png')
+page.subpages["injection_params_acc"].sections["mchirp_param_acc"].add_table(imgtable, "Mchirp Accuracy", "Accuracy of chirp mass")
+page.subpages["injection_params_acc"].add_section("eta_param_acc","Eta Parameter Accuracy")
+imgtable = image_glob(base_name+'2_eta_acc_frac_*.png')
+page.subpages["injection_params_acc"].sections["eta_param_acc"].add_table(imgtable, "Eta Accuracy", "Accuracy of eta")
+page.subpages["injection_params_acc"].add_section("time_param_acc","Time Parameter Accuracy")
+imgtable = image_glob(base_name+'2_t_acc_*.png')
+page.subpages["injection_params_acc"].sections["time_param_acc"].add_table(imgtable, "Time Accuracy", "Accuracy of time")
+
+### MISSED FOUND ###
+page.add_subpage("missed_found","Missed Found", "Missed Found")
+page.subpages["missed_found"].add_section("found_missed_mchirp","Found / Missed Chirp Mass")
+imgtable = image_glob(base_name+'1_deff_vs_mchirp_*.png')
+page.subpages["missed_found"].sections["found_missed_mchirp"].add_table(imgtable, "Missed Found vs Mchirp", "Effective distance of found and missed injections")
+page.subpages["missed_found"].add_section("found_missed_time","Found / Missed Time")
+imgtable = image_glob(base_name+'1_deff_vs_t_*.png')
+page.subpages["missed_found"].sections["found_missed_time"].add_table(imgtable, "Missed Found vs Time", "Effective distance of found and missed injections")
+
+### CHISQ ###
+page.add_subpage("playchisq","Playground Chi-squared", "Playground Chi-squared")
+page.subpages["playchisq"].add_section("chisq","Playground Chi-squared vs SNR")
+imgtable = image_glob(base_name+'3_playground_chi2_vs_rho_*.png')
+page.subpages["playchisq"].sections["chisq"].add_table(imgtable, "Chi-squared Vs SNR", "Chi-squared vs snr is cool")
+
+### Effective SNR ###
+page.add_subpage("playeffsnr","Playground Effective SNR", "Effective SNR")
+page.subpages["playeffsnr"].add_section("effsnr","Playground Effective SNR")
+imgtable = image_glob(base_name+'4_playground_rho_*.png')
+page.subpages["playeffsnr"].sections["effsnr"].add_table(imgtable, "Effective SNR", "Effective SNR scatter")
+
+### Time Slide ###
+page.add_subpage("playts","Playground Time slide plots", "Playground Time slides")
+page.subpages["playts"].add_section("ts","Playground Time Slides")
+imgtable = image_glob(base_name+'7_playground_plot_slides_*.png')
+page.subpages["playts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset")
+
+### Money Plots ###
+page.add_subpage("playmoney","Playground Money Plots", "Playground Money Plots")
+page.subpages["playmoney"].add_section("snr","Playground SNR Histogram")
+imgtable = image_glob(base_name+'5_playground_count_vs_snr_*.png')
+page.subpages["playmoney"].sections["snr"].add_table(imgtable, "Effective SNR hist", "Cumulative Effective SNR histogram")
+page.subpages["playmoney"].add_section("ifar","Playground IFAR Histogram")
+imgtable = image_glob(base_name+'5_playground_count_vs_ifar_*.png')
+page.subpages["playmoney"].sections["ifar"].add_table(imgtable, "IFAR hist", "Cumulative IFAR histogram")
+page.subpages["playmoney"].add_section("table","Playground Loudest Table")
+tab,name = wiki_table_parse(base_name+'playground_summary_table.txt')
+page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
+
+### Likelihood plots ###
+page.add_subpage("playlikelihood","Playground Likelihood", "Playground Likelihood")
+page.subpages["playlikelihood"].add_section("MVSC","MVSC Playground Likelihood scatter plot")
+imgtable = image_glob(base_name+'8_MVSC_likelihood_scatterplot*.png')
+page.subpages["playlikelihood"].sections["MVSC"].add_table(imgtable, "MVSC plot", "MVSC Effective SNR scatter plot")
+
+if opts.open_box:
+	print >>sys.stderr, "WARNING: OPENING THE BOX"
+	### CHISQ ###
+	page.add_subpage("chisq","Chi-squared", "Chi-squared")
+	page.subpages["chisq"].add_section("chisq","Chi-squared vs SNR")
+	imgtable = image_glob(base_name+'3_chi2_vs_rho_*.png')
+	page.subpages["chisq"].sections["chisq"].add_table(imgtable, "Chi-squared Vs SNR", "Chi-squared vs snr is cool")
+
+	### Effective SNR ###
+	page.add_subpage("effsnr","Effective SNR", "Effective SNR")
+	page.subpages["effsnr"].add_section("effsnr","Effective SNR")
+	imgtable = image_glob(base_name+'4_rho_*.png')
+	page.subpages["effsnr"].sections["effsnr"].add_table(imgtable, "Effective SNR", "Effective SNR scatter")
+
+	### Time Slide ###
+	page.add_subpage("ts","Time slide plots", "Time slides")
+	page.subpages["ts"].add_section("ts","Time Slides")
+	imgtable = image_glob(base_name+'7_plot_slides_*.png')
+	page.subpages["ts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset")
+
+	### Money Plots ###
+	page.add_subpage("money","Money Plots", "Money Plots")
+	page.subpages["money"].add_section("snr","Playground SNR Histogram")
+	imgtable = image_glob(base_name+'5_count_vs_snr_*.png')
+	page.subpages["money"].sections["snr"].add_table(imgtable, "Effective SNR hist", "Cumulative Effective SNR histogram")
+	page.subpages["money"].add_section("ifar","IFAR Histogram")
+	imgtable = image_glob(base_name+'5_count_vs_ifar_*.png')
+	page.subpages["money"].sections["ifar"].add_table(imgtable, "IFAR hist", "Cumulative IFAR histogram")
+	page.subpages["money"].add_section("table","Loudest Table")
+	tab,name = wiki_table_parse(base_name+'summary_table.txt')
+	page.subpages["money"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Events")
+
+	### UPPER LIMIT PLOTS ###
+	page.add_subpage("ul","Upper Limit Plots", "Upper Limit Plots")
+
+	range_summs = glob.glob(base_name+'-*_range_summary.txt')
+	for rs in range_summs:
+		tag = rs.replace('_',' ').replace('.txt','')
+		page.subpages["ul"].add_section(tag,rs)
+		tab,name = wiki_table_parse(rs)
+		page.subpages["ul"].sections[tag].add_table(tab[0], "Range Summary", "Range summary")
+
+	page.subpages["ul"].add_section("vt","Volume x time")
+	imgtable = image_glob(base_name+'-*_volume_time.png')
+	page.subpages["ul"].sections["vt"].add_table(imgtable, "Volume x time", "mass1 mass2 volume x time")
+
+	page.subpages["ul"].add_section("evt","Error on Volume x time")
+	imgtable = image_glob(base_name+'-*_fractional_error.png')
+	page.subpages["ul"].sections["evt"].add_table(imgtable, "Error on Volume x time", "Error on mass1 mass2 volume x time")
+
+	page.subpages["ul"].add_section("l","Lambda")
+	imgtable = image_glob(base_name+'-*_lambda.png')
+	page.subpages["ul"].sections["l"].add_table(imgtable, "Lambda", "likelihood fg/bg @ loudest event")
+
+	page.subpages["ul"].add_section("p","Posterior")
+	imgtable = image_glob(base_name+'-*_posterior.png')
+	page.subpages["ul"].sections["p"].add_table(imgtable, "Posterior", "Poseterior on the rate")
+
+	page.subpages["ul"].add_section("ul","90% Upper limit")
+	imgtable = image_glob(base_name+'-*_upper_limit.png')
+	page.subpages["ul"].sections["ul"].add_table(imgtable, "90% Upper limit", "90% upper limit")
+
+	page.subpages["ul"].add_section("cul","Combined 90% Upper limit")
+	imgtable = [[cbcwebpage._imagelinkcpy(base_name+'upper_limit.png'), cbcwebpage._imagelinkcpy(base_name+'posterior.png')]]
+	page.subpages["ul"].sections["cul"].add_table(imgtable, "Combined 90% Upper limit", "Combined 90% upper limit")
+
+# PAGE FOR DATABASE SUMMARY
+page.add_subpage("databasesummary","Database Summary", "Database Summary")
+tabs, names = wiki_table_parse(base_name+"plotsummary.txt")
+print len(tabs), len(names)
+for i, name in enumerate(names):
+	tag = name.strip().replace(' ','').replace('/','').replace(':','').replace('.','')
+	page.subpages["databasesummary"].add_section(tag,name)
+	page.subpages["databasesummary"].sections[tag].add_table(tabs[i], "Database Overview", "Database Overview")
+	
+### ALL DONE WITH PLAYGROUND ###
+if opts.open_box: page.write(base_name+"open_box")
+else: page.write(base_name+"playground")
+
+# copy the output
+if opts.webserver_dir:
+	try: os.makedirs(opts.webserver_dir)
+	except: pass
+	for f in page.fnames: 
+		shutil.copy(f,opts.webserver_dir)
+	#FIXME not the best way to do this, I should explicitely save file names
+	try: os.mkdir(opts.webserver_dir+'/Images')
+	except: pass
+	for f in glob.glob('Images/*.png'):
+		shutil.copy(f,opts.webserver_dir+'/Images')

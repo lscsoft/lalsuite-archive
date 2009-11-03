@@ -71,11 +71,40 @@ def parse_command_line():
             "To specify multiple tables, give the argument multiple times. " +
             "All the tables must exist in the xml file(s)."
             )
+    parser.add_option("-c", "--column", action = "append", type = "string",
+        default = [],
+        help =
+            "Only print the given column (default is to print all columns). " +
+            "This applies to all tables with a column having the given name(s)." +
+            "To specify a column in a specific table, use table_name:column_name. " +
+            "To specify multiple columns, give the argument multiple times (order given " +
+            "will be the order printed). "
+            )
+    parser.add_option("-s","--rspan-column", action = "append", type = "string",
+        default = [],
+        help =
+            "Allow column to row-span; i.e., consecutive rows that have the same value " +
+            "in the given column will be combined into one cell that spans those rows. " +
+            "Default is to not row span any column. To specify multiple columns, give the " +
+            "argument multiple times."
+            )
+    parser.add_option("-b", "--break-column", action = "append", type = "string",
+        default = [],
+        help =
+            "Whenever a value between consecutive rows in the given column change, " +
+            "no columns will be allowed to row-span across that row."
+            )
     parser.add_option("-r", "--round-floats", action = "store", type = "int",
         default = None,
         help =
             "Round floating point numbers in the tables to the specified " +
             "number of decimal places."
+            )
+    parser.add_option("-l", "--format-links", action = "store_true",
+        default = False,
+        help =
+            'Convert any entry with <a href=" in it to a hyperlink for the given ' +
+            'format. Note: if output format is html, this is a no-op.'
             )
     parser.add_option("", "--no-table-names", action = "store_true",
         default = False,
@@ -127,8 +156,9 @@ print_table_names = not options.no_table_names
 # convert the files
 for xmldoc, title in zip(xmldocs, titles):
     print_tables.print_tables(xmldoc, options.output, options.output_format, tableList = options.table,
-        round_floats = round_floats, decimal_places = options.round_floats, title = title,
-        print_table_names = print_table_names)
+        columnList = options.column, round_floats = round_floats, decimal_places = options.round_floats,
+        format_links = options.format_links, row_span_columns = options.rspan_column, rspan_break_columns = options.break_column,
+        title = title, print_table_names = print_table_names)
 
 # close and exit
 options.output.close()

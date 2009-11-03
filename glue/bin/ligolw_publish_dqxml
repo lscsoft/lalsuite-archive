@@ -35,8 +35,6 @@ import logging.handlers
 
 from optparse import OptionParser
 
-from glue import LDBDClient
-from glue import gsiserverutils
 from glue import lal
 from glue import segments
 from glue import gpstime
@@ -79,7 +77,7 @@ parser = OptionParser(
   usage   = "%prog [OPTIONS]",
   description = "Publishes XML files into the segment database")
 
-parser.add_option("-r", "--server", metavar = "HOST:PORT", help = "connect to ldbd on HOST:PORT (default port 30020)")
+parser.add_option("-t", "--segment-url", metavar = "PROTOCOL://HOST", help = "connect to ldbd on PROTOCOL://HOST")
 parser.add_option("-s", "--state-file", metavar = "FILE", help = "read published and excluded segments from FILE")
 parser.add_option("-P", "--pid-file", metavar = "FILE", help = "use FILE as process lock file")
 parser.add_option("-D", "--input-directory", metavar = "DIR", help = "look for input files in DIR")
@@ -89,20 +87,14 @@ parser.add_option("-p", "--ping", action = "store_true")
 
 options, filenames = parser.parse_args()
 
-if not options.server:
-  raise ValueError, "missing argument --server"
+if not options.segment_url:
+  raise ValueError, "missing argument --segment-url"
 
-if options.server.find(':') < 0:
-  # no port specified
-  host = options.server
-else:
-  # server and port specified
-  host, portString = options.server.split(':')
-  port = int(portString)
-identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+# open connection to LDBDWClient
+myClient = segmentdb_utils.setup_database(options.segment_url)
+
 
 if options.ping:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
   msg = myClient.ping()
   print msg
   sys.exit(0)
@@ -139,7 +131,7 @@ try:
   logger.addHandler(handler)
   logger.setLevel(eval("logging." + options.log_level))
   logger.info("ligolw_publish_dqxml starting")
-  logger.debug("server = " + options.server)
+  logger.debug("segment-url= " + options.segment_url)
   logger.debug("pid file = " + options.pid_file)
   logger.debug("input directory = " + options.input_directory)
   logger.debug("log file = " + options.log_file)
@@ -176,7 +168,7 @@ try:
       xmltext = fh.read()
       fh.close()
       logger.debug("inserting %s" % infile)
-      myClient = LDBDClient.LDBDClient(host, port, identity)
+      myClient = segmentdb_utils.setup_database(options.segment_url)
       result = myClient.insertdmt(xmltext)
       del xmltext
     except KeyboardInterrupt:
@@ -214,3 +206,4 @@ except Exception, e:
 logger.info("exiting")
 os.unlink(options.pid_file)
 sys.exit(0)
+

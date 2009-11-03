@@ -4,6 +4,7 @@ from math import log
 from time import gmtime, strftime
 
 from pylal import Fr
+from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -116,8 +117,7 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
   #dictionaries to store about individual triggers
-  end_time_s = {}
-  end_time_ns = {}
+  end_time = {}
   snr = {}
   mass1 = {}
   mass2 = {}
@@ -150,7 +150,7 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
            'False Alarm Rate' in line][0]
     for ifo in detectors:
-      end_time_s[ifo], end_time_ns[ifo] = str(event[ifo+':end_time']).split('.')
+      end_time[ifo] = LIGOTimeGPS(event[ifo+':end_time'])
       snr[ifo] = float(event[ifo+':SNR'])
       mass1[ifo] = float(event[ifo+':mass1'])
       mass2[ifo] = float(event[ifo+':mass2'])
@@ -165,8 +165,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     row = sin_table.RowType()
     row.ifo = ifo
     row.search = 'MBTA'
-    row.end_time = int(end_time_s[ifo])
-    row.end_time_ns = int(end_time_ns[ifo])
+    row.end_time = end_time[ifo].seconds
+    row.end_time_ns = end_time[ifo].nanoseconds
     row.mass1 = mass1[ifo]
     row.mass2 = mass2[ifo]
     row.mchirp = mchirp[ifo]
@@ -202,8 +202,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   row.set_ifos(detectors)
   cid = lsctables.CoincTable.get_next_id()
   row.coinc_event_id = cid
-  row.end_time = int(end_time_s['H1'])
-  row.end_time_ns = int(end_time_ns['H1'])
+  row.end_time = end_time['H1'].seconds
+  row.end_time_ns = end_time['H1'].nanoseconds
   row.mass = (sum(mass1.values()) + sum(mass2.values()))/3
   row.mchirp = sum(mchirp.values())/3
   #the snr here is really the snr NOT effective snr
@@ -238,9 +238,9 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   f.close()
   omega_data = dict(zip(omega_list[::2],omega_list[1::2]))  
   # basic error checking
-  for key in omega_data:
-    if not (key in omega_vars):
-      raise ValueError, "Unknown variable"
+# for key in omega_data:
+#   if not (key in omega_vars):
+#     raise ValueError, "Unknown variable"
     
   #create the content for the event.log file
   log_data = '\nLog File created '\
@@ -259,9 +259,9 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   row = mb_table.RowType()
   row.process_id = lsctables.ProcessTable.get_next_id()
   row.set_ifos(detectors)
-  st, st_ns = omega_data['time'].split('.')
-  row.start_time = int(st)
-  row.start_time_ns = int(st_ns)
+  st = LIGOTimeGPS(omega_data['time'])
+  row.start_time = st.seconds
+  row.start_time_ns = st.nanoseconds
   row.duration = None
   row.confidence = -log(float(omega_data['probGlitch']))
   cid = lsctables.CoincTable.get_next_id()

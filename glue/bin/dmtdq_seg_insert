@@ -29,8 +29,7 @@ import exceptions
 import re
 
 try:
-  from glue import LDBDClient
-  from glue import gsiserverutils
+  from glue.segmentdb import segmentdb_utils
 except ImportError, e:
   print >> sys.stderr, """
 Error: unable to import modules from glue.
@@ -46,7 +45,7 @@ def usage():
   msg = """\
 Usage: dmtdq_seg_insert [OPTIONS]
 
-  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
+  -t, --segment-url       PROTOCOL:HOST Supported protocols include: https and ldbd. For example, "--segment-url=https://segdb.ligo.caltech.edu" or "--segment-url=ldbd://segdb.ligo.caltech.edu"
   -f, --file              file to insert (deleted upon success)
   -p, --ping              ping the server
   -h, --help              print this message
@@ -59,9 +58,9 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:f:ph"
+shortop = "t:f:ph"
 longop = [
-  "server=",
+  "segment-url=",
   "file=",
   "ping",
   "help"
@@ -69,64 +68,47 @@ longop = [
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
-except getopt.GetoptError:
+except getopt.GetoptError, e:
+  print >>sys.stderr, "Error: %s \n" % str(e)
   usage()
   sys.exit(1)
 
 # defaults
-hostPortString = None
-port = 30020
+segment_url = None
 infile = None
 ping = None
 
 # environment variables override defaults but not
 # command line options
 try:
-  hostPortString = os.environ['LDBD_SERVER']
+  segment_url = os.environ['LDBD_SERVER']
 except:
   pass
 
 for o, a in opts:
   if o in ("-h", "--help"):
     help()
-  elif o in ("-r", "--server"):
-    hostPortString = a
-  elif o in ("-i", "--file"):
+  elif o in ("-t", "--segment-url"):
+    segment_url = a
+  elif o in ("-f", "--file"):
     infile = a
   elif o in ("-p", "--ping"):
     ping = 1
 
 # determine server and port
-if not hostPortString:
-  print >>sys.stderr, "No server specified"
+if not segment_url:
+  print >>sys.stderr, "No --segment-url specified"
   print >>sys.stderr, "Enter 'dmtdq_seg_insert --help' for usage"
   sys.exit(1)
 
-if hostPortString.find(':') < 0:
-  # no port specified
-  host = hostPortString
-else:
-  # server and port specified
-  host, portString = hostPortString.split(':')
-  port = int(portString)
 
 if not ping and not infile:
   print "\nNo file specified\n"
   usage()
   sys.exit(1)
 
-# open connection to LDBD Server
-identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-try:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
-
-except Exception, e:
-  print >>sys.stderr, \
-    "Unable to connect to LDBD Server %s:%d" % (host, port)
-  if gsiserverutils.checkCredentials():
-    print >>sys.stderr, "Got the following error : " + str(e)
-    print >>sys.stderr, "Enter 'dmtsq_seq_insert --help' for usage"
-  sys.exit(1)
+# open connection to LDBD(W)Server
+myClient = segmentdb_utils.setup_database(segment_url)
 
 try:
   if ping:

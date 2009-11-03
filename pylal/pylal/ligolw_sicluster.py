@@ -30,9 +30,9 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
-from pylal.date import LIGOTimeGPS
 from pylal import SnglInspiralUtils
 from pylal import snglcluster
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 

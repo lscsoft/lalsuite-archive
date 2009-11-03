@@ -71,5 +71,6 @@ static struct PyMethodDef methods[] = {
 
 void initnoisemodels(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's noisemodels package.");
+	/* commented out to silence warning;  uncomment when needed again */
+	/*PyObject *module =*/ Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's noisemodels package.");
 }

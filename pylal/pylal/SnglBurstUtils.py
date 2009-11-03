@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -40,14 +38,8 @@ matplotlib.rcParams.update({
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-#from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
 import re
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
 
 
 from glue.ligolw import table
@@ -154,7 +146,7 @@ SELECT sngl_burst.* FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 	""", (coinc_event_id,)):
-		yield contents.sngl_burst_table._row_from_cols(values)
+		yield contents.sngl_burst_table.row_from_cols(values)
 
 
 #

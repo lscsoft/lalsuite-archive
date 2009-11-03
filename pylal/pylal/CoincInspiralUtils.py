@@ -7,6 +7,7 @@ from glue.ligolw import utils
 from pylal.inject import light_travel_time
 from pylal.tools import XLALCalculateEThincaParameter
 from pylal.xlal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import glue.iterutils
 import numpy
 import cmath
@@ -253,7 +254,7 @@ class coincInspiralTable:
       gpstimes={}
       for ifo in ifos:
         if hasattr(self,ifo):
-          gpstimes[ifo]= date.LIGOTimeGPS(getattr(self, ifo).end_time, getattr(self, ifo).end_time_ns)
+          gpstimes[ifo]= LIGOTimeGPS(getattr(self, ifo).end_time, getattr(self, ifo).end_time_ns)
       return gpstimes
 
     def __iter__(self):

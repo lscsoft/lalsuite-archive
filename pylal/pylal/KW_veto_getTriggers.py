@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#
 # Copyright (C) 2009  Tomoki Isogai
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -54,6 +55,7 @@ except ImportError:
 from glue import segmentsUtils
 from glue.segments import segment, segmentlist
 
+from pylal import git_version
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
@@ -64,8 +66,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,version=__version__)
-
+    parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
     parser.add_option("-t", "--trigger_files", action="append", default=[],
                       help="File containing triggers. Required.")
     parser.add_option("-S", "--segment_file", default=None,
@@ -127,7 +128,7 @@ def parse_commandline():
     ## show parameters
     if opts.verbose:
         print >> sys.stderr, "running get_triggers..."
-        print >> sys.stderr, "version: %s"%__version__
+        print >> sys.stderr, git_version.verbose_msg
         print >> sys.stderr, ""
         print >> sys.stderr, "******************** PARAMETERS *****************"
         print >> sys.stderr, 'trigger file:'
@@ -160,6 +161,11 @@ def get_trigs_txt(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     # read lines avoiding white space and comment lines
     trigs = [line.split() for line in open(trigger_file) if (line != "\n" and\
              not line.startswith("%") and not line.startswith("#"))]
+
+    # check if there is triggers
+    if len(trigs) == 0:
+      print >> sys.stderr, "Error: no triggers found. Please check your trigger file %s."%trigger_file
+      sys.exit(1)
     
     # check the number of columns
     if len(trigs[0]) != 2:
@@ -194,7 +200,7 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     from glue.ligolw import utils
     # speed hacks
     # replace Glue's pure Python LIGOTimeGPS class with pyLAL's C version
-    from pylal.xlal.date import LIGOTimeGPS
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
     lsctables.LIGOTimeGPS = LIGOTimeGPS 
 
     # Enable column interning to save memory
