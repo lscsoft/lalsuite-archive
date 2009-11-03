@@ -535,11 +535,12 @@ class NDBins(tuple):
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
-	def __init__(self, *args):
-		tuple.__init__(self, *args)
-		self.min = tuple([b.min for b in self])
-		self.max = tuple([b.max for b in self])
-		self.shape = tuple([len(b) for b in self])
+	def __new__(cls, *args):
+		new = tuple.__new__(cls, *args)
+		new.min = tuple([b.min for b in new])
+		new.max = tuple([b.max for b in new])
+		new.shape = tuple([len(b) for b in new])
+		return new
 
 	def __getitem__(self, coords):
 		"""
