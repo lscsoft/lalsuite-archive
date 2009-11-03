@@ -54,20 +54,6 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 # get loudest coincs from each category
 #
 
-class DictBins(dict, rate.Bins):
-    """
-    This is a dict that can act as a Bins object.
-    """
-    def __init__(self, *args, **kwargs):
-        dict.__init__(self, *args, **kwargs)
-        self.min = min(self.iterkeys())
-        self.max = max(self.iterkeys())
-        self.n = len(self)
-
-    def upper(self): raise NotImplemented
-    def lower(self): raise NotImplemented
-    def centres(self): raise NotImplemented
-
 def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
     dtype=float, verbose=False):
     """
@@ -215,8 +201,7 @@ def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
     # convert time -> trial index -> sim index
     keys = (lambda row: trial_bins[row.get_time()],
             get_mean_mchirp)
-    sim_bins = DictBins([(trial_ind, i) for i, trial_ind \
-                         in enumerate(sim_trials)])
+    sim_bins = rate.Categories([(trial_ind,) for trial_ind in sim_trials])
     nd_bins = rate.NDBins((sim_bins, mc_bins))
     stat_func = operator.attrgetter("stat")
     loudest_by_sim_mc = get_loudest_stats_by_bins(inj_coincs, stat_func,
