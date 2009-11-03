@@ -27,10 +27,13 @@ from subprocess import *
 
 # usage
 def usage():
-	print "usage: LIGOLW_VETO_FILE=<file>", CMD, "<gpstime>"
+	print "usage: LIGOLW_VETO_FILE=<file>", CMD, "<gpstime> [<duration>]"
 	print """
-Output the state of category-defined DQ/veto flags for a given time.
-The output is one line per flag, of the form:
+For specified time and category definer file, output flag states.  If
+a duration is also specified, then the flag states are output for the
+entire duration, starting at gpstime, in an OR manor, with preference
+given to the flags in the order defined below.  The output is one line
+per category-defined veto, of the form:
 
   <state> <cat> <ifo:flag>
 
@@ -77,10 +80,10 @@ def get_cats():
 		failure("Could not retrieve info from veto definier file.\n")
 
 # retrieve flags of type ('defined', 'active') for time
-def get_flags(type, time):
+def get_flags(type, time, duration=0):
 	# convert time to integer, since that's what dq_query accepts at the moment
 	time = int(time)
-	cmd1 = 'ligolw_dq_query --dmt-file --%s %s' % (type, time)
+	cmd1 = 'ligolw_dq_query --dmt-file --%s --end-pad %s %s' % (type, duration, time)
 	cmd2 = 'ligolw_print -t segment_definer -c ifos -c name -d :'
 	p1 = Popen(cmd1, stdout=PIPE, shell=True)
 	p2 = Popen(cmd2, stdin=p1.stdout, stdout=PIPE, shell=True)
@@ -94,20 +97,27 @@ def get_flags(type, time):
 	
 ############################################################
 
-CMD = os.path.basename(sys.argv[0])
+CMD = os.path.basename(sys.argv.pop(0))
 
 # single input argument is GPS time (or --help)
 try:
-	if sys.argv[1] in ['--help', '-h', '-help']:
+	if sys.argv[0] in ['--help', '-h', '-help']:
 		usage()
 		sys.exit()
 	else:
-		time = float(sys.argv[1])
+		time = float(sys.argv.pop(0))
 except IndexError:
 	failure("Must specify a GPS time. Type '--help' for more info.\n")
 except ValueError:
 	failure("GPS time must be a number. Type '--help' for more info.\n")
-	
+
+try:
+	duration = int(sys.argv.pop(0))
+except ValueError:
+	failure("Duration must be an integer. Type '--help' for more info.\n")
+except IndexError:
+	duration = 0
+
 # get the veto file from the environment
 VETO_FILE = os.getenv("LIGOLW_VETO_FILE")
 if VETO_FILE == None:
@@ -119,10 +129,10 @@ if VETO_FILE == None:
 categories, start_times, end_times = get_cats()
 
 # retrieve active flags for time
-actives = get_flags('active', time)
+actives = get_flags('active', time, duration)
 
 # retrieve defined flags for time
-defined = get_flags('defined', time)
+defined = get_flags('defined', time, duration)
 
 # process all vetos
 for flag, category in categories.iteritems():

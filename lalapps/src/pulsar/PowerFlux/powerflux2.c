@@ -356,6 +356,13 @@ if(!strcasecmp("plain_rectangular", args_info.sky_grid_arg)){
 	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
 	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
 	} else
+if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
+	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
+		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
+		}
+	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/resolution)+2);
+	proto_super_grid=make_targeted_rect_supergrid(patch_grid, args_info.fine_factor_arg);
+	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	patch_grid=make_arcsin_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
 	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
@@ -513,6 +520,7 @@ fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes (unused)" : "no" );
 fprintf(LOG, "weight cutoff fraction: %g\n", args_info.weight_cutoff_fraction_arg);
 fprintf(LOG, "per dataset weight cutoff fraction: %g\n", args_info.per_dataset_weight_cutoff_fraction_arg);
 fprintf(LOG, "noise level: %s\n", args_info.tmedian_noise_level_arg ? "TMedian" : "in_place_sd");
+fprintf(LOG, "phase mismatch: %.8g\n", args_info.phase_mismatch_arg);
 fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_independent" : "spindown_dependent");
 
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
@@ -837,6 +845,13 @@ super_grid=reduced_supergrid(proto_super_grid);
 fine_grid=super_grid->super_grid;
 
 print_grid_statistics(LOG, "", fine_grid);
+
+if(super_grid->super_grid->npoints<1) {
+	fprintf(stderr, "****ERROR: no points marked for processing\n");
+	fprintf(LOG, "****ERROR: no points marked for processing\n");
+	exit(-1);
+	}
+
 precompute_values(fine_grid);
 precompute_values(patch_grid);
 verify_dataset_whole_sky_AM_response();

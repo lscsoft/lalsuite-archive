@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_COMPLEX16TIMESERIES_H_
+#define _PYLAL_XLAL_DATATYPES_COMPLEX16TIMESERIES_H_
+
+
 #include <Python.h>
 #include <lal/LALDatatypes.h>
 #include <lal/TimeSeries.h>
@@ -86,3 +90,6 @@ PyObject *pylal_COMPLEX16TimeSeries_new(COMPLEX16TimeSeries *series, PyObject *o
 	obj->series = series;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_COMPLEX16TIMESERIES_H_ */

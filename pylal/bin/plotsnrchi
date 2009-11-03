@@ -146,7 +146,6 @@ b) chisq = A * snr^4 / (snr^2 + VAR * (15 - A) )
    This statistic is chonse by specifying --denominator-variable.  The value
    of VAR must also be given.
 
-
 Additionally, various plots of the distribution of background and injection
 triggers can be made.  Three such plots are available:
 
@@ -157,10 +156,20 @@ triggers can be made.  Three such plots are available:
 6) Histograms as a function of the statistic given above.  Called with
    --hist-stat.
 
-7) A plot of snr vs rsq can also be made for a glob of triggers that are read in. If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
-in a different color than those kept by that veto. Injections are also plotted
-if specified. Called with
---rsq-snr
+7) Histograms as a function of newsnr: 
+   
+   newsnr = snr, rchisq <= 1
+   newsnr = snr / ((1+rchisq^(q/nhigh))/2)^(1/q), rchisq >1 
+   
+   Called with --hist-newsnr. The value of q must be given as --chisq-index.
+   nhigh was chosen to be 2 in order to make contours of newsnr follow 
+   chisq ~ rho^2 at large snr as expected from the template mismatch
+
+8) A plot of snr vs rsq can also be made for a glob of triggers that are read in. 
+   If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
+   in a different color than those kept by that veto. Injections are also plotted
+   if specified. Called with --rsq-snr
+
 """
 def parse_command_line():
   """

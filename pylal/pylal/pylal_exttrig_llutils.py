@@ -39,7 +39,7 @@ template_trigger_hipe = "./lalapps_trigger_hipe"\
   " --injection-config injectionsWI.ini --log-path %s" \
   " --number-buffer-left 8 --number-buffer-right 8" \
   " --num-trials 340 --padding-time 72 --verbose" \
-  " --skip-datafind --skip-dataquality"
+  " --skip-datafind --skip-dataquality --user-tag onoff"
 
 template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --h1-segments H1-science_grb%s.txt" \
@@ -144,7 +144,6 @@ def get_gps_from_asc(date_string, time_string):
     nsecs = time_list[1]
     nsecs += (9-len(nsecs))*'0'
     nano_seconds = int(nsecs) 
-    print nano_seconds
   else:
     nano_seconds = 0
 
@@ -213,7 +212,7 @@ def send_mail(subject, msg, email_adresses = None):
   #info('email','Email content: '+msg) 
 
 # -----------------------------------------------------
-def notify(grb, message):
+def notify(grb, dag, message):
   """
   Makes an email notification to all recipients listed
   in the config file.
@@ -223,14 +222,14 @@ def notify(grb, message):
 
   # construct the subject of the email
   subject = 'Status changed for DAG GRB%s: %s' %\
-       (grb['name'], message)
+       (grb.name, message)
 
   # construct the message for the email
   email_msg = 'Automatic notification from pylal_exttrig_llutils at time %s\n\n'%\
               get_time()
   email_msg += subject+'\n'
-  #email_msg += 'Stage currently executed: %s\n'%grb['stage']
-  email_msg += 'The DAG is located at : %s\n'% grb['path']
+  email_msg += 'The analysis dir is %s\n' % grb.analysis_dir
+  email_msg += ' and the dagfils is %s\n' % dag.get_outname()
 
   # send the email to all recipients
   send_mail(subject, message)
@@ -250,13 +249,6 @@ def get_dag_part(ini_file):
   """
   dag_part = ini_file.split('.')[0]
   return dag_part
-
-# --------------------------------------
-def get_segment_lists():
-  """
-  Function to download the latest segment lists
-  """
-  raise NotImplementedError
 
 # --------------------------------------
 def get_empty_exttrig_row():
@@ -373,11 +365,10 @@ def update_durations(monitor_list):
 
   # Read the list of all processed GRBs
   for grb in monitor_list:
-    grb_name = grb['name']
     
     # update the duration information when available
-    if grb_name in dict_duration:
-      grb['duration'] = dict_duration[grb_name]
+    if grb.name in dict_duration:
+      grb.duration = dict_duration[grb.name]
 
 
 # --------------------------------------
@@ -401,58 +392,58 @@ def obtain_results(grb):
 
   return min_prob
 
-# --------------------------------------
-def get_stage_name(dag_status):
-   """
-   Returns the name of the stage or error of the DAG with 
-   the given status
-   @param dag_status: status of the dag
-   @param return: a text describing the stage or error
-   """
+## # --------------------------------------
+## def get_stage_name(dag_status):
+##    """
+##    Returns the name of the stage or error of the DAG with 
+##    the given status
+##    @param dag_status: status of the dag
+##    @param return: a text describing the stage or error
+##    """
 
-   status_dict = {1:'inspiral',2:'ligolw',3:'postproc'}
+##    status_dict = {1:'inspiral',2:'ligolw',3:'postproc'}
 
-   text = ''
-   if dag_status==0:
-     text = 'Not started'
-   elif dag_status==5:
-     text = 'Complete'
-   elif dag_status==-6:
-     text = 'DAGFILE ERROR'
-   else:
-     text = status_dict[abs(dag_status)]
-     if dag_status<0:
-       text += "ERROR"
+##    text = ''
+##    if dag_status==0:
+##      text = 'Not started'
+##    elif dag_status==5:
+##      text = 'Complete'
+##    elif dag_status==-6:
+##      text = 'DAGFILE ERROR'
+##    else:
+##      text = status_dict[abs(dag_status)]
+##      if dag_status<0:
+##        text += "ERROR"
 
-   return text
+##    return text
 
-# --------------------------------------
-def get_html_status(grb_dict):
-  """
-  Get the output for the status of the DAG to be put on the
-  summary page, color-coded.
-  @param grb_dict: Dictionary of the GRB with all the information
-  @param return: list of two html snippet to put on the html page,
-                 one for each DAG (onoff, inj)
-  """
+## # --------------------------------------
+## def get_html_status(grb_dict):
+##   """
+##   Get the output for the status of the DAG to be put on the
+##   summary page, color-coded.
+##   @param grb_dict: Dictionary of the GRB with all the information
+##   @param return: list of two html snippet to put on the html page,
+##                  one for each DAG (onoff, inj)
+##   """
 
-  text_no_data = '<font color="#666666">NoData</font>'
+##   text_no_data = '<font color="#666666">NoData</font>'
 
-  if not grb_dict['has-data']:
-    return [text_no_data, text_no_data]
-  else:
-    text_list = []
-    for dag_key in ['onoff','inj']:
-      dag_dict = grb_dict['dags'][dag_key]  
-      status = dag_dict['status']
-      text = get_stage_name(status)
-      if status<0:
-        text = '<font color="#FF0000">%s</font>'%text
-      if status==5:
-        text = '<font color="#00aa00">%s</font>'%text
-      text_list.append(text)
+##   if not grb_dict['has-data']:
+##     return [text_no_data, text_no_data]
+##   else:
+##     text_list = []
+##     for dag_key in ['onoff','inj']:
+##       dag_dict = grb_dict['dags'][dag_key]  
+##       status = dag_dict['status']
+##       text = get_stage_name(status)
+##       if status<0:
+##         text = '<font color="#FF0000">%s</font>'%text
+##       if status==5:
+##         text = '<font color="#00aa00">%s</font>'%text
+##       text_list.append(text)
 
-  return text_list
+##   return text_list
 
 # --------------------------------------
 def generate_summary(publish_path, publish_url):
@@ -481,7 +472,7 @@ def generate_summary(publish_path, publish_url):
   monitor_list = read_monitor_list()
 
   # Bring them in timely order
-  time_unsort = [grb['triggertime'] for grb in monitor_list]
+  time_unsort = [grb.time for grb in monitor_list]
   index = np.argsort(time_unsort)
 
   table = total_summary_prefix % get_time()
@@ -489,61 +480,61 @@ def generate_summary(publish_path, publish_url):
   # Loop over all GRBs in reverse order
   for number, i in enumerate(index[::-1]):
 
-    item = monitor_list[i]
-    name = item['name']
+    grb = monitor_list[i]
 
-    if (i % 2):
+    # make the table background coloring
+    if grb.duration and grb.duration<cp.get('data','max-duration'):
       table += '<tr style="background-color: rgb(255, 200, 200);">'
     else:
-      table += '<tr style="background-color: rgb(255, 200, 200);">'
-
-    status_onoff = item['dags']['onoff']['status']
-    status_inj = item['dags']['inj']['status']
-    #if name=='090713':
-    #  print 'utils: ', name, item['status'], status_msg[item['status']], item
-    table = add(table, number+1)
-    table = add(table, name) 
-    status_msg = get_html_status(item)
-    table = add(table, status_msg[0])
-    table = add(table, status_msg[1])
-    table = add(table, item['triggertime'])
-    asctime = time.asctime(time.gmtime(item['triggertime']+offset_gps_to_linux))
-    table = add(table, asctime)
-    if item.has_key('redshift'):
-      table = add_linked_value(table, item['redshift'], item['redshift_ref'])
-    if item.has_key('duration'):
-      table = add_linked_value(table, item['duration'], item['duration_ref'])
-    table = add(table, '%.2f' % item['right_ascension'])
-    table = add(table, '%.2f' % item['declination'])
-    for ifo in ifo_list:
-      if ifo in item['ifos']:
-        table = add(table, '<b>%.2f</b>'%item['qvalues'][ifo])
+      if (i % 2):
+        table += '<tr style="background-color: rgb(153, 255, 255);">'
       else:
-        table = add(table, '%.2f'%item['qvalues'][ifo])
+        table += '<tr style="background-color: rgb(204, 255, 255);">'
+    
+
+    status_onoff = grb.dag['onoff'].get_status()
+    status_inj = grb.dag['inj'].get_status()
+    table = add(table, number+1)
+    table = add(table, grb.name) 
+    status_msg = grb.get_html_status()
+    table = add(table, status_msg['onoff'])
+    table = add(table, status_msg['inj'])
+    table = add(table, grb.time)
+    asctime = time.asctime(time.gmtime(grb.time+offset_gps_to_linux))
+    table = add(table, asctime)
+    table = add_linked_value(table, grb.redshift, None )
+    table = add_linked_value(table, grb.duration, None)
+    table = add(table, '%.2f' % grb.ra)
+    table = add(table, '%.2f' % grb.de)
+    for ifo in ifo_list:
+      if ifo in grb.ifos:
+        table = add(table, '<b>%.2f</b>'%grb.qvalues[ifo])
+      else:
+        table = add(table, '%.2f'%grb.qvalues[ifo])
 
     
     if status_onoff==5:
      
       #Add link to sanity pages
-      htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity.html' % (name, name)
-      htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity_inj.html' % (name, name)
+      htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity.html' % (grb.name, grb.name)
+      htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity_inj.html' % (grb.name, grb.name)
       if status_inj==5:
         table = add(table, '<a href="%s">onoff</a> <a href="%s">inj</a> '%(htmlfile, htmlfile_inj))
       else: 
         table = add(table, '<a href="%s">onoff</a> &mdash '%htmlfile)
 
       # Add link to box
-      if item['openbox']:
+      if grb.openbox:
         # add result    
-        result = obtain_results(item)
+        result = obtain_results(grb)
         if result<2:
           table = add(table, '%.2f'%result)
         else:        
           table = add(table, 'no cand.')
 
         # and link to the openbox details
-        htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s.html' % (name, name)
-        htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s_inj.html' % (name, name)
+        htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s.html' % (grb.name, grb.name)
+        htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s_inj.html' % (grb.name, grb.name)
         if status_inj==5:
           table = add(table, '<a href="%s">onoff</a> <a href="%s">lik</a> '%(htmlfile, htmlfile_inj))
         else:
@@ -567,105 +558,317 @@ def generate_summary(publish_path, publish_url):
     f.write(table)
     f.close()
 
+## # -----------------------------------------------------
+## def update_database(opts):
+
+##   monitor_file = cp.get('paths','main')+'/llmonitor.pickle'
+
+##   #log_file = cp.get('paths','main')+'/llmonitor.log'
+##   try:
+##     monitor_list = pickle.load(file(monitor_file))
+##   except IOError:
+##     # create an empty file if it does not exist
+##     monitor_list = []
+##     pickle.dump(monitor_list, file(monitor_file,'w'))
+
+##   # get the alert filenames and their locations
+##   alert_loc = cp.get('alerts','alert_location')
+##   main_loc = cp.get('paths','main')
+##   alert_file = cp.get('alerts','alert_file')
+##   circular_file = cp.get('alerts','circular_file')
+
+##   # copy all relevant files to the working directory
+##   cmd = 'scp %s %s >> ~/cp.log 2>&1' % (alert_loc, main_loc)
+##   peu.system_call('monitor', cmd)
+
+##   grbs_processed = [obj['name'] for obj in monitor_list]
+##   grbs_duration = [obj['duration'] for obj in monitor_list]
+
+##   # reset the counter
+##   counter = 0
+
+##   # open the file
+##   f = open(alert_file)
+##   for line in f:
+##     # leave out any empty line or any commented line
+##     if len(line)>1 and line[0]!="#":
+
+##       # check if we have reached the maximum number of GRBs
+##       # to start in this round
+##       if opts.check_number is not None:
+##         if counter>=opts.check_number:
+##           continue
+
+##       # extract the useful information
+##       words = line.split()
+##       grb_name = words[2]
+##       grb_duration = float(words[12])
+
+##       # skip if this GRB already had been processed
+##       if grb_name in grbs_processed:
+##         continue
+
+##       if opts.grb:
+##         if grb_name!=opts.grb:
+##           continue
+
+##       counter += 1
+
+##       # we found a new GRB!!
+##       grb_ra = float(words[3])
+##       grb_dec = float(words[4])
+##       grb_time = words[10]
+##       grb_date = grb_name[:6]
+
+##       # convert the date to GPS
+##       grb_gps_time = peu.get_gps_from_asc(grb_date, grb_time)
+
+##       # and prepare the call for a new analysis
+##       start_new_analysis(monitor_list, grb_name, grb_ra, grb_dec, grb_gps_time)
+
+##       # and add the processed GRB to the list of processed GRB's to avoid double analysis
+##       grbs_processed.append(grb_name)
+
+##   f.close()
+
+## # -----------------------------------------------------
+## def start_dag(grb, dag_key, dagfile):
+##   """
+##   Start a DAG 
+##   @params grb: GRB dictionary with all information
+##   @params dag_key: key of DAG
+##   @params dagfile: name of the DAG to start
+##   """
+##   # create the call to start the DAG
+##   analysis_dir = cp.get('paths','main')+'/GRB'+grb['name']  
+##   cmd = 'cd %s;' % analysis_dir
+##   cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
+##   cmd += 'condor_submit_dag %s' % dagfile
+##   system_call(grb['name'], cmd)
+
+##   # change the status
+##   grb['dags'][dag_key]['status']=1
+
+
+
+## # -----------------------------------------------------
+## def get_sed_filename(grb):
+##   """
+##   Returns the name of the sed file
+##   """
+##   return cp.get('paths','main')+'/GRB'+grb['name']+'/sed.file'
+
+
+## # -----------------------------------------------------
+## def apply_sed_file(grb, infile, outfile):
+##   """
+##   Applies the sed file to an in file
+##   """
+
+##   # get the sed filename
+##   sedfile = get_sed_filename(grb)
+
+##   # run the sed command
+##   cmd = 'sed -f %s %s > %s' % (sedfile, infile, outfile)
+##   system_call(grb['name'], cmd, False)
+
+
+## # -----------------------------------------------------
+## def create_sed_file(grb):
+##   """
+##   Creates the replacement sed file that will be used later
+##   on several in files.
+##   """
+
+##   # get some values  
+##   grb_name = grb['name']
+
+##   ## path = "%s/GRB%s/postprocessing/"%(grb_dict['path'],grb_name)
+##   publishing_path = cp.get('paths','publishing_path')
+##   html_path = "%s/GRB%s" % (publishing_path, grb_name)
+
+##   # prepare the directory
+##   #command = 'mkdir -p '+html_path
+##   #peu.system_call(grb_name, command)
+
+##   # replace the in-file and create the DAG file
+##   sedfile = get_sed_filename(grb)
+##   f = file(sedfile,'w')
+##   f.write("s/@GRBNAME@/GRB%s/g\n"%grb_name)
+##   f.write("s=@ANALYSISPATH@=%s=g\n"%(grb['path']+'/GRB'+grb['name']))
+##   f.write("s/@STARTTIME@/%d/g\n"%grb['starttime'])
+##   f.write("s/@ENDTIME@/%d/g\n"%grb['endtime'])
+##   f.write("s/@IFOS@/%s/g\n"%grb['ifos'])
+##   f.write("s=@LOGPATH@=%s=g\n"%grb['condorlogpath'])
+##   f.write("s/@TRIGGERTIME@/%d/g\n"%int(grb['triggertime']))
+##   f.write("s/@RIGHTASCENSION@/%f/g\n"%float(grb['right_ascension']))
+##   f.write("s/@DECLINATION@/%f/g\n"%float(grb['declination']))
+##   f.write("s=@OUTPUTPATH@=%s=g\n"%html_path)
+##   f.write("s/@LOGNAME@/%s/g\n" % os.getenv("LOGNAME"))
+##   f.close()
+
+
 # -----------------------------------------------------
-def update_database(opts):
-
-  monitor_file = cp.get('paths','main')+'/llmonitor.pickle'
-
-  #log_file = cp.get('paths','main')+'/llmonitor.log'
-  try:
-    monitor_list = pickle.load(file(monitor_file))
-  except IOError:
-    # create an empty file if it does not exist
-    monitor_list = []
-    pickle.dump(monitor_list, file(monitor_file,'w'))
-
-  # get the alert filenames and their locations
-  alert_loc = cp.get('alerts','alert_location')
-  main_loc = cp.get('paths','main')
-  alert_file = cp.get('alerts','alert_file')
-  circular_file = cp.get('alerts','circular_file')
-
-  # copy all relevant files to the working directory
-  cmd = 'scp %s %s >> ~/cp.log 2>&1' % (alert_loc, main_loc)
-  peu.system_call('monitor', cmd)
-
-  grbs_processed = [obj['name'] for obj in monitor_list]
-  grbs_duration = [obj['duration'] for obj in monitor_list]
-
-  # reset the counter
-  counter = 0
-
-  # open the file
-  f = open(alert_file)
-  for line in f:
-    # leave out any empty line or any commented line
-    if len(line)>1 and line[0]!="#":
-
-      # check if we have reached the maximum number of GRBs
-      # to start in this round
-      if opts.check_number is not None:
-        if counter>=opts.check_number:
-          continue
-
-      # extract the useful information
-      words = line.split()
-      grb_name = words[2]
-      grb_duration = float(words[12])
-
-      # skip if this GRB already had been processed
-      if grb_name in grbs_processed:
-        continue
-
-      if opts.grb:
-        if grb_name!=opts.grb:
-          continue
-
-      counter += 1
-
-      # we found a new GRB!!
-      grb_ra = float(words[3])
-      grb_dec = float(words[4])
-      grb_time = words[10]
-      grb_date = grb_name[:6]
-
-      # convert the date to GPS
-      grb_gps_time = peu.get_gps_from_asc(grb_date, grb_time)
-
-      # and prepare the call for a new analysis
-      start_new_analysis(monitor_list, grb_name, grb_ra, grb_dec, grb_gps_time)
-
-      # and add the processed GRB to the list of processed GRB's to avoid double analysis
-      grbs_processed.append(grb_name)
-
-  f.close()
-
 # -----------------------------------------------------
-def start_dag(grb, dag_key, dagfile):
+class AnalysisDag(object):
   """
-  Start a DAG 
-  @params grb: GRB dictionary with all information
-  @params dag_key: key of DAG
-  @params dagfile: name of the DAG to start
+  Class to hold and handle an analysis DAG and all
+  related information.
   """
-  # create the call to start the DAG
-  analysis_dir = cp.get('paths','main')+'/GRB'+grb['name']  
-  cmd = 'cd %s;' % analysis_dir
-  cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
-  cmd += 'condor_submit_dag %s' % dagfile
-  system_call(grb['name'], cmd)
+  
+  # -----------------------------------------------------
+  def __init__(self, name, type, analysis_dir):
+    """
+    Initializing this class with all the needed information
+    @param name: name of the GRB
+    @param type: what dag is this? onoff/inj
+    #@param stage: stage of the dag, like uberdag or ligolwdag
+    #@param inifile: inifile for this DAG
+    #@param injfile: injection file for this DAG
+    @param analysis_dir: path to the analysis directory
+    """
 
-  # change the status
-  grb['dags'][dag_key]['status']=1
+    # store the input data
+    self.name = name
+    self.type = type
+    #self.stage = stage
+    #self.inifile = inifile
+    #self.injfile = injfile
+    self.analysis_dir = analysis_dir
 
+    self.dagname = None
 
+    self.status = 0
+    self.status_dict = {1:'inspiral',2:'ligolw',3:'postproc'}
+
+  # --------------------------------------
+  def set_dagname(self, name):
+    """
+    Sets the current name of the DAG
+    @param name: name of the .dag file
+    """
+    self.dagname = name
+
+  # --------------------------------------
+  def get_basename(self):
+    """
+    returns basename without any ending.
+    """
+    return self.analysis_dir+'/'+self.dagname[:-4]
+  
+  # --------------------------------------
+  def get_outname(self):
+    """
+    Returns the outname of this DAG
+    """
+    return self.dagname+'.dagman.out'
+
+  # --------------------------------------
+  def get_dagname(self):
+    """
+    Returns the name of the DAG file
+    """
+    return self.dagname
+ 
+  # --------------------------------------
+  def get_shname(self):
+    """
+    Returns the name of the sh file
+    """
+    return self.get_basename()+'.sh'
+
+  # --------------------------------------
+#  def set_stage(self, stage):
+#    """
+#    Sets the stage (like uberdag or ligolwdag)
+#    """
+#    self.stage = stage
+
+  # --------------------------------------
+  def start(self):
+    """
+    Start this DAG
+    """
+
+    # create the call to start the DAG
+    cmd = 'cd %s;' % self.analysis_dir
+    cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
+    cmd += 'condor_submit_dag %s' % self.get_dagname()
+    #print "WARNING: DAG NOT STARTED FOR TESTING"
+    system_call(self.name, cmd)
+
+    # change the status
+    self.status = 1
+
+  # --------------------------------------
+  def get_status(self):
+    return self.status
+
+  # --------------------------------------
+  def set_status(self, new_status):
+    if new_status<=0:
+      raise ValueError, "The DAG Status variable can only be set to positive values"
+
+    self.status = new_status
+
+  # --------------------------------------
+  def get_stage_name(self):
+    """
+    Returns the name of the stage or error of the current DAG.
+    """
+    status_dict = {1:'inspiral',2:'ligolw',3:'postproc'}
+    # check the status number and choose the text
+    text = ''
+    if self.status==0:
+      text = 'Not started'
+    elif self.status==5:
+      text = 'Complete'
+    elif self.status==-6:
+      text = 'DAGFILE ERROR'
+    else:
+      text = status_dict[abs(self.status)]
+      if self.status<0:
+        text += "ERROR"
+ 
+    return text
+
+  # --------------------------------------
+  def check_status(self, grb, dag):
+    """
+    Updating the status for this DAG,
+    and return the fstat value
+    """
+
+    # try to open the dagman.out file
+    fstat = 0
+    try:
+      # read the last line only
+      line = file(self.get_outname()).readlines()[-1]
+      if "EXITING WITH STATUS 1" in line:
+        fstat = -1
+      if "EXITING WITH STATUS 0" in line:
+        fstat = 1
+    except IOError:
+      fstat = -2
+
+    # change the status if the DAG was running before
+    if self.status>0:
+      if fstat == -1:
+        notify(grb, dag, 'DAG exited on error')
+        self.status = -self.status
+      elif fstat==-2:
+        notify(grb, dag, 'DAG file vanished!?')
+        self.status = -6
+
+    return fstat
+
+  
 # -----------------------------------------------------
-class ExttrigDag(object):
+# -----------------------------------------------------
+class GRB(object):
   """
-  Class holding all the infos for a new analysis DAG.
-  This has the advantage that the DAG creating stuff
-  can be more easily split up intop a couple of shorter
-  functions.
+  Class holding all the infos for a GRB and for setting up
+  a new analysis DAG.
   """
 
   # -----------------------------------------------------
@@ -675,7 +878,20 @@ class ExttrigDag(object):
     self.de = float(grb_de)
     self.time = int(grb_time)
 
+    self.ifos = ''
+    self.duration = None
+    self.redshift = None
+    self.starttime = None
+    self.endtime = None
+    self.openbox = False
+    
+    # prepare the DAG instances
+    self.dag = {'onoff':None, 'inj':None}
+
+    # prepare variables for later use
     self.qvalues = {}
+    self.offsource_segment = None
+    self.ifolist  = []
 
     self.use_offline_data = False
     self.type_online = {'H1':'H1_DMT_C00_L2', 'L1':'L1_DMT_C00_L2', 'V1':'V1_DMT_HREC'}
@@ -684,38 +900,27 @@ class ExttrigDag(object):
   # -----------------------------------------------------
   def set_paths(self, input_dir=None, glue_dir=None, pylal_dir = None,\
                 lalapps_dir=None, main_dir=None,\
+                ini_file = None, inj_file = None,\
                 condor_log_path = None, log_file=None):
     self.input_dir = input_dir
     self.glue_dir = glue_dir
     self.pylal_dir = pylal_dir
     self.lalapps_dir = lalapps_dir
     self.main_dir = main_dir
+    self.inifile = ini_file
+    self.injfile = inj_file
     self.condor_log_path = condor_log_path
     self.log_file = log_file
      
     self.analysis_dir = self.main_dir+'/GRB'+self.name
 
   # -----------------------------------------------------
-  def set_ini_file(self, ini_file, inj_file):
-    self.ini_file = ini_file
-    self.dag_part = get_dag_part(self.ini_file)
-    self.dag_file = self.dag_part+'_uberdag.dag'
-    self.out_file = self.dag_file+'.dagman.out'
-    self.inj_file = inj_file
-    self.inj_dag_file = self.dag_part+'_inj_uberdag.dag'
-
-  # -----------------------------------------------------
-  def set_monitor_file(self, monitor_file):
-    self.monitor_file = monitor_file
-
-  # -----------------------------------------------------
   def set_addresses(self, addresses):
     self.addresses = addresses
 
   # -----------------------------------------------------
-  def set_seg_info(self, offsource_segment = None, ifos = None):
-    self.offsource_segment = offsource_segment
-    self.ifos = ifos
+  def get_basic_dagname(self):
+    return  self.analysis_dir+'/'+self.inifile[:-4]
 
   # -----------------------------------------------------
   def make_links(self, sourcedir, destdir, list_exec):
@@ -728,7 +933,7 @@ class ExttrigDag(object):
     cmd = 'cd %s;' % destdir
     for execfile in list_exec:
       cmd += 'ln -s %s/%s .;' % (sourcedir, execfile)
-    system_call('??',cmd)
+    system_call(self.name,cmd)
 
 
   # -----------------------------------------------------
@@ -845,7 +1050,7 @@ class ExttrigDag(object):
     """ 
 
     # read the config ini-file
-    config_file = '%s/%s' % (self.analysis_dir, self.ini_file)
+    config_file = '%s/%s' % (self.analysis_dir, self.inifile)
     pc = ConfigParser.ConfigParser()
     pc.read(config_file)
      
@@ -857,7 +1062,6 @@ class ExttrigDag(object):
     cp_file = open(config_file, 'w')
     pc.write(cp_file)
     cp_file.close()
-
 
 
   # -----------------------------------------------------
@@ -903,7 +1107,8 @@ class ExttrigDag(object):
       (self.glue_dir, self.analysis_dir)
     system_call(self.name, cmd)
 
-    cmd = 'cd %s/bin; cp pylal_relic pylal_exttrig_llsummary plotinspiral plotnumtemplates plotthinca pylal_grbtimeslide_stats %s' % \
+    cmd = 'cd %s/bin; cp pylal_relic pylal_exttrig_llsummary plotinspiral plotnumtemplates plotthinca pylal_grbtimeslide_stats '\
+          ' plotinjnum plotinspmissed plotinspinj plotsnrchi plotethinca %s' % \
       (self.pylal_dir, self.analysis_dir)
     system_call(self.name, cmd)
 
@@ -917,7 +1122,7 @@ class ExttrigDag(object):
     #
     cmd = 'cd %s;' % self.analysis_dir
     cmd += template_trigger_hipe % \
-           (self.name, self.name, self.name, self.trigger_file, self.name, self.ini_file, self.condor_log_path)
+           (self.name, self.name, self.name, self.trigger_file, self.name, self.inifile, self.condor_log_path)
     system_call(self.name, cmd)
 
     #
@@ -925,7 +1130,13 @@ class ExttrigDag(object):
     # 
     cmd = 'cd %s;' % self.analysis_dir
     cmd += template_trigger_hipe_inj % \
-           (self.name, self.name, self.name, self.trigger_file, self.name, self.ini_file, self.inj_file, self.condor_log_path)
+           (self.name, self.name, self.name, self.trigger_file, self.name, self.inifile, self.injfile, self.condor_log_path)
+    system_call(self.name, cmd)
+
+
+    # Need to unify the two cache files
+    cmd = 'cd %s/GRB%s; cat GRB%s_inj.cache >> GRB%s.cache' % \
+      (self.analysis_dir, self.name, self.name, self.name)
     system_call(self.name, cmd)
 
     # Call a subfunction to run the datafind command
@@ -944,131 +1155,56 @@ class ExttrigDag(object):
     cmd = 'cp %s/lik* %s' % (self.input_dir, path)
     system_call(self.name, cmd)
 
+    # link the executables directory directly from pylal
+    exec_path = path+'/executables'
+    cmd = 'cd %s; ln -s %s/bin executables' % (path, self.pylal_dir)
+    system_call(self.name, cmd)
+
+    # update the two DAG instances
+    self.dag['onoff'] = AnalysisDag(self.name, 'onoff', self.analysis_dir)
+    self.dag['inj'] = AnalysisDag(self.name, 'inj', self.analysis_dir)
+
+    dagfile = self.get_basic_dagname()+'_onoff_uberdag.dag'
+    self.dag['onoff'].set_dagname(dagfile)
+    dagfile = self.get_basic_dagname()+'_inj_uberdag.dag'
+    self.dag['inj'].set_dagname(dagfile)
+
+    # create the sed file
+    self.create_sed_file()
 
   # -----------------------------------------------------
-  #def start_analysis(self, grb_dict):
-
-   # start_dag(grb_dict, 'onoff', self.dag_file
-
-
-    # create the call to start the DAG
-    #cmd = 'cd %s;' % self.analysis_dir
-    #cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
-    #cmd += 'condor_submit_dag %s' % self.dag_file
-    #system_call(self.name, cmd)
-
-    # check the status
-    #grb_dict['dags']['onoff']['status']=1
-
-  # -----------------------------------------------------
-  #def start_injections(self, grb_dict):
-
-    # create the call to start the DAG
-  #  cmd = 'cd %s;' % self.analysis_dir
-  #  cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
-  #  cmd += 'condor_submit_dag %s' % self.dag_file
-  #  system_call(self.name, cmd)
-
-    # check the status
-  #  grb_dict['dags']['inj']['status']=1
-
-
-  # -----------------------------------------------------
-  def check_analysis_directory(self, dag_dict):
+  def check_analysis_directory(self, dag_key):
     """
     Check if the dagman.out file does exist
-    after some while
+    after some while for the dag with 'dag_key'
     """
 
-    out_file = self.analysis_dir+'/'+dag_dict['filename']
+    dag = self.dag[dag_key]
 
-    success = False
+    # try it for ten times ten seconds
     for i in range(10):
       time.sleep(10)
-
-      # try to open the file
-      try:
-        f = open(out_file)
-        f.close()
-        # if no errors: great, DAG is running...
-        success = True
+      success = os.path.exists(dag.get_outname())
+      if success:
         break
-      except:
-        success = False
 
     # check the status at the end
     if not success:
       
       # send an email about this problem
       subject = 'Problems starting condor DAG'     
-      email_msg = 'The condor DAG %s was not started' % dag_dict['filename']
-      email_msg += 'The DAG is located at : %s\n'% self.analysis_dir
+      email_msg = 'The condor DAG %s was not started.\n' % dag.get_dagname()
       send_mail(subject, email_msg)  
 
       # set the status
-      if dag_dict['status']>0:
-        dag_dict['status']=-dag_dict['status']
+      if dag.status>0:
+        dag.status = -dag.status
       
       return -1 
     else:
 
       return 1
       
-  # -----------------------------------------------------
-  def update_database(self, has_data):
-    """
-    Update the database, put in the informations
-    for this GRB:
-    """
-
-    #
-    # add this DAG to the monitor database
-    #
-    onoff_dict = {'filename':'', 'basename':'', 'status': 0}
-    inj_dict = {'filename':'', 'basename':'', 'status': 0}
-        
-    # grb-type: unknown, typeI, typeII
-    grb_dict = {'name':self.name, 'path':self.analysis_dir, \
-                'grb-type':'unknown',\
-                'dags':{'onoff':onoff_dict, 'inj':inj_dict},\
-                 'ifos':'', 'condorlogpath':'',\
-                 'triggertime':self.time,\
-                 'right_ascension': self.ra,'declination':self.de,\
-                 'duration':-1.0, 'duration_ref':-1,\
-                 'redshift':-1.0, 'redshift_ref':-1,\
-                 'qvalues':self.qvalues,\
-                 'openbox':False}
-
-    if has_data ==0:
-      # Not enough data has been found. The data is stored,
-      # but no analysis is started
-      grb_dict['has-data']=False
-      grb_dict['starttime'] = None
-      grb_dict['endtime'] = None
-      grb_dict['ifos'] = ''
-      grb_dict['condorlogpath'] = ''
-    else:
-      # Enough data is stored, the DAG has been prepared
-      grb_dict['has-data']=True
-      grb_dict['starttime'] = self.offsource_segment[0]
-      grb_dict['endtime'] = self.offsource_segment[1]
-      grb_dict['ifos'] = self.ifos
-      grb_dict['condorlogpath'] = self.condor_log_path
-
-      # Set the filenames of the two seperate DAGs
-      grb_dict['dags']['onoff']['filename'] = self.dag_file
-      grb_dict['dags']['onoff']['basename'] = self.dag_file.split('.')[0]
-      grb_dict['dags']['inj']['filename'] = self.inj_dag_file
-      grb_dict['dags']['inj']['basename'] = self.inj_dag_file.split('.')[0]
-
-    # makes a notification
-    if has_data:
-      info(self.name, 'The GRB %s with data to analyze has been added to the database.'%self.name)
-    else:
-      info(self.name, 'The GRB %s WITHOUT data has been added to the database.'%self.name)
-
-    return grb_dict
-
   # -----------------------------------------------------
   def get_minimum_scienceseg_length(self):
     """
@@ -1079,6 +1215,7 @@ class ExttrigDag(object):
     """
     
     # get the name of the ini-file to be used
+    # note: must be the inifile from CVS, just to create some information
     ini_file = cp.get('paths','cvs') + '/'+cp.get('data','ini_file')
  
     # the following is just a copy-and-paste from trigger_hipe
@@ -1121,7 +1258,10 @@ class ExttrigDag(object):
 
       # 'convert' the data from the xml format to a useable format...
       # TODO: change the other places to accept the xml format
-      doc = utils.load_filename(segxmlfile)
+      try:
+        doc = utils.load_filename(segxmlfile)
+      except:
+        raise IOError, "Error reading file ", segxmlfile
       segs = table.get_table(doc, "segment")
       seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
       segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
@@ -1185,8 +1325,44 @@ class ExttrigDag(object):
       plot.savefig(plot_segments_file)
       plot.close()
 
+    # store the results, cannot pickle segments objects
+    self.offsource_segment = [offSourceSegment[0], offSourceSegment[1]]
+    self.starttime = offSourceSegment[0]
+    self.endtime = offSourceSegment[1]
+    self.ifolist = grb_ifolist
+    if len(self.ifolist)>=2:
+      self.has_data = True
+
+    self.ifos = ''.join(self.ifolist) 
+
     # return the main values from this function    
-    return offSourceSegment, grb_ifolist
+    #return offSourceSegment, grb_ifolist
+
+  # --------------------------------------
+  def get_html_status(self):
+    """
+    Returns the status of the DAGs of this instance
+    in form of a dictionary.
+    """
+
+    status_dict = {}
+
+    # loop over the dags in this instance
+    for key, dag in self.dag.iteritems():
+      if self.has_data:
+        status = dag.get_status()
+        text = dag.get_stage_name()
+        if status<0:
+          text = '<font color="#FF0000">%s</font>'%text
+        if status==5:
+          text = '<font color="#00aa00">%s</font>'%text
+      else:
+        text = '<font color="#666666">NoData</font>'
+
+      # set the text
+      status_dict[key]=text
+       
+    return status_dict
 
   # -----------------------------------------------------
   def calculate_optimality(self):
@@ -1196,4 +1372,52 @@ class ExttrigDag(object):
       _, _, _, q = antenna.response(self.time, self.ra, self.de, \
                                     0.0, 0.0, 'degree', ifo)
       self.qvalues[ifo]=q
+
+  # -----------------------------------------------------
+  def get_sed_filename(self):
+    """
+    Returns the name of the sed file
+    """
+    return self.analysis_dir+'/sed.file'
+
+  # -----------------------------------------------------
+  def apply_sed_file(self, infile, outfile):
+    """
+    Applies the sed file to an in file
+    """
+
+    # get the sed filename
+    sedfile = self.get_sed_filename()
+
+    # run the sed command
+    cmd = 'sed -f %s %s > %s' % (sedfile, infile, outfile)
+    system_call(self.name, cmd, False)
+
+  # -----------------------------------------------------
+  def create_sed_file(self):
+    """
+    Creates the replacement sed file that will be used later
+    on several in files.
+    """
+
+    # get the publishing  paths for this GRB
+    publishing_path = cp.get('paths','publishing_path')
+    html_path = "%s/GRB%s" % (publishing_path, self.name)
+
+
+    # replace the in-file and create the DAG file
+    sedfile = self.get_sed_filename()
+    f = file(sedfile,'w')
+    f.write("s/@GRBNAME@/GRB%s/g\n"%self.name)
+    f.write("s=@ANALYSISPATH@=%s=g\n"%self.analysis_dir)
+    f.write("s/@STARTTIME@/%d/g\n"%self.starttime)
+    f.write("s/@ENDTIME@/%d/g\n"%self.endtime)
+    f.write("s/@IFOS@/%s/g\n"%self.ifos)
+    f.write("s=@LOGPATH@=%s=g\n"%self.condor_log_path)
+    f.write("s/@TRIGGERTIME@/%d/g\n"%int(self.time))
+    f.write("s/@RIGHTASCENSION@/%f/g\n"%float(self.ra))
+    f.write("s/@DECLINATION@/%f/g\n"%float(self.de))
+    f.write("s=@OUTPUTPATH@=%s=g\n"%html_path)
+    f.write("s/@LOGNAME@/%s/g\n" % os.getenv("LOGNAME"))
+    f.close()
 

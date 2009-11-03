@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_TOOLS_H_
+#define _PYLAL_XLAL_TOOLS_H_
+
+
 #include <Python.h>
 #include <lal/LALDetectors.h>
 #include <lal/LIGOMetadataTables.h>
@@ -152,3 +156,6 @@ typedef struct {
 	long process_id_i;
 	EventIDColumn event_id;
 } pylal_SimInspiralTable;
+
+
+#endif /* _PYLAL_XLAL_TOOLS_H_ */

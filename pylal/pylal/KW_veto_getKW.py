@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#
 # Copyright (C) 2009  Tomoki Isogai
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -82,6 +83,7 @@ except ImportError:
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils
 
+from pylal import git_version
 from pylal import KW_veto_utils as utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
@@ -92,8 +94,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage = __doc__,version=__version__)
-
+    parser = optparse.OptionParser(usage = __doc__,version=git_version.verbose_msg)
     parser.add_option("-K", "--KW_location", default=None,
                       help="Location of KW trigger folder if you are not using the folder specified in --help.")
     parser.add_option("-c", "--channel_name", action="append", default=[],
@@ -150,12 +151,12 @@ def parse_commandline():
        
     # check order_by is valid and avoid SQL injection attack
     if opts.order_by not in ("GPSTime asc","GPSTime desc","KWSignificance asc","KWSignificance desc"):
-      parser.error("Error: %s is not valid. See -help for the supported order."%opes.order_by)
+      parser.error("Error: %s is not valid. See -help for the supported order."%opts.order_by)
  
     # show parameters
     if opts.verbose:
       print >> sys.stderr, "running KW_veto_getKW.py..."
-      print >> sys.stderr, "version: %s"%__version__
+      print >> sys.stderr, git_version.verbose_msg
       print >> sys.stderr, ""
       print >> sys.stderr, "******************* PARAMETERS ********************"
       print >> sys.stderr, "KW trigger directory:"

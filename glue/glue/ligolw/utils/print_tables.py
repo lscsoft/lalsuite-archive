@@ -42,7 +42,10 @@ def set_output_format( output_format ):
         xcap: how to close a caption for the table
         rx: how to start a row and the first cell in the row
         xr: how to close a row and the last cell in the row
-        xccx: how to close a cell and open a new one
+        rspx: how to start a cell with a row span argument
+        xrsp: how to close the row span argument
+        cx: how to open a cell
+        xc: how to close a cell
     """
     if output_format == 'wiki':
         ttx = '== '
@@ -51,9 +54,15 @@ def set_output_format( output_format ):
         xt = ''
         capx = "'''"
         xcap = "'''"
-        rx = '||'
-        xr = '||'
-        xccx = '||'
+        rx = '|'
+        xr = '|'
+        rspx = '|<|'
+        xrsp = '>'
+        cx = '|'
+        xc = '|'
+        hlx = '['
+        hxl = ' '
+        xhl = ']'
 
     elif output_format == "html":
         ttx = '<b>'
@@ -62,23 +71,28 @@ def set_output_format( output_format ):
         xt = '</table><br><br>'
         capx = '<caption>'
         xcap = '</caption>'
-        rx = '<tr><td>'
-        xr = '</td></tr>'
-        xccx = '</td><td>'
+        rx = '<tr>'
+        xr = '</tr>'
+        rspx = '<td rowspan='
+        xrsp = '>'
+        cx = '<td>'
+        xc = '</td>'
+        hlx = '<a href="'
+        hxl = '">'
+        xhl = "</a>"
 
     else:
         raise ValueError, "unrecognized output_format %s" % output_format
 
-    return ttx, xtt, tx, xt, capx, xcap, rx, xr, xccx
+    return ttx, xtt, tx, xt, capx, xcap, rx, xr, cx, xc, rspx, xrsp, hlx, hxl, xhl
 
 
-def smart_round( val, decimal_places = 2):
+def smart_round( val, decimal_places = 2 ):
     """
     For floats >= 10.**-(decimal_places - 1), rounds off to the valber of decimal places specified.
     For floats < 10.**-(decimal_places - 1), puts in exponential form then rounds off to the decimal
     places specified.
-
-    @val: value to round. If val is not a float, just returns val
+    @val: value to round; if val is not a float, just returns val
     @decimal_places: number of decimal places to round to
     """
     if isinstance(val, float) and val != 0.0:
@@ -90,6 +104,28 @@ def smart_round( val, decimal_places = 2):
 
     return val
 
+def format_hyperlink( val, hlx, hxl, xhl ):
+    """
+    Formats an html hyperlink into other forms.
+
+    @hlx, hxl, xhl: values returned by set_output_format
+    """
+    if '<a href="' in str(val) and hlx != '<a href="':
+        val = val.replace('<a href="', hlx).replace('">', hxl, 1).replace('</a>', xhl) 
+
+    return val
+
+def format_cell(val, round_floats = False, decimal_places = 2, format_links = False, 
+    hlx = '', hxl = '', xhl = ''):
+    """
+    Applys smart_round and format_hyperlink to values in a cell if desired.
+    """
+    if round_floats:
+        val = smart_round(val, decimal_places = decimal_places)
+    if format_links:
+        val = format_hyperlink(val, hlx, hxl, xhl)
+
+    return val
 
 #
 # =============================================================================
@@ -100,7 +136,9 @@ def smart_round( val, decimal_places = 2):
 #
 
 def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
-    round_floats = True, decimal_places = 2, title = None, print_table_names = True):
+    round_floats = True, decimal_places = 2, format_links = True,
+    title = None, print_table_names = True,
+    row_span_columns = [], rspan_break_columns = []):
     """
     Method to print tables in an xml file in other formats.
     Input is an xmldoc, output is a file object containing the
@@ -119,11 +157,19 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
      Default is to print all columns.
     @round_floats: If turned on, will smart_round floats to specifed
      number of places.
+    @format_links: If turned on, will convert any html hyperlinks to specified
+     output_format.
     @decimal_places: If round_floats turned on, will smart_round to this
      number of decimal places.
     @title: Add a title to this set of tables.
     @print_table_names: If set to True, will print the name of each table
      in the caption section.
+    @row_span_columns: For the columns listed, will
+     concatenate consecutive cells with the same values
+     into one cell that spans those rows. Default is to span no rows.
+    @rspan_break_column: Columns listed will prevent all cells
+     from rowspanning across two rows in which values in the
+     columns are diffrent. Default is to have no break columns.
     """
     # get the tables to convert
     if tableList == []:
@@ -134,7 +180,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
         output = sys.stdout
 
     # get table bits
-    ttx, xtt, tx, xt, capx, xcap, rx, xr, xccx = set_output_format( output_format )
+    ttx, xtt, tx, xt, capx, xcap, rx, xr, cx, xc, rspx, xrsp, hlx, hxl, xhl = set_output_format( output_format )
 
     # set the title if desired
     if title is not None:
@@ -146,25 +192,66 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
             col_names = [ col.getAttribute("Name").split(":")[-1]
                 for col in this_table.getElementsByTagName(u'Column') ]
         else:
-            col_names = []
-            for requested_column in columnList:
-                col_names.extend( actual_column.getAttribute("Name").split(":")[-1]
-                for actual_column in this_table.getElementsByTagName(u'Column')
-                    if requested_column in actual_column.getAttribute("Name")
-                    and actual_column.getAttribute("Name").split(":")[-1] not in col_names )
+            requested_columns = [col.split(':')[-1] for col in columnList if not (':' in col and col.split(':')[0] != table_name) ]
+            requested_columns = sorted(set(requested_columns), key=requested_columns.index)
+            actual_columns = [actual_column.getAttribute("Name").split(":")[-1]
+                for actual_column in this_table.getElementsByTagName(u'Column') ]
+            col_names = [col for col in requested_columns if col in actual_columns]
+        # get the relevant row_span/break column indices
+        rspan_indices = [ n for n,col in enumerate(col_names) if col in row_span_columns or ':'.join([table_name,col]) in row_span_columns ]
+        break_indices = [ n for n,col in enumerate(col_names) if col in rspan_break_columns or ':'.join([table_name,col]) in rspan_break_columns ] 
+
         # start the table and print table name
         print >> output, tx
         if print_table_names:
             print >> output, "%s%s%s" %(capx, table_name, xcap)
-        print >> output, "%s%s%s" %(rx, re.sub('_', ' ', xccx.join(col_names)), xr)
+        print >> output, "%s%s%s%s%s" %(rx, cx, re.sub('_', ' ', (xc+cx).join(col_names)), xc, xr)
 
-        # print the data in the table
+        # format the data in the table
+        out_table = []
         for row in this_table:
-            if round_floats:
-                out_row = [ str(smart_round( getattr(row, col_name), decimal_places = decimal_places )) for col_name in col_names ]
-            else:
-                out_row = [ str(getattr(row, col_name)) for col_name in col_names ]
-            print >> output, "%s%s%s" %(rx, xccx.join(out_row), xr)
+            out_row = [ str(format_cell( getattr(row, col_name),
+                round_floats = round_floats, decimal_places = decimal_places,
+                format_links = format_links,  hlx = hlx, hxl = hxl, xhl = xhl ))
+                for col_name in col_names ]
+            out_table.append(out_row)
+
+        rspan_count = {}
+        for mm, row in enumerate(out_table[::-1]):
+            this_row_idx = len(out_table) - (mm+1)
+            next_row_idx = this_row_idx - 1
+            # cheack if it's ok to do row-span
+            rspan_ok = rspan_indices != [] and this_row_idx != 0
+            if rspan_ok:
+                for jj in break_indices:
+                    rspan_ok = out_table[this_row_idx][jj] == out_table[next_row_idx][jj]
+                    if not rspan_ok: break
+            # cycle over columns in the row setting row span values
+            for nn, val in enumerate(row):
+                # check if this cell should be spanned;
+                # if so, delete it, update rspan_count and go on to next cell
+                if rspan_ok and nn in rspan_indices:
+                    if val == out_table[next_row_idx][nn]:
+                        out_table[this_row_idx][nn] = ''
+                        if (this_row_idx, nn) in rspan_count:
+                            rspan_count[(next_row_idx,nn)] = rspan_count[(this_row_idx,nn)] + 1
+                            del rspan_count[(this_row_idx,nn)]
+                        else:
+                            rspan_count[(next_row_idx,nn)] = 2 
+                    elif (this_row_idx, nn) in rspan_count:
+                        out_table[this_row_idx][nn] = ''.join([rspx, str(rspan_count[(this_row_idx,nn)]), xrsp, str(val), xc])
+                    else:
+                        out_table[this_row_idx][nn] = ''.join([cx, str(val), xc])
+                    continue
+                # format cell appropriately
+                if (this_row_idx, nn) in rspan_count:
+                    out_table[this_row_idx][nn] = ''.join([rspx, str(rspan_count[(this_row_idx,nn)]), xrsp, str(val), xc])
+                else:
+                    out_table[this_row_idx][nn] = ''.join([cx, str(val), xc])
+
+        # print the table to output
+        for row in out_table:
+            print >> output, "%s%s%s" % (rx, ''.join(row), xr)
 
         # close the table and go on to the next
         print >> output, xt

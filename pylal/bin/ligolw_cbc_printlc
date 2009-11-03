@@ -190,7 +190,7 @@ def parse_command_line():
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
         options.convert_durations.strip().lower() == "hr" or options.convert_durations.strip().lower() == "days" or
         options.convert_durations.strip().lower() == "yr"):
-        raise ValueError, "--convert-duration must be either s, min, hr, d, or yr"
+        raise ValueError, "--convert-duration must be either s, min, hr, days, or yr"
 
 
     return options, sys.argv[1:]
