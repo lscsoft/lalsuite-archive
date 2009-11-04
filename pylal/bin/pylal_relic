@@ -102,6 +102,7 @@ def get_loudest_stats_by_mc(xmldoc, coinc_stat, mc_bins):
           lsctables.SnglInspiralTable.tableName)
     except ValueError:
       onsource_trigs = lsctables.New(lsctables.SnglInspiralTable)
+      xmldoc.childNodes[0].appendChild(onsource_trigs)
     onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
         coinc_stat)
 
@@ -126,6 +127,7 @@ def keep_only_loudest_events_by_mc(xmldoc, coincstat, mc_bins):
           lsctables.SnglInspiralTable.tableName)
     except ValueError:
       onsource_trigs = lsctables.New(lsctables.SnglInspiralTable)
+      xmldoc.childNodes[0].appendChild(onsource_trigs)
     onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
         coinc_stat)
 
