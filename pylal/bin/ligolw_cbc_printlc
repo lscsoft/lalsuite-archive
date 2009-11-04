@@ -172,7 +172,7 @@ def parse_command_line():
             "s (seconds), min (minutes), hr (hours), days (days), or yr (years). " +
             "(Setting to s is the equivalent of a no-op.)"
             )
-    parser.add_option( "", "--sim-name", action = "store", type = "string", default = None,
+    parser.add_option( "", "--sim-name", action = "store", type = "string", default = 'ALLINJ',
         help =
             "If the --datatype is simulation, limits the selection to the specified " +
             "simulation name, e.g., 'BNSINJ'. If not specified, will group all injections together."
@@ -322,7 +322,7 @@ if opts.include_only_coincs:
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
 # if datatype is simulation and sim-type specified add the sim-type to the filter
-if datatype == 'simulation' and opts.sim_name is not None:
+if datatype == 'simulation' and opts.sim_name != 'ALLINJ':
     # create a map between sim_proc_id and sim-name
     sim_map = sqlutils.sim_name_proc_id_mapper( connection )
     # create the filter
