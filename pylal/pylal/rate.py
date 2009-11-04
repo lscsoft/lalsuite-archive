@@ -297,6 +297,75 @@ class ATanBins(Bins):
 		x[-1] = float("+inf")
 		return x
 
+
+class ATanLogarithmicBins(Bins):
+	"""
+	Provides the same binning as the ATanBins class but in the
+	logarithm of the variable.  The min and max parameters set the
+	bounds of the interval of approximately logarithmically-spaced
+	bins.  In a sense, these are where the roll-over from
+	logarithmically-spaced bins to asymptotically diminishing bin
+	density occurs.  There is a total of n bins.
+
+	Example:
+
+	>>> x = ATanLogarithmicBins(+1.0, +1000.0, 11)
+	>>> x[0]
+	0
+	>>> x[30]
+	5
+	>>> x[float("+inf")]
+	10
+	>>> x.centres()
+	array([  7.21636246e-06,   2.56445876e-01,   2.50007148e+00,
+		 7.69668960e+00,   1.65808715e+01,   3.16227766e+01,
+		 6.03104608e+01,   1.29925988e+02,   3.99988563e+02,
+		 3.89945831e+03,   1.38573971e+08])
+	"""
+	def __init__(self, min, max, n):
+		Bins.__init__(self, min, max, n)
+		self.mid = (math.log(self.min) + math.log(self.max)) / 2.0
+		self.scale = math.pi / float(math.log(self.max) - math.log(self.min))
+		self.delta = 1.0 / n
+
+	def __getitem__(self, x):
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError, x
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
+		# map log(x) to the domain [0, 1]
+		try:
+			x = math.log(x)
+		except OverflowError:
+			# overflow errors come from 0 and inf.  0 is mapped
+			# to zero so that's a no-op;  inf maps to 1
+			if x != 0:
+				x = 1
+		else:
+			x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
+		if x < 1:
+			return int(math.floor(x / self.delta))
+		# x == 1, special "measure zero" corner case
+		return len(self) - 1
+
+	def lower(self):
+		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid)
+
+	def centres(self):
+		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid)
+
+	def upper(self):
+		return numpy.exp(numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid)
+
+
 class IrregularBins(Bins):
 	"""
 	Bins with arbitrary, irregular spacing.  We only require strict
@@ -373,6 +442,67 @@ class IrregularBins(Bins):
 	def centres(self):
 		return (self.lower() + self.upper()) / 2
 
+class Categories(Bins):
+	"""
+	Categories is a many-to-one mapping from a value to an integer category
+	index. A value belongs to a category if it is contained in the category's
+	defining collection.
+
+	Example with discrete values:
+	>>> categories = Categories([
+		set((frozenset(("H1", "L1")), frozenset(("H1", "V1")))),
+		set((frozenset(("H1", "L1", "V1")),))
+		])
+	>>> print categories[frozenset(("H1", "L1"))]
+	0
+	>>> print categories[frozenset(("H1", "V1"))]
+	0
+	>>> print categories[frozenset(("H1", "L1", "V1"))]
+	1
+
+	Example with continuous values:
+	>>> from glue.segments import *
+	>>> categories = Categories([segmentlist([segment(1, 3), segment(5, 7)]),
+	                             segmentlist([segment(0, PosInfinity)])])
+	>>> print categories[2]
+	0
+	>>> print categories[4]
+	1
+	>>> print categories[-1]
+	KeyError: -1
+	"""
+	def __init__(self, categories):
+		"""
+		categories is an iterable of containers defining the categories.
+		(Recall that containers are collections that support the "in"
+		operator.) Objects will be mapped to the integer index of the
+		container that contains them.
+		"""
+		self.containers = tuple(categories)  # need to set an order and len
+		self.n = len(self.containers)
+
+		# enable NDBins to read range, but do not enable treatment as numbers
+		self.min = None
+		self.max = None
+
+	def __getitem__(self, value):
+		"""
+		Return i if value is contained in i-th container. If value
+		is not contained in any of the containers, raise an IndexError.
+		"""
+		for i, s in enumerate(self.containers):
+			if value in s:
+				return i
+		raise IndexError, value
+
+	def __cmp__(self, other):
+		if not isinstance(other, type(self)):
+			return -1
+		return cmp(self.containers, other.containers)
+
+	def centres(self):
+		return self.containers
+
 class NDBins(tuple):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
@@ -387,7 +517,7 @@ class NDBins(tuple):
 	of the binning.
 
 	Example:
-	
+
 	>>> x = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
 	>>> x[1, 1]
 	(0, 0)
@@ -405,11 +535,12 @@ class NDBins(tuple):
 	Note that the co-ordinates to be converted must be a tuple, even if
 	it is only a 1-dimensional co-ordinate.
 	"""
-	def __init__(self, *args):
-		tuple.__init__(self, *args)
-		self.min = tuple([b.min for b in self])
-		self.max = tuple([b.max for b in self])
-		self.shape = tuple([len(b) for b in self])
+	def __new__(cls, *args):
+		new = tuple.__new__(cls, *args)
+		new.min = tuple([b.min for b in new])
+		new.max = tuple([b.max for b in new])
+		new.shape = tuple([len(b) for b in new])
+		return new
 
 	def __getitem__(self, coords):
 		"""
@@ -599,6 +730,13 @@ class BinnedArray(object):
 		"""
 		self.array /= self.bins.volumes()
 
+	def to_pdf(self):
+		"""
+		Convert into a probability density.
+		"""
+		self.array /= self.array.sum()  # sum = 1
+		self.to_density()
+
 	def logregularize(self, epsilon = 2**-1074):
 		"""
 		Find bins <= 0, and set them to epsilon, This has the
@@ -697,6 +835,14 @@ class BinnedRatios(object):
 		Return the number of bins with non-zero denominator.
 		"""
 		return numpy.sum(self.denominator.array != 0)
+
+	def to_pdf(self):
+		"""
+		Convert the numerator and denominator into a pdf.
+		"""
+		self.numerator.to_pdf()
+		self.denominator.to_pdf()
+
 
 
 #
@@ -933,6 +1079,19 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	binned_array.to_density()
 
 
+def marginalize(binned_ratio, dim):
+	"""
+	Return a BinnedRatio where dimension 'dim' has been
+	summed over. Useful to get a pdf marginalized over 'dim'.
+	"""
+	bins = binned_ratio.bins()
+	br = BinnedRatios(NDBins(list(bins[:dim]) + list(bins[dim+1:])))
+	br.numerator.array   = numpy.sum(binned_ratio.numerator.array, dim)
+	br.denominator.array = numpy.sum(binned_ratio.denominator.array, dim)
+
+	return br
+
+
 #
 # =============================================================================
 #
@@ -975,7 +1134,8 @@ def bins_to_xml(bins):
 		row.type = {
 			LinearBins: "lin",
 			LogarithmicBins: "log",
-			ATanBins: "atan"
+			ATanBins: "atan",
+			ATanLogarithmicBins: "atanlog"
 		}[bin.__class__]
 		row.min = bin.min
 		row.max = bin.max
@@ -998,7 +1158,8 @@ def bins_from_xml(xml):
 		binnings[row.order] = {
 			"lin": LinearBins,
 			"log": LogarithmicBins,
-			"atan": ATanBins
+			"atan": ATanBins,
+			"atanlog": ATanLogarithmicBins
 		}[row.type](row.min, row.max, row.n)
 	if None in binnings:
 		raise ValueError, "no binning for dimension %d" % binnings.find(None)

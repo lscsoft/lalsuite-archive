@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-#
-# $Id$
+# Id$
 #
 # Copyright (C) 2009  Larne Pekowsky
 #
@@ -75,61 +74,89 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
 
 
 def setup_database(database_location):
-    """Determine if we are using the secure or insecure server"""
-    if database_location.startswith('ldbd:'):
-       identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
-       host_and_port = database_location[len('ldbd://'):]
-       if host_and_port.find(':') < 0:
-          host = host_and_port
-          port = 30015
-       else:
-          # server and port specified
-          host, portString = host_and_port.split(':')
-          port = int(portString)
+    """ 1. Determine protocol"""
+    try:
+	# When no protocol is given:
+    	if database_location.find('://') == -1:
+           msg = "Error: Please specify protocol in your --segment-url argument in the format PROTOCOL://HOST"
+	   msg +="\nFor example: --segment-url https://segdb.ligo.caltech.edu"
+    	   msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
+    	   msg += "\nRun with --help for usage"
+	   raise ValueError(msg)
 
-       identity += host
-       client = None
-        
-       if port != 443:
-          from glue import LDBDClient
-          from glue import gsiserverutils
-          try:
-            client = LDBDClient.LDBDClient(host, port, identity)
-          except Exception, e:
-            print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-            if gsiserverutils.checkCredentials():
-              print >>sys.stderr, "Got the following error : " + str(e)
-              print >>sys.stderr, "Run with --help' for usage"
-            sys.exit(1)
-       else:
-          from glue import LDBDWClient
-          try:
-            client = LDBDWClient.LDBDClient(host, port, identity)
-          except Exception, e:
-            print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host, port)
-            sys.exit(1)
+	# When wrong protocol is given:
+	protocol = database_location[:database_location.find('://')].lower()
+	if protocol not in ("http","https","ldbd","ldbdi"): 
+	   msg = "Error: protocol %s not supported" % protocol
+           msg += "\nPlease specify correct protocol in your --segment-url argument in the format PROTOCOL://HOST"
+    	   msg += "\nSupported protocols include: http, https, ldbd, ldbdi"
+	   msg += "\nRun with --help for usage"
+	   raise ValueError(msg)
+    except ValueError, e:
+      	print >>sys.stderr, str(e) 
+      	sys.exit(1)
 
+    """ 2. Determine host and port"""
+    host_and_port = database_location[(len(protocol)+3):]
+    if host_and_port.find(':') < 0:
+       # if no port number given, set default port respectively:
+       host = host_and_port
+       if protocol == 'http':
+         port = 80
+       elif protocol == 'https':
+         port = 443
+       elif protocol == 'ldbd':
+         port = 30015
+       elif protocol == 'ldbdi':
+         port = 30016
+    else:
+       host, portString = host_and_port.split(':')
+       port = int(portString)
 
+    if port == 30020:
+       print >>sys.stderr, "Error: PORT 30020 no longer provide segment database service"
+       sys.exit(1)
 
-    elif database_location.startswith('ldbdi:'):
-        port = 30016
-        host = database_location[len('ldbdi://'):]
-        identity = None
+    """ 3. Set up connection to LDBD(W)Server """
+    client = None
+    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/"
 
-        from glue import LDBDClient
+    if protocol.startswith('http'):
+      from glue import LDBDWClient
+      if protocol == "https":
+         identity += host
+      else:
+         identity = None
+      try:
+        client = LDBDWClient.LDBDClient(host,port,protocol,identity)
+      except Exception, e:
+        print >>sys.stderr, "Unable to connect to LDBD Server at %s://%s:%d " % (protocol,host, port) + str(e)
+        sys.exit(1)
+
+    elif protocol.startswith('ldbd'):
+      from glue import LDBDClient
+      if protocol == "ldbd":
+         identity += host
+         from glue import gsiserverutils
+      else:
+         identity = None
+      try:
+        client = LDBDClient.LDBDClient(host,port,identity)
+      except Exception, e:
+        print >>sys.stderr, "Unable to connect to LDBD Server at %s://%s:%d" % (protocol,host, port) + str(e)
         try:
-          client = LDBDClient.LDBDClient(host, port, identity)
-        except Exception, e:
-          print >>sys.stderr, "Unable to connect to LDBD Server %s:%d" % (host, port)
-          sys.exit(1)
+          if gsiserverutils.checkCredentials():
+             print >>sys.stderr, "Got the following error : " + str(e)
+             print >>sys.stderr, "Run wiht --help for usage"
+        except UnboundLocalError:
+          pass
+        sys.exit(1)
+
     else:
         raise ValueError( "invalid url for segment database" )
     
 
     return client
-
-
 
 
 #
@@ -542,7 +569,5 @@ def split_segment_ids(segment_ids):
         return temp
 
     return map(split_segment_id, segment_ids)
-
-
 
 

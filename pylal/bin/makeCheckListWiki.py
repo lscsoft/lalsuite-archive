@@ -37,6 +37,7 @@ __prog__    = 'makeCheckListWiki.py'
 import copy
 import numpy
 import optparse
+import ConfigParser
 import os
 import random
 import socket
@@ -113,6 +114,19 @@ class wiki(object):
     s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
     self.file.write(s)
 
+  def linkedRemoteImage(self,image=None,link=None):
+    """
+    Take a link to an image and display it, then use the image as a
+    link to some other web location
+    """
+    if link==None:
+      sys.stdout.write("No link specified.")
+      return ""
+    if image==None:
+      image=str("")
+    wikiString="[[ImageLink(%s,%s)]]"
+    return wikiString%(image,link)
+
   def image_table(self,image_list, webserver):
     if not image_list: return
     for j, i in enumerate(image_list):
@@ -176,32 +190,46 @@ class wiki(object):
         self.cols = 1
       else:
         self.cols=cols
+      self.tStyle=None
       self.data=list()
       #Create tuple object with number of rows
-      blankRow=self.__rowbuilder__(self.cols)
       for rc in range(0,rows):
-        self.data.append(blankRow)
+        self.data.append(self.__rowbuilder__(self.cols))
 
     def __rowbuilder__(self,cols):
       return [list().append(x) for x in range(0,cols)]
 
+    def setTableStyle(self,fstring=""):
+      """
+      Allows you to specify table style see MoinMoin help
+      Setting arg to NONE removes the current style specified if any.
+      """
+      if fstring=="NONE":
+        self.tStyle=None
+      else:
+        self.tStyle='<tablestyle="background-color: %s;text-align: center;">'%(fstring.lstrip().rstrip())
+      
   def insertTable(self,obj):
     """
     Pass in a wikiTable object then create the relevant
     wiki markup and place that in to the self.content
     list for writing to the file
     """
-    tableContent=str("")
+    oldCell=obj.data[0][0]
+    tableContent=""
+    if obj.tStyle != None:
+      obj.data[0][0]="%s%s"%(obj.tStyle,str(oldCell))
     if type(obj) != type(self.wikiTable()):
       raise Exception,"Expecting nested type instance of WikiTable"
     else:
       for row in range(0,obj.rows):
         for col in range(0,obj.cols):
-          tableContent="%s|| %s "%(tableContent,obj.data[row][col].rstrip().lstrip())
+          tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
         tableContent="%s ||\n"%(tableContent)
     tableContent="%s\n"%(tableContent)
     self.content.append(tableContent)                      
-
+    obj.data[0][0]=oldCell
+    
   def write(self):
     """
     Writes the contents of the wiki object to disk.
@@ -232,6 +260,7 @@ def prepareChecklist(wikiFilename=None,
   Method to prepare a checklist where data products are isolated in
   directory.
   """
+  endOfS5=int(875232014)
   #
   # Check to see if wiki file with name already exists
   #
@@ -288,7 +317,8 @@ def prepareChecklist(wikiFilename=None,
       "%s"%(wikiCoinc.sngls[row-1].mass2)
       ]
   #Write the tables into the Wiki object
-  wikiPage.putText("Coincident Trigger Event Information\n")
+  wikiPage.putText("Coincident Trigger Event Information: %s\n"\
+                   %(stfu_pipe.gpsTimeToReadableDate(wikiCoinc.time)))
   wikiPage.insertTable(cTable)
   wikiPage.putText("Corresponding Single IFO Trigger Information\n")
   wikiPage.insertTable(pTable)
@@ -312,7 +342,11 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.subsubsection("Answer")
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
-  wikiPage.putText("Plots and pipeline data go here!")
+  farTable=wikiPage.wikiTable(2,1)
+  farTable.setTableStyle("background-color: yellow;")
+  farTable.data[0][0]="False Alarm Rate"
+  farTable.data[1][0]="%s"%(wikiCoinc.far)
+  wikiPage.insertTable(farTable)
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -325,21 +359,18 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.subsubsection("Answer")
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
-  wikiPage.putText("Plots and pipeline data go here!")
-  #Select the DQ information to be included here
-  wikiPage.subsubsection("Investigator Comments")
-  wikiPage.putText("Edit Here")
-  wikiPage.insertHR()
-  #
-  #Additional Checklist Item
-  #First real checklist item
-  wikiPage.subsection("#1 Data Quality Flags")
-  wikiPage.subsubsection("Question")
-  wikiPage.putText("Can the data quality flags coincident with this candidate be safely disregarded?")
-  wikiPage.subsubsection("Answer")
-  wikiPage.putText("Edit Here")
-  wikiPage.subsubsection("Relevant Information")
-  wikiPage.putText("Plots and pipeline data go here!")
+  wikiPath=os.path.split(wikiFilename)[0]
+  dqFile=scanTreeFnMatch(wikiPath,filemask="*-findFlags_*_%s.wiki"%(wikiCoinc.time))
+  if len(dqFile) > 1:
+    sys.stdout.write("Warning: Multiple findFlag result files found!\
+ Defaulting to first file found.")
+  dqFile=dqFile[0]
+  txtData=file(dqFile).readlines()
+  txt=""
+  for l in txtData:
+    txt=txt+str(l)
+  wikiPage.putText(txt)
+  #wikiPage.putText("Plots and pipeline data go here!")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -352,7 +383,17 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.subsubsection("Answer")
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
-  wikiPage.putText("Plots and pipeline data go here!")
+  vetoFile=scanTreeFnMatch(wikiPath,filemask="*-findVetos_*_%s.wiki"%(wikiCoinc.time))
+  if len(vetoFile) > 1:
+    sys.stdout.write("Warning: Multiple findVetoes result files found!\
+ Defaulting to first file found.")
+  vetoFile=vetoFile[0]
+  txtData=file(vetoFile).readlines()
+  txt=""
+  for l in txtData:
+    txt=txt+str(l)
+  wikiPage.putText(txt)
+  #wikiPage.putText("Plots and pipeline data go here!")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -365,7 +406,36 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.subsubsection("Answer")
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
-  wikiPage.putText("Plots and pipeline data go here!")
+  #Add link to Daily Stats
+  if wikiCoinc.time > endOfS5:
+    statsLink=wikiPage.makeExternalLink("http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/",\
+                                        "S5 Daily Stats Page")
+  else:
+    statsLink="This should be a link to S6 Daily Stats!\n"
+  wikiPage.putText(statsLink)
+  #Link figures of merit
+  #Get link for all members of wikiCoinc
+  wikiPage.putText("Figures of Merit\n")
+  fomLinks=dict()
+  elems=0
+  for wikiSngl in wikiCoinc.sngls:
+    fomLinks[wikiSngl.ifo]=stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo)
+    elems=elems+len(fomLinks[wikiSngl.ifo])
+  if elems%3 != 0:
+    sys.stdout.write("Generation of FOM links seems incomplete!\n")
+  cols=4
+  rows=(elems/3)+1
+  fTable=wikiPage.wikiTable(rows,cols)
+  fTable.data[0]=["IFO,Shift","FOM1","FOM2","FOM3"]
+  currentIndex=0
+  for wikiSngl in wikiCoinc.sngls:
+    for label,link,thumb in fomLinks[wikiSngl.ifo]:
+       myRow=currentIndex/int(3)+1
+       myCol=currentIndex%int(3)+1
+       fTable.data[myRow][0]=label
+       fTable.data[myRow][myCol]="%s"%(wikiPage.linkedRemoteImage(thumb,link))
+       currentIndex=currentIndex+1
+  wikiPage.insertTable(fTable)
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -378,6 +448,34 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.subsubsection("Answer")
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
+  #Add links for the snlgs ifo
+  pd=publication_directory.split(os.path.sep).reverse()
+  pu=publication_url.split(os.path.sep).reverse()
+  cStringList=list()
+  for i in range(0,len(pu)):
+    if pd(i)==pu(i): cStringList.append(pu(i))
+  cStringList.reverse()
+  cString=""
+  for elem in cStringList:
+    cString=cString+elem
+  for mySngl in wikiCoinc.sngls:
+    #Find each Omega index
+    indexList=scanTreeFnMatch(wikiPath,filemask="*/%s/%s/index.html"%(mySngl.ifo,mySngl.time))[0]
+    newLink=publication_url+indexList.split(cString)[1]
+    mySnglLink=wikiPage.makeExternalLink(newLink,mySngl.ifo)
+    wikiPage.putText(mySnglLink)
+    #Find thumbnail
+    snglThumb=scanTreeFnMatch(wikiPath,filemask="*/%s/%s/*_spectrogram_whitened.png"%(mySngl.ifo,mySngl.time))
+    snglImage=scanTreeFnMatch(wikiPath,filemask="*/%s/%s/*_spectrogram_whitened.thumb.png"%(mySngl.ifo,mySngl.time))
+    qScanLinks=list()
+    for i in range(0,len(snglThumb)):
+      qScanLinks.append(publication_url+snglThumb[i].split(cString),
+                        publication_url+snglImage[i].split(cString))
+    qTable=wikiPage.wikiTable(1,len(qScanLinks))
+    for i,link in enumerate(qScanLinks):
+      qTable.data[0][i]=link
+    wikiPage.insertTable(qTable)
+  #
   wikiPage.putText("Plots and pipeline data go here!")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
@@ -449,7 +547,7 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
-  if int(wikiCoinc.time) >= 875232014:
+  if int(wikiCoinc.time) >= endOfS5:
     wikiLinkGlitch=wikiPage.makeExternalLink(
       "https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies",
       "Glitch Reports for S6"
@@ -482,19 +580,6 @@ def prepareChecklist(wikiFilename=None,
   wikiPage.subsection("#11 Parameters of the candidate")
   wikiPage.subsubsection("Question")
   wikiPage.putText("Does the candidate have a high likelihood of being a gravitational-wave according to its parameters?")
-  wikiPage.subsubsection("Answer")
-  wikiPage.putText("Edit Here")
-  wikiPage.subsubsection("Relevant Information")
-  wikiPage.putText("Plots and pipeline data go here!")
-  wikiPage.subsubsection("Investigator Comments")
-  wikiPage.putText("Edit Here")
-  wikiPage.insertHR()
-  #
-  #
-  #Additional Checklist Item
-  wikiPage.subsection("#12 Snr and Chisq")
-  wikiPage.subsubsection("Question")
-  wikiPage.putText("Are the SNR and CHISQ time series consistent with our expectations for a gravitational wave?")
   wikiPage.subsubsection("Answer")
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
@@ -706,31 +791,25 @@ class coinc(object):
       tmp=dict()
       for i in range(0,len(rData)):
         tmp[rawSnglKeys[i]]=rData[i]
-      s=sngl
-      s.type=str(tmp["DIR"])
-      s.ifo=str(tmp["IFO"])
-      s.snr=float(tmp["SNR"])
-      s.chisqr=float(tmp["CHISQ"])
-      s.mass1=float(tmp["MASS1"])
-      s.mass2=float(tmp["MASS2"])
-      self.sngls.append(s)
+      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"]))
       del tmp
-
 ####################################################################
 # Sngl definition
 ####################################################################
 class sngl(object):
   """
   """
-  type=None
-  ifo=None
-  time=None
-  snr=None
-  chisqr=None
-  mass1=None
-  mass2=None
-
-  
+  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None):
+    """
+    """
+    self.type=str(type)
+    self.ifo=str(ifo)
+    self.time=float(time)
+    self.snr=float(snr)
+    self.chisqr=float(chisqr)
+    self.mass1=float(mass1)
+    self.mass2=float(mass2)
+    
 ####################################################################
 # Cache file parser
 ####################################################################
@@ -745,29 +824,46 @@ hostnameURL="http://%s/"%(socket.gethostbyaddr(socket.gethostname())[0])
 #
 defaultWeblink="%s%sWEBPATH"%(hostnameURL,userURL)
 parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
-parser.add_option("-w","--webserver",action="store",type="string",\
-                    default=defaultWeblink,\
-                    metavar="myURL/WEBPATH", help="This sets the URL to \
-associate to all the links generated in the MoinMoin Wiki file.\
- Example : %s"%defaultWeblink)
-
-parser.add_option("-p","--publication-directory",\
-                  action="store",type="string",\
-                  metavar="WEBPATH", default=None,\
-                  help="Set this option so that it is consistent \
-with --webserver option. Example %s/WEBPATH"%userHOME)
-
 parser.add_option("-f","--followup-directory",\
                   action="store",type="string",\
-                  default=None,\
+                  default=None,metavar="FUDIR",\
                   help="Set this to point the the parent directory of \
 a follow up pipeline run.  From this location we \
 will build checklists for all the events processed \
 in this directory structure.")
-                    
+parser.add_option("-i","--ini-file",\
+                  action="store",type="string",\
+                  default=None,\
+                  help="Set this to point to the INI file \
+used to run the follow up pipeline, the default action assumes \
+the file is in the top directory of FUDIR.")
+
 (opts,args) = parser.parse_args()
 followup_directory=os.path.normpath(opts.followup_directory)
-publication_directory=os.path.normpath(opts.publication_directory)
+ini_file=opts.ini_file
+#Read in the first ini file if none specified
+if ini_file == None:
+  inifilelist=scanTreeFnMatch(followup_directory,levels=1,filemask="*.ini")
+  if len(inifilelist) < 1:
+    raise Exception,"No potential ini files seen in %s\n"%(followup_directory)
+  ini_file=inifilelist[0]
+  sys.stdout.write("Will use file %s as ini config file.\n"%(ini_file))
+if not os.path.exists(ini_file):
+  raise Exception,"Path to ini file specified not found.\n"
+#Extract information about webserver and web publication location
+iniOpts=ConfigParser.ConfigParser()
+iniOpts.read(ini_file)
+publication_directory=None
+publication_url=None
+if iniOpts.has_option("fu-output","output-dir"):
+  publication_directory=iniOpts.get("fu-output","output-dir")
+else:
+  raise Exception,"Ini file is missing options fu-output,output-dir.\n"
+if iniOpts.has_option("fu-output","web-url"):
+  publication_url=iniOpts.get("fu-output","web-url")
+else:
+  raise Exception,"Ini file is missing options fu-output,web-url.\n"
+#
 #
 sourceFiles=scanTreeFnMatch(followup_directory)
 for coincFile in scanTreeFnMatch(filemask="*coincEvent.info"):
@@ -783,22 +879,35 @@ for coincFile in scanTreeFnMatch(filemask="*coincEvent.info"):
   #
   mySourcePath=followup_directory
   myDestPath=publication_directory+"/"+myDirectory+"/"
+  sys.stdout.write("Checklist is available at %s\n"%(myDestPath))
   if not os.path.exists(myDestPath):
     os.makedirs(myDestPath)
   #
   #Copy the output files associated with this trigger
   #
-  sourceFiles=scanTreeFnMatch(mySourcePath,filemask="*%s*"%(myCoinc.time))
+  #Grab all coinc related files in followup directory
+  allSources={'pipe':list(),
+              'omega':list()}
+  allSources['pipe'].extend([os.path.abspath(x) for x in \
+                             scanTreeFnMatch(mySourcePath,filemask="*%s*%s*"%(myCoinc.type,myCoinc.time))])
+  #Grab all sngl related files in followup directory
   for mySngl in myCoinc.sngls:
-    sourceFiles.extend(scanTreeFnMatch(mySourcePath,filemask="*%s*%s*"%(mySngl.ifo,mySngl.time)))
-  cPath=os.path.commonprefix(sourceFiles)
-  for myFile in sourceFiles:
-    myDestFile=myFile.replace(cPath,myDestPath)
-    if not os.path.exists(os.path.split(myDestFile)[0]):
-      os.makedirs(os.path.split(myDestFile)[0])
-    shutil.copy2(myFile,myDestFile)
+    allSources['pipe'].extend([os.path.abspath(x) for x in \
+                               scanTreeFnMatch(mySourcePath,filemask="*%s*%s*%s*"%(mySngl.type,mySngl.ifo,mySngl.time))])
+  #Grab omega files for each Sngl in Coinc trigger in publication directory
+  for mySngl in myCoinc.sngls:
+    allSources['omega'].extend([os.path.abspath(x) for x in \
+                                scanTreeFnMatch(publication_directory,filemask="*/%s/%s/*"%(mySngl.ifo,mySngl.time))])
+  #Copy all per trigger files into the checklist publication directory
+  for sourceFiles in allSources.itervalues():
+    cPath=os.path.commonprefix(sourceFiles)
+    for myFile in sourceFiles:
+      myDestFile=myFile.replace(cPath,myDestPath)
+      if not os.path.exists(os.path.split(myDestFile)[0]):
+        os.makedirs(os.path.split(myDestFile)[0])
+      shutil.copy2(myFile,myDestFile)
   #
   #Generate the initial wiki checklist
   #
   prepareChecklist(myDestPath+"/"+myFilename,myCoinc)
-  
+

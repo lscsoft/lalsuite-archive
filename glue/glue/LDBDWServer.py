@@ -46,13 +46,10 @@ configuration = {
   'dbuser' : 'grid',
   'dbpasswd' : '',
   'logfile' : '/var/log/ldbd/ldbdd.log',
-  'port' : '',
   'logmaxbytes' : 1024 * 1024 * 1,
   'max_client_byte_string' : 1048576,
   'logbackupcount' : 5,
-  'loglevel' : 'DEBUG',
-  'ldbd_com':'',
-  'db2_com':''
+  'loglevel' : 'DEBUG'
   }
 
 # grab configuration from file
@@ -98,11 +95,6 @@ logger.info("LDBD server started")
 # initialize the database hash table
 dbobj = ldbd.LIGOMetadataDatabase(configuration['dbname'])
 max_bytes = configuration['max_client_byte_string']
-
-# initialize the ldbd commands and db2 command restrictions
-port = configuration['port']
-ldbd_com = configuration['ldbd_com'].split(',')
-db2_com = configuration['db2_com'].split(',')
 
 # create the xml parser
 xmlparser = pyRXP.Parser()
@@ -243,18 +235,36 @@ class Server(object):
     """
     logger.debug("Method ping called")
 
-    # use generic grid-mapfile for ping operation
-    mapfile = self.configuration['gridmap']
+    # determine protocol
+    try:
+        protocol = cjson.decode(environ['wsgi.input'].read())
+    except Exception, e:
+        if (str(e)).strip() == "empty JSON description":
+           logger.debug("No protocol given, request may come from Web GUI")
+           protocol = "https"
+        else:
+           start_response("400 Bad Request", [('Content-type', 'text/plain')])
+           msg = "400 Bad Request"
+           logger.debug("Error decoding input: %s" % e)
+           return [ msg ]
 
-    # check authorization
-    authorized, subject = self.checkAuthorizationGridMap(environ, mapfile)
-    if not authorized:
+
+    if protocol == "https": 
+      # use generic grid-mapfile for ping operation
+      mapfile = self.configuration['gridmap']
+
+      # check authorization
+      authorized, subject = self.checkAuthorizationGridMap(environ, mapfile)
+      if not authorized:
         start_response("401 Unauthorized", [('Content-type', 'text/plain')])
         msg = "401 Unauthorized\n\nSubject %s is not authorized for method ping" % subject
         logger.info("Subject %s is not authorized for method ping" % subject)
         return [ msg ]
-    else:
+      else:
         logger.info("Subject %s is authorized for method ping" % subject)
+    else:
+      logger.info("Method ping is being called from internal network")
+
 
     try:
       hostname = socket.getfqdn()
@@ -282,18 +292,32 @@ class Server(object):
 
     logger.debug("Method query called")
 
-    # use generic grid-mapfile for query operation
-    mapfile = self.configuration['gridmap']
+    # determine protocol
+    try:
+        protocol, querystr = (cjson.decode(environ['wsgi.input'].read())).split(":")
+    except Exception, e:
+        start_response("400 Bad Request", [('Content-type', 'text/plain')])
+        msg = "400 Bad Request"
+        logger.debug("Error decoding input: %s" % e)
+        return [ msg ]
 
-    # check authorization
-    authorized, subject = self.checkAuthorizationGridMap(environ, mapfile)
-    if not authorized:
+
+    if protocol == "https:":
+      # use generic grid-mapfile for query operation
+      mapfile = self.configuration['gridmap']
+
+      # check authorization
+      authorized, subject = self.checkAuthorizationGridMap(environ, mapfile)
+      if not authorized:
         start_response("401 Unauthorized", [('Content-type', 'text/plain')])
         msg = "401 Unauthorized\n\nSubject %s is not authorized for method query" % subject
         logger.info("Subject %s is not authorized for method query" % subject)
         return [ msg ]
-    else:
+      else:
         logger.info("Subject %s is authorized for method query" % subject)
+    else:
+      logger.info("Method QUERY is being called from internal network")
+
 
     # pick off the format input type
     format = environ['wsgiorg.routing_args'][1]['format']
@@ -302,15 +326,6 @@ class Server(object):
     if format != 'json':
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request\n\nformat must be 'json' for POST operation"
-        return [ msg ]
-
-    # read the incoming payload
-    try:
-        querystr = cjson.decode(environ['wsgi.input'].read())
-    except Exception, e:
-        start_response("400 Bad Request", [('Content-type', 'text/plain')])
-        msg = "400 Bad Request"
-        logger.debug("Error decoding input: %s" % e)
         return [ msg ]
 
     logger.debug("Method query called with '%s'" % querystr)

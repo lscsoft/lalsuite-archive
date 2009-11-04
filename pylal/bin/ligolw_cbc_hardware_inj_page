@@ -246,6 +246,8 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 	print >>outfile,'</table>'
 	
 	# Generate plot for injections
+	import matplotlib
+	matplotlib.use('Agg')
 	import pylab
 	for ifo in ifos:
 		foundx=[]
@@ -284,8 +286,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		# save figure
 		print 'save figure'
 		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
-		thisplot.savefig(plotname)
-		print >>outfile,'<img src="'+plotname+'">'
+		print >>outfile,'<img src="'+plotname.split(os.path.sep)[-1]+'">'
 	print >>outfile,'</body></html>'
 	return
 

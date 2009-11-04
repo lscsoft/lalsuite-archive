@@ -484,6 +484,9 @@ def parse_command_line():
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
 	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
 	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
+	parser.add_option("", "--disable-dag-categories",action="store_true",\
+	default=False,help="disable the internal dag category maxjobs")
+
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
@@ -502,7 +505,7 @@ cp = default_cp.get_cp()
 #link_data_find(cp)
 
 # Initialize dag
-dag = stfu_pipe.followUpDAG(options.config_file,cp)
+dag = stfu_pipe.followUpDAG(options.config_file,cp,options)
 
 trigs = FUTriggers(num=options.number)
 

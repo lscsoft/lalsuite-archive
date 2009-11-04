@@ -262,11 +262,12 @@ class LDBDClientException(Exception):
 
 
 class LDBDClient(object):
-  def __init__(self, host, port = None, identity = None):
+  def __init__(self, host, port = None, protocol = None, identity = None):
     """
     """
     self.host = host
     self.port = port
+    self.protocol = protocol
 
     if self.port:
         self.server = "%s:%d" % (self.host, self.port)
@@ -278,8 +279,8 @@ class LDBDClient(object):
     # credential of the server
     self.identity = identity
 
-    # find credential unless the port is port 80
-    if port == 80:
+    # find credential unless the protocol is http:
+    if protocol == "http":
         self.certFile = None
         self.keyFile = None
     else:
@@ -289,7 +290,10 @@ class LDBDClient(object):
     """
     """
     server = self.server
-    if self.certFile and self.keyFile:
+    protocol = self.protocol
+
+    if protocol == "https":
+    #if self.certFile and self.keyFile:
         h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         h = httplib.HTTPConnection(server)
@@ -297,7 +301,7 @@ class LDBDClient(object):
     url = "/ldbd/ping.json"
     headers = {"Content-type" : "application/json"}
     data = ""
-    body = cjson.encode(data)
+    body = cjson.encode(protocol)
 
     try:
         h.request("POST", url, body, headers)
@@ -323,14 +327,15 @@ class LDBDClient(object):
     """
 
     server = self.server
-    if self.certFile and self.keyFile:
+    protocol = self.protocol
+    if protocol == "https":
         h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
         h = httplib.HTTPConnection(server)
 
     url = "/ldbd/query.json"
     headers = {"Content-type" : "application/json"}
-    body = cjson.encode(sql)
+    body = cjson.encode(protocol + ":" + sql)
 
     try:
         h.request("POST", url, body, headers)
@@ -356,10 +361,14 @@ class LDBDClient(object):
     """
 
     server = self.server
-    if self.certFile and self.keyFile:
+    protocol = self.protocol
+    if protocol == "https":
         h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        msg = "Insecure connection DOES NOT surpport INSERT."
+        msg += '\nTo INSERT, authorized users please specify protocol "https" in your --segment-url argument.'
+        msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu".'
+        raise LDBDClientException, msg
 
     url = "/ldbd/insert.json"
     headers = {"Content-type" : "application/json"}
@@ -388,10 +397,14 @@ class LDBDClient(object):
     """
     """
     server = self.server
-    if self.certFile and self.keyFile:
+    protocol = self.protocol
+    if protocol == "https":
         h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        msg = "Insecure connection DOES NOT surpport INSERTMAP."
+        msg += '\nTo INSERTMAP, authorized users please specify protocol "https" in your --segment-url argument.'
+        msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu".'
+        raise LDBDClientException, msg
 
     url = "/ldbd/insertmap.json"
     headers = {"Content-type" : "application/json"}
@@ -424,10 +437,14 @@ class LDBDClient(object):
     """
     """
     server = self.server
-    if self.certFile and self.keyFile:
+    protocol = self.protocol
+    if protocol == "https":
         h = httplib.HTTPSConnection(server, key_file = self.keyFile, cert_file = self.certFile)
     else:
-        h = httplib.HTTPConnection(server)
+        msg = "Insecure connection DOES NOT surpport INSERTDMT."
+        msg += '\nTo INSERTDMT, authorized users please specify protocol "https" in your --segment-url argument.'
+        msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu".'
+        raise LDBDClientException, msg
 
     url = "/ldbd/insertdmt.json"
     headers = {"Content-type" : "application/json"}

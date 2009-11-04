@@ -569,7 +569,7 @@ LALStatus status={level:0, statusPtr: NULL};
 
 fprintf(stderr,"make_sft version %s\n", MAKE_SFT_VERSION);
 fprintf(stderr,"Using frame library %s\n", FrLibVersionF());
-fprintf(stderr,"Using LAL version %s, CVS tag %s\n", LAL_VERSION, LAL_CVS_TAG);
+fprintf(stderr,"Using LAL version %s\n", LAL_VERSION);
 
 yylex();
 

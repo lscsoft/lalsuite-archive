@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # $Id$
 #
@@ -151,7 +151,7 @@ def parse_command_line():
 
     # Make sure we know who to contact for data
     if options.segment_url:
-        if options.segment_url.startswith('ldbd'):
+        if options.segment_url.startswith('ldbd') or options.segment_url.startswith('http'):
             database_location = options.segment_url
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
