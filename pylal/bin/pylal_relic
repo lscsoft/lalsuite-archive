@@ -43,7 +43,6 @@ from glue.ligolw.utils import process as ligolw_process
 from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
-from pylal import llwapp
 from pylal import rate
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -209,34 +208,6 @@ def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
 
     return sims, loudest_by_sim_mc
 
-def append_process(doc, options):
-    """
-    Append a process table and a process_params table to doc.
-    """
-    process = ligolw_process.append_process(doc, "pylal_relic",
-        git_version.tag or git_version.id, "lalsuite",
-        git_version.date)
-
-    def map_val(name, val):
-        """
-        Put (name, val) pairs in a format suitable for
-        glue.ligolw.utils.process.append_process_params().
-        """
-        type_map = {str: u"lstring", bool: u"lstring",
-                    unicode: u"lstring",
-                    int: u"int_8s", float: u"real_8"}
-        if val is True:
-            return ("--" + name, u"lstring", "")
-        elif val is False:
-            return None
-        else:
-            return ("--" + name, type_map[type(val)], val)
-
-    params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
-              if (val is not False) and (val is not None)]
-    ligolw_process.append_process_params(doc, process, params)
-    return process
-
 def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
@@ -387,7 +358,9 @@ if opts.write_onsource:
       gz=fileList[0].endswith(".gz"))
 
   # add this program to the process table
-  process = append_process(onsource_doc, opts)
+  process = ligolw_process.register_to_xmldoc(onsource_doc, "pylal_relic",
+    opts.__dict__, version=git_version.tag or git_version.id,
+    cvs_repository="lalsuite", cvs_entry_time=git_version.date)
 
   # extract the loudest for each MC bin
   onsource_loudest_by_mc = get_loudest_stats_by_mc(onsource_doc, coinc_stat,
@@ -480,7 +453,7 @@ if opts.write_onsource:
     pickle.dump((opts.statistic, mc_bins, onsource_loudest_by_mc),
                 open(fname, "wb"), -1)
     # write XML
-    llwapp.set_process_end_time(process)
+    ligolw_process.set_process_end_time(process)
     utils.write_filename(onsource_doc, fname_prefix + "_onsource" \
         + fname_suffix.replace(".pickle", ".xml"))
     sys.stdout.write("Loudest on-source coincs written.\n")
