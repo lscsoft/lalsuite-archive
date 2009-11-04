@@ -478,8 +478,8 @@ class Categories(Bins):
 		operator.) Objects will be mapped to the integer index of the
 		container that contains them.
 		"""
-		self.containers = tuple(categories)  # need to assert an order
-		self.n = len(categories)
+		self.containers = tuple(categories)  # need to set an order and len
+		self.n = len(self.containers)
 
 		# enable NDBins to read range, but do not enable treatment as numbers
 		self.min = None
@@ -500,7 +500,7 @@ class Categories(Bins):
 			return -1
 		return cmp(self.containers, other.containers)
 
-	def __centres__(self):
+	def centres(self):
 		return self.containers
 
 class NDBins(tuple):
