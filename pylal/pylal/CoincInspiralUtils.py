@@ -200,7 +200,9 @@ class coincInspiralTable:
       
       self.numifos +=1
       if statistic.name == 'effective_snr':
-        self.stat = (self.stat**2 + trig.get_effective_snr(statistic.eff_snr_denom_fac)**2)**(1./2)      
+        self.stat = (self.stat**2 + trig.get_effective_snr(statistic.eff_snr_denom_fac)**2)**0.5      
+      elif statistic.name == 'new_snr':
+        self.stat = (self.stat**2 + trig.get_new_snr(statistic.new_snr_index)**2)**0.5
       elif 'bitten_l' in statistic.name:
         snr=trig.snr
         self.rsq= (self.rsq**2 + snr**2)**(1./2)
