@@ -50,7 +50,7 @@ EXTRA_DIST = \
 	__init__.py \
 	defaults.py \
 	lalappsfrutils.c \
-	lalappsfrutils.h
+	lalappsfrutils.h \
 	git_version \
 	LALAppsVCSInfo.h.in
 
