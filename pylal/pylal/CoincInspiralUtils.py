@@ -143,15 +143,16 @@ class coincStatistic:
   It also contains parameter for such cases as the BBH bitten-L statistics.
   """
 
-  __slots__ = ["name","a","b","rsq","bl", "eff_snr_denom_fac"]
+  __slots__ = ["name","a","b","rsq","bl","eff_snr_denom_fac","new_snr_index"]
 
-  def __init__(self, name, a=0, b=0, denom_fac=250.0):
+  def __init__(self, name, a=0, b=0, denom_fac=250.0, chisq_index=6.0):
     self.name=name
     self.a=a
     self.b=b
     self.rsq=0
     self.bl=0
     self.eff_snr_denom_fac = denom_fac
+    self.new_snr_index = chisq_index 
 
   def __str__(self):
     return self.name
@@ -201,6 +202,8 @@ class coincInspiralTable:
       self.numifos +=1
       if statistic.name == 'effective_snr':
         self.stat = (self.stat**2 + trig.get_effective_snr(statistic.eff_snr_denom_fac)**2)**(1./2)      
+      elif statistic.name == 'new_snr':
+        self.stat = (self.stat**2 + trig.get_new_snr(statistic.new_snr_index)**2)**0.5
       elif 'bitten_l' in statistic.name:
         snr=trig.snr
         self.rsq= (self.rsq**2 + snr**2)**(1./2)
@@ -222,6 +225,14 @@ class coincInspiralTable:
       
     def add_sim(self,sim):
       setattr(self,"sim",sim)
+
+    def _get_ifo_set(self):
+      return set([ifo for ifo in ifos if hasattr(self, ifo)])
+    ifos = property(fget=_get_ifo_set)
+
+    def _get_ifo_string(self):
+      return lsctables.ifos_from_instrument_set(self.ifos)
+    ifostring = property(fget=_get_ifo_string)
 
     def get_ifos(self): 
       ifo_string = ""

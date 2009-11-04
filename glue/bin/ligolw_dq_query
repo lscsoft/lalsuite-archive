@@ -354,7 +354,7 @@ def run_active(doc, process_id, engine, include_segments, times):
     distinct_names = []
     distinct_rows = []
     for x in rows:
-      if x[0:2] not in distinct_names:
+      if x[0:3] not in distinct_names:
          distinct_names.append(x[0:2])
          distinct_rows.append(x)
 
