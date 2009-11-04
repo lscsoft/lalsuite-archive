@@ -223,6 +223,14 @@ class coincInspiralTable:
     def add_sim(self,sim):
       setattr(self,"sim",sim)
 
+    def _get_ifo_set(self):
+      return set([ifo for ifo in ifos if hasattr(self, ifo)])
+    ifos = property(fget=_get_ifo_set)
+
+    def _get_ifo_string(self):
+      return lsctables.ifos_from_instrument_set(self.ifos)
+    ifostring = property(fget=_get_ifo_string)
+
     def get_ifos(self): 
       ifo_string = ""
       ifolist_in_coinc = []
