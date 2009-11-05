@@ -585,35 +585,6 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	# LOOP OVER COINC EVENTS
 	for coinc_cnt, coinc in enumerate(candidates):
 
-		#ROMAIN'S DEBUGGING
-		print "Information on coincidence:"
-		print "Number = " + str(coinc_cnt)	
-		print "event id = " + str(coinc.coinc_event_id)
-		print "endtime = " + str(coinc.time)
-		print "instruments = " + str(coinc.instruments)
-		print "ifos = " + str(coinc.ifos)
-		for ifo,sngl_inspiral in coinc.sngl_inspiral.items():
-			print "Information on trigger in: " + ifo + " using sngl_inspiral table"
-			print "SNR is " + str(sngl_inspiral.snr)
-			for row in sngl_inspiral.process_params:
-				param = row.param.strip("-")
-				value = row.value
-				if param == "gps-end-time":
-					print "gps-end-time is " + str(value)
-				if param == "gps-start-time":
-					print "gps-start-time is " + str(value)
-                for ifo,sngl_inspiral in coinc.sngl_inspiral_coh.items():
-                        print "Information on trigger in: " + ifo + " using sngl_inspiral_coh table"
-                        print "SNR is " + str(sngl_inspiral.snr)
-                        for row in sngl_inspiral.process_params:
-                                param = row.param.strip("-")
-                                value = row.value
-                                if param == "gps-end-time":
-                                        print "gps-end-time is " + str(value)
-                                if param == "gps-start-time":
-                                        print "gps-start-time is " + str(value)
-		#END OF ROMAIN'S DEBUGGING
-
 		# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
 		insp_datafind_node = {}
 		insp_node_skymap = {}
