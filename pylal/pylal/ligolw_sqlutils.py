@@ -746,16 +746,20 @@ class rank_stats:
         self.ranking_stat = ranking_stat
         self.rank_by = rank_by
 
-    def populate_stats_list(self, connection, limit, filter = ''):
+    def populate_stats_list(self, connection, limit = None, filter = ''):
         """
         Gets top stats from database for later ranking
         @connection: connection to a sqlite database
-        @limit: number of stats to get
+        @limit: put a limit on the number of stats to rank
         @filter: apply a filter (i.e., a SQLite WHERE clause). 
             Note: If the filter uses colums from tables other than
             self.table, must include the join conditions as well
         @verbose: if verbose, will print the sqlquery used 
         """
+        if limit is not None:
+            limit = "LIMIT " + str(limit)
+        else:
+            limit = ''
         sqlquery = ''.join(["""
             SELECT
                 """, self.ranking_stat, """
@@ -763,7 +767,7 @@ class rank_stats:
                 """, self.table,
             filter, """
             ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
-            LIMIT """, str(limit) ])
+            """, limit ])
         self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
         self.stats.sort()
 
