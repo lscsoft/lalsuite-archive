@@ -4,6 +4,8 @@ SUBDIRS = src doc man misc debian
 EXTRA_DIST = README README.bugs README.contrib \
 	lalapps.spec.in lalapps.spec
 
+distcleancheck_listfiles = find . -type f \! -name "LALAppsVCSInfo.h" -print
+
 # cvs-clean: more than maintainer-clean, this cleans
 # everything not in the cvs archive.
 cvs-clean: maintainer-clean
