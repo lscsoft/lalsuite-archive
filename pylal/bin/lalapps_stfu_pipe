@@ -232,6 +232,7 @@ SELECT
 			""", (self.process_id,) ):
 				self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
 
+
 	def get_gps_start_time(self):
 		#FIXME probably really slow
 		for row in self.process_params:
@@ -260,7 +261,7 @@ SELECT
 		self.process_params = []
 
 		for val in self.contents.connection.cursor().execute("""
-SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN process_params AS p2 ON p1.process_id == p2.process_id JOIN search_summary ON search_summary.process_id == p2.process_id WHERE p1.param = '--gps-start-time' AND p1.value <= ? AND p2.param = '--gps-end-time' AND p2.value > ? AND search_summary.ifos = ? LIMIT 1)
+SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN process_params AS p2 ON p1.process_id == p2.process_id JOIN search_summary ON search_summary.process_id == p2.process_id WHERE p1.param = '--gps-start-time' AND p2.param = '--gps-end-time' AND search_summary.out_start_time <= ? AND search_summary.out_end_time > ? and search_summary.ifos = ? LIMIT 1)
 		""", (self.time, self.time, self.ifo) ):
 			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))
 		#change necessary values in process params table
@@ -583,6 +584,35 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	
 	# LOOP OVER COINC EVENTS
 	for coinc_cnt, coinc in enumerate(candidates):
+
+		#ROMAIN'S DEBUGGING
+		print "Information on coincidence:"
+		print "Number = " + str(coinc_cnt)	
+		print "event id = " + str(coinc.coinc_event_id)
+		print "endtime = " + str(coinc.time)
+		print "instruments = " + str(coinc.instruments)
+		print "ifos = " + str(coinc.ifos)
+		for ifo,sngl_inspiral in coinc.sngl_inspiral.items():
+			print "Information on trigger in: " + ifo + " using sngl_inspiral table"
+			print "SNR is " + str(sngl_inspiral.snr)
+			for row in sngl_inspiral.process_params:
+				param = row.param.strip("-")
+				value = row.value
+				if param == "gps-end-time":
+					print "gps-end-time is " + str(value)
+				if param == "gps-start-time":
+					print "gps-start-time is " + str(value)
+                for ifo,sngl_inspiral in coinc.sngl_inspiral_coh.items():
+                        print "Information on trigger in: " + ifo + " using sngl_inspiral_coh table"
+                        print "SNR is " + str(sngl_inspiral.snr)
+                        for row in sngl_inspiral.process_params:
+                                param = row.param.strip("-")
+                                value = row.value
+                                if param == "gps-end-time":
+                                        print "gps-end-time is " + str(value)
+                                if param == "gps-start-time":
+                                        print "gps-start-time is " + str(value)
+		#END OF ROMAIN'S DEBUGGING
 
 		# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
 		insp_datafind_node = {}
