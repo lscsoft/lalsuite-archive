@@ -731,6 +731,77 @@ class Summaries:
             + sum([self.max_bkg_fars[(esid,ifo_group)][ii] for ii in range(bisect.bisect_left( self.max_bkg_fars[(esid,ifo_group)], ufar))])
 
 
+class rank_stats:
+    """
+    Class to return a rank for stats.
+    """
+    def __init__(self, table, ranking_stat, rank_by):
+        """
+        @table: table containing the stats to rank
+        @ranking_stat: stat in table that wish to rank
+        @rank_by: should be either "ASC" or "DESC"
+        """
+        self.stats = []
+        self.table = table
+        self.ranking_stat = ranking_stat
+        self.rank_by = rank_by
+
+    def populate_stats_list(self, connection, limit, filter = ''):
+        """
+        Gets top stats from database for later ranking
+        @connection: connection to a sqlite database
+        @limit: number of stats to get
+        @filter: apply a filter (i.e., a SQLite WHERE clause). 
+            Note: If the filter uses colums from tables other than
+            self.table, must include the join conditions as well
+        @verbose: if verbose, will print the sqlquery used 
+        """
+        sqlquery = ''.join(["""
+            SELECT
+                """, self.ranking_stat, """
+            FROM
+                """, self.table,
+            filter, """
+            ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
+            LIMIT """, str(limit) ])
+        self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
+        self.stats.sort()
+
+    def get_rank( self, this_stat ):
+        if self.rank_by == "ASC":
+            return bisect.bisect_left(self.stats, this_stat) + 1
+        else:
+            return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
+
+
+# =============================================================================
+#
+#                          Experiment Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the experiment_summary table
+def join_experiment_tables_to_coinc_table(table):
+    """
+    Writes JOIN string to join the experiment, experiment_summary,
+    and experiment_map tables to the specified table. This allows
+    querying across any of these tables.
+
+    @table: any lsctable that has a coinc_event_id column
+
+    NOTE: Should only use when querying the specified table; i.e.,
+    when the specified table is the only one listed in the FROM statement.
+    """
+
+    return """ 
+    JOIN
+        experiment, experiment_summary, experiment_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == %s.coinc_event_id )""" % table
+
+
 # =============================================================================
 #
 #                          ExperimentSummary Utilities
@@ -811,13 +882,7 @@ def join_experiment_tables_to_coinc_inspiral():
     the only table listed in the FROM statement is the coinc_inspiral).
     """
 
-    return """ 
-    JOIN
-        experiment, experiment_summary, experiment_map 
-    ON ( 
-        experiment.experiment_id == experiment_summary.experiment_id
-        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )"""
+    return join_experiment_tables_to_coinc_table('coinc_inspiral')
 
 
 def apply_inclusion_rules_to_coinc_inspiral( connection, exclude_coincs = None, include_coincs = None, 
@@ -938,6 +1003,86 @@ def clean_inspiral_tables( connection, verbose = False ):
     if verbose:
         print >> sys.stderr, "done."
 
+
+# =============================================================================
+#
+#                             SimInspiral Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the sim_inspiral table
+
+def create_sim_rec_map_table(connection, recovery_table, ranking_stat):
+    """
+    Creates a temporary table in the sqlite database called sim_rec_map.
+    This table creates a direct mapping between simulation_ids and coinc_event_ids 
+    from the recovery_table, along with a ranking stat from the recovery_table.
+    The columns in the sim_rec_map table are:
+        * rec_id: coinc_event_ids of matching events from the recovery table
+        * sim_id: the simulation_id from the sim_inspiral table
+        * ranking_stat: any stat from the recovery table by which to rank
+        * intermediate_id: the coinc_event_id of the sim_id (not really important for these
+          uses)
+    In addition, indices on the sim and rec ids are put on the table.
+
+    Note that because this is a temporary table, as soon as the connection is closed, it
+    will be deleted.
+
+    @connection: connection to a sqlite database
+    @recovery_table: any lsctable with a coinc_event_id column; e.g., coinc_inspiral
+    @ranking_stat: the name of the ranking stat in the recovery table to use
+    """
+    # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
+    if not ranking_stat.strip().startswith(recovery_table):
+        ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
+    sqlscript = """
+        CREATE TEMP TABLE
+            sim_rec_map
+        AS 
+            SELECT
+                coinc_event_id AS intermediate_id,
+                event_id AS rec_id,
+                NULL AS sim_id,
+                NULL AS ranking_stat
+            FROM
+                coinc_event_map
+            WHERE
+                table_name == "coinc_event" AND
+                event_id IN (
+                    SELECT
+                        coinc_event_id
+                    FROM
+                        ?);
+
+        -- populate the sim_id using the intermediate_id 
+        UPDATE
+            sim_rec_map
+        SET sim_id = (
+            SELECT
+                event_id
+            FROM
+                coinc_event_map 
+            WHERE
+                table_name == "sim_inspiral" AND
+                coinc_event_id == sim_rec_map.intermediate_id);
+        
+        -- create the indices
+        CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
+        CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
+        
+        -- populate ranking_stat
+        UPDATE
+            sim_rec_map
+        SET ranking_stat = (
+            SELECT
+                ?
+            FROM
+                ?
+            WHERE
+                %s.coinc_event_id == sim_rec_map.rec_id );
+            """ % (recovery_table)
+
+    connection.cursor().executescript(sqlscript,(recovery_table, ranking_stat, recovery_table))
 
 
 # =============================================================================
