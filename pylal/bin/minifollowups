@@ -134,7 +134,8 @@ if opts.input_xml_summary:
   if opts.output_html_table is not None:
     output = open(opts.output_html_table,'w')
     tableList = ['loudest_events']
-    columnList = ['rank', 'combined_far', 'fap', 'fap_1yr', 'snr', 'end_time', 'end_time_ns', 'mass', 'mchirp', 'ifos', 'instruments_on', 'duration']
+    rank_colname = [col.getAttribute("Name").split(":")[-1] for col in summTable.getElementsByTagName(u'Column') if "rank" in col.getAttribute("Name")][0]
+    columnList = [rank_colname, 'combined_far', 'fap', 'fap_1yr', 'snr', 'end_time', 'end_time_ns', 'mass', 'mchirp', 'ifos', 'instruments_on', 'duration', 'mini_followup']
     print_tables.print_tables(summTable, output, "html",\
         tableList = tableList,columnList = columnList,round_floats = True, \
         decimal_places = 2, title = None,print_table_names = False)
