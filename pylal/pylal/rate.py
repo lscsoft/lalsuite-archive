@@ -1079,17 +1079,36 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	binned_array.to_density()
 
 
-def marginalize(binned_ratio, dim):
+def marginalize(pdf, dim):
 	"""
-	Return a BinnedRatio where dimension 'dim' has been
-	summed over. Useful to get a pdf marginalized over 'dim'.
+	From a BinnedArray object containing probability density data (bins
+	whose volume integral is 1), return a new BinnedArray object
+	containing the probability density marginalizaed over dimension
+	dim.
 	"""
-	bins = binned_ratio.bins()
-	br = BinnedRatios(NDBins(list(bins[:dim]) + list(bins[dim+1:])))
-	br.numerator.array   = numpy.sum(binned_ratio.numerator.array, dim)
-	br.denominator.array = numpy.sum(binned_ratio.denominator.array, dim)
+	dx = pdf.bins[dim].upper() - pdf.bins[dim].lower()
+	dx_shape = [1] * len(pdf.bins)
+	dx_shape[dim] = len(dx)
 
-	return br
+	result = BinnedArray(NDBins(pdf.bins[:dim] + pdf.bins[dim+1:]))
+	result.array = (pdf.array * dx.reshape(dx_shape)).sum(axis = dim)
+
+	return result
+
+
+def marginalize_ratios(likelihood, dim):
+	"""
+	Marginalize the numerator and denominator of a BinnedRatios object
+	containing likelihood-ratio data (i.e., the numerator and
+	denominator both contain probability density data) over dimension
+	dim.
+	"""
+	result = BinnedRatios(NDBins())
+	result.numerator = marginalize(likelihood.numerator, dim)
+	result.denominator = marginalize(likelihood.denominator, dim)
+	# normally they share an NDBins instance
+	result.denominator.bins = result.numerator.bins
+	return result
 
 
 #
