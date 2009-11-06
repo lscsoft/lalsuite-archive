@@ -530,7 +530,11 @@ class MVSCPlots(object):
 		self.zerolag_combined_eff_snr = []
 
 	def add_contents(self,contents):
-		if contents.sim_inspiral_table:
+		if contents.sim_inspiral_table is not None:
+			#
+			# this is an injections document
+			#
+
 			for likelihood, combined_eff_snr in contents.connection.cursor().execute("""
 SELECT
 	insp_coinc_event.likelihood, 
@@ -543,12 +547,16 @@ FROM
 	JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
 	JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id)
 WHERE
-	sim_coinc_event.coinc_def_id == ?
-	AND insp_coinc_event.coinc_def_id == ?
+	insp_coinc_event.coinc_def_id == ?
+	AND sim_coinc_event.coinc_def_id == ?
 			""", (contents.ii_definer_id, contents.sc_definer_id)):
 				self.injection_likelihood.append(likelihood)
 				self.injection_combined_eff_snr.append(combined_eff_snr)
 		else:
+			#
+			# this is not an injections document
+			#
+
 			for likelihood, combined_eff_snr, is_background in contents.connection.cursor().execute("""
 SELECT 
 	insp_coinc_event.likelihood, 
@@ -578,24 +586,23 @@ FROM
 		# and all 'inf' likelihoods to the highest non-infinity
 		# likelihood
 		unique_likelihoods = sorted(set(self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood))
-		if len(unique_likelihoods) > 3:
+		if len(unique_likelihoods) >= 3:
 			min_likelihood = unique_likelihoods[1]
 			max_likelihood = unique_likelihoods[-2]
 			for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
 				for i in range(len(likelihood_list)):
-					if likelihood_list[i] < min_likelihood:
+					if likelihood_list[i] == 0:
 						likelihood_list[i] = min_likelihood
-					elif likelihood_list[i] > max_likelihood:
+					elif likelihood_list[i] == float("inf"):
 						likelihood_list[i] = max_likelihood
 		self.timeslide_likelihood.sort()
 
-		fig, axes = create_plot(r"likelihood from MVSC", r"combined effective SNR", aspect = 1.0)
-		axes.hold(1)
-		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='injections')
-		axes.loglog(self.timeslide_likelihood,self.timeslide_combined_eff_snr,'k.',label='timeslides')
-		axes.axvline(x=self.timeslide_likelihood[-100], label='100th loudest timeslide')
+		fig, axes = create_plot(r"$\Lambda_{\mathrm{MVSC}}$", r"$\rho_{\mathrm{eff}}$", aspect = 1.0)
+		axes.set_title(r"Combined Effective SNR vs.\ MVSC Likelihood Ratio")
+		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='Injections')
+		axes.loglog(self.timeslide_likelihood,self.timeslide_combined_eff_snr,'kx',label='Background')
+		axes.axvline(x=self.timeslide_likelihood[-100], label='100th loudest background event')
 		axes.legend(loc='lower right')
-		axes.hold(0)
 		yield fig, "MVSC_likelihood_scatterplot" , False
 
 #
