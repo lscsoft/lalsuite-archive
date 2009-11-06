@@ -261,7 +261,7 @@ SELECT
 		self.process_params = []
 
 		for val in self.contents.connection.cursor().execute("""
-SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN process_params AS p2 ON p1.process_id == p2.process_id JOIN search_summary ON search_summary.process_id == p2.process_id WHERE p1.param = '--gps-start-time' AND p2.param = '--gps-end-time' AND search_summary.out_start_time <= ? AND search_summary.out_end_time > ? and search_summary.ifos = ? LIMIT 1)
+SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN search_summary ON search_summary.process_id == p1.process_id WHERE search_summary.out_start_time <= ? AND search_summary.out_end_time > ? and search_summary.ifos = ? LIMIT 1)
 		""", (self.time, self.time, self.ifo) ):
 			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))
 		#change necessary values in process params table
