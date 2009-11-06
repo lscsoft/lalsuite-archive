@@ -2,13 +2,11 @@ require("lattice")
 require("RMySQL")
 
 
-source("params.R")
-
-con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
-
 p<-function(...) {
 	return(paste(..., sep=""))
 	}
+
+source("params.R")
 
 fn<-p(prefix, "coinc1", suffix)
 fnout<-p(fn)
@@ -58,7 +56,7 @@ LoadQuery<-p(LoadQuery, ")")
 #system(p("sed 's/[nN][aA][nN]/NULL/g' stats/stat.dat > ", fnout))
 
 cat("Connecting to the database\n")
-con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
+con<-dbConnect(dbDriver("MySQL"), host=MYSQL_HOST, user=MYSQL_USER, password="", dbname=MYSQL_DB)
 
 cat("Dropping table", CoincTableName, "\n")
 try(dbGetQuery(con, p("DROP TABLE ", CoincTableName)), silent=TRUE)
