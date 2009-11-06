@@ -1227,6 +1227,7 @@ class create_default_config(object):
                 cp.set("fu-condor","effDRatio", self.which("followupRatioTest.py"))
                 cp.set("fu-condor","vetoflags", self.which("followupQueryVeto.py"))
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
+		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
