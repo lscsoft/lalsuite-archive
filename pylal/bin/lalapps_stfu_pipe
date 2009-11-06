@@ -487,6 +487,9 @@ def parse_command_line():
 	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
 	parser.add_option("", "--disable-dag-categories",action="store_true",\
 	default=False,help="disable the internal dag category maxjobs")
+	parser.add_option("", "--enable-bayesian",action="store_true",\
+	default=False,\
+	help="enable the bayesian jobs (mcmc, spinmcmc, nested sampling)")
 
 	options, filenames = parser.parse_args()
 
@@ -578,10 +581,12 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig', dir=search)
 	sky_map_job		= stfu_pipe.skyMapJob(options,cp, dir=search)
 	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp, dir=search)
-	find_flags_job            = stfu_pipe.findFlagsJob(options,cp, dir=search)
-	find_vetos_job            = stfu_pipe.findVetosJob(options,cp, dir=search)
-	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp, dir=search)
-	
+	find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
+	find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
+	effD_ratio_job		= stfu_pipe.effDRatioJob(options,cp, dir=search)
+	mcmc_sngl_job           = stfu_pipe.mcmcJob(opts,cp,dir=search,tag_base="sngl")
+	mcmc_coh_job		= stfu_pipe.mcmcJob(opts,cp,dir=search,tag_base="coh")
+
 	# LOOP OVER COINC EVENTS
 	for coinc_cnt, coinc in enumerate(candidates):
 
