@@ -402,7 +402,6 @@ class effDRatioJob(pipeline.CondorDAGJob,FUJob):
 	"""
 	defaults={"section":"fu-condor",
 		  "options":{"universe":"local",
-			     "snr-ratio-test":"/archive/home/ctorres/public_html/DQstuff/ratioTest.pickle",
 			     "effDRatio":"followupRatioTest.py"}
 		  }
 	def __init__(self, opts, cp, dir='', tag_base=""):
@@ -1228,17 +1227,17 @@ class create_default_config(object):
 		# fu-fg-ht-qscan SECTION
 		cp.add_section("fu-fg-ht-qscan")
 		for config in ["H1config","H2config","L1config","V1config"]:
-			cp.set("fu-fg-ht-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'hoft') + ".txt"))
+			cp.set("fu-fg-ht-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'hoft') + ".txt","QSCAN CONFIG"))
 
 		# fu-fg-rds-qscan SECTION
 		cp.add_section("fu-fg-rds-qscan")
 		for config in ["H1config","H2config","L1config","V1config"]:
-			cp.set("fu-fg-rds-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt"))
+			cp.set("fu-fg-rds-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt","QSCAN CONFIG"))
 
 		# fu-fg-seismic-qscan SECTION
 		cp.add_section("fu-fg-seismic-qscan")
 		for config in ["H1config","H2config","L1config","V1config"]:
-			cp.set("fu-fg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
+			cp.set("fu-fg-seismic-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt","QSCAN CONFIG"))
 
 		# FU-SKYMAP SECTION
 		cp.add_section("fu-skymap")
@@ -1259,6 +1258,10 @@ class create_default_config(object):
 		cp.set('chia','dec-step', "6")
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
+
+		# EFFECTIVE DIST RATIO TEST SECTION
+		cp.add_section("effDRatio")
+		cp.set('effDRatio','snr-ratio-test',self.__find_config("ratioTest.pickle","RATIO TEST PICKLE"))
 
 		# REMOTE JOBS SECTION
 		cp.add_section("fu-remote-jobs")
@@ -1310,17 +1313,17 @@ class create_default_config(object):
 			}	
 		return fileMap[ifo][type]
 
-	def __qscan_config(self,config):
+	def __find_config(self,config,description):
 		#FIXME why isn't there an environment variable for things in lalapps share?
 		path = self.which('lalapps_inspiral')
 		if path: path = os.path.split(path)[0]
 		else: 
-			print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, path)
+			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (config, path)
 			raise ValueError
 			sys.exit(1)
 		out = path.replace('bin','share/lalapps') + '/' + config
 		if not os.path.isfile(out):
-			print >>sys.stderr, "COULD NOT FIND QSCAN CONFIG FILE %s IN %s, ABORTING" % (config, out)
+			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (config, out)
 			raise ValueError
 			sys.exit(1)
 		return out
