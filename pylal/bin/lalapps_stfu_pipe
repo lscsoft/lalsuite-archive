@@ -584,8 +584,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
 	find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
 	effD_ratio_job		= stfu_pipe.effDRatioJob(options,cp, dir=search)
-	mcmc_sngl_job           = stfu_pipe.mcmcJob(opts,cp,dir=search,tag_base="sngl")
-	mcmc_coh_job		= stfu_pipe.mcmcJob(opts,cp,dir=search,tag_base="coh")
+	mcmc_sngl_job           = stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="sngl")
+	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
 
 	# LOOP OVER COINC EVENTS
 	for coinc_cnt, coinc in enumerate(candidates):
