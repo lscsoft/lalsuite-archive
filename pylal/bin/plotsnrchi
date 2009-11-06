@@ -48,7 +48,7 @@ def constant_effective_snr(snr, eff_snr, chisq_dof, denominator_constant):
   return (chisq_dof * snr**4 / ( 1 + snr**2/denominator_constant) / eff_snr**4)
 
 def plotconstlines(snr_range, const, chisq_dof):
-  for [eff_snr,color] in [[5,'m-'], [6,'b-'], [7,'g-'], [8,'r-'], [9,'y-'],
+  for [eff_snr,color] in [6,'b-'], [7,'g-'], [8,'r-'], [9,'y-'],
       [10,'c-'], [11,'m-'], [12,'b-']]:
     loglog( snr_range, constant_effective_snr( snr_range, eff_snr, chisq_dof, 
       const), color, linewidth=1)
