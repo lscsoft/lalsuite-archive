@@ -35,11 +35,11 @@ if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
 	ctx->summing_step=864000; /* ten days */
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "loose")) {
-	ctx->get_uncached_power_sum=get_uncached_loose_single_bin_partial_power_sum;
+	ctx->get_uncached_power_sum=get_uncached_loose_matched_partial_power_sum;
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached1;
 	ctx->accumulate_power_sums=accumulate_loose_power_sums_sidereal_step;
 
-	ctx->cache_granularity=8; /* TODO: find actual value from experiment */
+	ctx->cache_granularity=16; /* TODO: find actual value from experiment */
 	ctx->sidereal_group_count=12;
 	ctx->summing_step=86400*3; /* three days */
 	ctx->time_group_count=3;

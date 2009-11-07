@@ -28,7 +28,7 @@
 LSC Table definitions.  These must be kept synchronized with the official
 definitions in the LDAS CVS repository at
 http://www.ldas-sw.ligo.caltech.edu/cgi-bin/cvsweb.cgi/ldas/dbms/db2/sql.
-Maintainership of the table definitions is left as an excercise to
+Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
@@ -1178,6 +1178,8 @@ class SnglInspiralTable(table.Table):
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
+		if column == 'new_snr':
+			return self.get_new_snr()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
@@ -1197,7 +1199,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-
+            
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		chisq = self.get_column('chisq')
@@ -1305,6 +1307,14 @@ class SnglInspiral(object):
 
 	def get_effective_snr(self,fac=250.0):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+	
+	def get_new_snr(self,index=6.0):
+		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
 
 	def get_far(self):
 		return self.alpha
@@ -1548,6 +1558,8 @@ class MultiInspiralTable(table.Table):
 		"mass2": "real_4",
 		"mchirp": "real_4",
 		"eta": "real_4",
+		"chi": "real_4",
+		"kappa": "real_4",
 		"tau0": "real_4",
 		"tau2": "real_4",
 		"tau3": "real_4",
@@ -1555,6 +1567,7 @@ class MultiInspiralTable(table.Table):
 		"tau5": "real_4",
 		"ttotal": "real_4",
 		"snr": "real_4",
+                "snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
