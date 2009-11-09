@@ -1460,6 +1460,11 @@ class create_default_config(object):
                 cp.set("condor-max-jobs","ligo_data_find_HT_playground","3")
                 cp.set("condor-max-jobs","ligo_data_find_Q_HT_playground","3")
                 cp.set("condor-max-jobs","ligo_data_find_Q_RDS_playground","3")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_full_data","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_playground","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","2
+0")
 
 		# if we have an ini file override the options
 		if config: 
