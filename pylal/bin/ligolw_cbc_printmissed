@@ -1,0 +1,441 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+usage = \
+'''
+Prints information about closest missed injections.
+'''
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
+import bisect
+import math
+import re
+
+from glue import segments
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import utils
+from glue.ligolw.utils import print_tables
+from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import process
+from glue.ligolw.utils.ligolw_sqlite import extract
+
+from pylal import ligolw_sqlutils as sqlutils
+from pylal import db_thinca_rings
+
+__prog__ = "ligolw_cbc_printmissed"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__date__ = "$Date$" 
+__version__ = "$Revision$"
+
+# =============================================================================
+#
+#                                   Set Options
+#
+# =============================================================================
+
+
+def parse_command_line():
+    """
+    Parse the command line, return options and check for consistency among the
+    options.
+    """
+    parser = OptionParser( version = "", usage = usage )
+
+    # following are related to file input and output naming
+    parser.add_option( "-i", "--input", action = "store", type = "string",
+        default = None,                  
+        help = 
+            "Input database to read. Can only input one at a time." 
+            )
+    parser.add_option("-o", "--output", action = "store", type = "string",
+        default = None,
+        help =
+            "Save summary table to file. If no output specified, result " +
+            "will be printed to stdout."
+            )
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string",
+        default = None, metavar = "path",
+        help = 
+            "Location of local disk on which to do work. " +
+            "This is used to enhance performance in a networked " +
+            "environment."
+            )
+    parser.add_option("-f", "--output-format", action = "store", type = "string",
+        default = "xml", metavar = "wiki, html, OR xml",
+        help =
+            "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. " +
+            "Default is xml."
+            )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help = 
+            "Print the SQLite query that is used to stdout." 
+            )
+    # following are generic inspiral_sql options
+    parser.add_option( "", "--param-name", metavar = "PARAMETER",
+        action = "store", default = None,
+        help = 
+            "Can be any parameter in the simulation table. " +
+            "Specifying this and param-ranges will only select " +
+            "triggers that fall within the parameter ranges. " 
+            )
+    parser.add_option( "", "--param-ranges", action = "store", default = None,
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
+        help = 
+            "Requires --param-name. Specify the parameter ranges " +
+            "to select triggers in. A '(' or ')' implies an open " +
+            "boundary, a '[' or ']' a closed boundary. To specify " +
+            "multiple ranges, separate each range by a ';'. To " +
+            "specify a single value, just type that value with no " +
+            "parentheses or brackets. To specify not equal to a single " +
+            "value, put a '!' before the value. If " +
+            "multiple ranges are specified, the triggers picked for " +
+            "ranking will come from the union of the ranges."
+            )
+    # following are options specific to this program
+    parser.add_option( "-I", "--instrument-time", action = "store", type = "string", default = None,
+        help =
+            "Required. Instrument time to select missed injections " +
+            "from, e.g., 'H1,L1,V1'."
+            )
+    parser.add_option( "-s", "--simulation-table", action = "store", type = "string", default = None,
+        help =
+            "Required. Table to look in for injection parameters. " +
+            "Can be any lsctable with a simulation_id."
+            )
+    parser.add_option( "-r", "--recovery-table", action = "store", type = "string", default = None,
+        help =
+            "Required. Table to look in to see if injections were missed. " +
+            "Can be any lsctable with a coinc_event_id."
+            )
+    parser.add_option( "", "--sim-type", action = "store", type = "string", default = 'ALLINJ',
+        help =
+            "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
+            "If not specified, will group all injections together."
+            )
+    parser.add_option( "", "--limit", action = "store", type = "int", default = 10,
+        help =
+            "Specify up to what rank to print. Default is 10. "
+            )
+
+    (options, args) = parser.parse_args()
+
+    # check for required options and for self-consistency
+    if not options.input:
+        raise ValueError, "No input specified."
+    if not options.instrument_time:
+        raise ValueError, "No instrument time specified."
+    if not options.simulation_table:
+        raise ValueError, "No simulation table specified."
+    if not options.recovery_table:
+        raise ValueError, "No recovery table specified."
+    if options.param_name and not options.param_ranges:
+        raise ValueError, "--param-name requires --param-ranges"
+
+
+    return options, sys.argv[1:]
+
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+def generic_get_pyvalue(obj):
+    if obj.value is None:
+        return None
+    return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
+
+
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+
+opts, args = parse_command_line()
+
+# get input database filename
+filename = opts.input
+if not os.path.isfile( filename ):
+    raise ValueError, "The input file, %s, cannot be found." % filename
+
+# Setup working databases and connections
+if opts.verbose and opts.tmp_space: 
+    print >> sys.stdout, "Setting up temp. database..."
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+connection = sqlite3.connect( working_filename )
+dbtables.DBTable_set_connection( connection )
+
+# Get simulation table from options
+simulation_table = sqlutils.validate_option(opts.simulation_table)
+# Get recovery table and ranking stat from options
+recovery_table = sqlutils.validate_option(opts.recovery_table)
+
+# Get the requested instruments
+requested_instruments = lsctables.instrument_set_from_ifos(opts.instrument_time.upper())
+
+# get the ring_sets
+ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
+
+if opts.verbose:
+    print >> sys.stderr, "Getting all veto category name from the experiment_summary table..."
+
+# get veto_segments
+sqlquery = """
+    SELECT DISTINCT
+        veto_def_name
+    FROM
+        experiment_summary
+    """
+# FIXME: this assumes only 1 veto_def_name in the category; while this is currently true in pipedown
+# databases, it necessarily doesn't have to be
+veto_def_name = connection.cursor().execute(sqlquery).fetchone()[0]
+if opts.verbose:
+    print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
+try:
+    veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+except AttributeError:
+    # will get an AttributeError if using newer format veto segment file because
+    # the new format does not include _ns; if so, remove the _ns columns from the
+    # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
+    from glue.lal import LIGOTimeGPS
+
+    del lsctables.SegmentTable.validcolumns['start_time_ns']
+    del lsctables.SegmentTable.validcolumns['end_time_ns']
+
+    def get_segment(self):
+        """
+        Return the segment described by this row.
+        """
+        return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+
+    def set_segment(self, segment):
+        """
+        Set the segment described by this row.
+        """
+        self.start_time = segment[0].seconds
+        self.end_time = segment[1].seconds
+
+    lsctables.Segment.get = get_segment
+    lsctables.Segment.set = set_segment
+
+    veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+
+# get instrument on_time
+on_times = ring_sets[frozenset(requested_instruments)]
+for instrument in requested_instruments:
+    on_times = on_times - veto_segments[instrument]
+
+def is_in_on_time(gps_end_time, gps_end_time_ns):
+    return LIGOTimeGPS(gps_end_time, gps_end_time_ns) in on_times
+
+connection.create_function('is_in_on_time', 2, is_in_on_time)
+
+# set up sim_rec_map table
+sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
+
+
+#
+#   Set table filters
+#
+
+in_this_filter = """
+    WHERE
+        simulation_id NOT IN (
+            SELECT
+                sim_id
+            FROM
+                sim_rec_map )"""
+
+for instrument in requested_instruments:
+    inst_time = instrument.lower()[0] + '_end_time'
+    inst_time_ns = inst_time + '_ns' 
+    in_this_filter = ''.join([ in_this_filter,
+        '\n\tAND is_in_on_time(', inst_time, ',', inst_time_ns, ')' ])
+
+# Get param and param-ranges if specified
+if opts.param_name:
+    opts.param_name = sqlutils.validate_option(opts.param_name)
+    param_filters = sqlutils.parse_param_ranges( simulation_table, opts.param_name, 
+        opts.param_ranges, verbose = opts.verbose ).get_param_filters()
+    # since want triggers that fall within all the parameters, concatenate
+    # all param ranges
+    param_filters = '\n\t\tOR '.join( param_filters )
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', param_filters, '\n\t)' ])
+
+# if sim-type specified add the sim-type to the filter
+if opts.sim_type != 'ALLINJ':
+    # create a map between sim_proc_id and sim-name
+    sim_map = sqlutils.sim_type_proc_id_mapper( connection )
+    # check that opts.sim_type is in the the map
+    opts.sim_type = sqlutils.validate_option(opts.sim_type, lower = False).upper()
+    if opts.sim_type not in sim_map.name_id_map.keys():
+        raise ValueError, "sim-type %s not found in database" % opts.sim_type
+    # create the filter
+    connection.create_function( 'get_sim_type', 1, sim_map.get_sim_type )
+    sim_filter = ''.join(['get_sim_type(', simulation_table, '.process_id) == "', opts.sim_type, '"' ])
+    # add to in_this_filter
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
+
+#
+#   Set up decisive distance argument
+#
+
+def get_decisive_distance( *args ):
+   return sorted(args)[1]
+
+connection.create_function('get_decisive_distance', len(requested_instruments), get_decisive_distance)
+decisive_distance = ''.join(['get_decisive_distance(', ','.join(['eff_dist_'+inst.lower()[0] for inst in requested_instruments]), ')' ])
+
+#
+#   Initialize ranking. Statistics for ranking are based on decisive distance
+#
+if opts.verbose:
+    print >> sys.stdout, "Getting statistics for ranking..."
+ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
+# add requirement that stats not be found in the sim_rec_table to in_this_filter
+ranker.populate_stats_list(connection, limit = opts.limit, filter = in_this_filter)
+connection.create_function( 'rank', 1, ranker.get_rank )
+
+#
+#   Create and prepare the CloseMissedTable to store summary information
+#
+
+# Get simulation table column names from database
+simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
+column_names = simulation_table_columns + ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'mini_followup']
+
+#
+# define needed tables
+#
+class CloseMissedTable(table.Table):
+    tableName = "close_missed_injections:table"
+    validcolumns = {}
+    for col_name in column_names:
+        if 'rank' in col_name:
+            validcolumns[col_name] = "int_4u"
+        elif 'instruments_on' in col_name:
+            validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
+        elif 'decisive_distance' == col_name:
+            validcolumns[col_name] = sqlutils.get_col_type(simulation_table, 'eff_dist_h')
+        elif 'end_time' == col_name or 'end_time_ns' == col_name:
+            validcolumns[col_name] = "int_4s"
+        else:
+            validcolumns[col_name] = sqlutils.get_col_type(simulation_table, col_name, default = 'lstring')
+
+class CloseMissed(object):
+    __slots__ = CloseMissedTable.validcolumns.keys()
+
+    def get_pyvalue(self):
+        return generic_get_pyvalue(self)
+
+# connect the rows to the tables
+CloseMissedTable.RowType = CloseMissed
+
+#
+#   Get the Data
+#
+cmtable = lsctables.New(CloseMissedTable)
+sqlquery = ''.join(["""
+    SELECT
+        *,
+        """, decisive_distance, """,
+        rank(""", decisive_distance, """)
+    FROM
+        """, simulation_table, """
+    """, in_this_filter, """
+        AND rank(""", decisive_distance, """) <= """, str(opts.limit), """
+    ORDER BY
+        rank(""", decisive_distance, """) ASC
+        """])
+
+if opts.verbose:
+    print >> sys.stdout, "Getting injections..."
+    print >> sys.stdout, "SQLite query used is:"
+    print >> sys.stdout, sqlquery
+
+for values in connection.cursor().execute( sqlquery ).fetchall():
+    cmrow = CloseMissed()
+    [ setattr(cmrow, column, values[ii]) for ii, column in enumerate(simulation_table_columns) ]
+    cmrow.decisive_distance = values[-2]
+    cmrow.rank = values[-1]
+    cmrow.mini_followup = None
+    cmrow.end_time = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time')
+    cmrow.end_time_ns = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time_ns')
+
+    # add the row
+    cmtable.append(cmrow)
+
+#
+# create a document
+#
+cmdoc = ligolw.Document()
+# setup the LIGOLW tag
+cmdoc.appendChild(ligolw.LIGO_LW())
+# add this program's metadata
+cmproc_id = process.register_to_xmldoc(cmdoc, __prog__, opts.__dict__)
+# connect the table to the document
+cmdoc.childNodes[0].appendChild(cmtable)
+
+
+#
+#   Print the summary data
+#
+
+if opts.verbose and not opts.output:
+    print >> sys.stdout, "\nResults are:\n"
+
+if opts.output_format != "xml":
+    # set table list
+    tableList = ['close_missed_injections']
+    columnList = [
+        'rank',
+        'decisive_distance',
+        'end_time',
+        'end_time_ns',
+        'mchirp',
+        'mass1',
+        'mass2',
+        'eff_dist_h',
+        'eff_dist_l',
+        'eff_dist_v',
+        'mini_followup'
+        ]
+        
+    # set output
+    if opts.output is not None:
+        opts.output = open(opts.output, 'w')
+    # print the loudest_events table in the specified format
+    print_tables.print_tables(cmdoc, opts.output, opts.output_format, tableList = tableList,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        row_span_columns = [], rspan_break_columns = [])
+    if opts.output is not None:
+        opts.output.close()
+else:
+    utils.write_filename(cmdoc, opts.output, xsl_file = "ligolw.xsl")
+
+# close connection and exit
+connection.close()
+dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
+sys.exit(0)
