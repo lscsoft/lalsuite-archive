@@ -172,7 +172,7 @@ def parse_command_line():
             "s (seconds), min (minutes), hr (hours), days (days), or yr (years). " +
             "(Setting to s is the equivalent of a no-op.)"
             )
-    parser.add_option( "", "--sim-name", action = "store", type = "string", default = 'ALLINJ',
+    parser.add_option( "", "--sim-type", action = "store", type = "string", default = 'ALLINJ',
         help =
             "If the --datatype is simulation, limits the selection to the specified " +
             "simulation name, e.g., 'BNSINJ'. If not specified, will group all injections together."
@@ -274,12 +274,16 @@ if opts.include_only_coincs:
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
 # if datatype is simulation and sim-type specified add the sim-type to the filter
-if datatype == 'simulation' and opts.sim_name != 'ALLINJ':
+if datatype == 'simulation' and opts.sim_type != 'ALLINJ':
     # create a map between sim_proc_id and sim-name
-    sim_map = sqlutils.sim_name_proc_id_mapper( connection )
+    sim_map = sqlutils.sim_type_proc_id_mapper( connection )
+    # check that opts.sim_type is in the the map
+    opts.sim_type = sqlutils.validate_option(opts.sim_type, lower = False).upper()
+    if opts.sim_type not in sim_map.name_id_map.keys():
+        raise ValueError, "sim-type %s not found in database" % opts.sim_type
     # create the filter
-    connection.create_function( 'get_sim_name', 1, sim_map.get_sim_name )
-    sim_filter = ''.join(['get_sim_name(experiment_summary.sim_proc_id) == "', opts.sim_name.strip().upper(), '"' ])
+    connection.create_function( 'get_sim_type', 1, sim_map.get_sim_type )
+    sim_filter = ''.join(['get_sim_type(experiment_summary.sim_proc_id) == "', opts.sim_type.strip().upper(), '"' ])
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
 
