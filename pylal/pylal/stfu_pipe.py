@@ -583,6 +583,10 @@ The omega scan command line is
 			if not (type=="ht" and opts.no_ht_qscan) and not (type=="rds" and opts.no_rds_qscan) and not (type=="seismic" and opts.no_seismic_qscan):
 				dag.add_node(self)
 				self.validate()
+			else:
+				self.invalidate()
+		else:
+			self.invalidate()
 
 	def fix_config_for_science_run(self, config, time):
 		run = science_run(time)
@@ -619,6 +623,10 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 			if not (data_type=="hoft" and not qscan and opts.no_insp_datafind) and not (data_type=="hoft" and qscan and opts.no_htQscan_datafind) and not (data_type=="rds" and opts.no_rdsQscan_datafind):
 				dag.add_node(self)
 				self.validate()
+			else:
+				self.invalidate()
+		else:
+			self.invalidate
 
 	def setup_qscan(self, job, cp, time, ifo, data_type):
 		# 1s is substracted to the expected startTime to make sure the window
@@ -732,6 +740,8 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		if not opts.no_inspiral:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 	def write_trig_bank(self,sngl, name):
 		try:
@@ -785,6 +795,8 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		if not opts.no_findFlags:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 # FIND VETOS NODE 
 class findVetosNode(pipeline.CondorDAGNode,FUNode):
@@ -821,6 +833,8 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		if not opts.no_findVetoes:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 # EFFECTIVE DISTANCE RATIO NODE 
 class effDRatioNode(pipeline.CondorDAGNode,FUNode):
@@ -868,6 +882,8 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		if not opts.no_effectiveRatio:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 ##############################################################################
 # job class for producing the skymap
@@ -919,6 +935,8 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 		if not opts.no_skymap:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 # job class for producing the skymap
 class pylal_skyPlotNode(pipeline.CondorDAGNode,FUNode):
@@ -962,6 +980,8 @@ A python code for plotting the sky map
 		if not opts.no_skymap:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 class followUpChiaNode(inspiral.ChiaNode,FUNode):
 	"""
@@ -1056,6 +1076,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		if not opts.no_chia:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 			
 	def write_trigbank(self, coinc, name):
 		try:
@@ -1138,6 +1160,8 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
 		if opts.no_plotsnrchisq:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 
 ##############################################################################
@@ -1185,6 +1209,8 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		if not opts.no_chia:
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 		for ifo, insp in insp_node_dict.items():
 			self.add_var_arg("--"+ifo.upper()+"-framefile "+ insp.output_frame_file)
@@ -1281,7 +1307,7 @@ class mcmcNode(pipeline.CondorDAGNode, FUNode):
 
 		self.add_var_opt("importanceresample",10000)
 
-		self.id = job.name.upper() + '-' + self.ifonames + '-' + str(coinc.coinc_event_id) + '_' + randomseed
+		self.id = job.name.upper() + '-' + self.ifonames + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
 		outputName = job.outputPath + '/' + self.id
 		self.add_var_opt("outfilename",outputName)
 
@@ -1297,6 +1323,8 @@ class mcmcNode(pipeline.CondorDAGNode, FUNode):
 					self.add_parent(node)
 			dag.add_node(self)
 			self.validate()
+		else:
+			self.invalidate()
 
 
 ##############################################################################
@@ -1463,8 +1491,7 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_full_data","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_playground","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
-		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","2
-0")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
 
 		# if we have an ini file override the options
 		if config: 
