@@ -11,8 +11,9 @@
 
 usage = \
 '''
-Prints the largest triggers in either foreground or background along with
-relevant statistics and parameters to stdout.
+Ranks 'found' injections as if they were the only injection in a given datatype and
+prints information about that injection and the recovered parameters of all coinc-events
+that match that injection.
 '''
 
 from optparse import OptionParser
