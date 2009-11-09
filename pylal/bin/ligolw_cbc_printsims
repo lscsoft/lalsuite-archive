@@ -1,0 +1,738 @@
+#!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+usage = \
+'''
+Prints the largest triggers in either foreground or background along with
+relevant statistics and parameters to stdout.
+'''
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
+import bisect
+import math
+import re
+
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import utils
+from glue.ligolw.utils import print_tables
+from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import process
+from glue.ligolw.utils.ligolw_sqlite import extract
+
+from pylal import ligolw_sqlutils as sqlutils
+
+__prog__ = "ligolw_cbc_printsims"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__date__ = "$Date$" 
+__version__ = "$Revision$"
+
+# =============================================================================
+#
+#                                   Set Options
+#
+# =============================================================================
+
+
+def parse_command_line():
+    """
+    Parse the command line, return options and check for consistency among the
+    options.
+    """
+    parser = OptionParser( version = "", usage = usage )
+
+    # following are related to file input and output naming
+    parser.add_option( "-i", "--input", action = "store", type = "string",
+        default = None,                  
+        help = 
+            "Input database to read. Can only input one at a time." 
+            )
+    parser.add_option("-o", "--output", action = "store", type = "string",
+        default = None,
+        help =
+            "Save summary table to file. If no output specified, result " +
+            "will be printed to stdout."
+            )
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string",
+        default = None, metavar = "path",
+        help = 
+            "Location of local disk on which to do work. " +
+            "This is used to enhance performance in a networked " +
+            "environment and is needed if extracting an xml file."
+            )
+    parser.add_option("-f", "--output-format", action = "store", type = "string",
+        default = "xml", metavar = "wiki, html, OR xml",
+        help =
+            "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. " +
+            "Default is xml."
+            )
+    parser.add_option("-x", "--extract-to-xml", action = "store", type = "string",
+        default = None, metavar = "filename",
+        help =
+            "Will extract a full xml file from the database containing only the " +
+            "triggers that are printed. Requries --tmp-space. "
+            )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help = 
+            "Print the SQLite query that is used to stdout." 
+            )
+    # following are generic inspiral_sql options
+    parser.add_option( "", "--param-name", metavar = "PARAMETER",
+        action = "store", default = None,
+        help = 
+            "Can be any parameter in the recovery table. " +
+            "Specifying this and param-ranges will only select " +
+            "triggers that fall within the parameter ranges. " 
+            )
+    parser.add_option( "", "--param-ranges", action = "store", default = None,
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
+        help = 
+            "Requires --param-name. Specify the parameter ranges " +
+            "to select triggers in. A '(' or ')' implies an open " +
+            "boundary, a '[' or ']' a closed boundary. To specify " +
+            "multiple ranges, separate each range by a ';'. To " +
+            "specify a single value, just type that value with no " +
+            "parentheses or brackets. To specify not equal to a single " +
+            "value, put a '!' before the value. If " +
+            "multiple ranges are specified, the triggers picked for " +
+            "ranking will come from the union of the ranges."
+            )
+    parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
+        metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];"
+            "[ALL in INSTRUMENTS_ON2]; etc.",
+        help = 
+            "Exclude coincident types in specified detector times, " +
+            "e.g., '[H2,L1 in H1,H2,L1]'. Some rules: " +
+                "* Coinc-types and detector time must be separated by " +
+                "an ' in '. When specifying a coinc_type or detector " +
+                "time, detectors and/or ifos must be separated by " +
+                "commas, e.g. 'H1,L1' not 'H1L1'. " +
+                "* To specify multiple coinc-types in one type of time, " +
+                "separate each coinc-type by a '+', e.g., " +
+                "'[H1,H2 + H2,L1 in H1,H2,L1]'. " +
+                "* To exclude all coincs in a specified detector time " +
+                "or specific coinc-type in all times, use 'ALL'. E.g., " +
+                "to exclude all H1,H2 triggers, use '[H1,H2 in ALL]' " +
+                "or to exclude all H2,L1 time use '[ALL in H2,L1]'. " + 
+                "* To specify multiple exclusions, separate each " +
+                "bracket by a ';'. " +
+                "* Order of the instruments nor case of the letters " +
+                "matter. So if your pinky is broken and you're " +
+                "dyslexic you can type '[h2,h1 in all]' without a " +
+                "problem." 
+            )
+    parser.add_option( "", "--include-only-coincs", action = "store", type = "string", default = None,
+        metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
+            "[ALL in INSTRUMENTS_ON2]; etc.",
+        help =
+            "Opposite of --exclude-coincs: only rank the specified coinc types. "
+            )
+    # following are options specific to this program
+    parser.add_option( "-s", "--simulation-table", action = "store", type = "string", default = None,
+        help =
+            "Required. Table to look in for injection parameters. " +
+            "Can be any lsctable with a simulation_id."
+            )
+    parser.add_option( "-r", "--recovery-table", action = "store", type = "string", default = None,
+        help =
+            "Required. Table to look in for recovered injections. " +
+            "Can be any lsctable with a coinc_event_id."
+            )
+    parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
+        help =
+            "Requried. Statistic to rank by; can be any column " +
+            "in the recovery table." 
+            )
+    parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
+        metavar = "MAX or MIN",
+        help = 
+            "Requried. Options are MAX or MIN. " +
+            "This specifies whether to rank triggers by maximum or " +
+            "minimum stat value." 
+            )
+    parser.add_option( "-d", "--comparison-datatype", action = "store", type = "string", default = None,
+        help =
+            "Requried. Datatype to base ranking on. Injections will be assigned a ranking " +
+            "as if were the only injection event in the specified datatype. " +
+            "Options are 'all_data', 'playground', 'exclude_play', 'slide' or 'simulation'."
+            )
+    parser.add_option( "", "--rank-range", action = "store", type = "string", default = None,
+        help =
+            "Specify what range of ranks to print. Same syntax rules as param-ranges apply. " +
+            "Default is to print all ranges."
+            )
+    parser.add_option( "", "--convert-durations", action = "store", type = "string", default = "s",
+        metavar = "s, min, hr, days, OR yr",
+        help =
+            "Convert the duration from seconds to a different unit of time. Options are: " +
+            "s (seconds), min (minutes), hr (hours), days (days), or yr (years). " +
+            "(Setting to s is the equivalent of a no-op.)"
+            )
+    parser.add_option( "", "--sim-type", action = "store", type = "string", default = 'ALLINJ',
+        help =
+            "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
+            "If not specified, will group all injections together."
+            )
+
+    (options, args) = parser.parse_args()
+
+    # check for required options and for self-consistency
+    if not options.input:
+        raise ValueError, "No input specified."
+    if not options.simulation_table:
+        raise ValueError, "No simulation table specified."
+    if not options.recovery_table:
+        raise ValueError, "No recovery table specified."
+    if options.extract_to_xml and not options.tmp_space:
+        raise ValueError, "extract-to-xml requires tmp-space"
+    if not options.ranking_stat:
+        raise ValueError, "No ranking stat specified."
+    if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
+        raise ValueError, "--rank-by must be specified and set to either MIN or MAX."
+    if options.param_name and not options.param_ranges:
+        raise ValueError, "--param-name requires --param-ranges"
+    if not options.comparison_datatype:
+        raise ValueError, "--datatype must be specified."
+    if options.comparison_datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
+        raise ValueError, "Unrecognized comparison datatype %s. See help for options." % options.comparison_datatype
+    if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
+        options.convert_durations.strip().lower() == "hr" or options.convert_durations.strip().lower() == "days" or
+        options.convert_durations.strip().lower() == "yr"):
+        raise ValueError, "--convert-duration must be either s, min, hr, days, or yr"
+
+
+    return options, sys.argv[1:]
+
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+def generic_get_pyvalue(obj):
+    if obj.value is None:
+        return None
+    return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
+
+def get_col_type(table_name, col_name, default = 'lstring'):
+    """
+    Attempts to get column type from lsctables.py for the given table name and
+    column name. If the table doesn't exist in lsctables or the column doesn't
+    exist in the lsctables definition of the table, returns the default type.
+    """
+    if table_name in lsctables.TableByName.keys() and col_name in lsctables.TableByName[table_name].validcolumns.keys():
+        return lsctables.TableByName[table_name].validcolumns[col_name]
+    else:
+        return default
+
+
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+
+opts, args = parse_command_line()
+
+# get input database filename
+filename = opts.input
+if not os.path.isfile( filename ):
+    raise ValueError, "The input file, %s, cannot be found." % filename
+
+# Setup working databases and connections
+if opts.verbose and opts.tmp_space: 
+    print >> sys.stdout, "Setting up temp. database..."
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+connection = sqlite3.connect( working_filename )
+dbtables.DBTable_set_connection( connection )
+
+# Get simulation table from options
+simulation_table = sqlutils.validate_option(opts.simulation_table)
+# Get recovery table and ranking stat from options
+recovery_table = sqlutils.validate_option(opts.recovery_table)
+ranking_stat = sqlutils.validate_option(opts.ranking_stat)
+if not ranking_stat.startswith(recovery_table):
+    ranking_stat = '.'.join([recovery_table, ranking_stat])
+
+# Get rank_by
+if opts.rank_by.strip().upper() == "MIN":
+  rank_by = 'ASC'
+else:
+  rank_by = 'DESC'
+
+#
+#   Set up sim_rec_map table
+#
+sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, opts.ranking_stat)
+
+#
+#   Set recovery table filters
+#
+
+in_this_filter = ''
+
+# Get param and param-ranges if specified
+if opts.param_name:
+    opts.param_name = sqlutils.validate_option(opts.param_name)
+    param_filters = sqlutils.parse_param_ranges( recovery_table, opts.param_name, 
+        opts.param_ranges, verbose = opts.verbose ).get_param_filters()
+    # since want triggers that fall within all the parameters, concatenate
+    # all param ranges
+    param_filters = '\n\t\tOR '.join( param_filters )
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', param_filters, '\n\t)' ])
+
+# Get exclude_coincs list if specified
+if opts.exclude_coincs:
+    exclude_coinc_filters = sqlutils.parse_coinc_options( opts.exclude_coincs, 
+        verbose = opts.verbose ).get_coinc_filters()
+    # concatenate exclude_coinc_filters
+    exclude_coinc_filters = '\n\t\tOR '.join( exclude_coinc_filters )
+    # add to in_this_filter
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND NOT (\n\t\t', exclude_coinc_filters, '\n\t)' ]) 
+
+# Get include_only_coincs list if specified
+if opts.include_only_coincs:
+    include_coinc_filters = sqlutils.parse_coinc_options( opts.include_only_coincs, 
+        verbose = opts.verbose ).get_coinc_filters()
+    # concatenate include_coinc_filters
+    include_coinc_filters = '\n\t\tOR '.join( include_coinc_filters )
+    # add to in_this_filter
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
+
+# if sim-type specified add the sim-type to the filter
+if opts.sim_type != 'ALLINJ':
+    # create a map between sim_proc_id and sim-name
+    sim_map = sqlutils.sim_type_proc_id_mapper( connection )
+    # check that opts.sim_type is in the the map
+    opts.sim_type = sqlutils.validate_option(opts.sim_type, lower = False).upper()
+    if opts.sim_type not in sim_map.name_id_map.keys():
+        raise ValueError, "sim-type %s not found in database" % opts.sim_type
+    # create the filter
+    connection.create_function( 'get_sim_type', 1, sim_map.get_sim_type )
+    sim_filter = ''.join(['get_sim_type(experiment_summary.sim_proc_id) == "', opts.sim_type, '"' ])
+    # add to in_this_filter
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
+
+
+#
+#   Initialize ranking. Statistics for ranking are collected from non-injections
+#   in the recovery table.
+#
+if opts.verbose:
+    print >> sys.stdout, "Getting statistics for ranking..."
+ranker = sqlutils.rank_stats(recovery_table, ranking_stat, rank_by)
+# add requirement that stats not be found in the sim_rec_table to in_this_filter
+rank_filter = ''.join([
+        recovery_table, '''.coinc_event_id NOT IN (
+            SELECT
+                rec_id
+            FROM
+                sim_rec_map)
+        AND
+            experiment_summary.datatype == "''', sqlutils.validate_option(opts.comparison_datatype), '"'])
+
+if in_this_filter == '':
+    rank_filter = '\n\tAND '.join([ in_this_filter, rank_filter ])
+else:
+    rank_filter = '\n\t'.join([ sqlutils.join_experiment_tables_to_coinc_table(recovery_table), 'WHERE', rank_filter ])
+
+ranker.populate_stats_list(connection, limit = None, filter = rank_filter)
+connection.create_function( 'rank', 1, ranker.get_rank )
+
+
+# Now apply the filter to the sim_rec_map table: this will delete all sim/rec maps where the simulation id is
+# mapped to a recovered event that falls outside the filter, even if that particular sim/rec map is in the
+# filter. For example, if the filter is recovery_table.combined_far != 0., and there are two entries in the
+# sim_rec_map table sharing the same sim_id:
+#   sim_id:0 | rec_id:0 | rec_id's combined_far = 0.
+#   sim_id:0 | rec_id:1 | rec_id's combined_far = 1.2
+# both entries will get deleted even though the second entry's combined_far is not 0.
+if in_this_filter != '':
+    # join the needed tables to in_this_filter
+    in_this_filter = ''.join([ sqlutils.join_experiment_tables_to_coinc_table(recovery_table), "\n    WHERE\n\t", re.sub('\n\tAND', '', in_this_filter, 1) ])
+    sqlscript = ''.join([ """
+        CREATE TEMP TABLE del_ids AS
+            SELECT
+                sim_id AS del_id
+            FROM
+                sim_rec_map
+            WHERE
+                rec_id NOT IN (
+                SELECT
+                    """, recovery_table, """.coinc_event_id
+                FROM
+                    """, recovery_table, """
+                """, in_this_filter, """
+                    AND experiment_summary.datatype == "simulation"
+                );
+    
+        DELETE FROM
+            sim_rec_map
+        WHERE
+            sim_id IN (
+                SELECT
+                    del_id
+                FROM
+                    del_ids );
+    
+        DROP TABLE del_ids;""" ])
+    connection.cursor().executescript(sqlscript)
+
+#
+#   Set other needed functions
+#
+
+# establish what units will be converting duration to
+def convert_duration( duration ):
+    return sqlutils.convert_duration( duration, opts.convert_durations.strip().lower() )
+connection.create_function( 'convert_duration', 1, convert_duration )
+
+# Get range ranks
+if opts.rank_range is not None:
+    rank_range_parser = sqlutils.parse_param_ranges( 'rank(sim_rec_map', 'ranking_stat)',
+        opts.rank_range, verbose = opts.verbose )
+
+#
+#   Create and prepare the SelectedFoundTable to store summary information
+#
+
+# Get recovery table and simulation table column names from database
+simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
+recovery_table_columns = sqlutils.get_column_names_from_table( connection, recovery_table )
+
+# Get list of column name for injected parameters
+#injected_cols = [ 'end_time', 'end_time_ns', 'mchirp', 'mass1', 'mass2', 'eff_dist_h', 'eff_dist_l', 'eff_dist_v' ]
+injected_cols = ['injected_'+col for col in simulation_table_columns] + ['injected_end_time', 'injected_end_time_ns']
+# Get list of column names from the recovery table
+recovered_cols = ['recovered_'+col for col in recovery_table_columns]
+# generate list of column names for the summary table
+column_names = injected_cols + recovered_cols
+# add instruments on, duration, mini_followups
+rankname = 'rank_in_' + opts.comparison_datatype.strip().lower() + '_using_' + ranking_stat.split('.')[-1]
+durname = ''.join([ 'simulation', u'_duration_', opts.convert_durations.strip().lower() ])
+column_names.extend([u'instruments_on', durname, u'mini_followup' ])
+column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', durname, 'mini_followup' ] )
+
+#
+# define needed tables
+#
+class tmpSimTable(table.Table):
+    tableName = "tmp_sim_table:table"
+    validcolumns = dict([ [col, get_col_type(simulation_table, col)] for col in simulation_table_columns ])
+class tmpSim(object):
+    __slots__ = tmpSimTable.validcolumns.keys()
+    def get_pyvalue(self):
+        return generic_get_pyvalue(self)
+
+class tmpRecTable(table.Table):
+    tableName = "tmp_rec_table:table"
+    validcolumns = dict([ [col, get_col_type(recovery_table, col)] for col in recovery_table_columns ])
+class tmpRec(object):
+    __slots__ = tmpRecTable.validcolumns.keys()
+    def get_pyvalue(self):
+        return generic_get_pyvalue(self)
+
+class SelectedFoundTable(table.Table):
+    tableName = "selected_found_injections:table"
+    validcolumns = {}
+    for col_name in column_names:
+        if 'rank_using_' in col_name:
+            validcolumns[col_name] = "int_4u"
+        elif '_duration_' in col_name:
+            validcolumns[col_name] = "real_8"
+        elif 'instruments_on' in col_name:
+            validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
+        elif 'injected_' in col_name:
+            validcolumns[col_name] = get_col_type(simulation_table, re.sub('injected_', '', col_name))
+        elif 'recovered_' in col_name:
+            validcolumns[col_name] = get_col_type(recovery_table, re.sub('recovered_', '', col_name))
+        # if custom columns exist in the database, just set them to lstrings
+        else:
+            validcolumns[col_name] = "lstring"
+    # add FAP columns
+    validcolumns['recovered_fap'] = "real_8"
+    validcolumns['recovered_fap_1yr'] = "real_8"
+
+class SelectedFound(object):
+    __slots__ = SelectedFoundTable.validcolumns.keys()
+
+    def get_pyvalue(self):
+        return generic_get_pyvalue(self)
+
+# connect the rows to the tables
+tmpSimTable.RowType = tmpSim
+tmpRecTable.RowType = tmpRec
+SelectedFoundTable.RowType = SelectedFound
+
+#
+#   Get the Data
+#
+tmp_sim_table = lsctables.New(tmpSimTable) 
+tmp_rec_table = lsctables.New(tmpRecTable) 
+tmp_sftable = lsctables.New(SelectedFoundTable)
+prior_sim_id = ''
+group_rank = None
+current_match_rank = 1
+sqlquery = ''.join(["""
+    SELECT
+        """, simulation_table, """.*,
+        """, recovery_table, """.*,
+        rank(sim_rec_map.ranking_stat),
+        NULL AS match_rank,
+        experiment.instruments,
+        convert_duration(experiment_summary.duration),
+        NULL AS mini_followup
+    FROM
+        sim_rec_map
+    JOIN
+        """, ', '.join([simulation_table, recovery_table]), """, experiment, experiment_summary, experiment_map ON (
+        sim_rec_map.sim_id == """, simulation_table, """.simulation_id AND
+        sim_rec_map.rec_id == """, recovery_table, """.coinc_event_id AND
+        sim_rec_map.rec_id == experiment_map.coinc_event_id AND
+        experiment_map.experiment_summ_id == experiment_summary.experiment_summ_id AND
+        experiment_summary.experiment_id == experiment.experiment_id)
+    ORDER BY
+        sim_rec_map.sim_id, sim_rec_map.ranking_stat """, rank_by])
+
+if opts.verbose:
+    print >> sys.stdout, "Getting coincs..."
+    print >> sys.stdout, "SQLite query used is:"
+    print >> sys.stdout, sqlquery
+
+for values in connection.cursor().execute( sqlquery ).fetchall():
+    # sort the data
+    tmp_sim_row = tmpSim()
+    tmp_rec_row = tmpRec()
+    [ setattr(tmp_sim_row, column, values[ii]) for ii, column in enumerate(simulation_table_columns) ]
+    [ setattr(tmp_rec_row, column, values[ii+1+jj]) for jj, column in enumerate(recovery_table_columns) ]
+    # figure out the rank
+    this_inj_rank = values[-5]
+    this_sim_id = tmp_sim_row.simulation_id
+    this_ranking_stat = getattr(tmp_rec_row, ranking_stat.split('.')[-1])
+    if this_sim_id == prior_sim_id and this_ranking_stat != prior_ranking_stat:
+        current_match_rank += 1
+    elif this_sim_id != prior_sim_id:
+        current_match_rank = 1
+        group_rank = this_inj_rank
+    prior_sim_id = this_sim_id
+    prior_ranking_stat = this_ranking_stat 
+    # only store data if the group_rank falls in the desired rank ranges
+    if opts.rank_range and rank_range_parser.group_by_param_range(group_rank) is None:
+        continue
+    on_instruments = lsctables.instrument_set_from_ifos(values[-3])
+    duration = values[-2]
+    # now that have all the information from this row, create a row for the selected found table
+    sfrow = SelectedFound()
+    # set the ranks
+    setattr(sfrow, rankname, group_rank)
+    sfrow.recovered_match_rank = current_match_rank
+    # set the injected parameters
+    use_this_site = sorted(on_instruments)[0][0].lower()
+    sfrow.injected_end_time = getattr( tmp_sim_row, use_this_site+'_end_time' )
+    sfrow.injected_end_time_ns = getattr( tmp_sim_row, use_this_site+'_end_time_ns' )
+    for col in injected_cols:
+        if 'injected_end_time' == col or 'injected_end_time_ns' == col:
+            continue
+        setattr(sfrow, col, getattr( tmp_sim_row, re.sub('injected_','', col) ))
+    # set the recovered parameters
+    for col in recovered_cols:
+        setattr(sfrow, col, getattr( tmp_rec_row, re.sub('recovered_','', col) ))
+    # calculate and add faps
+    if sfrow.recovered_combined_far is not None:
+        t_in_s = float(values[-2]) / sqlutils.convert_duration(1, opts.convert_durations.strip().lower())
+        sfrow.recovered_fap = 1 - math.exp(-sqlutils.convert_duration(t_in_s, 'yr') * sfrow.recovered_combined_far)
+        sfrow.recovered_fap_1yr = 1 - math.exp(-sfrow.recovered_combined_far)
+    else:
+        sfrow.recovered_fap = None
+        sfrow.recovered_fap_1yr = None
+    # set any other info
+    setattr( sfrow, durname, duration )
+    sfrow.instruments_on = ','.join(sorted(on_instruments))
+    sfrow.mini_followup = None
+
+    # add the row
+    tmp_sftable.append(sfrow)
+
+# Re-sort the sftable by rank, recovered_match_rank
+sftable = lsctables.New(SelectedFoundTable)
+for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, rankname) ):
+    if sfrow.injected_simulation_id not in [row.injected_simulation_id for row in sftable]:
+        sftable.append(sfrow)
+        sftable.extend(sub_row for sub_row in sorted([row for row in tmp_sftable
+            if row.injected_simulation_id == sfrow.injected_simulation_id
+            and row.recovered_coinc_event_id != sfrow.recovered_coinc_event_id],
+            key = lambda row: row.recovered_match_rank))
+
+#
+# create a document
+#
+sfdoc = ligolw.Document()
+# setup the LIGOLW tag
+sfdoc.appendChild(ligolw.LIGO_LW())
+# add this program's metadata
+sfproc_id = process.register_to_xmldoc(sfdoc, __prog__, opts.__dict__)
+# connect the table to the document
+sfdoc.childNodes[0].appendChild(sftable)
+
+
+#
+#   Print the summary data
+#
+
+if opts.verbose and not opts.output:
+    print >> sys.stdout, "\nResults are:\n"
+
+if opts.output_format != "xml":
+    # set table list
+    tableList = ['selected_found_injections']
+    columnList = [
+        rankname,
+        'mini_followup',
+        'injected_end_time',
+        'injected_end_time_ns',
+        'injected_eff_dist_h',
+        'injected_eff_dist_l',
+        'injected_eff_dist_v',
+        'injected_mchirp',
+        'injected_mass1',
+        'injected_mass2',
+        'recovered_match_rank',
+        'recovered_ifos',
+        'instruments_on',
+        'recovered_combined_far',
+        'recovered_fap',
+        'recovered_fap_1yr',
+        'recovered_snr',
+        'recovered_end_time',
+        'recovered_end_time_ns',
+        'recovered_mchirp',
+        'recovered_mtotal',
+        durname]
+    row_span_columns = rspan_break_columns = [
+        rankname,
+        'mini_followup',
+        'injected_end_time',
+        'injected_end_time_ns', 
+        'injected_eff_dist_h',
+        'injected_eff_dist_l',
+        'injected_eff_dist_v',
+        'injected_mchirp',
+        'injected_mass1',
+        'injected_mass2']
+        
+    # set output
+    if opts.output is not None:
+        opts.output = open(opts.output, 'w')
+    # print the loudest_events table in the specified format
+    print_tables.print_tables(sfdoc, opts.output, opts.output_format, tableList = ['selected_found_injections'],
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
+    if opts.output is not None:
+        opts.output.close()
+else:
+    utils.write_filename(sfdoc, opts.output, xsl_file = "ligolw.xsl")
+
+
+#
+#   If extract-to-xml, generate the full xml
+#
+
+if opts.extract_to_xml:
+    if opts.verbose:
+        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
+        print >> sys.stdout, "Deleting unwanted triggers from %s table..." % recovery_table
+    # use the coinc_event_ids to figure out what to keep
+    save_ids = [''.join(['"', row.recovered_coinc_event_id, '"']) for row in sftable]
+    # delete all other ids from the recovery table
+    sqlquery = ''.join([ """
+        DELETE
+        FROM 
+            """, recovery_table, """
+        WHERE
+            coinc_event_id NOT IN (
+            """, ','.join(save_ids), """
+            )""" ])
+    connection.cursor().execute(sqlquery)
+
+    # clean up the other tables that point to the deleted ids
+    sqlutils.clean_using_coinc_table( connection, recovery_table, verbose = opts.verbose,
+        clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+        clean_coinc_event_map = False, clean_mapped_tables = False )
+
+    # to avoid deleting the simulations' intermediate coinc_event_ids, we'll clean the
+    # coinc_event_map by hand
+
+    # before deleting things, get what tables are there
+    if opts.verbose:
+        print >> sys.stdout, "Cleaning the coinc_event_map table..."
+    selected_tables = sqlutils.get_cem_table_names(connection)
+    sqlquery = """
+        DELETE
+        FROM
+            coinc_event_map
+        WHERE NOT (
+            event_id IN (
+                SELECT
+                    sim_id
+                FROM
+                    sim_rec_map )
+            OR coinc_event_id IN (
+                SELECT
+                    rec_id
+                FROM
+                    sim_rec_map ) )"""
+    connection.cursor().execute(sqlquery)
+
+    # now remove events from other tables that are no longer in the coinc_event_map
+    sqlutils.clean_mapped_event_tables( connection, selected_tables, raise_err_on_missing_evid = False,
+        verbose = opts.verbose ) 
+
+    # also remove experiments that don't have loud events in them
+    sqlutils.clean_experiment_tables( connection, verbose = opts.verbose )
+
+    # remove additional meta-data from other tables who's process_ids are not in
+    # the experiment or coinc. tables
+    key_tables = [
+        ('experiment_summary', 'sim_proc_id', 'sim_proc_id IS NOT NULL'),
+        ('time_slide', 'process_id', ''),
+        ('coinc_event', 'process_id', '')]
+    # find out what other tables the recovered table is mapped to save their meta-data also
+    key_tables.extend( (table, 'process_id', '') for table in selected_tables
+        if 'process_id' in sqlutils.get_column_names_from_table(connection, table) )
+
+    # clean the metadata
+    sqlutils.clean_metadata(connection, key_tables, verbose = opts.verbose)
+
+    # extract to the xml file
+    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+
+# close connection and exit
+connection.close()
+# discard the working_filename; if a temporary database was not
+# created in tmp_space (opts.tmp_space), this will do nothing. If a temporary database
+# was created, however, this will delete it. (see dbtables.py for more info)
+dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
+if opts.verbose and opts.tmp_space:
+    print >> sys.stdout, "Finshed!"
+
+sys.exit(0)
