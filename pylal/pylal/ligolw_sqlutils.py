@@ -488,9 +488,6 @@ def del_rows_from_table( connection, del_table, del_table_id, join_conditions, d
     connection.cursor().execute( sqlquery )
     connection.commit()
 
-    if verbose:
-        print >> sys.stderr, "done."
-
 
 def get_tables_in_database( connection ):
     """
@@ -827,7 +824,7 @@ def clean_metadata(connection, key_tables, verbose = False):
         process_id type),
         filter is a filter to apply to the table when selecting process_ids
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Removing unneeded metadata..."
     
     #
@@ -914,7 +911,7 @@ def clean_experiment_tables(connection, verbose = False):
 
     @connection: connection to a sqlite database
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Removing experiments that no longer have events in them..."
 
     sqlscript = """
@@ -980,7 +977,7 @@ def update_experiment_summ_nevents( connection, verbose = False ):
         print >> sys.stderr, "done."
 
 
-class sim_name_proc_id_mapper:
+class sim_type_proc_id_mapper:
     """
     Class to map sim_proc_ids in the experiment summary table to simulation names
     and vice-versa.
@@ -1002,15 +999,15 @@ class sim_name_proc_id_mapper:
                         experiment_summary )
                 AND param == "--userTag"
             """
-        for proc_id, sim_name in connection.cursor().execute(sqlquery):
-            self.id_name_map[proc_id] = sim_name
-            self.name_id_map[sim_name] = proc_id
+        for proc_id, sim_type in connection.cursor().execute(sqlquery):
+            self.id_name_map[proc_id] = sim_type
+            self.name_id_map[sim_type] = proc_id
 
-    def get_sim_name( self, proc_id ):
+    def get_sim_type( self, proc_id ):
         return self.id_name_map[proc_id]
 
-    def get_proc_id( self, sim_name ):
-        return self.name_id_map[sim_name]
+    def get_proc_id( self, sim_type ):
+        return self.name_id_map[sim_type]
 
             
 # =============================================================================
@@ -1049,26 +1046,26 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
     if clean_experiment_map:
         if verbose:
             print >> sys.stderr, "Cleaning the experiment_map table..."
-        sqlquery = """
+        sqlquery = ''.join(["""
             DELETE
             FROM experiment_map
             WHERE coinc_event_id NOT IN (
                 SELECT coinc_event_id
-                FROM ?"""
-        connection.cursor().execute( sqlquery, (table_name,) )
+                FROM """, table_name, ')' ])
+        connection.cursor().execute( sqlquery )
         connection.commit()
 
     # Delete from coinc_event
     if clean_coinc_event_table:
         if verbose:
             print >> sys.stderr, "Cleaning the coinc_event table..."
-        sqlquery = """
+        sqlquery = ''.join(["""
             DELETE
             FROM experiment_map
             WHERE coinc_event_id NOT IN (
                 SELECT coinc_event_id
-                FROM ?"""
-        connection.cursor().execute( sqlquery, (table_name,) )
+                FROM """, table_name, ')' ])
+        connection.cursor().execute( sqlquery )
         connection.commit()
   
     # Delete from coinc_definer
@@ -1092,13 +1089,13 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
     if clean_coinc_event_map:
         if verbose:
             print >> sys.stderr, "Cleaning the coinc_event_map table..."
-        sqlquery = """ 
+        sqlquery = ''.join([ """
             DELETE
             FROM coinc_event_map
             WHERE coinc_event_id NOT IN (
                 SELECT coinc_event_id
-                FROM ?)"""
-        connection.cursor().execute( sqlquery, (table_name,) )
+                FROM """, table_name, ')' ])
+        connection.cursor().execute( sqlquery )
         connection.commit()
 
     # Delete events from tables that were listed in the coinc_event_map
@@ -1108,8 +1105,6 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
         clean_mapped_event_tables( connection, selected_tables,
             raise_err_on_mission_evid = False, verbose = verbose )
 
-    if verbose:
-        print >> sys.stderr, "done."
 
 # =============================================================================
 #
@@ -1125,7 +1120,7 @@ def get_cem_table_names( connection ):
     @connection: connection to a sqlite database
     """
     sqlquery = 'SELECT DISTINCT table_name FROM coinc_event_map'
-    return connection.cursor().execute( sqlquery ).fetchall()
+    return [table_name[0] for table_name in connection.cursor().execute( sqlquery )]
 
 
 def get_matching_tables( connection, coinc_event_ids ):
@@ -1172,13 +1167,13 @@ def clean_mapped_event_tables( connection, tableList, raise_err_on_missing_evid 
     for table in selected_tables:
         if verbose:
             print >> sys.stderr, "Cleaning the %s table..." % table
-        sqlquery = """ 
+        sqlquery = ''.join([ """ 
             DELETE
-            FROM ?
+            FROM """, table, """
             WHERE event_id NOT IN (
                 SELECT event_id
-                FROM coinc_event_map )"""
-        connection.cursor().execute( sqlquery, (table,) )
+                FROM coinc_event_map )""" ])
+        connection.cursor().execute( sqlquery )
     connection.commit()
 
 
