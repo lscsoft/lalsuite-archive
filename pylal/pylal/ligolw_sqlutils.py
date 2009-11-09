@@ -23,6 +23,7 @@ import os
 import bisect
 
 from glue.ligolw import dbtables
+from glue.iterutils import any
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __date__ = "$Date$" 
@@ -108,11 +109,28 @@ class aggregate_concatenate:
         self.result = ''
     def step(self, *args):
         self.result = ','.join([ self.result, concatenate(*args) ])
-        #elf.result.append(concatenate(*args))
     def finalize(self):
         return self.result.lstrip(',')
-        #return ','.join(sorted(self.result))
-    
+
+def validate_option(option, lower = True):
+    """
+    Strips and checks that there are no newlines, tabs, spaces, or semi-colons in the given option.
+    This should be used for options that will be plugged into sqlite statements to
+    protect against injection attacks. If lower is set on, will also make all letters lower-case
+    in the option.
+
+    @option: option from config parser to validate
+    @lower: if set to True, will make all letters lower-case in the option
+    """
+    option = option.strip()
+
+    if lower:
+        option = option.lower()
+    if re.search(r'\n|\t| |;', options) is not None:
+        raise ValueError, "option %s contains illegal characters" % option
+
+    return option
+
 
 class parse_param_ranges:
     
@@ -474,6 +492,14 @@ def del_rows_from_table( connection, del_table, del_table_id, join_conditions, d
         print >> sys.stderr, "done."
 
 
+def get_tables_in_database( connection ):
+    """
+    Gets the names of tables that are in the database.
+    """
+    sqlquery = 'SELECT name FROM sqlite_master WHERE type == "table"'
+    return connection.cursor().execute(sqlquery).fetchall()
+
+
 def get_column_names_from_table( connection, table_name ):
     """
     Gets the column names from a table and returns them as a list.
@@ -551,7 +577,7 @@ class Summaries:
     experiment_summ_ids:
     datatypes[experiment_id][datatype] = [esid1, esid2, etc.]
 
-    frg_durs stores the duration for each experiment_summ_id. It's keys are 
+    frg_durs stores the duration for each experiment_summ_id. Its keys are 
     [experiment_id][experimen_summ_id].
 
     bkg_durs stores the background duration for each time-slide and zero-lag, 
@@ -730,7 +756,6 @@ class Summaries:
             (len( self.max_bkg_fars[(esid, ifo_group)] ) - bisect.bisect_left( self.max_bkg_fars[(esid,ifo_group)], ufar ))*ufar \
             + sum([self.max_bkg_fars[(esid,ifo_group)][ii] for ii in range(bisect.bisect_left( self.max_bkg_fars[(esid,ifo_group)], ufar))])
 
-
 class rank_stats:
     """
     Class to return a rank for stats.
@@ -780,11 +805,79 @@ class rank_stats:
 
 # =============================================================================
 #
+#                          Meta-data Tables Utilities
+#
+# =============================================================================
+
+# Following utilities apply to the meta-data tables: these include  the
+# process, process_params, search_summary,search_summvars, and summ_value
+# tables
+
+def clean_metadata(connection, key_tables, verbose = False):
+    """
+    Cleans metadata from tables that don't have process_ids in any of the tables
+    listed in the key_tables list.
+
+    @connection: connection to a sqlite database
+    @key_tables: list of tuples that must have the following order:
+        (table, column, filter)
+     where:
+        table is the name of a table to get a save process id from,
+        column is the name of the process_id column in that table
+        (this doesn't have to be 'process_id', but it should be a
+        process_id type),
+        filter is a filter to apply to the table when selecting process_ids
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Removing unneeded metadata..."
+    
+    #
+    # create a temp. table of process_ids to keep
+    #
+    sqlscript = 'CREATE TEMP TABLE save_proc_ids (process_id);'
+    
+    # cycle over the key_tables, adding execution blocks for each
+    for table, column, filter in key_tables:
+        if filter != '' and not filter.strip().startswith('WHERE'):
+            filter = 'WHERE\n' + filter
+        sqlscript = '\n'.join([ sqlscript,
+            'INSERT INTO save_proc_ids (process_id)',
+                'SELECT DISTINCT',
+                    column,
+                'FROM', table, filter, ';' ])
+
+    sqlscript = sqlscript + '\nCREATE INDEX proc_index ON save_proc_ids (process_id);'
+    
+    # now step through all tables with process_ids and remove rows who's ids 
+    # aren't in save_proc_ids
+    tableList = [table for table in ['process','process_params','search_summary','search_summvars','summ_value']
+        if table in get_tables_in_database(connection) ]
+    for table in tableList:
+        sqlscript = '\n'.join([ sqlscript, 
+            'DELETE FROM',
+                table,
+            'WHERE',
+                'process_id NOT IN (',
+                    'SELECT',
+                        'process_id',
+                    'FROM',
+                        'save_proc_ids );' ])
+
+    # drop the save_proc_ids table
+    sqlscript = sqlscript + '\nDROP TABLE save_proc_ids;'
+
+    # execute the script
+    connection.cursor().executescript(sqlscript)
+
+
+# =============================================================================
+#
 #                          Experiment Utilities
 #
 # =============================================================================
 
-# Following utilities are specific to the experiment_summary table
+# Following utilities apply to the experiment tables: these include  the
+# experiment, experiment_summary, experiment_map, and time_slide tables
 def join_experiment_tables_to_coinc_table(table):
     """
     Writes JOIN string to join the experiment, experiment_summary,
@@ -805,6 +898,58 @@ def join_experiment_tables_to_coinc_table(table):
         AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
         AND experiment_map.coinc_event_id == %s.coinc_event_id )""" % table
 
+
+def clean_experiment_tables(connection, verbose = verbose):
+    """
+    Removes entries from the experiment, experiment_summary, and time_slide tables
+    that have no events in them, i.e., that have no mapping to any coinc_event_ids
+    via the experiment_map table. Entries are only removed if none of the
+    experiment_summ_ids associated with an experiment_id have coinc_events. In other words,
+    Even if only one of the experiment_summ_ids associated with an experiment_id has an event,
+    all of the experiment_summ_ids and experiment_ids associated with that event are
+    saved. This perserves the background time and slide set associated with an experiment. 
+
+    WARNING: This should only be used for purposes of scaling down a temporary database in prep.
+    for xml extraction. In general, all experiment and time_slide entries should be left in
+    the experiment tables even if they don't have events in them.
+
+    @connection: connection to a sqlite database
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+
+    sqlscript = """
+        DELETE FROM
+            experiment
+        WHERE
+            experiment_id NOT IN (
+                SELECT DISTINCT
+                    experiment_summary.experiment_id
+                FROM
+                    experiment_summary, experiment_map
+                WHERE
+                    experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                );
+        DELETE FROM
+            experiment_summary
+        WHERE
+            experiment_id NOT IN (
+                SELECT
+                    experiment_id
+                FROM
+                    experiment
+                );
+        DELETE FROM
+            time_slide
+        WHERE
+            time_slide_id NOT IN (
+                SELECT DISTINCT
+                    time_slide_id
+                FROM
+                    experiment_summary
+                );
+        """
+    connection.cursor().executescript(sqlscript)
 
 # =============================================================================
 #
@@ -869,6 +1014,174 @@ class sim_name_proc_id_mapper:
         return self.name_id_map[sim_name]
 
             
+# =============================================================================
+#
+#               Generic Coincident Event Table Utilities
+#
+# =============================================================================
+
+# Following utilities are apply to any table with a coinc_event_id column
+def clean_using_coinc_table( connection, table_name, verbose = False,
+    clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+    clean_coinc_event_map = True, clean_mapped_tables = True, selected_tables = []):
+    """
+    Clears experiment_map, coinc_event, coinc_event_map, and all tables pointing to the
+    coinc_event_map of triggers that are no longer in the specified table.
+    Note that the experiment_summary, experiment, and time_slide_tables are left alone.
+    This is because even if no events are left in an experiment, we still want info. about
+    the experiment that was performed.
+
+    @connection to a sqlite database
+    @table_name: name of table on which basing the cleaning. Can be any table having a coinc_event_id
+     column.
+    @clean_experiment_map: if set to True will clean the experiment_map table
+    @clean_coinc_event_table: if set to True will clean the coinc_event table
+    @clean_coinc_definer: if set to True will clean the coinc_definer table if clean_coinc_event_table
+     is set to True (the coinc_event_table is used to determine what coinc_definers to delete)
+    @clean_coinc_event_map: if set to True, will clean the coinc_event_map
+    @clean_mapped_tables: clean tables listed in the coinc_event_map who's event_ids are not not in
+     the coinc_event_map
+    @selected_tables: if clean_mapped_tables is on, will clean the listed tables if they appear in the 
+     coinc_event_map and have an event_id column. Default, [], is to clean all tables found.
+     The requirement that the table has an event_id avoids cleaning simulation tables.
+    """
+
+    # Delete from experiment_map
+    if clean_experiment_map:
+        if verbose:
+            print >> sys.stderr, "Cleaning the experiment_map table..."
+        sqlquery = """
+            DELETE
+            FROM experiment_map
+            WHERE coinc_event_id NOT IN (
+                SELECT coinc_event_id
+                FROM ?"""
+        connection.cursor().execute( sqlquery, (table_name,) )
+        connection.commit()
+
+    # Delete from coinc_event
+    if clean_coinc_event_table:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_event table..."
+        sqlquery = """
+            DELETE
+            FROM experiment_map
+            WHERE coinc_event_id NOT IN (
+                SELECT coinc_event_id
+                FROM ?"""
+        connection.cursor().execute( sqlquery, (table_name,) )
+        connection.commit()
+  
+    # Delete from coinc_definer
+    if clean_coinc_definer and clean_coinc_event_table:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_definer table..."
+        sqlquery = """
+            DELETE
+            FROM coinc_definer
+            WHERE coinc_def_id NOT IN (
+                SELECT coinc_def_id
+                FROM coinc_event )"""
+        connection.cursor().execute( sqlquery )
+        connection.commit()
+
+    # Find tables listed in coinc_event_map
+    if clean_mapped_tables and selected_tables == []:
+        selected_tables = get_cem_table_names(connection)
+
+    # Delete from coinc_event_map
+    if clean_coinc_event_map:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_event_map table..."
+        sqlquery = """ 
+            DELETE
+            FROM coinc_event_map
+            WHERE coinc_event_id NOT IN (
+                SELECT coinc_event_id
+                FROM ?)"""
+        connection.cursor().execute( sqlquery, (table_name,) )
+        connection.commit()
+
+    # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
+    if clean_mapped_tables:
+        clean_mapped_event_tables( connection, selected_tables,
+            raise_err_on_mission_evid = False, verbose = verbose )
+
+    if verbose:
+        print >> sys.stderr, "done."
+
+# =============================================================================
+#
+#                             CoincEventMap Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the coinc_event_map table
+def get_cem_table_names( connection ):
+    """
+    Retrieves the all of the table names present in the coinc_event_map table.
+
+    @connection: connection to a sqlite database
+    """
+    sqlquery = 'SELECT DISTINCT table_name FROM coinc_event_map'
+    return connection.cursor().execute( sqlquery ).fetchall()
+
+
+def get_matching_tables( connection, coinc_event_ids ):
+    """
+    Gets all the tables that are directly mapped to a list of coinc_event_ids.
+    Returns a dictionary mapping the tables their matching coinc_event_ids.
+
+    @coinc_event_ids: list of coinc_event_ids to get table matchings for
+    """
+    matching_tables = {}
+    sqlquery = """
+        SELECT
+            coinc_event_id,
+            table_name
+        FROM
+            coinc_event_map"""
+    for ceid, table_name in [qryid, qryname in connection.cursor().execute(slquery) if qryid in coinc_event_ids]:
+        if table_name not in matching_tables:
+            matching_tables[table_name] = []
+        matching_tables[table_name].append(ceid)
+
+    return matching_tables
+
+
+def clean_mapped_event_tables( connection, tableList, raise_err_on_missing_evid = False, verbose = False ):
+    """
+    Cleans tables given in tableList of events whose event_ids aren't in
+    the coinc_event_map table.
+
+    @connection: connection to a sqlite database
+    @tableList: Any table with an event_id column.
+    @raise_err_on_missing_evid: if set to True, will raise an error
+     if an event_id column can't be found in any table in tableList.
+     If False, will just skip the table.
+    """
+    # get tables from tableList that have event_id columns
+    selected_tables = [ table for table in tableList
+            if 'event_id' in get_column_names_from_table( connection, table ) ]
+    if selected_tables != tableList and raise_err_on_missing_evid:
+        raise ValueError, "tables %s don't have event_id columns" % ', '.join([
+            table for table in tableList if table not in selected_tables ])
+    
+    # clean the tables
+    for table in selected_tables:
+        if verbose:
+            print >> sys.stderr, "Cleaning the %s table..." % table
+        sqlquery = """ 
+            DELETE
+            FROM ?
+            WHERE event_id NOT IN (
+                SELECT event_id
+                FROM coinc_event_map )"""
+        connection.cursor().execute( sqlquery, (table,) )
+    connection.commit()
+
 
 # =============================================================================
 #
@@ -934,93 +1247,25 @@ def clean_inspiral_tables( connection, verbose = False ):
     This is because even if no events are left in an experiment, we still want info. about
     the experiment that was performed.
     """
-
-    # Delete from experiment_map
-    if verbose:
-        print >> sys.stderr, '''Cleaning the experiment_map table...'''
-    sqlquery = ' '.join([ 
-            'DELETE',
-            'FROM experiment_map',
-            'WHERE coinc_event_id NOT IN (',
-                'SELECT coinc_event_id',
-                'FROM coinc_inspiral )' ])
-    connection.cursor().execute( sqlquery )
-    connection.commit()
-
-    # Delete from coinc_event
-    if verbose:
-        print >> sys.stderr, '''Cleaning the coinc_event table...'''
-    sqlquery = ' '.join([ 
-            'DELETE',
-            'FROM coinc_event',
-            'WHERE coinc_event_id NOT IN (',
-                'SELECT coinc_event_id',
-                'FROM coinc_inspiral )' ])
-    connection.cursor().execute( sqlquery )
-    connection.commit()
-  
-    # Delete from coinc_definer
-    if verbose:
-        print >> sys.stderr, '''Cleaning the coinc_definer table...'''
-    sqlquery = ' '.join([
-            'DELETE',
-            'FROM coinc_definer',
-            'WHERE coinc_def_id NOT IN (',
-                'SELECT coinc_def_id',
-                'FROM coinc_event )' ])
-
-    # Find tables listed in coinc_event_map
-    sqlquery = 'SELECT DISTINCT table_name FROM coinc_event_map'
-    table_names = connection.cursor().execute( sqlquery ).fetchall()
-
-    # Delete from coinc_event_map
-    if verbose:
-        print >> sys.stderr, '''Cleaning the coinc_event_map table...'''
-    sqlquery = ' '.join([
-            'DELETE',
-            'FROM coinc_event_map',
-            'WHERE coinc_event_id NOT IN (',
-                'SELECT coinc_event_id',
-                'FROM coinc_event )' ])
-    connection.cursor().execute( sqlquery )
-    connection.commit()
-
-    # Delete events from tables that were listed in the coinc_event_map
-    # we only want to delete event_ids, not simulations, so if a table
-    # does not have an event_id, we just pass
-    for table in table_names:
-        table = table[0]
-        if verbose:
-            print >> sys.stderr, '''Cleaning the %s table...''' % table
-        sqlquery = ' '.join([
-            'DELETE',
-            'FROM', table,
-            'WHERE event_id NOT IN (',
-                'SELECT event_id',
-                'FROM coinc_event_map )' ])
-        try:
-            connection.cursor().execute( sqlquery )
-        except:
-            pass
-        connection.commit()
-
-    if verbose:
-        print >> sys.stderr, "done."
+    clean_using_coinc_table( connection, 'coinc_inspiral', verbose = verbose,
+        clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+        clean_coinc_event_map = True, clean_mapped_tables = True, selected_tables = [])
 
 
 # =============================================================================
 #
-#                             SimInspiral Utilities
+#                             Simulation Utilities
 #
 # =============================================================================
 
-# Following utilities are specific to the sim_inspiral table
+# Following utilities are specific to any simulation table
 
-def create_sim_rec_map_table(connection, recovery_table, ranking_stat):
+def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranking_stat):
     """
     Creates a temporary table in the sqlite database called sim_rec_map.
-    This table creates a direct mapping between simulation_ids and coinc_event_ids 
-    from the recovery_table, along with a ranking stat from the recovery_table.
+    This table creates a direct mapping between simulation_ids in the simulation table
+    and coinc_event_ids from the recovery_table, along with a ranking stat from the 
+    recovery_table.
     The columns in the sim_rec_map table are:
         * rec_id: coinc_event_ids of matching events from the recovery table
         * sim_id: the simulation_id from the sim_inspiral table
@@ -1039,7 +1284,8 @@ def create_sim_rec_map_table(connection, recovery_table, ranking_stat):
     # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
     if not ranking_stat.strip().startswith(recovery_table):
         ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
-    sqlscript = """
+    # create the sim_rec_map table; initially, this contains all mapped triggers in the database
+    sqlscript = ''.join(["""
         CREATE TEMP TABLE
             sim_rec_map
         AS 
@@ -1056,7 +1302,10 @@ def create_sim_rec_map_table(connection, recovery_table, ranking_stat):
                     SELECT
                         coinc_event_id
                     FROM
-                        ?);
+                        ?
+                    """, join_experiment_tables_to_coinc_table(recovery_table), """
+                    WHERE
+                        experiment_summary.datatype == "simulation");
 
         -- populate the sim_id using the intermediate_id 
         UPDATE
@@ -1067,9 +1316,9 @@ def create_sim_rec_map_table(connection, recovery_table, ranking_stat):
             FROM
                 coinc_event_map 
             WHERE
-                table_name == "sim_inspiral" AND
-                coinc_event_id == sim_rec_map.intermediate_id);
-        
+                table_name == ? AND
+                coinc_event_id == sim_rec_map.intermediate_id);        
+
         -- create the indices
         CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
         CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
@@ -1083,11 +1332,79 @@ def create_sim_rec_map_table(connection, recovery_table, ranking_stat):
             FROM
                 ?
             WHERE
-                %s.coinc_event_id == sim_rec_map.rec_id );
-            """ % (recovery_table)
+                """, recovery_table, """.coinc_event_id == sim_rec_map.rec_id );
+            """ ]) 
 
-    connection.cursor().executescript(sqlscript,(recovery_table, ranking_stat, recovery_table))
+    connection.cursor().executescript(sqlscript,(recovery_table, simulation_table, ranking_stat, recovery_table))
 
+
+# =============================================================================
+#
+#                             Segment Utilities
+#
+# =============================================================================
+
+# Following utilities apply to the segment and segment definer table
+class segdict_from_segment:
+    """
+    Class to a build a segmentlist dict out of the entries in the segment
+    and segment_definer table in the sqlite database.
+    """
+    from glue import segments
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+    snglinst_segdict = segments.segmentlistdict()
+    multinst_segdict = segments.segmentlistdict()
+
+    def __init__(self, connection, filter = ''):
+        if filter != '' and not filter.strip().startswith('WHERE'):
+            filter = 'WHERE\n' + filter
+
+        sqlquery = '\n'.join(["""
+            SELECT
+                segment_definer.ifos,
+                segment.start_time,
+                segment.end_time
+            FROM
+                segment
+            JOIN
+                segment_definer ON
+                segment_definer.segment_def_id == segment.segment_def_id""",
+            filter ])
+        for ifos, start_time, end_time in connection.cursor().execute(sqlquery):
+            for ifo in lsctables.instrument_set_from_ifos(ifos):
+               if ifo not in self.snglinst_segdict:
+                self.snglinst_segdict[ifo] = segments.segmentlist()
+                self.snglinst_segdict[ifo].append( segments.segment(LIGOTimeGPS(start_time, 0),LIGOTimeGPS(end_time,0)) )
+
+    def create_multi_instrument_time(self, desired_instrument_time):
+        """
+        Creates a desired instrument time by taking the intersection of the desired instrument seglists
+        in self.snglinst_segdict. This new list is then added to the segdict; e.g.:
+            self.segdict =
+        """
+        if not (isinstance(desired_instrument_time, set) or isinstance(desired_instrument_time, frozenset)):
+            desired_instrument_time = lsctables.instrument_set_from_ifos(desired_instrument_time)
+        missing_inst = set([inst for inst in desired_instrument_time if inst not in self.snglinst_segdict])
+        if inst_must_be_present and any(missing_inst):
+            raise ValueError, "instrument(s) %s not found in segment list" % ','.join(sorted(missing_inst))
+        self.multinst_segdict[frozenset(desired_instrument_time)] = \
+            self.snglinst_time.intersection([ifo for ifo in desired_instrument_time - missing_inst])
+
+    def is_in_sngl_segdict( self, instrument, gpstime ):
+        """
+        Checks if a gpstime is in the given instrument time.
+        """
+        return gpstime in self.snglinst_segdict[instrument]
+
+    def is_in_multi_segdict(self, instruments, gpstime ):
+        """
+        Checks if a gpstime is in the given instruments time.
+        """
+        if not (isinstance(instruments, set) or isinstance(instruments, frozenset)):
+            instruments = lsctables.instrument_set_from_ifos(instruments)
+        return gpstime in self.multinst_segdict[frozenset(instruments)]
+        
 
 # =============================================================================
 #
