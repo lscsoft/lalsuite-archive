@@ -216,6 +216,8 @@ class sqlite_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_arg('-batch')
+    self.add_arg('-bail')
 
 class fix_singles_job(pipeline.CondorDAGJob):
   def __init__(self, cp, tag_base='FIX_SNGLS'):
@@ -367,6 +369,7 @@ class ligolw_thinca_to_coinc_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_opt('statistic', cp.get('thinca_to_coinc','statistic').strip())
 
 class hm_upperlimit_job(pipeline.CondorDAGJob):
   """
@@ -768,6 +771,9 @@ class default_config(object):
     for cat in ['CAT_2','CAT_3', 'CAT_4', 'CAT_5']:
       for ifo in ['H1','H2','L1','V1']:
          self.set_veto_segment(cp, "input", cat, ifo)
+
+    cp.add_section("thinca_to_coinc")
+    cp.set("thinca_to_coinc", "statistic", "effective_snr")
 
     cp.add_section("newcorse1")
     cp.set("newcorse1", "categories", "mtotal-ifos-oninstruments")
