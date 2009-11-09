@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-check_PROGRAMS = ChirpSpace CoarseTest CoarseTest2 MetricTest MetricTestBCV MetricTestPTF BCVTemplates PNTemplates BCVTemplatesFlatMesh SpaceCovering GetOrientationEllipse InspiralSpinBankTest
+check_PROGRAMS = ChirpSpace CoarseTest CoarseTest2 MetricTest MetricTestBCV MetricTestPTF FisherTest BCVTemplates PNTemplates BCVTemplatesFlatMesh SpaceCovering GetOrientationEllipse InspiralSpinBankTest
 
 GetOrientationEllipse_SOURCES = GetOrientationEllipse.c
 GetOrientationEllipse_LDADD = $(top_builddir)/packages/support/src/liblalsupport.la $(top_builddir)/lib/liblal.la
@@ -24,6 +24,9 @@ MetricTestBCV_LDADD = $(top_builddir)/packages/support/src/liblalsupport.la $(to
 
 MetricTestPTF_SOURCES = MetricTestPTF.c
 MetricTestPTF_LDADD = $(top_builddir)/packages/support/src/liblalsupport.la $(top_builddir)/lib/liblal.la
+
+FisherTest_SOURCES = FisherTest.c
+FisherTest_LDADD = $(top_builddir)/packages/support/src/liblalsupport.la $(top_builddir)/lib/liblal.la
 
 BCVTemplates_SOURCES = BCVTemplates.c
 BCVTemplates_LDADD = $(top_builddir)/packages/support/src/liblalsupport.la $(top_builddir)/lib/liblal.la

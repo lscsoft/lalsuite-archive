@@ -434,7 +434,14 @@ INT4 XLALInspiralComputePTFIntrinsicMetric (
           * invpsd->data[k];
       }
       /* Inverse Fourier of tempnorm */
-      XLALREAL8ReverseFFT(tempnorm, tempnormtilde, revPlan);
+      XLALREAL8ReverseFFT(tempnorm, tempnormtilde, revPlan);\
+
+      if (i == 5 && j==0)
+         {
+         fprintf(stdout, "tempnorm->data[0] = %e\n", tempnorm->data[0]);
+         fprintf(stdout, "fullmetric->data[0] = %e\n", fullmetric->data[0]);
+         }
+
       fullmetric->data[i * (i + 1) / 2 + j] = 4.0 * tempnorm->data[0];
     }
   }
