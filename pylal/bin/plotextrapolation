@@ -736,7 +736,6 @@ ifo_coincs = []
 for num_ifos in range(2, len(ifo_list) + 1):
   ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, num_ifos)))
 
-ifo_coincs=ifo_coincs[-1:]
 
 slideVector={}
 for ifo in ifo_list:
@@ -909,8 +908,8 @@ def BackgroundExtrapolator(InspTriggers, SlideTriggers, ifo_vector_one, ifo_vect
        proddist=[]
        for rhocsq in rhosqarray:
          #Integ=integration2D(coincs_H1H2**2, ifo_vector_three, xarray ,rhocsq)
-         Integ=integration2D(ifo_vector_one, coincs_H1H2**2, xarray ,rhocsq)
-         #Integ=integration3D(ifo_vector_one, ifo_vector_two, ifo_vector_three, xarray ,rhocsq)
+         #Integ=integration2D(ifo_vector_one, coincs_H1H2**2, xarray ,rhocsq)
+         Integ=integration3D(ifo_vector_one, ifo_vector_two, ifo_vector_three, xarray ,rhocsq)
          proddist.append(Integ)
 
      proddist=numpy.asarray(proddist)  
