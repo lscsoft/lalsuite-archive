@@ -250,6 +250,8 @@ class Client:
         try:
             return eval(rv)
         except Exception, e:
+            if "Authorization Required" in rv:
+                return { 'error': 'Credentials not accepted' }
             return {'error': "while parsing:%s\nclient send exception: %s" % (rv, str(e))}
 
     def upload(self, method, fields, files):
