@@ -210,7 +210,7 @@ def parse_command_line():
     if options.param_name and not options.param_ranges:
         raise ValueError, "--param-name requires --param-ranges"
     if not options.comparison_datatype:
-        raise ValueError, "--datatype must be specified."
+        raise ValueError, "--comparison-datatype must be specified."
     if options.comparison_datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
         raise ValueError, "Unrecognized comparison datatype %s. See help for options." % options.comparison_datatype
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
@@ -232,18 +232,6 @@ def generic_get_pyvalue(obj):
     if obj.value is None:
         return None
     return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
-
-def get_col_type(table_name, col_name, default = 'lstring'):
-    """
-    Attempts to get column type from lsctables.py for the given table name and
-    column name. If the table doesn't exist in lsctables or the column doesn't
-    exist in the lsctables definition of the table, returns the default type.
-    """
-    if table_name in lsctables.TableByName.keys() and col_name in lsctables.TableByName[table_name].validcolumns.keys():
-        return lsctables.TableByName[table_name].validcolumns[col_name]
-    else:
-        return default
-
 
 # =============================================================================
 #
@@ -438,7 +426,7 @@ column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', durna
 #
 class tmpSimTable(table.Table):
     tableName = "tmp_sim_table:table"
-    validcolumns = dict([ [col, get_col_type(simulation_table, col)] for col in simulation_table_columns ])
+    validcolumns = dict([ [col, sqlutils.get_col_type(simulation_table, col)] for col in simulation_table_columns ])
 class tmpSim(object):
     __slots__ = tmpSimTable.validcolumns.keys()
     def get_pyvalue(self):
@@ -446,7 +434,7 @@ class tmpSim(object):
 
 class tmpRecTable(table.Table):
     tableName = "tmp_rec_table:table"
-    validcolumns = dict([ [col, get_col_type(recovery_table, col)] for col in recovery_table_columns ])
+    validcolumns = dict([ [col, sqlutils.get_col_type(recovery_table, col)] for col in recovery_table_columns ])
 class tmpRec(object):
     __slots__ = tmpRecTable.validcolumns.keys()
     def get_pyvalue(self):
@@ -463,9 +451,9 @@ class SelectedFoundTable(table.Table):
         elif 'instruments_on' in col_name:
             validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
         elif 'injected_' in col_name:
-            validcolumns[col_name] = get_col_type(simulation_table, re.sub('injected_', '', col_name))
+            validcolumns[col_name] = sqlutils.get_col_type(simulation_table, re.sub('injected_', '', col_name))
         elif 'recovered_' in col_name:
-            validcolumns[col_name] = get_col_type(recovery_table, re.sub('recovered_', '', col_name))
+            validcolumns[col_name] = sqlutils.get_col_type(recovery_table, re.sub('recovered_', '', col_name))
         # if custom columns exist in the database, just set them to lstrings
         else:
             validcolumns[col_name] = "lstring"

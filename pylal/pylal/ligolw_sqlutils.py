@@ -23,6 +23,7 @@ import os
 import bisect
 
 from glue.ligolw import dbtables
+from glue.ligolw import lsctables
 from glue.iterutils import any
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -799,6 +800,18 @@ class rank_stats:
             return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
 
 
+def get_col_type(table_name, col_name, default = 'lstring'):
+    """
+    Attempts to get column type from lsctables.py for the given table name and
+    column name. If the table doesn't exist in lsctables or the column doesn't
+    exist in the lsctables definition of the table, returns the default type.
+    """
+    if table_name in lsctables.TableByName.keys() and col_name in lsctables.TableByName[table_name].validcolumns.keys():
+        return lsctables.TableByName[table_name].validcolumns[col_name]
+    else:
+        return default
+
+
 # =============================================================================
 #
 #                          Meta-data Tables Utilities
@@ -1273,10 +1286,11 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
 
     @connection: connection to a sqlite database
     @recovery_table: any lsctable with a coinc_event_id column; e.g., coinc_inspiral
-    @ranking_stat: the name of the ranking stat in the recovery table to use
+    @ranking_stat: the name of the ranking stat in the recovery table to use. If set to None,
+     ranking_stat column won't be populated.
     """
     # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
-    if not ranking_stat.strip().startswith(recovery_table):
+    if ranking_stat is not None and not ranking_stat.strip().startswith(recovery_table):
         ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
     # create the sim_rec_map table; initially, this contains all mapped triggers in the database
     sqlscript = ''.join(['''
@@ -1316,7 +1330,10 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
         -- create the indices
         CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
         CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
-        
+        ''' ])
+
+    if ranking_stat is not None:
+        sqlscript = ''.join([ sqlscript, '''
         -- populate ranking_stat
         UPDATE
             sim_rec_map
@@ -1348,7 +1365,6 @@ class segdict_from_segment:
     from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
     snglinst_segdict = segments.segmentlistdict()
-    multinst_segdict = segments.segmentlistdict()
 
     def __init__(self, connection, filter = ''):
         if filter != '' and not filter.strip().startswith('WHERE'):
@@ -1371,33 +1387,11 @@ class segdict_from_segment:
                 self.snglinst_segdict[ifo] = segments.segmentlist()
                 self.snglinst_segdict[ifo].append( segments.segment(LIGOTimeGPS(start_time, 0),LIGOTimeGPS(end_time,0)) )
 
-    def create_multi_instrument_time(self, desired_instrument_time):
-        """
-        Creates a desired instrument time by taking the intersection of the desired instrument seglists
-        in self.snglinst_segdict. This new list is then added to the segdict; e.g.:
-            self.segdict =
-        """
-        if not (isinstance(desired_instrument_time, set) or isinstance(desired_instrument_time, frozenset)):
-            desired_instrument_time = lsctables.instrument_set_from_ifos(desired_instrument_time)
-        missing_inst = set([inst for inst in desired_instrument_time if inst not in self.snglinst_segdict])
-        if inst_must_be_present and any(missing_inst):
-            raise ValueError, "instrument(s) %s not found in segment list" % ','.join(sorted(missing_inst))
-        self.multinst_segdict[frozenset(desired_instrument_time)] = \
-            self.snglinst_time.intersection([ifo for ifo in desired_instrument_time - missing_inst])
-
-    def is_in_sngl_segdict( self, instrument, gpstime ):
+    def is_in_sngl_segdict( self, instrument, gpstime, gpstime_ns ):
         """
         Checks if a gpstime is in the given instrument time.
         """
-        return gpstime in self.snglinst_segdict[instrument]
-
-    def is_in_multi_segdict(self, instruments, gpstime ):
-        """
-        Checks if a gpstime is in the given instruments time.
-        """
-        if not (isinstance(instruments, set) or isinstance(instruments, frozenset)):
-            instruments = lsctables.instrument_set_from_ifos(instruments)
-        return gpstime in self.multinst_segdict[frozenset(instruments)]
+        return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
 
 # =============================================================================
