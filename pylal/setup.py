@@ -355,6 +355,7 @@ setup(
 		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
+                os.path.join("bin", "plotextrapolation"),
 		os.path.join("bin", "plotgrbl"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotnumgalaxies"),
