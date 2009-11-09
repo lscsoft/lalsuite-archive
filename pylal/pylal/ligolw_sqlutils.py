@@ -1103,7 +1103,7 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
     # does not have an event_id, we just pass
     if clean_mapped_tables:
         clean_mapped_event_tables( connection, selected_tables,
-            raise_err_on_mission_evid = False, verbose = verbose )
+            raise_err_on_missing_evid = False, verbose = verbose )
 
 
 # =============================================================================
