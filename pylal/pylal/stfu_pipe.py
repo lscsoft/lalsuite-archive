@@ -1491,7 +1491,7 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_full_data","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_playground","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
-		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 
 		# if we have an ini file override the options
 		if config: 
