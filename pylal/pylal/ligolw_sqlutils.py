@@ -123,10 +123,10 @@ def validate_option(option, lower = True):
     @lower: if set to True, will make all letters lower-case in the option
     """
     option = option.strip()
-
     if lower:
         option = option.lower()
-    if re.search(r'\n|\t| |;', options) is not None:
+
+    if re.search(r'\n|\t| |;', option) is not None:
         raise ValueError, "option %s contains illegal characters" % option
 
     return option
@@ -779,7 +779,6 @@ class rank_stats:
         @filter: apply a filter (i.e., a SQLite WHERE clause). 
             Note: If the filter uses colums from tables other than
             self.table, must include the join conditions as well
-        @verbose: if verbose, will print the sqlquery used 
         """
         if limit is not None:
             limit = "LIMIT " + str(limit)
@@ -789,8 +788,8 @@ class rank_stats:
             SELECT
                 """, self.ranking_stat, """
             FROM
-                """, self.table,
-            filter, """
+                """, self.table, """
+            """, filter, """
             ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
             """, limit ])
         self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
@@ -899,7 +898,7 @@ def join_experiment_tables_to_coinc_table(table):
         AND experiment_map.coinc_event_id == %s.coinc_event_id )""" % table
 
 
-def clean_experiment_tables(connection, verbose = verbose):
+def clean_experiment_tables(connection, verbose = False):
     """
     Removes entries from the experiment, experiment_summary, and time_slide tables
     that have no events in them, i.e., that have no mapping to any coinc_event_ids
@@ -1143,7 +1142,7 @@ def get_matching_tables( connection, coinc_event_ids ):
             table_name
         FROM
             coinc_event_map"""
-    for ceid, table_name in [qryid, qryname in connection.cursor().execute(slquery) if qryid in coinc_event_ids]:
+    for ceid, table_name in [(qryid, qryname) for qryid, qryname in connection.cursor().execute(sqlquery) if qryid in coinc_event_ids]:
         if table_name not in matching_tables:
             matching_tables[table_name] = []
         matching_tables[table_name].append(ceid)
@@ -1285,7 +1284,7 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
     if not ranking_stat.strip().startswith(recovery_table):
         ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
     # create the sim_rec_map table; initially, this contains all mapped triggers in the database
-    sqlscript = ''.join(["""
+    sqlscript = ''.join(['''
         CREATE TEMP TABLE
             sim_rec_map
         AS 
@@ -1300,10 +1299,10 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
                 table_name == "coinc_event" AND
                 event_id IN (
                     SELECT
-                        coinc_event_id
+                        ''', recovery_table, '''.coinc_event_id
                     FROM
-                        ?
-                    """, join_experiment_tables_to_coinc_table(recovery_table), """
+                        ''', recovery_table, '''
+                    ''', join_experiment_tables_to_coinc_table(recovery_table), '''
                     WHERE
                         experiment_summary.datatype == "simulation");
 
@@ -1312,12 +1311,12 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
             sim_rec_map
         SET sim_id = (
             SELECT
-                event_id
+                coinc_event_map.event_id
             FROM
                 coinc_event_map 
             WHERE
-                table_name == ? AND
-                coinc_event_id == sim_rec_map.intermediate_id);        
+                table_name == "''', simulation_table, '''" AND
+                coinc_event_map.coinc_event_id == sim_rec_map.intermediate_id);        
 
         -- create the indices
         CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
@@ -1328,14 +1327,14 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
             sim_rec_map
         SET ranking_stat = (
             SELECT
-                ?
+                ''', ranking_stat, '''
             FROM
-                ?
+                ''', recovery_table, '''
             WHERE
-                """, recovery_table, """.coinc_event_id == sim_rec_map.rec_id );
-            """ ]) 
+                ''', recovery_table, '''.coinc_event_id == sim_rec_map.rec_id );
+            ''' ]) 
 
-    connection.cursor().executescript(sqlscript,(recovery_table, simulation_table, ranking_stat, recovery_table))
+    connection.cursor().executescript(sqlscript)
 
 
 # =============================================================================
