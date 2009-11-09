@@ -1157,7 +1157,7 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
                 for node in p_nodes:
 			if node.validNode:
 				self.add_parent(node)
-		if opts.no_plotsnrchisq:
+		if not opts.no_plotsnrchisq:
 			dag.add_node(self)
 			self.validate()
 		else:
