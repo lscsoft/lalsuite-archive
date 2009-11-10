@@ -23,9 +23,6 @@ Characterize a set of timeslide triggers.
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "pylal_grbtimeslide_stats"
 __title__ = "GRB timeslide and trial statistics"
 
@@ -55,6 +52,7 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import SnglInspiralUtils
+from pylal import git_version
 from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
@@ -118,7 +116,7 @@ def comma_delimited(option, opt_str, value, parser, elem_type=str):
     """
     setattr(parser.values, option.dest, map(elem_type, value.split(",")))
 
-parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+parser = optparse.OptionParser(version=git_version.verbose_msg)
 parser.add_option("-g", "--glob",
     help="glob of zero-lag thinca or thinca slide files to read")
 parser.add_option("-i", "--cache-file",
@@ -212,7 +210,7 @@ else:
 
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
+InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 ##############################################################################
 # read in document
