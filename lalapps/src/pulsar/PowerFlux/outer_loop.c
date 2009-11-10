@@ -47,6 +47,15 @@ void assign_detector_veto(void)
 {
 int i,k, m;
 memset(veto_info, 0, 10*sizeof(*veto_info));
+
+fprintf(LOG, "split_ifos: %s\n", args_info.split_ifos_arg ? "yes" : "no");
+if(!args_info.split_ifos_arg) {
+	/* do not split detectors, one veto entry only */
+	veto_free=1;
+	veto_info[0].veto_mask=(((1<<4)-1)<<4);
+	return;
+	}
+
 veto_free=0;
 for(k=0;k<d_free;k++) {
 	for(m=0;veto_info[m].veto_mask!=0;m++) {
@@ -603,9 +612,10 @@ for(i=0;i<args_info.nchunks_arg;i++)
 	for(k=0;k< args_info.nchunks_arg-i;k++)
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
-				if(veto_free<=1)continue; /* if there is only one detector no reason to compute "all" twice */
+				if((veto_free<=1) && args_info.split_ifos_arg)continue; /* if there is only one detector no reason to compute "all" twice */
 				snprintf(s, 19999, "%d_%d_all", i, i+k);
 				} else {
+				if(!args_info.split_ifos_arg)continue; /* combine data from all detectors */
 				snprintf(s, 19999, "%d_%d_%s", i, i+k, veto_info[m].name);
 				}
 			ei[nei]=allocate_extreme_info(s);
@@ -647,7 +657,6 @@ POWER_SUM **ps=cruncher_contexts[thread_id+1].ps;
 POWER_SUM **ps_tmp=cruncher_contexts[thread_id+1].ps_tmp;
 
 //fprintf(stderr, "%d ", pi);
-
 generate_patch_templates(pi, &(ps[0]), &count);
 
 if(count<1) {
@@ -661,7 +670,7 @@ for(i=1;i<nchunks;i++) {
 	}
 for(i=0;i<args_info.nchunks_arg;i++) {
 	for(k=0;k<veto_free;k++) {
-		accumulate_power_sums(ctx, ps[i*veto_free+k], count, gps_start+i*(gps_stop-gps_start)/args_info.nchunks_arg, gps_start+(i+1)*(gps_stop-gps_start)/args_info.nchunks_arg, veto_info[k].veto_mask);
+		ctx->accumulate_power_sums(ctx, ps[i*veto_free+k], count, gps_start+i*(gps_stop-gps_start)/args_info.nchunks_arg, gps_start+(i+1)*(gps_stop-gps_start)/args_info.nchunks_arg, veto_info[k].veto_mask);
 		}
 	}
 
@@ -741,7 +750,7 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 	}
 k=0;
 while(do_single_job(-1)) {
-	if(k % 100 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+	if(k % 10 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
 	k++;
 	}
 wait_for_all_done();

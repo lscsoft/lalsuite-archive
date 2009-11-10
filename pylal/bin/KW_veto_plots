@@ -63,6 +63,7 @@ from pylab import *
 
 from glue.segments import segment, segmentlist
 
+from pylal import git_version
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
@@ -73,7 +74,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+    parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
     parser.add_option("-r", "--result_glob",
                       help="Glob for result files from KW_veto_calc. Required.")
     parser.add_option("-o", "--out_dir", default = "plots",
@@ -95,7 +96,7 @@ def parse_commandline():
     if opts.verbose:
         print >> sys.stderr, ""
         print >> sys.stderr, "running KW_veto_plots..."
-        print >> sys.stderr, "version: %s"%__version__
+        print >> sys.stderr, git_version.verbose_msg
         print >> sys.stderr, ""
         print >> sys.stderr, "***************** PARAMETERS ********************"
         for o in opts.__dict__.items():
@@ -110,7 +111,7 @@ def plot_channel():
     This is the main function which makes all the plots.
     """
     ## get data for plotting
-    thresh, usedPer, eff_over_deadTime = zip(*cursor.execute("select threshold, usedPercentage, efficiency_over_deadTimePer from result order by threshold asc").fetchall())
+    thresh, usedPer, efficiency, deadTimePer = zip(*cursor.execute("select threshold, usedPercentage, efficiency, deadTimePercentage from result order by threshold asc").fetchall())
     # candidate is a tuple:
     # (threshold, used percentage, # of coincident KW triggers above the threshold, # of total KW triggers above the threshold, # of vetoed GW triggers, veto efficiency, dead time, dead time percentage, (used percentage) / (random used percentage), (veto efficiency) / (dead time percentage))
     # that corresponds to threshold to be used for veto.
@@ -160,17 +161,22 @@ def plot_channel():
     savefig("%s-usePercentage_plot.png"%prefix)
     savefig("%s-usePercentage_plot-thumbnail.png"%prefix,dpi=60)
     close('all')
-    
+
     ## plot veto efficiency / dead time
-    # show the threshold for candidate channel
+    # draw diagonal line
+    x_max = max(efficiency) * 1.1
+    y_max = max(deadTimePer) * 1.1
+    max_value = min((x_max,y_max))
+    plot([0,max_value],[0,max_value],'k--',linewidth = 2,label="Diagonal Line")
+    x = plot(efficiency, deadTimePer, 'bo', markersize=5)
+    # show the threshold
     if candidate != None:
-      axvline(x = veto_thresh, linewidth = 2, color = 'r',label="Veto Threshold: %d"%veto_thresh)
-      legend(loc='lower right')
-    plot(thresh, eff_over_deadTime,'k',thresh, eff_over_deadTime, 'bo', markersize=3)
-    xlim(start, end)
-    xticks(ticks)
-    xlabel('KW Significance Threshold')
-    ylabel('Veto Efficiency (%)')
+      plot([candidate[5]],[candidate[7]],'r*',markersize=10,label="Veto Threshold")
+    legend(loc='best')
+    xlabel('Veto Efficiency (%)')
+    ylabel('Dead Time Percentage (%)')
+    xlim(0,x_max)
+    ylim(0,y_max)
     title(params["channel"])
     savefig("%s-eff_over_deadTime_plot.png"%prefix)
     savefig("%s-eff_over_deadTime-thumbnail.png"%prefix,dpi=60)

@@ -229,6 +229,7 @@ LALStatus status={level:0, statusPtr:NULL};
 LALSource source;
 LALDetAndSource det_and_source={NULL, NULL};
 LALDetAMResponse response;
+LALGPSandAcc gps_and_acc;
 
 memset(&gps_and_acc, 0, sizeof(gps_and_acc));
 gps_and_acc.gps.gpsSeconds=gps; 

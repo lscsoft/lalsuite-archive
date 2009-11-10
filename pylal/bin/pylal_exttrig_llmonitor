@@ -92,46 +92,6 @@ def check_proxy():
     peu.send_mail('Grid Cert not available','Have to init grid certificate',[my_email])
 
 # -----------------------------------------------------
-def dsjgcheck_status(grb, dag_key):
-  """
-  check the status of the given output file of a DAG
-  @params grb: grb dictionary with all information in it
-  @params dag_key: the key of the DAG to be checked
-  """
-
-  # get the dagman.out file
-  dag = grb['dags'][dag_key]
-  filename = grb_dict['path']+'/'+dag['filename']+'.dagman.out'
-
-  # try to open the dagman.out file
-  status = 0
-  try:
-    line = file(filename).readlines()[-1]
-    if "EXITING WITH STATUS 1" in line:
-      status = -1
-    if "EXITING WITH STATUS 0" in line:
-      status = 1
-  except IOError:
-    status = -2
-
-  # update the DAG status in case of an error
-  dag_status = dag['status']
-
-  if dag_status>0:
-    if status==-1:
-      peu.notify(grb_dict, 'DAG exited on error')
-      dag_status = -dag_status
-    elif status==-2:
-      peu.notify(grb_dict, 'DAG file vanished!?')
-      dag_status = -6
-
-  # set the new status, if changes
-  dag['status']=dag_status    
-
-  return status
-
-
-# -----------------------------------------------------
 def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
   """
   Start a new analysis of a GRB with a separate call.
@@ -171,6 +131,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                 main_dir=cp.get('paths','main'),\
                 ini_file = cp.get('data','ini_file'),\
                 inj_file = cp.get('data','inj_file'),\
+                config_file = opts.config_file,\
                 condor_log_path = cp.get('paths','condor_log_path'),\
                 log_file=log_file)
   grb.set_addresses(email_adresses)
@@ -194,10 +155,8 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     grb.check_analysis_directory('onoff')
 
     # cleaning up
-    # 22 Oct 09; commented out cleaning because of easier finding of
-    # re-usable segment files
-    #cmd = 'mv %s/*grb%s* %s'%(maindir, grb_name, analysis_path)
-    #peu.system_call(grb_name, cmd)
+    cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb_name, analysis_path)
+    peu.system_call(grb_name, cmd)
 
     # multiple notifications
     subject = "New analysis started for  GRB%s " %grb.name
@@ -220,9 +179,9 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                  (grb.time, grb.ra, grb.de)    
     peu.send_mail(subject, email_msg)  
 
-    # cleaning up
-    cmd = 'mv %s/*grb%s* Files_Unused_GRB/' % (cp.get('paths','main'), grb.name)
-    peu.system_call(grb.name, cmd)
+  # cleaning up
+  cmd = 'mv %s/*grb%s* AuxFiles/' % (cp.get('paths','main'), grb.name)
+  peu.system_call(grb.name, cmd)
 
   return grb
 
@@ -239,10 +198,10 @@ def check_start_inj_dag(monitor_list):
     if grb.has_data and grb.dag['inj'].status == 0:
 
       # check the duration criterion
-      if grb.duration and grb.duration<cp.get('data','max-duration'):
-   
-        # starts this DAG 
-        grb.dag['inj'].set_stage('uberdag')
+      if grb.duration and grb.duration<float(cp.get('data','max-duration')):
+
+        # starting the injection DAG
+        grb.prepare_injection_analysis()
         grb.dag['inj'].start()
 
         
@@ -315,24 +274,25 @@ def update_database(opts):
 
 
 # -----------------------------------------------------
-def start_ligolw_dag(grb, dag):
+def start_ligolw(grb, dag):
   """
   Execute the ligolw stage; only needed when doing injections
   @param grb: the GRB dictionary with all needed information
   @param dag: the DAG dictionary 
   """
 
-  # create the name for the ligolw DAG
-  dag.set_stage('ligolw')
-  dag_ligolw = dag.get_shname()
+  # create the name for the ligolw SH script (DAG is not working!)
+  dag_name = dag.get_dagname().replace('uberdag','ligolw')
+  dag.set_dagname(dag_name)
+  ligolw_sh_name = dag.get_shname()
 
   # and run the command to submit this DAG
-  cmd = 'cd %s; sh %s'  % (grg.analysis_dir, dag_ligolw)
+  cmd = 'cd %s; sh %s'  % (grb.analysis_dir, ligolw_sh_name)
   peu.system_call(grb.name, cmd)
  
-  # and set the status directly to 3...
-  #dag.set_status(3)
-  peu.info(grb.name, '  The LIGOLW stage for GRB %s has been started and ended...'%grb.name)
+  # setting status to 3
+  dag.set_status(3)
+  peu.info(grb.name, '  The LIGOLW stage for GRB %s has been started and ended with %s'%(grb.name, ligolw_sh_name))
 
 
 # ----------------------------------------------------
@@ -345,7 +305,7 @@ def start_post(grb, dag, cp):
   """
 
   # get some main paths
-  path = "%s/GRB/%s/postprocessing/"%(grb.analysis_dir, grb.name)
+  path = "%s/GRB%s/postprocessing/"%(grb.analysis_dir, grb.name)
   publishing_path = cp.get('paths','publishing_path')
   html_path = "%s/GRB%s" % (publishing_path, grb.name)
 
@@ -355,12 +315,16 @@ def start_post(grb, dag, cp):
 
   # make the replace with the sed file
   infile = "%s/postproc.dag.in" %path
-  outfile = "%s/postproc.dag" %path
-  grb.apply_sed_file(infile, outfile)
+  dagfile = "%s/postproc.dag" %path
+  grb.apply_sed_file(infile, dagfile)
+
+  # prepare the DAGname and start the DAG
+  dag.set_dagname(dagfile)
+  dag.start()
 
   # run the postprocessing stage
-  cmd = 'cd %s; condor_submit_dag postproc.dag'  % (path)
-  peu.system_call(grb.name, cmd)  
+  #cmd = 'cd %s; condor_submit_dag postproc.dag'  % (path)
+  #peu.system_call(grb.name, cmd)  
 
   # change the stage and status for this GRB
   peu.info(grb.name, '  The postprocessing stage for this GRB analysis has been started')
@@ -406,8 +370,11 @@ def start_post_inj(grb, dag, cp):
   cmd += ' --%s-ifo' % number_word[len(grb.ifolist)]
   peu.system_call(grb.name, cmd)
 
-  print "plothipe call and afterwards codes: Not Implemented yet"
-  raise NotImplementedError
+  print "plothipe call and afterwards codes: Not Implemented yet. Needs to be implemented!!!"
+  #raise NotImplementedError
+
+  # set the new status so 'finished'
+  dag.set_status(3)
 
 
 # -----------------------------------------------------
@@ -419,23 +386,24 @@ def analysis_finalized(grb, dag):
   """
 
   # create the subject
-  #grb_name = grb_dict['name']
   subject = 'The %s analysis of GRB%s has completed' %\
        (dag.type, grb.name)
 
-  summary_file = 'pylal_exttrig_llsummary_%s.html' % (grb.name)
+  summary_file = 'pylal_exttrig_llsummary_%s-sanity.html' % (grb.name)
+  openbox_file =  'pylal_exttrig_llsummary_%s-OPENBOX.html' % (grb.name)
   publishing_url = cp.get('paths','publishing_url')
 
   # open file for detailed output message
   email_msg = 'The output pages and files are located at %s/GRB%s\n' % (publishing_url, grb.name)
   email_msg += 'The summary page is %s/GRB%s/%s\n' % (publishing_url, grb.name, summary_file)
+  email_msg += 'The OPENBOX page is %s/GRB%s/%s\n' % (publishing_url, grb.name, openbox_file)
   peu.send_mail(subject, email_msg)
 
   # put info to the log file
-  peu.info(grb.type, '  The %s analysis for GRB %s has completed successfully!' % (dag.type, grb.name))
+  peu.info(grb.name, '  The %s analysis for GRB %s has completed successfully!' % (dag.type, grb.name))
 
   # set the new status so 'finished'
-  dag_dict['status'] = 5
+  dag.set_status(5)
 
 
 # -----------------------------------------------------
@@ -497,6 +465,12 @@ peu.cp = cp
 # put an info to the log-file
 peu.info('monitor', 'pylal_exttrig_llmonitor is executed...')
 
+# check the lock file
+if peu.check_lock():
+  peu.info('monitor','Lock is activated. Check running instances or remove this file')
+  sys.exit(0)
+peu.set_lock()
+
 # check the proxy if enough time is left
 check_proxy()
 
@@ -515,31 +489,51 @@ monitor_list = peu.read_monitor_list()
 #
 for grb in monitor_list:
 
+  # Skip all the rest of this GRB has not enough data
+  if not grb.has_data:
+    continue
+
   # loop over the DAGs for this GRB
   for dag_key, dag in grb.dag.iteritems():
 
+
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:
+      text = "INFO: GRB%s:  DAG %s " % (grb.name, dag.type)
+      if dag.get_status()==5:
+        text += "finished."
+      if dag.get_status()==0:
+        text += "not started."
+      peu.info(grb.name, text)
       continue
 
     # check the status on this DAG
-    fstat = dag.check_status()
+    fstat = dag.check_status(grb, dag)
     status = dag.get_status()
 
+    #print "TESTINFO-PROC GRB %s  DAG %s  Status %d   fstat: %d" % (grb.name, dag.type, dag.get_status(), fstat)
+    if fstat == -2:
+      peu.info(grb.name, "INFO: GRB%s DAG %s is missing: %s"%(grb.name, dag.type, dag.get_dagname()))
+
     if fstat == 0:
+
+       # check if the status is negative; make it positive then
+      # which means the rescue DAG is running
+      if status<0:
+        dag.set_status(-status)
+
       # The DAG is running
-      peu.info(grb.name, ' GRB %s DAG: %s stage: %s  status: running '%\
+      peu.info(grb.name, 'INFO: GRB%s DAG %s is running in stage %s.'%\
                  (grb.name, dag_key, dag.get_stage_name()))
 
     elif fstat == 1:
-    
+
+      peu.info(grb.name, 'INFO: GRB%s DAG %s has completed stage %s; starting the next stage.'%\
+                 (grb.name, dag_key, dag.get_stage_name()))
+
       if status==3:
         # finalize this DAG
         analysis_finalized(grb, dag)
-
-      elif status==2:
-        # start the injection postprocessing
-        start_post_inj(grb, dag, cp)
 
       elif status==1:
         # start postproc (for onoff) or first the ligolw DAG before
@@ -547,22 +541,23 @@ for grb in monitor_list:
           start_post(grb, dag, cp)
         elif dag_key == 'inj':
            
-          # postprocessing of the lik stuff can be started only if
+          # postprocessing of the likelihood code can be started only if
           # the onoff DAG has finished, i.e. the onoff status is at least 2
+          # two steps at once are done here...
           if grb.dag['onoff'].status>=2:
-
-            start_ligolw_dag(grb_dict, dag_key)
+            
+            start_ligolw(grb, dag)
             start_post_inj(grb, dag, cp)
           else:
-            peu.info(grb.name, ' GRB %s DAG: %s stage: %s  status: Ready, waiting for onoff DAG '%\
+            peu.info(grb.name, 'INFO: GRB%s DAG %s has completed stage %s, and is waiting for the onoff DAG.'%\
                  (grb.name, dag_key, dag.get_stage_name()))
         else:
           raise ValueError, "There is no %s DAG in the analysis..." % dag_key
     
     else:
-      # The DAG has an error
-      peu.info(grb.name, ' GRB %s DAG: %s stage: %s  status: ERROR '%\
-                 (grb.name, dag_key, dag.get_stage_name()))
+      # The DAG has (still) an error
+      peu.info(grb.name, 'INFO: GRB%s DAG %s has an ERROR running stage: %s '%\
+               (grb.name, dag_key, dag.get_stage_name()))
 
 
 # write out the new status
@@ -574,3 +569,7 @@ peu.write_monitor_list(monitor_list)
 publish_path = cp.get('paths','publishing_path')
 publish_url = cp.get('paths','publishing_url')
 peu.generate_summary(publish_path, publish_url)
+
+# remove lock file 
+# FIXME: Needs to be removed for any error exit...
+peu.del_lock()

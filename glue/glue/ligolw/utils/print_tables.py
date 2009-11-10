@@ -192,12 +192,11 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
             col_names = [ col.getAttribute("Name").split(":")[-1]
                 for col in this_table.getElementsByTagName(u'Column') ]
         else:
-            col_names = []
-            for requested_column in columnList:
-                col_names.extend( actual_column.getAttribute("Name").split(":")[-1]
-                for actual_column in this_table.getElementsByTagName(u'Column')
-                    if requested_column in actual_column.getAttribute("Name")
-                    and actual_column.getAttribute("Name").split(":")[-1] not in col_names )
+            requested_columns = [col.split(':')[-1] for col in columnList if not (':' in col and col.split(':')[0] != table_name) ]
+            requested_columns = sorted(set(requested_columns), key=requested_columns.index)
+            actual_columns = [actual_column.getAttribute("Name").split(":")[-1]
+                for actual_column in this_table.getElementsByTagName(u'Column') ]
+            col_names = [col for col in requested_columns if col in actual_columns]
         # get the relevant row_span/break column indices
         rspan_indices = [ n for n,col in enumerate(col_names) if col in row_span_columns or ':'.join([table_name,col]) in row_span_columns ]
         break_indices = [ n for n,col in enumerate(col_names) if col in rspan_break_columns or ':'.join([table_name,col]) in rspan_break_columns ] 
