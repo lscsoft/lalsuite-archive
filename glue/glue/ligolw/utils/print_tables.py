@@ -142,7 +142,12 @@ def get_row_data(row, column_name, cat_time_ns = True):
     the column with any column having the same name but "_time_ns".
     """
     column_name_ns = re.sub(r'_time', r'_time_ns', column_name)
-    if cat_time_ns and "_time" in column_name and column_name_ns in row.__slots__:
+    try:
+        rowattrs = [attr for attr in row.__slots__]
+    except AttributeError:
+        rowattrs = [attr for attr in row.__dict__.iterkeys()]
+
+    if cat_time_ns and "_time" in column_name and column_name_ns in rowattrs:
         return getattr(row, column_name) + 10**(-9.)*getattr(row, column_name_ns)
     else:
         return getattr(row, column_name)
