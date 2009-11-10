@@ -44,8 +44,8 @@ Check that glue is correctly installed and in your PYTHONPATH.
 def usage():
   msg = """\
 Usage: ldbdc.py [OPTIONS]
-  -t, --segment-url       PROTOCOL://HOST For example, '--segment-url http://segdb.ligo.caltech.edu'. Supported protocols are https,http,ldbd,ldbdi
-  -d, --database          use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=http://segdb.ligo.caltech.edu'"
+  -t, --segment-url       Users have to specify either 'https://' for a secure connection or 'http://' for an insecure connection in the segment database url. For example, '--segment-url=https://segdb.ligo.caltech.edu'. No need to specify port number 
+  -d, --database          use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=https://segdb.ligo.caltech.edu'"
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -f, --pfn PFNLIST       a comma separated list of PFNs to insert
   -q, --query QUERY       execute SQL query QUERY
