@@ -552,6 +552,8 @@ def get_next_id(connection, table, id_column):
 
     return new_id
     
+def end_time_in_ns( end_time, end_time_ns ):
+    return end_time*1e9 + end_time_ns
 
 class Summaries:
     """
@@ -878,6 +880,84 @@ def clean_metadata(connection, key_tables, verbose = False):
     # execute the script
     connection.cursor().executescript(sqlscript)
 
+def clean_metadata_using_end_time(connection, key_table, key_column, verbose = False):
+    """
+    An alternate to clean_metadata, this cleans metadata from tables who's
+    start/end_times don't encompass the end_times in the given table.
+
+    @connection: connection to a sqlite database
+    @key_table: name of table to use end_times from
+    @end_time_col_name: name of the end_time column in the key_table
+    """
+    if verbose:
+        print >> sys.stdout, "Removing unneeded metadata..."
+    
+    key_column = '.'.join([key_table, key_column])
+    connection.create_function('end_time_in_ns', 2, end_time_in_ns ) 
+
+    sqlscript = ''.join([ """
+        DELETE FROM
+          search_summary
+        WHERE NOT EXISTS (
+            SELECT
+                *
+            FROM
+                """, key_table, """
+            WHERE
+                end_time_in_ns(""", key_column, ', ', key_column, """_ns) >= end_time_in_ns(search_summary.in_start_time, search_summary.in_start_time_ns)
+                AND end_time_in_ns(""", key_column, ', ', key_column, """_ns) < end_time_in_ns(search_summary.in_end_time, search_summary.in_end_time_ns)
+            );
+        DELETE FROM
+            search_summvars
+        WHERE
+            process_id NOT IN (
+                SELECT
+                    process_id
+                FROM
+                    search_summary ); """])
+
+    if 'summ_value' in get_tables_in_database(connection):
+        sqlscript = ''.join([ sqlscript, """
+            DELETE FROM
+                summ_value
+            WHERE NOT EXISTS (
+                SELECT 
+                    *
+                FROM
+                    """, key_table, """
+                WHERE
+                    end_time_in_ns(""", key_column, ', ', key_column, """_ns)(""", key_column, """) >= end_time_in_ns(summ_value.in_start_time, summ_value.in_start_time_ns)
+                    AND end_time_in_ns(""", key_column, ', ', key_column, """_ns) < end_time_in_ns(summ_value.in_end_time, summ_value.in_end_time_ns)
+                );"""])
+        summ_val_str = """
+            OR process.process_id NOT IN (
+                SELECT
+                    summ_value.process_id
+                FROM
+                    summ_value )"""
+    else:
+        summ_val_str = ''
+
+    sqlscript = ''.join([ sqlscript, """
+        DELETE FROM
+            process
+        WHERE
+            process.process_id NOT IN (
+                SELECT
+                    search_summary.process_id
+                FROM
+                    search_summary )""", summ_val_str, """;
+        DELETE FROM
+            process_params
+        WHERE
+            process_params.process_id NOT IN (
+                SELECT
+                    process.process_id
+                FROM
+                    process );"""])
+
+    # execute the script
+    connection.cursor().executescript(sqlscript)
 
 # =============================================================================
 #
