@@ -487,16 +487,10 @@ if opts.extract_to_xml:
     # also remove experiments that don't have loud events in them
     sqlutils.clean_experiment_tables( connection, verbose = opts.verbose )
 
-    # remove additional meta-data from other tables who's process_ids are not in
-    # the experiment or coinc. tables
-    key_tables = [
-        ('experiment_summary', 'sim_proc_id', 'sim_proc_id IS NOT NULL'),
-        ('time_slide', 'process_id', ''),
-        ('coinc_event', 'process_id', ''),
-        ('sngl_inspiral', 'process_id', '')]
-
     # clean the metadata
-    sqlutils.clean_metadata(connection, key_tables, verbose = opts.verbose)
+    key_table = "sngl_inspiral"
+    key_column = "end_time"
+    sqlutils.clean_metadata_using_end_time(connection, key_table, key_column, verbose = opts.verbose)
 
     # extract to the xml file
     extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
