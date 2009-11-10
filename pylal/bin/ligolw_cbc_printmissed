@@ -319,7 +319,7 @@ connection.create_function( 'rank', 1, ranker.get_rank )
 # Get simulation table column names from database
 simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
 column_names = simulation_table_columns + \
-    ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'instruments_on__Px_click_for_elog_xP_', 'mini_followup']
+    ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
 
 #
 # define needed tables
@@ -380,7 +380,7 @@ for values in connection.cursor().execute( sqlquery ).fetchall():
     cmrow.end_time_ns = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time_ns')
     # set  elog page
     elog_pages = [(ifo, printutils.get_elog_page(ifo, cmrow.end_time)) for ifo in requested_instruments]
-    cmrow.instruments_on__Px_click_for_elog_xP_ = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+    cmrow.elogs = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
     # set daily_ihope page
     end_time_utc = printutils.format_end_time_in_utc( cmrow.end_time ) 
     daily_ihope_address = printutils.get_daily_ihope_page(cmrow.end_time, pages_location = opts.daily_ihope_pages_location)
