@@ -134,6 +134,18 @@ def format_header_cell(val):
     """
     return re.sub('_', ' ', re.sub(r'(_Px_)', '(', re.sub(r'(_xP_)', ')', str(val) )))
 
+def get_row_data(row, column_name, cat_time_ns = True):
+    """
+    Retrieves the requested column's data from the given row.
+    
+    @cat_time_ns: If the column_name has "_time" in it, will concatenate 
+    the column with any column having the same name but "_time_ns".
+    """
+    column_name_ns = re.sub(r'_time', r'_time_ns', column_name)
+    if cat_time_ns and "_time" in column_name and column_name_ns in row.__slots__:
+        return getattr(row, column_name) + 10**(-9.)*getattr(row, column_name_ns)
+    else:
+        return getattr(row, column_name)
 #
 # =============================================================================
 #
@@ -217,7 +229,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
         # format the data in the table
         out_table = []
         for row in this_table:
-            out_row = [ str(format_cell( getattr(row, col_name),
+            out_row = [ str(format_cell( get_row_data(row, col_name),
                 round_floats = round_floats, decimal_places = decimal_places,
                 format_links = format_links,  hlx = hlx, hxl = hxl, xhl = xhl ))
                 for col_name in col_names ]
