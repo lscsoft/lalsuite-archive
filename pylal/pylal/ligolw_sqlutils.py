@@ -1070,14 +1070,14 @@ def update_experiment_summ_nevents( connection, verbose = False ):
         print >> sys.stderr, "done."
 
 
-class sim_type_proc_id_mapper:
+class sim_tag_proc_id_mapper:
     """
     Class to map sim_proc_ids in the experiment summary table to simulation names
     and vice-versa.
     """
     def __init__( self, connection ):
-        self.id_name_map = {}
-        self.name_id_map = {}
+        self.id_tag_map = {}
+        self.tag_id_map = {}
         sqlquery = """
             SELECT
                 process_id,
@@ -1092,15 +1092,15 @@ class sim_type_proc_id_mapper:
                         experiment_summary )
                 AND param == "--userTag"
             """
-        for proc_id, sim_type in connection.cursor().execute(sqlquery):
-            self.id_name_map[proc_id] = sim_type
-            self.name_id_map[sim_type] = proc_id
+        for proc_id, sim_tag in connection.cursor().execute(sqlquery):
+            self.id_tag_map[proc_id] = sim_tag
+            self.tag_id_map[sim_tag] = proc_id
 
-    def get_sim_type( self, proc_id ):
-        return self.id_name_map[proc_id]
+    def get_sim_tag( self, proc_id ):
+        return self.id_tag_map[proc_id]
 
-    def get_proc_id( self, sim_type ):
-        return self.name_id_map[sim_type]
+    def get_proc_id( self, sim_tag ):
+        return self.tag_id_map[sim_tag]
 
             
 # =============================================================================

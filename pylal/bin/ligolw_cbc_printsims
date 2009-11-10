@@ -187,7 +187,7 @@ def parse_command_line():
             "s (seconds), min (minutes), hr (hours), days (days), or yr (years). " +
             "(Setting to s is the equivalent of a no-op.)"
             )
-    parser.add_option( "", "--sim-type", action = "store", type = "string", default = 'ALLINJ',
+    parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
         help =
             "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
             "If not specified, will group all injections together."
@@ -303,17 +303,17 @@ if opts.include_only_coincs:
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
-# if sim-type specified add the sim-type to the filter
-if opts.sim_type != 'ALLINJ':
-    # create a map between sim_proc_id and sim-name
-    sim_map = sqlutils.sim_type_proc_id_mapper( connection )
-    # check that opts.sim_type is in the the map
-    opts.sim_type = sqlutils.validate_option(opts.sim_type, lower = False).upper()
-    if opts.sim_type not in sim_map.name_id_map.keys():
-        raise ValueError, "sim-type %s not found in database" % opts.sim_type
+# if sim-tag specified add the sim-tag to the filter
+if opts.sim_tag != 'ALLINJ':
+    # create a map between sim_proc_id and sim-tag
+    sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
+    # check that opts.sim_tag is in the the map
+    opts.sim_tag = sqlutils.validate_option(opts.sim_tag, lower = False).upper()
+    if opts.sim_tag not in sim_map.tag_id_map.keys():
+        raise ValueError, "sim-tag %s not found in database" % opts.sim_tag
     # create the filter
-    connection.create_function( 'get_sim_type', 1, sim_map.get_sim_type )
-    sim_filter = ''.join(['get_sim_type(experiment_summary.sim_proc_id) == "', opts.sim_type, '"' ])
+    connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
+    sim_filter = ''.join(['get_sim_tag(experiment_summary.sim_proc_id) == "', opts.sim_tag, '"' ])
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
 
