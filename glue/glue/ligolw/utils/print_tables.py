@@ -148,7 +148,7 @@ def get_row_data(row, column_name, cat_time_ns = True):
         rowattrs = [attr for attr in row.__dict__.iterkeys()]
 
     if cat_time_ns and "_time" in column_name and column_name_ns in rowattrs:
-        return getattr(row, column_name) + 10**(-9.)*getattr(row, column_name_ns)
+        return int(getattr(row, column_name)) + 10**(-9.)*int(getattr(row, column_name_ns))
     else:
         return getattr(row, column_name)
 #
