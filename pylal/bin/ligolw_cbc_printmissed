@@ -38,6 +38,7 @@ from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
 
 from pylal import ligolw_sqlutils as sqlutils
+from pylal import printutils
 from pylal import db_thinca_rings
 
 __prog__ = "ligolw_cbc_printmissed"
@@ -134,6 +135,12 @@ def parse_command_line():
         help =
             "Specify up to what rank to print. Default is 10. "
             )
+    parser.add_option("-H", "--daily-ihope-pages-location", action = "store",
+        default = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily",
+        help =
+            "Web address of the daily ihope pages. " +
+            "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
+            )
 
     (options, args) = parser.parse_args()
 
@@ -151,18 +158,6 @@ def parse_command_line():
 
 
     return options, sys.argv[1:]
-
-
-# =============================================================================
-#
-#                       Function Definitions
-#
-# =============================================================================
-
-def generic_get_pyvalue(obj):
-    if obj.value is None:
-        return None
-    return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
 
 
 # =============================================================================
@@ -323,7 +318,8 @@ connection.create_function( 'rank', 1, ranker.get_rank )
 
 # Get simulation table column names from database
 simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
-column_names = simulation_table_columns + ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'mini_followup']
+column_names = simulation_table_columns + \
+    ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'instruments_on__Px_click_for_elog_xP_', 'mini_followup']
 
 #
 # define needed tables
@@ -347,7 +343,7 @@ class CloseMissed(object):
     __slots__ = CloseMissedTable.validcolumns.keys()
 
     def get_pyvalue(self):
-        return generic_get_pyvalue(self)
+        return printutils.generic_get_pyvalue(self)
 
 # connect the rows to the tables
 CloseMissedTable.RowType = CloseMissed
@@ -382,6 +378,13 @@ for values in connection.cursor().execute( sqlquery ).fetchall():
     cmrow.mini_followup = None
     cmrow.end_time = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time')
     cmrow.end_time_ns = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time_ns')
+    # set  elog page
+    elog_pages = [(ifo, printutils.get_elog_page(ifo, cmrow.end_time)) for ifo in requested_instruments]
+    cmrow.instruments_on__Px_click_for_elog_xP_ = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+    # set daily_ihope page
+    end_time_utc = printutils.format_end_time_in_utc( cmrow.end_time ) 
+    daily_ihope_address = printutils.get_daily_ihope_page(cmrow.end_time, pages_location = opts.daily_ihope_pages_location)
+    cmrow.end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
 
     # add the row
     cmtable.append(cmrow)
@@ -408,27 +411,14 @@ if opts.verbose and not opts.output:
 if opts.output_format != "xml":
     # set table list
     tableList = ['close_missed_injections']
-    columnList = [
-        'rank',
-        'decisive_distance',
-        'end_time',
-        'end_time_ns',
-        'mchirp',
-        'mass1',
-        'mass2',
-        'eff_dist_h',
-        'eff_dist_l',
-        'eff_dist_v',
-        'mini_followup'
-        ]
-        
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(cmdoc, tableList[0])
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
     print_tables.print_tables(cmdoc, opts.output, opts.output_format, tableList = tableList,
         columnList = columnList, round_floats = True, decimal_places = 2, title = None,
-        row_span_columns = [], rspan_break_columns = [])
+        row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()
 else:

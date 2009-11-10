@@ -39,6 +39,7 @@ from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
 
 from pylal import ligolw_sqlutils as sqlutils
+from pylal import printutils
 
 __prog__ = "ligolw_cbc_printsims"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -191,6 +192,12 @@ def parse_command_line():
             "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
             "If not specified, will group all injections together."
             )
+    parser.add_option("-H", "--daily-ihope-pages-location", action = "store",
+        default = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily",
+        help =
+            "Web address of the daily ihope pages. " +
+            "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
+            )
 
     (options, args) = parser.parse_args()
 
@@ -221,17 +228,6 @@ def parse_command_line():
 
     return options, sys.argv[1:]
 
-
-# =============================================================================
-#
-#                       Function Definitions
-#
-# =============================================================================
-
-def generic_get_pyvalue(obj):
-    if obj.value is None:
-        return None
-    return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
 
 # =============================================================================
 #
@@ -409,17 +405,28 @@ simulation_table_columns = sqlutils.get_column_names_from_table( connection, sim
 recovery_table_columns = sqlutils.get_column_names_from_table( connection, recovery_table )
 
 # Get list of column name for injected parameters
-#injected_cols = [ 'end_time', 'end_time_ns', 'mchirp', 'mass1', 'mass2', 'eff_dist_h', 'eff_dist_l', 'eff_dist_v' ]
-injected_cols = ['injected_'+col for col in simulation_table_columns] + ['injected_end_time', 'injected_end_time_ns']
+injected_cols = []
+for col in simulation_table_columns:
+    if col == 'simulation_id':
+        injected_cols.append('simulation_id')
+    else:
+        injected_cols.append('injected_'+col)
+injected_cols.extend(['injected_end_time', 'injected_end_time_ns', 'injected_end_time_utc__Px_click_for_daily_ihope_xP_'])
+
 # Get list of column names from the recovery table
-recovered_cols = ['recovered_'+col for col in recovery_table_columns]
+recovered_cols = []
+for col in recovery_table_columns:
+    if col == 'coinc_event_id':
+        recovered_cols.append(u'coinc_event_id')
+    else:
+        recovered_cols.append(u'recovered_'+col)
 # generate list of column names for the summary table
 column_names = injected_cols + recovered_cols
 # add instruments on, duration, mini_followups
 rankname = 'rank_in_' + opts.comparison_datatype.strip().lower() + '_using_' + ranking_stat.split('.')[-1]
-durname = ''.join([ 'simulation', u'_duration_', opts.convert_durations.strip().lower() ])
+durname = ''.join([ 'simulation', u'_duration__Px_', opts.convert_durations.strip().lower(), '_xP_' ])
 column_names.extend([u'instruments_on', durname, u'mini_followup' ])
-column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', durname, 'mini_followup' ] )
+column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', 'instruments_on__Px_click_for_elog_xP_', durname, 'mini_followup' ] )
 
 #
 # define needed tables
@@ -430,7 +437,7 @@ class tmpSimTable(table.Table):
 class tmpSim(object):
     __slots__ = tmpSimTable.validcolumns.keys()
     def get_pyvalue(self):
-        return generic_get_pyvalue(self)
+        return printutils.generic_get_pyvalue(self)
 
 class tmpRecTable(table.Table):
     tableName = "tmp_rec_table:table"
@@ -438,21 +445,21 @@ class tmpRecTable(table.Table):
 class tmpRec(object):
     __slots__ = tmpRecTable.validcolumns.keys()
     def get_pyvalue(self):
-        return generic_get_pyvalue(self)
+        return printutils.generic_get_pyvalue(self)
 
 class SelectedFoundTable(table.Table):
     tableName = "selected_found_injections:table"
     validcolumns = {}
     for col_name in column_names:
-        if 'rank_using_' in col_name:
+        if 'rank_in_' in col_name:
             validcolumns[col_name] = "int_4u"
         elif '_duration_' in col_name:
             validcolumns[col_name] = "real_8"
-        elif 'instruments_on' in col_name:
+        elif 'instruments_on' == col_name:
             validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
-        elif 'injected_' in col_name:
+        elif 'injected_' in col_name or col_name == 'simulation_id':
             validcolumns[col_name] = sqlutils.get_col_type(simulation_table, re.sub('injected_', '', col_name))
-        elif 'recovered_' in col_name:
+        elif 'recovered_' in col_name or col_name == 'coinc_event_id':
             validcolumns[col_name] = sqlutils.get_col_type(recovery_table, re.sub('recovered_', '', col_name))
         # if custom columns exist in the database, just set them to lstrings
         else:
@@ -465,7 +472,7 @@ class SelectedFound(object):
     __slots__ = SelectedFoundTable.validcolumns.keys()
 
     def get_pyvalue(self):
-        return generic_get_pyvalue(self)
+        return printutils.generic_get_pyvalue(self)
 
 # connect the rows to the tables
 tmpSimTable.RowType = tmpSim
@@ -538,13 +545,17 @@ for values in connection.cursor().execute( sqlquery ).fetchall():
     use_this_site = sorted(on_instruments)[0][0].lower()
     sfrow.injected_end_time = getattr( tmp_sim_row, use_this_site+'_end_time' )
     sfrow.injected_end_time_ns = getattr( tmp_sim_row, use_this_site+'_end_time_ns' )
-    for col in injected_cols:
-        if 'injected_end_time' == col or 'injected_end_time_ns' == col:
-            continue
-        setattr(sfrow, col, getattr( tmp_sim_row, re.sub('injected_','', col) ))
+    for col in simulation_table_columns:
+        if col == "simulation_id":
+            sfrow.simulation_id = tmp_sim_row.simulation_id 
+        else:
+            setattr(sfrow, 'injected_'+col, getattr( tmp_sim_row, col) )
     # set the recovered parameters
-    for col in recovered_cols:
-        setattr(sfrow, col, getattr( tmp_rec_row, re.sub('recovered_','', col) ))
+    for col in recovery_table_columns:
+        if col == "coinc_event_id":
+            sfrow.coinc_event_id = tmp_rec_row.coinc_event_id
+        else:
+            setattr(sfrow, 'recovered_'+col, getattr( tmp_rec_row, col) )
     # calculate and add faps
     if sfrow.recovered_combined_far is not None:
         t_in_s = float(values[-2]) / sqlutils.convert_duration(1, opts.convert_durations.strip().lower())
@@ -553,10 +564,17 @@ for values in connection.cursor().execute( sqlquery ).fetchall():
     else:
         sfrow.recovered_fap = None
         sfrow.recovered_fap_1yr = None
+    # set elog page
+    elog_pages = [(ifo, printutils.get_elog_page(ifo, sfrow.injected_end_time)) for ifo in on_instruments]
+    sfrow.instruments_on__Px_click_for_elog_xP_ = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+    # set daily_ihope page
+    end_time_utc = printutils.format_end_time_in_utc( sfrow.injected_end_time ) 
+    daily_ihope_address = printutils.get_daily_ihope_page(sfrow.injected_end_time, pages_location = opts.daily_ihope_pages_location)
+    sfrow.injected_end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
     # set any other info
-    setattr( sfrow, durname, duration )
     sfrow.instruments_on = ','.join(sorted(on_instruments))
     sfrow.mini_followup = None
+    setattr(sfrow, durname, duration)
 
     # add the row
     tmp_sftable.append(sfrow)
@@ -564,11 +582,11 @@ for values in connection.cursor().execute( sqlquery ).fetchall():
 # Re-sort the sftable by rank, recovered_match_rank
 sftable = lsctables.New(SelectedFoundTable)
 for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, rankname) ):
-    if sfrow.injected_simulation_id not in [row.injected_simulation_id for row in sftable]:
+    if sfrow.simulation_id not in [row.simulation_id for row in sftable]:
         sftable.append(sfrow)
         sftable.extend(sub_row for sub_row in sorted([row for row in tmp_sftable
-            if row.injected_simulation_id == sfrow.injected_simulation_id
-            and row.recovered_coinc_event_id != sfrow.recovered_coinc_event_id],
+            if row.simulation_id == sfrow.simulation_id
+            and row.coinc_event_id != sfrow.coinc_event_id],
             key = lambda row: row.recovered_match_rank))
 
 #
@@ -593,46 +611,12 @@ if opts.verbose and not opts.output:
 if opts.output_format != "xml":
     # set table list
     tableList = ['selected_found_injections']
-    columnList = [
-        rankname,
-        'mini_followup',
-        'injected_end_time',
-        'injected_end_time_ns',
-        'injected_eff_dist_h',
-        'injected_eff_dist_l',
-        'injected_eff_dist_v',
-        'injected_mchirp',
-        'injected_mass1',
-        'injected_mass2',
-        'recovered_match_rank',
-        'recovered_ifos',
-        'instruments_on',
-        'recovered_combined_far',
-        'recovered_fap',
-        'recovered_fap_1yr',
-        'recovered_snr',
-        'recovered_end_time',
-        'recovered_end_time_ns',
-        'recovered_mchirp',
-        'recovered_mtotal',
-        durname]
-    row_span_columns = rspan_break_columns = [
-        rankname,
-        'mini_followup',
-        'injected_end_time',
-        'injected_end_time_ns', 
-        'injected_eff_dist_h',
-        'injected_eff_dist_l',
-        'injected_eff_dist_v',
-        'injected_mchirp',
-        'injected_mass1',
-        'injected_mass2']
-        
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0])
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
-    print_tables.print_tables(sfdoc, opts.output, opts.output_format, tableList = ['selected_found_injections'],
+    print_tables.print_tables(sfdoc, opts.output, opts.output_format, tableList = tableList,
         columnList = columnList, round_floats = True, decimal_places = 2, title = None,
         row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
@@ -650,7 +634,7 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from %s table..." % recovery_table
     # use the coinc_event_ids to figure out what to keep
-    save_ids = [''.join(['"', row.recovered_coinc_event_id, '"']) for row in sftable]
+    save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in sftable]
     # delete all other ids from the recovery table
     sqlquery = ''.join([ """
         DELETE

@@ -37,6 +37,7 @@ from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
 
 from pylal import ligolw_sqlutils as sqlutils
+from pylal import printutils
 
 __prog__ = "ligolw_cbc_printlc"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -176,6 +177,12 @@ def parse_command_line():
         help =
             "If the --datatype is simulation, limits the selection to the specified " +
             "simulation name, e.g., 'BNSINJ'. If not specified, will group all injections together."
+            )
+    parser.add_option("-H", "--daily-ihope-pages-location", action = "store",
+        default = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily",
+        help =
+            "Web address of the daily ihope pages. " +
+            "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
             )
 
     (options, args) = parser.parse_args()
@@ -321,11 +328,12 @@ connection.create_function( 'rank', 1, ranker.get_rank )
 # Get list of column names from coinc_inspiral table
 coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
 # generate list of column names for the summary table
-column_names = [ 'rank_using_' + ranking_stat.split('.')[-1] ]
+column_names = []
 column_names.extend(coinc_inspiral_cols)
 # add instruments on, duration, mini_followups
-durname = ''.join([ datatype, u'_duration_', opts.convert_durations.strip().lower() ])
-column_names.extend([u'instruments_on', durname, u'mini_followup' ])
+rankname = 'rank__Px_using_' + ranking_stat.split('.')[-1] + '_xP_'
+durname = ''.join([ datatype, u'_duration__Px_', opts.convert_durations.strip().lower(), '_xP_' ])
+column_names.extend([rankname, durname, u'instruments_on', u'mini_followup', 'ifos__Px_click_for_elog_xP_', 'end_time_utc__Px_click_for_daily_ihope_xP_' ])
 
 #
 # define the table
@@ -380,11 +388,10 @@ lcdoc.childNodes[0].appendChild(lctable)
 
 sqlquery = ''.join([ """
     SELECT
-        rank(""", ranking_stat, """),
         coinc_inspiral.*,
+        rank(""", ranking_stat, """),
         experiment.instruments,
-        convert_duration(experiment_summary.duration),
-        NULL AS mini_followup
+        convert_duration(experiment_summary.duration)
     FROM
         coinc_inspiral
     """, where_in_this_filter, """
@@ -399,10 +406,26 @@ if opts.verbose:
 
 for values in connection.cursor().execute( sqlquery ):
     lcrow = LoudestEvents()
-    [ setattr(lcrow, column, data) for column, data in zip(column_names, values) ]
+    [ setattr(lcrow, column, values[ii]) for ii, column in enumerate(coinc_inspiral_cols) ]
+    # set on_instruments, duration, elog, daily_ihope
+    setattr(lcrow, rankname, values[-3])
+    lcrow.instruments_on = values[-2]
+    setattr(lcrow, durname, values[-1])
+    lcrow.mini_followup = None
+    if 'ifos' in coinc_inspiral_cols and 'end_time' in coinc_inspiral_cols:
+        elog_pages = [(ifo, printutils.get_elog_page(ifo, lcrow.end_time)) for ifo in lsctables.instrument_set_from_ifos(lcrow.ifos)]
+        lcrow.ifos__Px_click_for_elog_xP_ = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+    else:
+        lcrow.ifos__Px_click_for_elog_xP_ = None
+    if 'end_time' in coinc_inspiral_cols:
+        end_time_utc = printutils.format_end_time_in_utc( lcrow.end_time ) 
+        daily_ihope_address = printutils.get_daily_ihope_page(lcrow.end_time, pages_location = opts.daily_ihope_pages_location)
+        lcrow.end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
+    else:
+        lcrow.end_time_utc__Px_click_for_daily_ihope_xP_ = None
     # calculate and add faps
     if lcrow.combined_far is not None:
-        t_in_s = float(values[-2]) / sqlutils.convert_duration(1, opts.convert_durations.strip().lower())
+        t_in_s = float(values[-1]) / sqlutils.convert_duration(1, opts.convert_durations.strip().lower())
         lcrow.fap = 1 - math.exp(-sqlutils.convert_duration(t_in_s, 'yr') * lcrow.combined_far)
         lcrow.fap_1yr = 1 - math.exp(-lcrow.combined_far)
     else:
@@ -420,12 +443,15 @@ if opts.verbose and not opts.output:
     print >> sys.stdout, "\nResults are:\n"
 
 if opts.output_format != "xml":
+    tableList = ['loudest_events']
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0])
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
-    print_tables.print_tables(lcdoc, opts.output, opts.output_format, tableList = ['loudest_events'],
-        round_floats = True, decimal_places = 2, title = None)
+    print_tables.print_tables(lcdoc, opts.output, opts.output_format, tableList = tableList,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()
 else:
