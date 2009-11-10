@@ -457,6 +457,8 @@ class SelectedFoundTable(table.Table):
             validcolumns[col_name] = "real_8"
         elif 'instruments_on' == col_name:
             validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
+        elif col_name == 'injected_end_time' or col_name == 'injected_end_time_ns':
+            validcolumns[col_name] = "int_4s"
         elif 'injected_' in col_name or col_name == 'simulation_id':
             validcolumns[col_name] = sqlutils.get_col_type(simulation_table, re.sub('injected_', '', col_name))
         elif 'recovered_' in col_name or col_name == 'coinc_event_id':
