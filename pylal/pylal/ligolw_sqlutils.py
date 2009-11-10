@@ -1154,7 +1154,7 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
             print >> sys.stderr, "Cleaning the coinc_event table..."
         sqlquery = ''.join(["""
             DELETE
-            FROM experiment_map
+            FROM coinc_event 
             WHERE coinc_event_id NOT IN (
                 SELECT coinc_event_id
                 FROM """, table_name, ')' ])
