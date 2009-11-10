@@ -140,7 +140,7 @@ if opts.input_xml_summary:
   if opts.output_html_table is not None:
     output = open(opts.output_html_table,'w')
     tableList = [summTableName]
-    columnList, row_span_columns, rspan_break_cols = printutils.get_columns_to_print(cmdoc, tableList[0])
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(xmlSummary, tableList[0])
     print_tables.print_tables(summTable, output, "html",\
         tableList = tableList, columnList = columnList, round_floats = True, \
         decimal_places = 2, title = None, print_table_names = False,
