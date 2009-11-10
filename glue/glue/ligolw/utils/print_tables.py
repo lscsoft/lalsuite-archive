@@ -127,6 +127,13 @@ def format_cell(val, round_floats = False, decimal_places = 2, format_links = Fa
 
     return val
 
+def format_header_cell(val):
+    """
+    Formats given header column. This involves changing '_Px_' to '(', '_xP_' to ')' and
+    all other '_' to spaces.
+    """
+    return re.sub('_', ' ', re.sub(r'(_Px_)', '(', re.sub(r'(_xP_)', ')', str(val) )))
+
 #
 # =============================================================================
 #
@@ -205,7 +212,7 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
         print >> output, tx
         if print_table_names:
             print >> output, "%s%s%s" %(capx, table_name, xcap)
-        print >> output, "%s%s%s%s%s" %(rx, cx, re.sub('_', ' ', (xc+cx).join(col_names)), xc, xr)
+        print >> output, "%s%s%s%s%s" %(rx, cx, (xc+cx).join(format_header_cell(val) for val in col_names), xc, xr)
 
         # format the data in the table
         out_table = []
