@@ -30,6 +30,11 @@ from glue.ligolw.utils import process
 
 from pylal.xlal.date import XLALGPSToUTC
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+try:
+    XLALGPSToUTC(LIGOTimeGPS(987654321,0))
+except TypeError:
+    # s6 code
+    from pylal.xlal.date import LIGOTimeGPS
 
 __prog__ = "lalapps_cbc_compile_rfs"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
