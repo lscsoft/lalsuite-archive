@@ -19,10 +19,9 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 
 from pylal.xlal.date import XLALGPSToUTC
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
-    XLALGPSToUTC(LIGOTimeGPS(987654321,0))
-except TypeError:
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
     # s6 code
     from pylal.xlal.date import LIGOTimeGPS
 
