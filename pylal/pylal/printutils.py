@@ -66,12 +66,10 @@ def get_columns_to_print(xmldoc, tableName):
             'fap_1yr',
             'snr',
             'end_time',
-            'end_time_ns',
             'end_time_utc__Px_click_for_daily_ihope_xP_',
+            'ifos__Px_click_for_elog_xP_',
             'mass',
             'mchirp',
-            'ifos__Px_click_for_elog_xP_',
-            'instruments_on',
             'mini_followup',
             durname]
         row_span_columns = rspan_break_columns = [durname]
@@ -80,10 +78,10 @@ def get_columns_to_print(xmldoc, tableName):
             for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
         columnList = [
             rankname,
-            'mini_followup',
             'injected_end_time',
-            'injected_end_time_ns',
             'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'elogs',
+            'mini_followup',
             'injected_eff_dist_h',
             'injected_eff_dist_l',
             'injected_eff_dist_v',
@@ -92,22 +90,19 @@ def get_columns_to_print(xmldoc, tableName):
             'injected_mass2',
             'recovered_match_rank',
             'recovered_ifos',
-            'instruments_on__Px_click_for_elog_xP_',
             'recovered_combined_far',
             'recovered_fap',
             'recovered_fap_1yr',
             'recovered_snr',
             'recovered_end_time',
-            'recovered_end_time_ns',
             'recovered_mchirp',
-            'recovered_mass',
-            durname]
+            'recovered_mass']
         row_span_columns = rspan_break_columns = [
             rankname,
-            'mini_followup',
             'injected_end_time',
-            'injected_end_time_ns', 
             'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'elogs',
+            'mini_followup',
             'injected_eff_dist_h',
             'injected_eff_dist_l',
             'injected_eff_dist_v',
@@ -119,15 +114,14 @@ def get_columns_to_print(xmldoc, tableName):
             'rank',
             'decisive_distance',
             'end_time',
-            'end_time_ns',
             'end_time_utc__Px_click_for_daily_ihope_xP_',
+            'elogs',
             'mchirp',
             'mass1',
             'mass2',
             'eff_dist_h',
             'eff_dist_l',
             'eff_dist_v',
-            'instruments_on__Px_click_for_elog_xP_',
             'mini_followup'
             ]
         row_span_columns = rspan_break_columns = []
