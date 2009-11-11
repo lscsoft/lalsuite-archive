@@ -485,11 +485,50 @@ def parse_command_line():
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
 	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
 	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
-	parser.add_option("", "--disable-dag-categories",action="store_true",\
+	parser.add_option("","--disable-dag-categories",action="store_true",\
 	default=False,help="disable the internal dag category maxjobs")
 	parser.add_option("", "--enable-bayesian",action="store_true",\
 	default=False,\
 	help="enable the bayesian jobs (mcmc, spinmcmc, nested sampling)")
+
+	parser.add_option("","--no-chia",action="store_true",\
+	default=False,help="disable followUpChia, plotChia nodes")
+
+	parser.add_option("","--no-plotsnrchisq",action="store_true",\
+	default=False,help="disable plotsnrchisq nodes")
+
+	parser.add_option("","--no-skymap",action="store_true",\
+	default=False,help="disable skymap nodes")
+
+	parser.add_option("","--no-effectiveRatio",action="store_true",\
+	default=False,help="disable effDRatio nodes")
+
+	parser.add_option("","--no-findVetoes", action="store_true",\
+	default=False,help="disable findVetoes nodes")
+
+	parser.add_option("","--no-findFlags", action="store_true",\
+	default=False,help="disable findFlags nodes")
+
+	parser.add_option("","--no-insp-datafind", action="store_true",\
+	default=False,help="disable inspiral datafind nodes")
+
+	parser.add_option("","--no-inspiral", action="store_true",\
+	default=False,help="disable followUpInsp nodes")
+
+	parser.add_option("","--no-ht-qscan", action="store_true",\
+	default=False,help="disable hoft qscan nodes")
+
+	parser.add_option("","--no-rds-qscan", action="store_true",\
+	default=False,help="disable rds qscan nodes")
+
+	parser.add_option("","--no-seismic-qscan", action="store_true",\
+	default=False,help="disable seismic qscan nodes")
+
+	parser.add_option("","--no-htQscan-datafind", action="store_true",\
+        default=False,help="disable hoft qscan datafind nodes")
+
+	parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
+        default=False,help="disable rds qscan datafind nodes")
 
 	options, filenames = parser.parse_args()
 
@@ -621,6 +660,17 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 			plot_node = stfu_pipe.plotSNRCHISQNode(dag, plot_job, cp, options, sngl_inspiral, coinc, insp_node, p_nodes=[insp_node])
 
+			# Single ifo MCMC jobs
+			# run multiple MCMC chains (1 chain = 1 node)
+			chainNumber = string.strip(cp.get('fu-mcmc','chain_nb'))
+			mcmcId_list = []
+			for k in range(int(chainNumber)):
+				calculate_seed = str(sngl_inspiral.time + k).split('.')[0]
+				randomseed = calculate_seed[-4:len(calculate_seed)]
+				mcmc_sngl_node = stfu_pipe.mcmcNode(dag,mcmc_sngl_job,cp,options,coinc,[insp_datafind_node[ifo].outputFileName],randomseed,p_nodes=[insp_datafind_node[ifo]],ifo_string=ifo)
+				mcmcId_list.append(mcmc_sngl_node.id)
+
+
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
 		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
 			# VERBOSITY
@@ -639,6 +689,24 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia_node, insp_node_skymap, p_nodes=[chia_node])
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
+
+		# Prepare list of datafind nodes and cache files
+		dataFind_list = []
+		cacheFile_list = []
+		for key, d_node in insp_datafind_node.items(): 
+			dataFind_list.append(d_node)
+			cacheFile_list.append(d_node.outputFileName)
+
+		# Coherent MCMC jobs
+		# run multiple MCMC chains (1 chain = 1 node)
+		chainNumber = string.strip(cp.get('fu-mcmc','chain_nb'))
+		mcmcId_list = []
+		for k in range(int(chainNumber)):
+			calculate_seed = str(coinc.time + k).split('.')[0]
+			randomseed = calculate_seed[-4:len(calculate_seed)]
+			mcmc_coh_node = stfu_pipe.mcmcNode(dag,mcmc_coh_job,cp,options,coinc,cacheFile_list,randomseed,p_nodes=dataFind_list,ifo_string=None)
+			mcmcId_list.append(mcmc_coh_node.id)
+
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
 		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc)
