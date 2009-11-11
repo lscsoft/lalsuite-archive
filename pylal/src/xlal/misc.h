@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Copyright (C) 2009  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -22,10 +20,14 @@
 /*
  * ============================================================================
  *
- *                              Helper Utilities
+ *                                  Preamble
  *
  * ============================================================================
  */
+
+
+#ifndef _PYLAL_XLAL_MISC_H_
+#define _PYLAL_XLAL_MISC_H_
 
 
 #include <Python.h>
@@ -43,3 +45,6 @@
 
 PyObject *pylal_exception_from_errno(enum XLALErrorValue code, const char **msg);
 void pylal_set_exception_from_xlalerrno(void);
+
+
+#endif /* _PYLAL_XLAL_MISC_H_ */

@@ -153,7 +153,7 @@ class use_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = self.file_to_rank.replace('.pat','.dat')
-    self.add_file_arg("-a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+    self.add_file_arg("-A -a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     self.add_output_file(self.ranked_file)
 # I need to figure out how to parse these options
     for p in p_node:
@@ -181,7 +181,7 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, files='*.dat', infofiles='*_info.pat', databases='*.sqlite', p_node=[]):
+  def __init__(self, job, dag, files="'*.dat'", infofiles="'*_info.pat'", databases="'*.sqlite'", p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     # uhh these are still globs! FIXME
     self.add_var_opt("files", files)
@@ -216,6 +216,45 @@ class sqlite_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_arg('-batch')
+    self.add_arg('-bail')
+
+class fix_singles_job(pipeline.CondorDAGJob):
+  def __init__(self, cp, tag_base='FIX_SNGLS'):
+    self.__prog__ = 'fix_missing_sngls.py'
+    self.__executable = self.setup_fix_sngl_table_missing_prescript()
+    self.__universe = string.strip('vanilla')
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    #self.add_condor_cmd("input","$(macroinput)")
+    self.add_condor_cmd('getenv','True')
+    self.tag_base = tag_base
+    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+    self.set_sub_file(tag_base+'.sub')
+    self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+    self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+
+
+  def setup_fix_sngl_table_missing_prescript(self):
+    # create a shell script to fix missing sngl tables
+    script = open('fix_missing_sngls.py','w')
+    prescript = './fix_missing_sngls.py'
+    script.write("""#!/usr/bin/python
+import sys
+from glue.lal import CacheEntry
+from glue.ligolw import lsctables, utils
+for filename in (CacheEntry(line).path() for line in file(sys.argv[1])):
+        xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"))
+        try:
+                lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+        except:
+                xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.SnglInspiralTable, columns = ("process_id", "ifo", "search", "channel", "end_time", "end_time_ns", "end_time_gmst", "impulse_time", "impulse_time_ns", "template_duration", "event_duration", "amplitude", "eff_distance", "coa_phase", "mass1", "mass2", "mchirp", "mtotal", "eta", "kappa", "chi", "tau0", "tau2", "tau3", "tau4", "tau5", "ttotal", "psi0", "psi3", "alpha", "alpha1", "alpha2", "alpha3", "alpha4", "alpha5", "alpha6", "beta", "f_final", "snr", "chisq", "chisq_dof", "bank_chisq", "bank_chisq_dof", "cont_chisq", "cont_chisq_dof", "sigmasq", "rsqveto_duration", "Gamma0", "Gamma1", "Gamma2", "Gamma3", "Gamma4", "Gamma5", "Gamma6", "Gamma7", "Gamma8", "Gamma9", "event_id")))
+                utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"))
+    """)
+    script.close()
+    os.chmod('fix_missing_sngls.py',0755)
+    return prescript
+
+
 
 class ligolw_sqlite_job(pipeline.CondorDAGJob):
   """
@@ -225,8 +264,8 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
     """
     """
     self.__prog__ = 'ligolw_sqlite'
-    self.__executable = string.strip(cp.get('condor','ligolw_sqlite'))#string.strip(cp.get('condor','bash'))
-    #self.ligolw_sqlite = string.strip(cp.get('condor','ligolw_sqlite'))
+    self.__executable = string.strip(cp.get('condor','ligolw_sqlite'))
+    tmp_dir = string.strip(cp.get('input','tmp-dir'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
@@ -235,6 +274,7 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    if tmp_dir: self.add_opt("tmp-space", tmp_dir)
 
 
 class ligolw_inspinjfind_job(pipeline.CondorDAGJob):
@@ -329,6 +369,7 @@ class ligolw_thinca_to_coinc_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_opt('statistic', cp.get('thinca_to_coinc','statistic').strip())
 
 class hm_upperlimit_job(pipeline.CondorDAGJob):
   """
@@ -399,7 +440,8 @@ class summary_page_job(pipeline.CondorDAGJob):
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
-    self.add_opt("webserver", string.strip(cp.get('output','web_page')))
+    self.add_opt("webserver-dir", string.strip(cp.get('output','web_dir')))
+    self.web_url = string.strip(cp.get('output','web_page'))
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 
@@ -417,14 +459,17 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
     for xml in xml_list: cline += xml + " "
     self.add_var_arg(cline)
 
-    #FIXME the node id will be incremented when it is added, so we do +1 by hand here
-    #fn = "bash_scripts/ligolw_sqlite"+str(dag.node_id+1)+".sh"
-    #f = open(fn,"w")
-    #if cache_pat: 
-    #  f.write("find $PWD -name '*" + cache_pat + "*.xml.gz' -print | sed -e 's?^?- - - - file://localhost?' > ligolw_sqlite_" + cache_pat + ".cache\n")
-    #f.write(cline)
-    #f.close
-    #self.add_file_arg(fn)
+    for p in p_node:
+      self.add_parent(p)
+    dag.add_node(self)
+
+class fix_singles_node(pipeline.CondorDAGNode):
+  """
+  """
+  def __init__(self, job, dag, input_cache, p_node=[], replace=True, extract=False):
+
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_var_arg(input_cache)
 
     for p in p_node:
       self.add_parent(p)
@@ -565,12 +610,20 @@ class summary_page_node(pipeline.CondorDAGNode):
   """
   """
   def __init__(self, job, dag, open_box=None, base_name=None, p_node=[]):
+    self.base_name = base_name
+    self.open_box = open_box
+    self.web_url = job.web_url
     pipeline.CondorDAGNode.__init__(self,job)
     if open_box: self.add_var_arg("--open-box")
     if base_name: self.add_var_opt("output-name-tag", base_name)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
+
+  def geturl(self):
+    if self.open_box: return '%s/%s%s.html' % (self.web_url, self.base_name, "open_box")
+    else: return '%s/%s%s.html' % (self.web_url, self.base_name, "playground")
+
 
 def ifo_combos(ifosegdict):
   ifos = []
@@ -592,7 +645,7 @@ def ifo_seg_dict(cp):
   instruments = set()
   cat_list = set()
   ifos = ['H1','H2','L1','V1']
-  cats = ['CAT_2', 'CAT_3']
+  cats = ['CAT_2', 'CAT_3','CAT_4','CAT_5']
   combos = {}
   for c in cats:
     out[c] = {}
@@ -672,19 +725,17 @@ class parse_cache_for_thinca_to_coinc(object):
 def get_doubles(instruments):
   all_ifos = instruments.strip().split(',')
   ifo_combinations = list(iterutils.choices(all_ifos,2))
-  for comb in ifo_combinations:
-    comb=','.join(comb)
-  return comb
+  return ifo_combinations
 
 class default_config(object):
-  def __init__(self,path_to_ihope):
+  def __init__(self,path_to_ihope, ini_file_to_write=None):
     self.path = path_to_ihope
     cp = ConfigParser.ConfigParser()
     self.cp = cp
 
     # if we detect a config file just use it instead
     if '.ini' in path_to_ihope: 
-      self.overwrite_config(cp)
+      self.overwrite_config(cp, path_to_ihope)
       return
 
     #setup executables
@@ -707,23 +758,43 @@ class default_config(object):
 
     #setup input
     cp.add_section('input')
+    cp.set("input", "tmp-dir", self.local_disk())
+    cp.set("input", "ihope-dir", path_to_ihope)
     cp.set("input", "injcache", self.get_ihope_cache())
     cp.set("input", "fulldatacache", self.get_ihope_cache())
     cp.set("input", "eff_snr_fac", "50")
-    cp.set("input", "mass-bins", "0,50,85,inf")
     cp.set("input", "simplify", self.path_to_sql("simplify.sql"))
     cp.set("input", "cluster", self.path_to_sql("cluster.sql"))
     cp.set("input", "remove_h1h2", self.path_to_sql("remove_h1h2.sql"))
+    cp.set("input", "all_sql", self.combined_sql('all.sql', [self.path_to_sql("simplify.sql"),self.path_to_sql("remove_h1h2.sql"),self.path_to_sql("cluster.sql")]))
     # FIXME more cats?
-    for cat in ['CAT_2','CAT_3']:
+    for cat in ['CAT_2','CAT_3', 'CAT_4', 'CAT_5']:
       for ifo in ['H1','H2','L1','V1']:
          self.set_veto_segment(cp, "input", cat, ifo)
-     
+
+    cp.add_section("thinca_to_coinc")
+    cp.set("thinca_to_coinc", "statistic", "effective_snr")
+
+    cp.add_section("newcorse1")
+    cp.set("newcorse1", "categories", "mtotal-ifos-oninstruments")
+    cp.set("newcorse1", "rank-by", "snr")
+    cp.set("newcorse1", "mass-bins", "0,50,85,inf")
+
+    cp.add_section("newcorse2")
+    cp.set("newcorse2","categories", "oninstruments")
+    cp.set("newcorse2","rank-by", "uncombined-ifar")
+
     #setup output    
     cp.add_section('output')
     cp.set("output","logpath", self.log_path())
     cp.set("output","web_page", self.web_url())
     cp.set("output", "web_dir", self.web_dir())
+    if inifile_to_write: 
+      cp.write(open(inifile_to_write,"w"))
+      print >>sys.stderr, "\t\tyour ini file was written to %s\n\n" % (inifile_to_write,)
+      sys.exit(0)
+    cp.write(open("hm_post.ini","w"))
+    print >>sys.stderr, "\t\tyour ini file was written to %s\n\n" % ("hm_post.ini",)
     # check if a config file already exists and override the options. then write out 
     # whatever the final version looks like
     #self.overwrite_config(cp)
@@ -733,7 +804,7 @@ class default_config(object):
      host = self.__get_hostname()
      #FIXME add more hosts as you need them
      if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
-     if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
+     if 'phys.uwm.edu' in host: return '/localscratch/' + os.environ['USER']
      if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
      if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
 
@@ -780,10 +851,46 @@ class default_config(object):
 
      return out 
 
+  def local_disk(self):
+    #FIXME
+    host = self.__get_hostname()
+    #FIXME add more hosts as you need them
+    #if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
+    #if 'phys.uwm.edu' in host: return '/localscratch/' + os.environ['USER']
+    #if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
+    #if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
+    return self.log_path()
+
+  def combined_sql(self, fname, flist):
+    localdisk = self.local_disk()
+    f = open(fname, 'w')
+    f.write("PRAGMA temp_store_directory = '%s';\n" % (localdisk,))
+    f.close()
+    return './' + self.cat(flist, fname)
+
+  def cat(self, flist, fname):
+    ofile = open(fname, 'a')
+    for f in flist:
+      ofile.write("".join(open(f).readlines()))
+    ofile.close()
+    return fname 
+   
   def set_veto_segment(self,cp, sec, cat, ifo):
     #FIXME stupid special cases
     if cat == 'CAT_3': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_3_name(ifo))
     if cat == 'CAT_2': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_2_name(ifo))
+    if cat == 'CAT_4': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_4_name(ifo))
+    if cat == 'CAT_5': cp.set(sec, "%s-%s-vetosegments" %( ifo.lower(), cat.lower()),  self.__cat_5_name(ifo))
+
+  def __cat_5_name(self,ifo):
+    out = "%s/segments/%s-COMBINED_CAT_5_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
+
+  def __cat_4_name(self,ifo):
+    out = "%s/segments/%s-COMBINED_CAT_4_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
+    if os.path.isfile(out): return out
+    else: return ""
 
   def __cat_3_name(self,ifo):
     out = "%s/segments/%s-COMBINED_CAT_3_VETO_SEGS-%s.txt" % (self.path, ifo, self.get_gps())
@@ -814,10 +921,10 @@ class default_config(object):
       sys.exit(1)
     return out
 
-  def overwrite_config(self, cp):
+  def overwrite_config(self, cp, inifile):
     config = ConfigParser.ConfigParser()
     try: 
-      config.read("hm_post.ini")
+      config.read(inifile)
       for section in config.sections():
         if not cp.has_section(section): cp.add_section(section)
         for option in config.options(section):
@@ -825,26 +932,24 @@ class default_config(object):
     except:
       pass
 
-    # write out the file
-    f = open("hm_post.ini","w")
-    cp.write(f)
-    f.close()
-
 def help():
   print >> sys.stderr, """
+THERE ARE THREE WAYS TO RUN THIS PROGRAM
 
-USAGE WITHOUT CONFIG FILE: 
+(1) USAGE WITHOUT CONFIG FILE: 
 
-	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014
+	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014 
 
-USAGE WITH CONFIG FILE (to override defaults):
+(2) USAGE TO MAKE A CONFIG FILE BUT NOT THE DAG [ini file to write]
 
-        post_process_pipe hm_post.ini
+	post_process_pipe /archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014 my_ini_file.ini
 
-HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN ONCE TO GET THE 
-DEFAULTS.  IT WILL THEN WRITE A FILE hm_post.ini IN YOUR DIRECTORY THAT YOU 
-CAN EDIT AND THEN RUN AGAIN USING THE EDITED CONFIG FILE
+(3) USAGE ONCE YOU HAVE A CONFIG FILE (to override defaults):
 
+        post_process_pipe my_ini_file.ini
+
+HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN IN MODE (2) AND THEN
+EDIT THE INIFLE BY HAND AND RUN IN MODE (3)
   """
   sys.exit(0)
 
@@ -854,15 +959,17 @@ CAN EDIT AND THEN RUN AGAIN USING THE EDITED CONFIG FILE
 
 if len(sys.argv) == 1: help()
 if "help" in sys.argv[1]: help()
-
-#FIXME this depends too much on dir structure of ihope
-timestr = os.path.split(sys.argv[1].rstrip('/'))[1]
-start_time = timestr.split('-')[0]
-end_time = timestr.split('-')[1]
+if len(sys.argv) == 3: inifile_to_write = sys.argv[2]
+else: inifile_to_write = None
 
 print >> sys.stderr, "\n...WELCOME FRIENDOS...\n"
 
-cp = default_config(sys.argv[1]).cp
+cp = default_config(sys.argv[1], inifile_to_write).cp
+
+#FIXME this depends too much on dir structure of ihope
+timestr = os.path.split(cp.get("input","ihope-dir").rstrip('/'))[1]
+start_time = timestr.split('-')[0]
+end_time = timestr.split('-')[1]
 
 try: os.mkdir("logs")
 except: pass
@@ -885,6 +992,7 @@ inspiral_second_list = filter(expr.search,open(FULLDATACACHE).readlines())
 
 
 #Setup jobs
+fixSnglsJob = fix_singles_job(cp)
 sqliteJob = sqlite_job(cp)
 ligolwSqliteJob = ligolw_sqlite_job(cp)
 ligolwInspinjfindJob = ligolw_inspinjfind_job(cp)
@@ -904,10 +1012,12 @@ for cat in cats:
   segNode[cat] = ligolw_segments_node(ligolwSegmentsJob, dag, seg_dict[cat], "vetoes", "vetoes_"+cat+".xml.gz");
 
 #Some initialization
+fixSnglsNode = {}
 ligolwThincaToCoincNode = {}
-sqliteNodeSimplify = {}
-sqliteNodeRemoveH1H2 = {}
-sqliteNodeCluster = {}
+sqliteNodeAll = {}
+#sqliteNodeSimplify = {}
+#sqliteNodeRemoveH1H2 = {}
+#sqliteNodeCluster = {}
 ligolwSqliteNode = {}
 ligolwSqliteNodeInjDBtoXML = {}
 ligolwSqliteNodeInjXMLtoDB = {}
@@ -962,19 +1072,21 @@ for cat in cats:
 
     print >> sys.stderr, "\tprocessing non-inj %2.f %%\r" % (float(typenum+1) / len(types) * 100.00,),
 
-    tcache = parse_cache_for_thinca_to_coinc('THINCA_SECOND_', type, cat, timestr, FULLDATACACHE, inspiral_second_list,num=25)
+    tcache = parse_cache_for_thinca_to_coinc('THINCA_SECOND_', type, cat, timestr, FULLDATACACHE, inspiral_second_list,num=10)
     for c in tcache.out:
       key = type+cat+c.strcnt
       ligolwThincaToCoincNode[key] = ligolw_thinca_to_coinc_node(ligolwThincaToCoincJob, dag, c.parsed_cache, segNode[cat].output, segNode[cat].name, c.prefix, start_time, end_time, effsnrfac=string.strip(cp.get('input',"eff_snr_fac")), instruments=instruments, p_node=[segNode[cat]]);
+      fixSnglsNode[key] = fix_singles_node(fixSnglsJob, dag, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]])
       try: db[cat].append(c.database) 
       except: db[cat] = [c.database]
       xml_list = [segNode[cat].output]
-      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]], replace=True);
-      sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
-      sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
-      sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]); 
+      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
+      sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
+      #sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]); 
       # keep track of parents
-      p_nodes[cat].append(sqliteNodeCluster[key])
+      p_nodes[cat].append(sqliteNodeAll[key])
 
   ###############################################
   # INJECTION THINCA TO COINC AND CLUSTERING ETC
@@ -991,14 +1103,16 @@ for cat in cats:
     for c in tcache.out:
       key = type+cat+c.strcnt
       ligolwThincaToCoincNode[key] = ligolw_thinca_to_coinc_node(ligolwThincaToCoincJob, dag, c.parsed_cache, segNode[cat].output, segNode[cat].name, c.prefix, start_time, end_time, effsnrfac=string.strip(cp.get('input',"eff_snr_fac")), instruments=instruments, p_node=[segNode[cat]]);
+      fixSnglsNode[key] = fix_singles_node(fixSnglsJob, dag, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]])
       try: db[cat].append(c.database)
       except: db[cat] = [c.database]
       xml_list = [url, segNode[cat].output]
-      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[ligolwThincaToCoincNode[key]], replace=True);
-      sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
-      sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
-      sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]);
-      ligolwSqliteNodeInjDBtoXML[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[sqliteNodeCluster[key]], replace=False, extract=True);
+      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
+      sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
+      #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
+      #sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]);
+      ligolwSqliteNodeInjDBtoXML[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[sqliteNodeAll[key]], replace=False, extract=True);
       ligolwInspinjfindNode[key] = ligolw_inspinjfind_node(ligolwInspinjfindJob, dag, c.xml, p_node=[ligolwSqliteNodeInjDBtoXML[key]]);
       ligolwSqliteNodeInjXMLtoDB[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[ligolwInspinjfindNode[key]], replace=True);
       # keep track of parent nodes
@@ -1012,30 +1126,13 @@ for cat in cats:
   base_name = cat + "_" + timestr + "_"
 
   #to compute uncombined far
-  lalappsNewcorseNode[cat] = lalapps_newcorse_node(lalappsNewcorseJob, dag, segNode[cat].name, " ".join(db[cat]),  p_nodes[cat], string.strip(cp.get('input',"mass-bins")), categories="mtotal-ifos-oninstruments", rank="snr", ext_num=5);
-
-  #to compute combined far 
-  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [lalappsNewcorseNode[cat]], mass_bins=None, categories="oninstruments", rank="uncombined-ifar", ext_num=1);
-
-  # lalapps_cbc_plotsummary plots
-  farPlotNode[cat] = far_plot_node(farPlotJob, dag, " ".join(db[cat]), [lalappsNewcorseNodeCombined[cat]], base=base_name);
-
-  # upper limit
-  hmUpperlimitNode[cat] = hm_upperlimit_node(hmUpperlimitJob, dag, base_name, " ".join(db[cat]), p_node=[lalappsNewcorseNodeCombined[cat]]);
-
-  # upper limit plots
-  hmUpperlimitPlotNode[cat] = ul_plot_node(hmUpperlimitPlotJob, dag, hmUpperlimitNode[cat].output_by_combo(ifo_combinations[cat]), [hmUpperlimitNode[cat]]);
-
-  # Summary pages (open and closed box)
-  summaryPageNode[cat] = summary_page_node(summaryPageJob, dag, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat]]);
-  summaryPageNode[cat+"open"] = summary_page_node(summaryPageJob, dag, open_box=True, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat]]);
-
+  lalappsNewcorseNode[cat] = lalapps_newcorse_node(lalappsNewcorseJob, dag, segNode[cat].name, " ".join(db[cat]),  p_nodes[cat], string.strip(cp.get('newcorse1',"mass-bins")), categories=cp.get("newcorse1","categories"), rank=cp.get("newcorse1","rank-by"), ext_num=5);
 
   ############# MUSIC STUFF (A LOOP OVER DOUBLES) #############################
   
   for comb in get_doubles(instruments):
     comb = ','.join(comb)
-    get_node[cat+comb] = mvsc_get_doubles_node(get_job, dag, comb, db[cat], trainingstr=base_name+"training",testingstr=base_name+"testing",zerolagstr=base_name+"zerolag",p_node=[hmUpperlimitNode[cat]])
+    get_node[cat+comb] = mvsc_get_doubles_node(get_job, dag, comb, db[cat], trainingstr=base_name+"training",testingstr=base_name+"testing",zerolagstr=base_name+"zerolag",p_node=[lalappsNewcorseNode[cat]])
 
     for i in range(get_node[cat+comb].number):
       file_for_this_set = get_node[cat+comb].out_file_group[i]
@@ -1051,7 +1148,26 @@ for cat in cats:
   for key in rank_node:
     finished_rank_nodes.extend(rank_node[key].values())
 
-  update_node[cat] = mvsc_update_sql_node(update_job, dag, files='*'+base_name+'*.dat',infofiles='*'+base_name+'*.info',databases='*'+base_name+'*.sqlite',p_node=finished_rank_nodes+zl_rank_node.values())
+  update_p_nodes = finished_rank_nodes+zl_rank_node.values()
+  update_node[cat] = mvsc_update_sql_node(update_job, dag, files= '*' +base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+cat+'*'+timestr+'.sqlite',p_node=update_p_nodes)
+
+  ############# END MUSIC STUFF (A LOOP OVER DOUBLES) #########################
+
+  #to compute combined far 
+  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [update_node[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
+
+  # lalapps_cbc_plotsummary plots
+  farPlotNode[cat] = far_plot_node(farPlotJob, dag, " ".join(db[cat]), [lalappsNewcorseNodeCombined[cat]], base=base_name);
+
+  # upper limit
+  hmUpperlimitNode[cat] = hm_upperlimit_node(hmUpperlimitJob, dag, base_name, " ".join(db[cat]), p_node=[lalappsNewcorseNodeCombined[cat]]);
+
+  # upper limit plots
+  hmUpperlimitPlotNode[cat] = ul_plot_node(hmUpperlimitPlotJob, dag, hmUpperlimitNode[cat].output_by_combo(ifo_combinations[cat]), [hmUpperlimitNode[cat]]);
+
+  # Summary pages (open and closed box)
+  summaryPageNode[cat] = summary_page_node(summaryPageJob, dag, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat], farPlotNode[cat]]);
+  summaryPageNode[cat+"open"] = summary_page_node(summaryPageJob, dag, open_box=True, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat], farPlotNode[cat]]);
 
 
 ###############################################
@@ -1065,4 +1181,6 @@ dag.write_script()
 #print "\n\nYour database output should be...\n"
 #for cat in cats:
 #  print "\t" + cat + ":\n", " ".join(db[cat]) + "\n"
-print "\n\n\tnow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
+print "\n\n\tYour output web pages will be:\n\n"
+for node in  summaryPageNode.values(): print "\t\t\t%s\n" %(node.geturl(),)
+print "\n\n\tNow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"

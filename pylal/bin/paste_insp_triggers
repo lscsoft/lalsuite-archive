@@ -99,35 +99,6 @@ def shift_triggers(doc, shift):
     for trig in triggers:
         trig.set_end(trig.get_end() + shift)
 
-def append_process(doc, options):
-    """
-    Append a process table and a process_params table to doc.
-    """
-    process = ligolw_process.append_process(doc, "paste_insp_triggers",
-        git_version.tag or git_version.id, "lalsuite", git_version.date)
-
-    def map_val(name, val):
-        """
-        Put (name, val) pairs in a format suitable for
-        glue.ligolw.utils.process.append_process_params().
-        """
-        type_map = {str: u"lstring", bool: u"lstring",
-                    unicode: u"lstring",
-                    int: u"int_8s", float: u"real_8"}
-        if val is True:
-            return ("--" + name, u"lstring", "")
-        elif val is False:
-            return None
-        else:
-            return ("--" + name, type_map[type(val)], val)
-
-    params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
-              if (val is not False) and (val is not None)]
-
-    ligolw_process.append_process_params(doc, process, params)
-
-    return process
-
 def paste_triggers_into(source_doc, dest_doc, verbose=False):
     """
     Take triggers from source_doc and paste them into dest_doc.
@@ -210,7 +181,10 @@ source_segs = extract_seglist(src_doc)
 # load destination document
 dest_doc = utils.load_filename(opts.destination, opts.verbose,
                                gz=opts.destination.endswith(".gz"))
-process_table = append_process(dest_doc, opts)
+process_table = ligolw_process.register_to_xmldoc(dest_doc,
+    "paste_insp_triggers", opts.__dict__,
+    version=git_version.tag or git_version.id,
+    cvs_repository="lalsuite", cvs_entry_time=git_version.date)
 dest_segs = extract_seglist(dest_doc)
 
 # FIXME: must create a compatible table if it's missing
@@ -229,8 +203,6 @@ if opts.take_offsource_trial is not None:
     opts.shift_triggers = \
         dest_segs[0][0] - (source_segs[0][0] + (opts.take_offsource_trial - 1)*abs(dest_segs))
     opts.restrict_source_times = True
-
-    print opts.shift_triggers
 
 # shift source triggers as appropriate
 if opts.shift_triggers is not None:

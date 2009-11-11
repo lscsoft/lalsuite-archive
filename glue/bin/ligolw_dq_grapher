@@ -1,9 +1,16 @@
-#!/usr/bin/env python
-import pylab as mp
+#!/usr/bin/python
 import os,sys
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+import numpy as np
 
 # Justin Garofoli justing@physics.syr.edu
-# 2009 October 12
+# 2009 October 27
+
+# this update:
+# no longer needs an x11 server to produce graphics.
 
 """
  todo:
@@ -42,33 +49,47 @@ def make_figure(dd,width):
   kk = dd.keys()
   kk.sort()
   for ifo in IFOs:
-    mp.figure(figsize=(12,6),dpi=72)
+    fig = Figure()
+    fig.set_figwidth(12.0)
+    fig.set_figheight(6.0)
+    ax = fig.add_axes([0.1, 0.2, 0.8, 0.7])
     i = 0
     for k in kk:
       if ifo == k[0:2]:
         times = dd[k]
-        y = i * mp.ones(times[2]-times[0])
-        t = mp.linspace(times[0],times[2],times[2]-times[0]) - times[1]
+
+        start = times[0] - times[1]
+        if start < (-1*width):
+          start = -1*width
+
+        stop  = times[2] - times[1]
+        if stop > width:
+          stop = width
+
+        stop = float(stop)
+        start = float(start)
+        t = np.linspace(start,stop,stop-start)
+        y = i * np.ones(np.shape(t))
         cc = 'r'
         if k.find('UP:') > -1 or k.find('LIGHT:') > -1 or k.find('SCIENCE:') > -1 or k.find('CALIBRATED:') > -1:
           cc = 'g'
         elif k.find('V1:') > -1:
           cc = 'm'
-        mp.plot(t,y,label=k,c=cc,lw=2)
+        line, = ax.plot(t,y,label=k,c=cc,lw=2)
         ha = 'right'
         if (-1)**i==1:
           ha = 'left'
         print str(i) + ' ' + k + ' ' + str(t.shape[0]) + ' ' + ha
-        mp.text((-1)**i*50,i,k,bbox=dict(facecolor='white', alpha=0.8, edgecolor='white'), horizontalalignment=ha, verticalalignment='center',fontsize=10)
+        ax.text(((-1)**i)*0.1*width,i,k,bbox=dict(facecolor='white', alpha=0.8, edgecolor='white'),horizontalalignment=ha, verticalalignment='center',fontsize=10)
         i = i+1
-    mp.plot((0,0),(-1,i),c='k',lw=1)
-    mp.xlim(-1*width,width)
-    mp.title(ifo + ' data quality flags at t0 = ' + str(times[1]))
-    mp.ylim(-1,i)
-    mp.yticks(mp.arange(-1,i),''*(i+1))
-    mp.xlabel('time after t0 (seconds)')
-    mp.savefig(ifo + '-' + str(times[1]) + '_flags.png')
-    mp.close('all')
+    ax.plot((0,0),(-1,i),c='k',lw=1,zorder=-1)
+    ax.set_xlim(-1*width,width)
+    ax.set_title(ifo + ' data quality flags at t0 = ' + str(times[1]))
+    ax.set_ylim(-1,i)
+    ax.set_yticks(np.arange(-1,i),''*(i+1))
+    ax.set_xlabel('time after t0 (seconds)')
+    canvas = FigureCanvasAgg(fig)
+    canvas.print_figure(ifo + '-' + str(times[1]) + '_flags.png',dpi=150)
   return 1
 
 if __name__ == '__main__':
@@ -90,3 +111,4 @@ if __name__ == '__main__':
   dd = get_segments(gpstime)
   #dd = get_segments_test(931540290)
   make_figure(dd,width)
+

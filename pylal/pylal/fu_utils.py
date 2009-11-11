@@ -2358,6 +2358,8 @@ defaulting to %s"%(self.serverURL))
       engine=query_engine.LdbdQueryEngine(connection)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
+      if len(queryResult) < 1:
+        sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     except Exception, errMsg:
       sys.stderr.write("Query failed %s \n"%(serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
@@ -2457,8 +2459,8 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString=""" ||<rowbgcolor="%s"> %s || || %s || || %s || || %s || || %s || || %s || || %s || || %s ||\n"""
-    titleString=""" ||<rowbgcolor="%s"> IFO || || Flag || || Ver || || Start || || Offset || || Stop || || Offset || || Size ||\n"""%(myColor)
+    rowString="""||<rowbgcolor="%s"> %s || %s || %s || %s || %s || %s || %s || %s ||\n"""
+    titleString="""||<rowbgcolor="%s"> IFO || Flag || Ver || Start || Offset || Stop || Offset || Size ||\n"""%(myColor)
     tableString=titleString
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime

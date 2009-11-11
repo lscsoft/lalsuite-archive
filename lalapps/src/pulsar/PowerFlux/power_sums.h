@@ -4,7 +4,7 @@
 #include "power_cache.h"
 #include "summing_context.h"
 
-typedef struct {
+typedef struct S_POWER_SUM {
 	float freq_shift; /* additional shift e.g. for half-bin sampling */
 	float spindown;
 	float ra;
@@ -27,6 +27,9 @@ void generate_patch_templates(int pi, POWER_SUM **ps, int *count);
 void clone_templates(POWER_SUM *ps, int count, POWER_SUM **ps_out);
 void free_templates(POWER_SUM *ps, int count);
 
-void accumulate_power_sums(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
+void accumulate_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
+void accumulate_power_sums_plain(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
+/* This function is meant to work with get_uncached_loose_partial_power_sum */
+void accumulate_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask);
 
 #endif

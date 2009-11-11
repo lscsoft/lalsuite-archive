@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009  Kipp Cannon, Chad Hanna
+# Copyright (C) 2009  Kipp Cannon, Chad Hanna, Kari Hodge, Drew Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -35,8 +35,8 @@ matplotlib.rcParams.update({
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
 	"legend.fontsize": 8.0,
-	"figure.dpi": 600,
-	"savefig.dpi": 600,
+	"figure.dpi": 300,
+	"savefig.dpi": 300,
 	"text.usetex": True,
 	"path.simplify": True
 })
@@ -188,7 +188,7 @@ class CoincDatabase(object):
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
 		# The previous line is slow, if you are debugging some
 		# other feature you could just hardcode it like this
-		#self.background_livetime = {frozenset(["H1","H2"]): [100000.0], frozenset(["H1","L1"]): [100000.0], frozenset(["H2","L1"]): [100000.0],frozenset(["H1","H2","L1"]): [100000.0]}
+		#self.background_livetime = {frozenset(["H1","H2"]): [100000.0] * len(self.offset_vectors), frozenset(["H1","L1"]): [100000.0] * len(self.offset_vectors), frozenset(["H2","L1"]): [100000.0] * len(self.offset_vectors), frozenset(["H1","H2","L1"]): [100000.0] * len(self.offset_vectors)}
 		self.livetime_by_offset = {}
 		for key in self.background_livetime.keys():
 			self.livetime_by_offset[key] = {}
@@ -211,9 +211,9 @@ class CoincDatabase(object):
 		if verbose:
 			print >>sys.stderr, "database overview:"
 			for on_instruments in self.on_instruments_combos:
-				print >>sys.stderr, "\tzero-lag playground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
-				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
-				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments]))
+				print >>sys.stderr, "\tzero-lag playground livetime for %s: %.9g s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
+				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %.9g s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
+				print >>sys.stderr, "\tbackground livetime for %s: %.9g s" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments]))
 			if self.sngl_inspiral_table is not None:
 				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
 			if self.sim_inspiral_table is not None:
@@ -332,7 +332,7 @@ def create_is_playground_func(connection, playground_segs):
 #
 # =============================================================================
 #
-#                      Injection Parameter Distributions
+#                      Summary Table
 #
 # =============================================================================
 #
@@ -342,6 +342,8 @@ class SummaryTable(object):
 	def __init__(self):
 		self.playground_candidates = []
 		self.candidates = []
+		self.livetime = {}
+		self.playground_livetime = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table:
@@ -428,10 +430,8 @@ WHERE
 ORDER BY
 	combined_far
 LIMIT 10
-                """).fetchall()
+		""").fetchall()
 
-		self.livetime = {}
-		self.playground_livetime = {}
 		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.livetime.setdefault(on_instruments, 0.0)
 			self.playground_livetime.setdefault(on_instruments, 0.0)
@@ -465,10 +465,20 @@ LIMIT 10
 		self.write_wiki_string(self.candidates[:10], f, self.livetime)
 		f.close()
 		f = open(self.base+'playground_summary_table.txt','w')
-                f.write("=== Playground loudest 10 summary table ===\n")
+		f.write("=== Playground loudest 10 summary table ===\n")
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
 		f.close()
 		yield None, None, None
+
+
+#
+# =============================================================================
+#
+#                      Injection Parameter Distributions
+#
+# =============================================================================
+#
+
 
 class InjectionParameterDistributionPlots(object):
 	def __init__(self):
@@ -500,6 +510,100 @@ FROM
 			axes.set_ylim((min(minx, miny), max(maxx, maxy)))
 			yield fig, "sim_dist_m1_m2_%s" % (waveform), False
 
+
+#
+# =============================================================================
+#
+#                              MVSC-related Plots
+#
+# =============================================================================
+#
+
+
+class MVSCPlots(object):
+	def __init__(self):
+		self.timeslide_likelihood = []
+		self.injection_likelihood = []
+		self.zerolag_likelihood = []
+		self.timeslide_combined_eff_snr = []
+		self.injection_combined_eff_snr = []
+		self.zerolag_combined_eff_snr = []
+
+	def add_contents(self,contents):
+		if contents.sim_inspiral_table is not None:
+			#
+			# this is an injections document
+			#
+
+			for likelihood, combined_eff_snr in contents.connection.cursor().execute("""
+SELECT
+	insp_coinc_event.likelihood, 
+	coinc_inspiral.snr
+FROM
+	coinc_inspiral 
+	JOIN coinc_event_map AS mapC ON (mapC.table_name == "coinc_event" and mapC.event_id == coinc_inspiral.coinc_event_id)
+	JOIN coinc_event_map AS mapD ON (mapD.coinc_event_id == mapC.coinc_event_id)
+	JOIN sim_inspiral ON (mapD.table_name == "sim_inspiral" and sim_inspiral.simulation_id == mapD.event_id)
+	JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
+	JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id)
+WHERE
+	insp_coinc_event.coinc_def_id == ?
+	AND sim_coinc_event.coinc_def_id == ?
+			""", (contents.ii_definer_id, contents.sc_definer_id)):
+				self.injection_likelihood.append(likelihood)
+				self.injection_combined_eff_snr.append(combined_eff_snr)
+		else:
+			#
+			# this is not an injections document
+			#
+
+			for likelihood, combined_eff_snr, is_background in contents.connection.cursor().execute("""
+SELECT 
+	insp_coinc_event.likelihood, 
+	coinc_inspiral.snr,
+	EXISTS (
+		SELECT
+			* 
+		FROM 
+			time_slide 
+		WHERE
+			time_slide.time_slide_id == insp_coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	 )
+FROM
+	coinc_inspiral 
+	JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id)
+			"""):
+				if is_background:
+					self.timeslide_likelihood.append(likelihood)
+					self.timeslide_combined_eff_snr.append(combined_eff_snr)
+				else:
+					self.zerolag_likelihood.append(likelihood)
+					self.zerolag_combined_eff_snr.append(combined_eff_snr)
+
+	def finish(self):
+		# map all the 0 likelihoods to lowest non-zero likelihood
+		# and all 'inf' likelihoods to the highest non-infinity
+		# likelihood
+		unique_likelihoods = sorted(set(self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood))
+		if len(unique_likelihoods) >= 3:
+			min_likelihood = unique_likelihoods[1]
+			max_likelihood = unique_likelihoods[-2]
+			for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
+				for i in range(len(likelihood_list)):
+					if likelihood_list[i] == 0:
+						likelihood_list[i] = min_likelihood
+					elif likelihood_list[i] == float("inf"):
+						likelihood_list[i] = max_likelihood
+		self.timeslide_likelihood.sort()
+
+		fig, axes = create_plot(r"$\Lambda_{\mathrm{MVSC}}$", r"$\rho_{\mathrm{eff}}$", aspect = 1.0)
+		axes.set_title(r"Combined Effective SNR vs.\ MVSC Likelihood Ratio")
+		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='Injections')
+		axes.loglog(self.timeslide_likelihood,self.timeslide_combined_eff_snr,'kx',label='Background')
+		axes.axvline(x=self.timeslide_likelihood[-100], label='100th loudest background event')
+		axes.legend(loc='lower right')
+		yield fig, "MVSC_likelihood_scatterplot" , False
 
 #
 # =============================================================================
@@ -553,7 +657,7 @@ FROM
 				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end(), "deff_vs_t")
 			):
 				fig, axes = create_plot(x_label, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
-	  			legend = []
+				legend = []
 				for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
 					legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
 					axes.semilogy([x_func(sim) for sim in sims], [max(sim.get_eff_dist(instrument) for instrument in self.on_instruments) for sim in sims], ".")
@@ -1337,7 +1441,7 @@ options, filenames = parse_command_line()
 
 def new_plots(plots = None):
 	l = (
-                SummaryTable(),
+		SummaryTable(),
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
@@ -1345,6 +1449,7 @@ def new_plots(plots = None):
 		RateVsThreshold(),
 		InjectionParameterDistributionPlots(),
 		RateVsL1Offset(),
+		MVSCPlots()
 	)
 	if plots is None:
 		plots = range(len(l))

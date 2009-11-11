@@ -19,6 +19,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from glue.ligolw import ilwd
+from glue import lal
 from pylal import db_thinca_rings
 from pylal import stfu_pipe
 from lalapps import inspiral
@@ -31,7 +32,7 @@ dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 ##### DATA  FUNCTIONS   #######################################################
 ###############################################################################
 
-def exportCoincToDisk(coinc, dir, cnt, filename=None):
+def exportCoincToDisk(coinc, dir, cnt, dag, filename=None):
 	"""
 	This method takes an input from the Coinc Class and writes
 	that object to disk as ascii.  The output file created by this
@@ -42,14 +43,17 @@ def exportCoincToDisk(coinc, dir, cnt, filename=None):
 	#If directy coincHeadings not there make the directory if
 	#filename is None
 	headingDir= dir + "/coinc_info"
-	idKeyStr="%s_%s"%(str(coinc.time), str(coinc.instruments))
+	instruments = "".join(coinc.instruments.split(','))
+	ifos = "".join(coinc.ifos.split(','))
+
+	idKeyStr="%s_%s" % (str(coinc.time), instruments)
 	if filename==None:
 		filename="coincEvent.info"
 		stfu_pipe.mkdir(headingDir)
 		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
 	fp=open(filename,'w')
 	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
-	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, float(coinc.combined_far), float(coinc.snr), coinc.ifos, coinc.instruments, float(coinc.time), float(coinc.mass)) )
+	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, float(coinc.combined_far), float(coinc.snr), ifos, instruments, float(coinc.time), float(coinc.mass)) )
 	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
 	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 	content=list()
@@ -61,10 +65,46 @@ def exportCoincToDisk(coinc, dir, cnt, filename=None):
 					  float(snglEvent.chisq),
 					  float(snglEvent.mass1),
 					  float(snglEvent.mass2)))
+	cache = lal.CacheEntry(instruments, "COINC_INFO_"+dir.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(filename))
+	dag.output_cache.append(cache)
 	fp.writelines(content)
 	fp.close()
 	return os.path.split(filename)[1]
 
+def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
+	"""
+	"""
+	#If directy coincHeadings not there make the directory if
+	#filename is None
+	headingDir= dir + "/coinc_info"
+	ifos = tevent.instruments
+	instruments =tevent.instruments
+	time = tevent.time
+
+	idKeyStr="%s_%s" % (str(time), instruments)
+	if filename==None:
+		filename="coincEvent.info"
+		stfu_pipe.mkdir(headingDir)
+		filename=os.path.normpath(headingDir+'/'+idKeyStr+'_'+ filename)
+	fp=open(filename,'w')
+	fp.write("#DIR\t\t\tRANK\tFAR\t\tSNR\tIFOS\tINSTRUMENTS\tTIME\t\tMASS\n")
+	fp.write("%-16s\t%d\t%0.2e\t%.2f\t%s\t%s\t\t%.3f\t%.2f\n" % (dir, cnt, 0, 0, ifos, instruments, float(time), 0) )
+	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
+	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+	content=list()
+	for ifo in tevent.ifos:
+		content.append(rowString%(dir, 
+					  ifo,
+					  float(time),  
+					  float(0),
+					  float(0),
+					  float(0),
+					  float(0)))
+	cache = lal.CacheEntry(instruments, "COINC_INFO_"+dir.upper(), segments.segment(float(time), float(time)), "file://localhost/"+os.path.abspath(filename))
+	dag.output_cache.append(cache)
+	fp.writelines(content)
+	fp.close()
+	return os.path.split(filename)[1]
 
 ###############################################################################
 ##### DB SUMMARY CLASS ########################################################
@@ -192,6 +232,7 @@ SELECT
 			""", (self.process_id,) ):
 				self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))	
 
+
 	def get_gps_start_time(self):
 		#FIXME probably really slow
 		for row in self.process_params:
@@ -220,7 +261,7 @@ SELECT
 		self.process_params = []
 
 		for val in self.contents.connection.cursor().execute("""
-SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN process_params AS p2 ON p1.process_id == p2.process_id JOIN search_summary ON search_summary.process_id == p2.process_id WHERE p1.param = '--gps-start-time' AND p1.value <= ? AND p2.param = '--gps-end-time' AND p2.value > ? AND search_summary.ifos = ? LIMIT 1)
+SELECT program, process_id, param, type, value FROM process_params AS proc_params WHERE proc_params.process_id = (SELECT p1.process_id FROM process_params AS p1 JOIN search_summary ON search_summary.process_id == p1.process_id WHERE search_summary.out_start_time <= ? AND search_summary.out_end_time > ? and search_summary.ifos = ? LIMIT 1)
 		""", (self.time, self.time, self.ifo) ):
 			self.process_params.append(ProcParam(val[0], val[1], val[2], val[3], val[4]))
 		#change necessary values in process params table
@@ -403,6 +444,23 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
+
+class time_only_event(object):
+	def __init__(self, ifostr, time):
+		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.instruments = ifostr
+		self.time = float(time)
+
+class time_only_events(object):
+	def __init__(self, timestr):
+		self.events = []
+		if not timestr: return
+		values = timestr.split(',')
+		for value in values:
+			ifos = value.split(':')[0]
+			time = value.split(':')[1]
+			self.events.append(time_only_event(ifos,time))
+
 	
 ###############################################################################
 ###### UTILITY FUNCTIONS ######################################################
@@ -426,6 +484,52 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
 	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
+	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
+	parser.add_option("","--disable-dag-categories",action="store_true",\
+	default=False,help="disable the internal dag category maxjobs")
+	parser.add_option("", "--enable-bayesian",action="store_true",\
+	default=False,\
+	help="enable the bayesian jobs (mcmc, spinmcmc, nested sampling)")
+
+	parser.add_option("","--no-chia",action="store_true",\
+	default=False,help="disable followUpChia, plotChia nodes")
+
+	parser.add_option("","--no-plotsnrchisq",action="store_true",\
+	default=False,help="disable plotsnrchisq nodes")
+
+	parser.add_option("","--no-skymap",action="store_true",\
+	default=False,help="disable skymap nodes")
+
+	parser.add_option("","--no-effectiveRatio",action="store_true",\
+	default=False,help="disable effDRatio nodes")
+
+	parser.add_option("","--no-findVetoes", action="store_true",\
+	default=False,help="disable findVetoes nodes")
+
+	parser.add_option("","--no-findFlags", action="store_true",\
+	default=False,help="disable findFlags nodes")
+
+	parser.add_option("","--no-insp-datafind", action="store_true",\
+	default=False,help="disable inspiral datafind nodes")
+
+	parser.add_option("","--no-inspiral", action="store_true",\
+	default=False,help="disable followUpInsp nodes")
+
+	parser.add_option("","--no-ht-qscan", action="store_true",\
+	default=False,help="disable hoft qscan nodes")
+
+	parser.add_option("","--no-rds-qscan", action="store_true",\
+	default=False,help="disable rds qscan nodes")
+
+	parser.add_option("","--no-seismic-qscan", action="store_true",\
+	default=False,help="disable seismic qscan nodes")
+
+	parser.add_option("","--no-htQscan-datafind", action="store_true",\
+        default=False,help="disable hoft qscan datafind nodes")
+
+	parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
+        default=False,help="disable rds qscan datafind nodes")
+
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
@@ -444,9 +548,32 @@ cp = default_cp.get_cp()
 #link_data_find(cp)
 
 # Initialize dag
-dag = stfu_pipe.followUpDAG(options.config_file,cp)
+dag = stfu_pipe.followUpDAG(options.config_file,cp,options)
 
 trigs = FUTriggers(num=options.number)
+
+###############################################################################
+##### DO FOLLOW UPS ON GPS TIME ONLY ##########################################
+###############################################################################
+
+search='gps_only'
+q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='qdatafind', dir=search)
+qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+
+gpsevents = time_only_events(options.gps_times)
+
+for cnt, event in enumerate(gpsevents.events):
+	for ifo in event.ifos:
+		if options.verbose:
+			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
+		# h(t) QSCAN datafind Nodes
+		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
+		# h(t) QSCAN Nodes
+		ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+		# FIXME ADD MORE JOBS
+
+		# write the event info to disk and cache for stfu_page
+	exportGPSEventToDisk(event, search, cnt, dag)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
@@ -477,9 +604,12 @@ trigs.topN()
 for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates)]:
 
 	# CONDOR JOB CLASSES
-	ht_data_find_job	= stfu_pipe.htDataFindJob(cp, dir=search, tag_base='datafind')
-	q_ht_data_find_job	= stfu_pipe.htDataFindJob(cp, tag_base='qdatafind', dir=search)
-	qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+	ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, dir=search, tag_base='HT')
+	q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='Q_HT', dir=search)
+	q_rds_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='Q_RDS', dir=search)
+	ht_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+	rds_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_RDS')
+	seis_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
 	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, tag_base='plot')
 	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,tag_base='skymap')	
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
@@ -490,10 +620,12 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig', dir=search)
 	sky_map_job		= stfu_pipe.skyMapJob(options,cp, dir=search)
 	sky_plot_job		= stfu_pipe.skyMapPlotJob(options,cp, dir=search)
-	find_flags_job            = stfu_pipe.findFlagsJob(options,cp, dir=search)
-	find_vetos_job            = stfu_pipe.findVetosJob(options,cp, dir=search)
-	effD_ratio_job            = stfu_pipe.effDRatioJob(options,cp, dir=search)
-	
+	find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
+	find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
+	effD_ratio_job		= stfu_pipe.effDRatioJob(options,cp, dir=search)
+	mcmc_sngl_job           = stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="sngl")
+	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
+
 	# LOOP OVER COINC EVENTS
 	for coinc_cnt, coinc in enumerate(candidates):
 
@@ -512,8 +644,14 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 
 			# h(t) QSCAN datafind Nodes
 			ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral, qscan=True)
+			# RDS QSCAN datafind Nodes
+			rds_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag,q_rds_data_find_job, cp, options, ifo, sngl=sngl_inspiral, qscan=True, data_type="rds")
 			# h(t) QSCAN Nodes
-			ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+			ht_qscan_node = stfu_pipe.fuQscanNode(dag, ht_qscan_job, cp, options, sngl_inspiral.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+			# RDS QSCAN Nodes
+			rds_qscan_node = stfu_pipe.fuQscanNode(dag, rds_qscan_job, cp, options, sngl_inspiral.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="rds")
+			# SEIS RDS QSCAN Nodes
+			seis_qscan_node = stfu_pipe.fuQscanNode(dag, seis_qscan_job, cp, options, sngl_inspiral.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="seismic")
 			# h(t) INSPIRAL datafind Node
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
 
@@ -521,6 +659,17 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
 
 			plot_node = stfu_pipe.plotSNRCHISQNode(dag, plot_job, cp, options, sngl_inspiral, coinc, insp_node, p_nodes=[insp_node])
+
+			# Single ifo MCMC jobs
+			# run multiple MCMC chains (1 chain = 1 node)
+			chainNumber = string.strip(cp.get('fu-mcmc','chain_nb'))
+			mcmcId_list = []
+			for k in range(int(chainNumber)):
+				calculate_seed = str(sngl_inspiral.time + k).split('.')[0]
+				randomseed = calculate_seed[-4:len(calculate_seed)]
+				mcmc_sngl_node = stfu_pipe.mcmcNode(dag,mcmc_sngl_job,cp,options,coinc,[insp_datafind_node[ifo].outputFileName],randomseed,p_nodes=[insp_datafind_node[ifo]],ifo_string=ifo)
+				mcmcId_list.append(mcmc_sngl_node.id)
+
 
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
 		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
@@ -540,11 +689,29 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia_node, insp_node_skymap, p_nodes=[chia_node])
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
+
+		# Prepare list of datafind nodes and cache files
+		dataFind_list = []
+		cacheFile_list = []
+		for key, d_node in insp_datafind_node.items(): 
+			dataFind_list.append(d_node)
+			cacheFile_list.append(d_node.outputFileName)
+
+		# Coherent MCMC jobs
+		# run multiple MCMC chains (1 chain = 1 node)
+		chainNumber = string.strip(cp.get('fu-mcmc','chain_nb'))
+		mcmcId_list = []
+		for k in range(int(chainNumber)):
+			calculate_seed = str(coinc.time + k).split('.')[0]
+			randomseed = calculate_seed[-4:len(calculate_seed)]
+			mcmc_coh_node = stfu_pipe.mcmcNode(dag,mcmc_coh_job,cp,options,coinc,cacheFile_list,randomseed,p_nodes=dataFind_list,ifo_string=None)
+			mcmcId_list.append(mcmc_coh_node.id)
+
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
-		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc.time)
-		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc.time)
+		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
+		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc)
 		#Need a wiki creation Node and Job class with the following as input
-		exportCoincToDisk(coinc, search, coinc_cnt)
+		exportCoincToDisk(coinc, search, coinc_cnt, dag)
 
 #### ALL FINNISH ####		
 default_cp.write()
