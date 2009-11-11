@@ -302,7 +302,7 @@ class Server(object):
         return [ msg ]
 
 
-    if protocol == "https:":
+    if protocol == "https":
       # use generic grid-mapfile for query operation
       mapfile = self.configuration['gridmap']
 
