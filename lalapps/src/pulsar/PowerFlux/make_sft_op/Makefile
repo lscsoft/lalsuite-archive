@@ -1,15 +1,16 @@
 
-FRAMEROOT=/home/volodya/LIGO/framelib/
-LALROOT=./../../../../../
+FRAMEROOT=/opt/lscsoft/libframe/
+LALROOT=/opt/lscsoft/lal
+LALROOT=/home/vdergach/opt/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -lgsl -llal -llalsupport -lm
 
 
 OPTFLAGS=-O2 -mcpu=i686 -funroll-loops
 
 CFLAGS=-Wall -g $(OPTFLAGS) $(LALINCLUDE) -I$(FRAMEROOT)/include/
 
-LDFLAGS=$(LALLDFLAGS) -L$(FRAMEROOT)/bin/ 
+LDFLAGS=$(LALLDFLAGS) -L$(FRAMEROOT)/lib64/  
 
 
 #CFLAGS=-Wall -g -O2 -I../framelib/include -I../LAL/include

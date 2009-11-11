@@ -130,7 +130,7 @@ double total_power;
 
 fprintf(stderr,"make_sft_op version %s\n", MAKE_SFT_VERSION);
 fprintf(stderr,"Using frame library %s\n", FrLibVersionF());
-fprintf(stderr,"Using LAL version %s, CVS tag %s\n", LAL_VERSION, LAL_CVS_TAG);
+fprintf(stderr,"Using LAL version %s\n", LAL_VERSION);
 
 lalDebugLevel=0;
 

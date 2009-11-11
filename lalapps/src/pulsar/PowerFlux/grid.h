@@ -77,6 +77,13 @@ typedef struct {
 	} RECT_SKY_GRID_PRIV;	
 
 typedef struct {
+	SKY_GRID_TYPE ra;
+	SKY_GRID_TYPE dec;
+	SKY_GRID_TYPE radius;
+	int num_dec;
+	} TARGETED_RECT_SKY_GRID_PRIV;	
+
+typedef struct {
 	SKY_GRID_TYPE resolution;
 	int num_dec;
 	int *num_ra;
@@ -103,6 +110,9 @@ SKY_GRID_TYPE fast_spherical_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 
 SKY_GRID *make_arcsin_grid(long num_ra, long num_dec);
 SKY_GRID *make_rect_grid(long num_ra, long num_dec);
+/* This function is meant for targeted search in a small disc centered on (RA, DEC) */
+/* focus-* options are required ! */
+SKY_GRID *make_targeted_rect_grid(SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_TYPE radius, long num_dec);
 SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution);
 /* This reduces the grid by eliminating band=-1 points */
 SKY_GRID * reduced_grid(SKY_GRID *g);
@@ -115,6 +125,7 @@ void free_grid(SKY_GRID *grid);
 long find_sin_theta_closest(SKY_GRID *grid, float RA, float DEC);
 
 SKY_SUPERGRID *make_rect_supergrid(SKY_GRID *grid, int ra_factor, int dec_factor);
+SKY_SUPERGRID *make_targeted_rect_supergrid(SKY_GRID *grid, int factor);
 SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
 SKY_SUPERGRID * reduced_supergrid(SKY_SUPERGRID *sg0);
 void free_supergrid(SKY_SUPERGRID *sg);

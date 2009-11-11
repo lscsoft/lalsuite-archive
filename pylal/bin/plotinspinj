@@ -442,7 +442,12 @@ def parse_command_line():
     raise ValueError, "--ifo-times must be an undelimited list of IFOs "\
       "from the set {H1, H2, L1, V1, G1}.  e.g. H1H2V1."
 
-  return options, sys.argv[1:]
+  if (options.cache_file is None) and (len(args) == 0):
+    print >>sys.stderr, "Error: a trig-file must be specified"
+    parser.print_usage()
+    sys.exit(2)
+
+  return options, args
 
 # ============================================================================
 # -- get command line arguments
@@ -473,15 +478,8 @@ if opts.cache_file:
   if opts.verbose:
     for inj in injFiles:
       print "...reading the following list of found files  " + inj
-
 else:
-  if not args:
-    print >>sys.stderr, "a trig-file must be specified"
-    print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
-    sys.exit(1)
-
   injFiles = args
-
 
 # get veto segment list
 if opts.veto_file:

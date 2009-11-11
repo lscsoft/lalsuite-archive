@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2008  Drew G. Keppel
+# Copyright (C) 2008  Drew Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -98,17 +98,20 @@ class Summaries(object):
 		self.dbls = set()
 		self.likelihoods = {}
 		self.sngl_slices = [('snr', 'chisq'), ('snr', 'mtotal'), ('chisq', 'mtotal')]
-		self.slices_bins = {}
+		self.sngl_bins = {}
+		self.sngl_1D_bins = {}
+		self.sngl_1D_count = {}
 		sngls_set = set()
 		for col1,col2 in self.sngl_slices:
 			sngls_set.add(col1)
 			sngls_set.add(col2)
 		self.idx_sngls = {}
-		for id,key in enumerate(list(sngls_set) + ['weight', 'coinc_event_id', 'filename']):
+		for id,key in enumerate(list(sngls_set) + ['ifo', 'weight', 'coinc_event_id', 'filename']):
 			self.idx_sngls[key] = id
 		self.minmax = {}
-		for key in sngls_set:
-			self.minmax.setdefault(key, {})
+		self.minmax['snr'] = (1, 1e4)
+		self.minmax['chisq'] = (1, 1e8)
+		self.minmax['mtotal'] = (25, 1e2)
 
 	def calc_delta_t_inj(self, trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
 		try:
@@ -139,24 +142,25 @@ class Summaries(object):
 			print "calc delta t failed",trigger1_true_end_time, trigger2_true_end_time, ring
 			return float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
 
-	def add_sngl_minmax(self, ifo, values):
-		for key in self.minmax.keys():
-			if values[2*self.idx_sngls[key]]:
-				self.minmax[key].setdefault(ifo, []).extend(list(values[2*self.idx_sngls[key]:2*self.idx_sngls[key]+2]))
-
 	def setup_binned_ratios(self):
 		for ifo in self.ifos:
-			self.slices_bins[ifo] = {}
+			self.sngl_bins[ifo] = {}
 			for key in self.sngl_slices:
-				self.slices_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.LogarithmicBins(min(self.minmax[key[0]][ifo]), max(self.minmax[key[0]][ifo]), self.Nbins), rate.LogarithmicBins(min(self.minmax[key[1]][ifo]), max(self.minmax[key[1]][ifo]), self.Nbins))))
+				if key in [('snr', 'chisq')]:
+					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanLogarithmicBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
+				elif key in [('snr', 'mtotal'), ('chisq', 'mtotal')]:
+					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
+				else:
+					print >>sys.stderr,"ERROR: binning not implemented for ",key
+					sys.exit(1)
 
-	def add_bkg_sngl(self, ifo, values):
+	def add_bkg_sngl(self, values):
 		for key in self.sngl_slices:
-			self.slices_bins[ifo][key].incdenominator((values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
+			self.sngl_bins[values[self.idx_sngls['ifo']]][key].incdenominator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
 
-	def add_inj_sngl(self, ifo, values):
+	def add_inj_sngl(self, values):
 		for key in self.sngl_slices:
-			self.slices_bins[ifo][key].incnumerator((values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
+			self.sngl_bins[values[self.idx_sngls['ifo']]][key].incnumerator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
 
 	def add_bkg_dbl(self, filename, ifos, values):
 		self.dbls.add(frozenset(ifos))
@@ -167,11 +171,8 @@ class Summaries(object):
 		self.inj_dbls.setdefault(frozenset(ifos), []).append(tuple([filename] + list(values)))
 
 	def filter_binned_ratios(self):
-		xmldoc = lsctables.ligolw.Document()
-		xmldoc.appendChild(lsctables.ligolw.LIGO_LW())
-		# FIXME should be key2[1] vs key2[0]
-		for key1 in self.slices_bins.keys():
-			for key2 in self.slices_bins[key1].keys():
+		for key1 in self.sngl_bins.keys():
+			for key2 in self.sngl_bins[key1].keys():
 				tablename = "".join(key1)+"_"
 				if len(key2[0]) > 1 or len(key2[1]) > 1:
 					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
@@ -179,18 +180,50 @@ class Summaries(object):
 					tablename += "_vs_".join(key2[::-1])
 				if options.verbose:
 					print >>sys.stderr, "\tsmoothing %s ..." % tablename
-				rate.filter_binned_ratios(self.slices_bins[key1][key2], rate.gaussian_window2d(self.slices_bins[key1][key2].numerator.bins.shape[0]/30, self.slices_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
-				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.slices_bins[key1][key2], tablename))
+				rate.filter_binned_ratios(self.sngl_bins[key1][key2], rate.gaussian_window2d(self.sngl_bins[key1][key2].numerator.bins.shape[0]/30, self.sngl_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
+				self.sngl_bins[key1][key2].to_pdf()
 
+	def output_bins(self):
+		xmldoc = lsctables.ligolw.Document()
+		xmldoc.appendChild(lsctables.ligolw.LIGO_LW())
+		# FIXME should be key2[1] vs key2[0]
+		for key1 in self.sngl_bins.keys():
+			for key2 in self.sngl_bins[key1].keys():
+				tablename = "".join(key1)+"_"
+				if len(key2[0]) > 1 or len(key2[1]) > 1:
+					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
+				else:
+					tablename += "_vs_".join(key2[::-1])
+				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_bins[key1][key2], tablename))
+		for key1 in self.sngl_1D_bins.keys():
+			for key2 in self.sngl_1D_bins[key1].keys():
+				tablename = "".join(key1)+"_"+"".join(key2)
+				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_1D_bins[key1][key2], tablename))
 		if options.output_dir:
 			utils.write_filename(xmldoc, options.output_dir + "/likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
 		else:
 			utils.write_filename(xmldoc, "likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
-		sys.exit(0)
 
-	def compute_sngl_likelihood(self, ifo, values):
+	def create_1D_slices(self):
+		for ifo in self.sngl_bins.keys():
+			self.sngl_1D_bins[ifo] = {}
+			self.sngl_1D_count[ifo] = {}
+			for key in self.sngl_bins[ifo].keys():
+				for dim,subkey in enumerate(key):
+					if subkey not in self.sngl_1D_bins[ifo].keys():
+						self.sngl_1D_bins[ifo][subkey] = rate.marginalize_ratios(self.sngl_bins[ifo][key], (dim+1)%2)
+						self.sngl_1D_count[ifo][subkey] = 0
+					else:
+						self.sngl_1D_count[ifo][subkey] += 1
+
+	def compute_sngl_likelihood(self, values):
+		likelihood_2D = 1.
+		likelihood_1D = 1.
 		for key in self.sngl_slices:
-			self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= self.slices_bins[ifo][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])]
+			likelihood_2D *= self.sngl_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])]
+		for key in self.sngl_1D_bins[values[self.idx_sngls['ifo']]].keys():
+			likelihood_1D *= (self.sngl_1D_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key]],)])**self.sngl_1D_count[values[self.idx_sngls['ifo']]][key]
+		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= likelihood_2D / likelihood_1D
 
 	def likelihood_map(self, filename, coinc_event_id):
 		return self.likelihoods[(filename, coinc_event_id)]
@@ -203,53 +236,6 @@ class Summaries(object):
 #
 # =============================================================================
 #
-
-def single_inj_minmax(values):
-	query = """
-SELECT"""
-	keys = values.items()
-	keys.sort(cmp=lambda x,y: cmp(x[1],y[1]))
-	for value in keys:
-		if value[0] in ['coinc_event_id', 'filename', 'weight']:
-			continue
-		if not value == keys[0]:
-			query += ""","""
-		query += """
-	MIN(snglA.""" + value[0] + """),
-	MAX(snglA.""" + value[0] + """)"""
-
-	query += """,
-	coinc_inspiral.coinc_event_id
-FROM
-	coinc_inspiral
-	JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
-	JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
-	JOIN coinc_event_map AS mapB ON (mapB.event_id == coinc_inspiral.coinc_event_id)
-	JOIN coinc_event_map AS mapC ON (mapC.coinc_event_id == mapC.coinc_event_id)
-	JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapC.event_id)
-	JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapC.coinc_event_id)
-	JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
-WHERE
-	coinc_definer.search == 'inspiral'
-	AND coinc_definer.search_coinc_type == 2
-	AND mapA.table_name == 'sngl_inspiral'
-	AND mapB.table_name == 'coinc_event'
-	AND mapC.table_name == 'sim_inspiral'
-	AND snglA.ifo == ?
-	-- require coinc to not be background (= at least one of its time slide offsets is non-zero)
-	-- FIXME this has to call a function to get coinc_def id
-	AND NOT EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == sim_coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-"""
-
-	return query
 
 def single_inj(values):
 	query = """
@@ -281,7 +267,7 @@ FROM
 	JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
 	JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
 	JOIN coinc_event_map AS mapB ON (mapB.event_id == coinc_inspiral.coinc_event_id)
-	JOIN coinc_event_map AS mapC ON (mapC.coinc_event_id == mapC.coinc_event_id)
+	JOIN coinc_event_map AS mapC ON (mapC.coinc_event_id == mapB.coinc_event_id)
 	JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapC.event_id)
 	JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapC.coinc_event_id)
 	JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
@@ -291,7 +277,6 @@ WHERE
 	AND mapA.table_name == 'sngl_inspiral'
 	AND mapB.table_name == 'coinc_event'
 	AND mapC.table_name == 'sim_inspiral'
-	AND snglA.ifo == ?
 	-- require coinc to not be background (= at least one of its time slide offsets is non-zero)
 	-- FIXME this has to call a function to get coinc_def id
 	AND NOT EXISTS (
@@ -364,46 +349,6 @@ WHERE
 	)
 """
 
-def single_bkg_minmax(values):
-	query = """
-SELECT"""
-	keys = values.items()
-	keys.sort(cmp=lambda x,y: cmp(x[1],y[1]))
-	for value in keys:
-		if value[0] in ['coinc_event_id', 'filename', 'weight']:
-			continue
-		if not value == keys[0]:
-			query += ""","""
-		query += """
-	MIN(snglA.""" + value[0] + """),
-	MAX(snglA.""" + value[0] + """)"""
-
-	query += """,
-	coinc_inspiral.coinc_event_id,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-FROM
-	coinc_inspiral
-	JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
-	JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
-	JOIN coinc_event ON (mapA.coinc_event_id == coinc_event.coinc_event_id)
-	JOIN coinc_definer ON (coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
-WHERE
-	coinc_definer.search == 'inspiral'
-	AND coinc_definer.search_coinc_type == 0
-	AND mapA.table_name == 'sngl_inspiral'
-	AND snglA.ifo == ?
-"""
-
-	return query
-
 def single_bkg(values):
 	query = """
 SELECT"""
@@ -443,7 +388,6 @@ WHERE
 	coinc_definer.search == 'inspiral'
 	AND coinc_definer.search_coinc_type == 0
 	AND mapA.table_name == 'sngl_inspiral'
-	AND snglA.ifo == ?
 """
 
 	return query
@@ -521,7 +465,7 @@ likelihood_bins = Summaries(200)
 #
 
 if options.verbose:
-	print >>sys.stderr, "collecting minmax statistics ..."
+	print >>sys.stderr, "collecting initial likelihood statistics ..."
 
 for n, filename in enumerate(filenames):
 	#
@@ -548,67 +492,6 @@ FROM
 	coinc_event
 	"""):
 		likelihood_bins.likelihoods.setdefault((filename, coinc_event_id), likelihood)
-
-	#
-	# extract triggers using appropriate sqlite queries determined
-	# by the existence of a sim_inspiral table in the database
-	#
-
-	if "sim_inspiral" in dbtables.get_table_names(connection):
-		#
-		# loop over all single ifos and add sngls to appropriate list
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls ..."
-		for ifo in likelihood_bins.ifos:
-			if options.verbose:
-				print >>sys.stderr, "\t\t%s ..." % (ifo,)
-			for values in connection.cursor().execute(single_inj_minmax(likelihood_bins.idx_sngls), (ifo,)):
-				likelihood_bins.add_sngl_minmax(ifo, values)
-
-		#
-		# loop over all double combinations of ifos and add dbls to appropriate list
-		#
-
-#		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		connection.create_function("calc_delta_t_inj", 4, likelihood_bins.calc_delta_t_inj)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
-#			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_inj, ifos):
-#				likelihood_bins.add_inj_dbl(filename, ifos, values)
-	else:
-		#
-		# loop over all single ifos and add sngls to appropriate list
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "\textracting all sngls ..."
-		for ifo in likelihood_bins.ifos:
-			if options.verbose:
-				print >>sys.stderr, "\t\t%s ..." % (ifo,)
-			for values in connection.cursor().execute(single_bkg_minmax(likelihood_bins.idx_sngls), (ifo,)):
-					likelihood_bins.add_sngl_minmax(ifo, values)
-
-		#
-		# loop over all double combinations of ifos and add dbls to appropriate list
-		#
-
-#		if options.verbose:
-#			print >>sys.stderr, "\textracting all dbls ..."
-#		likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#		likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
-#		connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
-#		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
-#			if options.verbose:
-#				print >>sys.stderr, "\t\t%s ..." % ("".join(ifos))
-#			for values in connection.cursor().execute(double_bkg, ifos):
-#				if values[-1]:
-#					background.add_bkg_dbl(filename, ifos, values[0:-1])
-#				else:
-#					background.add_zero_lag_dbl(filename, ifos, values[0:-1])
 
 	#
 	# done extracting info so close database
@@ -654,11 +537,8 @@ for n, filename in enumerate(filenames):
 
 		if options.verbose:
 			print >>sys.stderr, "\textracting all sngls to populate binned ratio numerator ..."
-		for ifo in likelihood_bins.ifos:
-			if options.verbose:
-				print >>sys.stderr, "\t\t%s ..." % (ifo,)
-			for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls), (ifo,)):
-				likelihood_bins.add_inj_sngl(ifo, values)
+		for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls)):
+			likelihood_bins.add_inj_sngl(values)
 
 		#
 		# loop over all double combinations of ifos and add dbls to appropriate list
@@ -679,12 +559,9 @@ for n, filename in enumerate(filenames):
 
 		if options.verbose:
 			print >>sys.stderr, "\textracting all sngls to populate binned ratio denominator ..."
-		for ifo in likelihood_bins.ifos:
-			if options.verbose:
-				print >>sys.stderr, "\t\t%s ..." % (ifo,)
-			for values in connection.cursor().execute(single_bkg(likelihood_bins.idx_sngls), (ifo,)):
-				if values[-1]:
-					likelihood_bins.add_bkg_sngl(ifo, values)
+		for values in connection.cursor().execute(single_bkg(likelihood_bins.idx_sngls)):
+			if values[-1]:
+				likelihood_bins.add_bkg_sngl(values)
 
 		#
 		# loop over all double combinations of ifos and add dbls to appropriate list
@@ -718,6 +595,14 @@ for n, filename in enumerate(filenames):
 if options.verbose:
 	print >>sys.stderr, "smoothing binned ratios ..."
 likelihood_bins.filter_binned_ratios()
+if options.verbose:
+	print >>sys.stderr, "creating 1D binned ratios ..."
+likelihood_bins.create_1D_slices()
+if options.verbose:
+	print >>sys.stderr, "writing out binned ratios ..."
+likelihood_bins.output_bins()
+
+sys.exit(0)
 
 if options.verbose:
 	print >>sys.stderr, "computing likelihoods ..."
@@ -738,16 +623,13 @@ for n, filename in enumerate(filenames):
 
 	if "sim_inspiral" in dbtables.get_table_names(connection):
 		#
-		# loop over all single ifos and add sngls to appropriate list
+		# loop over all sngls and add to appropriate list
 		#
 
 		if options.verbose:
 			print >>sys.stderr, "\textracting all sngls for likelihood computation..."
-		for ifo in likelihood_bins.ifos:
-			if options.verbose:
-				print >>sys.stderr, "\t\t%s ..." % (ifo,)
-			for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls), (ifo,)):
-				likelihood_bins.compute_sngl_likelihood(ifo, tuple(list(values) + [filename]))
+		for values in connection.cursor().execute(single_inj(likelihood_bins.idx_sngls)):
+			likelihood_bins.compute_sngl_likelihood(tuple(list(values) + [filename]))
 
 		#
 		# loop over all double combinations of ifos and add dbls to appropriate list
@@ -763,16 +645,13 @@ for n, filename in enumerate(filenames):
 #				likelihood_bins.add_inj_dbl(filename, ifos, values)
 	else:
 		# 
-		# loop over all single ifos and add sngls to appropriate list 
+		# loop over all sngls and add to appropriate list 
 		#
 
 		if options.verbose:
 			print >>sys.stderr, "\textracting all sngls for likelihood computation ..."
-		for ifo in likelihood_bins.ifos:
-			if options.verbose:
-				print >>sys.stderr, "\t\t%s ..." % (ifo,)
-			for values in connection.cursor().execute(single_bkg(likelihood_bins.idx_sngls), (ifo,)):
-				likelihood_bins.compute_sngl_likelihood(ifo, tuple(list(values[0:-1]) + [filename]))
+		for values in connection.cursor().execute(single_bkg(likelihood_bins.idx_sngls)):
+			likelihood_bins.compute_sngl_likelihood(tuple(list(values[0:-1]) + [filename]))
  
 		# 
 		# loop over all double combinations of ifos and add dbls to appropriate list 

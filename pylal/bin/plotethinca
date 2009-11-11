@@ -136,10 +136,13 @@ def parse_command_line():
   parser.add_option("-S","--statistic",action="store",default='snr',\
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
-      "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+      "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, new_snr")
 
   parser.add_option("","--eff-snr-denom-fac",action="store",default=250.0,\
       type="float", help="Effective snr denom fac: default = 250")
+
+  parser.add_option("","--chisq-index",action="store",default=6.,\
+      type="float", help="New snr chisq index: default = 6")
 
   parser.add_option("-X", "--log-x", action="store_true",
       help="for ethinca vs ... make x axis log")
@@ -331,7 +334,7 @@ if opts.cache_file is None:
   if opts.slide_glob:
     slidefilelists = [glob.glob(g) for g in opts.slide_glob]
   
-statistic = CoincInspiralUtils.coincStatistic(opts.statistic, None, None, opts.eff_snr_denom_fac)
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic, None, None, opts.eff_snr_denom_fac, opts.chisq_index)
 
 coincTriggersList = []
 if filelists:
@@ -660,6 +663,21 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     fig_num+=1
     figure(fig_num)
 
+    for coincs, ethincaVals, symbol in \
+        zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
+      xVals = [x.stat for x in coincs]
+      label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
+      if opts.log_x:
+        try:
+          semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
+            label=label, alpha=0.5)
+        except:pass
+      else:
+        try:
+          plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
+            label=label, alpha=0.5)
+        except:pass
+    hold(True)
     if slideTriggersList:
       for slides, ethincaSlideVals, symbolSlide in \
           zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
@@ -675,23 +693,6 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
             plot(xSlideVals, ethincaSlideVals, symbolSlide,
               markeredgewidth=1, markersize=6, label=label, alpha=0.5)
           except:pass
-    hold(True)
-    for coincs, ethincaVals, symbol in \
-        zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
-      xVals = [x.stat for x in coincs]
-      label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
-      if opts.log_x:
-        try:
-          semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
-            label=label, alpha=0.5)
-        except:pass
-       
-      else:
-        try:
-          plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
-            label=label, alpha=0.5)
-        except:pass
-       
 
     grid(True)
     if coincTriggersList:
@@ -705,7 +706,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     title("E-thinca parameter vs combined %s for %s and %s triggers" % \
       (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
     grid(True)
-    xlim(xmin=5.5, xmax=1000)
+    xlim(xmin=5.5, xmax=200)
     ylim(ymin=0, ymax=maxEThinca)
     legend()
     if opts.enable_output:

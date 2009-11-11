@@ -119,11 +119,12 @@ const char *gengetopt_args_info_help[] = {
   "      --npsi=INT                Number of psi values to use in alignment grid  \n                                  (default=`6')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample  \n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks \n                                  for sub period analysis  (default=`5')",
+  "      --split-ifos=INT          Split interferometers in separate chunks  \n                                  (default=`1')",
   "      --weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight  \n                                  (default=`0.04')",
   "      --per-dataset-weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight in each dataset \n                                   (default=`0.04')",
   "      --power-max-median-factor=DOUBLE\n                                This determines scaling factor between median \n                                  and maximum of exponentially distributed \n                                  variable. Used for computing power sum \n                                  weights  (default=`0.1')",
   "      --tmedian-noise-level=INT Use TMedians to estimate noise level (as \n                                  opposed to in-place standard deviation)  \n                                  (default=`1')",
-  "      --summing-step=INT        integration step size, in seconds  \n                                  (default=`864000')",
+  "      --summing-step=DOUBLE     integration step size, in seconds",
   "      --max-first-shift=INT     larger values accomodate bigger spindown ranges \n                                  but require more bins to be computed in \n                                  uncached function  (default=`10')",
   "      --statistics-function=STRING\n                                specify statistics postprocessing to apply. \n                                  Possible values: linear, sorted  \n                                  (default=`linear')",
   "      --dump-power-sums=INT     Write out all power sum data into data.log \n                                  file. It is recommend to restrict the sky to \n                                  very few pixels  (default=`0')",
@@ -132,6 +133,9 @@ const char *gengetopt_args_info_help[] = {
   "      --half-window=INT         number of bins to exclude to the left and to \n                                  the right of highest point when computing \n                                  linear statistics  (default=`20')",
   "      --tail-veto=INT           do not report outlier if its frequency is \n                                  within that many bins from the tail - happens \n                                  with steep spectrum  (default=`10')",
   "      --cache-granularity=INT   granularity of power cache frequency shift \n                                  resolution, in fractions of a frequency bin  \n                                  (default=`-1')",
+  "      --sidereal-group-count=INT\n                                separate SFTs in that many groups by frequency \n                                  shift",
+  "      --time-group-count=INT    separate SFTs in that many groups by gps time",
+  "      --phase-mismatch=DOUBLE   maximal phase mismatch over coherence length to \n                                  assume when using loosely coherent mode  \n                                  (default=`1.570796')",
     0
 };
 
@@ -273,6 +277,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->npsi_given = 0 ;
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
+  args_info->split_ifos_given = 0 ;
   args_info->weight_cutoff_fraction_given = 0 ;
   args_info->per_dataset_weight_cutoff_fraction_given = 0 ;
   args_info->power_max_median_factor_given = 0 ;
@@ -286,6 +291,9 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->half_window_given = 0 ;
   args_info->tail_veto_given = 0 ;
   args_info->cache_granularity_given = 0 ;
+  args_info->sidereal_group_count_given = 0 ;
+  args_info->time_group_count_given = 0 ;
+  args_info->phase_mismatch_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -453,6 +461,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nfshift_orig = NULL;
   args_info->nchunks_arg = 5;
   args_info->nchunks_orig = NULL;
+  args_info->split_ifos_arg = 1;
+  args_info->split_ifos_orig = NULL;
   args_info->weight_cutoff_fraction_arg = 0.04;
   args_info->weight_cutoff_fraction_orig = NULL;
   args_info->per_dataset_weight_cutoff_fraction_arg = 0.04;
@@ -461,7 +471,6 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->power_max_median_factor_orig = NULL;
   args_info->tmedian_noise_level_arg = 1;
   args_info->tmedian_noise_level_orig = NULL;
-  args_info->summing_step_arg = 864000;
   args_info->summing_step_orig = NULL;
   args_info->max_first_shift_arg = 10;
   args_info->max_first_shift_orig = NULL;
@@ -479,6 +488,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->tail_veto_orig = NULL;
   args_info->cache_granularity_arg = -1;
   args_info->cache_granularity_orig = NULL;
+  args_info->sidereal_group_count_orig = NULL;
+  args_info->time_group_count_orig = NULL;
+  args_info->phase_mismatch_arg = 1.570796;
+  args_info->phase_mismatch_orig = NULL;
   
 }
 
@@ -579,19 +592,23 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->npsi_help = gengetopt_args_info_help[88] ;
   args_info->nfshift_help = gengetopt_args_info_help[89] ;
   args_info->nchunks_help = gengetopt_args_info_help[90] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[91] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[92] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[93] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[94] ;
-  args_info->summing_step_help = gengetopt_args_info_help[95] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[96] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[97] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[98] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[99] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[100] ;
-  args_info->half_window_help = gengetopt_args_info_help[101] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[102] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[103] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[91] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[92] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[93] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[94] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[95] ;
+  args_info->summing_step_help = gengetopt_args_info_help[96] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[97] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[98] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[99] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[100] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[101] ;
+  args_info->half_window_help = gengetopt_args_info_help[102] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[103] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[104] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[105] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[106] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[107] ;
   
 }
 
@@ -822,6 +839,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->npsi_orig));
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
+  free_string_field (&(args_info->split_ifos_orig));
   free_string_field (&(args_info->weight_cutoff_fraction_orig));
   free_string_field (&(args_info->per_dataset_weight_cutoff_fraction_orig));
   free_string_field (&(args_info->power_max_median_factor_orig));
@@ -836,6 +854,9 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->half_window_orig));
   free_string_field (&(args_info->tail_veto_orig));
   free_string_field (&(args_info->cache_granularity_orig));
+  free_string_field (&(args_info->sidereal_group_count_orig));
+  free_string_field (&(args_info->time_group_count_orig));
+  free_string_field (&(args_info->phase_mismatch_orig));
   
   
 
@@ -1052,6 +1073,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "nfshift", args_info->nfshift_orig, 0);
   if (args_info->nchunks_given)
     write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
+  if (args_info->split_ifos_given)
+    write_into_file(outfile, "split-ifos", args_info->split_ifos_orig, 0);
   if (args_info->weight_cutoff_fraction_given)
     write_into_file(outfile, "weight-cutoff-fraction", args_info->weight_cutoff_fraction_orig, 0);
   if (args_info->per_dataset_weight_cutoff_fraction_given)
@@ -1078,6 +1101,12 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "tail-veto", args_info->tail_veto_orig, 0);
   if (args_info->cache_granularity_given)
     write_into_file(outfile, "cache-granularity", args_info->cache_granularity_orig, 0);
+  if (args_info->sidereal_group_count_given)
+    write_into_file(outfile, "sidereal-group-count", args_info->sidereal_group_count_orig, 0);
+  if (args_info->time_group_count_given)
+    write_into_file(outfile, "time-group-count", args_info->time_group_count_orig, 0);
+  if (args_info->phase_mismatch_given)
+    write_into_file(outfile, "phase-mismatch", args_info->phase_mismatch_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1728,6 +1757,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "npsi",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
+        { "split-ifos",	1, NULL, 0 },
         { "weight-cutoff-fraction",	1, NULL, 0 },
         { "per-dataset-weight-cutoff-fraction",	1, NULL, 0 },
         { "power-max-median-factor",	1, NULL, 0 },
@@ -1741,6 +1771,9 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "half-window",	1, NULL, 0 },
         { "tail-veto",	1, NULL, 0 },
         { "cache-granularity",	1, NULL, 0 },
+        { "sidereal-group-count",	1, NULL, 0 },
+        { "time-group-count",	1, NULL, 0 },
+        { "phase-mismatch",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -2983,6 +3016,20 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
               goto failure;
           
           }
+          /* Split interferometers in separate chunks.  */
+          else if (strcmp (long_options[option_index].name, "split-ifos") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->split_ifos_arg), 
+                 &(args_info->split_ifos_orig), &(args_info->split_ifos_given),
+                &(local_args_info.split_ifos_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "split-ifos", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* Discard sfts with small weights that contribute this fraction of total weight.  */
           else if (strcmp (long_options[option_index].name, "weight-cutoff-fraction") == 0)
           {
@@ -3046,7 +3093,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
           
             if (update_arg( (void *)&(args_info->summing_step_arg), 
                  &(args_info->summing_step_orig), &(args_info->summing_step_given),
-                &(local_args_info.summing_step_given), optarg, 0, "864000", ARG_INT,
+                &(local_args_info.summing_step_given), optarg, 0, 0, ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "summing-step", '-',
                 additional_error))
@@ -3161,6 +3208,48 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.cache_granularity_given), optarg, 0, "-1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "cache-granularity", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* separate SFTs in that many groups by frequency shift.  */
+          else if (strcmp (long_options[option_index].name, "sidereal-group-count") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->sidereal_group_count_arg), 
+                 &(args_info->sidereal_group_count_orig), &(args_info->sidereal_group_count_given),
+                &(local_args_info.sidereal_group_count_given), optarg, 0, 0, ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "sidereal-group-count", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* separate SFTs in that many groups by gps time.  */
+          else if (strcmp (long_options[option_index].name, "time-group-count") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->time_group_count_arg), 
+                 &(args_info->time_group_count_orig), &(args_info->time_group_count_given),
+                &(local_args_info.time_group_count_given), optarg, 0, 0, ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "time-group-count", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* maximal phase mismatch over coherence length to assume when using loosely coherent mode.  */
+          else if (strcmp (long_options[option_index].name, "phase-mismatch") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->phase_mismatch_arg), 
+                 &(args_info->phase_mismatch_orig), &(args_info->phase_mismatch_given),
+                &(local_args_info.phase_mismatch_given), optarg, 0, "1.570796", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "phase-mismatch", '-',
                 additional_error))
               goto failure;
           

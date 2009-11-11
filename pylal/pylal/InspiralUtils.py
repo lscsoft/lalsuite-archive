@@ -92,6 +92,7 @@ class InspiralPage(object):
                                         self.fname_list, self.tag_list,\
                                         comment=self.html_footer or None)
       write_cache_output(self.opts, html_filename, self.fname_list)
+      return html_filename
 
   def write(self, text):
     """

@@ -28,7 +28,7 @@
 LSC Table definitions.  These must be kept synchronized with the official
 definitions in the LDAS CVS repository at
 http://www.ldas-sw.ligo.caltech.edu/cgi-bin/cvsweb.cgi/ldas/dbms/db2/sql.
-Maintainership of the table definitions is left as an excercise to
+Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
@@ -1178,6 +1178,8 @@ class SnglInspiralTable(table.Table):
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
+		if column == 'new_snr':
+			return self.get_new_snr()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
@@ -1197,7 +1199,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-
+            
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		chisq = self.get_column('chisq')
@@ -1305,6 +1307,14 @@ class SnglInspiral(object):
 
 	def get_effective_snr(self,fac=250.0):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+	
+	def get_new_snr(self,index=6.0):
+		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
 
 	def get_far(self):
 		return self.alpha
@@ -1535,38 +1545,57 @@ class MultiInspiralTable(table.Table):
 		"impulse_time": "int_4s",
 		"impulse_time_ns": "int_4s",
 		"amplitude": "real_4",
-		"ifo1_eff_distance": "real_4",
-		"ifo2_eff_distance": "real_4",
-		"eff_distance": "real_4",
+		"distance": "real_4",
+		"eff_dist_h1": "real_4",
+		"eff_dist_h2": "real_4",
+		"eff_dist_l": "real_4",
+		"eff_dist_g": "real_4",
+		"eff_dist_t": "real_4",
+		"eff_dist_v": "real_4",
+		"eff_dist_h1h2": "real_4",
 		"coa_phase": "real_4",
 		"mass1": "real_4",
 		"mass2": "real_4",
 		"mchirp": "real_4",
 		"eta": "real_4",
+		"chi": "real_4",
+		"kappa": "real_4",
 		"tau0": "real_4",
 		"tau2": "real_4",
 		"tau3": "real_4",
 		"tau4": "real_4",
 		"tau5": "real_4",
 		"ttotal": "real_4",
-		"ifo1_snr": "real_4",
-		"ifo2_snr": "real_4",
 		"snr": "real_4",
+                "snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
-		"sigmasq": "real_4",
-		"ligo_axis_ra": "real_4",
-		"ligo_axis_dec": "real_4",
+		"sigmasq_h1": "real_8",
+		"sigmasq_h2": "real_8",
+		"sigmasq_l": "real_8",
+		"sigmasq_g": "real_8",
+		"sigmasq_t": "real_8",
+		"sigmasq_v": "real_8",
+		"chisq_h1": "real_4",
+		"chisq_h2": "real_4",
+		"chisq_l": "real_4",
+		"chisq_g": "real_4",
+		"chisq_t": "real_4",
+		"chisq_v": "real_4",
+		"ra": "real_4",
+		"dec": "real_4",
 		"ligo_angle": "real_4",
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "ilwd:char",
 		"null_statistic": "real_4",
+		"null_stat_h1h2": "real_4",
+		"null_stat_degen": "real_4",
+		"event_id": "ilwd:char",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
 		"h2quad_re": "real_4",
@@ -1578,7 +1607,15 @@ class MultiInspiralTable(table.Table):
 		"g1quad_re": "real_4",
 		"g1quad_im": "real_4",
 		"t1quad_re": "real_4",
-		"t1quad_im": "real_4"
+		"t1quad_im": "real_4",
+                "coh_snr_h1h2": "real_4",
+		"cohSnrSqLocal": "real_4",
+		"autoCorrCohSq": "real_4",
+		"crossCorrCohSq": "real_4",
+		"autoCorrNullSq": "real_4",
+		"crossCorrNullSq": "real_4",
+		"ampMetricEigenVal1": "real_8",
+		"ampMetricEigenVal2": "real_8"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
