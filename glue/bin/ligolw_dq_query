@@ -200,7 +200,7 @@ def parse_command_line():
     # Unless we're pinging, make sure we have start and end times
     if options.ping:
         if not database_location:
-            raise ValueError("--ping requires [ --segment ldbd:... | --database ]")
+            raise ValueError("--ping requires [ --segment https://... | --database ]")
     
     # Report is only available when hitting the database, since 
     # we have no way of knowing where the segment boundaries are

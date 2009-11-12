@@ -65,7 +65,7 @@ def parse_command_line():
   
   parser.add_option("-p", "--ping", action = "store_true", default = None, help = "Ping the target server")
   parser.add_option("-t", "--segment-url", action = "store", metavar = "URL", default = None, \
-                    help = "Users have to specify protocol in the format PROTOCOL://HOST. For example, '--segment-url=https://segdb.ligo.caltech.edu'. Supported protocols include https and ldbd")
+                    help = "Users have to specify protocol 'https://' for a secure connection in the segment database url. For example, '--segment-url=https://segdb.ligo.caltech.edu'. No need to specify port number'.")
   parser.add_option("-o", "--output", action = "store", metavar = "FILE", default = None, \
                     help = "Write segments to FILE rather than the segment database")
   parser.add_option("-j", "--identity", action = "store", metavar = "IDENTITY", default = None, \

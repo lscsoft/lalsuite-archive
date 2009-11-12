@@ -495,7 +495,13 @@ class FUNode:
 	"""
 
 	def __init__(self):
-		pass
+		self.invalidate()
+
+	def validate(self):
+		self.validNode = True
+
+	def invalidate(self):
+		self.validNode = False
 
 	def __conditionalLoadDefaults__(self,defaults,cp):
 		if not(cp.has_section(defaults["section"])):
@@ -509,7 +515,7 @@ class FUNode:
 		self.add_var_opt("enable-output","")
 
 # QSCAN NODE
-class fuQscanNode(pipeline.CondorDAGNode):
+class fuQscanNode(pipeline.CondorDAGNode,FUNode):
 	"""
 QScan node.  This node writes its output to the web directory specified in
 the inifile + the ifo and gps time.  For example:
@@ -571,8 +577,16 @@ The omega scan command line is
 			self.set_category(job.name.lower())
 
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
-			for node in p_nodes: self.add_parent(node)
-			dag.add_node(self)
+			for node in p_nodes:
+				if node.validNode:
+					self.add_parent(node)
+			if not (type=="ht" and opts.no_ht_qscan) and not (type=="rds" and opts.no_rds_qscan) and not (type=="seismic" and opts.no_seismic_qscan):
+				dag.add_node(self)
+				self.validate()
+			else:
+				self.invalidate()
+		else:
+			self.invalidate()
 
 	def fix_config_for_science_run(self, config, time):
 		run = science_run(time)
@@ -581,7 +595,7 @@ The omega scan command line is
 		return out
 
 # DATAFIND NODE
-class fuDataFindNode(pipeline.LSCDataFindNode):
+class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
     
 	def __init__(self, dag, job, cp, opts, ifo, sngl=None, qscan=False, trigger_time=None, data_type="hoft", p_nodes=[]):
 
@@ -604,8 +618,15 @@ class fuDataFindNode(pipeline.LSCDataFindNode):
 
 		if not(cp.has_option('fu-remote-jobs','remote-jobs') and job.name in cp.get('fu-remote-jobs','remote-jobs') and cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos')):
 			for node in p_nodes:
-				self.add_parent(node)
-			dag.add_node(self)
+				if node.validNode:
+					self.add_parent(node)
+			if not (data_type=="hoft" and not qscan and opts.no_insp_datafind) and not (data_type=="hoft" and qscan and opts.no_htQscan_datafind) and not (data_type=="rds" and opts.no_rdsQscan_datafind):
+				dag.add_node(self)
+				self.validate()
+			else:
+				self.invalidate()
+		else:
+			self.invalidate
 
 	def setup_qscan(self, job, cp, time, ifo, data_type):
 		# 1s is substracted to the expected startTime to make sure the window
@@ -713,8 +734,14 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			self.set_category(job.name.lower())
 
 		#add parents and put node in dag
-		for node in p_nodes: self.add_parent(node)
-		dag.add_node(self)
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		if not opts.no_inspiral:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 	def write_trig_bank(self,sngl, name):
 		try:
@@ -765,7 +792,11 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		dag.add_node(self)
+		if not opts.no_findFlags:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 # FIND VETOS NODE 
 class findVetosNode(pipeline.CondorDAGNode,FUNode):
@@ -799,7 +830,11 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
-		dag.add_node(self)
+		if not opts.no_findVetoes:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 # EFFECTIVE DISTANCE RATIO NODE 
 class effDRatioNode(pipeline.CondorDAGNode,FUNode):
@@ -844,7 +879,11 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		dag.add_node(self)
+		if not opts.no_effectiveRatio:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 ##############################################################################
 # job class for producing the skymap
@@ -890,8 +929,14 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,FUNode):
 			self.set_category(job.name.lower())
 
 		# Add parents and put this node in the dag
-		for node in p_nodes: self.add_parent(node)
-		dag.add_node(self)
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		if not opts.no_skymap:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 # job class for producing the skymap
 class pylal_skyPlotNode(pipeline.CondorDAGNode,FUNode):
@@ -929,8 +974,14 @@ A python code for plotting the sky map
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		for node in p_nodes: self.add_parent(node)
-		dag.add_node(self)
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		if not opts.no_skymap:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 class followUpChiaNode(inspiral.ChiaNode,FUNode):
 	"""
@@ -1019,8 +1070,14 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		for node in p_nodes: self.add_parent(node)
-		dag.add_node(self)
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		if not opts.no_chia:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 			
 	def write_trigbank(self, coinc, name):
 		try:
@@ -1097,8 +1154,14 @@ job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-                for node in p_nodes: self.add_parent(node)
-                dag.add_node(self)
+                for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		if not opts.no_plotsnrchisq:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 
 ##############################################################################
@@ -1140,13 +1203,128 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		for node in p_nodes: self.add_parent(node)
-		dag.add_node(self)
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		if not opts.no_chia:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 		for ifo, insp in insp_node_dict.items():
 			self.add_var_arg("--"+ifo.upper()+"-framefile "+ insp.output_frame_file)
 
 
+##############################################################################
+# node class for running the mcmc code
+
+class mcmcNode(pipeline.CondorDAGNode, FUNode):
+	"""
+	Runs a MCMC job
+	"""
+	def __init__(self,dag,job,cp,opts,coinc,frame_cache_list,randomseed,p_nodes,ifo_string=None):
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		time_margin = string.strip(cp.get('fu-mcmc','prior-coal-time-marg'))
+		iterations = string.strip(cp.get('fu-mcmc','iterations'))
+		tbefore = string.strip(cp.get('fu-mcmc','tbefore'))
+		tafter = string.strip(cp.get('fu-mcmc','tafter'))
+		#FIXME: priors on masses and distances should depend on the parameters of the trigger
+		massmin = string.strip(cp.get('fu-mcmc','massmin'))
+		massmax = string.strip(cp.get('fu-mcmc','massmax'))
+		dist90 = string.strip(cp.get('fu-mcmc','dist90'))
+		dist10 = string.strip(cp.get('fu-mcmc','dist10'))
+
+		if ifo_string:
+			IFOs = frozenset([ifo_string])
+			self.ifonames = ifo_string
+			sngl_insp_string = "sngl_inspiral"
+		else:
+			IFOs = coinc.ifos_set
+			self.ifonames = coinc.instruments
+			sngl_insp_string = "sngl_inspiral_coh"
+
+		channelNames = ""
+		chunk_end_list={}
+		chunk_start_list={}
+		for itf in IFOs:
+			sngl = eval("coinc." + sngl_insp_string + "[\'" + itf + "\']")
+			for row in sngl.process_params:
+          			param = row.param.strip("-")
+          			value = row.value
+          			if param == 'channel-name':
+					channel = value
+				if param == 'gps-end-time':
+					chunk_end = value
+				if param == 'gps-start-time':
+					chunk_start = value
+			channelNames += channel + ","
+			chunk_end_list[itf] = int(chunk_end)
+			chunk_start_list[itf] = int(chunk_start)
+
+		if len(IFOs) > 1:
+			self.ifoRef = coinc.max_trigger_ifo()
+		else:
+			self.ifoRef = ifo_string
+
+		self.add_var_opt("template",string.strip(cp.get('fu-mcmc','template')))
+		self.add_var_opt("iterations",iterations)
+		self.add_var_opt("randomseed",randomseed)
+		self.add_var_opt("tcenter","%0.3f"%coinc.sngl_inspiral[self.ifoRef].time)
+		self.add_var_opt("tbefore",tbefore)
+		self.add_var_opt("tafter",tafter)
+
+		tmin = coinc.sngl_inspiral[self.ifoRef].time - float(time_margin)
+		tmax = coinc.sngl_inspiral[self.ifoRef].time + float(time_margin)
+		self.add_var_opt("priorparameters","[" + massmin + "," + massmax + "," + str(tmin) + "," + str(tmax) + "," + dist90 + "," + dist10 + "]")
+
+		param_mchirp = coinc.sngl_inspiral[self.ifoRef].row.mchirp
+		param_eta = coinc.sngl_inspiral[self.ifoRef].row.eta
+		param_distance = coinc.sngl_inspiral[self.ifoRef].row.eff_distance
+		self.add_var_opt("guess","[" + str(param_mchirp) + "," + str(param_eta) + "," + str(coinc.sngl_inspiral[self.ifoRef].time) + "," + str(param_distance) + "]")
+
+		cacheFiles = ""
+		for frameCache in frame_cache_list:
+			cacheFiles += frameCache + ","
+		self.add_var_opt("cachefile","["+cacheFiles.strip(",")+"]")
+		self.add_var_opt("filechannel","["+channelNames.strip(",")+"]")
+
+		psdEstimateStart = ""
+		psdEstimateEnd = ""
+		for itf in IFOs:
+			datainchunk_before = int(coinc.sngl_inspiral[self.ifoRef].time) - 75 - 64 - chunk_start_list[itf]
+			datainchunk_after = chunk_end_list[itf] - 64 - int(coinc.sngl_inspiral[self.ifoRef].time) - 32
+			if datainchunk_after > datainchunk_before:
+				psdEstimateStart += str(int(coinc.sngl_inspiral[self.ifoRef].time) + 32) + ","
+				psdEstimateEnd += str(chunk_end_list[itf] - 64) + ","
+			else:
+				psdEstimateStart += str(chunk_start_list[itf] + 64) + ","
+				psdEstimateEnd += str(int(coinc.sngl_inspiral[self.ifoRef].time) - 75) + ","
+
+		self.add_var_opt("psdestimatestart","["+psdEstimateStart.strip(",")+"]")
+		self.add_var_opt("psdestimateend","["+psdEstimateEnd.strip(",")+"]")
+
+		self.add_var_opt("importanceresample",10000)
+
+		self.id = job.name.upper() + '-' + self.ifonames + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
+		outputName = job.outputPath + '/' + self.id
+		self.add_var_opt("outfilename",outputName)
+
+		self.output_cache = []
+		self.output_cache.append(lal.CacheEntry(self.ifonames, job.name.upper(), segments.segment(min(chunk_start_list.values()),max(chunk_end_list.values())), "file://localhost/"+outputName+".csv"))
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		if opts.enable_bayesian:
+			for node in p_nodes:
+				if node.validNode:
+					self.add_parent(node)
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 
 ##############################################################################
@@ -1310,6 +1488,10 @@ class create_default_config(object):
                 cp.set("condor-max-jobs","ligo_data_find_HT_playground","3")
                 cp.set("condor-max-jobs","ligo_data_find_Q_HT_playground","3")
                 cp.set("condor-max-jobs","ligo_data_find_Q_RDS_playground","3")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_full_data","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_playground","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 
 		# if we have an ini file override the options
 		if config: 
