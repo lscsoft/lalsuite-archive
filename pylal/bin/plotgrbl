@@ -53,7 +53,6 @@ from pylal import InspiralUtils
 from pylal import plotutils
 from pylal import rate
 from pylal import SnglInspiralUtils
-from pylal import viz
 from pylal import git_version
 
 # override pylab defaults, optimizing for web presentation
