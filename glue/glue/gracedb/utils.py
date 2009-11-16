@@ -46,6 +46,9 @@ MBTA_set_keys = ['ifo', 'search', 'end_time', 'end_time_ns', 'mass1', 'mass2',\
 #Omega 
 Omega_set_keys = ['process_id', 'ifos', 'start_time', 'start_time_ns',\
                  'duration', 'confidence', 'coinc_event_id']
+#CWB
+CWB_set_keys = ['process_id', 'ifos', 'start_time', 'start_time_ns',\
+                'coinc_event_id']
 
 #this dictionary is the simplest way to assign event_id's
 #collisions are are taken care of in the process of conversion to sqlite
@@ -92,6 +95,23 @@ def write_output_files(root_dir, xmldoc, log_content, \
   f.write(log_content)
   f.close()
 
+def get_ifos_for_cwb(cwb_ifos):
+  """
+  get human-readable things from CWB detector labels
+  """
+  
+  ifos = []
+  for i in cwb_ifos:
+    if i == '1':  ifos.append('L1')
+    if i == '2' : ifos.append('H1')
+    if i == '3' : ifos.append('H2')
+    if i == '4' : ifos.append('G1')
+    if i == '5' : ifos.append('T1')
+    if i == '6' : ifos.append('V1')
+    if i == '7' : ifos.append('A1')
+
+  return ifos
+  
 ##############################################################################
 #
 #          table populators
@@ -219,7 +239,7 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     
   return xmldoc, log_data, temp_data_loc
 
-def populate_burst_tables(datafile, set_keys = Omega_set_keys):
+def populate_omega_tables(datafile, set_keys = Omega_set_keys):
   """
   """
   #initialize xml document
@@ -275,6 +295,55 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
                                      BurstCoincDef, detectors)
   
   return xmldoc, log_data, omega_data['URL_file']
+
+def populate_cwb_tables(datafile, set_keys=CWB_set_keys):
+  """
+  """
+  #initialize xml document
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+
+  #extract the data from the file
+  f = open(datafile,'r')
+  cwb_list = []
+  for line in f.readlines():
+    if not line.strip(): continue #ignore blanks
+    elif '#' in line.strip()[0]: continue #skip comments
+    elif 'H1:' in line.strip() or 'L1:' in line.strip() or 'V1:' in line.strip(): continue #skip DQ stuff
+    elif ':' in line.strip(): cwb_list.extend([dat.strip() for dat in line.split(':',1)])
+
+  f.close()
+  cwb_data = dict(zip(cwb_list[::2],cwb_list[1::2]))
+  
+  #create the content for the event.log file
+  log_data = '\nLog File created '\
+             +strftime("%a, %d %b %Y %H:%M:%S", gmtime())\
+             +'\n'
+  detectors = get_ifos_for_cwb(cwb_data['ifo'].split())
+
+  for var in cwb_data:
+    log_data += var + ': ' + cwb_data[var] + '\n'
+
+  #fill the MutliBurstTable
+  mb_table = lsctables.New(lsctables.MultiBurstTable)
+  xmldoc.childNodes[0].appendChild(mb_table)
+  row = mb_table.RowType()
+  row.process_id = lsctables.ProcessTable.get_next_id()
+  row.set_ifos(detectors)
+  st = LIGOTimeGPS(cwb_data['start'][0])
+  row.start_time = st.seconds
+  row.start_time_ns = st.nanoseconds
+  cid = lsctables.CoincTable.get_next_id()
+  row.coinc_event_id = cid
+  for key in mb_table.validcolumns.keys():
+      if key not in set_keys:
+        setattr(row,key,None)
+  mb_table.append(row)
+
+  xmldoc = populate_coinc_tables(xmldoc,cid, coherent_event_id_dict,\
+                                    BurstCoincDef, detectors)
+  
+  return xmldoc, log_data, None
   
       
     
