@@ -95,7 +95,6 @@ class findFileType(object):
       myMaskPNG="*%s_RDS_C03_L2/*/%s/*.png"%(sngl.ifo,sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMaskIndex))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG))
-      tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG.replace(".png","_thumb.png")))
     return tmpList
     
   def get_RDS_R_L1(self):
@@ -107,7 +106,6 @@ class findFileType(object):
       myMaskPNG="*/%s_RDS_R_L1/*/%s/*.png"%(sngl.ifo,sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMaskIndex))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG))
-      tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG.replace(".png","_thumb.png")))
     return tmpList
 
   def get_RDS_R_L1_SEIS(self):
@@ -119,7 +117,6 @@ class findFileType(object):
       myMaskPNG="*/%s_RDS_R_L1_SEIS*/%s/*.png"%(sngl.ifo,sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMaskIndex))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG))
-      tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG.replace(".png","_thumb.png")))
     return tmpList
       
   def get_findVetos(self):
@@ -187,7 +184,10 @@ class findFileType(object):
     finalList=list()
     for thisFile in cacheListing:
       finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
+      #Scan for both thumb types for all PNGs
+      if thisFile.endswith(".png"):
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png",".thumb.png")))
     if len(finalList) < 1:
       return list()
     else:
@@ -211,7 +211,9 @@ class findFileType(object):
     finalList=list()
     for thisFile in cacheListing:
       finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
+      if thisFile.endswith(".png"):
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png",".thumb.png")))
     if len(finalList) < 1:
       return(list())
     else:
@@ -263,11 +265,21 @@ with None types.\n")
     pd.reverse()
     pu.reverse()
     cStringList=list()
+    cURLList=list()
     for i in range(0,len(pu)):
       if pd[i]!=pu[i]:
         cStringList.append(pd[i])
+        cURLList.append(pu[i])
     cStringList.reverse()
+    cURLList.reverse()
+    cURL=""
     cString=""
+    for elem in cURLList:
+      cURL=cURL+"%s%s"%(os.path.sep,elem)
+    cURL=cURL+os.path.sep
+    if not self.pURL.startswith(os.path.sep):
+      cURL=cURL.lstrip(os.path.sep)
+    self.commonURL=cURL
     for elem in cStringList:
       cString=cString+"%s%s"%(os.path.sep,elem)
     cString=cString+os.path.sep
@@ -283,7 +295,7 @@ with None types.\n")
   
   def convert(self,filename=None):
     #Strip of common path and create full blown URL
-    myURL=filename.replace(self.commonString,(self.pURL+os.path.sep))
+    myURL=filename.replace(self.commonString,(self.commonURL+os.path.sep))
     return myURL
 
 ####################################################################
@@ -403,7 +415,7 @@ class wiki(object):
       if fstring=="NONE":
         self.tStyle=None
       else:
-        self.tStyle='<tablestyle="background-color: %s;text-align: center;">'%(fstring.lstrip().rstrip())
+        self.tStyle='<tablestyle="%s">'%(fstring.lstrip().rstrip())
       
   def insertTable(self,obj):
     """
@@ -411,7 +423,7 @@ class wiki(object):
     wiki markup and place that in to the self.content
     list for writing to the file
     """
-    oldCell=obj.data[0][0]
+    oldCell="%s"%obj.data[0][0]
     tableContent=""
     if obj.tStyle != None:
       obj.data[0][0]="%s%s"%(obj.tStyle,str(oldCell))
@@ -420,16 +432,16 @@ class wiki(object):
     else:
       for row in range(0,obj.rows):
         for col in range(0,obj.cols):
-          try:
+          if obj.data[row][col].rstrip().lstrip().__contains__("style"):
+            tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
+          else:
             tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
-          except:
-            os.abort()
         tableContent="%s ||\n"%(tableContent)
     tableContent="%s\n"%(tableContent)
     self.content.append(tableContent)                      
     obj.data[0][0]=oldCell
 
-  def insertQscanTable(self,images=None,indexes=None):
+  def insertQscanTable(self,images=None,thumbs=None,indexes=None):
     """
     Inserts a table constructured of thumbnails linked to larger
     Qscan plots.  It accounts for the ifo present in the coinc via
@@ -444,6 +456,7 @@ class wiki(object):
                        for x in images[ifo]])
     uniqChannelNames=list()
     lastName=None
+    channelNames.sort()
     while channelNames:
       myName=channelNames.pop()
       if lastName != myName:
@@ -453,24 +466,27 @@ class wiki(object):
     rowCount=len(uniqChannelNames)+1
     colCount=len(images.keys())+1
     myTable=self.wikiTable(rowCount,colCount)
+    myTable.setTableStyle("text-align:center")
     #Make title row
     myTable.data[0][0]=""
     for i,label in enumerate(images.keys()):
       myIndexURL="%s"%indexes[label][0]
-      myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,ifo)
+      myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
     #Fill in table with thumbnails and links
     for i,channel in enumerate(uniqChannelNames):
       for j,key in enumerate(images.keys()):
         try:
           imageIndex=[x.__contains__(channel) \
                       for x in images[key]].index(True)
-          thumbURL=images[key][imageIndex].replace(".png","_thumb.png")
           imageURL=images[key][imageIndex]
+          thumbIndex=[x.__contains__(channel) \
+                      for x in thumbs[key]].index(True)
+          thumbURL=thumbs[key][thumbIndex]
           myTable.data[i+1][0]=" %s "%(channel)
           myTable.data[i+1][j+1]=self.linkedRemoteImage(thumbURL,\
                                                         imageURL)
         except:
-          myTable.data[i+1][j+1]=" Unavailable "
+          myTable.data[i+1][j+1]="Unavailable"
     self.insertTable(myTable)
     
   def write(self):
@@ -586,7 +602,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   farTable=wikiPage.wikiTable(2,1)
-  farTable.setTableStyle("background-color: yellow;")
+  farTable.setTableStyle("background-color: yellow; text-align center;")
   farTable.data[0][0]="False Alarm Rate"
   farTable.data[1][0]="%s"%(wikiCoinc.far)
   wikiPage.insertTable(farTable)
@@ -699,18 +715,24 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Relevant Information")
   imageDict=dict()
   indexDict=dict()
+  thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_C03_L2(),\
                                        "*/%s_RDS_C03_L2/*/%s/*.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_C03_L2(),\
                                        "*/%s_RDS_C03_L2/*/%s/*LSC-STRAIN_16.00_spectrogram_whitened.png"%(sngl.ifo,sngl.time))
+    thumbDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_C03_L2(),\
+                                       "*/%s_RDS_C03_L2/*/%s/*LSC-STRAIN_16.00_spectrogram_whitened?thumb.png"%(sngl.ifo,sngl.time))
+
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
+    thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) == len(imageDict.keys())
   enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) == len(indexDict.keys())
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
+                              thumbDict,\
                               indexDict)
   else:
     sys.stdout.write("Warning: Candidate appearance plots not found.\n")
@@ -730,19 +752,25 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.putText("Plots and pipeline data go here!")
   imageDict=dict()
   indexDict=dict()
+  thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened.png"%\
                                        (sngl.ifo,sngl.time))
+    thumbDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
+                                       "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened?thumb.png"%\
+                                       (sngl.ifo,sngl.time))
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
+    thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) == len(imageDict.keys())
   enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) == len(indexDict.keys())
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
+                              thumbDict,\
                               indexDict)
   else:
     sys.stdout.write("Warning: Seismic plots not found.\n")
@@ -762,19 +790,25 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.putText("Plots and pipeline data go here!")
   imageDict=dict()
   indexDict=dict()
+  thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                        "*/%s_RDS_*/%s/*.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                        "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
                                        (sngl.ifo,sngl.time))
+    thumbDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
+                                       "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened?thumb.png"%\
+                                       (sngl.ifo,sngl.time))
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
+    thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) == len(imageDict.keys())
   enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) == len(indexDict.keys())
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
+                              thumbDict,\
                               indexDict)
   else:
     sys.stdout.write("Warning: PEM plots not found.\n")
@@ -888,33 +922,36 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   #Put plots SNR and Chi sqr
   #
   indexList=fnmatch.filter(wikiFileFinder.get_plotsnrchisq(),"*.html")
-  thumbList=fnmatch.filter(wikiFileFinder.get_plotsnrchisq(),"*_snr-*_thumb.png")
-  thumbList.extend(fnmatch.filter(wikiFileFinder.get_plotsnrchisq(),"*_chisq-*_thumb.png"))
+  thumbList=fnmatch.filter(wikiFileFinder.get_plotsnrchisq(),"*_snr-*thumb.png")
+  thumbList.extend(fnmatch.filter(wikiFileFinder.get_plotsnrchisq(),"*_chisq-*thumb.png"))
   thumbList.sort()
   indexList=[file2URL.convert(x) for x in indexList]
   thumbList=[file2URL.convert(x) for x in thumbList]
-  imageList=[x.replace("_thumb.png",".png") for x in thumbList]
+  #Two thumb types possible "_thumb.png" or ".thumb.png"
+  imageList=[x.replace("_thumb.png",".png").replace(".thumb.png",".png") for x in thumbList]
   ifoCount=len(wikiCoinc.sngls)
   rowLabel={"SNR":1,"CHISQ":2}
   rowCount=len(rowLabel)
   colCount=ifoCount
-  snrTable=wikiPage.wikiTable(rowCount+1,colCount+1)
-  myIndex=""
-  for i,sngl in enumerate(wikiCoinc.sngls):
-    for indexFile in indexList:
-      if indexFile.__contains__("_pipe_%s_FOLLOWUP_"%sngl.ifo):
-        myIndex=indexFile
-    snrTable.data[0][i+1]=wikiPage.makeExternalLink(myIndex,sngl.ifo)
-  for col,sngl in enumerate(wikiCoinc.sngls):
-    for row,label in enumerate(rowLabel.keys()):
-      snrTable.data[row+1][0]=label
-      for k,image in enumerate(imageList):
-        if (image.__contains__("_%s-"%label.lower()) \
-            and image.__contains__("_%s_"%sngl.ifo)):
-          snrTable.data[row+1][rowLabel[label]]="%s"%wikiPage.linkedRemoteImage(thumbList[k],\
-                                                                                imageList[k])
-  wikiPage.insertTable(snrTable)
-  wikiPage.putText("Plots and pipeline data go here!")
+  if len(indexList) == ifoCount:
+    snrTable=wikiPage.wikiTable(rowCount+1,colCount+1)
+    myIndex=""
+    for i,sngl in enumerate(wikiCoinc.sngls):
+      for indexFile in indexList:
+        if indexFile.__contains__("_pipe_%s_FOLLOWUP_"%sngl.ifo):
+          myIndex=indexFile
+      snrTable.data[0][i+1]=wikiPage.makeExternalLink(myIndex,sngl.ifo)
+    for col,sngl in enumerate(wikiCoinc.sngls):
+      for row,label in enumerate(rowLabel.keys()):
+        snrTable.data[row+1][0]=label
+        for k,image in enumerate(imageList):
+          if (image.__contains__("_%s-"%label.lower()) \
+              and image.__contains__("pipe_%s_FOLLOWUP"%sngl.ifo)):
+            snrTable.data[row+1][col+1]=" %s "%(thumbList[k])
+    wikiPage.insertTable(snrTable)
+  else:
+    sys.stdout.write("Warning: SNR and CHISQ plots not found.\n")
+    wikiPage.putText("SNR and CHISQ plots not found.\n")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -947,8 +984,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     wikiPage.putText(wikiPage.makeExternalLink(myIndex,\
                                                "%s Coherence Study Results"%(wikiCoinc.ifos)))
     thumbList=fnmatch.filter(wikiFileFinder.get_plotchiatimeseries(),\
-                             "PLOT_CHIA_%s_snr-squared*_thumb.png"%(wikiCoinc.time))
-    imageList=[x.replace("_thumb.png",".png") for x in thumbList]
+                             "PLOT_CHIA_%s_snr-squared*thumb.png"%(wikiCoinc.time))
+    imageList=[x.replace("_thumb.png",".png").replace(".thumb.png",".png") for x in thumbList]
     rowCount=len(imageList)
     colCount=1
     cohSnrTimeTable=wikiPage.wikiTable(rowCount+1,colCount)
@@ -1210,7 +1247,9 @@ omega_directory=publication_directory+"/omega/"
 omegaTree=scanTreeFnMatch(os.path.abspath(omega_directory),filemask="*")
 #
 #
-for coincFile in fnmatch.filter(pipeTree,"*coincEvent.info"):
+coincList=fnmatch.filter(pipeTree,"*coincEvent.info")
+listCount=len(coincList)
+for listsDone,coincFile in enumerate(coincList):
   #
   #Create directory for checklist in publication location.  We will
   #only move files not already in the html area to the publication
@@ -1218,13 +1257,12 @@ for coincFile in fnmatch.filter(pipeTree,"*coincEvent.info"):
   #Qscan stuff.
   #
   myCoinc=coinc(coincFile)
-  sys.stdout.write("Processing event:%s:%s:%s\n"%(myCoinc.time,\
-                                                  myCoinc.ifos,\
-                                                  myCoinc.type))
   myChecklistFilename="CHECKLIST_%s_%s_%s_%s.wiki"%(myCoinc.type,
                                                     myCoinc.ifos,
                                                     myCoinc.instruments,
                                                     myCoinc.time)
+  sys.stdout.write("Creating list (%i/%i):%s\n"%(listsDone+1,listCount,myChecklistFilename))
+                                                    
   mySourcePath=os.path.abspath(followup_directory)
   myDestPath=os.path.abspath(publication_directory+"/"+myChecklistFilename.rstrip(".wiki")+"/")
   sys.stdout.write("Checklist is available at %s\n"%(myDestPath))
@@ -1252,14 +1290,14 @@ for coincFile in fnmatch.filter(pipeTree,"*coincEvent.info"):
     else:
       sys.stdout.write("Warning: Scanning (%s) found %s files.\n"%\
                        (key,len(fileList)))
-    # Create list of files used for checklist generation
-    checklistTree=scanTreeFnMatch(myDestPath+"/",filemask="*")
-    fileTree=list()
-    fileTree.extend(checklistTree)
-    fileTree.extend(allSources['omega'])
-    mapFileURL=filenameToURLMapper(publication_directory,publication_url)
-    prepareChecklist(myDestPath+"/"+myChecklistFilename,\
-                     myCoinc,\
-                     fileTree,\
-                     mapFileURL)
-    sys.stdout.write("Checklist is prepared.\n\n")
+  # Create list of files used for checklist generation
+  checklistTree=scanTreeFnMatch(myDestPath+"/",filemask="*")
+  fileTree=list()
+  fileTree.extend(checklistTree)
+  fileTree.extend(allSources['omega'])
+  mapFileURL=filenameToURLMapper(publication_directory,publication_url)
+  prepareChecklist(myDestPath+"/"+myChecklistFilename,\
+                   myCoinc,\
+                   fileTree,\
+                   mapFileURL)
+  sys.stdout.write("Checklist is prepared.\n\n")

@@ -29,7 +29,11 @@ from glue.ligolw import ilwd
 from glue.ligolw.utils import process
 
 from pylal.xlal.date import XLALGPSToUTC
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+try:
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
+    # s6 code
+    from pylal.xlal.date import LIGOTimeGPS
 
 __prog__ = "lalapps_cbc_compile_rfs"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
