@@ -618,19 +618,3 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
           massNum += 1
   return output,massOutput
 
-
-
-def isPlayground(table):
-  """
-  @param gpsTime: a list of valid GPS time
-  @return True if it belongs to the playground time
-  """
-  start= 729273613 ;
-  interval = 6370;
-  len = 600;
-  gpsTime = table.geocent_end_time + table.geocent_end_time_ns * 1e-9
-  if ((gpsTime-start) % interval)<len:
-    return True
-  else:
-    return False
-
