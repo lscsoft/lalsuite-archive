@@ -29,7 +29,11 @@ from glue.ligolw.utils.print_tables import print_tables
 from glue import segments
 
 from pylal.xlal.date import XLALGPSToUTC
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+try:
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
+    # s6 code
+    from pylal.xlal.date import LIGOTimeGPS
 
 __prog__ = "lalapps_cbc_print_rs"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
