@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 import os,sys
 import matplotlib
 matplotlib.use('Agg')
@@ -57,8 +57,19 @@ def make_figure(dd,width):
     for k in kk:
       if ifo == k[0:2]:
         times = dd[k]
-        y = i * np.ones(times[2]-times[0])
-        t = np.linspace(times[0],times[2],times[2]-times[0]) - times[1]
+
+        start = times[0] - times[1]
+        if start < (-1*width):
+          start = -1*width
+
+        stop  = times[2] - times[1]
+        if stop > width:
+          stop = width
+
+        stop = float(stop)
+        start = float(start)
+        t = np.linspace(start,stop,stop-start)
+        y = i * np.ones(np.shape(t))
         cc = 'r'
         if k.find('UP:') > -1 or k.find('LIGHT:') > -1 or k.find('SCIENCE:') > -1 or k.find('CALIBRATED:') > -1:
           cc = 'g'
@@ -69,9 +80,9 @@ def make_figure(dd,width):
         if (-1)**i==1:
           ha = 'left'
         print str(i) + ' ' + k + ' ' + str(t.shape[0]) + ' ' + ha
-        ax.text((-1)**i*50,i,k,bbox=dict(facecolor='white', alpha=0.8, edgecolor='white'), horizontalalignment=ha, verticalalignment='center',fontsize=10)
+        ax.text(((-1)**i)*0.1*width,i,k,bbox=dict(facecolor='white', alpha=0.8, edgecolor='white'),horizontalalignment=ha, verticalalignment='center',fontsize=10)
         i = i+1
-    ax.plot((0,0),(-1,i),c='k',lw=1)
+    ax.plot((0,0),(-1,i),c='k',lw=1,zorder=-1)
     ax.set_xlim(-1*width,width)
     ax.set_title(ifo + ' data quality flags at t0 = ' + str(times[1]))
     ax.set_ylim(-1,i)

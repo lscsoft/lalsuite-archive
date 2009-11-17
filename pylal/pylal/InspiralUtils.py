@@ -92,6 +92,7 @@ class InspiralPage(object):
                                         self.fname_list, self.tag_list,\
                                         comment=self.html_footer or None)
       write_cache_output(self.opts, html_filename, self.fname_list)
+      return html_filename
 
   def write(self, text):
     """
@@ -616,20 +617,4 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
           massOutput[row.ifo][massNum].append(row)
           massNum += 1
   return output,massOutput
-
-
-
-def isPlayground(table):
-  """
-  @param gpsTime: a list of valid GPS time
-  @return True if it belongs to the playground time
-  """
-  start= 729273613 ;
-  interval = 6370;
-  len = 600;
-  gpsTime = table.geocent_end_time + table.geocent_end_time_ns * 1e-9
-  if ((gpsTime-start) % interval)<len:
-    return True
-  else:
-    return False
 

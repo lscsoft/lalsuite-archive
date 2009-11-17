@@ -48,6 +48,7 @@ except ImportError:
 from glue import pipeline, segmentsUtils
 from glue.segments import segment, segmentlist
 
+from pylal import git_version
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
@@ -58,7 +59,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+    parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
     parser.add_option("-r", "--result_file",
                       help="Result file from KW_veto_calc. Required.")
     parser.add_option("-p", "--plot_dir",
@@ -102,7 +103,7 @@ def parse_commandline():
     if opts.verbose:
       print >> sys.stderr, ""
       print >> sys.stderr, "running KW_veto_channelPage..."
-      print >> sys.stderr, "version: %s"%__version__
+      print >> sys.stderr, git_version.verbose_msg
       print >> sys.stderr, ""
       print >> sys.stderr, "************** PARAMETERS **********************"
       for o in opts.__dict__.items():
@@ -272,7 +273,7 @@ def summary_maker():
         """
         <a name="Summary"></a>
         <h2 class="Summary"><input id="input_Summary" checked="checked"
-         onclick="toggleVisible('deadTimePer');" type="checkbox">Summary
+         onclick="toggleVisible('Summary');" type="checkbox">Summary
         </h2>
         <div id="div_Summary" style="display: block;">
         <a name="report"></a>

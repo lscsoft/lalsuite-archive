@@ -54,9 +54,10 @@ def readInjLog(fname):
 def get_xml_files(filenames,time,ifo):
 	# Decide on the xml files to read
 	def filt_fn(filename,time,ifo):
-		tm,dur=filename.split('-')[-2:]
+		tm,durend=filename.split('-')[-2:]
 		tm=int(tm)
-		dur=int(dur[:-4])
+		dur=durend.split('.')[0]
+		dur=int(dur)
 		return time>=tm and time<=(tm+dur) and ifo in filename
 	
 	return filter(lambda fn: filt_fn(fn,time,ifo),filenames)
@@ -73,7 +74,7 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 	else: injected=0
 	if(injected==0):
 		return (0,0,0)
-	xml_files = get_xml_files(filenames,time,ifo)
+	xml_files = get_xml_files(filenames,int(time),ifo)
 	if not xml_files:
 		analysed=0
 		found=0
@@ -246,6 +247,8 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 	print >>outfile,'</table>'
 	
 	# Generate plot for injections
+	import matplotlib
+	matplotlib.use('Agg')
 	import pylab
 	for ifo in ifos:
 		foundx=[]
@@ -284,8 +287,8 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		# save figure
 		print 'save figure'
 		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
-		thisplot.savefig(plotname)
-		print >>outfile,'<img src="'+plotname+'">'
+		pylab.savefig(plotname)
+		print >>outfile,'<img src="'+plotname.split(os.path.sep)[-1]+'">'
 	print >>outfile,'</body></html>'
 	return
 

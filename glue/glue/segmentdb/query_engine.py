@@ -108,11 +108,11 @@ class LdbdQueryEngine(QueryEngine):
 		
 		# This is a kludge around bug 2317
                 try:
-		  self.client.__disconnect__()
-		  self.client.__connect__(self.client.host, self.client.port, self.client.identity)
+                   self.client.__disconnect__()
+		   self.client.__connect__(self.client.host, self.client.port, self.client.identity)
                 except:
-                  pass
-
+                   pass
+ 
 		self.ligomd.parse(xml)
 		res = self.ligomd.table
 		self.rows = self.ligomd.table[res.keys()[0]]['stream']
