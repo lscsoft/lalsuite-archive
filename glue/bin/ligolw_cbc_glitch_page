@@ -352,7 +352,10 @@ if __name__ == '__main__':
             full_path = options.omega_frame_dir
 
             if full_path.find('%d') != -1:
-                full_path = full_path % (end_time / 100000)
+                full_path = full_path.replace('%d', str(end_time / 100000))
+
+            if full_path.find('%s') != -1:
+                full_path = full_path.replace('%s', ifo[0])
 
             os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
 
