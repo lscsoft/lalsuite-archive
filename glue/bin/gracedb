@@ -305,6 +305,9 @@ def main():
          COMMENT  is text that will be entered into the event's log
    Enter a comment into the log for a candidate event
 
+%%prog [options] label GRACEID LABEL
+    Label event with GRACEDID with LABEL.  LABEL must already exist.
+
 Environment Variables (can all be overridden by options):
     GRACEDB_SERVICE_URL
     HTTP_PROXY              
@@ -372,6 +375,18 @@ Longer strings will be truncated.""" % {
         graceid = args[1]
         message = " ".join(args[2:])
         response = client.send('log', graceid=graceid, message=message)
+    elif args[0] == 'tag':
+        if len(args) != 3:
+            op.error("wrong number of arguments for tag")
+        graceid = args[1]
+        tag = args[2]
+        response = client.send('tag', graceid=graceid, tag=tag)
+    elif args[0] == 'label':
+        if len(args) != 3:
+            op.error("wrong number of arguments for label")
+        graceid = args[1]
+        label = args[2]
+        response = client.send('label', graceid=graceid, label=label)
     elif len(args) == 3:
         group = args[0]
         type = args[1]
