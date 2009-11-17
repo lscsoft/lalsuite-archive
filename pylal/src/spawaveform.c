@@ -21,6 +21,7 @@ static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, 
 static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
+static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
 
 
 const char SPADocstring[] =
@@ -112,6 +113,35 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
         return Py_None;
 	}
 
+static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args) 
+	{
+	/* Generate a SPA (frequency domain) waveform at a given PN order */
+	PyObject *arg9, *py_spa_array;
+	double mass1, mass2, spin1, spin2, deltaF, fLower;
+	npy_intp *dims = NULL;
+	complex double *data = NULL;
+	/* FIXME properly handle references */
+
+	if(!PyArg_ParseTuple(args, "ddddddO", &mass1, &mass2, &spin1, &spin2, &deltaF, &fLower, &arg9)) return NULL;
+
+	/* this gets a contiguous memory numpy array */
+        py_spa_array = PyArray_FROM_OTF(arg9, NPY_CDOUBLE, NPY_IN_ARRAY);
+	if (py_spa_array == NULL) return NULL;
+
+	/* Actually call the SPA waveform C function */
+	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
+
+	dims = PyArray_DIMS(py_spa_array);
+	data = PyArray_DATA(py_spa_array);
+
+	IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
+	//SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
+
+	Py_DECREF(py_spa_array);
+        Py_INCREF(Py_None);
+        return Py_None;
+	}
+
 static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
 	{
 
@@ -134,7 +164,12 @@ static struct PyMethodDef methods[] = {
 	{"waveform", PySPAWaveform, METH_VARARGS, 
          "This function produces a frequency domain waveform at a "
          "specified mass1, mass2 and PN order.\n\n"
-         "spawaveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
+         "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
+        },
+	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS, 
+         "This function produces a frequency domain IMR waveform at a "
+         "specified mass1, mass2, spin1, spin2 with spins aligned\n\n"
+         "imrwaveform(m1, m2, spin1, spin2, deltaF, fLower, signalArray)\n\n"
         },
 	{"chirptime", PyChirpTime, METH_VARARGS, 
          "This function calculates the SPA chirptime at a specified mass1, mass2 " 
@@ -371,3 +406,160 @@ void initspawaveform(void)
 	 * PyModule_AddObject(m, "SPAWaveformError", SPAWaveformError);
          */
 	}
+
+int IMRSPAWaveform(double mass1, double mass2, double spin1, 
+        double spin2, double deltaF, double fLower, int numPoints,  
+        complex double *hOfF) {
+
+    double totalMass, piM, eta, chi, delta;
+    double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, fMerg, fRing, fCut, sigma;
+    double f, shft, amp0, ampEff, psiEff, fNorm;
+    double v, alpha2, alpha3, w1, vMerg, epsilon_1, epsilon_2, w2, vRing;
+    double startPhase = 0., startTime = 0., distance, Lorentzian;
+    int k, kmin, kmax;
+
+    /* calculate the total mass, symmetric mass ratio and asymmetric 
+ *      * mass ratio */
+    totalMass = mass1+mass2;
+    eta = mass1*mass2/pow(totalMass,2.);
+    piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+    delta = sqrt(1.-4.*eta); 
+    
+    /* spin parameter used for the search */
+    chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
+
+    /*********************************************************************/
+    /*              compute the phenomenological parameters              */
+    /*********************************************************************/
+
+    psi0 = 3./(128.*eta);
+
+    psi2 = 3715./756. +
+            -9.2091e+02*eta + 4.9213e+02*eta*chi + 1.3503e+02*eta*pow(chi,2.) +
+            6.7419e+03*pow(eta,2.) + -1.0534e+03*pow(eta,2.)*chi +
+            -1.3397e+04*pow(eta,3.);
+
+    psi3 = -16.*LAL_PI + 113.*chi/3. +
+            1.7022e+04*eta + -9.5659e+03*eta*chi + -2.1821e+03*eta*pow(chi,2.) +
+            -1.2137e+05*pow(eta,2.) + 2.0752e+04*pow(eta,2.)*chi +
+            2.3859e+05*pow(eta,3.);
+
+    psi4 = 15293365./508032. - 405.*pow(chi,2.)/8. +
+            -1.2544e+05*eta + 7.5066e+04*eta*chi + 1.3382e+04*eta*pow(chi,2.) +
+            8.7354e+05*pow(eta,2.) + -1.6573e+05*pow(eta,2.)*chi +
+            -1.6936e+06*pow(eta,3.);
+
+    psi6 = -8.8977e+05*eta + 6.3102e+05*eta*chi + 5.0676e+04*eta*pow(chi,2.) +
+            5.9808e+06*pow(eta,2.) + -1.4148e+06*pow(eta,2.)*chi +
+            -1.1280e+07*pow(eta,3.);
+
+    psi7 = 8.6960e+05*eta + -6.7098e+05*eta*chi + -3.0082e+04*eta*pow(chi,2.) +
+            -5.8379e+06*pow(eta,2.) + 1.5145e+06*pow(eta,2.)*chi +
+            1.0891e+07*pow(eta,3.);
+
+    fMerg =  1. - 4.4547*pow(1.-chi,0.217) + 3.521*pow(1.-chi,0.26) +
+            6.4365e-01*eta + 8.2696e-01*eta*chi + -2.7063e-01*eta*pow(chi,2.) +
+            -5.8218e-02*pow(eta,2.) + -3.9346e+00*pow(eta,2.)*chi +
+            -7.0916e+00*pow(eta,3.);
+
+    fRing = (1. - 0.63*pow(1.-chi,0.3))/2. +
+            1.4690e-01*eta + -1.2281e-01*eta*chi + -2.6091e-02*eta*pow(chi,2.) +
+            -2.4900e-02*pow(eta,2.) + 1.7013e-01*pow(eta,2.)*chi +
+            2.3252e+00*pow(eta,3.);
+
+    sigma = (1. - 0.63*pow(1.-chi,0.3))*pow(1.-chi,0.45)/4. +
+            -4.0979e-01*eta + -3.5226e-02*eta*chi + 1.0082e-01*eta*pow(chi,2.) +
+            1.8286e+00*pow(eta,2.) + -2.0169e-02*pow(eta,2.)*chi +
+            -2.8698e+00*pow(eta,3.);
+
+    fCut = 3.2361e-01 + 4.8935e-02*chi + 1.3463e-02*pow(chi,2.) +
+            -1.3313e-01*eta + -8.1719e-02*eta*chi + 1.4512e-01*eta*pow(chi,2.) +
+            -2.7140e-01*pow(eta,2.) + 1.2788e-01*pow(eta,2.)*chi +
+            4.9220e+00*pow(eta,3.);
+
+    psi1    = 0.;
+    psi5    = 0.;
+
+    /* appropriately scale with mass */
+    fCut  /= piM;
+    fMerg /= piM;
+    fRing /= piM;
+    sigma /= piM;
+
+	kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
+	kmax = fCut / deltaF < numPoints / 2 ? fCut / deltaF : numPoints / 2;
+
+    /*********************************************************************/
+    /*      set other parameters required for the waveform generation    */
+    /*********************************************************************/
+    shft = 2.*LAL_PI *startTime;
+    distance = 1e6*LAL_PC_SI;  /*1 Mpc in meters */
+        
+    /* Now compute the amplitude.  NOTE the distance is assumed to
+ *      * me in meters. This is, in principle, inconsistent with the LAL
+ *           * documentation (inspiral package). But this seems to be the convention
+ *                * employed in the injection codes */
+    amp0 = pow(LAL_MTSUN_SI*totalMass, 5./6.)*pow(fMerg,-7./6.)/pow(LAL_PI,2./3.);
+    amp0 *= pow(5.*eta/24., 1./2.)/(distance/LAL_C_SI);
+
+    /* PN correctiosn to the frequency domain amplitude of the (2,2) mode */
+    alpha2   = -323./224. + 451.*eta/168.;
+    alpha3   = (27./8. - 11.*eta/6.)*chi;
+
+    /* spin-dependant corrections to the merger amplitude */
+    epsilon_1 =  1.4547*chi - 1.8897;
+    epsilon_2 = -1.8153*chi + 1.6557;
+
+    /* normalisation constant of the inspiral amplitude */
+    vMerg = pow(LAL_PI*totalMass*LAL_MTSUN_SI*fMerg, 1./3.);
+    vRing = pow(LAL_PI*totalMass*LAL_MTSUN_SI*fRing, 1./3.);
+
+    w1 = 1. + alpha2*pow(vMerg,2.) + alpha3*pow(vMerg,3.);
+    w1 = w1/(1. + epsilon_1*vMerg + epsilon_2*vMerg*vMerg);
+    w2 = w1*(LAL_PI*sigma/2.)*pow(fRing/fMerg, -2./3.)*(1. + epsilon_1*vRing
+            + epsilon_2*vRing*vRing);
+
+    /* zero output */
+	memset (hOfF, 0, numPoints * sizeof (complex double));
+    ampEff = 0.;
+    psiEff = 0.;
+
+    /*********************************************************************/
+    /*          now generate the waveform at all frequency bins          */
+    /*********************************************************************/
+    for (k = kmin; k < kmax; k++) {
+
+        /* fourier frequency corresponding to this bin */
+      	f = k * deltaF;
+        fNorm = f/fMerg;
+
+        /* PN expansion parameter */
+        v = pow(LAL_PI*totalMass*LAL_MTSUN_SI*f, 1./3.);
+
+    	/* compute the amplitude */
+        if (f <= fMerg) {
+            ampEff = pow(fNorm, -7./6.)*(1. + alpha2*pow(v,2.) + alpha3*pow(v,3.));
+        }
+        else if ((f > fMerg) & (f <= fRing)) {
+            ampEff = w1*pow(fNorm, -2./3.)*(1. + epsilon_1*v + epsilon_2*v*v);
+        }
+        else if (f > fRing) {
+            Lorentzian =  sigma / (2.*LAL_PI * (pow(f-fRing, 2.) + sigma*sigma/4.0));
+            ampEff = w2*Lorentzian;
+        }
+
+        /* now compute the phase */
+        psiEff =  shft*f + startPhase
+                    + 3./(128.*eta*pow(v,5.))*(1 + psi2*pow(v, 2.)
+                    + psi3*pow(v, 3.) + psi4*pow(v, 4.)
+                    + psi5*pow(v, 5.) + psi6*pow(v, 6.)
+                    + psi7*pow(v, 7.));
+
+       	/* generate the waveform */
+       	hOfF[k] = amp0*ampEff * (cos(psiEff) - I * sin(psiEff)); 
+
+    }
+
+    return 0;
+
+}
