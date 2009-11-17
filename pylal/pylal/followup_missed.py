@@ -39,6 +39,7 @@ from pylal import CoincInspiralUtils
 from pylal import SearchSummaryUtils
 from glue import lal
 from glue import markup
+from glue import pipeline
 from glue import segments
 from glue import segmentsUtils
 from glue.markup import oneliner as extra
@@ -684,7 +685,7 @@ class FollowupMissed:
     fill_table( page, ['eff_dist_l','%.1f' %  inj.eff_dist_l] )
     fill_table( page, ['eff_dist_v','%.1f' %  inj.eff_dist_v] )
     fill_table( page, ['eff_dist_g','%.1f' %  inj.eff_dist_g] )  
-    fill_table( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )    
+    fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )    
     page.add('</table></td>')
     
     # print infos to screen if required

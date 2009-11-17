@@ -644,7 +644,25 @@ def ifo_seg_dict(cp):
   out = {}
   instruments = set()
   cat_list = set()
-  ifos = ['H1','H2','L1','V1']
+  fulldata_cachefile = string.strip(cp.get('input','fulldatacache'))
+  fulldata_cachelines = []
+  fulldata_ifos = set()
+  for line in open(fulldata_cachefile).readlines():
+    tmp = lal.CacheEntry(line)
+    if 'INSPIRAL_SECOND' in tmp.description: 
+      fulldata_ifos.add(tmp.observatory)
+  inj_cachefile = string.strip(cp.get('input','injcache'))
+  inj_cachelines = []
+  inj_ifos = set()
+  for line in open(inj_cachefile).readlines():
+    tmp = lal.CacheEntry(line)
+    if 'INSPIRAL_SECOND' in tmp.description: 
+      inj_ifos.add(tmp.observatory)
+  if fulldata_ifos != inj_ifos:
+    print >> sys.stderr, "You have different ifos in the injections cache than the fulldata cache, aborting"
+    sys.exit(1)
+  else: 
+    ifos = fulldata_ifos
   cats = ['CAT_2', 'CAT_3','CAT_4','CAT_5']
   combos = {}
   for c in cats:
@@ -946,7 +964,7 @@ THERE ARE THREE WAYS TO RUN THIS PROGRAM
 
 (3) USAGE ONCE YOU HAVE A CONFIG FILE (to override defaults):
 
-        post_process_pipe my_ini_file.ini
+	post_process_pipe my_ini_file.ini
 
 HINT IF YOU DON'T KNOW WHAT SHOULD BE IN THE CONFIG FILE, RUN IN MODE (2) AND THEN
 EDIT THE INIFLE BY HAND AND RUN IN MODE (3)
