@@ -316,7 +316,7 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
-    all_ifos = ['H1','H2','L1','V1']
+    all_ifos = ['H1','L1','V1']
     columns = ["mc_bin", "event_id"] \
         + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
