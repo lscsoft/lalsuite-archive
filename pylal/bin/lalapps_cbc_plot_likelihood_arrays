@@ -40,6 +40,7 @@ matplotlib.rcParams.update({
 })
 from matplotlib import figure
 from matplotlib import patches
+from matplotlib import colorbar
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy
 from optparse import OptionParser
@@ -91,15 +92,28 @@ def binned_ratios_extractor(xmldoc):
 		yield name, rate.binned_ratios_from_xml(xmldoc, name)
 
 
-def binned_ratios_plot(title, xcoords, ycoords, data, ncontours = 9):
-	fig = figure.Figure()
+def binned_ratios_plot(title, xcoords, ycoords, data, ncontours = 9, xlims = None, ylims = None, datamin = -200, datamax = 200):
+	fig = figure.Figure(figsize=(4,3))
 	FigureCanvas(fig)
-	axes = fig.gca()
-	axes.loglog()
+	axes = fig.add_axes((.15,.15,.55,.75))
+	# FIXME: should extract the binned array type some other way
+	if 'mtotal' in title:
+		axes.semilogx()
+	else:
+		axes.loglog()
+
+	data[data < datamin] = datamin
+	data[data > datamax] = datamax
+
 	cset = axes.contour(xcoords, ycoords, data, ncontours)
-	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
-	axes.add_patch(patches.Rectangle((min(xcoords), min(ycoords)), max(xcoords) - min(xcoords), max(ycoords) - min(ycoords), edgecolor = "k", fill = False))
+	cbar = fig.add_axes((.75,.15,.1,.75))
+	colorbar.Colorbar(cbar, cset)
+	axes.set_xlim(xlims)
+	axes.set_ylim(ylims)
 	axes.set_title(title)
+	# FIXME: should extract the name of the dimensions some other way
+	axes.set_ylabel(title.split('-vs-')[0].split('-')[-1])
+	axes.set_xlabel(title.split('-vs-')[1].split(' ')[0])
 	return fig
 
 
@@ -115,29 +129,41 @@ def binned_ratios_plot(title, xcoords, ycoords, data, ncontours = 9):
 options, filenames = parse_command_line()
 
 
+saved_ratios = {}
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
-
 	for name, ratios in binned_ratios_extractor(xmldoc):
-		xcoords, ycoords = ratios.numerator.bins.centres()
+		if name not in saved_ratios.keys():
+			saved_ratios[name] = ratios
+		else:
+			saved_ratios[name] += ratios
 
-		outname = "%s_num.png" % name
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % outname
-		fig = binned_ratios_plot("%s Numerator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.numerator.array))
-		fig.savefig(outname)
+for name, ratios in saved_ratios.items():
+	# FIXME: currently only plots 2D binned ratios
+	if '_vs_' not in name:
+		continue
 
-		outname = "%s_den.png" % name
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % outname
-		fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(ratios.denominator.array))
-		fig.savefig(outname)
+	xcoords, ycoords = ratios.numerator.bins.centres()
 
-		outname = "%s_ratio.png" % name
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % outname
-		ratios.logregularize()
-		fig = binned_ratios_plot("%s Likelihood Ratio" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.ratio())), ncontours = 49)
-		fig.savefig(outname)
+	outname = "%s_num.png" % name
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % outname
+	fig = binned_ratios_plot("%s Numerator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.numerator.array)), ncontours=49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-10)
+	fig.savefig(outname)
+
+	outname = "%s_den.png" % name
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % outname
+	fig = binned_ratios_plot("%s Denominator" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.denominator.array)), ncontours=49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-10)
+	fig.savefig(outname)
+
+	ratios.logregularize()
+
+	outname = "%s_ratio.png" % name
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % outname
+	ratios.logregularize()
+	fig = binned_ratios_plot("%s Likelihood Ratio" % name.replace("_", "-"), xcoords, ycoords, numpy.transpose(numpy.log10(ratios.ratio())), ncontours = 49, xlims=(ratios.numerator.bins.min[0],ratios.numerator.bins.max[0]), ylims=(ratios.numerator.bins.min[1],ratios.numerator.bins.max[1]), datamin=-10, datamax=20)
+	fig.savefig(outname)

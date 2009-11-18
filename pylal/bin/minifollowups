@@ -25,6 +25,7 @@ from glue.ligolw.utils import print_tables
 import matplotlib
 matplotlib.use('Agg')
 from pylal import followup_trigger
+from pylal import printutils
 
 def organize_coincs(new_coincs,sngls,coinc_map):
 # This function takes a (new style) coinc table and sngl table along with
@@ -125,7 +126,12 @@ for coinc in coincTable:
 if opts.input_xml_summary:
   xmlSummary = utils.load_filename(opts.input_xml_summary,\
                  gz = opts.input_xml_summary.endswith("gz")) 
-  summTable = table.get_table(xmlSummary,"loudest_events:table")
+  try:
+    summTable = table.get_table(xmlSummary,"loudest_events:table")
+    summTableName = "loudest_events"
+  except:
+      summTable = table.get_table(xmlSummary,"selected_found_injections:table")
+      summTableName = "selected_found_injections"
 
   for event in summTable:
     for coinc,p in zip(coincTable,page):
@@ -133,11 +139,12 @@ if opts.input_xml_summary:
         event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>''' 
   if opts.output_html_table is not None:
     output = open(opts.output_html_table,'w')
-    tableList = ['loudest_events']
-    columnList = ['rank', 'combined_far', 'false_alarm_rate', 'snr', 'end_time', 'end_time_ns', 'mass', 'mchirp', 'ifos', 'instruments_on', 'duration']
+    tableList = [summTableName]
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(xmlSummary, tableList[0])
     print_tables.print_tables(summTable, output, "html",\
-        tableList = tableList,columnList = columnList,round_floats = True, \
-        decimal_places = 2, title = None,print_table_names = False)
+        tableList = tableList, columnList = columnList, round_floats = True, \
+        decimal_places = 2, title = None, print_table_names = False,
+        row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     output.close()
 
   for event in summTable:

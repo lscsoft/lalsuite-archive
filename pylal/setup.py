@@ -355,6 +355,7 @@ setup(
 		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
+                os.path.join("bin", "plotextrapolation"),
 		os.path.join("bin", "plotgrbl"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotnumgalaxies"),
@@ -465,7 +466,11 @@ setup(
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
 		os.path.join("bin", "minifollowups"),
-		os.path.join("bin", "ligolw_cbc_plotcumhist")
+		os.path.join("bin", "ligolw_cbc_plotcumhist"),
+        os.path.join("bin", "lalapps_cbc_compute_rs"),
+        os.path.join("bin", "lalapps_cbc_print_rs"),
+        os.path.join("bin", "ligolw_cbc_printsims"),
+        os.path.join("bin", "ligolw_cbc_printmissed")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

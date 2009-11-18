@@ -44,6 +44,7 @@ from pylal import grbsummary
 from pylal import viz
 from glue import lal
 from glue import markup
+from glue import pipeline
 from glue import segments
 from glue import segmentsUtils
 from glue import iterutils
@@ -514,6 +515,10 @@ class FollowupTrigger:
       return 0.0
 
   # -----------------------------------------------------
+  def get_new_snr(self, trig):
+    return trig.get_new_snr(index=6.0)
+
+  # -----------------------------------------------------
   def get_sim_time(self, sim, ifo = None):
     """
     This is a helper function to return a GPS time as one float number
@@ -640,7 +645,8 @@ class FollowupTrigger:
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
           loudest_details[ifo]["chisq"] = loudest.chisq
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
-	  loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
+          loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
+          loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
 
         # plot the triggers
         pylab.plot( time_large, selected_large.get_column('snr'),\
@@ -755,7 +761,7 @@ class FollowupTrigger:
 	           (eval("inj.eff_dist_%s" % ifo_id), eval("inj_sned.eff_dist_%s" % ifo_id))] )
       else:
         self.fill_table( page, ['eff_dist_%s' % ifo_id, '%5.1f' % eval("inj.eff_dist_%s" % ifo_id)] )
-    self.fill_table( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )    
+    self.fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )    
     page.add('</table></td>')
     page.hr()
     
@@ -785,6 +791,7 @@ class FollowupTrigger:
     self.fill_table(page, ['snr', trig.snr])
     self.fill_table(page, ['chisq', trig.chisq])
     self.fill_table(page, ['eff_snr', self.get_effective_snr(trig)])
+    self.fill_table(page, ['new_snr', self.get_new_snr(trig)])
     self.fill_table(page, ['eff_distance', '%.1f' % trig.eff_distance] )
     page.add('</table></td><br>')
     page.hr()
@@ -826,6 +833,7 @@ class FollowupTrigger:
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
         self.fill_table( page, ['Effective SNR',self.get_effective_snr(trig)] )
+        self.fill_table( page, ['New snr',self.get_new_snr(trig)])
         self.fill_table( page, ['SNR', trig.snr] )
         self.fill_table( page, ['ChiSq', trig.chisq] )
         self.fill_table( page, ['RSQ', trig.rsqveto_duration] )                        
@@ -876,8 +884,8 @@ class FollowupTrigger:
     page.add('<td><table border="2" >')
     self.fill_table( page, ['<b>step','<b>F/M', '<b>Rec. SNR', \
                             '<b>Rec. mchirp', '<b>Rec. eff_dist', \
-                            '<b>Rec. chisq','<b>Rec eff_snr',\
-                            '<b>Veto ON/OFF'] )
+                            '<b>Rec. chisq', '<b>Rec eff_snr',\
+                            '<b>Rec. new_snr', '<b>Veto ON/OFF'] )
 
     # loop over the stages and create the table with
     # the various data in it (when available)
@@ -892,6 +900,7 @@ class FollowupTrigger:
         loudest_eff_dist = ''
         loudest_chisq = ''
 	loudest_effsnr = ''
+        loudest_newsnr = ''
         veto_onoff = ''
 
         # add all the IFO's for this coincident
@@ -903,14 +912,15 @@ class FollowupTrigger:
 	  loudest_snr += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['snr'])
 	  loudest_mchirp += "%s : %.3f <br>" % \
-                            (ifo, result['loudest_details'][ifo]['mchirp'])
+                         (ifo, result['loudest_details'][ifo]['mchirp'])
 	  loudest_eff_dist += "%s : %.3f <br>" % \
-                              (ifo, result['loudest_details'][ifo]['eff_dist'])
+                         (ifo, result['loudest_details'][ifo]['eff_dist'])
 	  loudest_chisq += "%s : %.3f <br>" % \
-                           (ifo, result['loudest_details'][ifo]['chisq'])
+                         (ifo, result['loudest_details'][ifo]['chisq'])
 	  loudest_effsnr += "%s : %.3f <br>" % \
-                            (ifo, result['loudest_details'][ifo]['eff_snr'])
-
+                         (ifo, result['loudest_details'][ifo]['eff_snr'])
+	  loudest_newsnr += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['new_snr'])   
           
           # Check whether some of the ifo times is vetoed
           time_trigger = float(result['loudest_details'][ifo]['timeTrigger'])
@@ -930,7 +940,8 @@ class FollowupTrigger:
                                    'loudest<br>'+loudest_mchirp, \
                                    'loudest<br>'+loudest_eff_dist,\
                                    'loudest<br>'+loudest_chisq, \
-				   'loudest<br>'+loudest_effsnr,
+				   'loudest<br>'+loudest_effsnr, \
+				   'loudest<br>'+loudest_snr,
 				   veto_onoff])
         else:
           self.fill_table( page, [ stage,  '<font color="red">MISSED'])

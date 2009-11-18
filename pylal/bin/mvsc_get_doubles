@@ -219,7 +219,7 @@ zlstr = opts.zerolagstr
 
 
 if len(injections) != 0:	
-	Nparams = len(injections[0][:]) - 1
+	Nparams = len(injections[0]) - 1
 
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
