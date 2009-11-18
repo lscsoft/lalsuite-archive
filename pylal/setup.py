@@ -253,6 +253,7 @@ setup(
 		os.path.join("bin", "pylal_combine_posteriors"),
 		os.path.join("bin", "pylal_followup_missed"),
 		os.path.join("bin", "followupRescueHtml"),
+		os.path.join("bin", "pylal_expose"),
 		os.path.join("bin", "pylal_exttrig_summary"),
 		os.path.join("bin", "pylal_grblikelihood"),
 		os.path.join("bin", "pylal_grbUL"),
