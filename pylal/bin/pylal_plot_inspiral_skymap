@@ -15,13 +15,25 @@ from pylal import webUtils
 from pylal import InspiralUtils
 import sys
 
-def get_2d_RA_DEC_bins(RAbins=1024, DECbins=512, minRA=0, maxRA=2.0 * math.pi, minDEC = -math.pi/2.0, maxDEC = math.pi/2.0):
+def bin_and_smooth(X, Y, DATA, XYbin):
+  # doesn't actually smooth yet
+  out = rate.BinnedArray(XYbin)
+  for i, d in enumerate(DATA):
+    out[Y[i],X[i]] += d
+  #out.to_pdf()
+  wn = rate.gaussian_window2d(11, 11, 10)
+  rate.filter_array(out.array, wn)
+  return out.array
+   
+def get_2d_RA_DEC_bins(RAbins=600, DECbins=300, minRA=0, maxRA=2.0 * math.pi, minDEC = -math.pi/2.0, maxDEC = math.pi/2.0):
   """
   Given the component mass range low, high of the search it will
   return 2D bins with size bins in each direction
   """
-  RAbin = rate.LinearBins(minRA, maxRA, RAbins)
-  DECbin = rate.LinearBins(minDEC, maxDEC, DECbins)
+  #print minRA, minDEC
+  #Multiply the bin number by 1.5 because we'll smooth later
+  RAbin = rate.LinearBins(minRA, maxRA, int(RAbins))
+  DECbin = rate.LinearBins(minDEC, maxDEC, int(DECbins))
   twoDRADECBin = rate.NDBins( (DECbin, RAbin) )
   return RAbin, DECbin, twoDRADECBin
 
@@ -45,12 +57,14 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   maxIX = PROB.argmax()
 
   # FIXME compute bin boundaries?
-  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=0.0, maxRA=2.0*math.pi, minDEC = -math.pi/2.0, maxDEC = math.pi/2.0)
+  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins()
 
   Xi = RAbin.centres()
   Yi = DECbin.centres()
   #FIXME Z has the RA and DEC reversed from what you might expect
-  Z = pylab.griddata(RA, DEC, PROB, Xi, Yi)
+  #Z = pylab.griddata(RA, DEC, PROB, Xi, Yi)
+  Z = bin_and_smooth(RA, DEC, PROB, twoDRADECBin)
+  
   pylab.figure(1)
 
   pylab.subplot(2,1,1)

@@ -60,6 +60,7 @@ for(k=0;k<d_free;k++) {
 		r[*count].f_plus=NAN;
 		r[*count].f_cross=NAN;
 		r[*count].bin_shift=NAN;
+		r[*count].diff_bin_shift=NAN;
 		
 		(*count)++;
 		}
@@ -1922,7 +1923,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
-	weight_ppcc+=weight*f_pp*f_cc;
+	weight_ppcc+=weight*(0.6666667*f_pc*f_pc+0.3333333*f_pp*f_cc); /* 2/3 and 1/3 */
 	weight_pccc+=weight*f_pc*f_cc;
 	weight_cccc+=weight*f_cc*f_cc;
 
@@ -2036,8 +2037,8 @@ float weight;
 float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc;
 float x, y;
 float alpha;
-double phase_offset;
-float f0m_c, f0m_s;
+double phase_offset, phase_increment;
+float f0m_c, f0m_s, inc_c, inc_s;
 int same_halfs=(si[0].segment==si[ctx->loose_first_half_count].segment) && (si[0].dataset==si[ctx->loose_first_half_count].dataset);
 
 int pps_bins=pps->nbins;
@@ -2132,7 +2133,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
-	weight_ppcc+=weight*f_pp*f_cc;
+	weight_ppcc+=weight*(0.6666667*f_pc*f_pc+0.3333333*f_pp*f_cc); /* 2/3 and 1/3 */
 	weight_pccc+=weight*f_pc*f_cc;
 	weight_cccc+=weight*f_cc*f_cc;
 
@@ -2141,8 +2142,21 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	f_cc*=weight;
 
 	/* contribution from frequency mismatch */
-	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+// 	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+// 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
+
+	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.25*nbins*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+	//phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
+
+	f0m_c=cosf(phase_offset);
+	f0m_s=sinf(-phase_offset);
+
+	phase_increment=(1+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
+			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
+
+	inc_c=cosf(phase_increment);
+	inc_s=sinf(-phase_increment);
 
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
@@ -2180,6 +2194,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 		a=(x*(*re2)+y*(*im2));
 
+		x=f0m_c*inc_c-f0m_s*inc_s;
+		y=f0m_c*inc_s+f0m_s*inc_c;
+
+		f0m_c=x;
+		f0m_s=y;
 
 		(*pp)+=a*f_pp;
 		(*pc)+=a*f_pc;
@@ -2370,8 +2389,8 @@ float weight;
 float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc;
 float x, y;
 float alpha;
-double phase_offset;
-float f0m_c, f0m_s;
+double phase_offset, phase_increment;
+float f0m_c, f0m_s, inc_c, inc_s;
 int same_halfs=(si[0].segment==si[ctx->loose_first_half_count].segment) && (si[0].dataset==si[ctx->loose_first_half_count].dataset);
 
 int pps_bins=pps->nbins;
@@ -2487,7 +2506,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
-	weight_ppcc+=weight*f_pp*f_cc;
+	weight_ppcc+=weight*(0.6666667*f_pc*f_pc+0.3333333*f_pp*f_cc); /* 2/3 and 1/3 */
 	weight_pccc+=weight*f_pc*f_cc;
 	weight_cccc+=weight*f_cc*f_cc;
 
@@ -2495,12 +2514,20 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	f_pc*=weight;
 	f_cc*=weight;
 
+
 	/* contribution from frequency mismatch */
-	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.25*(nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+	//phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
+
+	phase_increment=(1+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
+			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
+
+	inc_c=cosf(phase_increment);
+	inc_s=sinf(-phase_increment);
 
 //  	d=&(datasets[si_local->dataset]);
 //  	d2=&(datasets[si_local2->dataset]);
@@ -2535,6 +2562,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 		a=(x*(*re2)+y*(*im2));
 
+		x=f0m_c*inc_c-f0m_s*inc_s;
+		y=f0m_c*inc_s+f0m_s*inc_c;
+
+		f0m_c=x;
+		f0m_s=y;
 
 		(*pp)+=a*f_pp;
 		(*pc)+=a*f_pc;
