@@ -52,7 +52,7 @@ def injection(RAbin, DECbin, probs, injRA, injDEC):
 
 def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None, mass_1=None, mass_2=None, spin_1_x=None, spin_1_y=None, spin_1_z=None, spin_2_x=None, spin_2_y=None, spin_2_z=None, distance=None ):
 
-  M = pylab.load(map_data_file)
+  M = numpy.loadtxt(map_data_file)
   RA = M[:,0]; DEC = M[:,1]; PROB = M[:,2]
   maxIX = PROB.argmax()
 
