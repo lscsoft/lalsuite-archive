@@ -49,6 +49,7 @@ from warnings import warn
 
 from glue import git_version
 from glue import segments
+from glue.ligolw import ilwd
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -619,7 +620,9 @@ class DBTable(table.Table):
 		queries into Python objects.
 		"""
 		row = self.RowType()
-		for c, v in zip(self.dbcolumnnames, values):
+		for c, t, v in zip(self.dbcolumnnames, self.dbcolumntypes, values):
+			if t == "ilwd:char":
+				v = ilwd.get_ilwdchar(v)
 			setattr(row, c, v)
 		return row
 	# backwards compatibility
