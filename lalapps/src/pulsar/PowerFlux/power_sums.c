@@ -126,7 +126,7 @@ POLARIZATION *pl;
 int gps_step=ctx->summing_step;
 int i, j, k;
 float min_shift, max_shift, a;
-double gps_idx;
+double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
 int group_count=ctx->sidereal_group_count;
 /* for work with Doppler shifts sidereal day is best */
@@ -142,6 +142,7 @@ float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for am
 
 for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
+	gps_idx_next=gps_idx+gps_step;
 	si=find_segments(gps_idx, (gps_idx_next<=gps_stop ? gps_idx_next : gps_stop), veto_mask, &segment_count);
 	if(segment_count<1) {
 		free(si);
@@ -268,7 +269,7 @@ POLARIZATION *pl;
 int gps_step=ctx->summing_step;
 int i, j, k;
 float min_shift, max_shift, a;
-double gps_idx;
+double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
 int group_count=24;
 /* for work with Doppler shifts sidereal day is best */
@@ -284,6 +285,7 @@ float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for am
 
 for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 
+	gps_idx_next=gps_idx+gps_step;
 	si=find_segments(gps_idx, (gps_idx_next<=gps_stop ? gps_idx_next : gps_stop), veto_mask, &segment_count);
 	if(segment_count<1) {
 		free(si);
@@ -542,7 +544,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		// 			memcpy(si[j].e, ps[i].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
 		
 					si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
-						center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+						(center_frequency+ps_local->freq_shift)*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 							+ps_local->e[1]*si_local->detector_velocity[1]
 							+ps_local->e[2]*si_local->detector_velocity[2]);
 					si_local->diff_bin_shift=(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
