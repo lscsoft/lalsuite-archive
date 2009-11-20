@@ -32,6 +32,7 @@ methods that work against the SQL database.
 """
 
 
+import itertools
 import os
 import re
 import shutil
@@ -683,12 +684,6 @@ class TimeSlideTable(DBTable):
 	RowType = lsctables.TimeSlideTable.RowType
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
-	def __len__(self):
-		raise NotImplementedError
-
-	def __getitem__(*args):
-		raise NotImplementedError
-
 	def get_offset_dict(self, id):
 		offsets = dict(self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)))
 		if not offsets:
@@ -700,12 +695,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		d = {}
-		for id, instrument, offset in self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide"):
-			if id not in d:
-				d[id] = {}
-			d[id][instrument] = offset
-		return d
+		return dict((ilwd.get_ilwdchar(id), dict((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None):
 		"""
@@ -739,9 +729,6 @@ class TimeSlideTable(DBTable):
 
 		# return new ID
 		return id
-
-	def iterkeys(self):
-		raise NotImplementedError
 
 
 #
