@@ -661,23 +661,6 @@ class DBTable(table.Table):
 #
 
 
-class ProcessTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.ProcessTable.tableName
-	validcolumns = lsctables.ProcessTable.validcolumns
-	constraints = lsctables.ProcessTable.constraints
-	next_id = lsctables.ProcessTable.next_id
-	RowType = lsctables.ProcessTable.RowType
-	how_to_index = lsctables.ProcessTable.how_to_index
-
-	def get_ids_by_program(self, program):
-		"""
-		Return a set of the process IDs from rows whose program
-		string equals the given program.
-		"""
-		return set(id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,)))
-
-
 class ProcessParamsTable(DBTable):
 	tableName = lsctables.ProcessParamsTable.tableName
 	validcolumns = lsctables.ProcessParamsTable.validcolumns
@@ -808,7 +791,6 @@ def build_indexes(connection, verbose = False):
 
 
 TableByName = {
-	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
 }
