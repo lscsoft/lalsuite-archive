@@ -478,7 +478,7 @@ LIMIT ?
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
 
                 if len(self.background_candidates) < self.num: self.num = len(self.background_candidates)
-		trigs = [(t.combined_far, t) for t in self.backround_candidates]
+		trigs = [(t.combined_far, t) for t in self.background_candidates]
 		trigs.sort()
 		self.background_candidates = [t[1] for t in trigs[0:self.num] ]
 
