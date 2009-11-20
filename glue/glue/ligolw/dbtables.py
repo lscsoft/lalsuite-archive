@@ -294,10 +294,10 @@ def idmap_get_new(connection, old, tbl):
 	new = cursor.fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
-		return new[0]
+		return ilwd.get_ilwdchar(new[0])
 	# this ID was not found in _idmap_ table, assign a new ID and
 	# record it
-	new = unicode(tbl.get_next_id())
+	new = tbl.get_next_id()
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
 
@@ -622,7 +622,7 @@ class DBTable(table.Table):
 		"""
 		row = self.RowType()
 		for c, t, v in zip(self.dbcolumnnames, self.dbcolumntypes, values):
-			if t == "ilwd:char":
+			if t in ligolwtypes.IDTypes:
 				v = ilwd.get_ilwdchar(v)
 			setattr(row, c, v)
 		return row
