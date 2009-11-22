@@ -636,7 +636,10 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from %s table..." % recovery_table
     # use the coinc_event_ids to figure out what to keep
-    save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in sftable]
+    save_ids = [(''.join(['"', row.coinc_event_id, '"']),) for row in sftable]
+    # stick them in a temporary table
+    connection.cursor().execute("CREATE TEMP TABLE save_ceids (ceid)")
+    connection.cursor().executemany("INSERT INTO save_ceids (ceid) VALUES (?)", save_ids)
     # delete all other ids from the recovery table
     sqlquery = ''.join([ """
         DELETE
@@ -644,8 +647,10 @@ if opts.extract_to_xml:
             """, recovery_table, """
         WHERE
             coinc_event_id NOT IN (
-            """, ','.join(save_ids), """
-            )""" ])
+                SELECT
+                    ceid
+                FROM
+                    save_ceids )""" ])
     connection.cursor().execute(sqlquery)
 
     # clean up the other tables that point to the deleted ids
@@ -670,11 +675,17 @@ if opts.extract_to_xml:
                     sim_id
                 FROM
                     sim_rec_map )
+            OR event_id IN (
+                SELECT
+                    ceid
+                FROM
+                    save_ceids )
             OR coinc_event_id IN (
                 SELECT
-                    rec_id
+                    ceid
                 FROM
-                    sim_rec_map ) )"""
+                    save_ceids )
+            )"""
     connection.cursor().execute(sqlquery)
 
     # now remove events from other tables that are no longer in the coinc_event_map
