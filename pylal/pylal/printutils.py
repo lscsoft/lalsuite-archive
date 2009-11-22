@@ -10,14 +10,15 @@
 A collection of utilities to assist in printing out information from an xmldoc.
 '''
 
-import sys
-import time
-import datetime
+import sys, re, math
+import time, datetime
 
 from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import lsctables
 
+from pylal import ligolw_sqlutils as sqlutils
 from pylal.xlal.date import XLALGPSToUTC
 try:
     from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -233,7 +234,7 @@ def create_hyperlink(address, link):
 
 
 def create_filter( connection, tableName, param_name = None, param_ranges = None, 
-    exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ'):
+    exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ', verbose = False):
     """
     Strings together param_name, param_ranges, exclude/include_only_coincs, and
     sim_tag options into a filter string that can be stuck in a sqlite WHERE clause.
@@ -294,14 +295,22 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
 def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_by, comparison_datatype,
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
-    daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily' verbose = False):
+    daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
 
     # check and format options appropriately
     simulation_table = sqlutils.validate_option(simulation_table)
-    recovery_table = sqlutitls.validate_option(recovery_table)
+    recovery_table = sqlutils.validate_option(recovery_table)
     ranking_stat = sqlutils.validate_option(ranking_stat)
+    rank_by = sqlutils.validate_option(rank_by, lower = False).upper()
     comparison_datatype = sqlutils.validate_option(comparison_datatype)
     convert_durations = sqlutils.validate_option(convert_durations)
+    
+    if rank_by == 'MIN':
+        rank_by = 'ASC'
+    elif rank_by == 'MAX':
+        rank_by = 'DESC'
+    elif rank_by != 'ASC' or rank_by != 'DESC':
+        raise ValueError, 'rank_by must be MAX (or DESC) or MIN (or ASC)'
 
     if not ranking_stat.startswith(recovery_table):
         ranking_stat = '.'.join([recovery_table, ranking_stat])
@@ -315,7 +324,8 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
     #   Set recovery table filters
     #
     in_this_filter = create_filter(connection, recovery_table, param_name = param_name, param_ranges = param_ranges,
-        exclude_coincs = exclude_coincs, include_only_coincs = include_only_coincs, sim_tag = sim_tag)
+        exclude_coincs = exclude_coincs, include_only_coincs = include_only_coincs, sim_tag = sim_tag,
+        verbose = verbose)
     
     
     #
