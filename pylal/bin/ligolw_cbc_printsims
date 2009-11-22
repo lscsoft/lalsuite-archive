@@ -636,7 +636,7 @@ if opts.extract_to_xml:
         print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
         print >> sys.stdout, "Deleting unwanted triggers from %s table..." % recovery_table
     # use the coinc_event_ids to figure out what to keep
-    save_ids = [(''.join(['"', row.coinc_event_id, '"']),) for row in sftable]
+    save_ids = [(row.coinc_event_id,) for row in sftable]
     # stick them in a temporary table
     connection.cursor().execute("CREATE TEMP TABLE save_ceids (ceid)")
     connection.cursor().executemany("INSERT INTO save_ceids (ceid) VALUES (?)", save_ids)
