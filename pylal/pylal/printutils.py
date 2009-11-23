@@ -602,3 +602,222 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
                 key = lambda row: row.recovered_match_rank))
     
     return sftable
+
+
+
+def printmissed(connection, simulation_table, recovery_table, instrument_time,
+    param_name = None, param_ranges = None, sim_tag = 'ALLINJ', limit = None, 
+    daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
+    
+    from pylal import db_thinca_rings
+    from glue import segments
+
+    # Get simulation table from options
+    simulation_table = sqlutils.validate_option(simulation_table)
+    # Get recovery table and ranking stat from options
+    recovery_table = sqlutils.validate_option(recovery_table)
+    
+    # Get the requested instruments
+    requested_instruments = lsctables.instrument_set_from_ifos(instrument_time.upper())
+    
+    # get the ring_sets
+    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
+    
+    if verbose:
+        print >> sys.stderr, "Getting all veto category name from the experiment_summary table..."
+    
+    # get veto_segments
+    sqlquery = """
+        SELECT DISTINCT
+            veto_def_name
+        FROM
+            experiment_summary
+        """
+    # FIXME: this assumes only 1 veto_def_name in the category; while this is currently true in pipedown
+    # databases, it necessarily doesn't have to be
+    veto_def_name = connection.cursor().execute(sqlquery).fetchone()[0]
+    if verbose:
+        print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
+    try:
+        veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+    except AttributeError:
+        # will get an AttributeError if using newer format veto segment file because
+        # the new format does not include _ns; if so, remove the _ns columns from the
+        # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
+        from glue.lal import LIGOTimeGPS
+    
+        del lsctables.SegmentTable.validcolumns['start_time_ns']
+        del lsctables.SegmentTable.validcolumns['end_time_ns']
+    
+        def get_segment(self):
+            """
+            Return the segment described by this row.
+            """
+            return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+    
+        def set_segment(self, segment):
+            """
+            Set the segment described by this row.
+            """
+            self.start_time = segment[0].seconds
+            self.end_time = segment[1].seconds
+    
+        lsctables.Segment.get = get_segment
+        lsctables.Segment.set = set_segment
+    
+        veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+    
+    # get instrument on_time
+    on_times = ring_sets[frozenset(requested_instruments)]
+    for instrument in requested_instruments:
+        on_times = on_times - veto_segments[instrument]
+    
+    def is_in_on_time(gps_end_time, gps_end_time_ns):
+        return LIGOTimeGPS(gps_end_time, gps_end_time_ns) in on_times
+    
+    connection.create_function('is_in_on_time', 2, is_in_on_time)
+    
+    # set up sim_rec_map table
+    sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
+    
+    
+    #
+    #   Set table filters
+    #
+    
+    in_this_filter = """
+        WHERE
+            simulation_id NOT IN (
+                SELECT
+                    sim_id
+                FROM
+                    sim_rec_map )"""
+    
+    for instrument in requested_instruments:
+        inst_time = instrument.lower()[0] + '_end_time'
+        inst_time_ns = inst_time + '_ns' 
+        in_this_filter = ''.join([ in_this_filter,
+            '\n\tAND is_in_on_time(', inst_time, ',', inst_time_ns, ')' ])
+    
+    # Get param and param-ranges if specified
+    if param_name:
+        param_name = sqlutils.validate_option(param_name)
+        param_filters = sqlutils.parse_param_ranges( simulation_table, param_name, 
+            param_ranges, verbose = verbose ).get_param_filters()
+        # since want triggers that fall within all the parameters, concatenate
+        # all param ranges
+        param_filters = '\n\t\tOR '.join( param_filters )
+        in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', param_filters, '\n\t)' ])
+    
+    # if sim-tag specified add the sim-tag to the filter
+    if sim_tag != 'ALLINJ':
+        # create a map between sim_proc_id and sim-name
+        sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
+        # check that sim_tag is in the the map
+        sim_tag = sqlutils.validate_option(sim_tag, lower = False).upper()
+        if sim_tag not in sim_map.tag_id_map.keys():
+            raise ValueError, "sim-tag %s not found in database" % sim_tag
+        # create the filter
+        connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
+        sim_filter = ''.join(['get_sim_tag(', simulation_table, '.process_id) == "', sim_tag, '"' ])
+        # add to in_this_filter
+        in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
+    
+    #
+    #   Set up decisive distance argument
+    #
+    
+    def get_decisive_distance( *args ):
+       return sorted(args)[1]
+    
+    connection.create_function('get_decisive_distance', len(requested_instruments), get_decisive_distance)
+    decisive_distance = ''.join(['get_decisive_distance(', ','.join(['eff_dist_'+inst.lower()[0] for inst in requested_instruments]), ')' ])
+    
+    #
+    #   Initialize ranking. Statistics for ranking are based on decisive distance
+    #
+    if verbose:
+        print >> sys.stdout, "Getting statistics for ranking..."
+    ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
+    # add requirement that stats not be found in the sim_rec_table to in_this_filter
+    ranker.populate_stats_list(connection, limit = limit, filter = in_this_filter)
+    connection.create_function( 'rank', 1, ranker.get_rank )
+    
+    #
+    #   Create and prepare the CloseMissedTable to store summary information
+    #
+    
+    # Get simulation table column names from database
+    simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
+    column_names = simulation_table_columns + \
+        ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
+    
+    #
+    # define needed tables
+    #
+    class CloseMissedTable(table.Table):
+        tableName = "close_missed_injections:table"
+        validcolumns = {}
+        for col_name in column_names:
+            if 'rank' in col_name:
+                validcolumns[col_name] = "int_4u"
+            elif 'instruments_on' in col_name:
+                validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
+            elif 'decisive_distance' == col_name:
+                validcolumns[col_name] = sqlutils.get_col_type(simulation_table, 'eff_dist_h')
+            elif 'end_time' == col_name or 'end_time_ns' == col_name:
+                validcolumns[col_name] = "int_4s"
+            else:
+                validcolumns[col_name] = sqlutils.get_col_type(simulation_table, col_name, default = 'lstring')
+    
+    class CloseMissed(object):
+        __slots__ = CloseMissedTable.validcolumns.keys()
+    
+        def get_pyvalue(self):
+            return generic_get_pyvalue(self)
+    
+    # connect the rows to the tables
+    CloseMissedTable.RowType = CloseMissed
+    
+    #
+    #   Get the Data
+    #
+    cmtable = lsctables.New(CloseMissedTable)
+    sqlquery = ''.join(["""
+        SELECT
+            *,
+            """, decisive_distance, """,
+            rank(""", decisive_distance, """)
+        FROM
+            """, simulation_table, """
+        """, in_this_filter, """
+            AND rank(""", decisive_distance, """) <= """, str(limit), """
+        ORDER BY
+            rank(""", decisive_distance, """) ASC
+            """])
+    
+    if verbose:
+        print >> sys.stdout, "Getting injections..."
+        print >> sys.stdout, "SQLite query used is:"
+        print >> sys.stdout, sqlquery
+    
+    for values in connection.cursor().execute( sqlquery ).fetchall():
+        cmrow = CloseMissed()
+        [ setattr(cmrow, column, values[ii]) for ii, column in enumerate(simulation_table_columns) ]
+        cmrow.decisive_distance = values[-2]
+        cmrow.rank = values[-1]
+        cmrow.mini_followup = None
+        cmrow.end_time = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time')
+        cmrow.end_time_ns = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time_ns')
+        # set  elog page
+        elog_pages = [(ifo, get_elog_page(ifo, cmrow.end_time)) for ifo in requested_instruments]
+        cmrow.elogs = ','.join([ create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+        # set daily_ihope page
+        end_time_utc = format_end_time_in_utc( cmrow.end_time ) 
+        daily_ihope_address = get_daily_ihope_page(cmrow.end_time, pages_location = daily_ihope_pages_location)
+        cmrow.end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
+    
+        # add the row
+        cmtable.append(cmrow)
+   
+    return cmtable
