@@ -184,10 +184,12 @@ def parse_command_line():
   parser.add_option("-S","--statistic",action="store",default='snr',\
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
-            "snr (DEFAULT), snr_over_chi, effective_snr, " 
+            "snr (DEFAULT), snr_over_chi, effective_snr, new_snr, " 
             "bitten_l, bitten_lsq") 
   parser.add_option("","--eff-snr-denom-fac",action="store",default=250.0,\
       type="float", help="Effective snr denom fac: default = 250")
+  parser.add_option("","--chisq-index",action="store",default=6.,\
+      type="float", help="New snr chisq index: default = 6")
   parser.add_option("-F","--bittenl_a",action="store",type="float",\
       default=None,\
       metavar=" BITTENL_A", help="parameter a for bitten-l statistic" ) 	 
@@ -268,10 +270,11 @@ if opts.hist_slides or opts.slide_snr:
 # check that statistic is OK:
 if (opts.statistic != 'snr') and (opts.statistic != 'snr_over_chi') \
     and (opts.statistic != 'effective_snr')\
+    and (opts.statistic != 'new_snr')\
     and (opts.statistic != 'bitten_lsq')\
     and (opts.statistic != 'bitten_l'):
   print >>sys.stderr, "--statistic must be one of"
-  print >>sys.stderr, "(snr|snr_over_chi|effective_snr|bitten_l)"
+  print >>sys.stderr, "(snr|snr_over_chi|effective_snr|new_snr|bitten_l)"
   sys.exit(1)
 
 # check if bittenl-parameters has been specifiedv (or bitten_lsq), set snglStat 	 
@@ -304,7 +307,7 @@ rc('text', usetex=True)
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a,\
-     opts.bittenl_b, opts.eff_snr_denom_fac)
+     opts.bittenl_b, opts.eff_snr_denom_fac, opts.chisq_index)
     
 plotsymbols = ['r+','bx','ko','g1']
 hanfordsym = ['b+','bx','r1']

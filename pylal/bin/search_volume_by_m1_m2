@@ -72,8 +72,10 @@ class upper_limit(object):
         sim = False
 
       if not sim: 
+	# NOTE!!! THE SEGMENTS STORED IN THIS CLASS OR FOR LIVE TIME CALCULATIONS ONLY IDENTIFYING FOUND MISSED INJECTIONS MUST BE
+        # HANDLED FILE BY FILE IN THE get_injections() METHOD (SEE BELOW)
         if opts.veto_segments_name is not None: self.veto_segments = db_thinca_rings.get_veto_segments(connection, opts.veto_segments_name)
-        self.get_instruments(connection)
+        self.instruments = self.get_instruments(connection)
         self.segments += db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
         self.get_far_thresholds(connection)
       else: 
@@ -84,6 +86,8 @@ class upper_limit(object):
       dbtables.discard_connection_filename(f, working_filename, verbose = opts.verbose)
       dbtables.DBTable_set_connection(None)      
 
+    # remove redundant instruments
+    self.instruments = list(set(self.instruments))
     # FIXME Do these have to be done by instruments?
     self.segments -= self.veto_segments
 
@@ -138,9 +142,12 @@ class upper_limit(object):
       else: self.maxtotal = v[5]
 
   def get_instruments(self, connection):
+    instruments = []
     for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
-      self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
-    return self.instruments    
+      if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
+    return self.instruments
+    # used to set instruments 
+    #return self.instruments    
 
   def get_far_thresholds(self,connection):
     """
@@ -167,7 +174,7 @@ class upper_limit(object):
     for inst, far in connection.cursor().execute(query):
       inst = frozenset(lsctables.instrument_set_from_ifos(inst))
       self.far.setdefault(inst,[])
-      self.far[inst].append(far)
+      if far: self.far[inst].append(far)
     query = 'DROP TABLE distinct_instruments'
     connection.cursor().execute(query)
 
@@ -229,17 +236,10 @@ class upper_limit(object):
 
   def get_injections(self, instruments, FAR=None):
     injfnames = self.inj_fnames
+    print instruments
     if not FAR: FAR = self.far[instruments]
     zero_lag_segments = self.zero_lag_segments[instruments]
     verbose = self.opts.verbose
-    """
-    """
-    def injection_was_made(geocent_end_time, geocent_end_time_ns, zero_lag_segments = zero_lag_segments):
-      """
-      return True if injection was made in the given segmentlist
-      """
-      return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in zero_lag_segments
-
     found = []
     missed = []
     print >>sys.stderr, ""
@@ -247,10 +247,34 @@ class upper_limit(object):
       print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
       working_filename = dbtables.get_connection_filename(f, tmp_path = None, verbose = verbose)
       connection = sqlite3.connect(working_filename)
+      # DON'T BOTHER CONTINUING IF THE INSTRUMENTS OF INTEREST ARE NOT HERE
+      instruments_in_this_file = []
+      for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
+        if i[0]: instruments_in_this_file.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
+      if instruments not in instruments_in_this_file:
+        connection.close()
+        dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
+        dbtables.DBTable_set_connection(None)
+        continue
+ 
+      # WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
+      thincasegments = segments.segmentlistdict()
+      thincasegments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
+      thincasegments -= self.veto_segments
+      #print thincasegments
+      zero_lag_segments  = thincasegments.intersection(instruments) - thincasegments.union(set(thincasegments.keys()) - instruments)
+      zero_lag_segments -= segmentsUtils.S2playground(thincasegments.extent_all())
+      ###############
+
+      # DEFINE THE INJECTION WAS MADE FUNCTION
+      def injection_was_made(geocent_end_time, geocent_end_time_ns, zero_lag_segments = zero_lag_segments):
+        """
+        return True if injection was made in the given segmentlist
+        """
+        return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in zero_lag_segments
+
       connection.create_function("injection_was_made", 2, injection_was_made)
-
-      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName)._row_from_cols
-
+      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
       for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,

@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_REAL8TIMESERIES_H_
+#define _PYLAL_XLAL_DATATYPES_REAL8TIMESERIES_H_
+
+
 #include <Python.h>
 #include <lal/LALDatatypes.h>
 #include <lal/TimeSeries.h>
@@ -86,3 +90,6 @@ PyObject *pylal_REAL8TimeSeries_new(REAL8TimeSeries *series, PyObject *owner)
 	obj->series = series;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_REAL8TIMESERIES_H_ */

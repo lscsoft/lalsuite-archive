@@ -215,6 +215,90 @@ for(i=0;i<num_ra;i++){
 return grid;
 }
 
+/* This function is meant for targeted search in a small disc centered on (RA, DEC) */
+/* focus-* options are required ! */
+SKY_GRID *make_targeted_rect_grid(SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_TYPE radius, long num_dec)
+{
+SKY_GRID *grid;
+TARGETED_RECT_SKY_GRID_PRIV *priv;
+long i,j,k;
+SKY_GRID_TYPE a,b, e1[3], e2[3];
+
+/* set all up */
+grid=do_alloc(1,sizeof(*grid));
+grid->npoints=num_dec*num_dec;
+grid->max_n_dec=num_dec;
+grid->max_n_ra=num_dec;
+grid->name="targeted rectangular";
+grid->latitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+grid->longitude=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+
+grid->max_x=num_dec;
+grid->max_y=num_dec;
+grid->x=do_alloc(grid->npoints, sizeof(*(grid->x)));
+grid->y=do_alloc(grid->npoints, sizeof(*(grid->y)));
+
+grid->nbands_size=2000;
+grid->nbands=0;
+grid->band_name=do_alloc(grid->nbands_size, sizeof(*grid->band_name));
+grid->band=do_alloc(grid->npoints, sizeof(*grid->band));
+grid->band_f=do_alloc(grid->npoints, sizeof(*grid->band_f));
+for(i=0;i<GRID_E_COUNT;i++)
+	grid->e[i]=do_alloc(grid->npoints, sizeof(SKY_GRID_TYPE));
+priv=do_alloc(1, sizeof(*priv));
+priv->ra=ra;
+priv->dec=dec;
+priv->radius=radius;
+priv->num_dec=num_dec;
+grid->grid_priv=priv;
+
+/* fill in the coordinates */
+for(i=0;i<num_dec;i++){
+	a=radius*(i*2.0-num_dec)/num_dec;
+	for(j=0;j<num_dec;j++){
+		k=i*num_dec+j;
+		b=radius*(j*2.0-num_dec)/num_dec;
+
+		/* transition to standard coordinates around point (RA, DEC) */
+
+		/* (0, 0) -> (1, 0, 0) */
+		e1[0]=cos(b)*cos(a);
+		e1[1]=cos(b)*sin(a);
+		e1[2]=sin(b);
+
+		/* rotate by DEC around Oy */
+
+		e2[0]=e1[0]*cos(dec)-e1[2]*sin(dec);
+		e2[1]=e1[1];
+		e2[2]=e1[0]*sin(dec)+e1[2]*cos(dec);
+
+		/* rotate by RA around 0z */
+
+		e1[0]=e2[0]*cos(ra)-e2[1]*sin(ra);
+		e1[1]=e2[0]*sin(ra)+e2[1]*cos(ra);
+		e1[2]=e2[2];
+
+
+		grid->latitude[k]=asin(e1[2]);
+		grid->longitude[k]=atan2(e1[1], e1[0]);
+		/* Fixup (0, 0, 1) vector which would produce NaNs */
+		if(e1[0]*e1[0]+e1[1]*e1[1]<=0)grid->longitude[k]=0.0;
+
+		/* make sure right ascension is positive as in other grids */
+		if(grid->longitude[k]<0.0)grid->longitude[k]+=2*M_PI;
+
+		//fprintf(stderr, "a=%.5f b=%.5f e=(%.5f, %.5f, %.5f) (%.5f, %.5f)\n", a, b, e1[0], e1[1], e1[2], grid->longitude[k], grid->latitude[k]);
+
+		grid->band[k]=-1;
+
+		grid->x[k]=i;
+		grid->y[k]=j;
+		}
+	}
+return grid;
+}
+
+
 SKY_GRID *make_sin_theta_grid(SKY_GRID_TYPE resolution)
 {
 SKY_GRID *grid;
@@ -913,6 +997,7 @@ if(!strcmp(grid->name,"arcsin")){
 	sg->super_grid=make_rect_grid(priv->num_ra*ra_factor, priv->num_dec*dec_factor);
 	}
 
+sg->subgrid_npoints=grid->npoints;
 sg->first_map=do_alloc(grid->npoints, sizeof(*sg->first_map));
 sg->reverse_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->reverse_map));
 sg->list_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->list_map));
@@ -940,6 +1025,66 @@ for(i=ra_start;i<priv->num_ra*ra_factor;i+=ra_factor)
 		}
 
 compute_list_map(sg);
+return sg;
+}
+
+SKY_SUPERGRID *make_targeted_rect_supergrid(SKY_GRID *grid, int factor)
+{
+SKY_SUPERGRID *sg;
+TARGETED_RECT_SKY_GRID_PRIV *priv;
+long i,j,k, ra_start, dec_start, di,dj;
+if(strcmp(grid->name,"targeted rectangular")){
+   	fprintf(stderr,"** Internal error: cannot make rectangular supergrid from %s\n", grid->name);
+	exit(-1);
+   	}
+priv=grid->grid_priv;
+
+sg=do_alloc(1, sizeof(*sg));
+sg->super_grid=make_targeted_rect_grid(priv->ra, priv->dec, priv->radius, priv->num_dec*factor);
+
+sg->subgrid_npoints=grid->npoints;
+sg->first_map=do_alloc(grid->npoints, sizeof(*sg->first_map));
+sg->reverse_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->reverse_map));
+sg->list_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->list_map));
+//sg->max_npatch=ra_factor*dec_factor;
+
+/* clear the arrays */
+for(i=0;i<grid->npoints;i++)sg->first_map[i]=-1;
+for(i=0;i<sg->super_grid->npoints;i++){
+	sg->reverse_map[i]=-1;
+	sg->list_map[i]=-1;
+	}
+
+ra_start=(factor)/2;
+dec_start=(factor)/2;
+
+//for(i=0;i<sg->super_grid->npoints;i++) {
+//	}
+
+k=0;
+for(i=ra_start;i<priv->num_dec*factor;i+=factor)
+	for(j=dec_start;j<priv->num_dec*factor;j+=factor){
+		sg->first_map[k]=i*priv->num_dec*factor+j;
+		for(di=0;di<factor;di++)
+			for(dj=0;dj<factor;dj++){
+				sg->reverse_map[(i+di-ra_start)*priv->num_dec*factor+j+dj-dec_start]=k;
+				}
+		k++;
+		}
+compute_list_map(sg);
+/*for(i=0;i<sg->super_grid->npoints;i++){
+	 if(i % (priv->num_dec*factor)==0)fprintf(stderr, "\n");
+	 fprintf(stderr, "%d ", sg->list_map[i]);
+	}
+for(i=0;i<grid->npoints;i++){
+	 if(i % (priv->num_dec)==0)fprintf(stderr, "\n");
+	 fprintf(stderr, "%d ", sg->first_map[i]);
+	}
+for(i=0;i<sg->super_grid->npoints;i++){
+	 if(i % (priv->num_dec*factor)==0)fprintf(stderr, "\n");
+	 fprintf(stderr, "(%.2f, %.2f) ", sg->super_grid->longitude[i], sg->super_grid->latitude[i]);
+	}
+fprintf(stderr, "\n");*/
 return sg;
 }
 
@@ -1108,6 +1253,18 @@ for(i=0;i<sg->super_grid->npoints;i++) {
 		else sg->list_map[i]=new_index[k];
 	}
 free(new_index);
+/*for(i=0;i<sg->super_grid->npoints;i++){
+	 //if(i % (priv->num_dec*factor)==0)fprintf(stderr, "\n");
+	 fprintf(stderr, "%d ", sg->list_map[i]);
+	}
+fprintf(stderr, "\n");
+fprintf(stderr, "\n");
+for(i=0;i<sg->subgrid_npoints;i++){
+	 //if(i % (priv->num_dec)==0)fprintf(stderr, "\n");
+	 fprintf(stderr, "%d ", sg->first_map[i]);
+	}
+fprintf(stderr, "\n");
+*/
 return(sg);
 }
 

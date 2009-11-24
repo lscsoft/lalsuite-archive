@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_LALUNIT_H_
+#define _PYLAL_XLAL_DATATYPES_LALUNIT_H_
+
+
 #include <Python.h>
 #include <lal/LALDatatypes.h>
 
@@ -85,3 +89,6 @@ static PyObject *pylal_LALUnit_new(int power_of_ten, LALUnit unit)
 	obj->unit.powerOfTen += power_of_ten;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_LALUNIT_H_ */

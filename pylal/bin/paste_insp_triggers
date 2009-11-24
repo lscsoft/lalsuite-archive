@@ -21,8 +21,6 @@ them into another.
 """
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$" [7:-2]
 
 import optparse
 import sys
@@ -34,7 +32,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process as ligolw_process
 from glue.segments import segment, segmentlist
-from pylal import llwapp
+from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
@@ -101,35 +99,6 @@ def shift_triggers(doc, shift):
     for trig in triggers:
         trig.set_end(trig.get_end() + shift)
 
-def append_process(doc, options):
-    """
-    Append a process table and a process_params table to doc.
-    """
-    process = ligolw_process.append_process(doc, "paste_triggers", __version__,
-                                    "lscsoft", __date__)
-
-    def map_val(name, val):
-        """
-        Put (name, val) pairs in a format suitable for
-        glue.ligolw.utils.process.append_process_params().
-        """
-        type_map = {str: u"lstring", bool: u"lstring",
-                    unicode: u"lstring",
-                    int: u"int_8s", float: u"real_8"}
-        if val is True:
-            return ("--" + name, u"lstring", "")
-        elif val is False:
-            return None
-        else:
-            return ("--" + name, type_map[type(val)], val)
-
-    params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
-              if (val is not False) and (val is not None)]
-
-    ligolw_process.append_process_params(doc, process, params)
-
-    return process
-
 def paste_triggers_into(source_doc, dest_doc, verbose=False):
     """
     Take triggers from source_doc and paste them into dest_doc.
@@ -151,7 +120,7 @@ def paste_triggers_into(source_doc, dest_doc, verbose=False):
     new_trigs.sort(key=lsctables.SnglInspiral.get_end)
 
 def parse_args():
-    parser = optparse.OptionParser(version=__version__)
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
     parser.add_option("--source", metavar="SRC",
         help="file from which triggers are taken")
     parser.add_option("--destination", metavar="DEST",
@@ -212,7 +181,10 @@ source_segs = extract_seglist(src_doc)
 # load destination document
 dest_doc = utils.load_filename(opts.destination, opts.verbose,
                                gz=opts.destination.endswith(".gz"))
-process_table = append_process(dest_doc, opts)
+process_table = ligolw_process.register_to_xmldoc(dest_doc,
+    "paste_insp_triggers", opts.__dict__,
+    version=git_version.tag or git_version.id,
+    cvs_repository="lalsuite", cvs_entry_time=git_version.date)
 dest_segs = extract_seglist(dest_doc)
 
 # FIXME: must create a compatible table if it's missing
@@ -231,8 +203,6 @@ if opts.take_offsource_trial is not None:
     opts.shift_triggers = \
         dest_segs[0][0] - (source_segs[0][0] + (opts.take_offsource_trial - 1)*abs(dest_segs))
     opts.restrict_source_times = True
-
-    print opts.shift_triggers
 
 # shift source triggers as appropriate
 if opts.shift_triggers is not None:
@@ -265,7 +235,7 @@ if source_segs not in dest_segs:
 paste_triggers_into(src_doc, dest_doc, verbose=opts.verbose)
 
 # close out metadata
-llwapp.set_process_end_time(process_table)
+ligolw_process.set_process_end_time(process_table)
 
 # write file to disk
 utils.write_filename(dest_doc, opts.output_filename, opts.verbose,

@@ -4,6 +4,7 @@ from math import log
 from time import gmtime, strftime
 
 from pylal import Fr
+from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -45,6 +46,9 @@ MBTA_set_keys = ['ifo', 'search', 'end_time', 'end_time_ns', 'mass1', 'mass2',\
 #Omega 
 Omega_set_keys = ['process_id', 'ifos', 'start_time', 'start_time_ns',\
                  'duration', 'confidence', 'coinc_event_id']
+#CWB
+CWB_set_keys = ['process_id', 'ifos', 'start_time', 'start_time_ns',\
+                'coinc_event_id']
 
 #this dictionary is the simplest way to assign event_id's
 #collisions are are taken care of in the process of conversion to sqlite
@@ -91,6 +95,23 @@ def write_output_files(root_dir, xmldoc, log_content, \
   f.write(log_content)
   f.close()
 
+def get_ifos_for_cwb(cwb_ifos):
+  """
+  get human-readable things from CWB detector labels
+  """
+  
+  ifos = []
+  for i in cwb_ifos:
+    if i == '1':  ifos.append('L1')
+    if i == '2' : ifos.append('H1')
+    if i == '3' : ifos.append('H2')
+    if i == '4' : ifos.append('G1')
+    if i == '5' : ifos.append('T1')
+    if i == '6' : ifos.append('V1')
+    if i == '7' : ifos.append('A1')
+
+  return ifos
+  
 ##############################################################################
 #
 #          table populators
@@ -116,8 +137,7 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
   #dictionaries to store about individual triggers
-  end_time_s = {}
-  end_time_ns = {}
+  end_time = {}
   snr = {}
   mass1 = {}
   mass2 = {}
@@ -150,7 +170,7 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
            'False Alarm Rate' in line][0]
     for ifo in detectors:
-      end_time_s[ifo], end_time_ns[ifo] = str(event[ifo+':end_time']).split('.')
+      end_time[ifo] = LIGOTimeGPS(event[ifo+':end_time'])
       snr[ifo] = float(event[ifo+':SNR'])
       mass1[ifo] = float(event[ifo+':mass1'])
       mass2[ifo] = float(event[ifo+':mass2'])
@@ -165,8 +185,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     row = sin_table.RowType()
     row.ifo = ifo
     row.search = 'MBTA'
-    row.end_time = int(end_time_s[ifo])
-    row.end_time_ns = int(end_time_ns[ifo])
+    row.end_time = end_time[ifo].seconds
+    row.end_time_ns = end_time[ifo].nanoseconds
     row.mass1 = mass1[ifo]
     row.mass2 = mass2[ifo]
     row.mchirp = mchirp[ifo]
@@ -202,8 +222,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   row.set_ifos(detectors)
   cid = lsctables.CoincTable.get_next_id()
   row.coinc_event_id = cid
-  row.end_time = int(end_time_s['H1'])
-  row.end_time_ns = int(end_time_ns['H1'])
+  row.end_time = end_time['H1'].seconds
+  row.end_time_ns = end_time['H1'].nanoseconds
   row.mass = (sum(mass1.values()) + sum(mass2.values()))/3
   row.mchirp = sum(mchirp.values())/3
   #the snr here is really the snr NOT effective snr
@@ -219,7 +239,7 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
     
   return xmldoc, log_data, temp_data_loc
 
-def populate_burst_tables(datafile, set_keys = Omega_set_keys):
+def populate_omega_tables(datafile, set_keys = Omega_set_keys):
   """
   """
   #initialize xml document
@@ -259,9 +279,9 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
   row = mb_table.RowType()
   row.process_id = lsctables.ProcessTable.get_next_id()
   row.set_ifos(detectors)
-  st, st_ns = omega_data['time'].split('.')
-  row.start_time = int(st)
-  row.start_time_ns = int(st_ns)
+  st = LIGOTimeGPS(omega_data['time'])
+  row.start_time = st.seconds
+  row.start_time_ns = st.nanoseconds
   row.duration = None
   row.confidence = -log(float(omega_data['probGlitch']))
   cid = lsctables.CoincTable.get_next_id()
@@ -275,6 +295,55 @@ def populate_burst_tables(datafile, set_keys = Omega_set_keys):
                                      BurstCoincDef, detectors)
   
   return xmldoc, log_data, omega_data['URL_file']
+
+def populate_cwb_tables(datafile, set_keys=CWB_set_keys):
+  """
+  """
+  #initialize xml document
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+
+  #extract the data from the file
+  f = open(datafile,'r')
+  cwb_list = []
+  for line in f.readlines():
+    if not line.strip(): continue #ignore blanks
+    elif '#' in line.strip()[0]: continue #skip comments
+    elif 'H1:' in line.strip() or 'L1:' in line.strip() or 'V1:' in line.strip(): continue #skip DQ stuff
+    elif ':' in line.strip(): cwb_list.extend([dat.strip() for dat in line.split(':',1)])
+
+  f.close()
+  cwb_data = dict(zip(cwb_list[::2],cwb_list[1::2]))
+  
+  #create the content for the event.log file
+  log_data = '\nLog File created '\
+             +strftime("%a, %d %b %Y %H:%M:%S", gmtime())\
+             +'\n'
+  detectors = get_ifos_for_cwb(cwb_data['ifo'].split())
+
+  for var in cwb_data:
+    log_data += var + ': ' + cwb_data[var] + '\n'
+
+  #fill the MutliBurstTable
+  mb_table = lsctables.New(lsctables.MultiBurstTable)
+  xmldoc.childNodes[0].appendChild(mb_table)
+  row = mb_table.RowType()
+  row.process_id = lsctables.ProcessTable.get_next_id()
+  row.set_ifos(detectors)
+  st = LIGOTimeGPS(cwb_data['start'][0])
+  row.start_time = st.seconds
+  row.start_time_ns = st.nanoseconds
+  cid = lsctables.CoincTable.get_next_id()
+  row.coinc_event_id = cid
+  for key in mb_table.validcolumns.keys():
+      if key not in set_keys:
+        setattr(row,key,None)
+  mb_table.append(row)
+
+  xmldoc = populate_coinc_tables(xmldoc,cid, coherent_event_id_dict,\
+                                    BurstCoincDef, detectors)
+  
+  return xmldoc, log_data, None
   
       
     

@@ -53,7 +53,6 @@ from pylal import InspiralUtils
 from pylal import plotutils
 from pylal import rate
 from pylal import SnglInspiralUtils
-from pylal import viz
 from pylal import git_version
 
 # override pylab defaults, optimizing for web presentation
@@ -74,28 +73,6 @@ trace_m2_bin = 0
 
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
-
-def get_mean_mchirp_GRB070923(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    return modified_mean_mchirp
 
 def get_fap(snr_by_mc):
     """
@@ -339,7 +316,7 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
-    all_ifos = ['H1','H2','L1','V1']
+    all_ifos = ['H1','L1','V1']
     columns = ["mc_bin", "event_id"] \
         + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
@@ -390,7 +367,7 @@ else:
 
     # print per-m2 info
     temp_log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
-    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
+    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
 
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
@@ -402,7 +379,7 @@ else:
         log_L_by_m2, pL0_by_m2):
         row = ["[%.2f, %.2f)" % m2_range]
 
-        m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+        m2_coincs = [mchirp_dict[mc_ind]]
 
         if len(m2_coincs) == 0:
             row.append("&mdash;")

@@ -401,6 +401,31 @@ class LIGOTimeGPS(object):
 class CacheEntry(object):
 	"""
 	An object representing one line in a LAL cache file.
+
+	The LAL cache format is defined elsewhere, and what follows is
+	meant only to be informative, not an official specification.  Each
+	line in a LAL cache identifies a single file, and the line consists
+	of five columns of white-space delimited text.
+
+	The first column, "observatory", generally stores the name of an
+	observatory site or one or more instruments (preferably delimited
+	by ",", but often there is no delimiter between instrument names).
+
+	The second column, "description", stores a short string tag that is
+	usually all capitals with "_" separating components, in the style
+	of the description part of the LIGO-Virgo frame filename format.
+
+	The third and fourth columns store the start time and duration in
+	GPS seconds of the interval spanned by the file identified by the
+	cache line.
+
+	The fifth (last) column stores the file's URL.
+
+	The values for these columns are stored in the .observatory,
+	.description, .segment and .url attributes, respectively.  The
+	.segment attribute stores a glue.segments.segment object describing
+	the interval spanned by the file.  Any of these attributes except
+	the URL is allowed to be None.
 	"""
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
@@ -409,7 +434,7 @@ class CacheEntry(object):
 
 	def __init__(self, *args, **kwargs):
 		"""
-		Create a CacheEntry object.  The arguments can take two
+		Intialize a CacheEntry object.  The arguments can take two
 		forms:  a single string argument, which is interpreted and
 		parsed as a line from a LAL cache file, or four arguments
 		used to explicitly initialize the observatory, description,
@@ -431,6 +456,9 @@ class CacheEntry(object):
 		[815901601 ... 815902177.5)
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = int)
 		ValueError: invalid literal for int(): 576.5
+
+		See also the .from_T050017() class method for an
+		alternative initialization mechanism.
 		"""
 		if len(args) == 1:
 			# parse line of text as an entry in a cache file
@@ -471,8 +499,14 @@ class CacheEntry(object):
 
 	def __str__(self):
 		"""
-		Returns a string, with the format of a line in a LAL cache,
-		containing the contents of this cache entry.
+		Convert the CacheEntry to a string in the format of a line
+		in a LAL cache.  Used to write the CacheEntry to a file.
+
+		Example:
+
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> str(c)
+		'H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml'
 		"""
 		if self.segment is not None:
 			start = str(self.segment[0])
@@ -484,8 +518,8 @@ class CacheEntry(object):
 
 	def __cmp__(self, other):
 		"""
-		Sort by observatory, then description, then segment, then
-		URL.
+		Compare two CacheEntry objects by observatory, then
+		description, then segment, then URL.
 		"""
 		if type(other) != CacheEntry:
 			raise TypeError, "can only compare CacheEntry to CacheEntry"
@@ -493,22 +527,37 @@ class CacheEntry(object):
 
 	def scheme(self):
 		"""
-		Return the scheme part of the URL, eg. "file" if the URL is
-		"file://localhost/tmp/somefile")
+		Return the scheme part of the URL.
+
+		Example:
+
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> c.scheme()
+		'file'
 		"""
 		return urlparse.urlparse(self.url)[0]
 
 	def host(self):
 		"""
-		Return the host part of the URL, eg. "localhost" if the URL
-		is "file://localhost/tmp/somefile")
+		Return the host part of the URL.
+
+		Example:
+
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> c.host()
+		'localhost'
 		"""
 		return urlparse.urlparse(self.url)[1]
 
 	def path(self):
 		"""
-		Return the path part of the URL, eg. "/tmp/somefile" if the
-		URL is "file://localhost/tmp/somefile")
+		Return the path part of the URL.
+
+		Example:
+
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> c.path()
+		'/home/kipp/tmp/1/H1-815901601-576.xml'
 		"""
 		return urlparse.urlparse(self.url)[2]
 
@@ -516,7 +565,15 @@ class CacheEntry(object):
 		"""
 		Return a segmentlistdict object describing the instruments
 		and time spanned by this CacheEntry.
+
+		Example:
+
+		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> c.to_segmentlistdict()
+		{'H1': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
 		"""
+		# FIXME:  the instrument_set_from_ifos() function in
+		# lsctables.py should be used
 		if self.observatory and "," in self.observatory:
 			instruments = self.observatory.split(",")
 		elif self.observatory and "+" in self.observatory:
@@ -527,9 +584,20 @@ class CacheEntry(object):
 
 	def from_T050017(cls, url, coltype = LIGOTimeGPS):
 		"""
-		Parse a URL a la T050017-00 into a CacheEntry. In short:
+		Parse a URL in the style of T050017-00 into a CacheEntry.
+		The T050017-00 file name format is, essentially,
 
-		ifos-description-start-dur.ext
+		observatory-description-start-dur.ext
+
+		Example:
+
+		>>> c = CacheEntry.from_T050017("file://localhost/data/node144/frames/S5/strain-L2/LLO/L-L1_RDS_C03_L2-8365/L-L1_RDS_C03_L2-836562330-83.gwf")
+		>>> c.observatory
+		'L'
+		>>> c.host()
+		'localhost'
+		>>> os.path.basename(c.path())
+		'L-L1_RDS_C03_L2-836562330-83.gwf'
 		"""
 		match = cls._url_regex.search(url)
 		if not match:

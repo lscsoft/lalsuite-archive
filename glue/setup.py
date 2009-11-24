@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.28.1"
+ver = "1.29"
 
 def remove_root(path,root):
   if root:
@@ -233,6 +233,7 @@ setup(
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
+        os.path.join('etc','cbcwebpage.css'),
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),

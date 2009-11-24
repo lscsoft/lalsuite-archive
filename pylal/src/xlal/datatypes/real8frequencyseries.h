@@ -26,6 +26,10 @@
  */
 
 
+#ifndef _PYLAL_XLAL_DATATYPES_REAL8FREQUENCYSERIES_H_
+#define _PYLAL_XLAL_DATATYPES_REAL8FREQUENCYSERIES_H_
+
+
 #include <Python.h>
 #include <lal/LALDatatypes.h>
 #include <lal/FrequencySeries.h>
@@ -86,3 +90,6 @@ PyObject *pylal_REAL8FrequencySeries_new(REAL8FrequencySeries *series, PyObject 
 	obj->series = series;
 	return (PyObject *) obj;
 }
+
+
+#endif /* _PYLAL_XLAL_DATATYPES_REAL8FREQUENCYSERIES_H_ */
