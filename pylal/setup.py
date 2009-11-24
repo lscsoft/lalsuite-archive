@@ -24,6 +24,7 @@ class PkgConfig(object):
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 lal_pkg_config = PkgConfig("lal")
+lalburst_pkg_config = PkgConfig("lalburst")
 # FIXME:  works for GCC only!!!
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
@@ -314,11 +315,11 @@ setup(
 		Extension(
 			"pylal.xlal.burstsearch",
 			["src/xlal/burstsearch.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			include_dirs = lal_pkg_config.incdirs + lalburst_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lal_pkg_config.libs + lalburst_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + lalburst_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.spawaveform",
@@ -355,6 +356,7 @@ setup(
 		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
+                os.path.join("bin", "plotextrapolation"),
 		os.path.join("bin", "plotgrbl"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotnumgalaxies"),
@@ -465,7 +467,11 @@ setup(
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
 		os.path.join("bin", "minifollowups"),
-		os.path.join("bin", "ligolw_cbc_plotcumhist")
+		os.path.join("bin", "ligolw_cbc_plotcumhist"),
+        os.path.join("bin", "lalapps_cbc_compute_rs"),
+        os.path.join("bin", "lalapps_cbc_print_rs"),
+        os.path.join("bin", "ligolw_cbc_printsims"),
+        os.path.join("bin", "ligolw_cbc_printmissed")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

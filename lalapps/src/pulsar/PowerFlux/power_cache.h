@@ -10,6 +10,7 @@ typedef struct {
 
 	/* bin shift to apply, this is in units of 1/coherence_time - as opposed to power sums */
 	double bin_shift;
+	double diff_bin_shift; /* linear component, drift from one frequency bin to another */
 
 	/* fields below are filled in when locating segments */
 
@@ -63,6 +64,7 @@ void get_uncached_loose_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int co
 */
 void get_uncached_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 void get_uncached_loose_single_bin_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
+void get_uncached_loose_matched_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 int is_nonzero_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si1, int count1, SEGMENT_INFO *si2, int count2);
 
 void accumulate_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);

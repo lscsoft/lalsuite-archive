@@ -200,7 +200,7 @@ def parse_command_line():
     # Unless we're pinging, make sure we have start and end times
     if options.ping:
         if not database_location:
-            raise ValueError("--ping requires [ --segment ldbd:... | --database ]")
+            raise ValueError("--ping requires [ --segment https://... | --database ]")
     
     # Report is only available when hitting the database, since 
     # we have no way of knowing where the segment boundaries are
@@ -354,7 +354,7 @@ def run_active(doc, process_id, engine, include_segments, times):
     distinct_names = []
     distinct_rows = []
     for x in rows:
-      if x[0:2] not in distinct_names:
+      if x[0:3] not in distinct_names:
          distinct_names.append(x[0:2])
          distinct_rows.append(x)
 

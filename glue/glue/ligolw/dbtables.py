@@ -32,6 +32,7 @@ methods that work against the SQL database.
 """
 
 
+import itertools
 import os
 import re
 import shutil
@@ -49,6 +50,7 @@ from warnings import warn
 
 from glue import git_version
 from glue import segments
+from glue.ligolw import ilwd
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -292,10 +294,10 @@ def idmap_get_new(connection, old, tbl):
 	new = cursor.fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
-		return new[0]
+		return ilwd.get_ilwdchar(new[0])
 	# this ID was not found in _idmap_ table, assign a new ID and
 	# record it
-	new = unicode(tbl.get_next_id())
+	new = tbl.get_next_id()
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
 
@@ -619,7 +621,9 @@ class DBTable(table.Table):
 		queries into Python objects.
 		"""
 		row = self.RowType()
-		for c, v in zip(self.dbcolumnnames, values):
+		for c, t, v in zip(self.dbcolumnnames, self.dbcolumntypes, values):
+			if t in ligolwtypes.IDTypes:
+				v = ilwd.get_ilwdchar(v)
 			setattr(row, c, v)
 		return row
 	# backwards compatibility
@@ -658,23 +662,6 @@ class DBTable(table.Table):
 #
 
 
-class ProcessTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.ProcessTable.tableName
-	validcolumns = lsctables.ProcessTable.validcolumns
-	constraints = lsctables.ProcessTable.constraints
-	next_id = lsctables.ProcessTable.next_id
-	RowType = lsctables.ProcessTable.RowType
-	how_to_index = lsctables.ProcessTable.how_to_index
-
-	def get_ids_by_program(self, program):
-		"""
-		Return a set of the process IDs from rows whose program
-		string equals the given program.
-		"""
-		return set(id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,)))
-
-
 class ProcessParamsTable(DBTable):
 	tableName = lsctables.ProcessParamsTable.tableName
 	validcolumns = lsctables.ProcessParamsTable.validcolumns
@@ -697,12 +684,6 @@ class TimeSlideTable(DBTable):
 	RowType = lsctables.TimeSlideTable.RowType
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
-	def __len__(self):
-		raise NotImplementedError
-
-	def __getitem__(*args):
-		raise NotImplementedError
-
 	def get_offset_dict(self, id):
 		offsets = dict(self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)))
 		if not offsets:
@@ -714,12 +695,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		d = {}
-		for id, instrument, offset in self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide"):
-			if id not in d:
-				d[id] = {}
-			d[id][instrument] = offset
-		return d
+		return dict((ilwd.get_ilwdchar(id), dict((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None):
 		"""
@@ -753,9 +729,6 @@ class TimeSlideTable(DBTable):
 
 		# return new ID
 		return id
-
-	def iterkeys(self):
-		raise NotImplementedError
 
 
 #
@@ -805,7 +778,6 @@ def build_indexes(connection, verbose = False):
 
 
 TableByName = {
-	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
 }

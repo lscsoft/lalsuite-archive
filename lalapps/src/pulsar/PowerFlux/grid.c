@@ -284,6 +284,9 @@ for(i=0;i<num_dec;i++){
 		/* Fixup (0, 0, 1) vector which would produce NaNs */
 		if(e1[0]*e1[0]+e1[1]*e1[1]<=0)grid->longitude[k]=0.0;
 
+		/* make sure right ascension is positive as in other grids */
+		if(grid->longitude[k]<0.0)grid->longitude[k]+=2*M_PI;
+
 		//fprintf(stderr, "a=%.5f b=%.5f e=(%.5f, %.5f, %.5f) (%.5f, %.5f)\n", a, b, e1[0], e1[1], e1[2], grid->longitude[k], grid->latitude[k]);
 
 		grid->band[k]=-1;

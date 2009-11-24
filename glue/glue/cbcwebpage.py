@@ -138,7 +138,7 @@ class _subpage_id(object):
 class _imagelink(markup.page):
 	def __init__(self, imageurl, thumburl, tag="img", width=240):
 		markup.page.__init__(self, mode="strict_html")
-		self.add("<a href=%s><img src=%s width=%d></a>" % (imageurl, thumburl, width))
+		self.add('<a href=%s target="_blank"><img src=%s width=%d></a>' % (imageurl, thumburl, width))
 
 	def get_content(self):
 		return self.content
@@ -165,7 +165,7 @@ class _imagelinkcpy(markup.page):
 			shutil.copy(thumbpath, 'Images/')
 			thumbname = 'Images/' + thumbname
 			imgname = 'Images/' + imgname
-		self.add("<a href=%s><img src=%s width=%d></a>" % (imgname, thumbname, width))
+		self.add('<a href=%s target="_blank"><img src=%s width=%d></a>' % (imgname, thumbname, width))
 
 	def get_content(self):
 		return self.content
@@ -195,8 +195,9 @@ class _table(markup.page):
 
 # PROBABLY DOES NOT EVER NEED TO BE USED DIRECTLY, BUT IS USED IN cbcpage
 class _section(markup.page):
-	def __init__(self, tag, title="", secnum="1", level=2):
+	def __init__(self, tag, title="", secnum="1", pagenum="1", level=2):
 		markup.page.__init__(self, mode="strict_html")
+		self.pagenum = pagenum
 		self.secnum = secnum
 		self._title = title
 		self.sections = {}
@@ -205,12 +206,12 @@ class _section(markup.page):
 		self.tag = tag
 		self.id = tag + self.secnum
 		self.tables = 0
-		self.add('<div class="contenu"><h%d id="toggle_%s" onclick="javascript:toggle2(\'div_%s\', \'toggle_%s\');"> %s. %s </h%d>' % (level, self.id, secnum, self.id, secnum, title, level) )
+		self.add('<div class="contenu"><h%d id="toggle_%s" onclick="javascript:toggle2(\'div_%s\', \'toggle_%s\');"> %s.%s %s </h%d>' % (level, self.id, secnum, self.id, pagenum, secnum, title, level) )
 		self.div(id="div_"+secnum , style='display:none;')
 
 	def add_section(self, tag, title=""):
-		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
-		self.sections[tag] = _section(tag, title=title, secnum=secnum, level=self.level+1)
+		secnum = "%s.%s.%d" % (self.pagenum, self.secnum, len(self.sections.values())+1)
+		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=pagenum, level=self.level+1)
 		self.section_ids.append([len(self.sections.values()), tag])
 
 	def get_content(self):
@@ -224,7 +225,7 @@ class _section(markup.page):
 	
 	def add_table(self, two_d_data, title="", caption="", tag="table", num=0):
 		self.tables += 1
-		tabnum = self.secnum+"T:"+str(self.tables)
+		tabnum = "%s.%s.%s %s" %  (self.pagenum, self.secnum, "Table", str(self.tables))
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=tabnum)
 		self.content.extend(table.get_content())
 
@@ -233,7 +234,7 @@ class _section(markup.page):
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
 
-	def __init__(self, title="cbc web page", path='./', css=None, script=None, verbose=False):
+	def __init__(self, title="cbc web page", path='./', css=None, script=None, pagenum=1, verbose=False):
 		"""
 		"""
 		if not css: css = copy_ihope_style()
@@ -245,6 +246,7 @@ class cbcpage(markup.page):
 		self._title = title
 		self._script = script
 		self.path = path
+		self.pagenum = pagenum
 
 		markup.page.__init__(self, mode="strict_html")	
 		self._escape = False
@@ -259,18 +261,18 @@ class cbcpage(markup.page):
 		self.sections = {}
 		self.section_ids = []
 
-		self.tables = 0
+		self.tables = 1
 		self.fnames = scriptfiles + [css]	
 
 	def add_subpage(self, tag, title, link_text=None):
 		""" 
 		"""
 
-		subpage_num = len(self.subpages.values())
+		subpage_num = len(self.subpages.values()) + 1
 		if not link_text: link_text=str(subpage_num)
 
 		# tuple including number so it can be sorted later
-		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script)
+		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
 
 	def close_subpage(self,id=None):
@@ -341,10 +343,10 @@ class cbcpage(markup.page):
 		"""
 		secnum = len(self.sections.values()) + 1
 		self.section_ids.append([secnum, tag])
-		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), level=level)
+		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level)
 
 	def add_table(self, two_d_data, title="", caption="", tag="table"):
 		self.tables += 1
-		table = _table(two_d_data, title=title, caption=caption, tag="table", num="T:"+str(self.tables))
+		table = _table(two_d_data, title=title, caption=caption, tag="table", num=str(self.pagenum) + " Table "+str(self.tables))
 		self.content.extend(table.get_content())
 

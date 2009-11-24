@@ -53,7 +53,6 @@ from pylal import InspiralUtils
 from pylal import plotutils
 from pylal import rate
 from pylal import SnglInspiralUtils
-from pylal import viz
 from pylal import git_version
 
 # override pylab defaults, optimizing for web presentation
@@ -317,7 +316,7 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
-    all_ifos = ['H1','H2','L1','V1']
+    all_ifos = ['H1','L1','V1']
     columns = ["mc_bin", "event_id"] \
         + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
@@ -368,7 +367,7 @@ else:
 
     # print per-m2 info
     temp_log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
-    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
+    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
 
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
