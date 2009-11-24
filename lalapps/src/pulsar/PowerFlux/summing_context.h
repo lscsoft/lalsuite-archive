@@ -11,6 +11,11 @@ typedef struct S_SUMMING_CONTEXT {
 	int cache_granularity;
 	float inv_cache_granularity;
 	float half_inv_cache_granularity;
+
+	int diff_shift_granularity;
+	int inv_diff_shift_granularity;
+	int half_inv_diff_shift_granularity;
+
 	int sidereal_group_count; /* group sfts falling on similar times of the day in this many groups */
 	double summing_step; /* process SFTs in blocks of this many seconds each */
 	int time_group_count; /* group SFTs by their GPS time within a block into this many groups - used by loosely coherent code */

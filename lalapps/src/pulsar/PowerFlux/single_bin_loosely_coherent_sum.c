@@ -14,6 +14,7 @@
 #include "util.h"
 #include "power_cache.h"
 #include "summing_context.h"
+#include "power_sums.h"
 #include "cmdline.h"
 
 extern DATASET *datasets;
@@ -22,6 +23,7 @@ extern int nbins, first_bin, side_cut, useful_bins;
 extern struct gengetopt_args_info args_info;
 
 extern FILE *LOG;
+extern INT64 spindown_start;
 
 
 #define LOOSE_SEARCH_TOLERANCE 0.3
@@ -347,10 +349,15 @@ k=rintf(si_local->bin_shift)*ctx->cache_granularity;
 for(i=0;i<count;i++) {
 	//fprintf(stderr, "%0.1f ", si_local->bin_shift);
 	a=rintf(si_local->bin_shift*ctx->cache_granularity);
-
-	key=( (key+(int)a-k) * KEY_MULT) & KEY_DIV;
-
+	key+=((int)a-k);
 	si_local->bin_shift=a*ctx->inv_cache_granularity;
+
+	a=rintf(si_local->diff_bin_shift*ctx->diff_shift_granularity);
+	key+=((int)a)<<16;
+	si_local->diff_bin_shift=a*ctx->inv_diff_shift_granularity;
+
+	key=(key*KEY_MULT) & KEY_DIV;
+
 	si_local++;
 	//fprintf(stderr, "%0.1f ", a);
 	}
@@ -369,7 +376,8 @@ for(k=0;k<sc->free;k++) {
 			}
 		match=1;
 		for(i=0;i<count;i++) {
-			if(fabs(si_local->bin_shift-(sc_si_local->bin_shift+first_shift))> ctx->half_inv_cache_granularity) {
+			if(fabs(si_local->bin_shift-(sc_si_local->bin_shift+first_shift))> ctx->half_inv_cache_granularity
+			   || fabs(si_local->diff_bin_shift-sc_si_local->diff_bin_shift)> ctx->half_inv_diff_shift_granularity) {
 				match=0;
 				fprintf(stderr, "OVERWRITE: i=%d key=%d count=%d %f %f %d\n", i, key, count, si_local->bin_shift, sc_si_local->bin_shift, first_shift);
 				break;
@@ -411,4 +419,174 @@ memcpy(sc->si[k], si, sc->segment_count*sizeof(*si));
 
 ctx->get_uncached_power_sum(ctx, sc->si[k], sc->segment_count, sc->pps[k]);
 sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
+}
+
+/* This function is meant to work with get_uncached_loose_partial_power_sum */
+void accumulate_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
+{
+int segment_count;
+SEGMENT_INFO *si, *si_local;
+POWER_SUM *ps_local;
+DATASET *d;
+POLARIZATION *pl;
+int i, j, k, m;
+float min_shift, max_shift, a;
+double gps_idx, gps_idx_next;
+double gps_step=ctx->summing_step;
+float center_frequency=(first_bin+nbins*0.5);
+int group_count=ctx->sidereal_group_count*ctx->time_group_count;
+/* for work with Doppler shifts sidereal day is best */
+//#define SCALER (GROUP_COUNT/(23.0*3600.0+56.0*60.0+4.0))
+float group_scaler=group_count; /* this determines sub-bin resolution in group formation */
+SEGMENT_INFO **groups;
+SEGMENT_INFO *tmp;
+int tmp_count;
+int max_group_segment_count;
+int *group_segment_count;
+float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
+
+float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for amplitude response and bin shift estimation */
+
+//fprintf(stderr, "%p %p %d %lf %lf 0x%08x\n", ctx, ps, count, gps_start, gps_stop, veto_mask);
+
+for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
+
+	gps_idx_next=gps_idx+gps_step;
+	si=find_segments(gps_idx, (gps_idx_next<=gps_stop ? gps_idx_next : gps_stop), veto_mask, &segment_count);
+	if(segment_count<1) {
+		free(si);
+		continue;
+		}
+
+	/* This assumes that we are patch bound !! *** WARNING ***
+	TODO: make this assumption automatic in the data layout.
+	 */
+	si_local=si;
+	min_shift=1000000; /* we should never load this many bins */
+	max_shift=-1000000;
+	for(j=0;j<segment_count;j++) {
+// 		si_local->ra=ps[0].patch_ra;
+// 		si_local->dec=ps[0].patch_dec;
+// 		memcpy(si_local->e, ps[0].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
+
+		d=&(datasets[si_local->dataset]);
+		pl=&(d->polarizations[0]);
+
+// 		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, pl->AM_coeffs);
+// 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, pl->conjugate->AM_coeffs);
+
+		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_plus);
+		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_cross);
+
+
+		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
+						+patch_e[1]*si_local->detector_velocity[1]
+						+patch_e[2]*si_local->detector_velocity[2])
+			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start);
+		if(a<min_shift)min_shift=a;
+		if(a>max_shift)max_shift=a;
+		si_local++;
+		}
+
+	//group_count=ceil(max_shift-min_shift);
+	if(group_count>200) {
+		fprintf(stderr, "Warning group count too large: %d\n", group_count);
+		group_count=200;
+		}
+
+	group_segment_count=do_alloc(group_count, sizeof(*group_segment_count));
+	groups=do_alloc(group_count, sizeof(*groups));
+
+	for(k=0;k<group_count;k++) {
+		group_segment_count[k]=0;
+		groups[k]=do_alloc(segment_count, sizeof(SEGMENT_INFO));
+		}
+
+	/* group segments into bunches with similar shifts - mostly by sidereal time
+           this way there is larger correllation of frequency shifts during summing and better use of power cache */
+	si_local=si;
+	for(j=0;j<segment_count;j++) {
+		a=(center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
+						+patch_e[1]*si_local->detector_velocity[1]
+						+patch_e[2]*si_local->detector_velocity[2])
+			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start));
+		//a*=0.25;
+		k=floorf((a-floorf(a))*ctx->sidereal_group_count)+ctx->sidereal_group_count*floorf((si_local->gps-gps_idx)*ctx->time_group_count/gps_step);
+//		k=floorf((a-floorf(a))*ctx->sidereal_group_count);
+		if(k<0)k=0;
+		if(k>=group_count)k=group_count-1;
+
+		memcpy(&(groups[k][group_segment_count[k]]), si_local, sizeof(SEGMENT_INFO));
+		group_segment_count[k]++;
+		
+		si_local++;
+		}
+
+	max_group_segment_count=group_segment_count[0];
+ 	for(k=1;k<group_count;k++) {
+		if(group_segment_count[k]>max_group_segment_count)max_group_segment_count=group_segment_count[k];
+ 		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
+ 		}
+
+	tmp=do_alloc(max_group_segment_count*2, sizeof(*tmp));
+
+	/* Do a double loop over groups */
+
+	for(k=0;k<group_count;k++) {
+		if(group_segment_count[k]<1)continue;
+		ctx->loose_first_half_count=group_segment_count[k];
+		memcpy(tmp, groups[k], group_segment_count[k]*sizeof(*groups[k]));
+
+		for(m=k;m<group_count;m++) {
+			//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
+			if(group_segment_count[m]<1)continue;
+
+			/* Loosely coherent code main coefficient depends on GPS time alone, so we can
+			   make a quick test and skip all the templates */
+			if(!is_nonzero_loose_partial_power_sum(ctx, groups[k], group_segment_count[k], groups[m], group_segment_count[m]))continue;
+
+			memcpy(&(tmp[ctx->loose_first_half_count]), groups[m], group_segment_count[m]*sizeof(*groups[m]));
+			tmp_count=ctx->loose_first_half_count+group_segment_count[m];
+
+			ctx->reset_cache(ctx, tmp_count, count);
+		
+			/* loop over templates */
+			ps_local=ps;
+			for(i=0;i<count;i++) {
+				/* fill in segment info appropriate to this template */
+				si_local=tmp;
+				for(j=0;j<tmp_count;j++) {
+		// 			si[j].ra=ps[i].patch_ra;
+		// 			si[j].dec=ps[i].patch_dec;
+		// 			memcpy(si[j].e, ps[i].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
+		
+					si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps+si_local->coherence_time*0.5-spindown_start))+
+						(center_frequency+ps_local->freq_shift)*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+							+ps_local->e[1]*si_local->detector_velocity[1]
+							+ps_local->e[2]*si_local->detector_velocity[2]);
+					si_local->diff_bin_shift=(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
+							+ps_local->e[1]*si_local->detector_velocity[1]
+							+ps_local->e[2]*si_local->detector_velocity[2]);
+					si_local++;
+					}
+				ctx->accumulate_power_sum_cached(ctx, tmp, tmp_count, ps_local->pps);
+				ps_local++;
+				}
+			}
+		}
+	//print_simple_cache_stats(ctx);
+	free(tmp);
+	tmp=NULL;
+	for(k=0;k<group_count;k++) {
+		free(groups[k]);
+		}
+	free(groups);
+	free(group_segment_count);
+	free(si);
+	}
+
+for(i=0;i<count;i++) {
+	if(ps[i].min_gps<0 || ps[i].min_gps>gps_start)ps[i].min_gps=gps_start;
+	if(ps[i].max_gps<0 || ps[i].max_gps<gps_stop)ps[i].max_gps=gps_stop;
+	}
 }
