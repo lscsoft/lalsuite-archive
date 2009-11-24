@@ -165,6 +165,9 @@ typedef enum
   LAL_IFO_L1,
   LAL_IFO_T1,
   LAL_IFO_V1,
+  LAL_IFO_E1,
+  LAL_IFO_E2,
+  LAL_IFO_E3,
   LAL_NUM_IFO,
   LAL_UNKNOWN_IFO = -1
 }

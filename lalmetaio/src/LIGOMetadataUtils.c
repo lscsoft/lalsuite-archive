@@ -204,6 +204,25 @@ XLALIFONumber(
       return LAL_IFO_V1;
       break;
 
+    case 'E':
+      if ( !strcmp( ifo, "E1" ) )
+      {
+        return LAL_IFO_E1;
+      }
+      else if ( !strcmp( ifo, "E2" ) )
+      {
+        return LAL_IFO_E2;
+      }
+      else if ( !strcmp( ifo, "E3" ) )
+      {
+        return LAL_IFO_E3;
+      }
+      else
+      {
+        return LAL_UNKNOWN_IFO;
+      }
+      break;
+
     default:
       /* Invalid Detector Site */
       return LAL_UNKNOWN_IFO ;
@@ -242,6 +261,18 @@ XLALReturnIFO(
 
     case LAL_IFO_V1:
       snprintf( ifo, LIGOMETA_IFO_MAX, "V1");
+      break;
+
+    case LAL_IFO_E1:
+      snprintf( ifo, LIGOMETA_IFO_MAX, "E1");
+      break;
+
+    case LAL_IFO_E2:
+      snprintf( ifo, LIGOMETA_IFO_MAX, "E2");
+      break;
+
+    case LAL_IFO_E3:
+      snprintf( ifo, LIGOMETA_IFO_MAX, "E3");
       break;
 
     default:
@@ -283,6 +314,14 @@ XLALReturnDetector(
 
     case LAL_IFO_V1:
       *det = lalCachedDetectors[LALDetectorIndexVIRGODIFF];
+      break;
+
+    case LAL_IFO_E1:
+    case LAL_IFO_E2:
+    case LAL_IFO_E3:
+      XLALPrintWarning( "ET detectors not fully implemented!\n" );
+      XLALPrintWarning( "Setting detector to be H1 for the time-being...\n" );
+      *det = lalCachedDetectors[LALDetectorIndexLHODIFF];
       break;
 
     default:
