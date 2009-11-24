@@ -215,8 +215,6 @@ class Sngl(object):
 		self.time = float(row[5])
 		self.process_id = row[6]
 		self.row = contents.sngl_inspiral_table.row_from_cols(row[7:])
-		# reset event_id to ilwd_char type
-		self.row.event_id = ilwd.get_ilwdchar(self.row.event_id)
 		self.inj_file_name = contents.sim_file_name
 
 		self.process_params = []
