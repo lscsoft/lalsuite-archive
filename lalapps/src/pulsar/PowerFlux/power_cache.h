@@ -71,4 +71,26 @@ void accumulate_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int co
 
 void power_cache_selftest(void);
 
+#define SIMPLE_CACHE_ID 1
+
+typedef struct {
+	long id;
+
+	/* statistics */
+	long hits;
+	long misses;
+	long overwrites;
+	long large_shifts;
+	int max_size;
+
+	/* cache contents */
+	int segment_count;
+	int size;
+	int free;
+	int *key;
+	SEGMENT_INFO **si;
+	PARTIAL_POWER_SUM_F **pps;
+	} SIMPLE_CACHE;
+
+
 #endif

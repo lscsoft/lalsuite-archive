@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.35-64
+VERSION=1.4.36-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -19,13 +19,13 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 CC=gcc $(CFLAGS)
 
 COMMON_OBJS=cmdline.o rastermagic.o hookup.o lines.o grid.o \
-	png.o polarization.o intervals.o statistics.o dataset.o 
+	png.o polarization.o intervals.o statistics.o dataset.o
 
 PYTHON_OBJS=$(COMMON_OBJS) candidates.o fine_grid.o
 
 OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
-OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o
+OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.c
 
 FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
 

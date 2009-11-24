@@ -1687,7 +1687,7 @@ if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 		/* Matched filter correctly reconstructs power in the bin */
 		upper_limit_comp=1.0; 
 		} else
-	if(!strcasecmp(args_info.averaging_mode_arg, "loose")) {
+	if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
 		/* Loose mode uses matched filter which correctly reconstructs power in the bin */
 		upper_limit_comp=1.0; 
 		} else
