@@ -82,6 +82,7 @@ def get_columns_to_print(xmldoc, tableName):
             'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mini_followup',
+            'sim_tag',
             'injected_eff_dist_h',
             'injected_eff_dist_l',
             'injected_eff_dist_v',
@@ -103,6 +104,7 @@ def get_columns_to_print(xmldoc, tableName):
             'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mini_followup',
+            'sim_tag',
             'injected_eff_dist_h',
             'injected_eff_dist_l',
             'injected_eff_dist_v',
@@ -122,6 +124,7 @@ def get_columns_to_print(xmldoc, tableName):
             'eff_dist_h',
             'eff_dist_l',
             'eff_dist_v',
+            'sim_tag',
             'mini_followup'
             ]
         row_span_columns = rspan_break_columns = []
@@ -401,6 +404,10 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
         return sqlutils.convert_duration( duration, convert_durations )
     connection.create_function( 'convert_duration', 1, convert_duration )
     
+    # create the get_sim_tag function
+    sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
+    connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
+   
     # Get range ranks
     if rank_range is not None:
         rank_range_parser = sqlutils.parse_param_ranges( 'rank(sim_rec_map', 'ranking_stat)',
@@ -436,7 +443,7 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
     rankname = 'rank_in_' + comparison_datatype.strip().lower() + '_using_' + ranking_stat.split('.')[-1]
     durname = ''.join([ 'simulation', u'_duration__Px_', convert_durations, '_xP_' ])
     column_names.extend([u'instruments_on', durname, u'mini_followup' ])
-    column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', 'elogs', durname, 'mini_followup' ] )
+    column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', 'elogs', durname, 'mini_followup', 'sim_tag' ] )
     
     #
     # define needed tables
@@ -504,6 +511,7 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
         SELECT
             """, simulation_table, """.*,
             """, recovery_table, """.*,
+            get_sim_tag(experiment_summary.sim_proc_id),
             rank(sim_rec_map.ranking_stat),
             NULL AS match_rank,
             experiment.instruments,
@@ -586,6 +594,7 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
         # set any other info
         sfrow.instruments_on = ','.join(sorted(on_instruments))
         sfrow.mini_followup = None
+        sfrow.sim_tag = values[-6]
         setattr(sfrow, durname, duration)
     
         # add the row
@@ -605,144 +614,21 @@ def printsims(connection, recovery_table, simulation_table, ranking_stat, rank_b
 
 
 
-def printmissed(connection, simulation_table, recovery_table, instrument_time,
-    param_name = None, param_ranges = None, sim_tag = 'ALLINJ', limit = None, 
-    daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
+def printmissed(connection, simulation_table, recovery_table,
+    param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ',
+    limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
     from pylal import db_thinca_rings
     from glue import segments
 
-    # Get simulation table from options
+    # Get simulation/recovery tables
     simulation_table = sqlutils.validate_option(simulation_table)
-    # Get recovery table and ranking stat from options
     recovery_table = sqlutils.validate_option(recovery_table)
     
-    # Get the requested instruments
-    requested_instruments = lsctables.instrument_set_from_ifos(instrument_time.upper())
-    
-    # get the ring_sets
-    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
-    
-    if verbose:
-        print >> sys.stderr, "Getting all veto category name from the experiment_summary table..."
-    
-    # get veto_segments
-    sqlquery = """
-        SELECT DISTINCT
-            veto_def_name
-        FROM
-            experiment_summary
-        """
-    # FIXME: this assumes only 1 veto_def_name in the category; while this is currently true in pipedown
-    # databases, it necessarily doesn't have to be
-    veto_def_name = connection.cursor().execute(sqlquery).fetchone()[0]
-    if verbose:
-        print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
-    try:
-        veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-    except AttributeError:
-        # will get an AttributeError if using newer format veto segment file because
-        # the new format does not include _ns; if so, remove the _ns columns from the
-        # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-        from glue.lal import LIGOTimeGPS
-    
-        del lsctables.SegmentTable.validcolumns['start_time_ns']
-        del lsctables.SegmentTable.validcolumns['end_time_ns']
-    
-        def get_segment(self):
-            """
-            Return the segment described by this row.
-            """
-            return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-    
-        def set_segment(self, segment):
-            """
-            Set the segment described by this row.
-            """
-            self.start_time = segment[0].seconds
-            self.end_time = segment[1].seconds
-    
-        lsctables.Segment.get = get_segment
-        lsctables.Segment.set = set_segment
-    
-        veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-    
-    # get instrument on_time
-    on_times = ring_sets[frozenset(requested_instruments)]
-    for instrument in requested_instruments:
-        on_times = on_times - veto_segments[instrument]
-    
-    def is_in_on_time(gps_end_time, gps_end_time_ns):
-        return LIGOTimeGPS(gps_end_time, gps_end_time_ns) in on_times
-    
-    connection.create_function('is_in_on_time', 2, is_in_on_time)
-    
-    # set up sim_rec_map table
-    sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
-    
-    
-    #
-    #   Set table filters
-    #
-    
-    in_this_filter = """
-        WHERE
-            simulation_id NOT IN (
-                SELECT
-                    sim_id
-                FROM
-                    sim_rec_map )"""
-    
-    for instrument in requested_instruments:
-        inst_time = instrument.lower()[0] + '_end_time'
-        inst_time_ns = inst_time + '_ns' 
-        in_this_filter = ''.join([ in_this_filter,
-            '\n\tAND is_in_on_time(', inst_time, ',', inst_time_ns, ')' ])
-    
-    # Get param and param-ranges if specified
-    if param_name:
-        param_name = sqlutils.validate_option(param_name)
-        param_filters = sqlutils.parse_param_ranges( simulation_table, param_name, 
-            param_ranges, verbose = verbose ).get_param_filters()
-        # since want triggers that fall within all the parameters, concatenate
-        # all param ranges
-        param_filters = '\n\t\tOR '.join( param_filters )
-        in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', param_filters, '\n\t)' ])
-    
-    # if sim-tag specified add the sim-tag to the filter
-    if sim_tag != 'ALLINJ':
-        # create a map between sim_proc_id and sim-name
-        sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
-        # check that sim_tag is in the the map
-        sim_tag = sqlutils.validate_option(sim_tag, lower = False).upper()
-        if sim_tag not in sim_map.tag_id_map.keys():
-            raise ValueError, "sim-tag %s not found in database" % sim_tag
-        # create the filter
-        connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
-        sim_filter = ''.join(['get_sim_tag(', simulation_table, '.process_id) == "', sim_tag, '"' ])
-        # add to in_this_filter
-        in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
-    
-    #
-    #   Set up decisive distance argument
-    #
-    
-    def get_decisive_distance( *args ):
-       return sorted(args)[1]
-    
-    connection.create_function('get_decisive_distance', len(requested_instruments), get_decisive_distance)
-    decisive_distance = ''.join(['get_decisive_distance(', ','.join(['eff_dist_'+inst.lower()[0] for inst in requested_instruments]), ')' ])
-    
-    #
-    #   Initialize ranking. Statistics for ranking are based on decisive distance
-    #
-    if verbose:
-        print >> sys.stdout, "Getting statistics for ranking..."
-    ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
-    # add requirement that stats not be found in the sim_rec_table to in_this_filter
-    ranker.populate_stats_list(connection, limit = limit, filter = in_this_filter)
-    connection.create_function( 'rank', 1, ranker.get_rank )
-    
+    # create the get_sim_tag function
+    sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
+    connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
+
     #
     #   Create and prepare the CloseMissedTable to store summary information
     #
@@ -750,23 +636,26 @@ def printmissed(connection, simulation_table, recovery_table, instrument_time,
     # Get simulation table column names from database
     simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
     column_names = simulation_table_columns + \
-        ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
+        ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'instruments_on', 'veto_def_name', 'mini_followup', 'sim_tag']
     
-    #
+    
     # define needed tables
-    #
     class CloseMissedTable(table.Table):
         tableName = "close_missed_injections:table"
         validcolumns = {}
         for col_name in column_names:
             if 'rank' in col_name:
                 validcolumns[col_name] = "int_4u"
-            elif 'instruments_on' in col_name:
+            elif 'instruments_on' == col_name:
                 validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
+            elif 'veto_def_name' == col_name:
+                validcolumns[col_name] = lsctables.ExperimentSummaryTable.validcolumns['veto_def_name']
             elif 'decisive_distance' == col_name:
                 validcolumns[col_name] = sqlutils.get_col_type(simulation_table, 'eff_dist_h')
             elif 'end_time' == col_name or 'end_time_ns' == col_name:
                 validcolumns[col_name] = "int_4s"
+            elif 'sim_tag' == col_name:
+                validcolumns[col_name] = "lstring"
             else:
                 validcolumns[col_name] = sqlutils.get_col_type(simulation_table, col_name, default = 'lstring')
     
@@ -779,45 +668,191 @@ def printmissed(connection, simulation_table, recovery_table, instrument_time,
     # connect the rows to the tables
     CloseMissedTable.RowType = CloseMissed
     
-    #
-    #   Get the Data
-    #
+    # create the table
     cmtable = lsctables.New(CloseMissedTable)
-    sqlquery = ''.join(["""
-        SELECT
-            *,
-            """, decisive_distance, """,
-            rank(""", decisive_distance, """)
-        FROM
-            """, simulation_table, """
-        """, in_this_filter, """
-            AND rank(""", decisive_distance, """) <= """, str(limit), """
-        ORDER BY
-            rank(""", decisive_distance, """) ASC
-            """])
+
+    # set up sim_rec_map table
+    sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
+    
+    #
+    #   Set table filters
+    #
+    
+    # we force the include/exclude filters to None; will check for excluded/included ifo time
+    # when cycling through the ifo times
+    filter = '\n'.join(["""
+        WHERE
+            simulation_id NOT IN (
+                SELECT
+                    sim_id
+                FROM
+                    sim_rec_map )""",
+        create_filter( connection, simulation_table, param_name = param_name, param_ranges = param_ranges,
+            exclude_coincs = None, include_only_coincs = None, sim_tag = sim_tag, verbose = verbose) ])
+    # get desired instrument times
+    if include_only_coincs is not None:
+        include_times = [on_instruments for on_instruments, type in
+            sqlutils.parse_coinc_options( include_only_coincs, verbose = verbose ).get_coinc_types().items()
+            if 'ALL' in type]
+    if exclude_coincs is not None:
+        exclude_times = [on_instruments for on_instruments, type in
+            sqlutils.parse_coinc_options( exclude_coincs, verbose = verbose ).get_coinc_types().items()
+            if 'ALL' in type]
+
+    #
+    #   Get the veto segments
+    #
+
+    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
     
     if verbose:
-        print >> sys.stdout, "Getting injections..."
-        print >> sys.stdout, "SQLite query used is:"
-        print >> sys.stdout, sqlquery
+        print >> sys.stderr, "Getting all veto category names from the experiment_summary table..."
     
-    for values in connection.cursor().execute( sqlquery ).fetchall():
-        cmrow = CloseMissed()
-        [ setattr(cmrow, column, values[ii]) for ii, column in enumerate(simulation_table_columns) ]
-        cmrow.decisive_distance = values[-2]
-        cmrow.rank = values[-1]
-        cmrow.mini_followup = None
-        cmrow.end_time = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time')
-        cmrow.end_time_ns = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time_ns')
-        # set  elog page
-        elog_pages = [(ifo, get_elog_page(ifo, cmrow.end_time)) for ifo in requested_instruments]
-        cmrow.elogs = ','.join([ create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
-        # set daily_ihope page
-        end_time_utc = format_end_time_in_utc( cmrow.end_time ) 
-        daily_ihope_address = get_daily_ihope_page(cmrow.end_time, pages_location = daily_ihope_pages_location)
-        cmrow.end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
+    # get veto_segments
+    sqlquery = """
+        SELECT DISTINCT
+            veto_def_name
+        FROM
+            experiment_summary
+        """
+    for veto_def_name in connection.cursor().execute(sqlquery).fetchall():
+        veto_def_name = veto_def_name[0]
+        if verbose:
+            print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
+        try:
+            veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+        except AttributeError:
+            # will get an AttributeError if using newer format veto segment file because
+            # the new format does not include _ns; if so, remove the _ns columns from the
+            # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
+            from glue.lal import LIGOTimeGPS
+        
+            del lsctables.SegmentTable.validcolumns['start_time_ns']
+            del lsctables.SegmentTable.validcolumns['end_time_ns']
+        
+            def get_segment(self):
+                """
+                Return the segment described by this row.
+                """
+                return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+        
+            def set_segment(self, segment):
+                """
+                Set the segment described by this row.
+                """
+                self.start_time = segment[0].seconds
+                self.end_time = segment[1].seconds
+        
+            lsctables.Segment.get = get_segment
+            lsctables.Segment.set = set_segment
+        
+            veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+        
+        #
+        #   Get all the on_instrument times and cycle over them
+        #
+        sqlquery = """
+            SELECT DISTINCT
+                experiment.instruments
+            FROM    
+                experiment
+            JOIN
+                experiment_summary ON
+                    experiment.experiment_id == experiment_summary.experiment_id
+            WHERE
+                experiment_summary.veto_def_name == ?"""
+        for on_instruments in connection.cursor().execute(sqlquery, (veto_def_name,)).fetchall():
+            on_instruments = lsctables.instrument_set_from_ifos(on_instruments[0])
     
-        # add the row
-        cmtable.append(cmrow)
+            # check if this on_instruments is desired; if not, skip
+            if include_only_coincs is not None and frozenset(on_instruments) not in include_times:
+                continue
+            if exclude_coincs is not None and frozenset(on_instruments) in exclude_times:
+                continue
+            
+            if verbose:
+                print >> sys.stderr, "Applying to %s time..." % ','.join(sorted(on_instruments))
+
+            # get on_time segments
+            on_times = ring_sets[frozenset(on_instruments)]
+            for instrument in on_instruments:
+                on_times = on_times - veto_segments[instrument]
+            
+            def is_in_on_time(gps_end_time, gps_end_time_ns):
+                return LIGOTimeGPS(gps_end_time, gps_end_time_ns) in on_times
+            
+            connection.create_function('is_in_on_time', 2, is_in_on_time)
+            
+            # add the check for on time to the filter
+            in_this_filter = filter
+            for instrument in on_instruments:
+                inst_time = instrument.lower()[0] + '_end_time'
+                inst_time_ns = inst_time + '_ns' 
+                in_this_filter = ''.join([ in_this_filter,
+                    '\n\tAND is_in_on_time(', inst_time, ',', inst_time_ns, ')' ])
+     
+            #
+            #   Set up decisive distance argument
+            #
+            
+            def get_decisive_distance( *args ):
+               return sorted(args)[1]
+            
+            connection.create_function('get_decisive_distance', len(on_instruments), get_decisive_distance)
+            decisive_distance = ''.join(['get_decisive_distance(', ','.join(['eff_dist_'+inst.lower()[0] for inst in on_instruments]), ')' ])
+            
+            #
+            #   Initialize ranking. Statistics for ranking are based on decisive distance
+            #
+            if verbose:
+                print >> sys.stdout, "Getting statistics for ranking..."
+            ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
+            # add requirement that stats not be found in the sim_rec_table to in_this_filter
+            ranker.populate_stats_list(connection, limit = limit, filter = in_this_filter)
+            connection.create_function( 'rank', 1, ranker.get_rank )
+            
+            #
+            #   Get the Data
+            #
+            sqlquery = ''.join(["""
+                SELECT
+                    *,
+                    get_sim_tag(process_id),
+                    """, decisive_distance, """,
+                    rank(""", decisive_distance, """)
+                FROM
+                    """, simulation_table, """
+                """, in_this_filter, """
+                    AND rank(""", decisive_distance, """) <= """, str(limit), """
+                ORDER BY
+                    rank(""", decisive_distance, """) ASC
+                    """])
+            
+            if verbose:
+                print >> sys.stdout, "Getting injections..."
+                print >> sys.stdout, "SQLite query used is:"
+                print >> sys.stdout, sqlquery
+            
+            for values in connection.cursor().execute( sqlquery ).fetchall():
+                cmrow = CloseMissed()
+                [ setattr(cmrow, column, values[ii]) for ii, column in enumerate(simulation_table_columns) ]
+                cmrow.decisive_distance = values[-2]
+                cmrow.rank = values[-1]
+                cmrow.instruments_on = lsctables.ifos_from_instrument_set(on_instruments)
+                cmrow.veto_def_name = veto_def_name
+                cmrow.sim_tag = values[-3]
+                cmrow.mini_followup = None
+                cmrow.end_time = getattr(cmrow, sorted(on_instruments)[0][0].lower() + '_end_time')
+                cmrow.end_time_ns = getattr(cmrow, sorted(on_instruments)[0][0].lower() + '_end_time_ns')
+                # set  elog page
+                elog_pages = [(ifo, get_elog_page(ifo, cmrow.end_time)) for ifo in on_instruments]
+                cmrow.elogs = ','.join([ create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+                # set daily_ihope page
+                end_time_utc = format_end_time_in_utc( cmrow.end_time ) 
+                daily_ihope_address = get_daily_ihope_page(cmrow.end_time, pages_location = daily_ihope_pages_location)
+                cmrow.end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
+            
+                # add the row
+                cmtable.append(cmrow)
    
     return cmtable
