@@ -268,9 +268,12 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	process.version = version
 	process.cvs_repository = cvs_repository
 	if cvs_entry_time is not None:
-		process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
-	else:
-		process.cvs_entry_time = None
+		try:
+			# try the git_version format first
+			process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y-%m-%d %H:%M:%S +0000")).seconds
+		except ValueError:
+			# fall back to the old cvs format
+			process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
 	process.comment = comment
 	process.is_online = int(is_online)
 	process.node = socket.gethostname()
