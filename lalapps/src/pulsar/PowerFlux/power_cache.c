@@ -946,7 +946,7 @@ float sum, sum_sq;
 float pps_bins_inv=1.0/pps_bins;
 //float pmax_factor=args_info.power_max_median_factor_arg;
 
-float filter[8];
+float *filter;
 
 float weight_pppp=0;
 float weight_pppc=0;
@@ -963,6 +963,7 @@ power=aligned_alloca(pps_bins*sizeof(*power));
 
 tmp1=aligned_alloca(8*sizeof(*tmp1));
 tmp2=aligned_alloca(8*sizeof(*tmp2));
+filter=aligned_alloca(8*sizeof(*filter));
 
 pp=pps->power_pp;
 pc=pps->power_pc;
@@ -2145,21 +2146,18 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 // 	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
 // 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
-	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.25*nbins*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.5*(0.5*nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
 	//phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
 
-	phase_increment=(1+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
+	phase_increment=(1.0+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
 			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
 
 	inc_c=cosf(phase_increment);
 	inc_s=sinf(-phase_increment);
-
-	f0m_c=cosf(phase_offset);
-	f0m_s=sinf(-phase_offset);
 
  	d=&(datasets[si_local->dataset]);
  	d2=&(datasets[si_local2->dataset]);
@@ -2271,7 +2269,7 @@ float sum, sum_sq;
 float pps_bins_inv=1.0/pps_bins;
 //float pmax_factor=args_info.power_max_median_factor_arg;
 
-float filter[8];
+float *filter;
 
 __m128 v4power0, v4power1, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
 float *tmp1, *tmp2, *tmp3;
@@ -2279,6 +2277,7 @@ float *tmp1, *tmp2, *tmp3;
 tmp1=aligned_alloca(8*sizeof(*tmp1));
 tmp2=aligned_alloca(8*sizeof(*tmp2));
 tmp3=aligned_alloca(4*sizeof(*tmp3));
+filter=aligned_alloca(8*sizeof(*filter));
 
 //fprintf(stderr, "%d\n", count);
 
@@ -2312,6 +2311,128 @@ tmp2[7]=0;
 for(i=0;i<pps_bins;i++) {
 	memcpy(tmp1, &(re[-3]), 8*sizeof(*tmp1));
 	memcpy(tmp2, &(im[-3]), 8*sizeof(*tmp2));
+
+	v4a=_mm_load_ps(&(tmp1[0]));
+	v4a1=_mm_load_ps(&(tmp1[4]));
+
+	v4a=_mm_mul_ps(v4filt0, v4a);
+	v4a1=_mm_mul_ps(v4filt1, v4a1);
+
+	v4a=_mm_add_ps(v4a, v4a1);
+
+	v4b=_mm_load_ps(&(tmp2[0]));
+	v4b1=_mm_load_ps(&(tmp2[4]));
+
+	v4b=_mm_mul_ps(v4filt0, v4b);
+	v4b1=_mm_mul_ps(v4filt1, v4b1);
+
+	v4b=_mm_add_ps(v4b, v4b1);
+
+//		v4a=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(re[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(re[1]))));
+//		v4b=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(im[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(im[1]))));
+
+	v4power0=_mm_hadd_ps(v4a, v4b);
+	v4power0=_mm_hadd_ps(v4power0, v4power0);
+	_mm_store_ps(tmp3, v4power0);
+	*out_re_p=tmp3[0];
+	*out_im_p=tmp3[1];
+
+	v4power1=_mm_mul_ps(v4power0, v4power0);
+	v4power1=_mm_hadd_ps(v4power1, v4power1);
+
+	_mm_store_ss(&a, v4power1);
+
+	sum+=a;
+	sum_sq+=a*a;
+
+	im++;
+	re++;
+	out_re_p++;
+	out_im_p++;
+	}
+
+if(args_info.tmedian_noise_level_arg) {
+	*out_w=d->expTMedians[si->segment]*d->weight;
+	} else {
+	sum*=pps_bins_inv;
+	sum_sq*=pps_bins_inv;
+	sum_sq-=sum*sum;
+
+	*out_w=1.0/sum_sq;
+	}
+
+}
+
+/* This helper function populates real and imaginary part of an FFT array, and also computes weight
+   An additional wrinkle is that uses diff_bin_shift to adjust mismatch constant which can vary */
+ 
+void sse_compute_matched_floating_fft(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int offset, int pps_bins, float *out_re, float *out_im, float *out_w)
+{
+int i;
+int bin_shift;
+DATASET *d;
+//POLARIZATION *pl;
+float *im, *re, *out_im_p, *out_re_p;
+float a;
+
+float sum, sum_sq;
+float pps_bins_inv=1.0/pps_bins;
+//float pmax_factor=args_info.power_max_median_factor_arg;
+
+float mismatch, mismatch_inc;
+
+float *filter;
+
+__m128 v4power0, v4power1, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
+float *tmp1, *tmp2, *tmp3;
+
+tmp1=aligned_alloca(8*sizeof(*tmp1));
+tmp2=aligned_alloca(8*sizeof(*tmp2));
+tmp3=aligned_alloca(4*sizeof(*tmp3));
+filter=aligned_alloca(8*sizeof(*filter));
+
+//fprintf(stderr, "%d\n", count);
+
+bin_shift=rintf(si->bin_shift)-offset;
+if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
+	fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		bin_shift, si->bin_shift);
+	exit(-1);
+	}
+
+d=&(datasets[si->dataset]);
+// 	pl=&(d->polarizations[0]);
+
+//f_plus=F_plus_coeff(si_local->segment, si_local->e, pl->AM_coeffs);
+//f_cross=F_plus_coeff(si_local->segment, si_local->e, pl->conjugate->AM_coeffs);
+
+re=&(d->re[si->segment*nbins+side_cut+bin_shift]);
+im=&(d->im[si->segment*nbins+side_cut+bin_shift]);
+out_re_p=out_re;
+out_im_p=out_im;
+
+/* Do this for every 8 frequency bins */
+mismatch=si->bin_shift-rintf(si->bin_shift)-si->diff_bin_shift*(0.5*nbins-side_cut+4.0);
+mismatch_inc=si->diff_bin_shift*8.0;
+
+if(fabsf(mismatch_inc)>0.02)
+	fprintf(stderr, "mismatch=%g mismatch_inc=%g bin_shift=%g diff_bin_shift=%g\n", mismatch, mismatch_inc, si->bin_shift, si->diff_bin_shift);
+
+sum=0;
+sum_sq=0;
+tmp1[7]=0.0;
+tmp2[7]=0.0;
+for(i=0;i<pps_bins;i++) {
+	if((i & 0x7)==0) {
+		tabulated_fill_hann_filter7(filter, mismatch);
+		filter[7]=0.0;
+		v4filt0=_mm_load_ps(filter);
+		v4filt1=_mm_load_ps(&(filter[4]));
+		mismatch+=mismatch_inc;
+		}
+
+	memcpy(tmp1, &(re[-3]), 7*sizeof(*tmp1));
+	memcpy(tmp2, &(im[-3]), 7*sizeof(*tmp2));
 
 	v4a=_mm_load_ps(&(tmp1[0]));
 	v4a1=_mm_load_ps(&(tmp1[4]));
@@ -2475,7 +2596,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 //  	d2=&(datasets[si_local2->dataset]);
 
 	if(!computed[k]) {
-		sse_compute_matched_fft(ctx, si_local, pps->offset, pps_bins,
+		sse_compute_matched_floating_fft(ctx, si_local, pps->offset, pps_bins,
 			&(m_re[k*pps_bins]),
 			&(m_im[k*pps_bins]),
 			&(w[k]));
@@ -2483,7 +2604,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 		}
 
 	if(!computed[m+ctx->loose_first_half_count]) {
-		sse_compute_matched_fft(ctx, si_local2, pps->offset, pps_bins,
+		sse_compute_matched_floating_fft(ctx, si_local2, pps->offset, pps_bins,
 			&(m_re[(m+ctx->loose_first_half_count)*pps_bins]),
 			&(m_im[(m+ctx->loose_first_half_count)*pps_bins]),
 			&(w[m+ctx->loose_first_half_count]));
@@ -2516,14 +2637,14 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 
 	/* contribution from frequency mismatch */
-	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.25*(nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.5*(0.5*nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
 	//phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
 
-	phase_increment=(1+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
+	phase_increment=(2+(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*M_PI/1800.0+
 			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
 
 	inc_c=cosf(phase_increment);
@@ -2808,7 +2929,6 @@ for(i=0;i<count;i++) {
 	//fprintf(stderr, "%0.1f ", a);
 	}
 //fprintf(stderr, "k=%d key=%d %f\n", k, key, a);
-
 sc_key=sc->key;
 for(k=0;k<sc->free;k++) {
 	/* the reason we use exact equality for floating point numbers is because the numbers in cache have been placed there by the same function. */
