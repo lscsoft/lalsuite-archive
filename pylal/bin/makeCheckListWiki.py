@@ -1200,7 +1200,7 @@ defaultWeblink="%s%sWEBPATH"%(hostnameURL,userURL)
 parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
 parser.add_option("-f","--followup-directory",\
                   action="store",type="string",\
-                  default=None,metavar="FUDIR",\
+                  default="./",metavar="FUDIR",\
                   help="Set this to point the the parent directory of \
 a follow up pipeline run.  From this location we \
 will build checklists for all the events processed \
