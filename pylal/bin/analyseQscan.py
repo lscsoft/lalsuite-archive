@@ -153,10 +153,10 @@ class readSummaryFiles:
 
   def getAuxChannels(self,inputList):
     intermediateTable = {'type':[],'ifo':[],'qscan_time':[],'qscan_dir':[],'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[]}
-    if 1:#try:
+    try:
       doc = utils.load_filename(inputList[0] + "/summary.xml",verbose=True,gz=False,xmldoc=None,contenthandler=None)
       qscanTable = table.get_table(doc, "qscan:summary:table")
-    else:#except:
+    except:
       print >> sys.stderr, "failed to read" + inputList[0] + "/summary.xml"
       return intermediateTable
     for channel in qscanTable:
