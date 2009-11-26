@@ -127,6 +127,30 @@ def format_cell(val, round_floats = False, decimal_places = 2, format_links = Fa
 
     return val
 
+def format_header_cell(val):
+    """
+    Formats given header column. This involves changing '_Px_' to '(', '_xP_' to ')' and
+    all other '_' to spaces.
+    """
+    return re.sub('_', ' ', re.sub(r'(_Px_)', '(', re.sub(r'(_xP_)', ')', str(val) )))
+
+def get_row_data(row, column_name, cat_time_ns = True):
+    """
+    Retrieves the requested column's data from the given row.
+    
+    @cat_time_ns: If the column_name has "_time" in it, will concatenate 
+    the column with any column having the same name but "_time_ns".
+    """
+    column_name_ns = re.sub(r'_time', r'_time_ns', column_name)
+    try:
+        rowattrs = [attr for attr in row.__slots__]
+    except AttributeError:
+        rowattrs = [attr for attr in row.__dict__.iterkeys()]
+
+    if cat_time_ns and "_time" in column_name and column_name_ns in rowattrs:
+        return int(getattr(row, column_name)) + 10**(-9.)*int(getattr(row, column_name_ns))
+    else:
+        return getattr(row, column_name)
 #
 # =============================================================================
 #
@@ -192,12 +216,11 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
             col_names = [ col.getAttribute("Name").split(":")[-1]
                 for col in this_table.getElementsByTagName(u'Column') ]
         else:
-            col_names = []
-            for requested_column in columnList:
-                col_names.extend( actual_column.getAttribute("Name").split(":")[-1]
-                for actual_column in this_table.getElementsByTagName(u'Column')
-                    if requested_column in actual_column.getAttribute("Name")
-                    and actual_column.getAttribute("Name").split(":")[-1] not in col_names )
+            requested_columns = [col.split(':')[-1] for col in columnList if not (':' in col and col.split(':')[0] != table_name) ]
+            requested_columns = sorted(set(requested_columns), key=requested_columns.index)
+            actual_columns = [actual_column.getAttribute("Name").split(":")[-1]
+                for actual_column in this_table.getElementsByTagName(u'Column') ]
+            col_names = [col for col in requested_columns if col in actual_columns]
         # get the relevant row_span/break column indices
         rspan_indices = [ n for n,col in enumerate(col_names) if col in row_span_columns or ':'.join([table_name,col]) in row_span_columns ]
         break_indices = [ n for n,col in enumerate(col_names) if col in rspan_break_columns or ':'.join([table_name,col]) in rspan_break_columns ] 
@@ -206,12 +229,12 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
         print >> output, tx
         if print_table_names:
             print >> output, "%s%s%s" %(capx, table_name, xcap)
-        print >> output, "%s%s%s%s%s" %(rx, cx, re.sub('_', ' ', (xc+cx).join(col_names)), xc, xr)
+        print >> output, "%s%s%s%s%s" %(rx, cx, (xc+cx).join(format_header_cell(val) for val in col_names), xc, xr)
 
         # format the data in the table
         out_table = []
         for row in this_table:
-            out_row = [ str(format_cell( getattr(row, col_name),
+            out_row = [ str(format_cell( get_row_data(row, col_name),
                 round_floats = round_floats, decimal_places = decimal_places,
                 format_links = format_links,  hlx = hlx, hxl = hxl, xhl = xhl ))
                 for col_name in col_names ]

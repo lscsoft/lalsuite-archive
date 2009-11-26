@@ -274,7 +274,7 @@ class upper_limit(object):
         return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in zero_lag_segments
 
       connection.create_function("injection_was_made", 2, injection_was_made)
-      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName)._row_from_cols
+      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
       for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,

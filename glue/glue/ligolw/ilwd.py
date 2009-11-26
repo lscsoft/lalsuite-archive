@@ -253,8 +253,9 @@ def get_ilwdchar_class(tbl_name, col_name):
 
 def get_ilwdchar(s):
 	"""
-	Convert an ilwd:char string into an instance of the matching
-	subclass of ilwdchar.
+	Convert an ilwd:char-formated string into an instance of the
+	matching subclass of ilwdchar.  If the input is None then the
+	return value is None.
 
 	Example:
 
@@ -271,7 +272,16 @@ def get_ilwdchar(s):
 	19
 	>>> str(x)[x.index_offset:]
 	'10'
+	>>> print get_ilwdchar(None)
+	None
 	"""
+	#
+	# None is no-op
+	#
+
+	if s is None:
+		return None
+
 	#
 	# try parsing the string as an ilwd:char formated string
 	#

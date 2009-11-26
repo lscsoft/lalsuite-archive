@@ -101,12 +101,12 @@ page.subpages["playts"].sections["ts"].add_table(imgtable, "Time Slides", "Time 
 
 ### Money Plots ###
 page.add_subpage("playmoney","Playground Money Plots", "Playground Money Plots")
-page.subpages["playmoney"].add_section("snr","Playground SNR Histogram")
+page.subpages["playmoney"].add_section("snr","Playground Rate vs. Effective SNR Threshold")
 imgtable = image_glob(base_name+'5_playground_count_vs_snr_*.png')
-page.subpages["playmoney"].sections["snr"].add_table(imgtable, "Effective SNR hist", "Cumulative Effective SNR histogram")
-page.subpages["playmoney"].add_section("ifar","Playground IFAR Histogram")
+page.subpages["playmoney"].sections["snr"].add_table(imgtable, "Rate vs. Effective SNR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of effective SNR threshold.")
+page.subpages["playmoney"].add_section("ifar","Playground Rate vs. IFAR Threshold")
 imgtable = image_glob(base_name+'5_playground_count_vs_ifar_*.png')
-page.subpages["playmoney"].sections["ifar"].add_table(imgtable, "IFAR hist", "Cumulative IFAR histogram")
+page.subpages["playmoney"].sections["ifar"].add_table(imgtable, "Rate vs. IFAR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of inverse false-alarm rate (IFAR) threshold.")
 page.subpages["playmoney"].add_section("table","Playground Loudest Table")
 tab,name = wiki_table_parse(base_name+'playground_summary_table.txt')
 page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
@@ -139,12 +139,12 @@ if opts.open_box:
 
 	### Money Plots ###
 	page.add_subpage("money","Money Plots", "Money Plots")
-	page.subpages["money"].add_section("snr","Playground SNR Histogram")
+	page.subpages["money"].add_section("snr","Rate vs. Effective SNR Threshold")
 	imgtable = image_glob(base_name+'5_count_vs_snr_*.png')
-	page.subpages["money"].sections["snr"].add_table(imgtable, "Effective SNR hist", "Cumulative Effective SNR histogram")
-	page.subpages["money"].add_section("ifar","IFAR Histogram")
+	page.subpages["money"].sections["snr"].add_table(imgtable, "Rate vs. Effective SNR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of effective SNR threshold.")
+	page.subpages["money"].add_section("ifar","Rate vs. IFAR Threshold")
 	imgtable = image_glob(base_name+'5_count_vs_ifar_*.png')
-	page.subpages["money"].sections["ifar"].add_table(imgtable, "IFAR hist", "Cumulative IFAR histogram")
+	page.subpages["money"].sections["ifar"].add_table(imgtable, "Rate vs. IFAR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of inverse false-alarm rate (IFAR) threshold.")
 	page.subpages["money"].add_section("table","Loudest Table")
 	tab,name = wiki_table_parse(base_name+'summary_table.txt')
 	page.subpages["money"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Events")

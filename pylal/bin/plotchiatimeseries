@@ -102,28 +102,28 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
         minSNRIfo = ifo
 
 
-    if not (float(multiInspiralTable[maxIndex].tau4) == -1.0):
-      tau4 = "%0.3f"%multiInspiralTable[maxIndex].tau4
+    if not (float(multiInspiralTable[maxIndex].eff_dist_h1h2) == -1.0):
+      eff_dist_h1h2 = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_h1h2
     else:
-      tau4 =  "NA"
+      eff_dist_h1h2 =  "NA"
 
 
     cohSNR = "%0.2f"%maxSNR
     if ifoH1 == 1 and ifoH2 == 1 \
-      and not (float(multiInspiralTable[maxIndex].null_statistic) == -1.0):
+      and not (float(multiInspiralTable[maxIndex].null_stat_h1h2 ) < 0.0):
       # Fetch H1H2 null-stat if available
-      h1h2_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_statistic))
+      h1h2_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_stat_h1h2))
       h1h2NullStat = "%0.5f"%h1h2_null_stat
     else:
       h1h2NullStat = "NA"
     # Fetch H1H2 eff-distance if available
     if ifoH1 == 1 and ifoH2 == 1 \
-      and not (float(multiInspiralTable[maxIndex].tau4) == -1.0):
-      tau4 = "%0.3f"%multiInspiralTable[maxIndex].tau4
+      and not (float(multiInspiralTable[maxIndex].eff_dist_h1h2) == -1.0):
+      eff_dist_h1h2 = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_h1h2
     else:
-      tau4 =  "NA"
-    if not (float(multiInspiralTable[maxIndex].tau5) == -1.0):
-      net_null_stat = sqrt(float(multiInspiralTable[maxIndex].tau5))
+      eff_dist_h1h2 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].null_statistic) < 0.0):
+      net_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_statistic))
       netNullStat = "%0.5f"%net_null_stat
     else:
       netNullStat =  "NA"
@@ -134,24 +134,34 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
     end_time = str(multiInspiralTable[maxIndex].end_time)
     end_time_ns = str(multiInspiralTable[maxIndex].end_time_ns)
     gpsTime = repr(float(multiInspiralTable[maxIndex].end_time) + float(multiInspiralTable[maxIndex].end_time_ns)*10**(-9))
-    if not (float(multiInspiralTable[maxIndex].eff_distance) == -1.0):
-      eff_distance = "%0.3f"%multiInspiralTable[maxIndex].eff_distance
+    if not (float(multiInspiralTable[maxIndex].distance) == -1.0):
+      distance = "%0.3f"%multiInspiralTable[maxIndex].distance
     else:
-      eff_distance =  "NA"
-    ifo1_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo1_eff_distance
-    ifo2_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo2_eff_distance
-    if not (float(multiInspiralTable[maxIndex].tau3) == -1.0):
-      tau3 = "%0.3f"%multiInspiralTable[maxIndex].tau3
+      distance =  "NA"
+    if not (float(multiInspiralTable[maxIndex].eff_dist_h1 ) == -1.0):
+      eff_dist_h1 = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_h1
     else:
-      tau3 =  "NA"
-    if not (float(multiInspiralTable[maxIndex].ligo_axis_dec) == -1001.0):
-      ligo_axis_dec = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_dec
+      eff_dist_h1 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].eff_dist_h2 ) == -1.0):
+      eff_dist_h2 = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_h2
     else:
-      ligo_axis_dec =  "NA"
-    if not (float(multiInspiralTable[maxIndex].ligo_axis_ra) == -1001.0):
-      ligo_axis_ra = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_ra
+      eff_dist_h2 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].eff_dist_l ) == -1.0):
+      eff_dist_l = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_l
     else:
-      ligo_axis_ra =  "NA"
+      eff_dist_l =  "NA"
+    if not (float(multiInspiralTable[maxIndex].eff_dist_v ) == -1.0):
+      eff_dist_v = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_v
+    else:
+      eff_dist_v =  "NA"
+    if not (float(multiInspiralTable[maxIndex].dec) == -1001.0):
+      dec = "%0.3f"%multiInspiralTable[maxIndex].dec
+    else:
+      dec =  "NA"
+    if not (float(multiInspiralTable[maxIndex].ra) == -1001.0):
+      ra = "%0.3f"%multiInspiralTable[maxIndex].ra
+    else:
+      ra =  "NA"
     if not (float(multiInspiralTable[maxIndex].polarization) == -1001.0):
       polarization = "%0.3f"%multiInspiralTable[maxIndex].polarization
     else:
@@ -529,10 +539,11 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
       page.add('<table bgcolor=yellow border=1px>')
       page.tr()
       #page.td('<b>Distance</b>')
-      page.td('<b>Eff. dist. (ifo1)</b>')
-      page.td('<b>Eff. dist. (ifo2)</b>')
-      page.td('<b>Eff. dist. (ifo3)</b>')
+      page.td('<b>Eff. dist. (H1)</b>')
+      page.td('<b>Eff. dist. (H2)</b>')
       page.td('<b>Eff. dist. (H1-H2)</b>')
+      page.td('<b>Eff. dist. (L1)</b>')
+      page.td('<b>Eff. dist. (V1)</b>')
       page.td('<b>theta</b>')
       page.td('<b>phi</b>')
       page.td('<b>Polarization</b>')
@@ -541,12 +552,13 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
       page.tr.close()
       page.tr()
       #page.td(eff_distance)
-      page.td(ifo1_eff_distance)
-      page.td(ifo2_eff_distance)
-      page.td(tau3)
-      page.td(tau4)
-      page.td(ligo_axis_dec)
-      page.td(ligo_axis_ra)
+      page.td(eff_dist_h1)
+      page.td(eff_dist_h2)
+      page.td(eff_dist_h1h2)
+      page.td(eff_dist_l)
+      page.td(eff_dist_v)
+      page.td(dec)
+      page.td(ra)
       page.td(polarization)
       page.td(inclination)
       page.td(coa_phase)

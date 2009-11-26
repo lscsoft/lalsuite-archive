@@ -7,8 +7,6 @@ p<-function(...) {
 
 source("params.R")
 
-con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
-
 fn<-p(prefix, "band_info", suffix)
 fnout<-p(fn)
 
@@ -57,7 +55,7 @@ LoadQuery<-p(LoadQuery, ")")
 #system(p("sed 's/[nN][aA][nN]/NULL/g' stats/stat.dat > ", fnout))
 
 cat("Connecting to the database\n")
-con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
+con<-dbConnect(dbDriver("MySQL"), host=MYSQL_HOST, user=MYSQL_USER, password="", dbname=MYSQL_DB)
 
 cat("Dropping table", BandInfoTableName, "\n")
 try(dbGetQuery(con, p("DROP TABLE ", BandInfoTableName)), silent=TRUE)

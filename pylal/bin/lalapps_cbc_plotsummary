@@ -170,6 +170,7 @@ class CoincDatabase(object):
 
 		# retrieve the distinct on and participating instruments
 		self.on_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?", (self.ii_definer_id,))]
+		self.participating_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(ifos) FROM coinc_inspiral")]
 
 		# get the segment lists
 		self.seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program)
@@ -571,21 +572,21 @@ FROM
 					self.zerolag_likelihood.append(likelihood)
 					self.zerolag_combined_eff_snr.append(combined_eff_snr)
 # map all the 0 likelihoods to lowest non-zero likelihood and all 'inf' likelihoods to the highest non-infinity likelihood 
-			all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
-			unique_likelihoods = set(all_likelihoods)
-			unique_likelihoods = list(unique_likelihoods)
-			unique_likelihoods.sort()
-			min_likelihood = unique_likelihoods[1]
-			max_likelihood = unique_likelihoods[-2]
-			for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
-				for i in range(len(likelihood_list)):
-					if likelihood_list[i] == 0:
-						likelihood_list[i] = min_likelihood
-					if likelihood_list[i] == float('inf'):
-						likelihood_list[i] = max_likelihood
-			self.timeslide_likelihood.sort()
 
 	def finish(self):
+		all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
+		unique_likelihoods = set(all_likelihoods)
+		unique_likelihoods = list(unique_likelihoods)
+		unique_likelihoods.sort()
+		min_likelihood = unique_likelihoods[1]
+		max_likelihood = unique_likelihoods[-2]
+		for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
+			for i in range(len(likelihood_list)):
+				if likelihood_list[i] == 0:
+					likelihood_list[i] = min_likelihood
+				if likelihood_list[i] == float('inf'):
+					likelihood_list[i] = max_likelihood
+		self.timeslide_likelihood.sort()
 		fig, axes = create_plot(r"likelihood from MVSC", r"combined effective SNR", aspect = 1.0)
 		axes.hold(1)
 		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='injections')	
@@ -1238,50 +1239,53 @@ FROM
 
 class RateVsL1Offset(object):
 	def __init__(self):
-		self.livetime_by_offset = {}
-		self.num_triggers_by_offset = {}
-		self.num_triggers_by_offset_playground = {}
-		self.playground_livetime = {}
-		self.nonplayground_livetime = {}
+		self.background_livetime_by_time_offset = {}
+		self.playground_livetime_by_time = {}
+		self.zero_livetime_by_time = {}
+
+		self.background_num_by_time_type_offset = {}
+		self.playground_num_by_time_type = {}
+		self.zero_num_by_time_type = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table is not None:
 			# skip injection documents
 			return
 
-		#
-		# setup all the default values for the structures to hld the data
-		#
-
-		for on_instruments in set(contents.playground_livetime) | set(contents.nonplayground_livetime):
-			self.playground_livetime.setdefault(on_instruments, 0.0)
-			self.nonplayground_livetime.setdefault(on_instruments, 0.0)
+		# Setup the playground live time (zero lag only)
 		for on_instruments, livetime in contents.playground_livetime.items():
-			self.playground_livetime[on_instruments] += livetime
+			self.playground_livetime_by_time.setdefault(on_instruments, 0.0)
+			self.playground_livetime_by_time[on_instruments] += livetime
+
+		# Setup the total zero lag live time
 		for on_instruments, livetime in contents.nonplayground_livetime.items():
-			self.nonplayground_livetime[on_instruments] += livetime
+			self.zero_livetime_by_time.setdefault(on_instruments, 0.0)
+			self.zero_livetime_by_time[on_instruments] += livetime + contents.playground_livetime[on_instruments]
 
+		# Setup the full data time slides only
 		for on_instruments in contents.livetime_by_offset.keys():
-			self.livetime_by_offset.setdefault(on_instruments, {})
-			self.num_triggers_by_offset.setdefault(on_instruments, {})
-			self.num_triggers_by_offset_playground.setdefault(on_instruments, {})
+			self.background_livetime_by_time_offset.setdefault(on_instruments, {})
 			for offset in contents.livetime_by_offset[on_instruments].keys():
-				self.livetime_by_offset[on_instruments].setdefault(offset, 0.)
-				self.num_triggers_by_offset[on_instruments].setdefault(offset, {})
-			self.num_triggers_by_offset[on_instruments].setdefault(0.0, {})
-			self.num_triggers_by_offset_playground[on_instruments].setdefault(0.0, {})
+				if offset != 0.0:
+					self.background_livetime_by_time_offset[on_instruments].setdefault(offset, 0.)
+					self.background_livetime_by_time_offset[on_instruments][offset] += contents.livetime_by_offset[on_instruments][offset]
 
-		#
-		# save the analyzed time by offset vector
-		#
-
+		# Setup the number of triggers by offset
+		#distinct_ifos = connection.cursor().execute("SELECT distinct(ifos) FROM coinc_inspiral").fetchall()
+		#print distinct_ifos
 		for on_instruments in contents.livetime_by_offset.keys():
-			for offset, time  in contents.livetime_by_offset[on_instruments].items():
-				self.livetime_by_offset[on_instruments][offset] += time
-
-		#
-		# load the triggers from the database
-		#
+			self.background_num_by_time_type_offset.setdefault(on_instruments, {})
+			self.playground_num_by_time_type.setdefault(on_instruments, {})
+			self.zero_num_by_time_type.setdefault(on_instruments, {})
+			for ifos in contents.participating_instruments_combos:
+				#ifos = frozenset(dbtables.lsctables.instrument_set_from_ifos(ifos))
+				self.background_num_by_time_type_offset[on_instruments].setdefault(ifos, {})
+				self.playground_num_by_time_type[on_instruments].setdefault(ifos, 0)
+				self.zero_num_by_time_type[on_instruments].setdefault(ifos, 0)
+				for offset in contents.livetime_by_offset[on_instruments].keys():
+					# time slides only
+					if offset != 0.0:
+						self.background_num_by_time_type_offset[on_instruments][ifos].setdefault(offset, 0)		
 
 		for on_instruments, ifos, seconds, nanoseconds, offset in connection.cursor().execute("""
 SELECT
@@ -1301,109 +1305,80 @@ FROM
 WHERE
 	time_slide.instrument == 'L1'
 		"""):
+			ifos = frozenset(dbtables.lsctables.instrument_set_from_ifos(ifos))
 			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
-			if ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
-				self.num_triggers_by_offset[on_instruments][offset][ifos] += 1
-			else:
-				self.num_triggers_by_offset[on_instruments][offset][ifos] = 1
+
+			if offset != 0.0:
+				self.background_num_by_time_type_offset[on_instruments][ifos][offset] += 1
+
 			if offset == 0.0 and LIGOTimeGPS(seconds, nanoseconds) in contents.playground_segs:
-				if ifos in self.num_triggers_by_offset_playground[on_instruments][offset].keys():
-					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] += 1
-				else:
-					self.num_triggers_by_offset_playground[on_instruments][offset][ifos] = 1
+				self.playground_num_by_time_type[on_instruments][ifos] += 1
+
+			if offset == 0.0:
+				self.zero_num_by_time_type[on_instruments][ifos] += 1
 
 	def finish(self):
-		#
-		# create structures to store the figures and associated data
-		#
 
 		figs = {}
 		playground_figs = {}
-		background_time = {}
-		background_num_triggers = {}
-		for on_instruments in self.num_triggers_by_offset.keys():
+
+		for on_instruments in self.background_num_by_time_type_offset.keys():
 			figs[on_instruments] = {}
 			playground_figs[on_instruments] = {}
-			background_time[on_instruments] = 0
-			background_num_triggers[on_instruments] = {}
-			for offset in self.num_triggers_by_offset[on_instruments].keys():
-				if offset != 0.0:
-					#
-					# add up the background time
-					#
+			for ifos in self.background_num_by_time_type_offset[on_instruments].keys():
+				#FIXME add check that ifos is a subset of on instruments
+				figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
+				playground_figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
+				# do time slides
+				bgoffsets = numpy.array(self.background_num_by_time_type_offset[on_instruments][ifos].keys())
+				bgnums = numpy.array(self.background_num_by_time_type_offset[on_instruments][ifos].values())
+				bgtimes = numpy.array([self.background_livetime_by_time_offset[on_instruments][offset] for offset in bgoffsets])
+				bgtimes[bgtimes == 0] = float('inf')
+				rates = numpy.array(bgnums) / numpy.array(bgtimes)
+				mean_rate = numpy.array(bgnums).sum() / numpy.array(bgtimes).sum() * numpy.ones(len(bgtimes))
+				error = numpy.sqrt(numpy.array(bgnums)) / numpy.array(bgtimes)
+				figs[on_instruments][ifos][1].plot(bgoffsets, rates, 'x', color='b')
+				figs[on_instruments][ifos][1].errorbar(bgoffsets, mean_rate, error)
+				playground_figs[on_instruments][ifos][1].plot(bgoffsets, rates, 'x', color='b')
+				playground_figs[on_instruments][ifos][1].errorbar(bgoffsets, mean_rate, error)
+				# now do zero lag
+				if on_instruments in self.zero_livetime_by_time.keys(): 
+					zerotime = self.zero_livetime_by_time[on_instruments]
+					zeronum = self.zero_num_by_time_type[on_instruments][ifos]
+					rate = zeronum / zerotime
+					error = numpy.sqrt(zeronum) / zerotime
+				else: 
+					zerotime = 0
+					rate = 0
+					error = 0
+					zeronum = 0
+				figs[on_instruments][ifos][1].plot([0.0], [rate], 'x', color='r')	
+				figs[on_instruments][ifos][1].errorbar([0.0], [mean_rate[0]], error)
 
-					background_time[on_instruments] += self.livetime_by_offset[on_instruments][offset]
-				for ifos in self.num_triggers_by_offset[on_instruments][offset].keys():
-					if ifos not in background_num_triggers[on_instruments].keys():
-						background_num_triggers[on_instruments][ifos] = 0
-					if ifos not in figs[on_instruments].keys():
-						figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
-						playground_figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
-					if offset == 0:
-						#
-						# zero-lag is special
-						#
-
-						c = 'r'
-						time = self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]
-						if time == 0:
-							rate = 0
-						else:
-							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/time
-						if self.playground_livetime[on_instruments] == 0:
-							playground_rate = 0
-						else:
-							try:
-								playground_rate = float(self.num_triggers_by_offset_playground[on_instruments][offset][ifos])/self.playground_livetime[on_instruments]
-							except KeyError:
-								playground_rate = 0
+				# now do zero lag playground
+				if on_instruments in self.playground_livetime_by_time.keys(): 
+					playtime = self.playground_livetime_by_time[on_instruments]
+					playnum = self.playground_num_by_time_type[on_instruments][ifos]
+					if playtime: 
+						rate = playnum / playtime
+						error = numpy.sqrt(playnum) / playtime
 					else:
-						#
-						# background rates
-						#
+						rate = 0
+						error = 0
+				else: 
+					playtime = 0
+					rate = 0
+					error = 0
+					playnum = 0
+				playground_figs[on_instruments][ifos][1].plot([0.0], [rate], 'x', color='r')	
+				playground_figs[on_instruments][ifos][1].errorbar([0.0],  [mean_rate[0]], error)
 
-						c = 'b'
-						if self.livetime_by_offset[on_instruments][offset] == 0:
-							rate = 0
-						else:
-							background_num_triggers[on_instruments][ifos] += self.num_triggers_by_offset[on_instruments][offset][ifos]
-							rate = float(self.num_triggers_by_offset[on_instruments][offset][ifos])/self.livetime_by_offset[on_instruments][offset]
-
-					#
-					# add rate bar to the plot
-					#
-
-					figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
-					if offset == 0.0:
-						rate = playground_rate
-					playground_figs[on_instruments][ifos][1].bar([offset], [rate], color=c, edgecolor=c, align='center')
-
-		for on_instruments in figs.keys():
-			for ifos in figs[on_instruments].keys():
-				#
-				# add a line for the mean and the 1 sigma errors
-				#
-
-				figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
-				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]))**.5
-				if self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]:
-					figs[on_instruments][ifos][1].axhline(max(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] - sigma1/(self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]), 0.), color='k', linewidth=1, linestyle='--')
-					figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] + sigma1/(self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]), color='k', linewidth=1, linestyle='--')
-
-				playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments], color='k', linewidth=2)
-				sigma1 = (float(background_num_triggers[on_instruments][ifos]) / background_time[on_instruments] * self.playground_livetime[on_instruments])**.5
-				if self.playground_livetime[on_instruments]:
-					playground_figs[on_instruments][ifos][1].axhline(max(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] - sigma1/self.playground_livetime[on_instruments], 0.), color='k', linewidth=1, linestyle='--')
-					playground_figs[on_instruments][ifos][1].axhline(float(background_num_triggers[on_instruments][ifos])/background_time[on_instruments] + sigma1/self.playground_livetime[on_instruments], color='k', linewidth=1, linestyle='--')
-
-				#
-				# output the plots
-				#
-
-				ifos_txt = ifos.split(',')
+				ifos_txt = list(ifos) #ifos.split(',')
 				ifos_txt.sort()
 				on_instruments_txt = list(on_instruments)
 				on_instruments_txt.sort()
+				playground_figs[on_instruments][ifos][1].set_title('Playground rate vs L1 offset for %s triggers in %s time' % ("".join(ifos_txt), "".join(on_instruments_txt)))
+				figs[on_instruments][ifos][1].set_title('Rate vs L1 offset for %s triggers in %s time' % ("".join(ifos_txt), "".join(on_instruments_txt)))
 				yield figs[on_instruments][ifos][0], "plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), True
 				yield playground_figs[on_instruments][ifos][0], "playground_plot_slides_%s_%s" % ("".join(ifos_txt),"".join(on_instruments_txt)), False
 

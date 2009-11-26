@@ -2459,8 +2459,8 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString=""" ||<rowbgcolor="%s"> %s || || %s || || %s || || %s || || %s || || %s || || %s || || %s ||\n"""
-    titleString=""" ||<rowbgcolor="%s"> IFO || || Flag || || Ver || || Start || || Offset || || Stop || || Offset || || Size ||\n"""%(myColor)
+    rowString="""||<rowbgcolor="%s"> %s || %s || %s || %s || %s || %s || %s || %s ||\n"""
+    titleString="""||<rowbgcolor="%s"> IFO || Flag || Ver || Start || Offset || Stop || Offset || Size ||\n"""%(myColor)
     tableString=titleString
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime

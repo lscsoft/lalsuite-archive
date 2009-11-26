@@ -8,7 +8,7 @@ __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
 
-import os, sys, subprocess
+import os, sys, subprocess, string, socket
 from optparse import *
 import ConfigParser
 import time
@@ -33,6 +33,7 @@ class create_default_config(object):
     cp.set("fu-condor","datafind",self.which("ligo_data_find"))
     cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
     cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+    cp.set("fu-condor","setuplogfile",self.which("wscan_bg_setup_log.py"))
 
     cp.add_section("datafind")
 
@@ -66,8 +67,25 @@ class create_default_config(object):
     for config in ["H1config","H2config","L1config","V1config"]:
       cp.set("fu-bg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
 
+    # OUTPUT SECTION
     cp.add_section("fu-output")
     cp.set("fu-output","log-path","/usr1/" + os.getenv("USER"))
+
+    # REMOTE JOBS SECTION
+    cp.add_section("fu-remote-jobs")
+    remoteIfos,remoteJobs = self.get_remote_jobs()
+    cp.set('fu-remote-jobs','remote-ifos',remoteIfos)
+    cp.set('fu-remote-jobs','remote-jobs',remoteJobs)
+
+    # CONDOR MAX JOBS SECTION
+    cp.add_section("condor-max-jobs")
+    cp.set("condor-max-jobs","ligo_data_find_Q_HT_","3")
+    cp.set("condor-max-jobs","ligo_data_find_Q_RDS_","3")
+    cp.set("condor-max-jobs","ligo_data_find_Q_HT_","3")
+    cp.set("condor-max-jobs","ligo_data_find_Q_RDS_","3")
+    cp.set("condor-max-jobs","wpipeline_BG_HT_","150")
+    cp.set("condor-max-jobs","wpipeline_BG_RDS_","150")
+    cp.set("condor-max-jobs","wpipeline_BG_SEIS_RDS_","150")
 
     self.cp = cp
 
@@ -95,6 +113,19 @@ class create_default_config(object):
             }
     return fileMap[ifo][type]
 
+  def get_remote_jobs(self):
+    host = self.__get_hostname()
+    #FIXME add more hosts as you need them
+    if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
+      remote_ifos = "V1"
+      remote_jobs = "ligo_data_find_Q_RDS_,wpipeline_BG_RDS_,wpipeline_BG_SEIS_RDS_"
+      return remote_ifos, remote_jobs
+    return '', ''
+
+  def __get_hostname(self):
+    host = socket.getfqdn()
+    return host
+
   def which(self,prog):
     which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
     out = which.stdout.read().strip()
@@ -111,6 +142,35 @@ def overwrite_config(cp,config):
       cp.set(section,option,config.get(section,option))
   return cp
 
+class setupLogFileJob(pipeline.CondorDAGJob,stfu_pipe.FUJob):
+
+	def __init__(self,opts,cp):
+		self.__executable = string.strip(cp.get('fu-condor','setuplogfile'))
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,cp=cp,dir='',tag_base='')
+
+class setupLogFileNode(pipeline.CondorDAGNode,stfu_pipe.FUNode):
+
+	def __init__(self,dag,job,cp,time_range,tag='start'):
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.add_var_arg("--" + tag + "-run")
+		self.add_var_opt("log-name",time_range+".log")
+		outputString = "omega/" + stfu_pipe.science_run(int(time_range.split("_")[0])).upper() + "/background"
+		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+			output = cp.get('fu-output','output-dir') + '/' + outputString
+		else:
+			output = outputString
+		self.add_var_opt("output-path",output)
+
+		if tag == 'terminate':
+			for node in dag.get_nodes():
+				if isinstance(node,stfu_pipe.fuQscanNode):
+					self.add_parent(node)
+		dag.add_node(self)
+		self.validate()
 
 ##############################################################################
 #MAIN PROGRAM
@@ -131,20 +191,26 @@ parser.add_option("-v", "--version",action="store_true",default=False,\
 parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
 
-#parser.add_option("-m", "--datafind",action="store_true",\
-#    default=False, help="use datafind to get qscan/trends data")
+parser.add_option("-i","--ifos",action="store",type="string",\
+    default="H1L1V1",help="list of requested ifos")
 
-#parser.add_option("-M", "--hoft-datafind",action="store_true",\
-#    default=False, help="use datafind to get hoft data (for qscan)")
+parser.add_option("", "--disable-dag-categories",action="store_true",\
+    default=False,help="disable the internal dag category maxjobs")
 
-#parser.add_option("-Q", "--background-qscan",action="store_true",\
-#    default=False, help="do qscans over a list of times")
+parser.add_option("","--no-ht-qscan", action="store_true",\
+    default=False,help="disable hoft qscan nodes")
 
-#parser.add_option("-N", "--background-hoft-qscan",action="store_true",\
-#    default=False, help="do hoft qscans over a list of times")
+parser.add_option("","--no-rds-qscan", action="store_true",\
+    default=False,help="disable rds qscan nodes")
 
-#parser.add_option("-S", "--background-seis-qscan",action="store_true",\
-#    default=False, help="do seismic qscans over a list of times")
+parser.add_option("","--no-seismic-qscan", action="store_true",\
+    default=False,help="disable seismic qscan nodes")
+
+parser.add_option("","--no-htQscan-datafind", action="store_true",\
+    default=False,help="disable hoft qscan datafind nodes")
+
+parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
+    default=False,help="disable rds qscan datafind nodes")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -162,13 +228,29 @@ if opts.config_file:
  config.read(opts.config_file)
  cp = overwrite_config(cp,config)
 
-ifos_list = ['H1','H2','L1','G1','V1','T1']
+ifos_list = []
+for j in range(0,len(opts.ifos)-1,2):
+  ifo = opts.ifos[j:j+2]
+  ifos_list.append(ifo)
+
+#Get the start-end times of yesterday...
+ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
+# print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
+
+range_string = ""
+#Check the time ranges for each ifo in the ini file and , if they are left empty fill them with yesterday's start-end times.
+for ifo_index,ifo in enumerate(ifos_list):
+    if cp.has_option("followup-background-qscan-times",ifo+"range"):
+      if not cp.get("followup-background-qscan-times",ifo+"range"):
+        cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
+      range_string = string.strip(cp.get("followup-background-qscan-times",ifo+"range")).replace(',','_')
+
+#Get current UTC time to be used in the ini file name
+time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
 
 #Initialize dag
-if opts.config_file:
-  dag = stfu_pipe.followUpDAG(opts.config_file,cp)
-else:
-  dag = stfu_pipe.followUpDAG("wscan_background.ini",cp)
+dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp,opts)
+
 
 # CONDOR JOB CLASSES
 htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
@@ -176,14 +258,11 @@ rdsdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_RDS',dir='')
 htQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_HT',dir='')
 rdsQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_RDS',dir='')
 seisQscanBgJob	= stfu_pipe.qscanJob(opts,cp,tag_base='BG_SEIS_RDS',dir='')
+setupLogJob	= setupLogFileJob(opts,cp)
 
-ifo_range = ",".join(stfu_pipe.get_day_boundaries(int(gpstime.GpsSecondsFromPyUTC(time.time())) - 86400))
-# print "Start time : " + ifo_range.split(",")[0] + "   End Time : " + ifo_range.split(",")[-1]
+start_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'start')
 
 for ifo in ifos_list:
-
-    if cp.has_option("followup-background-qscan-times",ifo+"range") and not cp.get("followup-background-qscan-times",ifo+"range"):
-      cp.set("followup-background-qscan-times",ifo+"range",ifo_range)
 
     # FIX ME: input argument segFile is not needed any more
     segFile = {}
@@ -191,10 +270,10 @@ for ifo in ifos_list:
 
     for qtime in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
-      dNode = stfu_pipe.fuDataFindNode(dag,rdsdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds')
+      dNode = stfu_pipe.fuDataFindNode(dag,rdsdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,data_type='rds',p_nodes=[start_node])
 
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (HOFT)
-      dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime)
+      dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,p_nodes=[start_node])
 
       # SETUP BACKGROUND QSCAN JOBS
       qHtBgNode = stfu_pipe.fuQscanNode(dag,htQscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path(),p_nodes=[dHoftNode],type="ht",variety="bg")
@@ -203,8 +282,9 @@ for ifo in ifos_list:
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
+end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
+
 #### ALL FINNISH ####
-time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
-cp.write(open(time_now + "-" + ifo_range.replace(',','_')+ ".ini","w"))
+cp.write(open(time_now + "-" + range_string + ".ini","w"))
 dag.write_all()
 
