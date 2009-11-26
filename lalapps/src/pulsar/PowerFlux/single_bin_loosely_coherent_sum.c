@@ -171,7 +171,10 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 // 	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
 // 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
-	phase_offset=(((first_bin+side_cut) % 1800)+0.5*(si_local->bin_shift+si_local2->bin_shift)-0.5*(0.5*nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
+	/* This effectively rounds off phase offset to units of pi/900, good enough ! */
+	phase_offset=((int)((((first_bin+side_cut) % 1800))*(si_local->gps-si_local2->gps)) % 1800 )*2*M_PI/1800.0;
+
+	phase_offset+=((int)((0.5*(si_local->bin_shift+si_local2->bin_shift)-0.5*(0.5*nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)) %1800)*2*M_PI/1800.0;
 	//phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
@@ -180,6 +183,8 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	phase_increment=(1.0+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
 			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
+
+	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
 
 	inc_c=cosf(phase_increment);
 	inc_s=sinf(-phase_increment);
