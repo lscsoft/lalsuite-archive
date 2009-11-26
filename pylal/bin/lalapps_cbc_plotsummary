@@ -1359,15 +1359,19 @@ WHERE
 				if on_instruments in self.playground_livetime_by_time.keys(): 
 					playtime = self.playground_livetime_by_time[on_instruments]
 					playnum = self.playground_num_by_time_type[on_instruments][ifos]
-					rate = zeronum / zerotime
-					error = numpy.sqrt(zeronum) / zerotime
+					if playtime: 
+						rate = playnum / playtime
+						error = numpy.sqrt(playnum) / playtime
+					else:
+						rate = 0
+						error = 0
 				else: 
 					playtime = 0
 					rate = 0
 					error = 0
 					playnum = 0
 				playground_figs[on_instruments][ifos][1].plot([0.0], [rate], 'x', color='r')	
-				playground_figs[on_instruments][ifos][1].errorbar([0.0], [mean_rate[0]], error)
+				playground_figs[on_instruments][ifos][1].errorbar([0.0],  [mean_rate[0]], error)
 
 				ifos_txt = list(ifos) #ifos.split(',')
 				ifos_txt.sort()
