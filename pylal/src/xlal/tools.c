@@ -775,7 +775,8 @@ static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *a
 	result = XLALCalculateEThincaParameter(&row1->sngl_inspiral, &row2->sngl_inspiral, &accuracyparams);
 
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
-		pylal_set_exception_from_xlalerrno();
+		XLALClearErrno();
+		PyErr_SetString(PyExc_ValueError, "not coincident");
 		return NULL;
 	}
 
@@ -818,7 +819,8 @@ static PyObject *pylal_XLAL3DRinca(PyObject *self, PyObject *args)
 	result = XLAL3DRinca(&row1->sngl_ringdown, &row2->sngl_ringdown);
 
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
-		pylal_set_exception_from_xlalerrno();
+		XLALClearErrno();
+		PyErr_SetString(PyExc_ValueError, "not coincident");
 		return NULL;
 	}
 
