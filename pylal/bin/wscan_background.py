@@ -192,7 +192,8 @@ parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
 
 parser.add_option("-i","--ifos",action="store",type="string",\
-    default="H1L1V1",help="list of requested ifos")
+    default="H1L1V1",help="list of requested ifos, expected format is of " \
+    "the kind \"H1H2L1\" ")
 
 parser.add_option("", "--disable-dag-categories",action="store_true",\
     default=False,help="disable the internal dag category maxjobs")
