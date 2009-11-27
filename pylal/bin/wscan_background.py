@@ -152,7 +152,7 @@ class setupLogFileJob(pipeline.CondorDAGJob,stfu_pipe.FUJob):
 		self.add_condor_cmd('getenv','True')
 		self.setupJob(name=self.name,cp=cp,dir='',tag_base='')
 
-class setupLogFileNode(pipeline.CondorDAGNode):
+class setupLogFileNode(pipeline.CondorDAGNode,stfu_pipe.FUNode):
 
 	def __init__(self,dag,job,cp,time_range,tag='start'):
 		pipeline.CondorDAGNode.__init__(self,job)
@@ -170,6 +170,7 @@ class setupLogFileNode(pipeline.CondorDAGNode):
 				if isinstance(node,stfu_pipe.fuQscanNode):
 					self.add_parent(node)
 		dag.add_node(self)
+		self.validate()
 
 ##############################################################################
 #MAIN PROGRAM
@@ -196,20 +197,20 @@ parser.add_option("-i","--ifos",action="store",type="string",\
 parser.add_option("", "--disable-dag-categories",action="store_true",\
     default=False,help="disable the internal dag category maxjobs")
 
-#parser.add_option("-m", "--datafind",action="store_true",\
-#    default=False, help="use datafind to get qscan/trends data")
+parser.add_option("","--no-ht-qscan", action="store_true",\
+    default=False,help="disable hoft qscan nodes")
 
-#parser.add_option("-M", "--hoft-datafind",action="store_true",\
-#    default=False, help="use datafind to get hoft data (for qscan)")
+parser.add_option("","--no-rds-qscan", action="store_true",\
+    default=False,help="disable rds qscan nodes")
 
-#parser.add_option("-Q", "--background-qscan",action="store_true",\
-#    default=False, help="do qscans over a list of times")
+parser.add_option("","--no-seismic-qscan", action="store_true",\
+    default=False,help="disable seismic qscan nodes")
 
-#parser.add_option("-N", "--background-hoft-qscan",action="store_true",\
-#    default=False, help="do hoft qscans over a list of times")
+parser.add_option("","--no-htQscan-datafind", action="store_true",\
+    default=False,help="disable hoft qscan datafind nodes")
 
-#parser.add_option("-S", "--background-seis-qscan",action="store_true",\
-#    default=False, help="do seismic qscans over a list of times")
+parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
+    default=False,help="disable rds qscan datafind nodes")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
