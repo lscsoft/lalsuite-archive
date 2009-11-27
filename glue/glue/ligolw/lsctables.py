@@ -45,6 +45,7 @@ try:
 except NameError:
 	# Python < 2.5
 	from glue.iterutils import any, all
+import warnings
 
 
 from glue import git_version
@@ -2377,25 +2378,15 @@ class TimeSlideTable(table.Table):
 	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
-	# FIXME:  this method is now only used by snglcoinc.py in pylal,
-	# and that use should be replaced with a call to this class'
-	# .as_dict() method.  A change request is pending for snglcoinc.py,
-	# so it's hard to make other modifications at the moment.  remember
-	# to take care of this later.
+	# FIXME:  this method is now only used by lalapps_cbc_print_rs in
+	# pylal
 	def get_offset_dict(self, id):
 		"""
 		Return a dictionary of instrument/offset pairs as described
 		by the rows having the given ID.
 		"""
-		d = {}
-		for row in self:
-			if row.time_slide_id == id:
-				if row.instrument in d:
-					raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
-				d[row.instrument] = row.offset
-		if not d:
-			raise KeyError, id
-		return d
+		warnings.warn("method TimeSlideTable.get_offset_dict() is deprecated, use method TimeSlideTable.as_dict() instead", DeprecationWarning, stacklevel = 2)
+		return self.as_dict()[id]
 
 	def as_dict(self):
 		"""

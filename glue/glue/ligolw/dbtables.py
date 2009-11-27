@@ -45,7 +45,7 @@ try:
 	set
 except NameError:
 	from sets import Set as set
-from warnings import warn
+import warnings
 
 
 from glue import git_version
@@ -521,7 +521,7 @@ class DBTable(table.Table):
 		if "connection" in kwargs:
 			self.connection = kwargs.pop("connection")
 		else:
-			warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
+			warnings.warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
 			self.connection = self.connection
 
 		# pre-allocate a cursor for internal queries
@@ -684,7 +684,10 @@ class TimeSlideTable(DBTable):
 	RowType = lsctables.TimeSlideTable.RowType
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
+	# FIXME:  this method is now only used by lalapps_cbc_print_rs in
+	# pylal
 	def get_offset_dict(self, id):
+		warnings.warn("method TimeSlideTable.get_offset_dict() is deprecated, use method TimeSlideTable.as_dict() instead or query the database directly", DeprecationWarning, stacklevel = 2)
 		offsets = dict(self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)))
 		if not offsets:
 			raise KeyError, id
