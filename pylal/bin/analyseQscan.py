@@ -45,7 +45,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import webUtils
 from pylal import InspiralUtils
-from pylal.fu_utils import *
 
 ##############################################################################
 # function to check the length of the summary files (for debugging)
@@ -155,7 +154,7 @@ class readSummaryFiles:
   def getAuxChannels(self,inputList):
     intermediateTable = {'type':[],'ifo':[],'qscan_time':[],'qscan_dir':[],'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[]}
     try:
-      doc = utils.load_filename(inputList[0] + "/summary.xml")
+      doc = utils.load_filename(inputList[0] + "/summary.xml",verbose=True,gz=False,xmldoc=None,contenthandler=None)
       qscanTable = table.get_table(doc, "qscan:summary:table")
     except:
       print >> sys.stderr, "failed to read" + inputList[0] + "/summary.xml"
@@ -169,6 +168,51 @@ class readSummaryFiles:
       intermediateTable['type'].append(inputList[2])
       intermediateTable['ifo'].append(inputList[3])
     return intermediateTable
+
+def listFromFile(fileName):
+  listInstance = []
+  try:
+    file = open(fileName,"r")
+  except:
+    print >> sys.stderr, "could not open file " + fileName
+    return listInstance
+  list_in_file = file.readlines()
+  file.close()
+  if not len(list_in_file):
+    print >> sys.stderr, "No lines found in file " + fileName
+    print >> sys.stderr, "Is the first line blank ?"
+    return listInstance
+  for line in list_in_file:
+    if not line[0] == '#':
+      listInstance.append(string.strip(line))
+    else: pass
+  return listInstance
+
+def getPathFromCache(fileName,type,ifo=None,time=None):
+  qscanList = []
+  cacheList = listFromFile(fileName)
+  if len(cacheList) == 0:
+    return qscanList
+  for line in cacheList:
+    test_line = True
+    if not re.search(type,line.split(' ')[1]):
+      test_line = False
+    if ifo:
+      if not ifo == line.split(' ')[0]:
+        test_line = False
+      else: pass
+    if time:
+      if not time == line.split(' ')[2]:
+        test_line = False
+      else: pass
+    if test_line:
+      path_output = line.split(' ')[-1]
+      time_output = line.split(' ')[2]
+      type_output = line.split(' ')[1]
+      ifo_output = line.split(' ')[0]
+      qscanList.append([path_output,time_output,type_output,ifo_output])
+    else: continue
+  return qscanList
 
 ##############################################################################
 # functions to compute and plot histograms

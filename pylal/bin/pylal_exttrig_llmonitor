@@ -155,8 +155,8 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     grb.check_analysis_directory('onoff')
 
     # cleaning up
-    cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb_name, analysis_path)
-    peu.system_call(grb_name, cmd)
+    cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb.name, analysis_path)
+    peu.system_call(grb.name, cmd)
 
     # multiple notifications
     subject = "New analysis started for  GRB%s " %grb.name
@@ -179,8 +179,15 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                  (grb.time, grb.ra, grb.de)    
     peu.send_mail(subject, email_msg)  
 
+  # copy the segment plot and all the other stuff
+  maindir = cp.get('paths','main')
+  htmldir = '%s/GRB%s' % (cp.get('paths','publishing_path'), grb.name)
+  cmd = 'mkdir -p %s; cp %s/*grb%s* %s' % \
+          (htmldir, maindir, grb.name, htmldir)
+  peu.system_call(grb.name, cmd)
+
   # cleaning up
-  cmd = 'mv %s/*grb%s* AuxFiles/' % (cp.get('paths','main'), grb.name)
+  cmd = 'mv %s/*grb%s* AuxFiles/' % (maindir, grb.name)
   peu.system_call(grb.name, cmd)
 
   return grb
@@ -314,7 +321,7 @@ def start_post(grb, dag, cp):
   peu.system_call(grb.name, command)
 
   # make the replace with the sed file
-  infile = "%s/postproc.dag.in" %path
+  infile = "%s/postproc.in" %path
   dagfile = "%s/postproc.dag" %path
   grb.apply_sed_file(infile, dagfile)
 
@@ -466,8 +473,9 @@ peu.cp = cp
 peu.info('monitor', 'pylal_exttrig_llmonitor is executed...')
 
 # check the lock file
-if peu.check_lock():
-  peu.info('monitor','Lock is activated. Check running instances or remove this file')
+pid = peu.check_lock()
+if pid:
+  peu.info('monitor','A different instance of this code is running with PID= %s.'%pid)
   sys.exit(0)
 peu.set_lock()
 
@@ -515,12 +523,8 @@ for grb in monitor_list:
     if fstat == -2:
       peu.info(grb.name, "INFO: GRB%s DAG %s is missing: %s"%(grb.name, dag.type, dag.get_dagname()))
 
-    if fstat == 0:
 
-       # check if the status is negative; make it positive then
-      # which means the rescue DAG is running
-      if status<0:
-        dag.set_status(-status)
+    if fstat == 0:
 
       # The DAG is running
       peu.info(grb.name, 'INFO: GRB%s DAG %s is running in stage %s.'%\

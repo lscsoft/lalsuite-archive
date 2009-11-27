@@ -2477,7 +2477,7 @@ class CoincDefTable(table.Table):
 		"cd_ssct_index": ("search", "search_coinc_type")
 	}
 
-	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = u""):
+	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = None):
 		"""
 		Return the coinc_def_id for the row in the table whose
 		search string and search_coinc_type integer have the values
@@ -2487,13 +2487,12 @@ class CoincDefTable(table.Table):
 		KeyError is raised when a matching row is not found.  The
 		optional description parameter can be used to set the
 		description string assigned to the new row if one is
-		created, otherwise the new row is left with an empty
-		description.
+		created, otherwise the new row is left with no description.
 		"""
 		# look for the ID
 		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
 		if len(rows) > 1:
-			raise ValueError, "search/search coinc type = %s/%d is not unique" % (search, search_coinc_type)
+			raise ValueError, "(search, search coincidence type) = (\"%s\", %d) is not unique" % (search, search_coinc_type)
 		if len(rows) > 0:
 			return rows[0].coinc_def_id
 
