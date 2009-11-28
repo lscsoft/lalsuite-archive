@@ -684,15 +684,6 @@ class TimeSlideTable(DBTable):
 	RowType = lsctables.TimeSlideTable.RowType
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
-	# FIXME:  this method is now only used by lalapps_cbc_print_rs in
-	# pylal
-	def get_offset_dict(self, id):
-		warnings.warn("method TimeSlideTable.get_offset_dict() is deprecated, use method TimeSlideTable.as_dict() instead or query the database directly", DeprecationWarning, stacklevel = 2)
-		offsets = dict(self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)))
-		if not offsets:
-			raise KeyError, id
-		return offsets
-
 	def as_dict(self):
 		"""
 		Return a ditionary mapping time slide IDs to offset
