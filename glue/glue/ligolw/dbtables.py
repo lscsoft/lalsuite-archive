@@ -106,6 +106,13 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		os.close(fd)
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
+		# mkstemp() ignores umask, creates all files accessible
+		# only by owner;  we should respect umask.  note that
+		# umask() sets it, too, so we have to set it back after we
+		# know what it is
+		umsk = os.umask(0777)
+		os.umask(umsk)
+		os.chmod(filename, 0666 & ~umsk)
 		return filename
 
 	def truncate(filename, verbose = False):
@@ -124,12 +131,22 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	def cpy(srcname, dstname, verbose = False):
 		if verbose:
 			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname)
-		shutil.copy(srcname, dstname)
+		shutil.copy2(srcname, dstname)
+		try:
+			# try to preserve permission bits.  according to
+			# the documentation, copy() and copy2() are
+			# supposed preserve them but don't.  maybe they
+			# don't preserve them if the destination file
+			# already exists?
+			shutil.copystat(srcname, dstname)
+		except Exception, e:
+			if verbose:
+				print >>sys.stderr, "warning: ignoring failure to copy permission bits from '%s' to '%s': %s" % (filename, target, str(e))
 
 	database_exists = os.access(filename, os.F_OK)
 
 	if tmp_path is not None:
-		target = mktmp(tmp_path, verbose)
+		target = mktmp(tmp_path, verbose = verbose)
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
@@ -142,24 +159,25 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 				i = 1
 				while True:
 					try:
-						cpy(filename, target, verbose)
+						cpy(filename, target, verbose = verbose)
 					except IOError, e:
 						import errno
 						import time
-						if e.errno == errno.ENOSPC:
-							if i < 5:
-								if verbose:
-									print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
-								time.sleep(10)
-								i += 1
-								continue
-							else:
-								if verbose:
-									print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file" % i
-								os.remove(target)
-								target = filename
-						else:
+						if e.errno != errno.ENOSPC:
+							# anything other
+							# than out-of-space
+							# is a real error
 							raise e
+						if i < 5:
+							if verbose:
+								print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
+							time.sleep(10)
+							i += 1
+							continue
+						if verbose:
+							print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file '%s'" % (i, filename)
+						os.remove(target)
+						target = filename
 					break
 	else:
 		target = filename
