@@ -43,6 +43,8 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue import lal
+from glue import segments
 from pylal import webUtils
 from pylal import InspiralUtils
 
@@ -75,24 +77,27 @@ def getQscanTable(opts,type):
 
   summary = readSummaryFiles()
 
-  if eval("opts.qscan_cache_" + type):
-    qscanList = getPathFromCache(eval("opts.qscan_cache_" + type),type)
+  if type == "FG": type_string = "foreground"
+  elif type == "BG": type_string = "background"
+
+  if eval("opts.qscan_cache_" + type_string):
+    qscanList = getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
   else:
     try:
-      inputPath = eval("opts." + type + "_input_path")
+      inputPath = eval("opts." + type_string + "_input_path")
       qscanList = parseDirectoryList(inputPath)
     except:
-      print >> sys.stderr, "cannot get input path for " + type
+      print >> sys.stderr, "cannot get input path for " + type_string
       print >> sys.stderr, "specify at least one of the following options:"
-      print >> sys.stderr, "--qscan-cache, --" + type + "-input-path"
+      print >> sys.stderr, "--qscan-cache, --" + type_string + "-input-path"
       sys.exit(1)
 
   table = summary.parseQscanList(qscanList)
 
   # perform a sanity check
   if not (len(table['channel_name']) == len(table['qscan_dir'])):
-    print >> sys.stderr, "the length of channel_name does not match the length of qscan_dir in the " + type + " table"
-    print >> sys.stderr, "check for data corruption in the qscan summary files in the " + type + " table"
+    print >> sys.stderr, "the length of channel_name does not match the length of qscan_dir in the " + type_string + " table"
+    print >> sys.stderr, "check for data corruption in the qscan summary files in the " + type_string + " table"
     sys.exit(1)
 
   return table
@@ -188,30 +193,22 @@ def listFromFile(fileName):
     else: pass
   return listInstance
 
-def getPathFromCache(fileName,type,ifo=None,time=None):
+def getParamsFromCache(fileName,type,ifo=None,time=None):
   qscanList = []
-  cacheList = listFromFile(fileName)
-  if len(cacheList) == 0:
+  cacheList = lal.Cache.fromfile(open(fileName))
+  if not cacheList:
     return qscanList
-  for line in cacheList:
-    test_line = True
-    if not re.search(type,line.split(' ')[1]):
-      test_line = False
-    if ifo:
-      if not ifo == line.split(' ')[0]:
-        test_line = False
-      else: pass
-    if time:
-      if not time == line.split(' ')[2]:
-        test_line = False
-      else: pass
-    if test_line:
-      path_output = line.split(' ')[-1]
-      time_output = line.split(' ')[2]
-      type_output = line.split(' ')[1]
-      ifo_output = line.split(' ')[0]
-      qscanList.append([path_output,time_output,type_output,ifo_output])
-    else: continue
+  cacheSelected = cacheList.sieve(description=type,ifos=ifo)
+  if time:
+    cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+
+  for cacheEntry in cacheSelected:
+    path_output = cacheEntry.path()
+    time_output = str(cacheEntry.segment[0])
+    type_output = cacheEntry.description
+    ifo_output = cacheEntry.observatory
+    qscanList.append([path_output,time_output,type_output,ifo_output])
+
   return qscanList
 
 ##############################################################################
@@ -639,9 +636,9 @@ if opts.check_length:
 
 # Read the qscan summary files and hold the information in memory
 if opts.generate_qscan_xml:
-  backgroundTable = getQscanTable(opts,"background")
+  backgroundTable = getQscanTable(opts,"BG")
   if not opts.process_background_only:
-    foregroundTable = getQscanTable(opts,"foreground")
+    foregroundTable = getQscanTable(opts,"FG")
 
 
 # analyse candidate qscan (loop over all the channels which have triggered at the time of the candidate)
@@ -663,7 +660,7 @@ if not opts.process_background_only:
       time_string = None
 
     if opts.qscan_cache_foreground:
-      candidates_path = getPathFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
+      candidates_path = getParamsFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
     else:
       print >> sys.stderr, "Please specify the option --qscan-cache= FILE"
       sys.exit(1)
