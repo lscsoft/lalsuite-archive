@@ -231,8 +231,8 @@ def get_daily_ihope_page(gpstime, pages_location = "https://ldas-jobs.ligo.calte
     return "%s/%s/%s/" %(pages_location, time.strftime("%Y%m", utctime), time.strftime("%Y%m%d", utctime))
 
 
-def create_hyperlink(address, link):
-    return '<a href="%s">%s</a>' % (address, link)
+def create_hyperlink(address, link, external=True):
+    return '<a href="%s"%s>%s</a>' % (address, external and ' rel="external"' or '', link)
 
 
 def create_filter( connection, tableName, param_name = None, param_ranges = None, 
