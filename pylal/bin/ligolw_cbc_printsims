@@ -282,6 +282,7 @@ if opts.output_format != "xml":
     # set table list
     tableList = ['selected_found_injections']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0])
+    columnList.remove('mini_followup')
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
