@@ -141,6 +141,16 @@ def image_table_from_url_table(table):
 		row = [_imagelinkcpy(url) for url in col]
 	 	out.append(row)
         return out
+
+def image_table_from_cache(inputcache,cols=3,ignore_thumb=True):
+	image_list = []
+	for image in inputcache:
+		image_list.append(image.url)
+	image_list.sort()
+	plot_list = [_imagelinkcpy(plot) for plot in image_list]
+	cols = int(cols)
+	return [plot_list[i*cols:i*cols+cols] for i in range(int(math.ceil(len(plot_list) / float(cols))))]
+
 	
 ###############################################################################
 ##### CBC WEB PAGE CLASSES ####################################################
@@ -169,7 +179,6 @@ class _imagelinkcpy(markup.page):
 		#So that you can give it a url
 		#imagepath.replace('file://localhost','').strip()
 		imagepath, headers = urllib.urlretrieve(imagepath)
-		print imagepath
 		imgname = os.path.split(imagepath.rstrip('/'))[1]
 		shutil.copy(imagepath, 'Images/')
 		if not thumbpath:
@@ -233,8 +242,6 @@ class _section(markup.page):
 
 	def add_section(self, tag, title=""):
 		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
-		print self.pagenum
-		print self.secnum
 		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1)
 		self.section_ids.append([len(self.sections.values()), tag])
 
