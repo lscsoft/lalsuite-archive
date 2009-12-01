@@ -174,8 +174,9 @@ class findFileType(object):
     for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
     for sngl in self.coinc.sngls:
-      myMask="*/%s-plotsnrchisq_pipe_%s_FOLLOWUP_PLOTSNRCHISQ_%s*.cache"%\
-              (insString,\
+      myMask="*%s*/%s-plotsnrchisq_pipe_%s_FOLLOWUP_PLOTSNRCHISQ_%s*.cache"%\
+              (self.coinc.type,\
+               insString,\
                sngl.ifo,\
                sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMask))
