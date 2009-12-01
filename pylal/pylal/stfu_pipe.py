@@ -1619,7 +1619,7 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 		"H2":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif"
 		}
 	outputURLs=list()
-	if ((ifo==None) or (time==None)):
+	if ((ifo==None) or (gpsTime==None)):
 		sys.stdout.write("getFOMLinks called incorrectly \
 using default opts instead!\n")
 		return [urls['default']]
