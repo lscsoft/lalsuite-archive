@@ -131,7 +131,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                 main_dir=cp.get('paths','main'),\
                 ini_file = cp.get('data','ini_file'),\
                 inj_file = cp.get('data','inj_file'),\
-                config_file = opts.config_file,\
+                config_file = main_dir+'/'+opts.config_file,\
                 condor_log_path = cp.get('paths','condor_log_path'),\
                 log_file=log_file)
   grb.set_addresses(email_adresses)
