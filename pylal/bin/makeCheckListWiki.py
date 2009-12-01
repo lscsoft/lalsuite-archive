@@ -685,8 +685,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         fomLinks[wikiSngl.ifo]=stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo)
         elems=elems+len(fomLinks[wikiSngl.ifo])
       else:
-        for myLink in stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo):
-          wikiPage.putText("%s\n"%(wikiPage.makeExternalLink(myLink,"V1")))
+        for myLabel,myLink,myThumb in stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo):
+          wikiPage.putText("%s\n"%(wikiPage.makeExternalLink(myLink,myLabel)))
     if elems%3 != 0:
       sys.stdout.write("Generation of FOM links seems incomplete!\n")
     cols=5
