@@ -2377,26 +2377,6 @@ class TimeSlideTable(table.Table):
 	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
-	# FIXME:  this method is now only used by snglcoinc.py in pylal,
-	# and that use should be replaced with a call to this class'
-	# .as_dict() method.  A change request is pending for snglcoinc.py,
-	# so it's hard to make other modifications at the moment.  remember
-	# to take care of this later.
-	def get_offset_dict(self, id):
-		"""
-		Return a dictionary of instrument/offset pairs as described
-		by the rows having the given ID.
-		"""
-		d = {}
-		for row in self:
-			if row.time_slide_id == id:
-				if row.instrument in d:
-					raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
-				d[row.instrument] = row.offset
-		if not d:
-			raise KeyError, id
-		return d
-
 	def as_dict(self):
 		"""
 		Return a ditionary mapping time slide IDs to offset
