@@ -439,7 +439,7 @@ class wiki(object):
               tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
           except:
             sys.stderr.write("Error creating wiki markup for \
-table. R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data))
+table. R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         tableContent="%s ||\n"%(tableContent)                           
     tableContent="%s\n"%(tableContent)
     self.content.append(tableContent)                      
