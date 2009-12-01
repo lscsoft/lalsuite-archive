@@ -432,11 +432,15 @@ class wiki(object):
     else:
       for row in range(0,obj.rows):
         for col in range(0,obj.cols):
-          if obj.data[row][col].rstrip().lstrip().__contains__("style"):
-            tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
-          else:
-            tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
-        tableContent="%s ||\n"%(tableContent)
+          try:
+            if obj.data[row][col].rstrip().lstrip().__contains__("style"):
+              tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
+            else:
+              tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
+          except:
+            sys.stderr.write("Error creating wiki markup for \
+table. R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data))
+        tableContent="%s ||\n"%(tableContent)                           
     tableContent="%s\n"%(tableContent)
     self.content.append(tableContent)                      
     obj.data[0][0]=oldCell
@@ -689,7 +693,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
           wikiPage.putText("%s\n"%(wikiPage.makeExternalLink(myLink,myLabel)))
     if elems%3 != 0:
       sys.stdout.write("Generation of FOM links seems incomplete!\n")
-    cols=5
+    cols=4
     rows=(elems/3)+1
     fTable=wikiPage.wikiTable(rows,cols)
     fTable.data[0]=["IFO,Shift","FOM1","FOM2","FOM3"]
