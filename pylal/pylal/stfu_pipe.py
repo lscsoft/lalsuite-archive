@@ -1640,7 +1640,7 @@ using default opts instead!\n")
 						   urls[ifoTag]%(tStamp,tStamp,sL,fL,"Thumb")
 						   ])
 	if ('V1').__contains__(ifoTag):
-		outputURLs.append(['V1',urls(ifoTag),''])
+		outputURLs.append(['V1',urls[ifoTag],''])
 	return outputURLs
 
 #A simple method to convert GPS time to human readable for for
