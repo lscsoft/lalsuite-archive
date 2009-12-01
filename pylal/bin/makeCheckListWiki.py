@@ -681,17 +681,21 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     fomLinks=dict()
     elems=0
     for wikiSngl in wikiCoinc.sngls:
-      fomLinks[wikiSngl.ifo]=stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo)
-      elems=elems+len(fomLinks[wikiSngl.ifo])
+      if not(wikiSngl.ifo.upper().rstrip().lstrip() == 'V1'):
+        fomLinks[wikiSngl.ifo]=stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo)
+        elems=elems+len(fomLinks[wikiSngl.ifo])
+      else:
+        for myLink in stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo):
+          wikiPage.putText("%s\n"%(wikiPage.makeExternalLink(myLink,"V1")))
     if elems%3 != 0:
       sys.stdout.write("Generation of FOM links seems incomplete!\n")
-    cols=4
+    cols=5
     rows=(elems/3)+1
     fTable=wikiPage.wikiTable(rows,cols)
     fTable.data[0]=["IFO,Shift","FOM1","FOM2","FOM3"]
     currentIndex=0
-    for wikiSngl in wikiCoinc.sngls:
-      for label,link,thumb in fomLinks[wikiSngl.ifo]:
+    for myIFOKey in fomLinks.keys():
+      for label,link,thumb in fomLinks[myIFOKey]:
          myRow=currentIndex/int(3)+1
          myCol=currentIndex%int(3)+1
          fTable.data[myRow][0]=label
