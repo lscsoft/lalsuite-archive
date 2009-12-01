@@ -251,7 +251,7 @@ if opts.merge_with_loudest_events:
     coinc_map_table = table.get_table(fullxml_doc, lsctables.CoincMapTable.tableName)
     exp_summ_table = table.get_table(fullxml_doc, lsctables.ExperimentSummaryTable.tableName)
     exp_map_table = table.get_table(fullxml_doc, lsctables.ExperimentMapTable.tableName)
-    time_slide_table = table.get_table(fullxml_doc, lsctables.TimeSlideTable.tableName)
+    offset_vectors = table.get_table(fullxml_doc, lsctables.TimeSlideTable.tableName).as_dict()
 
     # create a segmentlist out of the segments in the rank_table
     segdict = dict([ [(row.file_type, row.ifo, segments.segment(row.out_start_time, (row.out_start_time+row.segment_duration))), row] for row in seg_table ])
@@ -266,7 +266,7 @@ if opts.merge_with_loudest_events:
         tsids = set([row.time_slide_id for row in exp_summ_table if row.experiment_summ_id in esids])
         if len(tsids) > 1:
             raise ValueError, "multiple time slide ids found for coinc event %s" % str(ceid)
-        offset_vect = time_slide_table.get_offset_dict(tsids.pop()) 
+        offset_vect = offset_vectors[tsids.pop()]
         # get the end times of each ifo
         event_ids = [row.event_id for row in coinc_map_table if row.coinc_event_id == ceid and row.table_name == "sngl_inspiral"]
         event_info = dict([ [row.ifo, row] for row in sngl_insp_table if row.event_id in event_ids ])

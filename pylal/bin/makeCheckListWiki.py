@@ -129,7 +129,8 @@ class findFileType(object):
     insString=""
     for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
-    myMask="*%s-findVetos_%s_%s.wiki"%(insString,ifoString,self.coinc.time)
+    myMask="*%s*%s-findVetos_%s_%s.wiki"%\
+            (self.coinc.type,insString,ifoString,self.coinc.time)
     tmpList.extend(fnmatch.filter(self.fsys,myMask))
     return tmpList
     
@@ -143,7 +144,8 @@ class findFileType(object):
     insString=""
     for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
-    myMask="*%s-effDRatio_%s_%s.wiki"%(insString,ifoString,self.coinc.time)
+    myMask="*%s*%s-effDRatio_%s_%s.wiki"%\
+            (self.coinc.type,insString,ifoString,self.coinc.time)
     tmpList.extend(fnmatch.filter(self.fsys,myMask))
     return tmpList
   
@@ -159,7 +161,8 @@ class findFileType(object):
     insString=""
     for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
-    myMask="*%s-findFlags_%s_%s.wiki"%(insString,ifoString,self.coinc.time)
+    myMask="*%s*%s-findFlags_%s_%s.wiki"%\
+            (self.coinc.type,insString,ifoString,self.coinc.time)
     tmpList.extend(fnmatch.filter(self.fsys,myMask))
     return tmpList
     
@@ -168,11 +171,12 @@ class findFileType(object):
     """
     tmpList=list()
     insString=""
-    for i in range(0,len(self.coinc.ifos)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
+    for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
     for sngl in self.coinc.sngls:
-      myMask="*/%s-plotsnrchisq_pipe_%s_FOLLOWUP_PLOTSNRCHISQ_%s*.cache"%\
-              (insString,\
+      myMask="*%s*/%s-plotsnrchisq_pipe_%s_FOLLOWUP_PLOTSNRCHISQ_%s*.cache"%\
+              (self.coinc.type,\
+               insString,\
                sngl.ifo,\
                sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMask))
@@ -432,11 +436,16 @@ class wiki(object):
     else:
       for row in range(0,obj.rows):
         for col in range(0,obj.cols):
-          if obj.data[row][col].rstrip().lstrip().__contains__("style"):
-            tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
-          else:
-            tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
-        tableContent="%s ||\n"%(tableContent)
+          try:
+            if obj.data[row][col].rstrip().lstrip().__contains__("style"):
+              tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
+            else:
+              tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
+          except:
+            sys.stderr.write("Error creating wiki markup for table. \
+R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
+            raise
+        tableContent="%s ||\n"%(tableContent)                           
     tableContent="%s\n"%(tableContent)
     self.content.append(tableContent)                      
     obj.data[0][0]=oldCell
@@ -470,8 +479,11 @@ class wiki(object):
     #Make title row
     myTable.data[0][0]=""
     for i,label in enumerate(images.keys()):
-      myIndexURL="%s"%indexes[label][0]
-      myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
+      if indexes[label] != 1:
+        myTable.data[0][i+1]=" %s "%label
+      else:
+        myIndexURL="%s"%indexes[label][0]
+        myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
     #Fill in table with thumbnails and links
     for i,channel in enumerate(uniqChannelNames):
       for j,key in enumerate(images.keys()):
@@ -620,17 +632,12 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Relevant Information")
   wikiPath=os.path.split(wikiFilename)[0]
   dqFileList=wikiFileFinder.get_findFlags()
-  dqFile=None
   if len(dqFileList) != 1:
-    sys.stdout.write("Warning: DQ flags data product is missing.\n")
-    wikiPage.putText("Plots and pipeline data go here!")
-  else:
-    dqFile=dqFileList[0]
-    txtData=file(dqFile).readlines()
-    txt=""
-    for l in txtData:
-      txt=txt+str(l)
-    wikiPage.putText(txt)
+    sys.stdout.write("Warning: DQ flags data product import problem.\n")
+    print "Found %i files."%len(dqFileList)
+    for mf in dqFileList: print mf
+  for myFile in dqFileList:
+    wikiPage.putText("%s\n"%(file(myFile).read()))
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -644,17 +651,11 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   vetoFileList=wikiFileFinder.get_findVetos()
-  vetoFile=None
   if len(vetoFileList) != 1:
-    sys.stdout.write("Warning: Veto flags data product missing.\n")
-    wikiPage.putText("Plots and pipeline data go here!")
-  else:
-    vetoFile=vetoFileList[0]
-    txtData=file(vetoFile).readlines()
-    txt=""
-    for l in txtData:
-      txt=txt+str(l)
-    wikiPage.putText(txt)
+    sys.stdout.write("Warning: Veto flags data product import problem.\n")
+    for myFile in vetoFileList:print myFile
+  for myFile in vetoFileList:
+    wikiPage.putText("%s\n"%(file(myFile).read()))
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -681,8 +682,12 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     fomLinks=dict()
     elems=0
     for wikiSngl in wikiCoinc.sngls:
-      fomLinks[wikiSngl.ifo]=stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo)
-      elems=elems+len(fomLinks[wikiSngl.ifo])
+      if not(wikiSngl.ifo.upper().rstrip().lstrip() == 'V1'):
+        fomLinks[wikiSngl.ifo]=stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo)
+        elems=elems+len(fomLinks[wikiSngl.ifo])
+      else:
+        for myLabel,myLink,myThumb in stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo):
+          wikiPage.putText("%s\n"%(wikiPage.makeExternalLink(myLink,myLabel)))
     if elems%3 != 0:
       sys.stdout.write("Generation of FOM links seems incomplete!\n")
     cols=4
@@ -690,8 +695,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     fTable=wikiPage.wikiTable(rows,cols)
     fTable.data[0]=["IFO,Shift","FOM1","FOM2","FOM3"]
     currentIndex=0
-    for wikiSngl in wikiCoinc.sngls:
-      for label,link,thumb in fomLinks[wikiSngl.ifo]:
+    for myIFOKey in fomLinks.keys():
+      for label,link,thumb in fomLinks[myIFOKey]:
          myRow=currentIndex/int(3)+1
          myCol=currentIndex%int(3)+1
          fTable.data[myRow][0]=label
@@ -728,15 +733,16 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
-  enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) == len(imageDict.keys())
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) == len(indexDict.keys())
+    if len(indexDict[sngl.ifo]) < 1:
+      wikiPage.putText("GW data channel scans for %s not available.\n"%sngl.ifo)
+  enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >= 1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >= 1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
                               indexDict)
   else:
-    sys.stdout.write("Warning: Candidate appearance plots not found.\n")
-    wikiPage.putText("Candidate appearance plots not found.\n")
+    sys.stdout.write("Warning: Candidate appearance plot import problem.\n")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -766,15 +772,16 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
-  enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) == len(imageDict.keys())
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) == len(indexDict.keys())
+    if len(indexDict[sngl.ifo]) < 1:
+      wikiPage.putText("Seismic scans for %s not available.\n"%sngl.ifo)
+  enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
                               indexDict)
   else:
-    sys.stdout.write("Warning: Seismic plots not found.\n")
-    wikiPage.putText("Seismic plots not found.\n")
+    sys.stdout.write("Warning: Seismic plots product import problem.\n")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -804,15 +811,16 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
-  enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) == len(imageDict.keys())
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) == len(indexDict.keys())
+    if len(indexDict[sngl.ifo]) < 1:
+      wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
+  enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
+  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
                               indexDict)
   else:
-    sys.stdout.write("Warning: PEM plots not found.\n")
-    wikiPage.putText("PEM plots not found.\n")
+    sys.stdout.write("Warning: PEM plots import trouble.\n")
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -895,17 +903,10 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Effective Distance Ratio Test\n")
   effDList=wikiFileFinder.get_effDRatio()
-  effD=None
   if len(effDList) != 1:
-    sys.stdout.write("Warning: Effective Distance Test data product is missing.\n")
-    wikiPage.putText("Effective Distance Test data product not found.\n")
-  else:
-    effD=effDList[0]
-    txtData=file(effD).readlines()
-    txt=""
-    for l in txtData:
-      txt=txt+str(l)
-    wikiPage.putText(txt)
+    sys.stdout.write("Warning: Effective Distance Test import problem.\n")
+  for myFile in effDList:
+    wikiPage.putText("%s\n"%(file(myFile).read()))
   wikiPage.subsubsection("Investigator Comments")
   wikiPage.putText("Edit Here")
   wikiPage.insertHR()
@@ -916,6 +917,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Question")
   wikiPage.putText("Are the SNR and CHISQ time series consistent with our expectations for a gravitational wave?")
   wikiPage.subsubsection("Answer")
+                                  
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   #
@@ -933,14 +935,17 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   rowLabel={"SNR":1,"CHISQ":2}
   rowCount=len(rowLabel)
   colCount=ifoCount
-  if len(indexList) == ifoCount:
+  if len(indexList) >= 1:
     snrTable=wikiPage.wikiTable(rowCount+1,colCount+1)
-    myIndex=""
     for i,sngl in enumerate(wikiCoinc.sngls):
+      myIndex=""
       for indexFile in indexList:
         if indexFile.__contains__("_pipe_%s_FOLLOWUP_"%sngl.ifo):
           myIndex=indexFile
-      snrTable.data[0][i+1]=wikiPage.makeExternalLink(myIndex,sngl.ifo)
+      if myIndex=="":
+        snrTable.data[0][i+1]=" %s "%sngl.ifo
+      else:
+        snrTable.data[0][i+1]=wikiPage.makeExternalLink(myIndex,sngl.ifo)
     for col,sngl in enumerate(wikiCoinc.sngls):
       for row,label in enumerate(rowLabel.keys()):
         snrTable.data[row+1][0]=label

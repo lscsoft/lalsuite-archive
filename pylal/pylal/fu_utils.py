@@ -987,7 +987,6 @@ def getSciSegs(ifo=None,
       serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
     connection=None
-    #serverURL=serverURL.strip("ldbd://")
     connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
     sys.stderr.write("Error connection to %s\n"\
@@ -1005,6 +1004,7 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
     return
   engine.close()
+
   queryResult.sort()
   #Take segment information and turn into
   #ScienceData() object

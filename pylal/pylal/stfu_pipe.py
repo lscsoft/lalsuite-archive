@@ -864,13 +864,14 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		#Grab Sngl propteries from Coinc object
 		index=1
 		for ifo,snglEvent in coincEvent.sngl_inspiral.items():
-			myIFO=snglEvent.ifo
-			mySNR=snglEvent.snr
-			myTIME=snglEvent.time
-			self.add_var_opt("ifo%i"%(index),myIFO)
-			self.add_var_opt("snr%i"%(index),mySNR)
-			self.add_var_opt("time%i"%(index),myTIME)
-			index=index+1
+			if ifo in coincEvent.ifos:
+				myIFO=snglEvent.ifo
+				mySNR=snglEvent.snr
+				myTIME=snglEvent.time
+				self.add_var_opt("ifo%i"%(index),myIFO)
+				self.add_var_opt("snr%i"%(index),mySNR)
+				self.add_var_opt("time%i"%(index),myTIME)
+				index=index+1
 		for rIndex in range(index,3+1):
 			self.add_var_opt("ifo%i"%(rIndex),None)
 			self.add_var_opt("snr%i"%(rIndex),None)
@@ -1619,13 +1620,13 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 		"H2":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif"
 		}
 	outputURLs=list()
-	if ((ifo==None) or (time==None)):
+	if ((ifo==None) or (gpsTime==None)):
 		sys.stdout.write("getFOMLinks called incorrectly \
 using default opts instead!\n")
 		return [urls['default']]
 	#Create date string
 	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(gpsTime)))
-	tStamp="%s%s%s"%(Y,M,D)
+	tStamp="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 	shiftLabels=['p1','p2','p3']
 	shiftTxt={'p3':'Eve',
 		  'p2':'Owl',
@@ -1640,7 +1641,7 @@ using default opts instead!\n")
 						   urls[ifoTag]%(tStamp,tStamp,sL,fL,"Thumb")
 						   ])
 	if ('V1').__contains__(ifoTag):
-		outputURLs.append(['V1',urls(ifoTag),''])
+		outputURLs.append(['V1',urls[ifoTag],''])
 	return outputURLs
 
 #A simple method to convert GPS time to human readable for for

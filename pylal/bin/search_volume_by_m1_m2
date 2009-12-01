@@ -263,7 +263,8 @@ class upper_limit(object):
       thincasegments -= self.veto_segments
       #print thincasegments
       zero_lag_segments  = thincasegments.intersection(instruments) - thincasegments.union(set(thincasegments.keys()) - instruments)
-      zero_lag_segments -= segmentsUtils.S2playground(thincasegments.extent_all())
+      if zero_lag_segments:
+        zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
       ###############
 
       # DEFINE THE INJECTION WAS MADE FUNCTION
