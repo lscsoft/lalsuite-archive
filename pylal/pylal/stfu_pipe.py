@@ -1625,7 +1625,7 @@ using default opts instead!\n")
 		return [urls['default']]
 	#Create date string
 	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(gpsTime)))
-	tStamp="%s%s%s"%(Y,M,D)
+	tStamp="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 	shiftLabels=['p1','p2','p3']
 	shiftTxt={'p3':'Eve',
 		  'p2':'Owl',
