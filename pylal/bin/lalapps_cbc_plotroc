@@ -279,7 +279,7 @@ for n, (label, cachename) in enumerate(zip(options.add_label, options.add_cache)
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.add_cache), cachename)
 	filenames = [lal.CacheEntry(line).path() for line in file(cachename)]
-	
+
 	for m, filename in enumerate(filenames):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(options.add_cache), cachename)
