@@ -32,7 +32,8 @@ class create_default_config(object):
     cp.add_section("fu-condor")
     cp.set("fu-condor","datafind",self.which("ligo_data_find"))
     cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
-    cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+    #cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+    self.set_qscan_executable()
     cp.set("fu-condor","setuplogfile",self.which("wscan_bg_setup_log.py"))
 
     cp.add_section("datafind")
@@ -88,6 +89,13 @@ class create_default_config(object):
     cp.set("condor-max-jobs","wpipeline_BG_SEIS_RDS_","150")
 
     self.cp = cp
+
+  def set_qscan_executable(self):
+    host = self.__get_hostname()
+    if 'phy.syr.edu' in host:
+      self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+    else:
+      self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 
   def __qscan_config(self,config):
     #FIXME why isn't there an environment variable for things in lalapps share?
