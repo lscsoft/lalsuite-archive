@@ -140,7 +140,10 @@ for database in databases:
 				return float(out)
 			except:
 				print "calc delta t failed",trigger1_true_end_time, trigger2_true_end_time, ring
-				return float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
+				out = float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
+				if out > 0.5:
+					out = 1.0 - out
+				return out
 	
 		
 		connection.create_function("calc_delta_t", 7, calc_delta_t)
