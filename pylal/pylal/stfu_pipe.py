@@ -864,13 +864,14 @@ class effDRatioNode(pipeline.CondorDAGNode,FUNode):
 		#Grab Sngl propteries from Coinc object
 		index=1
 		for ifo,snglEvent in coincEvent.sngl_inspiral.items():
-			myIFO=snglEvent.ifo
-			mySNR=snglEvent.snr
-			myTIME=snglEvent.time
-			self.add_var_opt("ifo%i"%(index),myIFO)
-			self.add_var_opt("snr%i"%(index),mySNR)
-			self.add_var_opt("time%i"%(index),myTIME)
-			index=index+1
+			if ifo in coincEvent.ifos:
+				myIFO=snglEvent.ifo
+				mySNR=snglEvent.snr
+				myTIME=snglEvent.time
+				self.add_var_opt("ifo%i"%(index),myIFO)
+				self.add_var_opt("snr%i"%(index),mySNR)
+				self.add_var_opt("time%i"%(index),myTIME)
+				index=index+1
 		for rIndex in range(index,3+1):
 			self.add_var_opt("ifo%i"%(rIndex),None)
 			self.add_var_opt("snr%i"%(rIndex),None)

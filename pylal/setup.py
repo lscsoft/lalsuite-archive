@@ -402,6 +402,7 @@ setup(
 		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
+		os.path.join("bin", "lalapps_cbc_plotroc"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),

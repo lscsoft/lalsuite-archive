@@ -18,7 +18,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 
-from pylal import ligolw_sqlutils as sqlutils
 from pylal.xlal.date import XLALGPSToUTC
 try:
     from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -242,6 +241,8 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
     Strings together param_name, param_ranges, exclude/include_only_coincs, and
     sim_tag options into a filter string that can be stuck in a sqlite WHERE clause.
     """
+    from pylal import ligolw_sqlutils as sqlutils
+
     in_this_filter = ''
     
     # Get param and param-ranges if specified
@@ -302,6 +303,8 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
+
+    from pylal import ligolw_sqlutils as sqlutils
 
     # check and format options appropriately
     simulation_table = sqlutils.validate_option(simulation_table)
@@ -624,6 +627,7 @@ def printmissed(connection, simulation_table, recovery_table,
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ',
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
+    from pylal import ligolw_sqlutils as sqlutils
     from pylal import db_thinca_rings
     from glue import segments
 
