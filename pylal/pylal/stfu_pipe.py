@@ -1408,8 +1408,8 @@ class create_default_config(object):
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
-		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
-
+		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+		self.set_qscan_executable()
 
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
