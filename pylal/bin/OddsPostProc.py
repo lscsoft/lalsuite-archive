@@ -27,7 +27,7 @@ parser.add_option("--inco3",dest="inco3",action="append",help="single-ifo runs f
 def logadd(a,b):
     if(a>b): (a,b)=(b,a)
     return (b+log(1+exp(a-b)))
-    
+
 def mc2ms(mc,eta):
     root = sqrt(0.25-eta)
     fraction = (0.5+root) / (0.5-root)
@@ -50,6 +50,14 @@ def histN(mat,N):
         t=tuple(co)
         histo[t[::-1]]=histo[t[::-1]]+1
     return (axes,histo)
+
+def nest2pos_par(samps,weights):
+    randoms=rand(size(samps,0))
+    wt=weights+samps[:,-1]
+    maxwt=max(wt)
+    posidx=find(wt>maxwt+log(randoms))
+    pos=samps[posidx,:]
+    return pos
 
 def nest2pos(samps,Nlive):
     weight = -linspace(1,len/Nlive,len)
@@ -75,85 +83,124 @@ def nestZ(d,Nlive):
         logZ=logZnew
     return (logZ,H)
 
+def nestPar(d,Nlive):
+    """
+    Do nested sampling on parallel runs, taking into account
+    different run lengths
+    """
+    maxes=[]
+    for set in d:
+        maxes.append(set[-1,-1]) # Max L point for each chain
+    maxes=array(maxes)
+    maxes.sort()
+    N=len(d)
+    print 'N chains = '+str(N)
+    logw = log(1.0-exp(-1.0/(N*Nlive)))
+    H=0
+    alldat=reduce(lambda x,y: hstack([x,y]) , map(lambda x: x[:,-1],d))
+    sidx=argsort(alldat)
+    alldat=alldat[sidx]
+    logZ=logw + alldat[0]
+    logw-=1.0/(N*Nlive)
+    weights = zeros(size(alldat,0))
+    weights[0]=logw
+    j=0
+    numsamp=size(alldat,0)
+    for samp in alldat[1:]:
+        if samp>maxes[0]:
+            maxes=maxes[1:]
+            N-=1                
+            print str(N)+' Parallel chains left at %d/%d'%(j,numsamp)
+        logZnew = logadd(logZ,logw+samp)
+        H = exp(logw + samp -logZnew)*samp \
+            + exp(logZ-logZnew)*(H+logZ) - logZnew
+        logw = logw -1.0/(N*Nlive)
+        j+=1
+        weights[j]=logw
+        logZ=logZnew
+    bigdata=reduce(lambda x,y: vstack([x,y]), d)
+    bigdata=bigdata[sidx]
+    return (logZ,H,bigdata,weights)
+
 incoflag=0
 outdir=opts.outpath
 Nlive=int(opts.Nlive)
-print 'Loading ' + opts.data[0]
-d=load(opts.data[0])
-for infile in opts.data[1:]:
-    print 'Loading ' + infile
-    tmp=load(infile)
-    d=numpy.vstack((d,tmp))
 
 inco=[]
+iBfiles=[]
 
+def getBfile(datname):
+    Bfile=datname+'_B.txt'
+    print 'Looking for '+Bfile
+    if os.access(Bfile,os.R_OK):
+        outstat = loadtxt(Bfile)
+        return outstat
+    else:
+        return None
+
+def loaddata(datalist):
+    out = list(map(loadtxt,datalist))
+    Bfiles = list(map(getBfile,datalist))
+    if not None in Bfiles: # Subtract off the noise evidence
+        for (outfile,Bfile) in zip(out,Bfiles):
+            outfile[:,-1]-=Bfile[2]
+    return out,Bfiles
+
+# Load in the main data
+(d,Bfiles)=loaddata(opts.data)
+if not None in Bfiles:
+    Bflag=1
+else:
+    Bflag=0
+# Load in the single-IFo data if specified
 if opts.inco0 is not None:
     incoflag=1
-    inco0=load(opts.inco0[0])
-    for infile in opts.inco0[1:]:
-        print 'Loading ' + infile
-        tmp=load(infile)
-        inco0=numpy.vstack((inco0,tmp))
-    inco.append(inco0)
+    (a,iBfile)=loaddata(opts.inco0)
+    inco.append(a)
+    iBfiles.append(iBfile)
 if opts.inco1 is not None:
     incoflag=2
-    inco1=load(opts.inco1[0])
-    for infile in opts.inco1[1:]:
-        print 'Loading ' + infile
-        tmp=load(infile)
-        inco1=numpy.vstack((inco1,tmp))
-    inco.append(inco1)
+    (a,iBfile)=loaddata(opts.inco1)
+    inco.append(a)
+    iBfiles.append(iBfile)
 if opts.inco2 is not None:
     incoflag=3
-    inco2=load(opts.inco2[0])
-    for infile in opts.inco2[1:]:
-        print 'Loading ' + infile
-        tmp=load(infile)
-        inco2=numpy.vstack((inco2,tmp))
-    inco.append(inco2)
+    (a,iBfile)=loaddata(opts.inco2)
+    inco.append(a)
+    iBfiles.append(iBfile)
 if opts.inco3 is not None:
     incoflag=4
-    inco3=load(opts.inco3[0])
-    for infile in opts.inco3[1:]:
-        print 'Loading ' + infile
-        tmp=load(infile)
-        inco3=numpy.vstack((inco3,tmp))
-    inco.append(inco3)
+    (a,iBfile)=loaddata(opts.inco3)
+    inco.append(a)
+    iBfiles.append(iBfile)
 
-Bfile = opts.data[0]+'_B.txt'
-print 'Looking for '+Bfile
-if os.access(Bfile,os.R_OK):
-    outstat = load(Bfile)
-    NoiseZ = outstat[2]
-    Bflag=1
-else: Bflag=0
-
-Nlive = Nlive * size(opts.data,0)
-
-len=size(d,0)
-Nd=size(d,1)
-sidx=argsort(d[:,9])
-d=d[sidx,:]
-d[:,0]=exp(d[:,0])
+#len=size(d,0)
+Nd=size(d[0],1)
+#sidx=argsort(d[:,9])
+#d=d[sidx,:]
+#d[:,0]=exp(d[:,0])
 print 'Exponentiated mc'
-maxL = d[-1,-1]
+#maxL = max(d[-1,-1])
 
 Zinco=0
 for incox in inco:
-    leninc=size(incox,0)
-    sidx=argsort(incox[:,-1])
-    incox=incox[sidx,:]
-    (Zincox,Hinco)=nestZ(incox,Nlive)
+    (Zincox,Hinco,d_inco_s,d_weights)=nestPar(incox,Nlive)
     Zinco=Zinco+Zincox
 
+print 'Applying parallelised nested sampling algorithm to samples'
+
+(logZ,H,d_sorted,d_weights)=nestPar(d,Nlive)
+
+d_sorted[:,0]=exp(d_sorted[:,0])
+maxL=d_sorted[-1,-1]
 print 'maxL = ' + str(maxL)
 # Maximum likelihood point
 print 'Max Likelihood point:'
-maxPt= map(str,d[-1,:])
+maxPt= map(str,d_sorted[-1,:])
 out=reduce(lambda a,b: a + ' || ' + b,maxPt)
 print '|| ' + out + ' ||'
 
-pos = nest2pos(d,Nlive)
+pos = nest2pos_par(d_sorted,d_weights)
 
 print "Number of posterior samples: " + str(size(pos,0))
 # Calculate means
@@ -165,22 +212,11 @@ print '||'+out+'||'
 
 #pos[:,2]=pos[:,2]-means[2]
 
-print 'Applying nested sampling algorithm to ' + str(len) + ' samples'
-
-
-(logZ,H)=nestZ(d,Nlive)
 
 if(Bflag==1):
-    BayesFactor = logZ - NoiseZ
+    BayesFactor = logZ
     print 'log B = '+str(BayesFactor)
     
-#for i in range(0,Nd):
-#    for j in range(i+1,Nd):
-#        subplot(Nd,Nd,i*Nd+j)
-#        hexbin(pos[:,i],pos[:,j])
-
-#hist(array([d[:,1], d[:,2]]))
-
 myfig=figure(1,figsize=(6,4),dpi=80)
 
 def plot2Dkernel(xdat,ydat,Nx,Ny):
@@ -203,12 +239,13 @@ ylabel('eta')
 grid()
 myfig.savefig(outdir+'/Meta.png')
 
-myfig.clear()
-plot2Dkernel(pos[:,5],pos[:,6],100,100)
-xlabel('RA')
-ylabel('dec')
-grid()
-myfig.savefig(outdir+'/RAdec.png')
+if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
+	myfig.clear()
+	plot2Dkernel(pos[:,5],pos[:,6],100,100)
+	xlabel('RA')
+	ylabel('dec')
+	grid()
+	myfig.savefig(outdir+'/RAdec.png')
 
 myfig.clear()
 plot2Dkernel(pos[:,7],pos[:,8],100,100)
@@ -250,7 +287,10 @@ paramnames=('Mchirp (Msun)','eta','geocenter time ISCO','phi_c','Distance (Mpc)'
 
 for i in range(0,Nd-1):
     for j in range(i+1,Nd-1):
-        plot2Dkernel(pos[:,i],pos[:,j],50,50)
+	print str(i)+','+str(j)+': '+str(size(unique(pos[:,i]))) + ' '+ str(size(unique(pos[:,j])))
+        if(size(unique(pos[:,i]))<2 or size(unique(pos[:,j]))<2):
+		continue
+	plot2Dkernel(pos[:,i],pos[:,j],50,50)
         xlabel(paramnames[i])
         ylabel(paramnames[j])
         grid()
@@ -263,9 +303,9 @@ htmlfile=open(outdir+'/posplots.html','w')
 htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>'+str(means[2])+' inspnest Posterior PDFs</h3>')
 if(Bflag==1): htmlfile.write('<h4>log Bayes Factor: '+str(BayesFactor)+'</h4><br>')
 htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bits.<br>')
-if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d[-1,-1]-NoiseZ)+'<br>')
+if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d_sorted[-1,-1])+'<br>')
 if(incoflag!=0): htmlfile.write('Odds of coherent vs incoherent: '+str(exp(logZ-Zinco))+'<br>')
-htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(len)+' NS samples using '+str(Nlive)+' live points<br>')
+htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(size(d_sorted,0))+' NS samples using '+str(size(opts.data,0)*Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
 htmlfile.write('<table border=1><tr>')
 paramline=reduce(lambda a,b:a+'<td>'+b,paramnames)
