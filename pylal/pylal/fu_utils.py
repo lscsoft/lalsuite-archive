@@ -984,7 +984,7 @@ def getSciSegs(ifo=None,
   if serverURL == None:
     serverURL=os.getenv('S6_SEGMENT_SERVER')
     if serverURL == None:
-      serverURL="ldbd://segdb.ligo.caltech.edu"
+      serverURL="https://segdb.ligo.caltech.edu"
   try:
     connection=None
     connection=segmentdb_utils.setup_database(serverURL)
@@ -2234,7 +2234,7 @@ class followupDQV:
     ldbd://myserver.domain.name:808080
     """
     self.triggerTime=int(-1)
-    self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
+    self.serverURL="https://segdb.ligo.caltech.edu:30015"
     if LDBDServerURL==None:
       envServer=None
       envServer=os.getenv('S6_SEGMENT_SERVER')
