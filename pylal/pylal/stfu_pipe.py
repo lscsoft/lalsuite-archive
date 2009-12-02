@@ -766,11 +766,11 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	This class is resposible for setting up a node to perform a
 	query for the DQ flag for the trigger which under review.
 	EXAMPLE
-	followupQueryDQ.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="ldbd://segdb.ligo.caltech.edu:30015" --output-file=dqResults.wiki
+	followupQueryDQ.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="https://segdb.ligo.caltech.edu:30015" --output-file=dqResults.wiki
 	"""
 	defaults={"section":"findFlags",
 		  "options":{"window":"60,15",
-			     "segment-url":"ldbd://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
@@ -805,11 +805,11 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	queries the segment database for veto segments active around
 	the trigger time of the candidate.
 	Command line example:
-	followupQueryVeto.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="ldbd://segdb.ligo.caltech.edu:30015" --output-file=vetoResults.wiki
+	followupQueryVeto.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="https://segdb.ligo.caltech.edu:30015" --output-file=vetoResults.wiki
 	"""
 	defaults={"section":"findVetoes",
 		  "options":{"window":"60,15",
-			     "segment-url":"ldbd://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
