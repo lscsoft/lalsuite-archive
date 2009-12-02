@@ -1516,9 +1516,9 @@ class create_default_config(object):
 	def set_qscan_executable(self):
 		host = self.__get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")		
+			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
 
 	def __config_name(self,ifo,type):
 		fileMap={
