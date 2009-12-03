@@ -77,7 +77,7 @@ def compute_mchirp_eta(m1,m2):
   mtot = m1 + m2
   mu = m1*m2/mtot
   eta = mu/mtot
-  mchirp = pow(mu,3.0/5.0)*mtot
+  mchirp = pow(eta,3.0/5.0)*mtot
   
   return float(mchirp), float(eta)
 
