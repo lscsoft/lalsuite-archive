@@ -12,11 +12,13 @@ import os
 import numpy
 from time import strftime
 from scipy import stats
+from pylal import SimInspiralUtils
 
 parser=OptionParser()
 parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
 parser.add_option("-N","--Nlive",dest="Nlive",help="number of live points for each of the files")
 parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
 parser.add_option("--inco0",dest="inco0",action="append",help="single-ifo runs for 0th ifo")
 parser.add_option("--inco1",dest="inco1",action="append",help="single-ifo runs for 1th ifo")
 parser.add_option("--inco2",dest="inco2",action="append",help="single-ifo runs for 2th ifo")
@@ -211,6 +213,13 @@ print 'Means:'
 print '||'+out+'||'
 
 #pos[:,2]=pos[:,2]-means[2]
+
+# Select injections using tc +/- 0.1s if it exists
+if(opts.injfile):
+    injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.injfile])
+    injection = filter(lambda a: abs(a.geocent_end_time - means[2]) < 0.1, injections)
+
+print injection.geocent_end_time
 
 
 if(Bflag==1):
