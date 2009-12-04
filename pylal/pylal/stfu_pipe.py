@@ -766,11 +766,11 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	This class is resposible for setting up a node to perform a
 	query for the DQ flag for the trigger which under review.
 	EXAMPLE
-	followupQueryDQ.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="ldbd://segdb.ligo.caltech.edu:30015" --output-file=dqResults.wiki
+	followupQueryDQ.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="https://segdb.ligo.caltech.edu:30015" --output-file=dqResults.wiki
 	"""
 	defaults={"section":"findFlags",
 		  "options":{"window":"60,15",
-			     "segment-url":"ldbd://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
@@ -805,11 +805,11 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	queries the segment database for veto segments active around
 	the trigger time of the candidate.
 	Command line example:
-	followupQueryVeto.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="ldbd://segdb.ligo.caltech.edu:30015" --output-file=vetoResults.wiki
+	followupQueryVeto.py --window=60,15 --trigger-time=929052945 --output-format=moinmoin --segment-url="https://segdb.ligo.caltech.edu:30015" --output-file=vetoResults.wiki
 	"""
 	defaults={"section":"findVetoes",
 		  "options":{"window":"60,15",
-			     "segment-url":"ldbd://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
@@ -1408,8 +1408,8 @@ class create_default_config(object):
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
-		cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
-
+		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+		self.set_qscan_executable()
 
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
@@ -1516,9 +1516,9 @@ class create_default_config(object):
 	def set_qscan_executable(self):
 		host = self.__get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")		
+			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
 
 	def __config_name(self,ifo,type):
 		fileMap={
