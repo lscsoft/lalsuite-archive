@@ -220,8 +220,6 @@ if(opts.injfile):
     injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.injfile])
     injection = filter(lambda a: abs(a.geocent_end_time - means[2]) < 0.1, injections)[0]
 
-print injection.geocent_end_time
-
 def getinjpar(inj,parnum):
     if parnum==0: return inj.mchirp
     if parnum==1: return inj.eta
