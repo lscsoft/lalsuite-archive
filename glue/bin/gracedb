@@ -97,7 +97,7 @@ typeCodeMap = {
         "X"        : "X",
         "CWB"      : "CWB",
         "MBTAOnline": "MBTA",
-        "HardwareInjection": "HWINJ",
+        "Injection": "HWINJ",
 }
 validTypes = typeCodeMap.keys()
 
