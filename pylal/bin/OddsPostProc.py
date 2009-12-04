@@ -217,8 +217,12 @@ print '||'+out+'||'
 injection=None
 # Select injections using tc +/- 0.1s if it exists
 if(opts.injfile):
+    import itertools
     injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.injfile])
-    injection = filter(lambda a: abs(a.geocent_end_time - means[2]) < 0.1, injections)[0]
+    if(len(injections)<1):
+	print 'Warning: Cannot find injection with end time %f' %(means[2])
+    else:
+    	injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
 
 def getinjpar(inj,parnum):
     if parnum==0: return inj.mchirp
