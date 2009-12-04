@@ -148,7 +148,7 @@ def getQualityTable(backEndName="tracksearch"):
   return finalPropertyList
 #End getQualityTable()
 
-def coalescetuplelist(input=list()):
+def coalescetuplelist(inputList=list()):
     """
     Takes an input list of tuples representing start,stop and merges
     them placing them in time order when returning the coalesced list of
