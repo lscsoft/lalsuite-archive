@@ -227,7 +227,7 @@ if(opts.injfile):
 def getinjpar(inj,parnum):
     if parnum==0: return inj.mchirp
     if parnum==1: return inj.eta
-    if parnum==2: return inj.geocent_end_time
+    if parnum==2: return inj.get_end()
     if parnum==3: return inj.phi0
     if parnum==4: return inj.distance
     if parnum==5: return inj.longitude
