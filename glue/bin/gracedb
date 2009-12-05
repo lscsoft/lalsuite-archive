@@ -97,6 +97,7 @@ typeCodeMap = {
         "X"        : "X",
         "CWB"      : "CWB",
         "MBTAOnline": "MBTA",
+        "Injection": "HWINJ",
 }
 validTypes = typeCodeMap.keys()
 
@@ -387,6 +388,8 @@ Longer strings will be truncated.""" % {
         graceid = args[1]
         label = args[2]
         response = client.send('label', graceid=graceid, label=label)
+    elif args[0] == 'search':
+        response = client.send('search', query=" ".join(args[1:]))
     elif len(args) == 3:
         group = args[0]
         type = args[1]

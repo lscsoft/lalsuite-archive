@@ -12,11 +12,13 @@ import os
 import numpy
 from time import strftime
 from scipy import stats
+from pylal import SimInspiralUtils
 
 parser=OptionParser()
 parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
 parser.add_option("-N","--Nlive",dest="Nlive",help="number of live points for each of the files")
 parser.add_option("-d","--data",dest="data",action="append",help="datafile")
+parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
 parser.add_option("--inco0",dest="inco0",action="append",help="single-ifo runs for 0th ifo")
 parser.add_option("--inco1",dest="inco1",action="append",help="single-ifo runs for 1th ifo")
 parser.add_option("--inco2",dest="inco2",action="append",help="single-ifo runs for 2th ifo")
@@ -210,8 +212,35 @@ out=reduce(lambda a,b:a+'||'+b,meanStr)
 print 'Means:'
 print '||'+out+'||'
 
-#pos[:,2]=pos[:,2]-means[2]
 
+#pos[:,2]=pos[:,2]-means[2]
+injection=None
+# Select injections using tc +/- 0.1s if it exists
+if(opts.injfile):
+    import itertools
+    injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.injfile])
+    if(len(injections)<1):
+	print 'Warning: Cannot find injection with end time %f' %(means[2])
+    else:
+    	injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
+
+def getinjpar(inj,parnum):
+    if parnum==0: return inj.mchirp
+    if parnum==1: return inj.eta
+    if parnum==2: return inj.get_end()
+    if parnum==3: return inj.phi0
+    if parnum==4: return inj.distance
+    if parnum==5: return inj.longitude
+    if parnum==6: return inj.latitude
+    if parnum==7: return inj.polarization
+    if parnum==8: return inj.inclination
+    return None
+
+if injection:
+    injvals=map(str,map(lambda a: getinjpar(injection,a),range(0,9)))
+    out=reduce(lambda a,b:a+'||'+b,injvals)
+    print 'Injected values:'
+    print out
 
 if(Bflag==1):
     BayesFactor = logZ
@@ -234,21 +263,26 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
     colorbar()
 
 plot2Dkernel(pos[:,0],pos[:,1],100,100)
+if injection and getinjpar(injection,0)<max(pos[:,0]) and getinjpar(injection,0)>min(pos[:,0]) and getinjpar(injection,1)>min(pos[:,1]) and getinjpar(injection,1)<max(pos[:,1]):
+        plot(getinjpar(injection,0),getinjpar(injection,1),'go')
 xlabel('chirp mass (Msun)')
 ylabel('eta')
 grid()
 myfig.savefig(outdir+'/Meta.png')
 
 if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
-	myfig.clear()
-	plot2Dkernel(pos[:,5],pos[:,6],100,100)
-	xlabel('RA')
-	ylabel('dec')
-	grid()
-	myfig.savefig(outdir+'/RAdec.png')
+    myfig.clear()
+    plot2Dkernel(pos[:,5],pos[:,6],100,100)
+    if injection and getinjpar(injection,5)<max(pos[:,5]) and getinjpar(injection,5)>min(pos[:,5]) and getinjpar(injection,6)>min(pos[:,6]) and getinjpar(injection,6)<max(pos[:,6]):
+        plot(getinjpar(injection,5),getinjpar(injection,6),'go')	
+    xlabel('RA')
+    ylabel('dec')
+    grid()
+    myfig.savefig(outdir+'/RAdec.png')
 
 myfig.clear()
 plot2Dkernel(pos[:,7],pos[:,8],100,100)
+if injection and getinjpar(injection,7)<max(pos[:,7]) and getinjpar(injection,7)>min(pos[:,7]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]): plot(getinjpar(injection,7),getinjpar(injection,8),'go')
 xlabel('psi')
 ylabel('iota')
 grid()
@@ -257,6 +291,8 @@ myfig.clear()
 
 (m1,m2)=mc2ms(pos[:,0],pos[:,1])
 plot2Dkernel(m1,m2,100,100)
+if injection and injection.mass1>min(m1) and injection.mass1 < max(m1) and injection.mass2>min(m2) and injection.mass2<max(m2):
+    plot(injection.mass1,injection.mass2,'go')
 xlabel('mass 1')
 ylabel('mass 2')
 grid()
@@ -264,6 +300,8 @@ myfig.savefig(outdir+'/m1m2.png')
 myfig.clear()
 
 plot2Dkernel(m1,pos[:,4],100,100)
+if injection and injection.mass1<max(m1) and injection.mass1>min(m1) and getinjpar(injection,4)<max(pos[:,4]) and getinjpar(injection,4)>min(pos[:,4]):
+    plot(injection.mass1,injection.distance,'go')
 xlabel('m1')
 ylabel('Distance (Mpc)')
 grid()
@@ -277,6 +315,8 @@ myfig.savefig(outdir+'/m2dist.png')
 myfig.clear()
 
 plot2Dkernel(pos[:,4],pos[:,8],100,100)
+if injection and getinjpar(injection,4)>min(pos[:,4]) and getinjpar(injection,4)<max(pos[:,4]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]):
+    plot(getinjpar(injection,4),getinjpar(injection,8),'go')
 xlabel('distance')
 ylabel('iota')
 grid()
@@ -287,10 +327,11 @@ paramnames=('Mchirp (Msun)','eta','geocenter time ISCO','phi_c','Distance (Mpc)'
 
 for i in range(0,Nd-1):
     for j in range(i+1,Nd-1):
-	print str(i)+','+str(j)+': '+str(size(unique(pos[:,i]))) + ' '+ str(size(unique(pos[:,j])))
-        if(size(unique(pos[:,i]))<2 or size(unique(pos[:,j]))<2):
-		continue
-	plot2Dkernel(pos[:,i],pos[:,j],50,50)
+        #print str(i)+','+str(j)+': '+str(size(unique(pos[:,i]))) + ' '+ str(size(unique(pos[:,j])))
+        if (size(unique(pos[:,i]))<2 or size(unique(pos[:,j]))<2):   continue
+        plot2Dkernel(pos[:,i],pos[:,j],50,50)
+        if injection and reduce (lambda a,b: a and b, map(lambda idx: getinjpar(injection,idx)>min(pos[:,idx]) and getinjpar(injection,idx)<max(pos[:,idx]),[i,j])) :
+            plot(getinjpar(injection,i),getinjpar(injection,j),'go')
         xlabel(paramnames[i])
         ylabel(paramnames[j])
         grid()
@@ -311,7 +352,12 @@ htmlfile.write('<table border=1><tr>')
 paramline=reduce(lambda a,b:a+'<td>'+b,paramnames)
 htmlfile.write('<td>'+paramline+'<td>logLmax</tr><tr>')
 meanline=reduce(lambda a,b:a+'<td>'+b,meanStr)
-htmlfile.write('<td>'+meanline+'</tr></table>')
+htmlfile.write('<td>'+meanline+'</tr>')
+if injection:
+    htmlfile.write('<tr><th colspan=9>Injected values</tr>')
+    injline=reduce(lambda a,b:a+'<td>'+b,injvals)
+    htmlfile.write('<td>'+injline+'<td></tr>')
+htmlfile.write('</table>')
 htmlfile.write('<h5>2D Marginal PDFs</h5><br>')
 htmlfile.write('<table border=1><tr>')
 htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
@@ -330,6 +376,9 @@ for i in [0,1,2,3,4,5,6,7,8]:
     ind=linspace(min(pos[:,i]),max(pos[:,i]),101)
     kdepdf=gkde.evaluate(ind)
     plot(ind,kdepdf,label='density estimate')
+    if injection and min(pos[:,i])<getinjpar(injection,i) and max(pos[:,i])>getinjpar(injection,i):   
+        plot([getinjpar(injection,i),getinjpar(injection,i)],[0,max(kdepdf)],'r-.')
+        print 'i=%i, %f' % (i,getinjpar(injection,i))
     grid()
     xlabel(paramnames[i])
     ylabel('Probability Density')
