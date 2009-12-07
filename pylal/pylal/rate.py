@@ -109,6 +109,14 @@ class Bins(object):
 		"""
 		raise NotImplementedError
 
+	def __iter__(self):
+		"""
+		If __iter__ does not exist, Python uses __getitem__ with range(0)
+		as input to define iteration. This is nonsensical for bin objects,
+		so explicitly unsupport iteration.
+		"""
+		raise NotImplementedError
+
 	def lower(self):
 		"""
 		Return an array containing the locations of the lower
