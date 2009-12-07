@@ -352,7 +352,7 @@ if opts.extract_to_xml or opts.extract_to_database:
     connection.cursor().execute(sqlquery)
 
     # now delete unneeded simulation_ids
-    save_ids = [(row.coinc_event_id,) for row in sftable]
+    save_ids = [(row.simulation_id,) for row in sftable]
     connection.cursor().execute("CREATE TEMP TABLE save_sim_ids (sim_id)")
     connection.cursor().executemany("INSERT INTO save_sim_ids (sim_id) VALUES (?)", save_ids)
     # delete all other ids from the recovery table
