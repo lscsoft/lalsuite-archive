@@ -231,8 +231,8 @@ def get_daily_ihope_page(gpstime, pages_location = "https://ldas-jobs.ligo.calte
     return "%s/%s/%s/" %(pages_location, time.strftime("%Y%m", utctime), time.strftime("%Y%m%d", utctime))
 
 
-def create_hyperlink(address, link):
-    return '<a href="%s">%s</a>' % (address, link)
+def create_hyperlink(address, link, external=True):
+    return '<a href="%s"%s>%s</a>' % (address, external and ' rel="external"' or '', link)
 
 
 def create_filter( connection, tableName, param_name = None, param_ranges = None, 
@@ -343,7 +343,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     #   in the recovery table.
     #
     if verbose:
-        print >> sys.stdout, "Getting statistics for ranking..."
+        print >> sys.stderr, "Getting statistics for ranking..."
     ranker = sqlutils.rank_stats(recovery_table, ranking_stat, rank_by)
     # add requirement that stats not be found in the sim_rec_table to in_this_filter
     rank_filter = ''.join([
@@ -357,8 +357,13 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     
     if in_this_filter != '':
         rank_filter = '\n\tAND '.join([ in_this_filter, rank_filter ])
+
     rank_filter = '\n\t'.join([ sqlutils.join_experiment_tables_to_coinc_table(recovery_table), 'WHERE', rank_filter ])
     
+    # remove sim tag from filter if comparison is not to simulation datatype
+    if comparison_datatype != 'simulation':
+        rank_filter = re.sub('AND get_sim_tag(experiment_summary.sim_proc_id) == "'+comparison_datatype+'"', '', rank_filter)
+
     ranker.populate_stats_list(connection, limit = None, filter = rank_filter)
     connection.create_function( 'rank', 1, ranker.get_rank )
     
@@ -536,9 +541,9 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             sim_rec_map.sim_id, sim_rec_map.ranking_stat """, rank_by])
     
     if verbose:
-        print >> sys.stdout, "Getting coincs..."
-        print >> sys.stdout, "SQLite query used is:"
-        print >> sys.stdout, sqlquery
+        print >> sys.stderr, "Getting coincs..."
+        print >> sys.stderr, "SQLite query used is:"
+        print >> sys.stderr, sqlquery
     
     for values in connection.cursor().execute( sqlquery ).fetchall():
         # sort the data
@@ -822,7 +827,7 @@ def printmissed(connection, simulation_table, recovery_table,
             #   Initialize ranking. Statistics for ranking are based on decisive distance
             #
             if verbose:
-                print >> sys.stdout, "Getting statistics for ranking..."
+                print >> sys.stderr, "Getting statistics for ranking..."
             ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
             # add requirement that stats not be found in the sim_rec_table to in_this_filter
             ranker.populate_stats_list(connection, limit = limit, filter = in_this_filter)
@@ -846,9 +851,9 @@ def printmissed(connection, simulation_table, recovery_table,
                     """])
             
             if verbose:
-                print >> sys.stdout, "Getting injections..."
-                print >> sys.stdout, "SQLite query used is:"
-                print >> sys.stdout, sqlquery
+                print >> sys.stderr, "Getting injections..."
+                print >> sys.stderr, "SQLite query used is:"
+                print >> sys.stderr, sqlquery
             
             for values in connection.cursor().execute( sqlquery ).fetchall():
                 cmrow = CloseMissed()

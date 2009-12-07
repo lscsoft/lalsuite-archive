@@ -35,8 +35,8 @@ matplotlib.rcParams.update({
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
 	"legend.fontsize": 8.0,
-	"figure.dpi": 600,
-	"savefig.dpi": 600,
+	"figure.dpi": 400,
+	"savefig.dpi": 400,
 	"text.usetex": True,
 	"path.simplify": True
 })
@@ -239,11 +239,13 @@ WHERE
 				self.stats.setdefault(label,[]).append((far, distance))
 
 	def finish(self):
+		norm = 0
 		for label in self.stats.keys():
-			norm = sum([x[1] for x in self.stats[label]])
+			norm = max(sum([x[1] for x in self.stats[label]]), norm)
+		for label in self.stats.keys():
 			self.stats[label] = [(x[0],x[1]/norm) for x in self.stats[label]]
 			self.stats[label].sort()
-		fig, axes = create_plot(r"False Alarm Rate", r"Relative Volume", aspect = 1.0)
+		fig, axes = create_plot(r"False Alarm Rate", r"Relative $V \times T$", aspect = 1.0, width=100)
 		axes.hold(1)
 		for label in self.stats.keys():
 			axes.semilogx([x[0] for x in self.stats[label]], numpy.cumsum([x[1] for x in self.stats[label]]), label=label)

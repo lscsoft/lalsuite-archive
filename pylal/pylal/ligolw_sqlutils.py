@@ -840,7 +840,7 @@ def clean_metadata(connection, key_tables, verbose = False):
         filter is a filter to apply to the table when selecting process_ids
     """
     if verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
+        print >> sys.stderr, "Removing unneeded metadata..."
     
     #
     # create a temp. table of process_ids to keep
@@ -890,7 +890,7 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     @end_time_col_name: name of the end_time column in the key_table
     """
     if verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
+        print >> sys.stderr, "Removing unneeded metadata..."
     
     key_column = '.'.join([key_table, key_column])
     connection.create_function('end_time_in_ns', 2, end_time_in_ns ) 
@@ -1005,7 +1005,7 @@ def clean_experiment_tables(connection, verbose = False):
     @connection: connection to a sqlite database
     """
     if verbose:
-        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+        print >> sys.stderr, "Removing experiments that no longer have events in them..."
 
     sqlscript = """
         DELETE FROM
@@ -1097,10 +1097,10 @@ class sim_tag_proc_id_mapper:
             self.tag_id_map[sim_tag] = proc_id
 
     def get_sim_tag( self, proc_id ):
-        return self.id_tag_map[proc_id]
+        return proc_id in self.id_tag_map and self.id_tag_map[proc_id] or None
 
     def get_proc_id( self, sim_tag ):
-        return self.tag_id_map[sim_tag]
+        return sim_tag in self.tag_id_map and self.tag_id_map[sim_tag] or None
 
             
 # =============================================================================
