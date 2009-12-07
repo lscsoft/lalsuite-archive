@@ -151,6 +151,13 @@ def parse_command_line():
             "Opposite of --exclude-coincs: only rank the specified coinc types. "
             )
     # following are options specific to this program
+    parser.add_option("-c", "--columns", action = "append", default = [],
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, either give this argument several times, or "
+            "separate column names with a comma, e.g., --column-names 'rank, combined_far'."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
     parser.add_option("", "--datatype", action = "store", type = "string", default = None,
         metavar = "slide, all_data, playground, exclude_play, OR simulation",
         help =
@@ -451,7 +458,16 @@ if opts.verbose and not opts.output:
 if opts.output_format != "xml":
     tableList = ['loudest_events']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0])
-    columnList.remove('mini_followup')
+    if opts.columns != []:
+        opts.columns = [c.strip() for col in opts.columns for c in col.split(',') ]
+        # overwrite columnList with specified columns
+        columnList = opts.columns
+        # check for rank, duration
+        for ii, column in enumerate(columnList):
+            if column == 'rank':
+                columnList[ii] = rankname
+            if column == 'duration':
+                columnList[ii] = durname
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')

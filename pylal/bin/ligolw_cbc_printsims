@@ -163,6 +163,13 @@ def parse_command_line():
             "Required. Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id."
             )
+    parser.add_option("-c", "--columns", action = "append", default = [],
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, either give this argument several times, or "
+            "separate column names with a comma, e.g., --column-names 'rank, combined_far'."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
     parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
         help =
             "Requried. Statistic to rank by; can be any column " +
@@ -288,7 +295,22 @@ if opts.output_format != "xml":
     # set table list
     tableList = ['selected_found_injections']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0])
-    columnList.remove('mini_followup')
+    if opts.columns != []:
+        opts.columns = [c.strip() for col in opts.columns for c in col.split(',') ]
+        # if rank or duration desired, get the right name before overwriting columnList
+        if 'rank' in opts.columns or 'duration' in opts.columns:
+            rankname = [col for col in columnList if 'rank' in col]
+            rankname = rankname != [] and rankname.pop() or 'rank'
+            durname = [col for col in columnList if 'duration' in col]
+            durname = durname != [] and durname.pop() or 'duration'
+        # overwrite columnList with specified columns
+        columnList = opts.columns
+        # check for rank, duration
+        for ii, column in enumerate(columnList):
+            if column == 'rank':
+                columnList[ii] = rankname
+            if column == 'duration':
+                columnList[ii] = durname
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
