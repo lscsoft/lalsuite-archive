@@ -256,7 +256,7 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
@@ -288,7 +288,7 @@ sfdoc.childNodes[0].appendChild(sftable)
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
     # set table list
@@ -328,9 +328,10 @@ else:
 
 if opts.extract_to_xml or opts.extract_to_database:
     recovery_table = sqlutils.validate_option(opts.recovery_table)
+    simulation_table = sqlutils.validate_option(opts.simulation_table)
     if opts.verbose:
-        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
-        print >> sys.stdout, "Deleting unwanted triggers from %s table..." % recovery_table
+        print >> sys.stderr, "\nPreparing temp. database for xml extraction..."
+        print >> sys.stderr, "Deleting unwanted triggers from %s table..." % recovery_table
 
     # use the coinc_event_ids to figure out what to keep
     save_ids = [(row.coinc_event_id,) for row in sftable]
@@ -350,6 +351,23 @@ if opts.extract_to_xml or opts.extract_to_database:
                     save_ceids )""" ])
     connection.cursor().execute(sqlquery)
 
+    # now delete unneeded simulation_ids
+    save_ids = [(row.coinc_event_id,) for row in sftable]
+    connection.cursor().execute("CREATE TEMP TABLE save_sim_ids (sim_id)")
+    connection.cursor().executemany("INSERT INTO save_sim_ids (sim_id) VALUES (?)", save_ids)
+    # delete all other ids from the recovery table
+    sqlquery = ''.join([ """
+        DELETE
+        FROM 
+            """, simulation_table, """
+        WHERE
+            simulation_id NOT IN (
+                SELECT
+                    sim_id
+                FROM
+                    save_sim_ids )""" ])
+    connection.cursor().execute(sqlquery)
+
     # clean up the other tables that point to the deleted ids
     sqlutils.clean_using_coinc_table( connection, recovery_table, verbose = opts.verbose,
         clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
@@ -360,7 +378,7 @@ if opts.extract_to_xml or opts.extract_to_database:
 
     # before deleting things, get what tables are there
     if opts.verbose:
-        print >> sys.stdout, "Cleaning the coinc_event_map table..."
+        print >> sys.stderr, "Cleaning the coinc_event_map table..."
     selected_tables = sqlutils.get_cem_table_names(connection)
     sqlquery = """
         DELETE
@@ -371,7 +389,7 @@ if opts.extract_to_xml or opts.extract_to_database:
                 SELECT
                     sim_id
                 FROM
-                    sim_rec_map )
+                    save_sim_ids )
             OR event_id IN (
                 SELECT
                     ceid
@@ -403,9 +421,8 @@ if opts.extract_to_xml or opts.extract_to_database:
 
 
 # close connection and exit
-connection.close()
 if opts.extract_to_database:
-    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = verbose)
+    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = opts.verbose)
 else:
     dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
@@ -413,6 +430,6 @@ else:
 connection.close()
 
 if opts.verbose and opts.tmp_space:
-    print >> sys.stdout, "Finshed!"
+    print >> sys.stderr, "Finshed!"
 
 sys.exit(0)

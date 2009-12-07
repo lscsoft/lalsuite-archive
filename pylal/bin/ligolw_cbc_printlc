@@ -238,7 +238,7 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
@@ -327,7 +327,7 @@ connection.create_function( 'convert_duration', 1, convert_duration )
 # done in this way because the RANK and DENSE_RANK SQL functions are not supported by
 # SQLite.
 if opts.verbose:
-    print >> sys.stdout, "Getting statistics for ranking..."
+    print >> sys.stderr, "Getting statistics for ranking..."
 ranker = sqlutils.rank_stats('coinc_inspiral', ranking_stat, rank_by)
 ranker.populate_stats_list(connection, opts.limit, filter = where_in_this_filter)
 connection.create_function( 'rank', 1, ranker.get_rank )
@@ -412,9 +412,9 @@ sqlquery = ''.join([ """
         """, ranking_stat, ' ',  rank_by ])
 
 if opts.verbose:
-    print >> sys.stdout, "Getting coincs..."
-    print >> sys.stdout, "SQLite query used is:"
-    print >> sys.stdout, sqlquery
+    print >> sys.stderr, "Getting coincs..."
+    print >> sys.stderr, "SQLite query used is:"
+    print >> sys.stderr, sqlquery
 
 for values in connection.cursor().execute( sqlquery ):
     lcrow = LoudestEvents()
@@ -452,7 +452,7 @@ for values in connection.cursor().execute( sqlquery ):
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
     tableList = ['loudest_events']
@@ -485,8 +485,8 @@ else:
 
 if opts.extract_to_xml or opts.extract_to_database:
     if opts.verbose:
-        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
-        print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
+        print >> sys.stderr, "\nPreparing temp. database for xml extraction..."
+        print >> sys.stderr, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
     save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in lctable]
     # delete all other ids from the coinc_inspiral table
@@ -521,11 +521,11 @@ if opts.extract_to_xml or opts.extract_to_database:
 # close connection and exit
 connection.close()
 if opts.extract_to_database:
-    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = verbose)
+    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = opts.verbose)
 else:
     dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
 if opts.verbose and opts.tmp_space:
-    print >> sys.stdout, "Finshed!"
+    print >> sys.stderr, "Finshed!"
 
 sys.exit(0)
