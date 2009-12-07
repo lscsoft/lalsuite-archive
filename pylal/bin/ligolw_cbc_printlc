@@ -151,11 +151,10 @@ def parse_command_line():
             "Opposite of --exclude-coincs: only rank the specified coinc types. "
             )
     # following are options specific to this program
-    parser.add_option("-c", "--columns", action = "append", default = [],
+    parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
         help =
             "If output-format is set to html or wiki, will only print the given columns. " +
-            "To specify multiple columns, either give this argument several times, or "
-            "separate column names with a comma, e.g., --column-names 'rank, combined_far'."
+            "To specify multiple columns, separate column names with a comma."
             "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
             )
     parser.add_option("", "--datatype", action = "store", type = "string", default = None,
@@ -458,10 +457,9 @@ if opts.verbose and not opts.output:
 if opts.output_format != "xml":
     tableList = ['loudest_events']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0])
-    if opts.columns != []:
-        opts.columns = [c.strip() for col in opts.columns for c in col.split(',') ]
+    if opts.columns is not None:
         # overwrite columnList with specified columns
-        columnList = opts.columns
+        columnList = [col.strip() for col in opts.columns.split(',')]
         # check for rank, duration
         for ii, column in enumerate(columnList):
             if column == 'rank':
