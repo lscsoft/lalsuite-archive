@@ -319,7 +319,7 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 			# Parse plotting codes nearly useless "cache" file
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
 			cfile = c[0].url.replace('file://localhost','')
-			path = os.path.split(cfile.rstrip('/'))[0] 
+			path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
 			clist = open(cfile).readlines()
 			plots = ['snr-','snr_zoom-', 'rsq-', 'rsq_zoom-', 'chisq-', 'chisq_zoom-', 'PSD-', 'fft_of_template_and_asd-', 'template-', 'white_template-']
 			plot_list = []
@@ -343,7 +343,7 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 		plot_list = []
 
 		cfile = c[0].url.replace('file://localhost','')
-		path = os.path.split(cfile.rstrip('/'))[0] 
+		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
 		try: clist = open(cfile).readlines()
 		except:	
 			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
@@ -368,7 +368,7 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 
 		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
 		cfile = c[0].url.replace('file://localhost','')
-		path = os.path.split(cfile.rstrip('/'))[0] 
+		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
 		try: clist = open(cfile).readlines()
 		except:	
 			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)

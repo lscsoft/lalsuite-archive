@@ -2259,6 +2259,23 @@ defaulting to %s"%(self.serverURL))
     AND NOT (segment.start_time > %s OR %s > segment.end_time) \
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
     """
+    #This query IS very very slow easily 10x above query!
+    self.dqvQueryTop2Versions= """SELECT \
+    segment_definer.ifos, \
+    segment_definer.name, \
+    segment_definer.version, \
+    segment_definer.comment, \
+    segment.start_time, \
+    segment.end_time \
+    FROM segment,segment_definer \
+    WHERE \
+    segment_definer.segment_def_id = segment.segment_def_id \
+    AND segment_definer.version+2 > (SELECT MAX(x.version) \
+    FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
+    AND segment.segment_def_cdb = segment_definer.creator_db \
+    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
+    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    """
   #End __init__()
 
   def __merge__(self,inputList=None):
@@ -2324,7 +2341,7 @@ defaulting to %s"%(self.serverURL))
     Wrapper for fetchInformationDualWindow that mimics original
     behavior
     """
-    self.fetchInormationDualWindow(triggerTime,window,window)
+    self.fetchInformationDualWindow(triggerTime,window,window)
 
   def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150):
     """
@@ -2354,7 +2371,7 @@ defaulting to %s"%(self.serverURL))
     try:
       gpsEnd=int(triggerTime)+int(backWindow)
       gpsStart=int(triggerTime)-int(frontWindow)
-      sqlString=self.dqvQuery%(gpsEnd,gpsStart)
+      sqlString=self.dqvQueryTop2Versions%(gpsEnd,gpsStart)
       engine=query_engine.LdbdQueryEngine(connection)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
