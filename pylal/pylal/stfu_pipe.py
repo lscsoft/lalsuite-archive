@@ -1578,6 +1578,7 @@ class create_default_config(object):
 	def log_path(self):
 		host = self.__get_hostname()
 		#FIXME add more hosts as you need them
+		if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
 		if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
 		if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
 		if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
