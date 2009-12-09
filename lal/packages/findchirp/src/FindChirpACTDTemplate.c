@@ -51,8 +51,10 @@ LALDestroyVector()
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_eigen.h>
+#include <gsl/gsl_randist.h>
 
 NRCSID (FINDCHIRPACTDTEMPLATEC, "$Id: FindChirpACTDTemplate.c,v 1.2.2.4.2.1 2009/03/31 11:25:18 spxcar Exp $");
+
 
 /* <lalVerbatim file="FindChirpACTDTemplateCP"> */
 void
@@ -66,7 +68,7 @@ LALFindChirpACTDTemplate(
 {
   UINT4          i, j;
   UINT4          istart = 0;
-  INT4           istop = NACTDVECS;
+  UINT4           istop = NACTDVECS;
   UINT4          shift;
   UINT4          numPoints;
   REAL4Vector    ACTDVecs[NACTDVECS];
@@ -466,6 +468,13 @@ LALFindChirpACTDNormalize(
   COMPLEX8Vector *tmpVec[NACTDTILDEVECS];
   COMPLEX8       *wtilde;
   REAL4           norm;
+  REAL4           min12, max12;
+  REAL4           min13, max13;
+  REAL4           min23, max23;
+
+  REAL4           cons1;
+  REAL4           cons2;
+  REAL4           cons3;
 
   /* Variables for GSL */
   gsl_matrix *innerProd = NULL;
@@ -534,6 +543,7 @@ LALFindChirpACTDNormalize(
    * The third harmonic has more power in band so that goes in to 
    * second place. 
    */
+/*
   {
     COMPLEX8 *tmp = ACTDtilde[0].data;
     ACTDtilde[0].data = ACTDtilde[1].data;
@@ -551,12 +561,13 @@ LALFindChirpACTDNormalize(
     ACTDtilde[4].data = ACTDtilde[5].data;
     ACTDtilde[5].data = tmp;
   }
+*/
 
 
   /* Norm the templates before we start */
   for( i = 0; i < NACTDVECS; ++i ) 
   {
-    norm =  XLALFindChirpACTDInnerProduct( &ACTDtilde[2*i], &ACTDtilde[2*i],
+    norm =  XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
                 wtilde, tmpltParams->fLow, deltaT, numTDPoints );
     if( norm != 0.0 )
     {
@@ -567,15 +578,56 @@ LALFindChirpACTDNormalize(
     {
       if( norm != 0.0 )
       {
-        ACTDtilde[2*i].data[k].re /= norm;
-        ACTDtilde[2*i].data[k].im /= norm;
+        ACTDtilde[i].data[k].re /= norm;
+        ACTDtilde[i].data[k].im /= norm;
       }        
       /* Set the other quadrature */
-      ACTDtilde[2*i+1].data[k].re = - ACTDtilde[2*i].data[k].im;
-      ACTDtilde[2*i+1].data[k].im = ACTDtilde[2*i].data[k].re;   
+      ACTDtilde[i+3].data[k].re = - ACTDtilde[i].data[k].im;
+      ACTDtilde[i+3].data[k].im = ACTDtilde[i].data[k].re;   
     }
   }
 
+ 
+
+
+ /* Calculate maximum overlap of cross terms */
+  memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
+  XLALFindChirpACTDConstraint( fcTmplt->tmplt.eta, 
+                               fcTmplt->tmplt.totalMass,
+                               fcTmplt->ACTDconstraint  ); 
+  /* h1 and h2 */
+  XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[1], 
+            &ACTDtilde[4], wtilde, tmpltParams->fLow, deltaT, &min12, &max12 );
+  /* h1 and h3 */
+  XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[2], 
+            &ACTDtilde[5], wtilde, tmpltParams->fLow, deltaT, &min13, &max13 );
+  /* h2 and h3 */
+  XLALFindChirpACTDMiniMax( &ACTDtilde[1], &ACTDtilde[4], &ACTDtilde[2], 
+            &ACTDtilde[5], wtilde, tmpltParams->fLow, deltaT, &min23, &max23 );
+
+  cons1 = sqrt(fcTmplt->ACTDconstraint->data[0]) 
+          + max12 * sqrt(fcTmplt->ACTDconstraint->data[1])
+          + max13 * sqrt(fcTmplt->ACTDconstraint->data[2]);
+
+  cons2 = sqrt(fcTmplt->ACTDconstraint->data[1]) 
+          + max23 * sqrt(fcTmplt->ACTDconstraint->data[2])
+          + max12 * sqrt(fcTmplt->ACTDconstraint->data[0]);
+
+  cons3 = sqrt(fcTmplt->ACTDconstraint->data[2]) 
+          + max13 * sqrt(fcTmplt->ACTDconstraint->data[0])
+          + max23 * sqrt(fcTmplt->ACTDconstraint->data[1]);
+
+
+  /* Now repopulate the vector with the appropriate values */
+  fcTmplt->ACTDconstraint->data[0] = cons1 / cons2;
+  fcTmplt->ACTDconstraint->data[1] = 1.0;
+  fcTmplt->ACTDconstraint->data[2] = cons3 / cons2;
+/*
+  fprintf( stderr, "\nConstraints: %e, %e, %e\n", 
+              fcTmplt->ACTDconstraint->data[0],
+              fcTmplt->ACTDconstraint->data[1], 
+              fcTmplt->ACTDconstraint->data[2] );
+*/
   /* Fill the inner product matrix */
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -592,16 +644,19 @@ LALFindChirpACTDNormalize(
       }
     }
   }
-
-  printf("\n");
+/*
+  fprintf(stderr,"\n");
   for ( i = 0; i < 2 * NACTDVECS; i++ )
   {
     for ( k = 0; k < 2 * NACTDVECS; k++ )
     {
-      printf("\t%e", gsl_matrix_get( innerProd, i, k ) );
+      if( gsl_matrix_get( innerProd, i, k ) >= 0.0 )
+        fprintf(stderr, " ");
+      fprintf(stderr," %.2e", gsl_matrix_get( innerProd, i, k ) );
     }
-    printf("\n");
+    fprintf(stderr,"\n");
   }
+*/
 
   /* Diagonalize the matrix */
   gsl_eigen_symmv( innerProd, eigenVal, eigenVect, workspace );
@@ -611,22 +666,24 @@ LALFindChirpACTDNormalize(
 
   gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, 1.0, 
                   transpose, eigenVect, 0.0, output );
-
-  printf("\nA^TA:\n");
+/*
+  fprintf(stderr,"\nA^TA:\n");
   for ( i = 0; i < 2 * NACTDVECS; i++ )
   {
     for ( k = 0; k < 2 * NACTDVECS; k++ )
     {
-      printf("\t%e", gsl_matrix_get( output, i, k ) );
+      if( gsl_matrix_get( output, i, k ) >= 0.0 )
+        fprintf(stderr, " ");
+      fprintf(stderr," %.2e", gsl_matrix_get( output, i, k ) );
     }
-    printf("\n");
+    fprintf(stderr,"\n");
   }
-
+*/
     /* Now we perform the co-ordinate transformation */
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
     tmpVec[i] = XLALCreateCOMPLEX8Vector( numPoints );
-    memset( tmpVec[i]->data, 0, numPoints * sizeof( COMPLEX8) );
+    memset( tmpVec[i]->data, 0.0, numPoints * sizeof( COMPLEX8) );
   }
 
   for ( i = 0; i < NACTDTILDEVECS; i++ )
@@ -696,7 +753,7 @@ LALFindChirpACTDNormalize(
   }
 #endif
   /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
-  
+  /*
   fprintf( stderr, "\n\n NORMALIZATION TEST:\n    ");
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -704,23 +761,27 @@ LALFindChirpACTDNormalize(
     {
       norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-      fprintf( stderr, "H%dH%d=%.4f ", i, j, fabs(norm) );
+      fprintf( stderr, "H%dH%d=%.2f ", i, j, fabs(norm) );
     }
     fprintf( stderr, "\n    ");
   }
   fprintf( stderr, "                                    ");
-  
+  */
   /* XXX UNCOMMENT ABOVE TO TEST ORTHONORMALIZATION XXX */
 
   /* Since the template is now properly normalized, set norm to 1.0 */
   fcTmplt->norm = 2.0 * deltaT / (REAL4)(numPoints);
   fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
 
+  /* Set the transformation matrix to be used to constrain the filter */
+  fcTmplt->ACTDconmatrix = eigenVect;
+
   /* Free memory */
   gsl_matrix_free( innerProd );
-  gsl_matrix_free( eigenVect );
+  /* gsl_matrix_free( eigenVect ); */
   gsl_vector_free( eigenVal );
   gsl_eigen_symmv_free( workspace );
+
 
   /* normal exit */
   RETURN( status );
@@ -738,9 +799,8 @@ REAL4  XLALFindChirpACTDInnerProduct(
 {
   INT4  k;
   INT4  cut;
-  REAL4 innerProduct;
   REAL4 deltaF;
-  REAL4 sum = 0.0;
+  REAL4 inp = 0.0;
   REAL4 power;
 
   if ( a->length != b->length )
@@ -751,7 +811,6 @@ REAL4  XLALFindChirpACTDInnerProduct(
      
 
   deltaF = 1.0 / ((REAL4)numPoints * deltaT);
-
   cut = flower / deltaF > 1 ? flower / deltaF : 1;
 
   for( k = cut; k < (INT4)a->length-1; ++k )
@@ -759,18 +818,203 @@ REAL4  XLALFindChirpACTDInnerProduct(
     power = a->data[k].re * b->data[k].re;
     power += a->data[k].im * b->data[k].im;
 
-    if( isnan( power ) ){
+    if( isnan( power ) )
+    {
       fprintf(stderr, "\nk=%d\ta.re=%.3e\ta.im=%.3e\tb.re=%.3e\tb.im=%.3e\n",
                 k, a->data[k].re, b->data[k].re,
                 a->data[k].im, b->data[k].im );
       exit( 1 );
     }
- 
-    sum += 4.0 * deltaT *  power * wtilde[k].re / (REAL4)(numPoints);
+    inp += 4.0 * deltaT *  power * wtilde[k].re / (REAL4)(numPoints);
   }
 
-  innerProduct = sum;
+  return inp;
+}
 
-  return innerProduct;
+INT4 XLALFindChirpACTDCorrelate(
+               COMPLEX8Vector  *a,
+               COMPLEX8Vector  *b,
+               REAL4Vector     *out,
+               COMPLEX8        *wtilde,
+               REAL4            flower,
+               REAL4            deltaT,
+               UINT4            numPoints
+                               )
+{
+  INT4  k;
+  INT4  cut;
+  REAL4 deltaF;
+  COMPLEX8Vector *cor = NULL;
+  REAL4FFTPlan *revPlan = NULL;
 
+  if ( a->length != b->length )
+  {
+     XLALPrintError( "Lengths of the vectors do not agree\n" );
+     XLAL_ERROR_REAL8( "XLALFindChirpACTDInnerProduct", XLAL_EINVAL );
+  }
+  if ( a->length != out->length/2+1 )
+  {
+     XLALPrintError( "Lengths of the vectors do not agree\n" );
+     XLAL_ERROR_REAL8( "XLALFindChirpACTDInnerProduct", XLAL_EINVAL );
+  }
+  
+  cor = XLALCreateCOMPLEX8Vector( numPoints/2+1 );
+  memset( cor->data, 0.0, (numPoints/2+1) * sizeof( COMPLEX8 ) );
+     
+  deltaF = 1.0 / ((REAL4)numPoints * deltaT);
+  cut = flower / deltaF > 1 ? flower / deltaF : 1;
+
+  for( k = cut; k < (INT4)a->length-1; ++k )
+  {
+    cor->data[k].re  = a->data[k].re * b->data[k].re;
+    cor->data[k].re += a->data[k].im * b->data[k].im;
+ 
+    cor->data[k].im  = a->data[k].re * b->data[k].im;
+    cor->data[k].im -= a->data[k].im * b->data[k].re;
+
+    cor->data[k].re *= 2.0 * deltaT * wtilde[k].re / (REAL4)(numPoints);
+    cor->data[k].im *= 2.0 * deltaT * wtilde[k].re / (REAL4)(numPoints);
+  }
+  
+  revPlan = XLALCreateReverseREAL4FFTPlan( numPoints, 0 );
+  if( !revPlan )
+  {
+    exit( 1 );
+  }
+  
+
+  XLALREAL4ReverseFFT( out, cor, revPlan );
+  for( k = cut; k < (INT4)(out->length); k++)
+  {
+    out->data[k] /= out->length;
+  }
+
+  XLALDestroyREAL4FFTPlan( revPlan );
+  XLALDestroyCOMPLEX8Vector( cor );
+
+  return XLAL_SUCCESS;
+}
+
+INT4 XLALFindChirpACTDMiniMax(
+               COMPLEX8Vector  *a1,
+               COMPLEX8Vector  *a2,
+               COMPLEX8Vector  *b1,
+               COMPLEX8Vector  *b2,
+               COMPLEX8        *wtilde,
+               REAL4           fLow,
+               REAL4           deltaT,
+               REAL4           *min,
+               REAL4           *max
+                            )
+{
+  INT4 k, numTDPoints;
+  REAL4Vector     *x11 = NULL, *x12 = NULL, *x21 = NULL, *x22 = NULL;
+  REAL4 a, b, c, sum, diff, d11, d12, d21, d22;
+  REAL4 maxloc, minloc;  
+
+  numTDPoints = 2 * ( a1->length - 1 );
+
+  x11 = XLALCreateREAL4Vector( numTDPoints );
+  x12 = XLALCreateREAL4Vector( numTDPoints );
+  x21 = XLALCreateREAL4Vector( numTDPoints );
+  x22 = XLALCreateREAL4Vector( numTDPoints );
+  memset( x11->data, 0.0, numTDPoints * sizeof( REAL4 ) );
+  memset( x12->data, 0.0, numTDPoints * sizeof( REAL4 ) );
+  memset( x21->data, 0.0, numTDPoints * sizeof( REAL4 ) );
+  memset( x22->data, 0.0, numTDPoints * sizeof( REAL4 ) );
+  
+  XLALFindChirpACTDCorrelate( a1, b1, x11,
+          wtilde, fLow, deltaT, numTDPoints );
+  XLALFindChirpACTDCorrelate( a1, b2, x12,
+          wtilde, fLow, deltaT, numTDPoints );
+  XLALFindChirpACTDCorrelate( a2, b1, x21,
+          wtilde, fLow, deltaT, numTDPoints );
+  XLALFindChirpACTDCorrelate( a2, b2, x22,
+          wtilde, fLow, deltaT, numTDPoints );
+
+  d11 = x11->data[0];
+  d12 = x12->data[0];
+  d21 = x21->data[0];
+  d22 = x22->data[0];
+  a = d11*d11 + d12*d12;
+  b = d21*d21 + d22*d22;
+  c = d11*d21 + d12*d22;
+  sum  = ( a + b )/2.;
+  diff = ( a - b )/2.;
+  diff = sqrt( diff*diff + c*c );
+  *min = sqrt( sum - diff );
+  *max = sqrt( sum + diff );
+  for( k=1; k < numTDPoints; k++) 
+  {
+    d11 = x11->data[k];
+    d12 = x12->data[k];
+    d21 = x21->data[k];
+    d22 = x22->data[k];
+    /*
+    fprintf( stderr, "\nx11=%.3e x12c=%.3e x21=%.3e z22=%.3e", 
+              x11->data[k],
+              x12->data[k],
+              x21->data[k],
+              x22->data[k] );
+    */
+    a = d11*d11 + d12*d12;
+    b = d21*d21 + d22*d22;
+    c = d11*d21 + d12*d22;
+    sum  = ( a + b )/2.0;
+    diff = ( a - b )/2.0;
+    diff = sqrt( diff*diff +c*c );
+    minloc = sqrt( sum - diff );
+    maxloc = sqrt( sum + diff );
+    if (maxloc > *max) 
+    {
+      *max = maxloc;
+    }
+    if (minloc > *min) 
+    {      
+      *min = minloc;
+    }
+  }
+  XLALDestroyREAL4Vector( x11 );
+  XLALDestroyREAL4Vector( x12 );
+  XLALDestroyREAL4Vector( x21 );
+  XLALDestroyREAL4Vector( x22 );
+
+
+
+ return XLAL_SUCCESS;
+
+}
+
+INT4 XLALFindChirpACTDConstraint(
+            REAL8          eta,
+            REAL8          mTot,
+            REAL4Vector   *conVec
+  )
+{
+  REAL8 con1, con2, con3;
+  REAL8 peak;  
+
+  peak = 30.;
+  con1  = fabs( mTot -peak )*( 0.25 - eta );
+  con1  = pow( con1, ( 1 + 0.25 - eta ) );
+  con1 += 25.0*( 0.25 - eta );
+  con1 *= 0.012 / 10.67;
+
+  con2 = 1.0;
+
+  peak = 60.0;
+  con3  = gsl_ran_lognormal_pdf( mTot, log( peak ), ( 1 - 0.25 + eta ) );
+  con3 *= ( 0.25 - eta );
+  con3 *= pow( mTot, 1.2 );
+  con3 *= 0.42 / 0.23; 
+
+/*  fprintf( stderr, "\ncon1=%.3e  con2=%.3e  con3=%.3e", 
+            sqrt( con1 ), sqrt( con2 ), sqrt( con3 ) );
+ */ 
+  
+  conVec->data[0] = con1;
+  conVec->data[1] = con2;
+  conVec->data[2] = con3;
+
+  return XLAL_SUCCESS;
 }

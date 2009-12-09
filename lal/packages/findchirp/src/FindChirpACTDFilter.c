@@ -69,6 +69,9 @@ LALFindChirpACTDFilterSegment (
   REAL4Vector         **q;
   COMPLEX8             *inputData     = NULL;
   COMPLEX8Vector        tmpltSignal[NACTDTILDEVECS];
+
+  /* For use in applying the constraint */
+  REAL4Vector          *qForConstraint = NULL;
   /*
   SnglInspiralTable    *thisEvent     = NULL;
   REAL4                 modqsqThresh;
@@ -173,7 +176,8 @@ LALFindChirpACTDFilterSegment (
   numPoints = params->qVecACTD[0]->length;
   tmpltLength = input->fcTmplt->ACTDtilde->vectorLength;
 
-
+  /* Create the vector for the constraint */
+  qForConstraint = XLALCreateREAL4Vector( NACTDTILDEVECS );
 
   /* workspace vectors */
   qtilde = params->qtildeVecACTD;
@@ -331,6 +335,53 @@ LALFindChirpACTDFilterSegment (
       }
 
       params->rhosqVec->data->data[j] = rhoSq * normFacSq ;
+
+      /* Go through the transformation matrix */
+      memset( qForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
+      for ( i = 0; i < NACTDTILDEVECS; i++ )
+      {
+        for ( k = 0; k < NACTDTILDEVECS; k++ )
+        {
+          qForConstraint->data[i] += gsl_matrix_get( 
+            input->fcTmplt->ACTDconmatrix, i, k ) * q[k]->data[j];
+        }
+      }
+      if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
+                + qForConstraint->data[3] * qForConstraint->data[3])
+                / (qForConstraint->data[1] * qForConstraint->data[1]
+                + qForConstraint->data[4] * qForConstraint->data[4]))
+                > input->fcTmplt->ACTDconstraint->data[0] )
+      {
+/*
+        fprintf( stderr, "\nEe by gum, we passed the constraint 1.\n" );
+        fprintf( stderr, "value = %e, constraint = %e, rhoSq = %e\n", 
+               sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
+                + qForConstraint->data[3] * qForConstraint->data[3])
+                / (qForConstraint->data[1] * qForConstraint->data[1]
+                + qForConstraint->data[4] * qForConstraint->data[4])),
+                input->fcTmplt->ACTDconstraint->data[0], rhoSq * normFacSq);
+*/
+        params->rhosqVec->data->data[j] = 0.0 ;
+         
+      }
+
+      if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
+                + qForConstraint->data[5] * qForConstraint->data[5])
+                / (qForConstraint->data[1] * qForConstraint->data[1]
+                + qForConstraint->data[4] * qForConstraint->data[4]))
+                > input->fcTmplt->ACTDconstraint->data[2] )
+      {
+/*
+        fprintf( stderr, "\nEe by gum, we passed the constraint 3.\n" );
+        fprintf( stderr, "value = %e, constraint = %e, rhoSq = %e\n",
+               sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
+                + qForConstraint->data[5] * qForConstraint->data[5])
+                / (qForConstraint->data[1] * qForConstraint->data[1]
+                + qForConstraint->data[4] * qForConstraint->data[4])),
+                input->fcTmplt->ACTDconstraint->data[2], rhoSq * normFacSq);
+*/
+        params->rhosqVec->data->data[j] = 0.0 ;
+      }
     }
   }
 
@@ -399,6 +450,9 @@ LALFindChirpACTDFilterSegment (
     }
   }
   #endif
+
+  /* Free memory */
+  XLALDestroyREAL4Vector( qForConstraint );
 
   /* normal exit */
   DETATCHSTATUSPTR( status );

@@ -87,7 +87,6 @@ static void print_usage()
   fprintf( stderr, " --amp-order AMP               : Specify signal amplitude order \n");
   fprintf( stderr, " --phase-order ORDER           : Specify signal phase order \n");
   fprintf( stderr, " --num-points N                : Specify time array length \n");
-  fprintf( stderr, " --print-max                   : Calculate & display maximum\n\n\n");
   return;
 }
 
@@ -141,7 +140,6 @@ int main( int argc, char **argv )
   REAL4 ts;
   INT4 output = 0;
   REAL4 rho = 0.0;
-  INT4 printmax = 0;
   INT4 flatpsd = 0;
   INT4 dominant = 0;
   INT4 h_plus = 0;
@@ -156,6 +154,8 @@ int main( int argc, char **argv )
   RandomParams   *randParams = NULL;
   INT4            seed = 1;
 
+  REAL4 max = 0.0;
+  
   /* output */
   FILE *fp, *fpTwo;
 
@@ -419,12 +419,6 @@ int main( int argc, char **argv )
         print_usage();
         return 0;
       }
-    }
-    /* print maximum */
-    else if ( !strcmp( argv[arg], "--print-max" ) )
-    {
-      arg++;
-      printmax = 1 ;
     }
     else
     {
@@ -864,23 +858,19 @@ int main( int argc, char **argv )
 
   fprintf( stderr, "===================================");
   fprintf( stderr, "==================\n");
-  if( printmax )
-  {
-    REAL4 max = 0.0;
 
-    for( i=0; i < (INT4)filterParams->rhosqVec->data->length; ++i  )
+  for( i=0; i < (INT4)filterParams->rhosqVec->data->length; ++i  )
+  {
+    if( filterParams->rhosqVec->data->data[i] > max )
     {
-      if( filterParams->rhosqVec->data->data[i] > max )
-      {
-        max = filterParams->rhosqVec->data->data[i];
-      }
+      max = filterParams->rhosqVec->data->data[i];
     }
-    max = pow( max, 0.5 );
-    fprintf( stderr, "                                   ");
-    fprintf( stderr, "Maximum = %1.4f\n", max );
-    fprintf( stderr, "===================================");
-    fprintf( stderr, "==================\n");
   }
+  max = pow( max, 0.5 );
+  fprintf( stderr, "                                   ");
+  fprintf( stderr, "Maximum = %1.4f\n", max );
+  fprintf( stderr, "===================================");
+  fprintf( stderr, "==================\n");
 
   /* clean up memory and exit */
   Stop( &dataSegVec, &filterInput, &filterParams, &fcSegVec, numChisqBins );

@@ -165,8 +165,14 @@ LALCreateFindChirpInput (
   else if( params->approximant == AmpCorPPN )
   {
     outputPtr->fcTmplt->ACTDtilde = 
-     XLALCreateCOMPLEX8VectorSequence( NACTDTILDEVECS, params->numPoints / 2 + 1 );
+     XLALCreateCOMPLEX8VectorSequence( NACTDTILDEVECS, 
+                                                  params->numPoints / 2 + 1 );
     if ( ! outputPtr->fcTmplt->ACTDtilde )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
+    outputPtr->fcTmplt->ACTDconstraint = XLALCreateREAL4Vector( NACTDVECS );
+    if ( ! outputPtr->fcTmplt->ACTDconstraint )
     {
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
     }
@@ -311,7 +317,18 @@ LALDestroyFindChirpInput (
   {
     XLALDestroyCOMPLEX8VectorSequence( outputPtr->fcTmplt->ACTDtilde );
   }
+ 
+  /* destroy the ACTDconstraint vector  */
+  if ( outputPtr->fcTmplt->ACTDconstraint )
+  {
+    XLALDestroyREAL4Vector( outputPtr->fcTmplt->ACTDconstraint );
+  }
 
+  if ( outputPtr->fcTmplt->ACTDconmatrix )
+  {
+    gsl_matrix_free( outputPtr->fcTmplt->ACTDconmatrix );
+    outputPtr->fcTmplt->ACTDconmatrix = NULL;
+  }
 
 
   /* destroy the chirp template structure */

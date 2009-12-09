@@ -55,6 +55,7 @@ findchirp.
 
 #include <lal/LALDatatypes.h>
 #include <lal/LALInspiral.h>
+#include <gsl/gsl_matrix.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -436,7 +437,7 @@ tagFindChirpTemplate
   REAL4Array                   *PTFBinverse;
   REAL4Array                   *PTFB;
   REAL4                         tmpltNorm;
-  REAL4				norm;
+  REAL4				                  norm;
   REAL8                         momentI;
   REAL8                         momentJ;
   REAL8                         momentK;
@@ -448,6 +449,8 @@ tagFindChirpTemplate
   REAL8Vector                  *A1BCVSpin;
   REAL8Vector                  *A2BCVSpin;
   REAL8Vector                  *A3BCVSpin;
+  REAL4Vector                  *ACTDconstraint;
+  gsl_matrix                   *ACTDconmatrix;
 }
 FindChirpTemplate;
 /* </lalVerbatim> */

@@ -137,6 +137,52 @@ REAL4  XLALFindChirpACTDInnerProduct(
     UINT4           numPoints
     );
 
+#if 0
+<lalLaTeX>
+\newpage\input{XLALFindChirpACTDCorrelateC}
+</lalLaTeX>
+#endif
+
+INT4 XLALFindChirpACTDCorrelate(
+               COMPLEX8Vector  *a,
+               COMPLEX8Vector  *b,
+               REAL4Vector     *out,
+               COMPLEX8        *wtilde,
+               REAL4            flower,
+               REAL4            deltaT,
+               UINT4            numPoints
+               );
+
+#if 0
+<lalLaTeX>
+\newpage\input{XLALFindChirpACTDMiniMaxC}
+</lalLaTeX>
+#endif
+
+INT4 XLALFindChirpACTDMiniMax(
+               COMPLEX8Vector  *a1,
+               COMPLEX8Vector  *a2,
+               COMPLEX8Vector  *b1,
+               COMPLEX8Vector  *b2,
+               COMPLEX8        *wtilde,
+               REAL4           fLow,
+               REAL4           deltaT,
+               REAL4           *min,
+               REAL4           *max
+               );
+
+#if 0
+<lalLaTeX>
+\newpage\input{XLALFindChirpACTDConstraintC}
+</lalLaTeX>
+#endif
+
+INT4 XLALFindChirpACTDConstraint(
+            REAL8          eta,
+            REAL8          mTot,
+            REAL4Vector   *conVec
+  );
+
 
 #ifdef  __cplusplus
 #pragma {
