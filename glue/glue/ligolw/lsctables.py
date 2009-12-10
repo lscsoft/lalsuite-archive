@@ -34,11 +34,7 @@ interested users.
 
 
 from xml import sax
-try:
-	set
-except NameError:
-	# Python < 2.4
-	from sets import Set as set
+
 try:
 	any
 	all
