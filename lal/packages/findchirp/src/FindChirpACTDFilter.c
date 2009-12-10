@@ -72,6 +72,7 @@ LALFindChirpACTDFilterSegment (
 
   /* For use in applying the constraint */
   REAL4Vector          *qForConstraint = NULL;
+  UINT4                matrixDim;
   /*
   SnglInspiralTable    *thisEvent     = NULL;
   REAL4                 modqsqThresh;
@@ -208,6 +209,9 @@ LALFindChirpACTDFilterSegment (
      artificially set it to numPoints/2. */
   kmax = numPoints / 2;
 
+  /* Calculate the dimension of the matrix used in the constraint */
+  matrixDim = 2 * (input->fcTmplt->stopVecACTD - input->fcTmplt->startVecACTD );
+
   /*
    *
    * compute viable search regions in the snrsq vector
@@ -267,28 +271,30 @@ LALFindChirpACTDFilterSegment (
 
 
   /* qtilde positive frequency, not DC or nyquist */
-  for ( k = 1; k < kmax; ++k )
-  {
-    REAL4 r = inputData[k].re;
-    REAL4 s = inputData[k].im;
-
-    for( i = 0; i < NACTDTILDEVECS; ++i )
-    {    
-      REAL4 x = tmpltSignal[i].data[k].re;
-      REAL4 y = 0 - tmpltSignal[i].data[k].im; /* NB: Complex conj. */
-      qtilde[i]->data[k].re = r*x - s*y;
-      qtilde[i]->data[k].im = r*y + s*x;
-    }
-  }
-
-  /* inverse fft to get q */
   for( i = 0; i < NACTDTILDEVECS; ++i )
   {
-    if ( XLALREAL4ReverseFFT( q[i], qtilde[i], params->invPlanACTD ) == XLAL_FAILURE )
+    if ( (i % NACTDVECS >= input->fcTmplt->startVecACTD )
+      && (i % NACTDVECS < input->fcTmplt->stopVecACTD ) )
     {
-      ABORTXLAL( status );
+      for ( k = 1; k < kmax; ++k )
+      {
+        REAL4 r = inputData[k].re;
+        REAL4 s = inputData[k].im;
+        REAL4 x = tmpltSignal[i].data[k].re;
+        REAL4 y = 0 - tmpltSignal[i].data[k].im; /* NB: Complex conj. */
+
+        qtilde[i]->data[k].re = r*x - s*y;
+        qtilde[i]->data[k].im = r*y + s*x;
+      }
+
+      /* inverse fft to get q */
+      if ( XLALREAL4ReverseFFT( q[i], qtilde[i], params->invPlanACTD ) == XLAL_FAILURE )
+      {
+        ABORTXLAL( status );
+      }
     }
   }
+
 
 
 
@@ -342,8 +348,17 @@ LALFindChirpACTDFilterSegment (
       {
         for ( k = 0; k < NACTDTILDEVECS; k++ )
         {
-          qForConstraint->data[i] += gsl_matrix_get( 
-            input->fcTmplt->ACTDconmatrix, i, k ) * q[k]->data[j];
+          if ( ( i % NACTDVECS - input->fcTmplt->startVecACTD < matrixDim / 2 )
+           && ( k % NACTDVECS - input->fcTmplt->startVecACTD < matrixDim / 2 ) )
+          {
+            UINT4 idx1, idx2, nVec;
+
+            nVec = matrixDim / 2;
+            idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS - input->fcTmplt->startVecACTD;
+            idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS - input->fcTmplt->startVecACTD;
+            qForConstraint->data[i] += gsl_matrix_get( 
+              input->fcTmplt->ACTDconmatrix, idx1, idx2 ) * q[k]->data[j];
+          }
         }
       }
       if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
