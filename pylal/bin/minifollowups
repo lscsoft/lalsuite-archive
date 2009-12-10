@@ -76,7 +76,7 @@ def get_column_list(tableName):
   if tableName == "loudest_events":
     columnList = []
   elif tableName == "close_missed_injections":
-    columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
+    columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
   elif tableName == 'selected_found_injections':
     columnList = ['recovered_combined_far','recovered_snr','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_distance']
   return columnList
