@@ -707,9 +707,7 @@ def printmissed(connection, simulation_table, recovery_table,
             exclude_coincs = None, include_only_coincs = None, sim_tag = sim_tag, verbose = verbose)
     af = re.sub(r'experiment_summary[.]sim_proc_id', 'process_id', af)
     if af != '':
-        filter = '\n'.join([ """
-        JOIN
-            experiment_summary""", filter, """
+        filter = '\n'.join([ filter, """
             AND""", af])
     # get desired instrument times
     if include_only_coincs is not None:
