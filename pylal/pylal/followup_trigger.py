@@ -30,10 +30,6 @@ import tempfile
 
 import pylab
 import numpy
-## try:
-##   set
-## except NameError:
-##   from sets import Set as set
 
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
