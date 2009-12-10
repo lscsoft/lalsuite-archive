@@ -132,8 +132,7 @@ elif opts.table_name == 'close_missed_injections':
 elif opts.table_name == 'selected_found_injections':
   FUPtype = 'SFI'
 else:
-  print >>sys.stderr, "--table-name is not a recognized table name. Run --help."
-  sys.exit(0)
+  raise ValueError, "--table-name is not a recognized table name. Run --help."
 
 # Followup_trigger needs the following options to be set
 
@@ -193,7 +192,7 @@ elif FUPtype == 'LE':
     if numF < opts.max_followups:
       if opts.time_slides:
         for sngl in coinc[1]:
-          SnglInspiralUtils.slideTriggersOnRings([sngl],segs[segs.keys()[0]],coinc[2])
+          SnglInspiralUtils.slideTriggersOnRings([sngl],segs[sngl.ifo],coinc[2])
         page.append( followup.from_new_slide_coinc(coinc[0],coinc[1],coinc[2],segs) )
       else:
         page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
