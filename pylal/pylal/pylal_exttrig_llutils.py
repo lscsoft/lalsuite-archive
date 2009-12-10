@@ -427,7 +427,6 @@ def update_durations(monitor_list):
 
   # Read the list of all processed GRBs
   for grb in monitor_list:
-    
     # update the duration information when available
     if grb.name in dict_duration:
       grb.duration = dict_duration[grb.name]
@@ -1179,15 +1178,48 @@ class GRB(object):
         system_call(self.name, cmd, False)
 
       # 'convert' the data from the xml format to a useable format...
-      # TODO: change the other places to accept the xml format
-      try:
-        doc = utils.load_filename(segxmlfile)
-      except:
-        raise IOError, "Error reading file %s" % segxmlfile
-      segs = table.get_table(doc, "segment")
-      seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
-      segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
-  
+      self.convert_segxml_to_segtxt(segxmlfile, segtxtfile)
+
+  # -----------------------------------------------------
+  def update_veto_lists(self, timeoffset):
+
+    definer_file = cp.get('paths','veto_definer')
+    starttime = self.time-timeoffset
+    endtime = self.time+timeoffset
+
+    cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          % (self.glue_dir, definer_file, starttime, endtime, self.analysis_dir)
+    system_call(self.name, cmd)
+
+    # Rename the veto files for easier handling
+    veto_files = glob.glob('%s/*VETOTIME_CAT2*xml'% self.analysis_dir)
+    for file in veto_files:
+      file_parts = file.split('-')
+      segtxtfile = file_parts[0]+'-'+file_parts[1]+'.txt'
+      self.convert_segxml_to_segtxt(file, segtxtfile)
+
+
+  # -----------------------------------------------------
+  def convert_segxml_to_segtxt(self, segxmlfile, segtxtfile):
+    """
+    Converts a segment xml file into a segment text file. 
+    FIXME: The other places should be fixed to accept segment xml files
+    """
+    # try to open the file
+    try:
+      doc = utils.load_filename(segxmlfile)
+    except:
+      raise IOError, "Error reading file %s" % segxmlfile
+
+    # extract the segment list
+    segs = table.get_table(doc, "segment")
+    seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
+
+    # and store it to a file
+    segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
+ 
+ 
   # -----------------------------------------------------
   def get_segment_info(self,plot_segments_file = None):
 
