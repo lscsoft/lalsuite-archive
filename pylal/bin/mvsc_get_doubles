@@ -64,7 +64,7 @@ for database in databases:
 	if is_injections:
 		def calc_delta_t_inj(trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
 			try:
-				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time)*1e-9)
+				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time_ns)*1e-9)
 			except: print "calc_delta_t_inj() failed"
 		connection.create_function("calc_delta_t_inj", 4, calc_delta_t_inj)
 		connection.create_function("calc_effective_snr", 3, calc_effective_snr)

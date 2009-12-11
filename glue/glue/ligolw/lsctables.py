@@ -34,11 +34,7 @@ interested users.
 
 
 from xml import sax
-try:
-	set
-except NameError:
-	# Python < 2.4
-	from sets import Set as set
+
 try:
 	any
 	all
@@ -877,6 +873,8 @@ class SnglBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"chisq": "real_8",
+		"chisq_dof": "real_8",
 		"tfvolume": "real_4",
 		"hrss": "real_4",
 		"time_lag": "real_4",

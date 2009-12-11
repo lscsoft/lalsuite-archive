@@ -297,7 +297,7 @@ if opts.output_format != "xml":
     if opts.columns is not None:
         # if rank or duration desired, get the right name before overwriting columnList
         if 'rank' in opts.columns or 'duration' in opts.columns:
-            rankname = [col for col in columnList if 'rank' in col]
+            rankname = [col for col in columnList if col.startswith('rank')]
             rankname = rankname != [] and rankname.pop() or 'rank'
             durname = [col for col in columnList if 'duration' in col]
             durname = durname != [] and durname.pop() or 'duration'
@@ -314,7 +314,7 @@ if opts.output_format != "xml":
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
     print_tables.print_tables(sfdoc, opts.output, opts.output_format, tableList = tableList,
-        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None, print_table_names = False,
         row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()

@@ -239,7 +239,7 @@ if opts.output_format != "xml":
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
     print_tables.print_tables(cmdoc, opts.output, opts.output_format, tableList = tableList,
-        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None, print_table_names = False,
         row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()

@@ -139,8 +139,10 @@ class Coinc(object):
 			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.thumb.png'
 			thumb_glob = glob.glob(pat)
 			ifo_row.append(ifo)
-			img_row.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
-
+			if img_glob and thumb_glob:
+				img_row.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
+			else: img_row.append(['h(t) qscan did not work'])
+	
 		page.sections["htqscan"].add_table([ifo_row, img_row], "h(t) Qscans", "A table with 3 detector h(t) qscans", tag="htqscan")
 
 	def add_seismicqscan(self, page):
