@@ -509,14 +509,15 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     myTable.setTableStyle("text-align:center")
     #Make title row
     myTable.data[0][0]=""
-    for i,label in enumerate(images.keys()):
-      if indexes[label] != 1:
+    for i,label in enumerate(indexes.keys()):
+      if len(indexes[label]) < 1:
         myTable.data[0][i+1]=" %s "%label
       else:
         myIndexURL="%s"%indexes[label][0]
         myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
     #Fill in table with thumbnails and links
     for i,channel in enumerate(uniqChannelNames):
+      myTable.data[i+1][0]=" %s "%(channel)
       for j,key in enumerate(images.keys()):
         try:
           imageIndex=[x.__contains__(channel) \
@@ -525,7 +526,6 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           thumbIndex=[x.__contains__(channel) \
                       for x in thumbs[key]].index(True)
           thumbURL=thumbs[key][thumbIndex]
-          myTable.data[i+1][0]=" %s "%(channel)
           myTable.data[i+1][j+1]=self.linkedRemoteImage(thumbURL,\
                                                         imageURL)
         except:
@@ -700,7 +700,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   #Add link to Daily Stats
-  if wikiCoinc.time > endOfS5:
+  if wikiCoinc.time <= endOfS5:
     statsLink=wikiPage.makeExternalLink("http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/",\
                                         "S5 Daily Stats Page")
   else:
@@ -838,9 +838,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=list()
     thumbDict[sngl.ifo]=list()
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
-                                 "*/%s_RDS_*/%s/*.html"%(sngl.ifo,sngl.time)):
-      if myFile.upper().__contains__("PEM"):
-        indexDict[sngl.ifo].append(myFile)
+                                 "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
+      indexDict[sngl.ifo].append(myFile)
 
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                  "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
@@ -857,7 +856,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
-    if len(indexDict[sngl.ifo]) < 1:
+    if len(imageDict[sngl.ifo]) < 1:
       wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
@@ -888,9 +887,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=list()
     thumbDict[sngl.ifo]=list()
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
-                                 "*/%s_RDS_*/%s/*.html"%(sngl.ifo,sngl.time)):
-      if not myFile.upper().__contains__("PEM"):
-        indexDict[sngl.ifo].append(myFile)
+                                 "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
+      indexDict[sngl.ifo].append(myFile)
 
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                  "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
@@ -908,7 +906,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
     if len(indexDict[sngl.ifo]) < 1:
-      wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
+      wikiPage.putText("Other scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
