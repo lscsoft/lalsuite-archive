@@ -319,7 +319,6 @@ WHERE
 			# coinc, and their time slide dictionary
 			events = []
 			offsetdict = {}
-			is_zero_lag = True
 			for values in database.connection.cursor().execute("""
 SELECT
 	sngl_burst.*,
@@ -351,13 +350,10 @@ ORDER BY
 				# store the time slide offset
 				offsetdict[event.ifo] = values[-1]
 
-				# test for zero lag
-				is_zero_lag = is_zero_lag and (values[-1] == 0)
-
-			if is_zero_lag:
-				self._add_zero_lag(param_func, events, offsetdict, *args)
-			else:
+			if any(offsetdict.values()):
 				self._add_background(param_func, events, offsetdict, *args)
+			else:
+				self._add_zero_lag(param_func, events, offsetdict, *args)
 
 
 	def add_injections(self, param_func, database, *args):

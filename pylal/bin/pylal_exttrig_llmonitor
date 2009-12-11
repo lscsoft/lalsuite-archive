@@ -105,8 +105,8 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
   if time_diff < int(cp.get('data','min_diff')):
     # do not analyze this GRB now.
     # postpone to later time
-    peu.info("GRB%s: Analysis postponsed because time difference too small")
-    return 
+    peu.info(grb_name, "GRB%s: Analysis postponsed because time difference too small"%grb_name)
+    return None
 
   analysis_path = cp.get('paths','main')+'/GRB'+grb_name
   cvs_path = cp.get('paths','cvs')+'/'
@@ -131,7 +131,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                 main_dir=cp.get('paths','main'),\
                 ini_file = cp.get('data','ini_file'),\
                 inj_file = cp.get('data','inj_file'),\
-                config_file = main_dir+'/'+opts.config_file,\
+                config_file = cp.get('paths','main')+'/'+opts.config_file,\
                 condor_log_path = cp.get('paths','condor_log_path'),\
                 log_file=log_file)
   grb.set_addresses(email_adresses)
@@ -143,10 +143,13 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
 
   # decide
   if grb.has_data:
-
+    
     # run the creation functions
     grb.create_exttrig_xml_file()
     grb.prepare_analysis_directory()
+
+    # update veto files as well
+    grb.update_veto_lists(int(cp.get('data','min_diff')))
 
     # start the onoff analysis (condor_submit_dag)
     grb.dag['onoff'].start()
@@ -266,9 +269,12 @@ def update_database(opts):
       # and prepare the call for a new analysis
       grb = start_new_analysis(grb_name, grb_ra, grb_dec, grb_gps_time)
 
-      # and add the processed GRB to the list of processed GRB's to avoid double analysis
-      monitor_list.append(grb)
-      grbs_processed.append(grb_name)
+      # only add to the list if this GRB has been accepted...
+      if grb:
+
+        # and add the processed GRB to the list of processed GRB's to avoid double analysis
+        monitor_list.append(grb)
+        grbs_processed.append(grb_name)
 
   # check for updated duration informations for the GRBs
   peu.update_durations(monitor_list)

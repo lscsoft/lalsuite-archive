@@ -40,11 +40,6 @@ import signal
 import sys
 import tempfile
 from xml.sax.xmlreader import AttributesImpl
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
 import warnings
 
 
