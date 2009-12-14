@@ -1820,9 +1820,15 @@ class SimInspiralTable(table.Table):
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+
+	def set_time_geocent(self, gps):
+		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+
 	def get_end(self, site = None):
 		if site is None:
-			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return self.get_time_geocent()
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
