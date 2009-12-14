@@ -425,7 +425,7 @@ if trigFiles:
       verbose=opts.verbose)
   if inspTriggers:
     if opts.ifo_tag:
-      inspTriggers = inspTriggers.ifocut(opts.ifo_tag)
+      inspTriggers.ifocut(opts.ifo_tag, inplace=True)
     nevents = len(inspTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(nevents)+ ' triggers from from inspiral files')
@@ -447,7 +447,7 @@ if slideFiles:
       verbose=opts.verbose)
   if slideTriggers:
     if opts.ifo_tag:
-      slideTriggers = slideTriggers.ifocut(opts.ifo_tag)
+      slideTriggers.ifocut(opts.ifo_tag, inplace=True)
     slide_events = len(slideTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(slide_events)+ ' triggers from from inspiral files')
@@ -469,7 +469,7 @@ if injFiles:
       verbose=opts.verbose)
   if injTriggers:
     if opts.ifo_tag:
-      injTriggers = injTriggers.ifocut(opts.ifo_tag)
+      injTriggers.ifocut(opts.ifo_tag, inplace=True)
     ninj_events = len(injTriggers)
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
