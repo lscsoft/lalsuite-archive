@@ -44,6 +44,7 @@ except NameError:
 
 
 from glue import git_version
+from glue import iterutils
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
@@ -1229,12 +1230,19 @@ class SnglInspiralTable(table.Table):
 	def get_lvS5stat(self):
 		return self.get_column('beta')
 
-	def ifocut(self,ifo):
-		ifoTrigs = table.new_from_template(self)
-		for row in self:
-			if row.ifo == ifo:
-				ifoTrigs.append(row)
-		return ifoTrigs
+	def ifocut(self, ifo, inplace=False):
+		"""
+		Return a SnglInspiralTable with rows from self having IFO equal
+		to the given ifo. If inplace, modify self directly, else create
+		a new table and fill it.
+		"""
+		if inplace:
+			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
+			return self
+		else:
+			ifoTrigs = table.new_from_template(self)
+			ifoTrigs.extend([row for row in self if row.ifo == ifo])
+			return ifoTrigs
 
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
