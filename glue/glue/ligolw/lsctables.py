@@ -1820,9 +1820,18 @@ class SimInspiralTable(table.Table):
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+
+	def set_time_geocent(self, gps):
+		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.longitude, self.latitude
+
 	def get_end(self, site = None):
 		if site is None:
-			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return self.get_time_geocent()
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
@@ -1881,6 +1890,9 @@ class SimBurst(object):
 
 	def set_time_geocent(self, gps):
 		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.ra, self.dec
 
 
 SimBurstTable.RowType = SimBurst
