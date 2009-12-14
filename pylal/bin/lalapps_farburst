@@ -46,7 +46,8 @@ from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
+from pylal import SnglBurstUtils
+from pylal import llwapp
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -121,6 +122,7 @@ class Summaries(object):
 		else:
 			raise ValueError, rank_by
 		self.rank_by = rank_by
+
 		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
 
 		#FIXME make categories cooler if needed, for now there is only "on_instruments" as a category
@@ -136,25 +138,28 @@ class Summaries(object):
 		self.zero_lag_live_time = {}
 		self.background_live_time = {}
 		self.categories = []
+		self.times = []
 
 
 	def add_livetime(self, connection, live_time_program, verbose = False):
 
 		# get the segment lists and live time
 		xmldoc = dbtables.get_xml(connection)
-		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(contents.connection)
-		seglists = llwapp.segmentlistdict_fromsearchsummary(live_time_program).coalesce()
-		instruments = set(self.seglists.keys())
-
-		self.zero_lag_live_time.setdefault(self.category_func(on_instruments), 0)
-		self.zero_background_live_time.setdefault(self.category_func(on_instruments), 0)
+		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
+		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		instruments = frozenset(seglists.keys())
+		self.zero_lag_live_time.setdefault(self.category_func(instruments), 0)
+		self.background_live_time.setdefault(self.category_func(instruments), 0)
 		
-		self.zero_lag_live_time[self.category_func(on_instruments)] += SnglBurstUtils.time_slides_livetime(seglists, zero_lag_time_slides.values(), verbose = verbose)
-                self.background_live_time[self.category_func(on_instruments)] += SnglBurstUtils.time_slides_livetime(seglists, background_time_slides.values(), verbose = verbose)
+		self.zero_lag_live_time[self.category_func(instruments)] += SnglBurstUtils.time_slides_livetime(seglists, zero_lag_time_slides.values(), verbose = verbose)
+                self.background_live_time[self.category_func(instruments)] += SnglBurstUtils.time_slides_livetime(seglists, background_time_slides.values(), verbose = verbose)
 
 
 	def add_coinc(self, on_instruments, snr, likelihood):
-		self.reputations.setdefault(self.category_func(on_instruments)).append(self.reputation_func(snr, likelihood))
+
+		on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
+		#print on_instruments
+		self.reputations.setdefault(self.category_func(on_instruments),[]).append(self.reputation_func(snr, likelihood))
 		if self.category_func(on_instruments) not in self.categories:
 			self.categories.append(self.category_func(on_instruments))
 		if self.time_func(on_instruments) not in self.times:
@@ -170,8 +175,14 @@ class Summaries(object):
 		# one if there are no reputations for this category)
 		#
 
+		on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
+
+
 		category = self.category_func(on_instruments)
+
 		reputations = self.reputations.setdefault(category, [])
+		
+		#print reputations
 
 		#
 		# len(x) - bisect.bisect_left(x, reputation) = number of
@@ -184,8 +195,10 @@ class Summaries(object):
 		# retrieve the livetime
 		#
 
-		t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
 
+		t = self.background_live_time.setdefault(category, 0.0)
+
+		
 		#
 		# return the rate of events above the given reputation
 		#
@@ -295,7 +308,7 @@ WHERE
 			AND time_slide.offset != 0
 	)
 	"""):
-		background.add_coinc(on_instruments, participating_instruments, snr, likelihood)
+		background.add_coinc(on_instruments, snr, likelihood)
 
 	#
 	# close the database
@@ -306,10 +319,6 @@ WHERE
 
 
 background.index()
-if options.extrapolation_num:
-	if options.verbose:
-		print >>sys.stderr, "\tcalculating FAR extrapolation coefficients ..."
-	background.rate_extrapolation(options.extrapolation_num)
 
 #
 # iterate over database files assigning false-alarm rates to coincs
