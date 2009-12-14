@@ -215,8 +215,6 @@ class Sngl(object):
 		self.time = float(row[5])
 		self.process_id = row[6]
 		self.row = contents.sngl_inspiral_table.row_from_cols(row[7:])
-		# reset event_id to ilwd_char type
-		self.row.event_id = ilwd.get_ilwdchar(self.row.event_id)
 		self.inj_file_name = contents.sim_file_name
 
 		self.process_params = []
@@ -364,6 +362,7 @@ class FUTriggers(object):
 		self.num = num
 		self.playground_candidates = []
 		self.candidates = []
+		self.background_candidates = []
 
 	def add_contents(self, contents, stat='combined_far'):
 		if contents.sim_inspiral_table:
@@ -434,6 +433,37 @@ LIMIT ?
 			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
 			self.candidates.append(Coinc(row, contents))
 
+		for i, row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+        coinc_inspiral.combined_far,
+        coinc_inspiral.snr,
+        coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+        coinc_inspiral.mass,
+        coinc_inspiral.mchirp,
+        coinc_inspiral.ifos,
+        coinc_event.instruments
+FROM
+        coinc_inspiral
+        JOIN coinc_event ON (
+                coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+        )
+WHERE
+        EXISTS(
+                SELECT
+                        *
+                FROM
+                        time_slide
+                WHERE
+                        time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+        )
+ORDER BY
+        combined_far
+LIMIT ?
+		""", (self.num,) )):
+			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+			self.background_candidates.append(Coinc(row, contents))
+
 	def topN(self):
 		if len(self.candidates) < self.num: self.num = len(self.candidates)
 		trigs = [(t.combined_far, t) for t in self.candidates]
@@ -444,6 +474,11 @@ LIMIT ?
 		trigs = [(t.combined_far, t) for t in self.playground_candidates]
 		trigs.sort()
 		self.playground_candidates = [t[1] for t in trigs[0:self.num] ]
+
+                if len(self.background_candidates) < self.num: self.num = len(self.background_candidates)
+		trigs = [(t.combined_far, t) for t in self.background_candidates]
+		trigs.sort()
+		self.background_candidates = [t[1] for t in trigs[0:self.num] ]
 
 class time_only_event(object):
 	def __init__(self, ifostr, time):
@@ -601,7 +636,7 @@ trigs.topN()
 ###############################################################################
 
 # generate a playground set and full data set
-for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates)]:
+for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates), ('time_slides', trigs.background_candidates)]:
 
 	# CONDOR JOB CLASSES
 	ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, dir=search, tag_base='HT')

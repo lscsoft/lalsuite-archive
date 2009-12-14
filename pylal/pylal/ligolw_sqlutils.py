@@ -23,6 +23,8 @@ import os
 import bisect
 
 from glue.ligolw import dbtables
+from glue.ligolw import lsctables
+from glue.iterutils import any
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __date__ = "$Date$" 
@@ -108,11 +110,28 @@ class aggregate_concatenate:
         self.result = ''
     def step(self, *args):
         self.result = ','.join([ self.result, concatenate(*args) ])
-        #elf.result.append(concatenate(*args))
     def finalize(self):
         return self.result.lstrip(',')
-        #return ','.join(sorted(self.result))
-    
+
+def validate_option(option, lower = True):
+    """
+    Strips and checks that there are no newlines, tabs, spaces, or semi-colons in the given option.
+    This should be used for options that will be plugged into sqlite statements to
+    protect against injection attacks. If lower is set on, will also make all letters lower-case
+    in the option.
+
+    @option: option from config parser to validate
+    @lower: if set to True, will make all letters lower-case in the option
+    """
+    option = option.strip()
+    if lower:
+        option = option.lower()
+
+    if re.search(r'\n|\t| |;', option) is not None:
+        raise ValueError, "option %s contains illegal characters" % option
+
+    return option
+
 
 class parse_param_ranges:
     
@@ -138,6 +157,8 @@ class parse_param_ranges:
          follow these format rules:
             * A '(' or ')' implies an open boundary, a '[' or ']' a closed boundary.
             * To specify multiple ranges, separate each range by a ';'.
+            * To specify equal to a single value, just specify the value, e.g., '2.3'
+            * To specify not-equal to a single value, put a ! infront of the value, e.g., '!2.3'.
         @verbose: be verbose
         """
         if verbose:
@@ -155,36 +176,51 @@ class parse_param_ranges:
         ranges = param_ranges_opt.split(';')
 
         for this_range in ranges:
-
-            # get lower-bound
-            lowerparam = this_range.split(',')[0].strip()
-            # check if lower boundary open or closed
-            if lowerparam.find('[') != -1:
-                lowerbndry = '>='
-                lowerparam = float( lowerparam.lstrip('[') )
-            elif lowerparam.find('(') != -1:
-                lowerbndry = '>'
-                lowerparam = float( lowerparam.lstrip('(') )
+            
+            # check if it's a range or number
+            if re.search('\]|\[|\)|\(', this_range) is None:
+                this_range = this_range.strip()
+                # check if it's a not equal
+                if this_range.startswith('!'):
+                    btest = '!='
+                    param = this_range.lstrip('!')
+                else:
+                    btest = '=='
+                    param = this_range
+                # try to convert to a float; if can't just leave as string
+                try:
+                    param = float(param)
+                except ValueError:
+                    pass
+                self.param_ranges.append( ((btest, param),) )
+                
             else:
-                raise ValueError, "Parameter range %s not formatted correctly" % this_range
-  
-            # get upper-bound (similar to lower bound method)
-            upperparam = this_range.split(',')[1].strip()
-            if upperparam.find(']') != -1:
-                upperbndry = '<='
-                upperparam = float( upperparam.rstrip(']') )
-            elif upperparam.find(')') != -1:
-                upperbndry = '<'
-                upperparam = float( upperparam.rstrip(')') )
-            else:
-                raise ValueError, "Parameter range %s not formatted correctly" % this_range
+                # get lower-bound
+                lowerparam = this_range.split(',')[0].strip()
+                # check if lower boundary open or closed
+                if lowerparam.find('[') != -1:
+                    lowerbndry = '>='
+                    lowerparam = float( lowerparam.lstrip('[') )
+                elif lowerparam.find('(') != -1:
+                    lowerbndry = '>'
+                    lowerparam = float( lowerparam.lstrip('(') )
+                else:
+                    raise ValueError, "Parameter range %s not formatted correctly" % this_range
+      
+                # get upper-bound (similar to lower bound method)
+                upperparam = this_range.split(',')[1].strip()
+                if upperparam.find(']') != -1:
+                    upperbndry = '<='
+                    upperparam = float( upperparam.rstrip(']') )
+                elif upperparam.find(')') != -1:
+                    upperbndry = '<'
+                    upperparam = float( upperparam.rstrip(')') )
+                else:
+                    raise ValueError, "Parameter range %s not formatted correctly" % this_range
 
-            # add param to filters
-            self.param_ranges.append( ( (lowerbndry, lowerparam), (upperbndry, upperparam) ))
+                # add param to filters
+                self.param_ranges.append( ((lowerbndry, lowerparam), (upperbndry, upperparam)) )
 
-        if verbose:
-            print >> sys.stderr, "done."
-    
 
     def get_param_name( self ):
         return self.param
@@ -206,12 +242,21 @@ class parse_param_ranges:
         self.param_filters = []
         # construct paramfilter for SQL statement
         for range in self.param_ranges:
-            lowerbndry = range[0][0]
-            lowerparam = str( range[0][1] )
-            upperbndry = range[1][0]
-            upperparam = str( range[1][1] )
-            self.param_filters.append( ' '.join([ '(', self.param, lowerbndry, lowerparam, 
-              'AND', self.param, upperbndry, upperparam, ')' ]) )
+            if len(range) == 1:
+                btest = range[0][0]
+                param = range[0][1]
+                if isinstance(param, str):
+                    param = param.join(['"','"'])
+                else:
+                    param = str(param)
+                self.param_filters.append( ' '.join([ self.param, btest, param ]) )
+            else:
+                lowerbndry = range[0][0]
+                lowerparam = str( range[0][1] )
+                upperbndry = range[1][0]
+                upperparam = str( range[1][1] )
+                self.param_filters.append( ' '.join([ '(', self.param, lowerbndry, lowerparam, 
+                  'AND', self.param, upperbndry, upperparam, ')' ]) )
 
         return self.param_filters
 
@@ -222,29 +267,38 @@ class parse_param_ranges:
         which value param_range it falls in.
         """
         for n, range in enumerate(self.param_ranges):
-            # set boundry conditions and parameters
-            lowerbndry = range[0][0]
-            lowerparam = range[0][1]
-            upperbndry = range[1][0]
-            upperparam = range[1][1]
-            # the following works by checking what the boundaries are
-            # and then checking if the param value is within those boundaries:
-            # if [a,b]
-            if ((lowerbndry, upperbndry) == ('>=', '<=')) and \
-               (param_value >= lowerparam and param_value <= upperparam):
-                return n
-            # if (a,b]
-            if ((lowerbndry, upperbndry) == ('>', '<=')) and \
-               (param_value > lowerparam and param_value <= upperparam):
-                return n
-            # if [a,b)
-            if ((lowerbndry, upperbndry) == ('>=', '<')) and \
-               (param_value >= lowerparam and param_value < upperparam):
-                return n
-            # if (a,b)
-            if ((lowerbndry, upperbndry) == ('>', '<')) and \
-               (param_value > lowerparam and param_value < upperparam):
-                return n
+            # see if it's a range or boolean test
+            if len(range) == 1:
+                btest = range[0][0]
+                param = range[0][1]
+                if btest == '==' and param == param_value:
+                    return n
+                if btest == '!=' and param != param_value:
+                    return n
+            else:
+                # set boundry conditions and parameters
+                lowerbndry = range[0][0]
+                lowerparam = range[0][1]
+                upperbndry = range[1][0]
+                upperparam = range[1][1]
+                # the following works by checking what the boundaries are
+                # and then checking if the param value is within those boundaries:
+                # if [a,b]
+                if ((lowerbndry, upperbndry) == ('>=', '<=')) and \
+                   (param_value >= lowerparam and param_value <= upperparam):
+                    return n
+                # if (a,b]
+                if ((lowerbndry, upperbndry) == ('>', '<=')) and \
+                   (param_value > lowerparam and param_value <= upperparam):
+                    return n
+                # if [a,b)
+                if ((lowerbndry, upperbndry) == ('>=', '<')) and \
+                   (param_value >= lowerparam and param_value < upperparam):
+                    return n
+                # if (a,b)
+                if ((lowerbndry, upperbndry) == ('>', '<')) and \
+                   (param_value > lowerparam and param_value < upperparam):
+                    return n
 
         # if get to here, param_value falls outside all the ranges; 
         # just return None
@@ -435,8 +489,13 @@ def del_rows_from_table( connection, del_table, del_table_id, join_conditions, d
     connection.cursor().execute( sqlquery )
     connection.commit()
 
-    if verbose:
-        print >> sys.stderr, "done."
+
+def get_tables_in_database( connection ):
+    """
+    Gets the names of tables that are in the database.
+    """
+    sqlquery = 'SELECT name FROM sqlite_master WHERE type == "table"'
+    return connection.cursor().execute(sqlquery).fetchall()
 
 
 def get_column_names_from_table( connection, table_name ):
@@ -493,6 +552,8 @@ def get_next_id(connection, table, id_column):
 
     return new_id
     
+def end_time_in_ns( end_time, end_time_ns ):
+    return end_time*1e9 + end_time_ns
 
 class Summaries:
     """
@@ -516,7 +577,7 @@ class Summaries:
     experiment_summ_ids:
     datatypes[experiment_id][datatype] = [esid1, esid2, etc.]
 
-    frg_durs stores the duration for each experiment_summ_id. It's keys are 
+    frg_durs stores the duration for each experiment_summ_id. Its keys are 
     [experiment_id][experimen_summ_id].
 
     bkg_durs stores the background duration for each time-slide and zero-lag, 
@@ -695,6 +756,289 @@ class Summaries:
             (len( self.max_bkg_fars[(esid, ifo_group)] ) - bisect.bisect_left( self.max_bkg_fars[(esid,ifo_group)], ufar ))*ufar \
             + sum([self.max_bkg_fars[(esid,ifo_group)][ii] for ii in range(bisect.bisect_left( self.max_bkg_fars[(esid,ifo_group)], ufar))])
 
+class rank_stats:
+    """
+    Class to return a rank for stats.
+    """
+    def __init__(self, table, ranking_stat, rank_by):
+        """
+        @table: table containing the stats to rank
+        @ranking_stat: stat in table that wish to rank
+        @rank_by: should be either "ASC" or "DESC"
+        """
+        self.stats = []
+        self.table = table
+        self.ranking_stat = ranking_stat
+        self.rank_by = rank_by
+
+    def populate_stats_list(self, connection, limit = None, filter = ''):
+        """
+        Gets top stats from database for later ranking
+        @connection: connection to a sqlite database
+        @limit: put a limit on the number of stats to rank
+        @filter: apply a filter (i.e., a SQLite WHERE clause). 
+            Note: If the filter uses colums from tables other than
+            self.table, must include the join conditions as well
+        """
+        if limit is not None:
+            limit = "LIMIT " + str(limit)
+        else:
+            limit = ''
+        sqlquery = ''.join(["""
+            SELECT
+                """, self.ranking_stat, """
+            FROM
+                """, self.table, """
+            """, filter, """
+            ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
+            """, limit ])
+        self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
+        self.stats.sort()
+
+    def get_rank( self, this_stat ):
+        if self.rank_by == "ASC":
+            return bisect.bisect_left(self.stats, this_stat) + 1
+        else:
+            return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
+
+
+def get_col_type(table_name, col_name, default = 'lstring'):
+    """
+    Attempts to get column type from lsctables.py for the given table name and
+    column name. If the table doesn't exist in lsctables or the column doesn't
+    exist in the lsctables definition of the table, returns the default type.
+    """
+    if table_name in lsctables.TableByName.keys() and col_name in lsctables.TableByName[table_name].validcolumns.keys():
+        return lsctables.TableByName[table_name].validcolumns[col_name]
+    else:
+        return default
+
+
+# =============================================================================
+#
+#                          Meta-data Tables Utilities
+#
+# =============================================================================
+
+# Following utilities apply to the meta-data tables: these include  the
+# process, process_params, search_summary,search_summvars, and summ_value
+# tables
+
+def clean_metadata(connection, key_tables, verbose = False):
+    """
+    Cleans metadata from tables that don't have process_ids in any of the tables
+    listed in the key_tables list.
+
+    @connection: connection to a sqlite database
+    @key_tables: list of tuples that must have the following order:
+        (table, column, filter)
+     where:
+        table is the name of a table to get a save process id from,
+        column is the name of the process_id column in that table
+        (this doesn't have to be 'process_id', but it should be a
+        process_id type),
+        filter is a filter to apply to the table when selecting process_ids
+    """
+    if verbose:
+        print >> sys.stderr, "Removing unneeded metadata..."
+    
+    #
+    # create a temp. table of process_ids to keep
+    #
+    sqlscript = 'CREATE TEMP TABLE save_proc_ids (process_id);'
+    
+    # cycle over the key_tables, adding execution blocks for each
+    for table, column, filter in key_tables:
+        if filter != '' and not filter.strip().startswith('WHERE'):
+            filter = 'WHERE\n' + filter
+        sqlscript = '\n'.join([ sqlscript,
+            'INSERT INTO save_proc_ids (process_id)',
+                'SELECT DISTINCT',
+                    column,
+                'FROM', table, filter, ';' ])
+
+    sqlscript = sqlscript + '\nCREATE INDEX proc_index ON save_proc_ids (process_id);'
+    
+    # now step through all tables with process_ids and remove rows who's ids 
+    # aren't in save_proc_ids
+    tableList = [table for table in ['process','process_params','search_summary','search_summvars','summ_value']
+        if table in get_tables_in_database(connection) ]
+    for table in tableList:
+        sqlscript = '\n'.join([ sqlscript, 
+            'DELETE FROM',
+                table,
+            'WHERE',
+                'process_id NOT IN (',
+                    'SELECT',
+                        'process_id',
+                    'FROM',
+                        'save_proc_ids );' ])
+
+    # drop the save_proc_ids table
+    sqlscript = sqlscript + '\nDROP TABLE save_proc_ids;'
+
+    # execute the script
+    connection.cursor().executescript(sqlscript)
+
+def clean_metadata_using_end_time(connection, key_table, key_column, verbose = False):
+    """
+    An alternate to clean_metadata, this cleans metadata from tables who's
+    start/end_times don't encompass the end_times in the given table.
+
+    @connection: connection to a sqlite database
+    @key_table: name of table to use end_times from
+    @end_time_col_name: name of the end_time column in the key_table
+    """
+    if verbose:
+        print >> sys.stderr, "Removing unneeded metadata..."
+    
+    key_column = '.'.join([key_table, key_column])
+    connection.create_function('end_time_in_ns', 2, end_time_in_ns ) 
+
+    sqlscript = ''.join([ """
+        DELETE FROM
+          search_summary
+        WHERE NOT EXISTS (
+            SELECT
+                *
+            FROM
+                """, key_table, """
+            WHERE
+                end_time_in_ns(""", key_column, ', ', key_column, """_ns) >= end_time_in_ns(search_summary.in_start_time, search_summary.in_start_time_ns)
+                AND end_time_in_ns(""", key_column, ', ', key_column, """_ns) < end_time_in_ns(search_summary.in_end_time, search_summary.in_end_time_ns)
+            );
+        DELETE FROM
+            search_summvars
+        WHERE
+            process_id NOT IN (
+                SELECT
+                    process_id
+                FROM
+                    search_summary ); """])
+
+    if 'summ_value' in get_tables_in_database(connection):
+        sqlscript = ''.join([ sqlscript, """
+            DELETE FROM
+                summ_value
+            WHERE NOT EXISTS (
+                SELECT 
+                    *
+                FROM
+                    """, key_table, """
+                WHERE
+                    end_time_in_ns(""", key_column, ', ', key_column, """_ns)(""", key_column, """) >= end_time_in_ns(summ_value.in_start_time, summ_value.in_start_time_ns)
+                    AND end_time_in_ns(""", key_column, ', ', key_column, """_ns) < end_time_in_ns(summ_value.in_end_time, summ_value.in_end_time_ns)
+                );"""])
+        summ_val_str = """
+            OR process.process_id NOT IN (
+                SELECT
+                    summ_value.process_id
+                FROM
+                    summ_value )"""
+    else:
+        summ_val_str = ''
+
+    sqlscript = ''.join([ sqlscript, """
+        DELETE FROM
+            process
+        WHERE
+            process.process_id NOT IN (
+                SELECT
+                    search_summary.process_id
+                FROM
+                    search_summary )""", summ_val_str, """;
+        DELETE FROM
+            process_params
+        WHERE
+            process_params.process_id NOT IN (
+                SELECT
+                    process.process_id
+                FROM
+                    process );"""])
+
+    # execute the script
+    connection.cursor().executescript(sqlscript)
+
+# =============================================================================
+#
+#                          Experiment Utilities
+#
+# =============================================================================
+
+# Following utilities apply to the experiment tables: these include  the
+# experiment, experiment_summary, experiment_map, and time_slide tables
+def join_experiment_tables_to_coinc_table(table):
+    """
+    Writes JOIN string to join the experiment, experiment_summary,
+    and experiment_map tables to the specified table. This allows
+    querying across any of these tables.
+
+    @table: any lsctable that has a coinc_event_id column
+
+    NOTE: Should only use when querying the specified table; i.e.,
+    when the specified table is the only one listed in the FROM statement.
+    """
+
+    return """ 
+    JOIN
+        experiment, experiment_summary, experiment_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == %s.coinc_event_id )""" % table
+
+
+def clean_experiment_tables(connection, verbose = False):
+    """
+    Removes entries from the experiment, experiment_summary, and time_slide tables
+    that have no events in them, i.e., that have no mapping to any coinc_event_ids
+    via the experiment_map table. Entries are only removed if none of the
+    experiment_summ_ids associated with an experiment_id have coinc_events. In other words,
+    Even if only one of the experiment_summ_ids associated with an experiment_id has an event,
+    all of the experiment_summ_ids and experiment_ids associated with that event are
+    saved. This perserves the background time and slide set associated with an experiment. 
+
+    WARNING: This should only be used for purposes of scaling down a temporary database in prep.
+    for xml extraction. In general, all experiment and time_slide entries should be left in
+    the experiment tables even if they don't have events in them.
+
+    @connection: connection to a sqlite database
+    """
+    if verbose:
+        print >> sys.stderr, "Removing experiments that no longer have events in them..."
+
+    sqlscript = """
+        DELETE FROM
+            experiment
+        WHERE
+            experiment_id NOT IN (
+                SELECT DISTINCT
+                    experiment_summary.experiment_id
+                FROM
+                    experiment_summary, experiment_map
+                WHERE
+                    experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                );
+        DELETE FROM
+            experiment_summary
+        WHERE
+            experiment_id NOT IN (
+                SELECT
+                    experiment_id
+                FROM
+                    experiment
+                );
+        DELETE FROM
+            time_slide
+        WHERE
+            time_slide_id NOT IN (
+                SELECT DISTINCT
+                    time_slide_id
+                FROM
+                    experiment_summary
+                );
+        """
+    connection.cursor().executescript(sqlscript)
 
 # =============================================================================
 #
@@ -726,6 +1070,205 @@ def update_experiment_summ_nevents( connection, verbose = False ):
         print >> sys.stderr, "done."
 
 
+class sim_tag_proc_id_mapper:
+    """
+    Class to map sim_proc_ids in the experiment summary table to simulation names
+    and vice-versa.
+    """
+    def __init__( self, connection ):
+        self.id_tag_map = {}
+        self.tag_id_map = {}
+        sqlquery = """
+            SELECT
+                process_id,
+                value
+            FROM
+                process_params
+            WHERE
+                process_id IN (
+                    SELECT DISTINCT
+                        sim_proc_id
+                    FROM
+                        experiment_summary )
+                AND param == "--userTag"
+            """
+        for proc_id, sim_tag in connection.cursor().execute(sqlquery):
+            self.id_tag_map[proc_id] = sim_tag
+            self.tag_id_map[sim_tag] = proc_id
+
+    def get_sim_tag( self, proc_id ):
+        return proc_id in self.id_tag_map and self.id_tag_map[proc_id] or None
+
+    def get_proc_id( self, sim_tag ):
+        return sim_tag in self.tag_id_map and self.tag_id_map[sim_tag] or None
+
+            
+# =============================================================================
+#
+#               Generic Coincident Event Table Utilities
+#
+# =============================================================================
+
+# Following utilities are apply to any table with a coinc_event_id column
+def clean_using_coinc_table( connection, table_name, verbose = False,
+    clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+    clean_coinc_event_map = True, clean_mapped_tables = True, selected_tables = []):
+    """
+    Clears experiment_map, coinc_event, coinc_event_map, and all tables pointing to the
+    coinc_event_map of triggers that are no longer in the specified table.
+    Note that the experiment_summary, experiment, and time_slide_tables are left alone.
+    This is because even if no events are left in an experiment, we still want info. about
+    the experiment that was performed.
+
+    @connection to a sqlite database
+    @table_name: name of table on which basing the cleaning. Can be any table having a coinc_event_id
+     column.
+    @clean_experiment_map: if set to True will clean the experiment_map table
+    @clean_coinc_event_table: if set to True will clean the coinc_event table
+    @clean_coinc_definer: if set to True will clean the coinc_definer table if clean_coinc_event_table
+     is set to True (the coinc_event_table is used to determine what coinc_definers to delete)
+    @clean_coinc_event_map: if set to True, will clean the coinc_event_map
+    @clean_mapped_tables: clean tables listed in the coinc_event_map who's event_ids are not not in
+     the coinc_event_map
+    @selected_tables: if clean_mapped_tables is on, will clean the listed tables if they appear in the 
+     coinc_event_map and have an event_id column. Default, [], is to clean all tables found.
+     The requirement that the table has an event_id avoids cleaning simulation tables.
+    """
+
+    # Delete from experiment_map
+    if clean_experiment_map:
+        if verbose:
+            print >> sys.stderr, "Cleaning the experiment_map table..."
+        sqlquery = ''.join(["""
+            DELETE
+            FROM experiment_map
+            WHERE coinc_event_id NOT IN (
+                SELECT coinc_event_id
+                FROM """, table_name, ')' ])
+        connection.cursor().execute( sqlquery )
+        connection.commit()
+
+    # Delete from coinc_event
+    if clean_coinc_event_table:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_event table..."
+        sqlquery = ''.join(["""
+            DELETE
+            FROM coinc_event 
+            WHERE coinc_event_id NOT IN (
+                SELECT coinc_event_id
+                FROM """, table_name, ')' ])
+        connection.cursor().execute( sqlquery )
+        connection.commit()
+  
+    # Delete from coinc_definer
+    if clean_coinc_definer and clean_coinc_event_table:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_definer table..."
+        sqlquery = """
+            DELETE
+            FROM coinc_definer
+            WHERE coinc_def_id NOT IN (
+                SELECT coinc_def_id
+                FROM coinc_event )"""
+        connection.cursor().execute( sqlquery )
+        connection.commit()
+
+    # Find tables listed in coinc_event_map
+    if clean_mapped_tables and selected_tables == []:
+        selected_tables = get_cem_table_names(connection)
+
+    # Delete from coinc_event_map
+    if clean_coinc_event_map:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_event_map table..."
+        sqlquery = ''.join([ """
+            DELETE
+            FROM coinc_event_map
+            WHERE coinc_event_id NOT IN (
+                SELECT coinc_event_id
+                FROM """, table_name, ')' ])
+        connection.cursor().execute( sqlquery )
+        connection.commit()
+
+    # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
+    if clean_mapped_tables:
+        clean_mapped_event_tables( connection, selected_tables,
+            raise_err_on_missing_evid = False, verbose = verbose )
+
+
+# =============================================================================
+#
+#                             CoincEventMap Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the coinc_event_map table
+def get_cem_table_names( connection ):
+    """
+    Retrieves the all of the table names present in the coinc_event_map table.
+
+    @connection: connection to a sqlite database
+    """
+    sqlquery = 'SELECT DISTINCT table_name FROM coinc_event_map'
+    return [table_name[0] for table_name in connection.cursor().execute( sqlquery )]
+
+
+def get_matching_tables( connection, coinc_event_ids ):
+    """
+    Gets all the tables that are directly mapped to a list of coinc_event_ids.
+    Returns a dictionary mapping the tables their matching coinc_event_ids.
+
+    @coinc_event_ids: list of coinc_event_ids to get table matchings for
+    """
+    matching_tables = {}
+    sqlquery = """
+        SELECT
+            coinc_event_id,
+            table_name
+        FROM
+            coinc_event_map"""
+    for ceid, table_name in [(qryid, qryname) for qryid, qryname in connection.cursor().execute(sqlquery) if qryid in coinc_event_ids]:
+        if table_name not in matching_tables:
+            matching_tables[table_name] = []
+        matching_tables[table_name].append(ceid)
+
+    return matching_tables
+
+
+def clean_mapped_event_tables( connection, tableList, raise_err_on_missing_evid = False, verbose = False ):
+    """
+    Cleans tables given in tableList of events whose event_ids aren't in
+    the coinc_event_map table.
+
+    @connection: connection to a sqlite database
+    @tableList: Any table with an event_id column.
+    @raise_err_on_missing_evid: if set to True, will raise an error
+     if an event_id column can't be found in any table in tableList.
+     If False, will just skip the table.
+    """
+    # get tables from tableList that have event_id columns
+    selected_tables = [ table for table in tableList
+            if 'event_id' in get_column_names_from_table( connection, table ) ]
+    if selected_tables != tableList and raise_err_on_missing_evid:
+        raise ValueError, "tables %s don't have event_id columns" % ', '.join([
+            table for table in tableList if table not in selected_tables ])
+    
+    # clean the tables
+    for table in selected_tables:
+        if verbose:
+            print >> sys.stderr, "Cleaning the %s table..." % table
+        sqlquery = ''.join([ """ 
+            DELETE
+            FROM """, table, """
+            WHERE event_id NOT IN (
+                SELECT event_id
+                FROM coinc_event_map )""" ])
+        connection.cursor().execute( sqlquery )
+    connection.commit()
+
 
 # =============================================================================
 #
@@ -743,13 +1286,7 @@ def join_experiment_tables_to_coinc_inspiral():
     the only table listed in the FROM statement is the coinc_inspiral).
     """
 
-    return """ 
-    JOIN
-        experiment, experiment_summary, experiment_map 
-    ON ( 
-        experiment.experiment_id == experiment_summary.experiment_id
-        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )"""
+    return join_experiment_tables_to_coinc_table('coinc_inspiral')
 
 
 def apply_inclusion_rules_to_coinc_inspiral( connection, exclude_coincs = None, include_coincs = None, 
@@ -797,80 +1334,149 @@ def clean_inspiral_tables( connection, verbose = False ):
     This is because even if no events are left in an experiment, we still want info. about
     the experiment that was performed.
     """
-
-    # Delete from experiment_map
-    if verbose:
-        print >> sys.stderr, '''Cleaning the experiment_map table...'''
-    sqlquery = ' '.join([ 
-            'DELETE',
-            'FROM experiment_map',
-            'WHERE coinc_event_id NOT IN (',
-                'SELECT coinc_event_id',
-                'FROM coinc_inspiral )' ])
-    connection.cursor().execute( sqlquery )
-    connection.commit()
-
-    # Delete from coinc_event
-    if verbose:
-        print >> sys.stderr, '''Cleaning the coinc_event table...'''
-    sqlquery = ' '.join([ 
-            'DELETE',
-            'FROM coinc_event',
-            'WHERE coinc_event_id NOT IN (',
-                'SELECT coinc_event_id',
-                'FROM coinc_inspiral )' ])
-    connection.cursor().execute( sqlquery )
-    connection.commit()
-  
-    # Delete from coinc_definer
-    if verbose:
-        print >> sys.stderr, '''Cleaning the coinc_definer table...'''
-    sqlquery = ' '.join([
-            'DELETE',
-            'FROM coinc_definer',
-            'WHERE coinc_def_id NOT IN (',
-                'SELECT coinc_def_id',
-                'FROM coinc_event )' ])
-
-    # Find tables listed in coinc_event_map
-    sqlquery = 'SELECT DISTINCT table_name FROM coinc_event_map'
-    table_names = connection.cursor().execute( sqlquery ).fetchall()
-
-    # Delete from coinc_event_map
-    if verbose:
-        print >> sys.stderr, '''Cleaning the coinc_event_map table...'''
-    sqlquery = ' '.join([
-            'DELETE',
-            'FROM coinc_event_map',
-            'WHERE coinc_event_id NOT IN (',
-                'SELECT coinc_event_id',
-                'FROM coinc_event )' ])
-    connection.cursor().execute( sqlquery )
-    connection.commit()
-
-    # Delete events from tables that were listed in the coinc_event_map
-    # we only want to delete event_ids, not simulations, so if a table
-    # does not have an event_id, we just pass
-    for table in table_names:
-        table = table[0]
-        if verbose:
-            print >> sys.stderr, '''Cleaning the %s table...''' % table
-        sqlquery = ' '.join([
-            'DELETE',
-            'FROM', table,
-            'WHERE event_id NOT IN (',
-                'SELECT event_id',
-                'FROM coinc_event_map )' ])
-        try:
-            connection.cursor().execute( sqlquery )
-        except:
-            pass
-        connection.commit()
-
-    if verbose:
-        print >> sys.stderr, "done."
+    clean_using_coinc_table( connection, 'coinc_inspiral', verbose = verbose,
+        clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+        clean_coinc_event_map = True, clean_mapped_tables = True, selected_tables = [])
 
 
+# =============================================================================
+#
+#                             Simulation Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to any simulation table
+
+def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranking_stat):
+    """
+    Creates a temporary table in the sqlite database called sim_rec_map.
+    This table creates a direct mapping between simulation_ids in the simulation table
+    and coinc_event_ids from the recovery_table, along with a ranking stat from the 
+    recovery_table.
+    The columns in the sim_rec_map table are:
+        * rec_id: coinc_event_ids of matching events from the recovery table
+        * sim_id: the simulation_id from the sim_inspiral table
+        * ranking_stat: any stat from the recovery table by which to rank
+        * intermediate_id: the coinc_event_id of the sim_id (not really important for these
+          uses)
+    In addition, indices on the sim and rec ids are put on the table.
+
+    Note that because this is a temporary table, as soon as the connection is closed, it
+    will be deleted.
+
+    @connection: connection to a sqlite database
+    @recovery_table: any lsctable with a coinc_event_id column; e.g., coinc_inspiral
+    @ranking_stat: the name of the ranking stat in the recovery table to use. If set to None,
+     ranking_stat column won't be populated.
+    """
+    # if it isn't already, append the recovery_table name to the ranking_stat to ensure uniqueness
+    if ranking_stat is not None and not ranking_stat.strip().startswith(recovery_table):
+        ranking_stat = '.'.join([recovery_table.strip(), ranking_stat.strip()])
+    # create the sim_rec_map table; initially, this contains all mapped triggers in the database
+    sqlscript = ''.join(['''
+        CREATE TEMP TABLE
+            sim_rec_map
+        AS 
+            SELECT
+                coinc_event_id AS intermediate_id,
+                event_id AS rec_id,
+                NULL AS sim_id,
+                NULL AS ranking_stat
+            FROM
+                coinc_event_map
+            WHERE
+                table_name == "coinc_event" AND
+                event_id IN (
+                    SELECT
+                        ''', recovery_table, '''.coinc_event_id
+                    FROM
+                        ''', recovery_table, '''
+                    ''', join_experiment_tables_to_coinc_table(recovery_table), '''
+                    WHERE
+                        experiment_summary.datatype == "simulation");
+
+        -- populate the sim_id using the intermediate_id 
+        UPDATE
+            sim_rec_map
+        SET sim_id = (
+            SELECT
+                coinc_event_map.event_id
+            FROM
+                coinc_event_map 
+            WHERE
+                table_name == "''', simulation_table, '''" AND
+                coinc_event_map.coinc_event_id == sim_rec_map.intermediate_id);        
+
+        -- create the indices
+        CREATE INDEX srm_sid_index ON sim_rec_map (sim_id);
+        CREATE INDEX srm_rid_index ON sim_rec_map (rec_id);
+        ''' ])
+
+    if ranking_stat is not None:
+        sqlscript = ''.join([ sqlscript, '''
+        -- populate ranking_stat
+        UPDATE
+            sim_rec_map
+        SET ranking_stat = (
+            SELECT
+                ''', ranking_stat, '''
+            FROM
+                ''', recovery_table, '''
+            WHERE
+                ''', recovery_table, '''.coinc_event_id == sim_rec_map.rec_id );
+            ''' ]) 
+
+    connection.cursor().executescript(sqlscript)
+
+
+# =============================================================================
+#
+#                             Segment Utilities
+#
+# =============================================================================
+
+# Following utilities apply to the segment and segment definer table
+class segdict_from_segment:
+    """
+    Class to a build a segmentlist dict out of the entries in the segment
+    and segment_definer table in the sqlite database.
+    """
+    from glue import segments
+    try:
+        from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+    except ImportError:
+        # s6 code
+        from pylal.xlal.date import LIGOTimeGPS
+
+    snglinst_segdict = segments.segmentlistdict()
+
+    def __init__(self, connection, filter = ''):
+        if filter != '' and not filter.strip().startswith('WHERE'):
+            filter = 'WHERE\n' + filter
+
+        sqlquery = '\n'.join(["""
+            SELECT
+                segment_definer.ifos,
+                segment.start_time,
+                segment.end_time
+            FROM
+                segment
+            JOIN
+                segment_definer ON
+                segment_definer.segment_def_id == segment.segment_def_id""",
+            filter ])
+        for ifos, start_time, end_time in connection.cursor().execute(sqlquery):
+            for ifo in lsctables.instrument_set_from_ifos(ifos):
+               if ifo not in self.snglinst_segdict:
+                self.snglinst_segdict[ifo] = segments.segmentlist()
+                self.snglinst_segdict[ifo].append( segments.segment(LIGOTimeGPS(start_time, 0),LIGOTimeGPS(end_time,0)) )
+
+    def is_in_sngl_segdict( self, instrument, gpstime, gpstime_ns ):
+        """
+        Checks if a gpstime is in the given instrument time.
+        """
+        return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
+        
 
 # =============================================================================
 #

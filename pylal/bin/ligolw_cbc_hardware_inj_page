@@ -62,7 +62,32 @@ def get_xml_files(filenames,time,ifo):
 	
 	return filter(lambda fn: filt_fn(fn,time,ifo),filenames)
 # =============================================================================
+def get_expected_snr(filenames,ifo,time):
+	"""
+	Returns the expected SNR for a system with M<20
+	Using the range at that time if available
+	"""
+	xml_files=get_xml_files(filenames,int(time),ifo)
+	if not xml_files:
+		return None
+	from pylal import SearchSummaryUtils
+	from glue.ligolw import lsctables
+	from glue.ligolw import table
+	xmldoc=SearchSummaryUtils.ReadTablesFromFiles(xml_files,[lsctables.SummValueTable])
+	try:
+		sum_tabs=table.get_table(xmldoc,lsctables.SummValueTable.tableName)
+	except:
+		sum_tabs=None
+	if sum_tabs==None:
+		return None
+	tabs=filter(lambda x: x.name==u'inspiral_effective_distance',sum_tabs)
+	tabs=filter(lambda x: x.start_time < time and x.end_time>time,tabs)
+	tabs=filter(lambda x: x.ifo==ifo,tabs)
+	if tabs is None: return None
+	if len(tabs)>1: return tabs[0].value
+	else: return tabs.value
 
+# =============================================================================
 def check_ifo_result(ifo,time,filenames,successful_inj):
 	"""
 	Return indicator of status for this injection
@@ -213,12 +238,14 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 	outfile=open(opts.outfile,'w')
 	print >>outfile, '<html><head><title>Hardware injection summary: '+str(opts.gps_start_time)+' - '+str(opts.gps_end_time)+\
 			'</title></head><body><table border=1><tr bgcolor="#9999ff"><th>GPS end time</th><th>Mass 1</th><th>Mass 2</th><th>Distance (Mpc)</th>'
+	SNRAvailable=False
 	totalinj={}
 	totalfound={}
 	totalanalysed={}
 	statelist={}
 	# Write table header
 	for ifo in ifos:
+                nay=[]
 		print >>outfile, '<th>'+ifo+'</th>'
 		totalinj[ifo]=0
 		totalfound[ifo]=0
@@ -234,11 +261,13 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		print >>outfile,'<td>%.3f</td><td>%.3f</td><td>%.3f</td>'% (inj.mass1,inj.mass2,inj.distance)
 		for ifo in ifos:
 			(injected,analysed,found)=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
+			expSNR=get_expected_snr(filenames,ifo,inj.get_end(ifo[0]))
+			if(expSNR is not None): SNRAvailable=True
 			print >>outfile,get_ifo_result_string((injected,analysed,found))
 			totalinj[ifo]=totalinj[ifo]+injected
 			totalanalysed[ifo]=totalanalysed[ifo]+analysed
 			totalfound[ifo]=totalfound[ifo]+found
-			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected,analysed,found))
+			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected,analysed,found,expSNR))
 		print >>outfile,'</tr>'
 	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td>'
 	for ifo in ifos:
@@ -289,6 +318,41 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done):
 		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
 		pylab.savefig(plotname)
 		print >>outfile,'<img src="'+plotname.split(os.path.sep)[-1]+'">'
+	if(SNRAvailable): print 'Producing SNR plots'
+	else: print 'SNR information unavailable'
+	if SNRAvailable:
+	 	for ifo in ifos:
+                	foundx=[]
+                	foundy=[]
+                	missedx=[]
+                	missedy=[]
+                	thisplot=pylab.figure()
+			lessTwenty=lambda x: x[1].mass1 + x[1].mass2 <20
+			moreTwenty=lambda x: x[1].mass1 + x[1].mass2 >20
+			for (filt,symb,injtype) in zip((lessTwenty,moreTwenty),('x','o'),('<20 Msun','>20 Msun')):
+				results = filter(filt,statelist[ifo])
+				if results is not None:
+					found = filter(lambda tup: tup[2] and tup[4],results)
+					missed=filter(lambda tup: tup[2] and tup[4]!=1,results)
+					foundx=map(lambda i: int(i[0]),found)
+					foundy=map(lambda i: i[5],found)
+					missedx=map(lambda i: int(i[0]),found)
+					missedy=map(lambda i: i[5],found)
+				pylab.plot(foundx,foundy,'g'+symb,label='Found '+injtype)
+				thisplot.hold()
+				pylab.plot(missedx,missedy,'r'+symb,label='Missed '+injtype)
+			thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
+                	thisplot.gca().set_ybound(0,100)
+                	pylab.title(ifo+' Hardware injections '+ str(opts.gps_start_time) +' - '+ str(opts.gps_end_time))
+                	pylab.xlabel('GPS time')
+                	pylab.ylabel('Expected SNR')
+                	pylab.legend()
+                	pylab.grid(b=True)
+                	# save figure
+                	print 'save SNR figure'
+                	plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'_snr.png'
+                	pylab.savefig(plotname)
+                	print >>outfile,'<img src="'+plotname.split(os.path.sep)[-1]+'">'
 	print >>outfile,'</body></html>'
 	return
 

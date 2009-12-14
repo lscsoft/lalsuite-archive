@@ -64,7 +64,7 @@ for database in databases:
 	if is_injections:
 		def calc_delta_t_inj(trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
 			try:
-				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time)*1e-9)
+				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time_ns)*1e-9)
 			except: print "calc_delta_t_inj() failed"
 		connection.create_function("calc_delta_t_inj", 4, calc_delta_t_inj)
 		connection.create_function("calc_effective_snr", 3, calc_effective_snr)
@@ -140,7 +140,10 @@ for database in databases:
 				return float(out)
 			except:
 				print "calc delta t failed",trigger1_true_end_time, trigger2_true_end_time, ring
-				return float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
+				out = float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
+				if out > 0.5:
+					out = 1.0 - out
+				return out
 	
 		
 		connection.create_function("calc_delta_t", 7, calc_delta_t)
@@ -219,7 +222,7 @@ zlstr = opts.zerolagstr
 
 
 if len(injections) != 0:	
-	Nparams = len(injections[0][:]) - 1
+	Nparams = len(injections[0]) - 1
 
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
