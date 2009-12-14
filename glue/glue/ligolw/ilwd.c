@@ -218,9 +218,16 @@ static PyObject *ligolw_ilwdchar___richcompare__(PyObject *self, PyObject *other
 		return NULL;
 
 	case 0:
-		/* type mismatch */
-		PyErr_SetObject(PyExc_TypeError, other);
-		return NULL;
+		/* type mismatch.  if other is a string or unicode raise
+		 * TypeError to prevent bugs:  people will assume that the
+		 * comparison is doing a compare-by-value.  FIXME:  try
+		 * coercing strings/unicodes to ilwdchars for comparison */
+		if(PyString_Check(other) || PyUnicode_Check(other)) {
+			PyErr_SetObject(PyExc_TypeError, other);
+			return NULL;
+		}
+		Py_INCREF(Py_NotImplemented);
+		return Py_NotImplemented;
 
 	case 1:
 		/* type agreement */
