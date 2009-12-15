@@ -559,8 +559,17 @@ def parse_command_line():
 	parser.add_option("","--no-seismic-qscan", action="store_true",\
 	default=False,help="disable seismic qscan nodes")
 
+	parser.add_option("","--no-ht-analyseQscan", action="store_true",\
+	default=False,help="disable hoft analyseQscan nodes")
+
+	parser.add_option("","--no-rds-analyseQscan", action="store_true",\
+	default=False,help="disable rds analyseQscan nodes")
+
+	parser.add_option("","--no-seismic-analyseQscan", action="store_true",\
+	default=False,help="disable seismic analyseQscan nodes")
+
 	parser.add_option("","--no-htQscan-datafind", action="store_true",\
-        default=False,help="disable hoft qscan datafind nodes")
+	default=False,help="disable hoft qscan datafind nodes")
 
 	parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
         default=False,help="disable rds qscan datafind nodes")
@@ -645,6 +654,9 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	ht_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
 	rds_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_RDS')
 	seis_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
+	ht_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_HT')
+	rds_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_RDS')
+	seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_SEIS_RDS')
 	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, tag_base='plot')
 	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,tag_base='skymap')	
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
@@ -747,6 +759,13 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,coinc)
 		#Need a wiki creation Node and Job class with the following as input
 		exportCoincToDisk(coinc, search, coinc_cnt, dag)
+
+	# LOOP FOR ANALYSEQSCAN JOBS (MUST BE CHILDREN OF ALL QSCAN JOBS)
+	for coinc_cnt, coinc in enumerate(candidates):
+		for ifo, sngl_inspiral in coinc.sngl_inspiral.items():
+			stfu_pipe.analyseQscanNode(dag,ht_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
+			stfu_pipe.analyseQscanNode(dag,rds_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
+			stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
 
 #### ALL FINNISH ####		
 default_cp.write()

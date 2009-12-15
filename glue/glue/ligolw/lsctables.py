@@ -44,6 +44,7 @@ except NameError:
 
 
 from glue import git_version
+from glue import iterutils
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
@@ -1017,6 +1018,7 @@ class MultiBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"false_alarm_rate": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1229,12 +1231,19 @@ class SnglInspiralTable(table.Table):
 	def get_lvS5stat(self):
 		return self.get_column('beta')
 
-	def ifocut(self,ifo):
-		ifoTrigs = table.new_from_template(self)
-		for row in self:
-			if row.ifo == ifo:
-				ifoTrigs.append(row)
-		return ifoTrigs
+	def ifocut(self, ifo, inplace=False):
+		"""
+		Return a SnglInspiralTable with rows from self having IFO equal
+		to the given ifo. If inplace, modify self directly, else create
+		a new table and fill it.
+		"""
+		if inplace:
+			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
+			return self
+		else:
+			ifoTrigs = table.new_from_template(self)
+			ifoTrigs.extend([row for row in self if row.ifo == ifo])
+			return ifoTrigs
 
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
@@ -1812,9 +1821,18 @@ class SimInspiralTable(table.Table):
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+
+	def set_time_geocent(self, gps):
+		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.longitude, self.latitude
+
 	def get_end(self, site = None):
 		if site is None:
-			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return self.get_time_geocent()
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
@@ -1873,6 +1891,9 @@ class SimBurst(object):
 
 	def set_time_geocent(self, gps):
 		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.ra, self.dec
 
 
 SimBurstTable.RowType = SimBurst
