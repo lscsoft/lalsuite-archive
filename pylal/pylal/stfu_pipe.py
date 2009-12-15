@@ -149,6 +149,38 @@ HrecOnline      V1:h_16384Hz
 		os.abort()
 	return str(foundType), str(foundChannel)
 
+def figure_out_cache(time):
+
+	cacheList=(
+		(home_dirs()+"/romain/followupbackgrounds/S6a/background_931035296_935798415.cache",931035296,935798415),
+		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
+		)
+
+	foundCache = ""
+	for cacheFile,start,stop in cacheList:
+		if ((start<=time) and (time<stop)):
+			foundCache = cacheFile
+			break
+
+	if 'phy.syr.edu' in get_hostname():
+		foundCache.replace("romain","rgouaty")
+
+	if foundCache == "":
+		print time, " not found in method stfu_pipe.figure_out_cache"	
+	else:
+		if not os.path.isfile(foundCache):
+			print "file " + foundCache + " not found"
+			foundCache = ""
+
+	return foundCache
+
+def home_dirs():
+	return os.path.split(os.environ['HOME'])[0]
+
+def get_hostname():
+	host = socket.getfqdn()
+	return host
+
 ###############################################################################
 ##### CONDOR JOB CLASSES ######################################################
 ###############################################################################
@@ -243,6 +275,19 @@ fi
 		rm_lock_script.write("#!/bin/bash\nif [ -e $1 ]\nthen\n\trm $1\nfi")
 		rm_lock_script.close()
 		os.chmod('rmLock.sh',0755)
+
+# A CLASS TO ANALYSE QSCAN RESULTS
+class analyseQscanJob(pipeline.CondorDAGJob,FUJob):
+
+	def __init__(self,opts,cp,dir='',tag_base=''):
+
+		self.__executable = string.strip(cp.get('fu-condor','analyseQscan'))
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
 
 # A CLASS TO DO FOLLOWUP INSPIRAL JOBS 
 class followUpInspJob(inspiral.InspiralJob,FUJob):
@@ -532,6 +577,9 @@ The omega scan command line is
 		"""
 		pipeline.CondorDAGNode.__init__(self,job)
 
+		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
+		self.scan_ifo = ifo
+
 		if variety == "bg":
 			self.add_var_arg('scan')
 			preString = "omega/" + science_run(time).upper() + "/background"
@@ -593,6 +641,85 @@ The omega scan command line is
 		config_path = os.path.split(config)
 		out = "/".join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
 		return out
+
+# ANALYSEQSCAN NODE
+class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
+
+	def __init__(self, dag, job, cp, opts, time, ifo):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		name = job.name
+
+		if "seis" in name:
+			data_type = "rds"
+			shortName = "seis_rds"
+		elif "ht" in name:
+			data_type = "ht"
+			shortName = "ht"
+		else:
+			data_type = "rds"
+			shortName = "rds"
+
+		refChannel = figure_out_type(time, ifo, data_type)[1].split(":")[-1]
+		self.add_var_opt('ref-channel',refChannel)
+		if cp.has_option('fu-analyse-qscan','generate-qscan-xml'):
+			self.add_var_opt('generate-qscan-xml','')
+		self.add_var_opt('z-threshold',cp.getfloat('fu-analyse-qscan','z-threshold'))
+		if cp.has_option('fu-analyse-qscan','plot-z-distribution'):
+			self.add_var_opt('plot-z-distribution','')
+			self.add_var_opt('z-min',cp.getfloat('fu-analyse-qscan','z-min'))
+			self.add_var_opt('z-max',cp.getfloat('fu-analyse-qscan','z-max'))
+			self.add_var_opt('z-bins',cp.getfloat('fu-analyse-qscan','z-bins'))
+		if cp.has_option('fu-analyse-qscan','plot-dt-distribution'):
+			self.add_var_opt('plot-dt-distribution','')
+			self.add_var_opt('dt-min',cp.getfloat('fu-analyse-qscan',shortName.replace('_','-') + '-dt-min'))
+			self.add_var_opt('dt-max',cp.getfloat('fu-analyse-qscan',shortName.replace('_','-') + '-dt-max'))
+			self.add_var_opt('dt-bins',cp.getfloat('fu-analyse-qscan','dt-bins'))
+		if cp.has_option('fu-analyse-qscan','plot-z-scattered'):
+			self.add_var_opt('plot-z-scattered','')
+		if cp.has_option('fu-analyse-qscan','plot-z-scattered') or cp.has_option('fu-analyse-qscan','plot-dt-distribution'):
+			self.add_var_opt('ref-channel',refChannel)
+		self.add_var_opt('ifo-times',ifo)
+		self.add_var_opt('type',name.upper())
+		self.add_var_opt('gps-string',repr(time))
+		self.add_var_opt('ifo-tag',ifo)
+		self.add_var_opt('user-tag',repr(time).replace('.','_') + "_" + shortName)
+
+		self.add_var_opt('qscan-cache-foreground',dag.basename+'.cache')
+		
+		if cp.has_option('fu-analyse-qscan','background-cache'):
+			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
+		else:
+			backgroundCache = figure_out_cache(time)
+		self.add_var_opt('qscan-cache-background',backgroundCache)
+
+		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
+		self.output_cache = lal.CacheEntry(ifo,job.name.upper(),segments.segment(float(time),float(time)),"file://localhost/"+job.outputPath+'/'+self.output_file_name)
+
+		self.setupPlotNode(job)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		# add the parents to this node
+		for node in dag.get_nodes():
+			# if node distributeQscanNode is valid and if remote
+			# ifo is analysed, add distributeQscanNode as parent
+			#if isinstance(node,distributeQscanNode):
+			#	if node.validNode:
+			#		self.add_parent(node)
+			# add all qscan nodes of the same type as parents
+			if isinstance(node,fuQscanNode):
+				if node.validNode:
+					if (node.scan_type in name and node.scan_ifo == ifo):
+						self.add_parent(node)
+		if not (shortName=="ht" and opts.no_ht_analyseQscan) and not (shortName == "rds" and opts.no_rds_analyseQscan) and not (shortName == "seis_rds" and opts.no_seismic_analyseQscan) and backgroundCache:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
+
 
 # DATAFIND NODE
 class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
@@ -1379,7 +1506,7 @@ class create_default_config(object):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
-		home_base = self.__home_dirs()
+		home_base = home_dirs()
 		
 		# CONDOR SECTION NEEDED BY THINGS IN INSPIRAL.PY
 		cp.add_section("condor")
@@ -1410,6 +1537,7 @@ class create_default_config(object):
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		self.set_qscan_executable()
+		cp.set("fu-condor","analyseQscan", self.which("analyseQscan.py"))
 
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
@@ -1433,6 +1561,24 @@ class create_default_config(object):
 		cp.add_section("fu-fg-seismic-qscan")
 		for config in ["H1config","H2config","L1config","V1config"]:
 			cp.set("fu-fg-seismic-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt","QSCAN CONFIG"))
+
+		# fu-analyse-qscan SECTION
+		cp.add_section("fu-analyse-qscan")
+		cp.set("fu-analyse-qscan","generate-qscan-xml","")
+		cp.set("fu-analyse-qscan","z-threshold","0.0")
+		cp.set("fu-analyse-qscan","z-min","0.0")
+		cp.set("fu-analyse-qscan","z-max","30.0")
+		cp.set("fu-analyse-qscan","z-bins","60")
+		cp.set("fu-analyse-qscan","rds-dt-min","-0.6")
+		cp.set("fu-analyse-qscan","rds-dt-max","0.6")
+		cp.set("fu-analyse-qscan","ht-dt-min","-0.6")
+		cp.set("fu-analyse-qscan","ht-dt-max","0.6")
+		cp.set("fu-analyse-qscan","seis-rds-dt-min","-4.2")
+		cp.set("fu-analyse-qscan","seis-rds-dt-max","4.2")
+		cp.set("fu-analyse-qscan","dt-bins","120")
+		cp.set("fu-analyse-qscan","plot-dt-distribution","")
+		cp.set("fu-analyse-qscan","plot-z-scattered","")
+		cp.set("fu-analyse-qscan","plot-z-distribution","")
 
 		# FU-SKYMAP SECTION
 		cp.add_section("fu-skymap")
@@ -1514,11 +1660,11 @@ class create_default_config(object):
 		return self.cp
 
 	def set_qscan_executable(self):
-		host = self.__get_hostname()
+		host = get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
+			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
 
 	def __config_name(self,ifo,type):
 		fileMap={
@@ -1545,7 +1691,7 @@ class create_default_config(object):
 		return out
 
 	def web_dir(self):
-		host = self.__get_hostname()
+		host = get_hostname()
 		#FIXME add more hosts as you need them
 		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
@@ -1555,7 +1701,7 @@ class create_default_config(object):
 		return ''
 
 	def web_url(self):
-		host = self.__get_hostname()
+		host = get_hostname()
 		#FIXME add more hosts as you need them
 		if 'ligo.caltech.edu' in host: return "https://ldas-jobs.ligo.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'ligo-la.caltech.edu' in host: return "https://ldas-jobs.ligo-la.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
@@ -1567,7 +1713,7 @@ class create_default_config(object):
 		return ''
 
 	def get_remote_jobs(self):
-		host = self.__get_hostname()
+		host = get_hostname()
                 #FIXME add more hosts as you need them
 		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
 			remote_ifos = "V1"
@@ -1576,20 +1722,13 @@ class create_default_config(object):
 		return '', ''
 
 	def log_path(self):
-		host = self.__get_hostname()
+		host = get_hostname()
 		#FIXME add more hosts as you need them
 		if 'phy.syr.edu' in host: return '/usr1/' + os.environ['USER']
 		if 'caltech.edu' in host: return '/usr1/' + os.environ['USER']
 		if 'phys.uwm.edu' in host: return '/people/' + os.environ['USER']
 		if 'aei.uni-hannover.de' in host: return '/local/user/' + os.environ['USER']
 
-	def __get_hostname(self):
-		host = socket.getfqdn()
-		return host
-		
-	def __home_dirs(self):
-		return os.path.split(os.environ['HOME'])[0]
-		
 	def which(self,prog):
 		which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
 		out = which.stdout.read().strip()
