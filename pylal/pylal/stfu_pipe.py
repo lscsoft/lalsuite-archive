@@ -1671,7 +1671,7 @@ class create_default_config(object):
 			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
 			try: 
 				user_cp = ConfigParser.ConfigParser()
-				user_cp.read('stfu_pipe.ini')
+				user_cp.read('followup_pipe.ini')
 			except: pass
 		# override the default options
 		if user_cp: self.overwrite_config(user_cp)
