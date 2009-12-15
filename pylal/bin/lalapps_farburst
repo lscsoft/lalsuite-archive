@@ -158,7 +158,6 @@ class Summaries(object):
 	def add_coinc(self, on_instruments, snr, likelihood):
 
 		on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
-		#print on_instruments
 		self.reputations.setdefault(self.category_func(on_instruments),[]).append(self.reputation_func(snr, likelihood))
 		if self.category_func(on_instruments) not in self.categories:
 			self.categories.append(self.category_func(on_instruments))
@@ -182,7 +181,6 @@ class Summaries(object):
 
 		reputations = self.reputations.setdefault(category, [])
 		
-		#print reputations
 
 		#
 		# len(x) - bisect.bisect_left(x, reputation) = number of
