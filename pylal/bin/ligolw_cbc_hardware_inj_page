@@ -279,7 +279,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			totalfound[ifo]=totalfound[ifo]+found
 			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected,analysed,found,expSNR))
 		print >>outfile,'</tr>'
-	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td>'
+	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td>'
 	for ifo in ifos:
 		print >>outfile,'<td>%i / %i / %i</td>'%(totalfound[ifo],totalanalysed[ifo],totalinj[ifo])
 	print >>outfile,'</tr>'
