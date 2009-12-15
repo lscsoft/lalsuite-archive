@@ -163,6 +163,10 @@ def make_multi_burst(process_id, coinc_event_id, events):
 
 	multiburst.amplitude = max((event.ms_confidence, event.ms_hrss) for event in events)[1]
 
+	# populate the false alarm rate with none.
+
+	multiburst.false_alarm_rate = None
+
 	# done
 
 	return multiburst

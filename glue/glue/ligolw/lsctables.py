@@ -1018,6 +1018,7 @@ class MultiBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"false_alarm_rate": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
 		"ligo_angle": "real_4",
