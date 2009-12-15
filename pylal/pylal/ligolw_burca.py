@@ -123,7 +123,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-ExcessPowerCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+ExcessPowerBBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
 def make_multi_burst(process_id, coinc_event_id, events):
@@ -190,7 +190,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 #
 
 
-StringCuspCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+StringCuspBBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
 #

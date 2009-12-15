@@ -247,12 +247,12 @@ def burca1(options, filenames):
 		EventListType = ligolw_burca.ExcessPowerEventList
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
-		CoincDef = ligolw_burca.ExcessPowerCoincDef
+		CoincDef = ligolw_burca.ExcessPowerBBCoincDef
 	elif options.coincidence_algorithm == "stringcusp":
 		EventListType = ligolw_burca.StringEventList
 		comparefunc = ligolw_burca.StringCoincCompare
 		CoincTables = snglcoinc.CoincTables
-		CoincDef = ligolw_burca.StringCuspCoincDef
+		CoincDef = ligolw_burca.StringCuspBBCoincDef
 	else:
 		raise Exception, "should never get here"
 
