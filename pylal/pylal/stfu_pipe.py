@@ -392,6 +392,15 @@ class fuDataFindJob(pipeline.LSCDataFindJob,FUJob):
 		convert_script.close()
 		os.chmod('cacheconv.sh',0755)
 
+#This class is responsible for running the default job for making our
+#wiki content
+class makeChecklistWikiJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	This actually launches a default wiki creation job
+	"""
+	pass
+
+
 #The class responsible for running the data quality flag finding job
 class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 	"""
@@ -886,6 +895,16 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		utils.write_filename(xmldoc, name, verbose=False, gz = True)
 		return name
+
+# Create checklist wiki files etc node
+class makeChecklistWikiNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	This class is responsible for running a final job which will
+	create the default top 10 triggers for each trigger type.
+	This will place these files into the publication directory so
+	user can push wiki content onto the CBC wiki
+	"""
+	pass
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
@@ -1538,7 +1557,11 @@ class create_default_config(object):
 		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		self.set_qscan_executable()
 		cp.set("fu-condor","analyseQscan", self.which("analyseQscan.py"))
-
+		cp.set("fu-condor","makeChecklistWiki",self.which("makeChecklistWiki.py"))
+		# makechecklistwiki SECTION
+		cp.add_section("makeChecklistWiki")
+		cp.set("makeChecklistWiki","universe","local")
+		
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
 		cp.set("fu-q-hoft-datafind","search-time-range","128")
