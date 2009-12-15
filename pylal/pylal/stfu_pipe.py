@@ -285,6 +285,7 @@ class analyseQscanJob(pipeline.CondorDAGJob,FUJob):
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
 		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
 
 
