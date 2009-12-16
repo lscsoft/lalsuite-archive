@@ -26,11 +26,6 @@
 
 import itertools
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
 
 
 from glue import iterutils

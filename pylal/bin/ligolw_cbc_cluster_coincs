@@ -384,8 +384,9 @@ if opts.debug:
 
 # Remove triggers from other tables that no longer have coincidences in the
 # coinc_inspiral table
-# FIXME: checking the experiment_map table should be changed as it's redundant
-sqlutils.clean_inspiral_tables( connection, verbose = opts.verbose )
+sqlutils.clean_using_coinc_table( connection, 'coinc_inspiral', verbose = opts.verbose,
+    clean_experiment_map = False, clean_coinc_event_table = True, clean_coinc_definer = True,
+    clean_coinc_event_map = True, clean_mapped_tables = True, selected_tables = [])
 
 # Update number of events
 sqlutils.update_experiment_summ_nevents( connection, verbose = opts.verbose )

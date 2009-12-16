@@ -123,7 +123,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-ExcessPowerCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+ExcessPowerBBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
 def make_multi_burst(process_id, coinc_event_id, events):
@@ -163,6 +163,10 @@ def make_multi_burst(process_id, coinc_event_id, events):
 
 	multiburst.amplitude = max((event.ms_confidence, event.ms_hrss) for event in events)[1]
 
+	# populate the false alarm rate with none.
+
+	multiburst.false_alarm_rate = None
+
 	# done
 
 	return multiburst
@@ -190,7 +194,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 #
 
 
-StringCuspCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+StringCuspBBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
 #

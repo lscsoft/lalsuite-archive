@@ -24,6 +24,7 @@ class PkgConfig(object):
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 lal_pkg_config = PkgConfig("lal")
+lalburst_pkg_config = PkgConfig("lalburst")
 # FIXME:  works for GCC only!!!
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
@@ -314,11 +315,11 @@ setup(
 		Extension(
 			"pylal.xlal.burstsearch",
 			["src/xlal/burstsearch.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
+			include_dirs = lal_pkg_config.incdirs + lalburst_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lal_pkg_config.libs + lalburst_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalburst_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags + lalburst_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.spawaveform",
@@ -401,6 +402,7 @@ setup(
 		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "antime"),
 		os.path.join("bin", "septime"),
+		os.path.join("bin", "lalapps_cbc_plotroc"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
@@ -408,8 +410,8 @@ setup(
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
-		os.path.join("bin", "lalapps_stfu_pipe"),
-		os.path.join("bin", "lalapps_stfu_page"),
+		os.path.join("bin", "lalapps_followup_pipe"),
+		os.path.join("bin", "lalapps_followup_page"),
 		os.path.join("bin", "wscan_background.py"),
 		os.path.join("bin", "wscan_bg_setup_log.py"),
 		os.path.join("bin", "lalapps_stringfinal"),
@@ -466,7 +468,11 @@ setup(
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),
 		os.path.join("bin", "minifollowups"),
-		os.path.join("bin", "ligolw_cbc_plotcumhist")
+		os.path.join("bin", "ligolw_cbc_plotcumhist"),
+        os.path.join("bin", "lalapps_cbc_compute_rs"),
+        os.path.join("bin", "lalapps_cbc_print_rs"),
+        os.path.join("bin", "ligolw_cbc_printsims"),
+        os.path.join("bin", "ligolw_cbc_printmissed")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
