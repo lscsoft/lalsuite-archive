@@ -681,10 +681,10 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 		if cp.has_option('fu-analyse-qscan','plot-z-scattered') or cp.has_option('fu-analyse-qscan','plot-dt-distribution'):
 			self.add_var_opt('ref-channel',refChannel)
 		self.add_var_opt('ifo-times',ifo)
-		self.add_var_opt('type',name.upper())
-		self.add_var_opt('gps-string',repr(time))
+		self.add_var_opt('type',name.replace("ANALYSEQSCAN.PY","WPIPELINE").upper())
+		self.add_var_opt('gps-string',str(time))
 		self.add_var_opt('ifo-tag',ifo)
-		self.add_var_opt('user-tag',repr(time).replace('.','_') + "_" + shortName)
+		self.add_var_opt('user-tag',str(time).replace('.','_') + "_" + shortName)
 
 		self.add_var_opt('qscan-cache-foreground',dag.basename+'.cache')
 		
