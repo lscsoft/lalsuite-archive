@@ -14,6 +14,10 @@ import sys
 
 usage="""
 put the MVSC rank back into the SQL tables, after it's been turned into a likelihood, we put it in the likelihood column of the coinc_inspiral table
+use it like:
+mvsc_update_sql db1.sqlite db2.sqlite ... etc
+mvsc_update_sql --files=*CAT_2*.dat --files=*CAT_2*_info.pat *CAT_2*.sqlite
+or a combination of the two
 """
 
 time1=time()
@@ -21,12 +25,14 @@ time1=time()
 parser=OptionParser(usage=usage, version="kari on 08/24/09")
 parser.add_option("", "--files", default="*.dat", help="glob of .dat files that are output by SprOutputWriterApp, these should contain the MVSC rank in the last column")
 parser.add_option("", "--infofiles", default="*_info.pat", help="glob of .pat files that are output by mvsc_get_doubles.py, these should contain the coinc_id (first column) for and sqlite database (second column) containing the trigger")
-parser.add_option("", "--databases", default="*.sqlite", help="glob of SQLite databases that contain the tables that you're putting the MVSC likelhihood into")
-(opts,args)=parser.parse_args()
+(opts,databases)=parser.parse_args()
+
+for db in databases:
+	if not db.endswith('sqlite'):
+		print >> sys.stderr, "Error: args contain %s which is not a database file" % db
 
 files = glob.glob(opts.files)
 infofiles = glob.glob(opts.infofiles)
-databases = glob.glob(opts.databases)
 
 def files_to_dict(f1, f1_info, databases, ldict):
 	for f in databases: 
