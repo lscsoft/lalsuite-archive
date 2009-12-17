@@ -389,8 +389,12 @@ parser.add_option("-e","--gps-end-time",action="store",type="int",\
     default=999999999, metavar="END",
     help="end of GPS time range (default = 999999999)")
 
+parser.add_option("-S","--segment-dir",action="store",type="string",dest="seg_dir",default="./",metavar="S_DIR",help="Directory to store results of polling segDB")
+
 parser.add_option("-i","--h1-injections",action="store_true",\
     default=False, help="look at H1 injections")
+
+parser.add_option("-p","--part",action="store",default=0,help="0: Run the whole script\n1: Get the segment lists from the DB and quit\n2:Read the segment lists from disk and don't poll the DB",type="int",metavar="PART")
 
 parser.add_option("-l","--l1-injections",action="store_true",\
     default=False, help="look at L1 injections")
@@ -445,25 +449,34 @@ for ifo in ifos:
     else:
         seg_name = "DMT-INJECTION_INSPIRAL"
     # query for segments
-    out_xml = "-".join([ifo,"inj_times.xml"])
-    out_txt = "-".join([ifo,"inj_times.txt"])
-    retcode = subprocess.call(["ligolw_segment_query", "--database", \
-        "--query-segments", "--gps-start-time", str(opts.gps_start_time), \
-        "--gps-end-time", str(opts.gps_end_time), \
-        "--output-file", out_xml, \
-        "--include-segments", ":".join([ifo,seg_name]), \
-        "--segment-url", opts.segment_db] )
-    if retcode != 0:
-        print >>sys.stderr, "Segment call failed."
-        sys.exit(1)
-    x = subprocess.Popen(["ligolw_print", "-t", "segment", "-c", "start_time",
-        "-c", "end_time", "-d" " ", out_xml], stdout=subprocess.PIPE)
-    retcode = x.wait()
-    if retcode != 0:
-        print >>sys.stderr, "Segment call failed."
-        sys.xit(1)
+    out_xml = opts.seg_dir+"/"+"-".join([ifo,"inj_times.xml"])
+    out_txt = opts.seg_dir+"/"+"-".join([ifo,"inj_times.txt"])
+    if opts.part!=2:
+    	retcode = subprocess.call(["ligolw_segment_query", "--database", \
+        	"--query-segments", "--gps-start-time", str(opts.gps_start_time), \
+        	"--gps-end-time", str(opts.gps_end_time), \
+        	"--output-file", out_xml, \
+        	"--include-segments", ":".join([ifo,seg_name]), \
+        	"--segment-url", opts.segment_db] )
+    	if retcode != 0:
+        	print >>sys.stderr, "Segment call failed."
+        	sys.exit(1)
 
-    hwinj_done[ifo] = segmentsUtils.fromsegwizard(x.stdout.readlines())
+if opts.part==1:
+	print "Ran database query"
+	sys.exit(0)
+    
+for ifo in ifos:
+ 	out_xml = opts.seg_dir+"/"+"-".join([ifo,"inj_times.xml"])
+   	out_txt = opts.seg_dir+"/"+"-".join([ifo,"inj_times.txt"])
+    	x = subprocess.Popen(["ligolw_print", "-t", "segment", "-c", "start_time",
+        	"-c", "end_time", "-d" " ", out_xml], stdout=subprocess.PIPE)
+    	retcode = x.wait()
+    	if retcode != 0:
+        	print >>sys.stderr, "Segment call failed."
+        	sys.exit(1)
+
+    	hwinj_done[ifo] = segmentsUtils.fromsegwizard(x.stdout.readlines())
 
 # =============================================================================
 # Read in the injections
