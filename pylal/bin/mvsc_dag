@@ -179,14 +179,14 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, files='*.dat', infofiles='*_info.pat', databases='*.sqlite', p_node=[]):
+  def __init__(self, job, dag, databases, files='*.dat', infofiles='*_info.pat', p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     #FIXME add tmp file space
     self.add_macro("macroid", dag.id)
 # uhh these are still globs! FIXME
     self.add_var_opt("files", files)
     self.add_var_opt("infofiles", infofiles)
-    self.add_var_opt("databases", databases)
+    [self.add_var_arg(database) for database in databases]
 # do I need to put the databases as output files? 
     for p in p_node:
       self.add_parent(p)
@@ -263,7 +263,7 @@ finished_rank_nodes=[]
 for key in rank_node:
   finished_rank_nodes.extend(rank_node[key].values())
 print len(finished_rank_nodes)
-update_node['all'] = mvsc_update_sql_node(update_job, dag, p_node=finished_rank_nodes+zl_rank_node.values())
+update_node['all'] = mvsc_update_sql_node(update_job, dag, databases, p_node=finished_rank_nodes+zl_rank_node.values())
 
 
 dag.write_sub_files()
