@@ -283,6 +283,7 @@ class analyseQscanJob(pipeline.CondorDAGJob,FUJob):
 
 		self.__executable = string.strip(cp.get('fu-condor','analyseQscan'))
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.name_for_background = self.name + "_" + tag_base
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
@@ -651,11 +652,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 
 		name = job.name
 
-		if "seis" in name:
+		if "SEIS" in name:
 			data_type = "rds"
 			shortName = "seis_rds"
-		elif "ht" in name:
-			data_type = "ht"
+		elif "HT" in name:
+			data_type = "hoft"
 			shortName = "ht"
 		else:
 			data_type = "rds"
@@ -682,6 +683,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt('ref-channel',refChannel)
 		self.add_var_opt('ifo-times',ifo)
 		self.add_var_opt('type',name.replace("ANALYSEQSCAN.PY","WPIPELINE").upper())
+		self.add_var_opt('short-type',job.name_for_background.replace("ANALYSEQSCAN.PY","WPIPELINE").upper()+'_')
 		self.add_var_opt('gps-string',str(time))
 		self.add_var_opt('ifo-tag',ifo)
 		self.add_var_opt('user-tag',str(time).replace('.','_') + "_" + shortName)
