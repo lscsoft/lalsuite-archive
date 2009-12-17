@@ -77,8 +77,8 @@ def getQscanTable(opts,type):
 
   summary = readSummaryFiles()
 
-  if type == "FG": type_string = "foreground"
-  elif type == "BG": type_string = "background"
+  if "FG" in type: type_string = "foreground"
+  elif "BG" in type: type_string = "background"
 
   if eval("opts.qscan_cache_" + type_string):
     qscanList = getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
@@ -641,9 +641,9 @@ if opts.check_length:
 
 # Read the qscan summary files and hold the information in memory
 if opts.generate_qscan_xml:
-  backgroundTable = getQscanTable(opts,"BG")
+  backgroundTable = getQscanTable(opts,"WPIPELINE_BG")
   if not opts.process_background_only:
-    foregroundTable = getQscanTable(opts,"FG")
+    foregroundTable = getQscanTable(opts,"WPIPELINE_FG")
 
 
 # analyse candidate qscan (loop over all the channels which have triggered at the time of the candidate)
