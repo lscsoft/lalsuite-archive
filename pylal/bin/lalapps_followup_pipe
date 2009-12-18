@@ -92,7 +92,7 @@ def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
 	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
 	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 	content=list()
-	for ifo in tevent.ifos:
+	for ifo in tevent.ifos_list:
 		content.append(rowString%(dir, 
 					  ifo,
 					  float(time),  
@@ -482,7 +482,8 @@ LIMIT ?
 
 class time_only_event(object):
 	def __init__(self, ifostr, time):
-		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.ifos_list = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.ifos = ifostr
 		self.instruments = ifostr
 		self.time = float(time)
 
@@ -615,7 +616,7 @@ find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
 gpsevents = time_only_events(options.gps_times)
 
 for cnt, event in enumerate(gpsevents.events):
-	for ifo in event.ifos:
+	for ifo in event.ifos_list:
 		if options.verbose:
 			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
 		# h(t) QSCAN datafind Nodes
@@ -636,7 +637,7 @@ for cnt, event in enumerate(gpsevents.events):
 
 # LOOP FOR ANALYSEQSCAN JOBS (MUST BE CHILDREN OF ALL QSCAN JOBS)
 for cnt, event in enumerate(gpsevents.events):
-	for ifo in event.ifos:
+	for ifo in event.ifos_list:
 		stfu_pipe.analyseQscanNode(dag,ht_analyse_qscan_job,cp,options,event.time,ifo)
 		stfu_pipe.analyseQscanNode(dag,rds_analyse_qscan_job,cp,options,event.time,ifo)                        
 		stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,event.time,ifo)
