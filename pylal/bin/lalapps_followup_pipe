@@ -609,6 +609,8 @@ seis_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_SEIS_R
 ht_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_HT')
 rds_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_RDS')
 seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_SEIS_RDS')
+find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
+find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
 
 gpsevents = time_only_events(options.gps_times)
 
@@ -627,9 +629,9 @@ for cnt, event in enumerate(gpsevents.events):
 		# SEIS RDS QSCAN Nodes
 		seis_qscan_node = stfu_pipe.fuQscanNode(dag, seis_qscan_job, cp, options, event.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="seismic")
 
-		# FIXME ADD MORE JOBS
-
-		# write the event info to disk and cache for stfu_page
+	findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,event)
+	findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,event)
+	# write the event info to disk and cache for stfu_page
 	exportGPSEventToDisk(event, search, cnt, dag)
 
 # LOOP FOR ANALYSEQSCAN JOBS (MUST BE CHILDREN OF ALL QSCAN JOBS)
