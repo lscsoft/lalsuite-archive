@@ -694,6 +694,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
 		else:
 			backgroundCache = figure_out_cache(time)
+			cp.set('fu-analyse-qscan','background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
 		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
