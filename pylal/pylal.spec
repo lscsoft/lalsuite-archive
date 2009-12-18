@@ -42,8 +42,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %{python_sitearch}/pylal/
-# don't include bin/ until name space has been cleaned-up
-#%{_prefix}/bin/
+%{_prefix}/bin/
 %{_prefix}/etc/
 %{_prefix}/var/
 
