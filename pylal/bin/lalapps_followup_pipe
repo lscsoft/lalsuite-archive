@@ -92,7 +92,7 @@ def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
 	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
 	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 	content=list()
-	for ifo in tevent.ifos:
+	for ifo in tevent.ifos_list:
 		content.append(rowString%(dir, 
 					  ifo,
 					  float(time),  
@@ -482,7 +482,8 @@ LIMIT ?
 
 class time_only_event(object):
 	def __init__(self, ifostr, time):
-		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.ifos_list = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.ifos = ifostr
 		self.instruments = ifostr
 		self.time = float(time)
 
@@ -518,7 +519,7 @@ def parse_command_line():
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-n", "--number", default=10,help = "Number of triggers to follow up (default 10).")
-	parser.add_option("-f", "--config-file", default="stfu_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
+	parser.add_option("-f", "--config-file", default="followup_pipe.ini", help="the config file, default looks for stfu_pipe.ini in path, if none is found it makes one from your environment (only provide a config file if you know you must override something)")
 	parser.add_option("-g", "--gps-times", default='', help="Specify gps times to follow up independently of any triggers. Format --gps-times=ifos:time,ifos:time (e.g. --gps-times=H1L1:888888888.999,H2L1:787787787.987,H1H2L1:999999999.999). No segment validation is done. If there is no data for these times it will crash.")
 	parser.add_option("","--disable-dag-categories",action="store_true",\
 	default=False,help="disable the internal dag category maxjobs")
@@ -602,22 +603,44 @@ trigs = FUTriggers(num=options.number)
 
 search='gps_only'
 q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='qdatafind', dir=search)
-qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+q_rds_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='Q_RDS', dir=search)
+ht_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+rds_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_RDS')
+seis_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
+ht_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_HT')
+rds_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_RDS')
+seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_SEIS_RDS')
+find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
+find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
 
 gpsevents = time_only_events(options.gps_times)
 
 for cnt, event in enumerate(gpsevents.events):
-	for ifo in event.ifos:
+	for ifo in event.ifos_list:
 		if options.verbose:
 			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
 		# h(t) QSCAN datafind Nodes
 		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
+		# RDS QSCAN datafind Nodes
+		rds_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag,q_rds_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True, data_type="rds")
 		# h(t) QSCAN Nodes
-		ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
-		# FIXME ADD MORE JOBS
+		ht_qscan_node = stfu_pipe.fuQscanNode(dag, ht_qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+		# RDS QSCAN Nodes
+		rds_qscan_node = stfu_pipe.fuQscanNode(dag, rds_qscan_job, cp, options, event.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="rds")
+		# SEIS RDS QSCAN Nodes
+		seis_qscan_node = stfu_pipe.fuQscanNode(dag, seis_qscan_job, cp, options, event.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="seismic")
 
-		# write the event info to disk and cache for stfu_page
+	findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,event)
+	findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,event)
+	# write the event info to disk and cache for stfu_page
 	exportGPSEventToDisk(event, search, cnt, dag)
+
+# LOOP FOR ANALYSEQSCAN JOBS (MUST BE CHILDREN OF ALL QSCAN JOBS)
+for cnt, event in enumerate(gpsevents.events):
+	for ifo in event.ifos_list:
+		stfu_pipe.analyseQscanNode(dag,ht_analyse_qscan_job,cp,options,event.time,ifo)
+		stfu_pipe.analyseQscanNode(dag,rds_analyse_qscan_job,cp,options,event.time,ifo)                        
+		stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,event.time,ifo)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
