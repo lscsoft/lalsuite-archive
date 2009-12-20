@@ -10,6 +10,7 @@ typedef struct {
 
 	/* bin shift to apply, this is in units of 1/coherence_time - as opposed to power sums */
 	double bin_shift;
+	double diff_bin_shift; /* linear component, drift from one frequency bin to another */
 
 	/* fields below are filled in when locating segments */
 

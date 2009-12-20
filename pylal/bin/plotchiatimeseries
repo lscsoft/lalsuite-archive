@@ -138,19 +138,19 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
       distance = "%0.3f"%multiInspiralTable[maxIndex].distance
     else:
       distance =  "NA"
-    if not (float(multiInspiralTable[maxIndex].eff_dist_h1 ) == -1.0)
+    if not (float(multiInspiralTable[maxIndex].eff_dist_h1 ) == -1.0):
       eff_dist_h1 = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_h1
     else:
       eff_dist_h1 =  "NA"
-    if not (float(multiInspiralTable[maxIndex].eff_dist_h2 ) == -1.0)
+    if not (float(multiInspiralTable[maxIndex].eff_dist_h2 ) == -1.0):
       eff_dist_h2 = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_h2
     else:
       eff_dist_h2 =  "NA"
-    if not (float(multiInspiralTable[maxIndex].eff_dist_l ) == -1.0)
+    if not (float(multiInspiralTable[maxIndex].eff_dist_l ) == -1.0):
       eff_dist_l = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_l
     else:
       eff_dist_l =  "NA"
-    if not (float(multiInspiralTable[maxIndex].eff_dist_v ) == -1.0)
+    if not (float(multiInspiralTable[maxIndex].eff_dist_v ) == -1.0):
       eff_dist_v = "%0.3f"%multiInspiralTable[maxIndex].eff_dist_v
     else:
       eff_dist_v =  "NA"

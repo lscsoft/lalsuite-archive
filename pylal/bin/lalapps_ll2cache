@@ -36,12 +36,6 @@ import glob
 from optparse import OptionParser
 import os
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
-
 
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw

@@ -9,6 +9,7 @@ import ConfigParser
 import optparse
 import pickle
 import glob
+import commands
 from datetime import datetime
 
 import numpy as np
@@ -65,9 +66,16 @@ total_summary_prefix = """
 <h1>Summary of Gamma Ray Burst low-latency results during S6</h1>
 
 <span style="font-weight: bold;"><br><br>
-The following table contain a list of Gamma Ray Bursts occured during S6, with information about time, position on the sky, as well as duration and redshift (if available). This table has been automatically created by pylal_exttrig_llmonitor (in pylal_exttrig_llutils.py) to show a summary of the low-latency inspiral analysis of the GRBs during S6. A page describing this search can be found in the <a href="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/090706044855TriggeredSearchLow_Latency_Exttrig_Search#preview">wiki</a>.<br><br>
+The following table contain a list of Gamma Ray Bursts occured during S6, with information about time, position on the sky, as well as duration and redshift (if available). This table has been automatically created by pylal_exttrig_llmonitor (in pylal_exttrig_llutils.py) to show a summary of the low-latency inspiral analysis of the GRBs during S6. A page describing this search can be found in the <a href="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/090706044855TriggeredSearchLow_Latency_Exttrig_Search#preview">wiki</a>. The page containing Isabels list of GRB triggers can be found <a href="https://ldas-jobs.ligo.caltech.edu/~xpipeline/S6/grb/online/triggers/S6Agrbs_list.html">here</a> which might differ from this page. <br><br>
 
 The number in the IFO columns indicate the antenna factor for this GRB and this detector, if there is data available at this time (1 meaning optimal location, 0 meaning worst location). In addition, a <b>bold</b> number indicates that the current segment is long enough to contain the required number of off-source segments around the GRB, not required to be symmetrical.<br><br>
+
+Total number of GRB in this list: %d<br>
+Number of GRB with data: %d <br>
+Number of GRB without data: %d<br>
+Number of long GRB: %d (with data %d)<br>
+Number of short GRB: %d (with data %d)<br>
+
 Date of last creation: %s<br><br>
 
 </span><span style="font-weight: bold;">
@@ -249,17 +257,27 @@ def get_lockname():
 # --------------------------------------
 def check_lock():
   """
-  Checks if the lock file exists
+  Checks if another instance of this code is running.
+  See http://code.activestate.com/recipes/546512/
   """
-  return os.path.exists(get_lockname())
+  lockname = get_lockname()
+  if os.path.exists(lockname):
+    pid=open(lockname, 'r').read().strip()
+    pidRunning=commands.getoutput('ls /proc | grep %s' % pid)
+    if pidRunning:
+      return pid
+    else:
+      return None
+ 
+  return None
 
 # --------------------------------------
 def set_lock():
    """
-   Sets the lock file
+   Sets the lock file and writes the PID of this process
    """
    f = open(get_lockname(),'w')
-   f.write(get_time())
+   f.write(str(os.getpid()))
    f.close()
 
 # --------------------------------------
@@ -409,7 +427,6 @@ def update_durations(monitor_list):
 
   # Read the list of all processed GRBs
   for grb in monitor_list:
-    
     # update the duration information when available
     if grb.name in dict_duration:
       grb.duration = dict_duration[grb.name]
@@ -422,9 +439,8 @@ def obtain_results(grb):
   @param grb: the grb stucture with all the infos in it
   """
 
-  name = grb['name']
-  path_to_result = '%s/GRB%s/postprocessing/output/llsummary_GRB%s.pickle' %\
-     (grb['path'], name, name)
+  path_to_result = '%s/GRB%s/postprocessing/OPENBOX/llsummary_onoff_GRB%s.pickle' %\
+     (grb.analysis_dir, grb.name, grb.name)
   data = pickle.load(file(path_to_result))
 
   min_prob = 2.0
@@ -458,16 +474,48 @@ def generate_summary(publish_path, publish_url):
       table = add(table, '&mdash')
     return table
 
+  def create_col(l):
+    f = 1.0
+    if colsign==1:
+      f = 0.95
+    return  '%d, %d, %d'%(f*l[0], f*l[1], f*l[2])
+
+
+  colsign = -1
+  # define the colors to use  cyan, red, gray, dark-yellowish
+  coldict = {'analong':[153, 255, 255],'anashort':[255,200,200],'nolong':[100,150,150],'noshort':[130,130,70]}
 
   # Read the list of all processed GRBs
   monitor_list = read_monitor_list()
+
+  short_grb_duration = float(cp.get('data','max-duration'))
+
+  # get some statistics
+  number_short = number_long = number_data = number_nodata = number_long_data = number_short_data = 0
+  for grb in monitor_list:
+    if grb.has_data:
+      number_data +=1
+      if grb.duration and grb.duration<short_grb_duration:
+        number_short += 1
+        number_short_data +=1
+      else:
+        number_long +=1
+        number_long_data += 1
+    else:
+      number_nodata +=1
+      if grb.duration and grb.duration<short_grb_duration:
+        number_short += 1
+      else:
+        number_long +=1
+
 
   # Bring them in timely order
   time_unsort = [grb.time for grb in monitor_list]
   index = np.argsort(time_unsort)
   num_grb = len(time_unsort)
 
-  table = total_summary_prefix % get_time()
+  table = total_summary_prefix % ( len(monitor_list), number_data, number_nodata, number_long, \
+                                 number_long_data, number_short, number_short_data, get_time())
 
   # Loop over all GRBs in reverse order
   for number, i in enumerate(index[::-1]):
@@ -475,24 +523,29 @@ def generate_summary(publish_path, publish_url):
     grb = monitor_list[i]
 
     # make the table background coloring
-    if grb.duration and grb.duration<float(cp.get('data','max-duration')):
+    if grb.duration and grb.duration<short_grb_duration:
       if grb.has_data:
-        coldef = '255, 200, 200'
+        coldef = create_col(coldict['anashort'])
       else:
-        coldef = '180, 180, 180'
+        coldef = create_col(coldict['noshort'])
     else:
       if grb.has_data:
-        coldef = '153, 255, 255'
+        coldef = create_col(coldict['analong'])
       else:
-        coldef = '150, 150, 150'
+        coldef = create_col(coldict['nolong'])
 
+    colsign = -colsign
     table += '<tr style="background-color: rgb(%s);">' % coldef
-    
+   
+    # check if the GRB has some data at all 
     if grb.has_data:
       status_onoff = grb.dag['onoff'].get_status()
       status_inj = grb.dag['inj'].get_status()
     else:
       status_onoff = status_inj = 0
+    ifos = "".join(grb.ifolist)
+
+    # put the table together
     table = add(table, num_grb- number)
     table = add(table, '<a href="http://grblog.org/grblog.php?view=burst&GRB=%s">%s</a>'%(grb.name, grb.name)) 
     status_msg = grb.get_html_status()
@@ -534,8 +587,10 @@ def generate_summary(publish_path, publish_url):
           table = add(table, 'no cand.')
 
         # and link to the openbox details
-        htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s.html' % (grb.name, grb.name)
-        htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s_inj.html' % (grb.name, grb.name)
+        htmlfile = publish_url+'/GRB%s/OPENBOX/pylal_exttrig_llsummary_%s-OPENBOX.html' % \
+                    (grb.name, grb.name)
+        htmlfile_inj = publish_url+'/GRB%s/OPENBOX/%s-pylal_exttrig_llsummary_GRB%s_inj-%s.html' %\
+                    (grb.name, ifos, grb.name, grb.get_time_string())
         if status_inj==5:
           table = add(table, '<a href="%s">onoff</a> <a href="%s">lik</a> '%(htmlfile, htmlfile_inj))
         else:
@@ -702,6 +757,9 @@ class AnalysisDag(object):
          notify(grb, dag, 'DAG exited on error')
        elif fstat==-2:
          notify(grb, dag, 'DAG file vanished!?')
+    #£ change the status to NON-error if everything is ok
+    if fstat>=0 and self.status<0:
+      self.status = -self.status
 
     return fstat
 
@@ -766,6 +824,15 @@ class GRB(object):
   # -----------------------------------------------------
   def get_basic_dagname(self):
     return  self.analysis_dir+'/'+self.inifile[:-4]
+
+  # -----------------------------------------------------
+  def get_time_string(self):
+    """
+    Returns the standard suffix used for plots and html files
+    containing the GPS starttime and the length of the processed data.
+    """
+    timestring = str(self.starttime)+'-'+str(self.endtime-self.starttime)
+    return timestring
 
   # -----------------------------------------------------
   def make_links(self, sourcedir, destdir, list_exec):
@@ -970,19 +1037,10 @@ class GRB(object):
            (self.name, self.name, self.name, self.trigger_file, self.name, self.inifile, self.condor_log_path)
     system_call(self.name, cmd)
 
-    #
-    # similar call to set up the injection DAG
-    # 
-    #cmd = 'cd %s;' % self.analysis_dir
-    #cmd += template_trigger_hipe_inj % \
-    #       (self.name, self.name, self.name, self.trigger_file, self.name, self.inifile, self.injfile, self.condor_log_path)
-    #system_call(self.name, cmd)
-
-
-    # Need to unify the two cache files
-    #cmd = 'cd %s/GRB%s; cat GRB%s_inj.cache >> GRB%s.cache' % \
-    #  (self.analysis_dir, self.name, self.name, self.name)
-    #system_call(self.name, cmd)
+    # Need to rename the cache-file
+    cmd = 'cd %s/GRB%s; mv GRB%s_onoff.cache GRB%s.cache' % \
+          (self.analysis_dir, self.name, self.name, self.name)
+    system_call(self.name, cmd)
 
     # Call a subfunction to run the datafind command
     self.run_datafind()
@@ -993,17 +1051,6 @@ class GRB(object):
     system_call(self.name, 'mkdir -p %s/logs'%path)
     cmd = 'cp %s/post* %s' % (self.input_dir, path)
     system_call(self.name, cmd)
-
-    # doing the same for the 'likelihood' directory 
-    #path = "%s/GRB%s/likelihood" % (self.analysis_dir, self.name)
-    #system_call(self.name, 'mkdir -p %s/logs'%path)
-    #cmd = 'cp %s/lik* %s' % (self.input_dir, path)
-    #system_call(self.name, cmd)
-
-    # link the executables directory directly from pylal
-    #exec_path = path+'/executables'
-    #cmd = 'cd %s; ln -s %s/bin executables' % (path, self.pylal_dir)
-    #system_call(self.name, cmd)
 
     # update the two DAG instances
     self.dag['onoff'] = AnalysisDag(self.name, 'onoff', self.analysis_dir)
@@ -1020,6 +1067,7 @@ class GRB(object):
   # -----------------------------------------------------
   def prepare_injection_analysis(self):
 
+
     #
     # similar call to set up the injection DAG
     #
@@ -1031,7 +1079,7 @@ class GRB(object):
     # Need to unify the two cache files
     cmd = 'cd %s/GRB%s; cat GRB%s_inj.cache >> GRB%s.cache' % \
       (self.analysis_dir, self.name, self.name, self.name)
-    system_call(self.name, cmd)
+    system_call(self.name, cmd, False)
 
     # doing the same for the 'likelihood' directory
     path = "%s/GRB%s/likelihood" % (self.analysis_dir, self.name)
@@ -1130,15 +1178,48 @@ class GRB(object):
         system_call(self.name, cmd, False)
 
       # 'convert' the data from the xml format to a useable format...
-      # TODO: change the other places to accept the xml format
-      try:
-        doc = utils.load_filename(segxmlfile)
-      except:
-        raise IOError, "Error reading file ", segxmlfile
-      segs = table.get_table(doc, "segment")
-      seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
-      segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
-  
+      self.convert_segxml_to_segtxt(segxmlfile, segtxtfile)
+
+  # -----------------------------------------------------
+  def update_veto_lists(self, timeoffset):
+
+    definer_file = cp.get('paths','veto_definer')
+    starttime = self.time-timeoffset
+    endtime = self.time+timeoffset
+
+    cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          % (self.glue_dir, definer_file, starttime, endtime, self.analysis_dir)
+    system_call(self.name, cmd)
+
+    # Rename the veto files for easier handling
+    veto_files = glob.glob('%s/*VETOTIME_CAT2*xml'% self.analysis_dir)
+    for file in veto_files:
+      file_parts = file.split('-')
+      segtxtfile = file_parts[0]+'-'+file_parts[1]+'.txt'
+      self.convert_segxml_to_segtxt(file, segtxtfile)
+
+
+  # -----------------------------------------------------
+  def convert_segxml_to_segtxt(self, segxmlfile, segtxtfile):
+    """
+    Converts a segment xml file into a segment text file. 
+    FIXME: The other places should be fixed to accept segment xml files
+    """
+    # try to open the file
+    try:
+      doc = utils.load_filename(segxmlfile)
+    except:
+      raise IOError, "Error reading file %s" % segxmlfile
+
+    # extract the segment list
+    segs = table.get_table(doc, "segment")
+    seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
+
+    # and store it to a file
+    segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
+ 
+ 
   # -----------------------------------------------------
   def get_segment_info(self,plot_segments_file = None):
 
@@ -1229,7 +1310,7 @@ class GRB(object):
         if status==5:
           text = '<font color="#00aa00">%s</font>'%text
       else:
-        text = '<font color="#666666">NoData</font>'
+        text = 'NoData'
 
       # set the text
       status_dict[key]=text
@@ -1290,11 +1371,12 @@ class GRB(object):
     f.write("s/@RIGHTASCENSION@/%f/g\n"%float(self.ra))
     f.write("s/@DECLINATION@/%f/g\n"%float(self.de))
     f.write("s=@OUTPUTPATH@=html=g\n")
+    f.write("s=@OPENBOXPATH@=OPENBOX=g\n")
     f.write("s=@HTMLOUTPUT@=%s=g\n"%html_path)
     f.write("s/@LOGNAME@/%s/g\n" % os.getenv("LOGNAME"))
     f.write("s/@BOUNDARIESMC@/%s/g\n" % cp.get('data','mc_boundaries'))
     f.write("s/@GRBID@/%s/g\n"%self.name)
-    f.write("s/@GRBPICKLE@/%s/g\n"%get_monitor_filename())
-    f.write("s/@CONFIGFILE@/%s/g\n"%self.config_file)
+    f.write("s=@GRBPICKLE@=%s=g\n"%get_monitor_filename())
+    f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
     f.close()
 

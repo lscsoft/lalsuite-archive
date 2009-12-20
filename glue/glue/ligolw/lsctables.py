@@ -34,11 +34,7 @@ interested users.
 
 
 from xml import sax
-try:
-	set
-except NameError:
-	# Python < 2.4
-	from sets import Set as set
+
 try:
 	any
 	all
@@ -48,6 +44,7 @@ except NameError:
 
 
 from glue import git_version
+from glue import iterutils
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
@@ -877,6 +874,8 @@ class SnglBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"chisq": "real_8",
+		"chisq_dof": "real_8",
 		"tfvolume": "real_4",
 		"hrss": "real_4",
 		"time_lag": "real_4",
@@ -1019,6 +1018,7 @@ class MultiBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"false_alarm_rate": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1231,12 +1231,19 @@ class SnglInspiralTable(table.Table):
 	def get_lvS5stat(self):
 		return self.get_column('beta')
 
-	def ifocut(self,ifo):
-		ifoTrigs = table.new_from_template(self)
-		for row in self:
-			if row.ifo == ifo:
-				ifoTrigs.append(row)
-		return ifoTrigs
+	def ifocut(self, ifo, inplace=False):
+		"""
+		Return a SnglInspiralTable with rows from self having IFO equal
+		to the given ifo. If inplace, modify self directly, else create
+		a new table and fill it.
+		"""
+		if inplace:
+			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
+			return self
+		else:
+			ifoTrigs = table.new_from_template(self)
+			ifoTrigs.extend([row for row in self if row.ifo == ifo])
+			return ifoTrigs
 
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
@@ -1814,9 +1821,18 @@ class SimInspiralTable(table.Table):
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+
+	def set_time_geocent(self, gps):
+		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.longitude, self.latitude
+
 	def get_end(self, site = None):
 		if site is None:
-			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return self.get_time_geocent()
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
@@ -1875,6 +1891,9 @@ class SimBurst(object):
 
 	def set_time_geocent(self, gps):
 		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.ra, self.dec
 
 
 SimBurstTable.RowType = SimBurst
@@ -2377,26 +2396,6 @@ class TimeSlideTable(table.Table):
 	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
-	# FIXME:  this method is now only used by snglcoinc.py in pylal,
-	# and that use should be replaced with a call to this class'
-	# .as_dict() method.  A change request is pending for snglcoinc.py,
-	# so it's hard to make other modifications at the moment.  remember
-	# to take care of this later.
-	def get_offset_dict(self, id):
-		"""
-		Return a dictionary of instrument/offset pairs as described
-		by the rows having the given ID.
-		"""
-		d = {}
-		for row in self:
-			if row.time_slide_id == id:
-				if row.instrument in d:
-					raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
-				d[row.instrument] = row.offset
-		if not d:
-			raise KeyError, id
-		return d
-
 	def as_dict(self):
 		"""
 		Return a ditionary mapping time slide IDs to offset
@@ -2477,7 +2476,7 @@ class CoincDefTable(table.Table):
 		"cd_ssct_index": ("search", "search_coinc_type")
 	}
 
-	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = u""):
+	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = None):
 		"""
 		Return the coinc_def_id for the row in the table whose
 		search string and search_coinc_type integer have the values
@@ -2487,13 +2486,12 @@ class CoincDefTable(table.Table):
 		KeyError is raised when a matching row is not found.  The
 		optional description parameter can be used to set the
 		description string assigned to the new row if one is
-		created, otherwise the new row is left with an empty
-		description.
+		created, otherwise the new row is left with no description.
 		"""
 		# look for the ID
 		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
 		if len(rows) > 1:
-			raise ValueError, "search/search coinc type = %s/%d is not unique" % (search, search_coinc_type)
+			raise ValueError, "(search, search coincidence type) = (\"%s\", %d) is not unique" % (search, search_coinc_type)
 		if len(rows) > 0:
 			return rows[0].coinc_def_id
 

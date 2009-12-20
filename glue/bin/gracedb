@@ -97,6 +97,7 @@ typeCodeMap = {
         "X"        : "X",
         "CWB"      : "CWB",
         "MBTAOnline": "MBTA",
+        "Injection": "HWINJ",
 }
 validTypes = typeCodeMap.keys()
 
@@ -254,7 +255,7 @@ class Client:
                 return { 'error': 'Credentials not accepted' }
             return {'error': "while parsing:%s\nclient send exception: %s" % (rv, str(e))}
 
-    def upload(self, method, fields, files):
+    def upload(self, method, fields, files, alert=False):
         # Do an tiny GET request to get SSL primed.
         # Large initial SSL/POST requests will choke the server.
         r = self.send('ping', 'POST', ack='priming')
@@ -263,6 +264,7 @@ class Client:
         try:
             fields += [('cli', 'true')]
             fields += [('cli_version', "1")]
+            fields += [('alert', str(alert))]
             content_type, body = encode_multipart_formdata(fields, files)
             headers = {
                 'content-type': content_type,
@@ -305,6 +307,15 @@ def main():
          COMMENT  is text that will be entered into the event's log
    Enter a comment into the log for a candidate event
 
+%%prog [options] label GRACEID LABEL
+    Label event with GRACEDID with LABEL.  LABEL must already exist.
+
+%%prog [options] search SEARCH PARAMS
+    Search paramaters are a list of requirements to be satisfied.  They
+    may be GPS times, GPS time ranges, graceids and ranges, group(s),
+    analysis type(s), labels, etc.  Note that text is case insensitive
+    Example: %%prog search G0100..G0200 mbta LUMIN_GO
+
 Environment Variables (can all be overridden by options):
     GRACEDB_SERVICE_URL
     HTTP_PROXY              
@@ -323,6 +334,11 @@ Longer strings will be truncated.""" % {
                   help="GraCEDb Service URL", metavar="URL")
     op.add_option("-f", "--filename", dest="filename",
                   help="If data is read from stdin, use this as the filename.", metavar="NAME")
+
+    op.add_option("-a", "--alert", dest="alert",
+                  help="Send an LV alert (not meaningful for search, implied for create)",
+                  action="store_true", default=False
+                 )
 
     options, args = op.parse_args()
 
@@ -365,13 +381,27 @@ Longer strings will be truncated.""" % {
             files = [ ('upload', filename, sys.stdin.read()) ]
         else:
             files = [ ('upload', filename, open(filename,'r').read()) ]
-        response = client.upload('upload', fields, files)
+        response = client.upload('upload', fields, files, alert=options.alert)
     elif args[0] == 'log':
         if len(args) < 3:
             op.error("not enough arguments for log")
         graceid = args[1]
         message = " ".join(args[2:])
-        response = client.send('log', graceid=graceid, message=message)
+        response = client.send('log', graceid=graceid, message=message, alert=options.alert)
+    elif args[0] == 'tag':
+        if len(args) != 3:
+            op.error("wrong number of arguments for tag")
+        graceid = args[1]
+        tag = args[2]
+        response = client.send('tag', graceid=graceid, tag=tag)
+    elif args[0] == 'label':
+        if len(args) != 3:
+            op.error("wrong number of arguments for label")
+        graceid = args[1]
+        label = args[2]
+        response = client.send('label', graceid=graceid, label=label, alert=options.alert)
+    elif args[0] == 'search':
+        response = client.send('search', query=" ".join(args[1:]))
     elif len(args) == 3:
         group = args[0]
         type = args[1]

@@ -46,6 +46,9 @@ CREATE TABLE multi_burst
       snr                REAL,
 -- Confidence variable
       confidence         REAL,
+-- False alarm rate calculated from time slides and background
+-- live time
+      false_alarm_rate   REAL,
 
 -- Direction of Hanford-to-Livingston ray at time of event
 -- (i.e. the central axis of the cone on which the source lies)

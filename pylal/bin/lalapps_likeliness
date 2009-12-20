@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2008  Drew G. Keppel
+# Copyright (C) 2008  Drew Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -98,7 +98,9 @@ class Summaries(object):
 		self.dbls = set()
 		self.likelihoods = {}
 		self.sngl_slices = [('snr', 'chisq'), ('snr', 'mtotal'), ('chisq', 'mtotal')]
-		self.slices_bins = {}
+		self.sngl_bins = {}
+		self.sngl_1D_bins = {}
+		self.sngl_1D_count = {}
 		sngls_set = set()
 		for col1,col2 in self.sngl_slices:
 			sngls_set.add(col1)
@@ -107,8 +109,8 @@ class Summaries(object):
 		for id,key in enumerate(list(sngls_set) + ['ifo', 'weight', 'coinc_event_id', 'filename']):
 			self.idx_sngls[key] = id
 		self.minmax = {}
-		self.minmax['snr'] = (1e1, 1e3)
-		self.minmax['chisq'] = (1, 1e5)
+		self.minmax['snr'] = (1, 1e4)
+		self.minmax['chisq'] = (1, 1e8)
 		self.minmax['mtotal'] = (25, 1e2)
 
 	def calc_delta_t_inj(self, trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
@@ -142,23 +144,23 @@ class Summaries(object):
 
 	def setup_binned_ratios(self):
 		for ifo in self.ifos:
-			self.slices_bins[ifo] = {}
+			self.sngl_bins[ifo] = {}
 			for key in self.sngl_slices:
 				if key in [('snr', 'chisq')]:
-					self.slices_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanLogarithmicBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
+					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanLogarithmicBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
 				elif key in [('snr', 'mtotal'), ('chisq', 'mtotal')]:
-					self.slices_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
+					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
 				else:
 					print >>sys.stderr,"ERROR: binning not implemented for ",key
 					sys.exit(1)
 
 	def add_bkg_sngl(self, values):
 		for key in self.sngl_slices:
-			self.slices_bins[values[self.idx_sngls['ifo']]][key].incdenominator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
+			self.sngl_bins[values[self.idx_sngls['ifo']]][key].incdenominator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
 
 	def add_inj_sngl(self, values):
 		for key in self.sngl_slices:
-			self.slices_bins[values[self.idx_sngls['ifo']]][key].incnumerator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
+			self.sngl_bins[values[self.idx_sngls['ifo']]][key].incnumerator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
 
 	def add_bkg_dbl(self, filename, ifos, values):
 		self.dbls.add(frozenset(ifos))
@@ -169,11 +171,8 @@ class Summaries(object):
 		self.inj_dbls.setdefault(frozenset(ifos), []).append(tuple([filename] + list(values)))
 
 	def filter_binned_ratios(self):
-		xmldoc = lsctables.ligolw.Document()
-		xmldoc.appendChild(lsctables.ligolw.LIGO_LW())
-		# FIXME should be key2[1] vs key2[0]
-		for key1 in self.slices_bins.keys():
-			for key2 in self.slices_bins[key1].keys():
+		for key1 in self.sngl_bins.keys():
+			for key2 in self.sngl_bins[key1].keys():
 				tablename = "".join(key1)+"_"
 				if len(key2[0]) > 1 or len(key2[1]) > 1:
 					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
@@ -181,18 +180,50 @@ class Summaries(object):
 					tablename += "_vs_".join(key2[::-1])
 				if options.verbose:
 					print >>sys.stderr, "\tsmoothing %s ..." % tablename
-				rate.filter_binned_ratios(self.slices_bins[key1][key2], rate.gaussian_window2d(self.slices_bins[key1][key2].numerator.bins.shape[0]/30, self.slices_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
-				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.slices_bins[key1][key2], tablename))
+				rate.filter_binned_ratios(self.sngl_bins[key1][key2], rate.gaussian_window2d(self.sngl_bins[key1][key2].numerator.bins.shape[0]/30, self.sngl_bins[key1][key2].numerator.bins.shape[1]/30, sigma=60))
+				self.sngl_bins[key1][key2].to_pdf()
 
+	def output_bins(self):
+		xmldoc = lsctables.ligolw.Document()
+		xmldoc.appendChild(lsctables.ligolw.LIGO_LW())
+		# FIXME should be key2[1] vs key2[0]
+		for key1 in self.sngl_bins.keys():
+			for key2 in self.sngl_bins[key1].keys():
+				tablename = "".join(key1)+"_"
+				if len(key2[0]) > 1 or len(key2[1]) > 1:
+					tablename += "".join(key2[1]) + "_vs_" + "".join(key2[0])
+				else:
+					tablename += "_vs_".join(key2[::-1])
+				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_bins[key1][key2], tablename))
+		for key1 in self.sngl_1D_bins.keys():
+			for key2 in self.sngl_1D_bins[key1].keys():
+				tablename = "".join(key1)+"_"+"".join(key2)
+				xmldoc.childNodes[-1].appendChild(rate.binned_ratios_to_xml(self.sngl_1D_bins[key1][key2], tablename))
 		if options.output_dir:
 			utils.write_filename(xmldoc, options.output_dir + "/likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
 		else:
 			utils.write_filename(xmldoc, "likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
-		sys.exit(0)
+
+	def create_1D_slices(self):
+		for ifo in self.sngl_bins.keys():
+			self.sngl_1D_bins[ifo] = {}
+			self.sngl_1D_count[ifo] = {}
+			for key in self.sngl_bins[ifo].keys():
+				for dim,subkey in enumerate(key):
+					if subkey not in self.sngl_1D_bins[ifo].keys():
+						self.sngl_1D_bins[ifo][subkey] = rate.marginalize_ratios(self.sngl_bins[ifo][key], (dim+1)%2)
+						self.sngl_1D_count[ifo][subkey] = 0
+					else:
+						self.sngl_1D_count[ifo][subkey] += 1
 
 	def compute_sngl_likelihood(self, values):
+		likelihood_2D = 1.
+		likelihood_1D = 1.
 		for key in self.sngl_slices:
-			self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= self.slices_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])]
+			likelihood_2D *= self.sngl_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key[0]]],values[self.idx_sngls[key[1]]])]
+		for key in self.sngl_1D_bins[values[self.idx_sngls['ifo']]].keys():
+			likelihood_1D *= (self.sngl_1D_bins[values[self.idx_sngls['ifo']]][key][(values[self.idx_sngls[key]],)])**self.sngl_1D_count[values[self.idx_sngls['ifo']]][key]
+		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= likelihood_2D / likelihood_1D
 
 	def likelihood_map(self, filename, coinc_event_id):
 		return self.likelihoods[(filename, coinc_event_id)]
@@ -236,7 +267,7 @@ FROM
 	JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
 	JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
 	JOIN coinc_event_map AS mapB ON (mapB.event_id == coinc_inspiral.coinc_event_id)
-	JOIN coinc_event_map AS mapC ON (mapC.coinc_event_id == mapC.coinc_event_id)
+	JOIN coinc_event_map AS mapC ON (mapC.coinc_event_id == mapB.coinc_event_id)
 	JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapC.event_id)
 	JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapC.coinc_event_id)
 	JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
@@ -564,6 +595,14 @@ for n, filename in enumerate(filenames):
 if options.verbose:
 	print >>sys.stderr, "smoothing binned ratios ..."
 likelihood_bins.filter_binned_ratios()
+if options.verbose:
+	print >>sys.stderr, "creating 1D binned ratios ..."
+likelihood_bins.create_1D_slices()
+if options.verbose:
+	print >>sys.stderr, "writing out binned ratios ..."
+likelihood_bins.output_bins()
+
+sys.exit(0)
 
 if options.verbose:
 	print >>sys.stderr, "computing likelihoods ..."
