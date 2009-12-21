@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009  Larne Pekowsky, Ping Wei
+# Copyright (C) 2009  Tomoki Isogai
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -66,6 +66,8 @@ def parse_commandline():
                       help="Insert segs into a database. (Default: False)")
     parser.add_option("-s", "--server", default="segdb.ligo.caltech.edu:30020",
                       help="")
+    parser.add_option("-t", "--trigger_type", 
+                      help="trigger type (KW or IHOPE) used.")
     parser.add_option("-w", "--web_address",
                       help="Web address to find the summary report. Required.")
     parser.add_option("-u", "--unsafe_channels",action="append",default=[],
@@ -88,7 +90,9 @@ def parse_commandline():
     if opts.out_dir != None and not os.path.exists(opts.out_dir): 
       os.makedirs(opts.out_dir)
     opts.unsafe_channels = map(lambda x:x.upper(),opts.unsafe_channels)
-
+    # check if trigger type is valid
+    if opts.trigger_type not in ("KW","MBTA","IHOPE"):
+      parser.error("Error: --trigger_type must be KW, MBTA or IHOPE")
     # convert channel names to "standard way" if not already
     opts.unsafe_channels = map(lambda x:x.upper().replace("-","_"),opts.unsafe_channels)
         
@@ -121,7 +125,7 @@ opts = parse_commandline()
 files_list = KW_veto_utils.get_result_files(opts.result_dir,opts.verbose)
     
 unsafe_channels = "|".join(opts.unsafe_channels)
-unsafe = re.compile(unsafe_channels)
+unsafe = re.compile(unsafe_channels,re.I) # re.I so that it's case insensitive
 
 ## figure out which channel gets over a critical used percentage
 channel_info={}
@@ -135,7 +139,6 @@ try:
       cursor, connection, working_filename, params = \
            KW_veto_utils.load_db(chan_file, opts.scratch_dir, opts.verbose)
   
-  
       if params['safety'] != "Unsafe" and not unsafe.search(params['channel']):
         candidateData = KW_veto_utils.get_candidate(cursor,params["critical_usedPer"])
         # candidateData != None means this channel is candidate
@@ -143,7 +146,7 @@ try:
         # the threshold used for veto
         if candidateData != None and candidateData[2] >= opts.min_coinc_num:
           # get segments in the database to see what the code needs to do
-          name = "UPV-KW_%s_%s"%(params['channel'],candidateData[0])
+          name = "UPV-%s_%s_%s"%(opts.trigger_type,params['channel'],candidateData[0])
           name = name.replace(".","P").upper()
           flag = "%s:%s"%(params['ifo'],name)
 
@@ -199,7 +202,7 @@ try:
   
           duration = params['end_time'] - params['start_time'] 
   
-          cmd = 'ligolw_segment_insert --server %s --ifos %s --name "%s" --version %d --explain "%s" --comment "%s" --summary-file %s --segment-file %s %s'%(opts.server,params['ifo'],name,version,explain,comment,summary_seg,seg_file,operation)
+          cmd = 'ligolw_segment_insert --segment-url %s --ifos %s --name "%s" --version %d --explain "%s" --comment "%s" --summary-file %s --segment-file %s %s'%(opts.server,params['ifo'],name,version,explain,comment,summary_seg,seg_file,operation)
           print >> sys.stderr, "%s:%d"%(name,version)
           if opts.out_dir != None:
             outfile = "%s-%s-%s.xml"%(name,params['start_time'],duration)
@@ -254,6 +257,70 @@ finally:
     if opts.verbose:
       print >> sys.stderr, "removing tmp summary file %s..."%summary_seg
     os.remove(summary_seg)
+
+# create a veto definer file
+
+# preamble
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import utils
+from glue.ligolw import lsctables
+from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import process
+
+# prepare xml file
+doc = ligolw.Document()
+doc.appendChild(ligolw.LIGO_LW())
+process_id = process.append_process(doc).process_id
+veto_definer_table = lsctables.New(lsctables.VetoDefTable, columns = ["process_id","ifo","name","version","category","start_time","end_time","start_pad","end_pad","comment"])
+doc.childNodes[0].appendChild(veto_definer_table)
+
+def ContentHandler(xmldoc):
+    return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
+               (name == ligolw.Table.tagName) and\
+               (table.StripTableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
+
+utils.ContentHandler = ContentHandler
+
+# read the inserted segment files
+inserted_files = os.listdir(opts.out_dir)
+for f in inserted_files:
+  if not f.endswith("veto_definer_file.xml"):
+    f = os.path.join(opts.out_dir,f)
+    # gather info from segment_definer and segment_summary table
+    xmldoc = utils.load_url(f, verbose=opts.verbose, gz=f.endswith(".gz"))
+    for n, table_elem in enumerate(xmldoc.getElements(lambda e:\
+                                  (e.tagName == ligolw.Table.tagName))):
+      if n == 0: # segment_definer table
+        for row in table_elem:
+          ifo = row.ifos
+          name = row.name
+          version = row.version
+          comment = row.comment
+      if n == 1: # segment_summary table
+        for row in table_elem:
+          start_time = row.start_time
+          end_time = row.end_time
+      category = 3
+      start_pad = 0
+      end_pad = 0
+
+    # append the info in veto_definer
+    veto_definer = lsctables.VetoDef()
+    veto_definer.process_id = process_id
+    veto_definer.ifo = ifo
+    veto_definer.name = name
+    veto_definer.version = version
+    veto_definer.start_time = start_time
+    veto_definer.end_time = end_time
+    veto_definer.comment = comment
+    veto_definer.category = category
+    veto_definer.start_pad = start_pad
+    veto_definer.end_pad = end_pad
+    veto_definer_table.append(veto_definer)
+
+# write to veto definer file
+utils.write_filename(doc,os.path.join(opts.out_dir,"veto_definer_file.xml"))
 
 if opts.verbose: print >> sys.stderr, "KW_veto_insert done!"
 

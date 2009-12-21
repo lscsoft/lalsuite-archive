@@ -39,6 +39,7 @@ def parse_commandline():
     Parse the options given on the command-line.
     """
     parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
+
     parser.add_option("-i", "--ini_file", help="file which contains parameters")
     parser.add_option("-s", "--write_script",action="store_true", default=False,
                       help="create a script in addition to dag file")
@@ -200,9 +201,9 @@ class insertJob(pipeline.CondorDAGJob):
     self.add_opt("web_address",cp.get("veto","web_address"))
     for u in unsafe_list:
       self.add_arg("--unsafe_channels %s"%u)
-    self.add_opt("min_coinc_num",cp.get("veto","min_coinc_num"))
+    self.add_opt("min_coinc_num",cp.get("data_conditioning","min_kw"))
     self.add_opt("scratch_dir",cp.get("condor","scratchdir"))
-    self.add_arg("--verbose")
+    self.add_opt("trigger_type",cp.get("veto","trigger_type"))
       
       
 class followupJob(pipeline.CondorDAGJob):
@@ -558,7 +559,8 @@ def dag_maker():
         if cp.getboolean("plot","plot"):
           ch.add_parent(pl)
         dag.add_node(ch)
-                
+
+    filePrefix = "-".join([cp.get("general","tag"),ifo,str(start_time),str(duration)])                    
     # add reportPage node
     if cp.getboolean("webpage","webpage"):
         dagNodeName = "reportPage"
@@ -637,7 +639,7 @@ for f in ("vstyle.css","S6_channel_list.txt", "S5_LIGO_channel_list.txt", "E14_c
   if not os.path.isfile("inputfiles/%s"%f):
     inputfile = "https://virgo.physics.carleton.edu/public/UPV_inputfiles/%s"%f
     outfile = os.path.join("inputfiles",f)
-    exit = os.system("wget -O %s %s"%(outfile,inputfile))
+    exit = os.system("wget -O %s %s --no-check-certificate"%(outfile,inputfile))
     if exit > 0:
       print >> sys.stderr, "Error: could not download %s. Please check the address."%cp.get("input","veto_definer_file")
       sys.exit(1)
@@ -854,8 +856,8 @@ if any(cats.values()) == True:
 
   # check the server
   if cp.get("input","server") == "":
-    cp.set("input","server","ldbd://segdb.ligo.caltech.edu")
-  if cp.get("input","server").startswith("ldbd://"):
+    cp.set("input","server","https://segdb.ligo.caltech.edu")
+  if cp.get("input","server").startswith("https://"):
     cmd_ping = "ligolw_segment_query --ping --segment-url %s"%cp.get("input","server")
     if os.system(cmd_ping) > 0:
       print >> sys.stderr, "Error: problem with segment server. Please check %s works."%cmd_ping
@@ -933,15 +935,9 @@ if cp.getboolean("veto","xml") or cp.getboolean("veto","insert"):
 
   unsafe_list = [f.strip().upper() for f in cp.get("veto","unsafe_channels").split(",")]
   
-  if cp.get("veto","min_coinc_num") == 0:
-    cp.set("veto","min_coinc_num", 5)
-
-  for o in ("min_coinc_num",):
-    try:
-      cp.getint("veto",o)
-    except:
-      raise("Error: %s must be a number"%o)
-
+  if cp.get("veto","trigger_type") not in ("KW", "IHOPE", "MBTA"):
+    print >> sys.stderr, "Error: trigger_type must be KW, IHOPE or MBTA"
+    sys.exit(1)
 
 ############################ [follow_up] section ###########################
 
@@ -966,9 +962,9 @@ if cp.getboolean("follow_up","follow_up"):
 
   if cp.getboolean("follow_up","dq_flag"):
     if cp.get("follow_up","server") == "":
-      cp.set("follow_up","server","ldbd://segdb.ligo.caltech.edu")
+      cp.set("follow_up","server","https://segdb.ligo.caltech.edu")
     cmd_ping = "ligolw_dq_query --ping --segment-url %s"%cp.get("follow_up","server")
-    if cp.get("follow_up","server").startswith("ldbd://") and os.system(cmd_ping) > 0:
+    if cp.get("follow_up","server").startswith("https://") and os.system(cmd_ping) > 0:
       print >> sys.stderr, "Error: problem with segment server. Please check %s works."%cmd_ping
       sys.exit(1)
 

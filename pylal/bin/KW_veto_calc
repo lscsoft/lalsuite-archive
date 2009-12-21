@@ -222,17 +222,18 @@ def find_coincidence(master_cur, KWcur, GWcur):
       """
       def __init__(self, trig):
         """
-        trig is assumed to be a tuple (GPSTime, KWSignificance) from fetchone()
+        trig is assumed to be a tuple (GPSTime, KWSignificance, frequency) from fetchone()
         """
         self.GPSTime = trig[0]
         self.KWSignificance = trig[1]
+        self.frequency = trig[2]
         self.IDs = []
 
       def add_ID(self, ID):
          self.IDs.append(ID)
    
     ## initialize tables to put data in
-    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, CoincidenceGWTrigID text)")
+    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, frequency int, CoincidenceGWTrigID text)")
     master_cur.execute("create table GWtrigs (ID integer primary key, GPSTime double, SNR double, coincidence int)")
 
     ## get KW triggers
@@ -281,7 +282,7 @@ def find_coincidence(master_cur, KWcur, GWcur):
           # Case 3: No coincidence and  KW < GW in GPS time
           t = KWlist.pop(0)
           # add GW trig in the table
-          master_cur.execute("insert into KWtrigs (GPSTime, KWSignificance, CoincidenceGWTrigID) values (?,?,?)",(t.GPSTime, t.KWSignificance, CoincidenceGWTrigID(t.IDs)))
+          master_cur.execute("insert into KWtrigs (GPSTime, KWSignificance, frequency, CoincidenceGWTrigID) values (?,?,?,?)",(t.GPSTime, t.KWSignificance, t.frequency, CoincidenceGWTrigID(t.IDs)))
           KWlist = get_next(0, KWlist, KWtrigs)
 
       ######################### end of while loop #############################
@@ -291,7 +292,7 @@ def find_coincidence(master_cur, KWcur, GWcur):
 
     ## End Case:  Dump the rest of KW triggers when GW triggers finish first
     for KW in KWlist + map(lambda x: KWtrig(x), KWtrigs.fetchall()):
-      master_cur.execute("insert into KWtrigs (GPSTime, KWSignificance, CoincidenceGWTrigID) values (?,?,?)", (KW.GPSTime, KW.KWSignificance, CoincidenceGWTrigID(KW.IDs)))
+      master_cur.execute("insert into KWtrigs (GPSTime, KWSignificance, frequency, CoincidenceGWTrigID) values (?,?,?,?)", (KW.GPSTime, KW.KWSignificance, KW.frequency, CoincidenceGWTrigID(KW.IDs)))
     
     return master_cur
 
@@ -396,8 +397,9 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
       cur.execute("insert into injections (GPSTime, vetoed) values (?,?)", (i,"Vetoed"))
     else:
       cur.execute("insert into injections (GPSTime, vetoed) values (?,?)", (i,"Not Vetoed"))
-    
-  Nexp = len(injection_times) * abs(veto_segments) / totalTime
+  
+  totalInjNum = len(injection_times)  
+  Nexp = totalInjNum * abs(veto_segments) / totalTime
  
   import scipy.stats
   prob = 1 - scipy.stats.poisson.cdf(Nvetoed - 1, Nexp)
@@ -406,7 +408,7 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
   else:
     safety = "Unsafe"
 
-  return cur, Nvetoed, "%.2f"%Nexp, "%.2e"%prob, safety
+  return cur, Nvetoed, "%.2f"%Nexp, "%.2e"%prob, safety, totalInjNum
 
 #==============================================================================
 #
@@ -523,7 +525,7 @@ try: # include in finally cause so that we can erase tmp files in any case
       if opts.verbose:
         print >> sys.stderr, "checking safety with HW injections..."
       if opts.injection_file != None:
-        cursor, Nvetoed, Nexp, probability, safety = \
+        cursor, Nvetoed, Nexp, probability, safety, totalInjNum = \
                          injection_check(cursor, opts.injection_file,\
                          veto_segments, abs(analyzed_segs))
   
@@ -533,6 +535,7 @@ try: # include in finally cause so that we can erase tmp files in any case
     Nexp = "n/a"
     probability = "n/a"
     safety = "n/a"
+    totalInjNum = "n/a"
 
   ############################################################################
   # 5. save the result
@@ -554,6 +557,7 @@ try: # include in finally cause so that we can erase tmp files in any case
   params.append(("HWInjNexp",Nexp))
   params.append(("HWInjProbability",probability))
   params.append(("safety",safety))
+  params.append(("totalInjNum",totalInjNum))
   cursor.execute("create table params (var_name txt, value)")
   cursor.executemany("insert into params values (?,?)", params)
   connection.commit()
