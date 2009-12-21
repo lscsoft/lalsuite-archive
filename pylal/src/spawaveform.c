@@ -220,32 +220,32 @@ static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 
 
 static struct PyMethodDef methods[] = {
-	{"waveform", PySPAWaveform, METH_VARARGS, 
-         "This function produces a frequency domain waveform at a "
-         "specified mass1, mass2 and PN order.\n\n"
-         "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
-        },
+	{"waveform", PySPAWaveform, METH_VARARGS, 	
+	 "This function produces a frequency domain waveform at a "
+	 "specified mass1, mass2 and PN order.\n\n"
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
+	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS, 
-         "This function produces a frequency domain IMR waveform at a "
-         "specified mass1, mass2, spin1, spin2 with spins aligned\n\n"
-         "imrwaveform(m1, m2, spin1, spin2, deltaF, fLower, signalArray)\n\n"
-        },
+	 "This function produces a frequency domain IMR waveform at a "
+	 "specified mass1, mass2, spin1, spin2 with spins aligned\n\n"
+	 "imrwaveform(m1, m2, spin1, spin2, deltaF, fLower, signalArray)\n\n"
+	},
 	{"chirptime", PyChirpTime, METH_VARARGS, 
-         "This function calculates the SPA chirptime at a specified mass1, mass2 " 
+	 "This function calculates the SPA chirptime at a specified mass1, mass2 " 
 	 "and PN order between two frequencies.  If the second frequency is omitted "
 	 "it is assumed to be infinite.\n\n"
-         "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
-        },
+	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
+	},
 	{"ffinal", PyFFinal, METH_VARARGS, 
-         "This function calculates the ending frequency specified by " 
+	 "This function calculates the ending frequency specified by "
 	 "mass1 and mass2.\n\n"  
-         "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
-        },
+	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
+	},
 	{"svd", PySVD, METH_VARARGS, 
-         "This function calculates the singular value decomposition via the gsl function\n"
+	 "This function calculates the singular value decomposition via the gsl function\n"
 	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
 	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n" 
-         "USAGE:\n\tsvd(A,V,S)\n\n"
+	 "USAGE:\n\tsvd(A,V,S)\n\n"
 	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
 	 "is an MxM numpy array (it must be transposed before use)\n\n"
 	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
@@ -258,7 +258,7 @@ static struct PyMethodDef methods[] = {
 	 "\tB = A * S\n"
 	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
 	 "\tprint Aprime\n\n"
-        },
+	},
 	{NULL, NULL, 0, NULL}	
 	};
 
