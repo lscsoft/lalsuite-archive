@@ -153,7 +153,6 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 static PyObject *PySVD(PyObject *self, PyObject *args)
 	{
 	PyObject *a, *v, *s, *A, *V, *S;
-	//gsl_matrix *gUmat;
 	gsl_vector *gW;
 	gsl_matrix_view gU, gV;
 	gsl_vector_view gS;
@@ -163,7 +162,6 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 	double *cA = NULL;
 	double *cV = NULL;
 	double *cS = NULL;
-	//double *cU = NULL;
 	if(!PyArg_ParseTuple(args, "OOO", &a, &v, &s)) return NULL;
 	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
 	Adims = PyArray_DIMS(A);
@@ -193,19 +191,6 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 
 	gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
 
-	/* set the output to the correct data structure */
-	//gUmat = &(gU.matrix);
-	//U = PyArray_SimpleNewFromData(2, Adims, NPY_DOUBLE, cA);
-	//cU = PyArray_DATA(U);
-	//{
-	//	int i;
-	//	
-	//	for(i=0; i < 6; i++)
-	//		fprintf(stderr, "%f\n", cU[i]);
-	//}
-	//gsl_matrix_fprintf(stderr, (const gsl_matrix *) gUmat, "%f");
-
-	/* FIXME, I think I am supposed to call this, but it results in a zero U */
 	Py_DECREF(A); 
 	Py_DECREF(V);
 	Py_DECREF(S);
@@ -213,7 +198,7 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 
 	/* free the workspace matrix */
 	gsl_vector_free(gW);
-	return Py_None;//U;
+	return Py_None;
 	}
 
 static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
@@ -252,25 +237,27 @@ static struct PyMethodDef methods[] = {
          "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
         },
 	{"ffinal", PyFFinal, METH_VARARGS, 
-         "This function calculates the Schwarzschild ISCO frequency specified by " 
+         "This function calculates the ending frequency specified by " 
 	 "mass1 and mass2.\n\n"  
-         "schwarzisco(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
+         "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
         },
 	{"svd", PySVD, METH_VARARGS, 
-         "This function calculates the singular value decomposition\n\n" 
-         "svd(A,V,S)\n\n"
+         "This function calculates the singular value decomposition via the gsl function\n"
+	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
+	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n" 
+         "USAGE:\n\tsvd(A,V,S)\n\n"
 	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
 	 "is an MxM numpy array (it must be transposed before use)\n\n"
-	 "from pylal import spawaveform\n"
-	 "import numpy\n"
-	 "A = numpy.random.randn(4,3)\n"
-	 "print A\n"
-	 "S = numpy.zeros((A.shape[1],))\n"
-	 "V = numpy.zeros((A.shape[1],A.shape[1]))\n"
-	 "spawaveform.svd(A,V,S)\n"
-	 "B = A * S\n"
-	 "Aprime = numpy.dot(B,numpy.transpose(V))\n"
-	 "print Aprime\n\n"
+	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
+	 "\timport numpy\n"
+	 "\tA = numpy.random.randn(4,3)\n"
+	 "\tprint A\n"
+	 "\tS = numpy.zeros((A.shape[1],))\n"
+	 "\tV = numpy.zeros((A.shape[1],A.shape[1]))\n"
+	 "\tspawaveform.svd(A,V,S)\n"
+	 "\tB = A * S\n"
+	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
+	 "\tprint Aprime\n\n"
         },
 	{NULL, NULL, 0, NULL}	
 	};
