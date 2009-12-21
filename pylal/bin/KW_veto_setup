@@ -851,7 +851,7 @@ if any(cats.values()) == True:
     if opts.verbose:
       print "veto cat files retrieved."
   else:
-    if not os.path.isfile(os.get("input","veto_definer_file")):
+    if not os.path.isfile(cp.get("input","veto_definer_file")):
       print >> sys.stderr, "Error: veto_definer_file %s not found"%cp.get("input","veto_definer_file")
 
   # check the server
