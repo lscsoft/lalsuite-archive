@@ -152,28 +152,32 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 
 static PyObject *PySVD(PyObject *self, PyObject *args)
 	{
-	PyObject *a, *v, *s, *A, *V, *S;
+	PyObject *a, *A, *V, *S, *out;
 	gsl_vector *gW;
 	gsl_matrix_view gU, gV;
 	gsl_vector_view gS;
 	npy_intp *Adims = NULL;
-	npy_intp *Vdims = NULL;
-	npy_intp *Sdims = NULL;
+	npy_intp Vdims[] = {0.0, 0.0};
+	npy_intp Sdims[] = {0.0};
 	double *cA = NULL;
 	double *cV = NULL;
 	double *cS = NULL;
-	if(!PyArg_ParseTuple(args, "OOO", &a, &v, &s)) return NULL;
+	if(!PyArg_ParseTuple(args, "O", &a)) return NULL;
+
+	/* The input matrix */
 	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
 	Adims = PyArray_DIMS(A);
 	cA = PyArray_DATA(A);
 
-	V = PyArray_FROM_OTF(v, NPY_DOUBLE, NPY_IN_ARRAY);
-	Vdims = PyArray_DIMS(V);
+	/* allocate new ouput matrices */
+	Vdims[0] = Vdims[1] = Adims[1];
+	V = PyArray_SimpleNew(2, Vdims, NPY_DOUBLE);
 	cV = PyArray_DATA(V);
 
-	S = PyArray_FROM_OTF(s, NPY_DOUBLE, NPY_IN_ARRAY);
-	Sdims = PyArray_DIMS(S);
+	Sdims[0] = Adims[1];
+	S = PyArray_SimpleNew(1, Sdims, NPY_DOUBLE);
 	cS = PyArray_DATA(S);
+
 
 	/* Allocate workspace gsl matrix */
 	/* FIXME no error checking done on size of A */
@@ -191,14 +195,19 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 
 	gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
 
-	Py_DECREF(A); 
-	Py_DECREF(V);
-	Py_DECREF(S);
-        Py_INCREF(Py_None);
+	/* take the transpose to be consistent with scipys svd */
+	gsl_matrix_transpose(&(gV.matrix));
+
+	out = Py_BuildValue("OOO", A, S, V);
+	/* FIXME HELP I don't know what to do about references... */
+	//Py_DECREF(A); 
+	//Py_DECREF(V);
+	//Py_DECREF(S);
+        //Py_INCREF(Py_None);
 
 	/* free the workspace matrix */
 	gsl_vector_free(gW);
-	return Py_None;
+	return out;
 	}
 
 static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
@@ -245,17 +254,15 @@ static struct PyMethodDef methods[] = {
 	 "This function calculates the singular value decomposition via the gsl function\n"
 	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
 	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n" 
-	 "USAGE:\n\tsvd(A,V,S)\n\n"
+	 "USAGE:\n\tU, S, V = svd(A)\n\n"
 	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
-	 "is an MxM numpy array (it must be transposed before use)\n\n"
+	 "is an MxM numpy array (NOTE A IS REPLACED BY U AND IS THUS GONE)\n\n"
 	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
 	 "\timport numpy\n"
 	 "\tA = numpy.random.randn(4,3)\n"
 	 "\tprint A\n"
-	 "\tS = numpy.zeros((A.shape[1],))\n"
-	 "\tV = numpy.zeros((A.shape[1],A.shape[1]))\n"
-	 "\tspawaveform.svd(A,V,S)\n"
-	 "\tB = A * S\n"
+	 "\tU,S,V = spawaveform.svd(A)\n"
+	 "\tB = U * S\n"
 	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
 	 "\tprint Aprime\n\n"
 	},
