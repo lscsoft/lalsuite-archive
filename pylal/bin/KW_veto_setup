@@ -379,7 +379,7 @@ def get_analyze_segment():
 
   if not os.path.exists("segfiles"): os.makedirs("segfiles")
   
-  ################# take a union of analyzed_seg_files ############OA#######
+  ################# take a union of analyzed_seg_files ###################
   
   if opts.verbose: print "getting analyzed segments..."
   analyzed_seg_files = KW_veto_utils.get_files_from_globs(cp.get("input","analyzed_seg_files"))
