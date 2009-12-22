@@ -394,7 +394,7 @@ def insert_coincTrigs_dist():
     <div id="div_coinc_dist" style="display: block;">
     <a name="coinc_dist"></a>
     <a id="a_%s-coic_dist_plot"
-     href="../plots/%s-coinc_triggers_dist_plot.png"><img
+     href="../plots/%s-coinc_triggers_dist.png"><img
      id="img_%s-coinc_triggers_dist_plot"
      src="../plots/%s-coinc_triggers_dist-thumbnail.png"
      alt="%s-coinc_triggers_dist_plot"></a><br>
