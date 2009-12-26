@@ -154,7 +154,10 @@ class DB_summary(object):
 			self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
 		except ValueError:
 			self.coinc_inspiral_table = None
-
+		try:
+			self.experiment_summary_table = table.get_table(xmldoc, dbtables.lsctables.ExperimentSummaryTable.tableName)
+		except ValueError:
+			self.experiment_summary_table = None
 
 		# determine a few coinc_definer IDs
 		# FIXME:  don't hard-code the numbers
@@ -315,13 +318,14 @@ SELECT
 		# make a list of sngls appropriate for the coherent code (use max template)
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
-
-		self.extract_sim()
+		# FIX ME: CURRENTLY THIS WOULD RUN FOR HOURS
+		#self.extract_sim()
+		self.sim = None
 
 	def extract_sim(self):
 		#FIXME FINISH!
 		if self.contents.sim_inspiral_table:
-			self.sim = self.contents.connection.curser().execute("""
+			self.sim = self.contents.connection.cursor().execute("""
 SELECT
 		sim_inspiral.* 
 	FROM 
@@ -365,10 +369,150 @@ class FUTriggers(object):
 		self.background_candidates = []
 
 	def add_contents(self, contents, stat='combined_far'):
-		if contents.sim_inspiral_table:
+		if contents.sim_inspiral_table and not contents.experiment_summary_table:
 			#For now we only return summary information on non injections
 			return
-		for i,row in enumerate(contents.connection.cursor().execute("""
+
+		if contents.experiment_summary_table:
+		# if experiment_summary table exists, check for the datatype of the triggers and discard any simulation triggers.
+			for i,row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN experiment_map ON (
+		coinc_event.coinc_event_id == experiment_map.coinc_event_id
+	)
+WHERE
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+		AND
+			time_slide.offset != 0
+	)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			experiment_summary
+		WHERE
+			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		AND
+			experiment_summary.datatype == "simulation"
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""", (self.num,) )):
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.playground_candidates.append(Coinc(row, contents))
+
+			for i, row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN experiment_map ON (
+		coinc_event.coinc_event_id == experiment_map.coinc_event_id
+	)
+WHERE
+	NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+	)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			experiment_summary
+		WHERE
+			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		AND
+			experiment_summary.datatype == "simulation"
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""", (self.num,) )):
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.candidates.append(Coinc(row, contents))
+
+			for i, row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN experiment_map ON (
+		coinc_event.coinc_event_id == experiment_map.coinc_event_id
+	)
+WHERE
+	EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+	)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			experiment_summary
+		WHERE
+			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		AND
+			experiment_summary.datatype == "simulation"
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""", (self.num,) )):
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.background_candidates.append(Coinc(row, contents))
+
+		else:
+		# if experiment_summary table does not exist, it is assumed that there are no software injection.
+			for i,row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -399,10 +543,10 @@ ORDER BY
         combined_far
 LIMIT ?
 		""", (self.num,) )):
-			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-			self.playground_candidates.append(Coinc(row, contents))
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.playground_candidates.append(Coinc(row, contents))
 
-		for i, row in enumerate(contents.connection.cursor().execute("""
+			for i, row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -430,10 +574,10 @@ ORDER BY
         combined_far
 LIMIT ?
 		""", (self.num,) )):
-			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-			self.candidates.append(Coinc(row, contents))
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.candidates.append(Coinc(row, contents))
 
-		for i, row in enumerate(contents.connection.cursor().execute("""
+			for i, row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -461,8 +605,8 @@ ORDER BY
         combined_far
 LIMIT ?
 		""", (self.num,) )):
-			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-			self.background_candidates.append(Coinc(row, contents))
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.background_candidates.append(Coinc(row, contents))
 
 	def topN(self):
 		if len(self.candidates) < self.num: self.num = len(self.candidates)
