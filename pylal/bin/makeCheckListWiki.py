@@ -271,7 +271,7 @@ class filenameToURLMapper(object):
   """
   def __init__(self,publicationDirectory=None,publicationURL=None):
     protocolTag="@PROTO@/"
-    myProtocol=["http://","https://"]
+    self.validProtocols=["http://","https://"]
     givenProtocol=""
     if publicationDirectory == None or\
        publicationURL == None:
@@ -279,12 +279,12 @@ class filenameToURLMapper(object):
 with None types.\n")
     self.pDIR=publicationDirectory
     self.pURL=publicationURL
-    for protocolCheck in myProtocol:
+    for protocolCheck in self.validProtocols:
         if publicationDirectory.lower().startswith(protocolCheck):
             self.pDIR=publicationDirectory
             self.pURL=publicationURL
             raise Warning,"object initialized with publication directory and publication URL reversed\n"
-    for protocolCheck in myProtocol:
+    for protocolCheck in self.validProtocols:
         if self.pURL.lower().startswith(protocolCheck):
             self.pURL="%s"%(self.pURL.replace(protocolCheck,protocolTag))
             givenProtocol=protocolCheck
@@ -324,6 +324,7 @@ with None types.\n")
   def convert(self,filename=None):
     #Strip of common path and create full blown URL
     myURL=filename.replace(self.commonString,self.commonURL)
+    #Add a check to see if given filename is actually URL already!
     if myURL == filename:
         sys.stderr.write("Improper conversion for :%s\n"%filename)
         sys.stderr.write("web-url        : %s\n"%self.pURL)
@@ -731,7 +732,6 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
          myRow=currentIndex/int(3)+1
          myCol=currentIndex%int(3)+1
          fTable.data[myRow][0]=label
-         #thumbURL=file2URL.convert(thumb)
          thumbURL=thumb
          fTable.data[myRow][myCol]="%s"%(wikiPage.linkedRemoteImage(thumb,link))
          currentIndex=currentIndex+1
