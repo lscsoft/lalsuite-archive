@@ -70,7 +70,7 @@ def get_day_boundaries(time):
   end_gps = start_gps + 86400
   return str(start_gps),str(end_gps)
 
-def figure_out_type(time, ifo=NULL, data_type='hoft'):
+def figure_out_type(time, ifo=None, data_type='hoft'):
 	"""
 Run boundaries (from CBC analyses):
 VSR1: 863557214 - 875232014
@@ -139,7 +139,7 @@ HrecOnline      V1:h_16384Hz
 	#Use the IFO type to select the channel type
 	foundType=""
 	foundChannel=""
-	if ifo == NULL:
+	if ifo == None:
 		print time," ifo argument to figure_out_type should not be null!"
 		os.abort()
 		
@@ -411,10 +411,8 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.name = os.path.split(self.__executable.rstrip('/'))[1]
 	    self.__universe = string.strip(cp.get("makeCheckListWiki",
 						  "universe").strip())
-	    pipeline.CondorDAGJob.__init__(self.self._universe,self.__executable)
+	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
-	    self.setup_checkForDir()
-	    self.setup_rm_lock()
 #End makeCheckListWikiJob class
 
 	    
@@ -933,6 +931,9 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 						   "ini-file").strip())
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
+		#Add this as child of all known jobs
+		for parentNode in dag.get_nodes():
+			self.add_parent(parentNode)
 		dag.add_node(self)
 
 
