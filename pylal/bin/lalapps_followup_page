@@ -107,7 +107,7 @@ class Coinc(object):
 			#print float(time), float(l.segment[0]), str(ifo), str(l.observatory)
 			if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory): out.append(l)
 		if not out:
-			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (time, ifo)
+			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (float(time), ifo)
 			#raise ValueError
 			#sys.exit(1)
 		return out
