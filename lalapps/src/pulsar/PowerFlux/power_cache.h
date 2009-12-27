@@ -23,6 +23,7 @@ typedef struct {
 	/* segment coordinates */
 	int dataset;
 	int segment;
+	int index; /* arbitrary index for use by power_sum accumulation code, typically for referencing private data */
 	} SEGMENT_INFO;
 
 #define REAL double
