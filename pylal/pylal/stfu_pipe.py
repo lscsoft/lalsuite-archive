@@ -287,6 +287,7 @@ class analyseQscanJob(pipeline.CondorDAGJob,FUJob):
 
 		self.__executable = string.strip(cp.get('fu-condor','analyseQscan'))
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.name_for_background = self.name + "_" + tag_base
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
@@ -676,11 +677,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 
 		name = job.name
 
-		if "seis" in name:
+		if "SEIS" in name:
 			data_type = "rds"
 			shortName = "seis_rds"
-		elif "ht" in name:
-			data_type = "ht"
+		elif "HT" in name:
+			data_type = "hoft"
 			shortName = "ht"
 		else:
 			data_type = "rds"
@@ -706,10 +707,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 		if cp.has_option('fu-analyse-qscan','plot-z-scattered') or cp.has_option('fu-analyse-qscan','plot-dt-distribution'):
 			self.add_var_opt('ref-channel',refChannel)
 		self.add_var_opt('ifo-times',ifo)
-		self.add_var_opt('type',name.upper())
-		self.add_var_opt('gps-string',repr(time))
+		self.add_var_opt('type',name.upper().replace("ANALYSEQSCAN.PY","WPIPELINE"))
+		self.add_var_opt('short-type',job.name_for_background.upper().replace("ANALYSEQSCAN.PY","WPIPELINE")+'_')
+		self.add_var_opt('gps-string',str(time))
 		self.add_var_opt('ifo-tag',ifo)
-		self.add_var_opt('user-tag',repr(time).replace('.','_') + "_" + shortName)
+		self.add_var_opt('user-tag',str(time).replace('.','_') + "_" + shortName)
 
 		self.add_var_opt('qscan-cache-foreground',dag.basename+'.cache')
 		
@@ -717,6 +719,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
 		else:
 			backgroundCache = figure_out_cache(time)
+			cp.set('fu-analyse-qscan','background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
 		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)

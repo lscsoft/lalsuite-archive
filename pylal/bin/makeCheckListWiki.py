@@ -731,7 +731,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
          myRow=currentIndex/int(3)+1
          myCol=currentIndex%int(3)+1
          fTable.data[myRow][0]=label
-         thumbURL=file2URL.convert(thumb)
+         #thumbURL=file2URL.convert(thumb)
+         thumbURL=thumb
          fTable.data[myRow][myCol]="%s"%(wikiPage.linkedRemoteImage(thumb,link))
          currentIndex=currentIndex+1
     wikiPage.insertTable(fTable)
