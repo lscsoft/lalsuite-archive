@@ -92,7 +92,7 @@ def exportGPSEventToDisk(tevent, dir, cnt, dag, filename=None):
 	fp.write("#DIR\t\t\tIFO\tTIME\t\tSNR\tCHISQ\tMASS1\tMASS2\n")
 	rowString="%-16s\t%s\t%.3f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 	content=list()
-	for ifo in tevent.ifos:
+	for ifo in tevent.ifos_list:
 		content.append(rowString%(dir, 
 					  ifo,
 					  float(time),  
@@ -154,7 +154,10 @@ class DB_summary(object):
 			self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
 		except ValueError:
 			self.coinc_inspiral_table = None
-
+		try:
+			self.experiment_summary_table = table.get_table(xmldoc, dbtables.lsctables.ExperimentSummaryTable.tableName)
+		except ValueError:
+			self.experiment_summary_table = None
 
 		# determine a few coinc_definer IDs
 		# FIXME:  don't hard-code the numbers
@@ -315,13 +318,14 @@ SELECT
 		# make a list of sngls appropriate for the coherent code (use max template)
 		for ifo in self.instruments_set:
 			self.sngl_inspiral_coh[ifo] = self.make_sngl_from_max_ifo(ifo)
-
-		self.extract_sim()
+		# FIX ME: CURRENTLY THIS WOULD RUN FOR HOURS
+		#self.extract_sim()
+		self.sim = None
 
 	def extract_sim(self):
 		#FIXME FINISH!
 		if self.contents.sim_inspiral_table:
-			self.sim = self.contents.connection.curser().execute("""
+			self.sim = self.contents.connection.cursor().execute("""
 SELECT
 		sim_inspiral.* 
 	FROM 
@@ -365,10 +369,150 @@ class FUTriggers(object):
 		self.background_candidates = []
 
 	def add_contents(self, contents, stat='combined_far'):
-		if contents.sim_inspiral_table:
+		if contents.sim_inspiral_table and not contents.experiment_summary_table:
 			#For now we only return summary information on non injections
 			return
-		for i,row in enumerate(contents.connection.cursor().execute("""
+
+		if contents.experiment_summary_table:
+		# if experiment_summary table exists, check for the datatype of the triggers and discard any simulation triggers.
+			for i,row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN experiment_map ON (
+		coinc_event.coinc_event_id == experiment_map.coinc_event_id
+	)
+WHERE
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+		AND
+			time_slide.offset != 0
+	)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			experiment_summary
+		WHERE
+			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		AND
+			experiment_summary.datatype == "simulation"
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""", (self.num,) )):
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.playground_candidates.append(Coinc(row, contents))
+
+			for i, row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN experiment_map ON (
+		coinc_event.coinc_event_id == experiment_map.coinc_event_id
+	)
+WHERE
+	NOT EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+	)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			experiment_summary
+		WHERE
+			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		AND
+			experiment_summary.datatype == "simulation"
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""", (self.num,) )):
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.candidates.append(Coinc(row, contents))
+
+			for i, row in enumerate(contents.connection.cursor().execute("""
+SELECT
+	coinc_inspiral.coinc_event_id,
+	coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
+	coinc_inspiral.mass,
+	coinc_inspiral.mchirp,
+	coinc_inspiral.ifos,
+	coinc_event.instruments
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+	JOIN experiment_map ON (
+		coinc_event.coinc_event_id == experiment_map.coinc_event_id
+	)
+WHERE
+	EXISTS(
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
+	)
+	AND NOT EXISTS(
+		SELECT
+			*
+		FROM
+			experiment_summary
+		WHERE
+			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		AND
+			experiment_summary.datatype == "simulation"
+	)
+ORDER BY
+	combined_far
+LIMIT ?
+		""", (self.num,) )):
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.background_candidates.append(Coinc(row, contents))
+
+		else:
+		# if experiment_summary table does not exist, it is assumed that there are no software injection.
+			for i,row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -399,10 +543,10 @@ ORDER BY
         combined_far
 LIMIT ?
 		""", (self.num,) )):
-			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-			self.playground_candidates.append(Coinc(row, contents))
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.playground_candidates.append(Coinc(row, contents))
 
-		for i, row in enumerate(contents.connection.cursor().execute("""
+			for i, row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -430,10 +574,10 @@ ORDER BY
         combined_far
 LIMIT ?
 		""", (self.num,) )):
-			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-			self.candidates.append(Coinc(row, contents))
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.candidates.append(Coinc(row, contents))
 
-		for i, row in enumerate(contents.connection.cursor().execute("""
+			for i, row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
         coinc_inspiral.combined_far,
@@ -461,8 +605,8 @@ ORDER BY
         combined_far
 LIMIT ?
 		""", (self.num,) )):
-			#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-			self.background_candidates.append(Coinc(row, contents))
+				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
+				self.background_candidates.append(Coinc(row, contents))
 
 	def topN(self):
 		if len(self.candidates) < self.num: self.num = len(self.candidates)
@@ -482,7 +626,8 @@ LIMIT ?
 
 class time_only_event(object):
 	def __init__(self, ifostr, time):
-		self.ifos = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.ifos_list = dbtables.lsctables.instrument_set_from_ifos(ifostr)
+		self.ifos = ifostr
 		self.instruments = ifostr
 		self.time = float(time)
 
@@ -602,22 +747,45 @@ trigs = FUTriggers(num=options.number)
 
 search='gps_only'
 q_ht_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='qdatafind', dir=search)
-qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+q_rds_data_find_job	= stfu_pipe.fuDataFindJob(cp, tag_base='Q_RDS', dir=search)
+ht_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_HT')
+rds_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_RDS')
+seis_qscan_job		= stfu_pipe.qscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
+ht_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_HT')
+rds_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_RDS')
+seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_SEIS_RDS')
+find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
+find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
+wikiChecklist_job       = stfu_pipe.makeCheckListWikiJob(options,cp,dir=search)
 
 gpsevents = time_only_events(options.gps_times)
 
 for cnt, event in enumerate(gpsevents.events):
-	for ifo in event.ifos:
+	for ifo in event.ifos_list:
 		if options.verbose:
 			print >>sys.stderr, "following up %s @ %s" % (ifo, event.time)
 		# h(t) QSCAN datafind Nodes
 		ht_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag, q_ht_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True)
+		# RDS QSCAN datafind Nodes
+		rds_qscan_data_find_node = stfu_pipe.fuDataFindNode(dag,q_rds_data_find_job, cp, options, ifo, trigger_time=event.time, qscan=True, data_type="rds")
 		# h(t) QSCAN Nodes
-		ht_qscan_node = stfu_pipe.fuQscanNode(dag, qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
-		# FIXME ADD MORE JOBS
+		ht_qscan_node = stfu_pipe.fuQscanNode(dag, ht_qscan_job, cp, options, event.time, ifo, ht_qscan_data_find_node.outputFileName, p_nodes=[ht_qscan_data_find_node],type="ht")
+		# RDS QSCAN Nodes
+		rds_qscan_node = stfu_pipe.fuQscanNode(dag, rds_qscan_job, cp, options, event.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="rds")
+		# SEIS RDS QSCAN Nodes
+		seis_qscan_node = stfu_pipe.fuQscanNode(dag, seis_qscan_job, cp, options, event.time, ifo, rds_qscan_data_find_node.outputFileName, p_nodes=[rds_qscan_data_find_node],type="seismic")
 
-		# write the event info to disk and cache for stfu_page
+	findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,event)
+	findVetos_Node = stfu_pipe.findVetosNode(dag,find_vetos_job,cp,options,event)
+	# write the event info to disk and cache for stfu_page
 	exportGPSEventToDisk(event, search, cnt, dag)
+
+# LOOP FOR ANALYSEQSCAN JOBS (MUST BE CHILDREN OF ALL QSCAN JOBS)
+for cnt, event in enumerate(gpsevents.events):
+	for ifo in event.ifos_list:
+		stfu_pipe.analyseQscanNode(dag,ht_analyse_qscan_job,cp,options,event.time,ifo)
+		stfu_pipe.analyseQscanNode(dag,rds_analyse_qscan_job,cp,options,event.time,ifo)                        
+		stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,event.time,ifo)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
@@ -767,6 +935,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			stfu_pipe.analyseQscanNode(dag,rds_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
 			stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
 
+#Checklist generation node is child of all nodes
+wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
 #### ALL FINNISH ####		
 default_cp.write()
 dag.write_all()

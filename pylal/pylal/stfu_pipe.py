@@ -70,7 +70,7 @@ def get_day_boundaries(time):
   end_gps = start_gps + 86400
   return str(start_gps),str(end_gps)
 
-def figure_out_type(time, ifo, data_type='hoft'):
+def figure_out_type(time, ifo=None, data_type='hoft'):
 	"""
 Run boundaries (from CBC analyses):
 VSR1: 863557214 - 875232014
@@ -139,6 +139,10 @@ HrecOnline      V1:h_16384Hz
 	#Use the IFO type to select the channel type
 	foundType=""
 	foundChannel=""
+	if ifo == None:
+		print time," ifo argument to figure_out_type should not be null!"
+		os.abort()
+		
 	for type,channel,start,stop in channelMap[ifo][data_type]:
 		if ((start<=time) and (time<=stop)):
 			foundType=type
@@ -152,7 +156,7 @@ HrecOnline      V1:h_16384Hz
 def figure_out_cache(time):
 
 	cacheList=(
-		(home_dirs()+"/romain/followupbackgrounds/S6a/background_931035296_935798415.cache",931035296,935798415),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
 		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
 		)
 
@@ -393,6 +397,25 @@ class fuDataFindJob(pipeline.LSCDataFindJob,FUJob):
 		convert_script.close()
 		os.chmod('cacheconv.sh',0755)
 
+#This class is responsible for running the default job for making our
+#wiki content
+class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	This actually launches a default wiki creation job
+	"""
+	def __init__(self,opts,cp,dir='',tag_base=''):
+	    """
+	    """
+	    self.__executable = string.strip(cp.get("fu-condor",
+						    "makeCheckListWiki").strip())
+	    self.name = os.path.split(self.__executable.rstrip('/'))[1]
+	    self.__universe = string.strip(cp.get("makeCheckListWiki",
+						  "universe").strip())
+	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+#End makeCheckListWikiJob class
+
+	    
 #The class responsible for running the data quality flag finding job
 class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 	"""
@@ -694,6 +717,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
 		else:
 			backgroundCache = figure_out_cache(time)
+			cp.set('fu-analyse-qscan','background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
 		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
@@ -888,6 +912,30 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		utils.write_filename(xmldoc, name, verbose=False, gz = True)
 		return name
+
+# Create checklist wiki files etc node
+class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	This class is responsible for running a final job which will
+	create the default top 10 triggers for each trigger type.
+	This will place these files into the publication directory so
+	user can push wiki content onto the CBC wiki
+	"""
+	def __init__(self,dag,job,cp,opts):
+		pipeline.CondorDAGNode.__init__(self,job)
+		#Specify pipe location
+		self.add_var_opt('followup-directory',cp.get("makeCheckListWiki",
+							     "location").strip())
+		#Specify pipe ini file
+		self.add_var_opt('ini-file',cp.get("makeCheckListWiki",
+						   "ini-file").strip())
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+		#Add this as child of all known jobs
+		for parentNode in dag.get_nodes():
+			self.add_parent(parentNode)
+		dag.add_node(self)
+
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
@@ -1508,6 +1556,7 @@ class create_default_config(object):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
+		self.ini_file=self.time_now + ".ini"
 		home_base = home_dirs()
 		
 		# CONDOR SECTION NEEDED BY THINGS IN INSPIRAL.PY
@@ -1540,7 +1589,13 @@ class create_default_config(object):
 		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		self.set_qscan_executable()
 		cp.set("fu-condor","analyseQscan", self.which("analyseQscan.py"))
-
+		cp.set("fu-condor","makeCheckListWiki",self.which("makeCheckListWiki.py"))
+		# makechecklistwiki SECTION
+		cp.add_section("makeCheckListWiki")
+		cp.set("makeCheckListWiki","universe","local")
+		cp.set("makeCheckListWiki","location",os.getcwd())
+		cp.set("makeCheckListWiki","ini-file",self.ini_file)
+		
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
 		cp.set("fu-q-hoft-datafind","search-time-range","128")
@@ -1656,7 +1711,7 @@ class create_default_config(object):
 		if user_cp: self.overwrite_config(user_cp)
 
 	def write(self):
-		self.get_cp().write(open(self.time_now + ".ini","w"))
+		self.get_cp().write(open(self.ini_file,"w"))
 
 	def get_cp(self):
 		return self.cp
