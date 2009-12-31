@@ -222,7 +222,7 @@ SKY_GRID *make_targeted_rect_grid(SKY_GRID_TYPE ra, SKY_GRID_TYPE dec, SKY_GRID_
 SKY_GRID *grid;
 TARGETED_RECT_SKY_GRID_PRIV *priv;
 long i,j,k;
-SKY_GRID_TYPE a,b, e1[3], e2[3];
+double e1[3], e2[3];
 
 /* set all up */
 grid=do_alloc(1,sizeof(*grid));

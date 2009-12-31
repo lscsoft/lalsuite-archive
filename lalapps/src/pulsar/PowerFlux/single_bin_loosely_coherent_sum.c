@@ -43,7 +43,7 @@ typedef struct {
 	} LOOSELY_COHERENT_PATCH_PRIVATE_DATA;
 
 
-#define LOOSE_SEARCH_TOLERANCE 0.1
+#define LOOSE_SEARCH_TOLERANCE 0.0
 
 /* This computes exp(a) for a<=0.22 with 4% precision */
 float fast_negexp(float a)
@@ -66,6 +66,41 @@ return(1.0/(1.0-a+a*a));
 
 	This function is meant to work with accumulate_loose_power_sums_sidereal_step
 */
+
+
+double inline exp_kernel(double delta, double gps_delta)
+{
+return(exp(gps_delta*log(sin(delta)/delta)/1800.0));
+}
+
+double inline sinc_kernel(double delta, double gps_delta)
+{
+double b;
+if(gps_delta<=0)return 1.0;
+b=delta*gps_delta/1800.0;
+return(sin(b)/b);
+}
+
+double inline lanczos_kernel3(double delta, double gps_delta)
+{
+double b;
+if(gps_delta<=0)return 1.0;
+b=delta*gps_delta/1800.0;
+if(b>3.0*M_PI)return 0.0;
+return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/3.0));
+}
+
+double inline lanczos_kernel2(double delta, double gps_delta)
+{
+double b;
+if(gps_delta<=0)return 1.0;
+b=delta*gps_delta/1800.0;
+if(b>2.0*M_PI)return 0.0;
+return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/2.0));
+}
+
+#define loose_kernel lanczos_kernel3
+
 
 void get_uncached_loose_single_bin_partial_power_sum1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
@@ -152,7 +187,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	x*=fast_negexp(-(alpha)*fabs(si_local->gps-si_local2->gps));
 
-	if(x<LOOSE_SEARCH_TOLERANCE)continue;
+	if(fabs(x)<=LOOSE_SEARCH_TOLERANCE)continue;
 
 	n++;
 
@@ -316,7 +351,7 @@ float a;
 float weight;
 float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc;
 float x, y;
-float alpha;
+float alpha, beta;
 double phase_offset, phase_increment, gps1, gps2, gps_delta, gps_mid, dist_delta;
 float f0m_c, f0m_s, inc_c, inc_s;
 int same_halfs=(si[0].segment==si[ctx->loose_first_half_count].segment) && (si[0].dataset==si[ctx->loose_first_half_count].dataset);
@@ -392,11 +427,19 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 // 		else y=sinf(y)/y;
 // 	y=-log(fabs(y))/1800.0;
 
-	if(fabs(si_local->gps-si_local2->gps)>threshold)continue;
+	//if(fabs(si_local->gps-si_local2->gps)>threshold)continue;
 
-	x*=fast_negexp(-(alpha)*fabs(si_local->gps-si_local2->gps));
+	//x*=fast_negexp(-(alpha)*fabs(si_local->gps-si_local2->gps));
+//	beta=fabs(si_local->gps-si_local2->gps)*args_info.phase_mismatch_arg*priv->inv_coherence_length;
 
-	if(x<LOOSE_SEARCH_TOLERANCE)continue;
+// 	if(si_local->gps!=si_local2->gps)
+// 		x*=2.0*sinf(beta*args_info.phase_mismatch_arg)/beta;
+// 		else
+// 		x*=2.0*args_info.phase_mismatch_arg;
+
+	x*=loose_kernel(args_info.phase_mismatch_arg, fabs(si_local->gps-si_local2->gps));
+
+	if(fabs(x)<=LOOSE_SEARCH_TOLERANCE)continue;
 
 	n++;
 
@@ -446,6 +489,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "(%f %f)  %.4f %.4f", si_local->bin_shift, si_local2->bin_shift, phase_offset, phase_increment);
 
+#if 1
 	/* First compute phase offsets in units of 2*M_PI */
 	gps1=(priv->emission_time[si_local->index].te.gpsSeconds-spindown_start)+1e-9*priv->emission_time[si_local->index].te.gpsNanoSeconds;
 	gps2=(priv->emission_time[si_local2->index].te.gpsSeconds-spindown_start)+1e-9*priv->emission_time[si_local2->index].te.gpsNanoSeconds;
@@ -475,7 +519,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	//fprintf(stderr, "tdot=(%g,%g)\n", priv->emission_time[si_local->index].tDot, priv->emission_time[si_local2->index].tDot); 
 
 	//fprintf(stderr, " (%f %f) %.4f %.4f (%f %f %f %f)\n", gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), dist_delta);
-
+#endif
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
 
@@ -584,14 +628,20 @@ int is_nonzero_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si1, 
 int k,m;
 SEGMENT_INFO *si_local1, *si_local2;
 //POLARIZATION *pl;
-float x;
+float x, beta;
 float alpha;
 int same_halfs=(si1[0].segment==si2[0].segment) && (si1[0].dataset==si2[0].dataset);
 float threshold;
+LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
 if(ctx->loose_first_half_count<0) {
 	fprintf(stderr, "**** INTERNAL ERROR: loose_first_half_count=%d is not set.\n", ctx->loose_first_half_count);
 	exit(-1);
+	}
+
+if(priv==NULL || priv->signature!=PATCH_PRIVATE_LOOSELY_COHERENT_SIGNATURE) {
+	fprintf(stderr, "**** INTERNAL ERROR: invalid patch structure, priv=%p signature=%ld\n", priv, priv==NULL?-1 : priv->signature);
+	exit(-1); 
 	}
 
 if(same_halfs)return(1);
@@ -602,8 +652,20 @@ si_local1=si1;
 for(k=0;k<count1;k++) {
 	si_local2=si2;
 	for(m=0;m<count2;m++) {
+
+		beta=fabs(si_local1->gps-si_local2->gps)*args_info.phase_mismatch_arg*priv->inv_coherence_length;
+
+		if(same_halfs && (k==m))x=1.0;
+			else x=2.0;
+	
+// 		if(si_local1->gps!=si_local2->gps)
+// 			x*=2.0*sinf(beta*args_info.phase_mismatch_arg)/beta;
+// 			else
+// 			x*=2.0*args_info.phase_mismatch_arg;
+
+		x*=loose_kernel(args_info.phase_mismatch_arg, fabs(si_local1->gps-si_local2->gps));
 		
-		if(fabs(si_local1->gps-si_local2->gps)>threshold) {
+		if(fabs(x)<=LOOSE_SEARCH_TOLERANCE) {
 			si_local2++;
 			continue;
 			}

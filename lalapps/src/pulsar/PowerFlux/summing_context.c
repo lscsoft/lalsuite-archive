@@ -42,8 +42,8 @@ if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached_diff;
 	ctx->accumulate_power_sums=accumulate_loose_power_sums_sidereal_step;
 
-	ctx->cache_granularity=256; /* TODO: find actual value from experiment */
-	ctx->diff_shift_granularity=8192*512; 
+	ctx->cache_granularity=8; /* TODO: find actual value from experiment */
+	ctx->diff_shift_granularity=8192*4; 
 	ctx->sidereal_group_count=12;
 	ctx->summing_step=86400*3; /* three days */
 	ctx->time_group_count=3;
