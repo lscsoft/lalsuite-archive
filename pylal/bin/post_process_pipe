@@ -181,12 +181,12 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, files="'*.dat'", infofiles="'*_info.pat'", databases="'*.sqlite'", p_node=[]):
+  def __init__(self, job, dag, databases, files="'*.dat'", infofiles="'*_info.pat'", p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     # uhh these are still globs! FIXME
     self.add_var_opt("files", files)
     self.add_var_opt("infofiles", infofiles)
-    self.add_var_opt("databases", databases)
+    [self.add_var_arg(databases) for database in databases]
     # do I need to put the databases as output files? 
     for p in p_node:
       self.add_parent(p)
@@ -1167,7 +1167,7 @@ for cat in cats:
     finished_rank_nodes.extend(rank_node[key].values())
 
   update_p_nodes = finished_rank_nodes+zl_rank_node.values()
-  update_node[cat] = mvsc_update_sql_node(update_job, dag, files= '*' +base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',databases='*'+cat+'*'+timestr+'.sqlite',p_node=update_p_nodes)
+  update_node[cat] = mvsc_update_sql_node(update_job, dag, db[cat], files= '*' +base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',p_node=update_p_nodes)
 
   ############# END MUSIC STUFF (A LOOP OVER DOUBLES) #########################
 

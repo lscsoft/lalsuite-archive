@@ -27,10 +27,6 @@ import os, sys, exceptions, copy
 from math import sqrt, pi
 
 from pylab import rcParams, fill, figtext, figure, plot, axes, axis, xlabel, ylabel, title, close, grid, legend
-try:
-  set
-except NameError:
-  from sets import Set as set
 
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils

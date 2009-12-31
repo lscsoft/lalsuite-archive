@@ -17,6 +17,7 @@ from optparse import *
 from glue import lal
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
+from pylal import llwapp
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -25,7 +26,6 @@ from glue.ligolw.utils import print_tables
 import matplotlib
 matplotlib.use('Agg')
 from pylal import followup_trigger
-from pylal import printutils
 
 def organize_coincs(new_coincs,sngls,coinc_map):
 # This function takes a (new style) coinc table and sngl table along with
@@ -46,6 +46,40 @@ def organize_coincs(new_coincs,sngls,coinc_map):
     coinc_list[i].append(snglList)
     i += 1
   return coinc_list
+
+def organize_slides(coincTable,coincEvent,timeSlide):
+# This function adds the time slide offest to the coincTable
+  timeSlideDict = timeSlide.as_dict()
+  for coinc in coincTable:
+    timeOffsets = {}
+    coincID = coinc[0].coinc_event_id
+    for event in coincEvent:
+      if event.coinc_event_id == coincID:
+        slideID = event.time_slide_id
+    coinc.append(timeSlideDict[slideID])
+  return coincTable
+
+def organize_found_injs(summTable,sims):
+# This function associates a sim inspiral to a "selected found injection"
+  injList = []
+  i = 0
+  for event in summTable:
+    injList.append([])
+    injList[i].append(event)
+    for sim in sims:
+      if sim.simulation_id == event.simulation_id:
+        injList[i].append(sim)
+    i += 1
+  return injList
+
+def get_column_list(tableName):
+  if tableName == "loudest_events":
+    columnList = []
+  elif tableName == "close_missed_injections":
+    columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
+  elif tableName == 'selected_found_injections':
+    columnList = ['recovered_combined_far','recovered_snr','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_distance']
+  return columnList
 
 usage = """%prog [options]
 
@@ -71,20 +105,34 @@ parser.add_option("-o","--output-path",action="store",type="string",\
       help="The output path for the plots" )
 parser.add_option("-x","--input-xml",action="store",type="string",\
       default=None, metavar=" INPUTXML",\
-      help="The input xml file location" )
+      help="The input xml file containing the relevant events for followup" )
+parser.add_option("-N","--table-name",action="store",type="string",\
+      default=None, metavar="INJTABNAME",\
+      help="The table we want to add followups to. Currently can be 'loudest_events' 'close_missed_injection' or 'selected_found_injections'" )
 parser.add_option("-t","--input-xml-summary",action="store",type="string",\
       default=None, metavar=" INPXMLSUMMTABLE",\
-      help="The input xml summary table (if you want to add mini followup location to this table" )
+      help="The input xml summary table (needed for quiet found injections and coinc triggers if you want to add the followups to these tables)" )
 parser.add_option("-T","--output-html-table",action="store",type="string",\
       default=None, metavar=" INPXMLSUMMTABLE",\
-      help="The output html summary table file name (only if you give an input xml summary)" )
+      help="The output html summary table file name." )
 parser.add_option("","--max-followups",action="store",\
       type="int",  metavar="MAXFOLLOWUPS",default = 15,\
       help="Only followup this number of files.")
+parser.add_option("","--time-slides",action="store_true",\
+      default=False,help="Use this flag to followup time slide triggers.")
 parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
 (opts,args) = parser.parse_args()
+
+if opts.table_name == 'loudest_events':
+  FUPtype = 'LE'
+elif opts.table_name == 'close_missed_injections':
+  FUPtype = 'CMI'
+elif opts.table_name == 'selected_found_injections':
+  FUPtype = 'SFI'
+else:
+  raise ValueError, "--table-name is not a recognized table name. Run --help."
 
 # Followup_trigger needs the following options to be set
 
@@ -105,51 +153,97 @@ cache = lal.Cache.fromfile( open( opts.cache_file ) )
 temp_cache = cache.sieve (description = opts.cache_string )
 followup = followup_trigger.FollowupTrigger( temp_cache, opts, False )
 
-# Read in the new style coinc xml file
-xmldoc = utils.load_filename( opts.input_xml,gz = opts.input_xml.endswith("gz"))
-coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-coincTable = organize_coincs(coincT,sngls,coincMap)
-
+# Read in the xml file
+xmldoc = utils.load_filename( opts.input_xml,
+    gz = opts.input_xml.endswith("gz"))
+if FUPtype == 'LE':
+  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  coincTable = organize_coincs(coincT,sngls,coincMap)
+  xmlSummary = utils.load_filename(opts.input_xml_summary,\
+                 gz = opts.input_xml_summary.endswith("gz"))  
+  summTable = table.get_table(xmlSummary,opts.table_name + ":table")
+  if opts.time_slides:
+    coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+    timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+    coincTable = organize_slides(coincTable,coincEvent,timeSlide)
+    segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc)
+elif FUPtype == 'CMI':
+  summTable = table.get_table(xmldoc,opts.table_name + ":table")
+elif FUPtype == 'SFI':
+  xmlSummary = utils.load_filename(opts.input_xml_summary,\
+                   gz = opts.input_xml_summary.endswith("gz"))
+  summTable = table.get_table(xmlSummary,opts.table_name + ":table")
+  sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+  simTable = organize_found_injs(summTable,sims)
+  
 # Run the followups on each of the coincs. coinc[0] is the coinc itself
 # coinc[1] is a list of its sngls (created by organize_coincs)
 page = []
 numF = 0
-for coinc in coincTable:
-  if numF < opts.max_followups:
-    page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
-    numF += 1
+if FUPtype == 'CMI':
+  for inj in summTable:
+    if numF < opts.max_followups:
+      page.append( followup.from_injection( inj,more_infos=True ) )
+      numF += 1
+elif FUPtype == 'LE':
+  for coinc in coincTable:
+    if numF < opts.max_followups:
+      if opts.time_slides:
+        for sngl in coinc[1]:
+          SnglInspiralUtils.slideTriggersOnRings([sngl],segs[sngl.ifo],coinc[2])
+        page.append( followup.from_new_slide_coinc(coinc[0],coinc[1],coinc[2],segs) )
+      else:
+        page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
+      numF += 1
+elif FUPtype == 'SFI':
+  for event in simTable:
+    if numF < opts.max_followups:
+      page.append( followup.from_injection( event[1],more_infos=True))
+      numF += 1
 
 # If opts.html_table is used we read in the table add the followup to the
 # table and write it out again
-if opts.input_xml_summary:
-  xmlSummary = utils.load_filename(opts.input_xml_summary,\
-                 gz = opts.input_xml_summary.endswith("gz")) 
-  try:
-    summTable = table.get_table(xmlSummary,"loudest_events:table")
-    summTableName = "loudest_events"
-  except:
-      summTable = table.get_table(xmlSummary,"selected_found_injections:table")
-      summTableName = "selected_found_injections"
 
+if FUPtype == 'LE':
   for event in summTable:
     for coinc,p in zip(coincTable,page):
       if event.coinc_event_id == coinc[0].coinc_event_id:
         event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>''' 
-  if opts.output_html_table is not None:
-    output = open(opts.output_html_table,'w')
-    tableList = [summTableName]
-    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(xmlSummary, tableList[0])
+elif FUPtype == 'CMI' or FUPtype == 'SFI':
+  for event,p in zip(summTable,page):
+    event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+
+if opts.output_html_table is not None:
+  output = open(opts.output_html_table,'w')
+  tableList = [opts.table_name]
+  if FUPtype == 'LE':
+    # This import is here to avoid SQL clashes when reading xml files
+    from pylal import printutils
+    columnList, row_span_columns, rspan_break_columns = \
+        printutils.get_columns_to_print(xmlSummary, tableList[0])
     print_tables.print_tables(summTable, output, "html",\
         tableList = tableList, columnList = columnList, round_floats = True, \
         decimal_places = 2, title = None, print_table_names = False,
-        row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
-    output.close()
+        row_span_columns = row_span_columns, 
+        rspan_break_columns = rspan_break_columns)
+  else:
+    columnList = get_column_list(opts.table_name)
+    print_tables.print_tables(summTable, output, "html",\
+        tableList = tableList,columnList = columnList,round_floats = True, \
+        decimal_places = 2, title = None,print_table_names = False)
+  output.close()
 
+if FUPtype == 'LE':
   for event in summTable:
     for coinc,p in zip(coincTable,page):
       if event.coinc_event_id == coinc[0].coinc_event_id:
         event.mini_followup = p
   utils.write_filename(xmlSummary,opts.input_xml_summary,xsl_file='ligolw.xsl')
+else:
+  for event,p in zip(summTable,page):
+    event.mini_followup = p 
+  utils.write_filename(xmldoc,opts.input_xml,xsl_file='ligolw.xsl')
+
 
