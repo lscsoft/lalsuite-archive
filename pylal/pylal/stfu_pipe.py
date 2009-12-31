@@ -947,7 +947,7 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findFlags",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
@@ -986,7 +986,7 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findVetoes",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
