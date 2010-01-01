@@ -473,9 +473,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	f_pc*=weight;
 	f_cc*=weight;
 
+#if 0
+	/* The code below uses Doppler shifts alone (same as injection code in dataset.c), and does not
+	correctly treat multiple detectors, let alone Shapiro delay, etc. */
+	
 	/* contribution from frequency mismatch */
-// 	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
-// 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
 	/* This effectively rounds off phase offset to units of pi/900, good enough ! */
 	phase_offset=((int)rint((((first_bin+side_cut) % 1800))*(si_local->gps-si_local2->gps)) % 1800 )*2*M_PI/1800.0;
@@ -487,29 +489,20 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	phase_increment=(1.0+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
 			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
 
-	//fprintf(stderr, "(%f %f)  %.4f %.4f", si_local->bin_shift, si_local2->bin_shift, phase_offset, phase_increment);
+//	fprintf(stderr, "(%f %f)  %.4f %.4f", si_local->bin_shift, si_local2->bin_shift, phase_offset, phase_increment);
 
-#if 1
+#else
+	/* This uses LALBarycenter() timing */
+	
 	/* First compute phase offsets in units of 2*M_PI */
 	gps1=(priv->emission_time[si_local->index].te.gpsSeconds-spindown_start)+1e-9*priv->emission_time[si_local->index].te.gpsNanoSeconds;
 	gps2=(priv->emission_time[si_local2->index].te.gpsSeconds-spindown_start)+1e-9*priv->emission_time[si_local2->index].te.gpsNanoSeconds;
 	gps_delta=(priv->emission_time[si_local->index].te.gpsSeconds-priv->emission_time[si_local2->index].te.gpsSeconds)+1e-9*(priv->emission_time[si_local->index].te.gpsNanoSeconds-priv->emission_time[si_local2->index].te.gpsNanoSeconds);
 	gps_mid=0.5*(gps1+gps2);
 
-// 	dist_delta=(priv->emission_time[si_local->index].rDetector[0]-priv->emission_time[si_local2->index].rDetector[0])*priv->e[0]
-// 		+(priv->emission_time[si_local->index].rDetector[1]-priv->emission_time[si_local2->index].rDetector[1])*priv->e[1]
-// 		+(priv->emission_time[si_local->index].rDetector[2]-priv->emission_time[si_local2->index].rDetector[2])*priv->e[2];
-
 	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid)*gps_delta;
-	/* account for phase drift across a single SFT - this provides a correction on the order of a few percent */
-	//phase_offset=(first_bin+side_cut+priv->freq_shift*1800.0+1800.0*priv->spindown*gps_mid)*(si_local->gps-si_local2->gps+dist_delta)/1800.0;
-	//phase_offset+=0.5*priv->spindown*(priv->emission_time[si_local->index].deltaT+priv->emission_time[si_local2->index].deltaT)*gps_delta;
-	//phase_offset+=priv->spindown*(priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2);
-	//phase_offset+=0.5*(si_local->bin_shift-si_local2->bin_shift-rint(si_local->bin_shift)+rint(si_local2->bin_shift));
-	//phase_offset+=0.5*(si_local->bin_shift-si_local2->bin_shift-rint(si_local->bin_shift)+rint(si_local2->bin_shift));
 
 	phase_increment=gps_delta*priv->inv_coherence_length;
-	//phase_increment=(si_local->gps-si_local2->gps+dist_delta)/1800.0;
 
 	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
 
@@ -518,8 +511,9 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "tdot=(%g,%g)\n", priv->emission_time[si_local->index].tDot, priv->emission_time[si_local2->index].tDot); 
 
-	//fprintf(stderr, " (%f %f) %.4f %.4f (%f %f %f %f)\n", gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), dist_delta);
+	//fprintf(stderr, " (%f %f) %.4f %.4f (%f %f %f %g)\n", gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), priv->spindown);
 #endif
+
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
 
@@ -610,8 +604,6 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	*/
 	}
-//exit(-1);
-//fprintf(stderr, "n=%d out of %d, %f fraction\n", n, count*(count+1)/2, n/(count*(count+1)*0.5));
 
 pps->c_weight_pppp=weight_pppp;
 pps->c_weight_pppc=weight_pppc;
