@@ -229,11 +229,11 @@ LALStatus status={level:0, statusPtr:NULL};
 LALSource source;
 LALDetAndSource det_and_source={NULL, NULL};
 LALDetAMResponse response;
-LALGPSandAcc gps_and_acc;
+LIGOTimeGPS ligo_gps;
 
-memset(&gps_and_acc, 0, sizeof(gps_and_acc));
-gps_and_acc.gps.gpsSeconds=gps; 
-gps_and_acc.gps.gpsNanoSeconds=0;
+memset(&ligo_gps, 0, sizeof(ligo_gps));
+ligo_gps.gpsSeconds=gps; 
+ligo_gps.gpsNanoSeconds=0;
 
 memset(&source, 0, sizeof(source));
 source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
@@ -244,7 +244,7 @@ source.equatorialCoords.latitude=latitude;
 det_and_source.pDetector=&detector;
 det_and_source.pSource=&source;
 
-LALComputeDetAMResponse(&status, &response, &det_and_source, &gps_and_acc);
+LALComputeDetAMResponse(&status, &response, &det_and_source, &ligo_gps);
 TESTSTATUS(&status);
 
 *cross=response.cross;
@@ -255,14 +255,14 @@ void get_detector_vel(INT64 gps, float *velocity)
 {
 LALStatus status={level:0, statusPtr:NULL};
 REAL8 det_velocity[3];
-LALGPSandAcc gps_and_acc;
 int i;
+LIGOTimeGPS ligo_gps;
 
-memset(&gps_and_acc, 0, sizeof(gps_and_acc));
-gps_and_acc.gps.gpsSeconds=gps;
-gps_and_acc.gps.gpsNanoSeconds=0;
+memset(&ligo_gps, 0, sizeof(ligo_gps));
 
-LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), detector, &ephemeris);
+ligo_gps.gpsSeconds=gps; 
+ligo_gps.gpsNanoSeconds=0;
+LALDetectorVel(&status, det_velocity, &ligo_gps, detector, &ephemeris);
 TESTSTATUS(&status);
 
 #if 0
