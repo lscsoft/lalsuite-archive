@@ -64,7 +64,7 @@ def parse_commandline():
                       help="Output directory name. If given, save files in this directly and not insert unless --insert is on. (Default: None)")
     parser.add_option("-i", "--insert", action="store_true", default=False,
                       help="Insert segs into a database. (Default: False)")
-    parser.add_option("-s", "--server", default="segdb.ligo.caltech.edu:30020",
+    parser.add_option("-s", "--segment-url", default="https://segdb.ligo.caltech.edu",
                       help="")
     parser.add_option("-t", "--trigger_type", 
                       help="trigger type (KW or IHOPE) used.")
@@ -202,7 +202,7 @@ try:
   
           duration = params['end_time'] - params['start_time'] 
   
-          cmd = 'ligolw_segment_insert --segment-url %s --ifos %s --name "%s" --version %d --explain "%s" --comment "%s" --summary-file %s --segment-file %s %s'%(opts.server,params['ifo'],name,version,explain,comment,summary_seg,seg_file,operation)
+          cmd = 'ligolw_segment_insert --segment-url %s --ifos %s --name "%s" --version %d --explain "%s" --comment "%s" --summary-file %s --segment-file %s %s'%(opts.segment_url,params['ifo'],name,version,explain,comment,summary_seg,seg_file,operation)
           print >> sys.stderr, "%s:%d"%(name,version)
           if opts.out_dir != None:
             outfile = "%s-%s-%s.xml"%(name,params['start_time'],duration)
