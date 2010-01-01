@@ -384,9 +384,7 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
 
   cursor.execute("create table injections (GPSTime float, vetoed txt)")
   Nvetoed = 0
-  print injection_times, "times"
   for i in injection_times:
-    print i
     try:
       i = float(i)
     except(ValueError):
@@ -398,12 +396,12 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
     else:
       cur.execute("insert into injections (GPSTime, vetoed) values (?,?)", (i,"Not Vetoed"))
   
-  totalInjNum = len(injection_times)  
+  totalInjNum = len(injection_times)
   Nexp = totalInjNum * abs(veto_segments) / totalTime
  
   import scipy.stats
   prob = 1 - scipy.stats.poisson.cdf(Nvetoed - 1, Nexp)
-  if prob > 10**opts.safety_thresh:
+  if prob > 10**opts.safety_thresh or totalInjNum == 0:
     safety = "Pass"
   else:
     safety = "Unsafe"
