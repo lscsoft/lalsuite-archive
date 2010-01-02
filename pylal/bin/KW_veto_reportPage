@@ -252,7 +252,10 @@ def report_page():
     table2.append("</tbody></table><br><br>")
     
     # figure out the total dead time
-    totalDeadTime = abs(reduce(lambda x, y: x | y, veto_segs.values()))
+    if veto_segs.values() == []:
+      totalDeadTime = 0
+    else:
+      totalDeadTime = abs(reduce(lambda x, y: x | y, veto_segs.values()))
     deadTimePer = totalDeadTime * 1.0 / abs(analyzed_segs) * 100
 
     # add tables and list
