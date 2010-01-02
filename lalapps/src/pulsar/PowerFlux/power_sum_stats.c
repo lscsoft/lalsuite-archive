@@ -1671,8 +1671,12 @@ if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 		   *amplitude*
 
 		   */
-		/* Loose mode uses matched filter which correctly reconstructs power in the bin */
+		/* Usual worst case single-bin correction for loss of power when not bin centered. */
 		upper_limit_comp=1.0/0.85; 
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
+		/* Matched filter  correctly reconstructs power in the bin */
+		upper_limit_comp=1.0; 
 		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 		/* 3 bins should contain the entire signal, regardless

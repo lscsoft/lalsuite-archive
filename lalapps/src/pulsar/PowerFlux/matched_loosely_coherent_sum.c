@@ -20,6 +20,7 @@
 #include "summing_context.h"
 #include "power_sums.h"
 #include "cmdline.h"
+#include "single_bin_loosely_coherent_sum.h"
 
 extern DATASET *datasets;
 extern int d_free;
@@ -35,11 +36,20 @@ typedef struct {
 	EmissionTime	*emission_time;
 	long emission_time_size;
 
+	/* template parameters */
 	double freq_shift;
 	double spindown;
 	double inv_coherence_length;
 
-	} SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA;
+	/* these entries hold cache of computed matched power sums */
+	long computed_size;
+	long pps_bins;
+	float *m_re; /* real part */
+	float *m_im; /* imaginary */
+	float *w;  /* weight */
+	unsigned char *computed; /* boolean flag */
+	
+	} MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA;
 
 
 /* Lanczos window actually vanishes */
@@ -55,6 +65,9 @@ if(a>0.22) {
 if(a< -3.7)return(0.0);
 return(1.0/(1.0-a+a*a));
 }
+
+/* Single-bin helper function useful for matched code */
+LALDetector get_detector_struct(char *det);
 
 
 /* 
@@ -101,7 +114,129 @@ return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/2.0));
 
 #define loose_kernel lanczos_kernel3
 
-void get_uncached_loose_single_bin_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
+/* This helper function populates real and imaginary part of an FFT array, and also computes weight
+   An additional wrinkle is that uses diff_bin_shift to adjust mismatch constant which can vary */
+ 
+void sse_compute_matched_floating_fft(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int offset, int pps_bins, float *out_re, float *out_im, float *out_w)
+{
+int i;
+int bin_shift;
+DATASET *d;
+//POLARIZATION *pl;
+float *im, *re, *out_im_p, *out_re_p;
+float a;
+
+float sum, sum_sq;
+float pps_bins_inv=1.0/pps_bins;
+//float pmax_factor=args_info.power_max_median_factor_arg;
+
+float mismatch, mismatch_inc;
+
+float *filter;
+
+__m128 v4power0, v4power1, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
+float *tmp1, *tmp2, *tmp3;
+
+tmp1=aligned_alloca(8*sizeof(*tmp1));
+tmp2=aligned_alloca(8*sizeof(*tmp2));
+tmp3=aligned_alloca(4*sizeof(*tmp3));
+filter=aligned_alloca(8*sizeof(*filter));
+
+//fprintf(stderr, "%d\n", count);
+
+bin_shift=rintf(si->bin_shift)-offset;
+if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
+	fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		bin_shift, si->bin_shift);
+	exit(-1);
+	}
+
+d=&(datasets[si->dataset]);
+// 	pl=&(d->polarizations[0]);
+
+//f_plus=F_plus_coeff(si_local->segment, si_local->e, pl->AM_coeffs);
+//f_cross=F_plus_coeff(si_local->segment, si_local->e, pl->conjugate->AM_coeffs);
+
+re=&(d->re[si->segment*nbins+side_cut+bin_shift]);
+im=&(d->im[si->segment*nbins+side_cut+bin_shift]);
+out_re_p=out_re;
+out_im_p=out_im;
+
+/* Do this for every 8 frequency bins */
+mismatch=si->bin_shift-rintf(si->bin_shift)-si->diff_bin_shift*(0.5*nbins-side_cut+4.0);
+mismatch_inc=si->diff_bin_shift*8.0;
+
+if(fabsf(mismatch_inc)>0.02)
+	fprintf(stderr, "mismatch=%g mismatch_inc=%g bin_shift=%g diff_bin_shift=%g\n", mismatch, mismatch_inc, si->bin_shift, si->diff_bin_shift);
+
+sum=0;
+sum_sq=0;
+tmp1[7]=0.0;
+tmp2[7]=0.0;
+for(i=0;i<pps_bins;i++) {
+	if((i & 0x7)==0) {
+		tabulated_fill_hann_filter7(filter, mismatch);
+		filter[7]=0.0;
+		v4filt0=_mm_load_ps(filter);
+		v4filt1=_mm_load_ps(&(filter[4]));
+		mismatch+=mismatch_inc;
+		}
+
+	memcpy(tmp1, &(re[-3]), 7*sizeof(*tmp1));
+	memcpy(tmp2, &(im[-3]), 7*sizeof(*tmp2));
+
+	v4a=_mm_load_ps(&(tmp1[0]));
+	v4a1=_mm_load_ps(&(tmp1[4]));
+
+	v4a=_mm_mul_ps(v4filt0, v4a);
+	v4a1=_mm_mul_ps(v4filt1, v4a1);
+
+	v4a=_mm_add_ps(v4a, v4a1);
+
+	v4b=_mm_load_ps(&(tmp2[0]));
+	v4b1=_mm_load_ps(&(tmp2[4]));
+
+	v4b=_mm_mul_ps(v4filt0, v4b);
+	v4b1=_mm_mul_ps(v4filt1, v4b1);
+
+	v4b=_mm_add_ps(v4b, v4b1);
+
+//		v4a=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(re[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(re[1]))));
+//		v4b=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(im[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(im[1]))));
+
+	v4power0=_mm_hadd_ps(v4a, v4b);
+	v4power0=_mm_hadd_ps(v4power0, v4power0);
+	_mm_store_ps(tmp3, v4power0);
+	*out_re_p=tmp3[0];
+	*out_im_p=tmp3[1];
+
+	v4power1=_mm_mul_ps(v4power0, v4power0);
+	v4power1=_mm_hadd_ps(v4power1, v4power1);
+
+	_mm_store_ss(&a, v4power1);
+
+	sum+=a;
+	sum_sq+=a*a;
+
+	im++;
+	re++;
+	out_re_p++;
+	out_im_p++;
+	}
+
+if(args_info.tmedian_noise_level_arg) {
+	*out_w=d->expTMedians[si->segment]*d->weight;
+	} else {
+	sum*=pps_bins_inv;
+	sum_sq*=pps_bins_inv;
+	sum_sq-=sum*sum;
+
+	*out_w=1.0/sum_sq;
+	}
+
+}
+
+void get_uncached_loose_matched_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
 int i,k,n,m;
 int bin_shift, bin_shift2;
@@ -125,7 +260,7 @@ float weight_ppcc=0;
 float weight_pccc=0;
 float weight_cccc=0;
 
-SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
+MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
 
 if(ctx->loose_first_half_count<0) {
@@ -133,9 +268,14 @@ if(ctx->loose_first_half_count<0) {
 	exit(-1);
 	}
 
-if(priv==NULL || priv->signature!=PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE) {
+if(priv==NULL || priv->signature!=PATCH_PRIVATE_MATCHED_LOOSELY_COHERENT_SIGNATURE) {
 	fprintf(stderr, "**** INTERNAL ERROR: invalid patch structure, priv=%p signature=%ld\n", priv, priv==NULL?-1 : priv->signature);
 	exit(-1); 
+	}
+	
+if(priv->pps_bins<pps_bins) {
+	fprintf(stderr, "**** INTERNAL ERROR: not enough allocated memory, priv->pps_bins=%d while pps_bins=%d\n", priv->pps_bins, pps_bins);
+	exit(-1);
 	}
 
 /*pp=aligned_alloca(pps_bins*sizeof(*pp));
@@ -166,7 +306,6 @@ for(i=0;i<pps_bins;i++) {
 	pps->weight_cccc[i]=0.0;
 	}
 
-//fprintf(stderr, "%d\n", count);
 
 n=0;
 for(k=0;k<ctx->loose_first_half_count;k++)
@@ -187,6 +326,22 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
  	d=&(datasets[si_local->dataset]);
  	d2=&(datasets[si_local2->dataset]);
 
+
+	if(!priv->computed[k]) {
+		sse_compute_matched_floating_fft(ctx, si_local, pps->offset, pps_bins,
+			&(priv->m_re[k*priv->pps_bins]),
+			&(priv->m_im[k*priv->pps_bins]),
+			&(priv->w[k]));
+		priv->computed[k]=1; 
+		}
+
+	if(!priv->computed[m+ctx->loose_first_half_count]) {
+		sse_compute_matched_floating_fft(ctx, si_local2, pps->offset, pps_bins,
+			&(priv->m_re[(m+ctx->loose_first_half_count)*priv->pps_bins]),
+			&(priv->m_im[(m+ctx->loose_first_half_count)*priv->pps_bins]),
+			&(priv->w[m+ctx->loose_first_half_count]));
+		priv->computed[m+ctx->loose_first_half_count]=1; 
+		}
 
 	//fprintf(stderr, "%d %d %f %f\n", k, m, si_local->gps-si_local2->gps, x);
 
@@ -278,11 +433,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 		exit(-1);
 		}
 
-	re=&(d->re[si_local->segment*nbins+side_cut+bin_shift]);
-	im=&(d->im[si_local->segment*nbins+side_cut+bin_shift]);
+	re=&(priv->m_re[k*priv->pps_bins]);
+	im=&(priv->m_im[k*priv->pps_bins]);
 
-	re2=&(d2->re[si_local2->segment*nbins+side_cut+bin_shift2]);
-	im2=&(d2->im[si_local2->segment*nbins+side_cut+bin_shift2]);
+	re2=&(priv->m_re[(m+ctx->loose_first_half_count)*priv->pps_bins]);
+	im2=&(priv->m_im[(m+ctx->loose_first_half_count)*priv->pps_bins]);
 
 	pp=pps->power_pp;
 	pc=pps->power_pc;
@@ -345,7 +500,6 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	*/
 	}
-//exit(-1);
 
 pps->c_weight_pppp=weight_pppp;
 pps->c_weight_pppc=weight_pppc;
@@ -363,15 +517,16 @@ int k,m;
 SEGMENT_INFO *si_local1, *si_local2;
 //POLARIZATION *pl;
 double x, beta;
+float alpha;
 int same_halfs=(si1[0].segment==si2[0].segment) && (si1[0].dataset==si2[0].dataset);
-SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
+MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
 if(ctx->loose_first_half_count<0) {
 	fprintf(stderr, "**** INTERNAL ERROR: loose_first_half_count=%d is not set.\n", ctx->loose_first_half_count);
 	exit(-1);
 	}
 
-if(priv==NULL || priv->signature!=PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE) {
+if(priv==NULL || priv->signature!=PATCH_PRIVATE_MATCHED_LOOSELY_COHERENT_SIGNATURE) {
 	fprintf(stderr, "**** INTERNAL ERROR: invalid patch structure, priv=%p signature=%ld\n", priv, priv==NULL?-1 : priv->signature);
 	exit(-1); 
 	}
@@ -402,130 +557,11 @@ for(k=0;k<count1;k++) {
 return(0);
 }
 
-#define KEY_MULT 8388623
-#define KEY_DIV ((1<<31)-1)
-
-/* Note: si is modified in place to have bin_shift rounded as appropriate to the power generating algorithm */
-void accumulate_power_sum_cached_diff(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
-{
-int i, k;
-int match;
-int key;
-float a;
-int first_shift;
-int max_shift=args_info.max_first_shift_arg;
-SEGMENT_INFO *si_local, *sc_si_local;
-int *sc_key;
-
-SIMPLE_CACHE *sc=(SIMPLE_CACHE *)ctx->cache;
-if((sc==NULL) || (sc->id!=SIMPLE_CACHE_ID)) {
-	fprintf(stderr, "INTERNAL ERROR: simple cache id does not match in %s, aborting\n", __FUNCTION__);
-	exit(-1);
-	}
-
-if(count!=sc->segment_count) { 
-	fprintf(stderr, "Internal error: segment counts don't match.\n");
-	exit(-1);
-	}
-
-/* normalize frequency shifts by rounding off to nearest cache granularity value */
-si_local=si;
-key=0.0;
-k=rintf(si_local->bin_shift)*ctx->cache_granularity;
-for(i=0;i<count;i++) {
-	//fprintf(stderr, "%0.1f ", si_local->bin_shift);
-	a=rintf(si_local->bin_shift*ctx->cache_granularity);
-	key+=((int)a-k);
-	si_local->bin_shift=a*ctx->inv_cache_granularity;
-
-	a=rintf(si_local->diff_bin_shift*ctx->diff_shift_granularity);
-	//fprintf(stderr, "%g %g\n", a, si_local->diff_bin_shift);
-	key=((int)a)+(key*KEY_MULT);
-	si_local->diff_bin_shift=a*ctx->inv_diff_shift_granularity;
-
-	key=(key*KEY_MULT) & KEY_DIV;
-
-	si_local++;
-	//fprintf(stderr, "%0.1f ", a);
-	}
-//fprintf(stderr, "k=%d key=%d %f\n", k, key, a);
-sc_key=sc->key;
-for(k=0;k<sc->free;k++) {
-	/* the reason we use exact equality for floating point numbers is because the numbers in cache have been placed there by the same function. */
-	if(key==sc_key[k]) {
-		/* we found the box holding our data, double check it is the right one */
-		si_local=si;
-		sc_si_local=sc->si[k];
-		first_shift=rintf(si_local->bin_shift-sc_si_local->bin_shift);
-		if( (first_shift>max_shift) || (first_shift< -max_shift)) {
-			sc->large_shifts++;
-			break;
-			}
-		match=1;
-		for(i=0;i<count;i++) {
-			if((fabs(si_local->bin_shift-(sc_si_local->bin_shift+first_shift))> ctx->half_inv_cache_granularity)
-			   || (fabs(si_local->diff_bin_shift-sc_si_local->diff_bin_shift)> ctx->half_inv_diff_shift_granularity)) {
-				match=0;
-				fprintf(stderr, "OVERWRITE: i=%d key=%d count=%d %f %f %g %g %d\n", i, key, count, si_local->bin_shift, sc_si_local->bin_shift, si_local->diff_bin_shift, sc_si_local->diff_bin_shift, first_shift);
-				break;
-				}
-
-			si_local++;
-			sc_si_local++;
-			}
-		if(match) {
-			sc->hits++;
-			/*  align pps with stored data */
-			pps->offset-=first_shift;
-			sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
-			pps->offset+=first_shift;
-			//fprintf(stderr, "hit\n");
-			return;
-			}
-		sc->overwrites++;
-		break;
-		}
-	}
-
-sc->misses++;
-//fprintf(stderr, "miss\n");
-
-if(k>=sc->size) {
-	fprintf(stderr, "*** INTERNAL ERROR: cache overflow\n");
-	exit(-1);
-	}
-
-if(k>=sc->free) {
-	sc->si[k]=do_alloc(sc->segment_count, sizeof(*si));
-	sc->pps[k]=allocate_partial_power_sum_F(useful_bins+2*max_shift);
-	sc->free++;
-	}
-
-sc->key[k]=key;
-memcpy(sc->si[k], si, sc->segment_count*sizeof(*si));
-
-ctx->get_uncached_power_sum(ctx, sc->si[k], sc->segment_count, sc->pps[k]);
-sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
-}
 
 extern EphemerisData ephemeris;
 
-LALDetector get_detector_struct(char *det) 
-{
-if(!strcasecmp("LHO", det)){
-	return lalCachedDetectors[LALDetectorIndexLHODIFF];
-	} else 
-if(!strcasecmp("LLO", det)){
-	return lalCachedDetectors[LALDetectorIndexLLODIFF];
-	} else {
-	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
-	exit(-1);
-	}
-}
-
-
 /* This function is meant to work with get_uncached_loose_partial_power_sum */
-void accumulate_single_bin_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
+void accumulate_matched_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
 {
 int segment_count;
 SEGMENT_INFO *si, *si_local;
@@ -547,7 +583,7 @@ int tmp_count;
 int max_group_segment_count;
 int *group_segment_count;
 double avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
-SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv;
+MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv;
 LALStatus status={level:0, statusPtr:NULL};
 EarthState earth_state;
 LIGOTimeGPS tGPS;
@@ -571,39 +607,6 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		continue;
 		}
 
-	priv=do_alloc(1, sizeof(*priv));
-	priv->signature=PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE;
-	priv->emission_time_size=count*segment_count;
-	priv->emission_time=do_alloc(priv->emission_time_size, sizeof(*priv->emission_time));
-	priv->inv_coherence_length=1.0/si->coherence_time;
-
-	for(j=0;j<segment_count;j++) {
-		/* assign index */
-		si[j].index=j;
-
-		tGPS.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
-		tGPS.gpsNanoSeconds=0;
-		LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
-		TESTSTATUS(&status);
-
-		for(i=0;i<count;i++) {
-			baryinput.tgps.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
-			baryinput.tgps.gpsNanoSeconds=0;
-			baryinput.site=get_detector_struct(datasets[si[j].dataset].detector);
-			baryinput.site.location[0]=baryinput.site.location[0]/LAL_C_SI;
-			baryinput.site.location[1]=baryinput.site.location[1]/LAL_C_SI;
-			baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
-			baryinput.alpha=ps[i].ra;
-			baryinput.delta=ps[i].dec;
-			baryinput.dInv=0; /* TODO: pass this from command line */
-
-			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
-			TESTSTATUS(&status);
-			}
-		}
-	
-	ctx->patch_private_data=priv;
-
 	/* This assumes that we are patch bound !! *** WARNING ***
 	TODO: make this assumption automatic in the data layout.
 	 */
@@ -611,6 +614,9 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	min_shift=1000000; /* we should never load this many bins */
 	max_shift=-1000000;
 	for(j=0;j<segment_count;j++) {
+		/* assign index */
+		si[j].index=j;
+
 // 		si_local->ra=ps[0].patch_ra;
 // 		si_local->dec=ps[0].patch_dec;
 // 		memcpy(si_local->e, ps[0].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
@@ -634,7 +640,6 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		si_local++;
 		}
 
-	//group_count=ceil(max_shift-min_shift);
 	if(group_count>200) {
 		fprintf(stderr, "Warning group count too large: %d\n", group_count);
 		group_count=200;
@@ -674,6 +679,44 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
  		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
  		}
 
+	priv=do_alloc(1, sizeof(*priv));
+	priv->signature=PATCH_PRIVATE_MATCHED_LOOSELY_COHERENT_SIGNATURE;
+	priv->emission_time_size=count*segment_count;
+	priv->emission_time=do_alloc(priv->emission_time_size, sizeof(*priv->emission_time));
+	priv->inv_coherence_length=1.0/si->coherence_time;
+	
+	priv->computed_size=max_group_segment_count*2;
+	priv->pps_bins=ps->pps->nbins+args_info.max_first_shift_arg*2;
+	priv->m_re=do_alloc(priv->computed_size*priv->pps_bins, sizeof(*priv->m_re));
+	priv->m_im=do_alloc(priv->computed_size*priv->pps_bins, sizeof(*priv->m_im));
+	priv->w=do_alloc(priv->computed_size, sizeof(*priv->w));
+	priv->computed=do_alloc(priv->computed_size, sizeof(*priv->computed));
+
+
+	for(j=0;j<segment_count;j++) {
+		tGPS.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
+		tGPS.gpsNanoSeconds=0;
+		LALBarycenterEarth(&status, &earth_state, &tGPS, &ephemeris);
+		TESTSTATUS(&status);
+
+		for(i=0;i<count;i++) {
+			baryinput.tgps.gpsSeconds=si[j].gps+si[j].coherence_time*0.5;
+			baryinput.tgps.gpsNanoSeconds=0;
+			baryinput.site=get_detector_struct(datasets[si[j].dataset].detector);
+			baryinput.site.location[0]=baryinput.site.location[0]/LAL_C_SI;
+			baryinput.site.location[1]=baryinput.site.location[1]/LAL_C_SI;
+			baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
+			baryinput.alpha=ps[i].ra;
+			baryinput.delta=ps[i].dec;
+			baryinput.dInv=0; /* TODO: pass this from command line */
+
+			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
+			TESTSTATUS(&status);
+			}
+		}
+	
+	ctx->patch_private_data=priv;
+
 	tmp=do_alloc(max_group_segment_count*2, sizeof(*tmp));
 
 	/* Do a double loop over groups */
@@ -694,6 +737,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			memcpy(&(tmp[ctx->loose_first_half_count]), groups[m], group_segment_count[m]*sizeof(*groups[m]));
 			tmp_count=ctx->loose_first_half_count+group_segment_count[m];
 
+			/* reset partial sum cache */
 			ctx->reset_cache(ctx, tmp_count, count);
 		
 			/* loop over templates */
@@ -703,6 +747,9 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				si_local=tmp;
 				priv->freq_shift=ps_local->freq_shift;
 				priv->spindown=ps_local->spindown;
+				
+				/* reset matched power cache */
+				memset(priv->computed, 0, priv->computed_size*sizeof(*priv->computed));
 
 				for(j=0;j<tmp_count;j++) {
 		// 			si[j].ra=ps[i].patch_ra;
@@ -733,7 +780,11 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	free(group_segment_count);
 	free(si);
 	free(priv->emission_time);
-	priv->emission_time=NULL;
+	free(priv->m_re);
+	free(priv->m_im);
+	free(priv->w);
+	free(priv->computed);
+	memset(priv, 0, sizeof(*priv));
 	free(priv);
 	ctx->patch_private_data=NULL;
 	}
