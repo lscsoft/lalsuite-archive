@@ -127,10 +127,13 @@ files_list = KW_veto_utils.get_result_files(opts.result_dir,opts.verbose)
 unsafe_channels = "|".join(opts.unsafe_channels)
 unsafe = re.compile(unsafe_channels,re.I) # re.I so that it's case insensitive
 
-## figure out which channel gets over a critical used percentage
+# channel_info stores info necessary to make veto definer file
 channel_info={}
+
+## figure out which channel gets over a critical used percentage
 try:
-  for chan_file in files_list:    
+  for chan_file in files_list:
+    already_inserted = False 
     if opts.verbose: 
       print >> sys.stderr, "gathering infomation from %s..."%(chan_file)
     try:
@@ -185,12 +188,20 @@ try:
               version = KW_veto_utils.find_version_xml(tmpSegFile,segment(params['start_time'],params['end_time']),False)
               print >> sys.stderr, "%s:%d already exists."%(name,version)
               print >> sys.stderr, "skipping..."
-              continue
+              already_inserted = True
             else:
               operation = "--insert"
               version = max_version + 1
 
-          explain = "Used Percentage Veto derived segment from Kline Welle running on %s; threshold %s"%(params['channel'],candidateData[0])
+          explain = "Used Percentage Veto derived segments from Kline Welle running on %s; threshold %s"%(params['channel'],candidateData[0])
+
+          # store information necessary to constract veto definer file
+          channel_info[params['channel']] =\
+            (params['ifo'],name,version,explain,params['start_time'],params['end_time'])
+
+          # skip if segments are already in the database
+          if already_inserted:
+            continue
    
           comment = opts.web_address
    
@@ -201,13 +212,14 @@ try:
           KW_veto_utils.write_segs(veto_segs,seg_file)
   
           duration = params['end_time'] - params['start_time'] 
-  
+
           cmd = 'ligolw_segment_insert --segment-url %s --ifos %s --name "%s" --version %d --explain "%s" --comment "%s" --summary-file %s --segment-file %s %s'%(opts.segment_url,params['ifo'],name,version,explain,comment,summary_seg,seg_file,operation)
           print >> sys.stderr, "%s:%d"%(name,version)
           if opts.out_dir != None:
             outfile = "%s-%s-%s.xml"%(name,params['start_time'],duration)
             outfile = os.path.join(opts.out_dir,outfile) 
-  
+            if os.path.isfile(outfile):
+              os.system("rm -f %s"%outfile)
             cmd1 = cmd + " --output %s"%outfile
             if opts.verbose:
               print >> sys.stderr, "writing to output file %s..."%outfile 
@@ -262,7 +274,6 @@ finally:
 
 # preamble
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import utils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
@@ -275,49 +286,25 @@ process_id = process.append_process(doc).process_id
 veto_definer_table = lsctables.New(lsctables.VetoDefTable, columns = ["process_id","ifo","name","version","category","start_time","end_time","start_pad","end_pad","comment"])
 doc.childNodes[0].appendChild(veto_definer_table)
 
-def ContentHandler(xmldoc):
-    return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
-               (name == ligolw.Table.tagName) and\
-               (table.StripTableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
+if opts.verbose:
+  print >> sys.stderr, "Inserted segs:"
 
-utils.ContentHandler = ContentHandler
-
-# read the inserted segment files
-inserted_files = os.listdir(opts.out_dir)
-for f in inserted_files:
-  if not f.endswith("veto_definer_file.xml"):
-    f = os.path.join(opts.out_dir,f)
-    # gather info from segment_definer and segment_summary table
-    xmldoc = utils.load_url(f, verbose=opts.verbose, gz=f.endswith(".gz"))
-    for n, table_elem in enumerate(xmldoc.getElements(lambda e:\
-                                  (e.tagName == ligolw.Table.tagName))):
-      if n == 0: # segment_definer table
-        for row in table_elem:
-          ifo = row.ifos
-          name = row.name
-          version = row.version
-          comment = row.comment
-      if n == 1: # segment_summary table
-        for row in table_elem:
-          start_time = row.start_time
-          end_time = row.end_time
-      category = 3
-      start_pad = 0
-      end_pad = 0
-
-    # append the info in veto_definer
-    veto_definer = lsctables.VetoDef()
-    veto_definer.process_id = process_id
-    veto_definer.ifo = ifo
-    veto_definer.name = name
-    veto_definer.version = version
-    veto_definer.start_time = start_time
-    veto_definer.end_time = end_time
-    veto_definer.comment = comment
-    veto_definer.category = category
-    veto_definer.start_pad = start_pad
-    veto_definer.end_pad = end_pad
-    veto_definer_table.append(veto_definer)
+for c in channel_info.keys():
+  if opts.verbose: 
+    print >> sys.stderr, "%s:%d"%(channel_info[c][1],channel_info[c][2])
+  # append the info in veto_definer
+  veto_definer = lsctables.VetoDef()
+  veto_definer.process_id = process_id
+  veto_definer.ifo = channel_info[c][0]
+  veto_definer.name = channel_info[c][1]
+  veto_definer.version = channel_info[c][2]
+  veto_definer.start_time = channel_info[c][4]
+  veto_definer.end_time = channel_info[c][5]
+  veto_definer.comment = channel_info[c][3]
+  veto_definer.category = 3
+  veto_definer.start_pad = 0
+  veto_definer.end_pad = 0
+  veto_definer_table.append(veto_definer)
 
 # write to veto definer file
 utils.write_filename(doc,os.path.join(opts.out_dir,"veto_definer_file.xml"))

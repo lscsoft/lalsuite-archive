@@ -204,6 +204,7 @@ class insertJob(pipeline.CondorDAGJob):
     self.add_opt("min_coinc_num",cp.get("data_conditioning","min_kw"))
     self.add_opt("scratch_dir",cp.get("condor","scratchdir"))
     self.add_opt("trigger_type",cp.get("veto","trigger_type"))
+    self.add_arg("--verbose")
       
       
 class followupJob(pipeline.CondorDAGJob):
