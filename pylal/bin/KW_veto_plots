@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009  Larne Pekowsky, Ping Wei
+# Copyright (C) 2009  Tomoki Isodai
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -74,7 +74,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
+    parser = optparse.OptionParser(usage=__doc__,version=__version__)
     parser.add_option("-r", "--result_glob",
                       help="Glob for result files from KW_veto_calc. Required.")
     parser.add_option("-o", "--out_dir", default = "plots",
@@ -332,6 +332,28 @@ def plot_channel():
         title("Vetoed GW Triggers by " + params['channel'] + ", Low SNR Range")
         savefig("%s-vetoed_triggers_hist_lowSnr.png"%prefix,dpi=200)
         savefig("%s-vetoed_triggers_hist_lowSnr-thumbnail.png"%prefix,dpi=60)
+        close('all')
+
+    ## distribution
+    if candidate != None: # means veto candidate channel
+        # original function to pick coincident GW triggers.
+        connection.create_function("coinc", 2, lambda x, y: x in map(int,y.split(",")))
+
+        coincKWtrigs = cursor.execute("select frequency, KWSignificance, CoincidenceGWTrigID from KWtrigs where KWSignificance > ? and CoincidenceGWTrigID <> 'No Coincidence'",(veto_thresh,)).fetchall() 
+        distData = []
+        for kw in coincKWtrigs:
+          coincGW = cursor.execute("select SNR from GWtrigs where coinc(ID,?)", (kw[2],)).fetchall()
+          freq = kw[0]
+          sigRatio = max(coincGW)[0]/kw[1]
+          distData.append((freq,sigRatio))
+        distData = zip(*distData)
+        plot(distData[0],distData[1],'ro',markersize=5)
+        xlabel('Frequency (Hz)')
+        ylabel('GW / AUX Significance')
+        grid()
+        title(params['channel'] + ": Coinc Triggers Distribution")
+        savefig("%s-coinc_triggers_dist.png"%prefix,dpi=200)
+        savefig("%s-coinc_triggers_dist-thumbnail.png"%prefix,dpi=60)
         close('all')
 
 # =============================================================================

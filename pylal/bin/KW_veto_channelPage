@@ -135,6 +135,10 @@ def channel_page():
     db_result = names[5]
     log = names[6]
     
+    # for candidates channel, insert another plot that shows the distribution
+    # of the coincident triggers
+    coincTrigsDist = insert_coincTrigs_dist()
+
     ################## main html code for the report page ######################
     
     contents = """
@@ -172,6 +176,7 @@ def channel_page():
     <a href="javascript:gotoSection('trigNumHist')">Trigger Histograms</a><br>
     <a href="javascript:gotoSection('timeSeries')">Time Series</a><br>
     <a href="javascript:gotoSection('eff_DT')">Efficiency / Dead Time</a><br>
+    %s <!--coincident triggers distribution plot (only for candidates)-->
     <a href="../trigs/%s">GW Triggers</a><br>
     <a href="../trigs/%s">KW Triggers</a><br>
     <a href="../info/%s">Analyzed Segments</a><br>
@@ -246,13 +251,15 @@ def channel_page():
      alt="%s-eff_DT_plot"></a><br>
     </div>
 
+    %s <!--coincident triggers distribution (only for candidates) -->
+
     </div>
     <div class="footer">
     Created by user %s on %s<br>
     </div>
     </body>
     </html>
-    """ % (title,title,GWtrig,KWtrig,seg,txt_result,db_result,param,log,summary_maker(),p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,insert_vetoedGW_hist(),p,p,p,p,p,p,p,p,p,p,user,curTime) # p is a file prefix which is used to uniquely identify the channel 
+    """ % (title,title,coincTrigsDist[0],GWtrig,KWtrig,seg,txt_result,db_result,param,log,summary_maker(),p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,insert_vetoedGW_hist(),p,p,p,p,p,p,p,p,p,p,coincTrigsDist[1],user,curTime) # p is a file prefix which is used to uniquely identify the channel 
            
     # write down
     chan_page = open(baseDir+"/channel_pages/%s-report_page.html"%(p),"w")
@@ -293,7 +300,8 @@ def summary_maker():
         <tr><td><b>Dead Time Percentage:</b></td> <td>%.4f%%</td> <td>(%d s/%d s)</td>
         <tr><td><b>Used Percentage/Random Used Percentage:</b></td> <td>%.2f</td>
         <tr><td><b>Veto Efficiency/Dead Time Percentage:</b></td> <td>%.2f</td>
-        <tr><td><b>Vetoed Inj / Expected N:</b></td> <td>%s / %s</td>
+        <tr><td><b>Vetoed Inj / Total Inj:</b></td> <td>%s / %s</td>
+        <tr><td><b>Expected:</b></td> <td>%s</td>
         <tr><td><b>Safety Probability:</b></td> <td>%s</td>
         <tr><td><b>Safety:</b></td> <td>%s</td>
         </tbody>
@@ -313,7 +321,7 @@ def summary_maker():
         </div>
         """%(params['positive_window'],params['negative_window'],candidate_data[0],candidate_data[1],candidate_data[2],candidate_data[3],candidate_data[5],\
             candidate_data[4],params['totalGWtrigsNum'],candidate_data[7],candidate_data[6],params['totalTime'],candidate_data[8],\
-            candidate_data[9],params['HWInjNvetoed'],params['HWInjNexp'],params['HWInjProbability'],params['safety'],os.path.basename(params['vetoSegFile']))
+            candidate_data[9],params['HWInjNvetoed'],params['totalInjNum'],params['HWInjNexp'],params['HWInjProbability'],params['safety'],os.path.basename(params['vetoSegFile']))
         
     ############################################################################
     # case 2: non veto candidate channel
@@ -363,6 +371,38 @@ def insert_vetoedGW_hist():
 
   return vetoedTrigHist
 
+def insert_coincTrigs_dist():
+  """
+  This function makes coincident trigger distribution plot part of the page for
+  candidate channel.
+  """      
+  if candidate_data != None:
+    p = params['filePrefix'] # short notation
+    
+    ################### vetoed insp triggers histogram part ################
+    
+    index_part = """
+    <a href="javascript:gotoSection('coinc_dist')">Trigger Distribution</a><br>
+    """
+    coincTrigDist=\
+    """
+    <a name="coinc_dist"></a>
+    <h2 class="coinc_dist"><input id="input_coinc_dist"
+     checked="checked" onclick="toggleVisible('coinc_dist');"
+     type="checkbox">Coincident Trigger Distribution
+    </h2>
+    <div id="div_coinc_dist" style="display: block;">
+    <a name="coinc_dist"></a>
+    <a id="a_%s-coic_dist_plot"
+     href="../plots/%s-coinc_triggers_dist.png"><img
+     id="img_%s-coinc_triggers_dist_plot"
+     src="../plots/%s-coinc_triggers_dist-thumbnail.png"
+     alt="%s-coinc_triggers_dist_plot"></a><br>
+    </div>
+    """%(p,p,p,p,p)
+    return (index_part,coincTrigDist)
+  else:
+    return ("", "")
 
 def setup_dir():
     """

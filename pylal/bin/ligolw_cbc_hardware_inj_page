@@ -117,7 +117,7 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 		if triggers:
 			inj_time = segments.segment(time - 0.1, time + 0.1)
                 	triggers = triggers.vetoed(inj_time)
-                	triggers = triggers.ifocut(ifo)
+			triggers.ifocut(ifo, inplace=True)
         	if triggers and len(triggers): found=1
 		else: found=0
 	return (injected,analysed,found)

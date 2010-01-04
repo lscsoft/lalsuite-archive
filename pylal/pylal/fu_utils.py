@@ -2234,7 +2234,7 @@ class followupDQV:
     ldbd://myserver.domain.name:808080
     """
     self.triggerTime=int(-1)
-    self.serverURL="https://segdb.ligo.caltech.edu:30015"
+    self.serverURL="https://segdb.ligo.caltech.edu"
     if LDBDServerURL==None:
       envServer=None
       envServer=os.getenv('S6_SEGMENT_SERVER')
