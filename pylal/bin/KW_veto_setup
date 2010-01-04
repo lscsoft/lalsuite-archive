@@ -193,8 +193,9 @@ class insertJob(pipeline.CondorDAGJob):
     self.add_condor_cmd('getenv','True')
   
     self.add_opt("result_dir", cp.get("output", "out_dir"))
+    self.add_opt("out_dir",os.path.join(web_outdir,"inserted_segs"))
     if cp.getboolean("veto","xml"):
-      self.add_opt("out_dir",os.path.join(web_outdir,"inserted_segs"))
+      self.add_arg("--write_xml")
     if cp.getboolean("veto","insert"):
       self.add_arg("--insert")
     self.add_opt("segment-url", cp.get("veto","segment_url"))

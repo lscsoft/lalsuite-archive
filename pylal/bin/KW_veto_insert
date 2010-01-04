@@ -60,8 +60,10 @@ def parse_commandline():
     parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
     parser.add_option("-r", "--result_dir",
                       help="Result directories from KW_veto_calc. Required.")
-    parser.add_option("-o", "--out_dir", default=None,
-                      help="Output directory name. If given, save files in this directly and not insert unless --insert is on. (Default: None)")
+    parser.add_option("-o", "--out_dir", default="inserted_segs",
+                      help="Output directory name. The xml files will be saved in this directly. (Default: inserted_segs)")
+    parser.add_option("-x", "--write_xml", action="store_true", default=False,
+                      help="Write xml file containing veto segments for each channel. (Default: False)")
     parser.add_option("-i", "--insert", action="store_true", default=False,
                       help="Insert segs into a database. (Default: False)")
     parser.add_option("-s", "--segment-url", default="https://segdb.ligo.caltech.edu",
@@ -87,7 +89,7 @@ def parse_commandline():
     if opts.web_address is None:
       parser.error("Error: --web_address is a required parameter")
     # make an output directory if it doesn't exist yet
-    if opts.out_dir != None and not os.path.exists(opts.out_dir): 
+    if not os.path.exists(opts.out_dir): 
       os.makedirs(opts.out_dir)
     opts.unsafe_channels = map(lambda x:x.upper(),opts.unsafe_channels)
     # check if trigger type is valid
@@ -215,7 +217,7 @@ try:
 
           cmd = 'ligolw_segment_insert --segment-url %s --ifos %s --name "%s" --version %d --explain "%s" --comment "%s" --summary-file %s --segment-file %s %s'%(opts.segment_url,params['ifo'],name,version,explain,comment,summary_seg,seg_file,operation)
           print >> sys.stderr, "%s:%d"%(name,version)
-          if opts.out_dir != None:
+          if opts.write_xml:
             outfile = "%s-%s-%s.xml"%(name,params['start_time'],duration)
             outfile = os.path.join(opts.out_dir,outfile) 
             if os.path.isfile(outfile):
