@@ -167,8 +167,11 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
       raise ValueError, "Invalid FrEvent name"
 
     log_data = event['comment'] + '\n'
-    far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
-           'False Alarm Rate' in line][0]
+    try:
+        far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
+               'False Alarm Rate' in line][0]
+    except IndexError:
+        far = None
     for ifo in detectors:
       end_time[ifo] = LIGOTimeGPS(event[ifo+':end_time'])
       snr[ifo] = float(event[ifo+':SNR'])
@@ -228,8 +231,9 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   row.mchirp = sum(mchirp.values())/3
   #the snr here is really the snr NOT effective snr
   row.snr = pow(sum([x*x for x in snr.values()]),0.5)
-  #far is triggers/day
-  row.false_alarm_rate = float(far)
+  if far is not None:
+      #far is triggers/day
+      row.false_alarm_rate = float(far)
   row.combined_far = 0
   cin_table.append(row)
 
