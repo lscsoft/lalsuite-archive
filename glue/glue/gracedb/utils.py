@@ -234,6 +234,8 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   if far is not None:
       #far is triggers/day
       row.false_alarm_rate = float(far)
+  else:
+      row.false_alarm_rate = None
   row.combined_far = 0
   cin_table.append(row)
 
