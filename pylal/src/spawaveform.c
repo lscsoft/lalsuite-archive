@@ -10,6 +10,15 @@
 #include <lal/Units.h>
 #include <lal/LALInspiral.h>
 
+/* GSL includes */
+#include <gsl/gsl_complex.h>
+#include <gsl/gsl_complex_math.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_blas.h>
+
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
@@ -22,7 +31,6 @@ static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
 static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
-
 
 const char SPADocstring[] =
 "This module wraps SPA inspiral waveform generation and some useful functions "
@@ -142,6 +150,66 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
         return Py_None;
 	}
 
+static PyObject *PySVD(PyObject *self, PyObject *args)
+	{
+	PyObject *a, *A, *V, *S, *out;
+	gsl_vector *gW;
+	gsl_matrix_view gU, gV;
+	gsl_vector_view gS;
+	npy_intp *Adims = NULL;
+	npy_intp Vdims[] = {0.0, 0.0};
+	npy_intp Sdims[] = {0.0};
+	double *cA = NULL;
+	double *cV = NULL;
+	double *cS = NULL;
+	if(!PyArg_ParseTuple(args, "O", &a)) return NULL;
+
+	/* The input matrix */
+	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
+	Adims = PyArray_DIMS(A);
+	cA = PyArray_DATA(A);
+
+	/* allocate new ouput matrices */
+	Vdims[0] = Vdims[1] = Adims[1];
+	V = PyArray_SimpleNew(2, Vdims, NPY_DOUBLE);
+	cV = PyArray_DATA(V);
+
+	Sdims[0] = Adims[1];
+	S = PyArray_SimpleNew(1, Sdims, NPY_DOUBLE);
+	cS = PyArray_DATA(S);
+
+
+	/* Allocate workspace gsl matrix */
+	/* FIXME no error checking done on size of A */
+	gW = gsl_vector_calloc(Adims[1]);
+
+	/* Get gsl matrix views of the numpy array data */
+	/* A is replaced by U */
+	gU = gsl_matrix_view_array(cA, Adims[0], Adims[1]);
+
+	/* Get gsl matrix views of the numpy array data */
+	gS = gsl_vector_view_array(cS, Sdims[0]);
+
+	/* Get gsl matrix views of the numpy array data */
+	gV = gsl_matrix_view_array(cV, Vdims[0], Vdims[1]);
+
+	gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+
+	/* take the transpose to be consistent with scipys svd */
+	gsl_matrix_transpose(&(gV.matrix));
+
+	out = Py_BuildValue("OOO", A, S, V);
+	/* FIXME HELP I don't know what to do about references... */
+	//Py_DECREF(A); 
+	//Py_DECREF(V);
+	//Py_DECREF(S);
+        //Py_INCREF(Py_None);
+
+	/* free the workspace matrix */
+	gsl_vector_free(gW);
+	return out;
+	}
+
 static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
 	{
 
@@ -161,27 +229,43 @@ static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 
 
 static struct PyMethodDef methods[] = {
-	{"waveform", PySPAWaveform, METH_VARARGS, 
-         "This function produces a frequency domain waveform at a "
-         "specified mass1, mass2 and PN order.\n\n"
-         "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
-        },
+	{"waveform", PySPAWaveform, METH_VARARGS, 	
+	 "This function produces a frequency domain waveform at a "
+	 "specified mass1, mass2 and PN order.\n\n"
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
+	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS, 
-         "This function produces a frequency domain IMR waveform at a "
-         "specified mass1, mass2, spin1, spin2 with spins aligned\n\n"
-         "imrwaveform(m1, m2, spin1, spin2, deltaF, fLower, signalArray)\n\n"
-        },
+	 "This function produces a frequency domain IMR waveform at a "
+	 "specified mass1, mass2, spin1, spin2 with spins aligned\n\n"
+	 "imrwaveform(m1, m2, spin1, spin2, deltaF, fLower, signalArray)\n\n"
+	},
 	{"chirptime", PyChirpTime, METH_VARARGS, 
-         "This function calculates the SPA chirptime at a specified mass1, mass2 " 
+	 "This function calculates the SPA chirptime at a specified mass1, mass2 " 
 	 "and PN order between two frequencies.  If the second frequency is omitted "
 	 "it is assumed to be infinite.\n\n"
-         "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
-        },
+	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
+	},
 	{"ffinal", PyFFinal, METH_VARARGS, 
-         "This function calculates the Schwarzschild ISCO frequency specified by " 
+	 "This function calculates the ending frequency specified by "
 	 "mass1 and mass2.\n\n"  
-         "schwarzisco(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
-        },
+	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
+	},
+	{"svd", PySVD, METH_VARARGS, 
+	 "This function calculates the singular value decomposition via the gsl function\n"
+	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
+	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n" 
+	 "USAGE:\n\tU, S, V = svd(A)\n\n"
+	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
+	 "is an MxM numpy array (NOTE A IS REPLACED BY U AND IS THUS GONE)\n\n"
+	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
+	 "\timport numpy\n"
+	 "\tA = numpy.random.randn(4,3)\n"
+	 "\tprint A\n"
+	 "\tU,S,V = spawaveform.svd(A)\n"
+	 "\tB = U * S\n"
+	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
+	 "\tprint Aprime\n\n"
+	},
 	{NULL, NULL, 0, NULL}	
 	};
 

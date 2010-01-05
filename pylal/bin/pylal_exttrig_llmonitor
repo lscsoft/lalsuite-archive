@@ -103,10 +103,17 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
   gps_now = time.time() - peu.offset_gps_to_linux
   time_diff = gps_now-int(grb_time)
   if time_diff < int(cp.get('data','min_diff')):
-    # do not analyze this GRB now.
-    # postpone to later time
-    peu.info("GRB%s: Analysis postponsed because time difference too small")
-    return 
+    # do not analyze this GRB now; postpone to later time
+    peu.info(grb_name, "GRB%s: Analysis postponsed because time difference too small"%grb_name)
+    return None
+ 
+  if opts.check_time_window:
+    if time_diff > opts.check_time_window*86400.:
+      # do not analyze this GRB; only analyze online GRBs within a certain time range
+      peu.info(grb_name, "GRB%s: Analysis not started because trigger is before the check-time-window"%grb_name)
+      return None	
+
+
 
   analysis_path = cp.get('paths','main')+'/GRB'+grb_name
   cvs_path = cp.get('paths','cvs')+'/'
@@ -131,7 +138,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                 main_dir=cp.get('paths','main'),\
                 ini_file = cp.get('data','ini_file'),\
                 inj_file = cp.get('data','inj_file'),\
-                config_file = opts.config_file,\
+                config_file = cp.get('paths','main')+'/'+opts.config_file,\
                 condor_log_path = cp.get('paths','condor_log_path'),\
                 log_file=log_file)
   grb.set_addresses(email_adresses)
@@ -143,10 +150,13 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
 
   # decide
   if grb.has_data:
-
+    
     # run the creation functions
     grb.create_exttrig_xml_file()
     grb.prepare_analysis_directory()
+
+    # update veto files as well
+    grb.update_veto_lists(int(cp.get('data','min_diff')))
 
     # start the onoff analysis (condor_submit_dag)
     grb.dag['onoff'].start()
@@ -155,8 +165,8 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     grb.check_analysis_directory('onoff')
 
     # cleaning up
-    cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb_name, analysis_path)
-    peu.system_call(grb_name, cmd)
+    cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb.name, analysis_path)
+    peu.system_call(grb.name, cmd)
 
     # multiple notifications
     subject = "New analysis started for  GRB%s " %grb.name
@@ -179,8 +189,15 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
                  (grb.time, grb.ra, grb.de)    
     peu.send_mail(subject, email_msg)  
 
+  # copy the segment plot and all the other stuff
+  maindir = cp.get('paths','main')
+  htmldir = '%s/GRB%s' % (cp.get('paths','publishing_path'), grb.name)
+  cmd = 'mkdir -p %s; cp %s/*grb%s* %s' % \
+          (htmldir, maindir, grb.name, htmldir)
+  peu.system_call(grb.name, cmd)
+
   # cleaning up
-  cmd = 'mv %s/*grb%s* AuxFiles/' % (cp.get('paths','main'), grb.name)
+  cmd = 'mv %s/*grb%s* AuxFiles/' % (maindir, grb.name)
   peu.system_call(grb.name, cmd)
 
   return grb
@@ -259,9 +276,12 @@ def update_database(opts):
       # and prepare the call for a new analysis
       grb = start_new_analysis(grb_name, grb_ra, grb_dec, grb_gps_time)
 
-      # and add the processed GRB to the list of processed GRB's to avoid double analysis
-      monitor_list.append(grb)
-      grbs_processed.append(grb_name)
+      # only add to the list if this GRB has been accepted...
+      if grb:
+
+        # and add the processed GRB to the list of processed GRB's to avoid double analysis
+        monitor_list.append(grb)
+        grbs_processed.append(grb_name)
 
   # check for updated duration informations for the GRBs
   peu.update_durations(monitor_list)
@@ -314,7 +334,7 @@ def start_post(grb, dag, cp):
   peu.system_call(grb.name, command)
 
   # make the replace with the sed file
-  infile = "%s/postproc.dag.in" %path
+  infile = "%s/postproc.in" %path
   dagfile = "%s/postproc.dag" %path
   grb.apply_sed_file(infile, dagfile)
 
@@ -422,6 +442,9 @@ def parse_args():
     #    help="Specifies the number of running GRBs.")
     parser.add_option( "--grb", default=None,
         help="Specifies the name of a GRB to check.")
+    parser.add_option("--check-time-window", type="float", default=None,
+        help="Specifies the time window to be checked from the current date (in days)."\
+             " Any GRB outside this range (i.e. earlier ones) and not analyzed.")
 
 
     # injection related setting
@@ -466,8 +489,9 @@ peu.cp = cp
 peu.info('monitor', 'pylal_exttrig_llmonitor is executed...')
 
 # check the lock file
-if peu.check_lock():
-  peu.info('monitor','Lock is activated. Check running instances or remove this file')
+pid = peu.check_lock()
+if pid:
+  peu.info('monitor','A different instance of this code is running with PID= %s.'%pid)
   sys.exit(0)
 peu.set_lock()
 
@@ -511,16 +535,11 @@ for grb in monitor_list:
     fstat = dag.check_status(grb, dag)
     status = dag.get_status()
 
-    #print "TESTINFO-PROC GRB %s  DAG %s  Status %d   fstat: %d" % (grb.name, dag.type, dag.get_status(), fstat)
     if fstat == -2:
       peu.info(grb.name, "INFO: GRB%s DAG %s is missing: %s"%(grb.name, dag.type, dag.get_dagname()))
 
-    if fstat == 0:
 
-       # check if the status is negative; make it positive then
-      # which means the rescue DAG is running
-      if status<0:
-        dag.set_status(-status)
+    if fstat == 0:
 
       # The DAG is running
       peu.info(grb.name, 'INFO: GRB%s DAG %s is running in stage %s.'%\

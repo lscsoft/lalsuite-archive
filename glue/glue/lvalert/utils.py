@@ -30,7 +30,9 @@ class LVAlertTable(table.Table):
   validcolumns = {
     "file": "lstring",
     "uid": "lstring",
-    "temp_data_loc": "lstring"
+    "temp_data_loc": "lstring",
+    "alert_type": "lstring",
+    "description": "lstring",
     }
     
 class LVAlertRow(object):
@@ -61,7 +63,7 @@ def parse_file_url(file_url):
   
   return host, path, fname
 
-def get_LVAdata_from_stdin(std_in):
+def get_LVAdata_from_stdin(std_in, as_dict=False):
   """
   this function takes an LVAlertTable from sys.stdin and it returns:
   host: the machine the payload file was created on
@@ -76,9 +78,18 @@ def get_LVAdata_from_stdin(std_in):
   uid = lvatable[0].uid
   data_loc = lvatable[0].temp_data_loc
 
+  if as_dict:
+    return {
+      "file" : lvatable[0].file,
+      "uid" : lvatable[0].uid,
+      "data_loc" : lvatable[0].temp_data_loc,
+      "description" : lvatable[0].description,
+      "alert_type" : lvatable[0].alert_type,
+    }
+
   return file, uid, data_loc
 
-def get_LVAdata_from_file(filename):
+def get_LVAdata_from_file(filename, as_dict=False):
   """
   this function takes the name of an xml file containing a single LVAlertTable
   and it returns:
@@ -94,9 +105,18 @@ def get_LVAdata_from_file(filename):
   uid = lvatable[0].uid
   data_loc = lvatable[0].temp_data_loc
 
+  if as_dict:
+    return {
+      "file" : lvatable[0].file,
+      "uid" : lvatable[0].uid,
+      "data_loc" : lvatable[0].temp_data_loc,
+      "description" : lvatable[0].description,
+      "alert_type" : lvatable[0].alert_type,
+    }
+
   return file, uid, data_loc  
 
-def make_LVAlertTable(file_url, uid, data_loc):
+def make_LVAlertTable(file_url, uid, data_loc, alert_type="new", desc=""):
   """
   create xml doc which contains an LVAlert Table
   with submission file file_loc and  data located at data_loc
@@ -108,6 +128,8 @@ def make_LVAlertTable(file_url, uid, data_loc):
   row.file = file_url
   row.uid = uid
   row.temp_data_loc = data_loc
+  row.alert_type = alert_type
+  row.description = desc
   lvalerttable.append(row)
   xmldoc.childNodes[0].appendChild(lvalerttable)
 

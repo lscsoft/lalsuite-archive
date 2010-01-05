@@ -58,7 +58,7 @@ if opts.start_run:
 			shutil.copyfile(opts.output_path + "/latest-run.log",opts.output_path + "/" + opts.log_name)
 	else:
 		print >> sys.stderr, "Path " + opts.output_path + " is not a valid directory" 
-		sys.exit(1)
+		sys.exit(0)
 
 if opts.terminate_run:
 	if os.path.isdir(opts.output_path):
@@ -74,5 +74,5 @@ if opts.terminate_run:
 				shutil.copyfile(opts.output_path + "/latest-run.log",opts.output_path + "/" + opts.log_name)
 	else:
 		print >> sys.stderr, "Path " + opts.output_path + " is not a valid directory"
-		sys.exit(1)
+		sys.exit(0)
 

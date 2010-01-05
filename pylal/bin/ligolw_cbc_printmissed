@@ -111,11 +111,6 @@ def parse_command_line():
             "ranking will come from the union of the ranges."
             )
     # following are options specific to this program
-    parser.add_option( "-I", "--instrument-time", action = "store", type = "string", default = None,
-        help =
-            "Required. Instrument time to select missed injections " +
-            "from, e.g., 'H1,L1,V1'."
-            )
     parser.add_option( "-s", "--simulation-table", action = "store", type = "string", default = None,
         help =
             "Required. Table to look in for injection parameters. " +
@@ -126,6 +121,34 @@ def parse_command_line():
             "Required. Table to look in to see if injections were missed. " +
             "Can be any lsctable with a coinc_event_id."
             )
+    parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, separate column names with a comma."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
+    parser.add_option( "-X", "--exclude-coincs", action = "store", type = "string", default = None,
+        metavar = " [ALL IN INSTRUMENTS_ON1];[ALL IN INSTRUMENTS_ON2]; etc.",
+        help = 
+            "Exclude specified instrument times. Must specify by typing '[ALL IN INSTRUMENTS_ON]' " +
+            "e.g., '[ALL IN H1,V1]' to exclude H1,V1 time. Some rules: " +
+                "* The word 'ALL' and the detector time must be separated by " +
+                "an 'in'. When specifying a detector " +
+                "time, detectors and/or ifos must be separated by " +
+                "commas, e.g. 'H1,L1' not 'H1L1'. " +
+                "* To specify multiple exclusions, separate each " +
+                "bracket by a ';'. " +
+                "* Order of the instruments nor case of the letters " +
+                "matter. So if your pinky is broken and you're " +
+                "dyslexic you can type '[all in v1,h1]' without a " +
+                "problem." 
+            )
+    parser.add_option( "-I", "--include-only-coincs", action = "store", type = "string", default = None,
+        metavar = " [ALL IN INSTRUMENTS_ON1];[ALL IN INSTRUMENTS_ON2]; etc.",
+        help =
+            "Opposite of --exclude-coincs: only get missed injections from the specified instrument time. " +
+            "Default is to find injections in all times present in the database."
+            )
     parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
         help =
             "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
@@ -133,7 +156,9 @@ def parse_command_line():
             )
     parser.add_option( "", "--limit", action = "store", type = "int", default = 10,
         help =
-            "Specify up to what rank to print. Default is 10. "
+            "Specify up to what rank to print. Default is 10. Missed injections are ranked separately " +
+            "in each instrument time, e.g., if limit is 10, will get the 10 closest injection for each " +
+            "instrument time."
             )
     parser.add_option("-H", "--daily-ihope-pages-location", action = "store",
         default = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily",
@@ -147,8 +172,6 @@ def parse_command_line():
     # check for required options and for self-consistency
     if not options.input:
         raise ValueError, "No input specified."
-    if not options.instrument_time:
-        raise ValueError, "No instrument time specified."
     if not options.simulation_table:
         raise ValueError, "No simulation table specified."
     if not options.recovery_table:
@@ -175,219 +198,16 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
-# Get simulation table from options
-simulation_table = sqlutils.validate_option(opts.simulation_table)
-# Get recovery table and ranking stat from options
-recovery_table = sqlutils.validate_option(opts.recovery_table)
-
-# Get the requested instruments
-requested_instruments = lsctables.instrument_set_from_ifos(opts.instrument_time.upper())
-
-# get the ring_sets
-ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
-
-if opts.verbose:
-    print >> sys.stderr, "Getting all veto category name from the experiment_summary table..."
-
-# get veto_segments
-sqlquery = """
-    SELECT DISTINCT
-        veto_def_name
-    FROM
-        experiment_summary
-    """
-# FIXME: this assumes only 1 veto_def_name in the category; while this is currently true in pipedown
-# databases, it necessarily doesn't have to be
-veto_def_name = connection.cursor().execute(sqlquery).fetchone()[0]
-if opts.verbose:
-    print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
-try:
-    veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-except AttributeError:
-    # will get an AttributeError if using newer format veto segment file because
-    # the new format does not include _ns; if so, remove the _ns columns from the
-    # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-    from glue.lal import LIGOTimeGPS
-
-    del lsctables.SegmentTable.validcolumns['start_time_ns']
-    del lsctables.SegmentTable.validcolumns['end_time_ns']
-
-    def get_segment(self):
-        """
-        Return the segment described by this row.
-        """
-        return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-
-    def set_segment(self, segment):
-        """
-        Set the segment described by this row.
-        """
-        self.start_time = segment[0].seconds
-        self.end_time = segment[1].seconds
-
-    lsctables.Segment.get = get_segment
-    lsctables.Segment.set = set_segment
-
-    veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-
-# get instrument on_time
-on_times = ring_sets[frozenset(requested_instruments)]
-for instrument in requested_instruments:
-    on_times = on_times - veto_segments[instrument]
-
-def is_in_on_time(gps_end_time, gps_end_time_ns):
-    return LIGOTimeGPS(gps_end_time, gps_end_time_ns) in on_times
-
-connection.create_function('is_in_on_time', 2, is_in_on_time)
-
-# set up sim_rec_map table
-sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
-
-
-#
-#   Set table filters
-#
-
-in_this_filter = """
-    WHERE
-        simulation_id NOT IN (
-            SELECT
-                sim_id
-            FROM
-                sim_rec_map )"""
-
-for instrument in requested_instruments:
-    inst_time = instrument.lower()[0] + '_end_time'
-    inst_time_ns = inst_time + '_ns' 
-    in_this_filter = ''.join([ in_this_filter,
-        '\n\tAND is_in_on_time(', inst_time, ',', inst_time_ns, ')' ])
-
-# Get param and param-ranges if specified
-if opts.param_name:
-    opts.param_name = sqlutils.validate_option(opts.param_name)
-    param_filters = sqlutils.parse_param_ranges( simulation_table, opts.param_name, 
-        opts.param_ranges, verbose = opts.verbose ).get_param_filters()
-    # since want triggers that fall within all the parameters, concatenate
-    # all param ranges
-    param_filters = '\n\t\tOR '.join( param_filters )
-    in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', param_filters, '\n\t)' ])
-
-# if sim-tag specified add the sim-tag to the filter
-if opts.sim_tag != 'ALLINJ':
-    # create a map between sim_proc_id and sim-name
-    sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
-    # check that opts.sim_tag is in the the map
-    opts.sim_tag = sqlutils.validate_option(opts.sim_tag, lower = False).upper()
-    if opts.sim_tag not in sim_map.tag_id_map.keys():
-        raise ValueError, "sim-tag %s not found in database" % opts.sim_tag
-    # create the filter
-    connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
-    sim_filter = ''.join(['get_sim_tag(', simulation_table, '.process_id) == "', opts.sim_tag, '"' ])
-    # add to in_this_filter
-    in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
-
-#
-#   Set up decisive distance argument
-#
-
-def get_decisive_distance( *args ):
-   return sorted(args)[1]
-
-connection.create_function('get_decisive_distance', len(requested_instruments), get_decisive_distance)
-decisive_distance = ''.join(['get_decisive_distance(', ','.join(['eff_dist_'+inst.lower()[0] for inst in requested_instruments]), ')' ])
-
-#
-#   Initialize ranking. Statistics for ranking are based on decisive distance
-#
-if opts.verbose:
-    print >> sys.stdout, "Getting statistics for ranking..."
-ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
-# add requirement that stats not be found in the sim_rec_table to in_this_filter
-ranker.populate_stats_list(connection, limit = opts.limit, filter = in_this_filter)
-connection.create_function( 'rank', 1, ranker.get_rank )
-
-#
-#   Create and prepare the CloseMissedTable to store summary information
-#
-
-# Get simulation table column names from database
-simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
-column_names = simulation_table_columns + \
-    ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
-
-#
-# define needed tables
-#
-class CloseMissedTable(table.Table):
-    tableName = "close_missed_injections:table"
-    validcolumns = {}
-    for col_name in column_names:
-        if 'rank' in col_name:
-            validcolumns[col_name] = "int_4u"
-        elif 'instruments_on' in col_name:
-            validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
-        elif 'decisive_distance' == col_name:
-            validcolumns[col_name] = sqlutils.get_col_type(simulation_table, 'eff_dist_h')
-        elif 'end_time' == col_name or 'end_time_ns' == col_name:
-            validcolumns[col_name] = "int_4s"
-        else:
-            validcolumns[col_name] = sqlutils.get_col_type(simulation_table, col_name, default = 'lstring')
-
-class CloseMissed(object):
-    __slots__ = CloseMissedTable.validcolumns.keys()
-
-    def get_pyvalue(self):
-        return printutils.generic_get_pyvalue(self)
-
-# connect the rows to the tables
-CloseMissedTable.RowType = CloseMissed
-
-#
-#   Get the Data
-#
-cmtable = lsctables.New(CloseMissedTable)
-sqlquery = ''.join(["""
-    SELECT
-        *,
-        """, decisive_distance, """,
-        rank(""", decisive_distance, """)
-    FROM
-        """, simulation_table, """
-    """, in_this_filter, """
-        AND rank(""", decisive_distance, """) <= """, str(opts.limit), """
-    ORDER BY
-        rank(""", decisive_distance, """) ASC
-        """])
-
-if opts.verbose:
-    print >> sys.stdout, "Getting injections..."
-    print >> sys.stdout, "SQLite query used is:"
-    print >> sys.stdout, sqlquery
-
-for values in connection.cursor().execute( sqlquery ).fetchall():
-    cmrow = CloseMissed()
-    [ setattr(cmrow, column, values[ii]) for ii, column in enumerate(simulation_table_columns) ]
-    cmrow.decisive_distance = values[-2]
-    cmrow.rank = values[-1]
-    cmrow.mini_followup = None
-    cmrow.end_time = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time')
-    cmrow.end_time_ns = getattr(cmrow, sorted(requested_instruments)[0][0].lower() + '_end_time_ns')
-    # set  elog page
-    elog_pages = [(ifo, printutils.get_elog_page(ifo, cmrow.end_time)) for ifo in requested_instruments]
-    cmrow.elogs = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
-    # set daily_ihope page
-    end_time_utc = printutils.format_end_time_in_utc( cmrow.end_time ) 
-    daily_ihope_address = printutils.get_daily_ihope_page(cmrow.end_time, pages_location = opts.daily_ihope_pages_location)
-    cmrow.end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
-
-    # add the row
-    cmtable.append(cmrow)
+cmtable = printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,
+    param_name = opts.param_name, param_ranges = opts.param_ranges, include_only_coincs = opts.include_only_coincs,
+    exclude_coincs = opts.exclude_coincs, sim_tag = opts.sim_tag, limit = opts.limit, 
+    daily_ihope_pages_location = opts.daily_ihope_pages_location, verbose = opts.verbose)
 
 #
 # create a document
@@ -400,24 +220,26 @@ cmproc_id = process.register_to_xmldoc(cmdoc, __prog__, opts.__dict__)
 # connect the table to the document
 cmdoc.childNodes[0].appendChild(cmtable)
 
-
 #
 #   Print the summary data
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
     # set table list
     tableList = ['close_missed_injections']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(cmdoc, tableList[0])
+    if opts.columns is not None:
+        # overwrite columnList with specified columns
+        columnList = [col.strip() for col in opts.columns.split(',')]
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
     print_tables.print_tables(cmdoc, opts.output, opts.output_format, tableList = tableList,
-        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None, print_table_names = False,
         row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()
