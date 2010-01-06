@@ -390,22 +390,24 @@ class segment(tuple):
 
 	def protract(self, x):
 		"""
-		Move both the start and the end of the segment a distance x
-		away from the other.
+		Return a new segment whose bounds are given by subtracting
+		x from the segment's lower bound and adding x to the
+		segment's upper bound.
 		"""
 		return self.__class__(self[0] - x, self[1] + x)
 
 	def contract(self, x):
 		"""
-		Move both the start and the end of the segment a distance x
-		towards the the other.
+		Return a new segment whose bounds are given by adding x to
+		the segment's lower bound and subtracting x from the
+		segment's upper bound.
 		"""
 		return self.__class__(self[0] + x, self[1] - x)
 
 	def shift(self, x):
 		"""
-		Return a new segment by adding x to the upper and lower
-		bounds of this segment.
+		Return a new segment whose bounds are given by adding x to
+		the segment's upper and lower bounds.
 		"""
 		return tuple.__new__(self.__class__, (self[0] + x, self[1] + x))
 
@@ -696,9 +698,9 @@ class segmentlist(list):
 
 	def coalesce(self):
 		"""
-		Sort the elements of a list into ascending order, and merge
-		continuous segments into single segments.  This operation
-		is O(n log n).
+		Sort the elements of the list into ascending order, and merge
+		continuous segments into single segments.  Segmentlist is
+		modified in place.  This operation is O(n log n).
 		"""
 		self.sort()
 		i = j = 0
@@ -717,8 +719,8 @@ class segmentlist(list):
 
 	def protract(self, x):
 		"""
-		For each segment in the list, move both the start and the
-		end a distance x away from the other.  Coalesce the result.
+		Execute the .protract() method on each segment in the list
+		and coalesce the result.  Segmentlist is modified in place.
 		"""
 		for i in xrange(len(self)):
 			self[i] = self[i].protract(x)
@@ -726,8 +728,8 @@ class segmentlist(list):
 
 	def contract(self, x):
 		"""
-		For each segment in the list, move both the start and the
-		end a distance x towards the other.  Coalesce the result.
+		Execute the .contract() method on each segment in the list
+		and coalesce the result.  Segmentlist is modified in place.
 		"""
 		for i in xrange(len(self)):
 			self[i] = self[i].contract(x)
@@ -735,9 +737,10 @@ class segmentlist(list):
 
 	def shift(self, x):
 		"""
-		Shift the segmentlist by adding x to the upper and lower
-		bounds of all segments.  The algorithm is O(n) and does not
-		require the list to be coalesced.
+		Execute the .shift() method on each segment in the list.
+		The algorithm is O(n) and does not require the list to be
+		coalesced nor does it coalesce the list.  Segmentlist is
+		modified in place.
 		"""
 		for i in xrange(len(self)):
 			self[i] = self[i].shift(x)
