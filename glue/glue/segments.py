@@ -696,9 +696,9 @@ class segmentlist(list):
 
 	def coalesce(self):
 		"""
-		Sort the elements of a list into ascending order, and merge
-		continuous segments into single segments.  This operation
-		is O(n log n).
+		Sort the elements of the list into ascending order, and merge
+		continuous segments into single segments.  Segmentlist is
+		modified in place.  This operation is O(n log n).
 		"""
 		self.sort()
 		i = j = 0
@@ -719,6 +719,7 @@ class segmentlist(list):
 		"""
 		For each segment in the list, move both the start and the
 		end a distance x away from the other.  Coalesce the result.
+		Segmentlist is modified in place.
 		"""
 		for i in xrange(len(self)):
 			self[i] = self[i].protract(x)
@@ -728,6 +729,7 @@ class segmentlist(list):
 		"""
 		For each segment in the list, move both the start and the
 		end a distance x towards the other.  Coalesce the result.
+		Segmentlist is modified in place.
 		"""
 		for i in xrange(len(self)):
 			self[i] = self[i].contract(x)
@@ -737,7 +739,8 @@ class segmentlist(list):
 		"""
 		Shift the segmentlist by adding x to the upper and lower
 		bounds of all segments.  The algorithm is O(n) and does not
-		require the list to be coalesced.
+		require the list to be coalesced.  Segmentlist is modified
+		in place.
 		"""
 		for i in xrange(len(self)):
 			self[i] = self[i].shift(x)
