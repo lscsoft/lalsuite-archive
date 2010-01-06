@@ -947,7 +947,7 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findFlags",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
@@ -986,7 +986,7 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findVetoes",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
@@ -1808,6 +1808,9 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	[['ifo,shift',LINKtoImage,LinktoThumb],['ifo,shift',LinktoImage,LinkToThumb]...]
 	images marked [Eve,Owl,Day] via [p3,p2,p1] in filenames
 	this methd only for S6 and later
+	IFO naming start dates:
+	LHO: 20090724 :: 932428815
+	LLO: 20090708 :: 931046415
 	"""
 	urls={
 		"default":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
@@ -1914,20 +1917,20 @@ class filenameToURLMapper(object):
 			    if self.pURL.lower().startswith(protocolCheck):
 				    self.pURL="%s"%(self.pURL.replace(protocolCheck,protocolTag))
 				    givenProtocol=protocolCheck
-		    pd=self.pDIR.split(os.path.sep)
+		    pd=self.pDIR.lstrip(os.path.sep).split(os.path.sep)
 		    pu=self.pURL.split(os.path.sep)
+		    self.pURL=publicationURL
 		    pd.reverse()
 		    pu.reverse()
 		    cStringList=list()
 		    cURLList=list()
-		    for i in range(0,len(pu)):
-			    if pd[i]!=pu[i]:
-				    cStringList.append(pd[i])
-				    cURLList.append(pu[i])
+                    #Seek matching path elements
+		    mIndex=[pd[i]==pu[i] for i in range(min(len(pd),len(pu)))].index(False)
+		    cURLList=pu[mIndex:]
+		    cStringList=pd[mIndex:]
 		    cStringList.reverse()
 		    cURLList.reverse()
-		    cURL=""
-		    cString=""
+		    cURL=cString=""
 		    for elem in cURLList:
 			    cURL=cURL+"%s%s"%(os.path.sep,elem)
 		    cURL=cURL+os.path.sep
