@@ -478,9 +478,7 @@ class SkyPoints(object):
       figure()
     
     if opts.snr_threshold:
-      scaled_comb_snr = 0.0
-      for ifo in self.snr.keys():
-        scaled_comb_snr += self.snr[ifo]/10
+      scaled_comb_snr = numpy.sqrt(sum([rho*rho for rho in self.snr.values()]))/10
     
     for point in coarse_grid:
       longitude = point[1]
