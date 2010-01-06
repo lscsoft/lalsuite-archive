@@ -463,9 +463,9 @@ class segmentlist(list):
 	def __contains__(self, item):
 		"""
 		Returns True if the given object is wholly contained within
-		one of the segments in self.  If self has length n, then if
-		item is a scalar or a segment this operation is O(log n),
-		if it is a segmentlist of m segments this operation is O(m
+		the segments in self.  If self has length n, then if item
+		is a scalar or a segment this operation is O(log n), if
+		item is a segmentlist of m segments this operation is O(m
 		log n).
 
 		Note the difference between this operator and the standard
@@ -556,6 +556,8 @@ class segmentlist(list):
 		if len(other) > len(self) / 2:
 			self.extend(other)
 			return self.coalesce()
+		if other is self:
+			return self
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
@@ -607,6 +609,9 @@ class segmentlist(list):
 		this operation is O(n + m).
 		"""
 		if not other:
+			return self
+		if other is self:
+			del self[:]
 			return self
 		i = j = 0
 		other_lo, other_hi = other[j]
