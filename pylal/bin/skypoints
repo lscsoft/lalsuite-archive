@@ -476,13 +476,20 @@ class SkyPoints(object):
     coarse_L = []
     if plot_name:
       figure()
-
+    
+    if opts.snr_threshold:
+      scaled_comb_snr = 0.0
+      for ifo in self.snr.keys():
+        scaled_comb_snr += self.snr[ifo]/10
     
     for point in coarse_grid:
       longitude = point[1]
       latitude = point[0]
       
-      pt_L = self.get_L(longitude,latitude)
+      if opts.snr_threshold:
+        pt_L = self.get_L(longitude,latitude)*scaled_comb_snr
+      else:
+        pt_L = self.get_L(longitude,latitude)
       coarse_L.append([(point[0],point[1]),pt_L])
     
     Lmin_coarse = self.wide_threshold #min([pt[1] for pt in coarse_L])
@@ -1104,6 +1111,8 @@ def parse_command_line():
                     help="specify that input uses coinc tables")
   parser.add_option("-y","--timing-only",action="store_true",default=False,\
                     help="only use timing information for sky localization")
+  parser.add_option("-H", "--snr-threshold", action="store_true",default=False,\
+                    help="use SNR dependent threshold")
   (options,args) = parser.parse_args()
 
   if options.enable_google_sky_output and (options.google_map_key is None):
