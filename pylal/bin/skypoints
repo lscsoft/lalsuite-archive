@@ -485,7 +485,11 @@ class SkyPoints(object):
     for point in coarse_grid:
       longitude = point[1]
       latitude = point[0]
-      pt_L = self.get_L(longitude,latitude)
+      if opts.snr_threshold:
+        pt_L = self.get_L(longitude,latitude)*scaled_comb_snr
+      else:
+        pt_L = self.get_L(longitude,latitude)
+
       coarse_L.append([(point[0],point[1]),pt_L])
     
     Lmin_coarse = self.wide_threshold #min([pt[1] for pt in coarse_L])
