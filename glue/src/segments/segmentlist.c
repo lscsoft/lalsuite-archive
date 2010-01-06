@@ -684,6 +684,12 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 		return coalesce(self, NULL);
 	}
 
+	/* don't iterate over the same object twice */
+	if(other == self) {
+		Py_INCREF(self);
+		return self;
+	}
+
 	i = 0;
 	other = PyObject_GetIter(other);
 	if(!other)
@@ -867,6 +873,13 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 	if(n < 0)
 		return NULL;
 	if(n < 1) {
+		Py_INCREF(self);
+		return self;
+	}
+
+	/* don't iterate over the same object twice */
+	if(other == self) {
+		PySequence_DelSlice(self, 0, n);
 		Py_INCREF(self);
 		return self;
 	}
