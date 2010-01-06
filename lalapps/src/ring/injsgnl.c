@@ -190,15 +190,13 @@ int inject_signal(
         /* close the injection file */
         LALCloseLIGOLwXMLFile ( &status, &xmlfp );
     
-        /* free memory */
+    }
 
-        while ( injectList )
-        {
-          thisInject = injectList;
-          injectList = injectList->next;
-          LALFree( thisInject );
-        }
-        break;
+    while ( injectList )
+    {
+      thisInject = injectList;
+      injectList = injectList->next;
+      LALFree( thisInject );
     }
     
     /* free memory */
