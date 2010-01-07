@@ -1,0 +1,43 @@
+#!/usr/bin/python
+try:
+        import sqlite3
+except ImportError:
+        # pre 2.5.x
+        from pysqlite2 import dbapi2 as sqlite3
+import sys
+from glue.ligolw import table
+from glue.ligolw import dbtables
+from optparse import OptionParser
+from pylal import git_version
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg, usage = "pysqlite [options] database1.sqlite database2.sqlite ..."
+	)
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-s", "--sql-file", metavar = "file", help = "sql file to execute")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+	return options, (filenames or [])
+
+
+options, databases = parse_command_line()
+
+# Parse the sql file into something that can be executed in sequence
+sql = "".join(open(options.sql_file).readlines())
+sql = open(options.sql_file).readlines()
+# Remove comments and pragmas
+sql = [s.strip() for s in sql if not s.startswith("--") and not s.startswith("PRAGMA")]
+sql = "\n".join(sql)
+sql_list = sql.split(";\n")
+# Apply the SQL to all the databases sequentially
+for filename in databases:
+	if options.verbose: print >>sys.stderr, "Applying SQL to %s" % (filename,)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+        for sql in sql_list:
+		if options.verbose: print >>sys.stderr, "%s" % (sql)
+		connection.cursor().execute(sql)
+	connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)

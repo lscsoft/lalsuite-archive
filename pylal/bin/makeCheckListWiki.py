@@ -266,73 +266,6 @@ def matchFiles(fileList=None,jobString=None,instruments=None,ifos=None,time=None
       matchList.append(thisFile)
   return matchList
 
-class filenameToURLMapper(object):
-  """
-  """
-  def __init__(self,publicationDirectory=None,publicationURL=None):
-    protocolTag="@PROTO@/"
-    self.validProtocols=["http://","https://"]
-    givenProtocol=""
-    if publicationDirectory == None or\
-       publicationURL == None:
-      sys.stderr.write("Error: Initializing filenameToURLMappe instance \
-with None types.\n")
-    self.pDIR=publicationDirectory
-    self.pURL=publicationURL
-    for protocolCheck in self.validProtocols:
-        if publicationDirectory.lower().startswith(protocolCheck):
-            self.pDIR=publicationDirectory
-            self.pURL=publicationURL
-            raise Warning,"object initialized with publication directory and publication URL reversed\n"
-    for protocolCheck in self.validProtocols:
-        if self.pURL.lower().startswith(protocolCheck):
-            self.pURL="%s"%(self.pURL.replace(protocolCheck,protocolTag))
-            givenProtocol=protocolCheck
-    pd=self.pDIR.split(os.path.sep)
-    pu=self.pURL.split(os.path.sep)
-    pd.reverse()
-    pu.reverse()
-    cStringList=list()
-    cURLList=list()
-    for i in range(0,len(pu)):
-      if pd[i]!=pu[i]:
-        cStringList.append(pd[i])
-        cURLList.append(pu[i])
-    cStringList.reverse()
-    cURLList.reverse()
-    cURL=""
-    cString=""
-    for elem in cURLList:
-      cURL=cURL+"%s%s"%(os.path.sep,elem)
-    cURL=cURL+os.path.sep
-    if not self.pURL.startswith(os.path.sep):
-      cURL=cURL.lstrip(os.path.sep)
-    self.commonURL=os.path.normpath(cURL).replace(protocolTag,givenProtocol)
-    for elem in cStringList:
-      cString=cString+"%s%s"%(os.path.sep,elem)
-    cString=cString+os.path.sep
-    if not self.pDIR.startswith(os.path.sep):
-      cString=cString.lstrip(os.path.sep)
-    self.commonString=os.path.normpath(cString)
-    
-  def publication_directory(self):
-    return self.pDIR
-
-  def publication_URL(self):
-    return self.pURL
-  
-  def convert(self,filename=None):
-    #Strip of common path and create full blown URL
-    myURL=filename.replace(self.commonString,self.commonURL)
-    #Add a check to see if given filename is actually URL already!
-    if myURL == filename:
-        sys.stderr.write("Improper conversion for :%s\n"%filename)
-        sys.stderr.write("web-url        : %s\n"%self.pURL)
-        sys.stderr.write("publication dir: %s\n"%self.pDIR)
-        sys.stderr.write("Common String  : %s\n"%self.commonString)
-        sys.stderr.write("Common URL     : %s\n"%self.commonURL)
-        raise Warning, "object:filenameToURLMapper improperly initialized or given bad args\n"
-    return myURL
 
 ####################################################################
 # Custom wiki class to make writing MoinMoin text simpler
@@ -580,7 +513,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   #
   # Create top two trigger params tables
   #
-  cTable=wikiPage.wikiTable(2,8)
+  cTable=wikiPage.wikiTable(2,9)
   cTable.data=[
     ["Trigger Type",
      "Rank",
@@ -589,7 +522,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
      "IFOS(Coinc)",
      "Instruments(Active)",
      "Coincidence Time (s)",
-     "Total Mass (mSol)"
+     "Total Mass (mSol)",
+     "Chirp Mass (mSol)"
      ],
     ["%s"%(wikiCoinc.type),
      "%s"%(wikiCoinc.rank),
@@ -598,17 +532,19 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
      "%s"%(wikiCoinc.ifos),
      "%s"%(wikiCoinc.instruments),
      "%s"%(wikiCoinc.time),
-     "%s"%(wikiCoinc.mass)
+     "%s"%(wikiCoinc.mass),
+     "%s"%(wikiCoinc.mchirp)
      ]
     ]
-  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls_in_coinc())+1,6)
+  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls_in_coinc())+1,7)
   pTable.data[0]=[
     "IFO",
     "GPS Time(s)",
     "SNR",
     "CHISQR",
     "Mass 1",
-    "Mass 2"
+    "Mass 2",
+    "Chirp Mass"
     ]
   for row,cSngl in enumerate(wikiCoinc.sngls_in_coinc()):
     pTable.data[row+1]=[
@@ -617,7 +553,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
       "%s"%(cSngl.snr),
       "%s"%(cSngl.chisqr),
       "%s"%(cSngl.mass1),
-      "%s"%(cSngl.mass2)
+      "%s"%(cSngl.mass2),
+      "%s"%(cSngl.mchirp)
       ]
   #Write the tables into the Wiki object
   wikiPage.putText("Coincident Trigger Event Information: %s\n"\
@@ -1240,6 +1177,7 @@ class coinc(object):
     self.instruments=str(rawCoinc["INSTRUMENTS"])
     self.time=float(rawCoinc["TIME"])
     self.mass=float(rawCoinc["MASS"])
+    self.mchirp=float(rawCoinc["MCHIRP"])
     #Remaining header for sngl information
     rawSngl=list()
     rawSnglKeys=list()
@@ -1252,7 +1190,7 @@ class coinc(object):
       tmp=dict()
       for i in range(0,len(rData)):
         tmp[rawSnglKeys[i]]=rData[i]
-      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"]))
+      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"],tmp["MCHIRP"]))
       del tmp
 
   def sngls_in_coinc(self):
@@ -1270,7 +1208,7 @@ class coinc(object):
 class sngl(object):
   """
   """
-  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None):
+  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None,mchirp=None):
     """
     """
     self.type=str(type)
@@ -1280,6 +1218,7 @@ class sngl(object):
     self.chisqr=float(chisqr)
     self.mass1=float(mass1)
     self.mass2=float(mass2)
+    self.mchirp=float(mchirp)
     
 ####################################################################
 # Cache file parser
@@ -1392,7 +1331,7 @@ for listsDone,coincFile in enumerate(coincList):
   fileTree=list()
   fileTree.extend(checklistTree)
   fileTree.extend(allSources['omega'])
-  mapFileURL=filenameToURLMapper(publication_directory,publication_url)
+  mapFileURL=stfu_pipe.filenameToURLMapper(publication_directory,publication_url)
   prepareChecklist(myDestPath+"/"+myChecklistFilename,\
                    myCoinc,\
                    fileTree,\

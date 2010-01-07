@@ -947,7 +947,7 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findFlags",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
@@ -986,7 +986,7 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findVetoes",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
@@ -1808,6 +1808,9 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	[['ifo,shift',LINKtoImage,LinktoThumb],['ifo,shift',LinktoImage,LinkToThumb]...]
 	images marked [Eve,Owl,Day] via [p3,p2,p1] in filenames
 	this methd only for S6 and later
+	IFO naming start dates:
+	LHO: 20090724 :: 932428815
+	LLO: 20090708 :: 931046415
 	"""
 	urls={
 		"default":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
@@ -1889,3 +1892,80 @@ def getiLogURL(time=None,ifo=None):
 	return outputURL
 
 #End def getiLogURL
+
+#Maps image paths to URLS for makeCheckListWiki.py
+class filenameToURLMapper(object):
+	  """
+	  """
+	  def __init__(self,publicationDirectory=None,publicationURL=None,verbose=False):
+		    protocolTag="@PROTO@/"
+		    self.verbose=verbose
+		    self.validProtocols=["http://","https://"]
+		    givenProtocol=""
+		    if publicationDirectory == None or\
+			   publicationURL == None:
+			    sys.stderr.write("Error: Initializing filenameToURLMappe instance \
+			    with None types.\n")
+		    self.pDIR=publicationDirectory
+		    self.pURL=publicationURL
+		    for protocolCheck in self.validProtocols:
+			if publicationDirectory.lower().startswith(protocolCheck):
+				self.pDIR=publicationDirectory
+				self.pURL=publicationURL
+				raise Warning,"object initialized with publication directory and publication URL reversed\n"
+		    for protocolCheck in self.validProtocols:
+			    if self.pURL.lower().startswith(protocolCheck):
+				    self.pURL="%s"%(self.pURL.replace(protocolCheck,protocolTag))
+				    givenProtocol=protocolCheck
+		    pd=self.pDIR.lstrip(os.path.sep).split(os.path.sep)
+		    pu=self.pURL.split(os.path.sep)
+		    self.pURL=publicationURL
+		    pd.reverse()
+		    pu.reverse()
+		    cStringList=list()
+		    cURLList=list()
+                    #Seek matching path elements
+		    mIndex=[pd[i]==pu[i] for i in range(min(len(pd),len(pu)))].index(False)
+		    cURLList=pu[mIndex:]
+		    cStringList=pd[mIndex:]
+		    cStringList.reverse()
+		    cURLList.reverse()
+		    cURL=cString=""
+		    for elem in cURLList:
+			    cURL=cURL+"%s%s"%(os.path.sep,elem)
+		    cURL=cURL+os.path.sep
+		    if not self.pURL.startswith(os.path.sep):
+			    cURL=cURL.lstrip(os.path.sep)
+		    self.commonURL=os.path.normpath(cURL).replace(protocolTag,givenProtocol)
+		    for elem in cStringList:
+			    cString=cString+"%s%s"%(os.path.sep,elem)
+		    cString=cString+os.path.sep
+		    if not self.pDIR.startswith(os.path.sep):
+			    cString=cString.lstrip(os.path.sep)
+		    self.commonString=os.path.normpath(cString)
+
+	  def publication_directory(self):
+		  return self.pDIR
+
+	  def publication_URL(self):
+		  return self.pURL
+
+	  def convert(self,filename=None):
+		    #Strip of common path and create full blown URL
+		    myURL=filename.replace(self.commonString,self.commonURL)
+		    #Add a check to see if given filename is actually URL already!
+		    if myURL == filename:
+			    sys.stderr.write("Improper conversion for :%s\n"%filename)
+			    sys.stderr.write("web-url        : %s\n"%self.pURL)
+			    sys.stderr.write("publication dir: %s\n"%self.pDIR)
+			    sys.stderr.write("Common String  : %s\n"%self.commonString)
+			    sys.stderr.write("Common URL     : %s\n"%self.commonURL)
+			    raise Warning, "object:filenameToURLMapper improperly initialized or given bad args\n"
+		    if self.verbose:
+			    sys.stdout.write("My URL         : %s\n"%myURL)
+			    sys.stdout.write("My file        : %s\n"%filename)
+			    sys.stdout.write("web-url        : %s\n"%self.pURL)
+			    sys.stdout.write("publication dir: %s\n"%self.pDIR)
+			    sys.stdout.write("Common String  : %s\n"%self.commonString)
+			    sys.stdout.write("Common URL     : %s\n"%self.commonURL)
+		    return myURL

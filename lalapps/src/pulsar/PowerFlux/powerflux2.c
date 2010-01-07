@@ -436,7 +436,7 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=260+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=260+ceil((args_info.first_bin_arg+args_info.nbins_arg)*M_PI/9000.0)/6.0+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
 	/* round it up to a multiple of 450 */
 /*	side_cut=450*ceil(side_cut/450.0);*/
 	}
