@@ -394,9 +394,9 @@ static PySequenceMethods as_sequence = {
 static struct PyMethodDef methods[] = {
 	{"disjoint", disjoint, METH_O, "Returns >0 if self covers an interval above other's interval, <0 if self covers an interval below other's, or 0 if the two intervals are not disjoint (intersect or touch).  A return value of 0 indicates the two segments would coalesce."},
 	{"intersects", intersects, METH_O, "Return True if the intersection of self and other is not a null segment."},
-	{"protract", protract, METH_O, "Move both the start and the end of the segment a distance x away from the other."},
-	{"contract", contract, METH_O, "Move both the start and the end of the segment a distance x towards the the other."},
-	{"shift", shift, METH_O, "Return a new segment by adding x to the upper and lower bounds of this segment."},
+	{"protract", protract, METH_O, "Return a new segment whose bounds are given by subtracting x from the segment's lower bound and adding x to the segment's upper bound."},
+	{"contract", contract, METH_O, "Return a new segment whose bounds are given by adding x to the segment's lower bound and subtracting x from the segment's upper bound."},
+	{"shift", shift, METH_O, "Return a new segment whose bounds are given by adding x to the segment's upper and lower bounds."},
 	{NULL,}
 };
 

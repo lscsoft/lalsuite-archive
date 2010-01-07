@@ -31,12 +31,6 @@ LIGO Light-Weight XML coincidence analysis front end.
 
 from math import log10
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
-
 
 from glue import segments
 from glue.lal import CacheEntry
