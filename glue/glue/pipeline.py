@@ -71,7 +71,7 @@ def recurse_pfn_cache(node,caches=[]):
         dax_name = os.path.basename(parent.job().get_dax())
         dax_basename = '.'.join(dax_name.split('.')[0:-1])
         caches.append( os.path.join(
-          parent.job().get_pegasus_exec_dir(), dax_basename + '_0') )
+          parent.job().get_pegasus_exec_dir(), dax_basename + '_0.cache') )
   return caches
 
 
