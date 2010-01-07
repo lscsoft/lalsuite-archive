@@ -1362,7 +1362,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           if not self.is_dax():
             xml += "--nocleanup "
 
-          xml += "-vvvvvv --force -o local</argument>"
+          xml += "-vvvvvv --force</argument>"
           print >>dagfile, xml
 
           print >>dagfile, """\
