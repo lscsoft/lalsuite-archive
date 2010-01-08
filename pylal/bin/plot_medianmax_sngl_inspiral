@@ -44,7 +44,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 	if not options.pattern: options.pattern = ['INSPIRAL_FIRST_FULL_DATA', 'INSPIRAL_SECOND_.*_FULL_DATA', 'TMPLTBANK_FULL_DATA', 'TRIGBANK_SECOND_.*_FULL_DATA']
 	if not options.base: options.base = os.path.basename(filenames[0]).replace(".cache","")
-	if not filenames: 
+	if not filenames:
 		print >>sys.stderr, "must supply cache file containing files with sngl inspiral tables"
 		sys.exit(1)
 	return options, (filenames or [])
@@ -90,7 +90,7 @@ for i, (key, value) in enumerate(data):
 	median = numpy.array([t[2] for t in value])
 	el = numpy.array([t[1] for t in value])
 	miny.append(numpy.min(el))
-	eu = numpy.array([t[3] for t in value]) 
+	eu = numpy.array([t[3] for t in value])
 	maxy.append(numpy.max(eu))
 	time = (numpy.array([t[0] for t in value]) - start) / 86400.
 	sp1 = pylab.subplot(311)
