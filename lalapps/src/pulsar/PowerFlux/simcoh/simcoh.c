@@ -363,18 +363,9 @@ int main(int argc, const char *argv[]) {
 	    curtime.gpsSeconds=starttime+900+m*1800; /* here the curtime set to be the mid of the segment, this is essential to get the right time delay phase correction */
 	    curtime.gpsNanoSeconds=0;
 	    LALPlaceAndGPS LHOandTime,LLOandTime;
-	    LHOandTime.p_detector=&DetectorH;
-	    LLOandTime.p_detector=&DetectorL;
-	    LHOandTime.p_gps=&curtime;
-	    LLOandTime.p_gps=&curtime;
-	    TwoDetsTimeAndASource DetAndTime;
-	    DetAndTime.p_det_and_time1=&LHOandTime;
-	    DetAndTime.p_det_and_time2=&LLOandTime;
-	    SourcePos.longitude=RA;
-	    SourcePos.latitude=Dec;
-	    DetAndTime.p_source=&SourcePos;
             REAL8 tdelay;
-	    LALTimeDelay(&status,&tdelay,&DetAndTime); /* calculate the time delay */
+	    tdelay = -XLALArrivalTimeDiff(DetectorH.location, DetectorL.location, RA, Dec, &curtime); /* calculate the time delay */
+
 	    LALDetectorVel(&status,vel,&curtime,DetectorH,edat);
 	    freqHanf=(vel[0]*cos(Dec)*cos(RA)+vel[1]*cos(Dec)*sin(RA)+vel[2]*sin(Dec)+1.0)*newfreq;   /* the doppler modulated frequency */
 	    LALDetectorVel(&status,vel,&curtime,DetectorL,edat);
@@ -408,16 +399,9 @@ int main(int argc, const char *argv[]) {
 	      oldtime.gpsSeconds=starttime+m*1800;
 	      oldtime.gpsNanoSeconds=0;
 	      LALPlaceAndGPS LHOandTime,LLOandTime;
-	      LHOandTime.p_detector=&DetectorH;
-	      LLOandTime.p_detector=&DetectorL;
-	      LHOandTime.p_gps=&oldtime;
-	      LLOandTime.p_gps=&oldtime;
-	      TwoDetsTimeAndASource DetAndTime;
-	      DetAndTime.p_det_and_time1=&LHOandTime;
-	      DetAndTime.p_det_and_time2=&LLOandTime;
-	      DetAndTime.p_source=&SourcePos;
 	      REAL8 tdelay;
-	      LALTimeDelay(&status,&tdelay,&DetAndTime);
+	      tdelay = -XLALArrivalTimeDiff(DetectorH.location, DetectorL.location, RA, Dec, &oldtime);
+
 	      LALDetectorVel(&status,vel,&oldtime,DetectorH,edat);
 	      oldfreqHanf=(vel[0]*cos(Dec)*cos(RA)+vel[1]*cos(Dec)*sin(RA)+vel[2]*sin(Dec)+1.0)*newfreq;
 	      LALDetectorVel(&status,vel,&oldtime,DetectorL,edat);
