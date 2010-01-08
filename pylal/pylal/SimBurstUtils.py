@@ -58,7 +58,8 @@ def time_at_instrument(sim, instrument):
 	displacement from the geocentre to the given instrument.
 	"""
 	t_geocent = sim.get_time_geocent()
-	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, sim.ra, sim.dec, t_geocent)
+	ra, dec = sim.get_ra_dec()
+	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
 
 
 def injection_was_made(sim, seglists, instruments):

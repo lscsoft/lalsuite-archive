@@ -690,8 +690,8 @@ class AnalysisDag(object):
     cmd = 'cd %s;' % self.analysis_dir
     cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
     cmd += 'condor_submit_dag %s' % self.get_dagname()
-    print "WARNING: DAG NOT STARTED FOR TESTING"
-    #system_call(self.name, cmd)
+    #print "WARNING: DAG NOT STARTED FOR TESTING"
+    system_call(self.name, cmd)
 
     # change the status
     self.status = 1

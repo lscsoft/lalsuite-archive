@@ -19,7 +19,7 @@ extern DATASET *datasets;
 extern int d_free;
 extern int nbins, first_bin, side_cut, useful_bins;
 
-INT64 spindown_start;
+extern INT64 spindown_start;
 
 int find_closest(SKY_GRID *sky_grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec)
 {
