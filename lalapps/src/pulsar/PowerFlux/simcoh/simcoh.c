@@ -362,10 +362,8 @@ int main(int argc, const char *argv[]) {
 	    LIGOTimeGPS curtime;
 	    curtime.gpsSeconds=starttime+900+m*1800; /* here the curtime set to be the mid of the segment, this is essential to get the right time delay phase correction */
 	    curtime.gpsNanoSeconds=0;
-	    LALPlaceAndGPS LHOandTime,LLOandTime;
             REAL8 tdelay;
 	    tdelay = -XLALArrivalTimeDiff(DetectorH.location, DetectorL.location, RA, Dec, &curtime); /* calculate the time delay */
-
 	    LALDetectorVel(&status,vel,&curtime,DetectorH,edat);
 	    freqHanf=(vel[0]*cos(Dec)*cos(RA)+vel[1]*cos(Dec)*sin(RA)+vel[2]*sin(Dec)+1.0)*newfreq;   /* the doppler modulated frequency */
 	    LALDetectorVel(&status,vel,&curtime,DetectorL,edat);
@@ -398,10 +396,8 @@ int main(int argc, const char *argv[]) {
 	      LIGOTimeGPS oldtime;
 	      oldtime.gpsSeconds=starttime+m*1800;
 	      oldtime.gpsNanoSeconds=0;
-	      LALPlaceAndGPS LHOandTime,LLOandTime;
 	      REAL8 tdelay;
 	      tdelay = -XLALArrivalTimeDiff(DetectorH.location, DetectorL.location, RA, Dec, &oldtime);
-
 	      LALDetectorVel(&status,vel,&oldtime,DetectorH,edat);
 	      oldfreqHanf=(vel[0]*cos(Dec)*cos(RA)+vel[1]*cos(Dec)*sin(RA)+vel[2]*sin(Dec)+1.0)*newfreq;
 	      LALDetectorVel(&status,vel,&oldtime,DetectorL,edat);
