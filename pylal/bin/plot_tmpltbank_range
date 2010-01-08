@@ -118,7 +118,7 @@ for ifo in range.start.keys():
 	pylab.xlabel("Time (days) relative to %d" % start)
 	pylab.ylabel("NS range (Mpc)")
 	pylab.subplot(132)
-	pylab.hist(dist, bins=range.get_bins(), alpha=0.35, ec=ifodata.color(ifo), ls='solid', linewidth=2.0)#, color=ifodata.color(ifo))
+	pylab.hist(dist, bins=range.get_bins(), alpha=0.35, ec=ifodata.color(ifo), fc=ifodata.color(ifo), ls='solid', linewidth=2.0)#, color=ifodata.color(ifo))
 	pylab.xlabel("NS range (Mpc)")
 	pylab.ylabel("Number")
 	pylab.subplot(133)
@@ -126,27 +126,7 @@ for ifo in range.start.keys():
 	pylab.errorbar(mass, mean, std, color=ifodata.color(ifo),marker=ifodata.line(ifo))
 	pylab.xlabel("Total Mass (Msun)")
 	pylab.ylabel("Range (Mpc)")
-pylab.savefig('test.png')
-sys.exit(0)
 
-for val in time_num.values(): val.sort()
-start = []
-lines = []; labels = [];
-for key, value in time_num.items():
-	start.append( min([t[0] for t in value]))
-start = min(start)
-data = time_num.items(); data.sort()
-
-for i, (key, value) in enumerate(data):
-	labels.append(" ".join(key))
-	lines.append(pylab.semilogy((numpy.array([t[0] for t in value]) - start) / 86400., [t[1] for t in value], label=str(key), color=ifodata.color(key[0]), linestyle='None', marker=ifodata.line(key[0])))
-
-leg = pylab.figlegend(lines, labels, 'upper right', labelspacing=0)
-leg.prop.set_size(6)
-leg.pad = 0
-pylab.ylabel("Number")
-pylab.xlabel("Time (days) relative to %d" % start)
-pylab.grid()
 figname = '%s_%s_%s.png' % (opts.base, os.path.basename(sys.argv[0]), "-".join(opts.pattern).replace(".*",""))
 print >> sys.stderr, "Writing output to %s" % (figname,)
 pylab.savefig(figname)
