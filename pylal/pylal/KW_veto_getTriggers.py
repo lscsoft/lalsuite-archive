@@ -67,6 +67,7 @@ def parse_commandline():
     Parse the options given on the command-line.
     """
     parser = optparse.OptionParser(usage=__doc__,version=git_version.verbose_msg)
+
     parser.add_option("-t", "--trigger_files", action="append", default=[],
                       help="File containing triggers. Required.")
     parser.add_option("-S", "--segment_file", default=None,
@@ -127,7 +128,7 @@ def parse_commandline():
         
     ## show parameters
     if opts.verbose:
-        print >> sys.stderr, "running get_triggers..."
+        print >> sys.stderr, "running KW_veto_getTriggers..."
         print >> sys.stderr, git_version.verbose_msg
         print >> sys.stderr, ""
         print >> sys.stderr, "******************** PARAMETERS *****************"
@@ -159,8 +160,7 @@ def get_trigs_txt(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
     It is assumed that the first column is GPS time and the second is SNR.
     """
     # read lines avoiding white space and comment lines
-    trigs = [line.split() for line in open(trigger_file) if (line != "\n" and\
-             not line.startswith("%") and not line.startswith("#"))]
+    trigs = [line.split() for line in open(trigger_file) if (line.split() != [] and not line.startswith("%") and not line.startswith("#"))]
 
     # check if there is triggers
     if len(trigs) == 0:
