@@ -44,4 +44,4 @@ for filename in databases:
 		if options.verbose: print >>sys.stderr, "%s" % (sql)
 		connection.cursor().execute(sql)
 	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
