@@ -82,8 +82,9 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
     self.add_var_opt("trainingstr",trainingstr)
     self.add_var_opt("testingstr",testingstr)
     self.add_var_opt("zerolagstr",zerolagstr)
-    for database in databases:
-      self.add_file_arg(database)
+    self.add_var_arg(" ".join(databases))
+    #for database in databases:
+    #  self.add_file_arg(database)
     ifos=instruments.strip().split(',')
     ifos.sort()
     self.out_file_group = {}
@@ -186,7 +187,9 @@ class mvsc_update_sql_node(pipeline.CondorDAGNode):
     # uhh these are still globs! FIXME
     self.add_var_opt("files", files)
     self.add_var_opt("infofiles", infofiles)
-    [self.add_var_arg(databases) for database in databases]
+    self.add_var_arg(" ".join(databases))
+    #for database in databases:
+    #  self.add_file_arg(databases)
     # do I need to put the databases as output files? 
     for p in p_node:
       self.add_parent(p)
@@ -230,14 +233,14 @@ class plot_num_sngl_inspiral_job(pipeline.CondorDAGJob):
     self.__executable = string.strip(cp.get('condor','plot_num_sngl_inspiral'))
     self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    cache = string.strip(cp.get('input','fulldatacache'))    
+    self.cache = string.strip(cp.get('input','fulldatacache'))    
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
-    self.add_arg(cache)
+    #self.add_arg(cache)
 
 class plot_medianmax_sngl_inspiral_job(pipeline.CondorDAGJob):
   """
@@ -250,14 +253,14 @@ class plot_medianmax_sngl_inspiral_job(pipeline.CondorDAGJob):
     self.__executable = string.strip(cp.get('condor','plot_medianmax_sngl_inspiral'))
     self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    cache = string.strip(cp.get('input','fulldatacache'))    
+    self.cache = string.strip(cp.get('input','fulldatacache'))    
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
-    self.add_arg(cache)
+    #self.add_arg(cache)
 
 class plot_tmpltbank_range_job(pipeline.CondorDAGJob):
   """
@@ -270,14 +273,14 @@ class plot_tmpltbank_range_job(pipeline.CondorDAGJob):
     self.__executable = string.strip(cp.get('condor','plot_tmpltbank_range'))
     self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    cache = string.strip(cp.get('input','fulldatacache'))    
+    self.cache = string.strip(cp.get('input','fulldatacache'))    
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
-    self.add_arg(cache)
+    #self.add_arg(cache)
 
 
 class fix_singles_job(pipeline.CondorDAGJob):
@@ -515,7 +518,7 @@ class plot_medianmax_sngl_inspiral_node(pipeline.CondorDAGNode):
     cline = ""
     for pat in patterns:
       cline += ' --pattern ' + pat + ' '
-    self.add_var_arg(cline)
+    self.add_var_arg(cline + job.cache)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -529,7 +532,7 @@ class plot_num_sngl_inspiral_node(pipeline.CondorDAGNode):
     cline = ""
     for pat in patterns:
       cline += ' --pattern ' + pat + ' '
-    self.add_var_arg(cline)
+    self.add_var_arg(cline + job.cache)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -543,7 +546,7 @@ class plot_tmpltbank_range_node(pipeline.CondorDAGNode):
     cline = ""
     for pat in patterns:
       cline += ' --pattern ' + pat + ' '
-    self.add_var_arg(cline)
+    self.add_var_arg(cline + job.cache)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -1131,16 +1134,16 @@ hmUpperlimitPlotJob = ul_plot_job(cp)
 farPlotJob = far_plot_job(cp)
 summaryPageJob = summary_page_job(cp)
 pnsijob = plot_num_sngl_inspiral_job(cp)
-pmsijob = plot_medianmax_sngl_inspiral(cp)
+pmsijob = plot_medianmax_sngl_inspiral_job(cp)
 ptrjob = plot_tmpltbank_range_job(cp)
 
 
 #Do some plot nodes that only depend on ihope
-pnsinode1 = plot_num_sngl_inspiral_job(pnsijob, dag, patterns=["INSPIRAL_FIRST_FULL_DATA"])
-pnsinode2 = plot_num_sngl_inspiral_job(pnsijob, dag, patterns=["INSPIRAL_SECOND_.*_FULL_DATA"])
-pnsinodet = plot_num_sngl_inspiral_job(pnsijob, dag, patterns=["TMPLTBANK_FULL_DATA","TRIGBANK_SECOND_.*_FULL_DATA"])
-pmsinode1 = (pmsijob, dag, patterns=["INSPIRAL_FIRST_FULL_DATA"])
-pmsinode2 = (pmsijob, dag, patterns=["INSPIRAL_SECOND_.*_FULL_DATA"])
+pnsinode1 = plot_num_sngl_inspiral_node(pnsijob, dag, patterns=["INSPIRAL_FIRST_FULL_DATA"])
+pnsinode2 = plot_num_sngl_inspiral_node(pnsijob, dag, patterns=["INSPIRAL_SECOND_.*_FULL_DATA"])
+pnsinodet = plot_num_sngl_inspiral_node(pnsijob, dag, patterns=["TMPLTBANK_FULL_DATA","TRIGBANK_SECOND_.*_FULL_DATA"])
+pmsinode1 = plot_medianmax_sngl_inspiral_node(pmsijob, dag, patterns=["INSPIRAL_FIRST_FULL_DATA"])
+pmsinode2 = plot_medianmax_sngl_inspiral_node(pmsijob, dag, patterns=["INSPIRAL_SECOND_.*_FULL_DATA"])
 ptrnode = plot_tmpltbank_range_node(ptrjob, dag)
 
 #Do the segments node
@@ -1219,9 +1222,6 @@ for cat in cats:
       xml_list = [segNode[cat].output]
       ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
       sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
-      #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
-      #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
-      #sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]); 
       # keep track of parents
       p_nodes[cat].append(sqliteNodeAll[key])
 
@@ -1246,9 +1246,6 @@ for cat in cats:
       xml_list = [url, segNode[cat].output]
       ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
       sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
-      #sqliteNodeSimplify[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"simplify")), p_node=[ligolwSqliteNode[key]]);
-      #sqliteNodeRemoveH1H2[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"remove_h1h2")), p_node=[sqliteNodeSimplify[key]]);
-      #sqliteNodeCluster[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"cluster")), p_node=[sqliteNodeRemoveH1H2[key]]);
       ligolwSqliteNodeInjDBtoXML[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[sqliteNodeAll[key]], replace=False, extract=True);
       ligolwInspinjfindNode[key] = ligolw_inspinjfind_node(ligolwInspinjfindJob, dag, c.xml, p_node=[ligolwSqliteNodeInjDBtoXML[key]]);
       ligolwSqliteNodeInjXMLtoDB[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[ligolwInspinjfindNode[key]], replace=True);
@@ -1321,3 +1318,4 @@ dag.write_script()
 print "\n\n\tYour output web pages will be:\n\n"
 for node in  summaryPageNode.values(): print "\t\t\t%s\n" %(node.geturl(),)
 print "\n\n\tNow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
+open("hm_post.log", "w").write(" ".join(sys.argv))
