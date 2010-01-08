@@ -209,15 +209,76 @@ class sqlite_job(pipeline.CondorDAGJob):
     self.__executable = string.strip(cp.get('condor','sqlite3'))
     self.__universe = string.strip('vanilla')
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.add_condor_cmd("input","$(macroinput)")
+    tmp_dir = string.strip(cp.get('input','tmp-dir'))    
+    #self.add_condor_cmd("input","$(macroinput)")
     self.add_condor_cmd('getenv','True')
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
-    self.add_arg('-batch')
-    self.add_arg('-bail')
+    if tmp_dir: self.add_opt("tmp-space", tmp_dir)
+
+class plot_num_sngl_inspiral_job(pipeline.CondorDAGJob):
+  """
+  A job to plot the number of sngl inspiral rows
+  """
+  def __init__(self, cp, tag_base='PLOT_NUM_SNGL'):
+    """
+    """
+    self.__prog__ = 'plot_num_sngl_inspiral'
+    self.__executable = string.strip(cp.get('condor','plot_num_sngl_inspiral'))
+    self.__universe = string.strip('vanilla')
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    cache = string.strip(cp.get('input','fulldatacache'))    
+    self.add_condor_cmd('getenv','True')
+    self.tag_base = tag_base
+    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+    self.set_sub_file(tag_base+'.sub')
+    self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+    self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_arg(cache)
+
+class plot_medianmax_sngl_inspiral_job(pipeline.CondorDAGJob):
+  """
+  A job to plot the median and max of sngl inspiral columns
+  """
+  def __init__(self, cp, tag_base='PLOT_MEDIAN_MAX'):
+    """
+    """
+    self.__prog__ = 'plot_medianmax_sngl_inspiral'
+    self.__executable = string.strip(cp.get('condor','plot_medianmax_sngl_inspiral'))
+    self.__universe = string.strip('vanilla')
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    cache = string.strip(cp.get('input','fulldatacache'))    
+    self.add_condor_cmd('getenv','True')
+    self.tag_base = tag_base
+    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+    self.set_sub_file(tag_base+'.sub')
+    self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+    self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_arg(cache)
+
+class plot_tmpltbank_range_job(pipeline.CondorDAGJob):
+  """
+  A job to plot the range from the template bank files
+  """
+  def __init__(self, cp, tag_base='PLOT_BANK_RANGE'):
+    """
+    """
+    self.__prog__ = 'plot_tmpltbank_range'
+    self.__executable = string.strip(cp.get('condor','plot_tmpltbank_range'))
+    self.__universe = string.strip('vanilla')
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    cache = string.strip(cp.get('input','fulldatacache'))    
+    self.add_condor_cmd('getenv','True')
+    self.tag_base = tag_base
+    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+    self.set_sub_file(tag_base+'.sub')
+    self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+    self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+    self.add_arg(cache)
+
 
 class fix_singles_job(pipeline.CondorDAGJob):
   def __init__(self, cp, tag_base='FIX_SNGLS'):
@@ -445,6 +506,49 @@ class summary_page_job(pipeline.CondorDAGJob):
     self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 
+class plot_medianmax_sngl_inspiral_node(pipeline.CondorDAGNode):
+  """
+  """
+  def __init__(self, job, dag, patterns=[], p_node=[]):
+
+    pipeline.CondorDAGNode.__init__(self,job)
+    cline = ""
+    for pat in patterns:
+      cline += ' --pattern ' + pat + ' '
+    self.add_var_arg(cline)
+    for p in p_node:
+      self.add_parent(p)
+    dag.add_node(self)
+
+class plot_num_sngl_inspiral_node(pipeline.CondorDAGNode):
+  """
+  """
+  def __init__(self, job, dag, patterns=[], p_node=[]):
+
+    pipeline.CondorDAGNode.__init__(self,job)
+    cline = ""
+    for pat in patterns:
+      cline += ' --pattern ' + pat + ' '
+    self.add_var_arg(cline)
+    for p in p_node:
+      self.add_parent(p)
+    dag.add_node(self)
+
+class plot_tmpltbank_range_node(pipeline.CondorDAGNode):
+  """
+  """
+  def __init__(self, job, dag, patterns=[], p_node=[]):
+
+    pipeline.CondorDAGNode.__init__(self,job)
+    cline = ""
+    for pat in patterns:
+      cline += ' --pattern ' + pat + ' '
+    self.add_var_arg(cline)
+    for p in p_node:
+      self.add_parent(p)
+    dag.add_node(self)
+
+
 class ligolw_sqlite_node(pipeline.CondorDAGNode):
   """
   """
@@ -505,7 +609,8 @@ class sqlite_node(pipeline.CondorDAGNode):
 
     pipeline.CondorDAGNode.__init__(self,job)
     self.add_file_arg(database)
-    self.add_macro("macroinput", sqlfile)
+    self.add_var_opt("sql-file", sqlfile)
+    #self.add_macro("macroinput", sqlfile)
     #self.add_var_arg(database + " "  + " < " + sqlfile)
     for p in p_node:
       self.add_parent(p)
@@ -758,7 +863,7 @@ class default_config(object):
 
     #setup executables
     cp.add_section('condor')
-    cp.set("condor","sqlite3",self.which("sqlite3"))
+    cp.set("condor","sqlite3",self.which("lalapps_run_sqlite"))
     cp.set("condor","ligolw_sqlite",self.which("ligolw_sqlite"))
     cp.set("condor","ligolw_inspinjfind",self.which("ligolw_inspinjfind"))
     cp.set("condor","lalapps_newcorse",self.which("lalapps_newcorse"))
@@ -773,6 +878,9 @@ class default_config(object):
     cp.set("condor", "mvsc_update_sql.py", self.which("mvsc_update_sql"))          
     cp.set("condor", "sprbaggerdecisiontreeapp", self.which("SprBaggerDecisionTreeApp"))
     cp.set("condor", "SprOutputWriterApp", self.which("SprOutputWriterApp"))
+    cp.set("condor", "plot_num_sngl_inspiral", self.which("plot_num_sngl_inspiral"))
+    cp.set("condor", "plot_medianmax_sngl_inspiral", self.which("plot_medianmax_sngl_inspiral"))
+    cp.set("condor", "plot_tmpltbank_range", self.which("plot_tmpltbank_range"))
 
     #setup input
     cp.add_section('input')
@@ -1022,8 +1130,19 @@ hmUpperlimitJob = hm_upperlimit_job(cp)
 hmUpperlimitPlotJob = ul_plot_job(cp)
 farPlotJob = far_plot_job(cp)
 summaryPageJob = summary_page_job(cp)
+pnsijob = plot_num_sngl_inspiral_job(cp)
+pmsijob = plot_medianmax_sngl_inspiral(cp)
+ptrjob = plot_tmpltbank_range_job(cp)
 
-n = 0
+
+#Do some plot nodes that only depend on ihope
+pnsinode1 = plot_num_sngl_inspiral_job(pnsijob, dag, patterns=["INSPIRAL_FIRST_FULL_DATA"])
+pnsinode2 = plot_num_sngl_inspiral_job(pnsijob, dag, patterns=["INSPIRAL_SECOND_.*_FULL_DATA"])
+pnsinodet = plot_num_sngl_inspiral_job(pnsijob, dag, patterns=["TMPLTBANK_FULL_DATA","TRIGBANK_SECOND_.*_FULL_DATA"])
+pmsinode1 = (pmsijob, dag, patterns=["INSPIRAL_FIRST_FULL_DATA"])
+pmsinode2 = (pmsijob, dag, patterns=["INSPIRAL_SECOND_.*_FULL_DATA"])
+ptrnode = plot_tmpltbank_range_node(ptrjob, dag)
+
 #Do the segments node
 segNode = {}
 for cat in cats:
