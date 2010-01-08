@@ -512,7 +512,7 @@ FROM
 				axes.plot(col1,col2, "kx")
 				minx, maxx = axes.get_xlim()
 				miny, maxy = axes.get_ylim()
-				if aspect == 1: 
+				if aspect == 1:
 					axes.set_xlim((min(minx, miny), max(maxx, maxy)))
 					axes.set_ylim((min(minx, miny), max(maxx, maxy)))
 				yield fig, name % (waveform), False
