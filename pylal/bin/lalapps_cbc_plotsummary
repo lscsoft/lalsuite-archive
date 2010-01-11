@@ -651,7 +651,7 @@ FROM
 						self.found_in[participating_instruments] = [sim]
 
 		def finish(self):
-			f = open(self.base + "_injection_summary.txt", "a")
+			f = open(self.base + "injection_summary.txt", "a")
 			missed = self.found_in.pop(None, [])
 			for cnt, (title, x_label, x_func, y_label, y_func, filename_fragment) in enumerate((
 				(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", lambda sim, on_instruments: max(sim.get_eff_dist(instrument) for instrument in on_instruments), "deff_vs_mchirp"),
@@ -688,7 +688,7 @@ FROM
 			self.plots[on_instruments].add_contents(contents)
 
 	def finish(self):
-		f = open(self.base + "_injection_summary.txt", "w")
+		f = open(self.base + "injection_summary.txt", "w")
 		f.write("||<b>ON INSTRUMENTS</b>||<b> PARTICIPATING INSTRUMENTS</b>||<b>MISSED/FOUND</b||\n")
 		f.close()
 		for on_instruments, plot in self.plots.items():
