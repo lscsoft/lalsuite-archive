@@ -299,6 +299,12 @@ class Summaries(object):
 		reputations = self.reputations.setdefault(category, [])
 
 		#
+		# retrieve the livetime
+		#
+
+		t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
+
+		#
 		# len(x) - bisect.bisect_left(x, reputation) = number of
 		# elements in list >= reputation
 		#
@@ -306,10 +312,9 @@ class Summaries(object):
 		n = len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))
 
 		#
-		# retrieve the livetime
+		# extrapolate the event count if needed
 		#
 
-		t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
 		if self.extrapolate:
 			extrapolation_coeffs = self.extrapolation_coeffs.setdefault(category, (0, (0, 0)))
 			if n < extrapolation_coeffs[0]:
