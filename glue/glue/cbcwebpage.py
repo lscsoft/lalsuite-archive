@@ -124,14 +124,14 @@ def user_and_date():
         tmstr += " " + ":".join([str(i) for i in time.gmtime()[3:5]])
 	return "%s - %s" % (os.environ['USER'], tmstr)
 
-def image_glob(pat,cols=3,ignore_thumb=True):
+def image_glob(pat,cols=3,ignore_thumb=True, width=240):
 	image_list = []
 	for image in glob.glob(pat):
 		if 'thumb' in image and ignore_thumb: continue
 		# add the absolute path
 		else: image_list.append(os.path.abspath(image))
 	image_list.sort()
-	plot_list = [_imagelinkcpy(plot) for plot in image_list]
+	plot_list = [_imagelinkcpy(plot,width=width) for plot in image_list]
 	cols = int(cols)
 	return [plot_list[i*cols:i*cols+cols] for i in range(int(math.ceil(len(plot_list) / float(cols))))]
 
@@ -151,6 +151,23 @@ def image_table_from_cache(inputcache,cols=3,ignore_thumb=True):
 	cols = int(cols)
 	return [plot_list[i*cols:i*cols+cols] for i in range(int(math.ceil(len(plot_list) / float(cols))))]
 
+def wiki_table_parse(file):
+	#FIXME assumes table files of the form
+	# === title ===
+	# ||data||data||
+	# ||data||data||
+
+	tabs = []
+	titles = []
+	tab = []
+	for line in open(file).readlines():
+		if '===' in line:
+			titles.append(line.replace("=",""))
+			if tab: tabs.append(tab)
+			tab = []
+		if '||' in line: tab.append(line.split('||'))
+	tabs.append(tab)
+	return tabs, titles
 	
 ###############################################################################
 ##### CBC WEB PAGE CLASSES ####################################################
@@ -271,6 +288,7 @@ class cbcpage(markup.page):
 		if not css: css = copy_ihope_style()
 		scdict = script_dict()
 		if not script: script = scdict[0]
+		self.front = ""
 		scriptfiles = scdict[1]
 		self.verbose = verbose
 		self._style = css
@@ -355,6 +373,7 @@ class cbcpage(markup.page):
 			self.add('<h3> ' + user_and_date() + ' </h3>')
 			self.div.close()
 			self.div(id_='iframecontent')
+			if self.front: self.add(self.front)
 			self.add('<p id="placeholder">Please select a report section on the left.</p>')
 			self.div.close()
 			self.div.close()
