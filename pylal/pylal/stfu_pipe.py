@@ -167,7 +167,7 @@ def figure_out_cache(time):
 			break
 
 	if 'phy.syr.edu' in get_hostname():
-		foundCache.replace("romain","rgouaty")
+		foundCache = foundCache.replace("romain","rgouaty")
 
 	if foundCache == "":
 		print time, " not found in method stfu_pipe.figure_out_cache"	
