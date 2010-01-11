@@ -8,7 +8,11 @@ import sys
 from glue.ligolw import table
 from glue.ligolw import dbtables
 from optparse import OptionParser
+
 from pylal import git_version
+__author__ = "Chad Hanna <channa@ligo.caltech.edu>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 def parse_command_line():
@@ -40,4 +44,4 @@ for filename in databases:
 		if options.verbose: print >>sys.stderr, "%s" % (sql)
 		connection.cursor().execute(sql)
 	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)

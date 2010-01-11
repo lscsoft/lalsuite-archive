@@ -13,6 +13,12 @@ import glob
 import copy
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw, utils
+
+from pylal import git_version
+__author__ = "Chad Hanna <channa@ligo.caltech.edu>, Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 # FIXME:  the plots should use LaTeX to generate the labels, but some don't
 # work yet
 matplotlib.rcParams.update({

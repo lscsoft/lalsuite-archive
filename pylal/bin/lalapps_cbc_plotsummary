@@ -29,14 +29,14 @@
 import math
 import matplotlib
 matplotlib.rcParams.update({
-	"font.size": 8.0,
-	"axes.titlesize": 10.0,
-	"axes.labelsize": 10.0,
-	"xtick.labelsize": 8.0,
-	"ytick.labelsize": 8.0,
-	"legend.fontsize": 8.0,
-	"figure.dpi": 600,
-	"savefig.dpi": 600,
+	"font.size": 16.0,
+	"axes.titlesize": 16.0,
+	"axes.labelsize": 16.0,
+	"xtick.labelsize": 14.0,
+	"ytick.labelsize": 14.0,
+	"legend.fontsize": 16.0,
+	"figure.dpi": 300,
+	"savefig.dpi": 300,
 	"text.usetex": True,
 	"path.simplify": True
 })
@@ -270,7 +270,8 @@ def roman(i, arabics = (1000,900,500,400,100,90,50,40,10,9,5,4,1), romans = ("m"
 #
 
 
-def create_plot(x_label = None, y_label = None, width = 165.0, aspect = (1 + math.sqrt(5)) / 2):
+def create_plot(x_label = None, y_label = None, width = 165.0, aspect = None):
+	if not aspect: aspect = (1 + math.sqrt(5)) / 2
 	fig = figure.Figure()
 	FigureCanvas(fig)
 	fig.set_size_inches(width / 25.4, width / 25.4 / aspect)
@@ -347,10 +348,10 @@ class SummaryTable(object):
 		self.playground_livetime = {}
 
 	def add_contents(self, contents):
+		self.base = contents.base
 		if contents.sim_inspiral_table:
 			#For now we only return summary information on non injections
 			return
-		self.base = contents.base
 		self.playground_candidates += contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.combined_far,
@@ -500,14 +501,21 @@ FROM
 
 	def finish(self):
 		for waveform, sims in self.injections.items():
-			fig, axes = create_plot(r"Injected $M_{1}$ ($\mathrm{M}_{\odot}$)", r"Injected $M_{2}$ ($\mathrm{M}_{\odot}$)", aspect = 1.0)
-			axes.set_title(r"Injection Parameter Distribution (%s Injections)" % waveform)
-			axes.plot([sim.mass1 for sim in sims], [sim.mass2 for sim in sims], "kx")
-			minx, maxx = axes.get_xlim()
-			miny, maxy = axes.get_ylim()
-			axes.set_xlim((min(minx, miny), max(maxx, maxy)))
-			axes.set_ylim((min(minx, miny), max(maxx, maxy)))
-			yield fig, "sim_dist_m1_m2_%s" % (waveform), False
+			for col1,col2,ax1,ax2,name,aspect in [
+							([sim.mass1 for sim in sims], [sim.mass2 for sim in sims], r"Injected $M_{1}$ ($\mathrm{M}_{\odot}$)", r"Injected $M_{2}$ ($\mathrm{M}_{\odot}$)", "sim_dist_m1_m2_%s", 1),
+							([sim.geocent_end_time for sim in sims], [sim.distance for sim in sims], r"Injected time (s)", r"Injected distance (Mpc)", "sim_dist_time_distance_%s",None),
+							([sim.longitude for sim in sims], [math.sin(sim.latitude) for sim in sims], r"Injected RA (rad)", r"Injected Cos(DEC)", "sim_dist_ra_dec_%s",None),
+							([sim.inclination for sim in sims], [sim.polarization for sim in sims], r"Injected inclination (rad)", r"Injected polarization (rad)", "sim_dist_inc_pol_%s",None),
+							([sim.spin1z for sim in sims], [sim.spin2z for sim in sims], r"Injected spin 1 z", r"Injected spin 2 z", "sim_dist_spin1z_spin2z_%s",None)]:
+				fig, axes = create_plot(ax1,ax2, aspect = aspect)
+				axes.set_title(r"Injection Parameter Distribution (%s Injections)" % waveform)
+				axes.plot(col1,col2, "kx")
+				minx, maxx = axes.get_xlim()
+				miny, maxy = axes.get_ylim()
+				if aspect == 1:
+					axes.set_xlim((min(minx, miny), max(maxx, maxy)))
+					axes.set_ylim((min(minx, miny), max(maxx, maxy)))
+				yield fig, name % (waveform), False
 
 #
 # =============================================================================

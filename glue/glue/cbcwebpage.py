@@ -185,7 +185,7 @@ class _imagelinkcpy(markup.page):
 			# FIXME we cannot assume convert is installed everywhere
 			# Is there a python library to do this?
 			thumbname = 'Images/' + "thumb_" + imgname
-			command = 'convert Images/%s -resize %dx%d -antialias %s' % (imgname, width, width, thumbname)
+			command = 'convert Images/%s -resize %dx%d -antialias -sharpen 2x2 %s' % (imgname, width, width, thumbname)
 			popen = subprocess.Popen(command.split())
 			popen.communicate()
 			status = popen.returncode
