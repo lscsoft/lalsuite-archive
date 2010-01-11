@@ -576,22 +576,31 @@ FROM
 	def finish(self):
 		all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
 		unique_likelihoods = set(all_likelihoods)
-		unique_likelihoods = list(unique_likelihoods)
-		unique_likelihoods.sort()
-		min_likelihood = unique_likelihoods[1]
-		max_likelihood = unique_likelihoods[-2]
+		unique_likelihood_list = list(unique_likelihoods)
+		unique_likelihood_list.sort()
+		min_likelihood = unique_likelihood_list[1]
+		max_likelihood = unique_likelihood_list[-2]
 		for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
 			for i in range(len(likelihood_list)):
 				if likelihood_list[i] == 0:
 					likelihood_list[i] = min_likelihood
 				if likelihood_list[i] == float('inf'):
 					likelihood_list[i] = max_likelihood
+# to find the 'threshold,' which here is the likelihood or combined effective snr of the 100th loudest timeslide
+		timeslide_likelihood_temp = tuple(self.timeslide_likelihood)
 		self.timeslide_likelihood.sort()
-		fig, axes = create_plot(r"likelihood from MVSC", r"combined effective SNR", aspect = 1.0)
+		timeslide_likelihood_sorted = self.timeslide_likelihood
+		self.timeslide_likelihood = list(timeslide_likelihood_temp)
+		timeslide_combined_eff_snr_temp = tuple(self.timeslide_combined_eff_snr)
+		self.timeslide_combined_eff_snr.sort()
+		timeslide_combined_eff_snr_sorted = self.timeslide_combined_eff_snr
+		self.timeslide_combined_eff_snr = list(timeslide_combined_eff_snr_temp)
+		fig, axes = create_plot(r"MVSC Likelihood", r"Combined Effective SNR", aspect = 1.0)
 		axes.hold(1)
 		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='injections')	
 		axes.loglog(self.timeslide_likelihood,self.timeslide_combined_eff_snr,'k.',label='timeslides')	
-		axes.axvline(x=self.timeslide_likelihood[-100], label='100th loudest timeslide')
+		axes.axvline(x=timeslide_likelihood_sorted[-100], color='g', label='100th loudest timeslide, by MVSCL')
+		axes.axhline(y=timeslide_combined_eff_snr_sorted[-100], label='100th loudest timeslide, by SNR')
 		axes.legend(loc='lower right')
 		axes.hold(0)
 		yield fig, "MVSC_likelihood_scatterplot" , False
