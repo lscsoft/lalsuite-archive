@@ -167,7 +167,7 @@ def figure_out_cache(time):
 			break
 
 	if 'phy.syr.edu' in get_hostname():
-		foundCache.replace("romain","rgouaty")
+		foundCache = foundCache.replace("romain","rgouaty")
 
 	if foundCache == "":
 		print time, " not found in method stfu_pipe.figure_out_cache"	
@@ -934,7 +934,8 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
 			self.add_parent(parentNode)
-		dag.add_node(self)
+		if opts.do_makeCheckList:
+			dag.add_node(self)
 
 
 # FIND FLAGS NODE 

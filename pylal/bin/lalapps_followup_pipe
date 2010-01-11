@@ -721,6 +721,9 @@ def parse_command_line():
 	parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
         default=False,help="disable rds qscan datafind nodes")
 
+	parser.add_option("","--do-makeCheckList", action="store_true",\
+	default=False,help="enable the checklist generation")
+
 	options, filenames = parser.parse_args()
 
 	return options, (filenames or [])
