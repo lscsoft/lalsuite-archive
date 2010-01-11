@@ -1345,7 +1345,7 @@ WHERE
 			figs[on_instruments] = {}
 			playground_figs[on_instruments] = {}
 			for ifos in self.background_num_by_time_type_offset[on_instruments].keys():
-				#FIXME add check that ifos is a subset of on instruments
+				if not ifos.issubset(on_instruments): continue
 				figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
 				playground_figs[on_instruments][ifos] = create_plot('L1 Offset (s)', 'Rate (Hz)')
 				# do time slides
