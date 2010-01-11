@@ -513,7 +513,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   #
   # Create top two trigger params tables
   #
-  cTable=wikiPage.wikiTable(2,8)
+  cTable=wikiPage.wikiTable(2,9)
   cTable.data=[
     ["Trigger Type",
      "Rank",
@@ -522,7 +522,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
      "IFOS(Coinc)",
      "Instruments(Active)",
      "Coincidence Time (s)",
-     "Total Mass (mSol)"
+     "Total Mass (mSol)",
+     "Chirp Mass (mSol)"
      ],
     ["%s"%(wikiCoinc.type),
      "%s"%(wikiCoinc.rank),
@@ -531,17 +532,19 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
      "%s"%(wikiCoinc.ifos),
      "%s"%(wikiCoinc.instruments),
      "%s"%(wikiCoinc.time),
-     "%s"%(wikiCoinc.mass)
+     "%s"%(wikiCoinc.mass),
+     "%s"%(wikiCoinc.mchirp)
      ]
     ]
-  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls_in_coinc())+1,6)
+  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls_in_coinc())+1,7)
   pTable.data[0]=[
     "IFO",
     "GPS Time(s)",
     "SNR",
     "CHISQR",
     "Mass 1",
-    "Mass 2"
+    "Mass 2",
+    "Chirp Mass"
     ]
   for row,cSngl in enumerate(wikiCoinc.sngls_in_coinc()):
     pTable.data[row+1]=[
@@ -550,7 +553,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
       "%s"%(cSngl.snr),
       "%s"%(cSngl.chisqr),
       "%s"%(cSngl.mass1),
-      "%s"%(cSngl.mass2)
+      "%s"%(cSngl.mass2),
+      "%s"%(cSngl.mchirp)
       ]
   #Write the tables into the Wiki object
   wikiPage.putText("Coincident Trigger Event Information: %s\n"\
@@ -729,7 +733,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
-                                       "*/%s_RDS_*/%s/index.html"%(sngl.ifo,sngl.time))
+                                       "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened.png"%\
                                        (sngl.ifo,sngl.time))
@@ -793,7 +797,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     if len(imageDict[sngl.ifo]) < 1:
       wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
@@ -842,7 +846,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     if len(indexDict[sngl.ifo]) < 1:
       wikiPage.putText("Other scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
@@ -1173,6 +1177,7 @@ class coinc(object):
     self.instruments=str(rawCoinc["INSTRUMENTS"])
     self.time=float(rawCoinc["TIME"])
     self.mass=float(rawCoinc["MASS"])
+    self.mchirp=float(rawCoinc["MCHIRP"])
     #Remaining header for sngl information
     rawSngl=list()
     rawSnglKeys=list()
@@ -1185,7 +1190,7 @@ class coinc(object):
       tmp=dict()
       for i in range(0,len(rData)):
         tmp[rawSnglKeys[i]]=rData[i]
-      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"]))
+      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"],tmp["MCHIRP"]))
       del tmp
 
   def sngls_in_coinc(self):
@@ -1203,7 +1208,7 @@ class coinc(object):
 class sngl(object):
   """
   """
-  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None):
+  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None,mchirp=None):
     """
     """
     self.type=str(type)
@@ -1213,6 +1218,7 @@ class sngl(object):
     self.chisqr=float(chisqr)
     self.mass1=float(mass1)
     self.mass2=float(mass2)
+    self.mchirp=float(mchirp)
     
 ####################################################################
 # Cache file parser
