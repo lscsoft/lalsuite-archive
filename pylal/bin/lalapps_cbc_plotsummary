@@ -653,26 +653,26 @@ FROM
 		def finish(self):
 			f = open(self.base + "_injection_summary.txt", "a")
 			missed = self.found_in.pop(None, [])
-			for cnt, title, x_label, x_func, y_label, y_func, filename_fragment in enumerate((
+			for cnt, (title, x_label, x_func, y_label, y_func, filename_fragment) in enumerate((
 				(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", lambda sim, on_instruments: max(sim.get_eff_dist(instrument) for instrument in on_instruments), "deff_vs_mchirp"),
 				(r"Chirp Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{chirp}}$ ($\mathrm{Mpc}$)", lambda sim, on_instruments: max(sim.get_chirp_dist(instrument) for instrument in on_instruments), "chirpdist_vs_mchirp"),
-				(r"Effective Distance vs.\ Total Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{total}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mtotal, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", lambda sim, on_instruments: max(sim.get_eff_dist(instrument) for instrument in on_instruments), "deff_vs_mtotal"),
-				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end(), r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", lambda sim, on_intruments: max(sim.get_eff_dist(instrument) for instrument in on_instruments), "deff_vs_t")
+				(r"Effective Distance vs.\ Total Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{total}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mass1 + sim.mass2, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", lambda sim, on_instruments: max(sim.get_eff_dist(instrument) for instrument in on_instruments), "deff_vs_mtotal"),
+				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end(), r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", lambda sim, on_instruments: max(sim.get_eff_dist(instrument) for instrument in on_instruments), "deff_vs_t")
 			)):
 				fig, axes = create_plot(x_label, y_label)
 				legend = []
 				for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
-					f.write("||%s||%s||FOUND: %d||" % self.on_instruments, partcipating_instruments, len(sims))
+					if not cnt: f.write("||%s||%s||FOUND: %d||\n" % ("".join(sorted(self.on_instruments)), "".join(sorted(participating_instruments)), len(sims)))
 					legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
-					axes.semilogy([x_func(sim) for sim in sims], [y_func(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
+					axes.semilogy([x_func(sim) for sim in sims], [y_func(sim, self.on_instruments) for sim in sims], ".")
 				if missed:
-					f.write("||%s||%s||MISSED: %d||" % self.on_instruments, partcipating_instruments, len(missed))
+					if not cnt: f.write("||%s||%s||MISSED: %d||\n" % ("".join(sorted(self.on_instruments)), "---", len(missed)))
 					legend.append("Missed")
 					axes.semilogy([x_func(sim) for sim in missed], [y_func(sim, self.on_instruments) for sim in missed], "k.")
+				f.close()
 				axes.legend(legend)
 				axes.set_title(title)
 				yield fig, filename_fragment, False
-			f.close()
 
 	def __init__(self):
 		self.plots = {}
@@ -689,11 +689,11 @@ FROM
 
 	def finish(self):
 		f = open(self.base + "_injection_summary.txt", "w")
-		f.write("||<b>ON INSTRUMENTS</b>||<b> PARTICIPATING INSTRUMENTS</b>||<b>MISSED/FOUND</b||")
+		f.write("||<b>ON INSTRUMENTS</b>||<b> PARTICIPATING INSTRUMENTS</b>||<b>MISSED/FOUND</b||\n")
+		f.close()
 		for on_instruments, plot in self.plots.items():
 			for fig, filename_fragment, open_box in plot.finish():
 				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments))), open_box
-		f.close()
 
 
 #
