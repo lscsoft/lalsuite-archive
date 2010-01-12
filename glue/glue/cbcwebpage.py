@@ -80,6 +80,11 @@ function loadFrame(sourceURL) {
 	$("#iframecontent").load(sourceURL,{},afterLoadFrame);
 	/* Remove the last two arguments to disable toggling from the title. */
 	}
+function toggleAllOpen() {
+	var tags = document.getElementsByTagName('div');
+	for (t in tags)
+		tags[t].style.display = "block";
+	}
 	""")
 	fname.close()
 	return filename
@@ -322,6 +327,7 @@ class cbcpage(markup.page):
 
 		# tuple including number so it can be sorted later
 		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
+		self.subpages[tag].add('<table align=right><tr><td align=right onclick="javascript:toggleAllOpen();"><b>Toggle Open</b></td></tr></table>')
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
 
 	def close_subpage(self,id=None):
