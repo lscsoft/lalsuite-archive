@@ -123,73 +123,73 @@ fprintf( a, "  [--check-times]               Check that all times were analyzed\
 fprintf( a, "  [--multi-ifo-coinc]           Look for triple/quadruple ifo coincidence\n");\
 fprintf( a, "  [--maximization-interval] max_dt set length of maximization interval in ms\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-slide]      g1_slide    Slide G1 data by multiples of g1_slide\n");\
+fprintf( a, "  [--e1-slide]      e1_slide    Slide E1 data by multiples of e1_slide\n");\
 fprintf( a, "  [--h1-slide]      h1_slide    Slide H1 data by multiples of h1_slide\n");\
 fprintf( a, "  [--h2-slide]      h2_slide    Slide H2 data by multiples of h2_slide\n");\
 fprintf( a, "  [--l1-slide]      l1_slide    Slide L1 data by multiples of l1_slide\n");\
-fprintf( a, "  [--t1-slide]      t1_slide    Slide T1 data by multiples of t1_slide\n");\
-fprintf( a, "  [--v1-slide]      v1_slide    Slide V1 data by multiples of v1_slide\n");\
+fprintf( a, "  [--e2-slide]      e2_slide    Slide E2 data by multiples of e2_slide\n");\
+fprintf( a, "  [--e3-slide]      e3_slide    Slide E3 data by multiples of e3_slide\n");\
 fprintf( a, "  [--num-slides]    num_slides  The number of time slides to perform\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-triggers]               input triggers from G1\n");\
+fprintf( a, "  [--e1-triggers]               input triggers from E1\n");\
 fprintf( a, "  [--h1-triggers]               input triggers from H1\n");\
 fprintf( a, "  [--h2-triggers]               input triggers from H2\n");\
 fprintf( a, "  [--l1-triggers]               input triggers from L1\n");\
-fprintf( a, "  [--t1-triggers]               input triggers from T1\n");\
-fprintf( a, "  [--v1-triggers]               input triggers from V1\n");\
+fprintf( a, "  [--e2-triggers]               input triggers from E2\n");\
+fprintf( a, "  [--e3-triggers]               input triggers from E3\n");\
 fprintf( a, "\n");\
 fprintf( a, "  [--do-veto]                    perform a veto on single IFO triggers\n");\
 fprintf( a, "                                 at the times specified in the veto files below\n");\
-fprintf( a, "  [--g1-veto-file]               veto file for G1\n");\
+fprintf( a, "  [--e1-veto-file]               veto file for E1\n");\
 fprintf( a, "  [--h1-veto-file]               veto file for H1\n");\
 fprintf( a, "  [--h2-veto-file]               veto file for H2\n");\
 fprintf( a, "  [--l1-veto-file]               veto file for L1\n");\
-fprintf( a, "  [--t1-veto-file]               veto file for T1\n");\
-fprintf( a, "  [--v1-veto-file]               veto file for V1\n");\
+fprintf( a, "  [--e2-veto-file]               veto file for E2\n");\
+fprintf( a, "  [--e3-veto-file]               veto file for E3\n");\
 fprintf( a, "\n");\
 fprintf( a, "   --parameter-test     test    set parameters with which to test coincidence:\n");\
 fprintf( a, "                                (m1_and_m2|mchirp_and_eta|mchirp_and_eta_ext|psi0_and_psi3|ellipsoid)\n");\
-fprintf( a, "  [--g1-time-accuracy]  g1_dt   specify the timing accuracy of G1 in ms\n");\
+fprintf( a, "  [--e1-time-accuracy]  e1_dt   specify the timing accuracy of E1 in ms\n");\
 fprintf( a, "  [--h1-time-accuracy]  h1_dt   specify the timing accuracy of H1 in ms\n");\
 fprintf( a, "  [--h2-time-accuracy]  h2_dt   specify the timing accuracy of H2 in ms\n");\
 fprintf( a, "  [--l1-time-accuracy]  l1_dt   specify the timing accuracy of L1 in ms\n");\
-fprintf( a, "  [--t1-time-accuracy]  t1_dt   specify the timing accuracy of T1 in ms\n");\
-fprintf( a, "  [--v1-time-accuracy]  v1_dt   specify the timing accuracy of V1 in ms\n");\
+fprintf( a, "  [--e2-time-accuracy]  e2_dt   specify the timing accuracy of E2 in ms\n");\
+fprintf( a, "  [--e3-time-accuracy]  e3_dt   specify the timing accuracy of E3 in ms\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-mass-accuracy]  g1_dm   specify the mass accuracy of G1\n");\
+fprintf( a, "  [--e1-mass-accuracy]  e1_dm   specify the mass accuracy of E1\n");\
 fprintf( a, "  [--h1-mass-accuracy]  h1_dm   specify the mass accuracy of H1\n");\
 fprintf( a, "  [--h2-mass-accuracy]  h2_dm   specify the mass accuracy of H2\n");\
 fprintf( a, "  [--l1-mass-accuracy]  l1_dm   specify the mass accuracy of L1\n");\
-fprintf( a, "  [--t1-mass-accuracy]  t1_dm   specify the mass accuracy of T1\n");\
-fprintf( a, "  [--v1-mass-accuracy]  v1_dm   specify the mass accuracy of V1\n");\
+fprintf( a, "  [--e2-mass-accuracy]  e2_dm   specify the mass accuracy of E2\n");\
+fprintf( a, "  [--e3-mass-accuracy]  e3_dm   specify the mass accuracy of E3\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-mchirp-accuracy] g1_dmchirp  specify the mchirp accuracy of G1\n");\
+fprintf( a, "  [--e1-mchirp-accuracy] e1_dmchirp  specify the mchirp accuracy of E1\n");\
 fprintf( a, "  [--h1-mchirp-accuracy] h1_dmchirp  specify the mchirp accuracy of H1\n");\
 fprintf( a, "  [--h2-mchirp-accuracy] h2_dmchirp  specify the mchirp accuracy of H2\n");\
 fprintf( a, "  [--l1-mchirp-accuracy] l1_dmchirp  specify the mchirp accuracy of L1\n");\
-fprintf( a, "  [--t1-mchirp-accuracy] t1_dmchirp  specify the mchirp accuracy of T1\n");\
-fprintf( a, "  [--v1-mchirp-accuracy] v1_dmchirp  specify the mchirp accuracy of V1\n");\
+fprintf( a, "  [--e2-mchirp-accuracy] e2_dmchirp  specify the mchirp accuracy of E2\n");\
+fprintf( a, "  [--e3-mchirp-accuracy] e3_dmchirp  specify the mchirp accuracy of E3\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-eta-accuracy] g1_deta   specify the eta accuracy of G1\n");\
+fprintf( a, "  [--e1-eta-accuracy] e1_deta   specify the eta accuracy of E1\n");\
 fprintf( a, "  [--h1-eta-accuracy] h1_deta   specify the eta accuracy of H1\n");\
 fprintf( a, "  [--h2-eta-accuracy] h2_deta   specify the eta accuracy of H2\n");\
 fprintf( a, "  [--l1-eta-accuracy] l1_deta   specify the eta accuracy of L1\n");\
-fprintf( a, "  [--t1-eta-accuracy] t1_deta   specify the eta accuracy of T1\n");\
-fprintf( a, "  [--v1-eta-accuracy] v1_deta   specify the eta accuracy of V1\n");\
+fprintf( a, "  [--e2-eta-accuracy] e2_deta   specify the eta accuracy of E2\n");\
+fprintf( a, "  [--e3-eta-accuracy] e3_deta   specify the eta accuracy of E3\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-psi0-accuracy]  g1_dpsi0   specify the psi0 accuracy of G1\n");\
+fprintf( a, "  [--e1-psi0-accuracy]  e1_dpsi0   specify the psi0 accuracy of E1\n");\
 fprintf( a, "  [--h1-psi0-accuracy]  h1_dpsi0   specify the psi0 accuracy of H1\n");\
 fprintf( a, "  [--h2-psi0-accuracy]  h2_dpsi0   specify the psi0 accuracy of H2\n");\
 fprintf( a, "  [--l1-psi0-accuracy]  l1_dpsi0   specify the psi0 accuracy of L1\n");\
-fprintf( a, "  [--t1-psi0-accuracy]  t1_dpsi0   specify the psi0 accuracy of T1\n");\
-fprintf( a, "  [--v1-psi0-accuracy]  v1_dpsi0   specify the psi0 accuracy of V1\n");\
+fprintf( a, "  [--e2-psi0-accuracy]  e2_dpsi0   specify the psi0 accuracy of E2\n");\
+fprintf( a, "  [--e3-psi0-accuracy]  e3_dpsi0   specify the psi0 accuracy of E3\n");\
 fprintf( a, "\n");\
-fprintf( a, "  [--g1-psi3-accuracy]  g1_dpsi3   specify the psi3 accuracy of G1\n");\
+fprintf( a, "  [--e1-psi3-accuracy]  e1_dpsi3   specify the psi3 accuracy of E1\n");\
 fprintf( a, "  [--h1-psi3-accuracy]  h1_dpsi3   specify the psi3 accuracy of H1\n");\
 fprintf( a, "  [--h2-psi3-accuracy]  h2_dpsi3   specify the psi3 accuracy of H2\n");\
 fprintf( a, "  [--l1-psi3-accuracy]  l1_dpsi3   specify the psi3 accuracy of L1\n");\
-fprintf( a, "  [--t1-psi3-accuracy]  t1_dpsi3   specify the psi3 accuracy of T1\n");\
-fprintf( a, "  [--v1-psi3-accuracy]  v1_dpsi3   specify the psi3 accuracy of V1\n");\
+fprintf( a, "  [--e2-psi3-accuracy]  e2_dpsi3   specify the psi3 accuracy of E2\n");\
+fprintf( a, "  [--e3-psi3-accuracy]  e3_dpsi3   specify the psi3 accuracy of E3\n");\
 fprintf( a, "\n");\
 fprintf( a, "  [--e-thinca-parameter]  match    specify the e-thinca parameter\n");\
 fprintf( a, "\n");\
@@ -331,9 +331,9 @@ int main( int argc, char *argv[] )
   char*                 sourceFile=NULL;
  
   const CHAR                  *ifoArg[LAL_NUM_IFO] = 
-                                   {"g1-triggers", "h1-triggers", 
+                                   {"e1-triggers", "h1-triggers", 
                                     "h2-triggers", "l1-triggers", 
-                                    "t1-triggers", "v1-triggers"};
+                                    "e2-triggers", "e3-triggers"};
 
 
   /* getopt arguments */
@@ -341,12 +341,12 @@ int main( int argc, char *argv[] )
   {
     {"verbose",             no_argument,   &vrbflg,                   1 },
     {"write-compress",      no_argument,   &outCompress,              1 },
-    {"g1-triggers",         no_argument,   &(haveTrig[LAL_IFO_G1]),   1 },
+    {"e1-triggers",         no_argument,   &(haveTrig[LAL_IFO_E1]),   1 },
     {"h1-triggers",         no_argument,   &(haveTrig[LAL_IFO_H1]),   1 },
     {"h2-triggers",         no_argument,   &(haveTrig[LAL_IFO_H2]),   1 },
     {"l1-triggers",         no_argument,   &(haveTrig[LAL_IFO_L1]),   1 },
-    {"t1-triggers",         no_argument,   &(haveTrig[LAL_IFO_T1]),   1 },
-    {"v1-triggers",         no_argument,   &(haveTrig[LAL_IFO_V1]),   1 },
+    {"e2-triggers",         no_argument,   &(haveTrig[LAL_IFO_E2]),   1 },
+    {"e3-triggers",         no_argument,   &(haveTrig[LAL_IFO_E3]),   1 },
     {"check-times",         no_argument,   &checkTimes,               1 },
     {"multi-ifo-coinc",     no_argument,   &multiIfoCoinc,            1 },
     {"h1-h2-distance-cut",  no_argument,   &distCut,                  1 },
@@ -357,49 +357,49 @@ int main( int argc, char *argv[] )
     {"bcvc",                no_argument,   &doBCVC,                   1 },
     {"do-veto",             no_argument,   &doVeto,                   1 },
     {"complete-coincs",     no_argument,   &completeCoincs,           1 },
-    {"g1-slide",            required_argument, 0,                    'b'},
+    {"e1-slide",            required_argument, 0,                    'b'},
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
     {"l1-slide",            required_argument, 0,                    'e'},
-    {"t1-slide",            required_argument, 0,                    'f'},
-    {"v1-slide",            required_argument, 0,                    'g'},
+    {"e2-slide",            required_argument, 0,                    'f'},
+    {"e3-slide",            required_argument, 0,                    'g'},
     {"num-slides",          required_argument, 0,                    'T'},
-    {"g1-time-accuracy",    required_argument, 0,                    'A'},
+    {"e1-time-accuracy",    required_argument, 0,                    'A'},
     {"h1-time-accuracy",    required_argument, 0,                    'B'}, 
     {"h2-time-accuracy",    required_argument, 0,                    'C'}, 
     {"l1-time-accuracy",    required_argument, 0,                    'D'},
-    {"t1-time-accuracy",    required_argument, 0,                    'E'}, 
-    {"v1-time-accuracy",    required_argument, 0,                    'F'}, 
-    {"g1-mass-accuracy",    required_argument, 0,                    'G'},
+    {"e2-time-accuracy",    required_argument, 0,                    'E'}, 
+    {"e3-time-accuracy",    required_argument, 0,                    'F'}, 
+    {"e1-mass-accuracy",    required_argument, 0,                    'G'},
     {"h1-mass-accuracy",    required_argument, 0,                    'H'},
     {"h2-mass-accuracy",    required_argument, 0,                    'I'},
     {"l1-mass-accuracy",    required_argument, 0,                    'J'},
-    {"t1-mass-accuracy",    required_argument, 0,                    'K'},
-    {"v1-mass-accuracy",    required_argument, 0,                    'L'},
-    {"g1-mchirp-accuracy",  required_argument, 0,                    'M'},
+    {"e2-mass-accuracy",    required_argument, 0,                    'K'},
+    {"e3-mass-accuracy",    required_argument, 0,                    'L'},
+    {"e1-mchirp-accuracy",  required_argument, 0,                    'M'},
     {"h1-mchirp-accuracy",  required_argument, 0,                    'N'},
     {"h2-mchirp-accuracy",  required_argument, 0,                    'O'},
     {"l1-mchirp-accuracy",  required_argument, 0,                    'P'},
-    {"t1-mchirp-accuracy",  required_argument, 0,                    'Q'},
-    {"v1-mchirp-accuracy",  required_argument, 0,                    'R'},
-    {"g1-eta-accuracy",     required_argument, 0,                    'm'},
+    {"e2-mchirp-accuracy",  required_argument, 0,                    'Q'},
+    {"e3-mchirp-accuracy",  required_argument, 0,                    'R'},
+    {"e1-eta-accuracy",     required_argument, 0,                    'm'},
     {"h1-eta-accuracy",     required_argument, 0,                    'n'},
     {"h2-eta-accuracy",     required_argument, 0,                    'o'},
     {"l1-eta-accuracy",     required_argument, 0,                    'p'},
-    {"t1-eta-accuracy",     required_argument, 0,                    'q'},
-    {"v1-eta-accuracy",     required_argument, 0,                    'r'},
-    {"g1-psi0-accuracy",    required_argument, 0,                    '2'},
+    {"e2-eta-accuracy",     required_argument, 0,                    'q'},
+    {"e3-eta-accuracy",     required_argument, 0,                    'r'},
+    {"e1-psi0-accuracy",    required_argument, 0,                    '2'},
     {"h1-psi0-accuracy",    required_argument, 0,                    '3'},
     {"h2-psi0-accuracy",    required_argument, 0,                    '4'},
     {"l1-psi0-accuracy",    required_argument, 0,                    '5'},
-    {"t1-psi0-accuracy",    required_argument, 0,                    '6'},
-    {"v1-psi0-accuracy",    required_argument, 0,                    '7'},
-    {"g1-psi3-accuracy",    required_argument, 0,                    '8'},
+    {"e2-psi0-accuracy",    required_argument, 0,                    '6'},
+    {"e3-psi0-accuracy",    required_argument, 0,                    '7'},
+    {"e1-psi3-accuracy",    required_argument, 0,                    '8'},
     {"h1-psi3-accuracy",    required_argument, 0,                    '9'},
     {"h2-psi3-accuracy",    required_argument, 0,                    '!'},
     {"l1-psi3-accuracy",    required_argument, 0,                    '-'},
-    {"t1-psi3-accuracy",    required_argument, 0,                    '+'},
-    {"v1-psi3-accuracy",    required_argument, 0,                    '='},
+    {"e2-psi3-accuracy",    required_argument, 0,                    '+'},
+    {"e3-psi3-accuracy",    required_argument, 0,                    '='},
     {"e-thinca-parameter",  required_argument, 0,                    '`'},
     {"h1-kappa",            required_argument, 0,                    'W'},
     {"h2-kappa",            required_argument, 0,                    'Y'},
@@ -430,10 +430,10 @@ int main( int argc, char *argv[] )
     {"snr-cut",             required_argument, 0,                    '*'},
     {"h1-veto-file",        required_argument, 0,                    '('},
     {"h2-veto-file",        required_argument, 0,                    ')'},
-    {"g1-veto-file",        required_argument, 0,                    '{'},
+    {"e1-veto-file",        required_argument, 0,                    '{'},
     {"l1-veto-file",        required_argument, 0,                    '}'},
-    {"t1-veto-file",        required_argument, 0,                    '['},
-    {"v1-veto-file",        required_argument, 0,                    ']'},
+    {"e2-veto-file",        required_argument, 0,                    '['},
+    {"e3-veto-file",        required_argument, 0,                    ']'},
     {"exttrig",             required_argument, 0,                    '_'},
     {0, 0, 0, 0}
   };
@@ -563,8 +563,8 @@ int main( int argc, char *argv[] )
         break;
 
       case 'A':
-        /* time accuracy G1, argument is in milliseconds */
-        accuracyParams.ifoAccuracy[LAL_IFO_G1].dt = atof(optarg) * 1000000LL;
+        /* time accuracy E1, argument is in milliseconds */
+        accuracyParams.ifoAccuracy[LAL_IFO_E1].dt = atof(optarg) * 1000000LL;
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
       
@@ -587,20 +587,20 @@ int main( int argc, char *argv[] )
         break;
 
       case 'E':
-        /* time accuracy T1, argument is in milliseconds */
-        accuracyParams.ifoAccuracy[LAL_IFO_T1].dt = atof(optarg) * 1000000LL;
+        /* time accuracy E2, argument is in milliseconds */
+        accuracyParams.ifoAccuracy[LAL_IFO_E2].dt = atof(optarg) * 1000000LL;
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
         
       case 'F':
-        /* time accuracy V1, argument is in milliseconds */
-        accuracyParams.ifoAccuracy[LAL_IFO_V1].dt = atof(optarg) * 1000000LL;
+        /* time accuracy E3, argument is in milliseconds */
+        accuracyParams.ifoAccuracy[LAL_IFO_E3].dt = atof(optarg) * 1000000LL;
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case 'G':
-        /* mass accuracy G1, argument is in solar masses */
-        accuracyParams.ifoAccuracy[LAL_IFO_G1].dm = atof(optarg);
+        /* mass accuracy E1, argument is in solar masses */
+        accuracyParams.ifoAccuracy[LAL_IFO_E1].dm = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
       
@@ -623,20 +623,20 @@ int main( int argc, char *argv[] )
         break;
 
       case 'K':
-        /* mass accuracy T1, argument is in solar masses */
-        accuracyParams.ifoAccuracy[LAL_IFO_T1].dm = atof(optarg);
+        /* mass accuracy E2, argument is in solar masses */
+        accuracyParams.ifoAccuracy[LAL_IFO_E2].dm = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
         
       case 'L':
-        /* mass accuracy V1, argument is in solar masses */
-        accuracyParams.ifoAccuracy[LAL_IFO_V1].dm = atof(optarg);
+        /* mass accuracy E3, argument is in solar masses */
+        accuracyParams.ifoAccuracy[LAL_IFO_E3].dm = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case 'M':
-        /* chirp mass accuracy G1, argument is in solar masses */
-        accuracyParams.ifoAccuracy[LAL_IFO_G1].dmchirp = atof(optarg);
+        /* chirp mass accuracy E1, argument is in solar masses */
+        accuracyParams.ifoAccuracy[LAL_IFO_E1].dmchirp = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
       
@@ -659,29 +659,29 @@ int main( int argc, char *argv[] )
         break;
 
       case 'Q':
-        /* chirp mass accuracy T1, argument is in solar masses */
-        accuracyParams.ifoAccuracy[LAL_IFO_T1].dmchirp = atof(optarg);
+        /* chirp mass accuracy E2, argument is in solar masses */
+        accuracyParams.ifoAccuracy[LAL_IFO_E2].dmchirp = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
         
       case 'R':
-        /* chirp mass accuracy V1, argument is in solar masses */
-        accuracyParams.ifoAccuracy[LAL_IFO_V1].dmchirp = atof(optarg);
+        /* chirp mass accuracy E3, argument is in solar masses */
+        accuracyParams.ifoAccuracy[LAL_IFO_E3].dmchirp = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
        
       case 'b':
-        /* slide time for G1 */
-        slideStep[LAL_IFO_G1] = atof( optarg );
-        if ( slideStep[LAL_IFO_G1] < 0 )
+        /* slide time for E1 */
+        slideStep[LAL_IFO_E1] = atof( optarg );
+        if ( slideStep[LAL_IFO_E1] < 0 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "The slideStep must be positive\n"
               "(%f specified)\n",
-              long_options[option_index].name, slideStep[LAL_IFO_G1] );
+              long_options[option_index].name, slideStep[LAL_IFO_E1] );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "double", "%f", slideStep[LAL_IFO_G1] );
+        ADD_PROCESS_PARAM( "double", "%f", slideStep[LAL_IFO_E1] );
         break;
 
       case 'c':
@@ -727,31 +727,31 @@ int main( int argc, char *argv[] )
         break;
         
       case 'f':
-        /* slide time for T1 */
-        slideStep[LAL_IFO_T1] = atof( optarg );
-        if ( slideStep[LAL_IFO_T1] < 0 )
+        /* slide time for E2 */
+        slideStep[LAL_IFO_E2] = atof( optarg );
+        if ( slideStep[LAL_IFO_E2] < 0 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "The slideStep must be positive\n"
               "(%f specified)\n",
-              long_options[option_index].name, slideStep[LAL_IFO_T1] );
+              long_options[option_index].name, slideStep[LAL_IFO_E2] );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "double", "%f", slideStep[LAL_IFO_T1] );
+        ADD_PROCESS_PARAM( "double", "%f", slideStep[LAL_IFO_E2] );
         break;
         
       case 'g':
-        /* slide time for V1 */
-        slideStep[LAL_IFO_V1] = atof( optarg );
-        if ( slideStep[LAL_IFO_V1] < 0 )
+        /* slide time for E3 */
+        slideStep[LAL_IFO_E3] = atof( optarg );
+        if ( slideStep[LAL_IFO_E3] < 0 )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "The slideStep must be positive\n"
               "(%f specified)\n",
-              long_options[option_index].name, slideStep[LAL_IFO_V1] );
+              long_options[option_index].name, slideStep[LAL_IFO_E3] );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "double", "%f", slideStep[LAL_IFO_V1] );
+        ADD_PROCESS_PARAM( "double", "%f", slideStep[LAL_IFO_E3] );
         break;
 
       case 'T':
@@ -769,8 +769,8 @@ int main( int argc, char *argv[] )
         break;
 
       case 'm':
-        /* eta accuracy G1, argument is dimensionless */
-        accuracyParams.ifoAccuracy[LAL_IFO_G1].deta = atof(optarg);
+        /* eta accuracy E1, argument is dimensionless */
+        accuracyParams.ifoAccuracy[LAL_IFO_E1].deta = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
       
@@ -793,14 +793,14 @@ int main( int argc, char *argv[] )
         break;
 
       case 'q':
-        /* eta accuracy T1, argument is dimensionless */
-        accuracyParams.ifoAccuracy[LAL_IFO_T1].deta = atof(optarg);
+        /* eta accuracy E2, argument is dimensionless */
+        accuracyParams.ifoAccuracy[LAL_IFO_E2].deta = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
         
       case 'r':
-        /* eta accuracy V1, argument is dimensionless */
-        accuracyParams.ifoAccuracy[LAL_IFO_V1].deta = atof(optarg);
+        /* eta accuracy E3, argument is dimensionless */
+        accuracyParams.ifoAccuracy[LAL_IFO_E3].deta = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
@@ -997,8 +997,8 @@ int main( int argc, char *argv[] )
         break;
 
       case '2':
-     /* psi0 mass accuracy G1  */
-        accuracyParams.ifoAccuracy[LAL_IFO_G1].dpsi0 = atof(optarg);
+     /* psi0 mass accuracy E1  */
+        accuracyParams.ifoAccuracy[LAL_IFO_E1].dpsi0 = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
@@ -1021,20 +1021,20 @@ int main( int argc, char *argv[] )
         break;
 
       case '6':
-     /* psi0 mass accuracy T1  */
-        accuracyParams.ifoAccuracy[LAL_IFO_T1].dpsi0 = atof(optarg);
+     /* psi0 mass accuracy E2  */
+        accuracyParams.ifoAccuracy[LAL_IFO_E2].dpsi0 = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case '7':
-     /* psi0 mass accuracy V1  */
-        accuracyParams.ifoAccuracy[LAL_IFO_V1].dpsi0 = atof(optarg);
+     /* psi0 mass accuracy E3  */
+        accuracyParams.ifoAccuracy[LAL_IFO_E3].dpsi0 = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case '8':
-     /* psi3 mass accuracy G1  */
-        accuracyParams.ifoAccuracy[LAL_IFO_G1].dpsi3 = atof(optarg);
+     /* psi3 mass accuracy E1  */
+        accuracyParams.ifoAccuracy[LAL_IFO_E1].dpsi3 = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
@@ -1057,14 +1057,14 @@ int main( int argc, char *argv[] )
         break;
 
       case '+':
-     /* psi3 mass accuracy T1  */
-        accuracyParams.ifoAccuracy[LAL_IFO_T1].dpsi3 = atof(optarg);
+     /* psi3 mass accuracy E2  */
+        accuracyParams.ifoAccuracy[LAL_IFO_E2].dpsi3 = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case '=':
-     /* psi3 mass accuracy V1  */
-        accuracyParams.ifoAccuracy[LAL_IFO_V1].dpsi3 = atof(optarg);
+     /* psi3 mass accuracy E3  */
+        accuracyParams.ifoAccuracy[LAL_IFO_E3].dpsi3 = atof(optarg);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
@@ -1155,24 +1155,24 @@ int main( int argc, char *argv[] )
       case '{':
         /* veto filename */
         optarg_len = strlen( optarg ) + 1;
-        vetoFileName[LAL_IFO_G1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( vetoFileName[LAL_IFO_G1], optarg, optarg_len );
+        vetoFileName[LAL_IFO_E1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( vetoFileName[LAL_IFO_E1], optarg, optarg_len );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;        
         
       case '[':
         /* veto filename */
         optarg_len = strlen( optarg ) + 1;
-        vetoFileName[LAL_IFO_T1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( vetoFileName[LAL_IFO_T1], optarg, optarg_len );
+        vetoFileName[LAL_IFO_E2] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( vetoFileName[LAL_IFO_E2], optarg, optarg_len );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;        
         
       case ']':
         /* veto filename */
         optarg_len = strlen( optarg ) + 1;
-        vetoFileName[LAL_IFO_V1] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-        memcpy( vetoFileName[LAL_IFO_V1], optarg, optarg_len );
+        vetoFileName[LAL_IFO_E3] = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( vetoFileName[LAL_IFO_E3], optarg, optarg_len );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;       
 

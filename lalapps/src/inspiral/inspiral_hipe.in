@@ -141,6 +141,7 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
   usertag = the usertag to add to the job names
   inspinjNode = the inspinj node to be added as a parent to inspirals
   """
+  print ifo_to_do
 
   # add the non veto inspiral options
   if cp.has_section('no-veto-inspiral'): 
@@ -206,7 +207,6 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
     # loop over the master analysis chunks in the science segment
     for chunk in seg:
       done_this_chunk = False
-
       # now loop over all the data that we need to filter
       for seg_to_do in ifo_to_do:
 
@@ -328,6 +328,8 @@ def single_coinc(ifo_analyzed,ifo_name,ifo_single,single_coinc_job,dag,
       sinca.set_category('inca')
     if not opts.disable_dag_priorities:
       sinca.set_priority(100)
+    print seg.start()
+    print seg.end() 
     sinca.set_start(seg.start())
     sinca.set_end(seg.end())
     sinca.set_ifo_a(ifo_name)
@@ -1330,6 +1332,12 @@ parser.add_option("-l", "--l1-data",action="store_true",default=False,\
     help="analyze l1 data")
 parser.add_option("-n", "--v1-data",action="store_true",default=False,\
     help="analyze v1 data")
+parser.add_option("-q", "--e1-data",action="store_true",default=False,\
+    help="analyze e1 data")
+parser.add_option("-y", "--e2-data",action="store_true",default=False,\
+    help="analyze e2 data")
+parser.add_option("-z", "--e3-data",action="store_true",default=False,\
+    help="analyze e3 data")
 
 parser.add_option("-S", "--one-ifo",action="store_true",default=False,\
     help="analyze single ifo data (not usable for GEO)")
@@ -1457,7 +1465,8 @@ if not opts.log_path:
   sys.exit(1)
 
 if not opts.g1_data and not opts.h1_data and not opts.h2_data and \
-    not opts.l1_data and not opts.v1_data and not opts.analyze_all:
+    not opts.l1_data and not opts.v1_data and not opts.e1_data and \
+    not opts.e2_data and not opts.e3_data and not opts.analyze_all:
   print >> sys.stderr, "No ifos specified.  Please specify at least one of"
   print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data, --v1-data"
   print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
@@ -1511,7 +1520,7 @@ if not opts.datafind and not opts.template_bank and \
   --cohire, --summary-coherent-inspiral-triggers"""
   sys.exit(1)
    
-ifo_list = ['H1','H2','L1','V1','G1']
+ifo_list = ['H1','H2','L1','V1','G1','E1','E2','E3']
 
 #################################################################
 # If using G1 data, rearrange ifo_list since it only uses
@@ -1542,6 +1551,9 @@ do['H1'] = opts.h1_data
 do['H2'] = opts.h2_data
 do['L1'] = opts.l1_data
 do['V1'] = opts.v1_data
+do['E1'] = opts.e1_data
+do['E2'] = opts.e2_data
+do['E3'] = opts.e3_data
 
 ifo_analyze = []
 for ifo in ifo_list:
@@ -2092,7 +2104,6 @@ for ifo in ifo_list:
   for seg in data_out[ifo]:
     seg.set_start(seg.start() + overlap/2 + pad)
     seg.set_end(seg.end() - overlap/2 - pad)
-
   if playground_only:
     data_out[ifo].play()
 
@@ -2118,6 +2129,12 @@ for ifo in ifo_list:
   not_data_out[ifo].coalesce()
   not_data_out[ifo].invert()
 
+  for budg in data_out[ifo]:
+    print "data_out[%s] = %d %d" % (ifo, budg.start(), budg.end() )
+
+  for budg in not_data_out[ifo]:
+    print "not_data_out[%s] = %d %d" % (ifo, budg.start(), budg.end() )
+
 # determine the data we can analyze for various detector combinations
 analyzed_data = {}
 
@@ -2131,8 +2148,8 @@ for ifos in ifo_combinations:
         selected_data.append(data_out[ifo])
       else:
         selected_data.append(not_data_out[ifo])
-    analyzed_data[ifos] = generate_segments(selected_data[0], 
-        selected_data[1], selected_data[2], selected_data[3])
+    analyzed_data[ifos] = generate_segments(selected_data[4], 
+        selected_data[5], selected_data[6], selected_data[7])
 
     if max_thinca_segment:
       analyzed_data[ifos].split(max_thinca_segment)
@@ -2148,6 +2165,7 @@ for ifo in ifo_list:
     if ifo in ifos:
       data_to_do[ifo].union(analyzed_data[ifos])
   data_to_do[ifo].coalesce() 
+
 
 ##############################################################################
 # Step 3b: Set up the injection job

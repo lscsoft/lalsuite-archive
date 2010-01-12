@@ -731,6 +731,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   hipeCommand = test_and_add_hipe_arg(hipeCommand,"disable-dag-priorities")
 
   # run lalapps_inspiral_hipe
+  print hipeCommand
   make_external_call(hipeCommand)
 
   # link datafind

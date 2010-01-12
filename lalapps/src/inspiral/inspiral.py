@@ -991,6 +991,9 @@ class ThincaNode(InspiralAnalysisNode):
     self.__ifo_l1 = None
     self.__ifo_t1 = None
     self.__ifo_v1 = None
+    self.__ifo_e1 = None
+    self.__ifo_e2 = None
+    self.__ifo_e3 = None
     self.__num_slides = None
 
   def set_ifo(self, ifo):
@@ -1016,6 +1019,15 @@ class ThincaNode(InspiralAnalysisNode):
     elif ifo == 'V1':
       self.add_var_opt('v1-triggers','')
       self.__ifo_v1 = 'V1'
+    elif ifo == 'E1':
+      self.add_var_opt('e1-triggers','')
+      self.__ifo_e1 = 'E1'
+    elif ifo == 'E2':
+      self.add_var_opt('e2-triggers','')
+      self.__ifo_e2 = 'E2'
+    elif ifo == 'E3':
+      self.add_var_opt('e3-triggers','')
+      self.__ifo_e3 = 'E3'
   
   def get_ifo_g1(self):
     """
@@ -1053,6 +1065,24 @@ class ThincaNode(InspiralAnalysisNode):
     """
     return self.__ifo_v1
 
+  def get_ifo_e1(self):
+    """
+    Returns the IFO code of e1.
+    """
+    return self.__ifo_e1
+
+  def get_ifo_e2(self):
+    """
+    Returns the IFO code of e2.
+    """
+    return self.__ifo_e2
+
+  def get_ifo_e3(self):
+    """
+    Returns the IFO code of e3.
+    """
+    return self.__ifo_e3
+
   def get_ifos(self):
     """
     Returns the ordered list of ifos.
@@ -1070,6 +1100,12 @@ class ThincaNode(InspiralAnalysisNode):
       ifos += self.get_ifo_t1()
     if self.get_ifo_v1():
       ifos += self.get_ifo_v1()
+    if self.get_ifo_e1():
+      ifos += self.get_ifo_e1()
+    if self.get_ifo_e2():
+      ifos += self.get_ifo_e2()
+    if self.get_ifo_e3():
+      ifos += self.get_ifo_e3()
 
     return ifos
 

@@ -371,8 +371,10 @@ dag.set_dax_file(basename)
 # Set up the IFOs and get the appropriate segments
 ifos = [] 
 
-for option in ["g1-data","h1-data","h2-data","l1-data","v1-data"]:
+for option in ["g1-data","h1-data","h2-data","l1-data","v1-data","e1-data","e2-data","e3-data"]:
   if cp.has_option("ifo-details",option): ifos.append(option[0:2].upper() )
+  else:
+    print "We do not have option %s" % (option)
 
 if cp.has_option("ifo-details","analyze-all"): 
   print >> sys.stderr, \

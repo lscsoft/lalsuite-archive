@@ -750,6 +750,27 @@ XLALAddSnglInspiralToCoinc(
       coincInspiral->snglInspiral[LAL_IFO_V1] = snglInspiral;
       break;
 
+    case 'E':
+      if ( !strcmp( snglInspiral->ifo, "E1" ) )
+      {
+        coincInspiral->snglInspiral[LAL_IFO_E1] = snglInspiral;
+      }
+      else if ( !strcmp( snglInspiral->ifo, "E2" ) )
+      {
+        coincInspiral->snglInspiral[LAL_IFO_E2] = snglInspiral;
+      }
+      else if ( !strcmp( snglInspiral->ifo, "E3" ) )
+      {
+        coincInspiral->snglInspiral[LAL_IFO_E3] = snglInspiral;
+      }
+      else
+      {
+        /* Invalid ET Detector */
+        XLALPrintError( "Invalid ifo in input snglInspiral" );
+        XLAL_ERROR_NULL(func,XLAL_EIO);
+      }
+      break;
+
     default:
       /* Invalid Detector Site */
       XLALPrintError( "Invalid ifo in input snglInspiral" );
