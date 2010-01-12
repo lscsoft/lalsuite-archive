@@ -217,19 +217,27 @@ geographically separated are assumed to be uncorrelated.
 """)
 page.subpages["playts"].add_section("ts","Playground Time Slides")
 imgtable = cbcwebpage.image_glob(base_name+'7_playground_plot_slides_*.png')
-page.subpages["playts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset for coincident triggers")
+page.subpages["playts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset for coincident playground triggers")
 
 ### Money Plots ###
 page.add_subpage("playmoney","Playground Money Plots", "Playground Money Plots")
+page.subpages["playmoney"].div("""
+<big><b>OVERVIEW:</b></big><br><br>
+
+""")
+tab,name = cbcwebpage.wiki_table_parse(base_name+'playground_summary_table.txt')
+page.subpages["playmoney"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
+
+
 page.subpages["playmoney"].add_section("snr","Playground Rate vs. Effective SNR Threshold")
 imgtable = cbcwebpage.image_glob(base_name+'5_playground_count_vs_snr_*.png')
 page.subpages["playmoney"].sections["snr"].add_table(imgtable, "Rate vs. Effective SNR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of effective SNR threshold.")
 page.subpages["playmoney"].add_section("ifar","Playground Rate vs. IFAR Threshold")
 imgtable = cbcwebpage.image_glob(base_name+'5_playground_count_vs_ifar_*.png')
 page.subpages["playmoney"].sections["ifar"].add_table(imgtable, "Rate vs. IFAR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of inverse false-alarm rate (IFAR) threshold.")
-page.subpages["playmoney"].add_section("table","Playground Loudest Table")
-tab,name = cbcwebpage.wiki_table_parse(base_name+'playground_summary_table.txt')
-page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
+#page.subpages["playmoney"].add_section("table","Playground Loudest Table")
+#tab,name = cbcwebpage.wiki_table_parse(base_name+'playground_summary_table.txt')
+#page.subpages["playmoney"].sections["table"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
 
 ### Likelihood plots ###
 page.add_subpage("playlikelihood","Playground Likelihood", "Playground Likelihood")
