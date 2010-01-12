@@ -1814,36 +1814,53 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	LLO: 20090708 :: 931046415
 	"""
 	urls={
-		"default":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+		"DEFAULT":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
 		"V1":"http://wwwcascina.virgo.infn.it/DetectorOperations/index.htm",
 		"L1":"https://llocds.ligo-la.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
 		"H1":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
 		"H2":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif"
 		}
+	ifoTag=ifo.upper()
+	shiftDuration=8;
+	#Give the IFO and shift start hour as integer
+	shiftStandardTime={'L1':{'day':14,'eve':22,'owl':6},
+			   'H1':{'day':16,'eve':0,'owl':8},
+			   'H2':{'day':16,'eve':0,'owl':8},
+			   'V1':{'day':6,'eve':14,'owl':22}}
+	shiftOrder=['day','eve','owl']
+	shiftLabel={'day':'p1','eve':'p3','owl':'p2'}
 	outputURLs=list()
 	if ((ifo==None) or (gpsTime==None)):
 		sys.stdout.write("getFOMLinks called incorrectly \
 using default opts instead!\n")
-		return [urls['default']]
-	#Create date string
-	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(gpsTime)))
-	tStamp="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
-	shiftLabels=['p1','p2','p3']
-	shiftTxt={'p3':'Eve',
-		  'p2':'Owl',
-		  'p1':'Day'}
-	fomLabels=[1,2,3]
-	ifoTag=ifo.upper().lstrip().rstrip()
-	if ('H1','H2','L1').__contains__(ifoTag):
-		for sL in shiftLabels:
-			for fL in fomLabels:
-				outputURLs.append(["%s,%s"%(ifoTag,shiftTxt[sL]),
-						   urls[ifoTag]%(tStamp,tStamp,sL,fL,""),
-						   urls[ifoTag]%(tStamp,tStamp,sL,fL,"Thumb")
+		return [urls['DEFAULT']]
+	outputURLs=[]
+	if shiftStandardTime.keys().__contains__(ifoTag):
+		#Determine shift times n-1,n,n+1
+		tOffset=3600*shiftDuration
+		for thisTime in \
+		[gpsTime-tOffset,gpsTime,gpsTime+tOffset]:
+			Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(thisTime)))
+			#Get shift label
+			shiftString=''
+			for shift,start in shiftStandardTime[ifoTag].iteritems():
+				hours=[x%24 for x in range(start,start+shiftDuration)]
+				if hours.__contains__(int(h)):
+					shiftString=shift
+			#Create txt string
+			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+			if ('V1').__contains__(ifoTag):
+				outputURLs.append(['V1',urls[ifoTag],''])
+			else:
+				sL=shiftString
+				for fL in [1,2,3]:
+					outputURLs.append(["%s,%s"%(ifoTag,shiftString),
+							   urls[ifoTag]%(tString,tString,sL,fL,""),
+							   urls[ifoTag]%(tString,tString,sL,fL,"Thumb")
 						   ])
-	if ('V1').__contains__(ifoTag):
-		outputURLs.append(['V1',urls[ifoTag],''])
-	return outputURLs
+		return outputURLs
+	else:
+		return [urls['DEFAULT']]
 
 #A simple method to convert GPS time to human readable for for
 #checklist
