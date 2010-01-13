@@ -733,7 +733,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
-                                       "*/%s_RDS_*/%s/index.html"%(sngl.ifo,sngl.time))
+                                       "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened.png"%\
                                        (sngl.ifo,sngl.time))
@@ -797,7 +797,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     if len(imageDict[sngl.ifo]) < 1:
       wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
@@ -846,7 +846,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     if len(indexDict[sngl.ifo]) < 1:
       wikiPage.putText("Other scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\

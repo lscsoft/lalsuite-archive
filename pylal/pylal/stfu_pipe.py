@@ -412,7 +412,8 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.__universe = string.strip(cp.get("makeCheckListWiki",
 						  "universe").strip())
 	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+	    self.add_condor_cmd('getenv','True')
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
 #End makeCheckListWikiJob class
 
 	    
@@ -437,7 +438,6 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
-
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 #The class responsible for checking for know veto flags
