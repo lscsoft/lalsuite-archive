@@ -30,11 +30,11 @@ import math
 import matplotlib
 matplotlib.rcParams.update({
 	"font.size": 16.0,
-	"axes.titlesize": 16.0,
-	"axes.labelsize": 16.0,
-	"xtick.labelsize": 14.0,
-	"ytick.labelsize": 14.0,
-	"legend.fontsize": 16.0,
+	"axes.titlesize": 14.0,
+	"axes.labelsize": 14.0,
+	"xtick.labelsize": 13.0,
+	"ytick.labelsize": 13.0,
+	"legend.fontsize": 10.0,
 	"figure.dpi": 300,
 	"savefig.dpi": 300,
 	"text.usetex": True,
