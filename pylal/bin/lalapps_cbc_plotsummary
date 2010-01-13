@@ -582,33 +582,29 @@ FROM
 # map all the 0 likelihoods to lowest non-zero likelihood and all 'inf' likelihoods to the highest non-infinity likelihood 
 
 	def finish(self):
-		all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
-		unique_likelihoods = set(all_likelihoods)
-		unique_likelihood_list = list(unique_likelihoods)
-		unique_likelihood_list.sort()
-		min_likelihood = unique_likelihood_list[1]
-		max_likelihood = unique_likelihood_list[-2]
-		for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
-			for i in range(len(likelihood_list)):
-				if likelihood_list[i] == 0:
-					likelihood_list[i] = min_likelihood
-				if likelihood_list[i] == float('inf'):
-					likelihood_list[i] = max_likelihood
+		all_likelihoods = numpy.array(self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood, dtype=float)
+		timeslide_likelihoods = numpy.array(self.timeslide_likelihood)
+		zerolag_likelihoods = numpy.array(self.zerolag_likelihood)
+		injection_likelihoods = numpy.array(self.injection_likelihood)
+		timeslide_snrs = numpy.array(self.timeslide_combined_eff_snr)
+		zerolag_snrs = numpy.array(self.zerolag_combined_eff_snr)
+		injection_snrs = numpy.array(self.injection_combined_eff_snr)
+# set all zero likelihoods to the next lowest calculated likelihood, and all infinity likelihoods to the next highest, so plotting can work
+		plottable_likelihoods = all_likelihoods[~numpy.isinf(all_likelihoods) & (all_likelihoods > 0)]
+		min_likelihood = plottable_likelihoods.min()
+		max_likelihood = plottable_likelihoods.max()
+		timeslide_likelihoods.clip(min_likelihood, max_likelihood, out=timeslide_likelihoods)
+		zerolag_likelihoods.clip(min_likelihood, max_likelihood, out=zerolag_likelihoods)
+		injection_likelihoods.clip(min_likelihood, max_likelihood, out=injection_likelihoods)
 # to find the 'threshold,' which here is the likelihood or combined effective snr of the 100th loudest timeslide
-		timeslide_likelihood_temp = tuple(self.timeslide_likelihood)
-		self.timeslide_likelihood.sort()
-		timeslide_likelihood_sorted = self.timeslide_likelihood
-		self.timeslide_likelihood = list(timeslide_likelihood_temp)
-		timeslide_combined_eff_snr_temp = tuple(self.timeslide_combined_eff_snr)
-		self.timeslide_combined_eff_snr.sort()
-		timeslide_combined_eff_snr_sorted = self.timeslide_combined_eff_snr
-		self.timeslide_combined_eff_snr = list(timeslide_combined_eff_snr_temp)
+		sorted_timeslide_likelihoods = numpy.sort(timeslide_likelihoods)
+		sorted_timeslide_snrs = numpy.sort(timeslide_snrs)
 		fig, axes = create_plot(r"MVSC Likelihood", r"Combined Effective SNR", aspect = 1.0)
 		axes.hold(1)
-		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='injections')	
-		axes.loglog(self.timeslide_likelihood,self.timeslide_combined_eff_snr,'k.',label='timeslides')	
-		axes.axvline(x=timeslide_likelihood_sorted[-100], color='g', label='100th loudest timeslide, by MVSCL')
-		axes.axhline(y=timeslide_combined_eff_snr_sorted[-100], label='100th loudest timeslide, by SNR')
+		axes.loglog(injection_likelihoods,injection_snrs,'rx',label='injections')	
+		axes.loglog(timeslide_likelihoods,timeslide_snrs,'k.',label='timeslides')	
+		axes.axvline(x=sorted_timeslide_likelihoods[-100], color='g', label='100th loudest timeslide, by MVSCL')
+		axes.axhline(y=sorted_timeslide_snrs[-100], label='100th loudest timeslide, by SNR')
 		axes.legend(loc='lower right')
 		axes.hold(0)
 		yield fig, "MVSC_likelihood_scatterplot" , False
