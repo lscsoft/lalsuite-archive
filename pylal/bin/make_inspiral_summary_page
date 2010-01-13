@@ -39,6 +39,14 @@ page.front += " ".join(sys.argv)
 #page.front += "".join(open("hm_post.log").readlines())
 page.front += "</pre><br><br>"
 
+### Summary info. 
+page.add_subpage("summary", "Summary information", "Summary information")
+page.subpages["summary"].div("""
+Summary information
+""")
+tab, name = cbcwebpage.wiki_table_parse(base_name+'num_trigs_table.txt')
+page.subpages["summary"].add_table(tab[0], "This is a summary table", "This is a summary table")
+
 
 ### Bank, Range and Triggers page 
 page.add_subpage("bank_range_triggers", "Template bank, inspiral range and single inspiral triggers", "Bank, Range, Inspiral Triggers")
@@ -209,7 +217,7 @@ page.add_subpage("playts","Playground Time slide plots", "Playground Time slides
 page.subpages["playts"].div("""
 <big><b>OVERVIEW:</b></big><br><br>
 Triggers from different detectors are slid with respect to one another in order to ascertain the expected
-background rate of accidental coincidences.  If the statistics of the "Zero Lag" dataset is not consistent
+background rate of accidental coincidences.  If the statistics of the "Zero Lag" dataset are not consistent
 with the time shifted data there may be a candidate event in the data, or the noise may be correlated 
 between detectors.  It is known that colocated detectors (such as H1, H2) have correlated noise.  Thus
 time slides cannot accurately estimate the false alarm rate for those times.  However sites that are
@@ -223,12 +231,10 @@ page.subpages["playts"].sections["ts"].add_table(imgtable, "Time Slides", "Time 
 page.add_subpage("playmoney","Playground Money Plots", "Playground Money Plots")
 page.subpages["playmoney"].div("""
 <big><b>OVERVIEW:</b></big><br><br>
-
+This section shows the the loudest events and their significance.  The plots are made for IFAR and SNR.  
 """)
 tab,name = cbcwebpage.wiki_table_parse(base_name+'playground_summary_table.txt')
 page.subpages["playmoney"].add_table(tab[0], "Summary Table", "Loudest Playground Events")
-
-
 page.subpages["playmoney"].add_section("snr","Playground Rate vs. Effective SNR Threshold")
 imgtable = cbcwebpage.image_glob(base_name+'5_playground_count_vs_snr_*.png')
 page.subpages["playmoney"].sections["snr"].add_table(imgtable, "Rate vs. Effective SNR Threshold", "Comparison of observed zero-lag event rate to event rate expected from background as a function of effective SNR threshold.")
@@ -241,6 +247,10 @@ page.subpages["playmoney"].sections["ifar"].add_table(imgtable, "Rate vs. IFAR T
 
 ### Likelihood plots ###
 page.add_subpage("playlikelihood","Playground Likelihood", "Playground Likelihood")
+page.subpages["playts"].div("""
+<big><b>OVERVIEW:</b></big><br><br>
+This section is for an experimental 
+""")
 page.subpages["playlikelihood"].add_section("MVSC","MVSC Playground Likelihood scatter plot")
 imgtable = cbcwebpage.image_glob(base_name+'8_MVSC_likelihood_scatterplot*.png')
 page.subpages["playlikelihood"].sections["MVSC"].add_table(imgtable, "MVSC plot", "MVSC Effective SNR scatter plot")
@@ -249,18 +259,45 @@ if opts.open_box:
 	print >>sys.stderr, "WARNING: OPENING THE BOX"
 	### CHISQ ###
 	page.add_subpage("chisq","Chi-squared", "Chi-squared")
+	page.subpages["playchisq"].div("""
+<big><b>OVERVIEW:</b></big><br><br>
+The chi-squared test checks that the snr accumulated in equal-power pieces of the template agrees with the
+overall SNR for the entire template.  Glitches tend to have most of their power in a few pieces of the
+template rather than being spread out across the template according to expectatation.  The template
+is broken down into p orthogonal pieces (p=10,16 usually) and the difference between the expected and
+measured snr is squared and summed.  The result is a number that is chi-square distributed with 2p-2 degrees
+of freedom in Gaussian noise.  Signals are well separated from glitches by this test.  This page
+shows the result of the single detector SNR and chis-squared values.
+	""")
 	page.subpages["chisq"].add_section("chisq","Chi-squared vs SNR")
 	imgtable = cbcwebpage.image_glob(base_name+'3_chi2_vs_rho_*.png')
 	page.subpages["chisq"].sections["chisq"].add_table(imgtable, "Chi-squared Vs SNR", "Chi-squared vs snr is cool")
 
 	### Effective SNR ###
 	page.add_subpage("effsnr","Effective SNR", "Effective SNR")
+	page.subpages["playeffsnr"].div("""
+<big><b>OVERVIEW:</b></big><br><br>
+A combination of snr and chi-squared is used to create the effective SNR.  The effective SNR roughly
+maps out regions of constant false alarm probibility in the  SNR, chi-squared plane.  It is used as an
+intermediate ranking statistic along with total mass and trigger type / detector time in producing the
+Inverse False Alarm Rate statistic (IFAR).  The section below shows scatter plots of the effective
+SNR for pairwise detector combinations.
+	""")
 	page.subpages["effsnr"].add_section("effsnr","Effective SNR")
 	imgtable = cbcwebpage.image_glob(base_name+'4_rho_*.png')
-	page.subpages["effsnr"].sections["effsnr"].add_table(imgtable, "Effective SNR", "Effective SNR scatter")
+	page.subpages["effsnr"].sections["effsnr"].add_table(imgtable, "Effective SNR", "Effective SNR scatter pairwise by detector")
 
 	### Time Slide ###
 	page.add_subpage("ts","Time slide plots", "Time slides")
+	page.subpages["playts"].div("""
+<big><b>OVERVIEW:</b></big><br><br>
+Triggers from different detectors are slid with respect to one another in order to ascertain the expected
+background rate of accidental coincidences.  If the statistics of the "Zero Lag" dataset are not consistent
+with the time shifted data there may be a candidate event in the data, or the noise may be correlated 
+between detectors.  It is known that colocated detectors (such as H1, H2) have correlated noise.  Thus
+time slides cannot accurately estimate the false alarm rate for those times.  However sites that are
+geographically separated are assumed to be uncorrelated.
+	""")
 	page.subpages["ts"].add_section("ts","Time Slides")
 	imgtable = cbcwebpage.image_glob(base_name+'7_plot_slides_*.png')
 	page.subpages["ts"].sections["ts"].add_table(imgtable, "Time Slides", "Time Slide vs offset")
