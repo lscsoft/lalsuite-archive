@@ -289,38 +289,32 @@ def create_sim_coinc_view(connection):
 	Construct a sim_inspiral --> best matching coinc_event mapping.
 	"""
 	connection.cursor().execute("""
-CREATE TEMPORARY VIEW
+CREATE TEMPORARY TABLE
 	sim_coinc_map
 AS
 	SELECT
 		sim_inspiral.simulation_id AS simulation_id,
-		best_coinc_inspiral.coinc_event_id AS coinc_event_id
-	FROM
-		sim_inspiral
-		JOIN coinc_event_map AS a ON (
-			a.table_name == 'sim_inspiral'
-			AND a.event_id == sim_inspiral.simulation_id
-		)
-		JOIN coinc_event_map AS b ON (
-			b.coinc_event_id == a.coinc_event_id
-		)
-		JOIN coinc_inspiral AS best_coinc_inspiral ON (
-			b.table_name == 'coinc_event'
-			AND b.event_id == best_coinc_inspiral.coinc_event_id
-		)
-	WHERE
-		best_coinc_inspiral.combined_far == (
+		(
 			SELECT
-				MIN(matching_coinc_inspirals.combined_far)
+				coinc_inspiral.coinc_event_id
 			FROM
-				coinc_event_map AS c
-				JOIN coinc_inspiral AS matching_coinc_inspirals ON (
-					c.table_name == 'coinc_event'
-					AND c.event_id == matching_coinc_inspirals.coinc_event_id
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_inspiral ON (
+					b.table_name == 'coinc_event'
+					AND b.event_id == coinc_inspiral.coinc_event_id
 				)
 			WHERE
-				c.coinc_event_id == a.coinc_event_id
-		)
+				a.table_name == 'sim_inspiral'
+				AND a.event_id == sim_inspiral.simulation_id
+			ORDER BY
+				coinc_inspiral.combined_far
+			LIMIT 1
+		) AS coinc_event_id
+	WHERE
+		coinc_event_id IS NOT NULL
 	""")
 
 
