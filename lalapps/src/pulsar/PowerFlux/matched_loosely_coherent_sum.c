@@ -114,9 +114,119 @@ return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/2.0));
 
 #define loose_kernel lanczos_kernel3
 
+/* This helper function populates real and imaginary part of an FFT array, and also computes weight */
+void sse_compute_matched_fft(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int offset, int pps_bins, float *out_re, float *out_im, float *out_w)
+{
+int i;
+int bin_shift;
+DATASET *d;
+//POLARIZATION *pl;
+float *im, *re, *out_im_p, *out_re_p;
+float a;
+
+float sum, sum_sq;
+float pps_bins_inv=1.0/pps_bins;
+//float pmax_factor=args_info.power_max_median_factor_arg;
+
+float *filter;
+
+__m128 v4power0, v4power1, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
+float *tmp1, *tmp2, *tmp3;
+
+tmp1=aligned_alloca(8*sizeof(*tmp1));
+tmp2=aligned_alloca(8*sizeof(*tmp2));
+tmp3=aligned_alloca(4*sizeof(*tmp3));
+filter=aligned_alloca(8*sizeof(*filter));
+
+//fprintf(stderr, "%d\n", count);
+
+bin_shift=rintf(si->bin_shift)-offset;
+if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
+	fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
+		bin_shift, si->bin_shift);
+	exit(-1);
+	}
+
+d=&(datasets[si->dataset]);
+// 	pl=&(d->polarizations[0]);
+
+//f_plus=F_plus_coeff(si_local->segment, si_local->e, pl->AM_coeffs);
+//f_cross=F_plus_coeff(si_local->segment, si_local->e, pl->conjugate->AM_coeffs);
+
+re=&(d->re[si->segment*nbins+side_cut+bin_shift]);
+im=&(d->im[si->segment*nbins+side_cut+bin_shift]);
+out_re_p=out_re;
+out_im_p=out_im;
+
+tabulated_fill_hann_filter7(filter, (si->bin_shift-rintf(si->bin_shift)));
+filter[7]=0.0;
+v4filt0=_mm_load_ps(filter);
+v4filt1=_mm_load_ps(&(filter[4]));
+
+sum=0;
+sum_sq=0;
+tmp1[7]=0;
+tmp2[7]=0;
+for(i=0;i<pps_bins;i++) {
+	memcpy(tmp1, &(re[-3]), 8*sizeof(*tmp1));
+	memcpy(tmp2, &(im[-3]), 8*sizeof(*tmp2));
+
+	v4a=_mm_load_ps(&(tmp1[0]));
+	v4a1=_mm_load_ps(&(tmp1[4]));
+
+	v4a=_mm_mul_ps(v4filt0, v4a);
+	v4a1=_mm_mul_ps(v4filt1, v4a1);
+
+	v4a=_mm_add_ps(v4a, v4a1);
+
+	v4b=_mm_load_ps(&(tmp2[0]));
+	v4b1=_mm_load_ps(&(tmp2[4]));
+
+	v4b=_mm_mul_ps(v4filt0, v4b);
+	v4b1=_mm_mul_ps(v4filt1, v4b1);
+
+	v4b=_mm_add_ps(v4b, v4b1);
+
+//		v4a=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(re[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(re[1]))));
+//		v4b=_mm_add_ps(_mm_mul_ps(v4filt0, _mm_loadu_ps(&(im[-3]))), _mm_mul_ps(v4filt1, _mm_load_ps(&(im[1]))));
+
+	v4power0=_mm_hadd_ps(v4a, v4b);
+	v4power0=_mm_hadd_ps(v4power0, v4power0);
+	_mm_store_ps(tmp3, v4power0);
+	*out_re_p=tmp3[0];
+	*out_im_p=tmp3[1];
+
+	v4power1=_mm_mul_ps(v4power0, v4power0);
+	v4power1=_mm_hadd_ps(v4power1, v4power1);
+
+	_mm_store_ss(&a, v4power1);
+
+	sum+=a;
+	sum_sq+=a*a;
+
+	im++;
+	re++;
+	out_re_p++;
+	out_im_p++;
+	}
+
+if(args_info.tmedian_noise_level_arg) {
+	*out_w=d->expTMedians[si->segment]*d->weight;
+	} else {
+	sum*=pps_bins_inv;
+	sum_sq*=pps_bins_inv;
+	sum_sq-=sum*sum;
+
+	*out_w=1.0/sum_sq;
+	}
+
+}
+
+
 /* This helper function populates real and imaginary part of an FFT array, and also computes weight
-   An additional wrinkle is that uses diff_bin_shift to adjust mismatch constant which can vary */
- 
+   An additional wrinkle is that uses diff_bin_shift to adjust mismatch constant which can vary
+   this only becomes an issue with 1/10 or finer subbin resolution */
+
 void sse_compute_matched_floating_fft(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int offset, int pps_bins, float *out_re, float *out_im, float *out_w)
 {
 int i;
@@ -357,7 +467,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "pp=%f pc=%f cc=%f\n", f_pp, f_pc, f_cc);	
 
-	weight=x*d->expTMedians[si_local->segment]*d->weight*d2->expTMedians[si_local2->segment]*d2->weight;
+	weight=x*priv->w[k]*priv->w[m+ctx->loose_first_half_count];
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
