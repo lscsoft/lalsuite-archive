@@ -65,7 +65,7 @@ from glue.ligolw import dbtables
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
+from pylal import rate
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -91,7 +91,18 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
-	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = "Generate the given plot group.  Can be given multiple times (default = make all plot groups).")
+	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = """
+Generate the given plot group.  Can be given multiple times (default = make all plot groups)
+ 0. Summary Table (top 10 loudest events globally across all zero lag triggers read in)
+ 1. Missed Found (Scatter plots of missed and found injections on several axes)
+ 2. Injection Parameter Accuracy Plots
+ 3. Background Vs Injection Plots (sngl detector triggers from coincs of snr, chisq, bank chisq,...)
+ 4. Background Vs Injection Plots pairwise (effective snr DET1 Vs. DET2...),
+ 5. Rate Vs Threshold (SNR histograms, IFAR histograms, ...)
+ 6. Injection Parameter Distribution Plots (The input parameters that went into inspinj, like mass1 vs mass2...)
+ 7. Rate Vs L1 Offset (Number of triggers vs time slide offset)
+ 8. MVSC Plots (Multivariate classifier plots)
+""")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -340,6 +351,7 @@ class SummaryTable(object):
 		self.candidates = []
 		self.livetime = {}
 		self.playground_livetime = {}
+		self.num_trigs = {}
 
 	def add_contents(self, contents):
 		self.base = contents.base
@@ -428,6 +440,16 @@ ORDER BY
 LIMIT 10
 		""").fetchall()
 
+		contents.connection.cursor().execute("CREATE TEMPORARY TABLE distinct_ifos AS SELECT DISTINCT(ifos) AS ifos FROM coinc_inspiral")
+		for instruments, num in contents.connection.cursor().execute("""
+SELECT distinct_ifos.ifos, count(*) FROM coinc_inspiral JOIN distinct_ifos ON (distinct_ifos.ifos==coinc_inspiral.ifos) JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE coinc_inspiral.ifos==distinct_ifos.ifos AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) GROUP BY distinct_ifos.ifos;
+"""):
+			key = frozenset(dbtables.lsctables.instrument_set_from_ifos(instruments))
+			self.num_trigs.setdefault(key,0)
+			self.num_trigs[key] += num
+
+		contents.connection.cursor().execute("DROP TABLE distinct_ifos")
+
 		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.livetime.setdefault(on_instruments, 0.0)
 			self.playground_livetime.setdefault(on_instruments, 0.0)
@@ -463,6 +485,14 @@ LIMIT 10
 		f = open(self.base+'playground_summary_table.txt','w')
 		f.write("=== Playground loudest 10 summary table ===\n")
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
+		f.close()
+		f = open(self.base+'num_trigs_table.txt','w')
+		f.write("||<b>DETECTORS ON</b>||<b>LIVETIME</b>||<b>NUMBER OF COINCIDENT ZERO LAG TRIGGERS</b>||\n")
+		for inst in self.livetime.keys(): 
+			f.write("||%s||%f||" % ("".join(sorted(inst)), self.livetime[inst]))
+			try: num = self.num_trigs[inst]
+			except: num = 0
+			f.write("%d||\n" % (num,))
 		f.close()
 		yield None, None, None
 
