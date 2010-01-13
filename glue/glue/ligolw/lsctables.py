@@ -1840,7 +1840,7 @@ class SimInspiral(object):
 		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
 	def get_chirp_dist(self,instrument,ref_mass = 1.40):
-		return self.get_eff_dist() * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
+		return self.get_eff_dist(instrument) * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
 
 
 SimInspiralTable.RowType = SimInspiral
