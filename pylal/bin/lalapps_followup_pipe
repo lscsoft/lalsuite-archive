@@ -835,7 +835,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
-	chia_job		= stfu_pipe.followUpChiaJob(options, cp, dir=search)
+	chia_job		= stfu_pipe.followUpChiaJob(options, cp, dir=search, tag_base='ALLSKY')
+        chia2_job               = stfu_pipe.followUpChiaJob(options, cp, dir=search)
 	plot_chia_job 		= stfu_pipe.plotChiaJob(options, cp, dir=search)
 	#cohInspJobNotrig= stfu_pipe.followUpInspJob(cp, 'notrig', dir=search)
 	sky_map_job		= stfu_pipe.skyMapJob(options,cp, dir=search)
@@ -905,8 +906,9 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		sky_plot_node = stfu_pipe.pylal_skyPlotNode(dag, sky_plot_job, cp, options, coinc, sky_node, p_nodes = [sky_node])
 
 		# Coh insp job
-		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_skymap, p_nodes = insp_node_skymap.values())
-		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia_node, insp_node_skymap, p_nodes=[chia_node])
+		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_skymap, None, p_nodes = insp_node_skymap.values())
+		chia2_node = stfu_pipe.followUpChiaNode(dag, chia2_job, cp, options, coinc, insp_node_skymap, chia_node, p_nodes = [chia_node])
+		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia2_node, insp_node_skymap, p_nodes=[chia2_node])
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 
