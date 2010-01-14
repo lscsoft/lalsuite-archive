@@ -72,8 +72,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
     maxIndex = 0
     for row_index,row in enumerate(multiInspiralTable):
       eventID = int(row.event_id)
-      if not str(eventID) in user_tag:
-        continue
+      #if not str(eventID) in user_tag:
+      #  continue
       SNR = float(row.snr)
       if SNR > maxSNR:
         maxSNR = SNR
@@ -107,8 +107,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
     else:
       eff_dist_h1h2 =  "NA"
 
-
-    cohSNR = "%0.2f"%maxSNR
+    maxSNRTmp = sqrt(maxSNR)
+    cohSNR = "%0.2f"%maxSNRTmp
     if ifoH1 == 1 and ifoH2 == 1 \
       and not (float(multiInspiralTable[maxIndex].null_stat_h1h2 ) < 0.0):
       # Fetch H1H2 null-stat if available
@@ -195,7 +195,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
 
-    cohNetSNRSq = cohNetSNR_tuple[0]*cohNetSNR_tuple[0]
+    #cohNetSNRSq = cohNetSNR_tuple[0]*cohNetSNR_tuple[0]
+    cohNetSNRSq = cohNetSNR_tuple[0]
+
     del cohNetSNR_tuple
 
     expectCohH1H2snr = 0
@@ -701,4 +703,4 @@ elif len(multiInspiralTable) > 1:
   print >> sys.sderr, "document should not contain more than 1 multi_inspiral table"
   sys.exit(1)
 else:
-  plotchiatimeseries(opts,args,opts.output_path,proc,multiInspiralTable[0],opts.ifo_tag,frameDict,opts.user_tag)
+  plotchiatimeseries(opts,args,opts.output_path,proc,multiInspiralTable[0],opts.ifo_times,frameDict,opts.user_tag)

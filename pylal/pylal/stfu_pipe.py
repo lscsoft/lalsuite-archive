@@ -1170,7 +1170,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 	#def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
 
 	#def __init__(self,job,trig,opts,dag,cp):
-	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, p_nodes = []):
+	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, chia_node =None, p_nodes = []):
 
 		# the use of this class would require some reorganisation in fu_Condor.py
 		# and webCondor.py in order to set up the jobs following the same scheme
@@ -1179,7 +1179,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
-                user_tag = "CHIA_"+str(coinc.time)
+                user_tag = "COHERENT-"+str(coinc.time)
 
 		# These come from inspiral process param tables
 		self.add_var_opt( "segment-length", sngl.get_proc_param('segment-length') )
@@ -1191,17 +1191,23 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
 		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
+		self.add_var_opt("cdata-length",1.0)
 		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
 		self.add_var_opt("write-events","")
 		self.add_var_opt("write-compress","")
  		self.add_var_opt("debug-level","33")
-		self.add_var_opt("write-cohsnr","")
-		self.add_var_opt("write-cohnullstat","")
-		self.add_var_opt("write-h1h2nullstat","")
-		self.add_var_opt("write-cohh1h2snr","")
-		self.add_var_opt("maximize-over-chirp","")
+                self.add_var_opt("maximize-over-chirp","")
+		self.add_var_opt("followup","")
 		# required by followUpChiaPlotNode
+		if chia_node:
+			self.add_var_opt("exttrig","")
+			self.add_var_opt("chia-file",chia_node.output_file_name)
+			self.add_var_opt("write-cohsnr","")
+			self.add_var_opt("write-cohnullstat","")
+			self.add_var_opt("write-h1h2nullstat","")
+			self.add_var_opt("write-cohh1h2snr","")
+			
 
                 hLengthAnalyzed = 1
 		self._InspiralAnalysisNode__pad_data = 0
@@ -1220,9 +1226,12 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("gps-end-time",self.end)
 
 
-		#FIXME do --cohNullStatFrameFile when I understand it
-		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                if chia_node:
+		        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                else:
+                        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
  		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
  		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
@@ -1233,6 +1242,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name)))
 
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_frame_file)))
+
+		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.netnull_output_frame_file)))
 
 
                 bankname = 'trig_bank/%s-COHBANK_FOLLOWUP_%s-%d-%d.xml.gz' % (coinc.instruments.replace(',',''), str(coinc.time), int(coinc.time) - int(hLengthAnalyzed), 2 * int(hLengthAnalyzed))
@@ -1363,7 +1374,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("chiaFrameFile",chia_node.output_frame_file)
 		self.add_var_opt("cohH1H2SNRFrameFile",chia_node.h1h2coh_output_frame_file)
 		self.add_var_opt("H1H2NullStatFrameFile",chia_node.h1h2null_output_frame_file)
-		#FIXME do --cohNullStatFrameFile when I understand it
+		self.add_var_opt("cohNullStatFrameFile",chia_node.netnull_output_frame_file)
 		self.add_var_opt("gps-start-time",int(coinc.time-1))
 		self.add_var_opt("gps-end-time",int(coinc.time+1))
 		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))
@@ -1652,8 +1663,8 @@ class create_default_config(object):
 		# CHIA SECTION
 		cp.add_section("chia")
 		cp.set('chia','cohsnr-threshold', "1")
-		cp.set('chia','ra-step', "6")
-		cp.set('chia','dec-step', "6")
+		cp.set('chia','ra-step', "1")
+		cp.set('chia','dec-step', "1")
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
 
