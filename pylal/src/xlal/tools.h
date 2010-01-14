@@ -96,35 +96,4 @@ typedef struct {
 } pylal_SnglRingdownTable;
 
 
-/*
- * ============================================================================
- *
- *                           SimInspiralTable Type
- *
- * ============================================================================
- */
-
-
-/*
- * Type
- */
-
-
-extern PyTypeObject pylal_SimInspiralTable_Type;
-
-
-/*
- * Structure
- */
-
-
-typedef struct {
-	PyObject_HEAD
-	SimInspiralTable sim_inspiral;
-	/* FIXME:  these should be incorporated into the LAL structure */
-	long process_id_i;
-	EventIDColumn event_id;
-} pylal_SimInspiralTable;
-
-
 #endif /* _PYLAL_XLAL_TOOLS_H_ */
