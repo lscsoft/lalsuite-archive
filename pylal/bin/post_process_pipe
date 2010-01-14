@@ -98,9 +98,16 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
     ifos.sort()
     self.out_file_group = {}
     for i in range(number):
-      self.out_file_group[i] = ((''.join(ifos) + '_set' + str(i) + '_' + str(trainingstr) + '.pat'), (''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '.pat'), self.add_output_file(''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '_info.pat'))
+      trainingname = ''.join(ifos) + '_set' + str(i) + '_' + str(trainingstr) + '.pat'
+      testingname = ''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '.pat'
+      infoname = ''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '_info.pat'
+      self.out_file_group[i] = ((trainingname), (testingname))
+      self.add_output_file(trainingname)
+      self.add_output_file(testingname)
+      self.add_output_file(infoname)
     self.zerolag_file = [''.join(ifos) + '_' + str(zerolagstr) + '.pat']
-
+    self.add_output_file(''.join(ifos) + '_' + str(zerolagstr) + '.pat')
+    self.add_output_file(''.join(ifos) + '_' + str(zerolagstr) + '_info.pat')
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -191,15 +198,9 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, databases, files="'*.dat'", infofiles="'*_info.pat'", p_node=[]):
+  def __init__(self, job, dag, inputfiles, p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
-    # uhh these are still globs! FIXME
-    self.add_var_opt("files", files)
-    self.add_var_opt("infofiles", infofiles)
-    self.add_var_arg(" ".join(databases))
-    #for database in databases:
-    #  self.add_file_arg(databases)
-    # do I need to put the databases as output files? 
+    [self.add_var_arg(inputfile) for inputfile in inputfiles]
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -1277,10 +1278,13 @@ for cat in cats:
   lalappsNewcorseNode[cat] = lalapps_newcorse_node(lalappsNewcorseJob, dag, segNode[cat].name, " ".join(db[cat]),  p_nodes[cat], string.strip(cp.get('newcorse1',"mass-bins")), categories=cp.get("newcorse1","categories"), rank=cp.get("newcorse1","rank-by"), ext_num=5);
 
   ############# MUSIC STUFF (A LOOP OVER DOUBLES) #############################
-  
+
+  info_pat_files = []
+  dat_files = []  
   for comb in get_doubles(instruments):
     comb = ','.join(comb)
     get_node[cat+comb] = mvsc_get_doubles_node(get_job, dag, comb, db[cat], trainingstr=base_name+"training",testingstr=base_name+"testing",zerolagstr=base_name+"zerolag",p_node=[lalappsNewcorseNode[cat]])
+    [info_pat_files.append(file) for file in mvsc_get_doubles_node.get_output_files() if file.endswith('_info.pat')]
 
     for i in range(get_node[cat+comb].number):
       file_for_this_set = get_node[cat+comb].out_file_group[i]
@@ -1288,8 +1292,10 @@ for cat in cats:
       try: rank_node[cat+comb]
       except: rank_node[cat+comb] = {}
       rank_node[cat+comb][i] = use_forest_node(rank_job, dag, train_node[i].trainedforest, file_for_this_set[1], p_node=[train_node[i]])
+      dat_files.extend(rank_node[cat+comb][i].get_output_files())
 
     zl_rank_node[cat+comb] = use_forest_node(zl_rank_job, dag, train_node[0].trainedforest, get_node[cat+comb].zerolag_file[0], p_node=[get_node[cat+comb],train_node[0]])
+    dat_files.extend(zl_rank_node[cat+comb].get_output_files())
 
   finished_rank_nodes=[]
 
@@ -1297,7 +1303,7 @@ for cat in cats:
     finished_rank_nodes.extend(rank_node[key].values())
 
   update_p_nodes = finished_rank_nodes+zl_rank_node.values()
-  update_node[cat] = mvsc_update_sql_node(update_job, dag, db[cat], files= '*' +base_name+'*.dat',infofiles='*'+base_name+'*_info.pat',p_node=update_p_nodes)
+  update_node[cat] = mvsc_update_sql_node(update_job, dag, inputfiles=db[cat]+info_pat_files+dat_files, p_node=update_p_nodes)
 
   ############# END MUSIC STUFF (A LOOP OVER DOUBLES) #########################
 
