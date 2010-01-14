@@ -181,7 +181,11 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 {
 	PyObject *buffer;
 	const SnglInspiralTable *data;
+#if PY_VERSION_HEX < 0x02050000
+	int length;
+#else
 	Py_ssize_t length;
+#endif
 	unsigned i;
 	PyObject *result;
 
