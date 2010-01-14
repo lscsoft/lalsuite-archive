@@ -74,7 +74,7 @@ static PyObject *pylal_siminspiraltable_import(void)
 }
 
 
-static PyObject *pylal_SimInspiralTable_new(SimInspiralTable *row)
+static PyObject *pylal_SimInspiralTable_new(const SimInspiralTable *row)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
 	pylal_SimInspiralTable *obj = (pylal_SimInspiralTable *) PyType_GenericNew(&pylal_SimInspiralTable_Type, empty_tuple, NULL);

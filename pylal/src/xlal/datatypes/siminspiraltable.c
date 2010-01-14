@@ -172,15 +172,66 @@ PyTypeObject pylal_siminspiraltable_type = {
 /*
  * ============================================================================
  *
+ *                                 Functions
+ *
+ * ============================================================================
+ */
+
+
+static PyObject *from_buffer(PyObject *self, PyObject *args)
+{
+	PyObject *buffer;
+	const SimInspiralTable *data;
+	Py_ssize_t length;
+	unsigned i;
+	PyObject *result;
+
+	if(!PyArg_ParseTuple(args, "O", &buffer))
+		return NULL;
+
+	if(PyObject_AsReadBuffer(buffer, (const void **) &data, &length))
+		return NULL;
+
+	if(length % sizeof(SimInspiralTable)) {
+		PyErr_SetString(PyExc_ValueError, "buffer size is not an integer multiple of SimInspiralTable struct size");
+		return NULL;
+	}
+	length /= sizeof(SimInspiralTable);
+
+	result = PyTuple_New(length);
+	if(!result)
+		return NULL;
+	for(i = 0; i < length; i++) {
+		PyObject *item = pylal_SimInspiralTable_new(data++);
+		if(!item) {
+			Py_DECREF(result);
+			return NULL;
+		}
+		PyTuple_SET_ITEM(result, i, item);
+	}
+
+	return result;
+}
+
+
+/*
+ * ============================================================================
+ *
  *                            Module Registration
  *
  * ============================================================================
  */
 
 
+static struct PyMethodDef functions[] = {
+	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SimInspiralTable objects from a buffer object.  The buffer is interpreted as C array of SimInspiralTable structures."},
+	{NULL, }
+};
+
+
 void initsiminspiraltable(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's SimInspiralTable type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SimInspiralTable type.");
 
 	/* Cached ID types */
 	sim_inspiral_simulation_id_type = pylal_get_ilwdchar_class("sim_inspiral", "simulation_id");
