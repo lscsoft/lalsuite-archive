@@ -74,7 +74,7 @@ static PyObject *pylal_snglinspiraltable_import(void)
 }
 
 
-static PyObject *pylal_SnglInspiralTable_new(SnglInspiralTable *row)
+static PyObject *pylal_SnglInspiralTable_new(const SnglInspiralTable *row)
 {
 	PyObject *empty_tuple = PyTuple_New(0);
 	pylal_SnglInspiralTable *obj = (pylal_SnglInspiralTable *) PyType_GenericNew(&pylal_SnglInspiralTable_Type, empty_tuple, NULL);
