@@ -46,89 +46,6 @@
 /*
  * ============================================================================
  *
- *                         Attribute Get/Set Helpers
- *
- * ============================================================================
- */
-
-
-struct inline_string_description {
-	Py_ssize_t offset;
-	Py_ssize_t length;
-};
-
-
-static PyObject *pylal_inline_string_get(PyObject *obj, void *data)
-{
-	struct inline_string_description *desc = data;
-	char *s = (void *) obj + desc->offset;
-
-	if(strlen(s) >= desc->length) {
-		/* something's wrong, obj probably isn't a valid address */
-	}
-
-	return PyString_FromString(s);
-}
-
-
-static int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data)
-{
-	struct inline_string_description *desc = data;
-	char *v = PyString_AsString(val);
-	char *s = (void *) obj + desc->offset;
-
-	if(!v)
-		return -1;
-	if(strlen(v) >= desc->length) {
-		PyErr_Format(PyExc_ValueError, "string too long \'%s\'", v);
-		return -1;
-	}
-
-	strncpy(s, v, desc->length - 1);
-	s[desc->length - 1] = '\0';
-
-	return 0;
-}
-
-
-struct ilwdchar_id_description {
-	Py_ssize_t offset;
-	PyObject **id_type;
-};
-
-
-static int pylal_ilwdchar_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	const struct ilwdchar_id_description *desc = (struct ilwdchar_id_description *) data;
-	void *location = (void *) obj + desc->offset;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	if((PyObject *) val->ob_type != *desc->id_type) {
-		PyErr_SetObject(PyExc_TypeError, val);
-		return -1;
-	}
-
-	*(long *) location = i;
-
-	return 0;
-}
-
-
-static PyObject *pylal_ilwdchar_id_get(PyObject *obj, void *data)
-{
-	const struct ilwdchar_id_description *desc = (struct ilwdchar_id_description *) data;
-	void *location = (void *) obj + desc->offset;
-
-	return PyObject_CallFunction(*desc->id_type, "l", *(long *) location);
-}
-
-
-/*
- * ============================================================================
- *
  *                              LALDetector Type
  *
  * ============================================================================
@@ -256,11 +173,11 @@ static struct PyMemberDef pylal_SnglInspiralTable_members[] = {
 
 
 static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
-	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
-	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
-	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
-	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
-	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
+	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
+	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
+	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct pylal_inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
+	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, event_id.id), &sngl_inspiral_event_id_type}},
 	{NULL,}
 };
 
@@ -348,10 +265,10 @@ static struct PyMemberDef pylal_SnglRingdownTable_members[] = {
 
 
 static struct PyGetSetDef pylal_SnglRingdownTable_getset[] = {
-	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglRingdownTable, sngl_ringdown.ifo), LIGOMETA_IFO_MAX}},
-	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglRingdownTable, sngl_ringdown.channel), LIGOMETA_CHANNEL_MAX}},
-	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglRingdownTable, process_id_i), &process_id_type}},
-	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglRingdownTable, event_id.id), &sngl_ringdown_event_id_type}},
+	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct pylal_inline_string_description) {offsetof(pylal_SnglRingdownTable, sngl_ringdown.ifo), LIGOMETA_IFO_MAX}},
+	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct pylal_inline_string_description) {offsetof(pylal_SnglRingdownTable, sngl_ringdown.channel), LIGOMETA_CHANNEL_MAX}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglRingdownTable, process_id_i), &process_id_type}},
+	{"event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "event_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SnglRingdownTable, event_id.id), &sngl_ringdown_event_id_type}},
 	{NULL,}
 };
 
@@ -476,12 +393,12 @@ static struct PyMemberDef pylal_SimInspiralTable_members[] = {
 
 
 static struct PyGetSetDef pylal_SimInspiralTable_getset[] = {
-	{"waveform", pylal_inline_string_get, pylal_inline_string_set, "waveform", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.waveform), LIGOMETA_WAVEFORM_MAX}},
-	{"source", pylal_inline_string_get, pylal_inline_string_set, "source", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.source), LIGOMETA_SOURCE_MAX}},
-	{"numrel_data", pylal_inline_string_get, pylal_inline_string_set, "numrel_data", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_data), LIGOMETA_STRING_MAX}},
-	{"taper", pylal_inline_string_get, pylal_inline_string_set, "taper", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.taper), LIGOMETA_INSPIRALTAPER_MAX}},
-	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, process_id_i), &process_id_type}},
-	{"simulation_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "simulation_id", &(struct ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, event_id.id), &sim_inspiral_simulation_id_type}},
+	{"waveform", pylal_inline_string_get, pylal_inline_string_set, "waveform", &(struct pylal_inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.waveform), LIGOMETA_WAVEFORM_MAX}},
+	{"source", pylal_inline_string_get, pylal_inline_string_set, "source", &(struct pylal_inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.source), LIGOMETA_SOURCE_MAX}},
+	{"numrel_data", pylal_inline_string_get, pylal_inline_string_set, "numrel_data", &(struct pylal_inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_data), LIGOMETA_STRING_MAX}},
+	{"taper", pylal_inline_string_get, pylal_inline_string_set, "taper", &(struct pylal_inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.taper), LIGOMETA_INSPIRALTAPER_MAX}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, process_id_i), &process_id_type}},
+	{"simulation_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "simulation_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, event_id.id), &sim_inspiral_simulation_id_type}},
 	{NULL,}
 };
 
@@ -575,10 +492,10 @@ static struct PyMemberDef ligolw_Coinc_members[] = {
 
 
 static struct PyGetSetDef ligolw_Coinc_getset[] = {
-	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, process_id_i), &process_id_type}},
-	{"coinc_def_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_def_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, coinc_def_id_i), &coinc_def_id_type}},
-	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, coinc_event_id_i), &coinc_event_id_type}},
-	{"time_slide_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "time_slide_id", &(struct ilwdchar_id_description) {offsetof(ligolw_Coinc, time_slide_id_i), &time_slide_id_type}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(ligolw_Coinc, process_id_i), &process_id_type}},
+	{"coinc_def_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_def_id", &(struct pylal_ilwdchar_id_description) {offsetof(ligolw_Coinc, coinc_def_id_i), &coinc_def_id_type}},
+	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct pylal_ilwdchar_id_description) {offsetof(ligolw_Coinc, coinc_event_id_i), &coinc_event_id_type}},
+	{"time_slide_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "time_slide_id", &(struct pylal_ilwdchar_id_description) {offsetof(ligolw_Coinc, time_slide_id_i), &time_slide_id_type}},
 	{NULL,}
 };
 
@@ -687,7 +604,7 @@ static PyObject *ligolw_CoincMap_table_name_get(PyObject *obj, void *data)
 static struct PyGetSetDef ligolw_CoincMap_getset[] = {
 	{"event_id", ligolw_CoincMap_event_id_get, ligolw_CoincMap_event_id_set, "event_id", NULL},
 	{"table_name", ligolw_CoincMap_table_name_get, ligolw_CoincMap_table_name_set, "table_name", NULL},
-	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct ilwdchar_id_description) {offsetof(ligolw_CoincMap, coinc_event_id_i), &coinc_event_id_type}},
+	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct pylal_ilwdchar_id_description) {offsetof(ligolw_CoincMap, coinc_event_id_i), &coinc_event_id_type}},
 	{NULL,}
 };
 
@@ -861,34 +778,6 @@ static PyObject *make_cached_detectors(void)
 }
 
 
-static PyObject *get_ilwdchar_class(char *table_name, char *column_name)
-{
-	PyObject *module_name;
-	PyObject *module;
-	PyObject *func;
-	PyObject *class;
-
-	module_name = PyString_FromString("glue.ligolw.ilwd");
-	if(!module_name)
-		return NULL;
-
-	module = PyImport_Import(module_name);
-	Py_DECREF(module_name);
-	if(!module)
-		return NULL;
-
-	func = PyMapping_GetItemString(PyModule_GetDict(module), "get_ilwdchar_class");
-	Py_DECREF(module);
-	if(!func)
-		return NULL;
-
-	class = PyObject_CallFunction(func, "ss", table_name, column_name);
-	Py_DECREF(func);
-
-	return class;
-}
-
-
 static struct PyMethodDef methods[] = {
 	{"XLALSnglInspiralTimeError", pylal_XLALSnglInspiralTimeError, METH_VARARGS, "XLALSnglInspiralTimeError(row, threshold)\n\nFrom a sngl_inspiral event compute the \\Delta t interval corresponding to the given e-thinca threshold."},
 	{"XLALCalculateEThincaParameter", pylal_XLALCalculateEThincaParameter, METH_VARARGS, "XLALCalculateEThincaParameter(row1, row2)\n\nTakes two SnglInspiralTable objects and\ncalculates the overlap factor between them."},
@@ -905,13 +794,13 @@ void inittools(void)
 	import_array();
 
 	/* Cached ID types */
-	process_id_type = get_ilwdchar_class("process", "process_id");
-	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
-	sim_inspiral_simulation_id_type = get_ilwdchar_class("sim_inspiral", "simulation_id");
-	sngl_ringdown_event_id_type = get_ilwdchar_class("sngl_ringdown", "event_id");
-	coinc_def_id_type = get_ilwdchar_class("coinc_definer", "coinc_def_id");
-	coinc_event_id_type = get_ilwdchar_class("coinc_event", "coinc_event_id");
-	time_slide_id_type = get_ilwdchar_class("time_slide", "time_slide_id");
+	process_id_type = pylal_get_ilwdchar_class("process", "process_id");
+	sngl_inspiral_event_id_type = pylal_get_ilwdchar_class("sngl_inspiral", "event_id");
+	sim_inspiral_simulation_id_type = pylal_get_ilwdchar_class("sim_inspiral", "simulation_id");
+	sngl_ringdown_event_id_type = pylal_get_ilwdchar_class("sngl_ringdown", "event_id");
+	coinc_def_id_type = pylal_get_ilwdchar_class("coinc_definer", "coinc_def_id");
+	coinc_event_id_type = pylal_get_ilwdchar_class("coinc_event", "coinc_event_id");
+	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
 
 	/* LALDetector */
 	if(PyType_Ready(&pylal_LALDetector_Type) < 0)

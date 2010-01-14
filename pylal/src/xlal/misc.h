@@ -37,6 +37,35 @@
 /*
  * ============================================================================
  *
+ *                         Attribute Get/Set Helpers
+ *
+ * ============================================================================
+ */
+
+
+struct pylal_inline_string_description {
+	Py_ssize_t offset;
+	Py_ssize_t length;
+};
+
+
+PyObject *pylal_inline_string_get(PyObject *obj, void *data);
+int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data);
+
+
+struct pylal_ilwdchar_id_description {
+	Py_ssize_t offset;
+	PyObject **id_type;
+};
+
+
+int pylal_ilwdchar_id_set(PyObject *obj, PyObject *val, void *data);
+PyObject *pylal_ilwdchar_id_get(PyObject *obj, void *data);
+
+
+/*
+ * ============================================================================
+ *
  *                            XLAL Error Handling
  *
  * ============================================================================
@@ -45,6 +74,18 @@
 
 PyObject *pylal_exception_from_errno(enum XLALErrorValue code, const char **msg);
 void pylal_set_exception_from_xlalerrno(void);
+
+
+/*
+ * ============================================================================
+ *
+ *                            ILWD_CHAR Utilities
+ *
+ * ============================================================================
+ */
+
+
+PyObject *pylal_get_ilwdchar_class(char *table_name, char *column_name);
 
 
 #endif /* _PYLAL_XLAL_MISC_H_ */
