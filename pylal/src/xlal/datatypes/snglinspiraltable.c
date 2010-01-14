@@ -222,7 +222,7 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
  */
 
 
-static struct PyMethodDef methods[] = {
+static struct PyMethodDef functions[] = {
 	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SnglInspiralTable objects from a buffer object.  The buffer is interpreted as C array of SnglInspiralTable structures."},
 	{NULL, }
 };
@@ -230,7 +230,7 @@ static struct PyMethodDef methods[] = {
 
 void initsnglinspiraltable(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's SnglInspiralTable type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SnglInspiralTable type.");
 
 	/* Cached ID types */
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");
