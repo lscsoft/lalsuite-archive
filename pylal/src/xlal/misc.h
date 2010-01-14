@@ -85,7 +85,7 @@ void pylal_set_exception_from_xlalerrno(void);
  */
 
 
-PyObject *pylal_get_ilwdchar_class(char *table_name, char *column_name);
+PyObject *pylal_get_ilwdchar_class(const char *table_name, const char *column_name);
 
 
 #endif /* _PYLAL_XLAL_MISC_H_ */
