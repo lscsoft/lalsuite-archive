@@ -28,8 +28,8 @@
 
 #include <Python.h>
 #include <structmember.h>
-#include <misc.h>
 #include <lal/LIGOMetadataUtils.h>
+#include <misc.h>
 #include <snglinspiraltable.h>
 
 
@@ -39,7 +39,7 @@
 /*
  * ============================================================================
  *
- *                           SnglInspiralTable Type
+ *                                    Type
  *
  * ============================================================================
  */
@@ -177,7 +177,7 @@ static PyTypeObject pylal_snglinspiraltable_type = {
  */
 
 
-void inittools(void)
+void initsnglinspiraltable(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's SnglInspiralTable type.");
 
