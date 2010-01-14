@@ -68,37 +68,6 @@ typedef struct {
 /*
  * ============================================================================
  *
- *                           SnglInspiralTable Type
- *
- * ============================================================================
- */
-
-
-/*
- * Type
- */
-
-
-extern PyTypeObject pylal_SnglInspiralTable_Type;
-
-
-/*
- * Structure
- */
-
-
-typedef struct {
-	PyObject_HEAD
-	SnglInspiralTable sngl_inspiral;
-	/* FIXME:  these should be incorporated into the LAL structure */
-	long process_id_i;
-	EventIDColumn event_id;
-} pylal_SnglInspiralTable;
-
-
-/*
- * ============================================================================
- *
  *                           SnglRingdownTable Type
  *
  * ============================================================================
