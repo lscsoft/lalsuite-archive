@@ -224,7 +224,7 @@ static PyObject *from_buffer(PyObject *self, PyObject *args)
 
 
 static struct PyMethodDef functions[] = {
-	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SimInspiralTable objects from a buffer object.  The buffer is interpreted as C array of SimInspiralTable structures."},
+	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SimInspiralTable objects from a buffer object.  The buffer is interpreted as a C array of SimInspiralTable structures."},
 	{NULL, }
 };
 
