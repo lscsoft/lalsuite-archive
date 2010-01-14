@@ -42,7 +42,7 @@
 
 PyObject *pylal_inline_string_get(PyObject *obj, void *data)
 {
-	struct pylal_inline_string_description *desc = data;
+	const struct pylal_inline_string_description *desc = data;
 	char *s = (void *) obj + desc->offset;
 
 	if(strlen(s) >= desc->length) {
@@ -55,7 +55,7 @@ PyObject *pylal_inline_string_get(PyObject *obj, void *data)
 
 int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data)
 {
-	struct pylal_inline_string_description *desc = data;
+	const struct pylal_inline_string_description *desc = data;
 	char *v = PyString_AsString(val);
 	char *s = (void *) obj + desc->offset;
 
