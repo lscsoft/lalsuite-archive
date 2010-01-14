@@ -171,15 +171,66 @@ static PyTypeObject pylal_snglinspiraltable_type = {
 /*
  * ============================================================================
  *
+ *                                 Functions
+ *
+ * ============================================================================
+ */
+
+
+static PyObject *from_buffer(PyObject *self, PyObject *args)
+{
+	PyObject *buffer;
+	const SnglInspiralTable *data;
+	Py_ssize_t length;
+	unsigned i;
+	PyObject *result;
+
+	if(!PyArg_ParseTuple(args, "O", &buffer))
+		return NULL;
+
+	if(PyObject_AsReadBuffer(buffer, (const void **) &data, &length))
+		return NULL;
+
+	if(length % sizeof(SnglInspiralTable)) {
+		PyErr_SetString(PyExc_ValueError, "buffer size is not an integer multiple of SnglInspiralTable struct size");
+		return NULL;
+	}
+	length /= sizeof(SnglInspiralTable);
+
+	result = PyTuple_New(length);
+	if(!result)
+		return NULL;
+	for(i = 0; i < length; i++) {
+		PyObject *item = pylal_SnglInspiralTable_new(data++);
+		if(!item) {
+			Py_DECREF(result);
+			return NULL;
+		}
+		PyTuple_SET_ITEM(result, i, item);
+	}
+
+	return result;
+}
+
+
+/*
+ * ============================================================================
+ *
  *                            Module Registration
  *
  * ============================================================================
  */
 
 
+static struct PyMethodDef methods[] = {
+	{"from_buffer", from_buffer, METH_VARARGS, "Construct a tuple of SnglInspiralTable objects from a buffer object.  The buffer is interpreted as C array of SnglInspiralTable structures."},
+	{NULL, }
+};
+
+
 void initsnglinspiraltable(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's SnglInspiralTable type.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's SnglInspiralTable type.");
 
 	/* Cached ID types */
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");
