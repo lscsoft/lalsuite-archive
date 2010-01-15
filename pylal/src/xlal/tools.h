@@ -65,35 +65,4 @@ typedef struct {
 } pylal_LALDetector;
 
 
-/*
- * ============================================================================
- *
- *                           SnglRingdownTable Type
- *
- * ============================================================================
- */
-
-
-/*
- * Type
- */
-
-
-extern PyTypeObject pylal_SnglRingdownTable_Type;
-
-
-/*      
- * Structure
- */
-
-
-typedef struct {
-	PyObject_HEAD
-	SnglRingdownTable sngl_ringdown;
-	/* FIXME:  these should be incorporated into the LAL structure */
-	long process_id_i;
-	EventIDColumn event_id;
-} pylal_SnglRingdownTable;
-
-
 #endif /* _PYLAL_XLAL_TOOLS_H_ */
