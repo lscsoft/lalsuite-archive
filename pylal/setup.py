@@ -259,6 +259,33 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.datatypes.siminspiraltable",
+			["src/xlal/datatypes/siminspiraltable.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.snglinspiraltable",
+			["src/xlal/datatypes/snglinspiraltable.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
+			"pylal.xlal.datatypes.snglringdowntable",
+			["src/xlal/datatypes/snglringdowntable.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
@@ -373,6 +400,9 @@ setup(
 		os.path.join("bin", "plotcoincseglength"),
 		os.path.join("bin", "plotsegments"),
 		os.path.join("bin", "plotthinca"),
+		os.path.join("bin", "plot_medianmax_sngl_inspiral"),
+		os.path.join("bin", "plot_num_sngl_inspiral"),
+		os.path.join("bin", "plot_tmpltbank_range"),
 		os.path.join("bin", "pylal_cache_to_mvsc.py"),
 		os.path.join("bin", "pylal_mvsc_player.py"),
 		os.path.join("bin", "mvsc_plots.py"),
@@ -410,8 +440,9 @@ setup(
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
-		os.path.join("bin", "lalapps_stfu_pipe"),
-		os.path.join("bin", "lalapps_stfu_page"),
+		os.path.join("bin", "lalapps_followup_pipe"),
+		os.path.join("bin", "lalapps_followup_page"),
+		os.path.join("bin", "lalapps_run_sqlite"),
 		os.path.join("bin", "wscan_background.py"),
 		os.path.join("bin", "wscan_bg_setup_log.py"),
 		os.path.join("bin", "lalapps_stringfinal"),

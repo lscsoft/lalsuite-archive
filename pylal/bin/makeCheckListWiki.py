@@ -266,72 +266,6 @@ def matchFiles(fileList=None,jobString=None,instruments=None,ifos=None,time=None
       matchList.append(thisFile)
   return matchList
 
-class filenameToURLMapper(object):
-  """
-  """
-  def __init__(self,publicationDirectory=None,publicationURL=None):
-    protocolTag="@PROTO@/"
-    myProtocol=["http://","https://"]
-    givenProtocol=""
-    if publicationDirectory == None or\
-       publicationURL == None:
-      sys.stderr.write("Error: Initializing filenameToURLMappe instance \
-with None types.\n")
-    self.pDIR=publicationDirectory
-    self.pURL=publicationURL
-    for protocolCheck in myProtocol:
-        if publicationDirectory.lower().startswith(protocolCheck):
-            self.pDIR=publicationDirectory
-            self.pURL=publicationURL
-            raise Warning,"object initialized with publication directory and publication URL reversed\n"
-    for protocolCheck in myProtocol:
-        if self.pURL.lower().startswith(protocolCheck):
-            self.pURL="%s"%(self.pURL.replace(protocolCheck,protocolTag))
-            givenProtocol=protocolCheck
-    pd=self.pDIR.split(os.path.sep)
-    pu=self.pURL.split(os.path.sep)
-    pd.reverse()
-    pu.reverse()
-    cStringList=list()
-    cURLList=list()
-    for i in range(0,len(pu)):
-      if pd[i]!=pu[i]:
-        cStringList.append(pd[i])
-        cURLList.append(pu[i])
-    cStringList.reverse()
-    cURLList.reverse()
-    cURL=""
-    cString=""
-    for elem in cURLList:
-      cURL=cURL+"%s%s"%(os.path.sep,elem)
-    cURL=cURL+os.path.sep
-    if not self.pURL.startswith(os.path.sep):
-      cURL=cURL.lstrip(os.path.sep)
-    self.commonURL=os.path.normpath(cURL).replace(protocolTag,givenProtocol)
-    for elem in cStringList:
-      cString=cString+"%s%s"%(os.path.sep,elem)
-    cString=cString+os.path.sep
-    if not self.pDIR.startswith(os.path.sep):
-      cString=cString.lstrip(os.path.sep)
-    self.commonString=os.path.normpath(cString)
-    
-  def publication_directory(self):
-    return self.pDIR
-
-  def publication_URL(self):
-    return self.pURL
-  
-  def convert(self,filename=None):
-    #Strip of common path and create full blown URL
-    myURL=filename.replace(self.commonString,self.commonURL)
-    if myURL == filename:
-        sys.stderr.write("Improper conversion for :%s\n"%filename)
-        sys.stderr.write("web-url        : %s\n"%self.pURL)
-        sys.stderr.write("publication dir: %s\n"%self.pDIR)
-        sys.stderr.write("Common String  : %s\n"%self.commonString)
-        sys.stderr.write("Common URL     : %s\n"%self.commonURL)
-        raise Warning, "object:filenameToURLMapper improperly initialized or given bad args\n"
-    return myURL
 
 ####################################################################
 # Custom wiki class to make writing MoinMoin text simpler
@@ -345,7 +279,7 @@ class wiki(object):
     """
     Take an integer to determine maxdepth of TOC
     """
-    self.content.append("\n [[TableOfContents(%i)]] \n"%(levels))
+    self.content.append("\n <<TableOfContents(%i)>> \n"%(levels))
 
   def image_link(self,path,webserver):
     thumb = "thumb_" + path
@@ -354,7 +288,8 @@ class wiki(object):
     popen = subprocess.Popen(command.split())
     popen.communicate()
     status = popen.returncode
-    s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
+    #s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
+    s = '[['+webserver+'/'+path+'|{{'+webserver+'/'+thumb+'||width=300}}]]'
     self.file.write(s)
 
   def linkedRemoteImage(self,image=None,link=None):
@@ -367,8 +302,8 @@ class wiki(object):
       return ""
     if image==None:
       image=str("")
-    wikiString="[[ImageLink(%s,%s)]]"
-    return wikiString%(image,link)
+    wikiString="[[%s|{{%s}}|target=\"_blank\"]]"
+    return wikiString%(link,image)
 
   def image_table(self,image_list, webserver):
     if not image_list: return
@@ -415,7 +350,7 @@ class wiki(object):
     for an external link, like an HTML page.  This string
     can be inserted into the page by a putText call.
     """
-    s = " [%s %s] "%(url.strip(),label.strip())
+    s = " [[%s|%s]] "%(url.strip(),label.strip())
     return s
 
   class wikiTable(object):
@@ -509,14 +444,15 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     myTable.setTableStyle("text-align:center")
     #Make title row
     myTable.data[0][0]=""
-    for i,label in enumerate(images.keys()):
-      if indexes[label] != 1:
+    for i,label in enumerate(indexes.keys()):
+      if len(indexes[label]) < 1:
         myTable.data[0][i+1]=" %s "%label
       else:
         myIndexURL="%s"%indexes[label][0]
         myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
     #Fill in table with thumbnails and links
     for i,channel in enumerate(uniqChannelNames):
+      myTable.data[i+1][0]=" %s "%(channel)
       for j,key in enumerate(images.keys()):
         try:
           imageIndex=[x.__contains__(channel) \
@@ -525,7 +461,6 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           thumbIndex=[x.__contains__(channel) \
                       for x in thumbs[key]].index(True)
           thumbURL=thumbs[key][thumbIndex]
-          myTable.data[i+1][0]=" %s "%(channel)
           myTable.data[i+1][j+1]=self.linkedRemoteImage(thumbURL,\
                                                         imageURL)
         except:
@@ -579,7 +514,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   #
   # Create top two trigger params tables
   #
-  cTable=wikiPage.wikiTable(2,8)
+  cTable=wikiPage.wikiTable(2,9)
   cTable.data=[
     ["Trigger Type",
      "Rank",
@@ -588,7 +523,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
      "IFOS(Coinc)",
      "Instruments(Active)",
      "Coincidence Time (s)",
-     "Total Mass (mSol)"
+     "Total Mass (mSol)",
+     "Chirp Mass (mSol)"
      ],
     ["%s"%(wikiCoinc.type),
      "%s"%(wikiCoinc.rank),
@@ -597,17 +533,19 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
      "%s"%(wikiCoinc.ifos),
      "%s"%(wikiCoinc.instruments),
      "%s"%(wikiCoinc.time),
-     "%s"%(wikiCoinc.mass)
+     "%s"%(wikiCoinc.mass),
+     "%s"%(wikiCoinc.mchirp)
      ]
     ]
-  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls_in_coinc())+1,6)
+  pTable=wikiPage.wikiTable(len(wikiCoinc.sngls_in_coinc())+1,7)
   pTable.data[0]=[
     "IFO",
     "GPS Time(s)",
     "SNR",
     "CHISQR",
     "Mass 1",
-    "Mass 2"
+    "Mass 2",
+    "Chirp Mass"
     ]
   for row,cSngl in enumerate(wikiCoinc.sngls_in_coinc()):
     pTable.data[row+1]=[
@@ -616,7 +554,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
       "%s"%(cSngl.snr),
       "%s"%(cSngl.chisqr),
       "%s"%(cSngl.mass1),
-      "%s"%(cSngl.mass2)
+      "%s"%(cSngl.mass2),
+      "%s"%(cSngl.mchirp)
       ]
   #Write the tables into the Wiki object
   wikiPage.putText("Coincident Trigger Event Information: %s\n"\
@@ -700,7 +639,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.putText("Edit Here")
   wikiPage.subsubsection("Relevant Information")
   #Add link to Daily Stats
-  if wikiCoinc.time > endOfS5:
+  if wikiCoinc.time <= endOfS5:
     statsLink=wikiPage.makeExternalLink("http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/",\
                                         "S5 Daily Stats Page")
   else:
@@ -731,7 +670,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
          myRow=currentIndex/int(3)+1
          myCol=currentIndex%int(3)+1
          fTable.data[myRow][0]=label
-         thumbURL=file2URL.convert(thumb)
+         thumbURL=thumb
          fTable.data[myRow][myCol]="%s"%(wikiPage.linkedRemoteImage(thumb,link))
          currentIndex=currentIndex+1
     wikiPage.insertTable(fTable)
@@ -795,7 +734,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
-                                       "*/%s_RDS_*/%s/index.html"%(sngl.ifo,sngl.time))
+                                       "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened.png"%\
                                        (sngl.ifo,sngl.time))
@@ -838,9 +777,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=list()
     thumbDict[sngl.ifo]=list()
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
-                                 "*/%s_RDS_*/%s/*.html"%(sngl.ifo,sngl.time)):
-      if myFile.upper().__contains__("PEM"):
-        indexDict[sngl.ifo].append(myFile)
+                                 "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
+      indexDict[sngl.ifo].append(myFile)
 
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                  "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
@@ -857,10 +795,10 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
-    if len(indexDict[sngl.ifo]) < 1:
+    if len(imageDict[sngl.ifo]) < 1:
       wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
@@ -888,9 +826,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=list()
     thumbDict[sngl.ifo]=list()
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
-                                 "*/%s_RDS_*/%s/*.html"%(sngl.ifo,sngl.time)):
-      if not myFile.upper().__contains__("PEM"):
-        indexDict[sngl.ifo].append(myFile)
+                                 "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
+      indexDict[sngl.ifo].append(myFile)
 
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                  "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
@@ -908,9 +845,9 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
     if len(indexDict[sngl.ifo]) < 1:
-      wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
+      wikiPage.putText("Other scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
-  enoughIndex=[len(imageDict[key])>0 for key in indexDict.keys()].count(True) >=1
+  enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
     wikiPage.insertQscanTable(imageDict,\
                               thumbDict,\
@@ -1035,7 +972,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         for k,image in enumerate(imageList):
           if (image.__contains__("_%s-"%label.lower()) \
               and image.__contains__("pipe_%s_FOLLOWUP"%sngl.ifo)):
-            snrTable.data[row+1][col+1]=" %s "%(thumbList[k])
+            snrTable.data[row+1][col+1]=" %s "%(wikiPage.linkedRemoteImage(thumbList[k],thumbList[k]))
     wikiPage.insertTable(snrTable)
   else:
     sys.stdout.write("Warning: SNR and CHISQ plots not found.\n")
@@ -1067,7 +1004,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
   indexList=fnmatch.filter(wikiFileFinder.get_plotchiatimeseries(),"*.html")
-  if len(indexList) > 1:
+  if len(indexList) >= 1:
     myIndex=file2URL.convert(indexList[0])
     wikiPage.putText(wikiPage.makeExternalLink(myIndex,\
                                                "%s Coherence Study Results"%(wikiCoinc.ifos)))
@@ -1079,7 +1016,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     cohSnrTimeTable=wikiPage.wikiTable(rowCount+1,colCount)
     cohSnrTimeTable.data[0][0]="%s Coherent SNR Squared Times Series"%(wikiCoinc.ifos)
     for i,image in enumerate(imageList):
-      cohSnrTimeTable.data[i+1][0]=wikiPage.linkedRemoteImaage(image,thumbList[i])
+      cohSnrTimeTable.data[i+1][0]=wikiPage.linkedRemoteImage(image,thumbList[i])
     wikiPage.insertTable(cohSnrTimeTable)
   else:
     sys.stdout.write("Warning: Coherent plotting jobs not found.\n")
@@ -1241,6 +1178,7 @@ class coinc(object):
     self.instruments=str(rawCoinc["INSTRUMENTS"])
     self.time=float(rawCoinc["TIME"])
     self.mass=float(rawCoinc["MASS"])
+    self.mchirp=float(rawCoinc["MCHIRP"])
     #Remaining header for sngl information
     rawSngl=list()
     rawSnglKeys=list()
@@ -1253,7 +1191,7 @@ class coinc(object):
       tmp=dict()
       for i in range(0,len(rData)):
         tmp[rawSnglKeys[i]]=rData[i]
-      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"]))
+      self.sngls.append(sngl(tmp["DIR"],tmp["IFO"],tmp["TIME"],tmp["SNR"],tmp["CHISQ"],tmp["MASS1"],tmp["MASS2"],tmp["MCHIRP"]))
       del tmp
 
   def sngls_in_coinc(self):
@@ -1271,7 +1209,7 @@ class coinc(object):
 class sngl(object):
   """
   """
-  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None):
+  def __init__(self,type=None,ifo=None,time=None,snr=None,chisqr=None,mass1=None,mass2=None,mchirp=None):
     """
     """
     self.type=str(type)
@@ -1281,6 +1219,7 @@ class sngl(object):
     self.chisqr=float(chisqr)
     self.mass1=float(mass1)
     self.mass2=float(mass2)
+    self.mchirp=float(mchirp)
     
 ####################################################################
 # Cache file parser
@@ -1393,7 +1332,7 @@ for listsDone,coincFile in enumerate(coincList):
   fileTree=list()
   fileTree.extend(checklistTree)
   fileTree.extend(allSources['omega'])
-  mapFileURL=filenameToURLMapper(publication_directory,publication_url)
+  mapFileURL=stfu_pipe.filenameToURLMapper(publication_directory,publication_url)
   prepareChecklist(myDestPath+"/"+myChecklistFilename,\
                    myCoinc,\
                    fileTree,\
