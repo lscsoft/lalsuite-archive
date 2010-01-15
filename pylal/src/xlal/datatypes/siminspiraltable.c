@@ -28,7 +28,7 @@
 
 #include <Python.h>
 #include <structmember.h>
-#include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataTables.h>
 #include <misc.h>
 #include <siminspiraltable.h>
 
