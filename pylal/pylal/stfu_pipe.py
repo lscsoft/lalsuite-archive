@@ -1765,7 +1765,7 @@ class create_default_config(object):
 		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
 
@@ -1777,7 +1777,7 @@ class create_default_config(object):
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 
