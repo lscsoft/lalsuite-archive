@@ -2117,7 +2117,7 @@ class ratioTest:
     #[[ImageLink(image,target[,width=width[,height=height]][,alt=alttag])]]    
     resultString="|| IFO:IFO || || ToF || || Deff Ratio || || Probability || || Figure ||\n"
     for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
-      myURL=str('[[ImageLink(%s,%s ,width=300,alt=RatioTestPlot)]]')%(pairURL,pairURL)
+      myURL=str('[[%s|{{%s|RatioTestPlot|width=300}}]]')%(pairURL,pairURL)
       myString="|| %s:%s || || %2.4f || || %5.2f || || %1.3f || || %s ||\n"%\
                 (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
       resultString="%s%s"%(resultString,myString)

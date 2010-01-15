@@ -36,6 +36,7 @@ from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes import snglringdowntable
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
 	all
@@ -72,7 +73,7 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 #
 
 
-class SnglRingdown(xlaltools.SnglRingdownTable):
+class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	__slots__ = ()
 
 	def get_start(self):

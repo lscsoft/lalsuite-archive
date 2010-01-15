@@ -392,9 +392,6 @@ FROM
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-	JOIN experiment_map ON (
-		coinc_event.coinc_event_id == experiment_map.coinc_event_id
-	)
 WHERE
 	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
 	AND NOT EXISTS(
@@ -412,8 +409,12 @@ WHERE
 			*
 		FROM
 			experiment_summary
-		WHERE
+		JOIN
+			experiment_map
+		ON
 			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		WHERE
+			experiment_map.coinc_event_id == coinc_event.coinc_event_id
 		AND
 			experiment_summary.datatype == "simulation"
 	)
@@ -439,9 +440,6 @@ FROM
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-	JOIN experiment_map ON (
-		coinc_event.coinc_event_id == experiment_map.coinc_event_id
-	)
 WHERE
 	NOT EXISTS(
 		SELECT
@@ -456,8 +454,12 @@ WHERE
 			*
 		FROM
 			experiment_summary
-		WHERE
+		JOIN
+			experiment_map
+		ON
 			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		WHERE
+			experiment_map.coinc_event_id == coinc_event.coinc_event_id
 		AND
 			experiment_summary.datatype == "simulation"
 	)
@@ -483,9 +485,6 @@ FROM
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-	JOIN experiment_map ON (
-		coinc_event.coinc_event_id == experiment_map.coinc_event_id
-	)
 WHERE
 	EXISTS(
 		SELECT
@@ -500,8 +499,12 @@ WHERE
 			*
 		FROM
 			experiment_summary
-		WHERE
+		JOIN
+			experiment_map
+		ON
 			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+		WHERE
+			experiment_map.coinc_event_id == coinc_event.coinc_event_id
 		AND
 			experiment_summary.datatype == "simulation"
 	)

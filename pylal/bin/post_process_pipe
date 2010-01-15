@@ -42,12 +42,20 @@ class hm_post_DAG(pipeline.CondorDAG):
     self.set_dag_file(self.basename)
     self.jobsDict = {}
     self.node_id = 0
+    self.output_cache = []
 
   def add_node(self, node):
     node.set_retry(3)
     self.node_id += 1
     node.add_macro("macroid", self.node_id)
     pipeline.CondorDAG.add_node(self, node)
+
+  def write_cache(self):
+    out = self.basename + ".cache"
+    f = open(out,"w")
+    for c in self.output_cache:
+      f.write(str(c)+"\n")
+    f.close()
 
 ###############################################################################
 ########## MUSIC STUFF ########################################################
@@ -555,7 +563,7 @@ class plot_tmpltbank_range_node(pipeline.CondorDAGNode):
 class ligolw_sqlite_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, database, xml_list, input_cache=None, p_node=[], replace=True, extract=False):
+  def __init__(self, job, dag, database, xml_list, cat=None, seg=None, input_cache=None, p_node=[], replace=True, extract=False):
 
     pipeline.CondorDAGNode.__init__(self,job)
     #FIXME add tmp file space
@@ -565,7 +573,7 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
     if input_cache: cline += " --input-cache " + input_cache + " "
     for xml in xml_list: cline += xml + " "
     self.add_var_arg(cline)
-
+    if cat and seg: dag.output_cache.append(lal.CacheEntry("-", "SQLITE_%s" % (cat,), seg, "file://localhost%s/%s" % (os.getcwd(),database)))
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -689,8 +697,9 @@ class hm_upperlimit_node(pipeline.CondorDAGNode):
       ifo_combination = str(ifo_combination)
       fname = '2Dsearchvolume-' + self.output_name_tag + '-' + ifo_combination.replace(',','') + '.xml'
       upperlimit_fnames.append(fname)
-    fstr = " ".join(upperlimit_fnames)
-    return fstr
+    return upperlimit_fnames
+    #fstr = " ".join(upperlimit_fnames)
+    #return fstr
 
 
 class far_plot_node(pipeline.CondorDAGNode):
@@ -707,9 +716,12 @@ class far_plot_node(pipeline.CondorDAGNode):
 class ul_plot_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, xml_list, p_node):
+  def __init__(self, job, dag, xml_list, cat, seg, p_node):
     pipeline.CondorDAGNode.__init__(self,job)
-    self.add_var_arg(xml_list)
+    #self.add_var_arg(xml_list)
+    for xml in xml_list:
+      self.add_var_arg(xml)
+      dag.output_cache.append(lal.CacheEntry("-", "UPPERLIMIT_%s" % (cat,), seg, "file://localhost%s/%s" % (os.getcwd(),xml)))
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -1099,6 +1111,7 @@ cp = default_config(sys.argv[1], inifile_to_write).cp
 timestr = os.path.split(cp.get("input","ihope-dir").rstrip('/'))[1]
 start_time = timestr.split('-')[0]
 end_time = timestr.split('-')[1]
+analyzed_segment = segments.segment(float(start_time), float(end_time))
 
 try: os.mkdir("logs")
 except: pass
@@ -1220,7 +1233,7 @@ for cat in cats:
       try: db[cat].append(c.database) 
       except: db[cat] = [c.database]
       xml_list = [segNode[cat].output]
-      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
+      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, cat, analyzed_segment, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
       sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
       # keep track of parents
       p_nodes[cat].append(sqliteNodeAll[key])
@@ -1244,7 +1257,7 @@ for cat in cats:
       try: db[cat].append(c.database)
       except: db[cat] = [c.database]
       xml_list = [url, segNode[cat].output]
-      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
+      ligolwSqliteNode[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, xml_list, cat, analyzed_segment, input_cache=c.thinca_to_coinc_cache, p_node=[fixSnglsNode[key]], replace=True);
       sqliteNodeAll[key] = sqlite_node(sqliteJob, dag, c.database, string.strip(cp.get('input',"all_sql")), p_node=[ligolwSqliteNode[key]]);
       ligolwSqliteNodeInjDBtoXML[key] = ligolw_sqlite_node(ligolwSqliteJob, dag, c.database, [c.xml], p_node=[sqliteNodeAll[key]], replace=False, extract=True);
       ligolwInspinjfindNode[key] = ligolw_inspinjfind_node(ligolwInspinjfindJob, dag, c.xml, p_node=[ligolwSqliteNodeInjDBtoXML[key]]);
@@ -1297,7 +1310,7 @@ for cat in cats:
   hmUpperlimitNode[cat] = hm_upperlimit_node(hmUpperlimitJob, dag, base_name, " ".join(db[cat]), p_node=[lalappsNewcorseNodeCombined[cat]]);
 
   # upper limit plots
-  hmUpperlimitPlotNode[cat] = ul_plot_node(hmUpperlimitPlotJob, dag, hmUpperlimitNode[cat].output_by_combo(ifo_combinations[cat]), [hmUpperlimitNode[cat]]);
+  hmUpperlimitPlotNode[cat] = ul_plot_node(hmUpperlimitPlotJob, dag, hmUpperlimitNode[cat].output_by_combo(ifo_combinations[cat]), cat, analyzed_segment, [hmUpperlimitNode[cat]]);
 
   # Summary pages (open and closed box)
   summaryPageNode[cat] = summary_page_node(summaryPageJob, dag, base_name=base_name, p_node=[hmUpperlimitPlotNode[cat], farPlotNode[cat]]);
@@ -1311,6 +1324,7 @@ for cat in cats:
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()
+dag.write_cache()
 
 #print "\n\nYour database output should be...\n"
 #for cat in cats:

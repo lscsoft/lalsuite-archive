@@ -9,6 +9,7 @@ from glue.ligolw import table
 from glue.ligolw import ilwd
 from glue import segments
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes import snglinspiraltable
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
 from pylal import git_version
@@ -41,7 +42,7 @@ ifos.sort()
 
 time1=time()
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	"""
 	You need to make this subclass of xlaltools.SnglInspiralTable because the C version doesn't have the methods 
 	you need to slide the triggers on the ring, which you need to do for a correct calculation of ethinca
@@ -155,6 +156,7 @@ for database in databases:
 
 		def calc_delta_t(trigger1_ifo, trigger1_end_time, trigger1_end_time_ns, trigger2_ifo, trigger2_end_time, trigger2_end_time_ns, time_slide_id, rings = rings, offset_vectors = offset_vectors):
 			#print >>sys.stderr, "calculating delta_t"
+			time_slide_id = ilwd.get_ilwdchar(time_slide_id)
 			trigger1_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
 			trigger2_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger2_end_time, trigger2_end_time_ns)
 			# find the instruments that were on at trigger 1's end time and
@@ -233,7 +235,7 @@ for database in databases:
 				is_background = values[-1]
 				values = values[:-1]
 				if is_background:
-					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],values[2*num_sngl_cols+1],rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (0,))
+					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (0,))
 					timeslides_info.append([values[0], database])
 				else:
 					zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (0,))

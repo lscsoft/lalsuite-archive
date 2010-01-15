@@ -279,7 +279,7 @@ class wiki(object):
     """
     Take an integer to determine maxdepth of TOC
     """
-    self.content.append("\n [[TableOfContents(%i)]] \n"%(levels))
+    self.content.append("\n <<TableOfContents(%i)>> \n"%(levels))
 
   def image_link(self,path,webserver):
     thumb = "thumb_" + path
@@ -288,7 +288,8 @@ class wiki(object):
     popen = subprocess.Popen(command.split())
     popen.communicate()
     status = popen.returncode
-    s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
+    #s = '[[ImageLink('+webserver+'/'+thumb+','+webserver+'/'+path+',width=300][,alt=none])]]'
+    s = '[['+webserver+'/'+path+'|{{'+webserver+'/'+thumb+'||width=300}}]]'
     self.file.write(s)
 
   def linkedRemoteImage(self,image=None,link=None):
@@ -301,8 +302,8 @@ class wiki(object):
       return ""
     if image==None:
       image=str("")
-    wikiString="[[ImageLink(%s,%s)]]"
-    return wikiString%(image,link)
+    wikiString="[[%s|{{%s}}|target=\"_blank\"]]"
+    return wikiString%(link,image)
 
   def image_table(self,image_list, webserver):
     if not image_list: return
@@ -349,7 +350,7 @@ class wiki(object):
     for an external link, like an HTML page.  This string
     can be inserted into the page by a putText call.
     """
-    s = " [%s %s] "%(url.strip(),label.strip())
+    s = " [[%s|%s]] "%(url.strip(),label.strip())
     return s
 
   class wikiTable(object):
@@ -971,7 +972,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
         for k,image in enumerate(imageList):
           if (image.__contains__("_%s-"%label.lower()) \
               and image.__contains__("pipe_%s_FOLLOWUP"%sngl.ifo)):
-            snrTable.data[row+1][col+1]=" %s "%(thumbList[k])
+            snrTable.data[row+1][col+1]=" %s "%(wikiPage.linkedRemoteImage(thumbList[k],thumbList[k]))
     wikiPage.insertTable(snrTable)
   else:
     sys.stdout.write("Warning: SNR and CHISQ plots not found.\n")
@@ -1003,7 +1004,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
   indexList=fnmatch.filter(wikiFileFinder.get_plotchiatimeseries(),"*.html")
-  if len(indexList) > 1:
+  if len(indexList) >= 1:
     myIndex=file2URL.convert(indexList[0])
     wikiPage.putText(wikiPage.makeExternalLink(myIndex,\
                                                "%s Coherence Study Results"%(wikiCoinc.ifos)))
@@ -1015,7 +1016,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     cohSnrTimeTable=wikiPage.wikiTable(rowCount+1,colCount)
     cohSnrTimeTable.data[0][0]="%s Coherent SNR Squared Times Series"%(wikiCoinc.ifos)
     for i,image in enumerate(imageList):
-      cohSnrTimeTable.data[i+1][0]=wikiPage.linkedRemoteImaage(image,thumbList[i])
+      cohSnrTimeTable.data[i+1][0]=wikiPage.linkedRemoteImage(image,thumbList[i])
     wikiPage.insertTable(cohSnrTimeTable)
   else:
     sys.stdout.write("Warning: Coherent plotting jobs not found.\n")

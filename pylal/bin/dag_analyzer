@@ -335,6 +335,8 @@ directory = './'
 if len(sys.argv)>1:
   user_input = sys.argv[1]
   directory = os.path.dirname(user_input)
+  if directory == '':
+    directory = './'
   if user_input.endswith('dag'):
     filelist = glob.glob(user_input)
   else:
