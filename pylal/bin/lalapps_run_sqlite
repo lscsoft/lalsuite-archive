@@ -43,5 +43,6 @@ for filename in databases:
         for sql in sql_list:
 		if options.verbose: print >>sys.stderr, "%s" % (sql)
 		connection.cursor().execute(sql)
+		connection.commit()
 	connection.close()
 	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
