@@ -716,6 +716,9 @@ if not opts.process_background_only:
       webpage.table[0].row[0].cell[1].text("z significance")
       webpage.table[0].row[0].cell[2].text("dt (peak-time - central time)")
 
+    #initialize string containing list of channels with Z value
+    listZvalues = ""
+
     row_number = 0
     for i,channel in enumerate(candidateTable['channel_name']):
       # check that the qscan parameters are not zero for this channel
@@ -777,6 +780,10 @@ if not opts.process_background_only:
         dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,dtpercentiles,dtCandidate,dt_candidate_rank)
         fnameList.append(dtFigure)
 
+      #append the list of channels with Z values
+      if zCandidate > 0:
+        listZvalues += channel + " %.3f \n" %zCandidate
+
       #append the html page
       row_number = row_number + 1
       if opts.enable_output:
@@ -795,6 +802,13 @@ if not opts.process_background_only:
           webpage.table[0].row[row_number].cell[2].link("Images/" + os.path.basename(dtFigure),"Delta t distribution")
 
     if opts.enable_output:
+
+      #save file containing list of channels
+      txtChannels = file(html_filename.replace(".html",".txt"),"w")
+      txtChannels.write("#channel Z\n")
+      txtChannels.write(listZvalues)
+      txtChannels.close()
+
       webpage.cleanWrite('IUL')
       InspiralUtils.write_cache_output(opts,html_filename,fnameList)
 
