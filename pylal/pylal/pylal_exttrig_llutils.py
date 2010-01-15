@@ -70,11 +70,23 @@ The following table contain a list of Gamma Ray Bursts occured during S6, with i
 
 The number in the IFO columns indicate the antenna factor for this GRB and this detector, if there is data available at this time (1 meaning optimal location, 0 meaning worst location). In addition, a <b>bold</b> number indicates that the current segment is long enough to contain the required number of off-source segments around the GRB, not required to be symmetrical.<br><br>
 
+Background Color code:<br>
+<table border="1" cellpadding="2" cellspacing="2">
+  <tbody><tr>
+  <td style="vertical-align: top; font-weight: bold; background-color: rgb(255, 200, 200);">short GRB; data analyzed</td>
+  <td style="vertical-align: top; font-weight: bold; background-color: rgb(153, 255, 255);">long (or unknown) GRB; data analyzed</td></tr></tr>
+  <td style="vertical-align: top; font-weight: bold; background-color: rgb(130, 130, 70);">short GRB; data not analyzed</td>
+  <td style="vertical-align: top; font-weight: bold; background-color: rgb(100, 150, 150);">long (or unknown) GRB; data not analyzed</td></tr>
+</table>
+<br><br>
+
 Total number of GRB in this list: %d<br>
 Number of GRB with data: %d <br>
 Number of GRB without data: %d<br>
 Number of long GRB: %d (with data %d)<br>
-Number of short GRB: %d (with data %d)<br>
+Number of short GRB: %d (with data %d)<br><br>
+Number of completed GRB: %d (short: %d)<br>
+Number of opened GRB: %d (short: %d)<br><br>
 
 Date of last creation: %s<br><br>
 
@@ -189,12 +201,13 @@ def info(item, text):
   print text
 
 # -----------------------------------------------------
-def send_mail(subject, msg, email_adresses = None):
+def send_mail(subject, msg, email_addresses = None, extra_addresses = None):
   """
   Function to send an email to a certain adress
   @param subject: Subject line of the email
   @param msg: Message of the email
-  @param email_adresses: list of email adresses to which the mail is sent
+  @param email_addresses: list of email addresses to which the mail is sent
+  @param extra_addresses: Extra adresses to which to send the email
   """
 
   # Adjust messages and subjects automatically
@@ -209,16 +222,17 @@ def send_mail(subject, msg, email_adresses = None):
   f.close()
 
   # select the recipients
-  if not email_adresses:
-    email_adresses = cp.get('notifications','email').replace(',',' ').split()
+  if not email_addresses:
+    email_addresses = cp.get('notifications','email').replace(',',' ').split()
+
+  if extra_addresses:
+    email_addresses.extend(extra_addresses)
 
   # send the message to all recipients
-  for address in email_adresses:
+  for address in email_addresses:
     command = "mail -s '%s' %s < %s" % (subject, address, tmp_file)
     system_call('email',command)
  
-  #info('email','Email content: '+msg) 
-
 # -----------------------------------------------------
 def notify(grb, dag, message):
   """
@@ -286,7 +300,7 @@ def del_lock():
    Removes the lock file
    """
    os.remove(get_lockname())
-
+   info('monitor','Program exit normally')   
 
 # --------------------------------------
 def get_dag_part(ini_file):
@@ -431,7 +445,6 @@ def update_durations(monitor_list):
     if grb.name in dict_duration:
       grb.duration = dict_duration[grb.name]
 
-
 # --------------------------------------
 def obtain_results(grb):
   """
@@ -492,15 +505,27 @@ def generate_summary(publish_path, publish_url):
 
   # get some statistics
   number_short = number_long = number_data = number_nodata = number_long_data = number_short_data = 0
+  number_complete_all = number_complete_short = number_opened_all = number_opened_short = 0
   for grb in monitor_list:
     if grb.has_data:
       number_data +=1
       if grb.duration and grb.duration<short_grb_duration:
         number_short += 1
         number_short_data +=1
+        if grb.dag['inj'].status == 5:
+          number_complete_short += 1
+        if grb.openbox:
+          number_opened_short += 1
+
       else:
         number_long +=1
         number_long_data += 1
+
+        if grb.dag['onoff'].status==5:
+          number_complete_all += 1
+        if grb.openbox:
+          number_opened_all += 1
+
     else:
       number_nodata +=1
       if grb.duration and grb.duration<short_grb_duration:
@@ -509,13 +534,16 @@ def generate_summary(publish_path, publish_url):
         number_long +=1
 
 
+
   # Bring them in timely order
   time_unsort = [grb.time for grb in monitor_list]
   index = np.argsort(time_unsort)
   num_grb = len(time_unsort)
 
   table = total_summary_prefix % ( len(monitor_list), number_data, number_nodata, number_long, \
-                                 number_long_data, number_short, number_short_data, get_time())
+                                  number_long_data, number_short, number_short_data, \
+                                  number_complete_all, number_complete_short, \
+                                  number_opened_all, number_opened_short, get_time())
 
   # Loop over all GRBs in reverse order
   for number, i in enumerate(index[::-1]):
@@ -687,10 +715,11 @@ class AnalysisDag(object):
     """
 
     # create the call to start the DAG
-    cmd = 'cd %s;' % self.analysis_dir
-    cmd += 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
-    cmd += 'condor_submit_dag %s' % self.get_dagname()
-    #print "WARNING: DAG NOT STARTED FOR TESTING"
+    dir = os.path.dirname(self.get_dagname())
+    dagname = os.path.basename(self.get_dagname())
+    cmd = 'export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE;'
+    cmd += 'cd %s;' % dir
+    cmd += 'condor_submit_dag %s' % dagname
     system_call(self.name, cmd)
 
     # change the status
@@ -757,7 +786,7 @@ class AnalysisDag(object):
          notify(grb, dag, 'DAG exited on error')
        elif fstat==-2:
          notify(grb, dag, 'DAG file vanished!?')
-    #£ change the status to NON-error if everything is ok
+    # change the status to NON-error if everything is ok
     if fstat>=0 and self.status<0:
       self.status = -self.status
 
@@ -788,10 +817,13 @@ class GRB(object):
     
     # prepare the DAG instances
     self.dag = {'onoff':None, 'inj':None}
+    self.code_tag = None
+    self.code_verbose = None
 
     # prepare variables for later use
     self.qvalues = {}
     self.offsource_segment = None
+    self.onsource_segment = None
     self.ifolist  = []
 
     self.use_offline_data = False
@@ -1024,6 +1056,9 @@ class GRB(object):
       (self.pylal_dir, self.analysis_dir)
     system_call(self.name, cmd)
 
+    # set the tag 
+    self.code_tag = git_version.tag
+    self.code_verbose = git_version.verbose_msg   
 
     # copy the segment files
     cmd = 'mv %s/*-science_grb%s.txt %s' % (self.main_dir, self.name, self.analysis_dir)
@@ -1181,6 +1216,24 @@ class GRB(object):
       self.convert_segxml_to_segtxt(segxmlfile, segtxtfile)
 
   # -----------------------------------------------------
+  def check_veto_onsource(self):
+    """
+    Function to check if the CAT2 veto overlap the onsource segment
+    @return: True, if there is an overlap and False, if the analysis can start
+    """
+    # Loops over each used IFO and check if the CAT2 time 
+    # overlaps the onsource segment
+    overlap = False
+    for ifo in self.ifolist:
+       segtxtfile = "%s/%s-science_grb%s.txt" % (self.main_dir, ifo, self.name)
+       vetolist = segmentsUtils.fromfile(open(segtxtfile))
+       if vetolist.intersects_segment(self.onsource_segment):
+         overlap = True
+    
+    return overlap
+
+
+  # -----------------------------------------------------
   def update_veto_lists(self, timeoffset):
 
     definer_file = cp.get('paths','veto_definer')
@@ -1242,6 +1295,7 @@ class GRB(object):
     trigger = int(self.time)
     onSourceSegment = segments.segment(trigger - onsource_left,
                                        trigger + onsource_right)
+    self.onsource_segment = onSourceSegment
 
     # convert string in integer
     padding_time = int(cp.get('data','padding_time'))
