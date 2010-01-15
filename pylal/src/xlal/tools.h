@@ -32,7 +32,6 @@
 
 #include <Python.h>
 #include <lal/LALDetectors.h>
-#include <lal/LIGOMetadataTables.h>
 
 
 /*
