@@ -814,7 +814,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-	def __init__(self, dag, job, cp, opts, sngl, frame_cache, tag, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, frame_cache, chia, tag, p_nodes=[]):
 
 		tlen = 1.0
 		self.output_file_name = ""
@@ -826,10 +826,11 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		self.set_trig_start( int(sngl.time - tlen + 0.5) )
 		self.set_trig_end( int(sngl.time + tlen + 0.5) )
-		self.add_var_opt("write-snrsq","")
-		self.add_var_opt("write-chisq","")
-		self.add_var_opt("write-spectrum","")
-		self.add_var_opt("write-template","")
+                if not chia:
+		  self.add_var_opt("write-snrsq","")
+		  self.add_var_opt("write-chisq","")
+		  self.add_var_opt("write-spectrum","")
+		  self.add_var_opt("write-template","")
 		self.add_var_opt("write-cdata","")
 
 		skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
@@ -870,10 +871,14 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
 		self.set_bank(bankFile)
 
-		self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
-		self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
-      
-		self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+                if chia:
+		  self.set_user_tag( tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time) )
+		  self.__usertag = tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time)
+                else:     
+                  self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
+                  self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
+
+                self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
 		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
 		self.add_var_opt("output-path",job.outputPath)

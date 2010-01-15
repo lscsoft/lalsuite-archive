@@ -832,6 +832,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_base='FG_SEIS_RDS')
 	insp_job		= stfu_pipe.followUpInspJob(cp, dir=search, tag_base='plot')
 	insp_job_skymap		= stfu_pipe.followUpInspJob(cp, dir=search,tag_base='skymap')	
+        insp_job_chia           = stfu_pipe.followUpInspJob(cp, dir=search,tag_base='chia')
 	#inspJobNotrig   = stfu_pipe.followUpInspJob(cp,'notrig', dir=search)
 	plot_job		= stfu_pipe.plotSNRChisqJob(options,cp, dir=search)
 	#headInspJob     = stfu_pipe.followUpInspJob(cp, 'head', dir=search)
@@ -853,7 +854,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		# CONDOR NODE CLASS DICTIONARIES FOR CONVENIENCE
 		insp_datafind_node = {}
 		insp_node_skymap = {}
-		
+                insp_node_chia = {}	
+	
 		if options.verbose:
 			 print >>sys.stderr,"processing coinc @ %f with combined FAR %f instruments %s" % (coinc.time, coinc.combined_far, coinc.instruments)
 
@@ -877,7 +879,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
 
 			# INSPIRAL NODE (for plots)
-			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
+			insp_node = stfu_pipe.followUpInspNode(dag, insp_job, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, None, search, p_nodes=[insp_datafind_node[ifo]])
 
 			plot_node = stfu_pipe.plotSNRCHISQNode(dag, plot_job, cp, options, sngl_inspiral, coinc, insp_node, p_nodes=[insp_node])
 
@@ -899,16 +901,17 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				print >>sys.stderr,"processing %s with snr: %f  and mass1: %f and mass2 %f" % (ifo, sngl_inspiral.snr, sngl_inspiral.mass1, sngl_inspiral.mass2)
 			
 			# INSPIRAL JOB FOR SKYMAPS
-			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job_skymap, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, search, p_nodes=[insp_datafind_node[ifo]])
-		
+			insp_node_skymap[ifo] = stfu_pipe.followUpInspNode(dag, insp_job_skymap, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, None, search, p_nodes=[insp_datafind_node[ifo]])
+                        insp_node_chia[ifo] = stfu_pipe.followUpInspNode(dag, insp_job_chia, cp, options, sngl_inspiral, insp_datafind_node[ifo].outputFileName, chia_job, search, p_nodes=[insp_datafind_node[ifo]])	
+	
 		# SKYMAP JOBS
 		sky_node = stfu_pipe.lalapps_skyMapNode(dag, sky_map_job, cp, options, coinc, insp_node_skymap, p_nodes=insp_node_skymap.values())
 		sky_plot_node = stfu_pipe.pylal_skyPlotNode(dag, sky_plot_job, cp, options, coinc, sky_node, p_nodes = [sky_node])
 
 		# Coh insp job
-		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_skymap, None, p_nodes = insp_node_skymap.values())
-		chia2_node = stfu_pipe.followUpChiaNode(dag, chia2_job, cp, options, coinc, insp_node_skymap, chia_node, p_nodes = [chia_node])
-		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia2_node, insp_node_skymap, p_nodes=[chia2_node])
+		chia_node = stfu_pipe.followUpChiaNode(dag, chia_job, cp, options, coinc, insp_node_chia, None, p_nodes = insp_node_chia.values())
+		chia2_node = stfu_pipe.followUpChiaNode(dag, chia2_job, cp, options, coinc, insp_node_chia, chia_node, p_nodes = [chia_node])
+		plot_chia_node = stfu_pipe.plotChiaNode(dag, plot_chia_job, cp, options, coinc, chia2_node, insp_node_chia, p_nodes=[chia2_node])
 
 		##SETUP JOBS THAT REQUIRE COINC INFORMATION
 
