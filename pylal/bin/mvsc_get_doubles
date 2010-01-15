@@ -9,6 +9,7 @@ from glue.ligolw import table
 from glue.ligolw import ilwd
 from glue import segments
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes import snglinspiraltable
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
 from pylal import git_version
@@ -41,7 +42,7 @@ ifos.sort()
 
 time1=time()
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	"""
 	You need to make this subclass of xlaltools.SnglInspiralTable because the C version doesn't have the methods 
 	you need to slide the triggers on the ring, which you need to do for a correct calculation of ethinca

@@ -37,6 +37,7 @@ from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.xlal.datatypes import snglinspiraltable
 try:
 	all
 except NameError:
@@ -72,7 +73,7 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 #
 
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
 	def get_end(self):
