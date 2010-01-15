@@ -782,7 +782,10 @@ if not opts.process_background_only:
 
       #append the list of channels with Z values
       if zCandidate > 0:
-        listZvalues += channel + " %.3f \n" %zCandidate
+        if opts.plot_z_distribution:
+          listZvalues += channel + " %.3f %.3f \n" %(zCandidate,z_candidate_rank)
+        else:
+          listZvalues += channel + " %.3f \n" % zCandidate
 
       #append the html page
       row_number = row_number + 1
@@ -805,7 +808,10 @@ if not opts.process_background_only:
 
       #save file containing list of channels
       txtChannels = file(html_filename.replace(".html",".txt"),"w")
-      txtChannels.write("#channel Z\n")
+      if opts.plot_z_distribution:
+        txtChannels.write("#channel Z rank\n")
+      else:
+        txtChannels.write("#channel Z\n")
       txtChannels.write(listZvalues)
       txtChannels.close()
 
