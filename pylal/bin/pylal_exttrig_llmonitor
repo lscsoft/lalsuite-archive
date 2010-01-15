@@ -173,8 +173,6 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
 
       # cleaning up
       grb.cleanup(analysis_path)
-      #cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb.name, analysis_path)
-      #peu.system_call(grb.name, cmd)
 
       # multiple notifications
       subject = "New analysis started for GRB%s " %grb.name
@@ -225,8 +223,6 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
 
   # cleaning up
   grb.cleanup('AuxFiles/')
-  #cmd = 'mv %s/*grb%s* AuxFiles/' % (maindir, grb.name)
-  #peu.system_call(grb.name, cmd)
 
   return grb
 

@@ -320,7 +320,7 @@ if not opts.write_onsource:
     lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
         "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
-# always read offsource triggers (needed in any case)
+# always read offsource triggers (needed in any case; see next section)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
 off_segs = grbsummary.get_segs_from_doc(offsource_doc)

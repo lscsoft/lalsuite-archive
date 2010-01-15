@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2007  Patrick Brady, Nickolas Fotopoulos
 #
@@ -86,6 +86,8 @@ class ConstantBackgroundEstimator(BackgroundEstimator):
         """
         Return ln(p(c|0)).  Where p(c|0) < eps, we return eps.
         """
+        # the None puts an extra bracket around the list, and the ellipses 
+        # don't really change anything (i.e. stand for whetever there is)
         num_louder = (self.loudest_in_bg_trials > loudest_in_trial[None, ...])\
             .sum(axis=0, dtype=float)
         pc0 = num_louder / self.loudest_in_bg_trials.shape[0]
@@ -94,10 +96,10 @@ class ConstantBackgroundEstimator(BackgroundEstimator):
 
 class SimpleExpExtrapEstimator(BackgroundEstimator):
     """
-    BackgroundEstimator that takes the Nth loudest point and extrapolates
-    the p(c|0) distribution based on its value.
+    BackgroundEstimator that takes a fraction 'fac' of the loudest points 
+    and extrapolates the p(c|0) distribution based on its value.
     """
-    def __init__(self, loudest_in_bg_trials, fac):
+    def __init__(self, loudest_in_bg_trials, offsource_loudest_by_trial_cat, fac):
         """
         Initialize SimpleExpExtrapolator with the extrapolation parameters.
         Use the (fac*N)th point from the end as a fiducial point, where
@@ -109,7 +111,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         self.default_evaluator = \
             ConstantBackgroundEstimator(loudest_in_bg_trials, 1e-10)
         
-        num_nonempty_offsource_trials = (offsource_loudest_by_trial_mc>0).sum(axis=0)
+        num_nonempty_offsource_trials = (offsource_loudest_by_trial_cat>0).sum(axis=0)
 
         self.fiducial_x = numpy.asarray([ sorted_loudest[-int(fac*N), i] \
                                           for i,N in enumerate(num_nonempty_offsource_trials)])
@@ -120,9 +122,12 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         Return ln(p(c|0)).  Where c is loudest than the Nth loudest, use the
         the simplest possible extrapolation based on the Nth loudest event.
         """
+        # Call to ConstantBackgroundEstimator
         log_pc0 = self.default_evaluator(loudest_in_trial)
+        # Computes the extrapolation
         extrap = self.fiducial_y + \
             self.fiducial_x**1.5 - loudest_in_trial**1.5
+        # and replaces the computed pc0 with the extrapolation if a condition if fullfilled
         numpy.putmask(log_pc0, loudest_in_trial > self.fiducial_x, extrap)
         return log_pc0
 
@@ -384,17 +389,17 @@ opts, args = parse_args()
 
 if opts.verbose:
     print "Reading in bin definitions and loudest statistics..."
-statistic, mc_bins, onsource_loudest_by_mc \
+statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat \
     = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, offsource_loudest_by_trial_mc \
+statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
 # compute useful quantities
-num_inj = len(inj_loudest_by_inj_mc)
+num_inj = len(inj_loudest_by_inj_cat)
 num_sims_by_m2 = numpy.zeros(len(m2_bins), dtype=int)
 for m2_D in m2_D_by_inj:
     num_sims_by_m2[m2_bins[m2_D[0]]] += 1
@@ -403,10 +408,9 @@ m2_bin_by_inj = [m2_bins[m2_D[0]] for m2_D in m2_D_by_inj]
 ##############################################################################
 # Initialize background and foreground estimation functions
 # NB: start extrapolating 10% from the end of the tail for robustness.
-num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
-compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 0.3)
-
-
+num_offsource_trials = offsource_loudest_by_trial_cat.shape[0]
+compute_log_pc0_by_cat = SimpleExpExtrapEstimator(offsource_loudest_by_trial_cat, \
+                            offsource_loudest_by_trial_cat, 0.3)
 
 # Example of how to switch to constant extrapolator
 # compute_log_pc0_by_mc = ConstantBackgroundEstimator(\
@@ -420,16 +424,17 @@ if opts.reweight_D:
     weight_by_inj = [m2_D[1]**3 for m2_D in m2_D_by_inj]
 else:
     weight_by_inj = None
-compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
-    inj_loudest_by_inj_mc, num_sims_by_m2, m2_bin_by_inj,
-    weight_by_inj=weight_by_inj)
+
+compute_log_pch_by_cat_m2 = ConstantForegroundEstimator(\
+            inj_loudest_by_inj_cat, num_sims_by_m2, m2_bin_by_inj,
+            weight_by_inj=weight_by_inj)
 
 ################################################################################
 # compute the likelihoods of the loudest on-source coincidences
 if opts.verbose:
     print "Computing on-source likelihoods..."
-log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
-log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
+log_pc0_by_mc    = compute_log_pc0_by_cat(onsource_loudest_by_cat)
+log_pch_by_mc_m2 = compute_log_pch_by_cat_m2(onsource_loudest_by_cat)
 
 # NB: Here are examples of how to swap pure effective SNR or log IFAR.
 # Just remember to do it for off-source and injection cases as well.
@@ -439,15 +444,17 @@ log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
 # mark non-candidates
-actual_candidate_mask = onsource_loudest_by_mc > 0
+actual_candidate_mask = onsource_loudest_by_cat > 0
 log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
 
 # for upper limit, get the max L in each m2 bin; only from actual candidates
 log_L_by_m2 = max_L(log_L_by_mc_m2)
 
 # for detection, find the log(sum L) of the loudest candidate; sum over m2
+print apply_along_axis(log_sum, 1, log_L_by_mc_m2)
 log_sum_L = apply_along_axis(log_sum, 1, log_L_by_mc_m2).max()
 
+pickle.dump([log_L_by_mc_m2, log_L_by_m2, log_sum_L], open('test.pickle','w'))
 # write the on-source likelihoods to disk
 onsource_outname = __prog__ + "_onsource"
 if opts.user_tag is not None:
@@ -461,28 +468,28 @@ pickle.dump((log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask,
 if opts.verbose:
     print "Computing off-source likelihoods..."
 
-offsource_pc0_by_trial_mc = amap(\
-    compute_log_pc0_by_mc, offsource_loudest_by_trial_mc)
-offsource_pch_by_trial_mc_m2 = amap(\
-    compute_log_pch_by_mc_m2, offsource_loudest_by_trial_mc)
-offsource_log_L_by_trial_mc_m2 = offsource_pch_by_trial_mc_m2 \
-    - offsource_pc0_by_trial_mc[:, :, None]
+offsource_pc0_by_trial_cat = amap(\
+    compute_log_pc0_by_cat, offsource_loudest_by_trial_cat)
+offsource_pch_by_trial_cat_m2 = amap(\
+    compute_log_pch_by_cat_m2, offsource_loudest_by_trial_cat)
+offsource_log_L_by_trial_cat_m2 = offsource_pch_by_trial_cat_m2 \
+    - offsource_pc0_by_trial_cat[:, :, None]
 
 # mark non-candidates
-offsource_log_L_by_trial_mc_m2[offsource_loudest_by_trial_mc == 0., :] = \
+offsource_log_L_by_trial_cat_m2[offsource_loudest_by_trial_cat == 0., :] = \
     GRBL_EMPTY_TRIAL
 
 # for upper limit, get the max L in each m2 bin; only from actual candidates
-offsource_log_L_by_trial_m2 = amap(max_L, offsource_log_L_by_trial_mc_m2)
+offsource_log_L_by_trial_m2 = amap(max_L, offsource_log_L_by_trial_cat_m2)
 
 # for detection, find the log(sum L) of the loudest candidate; sum over m2
 offsource_log_sum_L_by_trial = \
-    apply_along_axis(log_sum, 2, offsource_log_L_by_trial_mc_m2)\
+    apply_along_axis(log_sum, 2, offsource_log_L_by_trial_cat_m2)\
     .max(axis=1)
 
 # write the off-source likelihoods to disk
 offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
-pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
+pickle.dump((offsource_pc0_by_trial_cat, offsource_pch_by_trial_cat_m2,
     offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial),
     open(offsource_outname, "wb"), -1)
 
@@ -494,27 +501,27 @@ pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
 if opts.verbose:
     print "Computing injection likelihoods..."
 
-inj_log_pc0_by_trial_mc = \
-    amap(compute_log_pc0_by_mc, inj_loudest_by_inj_mc)
-inj_log_pch_by_trial_mc_m2 = \
-    amap(compute_log_pch_by_mc_m2, inj_loudest_by_inj_mc)
-inj_log_L_by_trial_mc_m2 = \
-    inj_log_pch_by_trial_mc_m2 - inj_log_pc0_by_trial_mc[:, :, None]
+inj_log_pc0_by_trial_cat = \
+    amap(compute_log_pc0_by_cat, inj_loudest_by_inj_cat)
+inj_log_pch_by_trial_cat_m2 = \
+    amap(compute_log_pch_by_cat_m2, inj_loudest_by_inj_cat)
+inj_log_L_by_trial_cat_m2 = \
+    inj_log_pch_by_trial_cat_m2 - inj_log_pc0_by_trial_cat[:, :, None]
 
 # mark non-candidates
-inj_log_L_by_trial_mc_m2[inj_loudest_by_inj_mc == 0., :] = GRBL_EMPTY_TRIAL
+inj_log_L_by_trial_cat_m2[inj_loudest_by_inj_cat == 0., :] = GRBL_EMPTY_TRIAL
 
 # for upper limit, get the max L in each m2 bin; only from actual candidates
-inj_log_L_by_trial_m2 = amap(max_L, inj_log_L_by_trial_mc_m2)
+inj_log_L_by_trial_m2 = amap(max_L, inj_log_L_by_trial_cat_m2)
 
 # for detection, find the log(sum L) of the loudest candidate; sum over m2
 inj_log_sum_L_by_trial = \
-    apply_along_axis(log_sum, 2, inj_log_L_by_trial_mc_m2)\
+    apply_along_axis(log_sum, 2, inj_log_L_by_trial_cat_m2)\
     .max(axis=1)
 
 # write the injection likelihoods to disk
 inj_outname = onsource_outname.replace("_onsource", "_injections", 1)
-pickle.dump((inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2,
+pickle.dump((inj_log_pc0_by_trial_cat, inj_log_pch_by_trial_cat_m2,
              inj_log_L_by_trial_m2, inj_log_sum_L_by_trial),
             open(inj_outname, "wb"), -1)
 

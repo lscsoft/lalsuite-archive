@@ -35,6 +35,7 @@ import optparse
 import os.path as op
 import shutil
 import sys
+import os
 
 import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
@@ -74,28 +75,68 @@ trace_m2_bin = 0
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
 
-def get_fap(snr_by_mc):
+def get_fap(snr_by_cat):
     """
     Return the false alarm probability, the probability of obtaining snr_by_mc
     given background alone.
     """
-    return (offsource_loudest_by_trial_mc > snr_by_mc[None, :])\
+    return (offsource_loudest_by_trial_cat > snr_by_cat[None, :])\
         .sum(axis=0) / num_offsource_trials
 
-def get_min_fap(snr_by_mc):
+def get_min_fap(snr_by_cat):
     """
     Return the minimum false alarm probability, subject to a candidate actually
     being present.  In the case of no candidate, return 1.
     """
-    actual_candidates = snr_by_mc > 0
+    actual_candidates = snr_by_cat > 0
     if actual_candidates.any():
-        return get_fap(snr_by_mc)[actual_candidates].min()
+        return get_fap(snr_by_cat)[actual_candidates].min()
     else:
         return 1.
 
 class always_equal(object):
     def __eq__(self, other):
         return True
+
+def create_mchirp_plot(statistic, mc_bins, ifos,\
+                       onsource_loudest_by_mc, p0_by_mc):
+  """
+  Creates the mchirp plot and returns it.
+  @params statistic: The used statistic
+  @params mc_bins: An IrregularBins object describing the used mchirp bins
+  @params ifos: the used ifos (as a string)
+  @params onsource_loudest_cat: loudest onsource coincs by mchirp
+  @params p0_by_cat: the FAP by mchirp
+  """
+
+  ## mchirp vs loudest stat horizontal bar graph
+  text = "mchirp vs loudest statistic"
+  mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
+
+  plot = plotutils.NumberVsBinBarPlot(\
+    r"$\rho_\mathrm{eff}$",
+    "$" + mc_latex + "$", "Loudest statistics by template bank mchirp %s"%ifos)
+  plot.add_content(mc_bins, onsource_loudest_by_mc)
+  plot.finalize(orientation="horizontal")
+
+  # add p(c|0) on top as text
+  for mc, snr, pc0 in \
+          zip(mc_bins.centres(), onsource_loudest_by_mc, p0_by_mc):
+
+    plot.ax.text(snr + 0.2, mc, r"$\mathrm{FAP} = %.3f;\; \rho_\mathrm{eff,comb}=%.2f$" \
+                   % (pc0, snr), verticalalignment="center")
+
+  if plot.ax.get_xlim()[1] < 20:
+    plot.ax.set_xlim(xmax=20)
+  plot.ax.set_ylim((mc_bins.min, mc_bins.max))
+
+  # add mchirp dividers
+  for divider in mc_bins.boundaries:
+    plot.ax.plot(plot.ax.get_xlim(), (divider, divider),
+                 "k--", label="_nolegend_")
+
+  return plot
+
 
 def make_html_table(two_dim_seq, header_row=None):
     """
@@ -151,6 +192,10 @@ def parse_args():
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
 
+    # use defined arguments
+    parser.add_option("--statistic", help="The statistic to use (default: effective_snr)",\
+         default = 'effective_snr')
+
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -161,16 +206,12 @@ def parse_args():
 # parse arguments
 opts, args = parse_args()
 
-# GRB 070923 issue
-if 'V' in opts.ifo_tag:
-  get_mean_mchirp = grbsummary.get_mean_mchirp_lv
-else:
-  get_mean_mchirp = grbsummary.get_mean_mchirp
-
 
 ##############################################################################
 # HTML initialization
 InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
+page = InspiralUtils.InspiralPage(opts)
+
 html_footer = ""
 
 ##############################################################################
@@ -178,22 +219,23 @@ html_footer = ""
 
 if opts.verbose:
     print "Reading in bin definitions and loudest statistics..."
-statistic, mc_bins, onsource_loudest_by_mc \
+statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat \
     = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, offsource_loudest_by_trial_mc \
+statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
-log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, \
+
+log_pc0_by_cat, log_pch_by_cat_m2, actual_candidate_mask, \
     log_L_by_m2, log_sum_L = \
     pickle.load(open(opts.grblikelihood_onsource))
-offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2, \
+offsource_pc0_by_trial_cat, offsource_pch_by_trial_cat_m2, \
     offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial = \
     pickle.load(open(opts.grblikelihood_offsource))
-inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2, \
+inj_log_pc0_by_trial_cat, inj_log_pch_by_trial_cat_m2, \
     inj_log_L_by_trial_m2, inj_log_sum_L_by_trial = \
     pickle.load(open(opts.grblikelihood_injections))
 
@@ -203,39 +245,39 @@ for m2_D in m2_D_by_inj:
     num_sims_by_m2_D[m2_D] += 1
 num_sims_by_m2_D = num_sims_by_m2_D.array
 
-num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
+num_offsource_trials = offsource_loudest_by_trial_cat.shape[0]
 num_inj = inj_log_L_by_trial_m2.shape[0]
-if inj_loudest_by_inj_mc.shape[0] != num_inj:
+if inj_loudest_by_inj_cat.shape[0] != num_inj:
     raise ValueError, "relic injections do not match grblikelihood injections"
 
 m2_bin_by_inj = [m2_bins[m2_D[0]] for m2_D in m2_D_by_inj]
 
-log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
-inj_log_L_by_trial_mc_m2 = inj_log_pch_by_trial_mc_m2 \
-    - inj_log_pc0_by_trial_mc[:, :, None]
+log_L_by_cat_m2 = log_pch_by_cat_m2 - log_pc0_by_cat[:, None]
+inj_log_L_by_trial_cat_m2 = inj_log_pch_by_trial_cat_m2 \
+    - inj_log_pc0_by_trial_cat[:, :, None]
 
 ##############################################################################
 # compute unextrapolated FAP for IFAR comparison
 if opts.verbose:
     print "Computing IFAR..."
 
-raw_pc0_by_mc = get_fap(onsource_loudest_by_mc)
+raw_pc0_by_cat = get_fap(onsource_loudest_by_cat)
 
 # with multiple candidates, take the minimum FAP to get the maximum IFAR
 # for FAP == 0, use 1e-5 instead
 offsource_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-5 \
-    for trial in offsource_loudest_by_trial_mc),
+    for trial in offsource_loudest_by_trial_cat),
     dtype=float, count=num_offsource_trials)
 inj_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-5 for trial \
-    in inj_loudest_by_inj_mc), dtype=float, count=num_inj)
+    in inj_loudest_by_inj_cat), dtype=float, count=num_inj)
 
-on_ifar = 1 / (get_min_fap(onsource_loudest_by_mc) or 1e-5)
+on_ifar = 1 / (get_min_fap(onsource_loudest_by_cat) or 1e-5)
 off_ifar = 1 / offsource_fap_by_trial
 inj_ifar = 1 / inj_fap_by_trial
 
 # get unextrapolated p(c|0) for a plot
-inj_fap_by_trial_mc = \
-    numpy.asarray(map(get_fap, inj_loudest_by_inj_mc))
+inj_fap_by_trial_cat = \
+    numpy.asarray(map(get_fap, inj_loudest_by_inj_cat))
 
 
 ##############################################################################
@@ -279,118 +321,252 @@ if opts.verbose:
     print "Computation complete.  Writing summary page and plots..."
 
 relic_onsource_xml = opts.relic_onsource.replace(".pickle", ".xml")
-shutil.copy(relic_onsource_xml, op.join(opts.output_path, relic_onsource_xml))
+shutil.copy(relic_onsource_xml, op.join(opts.output_path, os.path.basename(relic_onsource_xml)))
 html_footer += "Loudest on-source coincidences [<a href=\"" \
     + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
 
-if not numpy.any(actual_candidate_mask):
-    html_footer += "No on-source coincidences found.\n"
-else:
-    # make overall statement
-    html_footer += "ln (&Sigma; <em>L</em><sub>obs</sub>) = %.2g<br>\n" \
-        % log_sum_L
-    html_footer += "P(ln (&Sigma; <em>L</em>) &gt; "\
-        "ln (&Sigma; <em>L</em><sub>obs</sub>) | 0) "\
-        "= %.2g<br><br>\n" % pLsum0
+## x-start
 
-    # parse coincs
-    coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
-    # XXX: For S5 LIGO-only searches, we have int_8s event_id columns.
-    # For S5 LIGO-Virgo and later searches, we have ilwd:char event_id columns.
-    try:
-        onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
-            [relic_onsource_xml])
-    except ligolw.ElementError:
-        onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
-            [relic_onsource_xml], old_document=True)
-    onsource_trigs = table.get_table(onsource_doc,
-        lsctables.SnglInspiralTable.tableName)
-    onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
-        coinc_stat)
-    if len(onsource_coincs) > len(mc_bins):
-        raise ValueError, "more on-source coincs than mchirp bins"
+# parse coincs
+coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
+# XXX: For S5 LIGO-only searches, we have int_8s event_id columns.
+# For S5 LIGO-Virgo and later searches, we have ilwd:char event_id columns.
+try:
+    onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+        [relic_onsource_xml])
+except ligolw.ElementError:
+    onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+        [relic_onsource_xml], old_document=True)
+onsource_trigs = table.get_table(onsource_doc,
+    lsctables.SnglInspiralTable.tableName)
+onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+    coinc_stat)
+if len(onsource_coincs) > len(mc_ifo_cats):
+    raise ValueError, "more on-source coincs (%d) than categories (%d)" %\
+                     (len(onsource_coincs), len(mc_ifo_cats))
 
-    # print per-mchirp info
-    ifos = set()
-    for coinc in onsource_coincs:
-        ifos.update(coinc.get_ifos()[1])
-    ifos = list(ifos)
-    ifos.sort()
-    all_ifos = ['H1','L1','V1']
-    columns = ["mc_bin", "event_id"] \
-        + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
-        + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
-        "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
-        "<sub>eff,obs</sub> | 0)"]
-    rows = []
 
-    ## split up the coincs before
-    mchirp_dict = {}
-    for coinc in onsource_coincs:
-      ifo_text = ''
-      mc = get_mean_mchirp(coinc)
-      for ifo in all_ifos:
-        if hasattr(coinc, ifo):
-          ifo_text+=ifo
+# some dummy hack, fix, feature, whatever
+cat_keys = [cat[0] for cat in mc_ifo_cats.centres()]
+cat_dict = {}
 
-      index = mc_bins[mc]
-      mchirp_dict[index]=coinc
+# FIXME: use from grbsummary
+ifo_list = ['H1','L1','V1']
+ifos_list = ['H1L1V1','H1L1','H1V1','L1V1']
+columns = ["ifos","mc_bin", "event_id"] \
+          + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifo_list] \
+          + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
+             "FAP"]
+output_list = []
+rows = []
+#for cat in cat_keys:
+for mc_ind, ifos in cat_keys:
 
-    mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
-    for index, (low, hi, pc0) in \
-        enumerate(zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc)):
-        row = ["[%.2f, %.2f)" % (low, hi)]
-        try:
-          mc_coincs = mchirp_dict[index]
-        except:
-          mc_coincs = None
+  # get the basic index and the mchirps and ifos
+  cat_index = mc_ifo_cats[(mc_ind, ifos)]
+  mchirp_low = mc_bins.lower()[mc_ind]
+  mchirp_upp = mc_bins.upper()[mc_ind]
 
-        if mc_coincs is None:
-            row += ["&mdash;"] * (len(columns) - len(row))
-        else:
-            c = mc_coincs
-            # XXX: hardcoded effective SNR
-	    text = []
-	    for ifo in all_ifos:
-	      try:
-	        trig = getattr(c,ifo)
-                text+=["%.4g" % trig.get_effective_snr()]
-	      except:
-	        text+=['&mdash;']
+  # prepare dictionary to save the data
+  output_dict = {'event_id':None,'snrH':None,'snrL':None,'snrV':None}
+
+  # retrieve all coincs for this ifo combination
+  ifos_coinc = onsource_coincs.getChirpMass(mchirp_low, mchirp_upp)
+
+  # keep only the one with the correct IFO combination
+  use_coinc = None
+  for coinc in ifos_coinc:
+    if coinc.ifos == ifos:
+      use_coinc = coinc
+      break
+
+  # store the coinc for later
+  cat_dict[cat_index]=use_coinc
+
+  ifo_str = "".join(sorted(ifos))
+  row = ["%s"%ifo_str, "[%.2f, %.2f)" % (mchirp_low, mchirp_upp)]
+  output_dict['ifos'] = ifo_str
+  output_dict['mc-bins'] = [mchirp_low, mchirp_upp]
+  if use_coinc:
+    use_id = str(use_coinc.event_id).split(':')[2]
+    row += [use_id]
+    output_dict['event_id']=use_id
+  else:
+    row += ['&mdash']
+
+  if use_coinc:
+    for ifo in ifo_list:
+      if hasattr(use_coinc, ifo):
+        trig = getattr(use_coinc, ifo)
+        row += ["%.4g"%trig.get_effective_snr()]
+        output_dict['snr'+ifo[0].upper()]=trig.get_effective_snr()
+      else:
+        row += ["&mdash"]
+
+    pc0 = raw_pc0_by_cat[cat_index]
+    row += ["%.4g" % use_coinc.stat, "%.4g" % \
+           grbsummary.get_mean_mchirp(use_coinc),"%.4g" % pc0]
+    output_dict['snr_effective']=use_coinc.stat
+    output_dict['mchirp']=grbsummary.get_mean_mchirp(use_coinc)
+    output_dict['prob']=pc0
+
+  else:
+    row += ['&mdash','&mdash','&mdash','&mdash','&mdash','&mdash']
+
+  # add this row to the rows-list
+  rows.append(row)
+  output_list.append(output_dict)
+
+html_footer += make_html_table(rows, columns)
+
+# print per-m2 info
+temp_log_L_by_cat_m2 = log_pch_by_cat_m2 - log_pc0_by_cat[:, None]
+temp_log_L_by_cat_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
+cat_ind_by_m2 = temp_log_L_by_cat_m2.argmax(axis=0)
+
+m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
+    "<em>P</em>(<em>L</em>(<em>m</em><sub>2</sub>) &gt; "\
+    "<em>L</em><sub>obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
+rows = []
+for m2_range, cat_ind, log_L, pL0 in zip(m2_ranges, cat_ind_by_m2,
+    log_L_by_m2, pL0_by_m2):
+    row = ["[%.2f, %.2f)" % m2_range]
+
+    m2_coincs = [cat_dict[cat_ind]]
+
+    if len(m2_coincs) == 0:
+        row.append("&mdash;")
+    elif len(m2_coincs) == 1:
+        use_id = str(m2_coincs[0].event_id).split(':')[2]
+        row.append(use_id)
+    else:
+        raise ValueError, "there should be exactly one or zero coincs"
+    row.extend(["%.4g" % log_L, "%.4g" % pL0])
+    rows.append(row)
+
+html_footer += make_html_table(rows, columns)
+
+
+####  x-end
+
+
+## if not numpy.any(actual_candidate_mask):
+##     html_footer += "No on-source coincidences found.\n"
+## else:
+##     # make overall statement
+##     html_footer += "ln (&Sigma; <em>L</em><sub>obs</sub>) = %.2g<br>\n" \
+##         % log_sum_L
+##     html_footer += "P(ln (&Sigma; <em>L</em>) &gt; "\
+##         "ln (&Sigma; <em>L</em><sub>obs</sub>) | 0) "\
+##         "= %.2g<br><br>\n" % pLsum0
+
+##     # parse coincs
+##     coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
+##     # XXX: For S5 LIGO-only searches, we have int_8s event_id columns.
+##     # For S5 LIGO-Virgo and later searches, we have ilwd:char event_id columns.
+##     try:
+##         onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+##             [relic_onsource_xml])
+##     except ligolw.ElementError:
+##         onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+##             [relic_onsource_xml], old_document=True)
+##     onsource_trigs = table.get_table(onsource_doc,
+##         lsctables.SnglInspiralTable.tableName)
+##     onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+##         coinc_stat)
+##     if len(onsource_coincs) > len(mc_ifo_cats):
+##         raise ValueError, "more on-source coincs (%d) than categories (%d)" %\
+##                          (len(onsource_coincs), len(mc_ifo_cats))
+
+##     # some dummy hack, fix, feature, whatever
+##     cats = [cat[0] for cat in mc_ifo_cats.centres()]
+
+
+##     # print per-mchirp info
+##     ifos = set()
+##     for coinc in onsource_coincs:
+##         ifos.update(coinc.get_ifos()[1])
+##     ifos = list(ifos)
+##     ifos.sort()
+##     all_ifos = ['H1','L1','V1']
+##     columns = ["mc_bin", "event_id"] \
+##         + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
+##         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
+##         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
+##         "<sub>eff,obs</sub> | 0)"]
+##     rows = []
+
+##     ## split up the coincs before
+##     mchirp_dict = {}
+##     for coinc in onsource_coincs:
+##       ifo_text = ''
+##       mc = grbsummary.get_mean_mchirp(coinc)
+##       for ifo in all_ifos:
+##         if hasattr(coinc, ifo):
+##           ifo_text+=ifo
+
+##       index = mc_bins[mc]
+##       mchirp_dict[index]=coinc
+
+##     print mchirp_dict
+##     print 
+##     sys.exit(0)
+##     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
+##     for index, (low, hi, pc0) in \
+##         enumerate(zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc)):
+##         row = ["[%.2f, %.2f)" % (low, hi)]
+##         try:
+##           mc_coincs = mchirp_dict[index]
+##         except:
+##           mc_coincs = None
+
+##         if mc_coincs is None:
+##             row += ["&mdash;"] * (len(columns) - len(row))
+##         else:
+##             c = mc_coincs
+##             # XXX: hardcoded effective SNR
+## 	    text = []
+## 	    for ifo in all_ifos:
+## 	      try:
+## 	        trig = getattr(c,ifo)
+##                 text+=["%.4g" % trig.get_effective_snr()]
+## 	      except:
+## 	        text+=['&mdash;']
          	
-            row += [c.event_id] +text\
-                + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
-                   "%.4g" % pc0]
-        rows.append(row)
+##             row += [c.event_id] +text\
+##                 + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
+##                    "%.4g" % pc0]
+##         rows.append(row)
  
-    html_footer += make_html_table(rows, columns)
+##     html_footer += make_html_table(rows, columns)
 
-    # print per-m2 info
-    temp_log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
-    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
-    mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
+##     # print per-m2 info
+##     temp_log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
+##     temp_log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
+##     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
 
-    m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-    columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
-        "<em>P</em>(<em>L</em>(<em>m</em><sub>2</sub>) &gt; "\
-        "<em>L</em><sub>obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
-    rows = []
-    for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
-        log_L_by_m2, pL0_by_m2):
-        row = ["[%.2f, %.2f)" % m2_range]
+##     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+##     columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
+##         "<em>P</em>(<em>L</em>(<em>m</em><sub>2</sub>) &gt; "\
+##         "<em>L</em><sub>obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
+##     rows = []
+##     for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
+##         log_L_by_m2, pL0_by_m2):
+##         row = ["[%.2f, %.2f)" % m2_range]
 
-        m2_coincs = [mchirp_dict[mc_ind]]
+##         m2_coincs = [mchirp_dict[mc_ind]]
 
-        if len(m2_coincs) == 0:
-            row.append("&mdash;")
-        elif len(m2_coincs) == 1:
-            row.append(m2_coincs[0].event_id)
-        else:
-            raise ValueError, "there should be exactly one or zero coincs"
-        row.extend(["%.4g" % log_L, "%.4g" % pL0])
-        rows.append(row)
+##         if len(m2_coincs) == 0:
+##             row.append("&mdash;")
+##         elif len(m2_coincs) == 1:
+##             row.append(m2_coincs[0].event_id)
+##         else:
+##             raise ValueError, "there should be exactly one or zero coincs"
+##         row.extend(["%.4g" % log_L, "%.4g" % pL0])
+##         rows.append(row)
 
-    html_footer += make_html_table(rows, columns)
+##     html_footer += make_html_table(rows, columns)
 
 ################################################################################
 # plots
@@ -442,13 +618,7 @@ plot.ax.text(xlims[1], thresh_01, r"$1\%\textrm{ false alarm on }\ln(\bar{L})$",
     horizontalalignment="right", verticalalignment="bottom")
 plot.ax.set_xlim(xlims)
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "max_log_L_by_mc_m2")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, 'max_log_L_by_mc_m2')
 
 ## P(L_sum > L_sum^* | 0) vs L_sum^*
 text = "P(sum(ln L) > sum(ln L)^*| 0) vs sum(ln L)^*"
@@ -471,51 +641,67 @@ if actual_candidate_mask.any():
     plot.ax.set_xlim(xlims)
 plot.ax.set_ylim((0, 1))
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "P_L_sum_by_L")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, 'P_L_sum_by_L')
+
+## mchirp vs loudest stat horizontal bar graph
+# loudest coinc per mchirp plot; one for each IFO
+ifo_set = set()
+for a in mc_ifo_cats.centres(): ifo_set.add(a[0][1])
+
+print "Creating the blue-bar plots"
+for ifos in ifo_set:
+  ifos_str = "".join(sorted(ifos))
+  indices = [mc_ifo_cats[cat] for cat in cat_keys if cat[1]==ifos]
+
+  # create the 'blue-bar' plot
+  plot = create_mchirp_plot(statistic, mc_bins, ifos_str, \
+                            onsource_loudest_by_cat[indices], \
+                            raw_pc0_by_cat[indices])
+
+  page.add_plot(plot.fig, "loudest_stats_by_mchirp"+ifos_str)
+
+
+  
+##plot = create_mchirp_plot(statistic, mc_bins, ifos,\
+##                          onsource_loudest_by_cat, p0_by_cat)
 
 
 ## mchirp vs loudest stat horizontal bar graph
-text = "mchirp vs loudest statistic"
+#text = "mchirp vs loudest statistic"
 
-plot = plotutils.NumberVsBinBarPlot(statistic.replace("_", r"\_"),
-    "$" + mc_latex + "$", "Loudest statistics by template bank mchirp")
-plot.add_content(mc_bins, onsource_loudest_by_mc)
-plot.finalize(orientation="horizontal")
+#plot = plotutils.NumberVsBinBarPlot(statistic.replace("_", r"\_"),
+#    "$" + mc_latex + "$", "Loudest statistics by template bank mchirp")
+#plot.add_content(mc_bins, onsource_loudest_by_cat)
+#plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
-for mc, snr, have_candidate, pc0 in \
-    zip(mc_bins.centres(), onsource_loudest_by_mc, actual_candidate_mask,
-        raw_pc0_by_mc):
-    if have_candidate:
-        plot.ax.text(snr + 0.2, mc, r"$P(" + c_in_E + r"\,|\,0) = %.3f$" \
-            % pc0, verticalalignment="center")
-    else:
-        plot.ax.text(10, mc, r"$P(\textrm{any candidate}\,|\,0) = %.3f$" \
-            % pc0, horizontalalignment="center", verticalalignment="center")
+#for mc, snr, have_candidate, pc0 in \
+#    zip(mc_bins.centres(), onsource_loudest_by_cat, actual_candidate_mask,
+#        raw_pc0_by_mc):
+#    if have_candidate:
+#        plot.ax.text(snr + 0.2, mc, r"$P(" + c_in_E + r"\,|\,0) = %.3f$" \
+#            % pc0, verticalalignment="center")
+#    else:
+#        plot.ax.text(10, mc, r"$P(\textrm{any candidate}\,|\,0) = %.3f$" \
+#            % pc0, horizontalalignment="center", verticalalignment="center")
+#
+#if plot.ax.get_xlim()[1] < 20:
+#    plot.ax.set_xlim(xmax=20)
 
-if plot.ax.get_xlim()[1] < 20:
-    plot.ax.set_xlim(xmax=20)
-
-plot.ax.set_ylim((mc_bins.min, mc_bins.max))
+#plot.ax.set_ylim((mc_bins.min, mc_bins.max))
 
 # add mchirp dividers
-for divider in mc_bins.boundaries:
-    plot.ax.plot(plot.ax.get_xlim(), (divider, divider),
-        "k--", label="_nolegend_")
+#for divider in mc_bins.boundaries:
+#    plot.ax.plot(plot.ax.get_xlim(), (divider, divider),
+#        "k--", label="_nolegend_")
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+#if opts.enable_output:
+#    fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
+#    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+#    fnameList.append(fname)
+#    tagList.append(text)
+#if not opts.show_plot:
+#    plot.close()
 
 ## L vs m2 for loudest candidates
 # TODO: before and after MC and calibration systematics
@@ -523,46 +709,96 @@ text = "ln L(c(mc)|h(m2))"
 
 # get likelihoods at extrapolation points
 # XXX: 0.3 is a magic number; we start extrapolating at p(c|0) = 0.3
-num_nonempty_offsource_trials = (offsource_loudest_by_trial_mc > 0).sum(axis=0)
+num_nonempty_offsource_trials = (offsource_loudest_by_trial_cat > 0).sum(axis=0)
+print "num_nonempty_offsource_trials: ", num_nonempty_offsource_trials
 extrap_ind = \
-    [offsource_loudest_by_trial_mc.argsort(axis=0)[-int(0.3 * N), i] \
+    [offsource_loudest_by_trial_cat.argsort(axis=0)[-int(0.3 * N), i] \
      for i,N in enumerate(num_nonempty_offsource_trials)]
-extrap_snr_by_mc = \
-    offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
+print "extrap_ind: ", extrap_ind
+extrap_snr_by_cat = \
+    offsource_loudest_by_trial_cat[extrap_ind, range(len(mc_ifo_cats))]
+print  "extrap_snr_by_cat ", extrap_snr_by_cat
+print  "extrap_snr_by_cat.shape ", extrap_snr_by_cat.shape
 
-plot = plotutils.SimplePlot(\
+for ifos in ifo_set:
+  ifos_str = "".join(sorted(ifos))
+  indices = [mc_ifo_cats[cat] for cat in cat_keys if cat[1]==ifos]
+
+  plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
     r"$\ln L$",
-    r"Significance of candidates in different mchirp regions")
-for mc_range, mc_log_L_by_m2, is_candidate, color in \
-    zip(mc_ranges, log_L_by_mc_m2,
-    actual_candidate_mask, plotutils.default_colors()):
-    if is_candidate:
-        linestyle = "-"
-    else:
-        linestyle = "--"
-    plot.add_content(m2_bins.centres(), mc_log_L_by_m2, linestyle=linestyle,
-                     color=color,
-                     label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize(loc=4)
-plot.ax.set_ylim(ymin=-0.5)
+    r"Significance of candidates in different mchirp regions in %s"%ifos_str)
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_L_by_mc_m2")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+  for mc_range, mc_log_L_by_m2, is_candidate, color in \
+        zip(mc_ranges, log_L_by_cat_m2[indices], actual_candidate_mask[indices], plotutils.default_colors()):
 
+      if is_candidate:
+          linestyle = "-"
+      else:
+          linestyle = "--"
+      plot.add_content(m2_bins.centres(), mc_log_L_by_m2, linestyle=linestyle,
+                       color=color,
+                       label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+  plot.finalize(loc=4)
+  plot.ax.set_ylim(ymin=-0.5)
+
+
+  page.add_plot(plot.fig, "log_L_by_mc_m2_%s"%ifos_str)
+
+print "Creating L vs. stat plots"
 ## L_sum vs rho
 text = "ln sum L vs max rho"
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
     r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$")
 
+# loop over all different categories
+for mc_ind, ifos in cat_keys:
+
+    cat_index = mc_ifo_cats[(mc_ind, ifos)]
+    mchirp_low = mc_bins.lower()[mc_ind]
+    mchirp_upp = mc_bins.upper()[mc_ind]
+    ifos_str = "".join(sorted(ifos))
+     
+    plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
+                                r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$ %.2f-%.2f %s"%\
+                                (mchirp_low, mchirp_upp, ifos_str))
+
+    # injections
+    x_data = inj_loudest_by_inj_cat[:,cat_index]
+    y_data = inj_log_sum_L_by_trial
+    non_empty_trials = (x_data > 0) & (y_data > 0)
+    x_data = x_data[non_empty_trials]
+    y_data = y_data[non_empty_trials]
+    plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
+                     label="injections", markersize=4)
+
+    # background
+    x_data = offsource_loudest_by_trial_cat[:,cat_index]
+    y_data = offsource_log_sum_L_by_trial
+    non_empty_trials = (x_data > 0) & (y_data > 0)
+    x_data = x_data[non_empty_trials]
+    y_data = y_data[non_empty_trials]
+    plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
+                     label="background", markersize=6)
+    
+    # on-source observation
+    if log_L_by_m2.sum() > 0:
+        plot.add_content([onsource_loudest_by_cat[cat_index]], [log_sum_L],
+                         marker="D", markeredgecolor="g", linestyle="None", markeredgewidth=2,
+                         label="on-source observation", markersize=8, markerfacecolor="g")
+
+    plot.finalize(loc=4)
+    plot.ax.set_xscale("log")
+    plot.ax.set_yscale("log")
+    plot.ax.axis("tight")
+    page.add_plot(plot.fig, "log_sum_L_vs_rho_max_%d"%cat_index)
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
+    r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$")
+
 # injections
-x_data = inj_loudest_by_inj_mc.max(axis=1)
+x_data = inj_loudest_by_inj_cat.max(axis=1)
 y_data = inj_log_sum_L_by_trial
 non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
@@ -571,7 +807,7 @@ plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
     label="injections", markersize=4)
 
 # background
-x_data = offsource_loudest_by_trial_mc.max(axis=1)
+x_data = offsource_loudest_by_trial_cat.max(axis=1)
 y_data = offsource_log_sum_L_by_trial
 non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
@@ -581,22 +817,15 @@ plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
 
 # on-source observation
 if log_L_by_m2.sum() > 0:
-    plot.add_content([onsource_loudest_by_mc.max()], [log_sum_L],
-        marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
-        label="on-source observation", markersize=8, markerfacecolor="None")
+    plot.add_content([onsource_loudest_by_cat.max()], [log_sum_L],
+        marker="D", markeredgecolor="g", linestyle="None", markeredgewidth=2,
+        label="on-source observation", markersize=8, markerfacecolor="g")
 
 plot.finalize(loc=4)
 plot.ax.set_xscale("log")
 plot.ax.set_yscale("log")
 plot.ax.axis("tight")
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_sum_L_vs_rho_max")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "log_sum_L_vs_rho_max")
 
 ## IFAR vs rho
 text = "IFAR vs max rho"
@@ -605,7 +834,7 @@ plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"IFAR",
     r"max IFAR vs max eff SNR")
 
 # injections
-x_data = inj_loudest_by_inj_mc.max(axis=1)
+x_data = inj_loudest_by_inj_cat.max(axis=1)
 y_data = inj_ifar
 non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
@@ -614,7 +843,7 @@ plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
     label="injections", markersize=4)
 
 # background
-x_data = offsource_loudest_by_trial_mc.max(axis=1)
+x_data = offsource_loudest_by_trial_cat.max(axis=1)
 y_data = off_ifar
 non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
@@ -624,22 +853,16 @@ plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
 
 # on-source observation
 if log_L_by_m2.sum() > 0:
-    plot.add_content([onsource_loudest_by_mc.max()], [on_ifar],
-        marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
-        label="on-source observation", markersize=8, markerfacecolor="None")
+    plot.add_content([onsource_loudest_by_cat.max()], [on_ifar],
+        marker="D", markeredgecolor="g", linestyle="None", markeredgewidth=2,
+        label="on-source observation", markersize=8, markerfacecolor="g")
 
 plot.finalize(loc=4)
 plot.ax.set_xscale("log")
 plot.ax.set_yscale("log")
 plot.ax.axis("tight")
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "IFAR_vs_rho_max")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "IFAR_vs_rho_max")
 
 ## L_sum vs IFAR
 text = "max ln sum L vs max IFAR"
@@ -668,29 +891,22 @@ plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
 # on-source observation
 if log_L_by_m2.sum() > 0:
     plot.add_content([on_ifar], [log_sum_L],
-        marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
-        label="on-source observation", markersize=8, markerfacecolor="None")
+        marker="D", markeredgecolor="g", linestyle="None", markeredgewidth=2,
+        label="on-source observation", markersize=8, markerfacecolor="g")
 
 plot.finalize(loc=2)
 plot.ax.set_xscale("log")
 plot.ax.set_yscale("log")
 plot.ax.axis("tight")
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_sum_L_vs_IFAR_max")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "log_sum_L_vs_IFAR_max")
 
 ## ROC plot
 text = "ROC curve (uniform priors)"
 
 plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
     r"$\textrm{ROC curve (uniform priors)}$")
-plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
-    inj_loudest_by_inj_mc.max(axis=1),
+plot.add_content(offsource_loudest_by_trial_cat.max(axis=1),
+    inj_loudest_by_inj_cat.max(axis=1),
     color="r", linestyle="-", label="eff. SNR")
 plot.add_content(off_ifar, inj_ifar,
     color="g", linestyle="-", label="IFAR")
@@ -701,21 +917,14 @@ plot.add_content(offsource_log_sum_L_by_trial,
 plot.finalize(loc=4)
 
 # diagonal line represents blind guessing
-min_fap = 1 / len(offsource_loudest_by_trial_mc)
+min_fap = 1 / len(offsource_loudest_by_trial_cat)
 diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
 plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
     label="_nolegend_")
 plot.ax.set_xlim((min_fap, 1))
 plot.ax.set_ylim((min_fap, 1))
 plot.ax.set_xscale("log")
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "ROC_uniform")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "ROC_uniform")
 
 ## ROC plot (D^3 reweighted)
 text = "ROC curve (D^3 weighting)"
@@ -726,8 +935,8 @@ weight_by_inj /= weight_by_inj.sum()
 
 plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
     r"$\textrm{ROC curve (}D^3\textrm{ weighting)}$")
-plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
-    inj_loudest_by_inj_mc.max(axis=1), weight_by_inj,
+plot.add_content(offsource_loudest_by_trial_cat.max(axis=1),
+    inj_loudest_by_inj_cat.max(axis=1), weight_by_inj,
     color="r", linestyle="-", label="eff. SNR")
 plot.add_content(1 / offsource_fap_by_trial, 1 / inj_fap_by_trial,
     weight_by_inj,
@@ -739,7 +948,7 @@ plot.add_content(offsource_log_sum_L_by_trial,
 plot.finalize(loc=4)
 
 # diagonal line represents blind guessing
-min_fap = 1 / len(offsource_loudest_by_trial_mc)
+min_fap = 1.0 / len(offsource_loudest_by_trial_cat)
 diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
 plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
     label="_nolegend_")
@@ -747,104 +956,152 @@ plot.ax.set_xlim((min_fap, 1))
 plot.ax.set_ylim((min_fap, 1))
 plot.ax.set_xscale("log")
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "ROC_D3")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "ROC_D3")
 
-## IFAR ROC plot (D^3 weighting) by chirp mass
-text = "ROC curve (D^3 prior)"
 
-m2_bin_by_inj = numpy.fromiter((m2_bins[m2] for m2, D in m2_D_by_inj),
-    dtype=int, count=num_inj)
-for m2_ind, m2_range in enumerate(m2_ranges):
-    # find which injections were in this m2 bin
-    m2_injs = m2_bin_by_inj == m2_ind
-    num_m2_injs = m2_injs.sum()
+## ## IFAR ROC plot (D^3 weighting) by chirp mass
+## text = "ROC curve (D^3 prior)"
 
-    plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
-       r"$\textrm{ROC curves for }m_\mathrm{companion}\in"\
-       r"[%.2f,%.2f)\,M_\odot\ (D^3\textrm{ weighting)}$" % m2_range)
+## m2_bin_by_inj = numpy.fromiter((m2_bins[m2] for m2, D in m2_D_by_inj),
+##     dtype=int, count=num_inj)
+## for m2_ind, m2_range in enumerate(m2_ranges):
+##     # find which injections were in this m2 bin
+##     m2_injs = m2_bin_by_inj == m2_ind
+##     num_m2_injs = m2_injs.sum()
 
-    plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
-        inj_loudest_by_inj_mc.max(axis=1)[m2_injs],
-        weight_by_inj[m2_injs] * num_inj / num_m2_injs,
-        color="r", linestyle="-", label="eff SNR")
-    plot.add_content(off_ifar, inj_ifar[m2_injs],
-        weight_by_inj[m2_injs] * num_inj / num_m2_injs,
-        color="g", linestyle="-", label="IFAR")
-    plot.add_content(\
-        offsource_log_sum_L_by_trial,
-        inj_log_sum_L_by_trial[m2_injs],
-        weight_by_inj[m2_injs] * num_inj / num_m2_injs,
-        color="b", linestyle="-", label=r"$\ln(\Sigma L)$")
+##     plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
+##        r"$\textrm{ROC curves for }m_\mathrm{companion}\in"\
+##        r"[%.2f,%.2f)\,M_\odot\ (D^3\textrm{ weighting)}$" % m2_range)
 
-    plot.finalize(loc=4)
+##     plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
+##         inj_loudest_by_inj_mc.max(axis=1)[m2_injs],
+##         weight_by_inj[m2_injs] * num_inj / num_m2_injs,
+##         color="r", linestyle="-", label="eff SNR")
+##     plot.add_content(off_ifar, inj_ifar[m2_injs],
+##         weight_by_inj[m2_injs] * num_inj / num_m2_injs,
+##         color="g", linestyle="-", label="IFAR")
+##     plot.add_content(\
+##         offsource_log_sum_L_by_trial,
+##         inj_log_sum_L_by_trial[m2_injs],
+##         weight_by_inj[m2_injs] * num_inj / num_m2_injs,
+##         color="b", linestyle="-", label=r"$\ln(\Sigma L)$")
 
-    # diagonal line represents blind guessing
-    min_fap = 1 / len(offsource_loudest_by_trial_mc)
-    diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
-    plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
-        label="_nolegend_")
-    plot.ax.set_xlim((min_fap, 1))
-    plot.ax.set_ylim((min_fap, 1))
-    plot.ax.set_xscale("log")
+##     plot.finalize(loc=4)
 
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "ROC_D3_m2_%.2f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
+##     # diagonal line represents blind guessing
+##     min_fap = 1 / len(offsource_loudest_by_trial_mc)
+##     diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
+##     plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
+##         label="_nolegend_")
+##     plot.ax.set_xlim((min_fap, 1))
+##     plot.ax.set_ylim((min_fap, 1))
+##     plot.ax.set_xscale("log")
 
-## p(c|h) vs rho for each mc bin
-text = "ln P(c|h) vs rho for each mc bin for m2 = " \
-    + str(m2_bins.centres()[trace_m2_bin])
+##     if opts.enable_output:
+##         fname = InspiralUtils.set_figure_name(opts,
+##             "ROC_D3_m2_%.2f" % m2_range[0])
+##         fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+##         fnameList.append(fname)
+##         tagList.append(text)
+##     if not opts.show_plot:
+##         plot.close()
 
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln P(" + c_in_E + r"\,|\,h)\textrm{ vs stat for some } "\
-    r"m_2\ (%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
-trace_inj_ind = m2_bin_by_inj == trace_m2_bin
-for mc_ind, mc_range in enumerate(mc_ranges):
-    x_data = inj_loudest_by_inj_mc[trace_inj_ind, mc_ind].copy()
-    y_data = inj_log_pch_by_trial_mc_m2[trace_inj_ind, mc_ind, trace_m2_bin]\
-        .copy()
-    non_empty_ind = y_data != GRBL_EMPTY_TRIAL
-    x_data = x_data[non_empty_ind]
-    y_data = y_data[non_empty_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
-        label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
 
-plot.finalize(loc=1)
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_pch_vs_rho")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+## ## p(c|h) vs rho for each mc bin
+## text = "ln P(c|h) vs rho for each mc bin for m2 = " \
+##     + str(m2_bins.centres()[trace_m2_bin])
+
+## plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
+##     r"$\ln P(" + c_in_E + r"\,|\,h)\textrm{ vs stat for some } "\
+##     r"m_2\ (%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
+## trace_inj_ind = m2_bin_by_inj == trace_m2_bin
+## for mc_ind, mc_range in enumerate(mc_ranges):
+##     x_data = inj_loudest_by_inj_mc[trace_inj_ind, mc_ind].copy()
+##     y_data = inj_log_pch_by_trial_mc_m2[trace_inj_ind, mc_ind, trace_m2_bin]\
+##         .copy()
+  
+## #   non_empty_ind = y_data != GRBL_EMPTY_TRIAL
+##     x_data = x_data[non_empty_ind]
+##     y_data = y_data[non_empty_ind]
+##     plot.add_content(x_data, y_data, marker=".", linestyle="None",
+##         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+## plot.finalize(loc=1)
+
 
 ## p(c|0) vs rho for each mc bin
 text = "ln P(c|0) vs rho for each mc bin for m2 = " \
     + str(m2_bins.centres()[trace_m2_bin])
 
+# loop over the IFOs
+for ifos in ifo_set:
+   
+    ifos_str = "".join(sorted(ifos)) 
+    indices = [mc_ifo_cats[cat] for cat in cat_keys if cat[1]==ifos]
+    
+    plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
+                            r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$ %s"%ifos_str)
+
+    # add unextrapolated p(c|0) to the right of the extrapolation points
+    print indices
+    print inj_loudest_by_inj_cat.shape
+    print extrap_snr_by_cat.shape
+    print inj_fap_by_trial_cat.shape
+    
+
+    extrap_trials_by_inj_cat = \
+                            (inj_loudest_by_inj_cat > extrap_snr_by_cat[None, :]) & \
+                            (inj_fap_by_trial_cat > 0)
+
+    print " extrap_trials_by_inj_cat: ", extrap_trials_by_inj_cat.shape
+    print " inj_log_pc0_by_trial_cat: ", inj_log_pc0_by_trial_cat.shape
+    print extrap_trials_by_inj_cat[:,indices]
+    print inj_log_pc0_by_trial_cat[:,indices]
+    
+    for (mc_range, inj_loudest_by_inj, inj_fap_by_trial, extrap_trials_by_inj, \
+         inj_log_pc0_by_trial, color) \
+        in zip(mc_ranges, inj_loudest_by_inj_cat[:,indices], inj_fap_by_trial_cat[:,indices],
+               extrap_trials_by_inj_cat[:,indices], inj_log_pc0_by_trial_cat[:,indices],
+               plotutils.default_colors()):
+        # unextrapolated
+        plot.add_content(inj_loudest_by_inj[extrap_trials_by_inj],
+            numpy.log(inj_fap_by_trial[extrap_trials_by_inj]), marker="^",
+            markersize=4, markeredgewidth=1, markerfacecolor=color,
+            linestyle="None", markeredgecolor="k")
+        # extrapolated
+        plot.add_content(inj_loudest_by_inj, inj_log_pc0_by_trial,
+            marker=".", linestyle="None", color=color,
+            label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+
+    plot.finalize(loc=1)
+
+    # add SNRs at which we begin extrapolating
+    ylims = tuple(plot.ax.get_ylim())
+    for extrap_snr, color in zip(extrap_snr_by_cat[indices], plotutils.default_colors()):
+        plot.ax.plot((extrap_snr, extrap_snr), ylims,
+            color + "--", label="_nolegend_")
+    plot.ax.set_ylim(ylims)
+    page.add_plot(plot.fig, "log_pc0_vs_rho_"+ifos_str)
+
+    # save a zoomed version, too
+    plot.ax.set_xlim((4, 16))
+    plot.ax.set_ylim((-6, 0.2))
+    page.add_plot(plot.fig, "log_pc0_vs_rho_zoom_"+ifos_str)
+
+
+    
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
     r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$")
 
 # add unextrapolated p(c|0) to the right of the extrapolation points
-extrap_trials_by_inj_mc = \
-  (inj_loudest_by_inj_mc > extrap_snr_by_mc[None, :]) & \
-  (inj_fap_by_trial_mc > 0)
+extrap_trials_by_inj_cat = \
+  (inj_loudest_by_inj_cat > extrap_snr_by_cat[None, :]) & \
+  (inj_fap_by_trial_cat > 0)
+
 for (mc_range, inj_loudest_by_inj, inj_fap_by_trial, extrap_trials_by_inj, \
      inj_log_pc0_by_trial, color) \
-    in zip(mc_ranges, inj_loudest_by_inj_mc.T, inj_fap_by_trial_mc.T,
-           extrap_trials_by_inj_mc.T, inj_log_pc0_by_trial_mc.T,
+    in zip(mc_ranges, inj_loudest_by_inj_cat.T, inj_fap_by_trial_cat.T,
+           extrap_trials_by_inj_cat.T, inj_log_pc0_by_trial_cat.T,
            plotutils.default_colors()):
     # unextrapolated
     plot.add_content(inj_loudest_by_inj[extrap_trials_by_inj],
@@ -860,67 +1117,58 @@ plot.finalize(loc=1)
 
 # add SNRs at which we begin extrapolating
 ylims = tuple(plot.ax.get_ylim())
-for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
+for extrap_snr, color in zip(extrap_snr_by_cat, plotutils.default_colors()):
     plot.ax.plot((extrap_snr, extrap_snr), ylims,
         color + "--", label="_nolegend_")
 plot.ax.set_ylim(ylims)
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
+page.add_plot(plot.fig, "log_pc0_vs_rho")
 
 # save a zoomed version, too
 plot.ax.set_xlim((4, 16))
 plot.ax.set_ylim((-6, 0.2))
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho_zoom")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "log_pc0_vs_rho_zoom")
 
-## L vs rho for each mc bin
-text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[trace_m2_bin])
 
-plot = plotutils.SimplePlot(r"$\ln \rho$", "",
-    r"$\ln L \textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
-    % str(m2_bins.centres()[trace_m2_bin]))
-trace_inj_ind = m2_bin_by_inj == trace_m2_bin
-for mc_ind, mc_range in enumerate(mc_ranges):
-    x_data = inj_loudest_by_inj_mc[trace_inj_ind, mc_ind].copy()
-    y_data = inj_log_L_by_trial_mc_m2[trace_inj_ind, mc_ind, trace_m2_bin]\
-        .copy()
-    non_empty_ind = y_data != GRBL_EMPTY_TRIAL
-    x_data = x_data[non_empty_ind]
-    y_data = y_data[non_empty_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
-        label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize(loc=2)
+## ## L vs rho for each mc bin
+## text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[trace_m2_bin])
 
-# add SNRs at which we begin extrapolating
-ylims = tuple(plot.ax.get_ylim())
-for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
-    plot.ax.plot((extrap_snr, extrap_snr), ylims,
-        color + "--", label="_nolegend_")
-plot.ax.set_ylim(ylims)
+## plot = plotutils.SimplePlot(r"$\ln \rho$", "",
+##     r"$\ln L \textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
+##     % str(m2_bins.centres()[trace_m2_bin]))
+## trace_inj_ind = m2_bin_by_inj == trace_m2_bin
+## for mc_ind, mc_range in enumerate(mc_ranges):
+##     x_data = inj_loudest_by_inj_mc[trace_inj_ind, mc_ind].copy()
+##     y_data = inj_log_L_by_trial_mc_m2[trace_inj_ind, mc_ind, trace_m2_bin]\
+##         .copy()
+##     non_empty_ind = y_data != GRBL_EMPTY_TRIAL
+##     x_data = x_data[non_empty_ind]
+##     y_data = y_data[non_empty_ind]
+##     plot.add_content(x_data, y_data, marker=".", linestyle="None",
+##         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+## plot.finalize(loc=2)
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-# save a zoomed version, too
-plot.ax.set_xlim((4, 10))
-plot.ax.set_ylim((-0.2, 3))
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho_zoom")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+## # add SNRs at which we begin extrapolating
+## ylims = tuple(plot.ax.get_ylim())
+## for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
+##     plot.ax.plot((extrap_snr, extrap_snr), ylims,
+##         color + "--", label="_nolegend_")
+## plot.ax.set_ylim(ylims)
+
+## if opts.enable_output:
+##     fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho")
+##     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+##     fnameList.append(fname)
+##     tagList.append(text)
+## # save a zoomed version, too
+## plot.ax.set_xlim((4, 10))
+## plot.ax.set_ylim((-0.2, 3))
+## if opts.enable_output:
+##     fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho_zoom")
+##     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+##     fnameList.append(fname)
+##     tagList.append(text)
+## if not opts.show_plot:
+##     plot.close()
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
 text = "p(observation|h(m2, D)) after 90% MC errors"
@@ -944,13 +1192,8 @@ try:
 except AttributeError:
   pass
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pLh_afterMCerr_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "pLh_afterMCerr_by_m2_D")
+
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
 text = "p(observation|h(m2, D)) before MC errors"
@@ -969,13 +1212,7 @@ try:
 except AttributeError:
   pass
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pLh_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "pLh_by_m2_D")
 
 ## P(L > L_0 | 0) vs m2
 text = "lim_{D->inf} P(observation| h(m2, D)) vs m_2"
@@ -994,14 +1231,8 @@ pylab.rcParams["axes.titlesize"] = orig_size
 
 # the title is stupidly huge; shrink plot to fit it
 plot.ax.set_position((0.12, 0.1, 0.8, 0.78))
+page.add_plot(plot.fig, "pL0_by_m2")
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pL0_by_m2")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
 
 ## P(L > L_* | 0) vs L_*
 text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
@@ -1024,14 +1255,7 @@ plot.ax.set_xlim(xmin=0)
 
 # the title is stupidly huge; shrink plot to fit it
 plot.ax.set_position((0.12, 0.1, 0.8, 0.78))
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pL0_by_L")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+page.add_plot(plot.fig, "pL0_by_L")
 
 ## injection count vs (m2, D) image
 text = "Injection count"
@@ -1040,26 +1264,18 @@ plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$",
     r"Injections made")
 plot.add_content(num_sims_by_m2_D.T, m2_bins, D_bins)
 plot.finalize()
+page.add_plot(plot.fig, "injection_count_by_m2_D")
 
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "injection_count_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
+
 
 
 #############################################################################
 # Generate HTML and cache file
 if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-        fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+    page.write(html_footer)
+    page.write_page()
 
     if opts.html_for_cbcweb:
-        html_filename_publish = InspiralUtils.write_html_output(opts,
-            sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=True)
+        page.write_page(cbcweb = True)
 
-if opts.show_plot:
-    pylab.show()

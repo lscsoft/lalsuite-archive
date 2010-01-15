@@ -922,7 +922,6 @@ class GRB(object):
     """
     executable = self.lalapps_dir+'/bin/lalapps_online_datafind'
 
-    #type = self.type_online[ifo]
     cmd = "%s --ifo %s --gps-start-time %d --gps-end-time %d --output %s" % \
             (executable, ifo, starttime, endtime, output_location)
     return cmd
@@ -1457,6 +1456,6 @@ class GRB(object):
 
     cmd = 'mv %s/*grb%s* %s'%(cp.get('paths','main'), self.name, path)
     system_call(self.name, cmd)
-    cmd = 'mv %s/*VETOTIME* %s'%(cp.get('paths','main'), path)
-    system_call(self.name, cmd)
+    #cmd = 'mv %s/*VETOTIME* %s'%(cp.get('paths','main'), path)
+    #system_call(self.name, cmd)
 
