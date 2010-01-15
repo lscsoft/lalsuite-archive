@@ -18,7 +18,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 
-from pylal import ligolw_sqlutils as sqlutils
 from pylal.xlal.date import XLALGPSToUTC
 try:
     from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -232,8 +231,8 @@ def get_daily_ihope_page(gpstime, pages_location = "https://ldas-jobs.ligo.calte
     return "%s/%s/%s/" %(pages_location, time.strftime("%Y%m", utctime), time.strftime("%Y%m%d", utctime))
 
 
-def create_hyperlink(address, link):
-    return '<a href="%s">%s</a>' % (address, link)
+def create_hyperlink(address, link, external=True):
+    return '<a href="%s"%s>%s</a>' % (address, external and ' rel="external"' or '', link)
 
 
 def create_filter( connection, tableName, param_name = None, param_ranges = None, 
@@ -242,6 +241,8 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
     Strings together param_name, param_ranges, exclude/include_only_coincs, and
     sim_tag options into a filter string that can be stuck in a sqlite WHERE clause.
     """
+    from pylal import ligolw_sqlutils as sqlutils
+
     in_this_filter = ''
     
     # Get param and param-ranges if specified
@@ -303,6 +304,8 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
 
+    from pylal import ligolw_sqlutils as sqlutils
+
     # check and format options appropriately
     simulation_table = sqlutils.validate_option(simulation_table)
     recovery_table = sqlutils.validate_option(recovery_table)
@@ -340,7 +343,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     #   in the recovery table.
     #
     if verbose:
-        print >> sys.stdout, "Getting statistics for ranking..."
+        print >> sys.stderr, "Getting statistics for ranking..."
     ranker = sqlutils.rank_stats(recovery_table, ranking_stat, rank_by)
     # add requirement that stats not be found in the sim_rec_table to in_this_filter
     rank_filter = ''.join([
@@ -354,8 +357,13 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     
     if in_this_filter != '':
         rank_filter = '\n\tAND '.join([ in_this_filter, rank_filter ])
+
     rank_filter = '\n\t'.join([ sqlutils.join_experiment_tables_to_coinc_table(recovery_table), 'WHERE', rank_filter ])
     
+    # remove sim tag from filter if comparison is not to simulation datatype
+    if comparison_datatype != 'simulation':
+        rank_filter = re.sub('AND get_sim_tag(experiment_summary.sim_proc_id) == "'+comparison_datatype+'"', '', rank_filter)
+
     ranker.populate_stats_list(connection, limit = None, filter = rank_filter)
     connection.create_function( 'rank', 1, ranker.get_rank )
     
@@ -533,9 +541,9 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             sim_rec_map.sim_id, sim_rec_map.ranking_stat """, rank_by])
     
     if verbose:
-        print >> sys.stdout, "Getting coincs..."
-        print >> sys.stdout, "SQLite query used is:"
-        print >> sys.stdout, sqlquery
+        print >> sys.stderr, "Getting coincs..."
+        print >> sys.stderr, "SQLite query used is:"
+        print >> sys.stderr, sqlquery
     
     for values in connection.cursor().execute( sqlquery ).fetchall():
         # sort the data
@@ -624,6 +632,7 @@ def printmissed(connection, simulation_table, recovery_table,
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ',
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
+    from pylal import ligolw_sqlutils as sqlutils
     from pylal import db_thinca_rings
     from glue import segments
 
@@ -698,9 +707,7 @@ def printmissed(connection, simulation_table, recovery_table,
             exclude_coincs = None, include_only_coincs = None, sim_tag = sim_tag, verbose = verbose)
     af = re.sub(r'experiment_summary[.]sim_proc_id', 'process_id', af)
     if af != '':
-        filter = '\n'.join([ """
-        JOIN
-            experiment_summary""", filter, """
+        filter = '\n'.join([ filter, """
             AND""", af])
     # get desired instrument times
     if include_only_coincs is not None:
@@ -818,7 +825,7 @@ def printmissed(connection, simulation_table, recovery_table,
             #   Initialize ranking. Statistics for ranking are based on decisive distance
             #
             if verbose:
-                print >> sys.stdout, "Getting statistics for ranking..."
+                print >> sys.stderr, "Getting statistics for ranking..."
             ranker = sqlutils.rank_stats(simulation_table, decisive_distance, 'ASC')
             # add requirement that stats not be found in the sim_rec_table to in_this_filter
             ranker.populate_stats_list(connection, limit = limit, filter = in_this_filter)
@@ -842,9 +849,9 @@ def printmissed(connection, simulation_table, recovery_table,
                     """])
             
             if verbose:
-                print >> sys.stdout, "Getting injections..."
-                print >> sys.stdout, "SQLite query used is:"
-                print >> sys.stdout, sqlquery
+                print >> sys.stderr, "Getting injections..."
+                print >> sys.stderr, "SQLite query used is:"
+                print >> sys.stderr, sqlquery
             
             for values in connection.cursor().execute( sqlquery ).fetchall():
                 cmrow = CloseMissed()

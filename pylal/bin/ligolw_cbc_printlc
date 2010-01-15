@@ -89,6 +89,12 @@ def parse_command_line():
             "Will extract a full xml file from the database containing only the " +
             "triggers that are printed. Requries --tmp-space. "
             )
+    parser.add_option("-d", "--extract-to-database", action = "store", type = "string",
+        default = None, metavar = "filename",
+        help =
+            "Will extract a SQLite database from the input database containing only the " +
+            "triggers that are printed. Requries --tmp-space. "
+            )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
             "Print the SQLite query that is used to stdout." 
@@ -145,6 +151,12 @@ def parse_command_line():
             "Opposite of --exclude-coincs: only rank the specified coinc types. "
             )
     # following are options specific to this program
+    parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, separate column names with a comma."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
     parser.add_option("", "--datatype", action = "store", type = "string", default = None,
         metavar = "slide, all_data, playground, exclude_play, OR simulation",
         help =
@@ -190,8 +202,8 @@ def parse_command_line():
     # check for required options and for self-consistency
     if not options.input:
         raise ValueError, "No input specified."
-    if options.extract_to_xml and not options.tmp_space:
-        raise ValueError, "extract-to-xml requires tmp-space"
+    if (options.extract_to_xml or options.extract_to_database) and not options.tmp_space:
+        raise ValueError, "extract-to-xml and extract-to-database require tmp-space"
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
@@ -226,7 +238,7 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
@@ -315,7 +327,7 @@ connection.create_function( 'convert_duration', 1, convert_duration )
 # done in this way because the RANK and DENSE_RANK SQL functions are not supported by
 # SQLite.
 if opts.verbose:
-    print >> sys.stdout, "Getting statistics for ranking..."
+    print >> sys.stderr, "Getting statistics for ranking..."
 ranker = sqlutils.rank_stats('coinc_inspiral', ranking_stat, rank_by)
 ranker.populate_stats_list(connection, opts.limit, filter = where_in_this_filter)
 connection.create_function( 'rank', 1, ranker.get_rank )
@@ -400,9 +412,9 @@ sqlquery = ''.join([ """
         """, ranking_stat, ' ',  rank_by ])
 
 if opts.verbose:
-    print >> sys.stdout, "Getting coincs..."
-    print >> sys.stdout, "SQLite query used is:"
-    print >> sys.stdout, sqlquery
+    print >> sys.stderr, "Getting coincs..."
+    print >> sys.stderr, "SQLite query used is:"
+    print >> sys.stderr, sqlquery
 
 for values in connection.cursor().execute( sqlquery ):
     lcrow = LoudestEvents()
@@ -440,11 +452,20 @@ for values in connection.cursor().execute( sqlquery ):
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
     tableList = ['loudest_events']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0])
+    if opts.columns is not None:
+        # overwrite columnList with specified columns
+        columnList = [col.strip() for col in opts.columns.split(',')]
+        # check for rank, duration
+        for ii, column in enumerate(columnList):
+            if column == 'rank':
+                columnList[ii] = rankname
+            if column == 'duration':
+                columnList[ii] = durname
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
@@ -459,13 +480,18 @@ else:
 
 
 #
-#   If extract-to-xml, generate the full xml
+#   If extract-to-xml or extract-to-database, prepare for extraction
 #
 
-if opts.extract_to_xml:
+if opts.extract_to_xml or opts.extract_to_database:
+    # double check that a temporary database is being used
+    if opts.input == working_filename:
+        raise ValueError, "Cannot extract without a temporary database; check that tmp-space is specified in arguments."
+    if opts.extract_to_database == opts.input:
+        raise ValueError, "Extracted database and input database cannot be the same name. Rename the extracted database."
     if opts.verbose:
-        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
-        print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
+        print >> sys.stderr, "\nPreparing temp. database for xml/database extraction..."
+        print >> sys.stderr, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
     save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in lctable]
     # delete all other ids from the coinc_inspiral table
@@ -493,16 +519,23 @@ if opts.extract_to_xml:
     sqlutils.clean_metadata_using_end_time(connection, key_table, key_column, verbose = opts.verbose)
 
     # extract to the xml file
-    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+    if opts.extract_to_xml:
+        extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+
 
 # close connection and exit
-connection.close()
-# discard the working_filename; if a temporary database was not
-# created in tmp_space (opts.tmp_space), this will do nothing. If a temporary database
-# was created, however, this will delete it. (see dbtables.py for more info)
-dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+if opts.extract_to_database:
+    # vacuum the extracted database
+    if opts.verbose:
+        print >> sys.stderr, "Vacuuming..."
+    connection.cursor().execute("VACUUM")
+    connection.close()
+    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = opts.verbose)
+else:
+    connection.close()
+    dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
 if opts.verbose and opts.tmp_space:
-    print >> sys.stdout, "Finshed!"
+    print >> sys.stderr, "Finshed!"
 
 sys.exit(0)

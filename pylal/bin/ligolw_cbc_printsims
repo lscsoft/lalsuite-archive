@@ -91,6 +91,12 @@ def parse_command_line():
             "Will extract a full xml file from the database containing only the " +
             "triggers that are printed. Requries --tmp-space. "
             )
+    parser.add_option("-d", "--extract-to-database", action = "store", type = "string",
+        default = None, metavar = "filename",
+        help =
+            "Will extract a SQLite database from the input database containing only the " +
+            "triggers that are printed. Requries --tmp-space. "
+            )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
             "Print the SQLite query that is used to stdout." 
@@ -157,6 +163,12 @@ def parse_command_line():
             "Required. Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id."
             )
+    parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, separate column names with a comma."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
     parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
         help =
             "Requried. Statistic to rank by; can be any column " +
@@ -169,10 +181,10 @@ def parse_command_line():
             "This specifies whether to rank triggers by maximum or " +
             "minimum stat value." 
             )
-    parser.add_option( "-d", "--comparison-datatype", action = "store", type = "string", default = None,
+    parser.add_option( "-D", "--comparison-datatype", action = "store", type = "string", default = None,
         help =
             "Requried. Datatype to base ranking on. Injections will be assigned a ranking " +
-            "as if were the only injection event in the specified datatype. " +
+            "as if they were the only injection event in the specified datatype. " +
             "Options are 'all_data', 'playground', 'exclude_play', 'slide' or 'simulation'."
             )
     parser.add_option( "", "--rank-range", action = "store", type = "string", default = None,
@@ -244,7 +256,7 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
@@ -276,18 +288,33 @@ sfdoc.childNodes[0].appendChild(sftable)
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
     # set table list
     tableList = ['selected_found_injections']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(sfdoc, tableList[0])
+    if opts.columns is not None:
+        # if rank or duration desired, get the right name before overwriting columnList
+        if 'rank' in opts.columns or 'duration' in opts.columns:
+            rankname = [col for col in columnList if col.startswith('rank')]
+            rankname = rankname != [] and rankname.pop() or 'rank'
+            durname = [col for col in columnList if 'duration' in col]
+            durname = durname != [] and durname.pop() or 'duration'
+        # overwrite columnList with specified columns
+        columnList = [col.strip() for col in opts.columns.split(',')]
+        # check for rank, duration
+        for ii, column in enumerate(columnList):
+            if column == 'rank':
+                columnList[ii] = rankname
+            if column == 'duration':
+                columnList[ii] = durname
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
     print_tables.print_tables(sfdoc, opts.output, opts.output_format, tableList = tableList,
-        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None, print_table_names = False,
         row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()
@@ -296,14 +323,15 @@ else:
 
 
 #
-#   If extract-to-xml, generate the full xml
+#   If extract-to-xml or extract-to-database, prepare for extraction
 #
 
-if opts.extract_to_xml:
+if opts.extract_to_xml or opts.extract_to_database:
     recovery_table = sqlutils.validate_option(opts.recovery_table)
+    simulation_table = sqlutils.validate_option(opts.simulation_table)
     if opts.verbose:
-        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
-        print >> sys.stdout, "Deleting unwanted triggers from %s table..." % recovery_table
+        print >> sys.stderr, "\nPreparing temp. database for xml extraction..."
+        print >> sys.stderr, "Deleting unwanted triggers from %s table..." % recovery_table
 
     # use the coinc_event_ids to figure out what to keep
     save_ids = [(row.coinc_event_id,) for row in sftable]
@@ -323,6 +351,23 @@ if opts.extract_to_xml:
                     save_ceids )""" ])
     connection.cursor().execute(sqlquery)
 
+    # now delete unneeded simulation_ids
+    save_ids = [(row.simulation_id,) for row in sftable]
+    connection.cursor().execute("CREATE TEMP TABLE save_sim_ids (sim_id)")
+    connection.cursor().executemany("INSERT INTO save_sim_ids (sim_id) VALUES (?)", save_ids)
+    # delete all other ids from the recovery table
+    sqlquery = ''.join([ """
+        DELETE
+        FROM 
+            """, simulation_table, """
+        WHERE
+            simulation_id NOT IN (
+                SELECT
+                    sim_id
+                FROM
+                    save_sim_ids )""" ])
+    connection.cursor().execute(sqlquery)
+
     # clean up the other tables that point to the deleted ids
     sqlutils.clean_using_coinc_table( connection, recovery_table, verbose = opts.verbose,
         clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
@@ -333,7 +378,7 @@ if opts.extract_to_xml:
 
     # before deleting things, get what tables are there
     if opts.verbose:
-        print >> sys.stdout, "Cleaning the coinc_event_map table..."
+        print >> sys.stderr, "Cleaning the coinc_event_map table..."
     selected_tables = sqlutils.get_cem_table_names(connection)
     sqlquery = """
         DELETE
@@ -344,7 +389,7 @@ if opts.extract_to_xml:
                 SELECT
                     sim_id
                 FROM
-                    sim_rec_map )
+                    save_sim_ids )
             OR event_id IN (
                 SELECT
                     ceid
@@ -371,16 +416,20 @@ if opts.extract_to_xml:
     sqlutils.clean_metadata_using_end_time(connection, key_table, key_column, verbose = opts.verbose)
 
     # extract to the xml file
-    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+    if opts.extract_to_xml:
+        extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+
+
+# close connection and exit
+if opts.extract_to_database:
+    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = opts.verbose)
+else:
+    dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
 # close connection and exit
 connection.close()
-# discard the working_filename; if a temporary database was not
-# created in tmp_space (opts.tmp_space), this will do nothing. If a temporary database
-# was created, however, this will delete it. (see dbtables.py for more info)
-dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
 if opts.verbose and opts.tmp_space:
-    print >> sys.stdout, "Finshed!"
+    print >> sys.stderr, "Finshed!"
 
 sys.exit(0)

@@ -601,7 +601,7 @@ void create_segments(EXTREME_INFO ***out_ei, int *out_nei)
 {
 int i, k, m, nei;
 EXTREME_INFO **ei;
-ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg-1)*(veto_free+1), sizeof(*ei));
+ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg+1)*(veto_free+1)/2, sizeof(*ei));
 
 fprintf(LOG, "nchunks: %d\n", args_info.nchunks_arg);
 fprintf(LOG, "veto_free: %d\n", veto_free);

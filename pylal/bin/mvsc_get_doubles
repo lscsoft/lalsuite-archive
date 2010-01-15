@@ -6,6 +6,10 @@ except ImportError:
 	from pysqlite2 import dbapi2 as sqlite3
 from glue.ligolw import dbtables 
 from glue.ligolw import table
+from glue.ligolw import ilwd
+from glue import segments
+from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes import snglinspiraltable
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
 from pylal import git_version
@@ -14,6 +18,7 @@ from optparse import *
 import glob
 import sys
 
+from pylal import ligolw_thinca
 usage="""
 example command line:
 %prog --instruments=H1,L1 database1.sqlite database2.sqlite etc.
@@ -37,8 +42,28 @@ ifos.sort()
 
 time1=time()
 
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
+	"""
+	You need to make this subclass of xlaltools.SnglInspiralTable because the C version doesn't have the methods 
+	you need to slide the triggers on the ring, which you need to do for a correct calculation of ethinca
+	"""
+	__slots__ = ()
+
+	def get_end(self):
+		return dbtables.lsctables.LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+dbtables.lsctables.SnglInspiralTable.RowType = SnglInspiral
+
 def calc_effective_snr(snr, chisq, chisq_dof, fac=250.0):
 	return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+
+def calc_ethinca(rowA,rowB):
+	rowA = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols(rowA)
+	rowB = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols(rowB)
+	return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
 
 injections = []
 injections_info = []
@@ -54,6 +79,7 @@ for database in databases:
 	dbtables.DBTable_set_connection(connection)
 	xmldoc = dbtables.get_xml(connection)
 	cursor = connection.cursor()
+	num_sngl_cols = len(table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).dbcolumnnames)
 	# to determine whether or not the database is full of timeslides/zerolag or injections, check if there exists a sim_inspiral table 
 	try:
 		sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
@@ -64,7 +90,7 @@ for database in databases:
 	if is_injections:
 		def calc_delta_t_inj(trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
 			try:
-				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time)*1e-9)
+				return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time_ns)*1e-9)
 			except: print "calc_delta_t_inj() failed"
 		connection.create_function("calc_delta_t_inj", 4, calc_delta_t_inj)
 		connection.create_function("calc_effective_snr", 3, calc_effective_snr)
@@ -73,6 +99,8 @@ for database in databases:
 		for values in connection.cursor().execute("""
 		SELECT
 			coinc_inspiral.coinc_event_id,
+			snglA.*,
+			snglB.*,
 			calc_delta_t_inj(snglA.end_time, snglA.end_time_ns, snglB.end_time, snglB.end_time_ns),
 			abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
 			abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
@@ -85,9 +113,7 @@ for database in databases:
 			snglA.rsqveto_duration,
 			snglB.rsqveto_duration,
 			snglA.bank_chisq,
-			snglB.bank_chisq,
-			snglA.cont_chisq,
-			snglB.cont_chisq
+			snglB.bank_chisq
 		FROM
 			coinc_inspiral 
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
@@ -110,16 +136,27 @@ for database in databases:
 			AND snglA.ifo == ?
 			AND snglB.ifo == ?
 			""", (tuple(ifos)) ):
-				injections.append(values[1:] + (1,))
+				injections.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (1,))
 				injections_info.append([values[0], database])
 		dbtables.put_connection_filename(database, working_filename, verbose = True)
 
-	if not is_injections:	
+	else:
 		rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
 		offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
-	
+		sngl_inspiral_row_from_cols = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols
+		def calc_ethinca_ts(rowA,rowB,time_slide_id,rings=rings,offset_vectors=offset_vectors):
+			flatrings = segments.segmentlist()
+			for value in rings.values():
+				flatrings.extend(value)
+			rowA = sngl_inspiral_row_from_cols(rowA)
+			SnglInspiralUtils.slideTriggersOnRings([rowA],flatrings,offset_vectors[time_slide_id])
+			rowB = sngl_inspiral_row_from_cols(rowB)
+			SnglInspiralUtils.slideTriggersOnRings([rowB],flatrings,offset_vectors[time_slide_id])
+			return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
+
 		def calc_delta_t(trigger1_ifo, trigger1_end_time, trigger1_end_time_ns, trigger2_ifo, trigger2_end_time, trigger2_end_time_ns, time_slide_id, rings = rings, offset_vectors = offset_vectors):
 			#print >>sys.stderr, "calculating delta_t"
+			time_slide_id = ilwd.get_ilwdchar(time_slide_id)
 			trigger1_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
 			trigger2_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger2_end_time, trigger2_end_time_ns)
 			# find the instruments that were on at trigger 1's end time and
@@ -140,7 +177,10 @@ for database in databases:
 				return float(out)
 			except:
 				print "calc delta t failed",trigger1_true_end_time, trigger2_true_end_time, ring
-				return float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
+				out = float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
+				if out > 0.5:
+					out = 1.0 - out
+				return out
 	
 		
 		connection.create_function("calc_delta_t", 7, calc_delta_t)
@@ -151,6 +191,9 @@ for database in databases:
 		for values in connection.cursor().execute("""
 		SELECT
 			coinc_inspiral.coinc_event_id,
+			snglA.*,
+			snglB.*,
+			coinc_event.time_slide_id,
 			calc_delta_t(snglA.ifo, snglA.end_time, snglA.end_time_ns, snglB.ifo, snglB.end_time, snglB.end_time_ns, coinc_event.time_slide_id),
 			abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
 			abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
@@ -164,8 +207,6 @@ for database in databases:
 			snglB.rsqveto_duration,
 			snglA.bank_chisq,
 			snglB.bank_chisq,
-			snglA.cont_chisq,
-			snglB.cont_chisq,
 			EXISTS (
 				SELECT
 					*
@@ -194,10 +235,10 @@ for database in databases:
 				is_background = values[-1]
 				values = values[:-1]
 				if is_background:
-					timeslides.append(values[1:] + (0,))
+					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (0,))
 					timeslides_info.append([values[0], database])
 				else:
-					zerolag.append(values[1:] + (0,))
+					zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (0,))
 					zerolag_info.append([values[0], database])
 		
 		dbtables.put_connection_filename(database, working_filename, verbose = True)
@@ -224,7 +265,7 @@ if len(injections) != 0:
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq a_cont_chisq b_cont_chisq \n")
+		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq \n")
 		return f
 	
 	for i in range(Nrounds):
@@ -263,7 +304,7 @@ if len(injections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq a_cont_chisq b_cont_chisq \n")
+	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq \n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')
