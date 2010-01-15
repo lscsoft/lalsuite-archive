@@ -1003,7 +1003,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   wikiPage.subsubsection("Relevant Information")
   wikiPage.putText("Plots and pipeline data go here!")
   indexList=fnmatch.filter(wikiFileFinder.get_plotchiatimeseries(),"*.html")
-  if len(indexList) > 1:
+  if len(indexList) >= 1:
     myIndex=file2URL.convert(indexList[0])
     wikiPage.putText(wikiPage.makeExternalLink(myIndex,\
                                                "%s Coherence Study Results"%(wikiCoinc.ifos)))
@@ -1015,7 +1015,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     cohSnrTimeTable=wikiPage.wikiTable(rowCount+1,colCount)
     cohSnrTimeTable.data[0][0]="%s Coherent SNR Squared Times Series"%(wikiCoinc.ifos)
     for i,image in enumerate(imageList):
-      cohSnrTimeTable.data[i+1][0]=wikiPage.linkedRemoteImaage(image,thumbList[i])
+      cohSnrTimeTable.data[i+1][0]=wikiPage.linkedRemoteImage(image,thumbList[i])
     wikiPage.insertTable(cohSnrTimeTable)
   else:
     sys.stdout.write("Warning: Coherent plotting jobs not found.\n")
