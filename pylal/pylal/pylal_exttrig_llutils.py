@@ -26,6 +26,7 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
+from pylal import git_version
 
 # the config parser to be used in some of the functions
 cp = None
@@ -1219,19 +1220,27 @@ class GRB(object):
   def check_veto_onsource(self):
     """
     Function to check if the CAT2 veto overlap the onsource segment
-    @return: True, if there is an overlap and False, if the analysis can start
     """
     # Loops over each used IFO and check if the CAT2 time 
     # overlaps the onsource segment
-    overlap = False
+    new_ifolist = []
     for ifo in self.ifolist:
-       segtxtfile = "%s/%s-science_grb%s.txt" % (self.main_dir, ifo, self.name)
-       vetolist = segmentsUtils.fromfile(open(segtxtfile))
-       if vetolist.intersects_segment(self.onsource_segment):
-         overlap = True
-    
-    return overlap
+       segtxtfile = "%s/%s-VETOTIME_CAT2_grb%s.txt" % (self.main_dir, ifo, self.name)
+       vetolist = segmentsUtils.fromsegwizard(open(segtxtfile), coltype=int)
+       if not vetolist.intersects_segment(segments.segment(self.onsource_segment)):
+         new_ifolist.append(ifo)
+       else:
+         info(self.name, "IFO %s has been vetoed by a CAT2 veto" % ifo)
+ 
+    # update the ifo list
+    self.ifolist = new_ifolist       
 
+    # re-check for available data
+    if len(self.ifolist)>=2:
+      self.has_data = True
+    else:
+      self.has_data = False
+      info(self.name, "Although data is available, it has been vetoed. Remaining IFOs: %s"%self.ifolist)
 
   # -----------------------------------------------------
   def update_veto_lists(self, timeoffset):
@@ -1242,14 +1251,14 @@ class GRB(object):
 
     cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
           "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
-          % (self.glue_dir, definer_file, starttime, endtime, self.analysis_dir)
+          % (self.glue_dir, definer_file, starttime, endtime, self.main_dir)
     system_call(self.name, cmd)
 
     # Rename the veto files for easier handling
-    veto_files = glob.glob('%s/*VETOTIME_CAT2*xml'% self.analysis_dir)
+    veto_files = glob.glob('%s/*VETOTIME_CAT2*%d*xml'% (self.main_dir, starttime))
     for file in veto_files:
       file_parts = file.split('-')
-      segtxtfile = file_parts[0]+'-'+file_parts[1]+'.txt'
+      segtxtfile = file_parts[0]+'-'+file_parts[1]+'_grb%s'%self.name+'.txt'
       self.convert_segxml_to_segtxt(file, segtxtfile)
 
 
@@ -1295,7 +1304,9 @@ class GRB(object):
     trigger = int(self.time)
     onSourceSegment = segments.segment(trigger - onsource_left,
                                        trigger + onsource_right)
-    self.onsource_segment = onSourceSegment
+
+    # segment objects can't be pickled, so it has to be that way
+    self.onsource_segment = [onSourceSegment[0], onSourceSegment[1]]
 
     # convert string in integer
     padding_time = int(cp.get('data','padding_time'))
@@ -1334,6 +1345,7 @@ class GRB(object):
 
     # store the results, cannot pickle segments objects
     if offSourceSegment:
+      # segment objects can't be pickled, so it has to be that way
       self.offsource_segment = [offSourceSegment[0], offSourceSegment[1]]
       self.starttime = offSourceSegment[0]
       self.endtime = offSourceSegment[1]
@@ -1433,4 +1445,18 @@ class GRB(object):
     f.write("s=@GRBPICKLE@=%s=g\n"%get_monitor_filename())
     f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
     f.close()
+
+  # -----------------------------------------------------
+  def cleanup(self, path):
+    """
+    Cleanup of the temporary files stored in the main dir
+    to either put them into the GRB directories
+    or into the Auxiliary directory
+    @param path: path to where to shift the files
+    """
+
+    cmd = 'mv %s/*grb%s* %s'%(cp.get('paths','main'), self.name, path)
+    system_call(self.name, cmd)
+    cmd = 'mv %s/*VETOTIME* %s'%(cp.get('paths','main'), path)
+    system_call(self.name, cmd)
 

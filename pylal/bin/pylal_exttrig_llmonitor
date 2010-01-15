@@ -150,42 +150,31 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   grb.get_segment_info(seg_file)
   grb.calculate_optimality()
 
-  # decide
+  # decide when GRB has data
   if grb.has_data:
     
-    # run the creation functions
-    grb.create_exttrig_xml_file()
-    grb.prepare_analysis_directory()
-
-    # update veto files as well
+    # check the veto list for that time, if it overlaps with the on-source
     grb.update_veto_lists(int(cp.get('data','min_diff')))
-    overlap = grb.check_veto_onsource()
-    if overlap:
-      # Force this GRB to have no data
-      grb.has_data = False
+    grb.check_veto_onsource()
 
-      peu.info(grb_name, "GRB%s: the onsource segment is vetoed by a CAT2 veto. "\
-         "This GRB will be marked with NoData."%grb.name)
+    # check again; this quantiti might have been changed by 
+    # the function check_veto_onsource()
+    if grb.has_data:
 
-      # multiple notifications
-      subject = "Not enough data for GRB%s (vetoed)" % grb.name
-      email_msg = "A new GRB (%s) was found, but the analysis has not been started because "\
-                  "not enough data is available\n" % grb.name
-      email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
-                   (grb.time, grb.ra, grb.de)
-      peu.send_mail(subject, email_msg)
+      # create the exttrig xml file
+      grb.create_exttrig_xml_file()
 
-    else:
-
-      # start the onoff analysis (condor_submit_dag)
+      # set up the directory and start the onoff DAG
+      grb.prepare_analysis_directory()
       grb.dag['onoff'].start()
    
       # check if the DAG is running
       grb.check_analysis_directory('onoff')
 
       # cleaning up
-      cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb.name, analysis_path)
-      peu.system_call(grb.name, cmd)
+      grb.cleanup(analysis_path)
+      #cmd = 'cp %s/*grb%s* %s'%(cp.get('paths','main'), grb.name, analysis_path)
+      #peu.system_call(grb.name, cmd)
 
       # multiple notifications
       subject = "New analysis started for GRB%s " %grb.name
@@ -200,6 +189,18 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
       email_msg += 'The overview-page is located here: <%s/total_summary.html> \n' %\
                     cp.get('paths','publishing_url')
       #peu.send_mail(subject, email_msg, extra_addresses = [cp.get('notifications','extra')])
+      peu.send_mail(subject, email_msg)
+
+    else:
+      peu.info(grb_name, "GRB%s: the onsource segment is vetoed by a CAT2 veto. "\
+         "This GRB will be marked with NoData."%grb.name)
+
+      # multiple notifications
+      subject = "Not enough data for GRB%s (vetoed)" % grb.name
+      email_msg = "A new GRB (%s) was found, but the analysis has not been started because "\
+                  "not enough data is available\n" % grb.name
+      email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
+                   (grb.time, grb.ra, grb.de)
       peu.send_mail(subject, email_msg)
 
 
@@ -223,8 +224,9 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   peu.system_call(grb.name, cmd)
 
   # cleaning up
-  cmd = 'mv %s/*grb%s* AuxFiles/' % (maindir, grb.name)
-  peu.system_call(grb.name, cmd)
+  grb.cleanup('AuxFiles/')
+  #cmd = 'mv %s/*grb%s* AuxFiles/' % (maindir, grb.name)
+  #peu.system_call(grb.name, cmd)
 
   return grb
 
@@ -255,7 +257,6 @@ def update_database(opts):
   in the GCN alert file, provided by Isabel
   """
   # update the database files (scp)
-  #print "WARNING: To save developing time, databases are not copied (monitor)"
   peu.copy_exttrig_nofications()
 
   # read the monitor list
@@ -281,7 +282,6 @@ def update_database(opts):
       words = line.split()
       grb_name = words[2]
       grb_duration = float(words[12])
-      #print grb_name, grb_duration
 
       # skip if this GRB already had been processed
       if grb_name in grbs_processed:
