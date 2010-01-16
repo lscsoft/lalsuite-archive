@@ -93,7 +93,7 @@ print >>sys.stderr, "found %d files of interest" % len(new_list)
 
 range = InspiralRangeFromSummValue()
 for i, line in enumerate(new_list):
-	#if i % 100: continue
+	if i % 1000: continue
 	print >>sys.stderr, "\tprocessing %d/%d\r" % (i, len(new_list)),
 	c = lal.CacheEntry(line)
 	patIX = [j for j, val in enumerate(pats) if val.search(c.description)][0]
@@ -111,9 +111,12 @@ for ifo in range.start.keys():
 	start.append(min(time))
 start = min(start)
 
+outtab=open('%s_%s_%s.txt' % (opts.base, os.path.basename(sys.argv[0]), "-".join(opts.pattern).replace(".*","")), "w")
+outtab.write("||DETECTOR||NS RANGE||STD. DEV.||\n")
 for ifo in range.start.keys():
 	pylab.subplot(131)
 	time, dist = range.ns_by_time_ifo(ifo)
+	outtab.write("||%s||%.2f||%.2f||\n" % (ifo,numpy.mean(dist), numpy.std(dist)))
 	pylab.plot((numpy.array(time)-start) / 86400.0, dist, color=ifodata.color(ifo),marker=ifodata.line(ifo))
 	pylab.xlabel("Time (days) relative to %d" % start)
 	pylab.ylabel("NS range (Mpc)")
@@ -126,7 +129,7 @@ for ifo in range.start.keys():
 	pylab.errorbar(mass, mean, std, color=ifodata.color(ifo),marker=ifodata.line(ifo))
 	pylab.xlabel("Total Mass (Msun)")
 	pylab.ylabel("Range (Mpc)")
-
+outtab.close()
 figname = '%s_%s_%s.png' % (opts.base, os.path.basename(sys.argv[0]), "-".join(opts.pattern).replace(".*",""))
 print >> sys.stderr, "Writing output to %s" % (figname,)
 pylab.savefig(figname)
