@@ -86,6 +86,28 @@ class findFileType(object):
       self.fsys=fStructure
       self.coinc=myCoinc
 
+  def __readCache__(self,cacheListing=list()):
+    """
+    Simple mehtod to read in a cache or list of cache files and return
+    a list of files to an empty list if nothing found
+    """
+    #Open the cache entry and search for those entrys
+    fileListing=list()
+    for entry in cacheListing:
+      fileListing.append(entry)
+      fileListing.extend([x.rstrip("\n") for x in file(entry).readlines()])
+    finalList=list()
+    for thisFile in fileListing:
+      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
+      if thisFile.endswith(".png"):
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png",".thumb.png")))
+    if len(finalList) < 1:
+      return(list())
+    else:
+      return finalList
+
+    
   def get_hoft_frame(self):
     """
     """
@@ -236,6 +258,52 @@ class findFileType(object):
     else:
       return finalList
 
+  def get_analyzeQscan_SEIS(self):
+    """
+    This seeks out the html and png files associated with SEIS result
+    of an analyzeQscan job.
+    """
+    cacheList=list()
+    cacheFiles=list()
+    for sngl in self.coinc.sngls:
+      myCacheMask="*/%s-analyseQscan_%s_%s*_seis_rds*.cache"%(sngl.ifo,sngl.ifo,sngl.time)
+      cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
+    #Read the cache file or files
+    print "MASK : ",myCacheMask
+    print "CACHE: ",cacheList
+    cacheFiles=self.__readCache__(cacheList)
+    return cacheFiles
+      
+  def get_analyzeQscan_RDS(self):
+    """
+    """
+    #analyseQscan.py_FG_RDS_full_data/H1-analyseQscan_H1_931176926_116_rds-unspecified-gpstime.cache
+    cacheList=list()
+    cacheFiles=list()
+    for sngl in self.coinc.sngls:
+      myCacheMask="*/%s-analyseQscan_%s_%s*_rds*.cache"%(sngl.ifo,sngl.ifo,sngl.time)
+      #Ignore the files with seis_rds in them
+      for x in fnmatch.filter(self.fsys,myCacheMask):
+        if not x.__contains__('seis_rds'):
+          cacheList.append(x)
+    #Read the cache file or files
+    cacheFiles=self.__readCache__(cacheList)
+    return cacheFiles                   
+
+  def get_analyzeQscan_HT(self):
+    """
+    """
+    #analyseQscan.py_FG_HT_full_data/H1-analyseQscan_H1_931176926_116_ht-unspecified-gpstime.cache
+    cacheList=list()
+    cacheFiles=list()
+    for sngl in self.coinc.sngls:
+      myCacheMask="*/%s-analyseQscan_%s_%s*_ht*.cache"%(sngl.ifo,sngl.ifo,sngl.time)
+      cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
+    #Read the cache file or files
+    cacheFiles=self.__readCache__(cacheList)
+    return cacheFiles         
+
+  
   def get_all(self):
     """
     """
@@ -243,8 +311,11 @@ class findFileType(object):
     globalList.extend(self.get_plotsnrchisq())
     globalList.extend(self.get_plotchiatimeseries())
     globalList.extend(self.get_hoft_frame())
+    globalList.extend(self.get_analyzeQscan_HT())
     globalList.extend(self.get_RDS_R_L1())
+    globalList.extend(self.get_analyzeQscan_RDS())
     globalList.extend(self.get_RDS_R_L1_SEIS())
+    globalList.extend(self.get_analyzeQscan_SEIS())
     globalList.extend(self.get_findVetos())
     globalList.extend(self.get_effDRatio())
     globalList.extend(self.get_findFlags())    
@@ -466,6 +537,92 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           myTable.data[i+1][j+1]="Unavailable"
     self.insertTable(myTable)
     
+  def insertAnalyzeQscanTable(self,
+                              ifo=None,
+                              images=None,
+                              thumbs=None,
+                              indexes=None,
+                              imagesAQ=None,
+                              thumbsAQ=None,
+                              indexesAQ=None):
+    """
+    Insert a single IFO table with 5 cols with the AQ underneath
+    """
+    if ifo == None:
+      sys.write.stderr("Error: insertAnalyzeQscanTable called incorrectly!\n")
+    #Generate Image Labels
+    channelNames=list()
+    #H1-analyseQscan_H1_931245125_408_seis_rds_H0_PEM-MY_SEISZ_dt_dist-unspecified-gpstime.png
+    #L1-analyseQscan_L1_931182185_246_rds_L0_PEM-LVEA_MAGX_z_dist-unspecified-gpstime.png
+    #H1-analyseQscan_H1_931257951_208_ht_H1_LDAS-STRAIN_dt_dist-unspecified-gpstime.png
+    channelNames.extend([os.path.basename(x).split("_",1)[1].rsplit("_",3)[0].split(":",1)[1] \
+                       for x in images[ifo]])
+    stripTails=["_dt_dist-unspecified-gpstime.png",
+                "_z_dist-unspecified-gpstime.png"]
+    stripI=4
+    channelNames.extend([os.path.basename(x).split("_",stripI)[stripI].strip(stripTails[0]).strip(stripTails[1])
+                         for x in imagesAQ[ifo]])
+    uniqChannelNames=list()
+    lastName=None
+    channelNames.sort()
+    while channelNames:
+      myName=channelNames.pop()
+      if lastName != myName:
+        lastName=myName
+        uniqChannelNames.append(myName)
+    #Create table object reserve first cell for txt labels
+    colCount=3
+    fullRows,modRows=divmod(len(uniqChannelNames)+1,colCount)
+    if modRows > 0:
+      rowCount=fullRows+1
+    else:
+      rowCount=fullRows
+    myTable=self.wikiTable(rowCount,colCount)
+    myTable.setTableStyle("text-align:center")
+    #Reserved cell
+    myTable.data[0][0]=""
+    #Insert HTML links and IFO Label
+    contentString=""
+    contentString=contentString+" %s "%(ifo)
+    #Add html links
+    for newLink in indexes[ifo]:
+      contentString=contentString+" %s "%self.makeExternalLink(newLink,"Qscan")
+    for newLink in indexesAQ[ifo]:
+      contentString=contentString+" %s "%self.makeExternalLink(newLink,"analyzeQscan")
+    myTable.data[0][0]=contentString
+    #Start filling cells with Qscan and analyzeQscan scatter plot
+    for cellNum,channel in enumerate(uniqChannelNames):
+      #Grab plot info for this channel name
+      myName=channel
+      try:
+        myOmegaIndex=[x.__contains__(myName) for x in images[ifo]].index(True)
+      except ValueError:
+        myOmegaIndex=None
+      try:
+        myAQIndex=[x.__contains__(myName) for x in imagesSQ[ifo]].index(True)
+      except ValueError:
+        myAQIndex=None
+      #Use indices to get URLs
+      cellString=""
+      if myName:
+        cellString=cellString+" %s "%myName
+      else:
+        cellString=cellString+" Unknown_Channel "
+      if myOmegaIndex:
+        cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[myOmegaIndex],
+                                                           images[myOmegaIndex])
+      else:
+        cellString=cellString+" Unavailable_Qscan "
+      if myAQIndex:
+        cellstring=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[myAQIndex],
+                                                            imagesAQ[myAQIndex])
+      else:
+        cellString=cellString+" Unavailable_analyzeQScan"
+      #Add string to cell
+      myRow,myCol=divmod(cellNum+1,colCount)
+      myTable.data[myRow][myCol]=" %s "%cellString
+    self.insertTable(myTable)
+
   def write(self):
     """
     Writes the contents of the wiki object to disk.
@@ -731,6 +888,9 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   imageDict=dict()
   indexDict=dict()
   thumbDict=dict()
+  imageDictAQ=dict()
+  indexDictAQ=dict()
+  thumbDictAQ=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
@@ -740,18 +900,33 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     thumbDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened?thumb.png"%\
                                        (sngl.ifo,sngl.time))
+    #Search for analyzeQscan files
+    indexDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
+                                         "*_%s_%s_*.html"%(sngl.ifo,sngl.time))
+    thumbDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
+                                       "*_%s_%s_*_thumb.png"%(sngl.ifo,sngl.time))
+    imageDictAQ[sngl.ifo]=[x.replace("_thumb.png",".png") for x in thumbDictAQ]
+    #Look for ranking files if availabe TBA
+    #
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
+    imageDictAQ[sngl.ifo]=[file2URL.convert(x) for x in imageDictAQ[sngl.ifo]]
+    indexDictAQ[sngl.ifo]=[file2URL.convert(x) for x in indexDictAQ[sngl.ifo]]
+    thumbDictAQ[sngl.ifo]=[file2URL.convert(x) for x in thumbDictAQ[sngl.ifo]]
+
     if len(indexDict[sngl.ifo]) < 1:
       wikiPage.putText("Seismic scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
-    wikiPage.insertQscanTable(imageDict,\
-                              thumbDict,\
-                              indexDict)
+    wikiPage.insertAnalyzeQscanTable(imageDict,
+                                     thumbDict,
+                                     indexDict,
+                                     imageDictAQ,
+                                     thumbDictAQ,
+                                     indexDictAQ)
   else:
     sys.stdout.write("Warning: Seismic plots product import problem.\n")
   wikiPage.subsubsection("Investigator Comments")
@@ -770,6 +945,9 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   imageDict=dict()
   indexDict=dict()
   thumbDict=dict()
+  imageDictAQ=dict()
+  indexDictAQ=dict()
+  thumbDictAQ=dict()
   #Select only PEM channels
   for sngl in wikiCoinc.sngls:
     imageDict[sngl.ifo]=list()
@@ -790,18 +968,45 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                  (sngl.ifo,sngl.time)):
       if myFile.upper().__contains__("PEM"):
         thumbDict[sngl.ifo].append(myFile)
+    #Select associated analyzeQscans
+    imageDictAQ[sngl.ifo]=list()
+    indexDictAQ[sngl.ifo]=list()
+    thumbDictAQ[sngl.ifo]=list()
+    #H1-analyseQscan_H1_931176926_116_rds-unspecified-gpstime.html
+    for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                 "*%s-*_%s_*html"%(sngl.ifo,sngl.time)):
+      indexDictAQ[sngl.ifo].append(myFile)
+    #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime_thumb.png
+    #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime.png
+    for myFile in fnmatch.filter(wikiFileFinder.get_anallyzeQscan_RDS(),\
+                                 "*%s-*_%s_*unspecified-gpstime.png"%\
+                                 (sngl.ifo,sngl.time)):
+      if myFile.upper().__contains__("PEM"):
+        imageDictAQ[sngl.ifo].append(myFile)
+        
+    for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                 "*%s-*_%s_*unspecified-gpstime?thumb.png"%\
+                                 (sngl.ifo,sngl.time)):
+      if myFile.upper().__contains__("PEM"):
+        thumbDictAQ[sngl.ifo].append(myFile)
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
+    imageDictAQ[sngl.ifo]=[file2URL.convert(x) for x in imageDictAQ[sngl.ifo]]
+    indexDictAQ[sngl.ifo]=[file2URL.convert(x) for x in indexDictAQ[sngl.ifo]]
+    thumbDictAQ[sngl.ifo]=[file2URL.convert(x) for x in thumbDictAQ[sngl.ifo]]
     if len(imageDict[sngl.ifo]) < 1:
       wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
-    wikiPage.insertQscanTable(imageDict,\
-                              thumbDict,\
-                              indexDict)
+    wikiPage.insertAnalyzeQscanTable(imageDict,
+                                     thumbDict,
+                                     indexDict,
+                                     imageDictAQ,
+                                     thumbDictAQ,
+                                     indexDictAQ)
   else:
     sys.stdout.write("Warning: PEM plots import trouble.\n")
   wikiPage.subsubsection("Investigator Comments")
@@ -819,6 +1024,9 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   imageDict=dict()
   indexDict=dict()
   thumbDict=dict()
+  imageDictAQ=dict()
+  indexDictAQ=dict()
+  thumbDictAQ=dict()
   #Select only AUX channels
   for sngl in wikiCoinc.sngls:
     imageDict[sngl.ifo]=list()
@@ -839,18 +1047,46 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                  (sngl.ifo,sngl.time)):
       if not myFile.upper().__contains__("PEM"):
         thumbDict[sngl.ifo].append(myFile)
+    #Select associated analyzeQscans
+    imageDictAQ[sngl.ifo]=list()
+    indexDictAQ[sngl.ifo]=list()
+    thumbDictAQ[sngl.ifo]=list()
+    #H1-analyseQscan_H1_931176926_116_rds-unspecified-gpstime.html
+    for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                 "*%s-*_%s_*html"%(sngl.ifo,sngl.time)):
+      indexDictAQ[sngl.ifo].append(myFile)
+    #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime_thumb.png
+    #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime.png
+    for myFile in fnmatch.filter(wikiFileFinder.get_anallyzeQscan_RDS(),\
+                                 "*%s-*_%s_*unspecified-gpstime.png"%\
+                                 (sngl.ifo,sngl.time)):
+      if not myFile.upper().__contains__("PEM"):
+        imageDictAQ[sngl.ifo].append(myFile)
+        
+    for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                 "*%s-*_%s_*unspecified-gpstime?thumb.png"%\
+                                 (sngl.ifo,sngl.time)):
+      if not myFile.upper().__contains__("PEM"):
+        thumbDictAQ[sngl.ifo].append(myFile)
+
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
     thumbDict[sngl.ifo]=[file2URL.convert(x) for x in thumbDict[sngl.ifo]]
+    imageDictAQ[sngl.ifo]=[file2URL.convert(x) for x in imageDictAQ[sngl.ifo]]
+    indexDictAQ[sngl.ifo]=[file2URL.convert(x) for x in indexDictAQ[sngl.ifo]]
+    thumbDictAQ[sngl.ifo]=[file2URL.convert(x) for x in thumbDictAQ[sngl.ifo]]
     if len(indexDict[sngl.ifo]) < 1:
       wikiPage.putText("Other scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
-    wikiPage.insertQscanTable(imageDict,\
-                              thumbDict,\
-                              indexDict)
+    wikiPage.insertAnalyzeQscanTable(imageDict,
+                                     thumbDict,
+                                     indexDict,
+                                     imageDictAQ,
+                                     thumbDictAQ,
+                                     indexDictAQ)
   else:
     sys.stdout.write("Warning: AUX plots import trouble.\n")
   wikiPage.subsubsection("Investigator Comments")
