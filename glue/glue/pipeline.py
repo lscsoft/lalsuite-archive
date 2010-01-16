@@ -636,6 +636,7 @@ class CondorDAGNode:
     self.__bad_macro_chars = re.compile(r'[_-]')
     self.__output_files = []
     self.__input_files = []
+    self.__dax_collapse = None
     self.__vds_group = None
     self.__user_tag = None
 
@@ -788,6 +789,18 @@ class CondorDAGNode:
     Returns the VDS group key for this node
     """
     return self.__vds_group
+
+  def set_dax_collapse(self,collapse):
+    """
+    Set the DAX collapse key for this node
+    """
+    self.__dax_collapse = str(collapse)
+
+  def get_dax_collapse(self):
+    """
+    Get the DAX collapse key for this node
+    """
+    return self.__dax_collapse
 
   def add_macro(self,name,value):
     """
@@ -1416,12 +1429,22 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           template = """     <profile namespace="pegasus" key="group">%s</profile>\n"""
           xml = xml + template % (node.get_vds_group())
 
+        # write the bundle parameter if this node has one
+        if node.get_dax_collapse():
+          template = """     <profile namespace="pegasus" key="collapse">%s</profile>\n"""
+          xml = xml + template % (node.get_dax_collapse())
+
         if self.is_dax():
           # FIXME should put remote universe property here
           pass
         else:
-          template = """     <profile namespace="condor" key="universe">%s</profile>\n"""
-          xml = xml + template % (node.job().get_universe())
+          if node.get_dax_collapse():
+            # collapsed jobs must run in the vanilla universe
+            template = """     <profile namespace="condor" key="universe">vanilla</profile>\n"""
+            xml = xml + template
+          else:
+            template = """     <profile namespace="condor" key="universe">%s</profile>\n"""
+            xml = xml + template % (node.job().get_universe())
 
         print >>dagfile, xml,
 
