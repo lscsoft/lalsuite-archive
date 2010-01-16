@@ -1972,6 +1972,10 @@ class filenameToURLMapper(object):
 		    #Strip of common path and create full blown URL
 		    myURL=filename.replace(self.commonString,self.commonURL)
 		    #Add a check to see if given filename is actually URL already!
+		    if filename.strip() == "":
+			    sys.stderr.write("Improper conversion for :%s\n"%filename)
+			    raise Error, "object:filenameToURLMapper given empty string to convert!\n"
+			    
 		    if myURL == filename:
 			    sys.stderr.write("Improper conversion for :%s\n"%filename)
 			    sys.stderr.write("web-url        : %s\n"%self.pURL)
