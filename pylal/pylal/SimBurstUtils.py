@@ -73,6 +73,46 @@ def injection_was_made(sim, seglists, instruments):
 	return True
 
 
+def create_sim_burst_best_string_sngl_view(connection, coinc_def_id):
+	"""
+	Construct a sim_burst --> best matching coinc_event mapping.
+	"""
+	connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	sim_burst_best_string_sngl_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		(
+			SELECT
+				sngl_burst.event_id
+			FROM
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_event ON (
+					coinc_event.coinc_event_id == a.coinc_event_id
+				)
+				JOIN sngl_burst ON (
+					b.table_name == 'sngl_burst'
+					AND b.event_id == sngl_burst.event_id
+				)
+			WHERE
+				a.table_name == 'sim_burst'
+				AND a.event_id == sim_burst.simulation_id
+				AND coinc_event.coinc_def_id == ?
+			ORDER BY
+				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
+			LIMIT 1
+		) AS event_id
+	FROM
+		sim_burst
+	WHERE
+		EXISTS event_id
+	""", (coinc_def_id,))
+
+
 #
 # =============================================================================
 #

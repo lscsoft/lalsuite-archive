@@ -814,7 +814,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-	def __init__(self, dag, job, cp, opts, sngl, frame_cache, tag, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, frame_cache, chia, tag, p_nodes=[]):
 
 		tlen = 1.0
 		self.output_file_name = ""
@@ -826,10 +826,11 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		self.set_trig_start( int(sngl.time - tlen + 0.5) )
 		self.set_trig_end( int(sngl.time + tlen + 0.5) )
-		self.add_var_opt("write-snrsq","")
-		self.add_var_opt("write-chisq","")
-		self.add_var_opt("write-spectrum","")
-		self.add_var_opt("write-template","")
+                if not chia:
+		  self.add_var_opt("write-snrsq","")
+		  self.add_var_opt("write-chisq","")
+		  self.add_var_opt("write-spectrum","")
+		  self.add_var_opt("write-template","")
 		self.add_var_opt("write-cdata","")
 
 		skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
@@ -870,10 +871,14 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
 		self.set_bank(bankFile)
 
-		self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
-		self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
-      
-		self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+                if chia:
+		  self.set_user_tag( tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time) )
+		  self.__usertag = tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time)
+                else:     
+                  self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
+                  self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
+
+                self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
 		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
 		self.add_var_opt("output-path",job.outputPath)
@@ -1171,7 +1176,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 	#def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
 
 	#def __init__(self,job,trig,opts,dag,cp):
-	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, p_nodes = []):
+	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, chia_node =None, p_nodes = []):
 
 		# the use of this class would require some reorganisation in fu_Condor.py
 		# and webCondor.py in order to set up the jobs following the same scheme
@@ -1180,7 +1185,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
-                user_tag = "CHIA_"+str(coinc.time)
+                user_tag = "COHERENT-"+str(coinc.time)
 
 		# These come from inspiral process param tables
 		self.add_var_opt( "segment-length", sngl.get_proc_param('segment-length') )
@@ -1192,17 +1197,23 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
 		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
+		self.add_var_opt("cdata-length",1.0)
 		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
 		self.add_var_opt("write-events","")
 		self.add_var_opt("write-compress","")
  		self.add_var_opt("debug-level","33")
-		self.add_var_opt("write-cohsnr","")
-		self.add_var_opt("write-cohnullstat","")
-		self.add_var_opt("write-h1h2nullstat","")
-		self.add_var_opt("write-cohh1h2snr","")
-		self.add_var_opt("maximize-over-chirp","")
+                self.add_var_opt("maximize-over-chirp","")
+		self.add_var_opt("followup","")
 		# required by followUpChiaPlotNode
+		if chia_node:
+			self.add_var_opt("exttrig","")
+			self.add_var_opt("chia-file",chia_node.output_file_name)
+			self.add_var_opt("write-cohsnr","")
+			self.add_var_opt("write-cohnullstat","")
+			self.add_var_opt("write-h1h2nullstat","")
+			self.add_var_opt("write-cohh1h2snr","")
+			
 
                 hLengthAnalyzed = 1
 		self._InspiralAnalysisNode__pad_data = 0
@@ -1221,9 +1232,12 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("gps-end-time",self.end)
 
 
-		#FIXME do --cohNullStatFrameFile when I understand it
-		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                if chia_node:
+		        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                else:
+                        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
  		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
  		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
@@ -1234,6 +1248,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name)))
 
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_frame_file)))
+
+		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.netnull_output_frame_file)))
 
 
                 bankname = 'trig_bank/%s-COHBANK_FOLLOWUP_%s-%d-%d.xml.gz' % (coinc.instruments.replace(',',''), str(coinc.time), int(coinc.time) - int(hLengthAnalyzed), 2 * int(hLengthAnalyzed))
@@ -1364,7 +1380,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("chiaFrameFile",chia_node.output_frame_file)
 		self.add_var_opt("cohH1H2SNRFrameFile",chia_node.h1h2coh_output_frame_file)
 		self.add_var_opt("H1H2NullStatFrameFile",chia_node.h1h2null_output_frame_file)
-		#FIXME do --cohNullStatFrameFile when I understand it
+		self.add_var_opt("cohNullStatFrameFile",chia_node.netnull_output_frame_file)
 		self.add_var_opt("gps-start-time",int(coinc.time-1))
 		self.add_var_opt("gps-end-time",int(coinc.time+1))
 		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))
@@ -1653,8 +1669,8 @@ class create_default_config(object):
 		# CHIA SECTION
 		cp.add_section("chia")
 		cp.set('chia','cohsnr-threshold', "1")
-		cp.set('chia','ra-step', "6")
-		cp.set('chia','dec-step', "6")
+		cp.set('chia','ra-step', "1")
+		cp.set('chia','dec-step', "1")
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
 
@@ -1754,7 +1770,7 @@ class create_default_config(object):
 		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
 
@@ -1766,7 +1782,7 @@ class create_default_config(object):
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 

@@ -303,7 +303,7 @@ for c in channel_info.keys():
   veto_definer.start_time = channel_info[c][4]
   veto_definer.end_time = channel_info[c][5]
   veto_definer.comment = channel_info[c][3]
-  veto_definer.category = 3
+  veto_definer.category = 4
   veto_definer.start_pad = 0
   veto_definer.end_pad = 0
   veto_definer_table.append(veto_definer)

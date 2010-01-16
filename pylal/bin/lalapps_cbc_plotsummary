@@ -30,11 +30,11 @@ import math
 import matplotlib
 matplotlib.rcParams.update({
 	"font.size": 16.0,
-	"axes.titlesize": 16.0,
-	"axes.labelsize": 16.0,
-	"xtick.labelsize": 14.0,
-	"ytick.labelsize": 14.0,
-	"legend.fontsize": 16.0,
+	"axes.titlesize": 14.0,
+	"axes.labelsize": 14.0,
+	"xtick.labelsize": 13.0,
+	"ytick.labelsize": 13.0,
+	"legend.fontsize": 10.0,
 	"figure.dpi": 300,
 	"savefig.dpi": 300,
 	"text.usetex": True,
@@ -65,7 +65,7 @@ from glue.ligolw import dbtables
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
+from pylal import rate
 
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -91,7 +91,18 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
-	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = "Generate the given plot group.  Can be given multiple times (default = make all plot groups).")
+	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = """
+Generate the given plot group.  Can be given multiple times (default = make all plot groups)
+ 0. Summary Table (top 10 loudest events globally across all zero lag triggers read in)
+ 1. Missed Found (Scatter plots of missed and found injections on several axes)
+ 2. Injection Parameter Accuracy Plots
+ 3. Background Vs Injection Plots (sngl detector triggers from coincs of snr, chisq, bank chisq,...)
+ 4. Background Vs Injection Plots pairwise (effective snr DET1 Vs. DET2...),
+ 5. Rate Vs Threshold (SNR histograms, IFAR histograms, ...)
+ 6. Injection Parameter Distribution Plots (The input parameters that went into inspinj, like mass1 vs mass2...)
+ 7. Rate Vs L1 Offset (Number of triggers vs time slide offset)
+ 8. MVSC Plots (Multivariate classifier plots)
+""")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -289,38 +300,32 @@ def create_sim_coinc_view(connection):
 	Construct a sim_inspiral --> best matching coinc_event mapping.
 	"""
 	connection.cursor().execute("""
-CREATE TEMPORARY VIEW
+CREATE TEMPORARY TABLE
 	sim_coinc_map
 AS
 	SELECT
 		sim_inspiral.simulation_id AS simulation_id,
-		best_coinc_inspiral.coinc_event_id AS coinc_event_id
-	FROM
-		sim_inspiral
-		JOIN coinc_event_map AS a ON (
-			a.table_name == 'sim_inspiral'
-			AND a.event_id == sim_inspiral.simulation_id
-		)
-		JOIN coinc_event_map AS b ON (
-			b.coinc_event_id == a.coinc_event_id
-		)
-		JOIN coinc_inspiral AS best_coinc_inspiral ON (
-			b.table_name == 'coinc_event'
-			AND b.event_id == best_coinc_inspiral.coinc_event_id
-		)
-	WHERE
-		best_coinc_inspiral.combined_far == (
+		(
 			SELECT
-				MIN(matching_coinc_inspirals.combined_far)
+				coinc_inspiral.coinc_event_id
 			FROM
-				coinc_event_map AS c
-				JOIN coinc_inspiral AS matching_coinc_inspirals ON (
-					c.table_name == 'coinc_event'
-					AND c.event_id == matching_coinc_inspirals.coinc_event_id
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_inspiral ON (
+					b.table_name == 'coinc_event'
+					AND b.event_id == coinc_inspiral.coinc_event_id
 				)
 			WHERE
-				c.coinc_event_id == a.coinc_event_id
-		)
+				a.table_name == 'sim_inspiral'
+				AND a.event_id == sim_inspiral.simulation_id
+			ORDER BY
+				coinc_inspiral.combined_far
+			LIMIT 1
+		) AS coinc_event_id
+	WHERE
+		coinc_event_id IS NOT NULL
 	""")
 
 
@@ -346,6 +351,7 @@ class SummaryTable(object):
 		self.candidates = []
 		self.livetime = {}
 		self.playground_livetime = {}
+		self.num_trigs = {}
 
 	def add_contents(self, contents):
 		self.base = contents.base
@@ -434,6 +440,16 @@ ORDER BY
 LIMIT 10
 		""").fetchall()
 
+		contents.connection.cursor().execute("CREATE TEMPORARY TABLE distinct_ifos AS SELECT DISTINCT(ifos) AS ifos FROM coinc_inspiral")
+		for instruments, num in contents.connection.cursor().execute("""
+SELECT distinct_ifos.ifos, count(*) FROM coinc_inspiral JOIN distinct_ifos ON (distinct_ifos.ifos==coinc_inspiral.ifos) JOIN coinc_event ON (coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id) WHERE coinc_inspiral.ifos==distinct_ifos.ifos AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) GROUP BY distinct_ifos.ifos;
+"""):
+			key = frozenset(dbtables.lsctables.instrument_set_from_ifos(instruments))
+			self.num_trigs.setdefault(key,0)
+			self.num_trigs[key] += num
+
+		contents.connection.cursor().execute("DROP TABLE distinct_ifos")
+
 		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
 			self.livetime.setdefault(on_instruments, 0.0)
 			self.playground_livetime.setdefault(on_instruments, 0.0)
@@ -469,6 +485,14 @@ LIMIT 10
 		f = open(self.base+'playground_summary_table.txt','w')
 		f.write("=== Playground loudest 10 summary table ===\n")
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
+		f.close()
+		f = open(self.base+'num_trigs_table.txt','w')
+		f.write("||<b>DETECTORS ON</b>||<b>LIVETIME</b>||<b>NUMBER OF COINCIDENT ZERO LAG TRIGGERS</b>||\n")
+		for inst in self.livetime.keys(): 
+			f.write("||%s||%f||" % ("".join(sorted(inst)), self.livetime[inst]))
+			try: num = self.num_trigs[inst]
+			except: num = 0
+			f.write("%d||\n" % (num,))
 		f.close()
 		yield None, None, None
 
@@ -582,24 +606,29 @@ FROM
 # map all the 0 likelihoods to lowest non-zero likelihood and all 'inf' likelihoods to the highest non-infinity likelihood 
 
 	def finish(self):
-		all_likelihoods = self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood
-		unique_likelihoods = set(all_likelihoods)
-		unique_likelihoods = list(unique_likelihoods)
-		unique_likelihoods.sort()
-		min_likelihood = unique_likelihoods[1]
-		max_likelihood = unique_likelihoods[-2]
-		for likelihood_list in self.timeslide_likelihood, self.zerolag_likelihood, self.injection_likelihood:
-			for i in range(len(likelihood_list)):
-				if likelihood_list[i] == 0:
-					likelihood_list[i] = min_likelihood
-				if likelihood_list[i] == float('inf'):
-					likelihood_list[i] = max_likelihood
-		self.timeslide_likelihood.sort()
-		fig, axes = create_plot(r"likelihood from MVSC", r"combined effective SNR", aspect = 1.0)
+		all_likelihoods = numpy.array(self.timeslide_likelihood + self.zerolag_likelihood + self.injection_likelihood, dtype=float)
+		timeslide_likelihoods = numpy.array(self.timeslide_likelihood)
+		zerolag_likelihoods = numpy.array(self.zerolag_likelihood)
+		injection_likelihoods = numpy.array(self.injection_likelihood)
+		timeslide_snrs = numpy.array(self.timeslide_combined_eff_snr)
+		zerolag_snrs = numpy.array(self.zerolag_combined_eff_snr)
+		injection_snrs = numpy.array(self.injection_combined_eff_snr)
+# set all zero likelihoods to the next lowest calculated likelihood, and all infinity likelihoods to the next highest, so plotting can work
+		plottable_likelihoods = all_likelihoods[~numpy.isinf(all_likelihoods) & (all_likelihoods > 0)]
+		min_likelihood = plottable_likelihoods.min()
+		max_likelihood = plottable_likelihoods.max()
+		timeslide_likelihoods.clip(min_likelihood, max_likelihood, out=timeslide_likelihoods)
+		zerolag_likelihoods.clip(min_likelihood, max_likelihood, out=zerolag_likelihoods)
+		injection_likelihoods.clip(min_likelihood, max_likelihood, out=injection_likelihoods)
+# to find the 'threshold,' which here is the likelihood or combined effective snr of the 100th loudest timeslide
+		sorted_timeslide_likelihoods = numpy.sort(timeslide_likelihoods)
+		sorted_timeslide_snrs = numpy.sort(timeslide_snrs)
+		fig, axes = create_plot(r"MVSC Likelihood", r"Combined Effective SNR", aspect = 1.0)
 		axes.hold(1)
-		axes.loglog(self.injection_likelihood,self.injection_combined_eff_snr,'rx',label='injections')	
-		axes.loglog(self.timeslide_likelihood,self.timeslide_combined_eff_snr,'k.',label='timeslides')	
-		axes.axvline(x=self.timeslide_likelihood[-100], label='100th loudest timeslide')
+		axes.loglog(injection_likelihoods,injection_snrs,'rx',label='injections')	
+		axes.loglog(timeslide_likelihoods,timeslide_snrs,'k.',label='timeslides')	
+		axes.axvline(x=sorted_timeslide_likelihoods[-100], color='g', label='100th loudest timeslide, by MVSCL')
+		axes.axhline(y=sorted_timeslide_snrs[-100], label='100th loudest timeslide, by SNR')
 		axes.legend(loc='lower right')
 		axes.hold(0)
 		yield fig, "MVSC_likelihood_scatterplot" , False
