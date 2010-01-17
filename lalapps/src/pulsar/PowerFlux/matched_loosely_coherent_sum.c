@@ -467,7 +467,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "pp=%f pc=%f cc=%f\n", f_pp, f_pc, f_cc);	
 
-	weight=x*priv->w[k]*priv->w[m+ctx->loose_first_half_count];
+	weight=x*sqrt(priv->w[k]*priv->w[m+ctx->loose_first_half_count]);
 
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;

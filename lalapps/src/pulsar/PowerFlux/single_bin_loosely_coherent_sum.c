@@ -202,8 +202,16 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "pp=%f pc=%f cc=%f\n", f_pp, f_pc, f_cc);	
 
-	weight=x*d->expTMedians[si_local->segment]*d->weight*d2->expTMedians[si_local2->segment]*d2->weight;
-
+	#if 0 
+	/* The weights below (commented and not) are used in completely ad-hoc manner, a proper way to go is to solve the filtering problem in the presence of non-stationary noise */
+	
+	weight=d->expTMedians[si_local->segment]*d->weight;
+	if(weight> d2->expTMedians[si_local2->segment]*d2->weight)weight=d2->expTMedians[si_local2->segment]*d2->weight;
+	weight*=x;
+	#endif 
+	
+	weight=x*sqrt(d->expTMedians[si_local->segment]*d->weight*d2->expTMedians[si_local2->segment]*d2->weight);
+	
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
 	weight_ppcc+=weight*(0.6666667*f_pc*f_pc+0.3333333*f_pp*f_cc); /* 2/3 and 1/3 */
