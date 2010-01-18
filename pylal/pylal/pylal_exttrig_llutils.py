@@ -1443,7 +1443,7 @@ class GRB(object):
     f.write("s/@GRBID@/%s/g\n"%self.name)
     f.write("s=@GRBPICKLE@=%s=g\n"%get_monitor_filename())
     f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
-    f.write("s/@BOUNDARIESM2@/%s/g\n % cp.get('data','m2_boundaries'))
+    f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('data','m2_boundaries'))
     f.close()
 
   # -----------------------------------------------------
