@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -319,7 +319,7 @@ page = InspiralUtils.InspiralPage(opts)
 
 if opts.verbose:
     print "Reading in bin definitions..."
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
+statistic, mc_bins, mc_ifo_cuts, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented

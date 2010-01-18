@@ -363,7 +363,9 @@ def start_post(grb, dag, cp):
   dagfile = "%s/postproc.dag" %path
   grb.apply_sed_file(infile, dagfile)
 
-  # prepare the DAGname and start the DAG
+  # prepare the new DAG and start it
+  del dag
+  dag = peu.AnalysisDag(grb.name, 'onoff2', path
   dag.set_dagname(dagfile)
   dag.start()
 
@@ -395,30 +397,18 @@ def start_post_inj(grb, dag, cp):
   peu.system_call(grb.name, command)
 
   # create the plot_hipe ini file
-  infile = "%s/lik_plothipe.in" %path
-  outfile = "%s/lik_plothipe.ini" %path
+  infile = "%s/likelihood.in" %path
+  outfile = "%s/likelihood.dag" %path
   grb.apply_sed_file(infile, outfile)
 
-  # link the executables; cannot be set in lalapps_plot_hipe
-  path_executables = path+'executables'
-  command = 'mkdir -p %s; cd %s; ln -s ../../../plot* executables'%\
-            (path_executables, path)
-  peu.system_call(grb.name, command)
+  # prepare the new DAG and start it
+  del dag
+  dag = peu.AnalysisDag(grb.name, 'inj2', path
+  dag.set_dagname(outfile)
+  dag.start()
 
-
-  ## create the plothipe script...
-  ## run the plothipe script
-  cmd = plot_hipe_template % cp.get('paths','condor_log_path')
-  nifo = 0
-  for ifo in grb.ifolist:
-    cmd += ' --%s-data' % ifo.lower()
-  cmd += ' --%s-ifo' % number_word[len(grb.ifolist)]
-  peu.system_call(grb.name, cmd)
-
-  print "plothipe call and afterwards codes: Not Implemented yet. Needs to be implemented!!!"
-  #raise NotImplementedError
-
-  # set the new status so 'finished'
+  # put the info and set the status
+  peu.info(grb.name, '  The likelihood stage for this GRB has been started')
   dag.set_status(3)
 
 

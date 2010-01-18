@@ -1443,6 +1443,7 @@ class GRB(object):
     f.write("s/@GRBID@/%s/g\n"%self.name)
     f.write("s=@GRBPICKLE@=%s=g\n"%get_monitor_filename())
     f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
+    f.write("s/@BOUNDARIESM2@/%s/g\n % cp.get('data','m2_boundaries'))
     f.close()
 
   # -----------------------------------------------------
@@ -1456,6 +1457,6 @@ class GRB(object):
 
     cmd = 'mv %s/*grb%s* %s'%(cp.get('paths','main'), self.name, path)
     system_call(self.name, cmd)
-    #cmd = 'mv %s/*VETOTIME* %s'%(cp.get('paths','main'), path)
-    #system_call(self.name, cmd)
+    cmd = 'mv %s/*VETOTIME* %s'%(cp.get('paths','main'), path)
+    system_call(self.name, cmd)
 
