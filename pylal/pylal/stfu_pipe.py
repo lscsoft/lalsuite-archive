@@ -1826,6 +1826,7 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	images marked [Eve,Owl,Day] via [p3,p2,p1] in filenames
 	this methd only for S6 and later
 	IFO naming start dates:
+	There were three naming conventions mixed, then p1,p2,p3 and lastly Day,Eve,Owl
 	LHO: 20090724 :: 932428815
 	LLO: 20090708 :: 931046415
 	"""

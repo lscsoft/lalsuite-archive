@@ -45,6 +45,7 @@ import time
 import urllib
 import fnmatch
 import shutil
+import re
 from pylal import stfu_pipe
 from glue import cbcwebpage
 from pylal import git_version
@@ -86,6 +87,18 @@ class findFileType(object):
       self.fsys=fStructure
       self.coinc=myCoinc
 
+  def __readZranks__(self,filename=None):
+    """
+    Takes a file and returns a structure (list) of information from
+    the zvalue files.
+    """
+    rawData=file(filename).readlines()
+    listData=list()
+    #Sort this data by percentiles: Channel Z PercentileSignificance
+    listData=[[str(a).strip(),float(b),float(c)] or a,b,c in \
+    rawData].sort(cmp=lambda x,y:x[2]-y[2])
+    return listData
+  
   def __readCache__(self,cacheListing=list()):
     """
     Simple mehtod to read in a cache or list of cache files and return
@@ -94,16 +107,17 @@ class findFileType(object):
     #Open the cache entry and search for those entrys
     fileListing=list()
     for entry in cacheListing:
+      #Cache files listed themselves comment out following line
       fileListing.append(entry)
       fileListing.extend([x.rstrip("\n") for x in file(entry).readlines()])
     finalList=list()
     for thisFile in fileListing:
+      #Search filesystem for file full path
       finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
-      if thisFile.endswith(".png"):
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png",".thumb.png")))
+      #Look for potential matching thumbnails
+      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
     if len(finalList) < 1:
-      return(list())
+      return list()
     else:
       return finalList
 
@@ -266,11 +280,12 @@ class findFileType(object):
     cacheList=list()
     cacheFiles=list()
     for sngl in self.coinc.sngls:
-      myCacheMask="*/%s-analyseQscan_%s_%s*_seis_rds*.cache"%(sngl.ifo,sngl.ifo,sngl.time)
+      intS=nanS=0
+      intS,nanS=str(float(sngl.time)).split(".")
+      timeString="%s_%s"%(intS,nanS)
+      myCacheMask="*/%s-analyseQscan_%s_%s*_seis_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
+      #Read the cache file or files
       cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
-    #Read the cache file or files
-    print "MASK : ",myCacheMask
-    print "CACHE: ",cacheList
     cacheFiles=self.__readCache__(cacheList)
     return cacheFiles
       
@@ -281,7 +296,10 @@ class findFileType(object):
     cacheList=list()
     cacheFiles=list()
     for sngl in self.coinc.sngls:
-      myCacheMask="*/%s-analyseQscan_%s_%s*_rds*.cache"%(sngl.ifo,sngl.ifo,sngl.time)
+      intS=nanS=0
+      intS,nanS=str(float(sngl.time)).split(".")
+      timeString="%s_%s"%(intS,nanS)
+      myCacheMask="*/%s-analyseQscan_%s_%s*_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
       #Ignore the files with seis_rds in them
       for x in fnmatch.filter(self.fsys,myCacheMask):
         if not x.__contains__('seis_rds'):
@@ -297,7 +315,10 @@ class findFileType(object):
     cacheList=list()
     cacheFiles=list()
     for sngl in self.coinc.sngls:
-      myCacheMask="*/%s-analyseQscan_%s_%s*_ht*.cache"%(sngl.ifo,sngl.ifo,sngl.time)
+      intS=nanS=0
+      intS,nanS=str(float(sngl.time)).split(".")
+      timeString="%s_%s"%(intS,nanS)
+      myCacheMask="*/%s-analyseQscan_%s_%s*_ht*.cache"%(sngl.ifo,sngl.ifo,timeString)
       cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
     #Read the cache file or files
     cacheFiles=self.__readCache__(cacheList)
@@ -492,6 +513,8 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     Inserts a table constructured of thumbnails linked to larger
     Qscan plots.  It accounts for the ifo present in the coinc via
     qCoinc.  The method expects a lists of URLs
+    Channel naming extraction in the method likely broken see code in
+    method insertAnalyzeQscanTable as a fix guide.
     """
     if images.keys() != indexes.keys():
       sys.write.stderr("Error: insertQscanTable ifo keys malformed.\n")
@@ -539,90 +562,131 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     self.insertTable(myTable)
     
   def insertAnalyzeQscanTable(self,
-                              ifo=None,
                               images=None,
                               thumbs=None,
                               indexes=None,
                               imagesAQ=None,
                               thumbsAQ=None,
-                              indexesAQ=None):
+                              indexesAQ=None,
+                              channelRanks=None):
     """
-    Insert a single IFO table with 5 cols with the AQ underneath
+    Insert a multiple IFO table with 5 cols with the AQ underneath
+    this depends on the numer of IFO keys in indexes dictionary.
+    The option channelRanks is not required to change the plot order!
+    Channel ranks is dict similar in shape to other args.
+    Cells are shaded light grey if they are top N channels and that
+    the trigger is greater in value that 0.5.  Assuming the
+    channelRanks dict is not empty. 
     """
-    if ifo == None:
-      sys.write.stderr("Error: insertAnalyzeQscanTable called incorrectly!\n")
-    #Generate Image Labels
-    channelNames=list()
-    #H1-analyseQscan_H1_931245125_408_seis_rds_H0_PEM-MY_SEISZ_dt_dist-unspecified-gpstime.png
-    #L1-analyseQscan_L1_931182185_246_rds_L0_PEM-LVEA_MAGX_z_dist-unspecified-gpstime.png
-    #H1-analyseQscan_H1_931257951_208_ht_H1_LDAS-STRAIN_dt_dist-unspecified-gpstime.png
-    channelNames.extend([os.path.basename(x).split("_",1)[1].rsplit("_",3)[0].split(":",1)[1] \
-                       for x in images[ifo]])
-    stripTails=["_dt_dist-unspecified-gpstime.png",
-                "_z_dist-unspecified-gpstime.png"]
-    stripI=4
-    channelNames.extend([os.path.basename(x).split("_",stripI)[stripI].strip(stripTails[0]).strip(stripTails[1])
-                         for x in imagesAQ[ifo]])
-    uniqChannelNames=list()
-    lastName=None
-    channelNames.sort()
-    while channelNames:
-      myName=channelNames.pop()
-      if lastName != myName:
-        lastName=myName
-        uniqChannelNames.append(myName)
-    #Create table object reserve first cell for txt labels
-    colCount=3
-    fullRows,modRows=divmod(len(uniqChannelNames)+1,colCount)
-    if modRows > 0:
-      rowCount=fullRows+1
-    else:
-      rowCount=fullRows
-    myTable=self.wikiTable(rowCount,colCount)
-    myTable.setTableStyle("text-align:center")
-    #Reserved cell
-    myTable.data[0][0]=""
-    #Insert HTML links and IFO Label
-    contentString=""
-    contentString=contentString+" %s "%(ifo)
-    #Add html links
-    for newLink in indexes[ifo]:
-      contentString=contentString+" %s "%self.makeExternalLink(newLink,"Qscan")
-    for newLink in indexesAQ[ifo]:
-      contentString=contentString+" %s "%self.makeExternalLink(newLink,"analyzeQscan")
-    myTable.data[0][0]=contentString
-    #Start filling cells with Qscan and analyzeQscan scatter plot
-    for cellNum,channel in enumerate(uniqChannelNames):
-      #Grab plot info for this channel name
-      myName=channel
-      try:
-        myOmegaIndex=[x.__contains__(myName) for x in images[ifo]].index(True)
-      except ValueError:
-        myOmegaIndex=None
-      try:
-        myAQIndex=[x.__contains__(myName) for x in imagesSQ[ifo]].index(True)
-      except ValueError:
-        myAQIndex=None
-      #Use indices to get URLs
-      cellString=""
-      if myName:
-        cellString=cellString+" %s "%myName
+    #channelRanks={'ifo':[[chan,Zvalue,rank]...[chan,Zvalue,rank]],'ifo2':[[ ]]}
+    #Review the keys for Qscans and analyzeQscans.
+    if not images.keys()==thumbs.keys()==indexes.keys():
+      sys.stderr.write("Error: Keys for Qscan tables creations inconsistent!\n")
+    if not imagesAQ.keys()==thumbsAQ.keys()==indexesAQ.keys():
+      sys.stderr.write("Error: Keys for Qscan tables creations inconsistent!\n")
+
+    keyList=indexes.keys()
+    if len(keyList) < indexesAQ.keys():
+      keyList=indexesAQ.keys()
+    for ifo in keyList:
+      #Overall loop for each IFO in the dict structures
+
+      #Generate Image Labels
+      #H1-analyseQscan_H1_931245125_408_seis_rds_H0_PEM-MY_SEISZ_dt_dist-unspecified-gpstime.png
+      #L1-analyseQscan_L1_931182185_246_rds_L0_PEM-LVEA_MAGX_z_dist-unspecified-gpstime.png
+      #H1-analyseQscan_H1_931257951_208_ht_H1_LDAS-STRAIN_dt_dist-unspecified-gpstime.png
+      #932797512.6862793_H0:PEM-BSC9_ACC1X_16.00_eventgram_autoscaled.png
+      #932797512.6862793_H1:LSC-DARM_ERR_512.00_eventgram_raw.thumb.png
+      #933259905.03857422_H0:PEM-MX_SEISY_512.00_eventgram_autoscaled.png
+      #CHANNEL NAMES in ALL CAPS
+      channelNames=list()
+      #Extract channel names
+      tmpCN=[os.path.basename(x) for x in images[ifo]]
+      tmpCN.extend([os.path.basename(x) for x in imagesAQ[ifo]])
+      startREG=re.compile('_[H,V,L][0,1,2][:,-,_]')
+      stopREG=re.compile('_(?=[0-9,a-z])')
+      channelNames=[re.split(stopREG,re.split(startREG,x).pop())[0].strip() \
+                    for x in tmpCN]
+      uniqChannelNames=list()
+      lastName=None
+      channelNames.sort()
+      while channelNames:
+        myName=channelNames.pop()
+        if lastName != myName:
+          lastName=myName
+          uniqChannelNames.append(myName)
+      #Create table object reserve first cell for txt labels
+      colCount=3
+      fullRows,modRows=divmod(len(uniqChannelNames)+1,colCount)
+      if modRows > 0:
+        rowCount=fullRows+1
       else:
-        cellString=cellString+" Unknown_Channel "
-      if myOmegaIndex:
-        cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[myOmegaIndex],
-                                                           images[myOmegaIndex])
-      else:
-        cellString=cellString+" Unavailable_Qscan "
-      if myAQIndex:
-        cellstring=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[myAQIndex],
-                                                            imagesAQ[myAQIndex])
-      else:
-        cellString=cellString+" Unavailable_analyzeQScan"
-      #Add string to cell
-      myRow,myCol=divmod(cellNum+1,colCount)
-      myTable.data[myRow][myCol]=" %s "%cellString
-    self.insertTable(myTable)
+        rowCount=fullRows
+      myTable=self.wikiTable(rowCount,colCount)
+      myTable.setTableStyle("text-align:center")
+      #Reserved cell
+      myTable.data[0][0]=""
+      #Insert HTML links and IFO Label
+      contentString=""
+      contentString=contentString+" %s<<BR>> "%(ifo)
+      #Add html links
+      for newLink in indexes[ifo]:
+        contentString=contentString+" %s<<BR>> "%self.makeExternalLink(newLink,"Qscan")
+      for newLink in indexesAQ[ifo]:
+        contentString=contentString+" %s<<BR>> "%self.makeExternalLink(newLink,"analyzeQscan")
+      #Legend for top N analyzeQscan images
+      #ifoColors={'L1':'blue','H1':'orange','H2':'magenta','V1':'grey','DEFAULT':'pink'}
+      #Shortlist the channels we will highlight: Sort then cut
+      channelRanks[ifo].sort(cmp=lambda x,y:x[2]-y[2])
+      topN=10
+      shortList=channelRanks[ifo][0:min(len(channelRanks[ifo]),topN)]
+      myTable.data[0][0]=contentString
+      #Start filling cells with Qscan and analyzeQscan scatter plot
+      for cellNum,channel in enumerate(uniqChannelNames):
+        #Grab plot info for this channel name
+        myName=channel
+        try:
+          myOmegaIndex=[x.__contains__(myName) for x in images[ifo]].index(True)
+        except ValueError:
+          myOmegaIndex=None
+        try:
+          myOmegaIndexT=[x.__contains__(myName) for x in thumbs[ifo]].index(True)
+        except ValueError:
+          myOmegaIndexT=None
+        try:
+          myAQIndex=[x.__contains__(myName) for x in imagesAQ[ifo]].index(True)
+        except ValueError:
+          myAQIndex=None
+        try:
+          myAQIndexT=[x.__contains__(myName) for x in thumbsAQ[ifo]].index(True)
+        except ValueError:
+          myAQIndexT=None
+        cellString=""
+        #Setup shading
+        htmlGrey='#CCCCCC'
+        cutP=0.50
+        if [a.__contains__(myName) \
+            and c >= cutP for a,b,c in shortList].count(True):
+          cellString=cellString+" <%s> "%htmlGrey
+        #Use indices to get URLs
+        if myName:
+          cellString=cellString+" %s <<BR>> "%myName
+        else:
+          cellString=cellString+" Unknown_Channel <<BR>> "
+        if myOmegaIndex!=None:
+          cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[ifo][myOmegaIndex],
+                                                             images[ifo][myOmegaIndex])
+        else:
+          cellString=cellString+" Unavailable_Qscan <<BR>> "
+        if myAQIndex!=None:
+          cellString=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[ifo][myAQIndex],
+                                                              imagesAQ[ifo][myAQIndex])
+        else:
+          cellString=cellString+" Unavailable_analyzeQScan <<BR>> "
+        #Add string to cell
+        myRow,myCol=divmod(cellNum+1,colCount)
+        myTable.data[myRow][myCol]=" %s "%cellString
+      self.insertTable(myTable)
 
   def write(self):
     """
@@ -892,6 +956,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   imageDictAQ=dict()
   indexDictAQ=dict()
   thumbDictAQ=dict()
+  zValueDictAQ=dict()
   for sngl in wikiCoinc.sngls:
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
@@ -902,13 +967,22 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                        "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened?thumb.png"%\
                                        (sngl.ifo,sngl.time))
     #Search for analyzeQscan files
+    intS=nanS=0
+    intS,nanS=str(float(sngl.time)).split(".")
+    timeString="%s_%s"%(intS,nanS)
+    zValueFiles=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
+                                         "*_%s_%s_*.txt"%(sngl.ifo,timeString))
     indexDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
-                                         "*_%s_%s_*.html"%(sngl.ifo,sngl.time))
+                                         "*_%s_%s_*.html"%(sngl.ifo,timeString))
     thumbDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
-                                       "*_%s_%s_*_thumb.png"%(sngl.ifo,sngl.time))
-    imageDictAQ[sngl.ifo]=[x.replace("_thumb.png",".png") for x in thumbDictAQ]
-    #Look for ranking files if availabe TBA
-    #
+                                         "*%s-*_%s_*_z_scat-unspecified-gpstime_thumb.png"\
+                                         %(sngl.ifo,timeString))
+    imageDictAQ[sngl.ifo]=[x.replace("_thumb.png",".png") for x in thumbDictAQ[sngl.ifo]]
+    #Process zValue ranking file if found for IFO
+    if len(zValueFiles) > 0:
+      zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
+    else:
+      zValueDictAQ[sngl.ifo]=list()
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
@@ -916,7 +990,6 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDictAQ[sngl.ifo]=[file2URL.convert(x) for x in imageDictAQ[sngl.ifo]]
     indexDictAQ[sngl.ifo]=[file2URL.convert(x) for x in indexDictAQ[sngl.ifo]]
     thumbDictAQ[sngl.ifo]=[file2URL.convert(x) for x in thumbDictAQ[sngl.ifo]]
-
     if len(indexDict[sngl.ifo]) < 1:
       wikiPage.putText("Seismic scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
@@ -927,7 +1000,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                      indexDict,
                                      imageDictAQ,
                                      thumbDictAQ,
-                                     indexDictAQ)
+                                     indexDictAQ,
+                                     zValueDictAQ)
   else:
     sys.stdout.write("Warning: Seismic plots product import problem.\n")
   wikiPage.subsubsection("Investigator Comments")
@@ -949,6 +1023,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   imageDictAQ=dict()
   indexDictAQ=dict()
   thumbDictAQ=dict()
+  zValueDictAQ=dict()
   #Select only PEM channels
   for sngl in wikiCoinc.sngls:
     imageDict[sngl.ifo]=list()
@@ -973,21 +1048,29 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDictAQ[sngl.ifo]=list()
     indexDictAQ[sngl.ifo]=list()
     thumbDictAQ[sngl.ifo]=list()
-    #H1-analyseQscan_H1_931176926_116_rds-unspecified-gpstime.html
+    intS=nanS=0
+    intS,nanS=str(float(sngl.time)).split(".")
+    timeString="%s_%s"%(intS,nanS)
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
-                                 "*%s-*_%s_*html"%(sngl.ifo,sngl.time)):
+                                 "*%s-*_%s_*html"%(sngl.ifo,timeString)):
       indexDictAQ[sngl.ifo].append(myFile)
+    zValuesFiles=fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                "*%s-*_%s_*.txt"%(sngl.ifo,timeString))
+    if len(zValueFiles) > 0:
+      zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
+    else:
+      zValueDictAQ[sngl.ifo]=list()
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime_thumb.png
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime.png
-    for myFile in fnmatch.filter(wikiFileFinder.get_anallyzeQscan_RDS(),\
-                                 "*%s-*_%s_*unspecified-gpstime.png"%\
-                                 (sngl.ifo,sngl.time)):
+    for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                 "*%s-*_%s_*_z_scat-unspecified-gpstime.png"%\
+                                 (sngl.ifo,timeString)):
       if myFile.upper().__contains__("PEM"):
         imageDictAQ[sngl.ifo].append(myFile)
         
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
-                                 "*%s-*_%s_*unspecified-gpstime?thumb.png"%\
-                                 (sngl.ifo,sngl.time)):
+                                 "*%s-*_%s_*_z_scat-unspecified-gpstime?thumb.png"%\
+                                 (sngl.ifo,timeString)):
       if myFile.upper().__contains__("PEM"):
         thumbDictAQ[sngl.ifo].append(myFile)
     #Convert disk locals to URLs
@@ -1007,7 +1090,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                      indexDict,
                                      imageDictAQ,
                                      thumbDictAQ,
-                                     indexDictAQ)
+                                     indexDictAQ,
+                                     zValueDictAQ)
   else:
     sys.stdout.write("Warning: PEM plots import trouble.\n")
   wikiPage.subsubsection("Investigator Comments")
@@ -1028,6 +1112,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   imageDictAQ=dict()
   indexDictAQ=dict()
   thumbDictAQ=dict()
+  zValueDictAQ=dict()
   #Select only AUX channels
   for sngl in wikiCoinc.sngls:
     imageDict[sngl.ifo]=list()
@@ -1036,7 +1121,6 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                  "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
       indexDict[sngl.ifo].append(myFile)
-
     for myFile in fnmatch.filter(wikiFileFinder.get_RDS_R_L1(),\
                                  "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
                                  (sngl.ifo,sngl.time)):
@@ -1052,21 +1136,31 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     imageDictAQ[sngl.ifo]=list()
     indexDictAQ[sngl.ifo]=list()
     thumbDictAQ[sngl.ifo]=list()
+    intS=nanS=0
+    intS,nanS=str(float(sngl.time)).split(".")
+    timeString="%s_%s"%(intS,nanS)
     #H1-analyseQscan_H1_931176926_116_rds-unspecified-gpstime.html
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
-                                 "*%s-*_%s_*html"%(sngl.ifo,sngl.time)):
+                                 "*%s-*_%s_*html"%(sngl.ifo,timeString)):
       indexDictAQ[sngl.ifo].append(myFile)
+    zValueFiles=fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                               "*_%s_%s_*.txt"%(sngl.ifo,timeString))
+    #Process zValue ranking file if found for IFO
+    if len(zValueFiles) > 0:
+      zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
+    else:
+      zValueDictAQ[sngl.ifo]=list()
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime_thumb.png
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime.png
-    for myFile in fnmatch.filter(wikiFileFinder.get_anallyzeQscan_RDS(),\
-                                 "*%s-*_%s_*unspecified-gpstime.png"%\
-                                 (sngl.ifo,sngl.time)):
+    for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                 "*%s-*_%s_*_z_scat-unspecified-gpstime.png"%\
+                                 (sngl.ifo,timeString)):
       if not myFile.upper().__contains__("PEM"):
         imageDictAQ[sngl.ifo].append(myFile)
         
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
-                                 "*%s-*_%s_*unspecified-gpstime?thumb.png"%\
-                                 (sngl.ifo,sngl.time)):
+                                 "*%s-*_%s_*_z_scat-unspecified-gpstime?thumb.png"%\
+                                 (sngl.ifo,timeString)):
       if not myFile.upper().__contains__("PEM"):
         thumbDictAQ[sngl.ifo].append(myFile)
 
@@ -1087,7 +1181,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                      indexDict,
                                      imageDictAQ,
                                      thumbDictAQ,
-                                     indexDictAQ)
+                                     indexDictAQ,
+                                     zValueDictAQ)
   else:
     sys.stdout.write("Warning: AUX plots import trouble.\n")
   wikiPage.subsubsection("Investigator Comments")
