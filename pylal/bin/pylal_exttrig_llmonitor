@@ -365,7 +365,7 @@ def start_post(grb, dag, cp):
 
   # prepare the new DAG and start it
   del dag
-  dag = peu.AnalysisDag(grb.name, 'onoff2', path
+  dag = peu.AnalysisDag(grb.name, 'onoff2', path)
   dag.set_dagname(dagfile)
   dag.start()
 
@@ -403,7 +403,7 @@ def start_post_inj(grb, dag, cp):
 
   # prepare the new DAG and start it
   del dag
-  dag = peu.AnalysisDag(grb.name, 'inj2', path
+  dag = peu.AnalysisDag(grb.name, 'inj2', path)
   dag.set_dagname(outfile)
   dag.start()
 
@@ -432,8 +432,8 @@ def analysis_finalized(grb, dag):
   email_msg = 'This GRB was detected at GPS %s at position (ra %s / dec %s) [deg]\n' %\
                    (grb.time, grb.ra, grb.de)
   email_msg += 'Enough coincident data found from detectors %s\n' % grb.ifolist
-  if grb_duration:
-     email_msg += 'The duration of this GRB is %.1f seconds.\n' % grb_duration
+  if grb.duration:
+     email_msg += 'The duration of this GRB is %.1f seconds.\n' % grb.duration
   else:
      email_msg += 'The duration is not know at this time.\n'
 
