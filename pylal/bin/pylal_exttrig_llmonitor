@@ -364,8 +364,8 @@ def start_post(grb, dag, cp):
   grb.apply_sed_file(infile, dagfile)
 
   # prepare the new DAG and start it
-  del dag
-  dag = peu.AnalysisDag(grb.name, 'onoff2', path)
+  #del dag
+  #dag = peu.AnalysisDag(grb.name, 'onoff2', path)
   dag.set_dagname(dagfile)
   dag.start()
 
@@ -402,8 +402,8 @@ def start_post_inj(grb, dag, cp):
   grb.apply_sed_file(infile, outfile)
 
   # prepare the new DAG and start it
-  del dag
-  dag = peu.AnalysisDag(grb.name, 'inj2', path)
+  #del dag
+  #dag = peu.AnalysisDag(grb.name, 'inj2', path)
   dag.set_dagname(outfile)
   dag.start()
 
