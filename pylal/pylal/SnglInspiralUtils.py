@@ -44,7 +44,7 @@ from glue import segments
 #
 
 
-def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
+def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, old_document=False):
   """
   Read the SnglInspiralTables from a list of files
 
@@ -56,6 +56,8 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
   # turn on ID remapping if necessary
   if mangle_event_id:
     lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+    if old_document:
+      lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
 
   # ligolw_add will merge all tables, which is overkill, but merge time is
   # much less than I/O time.
