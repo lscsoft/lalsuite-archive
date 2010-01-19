@@ -403,7 +403,19 @@ if offsourcefilelists:
     populate_mtotal(offsourceTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
-    slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
+    # Check the seglists agree with the ifo times
+    for i in segs.keys():
+      if opts.ifo_times.find(i) == -1:
+        raise ValueError
+
+    if len(opts.ifo_times) != len(segs.keys()) * len(segs.keys()[0]):
+      raise ValueError
+
+    slideTimeAnalyzed = float(abs(segs.intersection(segs.iterkeys())))
+
+    # set a formal number of 'slides' to one, otherewise 
+    # a div-by-zero error will occor
+    opts.num_slides = 1
 
     # perform the veto
     if opts.veto_file is not None:
