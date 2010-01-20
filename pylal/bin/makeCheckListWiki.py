@@ -87,16 +87,30 @@ class findFileType(object):
       self.fsys=fStructure
       self.coinc=myCoinc
 
-  def __readZranks__(self,filename=None):
+  def __readZranks__(self,myFilename=None):
     """
     Takes a file and returns a structure (list) of information from
     the zvalue files.
     """
-    rawData=file(filename).readlines()
-    listData=list()
+    if myFilename == None:
+      sys.stderr.write("No filename passed to method __readZranks__()!\n")
+      return None
+    rawData=[x.rstrip("\n") for x in file(myFilename)]
     #Sort this data by percentiles: Channel Z PercentileSignificance
-    listData=[[str(a).strip(),float(b),float(c)] or a,b,c in \
-    rawData].sort(cmp=lambda x,y:x[2]-y[2])
+    try:
+      #ignoreOctothorpe
+      rawData2=list()
+      for index,row in enumerate(rawData):
+        if not row.startswith("#") and row != "":
+          rawData2.append(row.strip())
+      #Split into strings
+      listData=[str(a).split() for a in rawData2]
+      #Adjust properties to Str,float,float
+      listData=[[str(a),float(b),float("%2.3f"%float(c))] for a,b,c in listData]
+      listData.sort(cmp=lambda x,y:int(10.0*(x[2]-y[2])))
+    except:
+      sys.stderr.write("Error parsing Z value file :%s\n"%(myFilename))
+      return []
     return listData
   
   def __readCache__(self,cacheListing=list()):
@@ -109,7 +123,13 @@ class findFileType(object):
     for entry in cacheListing:
       #Cache files listed themselves comment out following line
       fileListing.append(entry)
-      fileListing.extend([x.rstrip("\n") for x in file(entry).readlines()])
+      fileListing.extend([x.rstrip("\n") for x in file(entry)])
+      #PATCH START to add in the z distribution files
+      for fname in fileListing:
+        if ".html" in fname:
+          zFile=fname.replace(".html",".txt")
+          fileListing.append(zFile)
+      #PATCH END
     finalList=list()
     for thisFile in fileListing:
       #Search filesystem for file full path
@@ -498,7 +518,7 @@ class wiki(object):
             if obj.data[row][col].rstrip().lstrip().__contains__("style"):
               tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
             else:
-              tableContent=tableContent+"|| %s "%(obj.data[row][col].rstrip().lstrip())
+              tableContent=tableContent+"||%s "%(obj.data[row][col].rstrip().lstrip())
           except:
             sys.stderr.write("Error creating wiki markup for table. \
 R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
@@ -637,7 +657,8 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       #Legend for top N analyzeQscan images
       #ifoColors={'L1':'blue','H1':'orange','H2':'magenta','V1':'grey','DEFAULT':'pink'}
       #Shortlist the channels we will highlight: Sort then cut
-      channelRanks[ifo].sort(cmp=lambda x,y:x[2]-y[2])
+      if channelRanks[ifo]:
+        channelRanks[ifo].sort(cmp=lambda x,y:int(10.0*(x[2]-y[2])))
       topN=10
       shortList=channelRanks[ifo][0:min(len(channelRanks[ifo]),topN)]
       myTable.data[0][0]=contentString
@@ -663,11 +684,11 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           myAQIndexT=None
         cellString=""
         #Setup shading
-        htmlGrey='#CCCCCC'
-        cutP=0.50
+        htmlShadeColor='#00FFFF'
+        cutP=0.75
         if [a.__contains__(myName) \
             and c >= cutP for a,b,c in shortList].count(True):
-          cellString=cellString+" <%s> "%htmlGrey
+          cellString=cellString+"<%s> "%htmlShadeColor
         #Use indices to get URLs
         if myName:
           cellString=cellString+" %s <<BR>> "%myName
@@ -979,10 +1000,11 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                          %(sngl.ifo,timeString))
     imageDictAQ[sngl.ifo]=[x.replace("_thumb.png",".png") for x in thumbDictAQ[sngl.ifo]]
     #Process zValue ranking file if found for IFO
-    if len(zValueFiles) > 0:
+    if len(zValueFiles):
       zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
     else:
       zValueDictAQ[sngl.ifo]=list()
+      sys.stdout.write("Z ranking file not found for %s. ...skipping...\n"%sngl.ifo)
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
     indexDict[sngl.ifo]=[file2URL.convert(x) for x in indexDict[sngl.ifo]]
