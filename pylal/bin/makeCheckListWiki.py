@@ -982,10 +982,10 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
-                                       "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened.png"%\
+                                       "*/%s_RDS_*/%s/*SEI*_512.00_spectrogram_whitened.png"%\
                                        (sngl.ifo,sngl.time))
     thumbDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
-                                       "*/%s_RDS_*/%s/*SEIS?_512.00_spectrogram_whitened?thumb.png"%\
+                                       "*/%s_RDS_*/%s/*SEI*_512.00_spectrogram_whitened?thumb.png"%\
                                        (sngl.ifo,sngl.time))
     #Search for analyzeQscan files
     intS=nanS=0
