@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+__author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brady@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 import sys
 from math import sqrt, sin, cos
 import gzip 
