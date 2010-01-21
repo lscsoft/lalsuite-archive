@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
+import git_version
+
 __author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brady@ligo.org>"
-#__version__ = "git id %s" % git_version.id
-#__date__ = git_version.date
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 import sys
 from math import sqrt, sin, cos
@@ -60,7 +62,7 @@ def get_delta_t_rss(latitude,longitude,coinc,reference_frequency=None):
       tref[ifo] = LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
     else:
       tref[ifo] = 0.0   
-        
+         
     #compute the geocentric time from each trigger
     tgeo[ifo] = coinc_dat.gps[ifo] - tref[ifo] - \
                 LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],\
@@ -166,17 +168,19 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   """
   fgtemp = finegrid
   coarsedict = {}
+  ds = coarseres*pi/180
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= coarseres/2 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*abs(sin(fpt[1])) <=  coarseres/2:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4 and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*abs(sin(fpt[1]))*abs(sin(fpt[1])) \
+         <=  ds*ds/4:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
-      fgtemp.remove(pt)
+      fgtemp.remove(rpt)
 
-  return coarsedict
+  return coarsedict, fgtemp
 
 ##############################################################################
 #
