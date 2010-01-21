@@ -29,6 +29,7 @@
 from optparse import OptionParser
 import sys
 
+from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -57,6 +58,7 @@ def parse_command_line():
   parser = OptionParser(version = "%prog CVS $Id$")
   parser.add_option("--comment", metavar = "text", default = "", 
     help = "set comment string in process table")
+  parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Process the files listed in this LAL cache.")
   parser.add_option("-w", "--cluster-window", type="float", action = "store", 
     help = "duration of snr clustering window in seconds (required)")
   parser.add_option("-t", "--snr-threshold", type="float", 
@@ -74,6 +76,9 @@ def parse_command_line():
     raise Exception, \
       "missing required command line argument --cluster-window"
   options.cluster_window = lsctables.LIGOTimeGPS(options.cluster_window)
+
+  for cache in options.input_cache:
+    filenames += [CacheEntry(line).path() for line in file(cache)]
 
   return options, (filenames or [None])
 
