@@ -695,12 +695,12 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         else:
           cellString=cellString+" Unknown_Channel <<BR>> "
         if myOmegaIndex!=None:
-          cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[ifo][myOmegaIndex],
+          cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[ifo][myOmegaIndexT],
                                                              images[ifo][myOmegaIndex])
         else:
           cellString=cellString+" Unavailable_Qscan <<BR>> "
         if myAQIndex!=None:
-          cellString=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[ifo][myAQIndex],
+          cellString=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[ifo][myAQIndexT],
                                                               imagesAQ[ifo][myAQIndex])
         else:
           cellString=cellString+" Unavailable_analyzeQScan <<BR>> "
