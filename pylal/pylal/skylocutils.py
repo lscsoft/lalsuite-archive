@@ -141,7 +141,7 @@ def gridsky(resolution):
   """
   latitude = 0.0
   longitude = pi
-  ds = pi*sqrt(2.0)*resolution/180.0
+  ds = pi*resolution/180.0
   points = [(latitude-0.5*pi, longitude)]
   while latitude <= pi:
     latitude += ds
@@ -166,15 +166,15 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   where the points in the coarse grid are the keys and lists of tuples of
   points in the fine grid are the values
   """
-  fgtemp = finegrid
+  fgtemp = finegrid[:]
   coarsedict = {}
-  ds = coarseres*pi/180
+  ds = coarseres*pi/180.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*abs(sin(fpt[1]))*abs(sin(fpt[1])) \
-         <=  ds*ds/4:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
+         <=  ds*ds/4.0:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
@@ -338,6 +338,7 @@ class Coincidences(list):
             effDs_inj[ifo] = row.eff_dist_v
         coinc.set_inj_params(row.latitude,row.longitude,row.mass1,row.mass2, \
                              effDs_inj)
+      #FIXME: name the exception!
       except:
         pass
 
@@ -355,6 +356,7 @@ class Coincidences(list):
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
+    #FIXME: name the exception!
     except:
       pass
 
@@ -379,6 +381,7 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
                              getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
+      #FIXME: name the exception!
       except:
         pass
       
