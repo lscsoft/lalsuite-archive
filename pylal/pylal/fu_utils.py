@@ -2115,10 +2115,10 @@ class ratioTest:
     Creates a small snippet of MOINMOIN wiki syntax for display on web browser.
     """
     #[[ImageLink(image,target[,width=width[,height=height]][,alt=alttag])]]    
-    resultString="|| IFO:IFO || || ToF || || Deff Ratio || || Probability || || Figure ||\n"
+    resultString="|| IFO:IFO || ToF || Deff Ratio || Probability || Figure ||\n"
     for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
       myURL=str('[[%s|{{%s|RatioTestPlot|width=300}}]]')%(pairURL,pairURL)
-      myString="|| %s:%s || || %2.4f || || %5.2f || || %1.3f || || %s ||\n"%\
+      myString="|| %s:%s || %2.4f || %5.2f || %1.3f || %s ||\n"%\
                 (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
       resultString="%s%s"%(resultString,myString)
     resultString="%s \n"%(resultString)

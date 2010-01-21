@@ -40,7 +40,7 @@ def files_to_dict(f1, f1_info, databases, ldict):
 		except: ldict[f] = {}
 	f1lines = open(f1).readlines()
 	#the first line of the first file is a header
-	f1lines.pop(0)
+	if f1lines: f1lines.pop(0)
 	f1_infolines = open(f1_info).readlines()
 	if len(f1lines) != len(f1_infolines): 
 		print>> sys.stderr, "file " + f1 + " and " +f1_info + " have different lengths"
