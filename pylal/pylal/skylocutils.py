@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+import git_version
+
+__author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brady@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 import sys
 from math import sqrt, sin, cos
 import gzip 
@@ -56,7 +62,7 @@ def get_delta_t_rss(latitude,longitude,coinc,reference_frequency=None):
       tref[ifo] = LIGOTimeGPS(int(tFromRefFreq), 1.e9*(tFromRefFreq-int(tFromRefFreq)))
     else:
       tref[ifo] = 0.0   
-        
+         
     #compute the geocentric time from each trigger
     tgeo[ifo] = coinc_dat.gps[ifo] - tref[ifo] - \
                 LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],\
@@ -126,82 +132,55 @@ def get_delta_D_rms(latitude,longitude,coinc):
 
   return sqrt(delta_D_rms)
 
-def gridsky(latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon,fine_res,coarse_res):
+def gridsky(resolution):
   """
-  function to grid the sky in whole or part
-  coarse_res = resolution of the coarse grid (=0 for whole sky gridding)
-  fine_res = resolution of the fine grid
-  latmax: maximum latitude
-  latmin: minimum latitude
-  lonmax: maximum longitude
-  lonmin: minimum longitude
-  wrap_lat: wrap latitudes around the sphere
-  wrap_lon: wrap longitudes around the sphere
+  grid the sky up into roughly square regions
+  resolution is the length of a side 
+  the points get placed at the center of the squares and to 
+  first order each square has an area of resolution^2
   """
-  points = []
-  ds = pi*sqrt(2.0)*fine_res/180.0
-  #slop factor
-  epsilon = pi*sqrt(2.0)*coarse_res/180.0
-  #each element of the following will be a list of [min,max] pairs
-  lat_grids = []
-  lon_grids = []
-
-  #make latitude run from 0 to pi, to avoid gridding problems at the equator
-  latmin += 0.5*pi
-  latmax += 0.5*pi
-
-  #determine whether or not grids need to be wrapped in each direction
-  if wrap_lat:
-    lat_grids.append([latmax-epsilon,pi])
-    lat_grids.append([0,latmin+epsilon])
-  else:
-    if (latmin - epsilon > 0) and (latmax + epsilon < pi):
-      lat_grids.append([latmin-epsilon,latmax+epsilon])
-    elif (latmin - epsilon <= 0) and (latmax + epsilon >= pi):
-      lat_grids.append([0,pi])
-    elif latmin - epsilon < 0 :
-      lat_grids.append([0,latmax+epsilon])
-      lat_grids.append([pi+latmin-epsilon,pi])
-    elif latmax + epsilon > pi:
-      lat_grids.append([latmin-epsilon,pi])
-      lat_grids.append([0,latmax+epsilon-pi])
+  latitude = 0.0
+  longitude = pi
+  ds = pi*resolution/180.0
+  points = [(latitude-0.5*pi, longitude)]
+  while latitude <= pi:
+    latitude += ds
+    longitude = 0.0
+    points.append((latitude-0.5*pi, longitude))
+    while longitude <= 2.0*pi:
+      longitude += ds / abs(sin(latitude))
+      points.append((latitude-0.5*pi, longitude))
+  #there's some slop so get rid of it and only focus on points on the sphere
+  sphpts = []
+  for pt in points:
+    if pt[0] > pi/2 or pt[0] < -pi/2 \
+       or pt[1] > 2*pi or pt[1] < 0:
+      pass
     else:
-      raise ValueError, "this should never happen"
-  if wrap_lon:
-    lon_grids.append([lonmax-epsilon,2*pi])
-    lon_grids.append([0,lonmin+epsilon])
-  else:
-    if (lonmin - epsilon > 0) and (lonmax + epsilon < 2*pi):
-      lon_grids.append([lonmin-epsilon,lonmax+epsilon])
-    elif (lonmin - epsilon <= 0) and (lonmax + epsilon >= 2*pi):
-      lon_grids.append([0,2*pi])
-    elif lonmin - epsilon < 0:
-      lon_grids.append([0,lonmax+epsilon])
-      lon_grids.append([2*pi+lonmin-epsilon,2*pi])
-    elif lonmax + epsilon > 2*pi:
-      lon_grids.append([lonmin-epsilon,2*pi])
-      lon_grids.append([0,lonmax+epsilon-2*pi])
-    else:
-      raise ValueError, "this should never happen"
+      sphpts.append(pt)
+  return sphpts
 
-  #now lay out points on the sphere
-  for latgrid in lat_grids:
-    for longrid in lon_grids:
-      latitude = latgrid[0]
-      longitude = longrid[0]
-      points.append((latitude-0.5*pi,longitude))
-      while latitude <= latgrid[1]:
-        latitude += ds
-        longitude = longrid[0]
-        points.append((latitude-0.5*pi,longitude))
-        while longitude <= longrid[1]:
-          longitude += ds / abs(sin(latitude))
-          points.append((latitude-0.5*pi,longitude))
-            
-  return points
+def map_grids(coarsegrid,finegrid,coarseres=4.0):
+  """
+  takes the two grids (lists of lat/lon tuples) and returns a dictionary
+  where the points in the coarse grid are the keys and lists of tuples of
+  points in the fine grid are the values
+  """
+  fgtemp = finegrid[:]
+  coarsedict = {}
+  ds = coarseres*pi/180.0
+  for cpt in coarsegrid:
+    flist = []
+    for fpt in fgtemp:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
+         <=  ds*ds/4.0:
+        flist.append(fpt)
+    coarsedict[cpt] = flist
+    for rpt in flist:
+      fgtemp.remove(rpt)
 
-
-
+  return coarsedict, fgtemp
 
 ##############################################################################
 #
@@ -359,6 +338,7 @@ class Coincidences(list):
             effDs_inj[ifo] = row.eff_dist_v
         coinc.set_inj_params(row.latitude,row.longitude,row.mass1,row.mass2, \
                              effDs_inj)
+      #FIXME: name the exception!
       except:
         pass
 
@@ -376,6 +356,7 @@ class Coincidences(list):
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
+    #FIXME: name the exception!
     except:
       pass
 
@@ -400,6 +381,7 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
                              getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
+      #FIXME: name the exception!
       except:
         pass
       
