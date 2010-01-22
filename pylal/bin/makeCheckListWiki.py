@@ -107,7 +107,9 @@ class findFileType(object):
       listData=[str(a).split() for a in rawData2]
       #Adjust properties to Str,float,float
       listData=[[str(a),float(b),float("%2.3f"%float(c))] for a,b,c in listData]
-      listData.sort(cmp=lambda x,y:int(10.0*(x[2]-y[2])))
+      tmpListData=[[x[2],x] for x in listData]
+      tmpListdata.sort(reverse=True)
+      listData=[x[1] for x in tmpListData]
     except:
       sys.stderr.write("Error parsing Z value file :%s\n"%(myFilename))
       return []
@@ -481,6 +483,7 @@ class wiki(object):
       else:
         self.cols=cols
       self.tStyle=None
+      self.tHeadline=None
       self.data=list()
       #Create tuple object with number of rows
       for rc in range(0,rows):
@@ -489,16 +492,40 @@ class wiki(object):
     def __rowbuilder__(self,cols):
       return [str(" ") for x in range(0,cols)]
 
+    def setTableHeadline(self,titleString=""):
+      """
+      Allows you to insert a title row to a table object and place
+      text or other table commands. Invoking it with None as the arg
+      deletes a previous set table headline.
+      """
+      if titleString=None:
+        self.tHeadline=None
+      elif self.tStyle != None:
+        self.tHeadline=||%s<-%i><:>%s ||\n%(self.tStyle,self.cols,titleString)
+      else:
+        self.tHeadline=||<-%i><:>%s ||\n%(self.cols,titleString)
+        
     def setTableStyle(self,fstring=""):
       """
       Allows you to specify table style see MoinMoin help
       Setting arg to NONE removes the current style specified if any.
       """
       if fstring=="NONE":
-        self.tStyle=None
+        if self.tHeadline != None:
+          #If tstyle deleted after headline set
+          self.tHeadline.strip(self.tStyle)
+          self.tStyle=None
       else:
+        oldString=self.tStyle
         self.tStyle='<tablestyle="%s">'%(fstring.lstrip().rstrip())
-      
+        if self.tHeadline != None:
+          #Swap out previous style info in headline string
+          if self.tHeadline__contains__self.tStyle:
+            self.tHeadline.replace(oldString,self.tStyle)
+          else: #Insert the style information
+            A,B=self.tHeadline.split("<",1)
+            str().join([str(A)+self.tStyle+"<",str(B)])
+
   def insertTable(self,obj):
     """
     Pass in a wikiTable object then create the relevant
@@ -507,7 +534,9 @@ class wiki(object):
     """
     oldCell="%s"%obj.data[0][0]
     tableContent=""
-    if obj.tStyle != None:
+    if obj.tHeadline != None:
+      tableContent+=obj.tHeadline
+    if ((obj.tStyle != None) and (obj.tHeadline == None)):
       obj.data[0][0]="%s%s"%(obj.tStyle,str(oldCell))
     if type(obj) != type(self.wikiTable()):
       raise Exception,"Expecting nested type instance of WikiTable"
@@ -564,6 +593,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       else:
         myIndexURL="%s"%indexes[label][0]
         myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
+
     #Fill in table with thumbnails and links
     for i,channel in enumerate(uniqChannelNames):
       myTable.data[i+1][0]=" %s "%(channel)
@@ -637,31 +667,30 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           uniqChannelNames.append(myName)
       #Create table object reserve first cell for txt labels
       colCount=3
-      fullRows,modRows=divmod(len(uniqChannelNames)+1,colCount)
+      fullRows,modRows=divmod(len(uniqChannelNames),colCount)
       if modRows > 0:
         rowCount=fullRows+1
       else:
         rowCount=fullRows
       myTable=self.wikiTable(rowCount,colCount)
       myTable.setTableStyle("text-align:center")
-      #Reserved cell
-      myTable.data[0][0]=""
       #Insert HTML links and IFO Label
       contentString=""
-      contentString=contentString+" %s<<BR>> "%(ifo)
+      contentString=contentString+" %s  "%(ifo)
       #Add html links
       for newLink in indexes[ifo]:
-        contentString=contentString+" %s<<BR>> "%self.makeExternalLink(newLink,"Qscan")
+        contentString=contentString+" %s "%self.makeExternalLink(newLink,"Qscan")
       for newLink in indexesAQ[ifo]:
-        contentString=contentString+" %s<<BR>> "%self.makeExternalLink(newLink,"analyzeQscan")
+        contentString=contentString+" %s  "%self.makeExternalLink(newLink,"analyzeQscan")
       #Legend for top N analyzeQscan images
       #ifoColors={'L1':'blue','H1':'orange','H2':'magenta','V1':'grey','DEFAULT':'pink'}
       #Shortlist the channels we will highlight: Sort then cut
-      if channelRanks[ifo]:
-        channelRanks[ifo].sort(cmp=lambda x,y:int(10.0*(x[2]-y[2])))
-      topN=10
-      shortList=channelRanks[ifo][0:min(len(channelRanks[ifo]),topN)]
-      myTable.data[0][0]=contentString
+      tmpRanks=[[x[2],x] for x in channelranks[ifo]]
+      tmpRanks.sort(reverse=True)
+      ifoRanks=[x[1] for x in tmpRanks]
+      topN=9
+      shortList=ifoRanks[0:min(len(ifoRanks),topN)]
+      myTable.setTableHeadline(contentString)
       #Start filling cells with Qscan and analyzeQscan scatter plot
       for cellNum,channel in enumerate(uniqChannelNames):
         #Grab plot info for this channel name
@@ -705,7 +734,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         else:
           cellString=cellString+" Unavailable_analyzeQScan <<BR>> "
         #Add string to cell
-        myRow,myCol=divmod(cellNum+1,colCount)
+        myRow,myCol=divmod(cellNum,colCount)
         myTable.data[myRow][myCol]=" %s "%cellString
       self.insertTable(myTable)
 
@@ -978,7 +1007,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   indexDictAQ=dict()
   thumbDictAQ=dict()
   zValueDictAQ=dict()
-  for sngl in wikiCoinc.sngls:
+  for sngl in wikiCoinc.sngls_in_coinc():
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
@@ -1047,7 +1076,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDictAQ=dict()
   zValueDictAQ=dict()
   #Select only PEM channels
-  for sngl in wikiCoinc.sngls:
+  for sngl in wikiCoinc.sngls_in_coinc():
     imageDict[sngl.ifo]=list()
     indexDict[sngl.ifo]=list()
     thumbDict[sngl.ifo]=list()
