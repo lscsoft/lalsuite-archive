@@ -489,9 +489,9 @@ SELECT distinct_ifos.ifos, count(*) FROM coinc_inspiral JOIN distinct_ifos ON (d
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
 		f.close()
 		f = open(self.base+'num_trigs_table.txt','w')
-		f.write("||<b>DETECTORS ON</b>||<b>LIVETIME</b>||<b>NUMBER OF COINCIDENT ZERO LAG TRIGGERS</b>||\n")
+		f.write("||<b>DETECTORS ON</b>||<b>LIVETIME (s) (d) (yr)</b>||<b># COINC EVENTS</b>||\n")
 		for inst in self.livetime.keys(): 
-			f.write("||%s||%f||" % ("".join(sorted(inst)), self.livetime[inst]))
+			f.write("||%s||%.2f %.2f %.2f||" % ("".join(sorted(inst)), self.livetime[inst],self.livetime[inst]/86400.0,self.livetime[inst]/31556926.0))
 			try: num = self.num_trigs[inst]
 			except: num = 0
 			f.write("%d||\n" % (num,))
