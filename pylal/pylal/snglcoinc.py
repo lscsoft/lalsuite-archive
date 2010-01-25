@@ -203,7 +203,7 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
@@ -250,14 +250,14 @@ class TimeSlideGraph(object):
 			for node in nodes:
 				node_name = vectorstring(node.offset_vector)
 				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
-				for component in node.components:
-					component_name = vectorstring(component.offset_vector)
-					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+				if node.components is not None:
+					for component in node.components:
+						print >>fileobj, "\t\"%s\" -> \"%s\";" % (vectorstring(component.offset_vector), node_name)
 		for node in self.head:
 			node_name = vectorstring(node.offset_vector)
+			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node_name
 			for component in node.components:
-				component_name = vectorstring(component.offset_vector)
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (vectorstring(component.offset_vector), node_name)
 		print >>fileobj, "}"
 
 
