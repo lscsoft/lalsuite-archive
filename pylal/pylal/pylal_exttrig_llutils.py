@@ -114,6 +114,19 @@ Date of last creation: %s<br><br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Box<br>
 """
 
+def internal_call(command):
+  """
+  Makes an internal call with the usage of subprocess and returns the output
+  and the error code. Found here: 
+  http://www.saltycrane.com/blog/2008/09/how-get-stdout-and-stderr-using-python-subprocess-module/
+  @param command: command to be executed internally
+  @return: tuple of output and stderr
+  """
+
+  p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+  return p.communicate()
+
+
 # -----------------------------------------------------
 def system_call(item, command, divert_output_to_log = True):
   """
@@ -134,11 +147,10 @@ def system_call(item, command, divert_output_to_log = True):
   info(item, ">>> "+command)
   
   # and the output (and error) of the command as well
-  #subprocess.call(command+' >%s 2>%s '%(l,l), shell=True)
   if divert_output_to_log:
-    os.system(command +' >>%s 2>>%s '%(l,l))
+    subprocess.call(command+' >>%s 2>>%s '%(l,l), shell=True)
   else:
-    os.system(command +' 2>>%s '%l)
+    subprocess.call(command +' 2>>%s '%l, shell=True)
 
 # -----------------------------------------------------
 def get_time():
@@ -255,7 +267,7 @@ def notify(grb, dag, message):
   email_msg += ' and the dagfils is %s\n' % dag.get_outname()
 
   # send the email to all recipients
-  send_mail(subject, message)
+  send_mail(subject, email_msg)
 
   # and note it in the log-file
   info("email","  Email notification sent with the following content: "+\
@@ -316,9 +328,30 @@ def get_dag_part(ini_file):
   return dag_part
 
 # --------------------------------------
+def check_file(filename):
+  """
+  Check the existance of a file and that it is non-zero in size
+  @param filename: name of the file to check
+  @return: True or False
+  """
+
+  # check the existance
+  if not os.path.exists(filename):
+    return False
+
+  # check the size
+  size = os.path.getsize(filename)
+  if size==0:
+    return False
+  else:
+    return True
+
+
+# --------------------------------------
 def get_empty_exttrig_row():
   """
   Returns an empty exttrig row 
+  @return: empty exttrig table row
   """
   row = lsctables.ExtTriggersTable()
 
@@ -368,6 +401,7 @@ def get_empty_exttrig_row():
 def get_monitor_filename():
   """
   Returns the name of the monitor pickle filename
+  @return: name of the monitor pickle file
   """
   return cp.get('paths','main')+'/llmonitor.pickle'
 
@@ -375,7 +409,8 @@ def get_monitor_filename():
 def read_monitor_list():
   """
   Opens the monitor pickle file (usually llmonitor.pickle)
-  and return its contents
+  and return its contents.
+  @return: list of GRB instances from the pickle file
   """
 
   monitor_file = get_monitor_filename()
@@ -645,6 +680,18 @@ def generate_summary(publish_path, publish_url):
 
 # -----------------------------------------------------
 # -----------------------------------------------------
+class CodeTagger(object):
+
+  def __init__(self):
+    self.tag = git_version.tag
+    self.verbose = git_version.verbose_msg
+    self.id = git_version.id
+    self.status = git_version.status
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# -----------------------------------------------------
 class AnalysisDag(object):
   """
   Class to hold and handle an analysis DAG and all
@@ -672,6 +719,8 @@ class AnalysisDag(object):
 
     self.status = 0
     self.status_dict = {1:'inspiral',2:'ligolw',3:'postproc'}
+
+    self.code_list = []
 
   # --------------------------------------
   def set_dagname(self, name):
@@ -722,9 +771,13 @@ class AnalysisDag(object):
     cmd += 'cd %s;' % dir
     cmd += 'condor_submit_dag %s' % dagname
     system_call(self.name, cmd)
+    #print "DAG NOT SUBMITTED BECAUSE OF TESTING!!!"
 
     # change the status
     self.status = 1
+
+    # lets get condor some time...
+    time.sleep(10)
 
   # --------------------------------------
   def get_status(self):
@@ -733,6 +786,7 @@ class AnalysisDag(object):
   # --------------------------------------
   def set_status(self, new_status):
     if new_status<=0:
+      del_lock()
       raise ValueError, "The DAG Status variable can only be set to positive values"
 
     self.status = new_status
@@ -804,11 +858,19 @@ class GRB(object):
 
   # -----------------------------------------------------
   def __init__(self, grb_name=None, grb_ra=None, grb_de=None, grb_time=None):
+    """
+    Initializes the GRB class with a basic set of information
+    @param grb_name: the name of the GRB without the term 'GRB' (e.g.: 070201)
+    @param grb_ra: right ascension of this GRB given in ???
+    @param grb_de: declination of this GRB given in ??
+    @param grb_time: GPS trigger time of the GRB 
+    """
     self.name = grb_name # just the number, i.e. 091023C
     self.ra = float(grb_ra)
     self.de = float(grb_de)
     self.time = int(grb_time)
 
+    # additional GRB infos
     self.ifos = ''
     self.duration = None
     self.redshift = None
@@ -818,8 +880,9 @@ class GRB(object):
     
     # prepare the DAG instances
     self.dag = {'onoff':None, 'inj':None}
-    self.code_tag = None
-    self.code_verbose = None
+
+    # prepare the code tag handling instances
+    self.code = {'inspiral':None, 'onoff':None, 'lik':None}
 
     # prepare variables for later use
     self.qvalues = {}
@@ -827,20 +890,27 @@ class GRB(object):
     self.onsource_segment = None
     self.ifolist  = []
 
+    # datafind variables
     self.use_offline_data = False
     self.type_online = {'H1':'H1_DMT_C00_L2', 'L1':'L1_DMT_C00_L2', 'V1':'V1_DMT_HREC'}
     self.type_offline = {'H1':'H1_LDAS_C00_L2','L1':'L1_LDAS_C00_L2','V1':'HrecOnline'}
 
   # -----------------------------------------------------
-  def set_paths(self, input_dir=None, glue_dir=None, pylal_dir = None,\
-                lalapps_dir=None, main_dir=None,\
+  def set_paths(self, input_dir=None, main_dir=None,\
                 ini_file = None, inj_file = None,\
                 config_file = None, \
                 condor_log_path = None, log_file=None):
+    """
+    Set paths for this GRB, like the path to the main directory, and the analysis directory
+    @param input_dir: path to the CVS directory
+    @param main_dir: main directory for the whole online analysis
+    @param ini_file: the name of the ini-file for the inspiral analysis
+    @param inj-file: name of the ini-file for the injections
+    @param config_file: name of the config file used
+    @param condor_log_path: path to the condor log path
+    @param log_file: file of the llmonitor log file (usually llmonitor.log)
+    """
     self.input_dir = input_dir
-    self.glue_dir = glue_dir
-    self.pylal_dir = pylal_dir
-    self.lalapps_dir = lalapps_dir
     self.main_dir = main_dir
     self.inifile = ini_file
     self.injfile = inj_file
@@ -848,14 +918,35 @@ class GRB(object):
     self.log_file = log_file     
     self.config_file = config_file
 
+    # construct the GRB specific analysis directory
     self.analysis_dir = self.main_dir+'/GRB'+self.name
 
   # -----------------------------------------------------
+  def get_pylal_dir(self):
+    return os.getenv('PYLAL_LOCATION')
+
+  # -----------------------------------------------------
+  def get_lalapps_dir(self):  
+    return os.getenv('LALAPPS_LOCATION')
+
+  # -----------------------------------------------------
+  def get_glue_dir(self):
+    return os.getenv('GLUE_LOCATION')
+
+  # -----------------------------------------------------
   def set_addresses(self, addresses):
+    """
+    Set adresses for the online notification
+    @addresses: list of email addresses to use
+    """
     self.addresses = addresses
 
   # -----------------------------------------------------
   def get_basic_dagname(self):
+    """
+    Construction of the dagname
+    @return: name of the dagfile without the '.dag'
+    """
     return  self.analysis_dir+'/'+self.inifile[:-4]
 
   # -----------------------------------------------------
@@ -863,6 +954,8 @@ class GRB(object):
     """
     Returns the standard suffix used for plots and html files
     containing the GPS starttime and the length of the processed data.
+    Example: 935460888-51000
+    @return: standard GPS time suffix for file naming
     """
     timestring = str(self.starttime)+'-'+str(self.endtime-self.starttime)
     return timestring
@@ -870,16 +963,20 @@ class GRB(object):
   # -----------------------------------------------------
   def make_links(self, sourcedir, destdir, list_exec):
     """
-    Using a list of executables names, make symbolic links rather
-    than copying the files itself. That way the origin, i.e. the 
-    version of the executables can be verified, at least somewhat...
+    Using a list of executables names to make symbolic links rather
+    than copying the files itself. 
+    @param sourcedir: source directory containing the files
+    @param destdir: destination directory in which the links should go
+    @param list_exec: list of files to be linked
     """
     
+    # create the command
     cmd = 'cd %s;' % destdir
     for execfile in list_exec:
       cmd += 'ln -s %s/%s .;' % (sourcedir, execfile)
-    system_call(self.name,cmd)
 
+    # execute the command
+    system_call(self.name,cmd)
 
   # -----------------------------------------------------
   def create_exttrig_xml_file(self):
@@ -920,7 +1017,7 @@ class GRB(object):
     Creates a call to the function 'lalapps_online_datafind' to find
     the data. To be used only for data from the last 2 weeks...
     """
-    executable = self.lalapps_dir+'/bin/lalapps_online_datafind'
+    executable = self.get_lalapps_dir()+'/bin/lalapps_online_datafind'
 
     cmd = "%s --ifo %s --gps-start-time %d --gps-end-time %d --output %s" % \
             (executable, ifo, starttime, endtime, output_location)
@@ -933,7 +1030,7 @@ class GRB(object):
     Creates a call to the function 'ligo_data_find' to find
     the data after more than ~2 weeks. Don't ask me...
     """
-    executable = self.glue_dir+'/bin/ligo_data_find --url-type file --lal-cache'
+    executable = self.get_glue_dir()+'/bin/ligo_data_find --url-type file --lal-cache'
 
     cmd = "%s --type %s --observatory %s --gps-start-time %d --gps-end-time %d > %s" %\
           (executable, self.type_offline[ifo], ifo[0].upper(), starttime, endtime, output_location)
@@ -1009,7 +1106,10 @@ class GRB(object):
 
 
   # -----------------------------------------------------
-  def prepare_analysis_directory(self):
+  def prepare_inspiral_analysis(self):
+    """
+    Main piece to create and prepare the inspiral analysis
+    """
     #
     # Now create directories and copy a bunch of files
     #
@@ -1019,16 +1119,20 @@ class GRB(object):
     
     # Create the main directory
     if False and os.path.exists(self.analysis_dir):
+      del_lock()
       raise IOError, "The directory %s already exists. Please (re)move"\
             " this directory or choose another name for the "\
             "analysis directory" % self.analysis_dir
     cmd = 'mkdir %s' % self.analysis_dir
     system_call(self.name, cmd)
 
-    # copy some basic files into this directory
-    cmd = 'cp %s/*.ini %s/' % \
-         (self.input_dir, self.analysis_dir)
-    system_call(self.name, cmd)
+    # copy the relevant files from the CVS into the analysis directory
+    files = glob.glob('%s/*.ini' % self.input_dir)
+    self.make_cvs_copy(files, self.analysis_dir)
+
+    # copy the trigger file into the analysis directory
+    # NOTE: When the monitor code is handling the analysis properly,
+    # this call won't be needed. 
     cmd = 'cp %s %s/' % (self.trigger_file, self.analysis_dir)
     system_call(self.name, cmd)
 
@@ -1038,34 +1142,27 @@ class GRB(object):
       list_replacements.append(['input', 'ligo-channel', 'LDAS-STRAIN'])
     self.update_inifile(list_replacements)
 
-    # copy executables
+    # copy executables <lalapps only because these are static executables>
     cmd = 'cd %s/bin; cp lalapps_coherent_inspiral lalapps_coherentbank \
       lalapps_coire lalapps_frjoin lalapps_inca lalapps_inspinj lalapps_inspiral \
       lalapps_inspiral_hipe lalapps_sire lalapps_thinca lalapps_tmpltbank \
       lalapps_trigbank lalapps_plot_hipe lalapps_trigger_hipe %s' %\
-    (self.lalapps_dir, self.analysis_dir)
+    (self.get_lalapps_dir(), self.analysis_dir)
     system_call(self.name, cmd)
 
-    #self.make_links(self, self.glue_dir+'/bin', self.analysis_dir, ['ligo_data_find','ligolw_add'])
-    cmd = 'cd %s/bin; cp ligo_data_find ligolw_add %s' % \
-      (self.glue_dir, self.analysis_dir)
-    system_call(self.name, cmd)
+    # link the glue executables 
+    self.make_links(self.get_glue_dir()+'/bin', self.analysis_dir, ['ligo_data_find','ligolw_add'])
 
-    cmd = 'cd %s/bin; cp pylal_relic pylal_exttrig_llsummary plotinspiral plotnumtemplates plotthinca pylal_grbtimeslide_stats '\
-          ' plotinjnum plotinspmissed plotinspinj plotsnrchi plotethinca %s' % \
-      (self.pylal_dir, self.analysis_dir)
-    system_call(self.name, cmd)
+    # set the used code version and create the setup script
+    self.code['inspiral'] = CodeTagger()
+    self.create_setup_script(self.analysis_dir)
 
-    # set the tag 
-    self.code_tag = git_version.tag
-    self.code_verbose = git_version.verbose_msg   
-
-    # copy the segment files
+    # move the segment files
     cmd = 'mv %s/*-science_grb%s.txt %s' % (self.main_dir, self.name, self.analysis_dir)
     system_call(self.name, cmd)
 
     #
-    # make the call to trigger_hipe
+    # make the call to trigger_hipe; create the DAG
     #
     cmd = 'cd %s;' % self.analysis_dir
     cmd += template_trigger_hipe % \
@@ -1079,13 +1176,6 @@ class GRB(object):
 
     # Call a subfunction to run the datafind command
     self.run_datafind()
-
-    # Prepare the postprocesing directory at this stage and 
-    # copy all files named post* into the postprocessing directory
-    path = "%s/GRB%s/postprocessing" % (self.analysis_dir, self.name)
-    system_call(self.name, 'mkdir -p %s/logs'%path)
-    cmd = 'cp %s/post* %s' % (self.input_dir, path)
-    system_call(self.name, cmd)
 
     # update the two DAG instances
     self.dag['onoff'] = AnalysisDag(self.name, 'onoff', self.analysis_dir)
@@ -1104,7 +1194,7 @@ class GRB(object):
 
 
     #
-    # similar call to set up the injection DAG
+    # call to create the injection DAG
     #
     cmd = 'cd %s;' % self.analysis_dir
     cmd += template_trigger_hipe_inj % \
@@ -1116,16 +1206,83 @@ class GRB(object):
       (self.analysis_dir, self.name, self.name, self.name)
     system_call(self.name, cmd, False)
 
-    # doing the same for the 'likelihood' directory
-    path = "%s/GRB%s/likelihood" % (self.analysis_dir, self.name)
-    system_call(self.name, 'mkdir -p %s/logs'%path)
-    cmd = 'cp %s/lik* %s' % (self.input_dir, path)
+
+  # -----------------------------------------------------
+  def prepare_onoff_analysis(self):
+    """
+    Prepare the onoff directory with all needed files and 
+    code and prepare the DAG. Don't start DAG here
+    @return: name of the DAG file
+    """
+ 
+    # get the current tag first
+    tag = self.get_code_tag()
+    pylal_dir = self.get_pylal_dir()
+
+    # make a consistency check
+    test_dir = cp.get('paths','lalsuite')+'//'+tag+'/pylal'
+    if os.path.normpath(test_dir)!=os.path.normpath(pylal_dir):
+      del_lock()
+      raise NameError, "The paths to the pylal directory does not agree. Possible error in the setup scripts. \n"\
+                       "   Name from environment: %s  "\
+                       "   Name from tag: %s" % (pylal_dir, test_dir)
+
+    # Prepare the postprocesing directory at this stage
+    dir_onoff = "%s/GRB%s/postprocessing_%s" % (self.analysis_dir, self.name, tag)
+    system_call(self.name, 'mkdir -p %s/logs'%dir_onoff)
+
+    # copy all needed files from CVS
+    files = glob.glob('%s/post*'%self.input_dir)
+    self.make_cvs_copy(files, dir_onoff)
+
+    # link the executables directory
+    cmd = 'cd %s; ln -s %s/bin executables' % (dir_onoff, pylal_dir)
+    system_call(self.name, cmd)
+ 
+    # set the used code version and create the setup script
+    #self.code['onoff'] = CodeTagger()
+    self.create_setup_script(dir_onoff)
+ 
+    # create the DAG file
+    infile = "%s/postproc.in" % dir_onoff
+    dagfile = "%s/postproc.dag" % dir_onoff
+    self.apply_sed_file(infile, dagfile)
+
+    return dagfile
+
+  # -----------------------------------------------------
+  def prepare_lik_analysis(self):
+    """
+    Prepare the likelihood directory with all needed files and
+    code and prepare the DAG. Don't start DAG here
+    @return: name of the DAG file
+    """
+
+    # get the current tag first
+    tag = self.get_code_tag()
+
+    # Prepare the postprocesing directory at this stage
+    dir_onoff = "%s/GRB%s/likelihood_%s" % (self.analysis_dir, self.name, tag)
+    system_call(self.name, 'mkdir -p %s/logs'%dir_onoff)
+
+    # copy all needed files from CVS
+    files = glob.glob('%s/likelihood*'%self.input_dir)
+    self.make_cvs_copy(files, dir_onoff)
+
+    # link the executables directory
+    cmd = 'cd %s; ln -s %s/bin executables' % (dir_onoff, self.get_pylal_dir())
     system_call(self.name, cmd)
 
-    # link the executables directory directly from pylal
-    exec_path = path+'/executables'
-    cmd = 'cd %s; ln -s %s/bin executables' % (path, self.pylal_dir)
-    system_call(self.name, cmd)
+    # set the used code version and create the setup script
+    self.code['lik'] = CodeTagger()
+    self.create_setup_script(dir_onoff)
+
+    # create the DAG file
+    infile = "%s/likelihood.in" % dir_onoff
+    dagfile = "%s/likelihood.dag" % dir_onoff
+    self.appyl_sed_file(infile, dagfile)
+
+    return dagfile
 
 
   # -----------------------------------------------------
@@ -1190,6 +1347,46 @@ class GRB(object):
     return minsciseg
 
   # --------------------------------------
+  def make_cvs_copy(self, files, dest_dir):
+     """
+     Copies all the files given in the list 'files' to
+     dest_dir and creates a file 'cvs_versions.txt' in dest_dir
+     containing the actual CVS version of the files
+     @param files: list of files to be copied from self.input_dir
+     @param dest_dir: destination directory
+     """
+
+     cvs_rev_file_output = ''
+     cmd = 'cp '
+     for name in files:
+
+       # collect all files to be copied
+       cmd += name + ' '
+
+       # retrieve the version of this file
+       basename = os.path.basename(name)
+       cmdtmp = "cd %s; cvs status %s " % (os.path.dirname(name), basename)
+       output, error = internal_call(cmdtmp)
+
+       # parse the output
+       for line in output.split('\n'):
+         if 'Working revision:' in line:
+           rev_work = line.split()[2]
+
+       # add the informationto the file-text
+       cvs_rev_file_output+='%s %s\n' % (basename, rev_work)
+     
+     # call the copy command
+     cmd += dest_dir
+     system_call(self.name, cmd)
+
+     # create the CVS revision file
+     cvs_rev_file_name = dest_dir+'/cvs_versions.txt'
+     f = file(cvs_rev_file_name,'w')
+     f.write(cvs_rev_file_output)
+     f.close()
+     
+  # --------------------------------------
   def update_segment_lists(self, timeoffset):
     """
     Function to download the latest segment lists.
@@ -1206,14 +1403,45 @@ class GRB(object):
       segxmlfile = "%s/segments%s_grb%s.xml" % (self.main_dir, ifo, self.name)
       segtxtfile = "%s/%s-science_grb%s.txt" % (self.main_dir, ifo, self.name)
 
-      if not os.path.exists(segxmlfile):
+      if not check_file(segxmlfile):
         cmd = "%s/bin/ligolw_segment_query --database --query-segments --include-segments '%s' --gps-start-time %d --gps-end-time %d "\
                     "> %s" %\
-                    (self.glue_dir, seg, starttime, endtime, segxmlfile)
+                    (self.get_glue_dir(), seg, starttime, endtime, segxmlfile)
         system_call(self.name, cmd, False)
 
       # 'convert' the data from the xml format to a useable format...
       self.convert_segxml_to_segtxt(segxmlfile, segtxtfile)
+
+  # -----------------------------------------------------
+  def update_veto_lists(self, timeoffset):
+
+    definer_file = cp.get('paths','veto_definer')
+    starttime = self.time-timeoffset
+    endtime = self.time+timeoffset
+
+    # check for the files first
+    files_ready = True
+    for ifo in ifo_list:
+      name = '%s/%s-VETOTIME_CAT2_grb%s.txt'%(self.main_dir, ifo, self.name)
+      if not check_file(name):
+        files_ready = False
+
+    if files_ready:
+      # All files exist, nothing to do
+      return
+
+    cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
+          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
+          % (self.get_glue_dir(), definer_file, starttime, endtime, self.main_dir)
+    system_call(self.name, cmd)
+
+    # Rename the veto files for easier handling
+    veto_files = glob.glob('%s/*VETOTIME_CAT2*%d*xml'% (self.main_dir, starttime))
+    for file in veto_files:
+      file_parts = file.split('-')
+      segtxtfile = file_parts[0]+'-'+file_parts[1]+'_grb%s'%self.name+'.txt'
+      self.convert_segxml_to_segtxt(file, segtxtfile)
+
 
   # -----------------------------------------------------
   def check_veto_onsource(self):
@@ -1241,25 +1469,6 @@ class GRB(object):
       self.has_data = False
       info(self.name, "Although data is available, it has been vetoed. Remaining IFOs: %s"%self.ifolist)
 
-  # -----------------------------------------------------
-  def update_veto_lists(self, timeoffset):
-
-    definer_file = cp.get('paths','veto_definer')
-    starttime = self.time-timeoffset
-    endtime = self.time+timeoffset
-
-    cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
-          "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
-          % (self.glue_dir, definer_file, starttime, endtime, self.main_dir)
-    system_call(self.name, cmd)
-
-    # Rename the veto files for easier handling
-    veto_files = glob.glob('%s/*VETOTIME_CAT2*%d*xml'% (self.main_dir, starttime))
-    for file in veto_files:
-      file_parts = file.split('-')
-      segtxtfile = file_parts[0]+'-'+file_parts[1]+'_grb%s'%self.name+'.txt'
-      self.convert_segxml_to_segtxt(file, segtxtfile)
-
 
   # -----------------------------------------------------
   def convert_segxml_to_segtxt(self, segxmlfile, segtxtfile):
@@ -1271,6 +1480,7 @@ class GRB(object):
     try:
       doc = utils.load_filename(segxmlfile)
     except:
+      del_lock()
       raise IOError, "Error reading file %s" % segxmlfile
 
     # extract the segment list
@@ -1422,7 +1632,6 @@ class GRB(object):
     publishing_path = cp.get('paths','publishing_path')
     html_path = "%s/GRB%s" % (publishing_path, self.name)
 
-
     # replace the in-file and create the DAG file
     sedfile = self.get_sed_filename()
     f = file(sedfile,'w')
@@ -1445,6 +1654,56 @@ class GRB(object):
     f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
     f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('data','m2_boundaries'))
     f.close()
+
+
+  # -----------------------------------------------------
+  def get_code_tag(self):
+    """
+    Returns the name of the tag currently stored in an environment variable
+    @return: name of the tag
+    """
+    # get the tag information (which is the actual, most current tag)
+    tag = os.getenv('LAL_PYLAL_TAG')
+    if not tag:
+      del_lock()
+      raise EnvironmentError, "Environment variable LAL_PYLAL_TAG is missing, which contains the "\
+                         "tag of the code used, e.g. s6_exttrig_100119b. This should have beed set in the "\
+                         "lscsource script, called within runmonitor. Please check"
+    return tag
+
+  # -----------------------------------------------------
+  def get_code_setup(self):
+    """
+    Returns the setup script used for the current environment
+    @return: path to source file
+    """
+
+    # get tag first
+    tag = self.get_code_tag()
+
+    # create the source filename
+    source_file = cp.get('paths','lalsuite') + '/'+tag+'.pylal.rc'
+
+    if not os.path.exists(source_file):
+      del_lock()
+      raise IOError, "Source script does not seem to be present: %s. Please check." % source_file
+    
+    return source_file
+
+  # -----------------------------------------------------
+  def create_setup_script(self, dest_dir):
+    """
+    Create a setup script in the directory
+    @param dest_dir: destination directory
+    """
+
+    # get the tag information (which is the actual, most current tag)
+    source_file = self.get_code_setup()
+
+    # make the link    
+    cmd = 'cd %s; ln -s %s setup.rc' % (dest_dir, source_file)
+    system_call(self.name, cmd)
+
 
   # -----------------------------------------------------
   def cleanup(self, path):

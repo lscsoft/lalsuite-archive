@@ -19,36 +19,19 @@ usage = """usage: pylal_exttrig_monitor config_file
 
 to be executed as a cron job with e.g. the following entry:
 
-*/5  *  *    *    *   /bin/sh /home/dietz/Work/E14/Code/pylal_exttrig_llmonitor.sh >> ~/.llmonitor.log 2>&1
+0  *  *    *    *   /bin/sh /home/dietz/S6/online_tagged/runmonitor.sh >> ~/.llmonitor_tagged.log 2>&1
 
-The only argument is the config_file, containing some
-important decleration of paths etc. Example for UWM:
-
-
-paths]
-gcn_file = /home/dietz/Work/E14/GCN-testing/gcn.file
-pylal_exttrig_llstart = /home/dietz/Work/E14/Code/pylal_exttrig_llstart
-main = /home/dietz/Work/E14/Analysis
-publishing_path = /home/dietz/public_html/E14/
-publishing_url = https://ldas-jobs.phys.uwm.edu/~dietz/E14/
-cvs = /home/dietz/Work/E14/Pseudo_CVS
-glue = /opt/lscsoft/glue
-lalapps = /home/dietz/opt/Install/s5_2yr_lv_lowcbc_20090410a
-
-[data]
-h1_segments = E14_H1_science.txt
-l1_segments = E14_L1_science.txt
-v1_segments = E14_V1_science.txt
-ini_file = S6GRB_trigger_hipe.ini
-
-[notifications]
-email = alexander.dietz@lapp.in2p3.fr
+The script executed is a shall script that sources the relevant settings and executes the monitor code:
 
 
-[run]
-log_path = /people/dietz
-ini_file = S6GRB_trigger_hipe.ini
-
+sourcing the standard settings
+source ${HOME}/.bashrc
+# source the code settings for the s6_exttrig search
+source ${HOME}/S6/lscsoftrc
+# change to the peoper directory
+cd ${HOME}/S6/online_tagged
+# run the monitor
+pylal_exttrig_llmonitor --config-file llmonitor_online.conf 
 """
 
 plot_hipe_template="""
@@ -69,7 +52,7 @@ plot_hipe_template="""
 def check_proxy():
   """
   Checks the status of the grid-proxy and sends an email 
-  if it runs out
+  if it runs out. Any way to improve that???
   """
 
   my_email = 'Alexander.Dietz@lapp.in2p3.fr'
@@ -96,6 +79,12 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   """
   Start a new analysis of a GRB with a separate call.
   All data are given in strings.
+  @param grb_name: name of the GRB (without 'GRB', e.g. 070201)
+  @param grb_ra: right ascension of the GRB in degree
+  @param grb_de: declination of the GRB in degree
+  @param grb_time: GPS trigger time of the GRB
+  @param grb_duration: Duration of the GRB in s if known, None otherwise
+  @return: a GRB instance
   """
 
   # First check if enough time has passed
@@ -128,19 +117,12 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   if grb_duration:
     grb.duration = grb_duration
 
-
   # set the paths to the GRB instance
-  glue_dir = os.getenv('GLUE_LOCATION')
-  lalapps_dir = os.getenv('LALAPPS_LOCATION')
-  pylal_dir = os.getenv('PYLAL_LOCATION')
   grb.set_paths(input_dir=cp.get('paths','cvs'), \
-                glue_dir= glue_dir, \
-                pylal_dir = pylal_dir, \
-                lalapps_dir= lalapps_dir,\
                 main_dir=cp.get('paths','main'),\
                 ini_file = cp.get('data','ini_file'),\
                 inj_file = cp.get('data','inj_file'),\
-                config_file = cp.get('paths','main')+'/'+opts.config_file,\
+                config_file = opts.config_file,\
                 condor_log_path = cp.get('paths','condor_log_path'),\
                 log_file=log_file)
   grb.set_addresses(email_adresses)
@@ -165,12 +147,12 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
       grb.create_exttrig_xml_file()
 
       # set up the directory and start the onoff DAG
-      grb.prepare_analysis_directory()
+      grb.prepare_inspiral_analysis()
       grb.dag['onoff'].start()
-   
-      # check if the DAG is running
-      grb.check_analysis_directory('onoff')
 
+      # set the used tag for the inspiral analysis
+      grb.code['inspiral'] = peu.CodeTagger()
+  
       # cleaning up
       grb.cleanup(analysis_path)
 
@@ -186,7 +168,6 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
       email_msg += 'The DAG is located at UWM in directory %s\n'% analysis_path
       email_msg += 'The overview-page is located here: <%s/total_summary.html> \n' %\
                     cp.get('paths','publishing_url')
-      #peu.send_mail(subject, email_msg, extra_addresses = [cp.get('notifications','extra')])
       peu.send_mail(subject, email_msg)
 
     else:
@@ -214,11 +195,14 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
                  (grb.time, grb.ra, grb.de)    
     peu.send_mail(subject, email_msg)  
 
-  # copy the segment plot and all the other stuff
-  maindir = cp.get('paths','main')
+  # copy the segment plot and all the other stuff to html
+  if grb.has_data:
+    src_dir = analysis_path
+  else:
+    src_dir = cp.get('paths','main')
   htmldir = '%s/GRB%s' % (cp.get('paths','publishing_path'), grb.name)
   cmd = 'mkdir -p %s; cp %s/*grb%s* %s' % \
-          (htmldir, maindir, grb.name, htmldir)
+          (htmldir, src_dir, grb.name, htmldir)
   peu.system_call(grb.name, cmd)
 
   # cleaning up
@@ -349,29 +333,20 @@ def start_post(grb, dag, cp):
   @param cp: the object of the configuration file
   """
 
-  # get some main paths
-  path = "%s/GRB%s/postprocessing/"%(grb.analysis_dir, grb.name)
+  # prepare the html output path
   publishing_path = cp.get('paths','publishing_path')
-  html_path = "%s/GRB%s" % (publishing_path, grb.name)
-
-  # prepare the directory
-  command = 'mkdir -p '+html_path
+  command = 'mkdir -p %s/GRB%s' % (publishing_path, grb.name)
   peu.system_call(grb.name, command)
 
-  # make the replace with the sed file
-  infile = "%s/postproc.in" %path
-  dagfile = "%s/postproc.dag" %path
-  grb.apply_sed_file(infile, dagfile)
+  # setup the DAG
+  dagfile = grb.prepare_onoff_analysis()
 
   # prepare the new DAG and start it
-  #del dag
-  #dag = peu.AnalysisDag(grb.name, 'onoff2', path)
   dag.set_dagname(dagfile)
   dag.start()
 
-  # run the postprocessing stage
-  #cmd = 'cd %s; condor_submit_dag postproc.dag'  % (path)
-  #peu.system_call(grb.name, cmd)  
+  # set the used tag for the onoff postproc analysis analysis
+  grb.code['onoff'] = peu.CodeTagger()
 
   # change the stage and status for this GRB
   peu.info(grb.name, '  The postprocessing stage for this GRB analysis has been started')
@@ -386,38 +361,31 @@ def start_post_inj(grb, dag, cp):
   @param cp: the object of the configuration file
   """
 
-  number_word = {2:'two', 3:'three',4:'four'}
-
-  path = "%s/GRB%s/likelihood/"%(grb.analysis_dir,grb.name)
+  # prepare the html output path; might be in onoff DAG, but just a precaution
   publishing_path = cp.get('paths','publishing_path')
-  html_path = "%s/GRB%s" % (publishing_path, grb.name)
-
-  # prepare the directory, probably created before
-  command = 'mkdir -p '+html_path
+  command = 'mkdir -p %s/GRB%s' % (publishing_path, grb.name)
   peu.system_call(grb.name, command)
 
-  # create the plot_hipe ini file
-  infile = "%s/likelihood.in" %path
-  outfile = "%s/likelihood.dag" %path
-  grb.apply_sed_file(infile, outfile)
+  # setup the DAG
+  dagfile = grb.prepare_lik_analysis()
 
   # prepare the new DAG and start it
-  #del dag
-  #dag = peu.AnalysisDag(grb.name, 'inj2', path)
-  dag.set_dagname(outfile)
+  dag.set_dagname(dagfile)
   dag.start()
+
+  # set the used tag for the onoff postproc analysis analysis
+  grb.code['inj'] = peu.CodeTagger()
 
   # put the info and set the status
   peu.info(grb.name, '  The likelihood stage for this GRB has been started')
   dag.set_status(3)
 
-
 # -----------------------------------------------------
 def analysis_finalized(grb, dag):
   """
   Finzlize the run of this DAG
-  @params grb_dict: GRB dictionary with all needed information
-  @param dag_key: the keyname of the DAG itself (onoff/inj)
+  @params grb: GRB dictionary with all needed information
+  @param dag: the dag instance (for either onoff or inj DAG)
   """
 
   # create the subject
@@ -439,8 +407,6 @@ def analysis_finalized(grb, dag):
 
   email_msg += 'The output pages and files are located at %s/GRB%s\n' % (publishing_url, grb.name)
   email_msg += 'The summary page is %s/GRB%s/%s\n' % (publishing_url, grb.name, summary_file)
-  #email_msg += 'The OPENBOX page is %s/GRB%s/%s\n' % (publishing_url, grb.name, openbox_file)
-  #    email_msg += 'The DAG is located at UWM in directory %s\n'% analysis_path
   email_msg += '\nThe S6 overview-page is located here: <%s/total_summary.html> \n' %\
                     cp.get('paths','publishing_url')
   peu.send_mail(subject, email_msg, extra_addresses = [cp.get('notifications','extra')])
@@ -457,15 +423,13 @@ def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # cache input
-    parser.add_option("--config-file", help="Configuration file")
+    parser.add_option("--config-file", help="Full path and name of the configuration file")
 
     # GRBs to process
     parser.add_option("--nocheck", action="store_true", default=False, \
         help="If this flag is set, the codes does not check for a new GRB.")
     parser.add_option("--check-number", type="int", default=None, 
         help="Specifies the number of new GRBs to be processed.")
-    #parser.add_option("--number-running", type="int", default=None,
-    #    help="Specifies the number of running GRBs.")
     parser.add_option( "--grb", default=None,
         help="Specifies the name of a GRB to check.")
     parser.add_option("--check-time-window", type="float", default=None,
@@ -498,8 +462,6 @@ def parse_args():
       raise ValueError, "injection ini-file must be specified with '--injection-config'"\
                         " if the option '--with-injections' is set!"
 
-    #if options.check_number and options.number_running:
-    #  raise ValueError, "As of now, you cannot specify BOTH arguments, '--check-number' and '--number-running'."
 
     return options, arguments
 
