@@ -138,9 +138,13 @@ for n, filename in enumerate(filenames):
 	seglists = searchsumm.get_out_segmentlistdict(process_ids).coalesce()
 	if not seglists:
 		raise ValueError, "%s: no matching rows found in search summary table" % filename
+	if None in seglists:
+		if options.program is not None:
+			raise ValueError, "%s: null value in ifos column in search_summary table" % filename
+		raise ValueError, "%s: null value in ifos column in search_summary table, try using --program" % filename
 
 	# extract observatory
-	observatory = (options.observatory and options.observatory.strip()) or "+".join(sorted(seglists.keys()))
+	observatory = (options.observatory and options.observatory.strip()) or "+".join(sorted(seglists))
 
 	# extract description
 	if options.description:

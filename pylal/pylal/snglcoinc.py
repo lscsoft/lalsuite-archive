@@ -40,6 +40,7 @@ from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_tisi
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS # FIXME:  not needed once graph construction arithmetic is fixed
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -182,6 +183,12 @@ class TimeSlideGraphNode(object):
 
 
 class TimeSlideGraph(object):
+	# FIXME:  this class is broken by the offset vector
+	# {"H2":60.37383539249436, "H1":-201.2461179749811, "L1":0} because
+	# floating point round-off causes some numerical transformations to
+	# be irreversible, but it should be possible to fix the algorithm
+	# so that we are immune to this:  there shouldn't be a need to
+	# reverse any of the arithmetic.
 	def __init__(self, offset_vector_dict, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
@@ -203,7 +210,7 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
@@ -250,14 +257,14 @@ class TimeSlideGraph(object):
 			for node in nodes:
 				node_name = vectorstring(node.offset_vector)
 				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
-				for component in node.components:
-					component_name = vectorstring(component.offset_vector)
-					print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+				if node.components is not None:
+					for component in node.components:
+						print >>fileobj, "\t\"%s\" -> \"%s\";" % (vectorstring(component.offset_vector), node_name)
 		for node in self.head:
 			node_name = vectorstring(node.offset_vector)
+			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node_name
 			for component in node.components:
-				component_name = vectorstring(component.offset_vector)
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (component_name, node_name)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (vectorstring(component.offset_vector), node_name)
 		print >>fileobj, "}"
 
 
@@ -294,6 +301,12 @@ class CoincTables(object):
 		# find the time_slide table
 		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 		self.time_slide_index = self.time_slide_table.as_dict()
+
+		# cast all offsets to LIGOTimeGPS for reversable arithmetic
+		# FIXME:  I believe the arithmetic in the time slide graph
+		# construction can be cleaned up so that this isn't
+		# required.  when that is fixed, remove this
+		self.time_slide_index = dict((time_slide_id, dict((instrument, LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""

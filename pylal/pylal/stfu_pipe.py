@@ -1863,7 +1863,7 @@ using default opts instead!\n")
 			for shift,start in shiftStandardTime[ifoTag].iteritems():
 				hours=[x%24 for x in range(start,start+shiftDuration)]
 				if hours.__contains__(int(h)):
-					shiftString=shift
+					shiftString=shiftLabel[shift]
 			#Create txt string
 			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 			if ('V1').__contains__(ifoTag):

@@ -440,6 +440,7 @@ setup(
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
+		os.path.join("bin", "lalapps_farburst"),
 		os.path.join("bin", "lalapps_followup_pipe"),
 		os.path.join("bin", "lalapps_followup_page"),
 		os.path.join("bin", "lalapps_remote_cache"),
