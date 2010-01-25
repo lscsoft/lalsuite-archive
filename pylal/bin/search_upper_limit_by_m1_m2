@@ -14,6 +14,7 @@ import glob
 import copy
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw, utils
+from glue import lal
 
 from pylal import git_version
 __author__ = "Chad Hanna <channa@ligo.caltech.edu>, Kipp Cannon <kipp.cannon@ligo.org>"
