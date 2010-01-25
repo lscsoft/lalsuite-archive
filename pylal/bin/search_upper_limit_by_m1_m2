@@ -14,6 +14,7 @@ import glob
 import copy
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw, utils
+from glue import lal
 
 from pylal import git_version
 __author__ = "Chad Hanna <channa@ligo.caltech.edu>, Kipp Cannon <kipp.cannon@ligo.org>"
@@ -318,6 +319,13 @@ pylab.grid()
 pylab.savefig(combined_ifos + '_upper_limit.png')
 pylab.clf()
 
+f = open(combined_ifos + '_upper_limit.txt','w')
+for i, m1 in enumerate(bins.centres()[0]):
+	for j, m2 in enumerate(bins.centres()[1]):
+		masses = bins[m1,m2]
+		if mbA[masses[0], masses[1]]: continue
+		f.write("||%.2f||%.2f||%.2e||\n" % (m1,m2,log_ul[i,j]))
+f.close()
 
 print >> sys.stderr, "ALL FINNISH!"
 sys.exit(0)
