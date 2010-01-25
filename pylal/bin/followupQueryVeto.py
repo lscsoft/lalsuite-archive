@@ -38,6 +38,10 @@ usage = """usage: %prog [options]"""
 
 parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
 #Add all options to setup the query
+parser.add_option("-I","--ifo-list",action="store",type="string",\
+                  metavar="IFOLIST",default="H1,H2,V1,L1",\
+                  help="Give a comma separated list of ifos such as \
+H1,H2,L1,V1.")
 parser.add_option("-X","--segment-url",action="store",type="string",\
                       metavar="URL",default=None,\
                       help="Using this argument specify a URL the LDBD \
@@ -73,7 +77,13 @@ server=opts.segment_url
 triggerTime=opts.trigger_time
 outputType=opts.output_format
 outputFile=opts.output_file
+ifos=opts.ifo_list.upper().split(",")
 
+#If ifo args seem wrong
+if sum([len(x) == 2 for x in ifos]):
+    sys.stderr.write("The args passed to --ifo-list are incorrectly formatted! %s\n"%opts.ifo_list)
+    sys.exit(1)
+    
 if len(opts.window.split(',')) == 1:
     frontWindow=backWindow=opts.window
 if len(opts.window.split(',')) == 2:
@@ -82,7 +92,7 @@ if len(opts.window.split(',')) == 2:
         backWindow=frontWindow
 
 x=followupDQV(server)
-x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow)
+x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,ifoList=ifos)
 result=""
 if outputType.upper().strip() == "LIST":
     result=x.generateResultList()

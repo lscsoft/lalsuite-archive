@@ -971,7 +971,13 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -1010,7 +1016,13 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
