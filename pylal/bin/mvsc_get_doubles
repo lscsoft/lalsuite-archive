@@ -33,6 +33,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
 parser=OptionParser(usage=usage,version=git_version.verbose_msg)
 parser.add_option("", "--number", default=10, type="int", help="number for round robin")
 parser.add_option("", "--instruments", help="pair that you want to get like H1,L1")
+parser.add_option("", "--factor", default=50.0, type="float", help="the value of the magic number factor in the effective snr formula, should be 50 for highmass and 250 for lowmass")
 parser.add_option("", "--trainingstr", default="training", help="the string in the output .pat files that indicates it will be used as the training set in SprBaggerDecisionTreeApp") 
 parser.add_option("", "--testingstr", default="testing", help="the string in the output .pat files that indicates it will be used as the testing set in SprOutputWriterApp") 
 parser.add_option("", "--zerolagstr", default="zerolag", help="the string in the output .pat files that indicates it contains zerlag data, which will be run through SprOutputWriterApp") 
@@ -57,7 +58,7 @@ class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 
 dbtables.lsctables.SnglInspiralTable.RowType = SnglInspiral
 
-def calc_effective_snr(snr, chisq, chisq_dof, fac=250.0):
+def calc_effective_snr(snr, chisq, chisq_dof, fac=opts.factor):
 	return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
 def calc_ethinca(rowA,rowB):
