@@ -108,7 +108,7 @@ class findFileType(object):
       #Adjust properties to Str,float,float
       listData=[[str(a),float(b),float("%2.3f"%float(c))] for a,b,c in listData]
       tmpListData=[[x[2],x] for x in listData]
-      tmpListdata.sort(reverse=True)
+      tmpListData.sort(reverse=True)
       listData=[x[1] for x in tmpListData]
     except:
       sys.stderr.write("Error parsing Z value file :%s\n"%(myFilename))
@@ -137,7 +137,8 @@ class findFileType(object):
       #Search filesystem for file full path
       finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
       #Look for potential matching thumbnails
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
+      if thisFile.endswith(".png"):
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
     if len(finalList) < 1:
       return list()
     else:
@@ -475,16 +476,26 @@ class wiki(object):
     """
     def __init__(self,rows=1,cols=1):
       if rows < 1:
+        sys.stderr.write("Error setting number of rows in table. \
+Requested %s rows, assuming you meant at least 1.\n"%rows)
         self.rows = 1
       else:
         self.rows=rows
       if cols < 1:
+        sys.stderr.write("Error setting number of columns in table. \
+Requested %s columns, assuming you meant at least 1.\n"%col)
         self.cols = 1
       else:
         self.cols=cols
       self.tStyle=None
       self.tHeadline=None
       self.data=list()
+      #Build headline format string
+      self.tHeadlineFormat=""
+      for colNum in range(0,self.cols):
+        self.tHeadlineFormat+="||"
+      self.tHeadlineFormat+="""%s||\n"""
+      
       #Create tuple object with number of rows
       for rc in range(0,rows):
         self.data.append(self.__rowbuilder__(self.cols))
@@ -498,12 +509,11 @@ class wiki(object):
       text or other table commands. Invoking it with None as the arg
       deletes a previous set table headline.
       """
-      if titleString=None:
+      #To achieve colspan tabulate extra "||" to place in start of tHeadline
+      if titleString==None:
         self.tHeadline=None
       elif self.tStyle != None:
-        self.tHeadline=||%s<-%i><:>%s ||\n%(self.tStyle,self.cols,titleString)
-      else:
-        self.tHeadline=||<-%i><:>%s ||\n%(self.cols,titleString)
+        self.tHeadline=titleString
         
     def setTableStyle(self,fstring=""):
       """
@@ -511,33 +521,53 @@ class wiki(object):
       Setting arg to NONE removes the current style specified if any.
       """
       if fstring=="NONE":
-        if self.tHeadline != None:
-          #If tstyle deleted after headline set
-          self.tHeadline.strip(self.tStyle)
-          self.tStyle=None
+        self.tStyle=None
       else:
-        oldString=self.tStyle
-        self.tStyle='<tablestyle="%s">'%(fstring.lstrip().rstrip())
-        if self.tHeadline != None:
-          #Swap out previous style info in headline string
-          if self.tHeadline__contains__self.tStyle:
-            self.tHeadline.replace(oldString,self.tStyle)
-          else: #Insert the style information
-            A,B=self.tHeadline.split("<",1)
-            str().join([str(A)+self.tStyle+"<",str(B)])
+        self.tStyle=fstring
 
+    def __formatAndTitleString__(self,location=None):
+      """
+      Looks at values for wiki table editing and returns the
+      appropriate string for a title row or options for the table to
+      cell[0][0]. Valid arguments are the keywords ['TITLE','CELL']
+      """
+      titleString=""
+      cellString=""
+      #Title string with specified formatting
+      if self.tHeadline and self.tStyle:
+        tmpString="""<tablestyle="%s" rowbgcolor="#FFFFE0" > %s"""%(self.tStyle,self.tHeadline)
+        titleString = self.tHeadlineFormat%tmpString
+      #Title string with no formatting
+      if self.tHeadline and not self.tStyle:
+        titleString = self.tHeadlineFormat%self.tHeadline
+      #No title string with table formatting
+      if not self.tHeadline and self.tStyle:
+        cellString =  """<tablestyle="%s">"""%self.tStyle
+      #Default to return an empty string if neither option set
+      if not self.tHeadline and not self.tStyle:
+        titleString = ""
+        cellString = ""
+      if location == None:
+        raise Exception, "Argument to self.__formatAndTitleString__() \
+expected. Received <None>!\n"
+      if location.upper() == "CELL":
+        return cellString
+      elif location.upper() == "TITLE":
+        return titleString
+      else:
+        return ""
+      
   def insertTable(self,obj):
     """
     Pass in a wikiTable object then create the relevant
     wiki markup and place that in to the self.content
     list for writing to the file
     """
-    oldCell="%s"%obj.data[0][0]
     tableContent=""
-    if obj.tHeadline != None:
-      tableContent+=obj.tHeadline
-    if ((obj.tStyle != None) and (obj.tHeadline == None)):
-      obj.data[0][0]="%s%s"%(obj.tStyle,str(oldCell))
+    #If a title row specified
+    tableContent+=obj.__formatAndTitleString__("TITLE")
+    oldCell="%s"%obj.data[0][0]
+    obj.data[0][0]="%s%s"%(obj.__formatAndTitleString__("CELL"),str(oldCell))
     if type(obj) != type(self.wikiTable()):
       raise Exception,"Expecting nested type instance of WikiTable"
     else:
@@ -665,6 +695,10 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         if lastName != myName:
           lastName=myName
           uniqChannelNames.append(myName)
+      #Check if uniqChannelNames list is empty
+      if len(uniqChannelNames) < 1:
+        sys.stderr.write("Warning: [%s] No channels available to plot in table!\n"%ifo)
+        uniqChannelNames.append("No_Channels_To_Display")
       #Create table object reserve first cell for txt labels
       colCount=3
       fullRows,modRows=divmod(len(uniqChannelNames),colCount)
@@ -685,7 +719,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       #Legend for top N analyzeQscan images
       #ifoColors={'L1':'blue','H1':'orange','H2':'magenta','V1':'grey','DEFAULT':'pink'}
       #Shortlist the channels we will highlight: Sort then cut
-      tmpRanks=[[x[2],x] for x in channelranks[ifo]]
+      tmpRanks=[[x[2],x] for x in channelRanks[ifo]]
       tmpRanks.sort(reverse=True)
       ifoRanks=[x[1] for x in tmpRanks]
       topN=9
@@ -713,7 +747,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           myAQIndexT=None
         cellString=""
         #Setup shading
-        htmlShadeColor='#00FFFF'
+        htmlShadeColor='#E0E0FF'
         cutP=0.75
         if [a.__contains__(myName) \
             and c >= cutP for a,b,c in shortList].count(True):

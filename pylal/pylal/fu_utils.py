@@ -2278,6 +2278,22 @@ defaulting to %s"%(self.serverURL))
     AND NOT (segment.start_time > %s OR %s > segment.end_time) \
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
     """
+    self.dqvQueryLatestVersion= """SELECT \
+    segment_definer.ifos, \
+    segment_definer.name, \
+    segment_definer.version, \
+    segment_definer.comment, \
+    segment.start_time, \
+    segment.end_time \
+    FROM segment,segment_definer \
+    WHERE \
+    segment_definer.segment_def_id = segment.segment_def_id \
+    AND segment_definer.version = (SELECT MAX(x.version) \
+    FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
+    AND segment.segment_def_cdb = segment_definer.creator_db \
+    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
+    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    """
   #End __init__()
 
   def __merge__(self,inputList=None):
@@ -2343,13 +2359,10 @@ defaulting to %s"%(self.serverURL))
     Wrapper for fetchInformationDualWindow that mimics original
     behavior
     """
-    self.fetchInformationDualWindow(triggerTime,window,window,ifolist=self.ifos)
+    return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
 
-  def fetchInformationDualWindow(self,
-                                 triggerTime=None,
-                                 frontWindow=300,
-                                 backWindow=150,
-                                 ifoList=self.ifos):
+  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,\
+                                 backWindow=150,ifoList='DEFAULT'):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2358,11 +2371,13 @@ defaulting to %s"%(self.serverURL))
     desired. The version argument will fetch segments with that
     version or higher.
     """
+    if ifoList=="DEFAULT":
+      ifoList=self.ifos
     if (ifoList == None) or \
        (len(ifoList) < 1):
       sys.stderr.write("Ifolist passed is malformed! : %s\n"%ifoList)
       return
-    if sum([x.upper() in self.ifoList for x in ifoList]) < 1:
+    if sum([x.upper() in self.ifos for x in ifoList]) < 1:
       sys.stderr.write("Valid ifos not specified for DQ lookups. %s\n"%ifoList)
       return
     triggerTime=float(triggerTime)
@@ -2384,7 +2399,7 @@ defaulting to %s"%(self.serverURL))
     try:
       gpsEnd=int(triggerTime)+int(backWindow)
       gpsStart=int(triggerTime)-int(frontWindow)
-      sqlString=self.dqvQuery%(gpsEnd,gpsStart)      
+      sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
       engine=query_engine.LdbdQueryEngine(connection)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
@@ -2405,7 +2420,11 @@ defaulting to %s"%(self.serverURL))
       uniqSegmentName=list()
       for ifo,name,version,comment,start,end in self.resultList:
         if (not uniqSegmentName.__contains__((ifo,name,version,comment))) and \
-               (ifo.upper() in ifoList):
+               (ifo.strip().upper() in ifoList):
+          uniqSegmentName.append((ifo,name,version,comment))
+        #Add the SCIENCE segment no matter which IFOs are specified!
+        if ((name.lower().__contains__('science')) and \
+            not (ifo.strip().upper() in ifoList)):
           uniqSegmentName.append((ifo,name,version,comment))
       #Save textKey for all uniq segments combos
       for uifo,uname,uversion,ucomment in uniqSegmentName:
@@ -2422,6 +2441,8 @@ defaulting to %s"%(self.serverURL))
           newDQSeg.append([uifo,uname,uversion,ucomment,newStart,newStop])
         newDQSeg.sort()
         del segmentIntervals
+    #Reset the result list to the IFO restricted set
+    self.resultList=newDQSeg
     return newDQSeg
   #End method fetchInformation()
 
@@ -2475,7 +2496,7 @@ defaulting to %s"%(self.serverURL))
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
           tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
-      else:
+      elif tableType.upper().strip() not in ["VETO","DQ"]:
         tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
@@ -2499,13 +2520,13 @@ defaulting to %s"%(self.serverURL))
     for myRow in self.resultList:
       ifo,name,version,comment,start,stop=myRow
       #Select base on table type
-      if ((tableType.upper().string() == "DQ") and \
-          (not name.upper().startswith("UPV"))):
-        tmpResultsList.append(myRow)
-      elif ((tableType.upper().string() == "VETO") and \
-            (name.upper().startswith("UPV"))):
+      if ((tableType.upper() == "DQ") and \
+          (not name.strip().upper().startswith("UPV"))):
         tmpResultList.append(myRow)
-      else:
+      elif ((tableType.upper() == "VETO") and \
+            (name.strip().upper().startswith("UPV"))):
+        tmpResultList.append(myRow)
+      elif tableType.upper().strip() not in ["VETO","DQ"]:
         tmpResultList.append(myRow)
     if len(tmpResultList) == 0:
       tableString=tableString+emptyRowString%myColor

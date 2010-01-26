@@ -81,7 +81,7 @@ outputFile=opts.output_file
 ifos=opts.ifo_list.upper().split(",")
 
 #If ifo args seem wrong
-if sum([len(x) == 2 for x in ifos]):
+if sum([len(x) != 2 for x in ifos]):
     sys.stderr.write("The args passed to --ifo-list are incorrectly formatted! %s\n"%opts.ifo_list)
     sys.exit(1)
     
