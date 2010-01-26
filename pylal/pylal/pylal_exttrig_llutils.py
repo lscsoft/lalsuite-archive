@@ -1280,7 +1280,7 @@ class GRB(object):
     # create the DAG file
     infile = "%s/likelihood.in" % dir_onoff
     dagfile = "%s/likelihood.dag" % dir_onoff
-    self.appyl_sed_file(infile, dagfile)
+    self.apply_sed_file(infile, dagfile)
 
     return dagfile
 
@@ -1635,6 +1635,7 @@ class GRB(object):
     # replace the in-file and create the DAG file
     sedfile = self.get_sed_filename()
     f = file(sedfile,'w')
+    f.write("# created %s"%get_time())
     f.write("s/@GRBNAME@/GRB%s/g\n"%self.name)
     f.write("s=@ANALYSISPATH@=%s=g\n"%self.analysis_dir)
     f.write("s/@STARTTIME@/%d/g\n"%self.starttime)

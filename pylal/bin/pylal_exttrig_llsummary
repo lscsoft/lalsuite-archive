@@ -672,7 +672,7 @@ text = "<hr>This page has been created at %s\n"%time.asctime(time.localtime())
 text += "with command <br>"
 for arg in sys.argv:
   text += arg +' '
-text += "Version used: "+ git_version.verbose_msg
+text += "<br><hr>Version used:<br> "+ git_version.verbose_msg
 
 html_sanity = html_sanity + text
 html_results = html_results + text
