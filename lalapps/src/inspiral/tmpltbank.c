@@ -965,9 +965,18 @@ int main ( int argc, char *argv[] )
 
     while ( candleMass1 < 50.0 )
     {
-      /* experimental code to ease the computation of the standard candle */
-      distance = compute_candle_distance(candleMass1, candleMass2,
+      if ( approximant == EOBNR )
+      {
+        distance = ComputeCandleDistanceTD( approximant, candleMass1, candleMass2,
           candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+      }
+      else
+      {
+        /* experimental code to ease the computation of the standard candle */
+        distance = compute_candle_distance(candleMass1, candleMass2,
+            candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+      }
+     
 
       if ( vrbflg ) fprintf( stdout, "maximum distance for (%3.2f,%3.2f) "
           "at signal-to-noise %3.2f = ", candleMass1, candleMass2, candleSnr );

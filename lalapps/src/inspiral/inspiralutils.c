@@ -118,6 +118,68 @@ REAL4 compute_candle_distance(REAL4 candleM1, REAL4 candleM2,
   return distance;
 }
 
+REAL4 ComputeCandleDistanceTD(
+    Approximant approximant,
+    REAL4 candleM1,
+    REAL4 candleM2,
+    REAL4 snr,
+    REAL8 chanDeltaT,
+    INT4 nPoints,
+    REAL8FrequencySeries *spec,
+    UINT4 cut)
+{
+
+  LALStatus      *status   = NULL;
+
+  InspiralTemplate  tmplt;
+  REAL4Vector    *waveform = NULL;
+  COMPLEX8Vector *waveFFT  = NULL;
+  REAL4FFTPlan   *fwdPlan  = NULL;
+
+  REAL8          sigmaSq;
+  REAL8          distance;
+  UINT4          i;
+
+  memset( &tmplt, 0, sizeof(tmplt) );
+
+  /* Create storage for TD and FD template */
+  waveform = XLALCreateREAL4Vector( nPoints );
+  waveFFT  = XLALCreateCOMPLEX8Vector( spec->data->length );
+
+  fwdPlan = XLALCreateForwardREAL4FFTPlan( nPoints, 0 );
+
+  /* Populate the template parameters */
+  tmplt.mass1 = candleM1;
+  tmplt.mass2 = candleM2;
+  tmplt.approximant = approximant;
+  tmplt.tSampling   = 1.0/chanDeltaT;
+  tmplt.order       = pseudoFourPN; /* Hardcode for EOBNR for now */
+  tmplt.fLower      = spec->deltaF *cut;
+  tmplt.distance    = 1.0; /* Mpc */
+  tmplt.massChoice  = m1Andm2;
+
+  /* From this, calculate the other parameters */
+  LALInspiralParameterCalc( status, &tmplt );
+
+  /* Generate the waveform */
+  LALInspiralWave( status, waveform, &tmplt );
+
+  XLALREAL4ForwardFFT( waveFFT, waveform, fwdPlan );
+
+  sigmaSq = 0.0;
+  for ( i = cut; i < waveFFT->length; i++ )
+  {
+    sigmaSq+= waveFFT->data[i].re * waveFFT->data[i].re
+            + waveFFT->data[i].im * waveFFT->data[i].im;
+    sigmaSq /= spec->data->data[i];
+  }
+
+  sigmaSq *= 4.0 * chanDeltaT / nPoints;
+
+  /* Now calculate the distance */
+  distance = sqrt( sigmaSq ) / (REAL8)snr;
+  return (REAL4)distance;
+}
 
 SummValueTable **add_summvalue_table(SummValueTable **newTable,
     LIGOTimeGPS gpsStartTime, LIGOTimeGPS gpsEndTime, 
