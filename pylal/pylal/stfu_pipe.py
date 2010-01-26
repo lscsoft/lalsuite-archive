@@ -971,7 +971,13 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -1010,7 +1016,13 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -1782,7 +1794,7 @@ class create_default_config(object):
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas3.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 

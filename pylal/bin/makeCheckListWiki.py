@@ -107,7 +107,9 @@ class findFileType(object):
       listData=[str(a).split() for a in rawData2]
       #Adjust properties to Str,float,float
       listData=[[str(a),float(b),float("%2.3f"%float(c))] for a,b,c in listData]
-      listData.sort(cmp=lambda x,y:int(10.0*(x[2]-y[2])))
+      tmpListData=[[x[2],x] for x in listData]
+      tmpListData.sort(reverse=True)
+      listData=[x[1] for x in tmpListData]
     except:
       sys.stderr.write("Error parsing Z value file :%s\n"%(myFilename))
       return []
@@ -135,7 +137,8 @@ class findFileType(object):
       #Search filesystem for file full path
       finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
       #Look for potential matching thumbnails
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
+      if thisFile.endswith(".png"):
+        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
     if len(finalList) < 1:
       return list()
     else:
@@ -473,15 +476,26 @@ class wiki(object):
     """
     def __init__(self,rows=1,cols=1):
       if rows < 1:
+        sys.stderr.write("Error setting number of rows in table. \
+Requested %s rows, assuming you meant at least 1.\n"%rows)
         self.rows = 1
       else:
         self.rows=rows
       if cols < 1:
+        sys.stderr.write("Error setting number of columns in table. \
+Requested %s columns, assuming you meant at least 1.\n"%col)
         self.cols = 1
       else:
         self.cols=cols
       self.tStyle=None
+      self.tHeadline=None
       self.data=list()
+      #Build headline format string
+      self.tHeadlineFormat=""
+      for colNum in range(0,self.cols):
+        self.tHeadlineFormat+="||"
+      self.tHeadlineFormat+="""%s||\n"""
+      
       #Create tuple object with number of rows
       for rc in range(0,rows):
         self.data.append(self.__rowbuilder__(self.cols))
@@ -489,6 +503,18 @@ class wiki(object):
     def __rowbuilder__(self,cols):
       return [str(" ") for x in range(0,cols)]
 
+    def setTableHeadline(self,titleString=""):
+      """
+      Allows you to insert a title row to a table object and place
+      text or other table commands. Invoking it with None as the arg
+      deletes a previous set table headline.
+      """
+      #To achieve colspan tabulate extra "||" to place in start of tHeadline
+      if titleString==None:
+        self.tHeadline=None
+      elif self.tStyle != None:
+        self.tHeadline=titleString
+        
     def setTableStyle(self,fstring=""):
       """
       Allows you to specify table style see MoinMoin help
@@ -497,7 +523,39 @@ class wiki(object):
       if fstring=="NONE":
         self.tStyle=None
       else:
-        self.tStyle='<tablestyle="%s">'%(fstring.lstrip().rstrip())
+        self.tStyle=fstring
+
+    def __formatAndTitleString__(self,location=None):
+      """
+      Looks at values for wiki table editing and returns the
+      appropriate string for a title row or options for the table to
+      cell[0][0]. Valid arguments are the keywords ['TITLE','CELL']
+      """
+      titleString=""
+      cellString=""
+      #Title string with specified formatting
+      if self.tHeadline and self.tStyle:
+        tmpString="""<tablestyle="%s" rowbgcolor="#FFFFE0" > %s"""%(self.tStyle,self.tHeadline)
+        titleString = self.tHeadlineFormat%tmpString
+      #Title string with no formatting
+      if self.tHeadline and not self.tStyle:
+        titleString = self.tHeadlineFormat%self.tHeadline
+      #No title string with table formatting
+      if not self.tHeadline and self.tStyle:
+        cellString =  """<tablestyle="%s">"""%self.tStyle
+      #Default to return an empty string if neither option set
+      if not self.tHeadline and not self.tStyle:
+        titleString = ""
+        cellString = ""
+      if location == None:
+        raise Exception, "Argument to self.__formatAndTitleString__() \
+expected. Received <None>!\n"
+      if location.upper() == "CELL":
+        return cellString
+      elif location.upper() == "TITLE":
+        return titleString
+      else:
+        return ""
       
   def insertTable(self,obj):
     """
@@ -505,10 +563,11 @@ class wiki(object):
     wiki markup and place that in to the self.content
     list for writing to the file
     """
-    oldCell="%s"%obj.data[0][0]
     tableContent=""
-    if obj.tStyle != None:
-      obj.data[0][0]="%s%s"%(obj.tStyle,str(oldCell))
+    #If a title row specified
+    tableContent+=obj.__formatAndTitleString__("TITLE")
+    oldCell="%s"%obj.data[0][0]
+    obj.data[0][0]="%s%s"%(obj.__formatAndTitleString__("CELL"),str(oldCell))
     if type(obj) != type(self.wikiTable()):
       raise Exception,"Expecting nested type instance of WikiTable"
     else:
@@ -564,6 +623,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       else:
         myIndexURL="%s"%indexes[label][0]
         myTable.data[0][i+1]="%s"%self.makeExternalLink(myIndexURL,label)
+
     #Fill in table with thumbnails and links
     for i,channel in enumerate(uniqChannelNames):
       myTable.data[i+1][0]=" %s "%(channel)
@@ -635,33 +695,36 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         if lastName != myName:
           lastName=myName
           uniqChannelNames.append(myName)
+      #Check if uniqChannelNames list is empty
+      if len(uniqChannelNames) < 1:
+        sys.stderr.write("Warning: [%s] No channels available to plot in table!\n"%ifo)
+        uniqChannelNames.append("No_Channels_To_Display")
       #Create table object reserve first cell for txt labels
       colCount=3
-      fullRows,modRows=divmod(len(uniqChannelNames)+1,colCount)
+      fullRows,modRows=divmod(len(uniqChannelNames),colCount)
       if modRows > 0:
         rowCount=fullRows+1
       else:
         rowCount=fullRows
       myTable=self.wikiTable(rowCount,colCount)
       myTable.setTableStyle("text-align:center")
-      #Reserved cell
-      myTable.data[0][0]=""
       #Insert HTML links and IFO Label
       contentString=""
-      contentString=contentString+" %s<<BR>> "%(ifo)
+      contentString=contentString+" %s  "%(ifo)
       #Add html links
       for newLink in indexes[ifo]:
-        contentString=contentString+" %s<<BR>> "%self.makeExternalLink(newLink,"Qscan")
+        contentString=contentString+" %s "%self.makeExternalLink(newLink,"Qscan")
       for newLink in indexesAQ[ifo]:
-        contentString=contentString+" %s<<BR>> "%self.makeExternalLink(newLink,"analyzeQscan")
+        contentString=contentString+" %s  "%self.makeExternalLink(newLink,"analyzeQscan")
       #Legend for top N analyzeQscan images
       #ifoColors={'L1':'blue','H1':'orange','H2':'magenta','V1':'grey','DEFAULT':'pink'}
       #Shortlist the channels we will highlight: Sort then cut
-      if channelRanks[ifo]:
-        channelRanks[ifo].sort(cmp=lambda x,y:int(10.0*(x[2]-y[2])))
-      topN=10
-      shortList=channelRanks[ifo][0:min(len(channelRanks[ifo]),topN)]
-      myTable.data[0][0]=contentString
+      tmpRanks=[[x[2],x] for x in channelRanks[ifo]]
+      tmpRanks.sort(reverse=True)
+      ifoRanks=[x[1] for x in tmpRanks]
+      topN=9
+      shortList=ifoRanks[0:min(len(ifoRanks),topN)]
+      myTable.setTableHeadline(contentString)
       #Start filling cells with Qscan and analyzeQscan scatter plot
       for cellNum,channel in enumerate(uniqChannelNames):
         #Grab plot info for this channel name
@@ -684,7 +747,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           myAQIndexT=None
         cellString=""
         #Setup shading
-        htmlShadeColor='#00FFFF'
+        htmlShadeColor='#E0E0FF'
         cutP=0.75
         if [a.__contains__(myName) \
             and c >= cutP for a,b,c in shortList].count(True):
@@ -695,17 +758,17 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         else:
           cellString=cellString+" Unknown_Channel <<BR>> "
         if myOmegaIndex!=None:
-          cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[ifo][myOmegaIndex],
+          cellString=cellString+" %s "%self.linkedRemoteImage(thumbs[ifo][myOmegaIndexT],
                                                              images[ifo][myOmegaIndex])
         else:
           cellString=cellString+" Unavailable_Qscan <<BR>> "
         if myAQIndex!=None:
-          cellString=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[ifo][myAQIndex],
+          cellString=cellString+" %s "%self.linkedRemoteImage(thumbsAQ[ifo][myAQIndexT],
                                                               imagesAQ[ifo][myAQIndex])
         else:
           cellString=cellString+" Unavailable_analyzeQScan <<BR>> "
         #Add string to cell
-        myRow,myCol=divmod(cellNum+1,colCount)
+        myRow,myCol=divmod(cellNum,colCount)
         myTable.data[myRow][myCol]=" %s "%cellString
       self.insertTable(myTable)
 
@@ -978,7 +1041,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   indexDictAQ=dict()
   thumbDictAQ=dict()
   zValueDictAQ=dict()
-  for sngl in wikiCoinc.sngls:
+  for sngl in wikiCoinc.sngls_in_coinc():
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
@@ -1047,7 +1110,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDictAQ=dict()
   zValueDictAQ=dict()
   #Select only PEM channels
-  for sngl in wikiCoinc.sngls:
+  for sngl in wikiCoinc.sngls_in_coinc():
     imageDict[sngl.ifo]=list()
     indexDict[sngl.ifo]=list()
     thumbDict[sngl.ifo]=list()

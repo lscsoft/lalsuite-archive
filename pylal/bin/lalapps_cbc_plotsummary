@@ -62,6 +62,7 @@ from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import dbtables
+from glue import lal
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -88,6 +89,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
+	parser.add_option("","--input-cache", help="input cache containing only the databases you want to run on (you can also list them as arguments, but you should use a cache if you are afraid that the command line will be too long.)")
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
@@ -111,6 +113,9 @@ Generate the given plot group.  Can be given multiple times (default = make all 
 		options.plot_group = map(int, options.plot_group)
 	if not options.format:
 		options.format = ["png"]
+
+	if not filenames: filenames = []
+	if options.input_cache: filenames.extend([lal.CacheEntry(l).path() for l in open(options.input_cache).readlines()])
 
 	return options, (filenames or [])
 
@@ -489,9 +494,9 @@ SELECT distinct_ifos.ifos, count(*) FROM coinc_inspiral JOIN distinct_ifos ON (d
 		self.write_wiki_string(self.playground_candidates[:10], f, self.playground_livetime)
 		f.close()
 		f = open(self.base+'num_trigs_table.txt','w')
-		f.write("||<b>DETECTORS ON</b>||<b>LIVETIME</b>||<b>NUMBER OF COINCIDENT ZERO LAG TRIGGERS</b>||\n")
+		f.write("||<b>DETECTORS ON</b>||<b>LIVETIME (s) (d) (yr)</b>||<b># COINC EVENTS</b>||\n")
 		for inst in self.livetime.keys(): 
-			f.write("||%s||%f||" % ("".join(sorted(inst)), self.livetime[inst]))
+			f.write("||%s||%.2f %.2f %.2f||" % ("".join(sorted(inst)), self.livetime[inst],self.livetime[inst]/86400.0,self.livetime[inst]/31556926.0))
 			try: num = self.num_trigs[inst]
 			except: num = 0
 			f.write("%d||\n" % (num,))
