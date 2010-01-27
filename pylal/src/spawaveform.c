@@ -122,36 +122,8 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
         return Py_None;
 	}
 
-static PyObject *PyIMRSPAWaveformFromChi(PyObject *self, PyObject *args) 
-	{
-	/* Generate a SPA (frequency domain) waveform at a given PN order */
-	PyObject *arg9, *py_spa_array;
-	double mass1, mass2, spin1, spin2, deltaF, fLower;
-	npy_intp *dims = NULL;
-	complex double *data = NULL;
-	/* FIXME properly handle references */
 
-	if(!PyArg_ParseTuple(args, "ddddddO", &mass1, &mass2, &spin1, &spin2, &deltaF, &fLower, &arg9)) return NULL;
-
-	/* this gets a contiguous memory numpy array */
-        py_spa_array = PyArray_FROM_OTF(arg9, NPY_CDOUBLE, NPY_IN_ARRAY);
-	if (py_spa_array == NULL) return NULL;
-
-	/* Actually call the SPA waveform C function */
-	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
-
-	dims = PyArray_DIMS(py_spa_array);
-	data = PyArray_DATA(py_spa_array);
-
-	IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
-	//SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
-
-	Py_DECREF(py_spa_array);
-        Py_INCREF(Py_None);
-        return Py_None;
-	}
-
-static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args) 
+static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	PyObject *arg9, *py_spa_array;
@@ -535,19 +507,19 @@ void initspawaveform(void)
          */
 	}
 
-int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2, 
+int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2,
     double deltaF, double fLower, int numPoints,  complex double *hOfF) {
 
     double totalMass = mass1+mass2;
     double eta = mass1*mass2/pow(totalMass,2.);
-    double delta = sqrt(1.-4.*eta); 
+    double delta = sqrt(1.-4.*eta);
     /* spin parameter used for the search */
     double chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
     return IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, numPoints, hOfF);
     }
 
 
-int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, 
+int IMRSPAWaveformFromChi(double mass1, double mass2, double chi,
         double deltaF, double fLower, int numPoints, complex double *hOfF) {
 
     double totalMass, piM, eta;
