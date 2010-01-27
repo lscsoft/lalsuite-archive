@@ -1088,10 +1088,6 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
   if enoughImage and enoughIndex:
-    print "enoughImage"
-    print enoughImage
-    print "enoughIndex"
-    print enoughIndex
     wikiPage.insertAnalyzeQscanTable(imageDict,
                                      thumbDict,
                                      indexDict,
