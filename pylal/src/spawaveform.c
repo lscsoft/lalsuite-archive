@@ -32,6 +32,9 @@ static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
 static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
 static int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static double imr_merger(double m1, double m2, double chi);
+static double imr_ring(double m1, double m2, double chi);
+static double imr_fcut(double m1, double m2, double chi);
 
 const char SPADocstring[] =
 "This module wraps SPA inspiral waveform generation and some useful functions "
@@ -86,10 +89,23 @@ static PyObject *PyFFinal(PyObject *self, PyObject *args)
 	const char *s = NULL;
 	if(!PyArg_ParseTuple(args, "dd|s", &mass1, &mass2, &s)) return NULL;
 	/* Default is schwarz isco */
-	if ( !strcmp(s, "schwarz_isco") || !s) return Py_BuildValue("d", schwarz_isco(mass1,mass2));
-	if ( !strcmp(s, "bkl_isco") ) return Py_BuildValue("d", bkl_isco(mass1,mass2));
-	if ( !strcmp(s, "light_ring") ) return Py_BuildValue("d", light_ring(mass1,mass2));
+	if ( !s || !strcmp(s, "schwarz_isco") ) return Py_BuildValue("d", schwarz_isco(mass1,mass2));
+	if ( s && !strcmp(s, "bkl_isco") ) return Py_BuildValue("d", bkl_isco(mass1,mass2));
+	if ( s && !strcmp(s, "light_ring") ) return Py_BuildValue("d", light_ring(mass1,mass2));
 	PyErr_SetString(PyExc_ValueError, "Unrecognized ending frequency, must be schwarz_isco | bkl_isco | light_ring");
+	return NULL;
+	}
+
+static PyObject *PyIMRFFinal(PyObject *self, PyObject *args)
+	{
+	double mass1, mass2, chi;
+	const char *s = NULL;
+	if(!PyArg_ParseTuple(args, "ddd|s", &mass1, &mass2, &chi, &s)) return NULL;
+	/* Default is schwarz isco */
+	if ( s && !strcmp(s, "merger") ) return Py_BuildValue("d",imr_merger(mass1,mass2,chi));
+	if (!s || !strcmp(s, "fcut") ) return Py_BuildValue("d", imr_fcut(mass1,mass2,chi));
+	if ( s && !strcmp(s, "ringdown") ) return Py_BuildValue("d", imr_ring(mass1,mass2,chi));
+	PyErr_SetString(PyExc_ValueError, "Unrecognized ending frequency, must be merger | ringdown | fcut");
 	return NULL;
 	}
 
@@ -264,6 +280,12 @@ static struct PyMethodDef methods[] = {
 	 "This function calculates the ending frequency specified by "
 	 "mass1 and mass2.\n\n"  
 	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
+	},
+	{"imrffinal", PyIMRFFinal, METH_VARARGS, 
+	 "This function calculates the ending frequency specified by "
+	 "mass1 and mass2 and chi for the imr waveforms. The default is "
+	 "to return the cutoff frequency unless you specify merger or ringdown\n\n"  
+	 "ffinal(m1, m2, chi, ['merger'|'ringdown'])\n\n"
 	},
 	{"svd", PySVD, METH_VARARGS, 
 	 "This function calculates the singular value decomposition via the gsl function\n"
@@ -506,16 +528,55 @@ void initspawaveform(void)
          */
 	}
 
-int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2,
-    double deltaF, double fLower, int numPoints,  complex double *hOfF) {
+static double imr_merger(double m1, double m2, double chi) {
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+	double fMerg =  1. - 4.4547*pow(1.-chi,0.217) + 3.521*pow(1.-chi,0.26) +
+		6.4365e-01*eta + 8.2696e-01*eta*chi + -2.7063e-01*eta*pow(chi,2.) +
+		-5.8218e-02*pow(eta,2.) + -3.9346e+00*pow(eta,2.)*chi +
+		-7.0916e+00*pow(eta,3.);
+    
+	fMerg /= piM;
+	return fMerg;
+	}
 
-    double totalMass = mass1+mass2;
-    double eta = mass1*mass2/pow(totalMass,2.);
-    double delta = sqrt(1.-4.*eta);
-    /* spin parameter used for the search */
-    double chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
-    return IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, numPoints, hOfF);
-    }
+
+static double imr_ring(double m1, double m2, double chi){
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+	double fRing = (1. - 0.63*pow(1.-chi,0.3))/2. +
+		1.4690e-01*eta + -1.2281e-01*eta*chi + -2.6091e-02*eta*pow(chi,2.) +
+		-2.4900e-02*pow(eta,2.) + 1.7013e-01*pow(eta,2.)*chi +
+		2.3252e+00*pow(eta,3.);
+	fRing /= piM;
+	return fRing;
+	}
+
+static double imr_fcut(double m1, double m2, double chi) {
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+	double fCut = 3.2361e-01 + 4.8935e-02*chi + 1.3463e-02*pow(chi,2.) +
+		-1.3313e-01*eta + -8.1719e-02*eta*chi + 1.4512e-01*eta*pow(chi,2.) +
+		-2.7140e-01*pow(eta,2.) + 1.2788e-01*pow(eta,2.)*chi +
+		4.9220e+00*pow(eta,3.);
+	fCut /= piM;
+	return fCut;
+	}
+
+
+int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2,
+	double deltaF, double fLower, int numPoints,  complex double *hOfF) {
+
+	double totalMass = mass1+mass2;
+	double eta = mass1*mass2/pow(totalMass,2.);
+	double delta = sqrt(1.-4.*eta);
+	/* spin parameter used for the search */
+	double chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
+	return IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, numPoints, hOfF);
+	}
 
 
 int IMRSPAWaveformFromChi(double mass1, double mass2, double chi,
