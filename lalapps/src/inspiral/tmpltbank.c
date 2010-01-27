@@ -962,28 +962,40 @@ int main ( int argc, char *argv[] )
   {
     CHAR  candleComment[LIGOMETA_SUMMVALUE_COMM_MAX];
     REAL8 distance = 0;
+    REAL8 distAsym = 0;
+    REAL8 symmMass1;
+    REAL8 asymMass1;
+    REAL8 asymMass2;
 
-    while ( candleMass1 < 50.0 )
+    while ( candleMass1 <= 100.0 )
     {
+      symmMass1 = 0.5 * candleMass1;
+      asymMass1 = candleMass1 - candleMass2;
+      asymMass2 = candleMass2;
+
       if ( approximant == EOBNR )
       {
-        distance = ComputeCandleDistanceTD( approximant, candleMass1, candleMass2,
+        distance = ComputeCandleDistanceTD( approximant, symmMass1, symmMass1,
+          candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+        distAsym = ComputeCandleDistanceTD( approximant, asymMass1, asymMass2,
           candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
       }
       else
       {
         /* experimental code to ease the computation of the standard candle */
-        distance = compute_candle_distance(candleMass1, candleMass2,
+        distance = compute_candle_distance(symmMass1, symmMass1,
+            candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+        distAsym = compute_candle_distance(asymMass1, asymMass2,
             candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
       }
      
 
       if ( vrbflg ) fprintf( stdout, "maximum distance for (%3.2f,%3.2f) "
-          "at signal-to-noise %3.2f = ", candleMass1, candleMass2, candleSnr );
+          "at signal-to-noise %3.2f = ", symmMass1, symmMass1, candleSnr );
 
       /* experimental code to populate the summValue table */
       LALSnprintf( candleComment, LIGOMETA_SUMMVALUE_COMM_MAX,
-          "%3.2f_%3.2f_%3.2f", candleMass1, candleMass2, candleSnr );
+          "%3.2f_%3.2f_%3.2f", symmMass1, symmMass1, candleSnr );
 
       this_summvalue =
         add_summvalue_table(this_summvalue, gpsStartTime, gpsEndTime,
@@ -992,8 +1004,25 @@ int main ( int argc, char *argv[] )
 
       if ( vrbflg ) fprintf( stdout, "%e Mpc\n", (*this_summvalue)->value );
 
-      candleMass2 = candleMass1 = candleMass1 + 1.0;
       this_summvalue = &(*this_summvalue)->next;
+
+      if ( vrbflg ) fprintf( stdout, "maximum distance for (%3.2f,%3.2f) "
+          "at signal-to-noise %3.2f = ", asymMass1, asymMass2, candleSnr );
+
+      /* experimental code to populate the summValue table */
+      LALSnprintf( candleComment, LIGOMETA_SUMMVALUE_COMM_MAX,
+          "%3.2f_%3.2f_%3.2f", asymMass1, asymMass2, candleSnr );
+
+      this_summvalue =
+        add_summvalue_table(this_summvalue, gpsStartTime, gpsEndTime,
+            PROGRAM_NAME, ifo, "inspiral_effective_distance",
+            candleComment, distAsym);
+
+      if ( vrbflg ) fprintf( stdout, "%e Mpc\n", (*this_summvalue)->value );
+
+      this_summvalue = &(*this_summvalue)->next;
+
+      candleMass2 = candleMass1 = candleMass1 + 1.0;
     }
   }
 
