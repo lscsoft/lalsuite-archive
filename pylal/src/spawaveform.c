@@ -127,7 +127,7 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	PyObject *arg9, *py_spa_array;
-	double mass1, mass2, chi, deltaF, fLower;
+	double mass1, mass2, deltaF, fLower;
 	npy_intp *dims = NULL;
 	complex double *data = NULL;
 	/*FIXME get rid of this hack to handle optional spin arguments */
@@ -151,9 +151,8 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	data = PyArray_DATA(py_spa_array);
 
 	/* depending on the number of arguments given call a different function */
-	if (spin1 != -100.0 && spin2 == -100.0) IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, dims[0], data);
+	if (spin1 != -100.0 && spin2 == -100.0) IMRSPAWaveformFromChi(mass1, mass2, spin1, deltaF, fLower, dims[0], data);
 	else IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
-	//SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
 
 	Py_DECREF(py_spa_array);
         Py_INCREF(Py_None);
