@@ -1220,7 +1220,7 @@ class GRB(object):
     pylal_dir = self.get_pylal_dir()
 
     # make a consistency check
-    test_dir = cp.get('paths','lalsuite')+'//'+tag+'/pylal'
+    test_dir = cp.get('paths','lalsuite')+'//'+tag+'.pylal'
     if os.path.normpath(test_dir)!=os.path.normpath(pylal_dir):
       del_lock()
       raise NameError, "The paths to the pylal directory does not agree. Possible error in the setup scripts. \n"\
