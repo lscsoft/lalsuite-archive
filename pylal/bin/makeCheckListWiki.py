@@ -118,7 +118,7 @@ class findFileType(object):
   def __readCache__(self,cacheListing=list()):
     """
     Simple mehtod to read in a cache or list of cache files and return
-    a list of files to an empty list if nothing found
+    a list of files or an empty list if nothing found
     """
     #Open the cache entry and search for those entrys
     fileListing=list()
@@ -253,21 +253,8 @@ class findFileType(object):
                sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMask))
     #Open the cache entry and search for those entrys
-    cacheListing=list()
-    for entry in tmpList:
-      cacheListing.append(entry)
-      cacheListing.extend([x.rstrip("\n") for x in file(entry).readlines()])
-    finalList=list()
-    for thisFile in cacheListing:
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
-      #Scan for both thumb types for all PNGs
-      if thisFile.endswith(".png"):
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png",".thumb.png")))
-    if len(finalList) < 1:
-      return list()
-    else:
-      return finalList
+    finalList=self.__readCache__(tmpList)
+    return finalList
     
   def get_plotchiatimeseries(self):
     """
@@ -279,21 +266,8 @@ class findFileType(object):
              self.coinc.ifos,\
              self.coinc.time)
     tmpList.extend(fnmatch.filter(self.fsys,myMask))
-    #Open the cache entry and search for those entrys
-    cacheListing=list()
-    for entry in tmpList:
-      cacheListing.append(entry)
-      cacheListing.extend([x.rstrip("\n") for x in file(entry).readlines()])
-    finalList=list()
-    for thisFile in cacheListing:
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
-      if thisFile.endswith(".png"):
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","_thumb.png")))
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png",".thumb.png")))
-    if len(finalList) < 1:
-      return(list())
-    else:
-      return finalList
+    finalList=self.__readCache__(tmpList)
+    return finalList
 
   def get_analyzeQscan_SEIS(self):
     """
@@ -322,7 +296,7 @@ class findFileType(object):
       intS=nanS=0
       intS,nanS=str(float(sngl.time)).split(".")
       timeString="%s_%s"%(intS,nanS)
-      myCacheMask="*/%s-analyseQscan_%s_%s*_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
+      myCacheMask="*/%s-analyseQscan_%s_%s_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
       #Ignore the files with seis_rds in them
       for x in fnmatch.filter(self.fsys,myCacheMask):
         if not x.__contains__('seis_rds'):
@@ -658,7 +632,6 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
     the trigger is greater in value that 0.5.  Assuming the
     channelRanks dict is not empty. 
     """
-    #channelRanks={'ifo':[[chan,Zvalue,rank]...[chan,Zvalue,rank]],'ifo2':[[ ]]}
     #Review the keys for Qscans and analyzeQscans.
     if not images.keys()==thumbs.keys()==indexes.keys():
       sys.stderr.write("Error: Keys for Qscan tables creations inconsistent!\n")
@@ -678,15 +651,37 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       #932797512.6862793_H0:PEM-BSC9_ACC1X_16.00_eventgram_autoscaled.png
       #932797512.6862793_H1:LSC-DARM_ERR_512.00_eventgram_raw.thumb.png
       #933259905.03857422_H0:PEM-MX_SEISY_512.00_eventgram_autoscaled.png
+      #L1-analyseQscan_L1_933135743_209_rds_L1_ISI-OMC_DISPPF_H1_IN1_DAQ_z_scat-unspecified-gpstime.png
       #CHANNEL NAMES in ALL CAPS
-      channelNames=list()
       #Extract channel names
       tmpCN=[os.path.basename(x) for x in images[ifo]]
       tmpCN.extend([os.path.basename(x) for x in imagesAQ[ifo]])
       startREG=re.compile('_[H,V,L][0,1,2][:,-,_]')
       stopREG=re.compile('_(?=[0-9,a-z])')
-      channelNames=[re.split(stopREG,re.split(startREG,x).pop())[0].strip() \
-                    for x in tmpCN]
+      #Introduce special handling
+      #(Should use Zsig file(analQ) and config.txt (qscan))
+      specialChannelList=[
+        "ISI-OMC_DISPPF_H1_IN1_DAQ",\
+        "PEM-LVEA2_V2",\
+        "OMC-ASC_POS_X_IN1_DAQ",\
+        "OMC-ASC_POS_Y_IN1_DAQ",\
+        "OMC-QPD3_SUM_IN1_DAQ",\
+        "OMC-QPD1_SUM_IN1_DAQ",\
+        "OMC-QPD2_SUM_IN1_DAQ",\
+        "OMC-QPD4_SUM_IN1_DAQ"\
+        ]
+      channelNamesInterm=[[x,re.split(stopREG,re.split(startREG,x).pop().strip())[0].strip()] \
+                          for x in tmpCN]
+      #Cycle through the Interm list adjusting
+      #channel entries from specialChannelList
+      channelNames=list()
+      for myURL,myName in channelNamesInterm:
+        for specialName in specialChannelList:
+          if myURL.__contains__(specialName):
+            #print "Fixing :",os.path.basename(myURL),"\t",os.path.basename(myName),"\t",specialName
+            channelNames.append(specialName)
+          else:
+            channelNames.append(myName)
       uniqChannelNames=list()
       lastName=None
       channelNames.sort()
@@ -698,9 +693,26 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       #Check if uniqChannelNames list is empty
       if len(uniqChannelNames) < 1:
         sys.stderr.write("Warning: [%s] No channels available to plot in table!\n"%ifo)
+        #Also dump/ignore any zRanking information!
+        channelRanks[ifo]=list()
         uniqChannelNames.append("No_Channels_To_Display")
-      #Create table object reserve first cell for txt labels
+      #Configure table object
       colCount=3
+      # If there are channel ranks make a short list of images
+      topN=3*colCount
+      #Extract only channel ranks which are available to plot!
+      trimChannelRanks=list()
+      for cName,cZ,cP in channelRanks[ifo]:
+        for easyName in uniqChannelNames:
+          if cName.__contains__(easyName):
+            trimChannelRanks.append([easyName,cZ,cP])
+      tmpRanks=[[x[2],x] for x in trimChannelRanks]
+      tmpRanks.sort(reverse=True)
+      ifoRanks=[x[1] for x in tmpRanks]
+      shortList=ifoRanks[0:min(len(ifoRanks),topN)]
+      # If there is a shortlist swap those channels for uniqChannelNames
+      if len(shortList) > 0:
+        uniqChannelNames=[myName for myName,b,c in shortList]
       fullRows,modRows=divmod(len(uniqChannelNames),colCount)
       if modRows > 0:
         rowCount=fullRows+1
@@ -711,19 +723,11 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
       #Insert HTML links and IFO Label
       contentString=""
       contentString=contentString+" %s  "%(ifo)
-      #Add html links
+      #Add html links for table title
       for newLink in indexes[ifo]:
         contentString=contentString+" %s "%self.makeExternalLink(newLink,"Qscan")
       for newLink in indexesAQ[ifo]:
         contentString=contentString+" %s  "%self.makeExternalLink(newLink,"analyzeQscan")
-      #Legend for top N analyzeQscan images
-      #ifoColors={'L1':'blue','H1':'orange','H2':'magenta','V1':'grey','DEFAULT':'pink'}
-      #Shortlist the channels we will highlight: Sort then cut
-      tmpRanks=[[x[2],x] for x in channelRanks[ifo]]
-      tmpRanks.sort(reverse=True)
-      ifoRanks=[x[1] for x in tmpRanks]
-      topN=9
-      shortList=ifoRanks[0:min(len(ifoRanks),topN)]
       myTable.setTableHeadline(contentString)
       #Start filling cells with Qscan and analyzeQscan scatter plot
       for cellNum,channel in enumerate(uniqChannelNames):
@@ -746,14 +750,15 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
         except ValueError:
           myAQIndexT=None
         cellString=""
-        #Setup shading
-        htmlShadeColor='#E0E0FF'
-        cutP=0.75
-        if [a.__contains__(myName) \
-            and c >= cutP for a,b,c in shortList].count(True):
-          cellString=cellString+"<%s> "%htmlShadeColor
-        #Use indices to get URLs
-        if myName:
+        #If there was a shortList add the Z value percentage to table!
+        if myName and len(shortList) > 0:
+          #Find rank
+          myRank=0.0
+          for sName,sZ,sP in shortList:
+            if sName.__contains__(myName):
+              myRank=sP
+          cellString=cellString+" %s Z-Percentage:%1.2f <<BR>> "%(myName,float(myRank))
+        elif myName:
           cellString=cellString+" %s <<BR>> "%myName
         else:
           cellString=cellString+" Unknown_Channel <<BR>> "
@@ -963,8 +968,6 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
       else:
         for myLabel,myLink,myThumb in stfu_pipe.getFOMLinks(wikiCoinc.time,wikiSngl.ifo):
           wikiPage.putText("%s\n"%(wikiPage.makeExternalLink(myLink,myLabel)))
-    if elems%3 != 0:
-      sys.stdout.write("Generation of FOM links seems incomplete!\n")
     cols=4
     rows=(elems/3)+1
     fTable=wikiPage.wikiTable(rows,cols)
@@ -1051,6 +1054,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                        "*/%s_RDS_*/%s/*SEI*_512.00_spectrogram_whitened?thumb.png"%\
                                        (sngl.ifo,sngl.time))
     #Search for analyzeQscan files
+    #/L1-analyseQscan_L1_932797512_687_seis_rds_L1_SEI-ETMX_X_z_scat-unspecified-gpstime.png
     intS=nanS=0
     intS,nanS=str(float(sngl.time)).split(".")
     timeString="%s_%s"%(intS,nanS)
@@ -1059,14 +1063,17 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
                                          "*_%s_%s_*.html"%(sngl.ifo,timeString))
     thumbDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
-                                         "*%s-*_%s_*_z_scat-unspecified-gpstime_thumb.png"\
+                                         "*%s-*_%s_*_SEI-*_z_scat-unspecified-gpstime_thumb.png"\
                                          %(sngl.ifo,timeString))
-    imageDictAQ[sngl.ifo]=[x.replace("_thumb.png",".png") for x in thumbDictAQ[sngl.ifo]]
+    imageDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
+                                         "*%s-*_%s_*_SEI-*_z_scat-unspecified-gpstime.png"\
+                                         %(sngl.ifo,timeString))
     #Process zValue ranking file if found for IFO
+    zValueDictAQ[sngl.ifo]=list()
     if len(zValueFiles):
-      zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
+      for zFile in zValueFiles:
+        zValueDictAQ[sngl.ifo].extend(wikiFileFinder.__readZranks__(zFile))
     else:
-      zValueDictAQ[sngl.ifo]=list()
       sys.stdout.write("Z ranking file not found for %s. ...skipping...\n"%sngl.ifo)
     #Convert disk locals to URLs
     imageDict[sngl.ifo]=[file2URL.convert(x) for x in imageDict[sngl.ifo]]
@@ -1139,12 +1146,14 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
                                  "*%s-*_%s_*html"%(sngl.ifo,timeString)):
       indexDictAQ[sngl.ifo].append(myFile)
-    zValuesFiles=fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
-                                "*%s-*_%s_*.txt"%(sngl.ifo,timeString))
+    zValueFiles=fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
+                                "*%s-*_%s_*txt"%(sngl.ifo,timeString))
+    zValueDictAQ[sngl.ifo]=list()
     if len(zValueFiles) > 0:
-      zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
+      for zFile in zValueFiles:
+        zValueDictAQ[sngl.ifo].extend(wikiFileFinder.__readZranks__(zFile))
     else:
-      zValueDictAQ[sngl.ifo]=list()
+      sys.stdout.write("Z ranking file not found for %s. ...skipping...\n"%sngl.ifo)
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime_thumb.png
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime.png
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
@@ -1229,12 +1238,14 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                  "*%s-*_%s_*html"%(sngl.ifo,timeString)):
       indexDictAQ[sngl.ifo].append(myFile)
     zValueFiles=fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
-                               "*_%s_%s_*.txt"%(sngl.ifo,timeString))
+                               "*%s-*_%s_*txt"%(sngl.ifo,timeString))
     #Process zValue ranking file if found for IFO
+    zValueDictAQ[sngl.ifo]=list()
     if len(zValueFiles) > 0:
-      zValueDictAQ[sngl.ifo]=wikiFileFinder.__readZranks__(zValueFiles[0])
+      for zFile in zValueFiles:
+        zValueDictAQ[sngl.ifo].extend(wikiFileFinder.__readZranks__(zFile))
     else:
-      zValueDictAQ[sngl.ifo]=list()
+      sys.stdout.write("Z ranking file not found for %s. ...skipping...\n"%sngl.ifo)
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime_thumb.png
     #H1-analyseQscan_H1_931176926_116_rds_H0_PEM-MY_SEISX_z_scat-unspecified-gpstime.png
     for myFile in fnmatch.filter(wikiFileFinder.get_analyzeQscan_RDS(),\
