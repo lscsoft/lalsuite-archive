@@ -280,7 +280,7 @@ class findFileType(object):
       intS=nanS=0
       intS,nanS=str(float(sngl.time)).split(".")
       timeString="%s_%s"%(intS,nanS)
-      myCacheMask="*/%s-analyseQscan_%s_%s*_seis_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
+      myCacheMask="*/%s-analyseQscan_%s_%s_seis_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
       #Read the cache file or files
       cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
     cacheFiles=self.__readCache__(cacheList)
