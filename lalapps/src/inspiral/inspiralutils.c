@@ -129,7 +129,7 @@ REAL4 ComputeCandleDistanceTD(
     UINT4 cut)
 {
 
-  LALStatus      *status   = NULL;
+  LALStatus      status   = blank_status;
 
   InspiralTemplate  tmplt;
   REAL4Vector    *waveform = NULL;
@@ -151,27 +151,29 @@ REAL4 ComputeCandleDistanceTD(
   /* Populate the template parameters */
   tmplt.mass1 = candleM1;
   tmplt.mass2 = candleM2;
+  tmplt.ieta  = 1;
   tmplt.approximant = approximant;
   tmplt.tSampling   = 1.0/chanDeltaT;
   tmplt.order       = pseudoFourPN; /* Hardcode for EOBNR for now */
   tmplt.fLower      = spec->deltaF *cut;
-  tmplt.distance    = 1.0; /* Mpc */
+  tmplt.distance    = 1.0e6 * LAL_PC_SI; /* Mpc */
   tmplt.massChoice  = m1Andm2;
+  tmplt.fCutoff     = tmplt.tSampling / 2.0 - spec->deltaF;
 
   /* From this, calculate the other parameters */
-  LALInspiralParameterCalc( status, &tmplt );
+  LAL_CALL( LALInspiralParameterCalc( &status, &tmplt ), &status );
 
   /* Generate the waveform */
-  LALInspiralWave( status, waveform, &tmplt );
+  LAL_CALL( LALInspiralWave( &status, waveform, &tmplt ), &status );
 
   XLALREAL4ForwardFFT( waveFFT, waveform, fwdPlan );
 
   sigmaSq = 0.0;
   for ( i = cut; i < waveFFT->length; i++ )
   {
-    sigmaSq+= waveFFT->data[i].re * waveFFT->data[i].re
-            + waveFFT->data[i].im * waveFFT->data[i].im;
-    sigmaSq /= spec->data->data[i];
+    sigmaSq += ( waveFFT->data[i].re * waveFFT->data[i].re
+            + waveFFT->data[i].im * waveFFT->data[i].im )
+            / spec->data->data[i];
   }
 
   sigmaSq *= 4.0 * chanDeltaT / nPoints;
