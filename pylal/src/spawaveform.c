@@ -31,6 +31,7 @@ static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
 static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF);
 
 const char SPADocstring[] =
 "This module wraps SPA inspiral waveform generation and some useful functions "
@@ -121,7 +122,7 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
         return Py_None;
 	}
 
-static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args) 
+static PyObject *PyIMRSPAWaveformFromChi(PyObject *self, PyObject *args) 
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	PyObject *arg9, *py_spa_array;
@@ -143,6 +144,43 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	data = PyArray_DATA(py_spa_array);
 
 	IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
+	//SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
+
+	Py_DECREF(py_spa_array);
+        Py_INCREF(Py_None);
+        return Py_None;
+	}
+
+static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args) 
+	{
+	/* Generate a SPA (frequency domain) waveform at a given PN order */
+	PyObject *arg9, *py_spa_array;
+	double mass1, mass2, chi, deltaF, fLower;
+	npy_intp *dims = NULL;
+	complex double *data = NULL;
+	/*FIXME get rid of this hack to handle optional spin arguments */
+	double spin1 = -100.0;
+	double spin2 = -100.0;
+	/* FIXME properly handle references */
+
+	if (!PyArg_ParseTuple(args, "ddddO|dd", &mass1, &mass2, &deltaF, &fLower, &arg9, &spin1, &spin2)) return NULL;
+
+	/* Check for no spin case */
+	if (spin1 == -100.0 && spin2 == -100.0) spin1 = spin2 = 0.0;
+
+	/* this gets a contiguous memory numpy array */
+        py_spa_array = PyArray_FROM_OTF(arg9, NPY_CDOUBLE, NPY_IN_ARRAY);
+	if (py_spa_array == NULL) return NULL;
+
+	/* Actually call the SPA waveform C function */
+	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
+
+	dims = PyArray_DIMS(py_spa_array);
+	data = PyArray_DATA(py_spa_array);
+
+	/* depending on the number of arguments given call a different function */
+	if (spin1 != -100.0 && spin2 == -100.0) IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, dims[0], data);
+	else IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
 	//SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
 
 	Py_DECREF(py_spa_array);
@@ -236,8 +274,14 @@ static struct PyMethodDef methods[] = {
 	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS, 
 	 "This function produces a frequency domain IMR waveform at a "
-	 "specified mass1, mass2, spin1, spin2 with spins aligned\n\n"
-	 "imrwaveform(m1, m2, spin1, spin2, deltaF, fLower, signalArray)\n\n"
+	 "specified mass1, mass2 by calling \n\n"
+	 "imrwaveform(m1, m2, deltaF, fLower, signalArray)\n\n"
+	 "This function is overlouded to produce a frequency domain IMR waveform at a "
+	 "specified mass1, mass2, chi by calling \n\n"
+	 "imrwaveform(m1, m2, deltaF, fLower, signalArray, chi)\n\n"
+	 "This function is overlouded to produce a frequency domain IMR waveform at a "
+	 "specified mass1, mass2, z component spin1, z component spin2 by calling \n\n"
+	 "imrwaveform(m1, m2, deltaF, fLower, signalArray, spin1, spin2)\n\n"
 	},
 	{"chirptime", PyChirpTime, METH_VARARGS, 
 	 "This function calculates the SPA chirptime at a specified mass1, mass2 " 
@@ -491,11 +535,22 @@ void initspawaveform(void)
          */
 	}
 
-int IMRSPAWaveform(double mass1, double mass2, double spin1, 
-        double spin2, double deltaF, double fLower, int numPoints,  
-        complex double *hOfF) {
+int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2, 
+    double deltaF, double fLower, int numPoints,  complex double *hOfF) {
 
-    double totalMass, piM, eta, chi, delta;
+    double totalMass = mass1+mass2;
+    double eta = mass1*mass2/pow(totalMass,2.);
+    double delta = sqrt(1.-4.*eta); 
+    /* spin parameter used for the search */
+    double chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
+    return IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, numPoints, hOfF);
+    }
+
+
+int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, 
+        double deltaF, double fLower, int numPoints, complex double *hOfF) {
+
+    double totalMass, piM, eta;
     double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, fMerg, fRing, fCut, sigma;
     double f, shft, amp0, ampEff, psiEff, fNorm;
     double v, alpha2, alpha3, w1, vMerg, epsilon_1, epsilon_2, w2, vRing;
@@ -507,11 +562,8 @@ int IMRSPAWaveform(double mass1, double mass2, double spin1,
     totalMass = mass1+mass2;
     eta = mass1*mass2/pow(totalMass,2.);
     piM = totalMass*LAL_PI*LAL_MTSUN_SI;
-    delta = sqrt(1.-4.*eta); 
+    /*delta = sqrt(1.-4.*eta); */
     
-    /* spin parameter used for the search */
-    chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
-
     /*********************************************************************/
     /*              compute the phenomenological parameters              */
     /*********************************************************************/
