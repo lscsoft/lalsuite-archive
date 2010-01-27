@@ -1055,6 +1055,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
                                        (sngl.ifo,sngl.time))
     #Search for analyzeQscan files
     #/L1-analyseQscan_L1_932797512_687_seis_rds_L1_SEI-ETMX_X_z_scat-unspecified-gpstime.png
+    #L1-analyseQscan_L1_933610473_319_seis_rds_L0_PEM-EY_SEISX_z_scat-unspecified-gpstime.png
     intS=nanS=0
     intS,nanS=str(float(sngl.time)).split(".")
     timeString="%s_%s"%(intS,nanS)
