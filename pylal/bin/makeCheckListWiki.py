@@ -1108,10 +1108,10 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
                                          "*_%s_%s_*.html"%(sngl.ifo,timeString))
     thumbDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
-                                         "*%s-*_%s_*_SEI-*_z_scat-unspecified-gpstime_thumb.png"\
+                                         "*%s-*_%s_*_SEI*_z_scat-unspecified-gpstime_thumb.png"\
                                          %(sngl.ifo,timeString))
     imageDictAQ[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_analyzeQscan_SEIS(),\
-                                         "*%s-*_%s_*_SEI-*_z_scat-unspecified-gpstime.png"\
+                                         "*%s-*_%s_*_SEI*_z_scat-unspecified-gpstime.png"\
                                          %(sngl.ifo,timeString))
     #Process zValue ranking file if found for IFO
     zValueDictAQ[sngl.ifo]=list()
