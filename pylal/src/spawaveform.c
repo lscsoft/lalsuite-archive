@@ -281,10 +281,10 @@ static struct PyMethodDef methods[] = {
 	 "mass1 and mass2.\n\n"  
 	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
 	},
-	{"imrffinal", PyIMRFFinal, METH_VARARGS, 
+	{"imrffinal", PyIMRFFinal, METH_VARARGS,
 	 "This function calculates the ending frequency specified by "
 	 "mass1 and mass2 and chi for the imr waveforms. The default is "
-	 "to return the cutoff frequency unless you specify merger or ringdown\n\n"  
+	 "to return the cutoff frequency unless you specify merger or ringdown\n\n"
 	 "ffinal(m1, m2, chi, ['merger'|'ringdown'])\n\n"
 	},
 	{"svd", PySVD, METH_VARARGS, 
