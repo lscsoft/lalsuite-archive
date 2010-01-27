@@ -1864,6 +1864,10 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 using default opts instead!\n")
 		return [urls['DEFAULT']]
 	outputURLs=[]
+	#Just return immediately if V1 encoutered (HACK)
+	if ifo.__contains__("V1"):
+		return([['V1',urls[ifoTag],'']])
+	#
 	if shiftStandardTime.keys().__contains__(ifoTag):
 		#Determine shift times n-1,n,n+1
 		tOffset=3600*shiftDuration
@@ -1872,10 +1876,12 @@ using default opts instead!\n")
 			Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(thisTime)))
 			#Get shift label
 			shiftString=''
+			humanShiftLabel=''
 			for shift,start in shiftStandardTime[ifoTag].iteritems():
 				hours=[x%24 for x in range(start,start+shiftDuration)]
 				if hours.__contains__(int(h)):
 					shiftString=shiftLabel[shift]
+					humanShiftLabel=shift
 			#Create txt string
 			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 			if ('V1').__contains__(ifoTag):
@@ -1883,7 +1889,7 @@ using default opts instead!\n")
 			else:
 				sL=shiftString
 				for fL in [1,2,3]:
-					outputURLs.append(["%s,%s"%(ifoTag,shiftString),
+					outputURLs.append(["%s,%s"%(ifoTag,humanShiftLabel),
 							   urls[ifoTag]%(tString,tString,sL,fL,""),
 							   urls[ifoTag]%(tString,tString,sL,fL,"Thumb")
 						   ])

@@ -83,9 +83,10 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
   """
   """
 # add default values
-  def __init__(self, job, dag, instruments, databases, number=10, trainingstr='training', testingstr='testing', zerolagstr='zerolag', p_node=[]):
+  def __init__(self, job, dag, instruments, databases, number=10, factor=50.0, trainingstr='training', testingstr='testing', zerolagstr='zerolag', p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     self.number = number
+		self.add_var_opt("factor",factor)
     self.add_var_opt("instruments", instruments)
     self.add_var_opt("trainingstr",trainingstr)
     self.add_var_opt("testingstr",testingstr)
