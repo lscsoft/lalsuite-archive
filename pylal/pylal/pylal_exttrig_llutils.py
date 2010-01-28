@@ -678,6 +678,22 @@ def generate_summary(publish_path, publish_url):
     f.write(table)
     f.close()
 
+
+# -----------------------------------------------------
+def get_code_tag():
+  """
+  Returns the name of the tag currently stored in an environment variable
+  @return: name of the tag
+  """
+  # get the tag information (which is the actual, most current tag)
+  tag = os.getenv('LAL_PYLAL_TAG')
+  if not tag:
+    del_lock()
+    raise EnvironmentError, "Environment variable LAL_PYLAL_TAG is missing, which contains the "\
+                       "tag of the code used, e.g. s6_exttrig_100119b. This should have beed set in the "\
+                       "lscsource script, called within runmonitor. Please check"
+  return tag
+
 # -----------------------------------------------------
 # -----------------------------------------------------
 class CodeTagger(object):
@@ -1220,7 +1236,7 @@ class GRB(object):
     pylal_dir = self.get_pylal_dir()
 
     # make a consistency check
-    test_dir = cp.get('paths','lalsuite')+'//'+tag+'.pylal'
+    test_dir = cp.get('paths','lalsuite')+'/'+tag+'.pylal'
     if os.path.normpath(test_dir)!=os.path.normpath(pylal_dir):
       del_lock()
       raise NameError, "The paths to the pylal directory does not agree. Possible error in the setup scripts. \n"\
@@ -1229,6 +1245,12 @@ class GRB(object):
 
     # Prepare the postprocesing directory at this stage
     dir_onoff = "%s/GRB%s/postprocessing_%s" % (self.analysis_dir, self.name, tag)
+    # check the existance of the directory
+    if os.path.exists(dir_onoff):
+      info(self.name, "    WARNING: The directory %s already exists. Maybe this is a test? Doing nothing." %\
+                       dir_onoff)
+      return None
+
     system_call(self.name, 'mkdir -p %s/logs'%dir_onoff)
 
     # copy all needed files from CVS
@@ -1240,7 +1262,7 @@ class GRB(object):
     system_call(self.name, cmd)
  
     # set the used code version and create the setup script
-    #self.code['onoff'] = CodeTagger()
+    self.code['onoff'] = CodeTagger()
     self.create_setup_script(dir_onoff)
  
     # create the DAG file
@@ -1262,24 +1284,29 @@ class GRB(object):
     tag = self.get_code_tag()
 
     # Prepare the postprocesing directory at this stage
-    dir_onoff = "%s/GRB%s/likelihood_%s" % (self.analysis_dir, self.name, tag)
-    system_call(self.name, 'mkdir -p %s/logs'%dir_onoff)
+    dir_lik = "%s/GRB%s/likelihood_%s" % (self.analysis_dir, self.name, tag)
+    if os.path.exists(dir_lik):
+      info(self.name, "    WARNING: The directory %s already exists. Maybe this is a test? Doing nothing." %\
+                       dir_lik)
+      return None
+
+    system_call(self.name, 'mkdir -p %s/logs'%dir_lik)
 
     # copy all needed files from CVS
     files = glob.glob('%s/likelihood*'%self.input_dir)
-    self.make_cvs_copy(files, dir_onoff)
+    self.make_cvs_copy(files, dir_lik)
 
     # link the executables directory
-    cmd = 'cd %s; ln -s %s/bin executables' % (dir_onoff, self.get_pylal_dir())
+    cmd = 'cd %s; ln -s %s/bin executables' % (dir_lik, self.get_pylal_dir())
     system_call(self.name, cmd)
 
     # set the used code version and create the setup script
     self.code['lik'] = CodeTagger()
-    self.create_setup_script(dir_onoff)
+    self.create_setup_script(dir_lik)
 
     # create the DAG file
-    infile = "%s/likelihood.in" % dir_onoff
-    dagfile = "%s/likelihood.dag" % dir_onoff
+    infile = "%s/likelihood.in" % dir_lik
+    dagfile = "%s/likelihood.dag" % dir_lik
     self.apply_sed_file(infile, dagfile)
 
     return dagfile

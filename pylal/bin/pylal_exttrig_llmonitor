@@ -340,6 +340,9 @@ def start_post(grb, dag, cp):
 
   # setup the DAG
   dagfile = grb.prepare_onoff_analysis()
+  if not dagfile:
+    peu.info(grb.name, '  WARNING: onoff stage could not be started')
+    return
 
   # prepare the new DAG and start it
   dag.set_dagname(dagfile)
@@ -368,6 +371,9 @@ def start_post_inj(grb, dag, cp):
 
   # setup the DAG
   dagfile = grb.prepare_lik_analysis()
+  if not dagfile:
+    peu.info(grb.name, '  WARNING: likelihood stage could not be started')
+    return
 
   # prepare the new DAG and start it
   dag.set_dagname(dagfile)
@@ -419,6 +425,30 @@ def analysis_finalized(grb, dag):
 
 
 # -----------------------------------------------------
+def check_rerun(grb, dag, cp):
+
+  # don't do anything if this DAG has not finished
+  if dag.get_status()!=5:
+    return
+
+  # check if there is a tag mismatch
+  tag_current = peu.get_code_tag()
+  type = dag.type
+  tag_used = grb.code[type].tag 
+
+  # if the used tag is the current one, just leave it
+  if tag_used==tag_current:
+    return
+
+  if type=='onoff':
+    start_post(grb, dag, cp)
+  elif type=='inj':
+     start_post_inj(grb, dag, cp)
+  else:
+    raise ValueError, "Type '%s' unknown. There might be a serious bug somewhere..."
+
+
+# -----------------------------------------------------
 def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
@@ -436,17 +466,19 @@ def parse_args():
         help="Specifies the time window to be checked from the current date (in days)."\
              " Any GRB outside this range (i.e. earlier ones) and not analyzed.")
 
-
     # injection related setting
     parser.add_option( "--with-injections",default=False, \
         help="If this flag is set, an injection run is started as well.")
     parser.add_option("--injection-config",default=None,\
         help="Specifies the injection ini file (if required).")
+
+    # rerun flag
+    parser.add_option( "--rerun",default=False, action="store_true",\
+        help="If this flag is set, do a rerun of the postprocessing for onoff and lik stages.")
   
     # verbosity arguments
     parser.add_option("--info", action="store_true", default=False, \
        help="Prints out the extra info messages.")
- 
 
     options, arguments = parser.parse_args()
 
@@ -512,6 +544,9 @@ for grb in monitor_list:
   # loop over the DAGs for this GRB
   for dag_key, dag in grb.dag.iteritems():
 
+    # check if the postprocessing analyses should be rerun
+    if opts.rerun:
+      check_rerun(grb, dag, cp)
 
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:
