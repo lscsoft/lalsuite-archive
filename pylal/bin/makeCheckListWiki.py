@@ -143,11 +143,14 @@ class findFileType(object):
   def __readCache__(self,cacheListing=list()):
     """
     Simple mehtod to read in a cache or list of cache files and return
-    a list of files or an empty list if nothing found
+    a list of files or an empty list if nothing found.
+    It uses the pathing information from the files passed via
+    cacheListing to aid in our filesystem search.
     """
     #Open the cache entry and search for those entrys
-    fileListing=list()
+    finalList=list()
     for entry in cacheListing:
+      fileListing=list()
       #Cache files listed themselves comment out following line
       fileListing.append(entry)
       fileListing.extend([x.rstrip("\n") for x in file(entry)])
@@ -157,18 +160,15 @@ class findFileType(object):
           zFile=fname.replace(".html",".txt")
           fileListing.append(zFile)
       #PATCH END
-    finalList=list()
-    for thisFile in fileListing:
-      #Search filesystem for file full path
-      finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile))
-      #Look for potential matching thumbnails
-      if thisFile.endswith(".png"):
-        finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
-    if len(finalList) < 1:
-      return list()
-    else:
-      return finalList
-
+      #Pathing info
+      pathingInfo=os.path.dirname(entry)
+      for thisFile in fileListing:
+        #Search filesystem for file full path
+        finalList.extend(fnmatch.filter(self.fsys,"*%s*%s"%(pathingInfo,thisFile)))
+        #Look for potential matching thumbnails
+        if thisFile.endswith(".png"):
+          finalList.extend(fnmatch.filter(self.fsys,"*%s"%thisFile.replace(".png","?thumb?png")))
+    return finalList
     
   def get_hoft_frame(self):
     """
@@ -312,7 +312,8 @@ class findFileType(object):
     cacheFiles=list()
     for sngl in self.coinc.sngls:
       timeString=str(float(sngl.time)).replace(".","_")    
-      myCacheMask="*/%s-analyseQscan_%s_%s*_seis_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
+      myCacheMask="*%s*/%s-analyseQscan_%s_%s*_seis_rds*.cache"%\
+                   (self.coinc.type,sngl.ifo,sngl.ifo,timeString)
       #Read the cache file or files
       cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
     cacheFiles=self.__readCache__(cacheList)
@@ -326,7 +327,8 @@ class findFileType(object):
     cacheFiles=list()
     for sngl in self.coinc.sngls:
       timeString=str(float(sngl.time)).replace(".","_")      
-      myCacheMask="*/%s-analyseQscan_%s_%s_rds*.cache"%(sngl.ifo,sngl.ifo,timeString)
+      myCacheMask="*%s*/%s-analyseQscan_%s_%s_rds*.cache"%\
+                   (self.coint.type,sngl.ifo,sngl.ifo,timeString)
       #Ignore the files with seis_rds in them
       for x in fnmatch.filter(self.fsys,myCacheMask):
         if not x.__contains__('seis_rds'):
@@ -343,7 +345,8 @@ class findFileType(object):
     cacheFiles=list()
     for sngl in self.coinc.sngls:
       timeString=str(float(sngl.time)).replace(".","_")
-      myCacheMask="*/%s-analyseQscan_%s_%s*_ht*.cache"%(sngl.ifo,sngl.ifo,timeString)
+      myCacheMask="*%s*/%s-analyseQscan_%s_%s*_ht*.cache"\
+                   %(self.coinc.type,sngl.ifo,sngl.ifo,timeString)
       cacheList.extend(fnmatch.filter(self.fsys,myCacheMask))
     #Read the cache file or files
     cacheFiles=self.__readCache__(cacheList)
@@ -818,7 +821,7 @@ R:%i/%i,C:%i/%i,Cells:%i\n"%(row,obj.rows,col,obj.cols,len(obj.data)))
           for sName,sZ,sP in shortList:
             if sName.__contains__(myName):
               myRank=sP
-              cellString=cellString+" %s Z-Percentage:%1.2f <<BR>> "%(myName,float(myRank))
+          cellString=cellString+" %s Z-Percentage:%1.2f <<BR>> "%(myName,float(myRank))
         elif myName:
           cellString=cellString+" %s <<BR>> "%myName
         else:
@@ -1803,6 +1806,7 @@ followup_directory=os.path.normpath(opts.followup_directory)
 ini_file=opts.ini_file
 #Read in the first ini file if none specified
 if ini_file == None:
+  sys.stdout.write("Searching current directory for INI file.\n")
   inifilelist=scanTreeFnMatch(followup_directory,levels=1,filemask="*.ini")
   if len(inifilelist) < 1:
     raise Exception,"No potential ini files seen in %s\n"%(followup_directory)
@@ -1816,11 +1820,15 @@ iniOpts.read(ini_file)
 publication_directory=None
 publication_url=None
 if iniOpts.has_option("fu-output","output-dir"):
+  sys.stdout.write("Getting directly location for followup pipe output.\n")
   publication_directory=iniOpts.get("fu-output","output-dir")
+  sys.stdout.write("Found: %s\n",publication_directory)
 else:
   raise Exception,"Ini file is missing options fu-output,output-dir.\n"
 if iniOpts.has_option("fu-output","web-url"):
+  sys.stdout.write("Getting directory location for web services.\n")
   publication_url=iniOpts.get("fu-output","web-url")
+  sys.stdout.write("Found: %s\n",publication_url)
 else:
   raise Exception,"Ini file is missing options fu-output,web-url.\n"
 #
