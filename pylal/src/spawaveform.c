@@ -300,7 +300,7 @@ static struct PyMethodDef methods[] = {
 	};
 
 /* The init function for this module */
-void initspawaveform(void) 
+void initspawaveform(void)
 	{
 	(void) Py_InitModule3("pylal.spawaveform", methods, SPADocstring);
 	import_array();
@@ -313,10 +313,10 @@ void initspawaveform(void)
 
 /*****************************************************************************/
 /* The remainder of this code defines the static functions that the python
- * functions will use to compute various quantities.  They are not exposed 
+ * functions will use to compute various quantities.  They are not exposed
  * outside of this file directly but can be called from python via
  * the documentation described when doing help() on this module.
- * A lot of this code is in lal in some form or must be moved to lal.  Here 
+ * A lot of this code is in lal in some form or must be moved to lal.  Here
  * the functin prototypes have been vastly simplified (use of native c types
  * and double precision)
 /*****************************************************************************/
