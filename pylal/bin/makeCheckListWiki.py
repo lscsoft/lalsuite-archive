@@ -328,7 +328,7 @@ class findFileType(object):
     for sngl in self.coinc.sngls:
       timeString=str(float(sngl.time)).replace(".","_")      
       myCacheMask="*%s*/%s-analyseQscan_%s_%s_rds*.cache"%\
-                   (self.coint.type,sngl.ifo,sngl.ifo,timeString)
+                   (self.coinc.type,sngl.ifo,sngl.ifo,timeString)
       #Ignore the files with seis_rds in them
       for x in fnmatch.filter(self.fsys,myCacheMask):
         if not x.__contains__('seis_rds'):
@@ -1822,13 +1822,13 @@ publication_url=None
 if iniOpts.has_option("fu-output","output-dir"):
   sys.stdout.write("Getting directly location for followup pipe output.\n")
   publication_directory=iniOpts.get("fu-output","output-dir")
-  sys.stdout.write("Found: %s\n",publication_directory)
+  sys.stdout.write("Found: %s\n" %(publication_directory))
 else:
   raise Exception,"Ini file is missing options fu-output,output-dir.\n"
 if iniOpts.has_option("fu-output","web-url"):
   sys.stdout.write("Getting directory location for web services.\n")
   publication_url=iniOpts.get("fu-output","web-url")
-  sys.stdout.write("Found: %s\n",publication_url)
+  sys.stdout.write("Found: %s\n" %(publication_url))
 else:
   raise Exception,"Ini file is missing options fu-output,web-url.\n"
 #
