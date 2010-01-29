@@ -152,7 +152,7 @@ class findFileType(object):
     for entry in cacheListing:
       fileListing=list()
       #Cache files listed themselves comment out following line
-      fileListing.append(entry)
+      finalList.append(entry)
       fileListing.extend([x.rstrip("\n") for x in file(entry)])
       #PATCH START to add in the z distribution files
       for fname in fileListing:
@@ -163,7 +163,6 @@ class findFileType(object):
       #Pathing info
       pathingInfo=os.path.dirname(entry)
       for thisFile in fileListing:
-        #Search filesystem for file full path
         finalList.extend(fnmatch.filter(self.fsys,"*%s*%s"%(pathingInfo,thisFile)))
         #Look for potential matching thumbnails
         if thisFile.endswith(".png"):
@@ -226,7 +225,7 @@ class findFileType(object):
       
   def get_findVetos(self):
     tmpList=list()
-    #H1,H2,L1-findFlags_H1,H2,L1_831695156.714.wiki
+    #H1,H2,L1-findVetos_H1,H2,L1_831695156.714.wiki
     #instrument,ifos
     ifoString=""
     for i in range(0,len(self.coinc.ifos)/2):ifoString=ifoString+"%s,"%self.coinc.ifos[2*i:2*i+2]
@@ -234,7 +233,7 @@ class findFileType(object):
     insString=""
     for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
-    myMask="*%s*%s-findVetos_%s_%s.wiki"%\
+    myMask="*%s/*%s-findVetos_%s_%s.wiki"%\
             (self.coinc.type,insString,ifoString,self.coinc.time)
     tmpList.extend(fnmatch.filter(self.fsys,myMask))
     return tmpList
@@ -266,7 +265,7 @@ class findFileType(object):
     insString=""
     for i in range(0,len(self.coinc.instruments)/2):insString=insString+"%s,"%self.coinc.instruments[2*i:2*i+2]
     insString=insString.rstrip(",")
-    myMask="*%s*%s-findFlags_%s_%s.wiki"%\
+    myMask="*%s/*%s-findFlags_%s_%s.wiki"%\
             (self.coinc.type,insString,ifoString,self.coinc.time)
     tmpList.extend(fnmatch.filter(self.fsys,myMask))
     return tmpList
@@ -328,7 +327,7 @@ class findFileType(object):
     for sngl in self.coinc.sngls:
       timeString=str(float(sngl.time)).replace(".","_")      
       myCacheMask="*%s*/%s-analyseQscan_%s_%s_rds*.cache"%\
-                   (self.coint.type,sngl.ifo,sngl.ifo,timeString)
+                   (self.coinc.type,sngl.ifo,sngl.ifo,timeString)
       #Ignore the files with seis_rds in them
       for x in fnmatch.filter(self.fsys,myCacheMask):
         if not x.__contains__('seis_rds'):
@@ -872,11 +871,9 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   """
   endOfS5=int(875232014)
   wikiFileFinder=findFileType(wikiTree,wikiCoinc)
-  #
   # Check to see if wiki file with name already exists
-  #
   maxCount=0
-  while os.path.exists(wikiFilename) and maxCount < 10:
+  while os.path.exists(wikiFilename) and maxCount < 15:
     sys.stdout.write("File %s already exists.\n"%\
                      os.path.split(wikiFilename)[1])
     wikiFilename=wikiFilename+".wiki"
@@ -1109,6 +1106,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   indexDictAQ=dict()
   thumbDictAQ=dict()
   zValueDictAQ=dict()
+  #
   for sngl in wikiCoinc.sngls_in_coinc():
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                        "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
@@ -1121,6 +1119,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     #Search for corresponding Omega summary.txt file
     zValueFiles=fnmatch.filter(wikiFileFinder.get_RDS_R_L1_SEIS(),\
                                "*/%s_RDS_*/%s/*summary.txt"%(sngl.ifo,sngl.time))
+    
     zValueDict[sngl.ifo]=list()
     if (len(zValueFiles) > 0):
       for zFile in zValueFiles:
@@ -1822,13 +1821,13 @@ publication_url=None
 if iniOpts.has_option("fu-output","output-dir"):
   sys.stdout.write("Getting directly location for followup pipe output.\n")
   publication_directory=iniOpts.get("fu-output","output-dir")
-  sys.stdout.write("Found: %s\n",publication_directory)
+  sys.stdout.write("Found: %s\n"%publication_directory)
 else:
   raise Exception,"Ini file is missing options fu-output,output-dir.\n"
 if iniOpts.has_option("fu-output","web-url"):
   sys.stdout.write("Getting directory location for web services.\n")
   publication_url=iniOpts.get("fu-output","web-url")
-  sys.stdout.write("Found: %s\n",publication_url)
+  sys.stdout.write("Found: %s\n"%publication_url)
 else:
   raise Exception,"Ini file is missing options fu-output,web-url.\n"
 #
@@ -1890,6 +1889,7 @@ for listsDone,coincFile in enumerate(coincList):
   fileTree.extend(checklistTree)
   fileTree.extend(allSources['omega'])
   mapFileURL=stfu_pipe.filenameToURLMapper(publication_directory,publication_url)
+  sys.stdout.write("Available via browser  at %s\n"%(mapFileURL.convert(myDestPath+"/"+myChecklistFilename)))
   prepareChecklist(myDestPath+"/"+myChecklistFilename,\
                    myCoinc,\
                    fileTree,\
