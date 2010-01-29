@@ -1841,6 +1841,8 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	There were three naming conventions mixed, then p1,p2,p3 and lastly Day,Eve,Owl
 	LHO: 20090724 :: 932428815
 	LLO: 20090708 :: 931046415
+	It appears that the filenames are labeled by local times not
+	utc??? We need to confirm this for this method CVT Fri-Jan-29-2010:201001291523 
 	"""
 	urls={
 		"DEFAULT":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
