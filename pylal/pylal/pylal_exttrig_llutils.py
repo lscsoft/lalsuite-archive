@@ -1681,7 +1681,7 @@ class GRB(object):
     """
 
     # get tag first
-    tag = self.get_code_tag()
+    tag = get_code_tag()
 
     # create the source filename
     source_file = cp.get('paths','lalsuite') + '/'+tag+'.pylal.rc'
