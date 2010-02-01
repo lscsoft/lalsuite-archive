@@ -69,17 +69,7 @@ total_summary_prefix = """
 <span style="font-weight: bold;"><br><br>
 The following table contain a list of Gamma Ray Bursts occured during S6, with information about time, position on the sky, as well as duration and redshift (if available). This table has been automatically created by pylal_exttrig_llmonitor (in pylal_exttrig_llutils.py) to show a summary of the low-latency inspiral analysis of the GRBs during S6. A page describing this search can be found in the <a href="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/090706044855TriggeredSearchLow_Latency_Exttrig_Search#preview">wiki</a>. The page containing Isabels list of GRB triggers can be found <a href="https://ldas-jobs.ligo.caltech.edu/~xpipeline/S6/grb/online/triggers/S6Agrbs_list.html">here</a> which might differ from this page. <br><br>
 
-The number in the IFO columns indicate the antenna factor for this GRB and this detector, if there is data available at this time (1 meaning optimal location, 0 meaning worst location). In addition, a <b>bold</b> number indicates that the current segment is long enough to contain the required number of off-source segments around the GRB, not required to be symmetrical.<br><br>
-
-Background Color code:<br>
-<table border="1" cellpadding="2" cellspacing="2">
-  <tbody><tr>
-  <td style="vertical-align: top; font-weight: bold; background-color: rgb(255, 200, 200);">short GRB; data analyzed</td>
-  <td style="vertical-align: top; font-weight: bold; background-color: rgb(153, 255, 255);">long (or unknown) GRB; data analyzed</td></tr></tr>
-  <td style="vertical-align: top; font-weight: bold; background-color: rgb(130, 130, 70);">short GRB; data not analyzed</td>
-  <td style="vertical-align: top; font-weight: bold; background-color: rgb(100, 150, 150);">long (or unknown) GRB; data not analyzed</td></tr>
-</table>
-<br><br>
+A detailed explanation of the terms, expressions and used colors can be found <a href="s6_exttrig_info.html">here</a>.<br>
 
 Total number of GRB in this list: %d<br>
 Number of GRB with data: %d <br>
@@ -98,14 +88,13 @@ Date of last creation: %s<br><br>
   <tbody>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Nr</td>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">GRB</td>
-  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Status OO</td>
-  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Status INJ</td>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Status</td>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Tag</td>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">GPS<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Date<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">redshift<br>
-  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">duration [s]<br>
-  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">RA<br>
-  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">DEC<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">duration<br>
+  <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Coord<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">H1<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">L1<br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">V1<br>
@@ -613,15 +602,22 @@ def generate_summary(publish_path, publish_url):
     table = add(table, num_grb- number)
     table = add(table, '<a href="http://grblog.org/grblog.php?view=burst&GRB=%s">%s</a>'%(grb.name, grb.name)) 
     status_msg = grb.get_html_status()
-    table = add(table, status_msg['onoff'])
-    table = add(table, status_msg['inj'])
+    table = add(table, status_msg['onoff']+'<br>'+status_msg['inj'])
+    try:
+      tag_onoff = grb.code['onoff'].get_tag()
+    except:
+      tag_onoff = 'None'
+    try:
+      tag_lik = grb.code['lik'].get_tag()
+    except:
+      tag_lik = 'None'
+    table = add(table, tag_onoff+'<br>'+tag_lik)
     table = add(table, grb.time)
     asctime = time.asctime(time.gmtime(grb.time+offset_gps_to_linux))
     table = add(table, asctime)
     table = add_linked_value(table, grb.redshift, None )
     table = add_linked_value(table, grb.duration, None)
-    table = add(table, '%.2f' % grb.ra)
-    table = add(table, '%.2f' % grb.de)
+    table = add(table, '%.2f<br>%.2f' % (grb.ra, grb.de))
     for ifo in ifo_list:
       segplot_link = 'GRB%s/plot_segments_grb%s.png'%(grb.name, grb.name)
       
@@ -637,9 +633,9 @@ def generate_summary(publish_path, publish_url):
       htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity.html' % (grb.name, grb.name)
       htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity_inj.html' % (grb.name, grb.name)
       if status_inj==5:
-        table = add(table, '<a href="%s">onoff</a> <a href="%s">inj</a> '%(htmlfile, htmlfile_inj))
+        table = add(table, '<a href="%s">onoff</a><br> <a href="%s">inj</a> '%(htmlfile, htmlfile_inj))
       else: 
-        table = add(table, '<a href="%s">onoff</a> &mdash '%htmlfile)
+        table = add(table, '<a href="%s">onoff</a><br> &mdash '%htmlfile)
 
       # Add link to box
       if grb.openbox:
@@ -656,9 +652,9 @@ def generate_summary(publish_path, publish_url):
         htmlfile_inj = publish_url+'/GRB%s/OPENBOX/%s-pylal_exttrig_llsummary_GRB%s_inj-%s.html' %\
                     (grb.name, ifos, grb.name, grb.get_time_string())
         if status_inj==5:
-          table = add(table, '<a href="%s">onoff</a> <a href="%s">lik</a> '%(htmlfile, htmlfile_inj))
+          table = add(table, '<a href="%s">onoff</a><br> <a href="%s">lik</a> '%(htmlfile, htmlfile_inj))
         else:
-          table = add(table, '<a href="%s">onoff</a> &mdash '%htmlfile)
+          table = add(table, '<a href="%s">onoff</a><br> &mdash '%htmlfile)
 
       else:
         # box closed otherwise
@@ -704,7 +700,10 @@ class CodeTagger(object):
     self.id = git_version.id
     self.status = git_version.status
 
-
+  def get_tag(self):
+    if self.tag: return self.tag
+    else: return 'None'
+  
 # -----------------------------------------------------
 # -----------------------------------------------------
 # -----------------------------------------------------
