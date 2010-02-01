@@ -188,9 +188,9 @@ class CombiningFunctions:
 #        for sngl in coinc_sngls: # diagnostic
 #            print sngl.ifo[0].lower()
         if self.power == 0:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log(sngl.snr) for sngl in coinc_sngls )
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log(sngl.snr) for sngl in coinc_sngls ))
         else:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls )
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_snrchi( self, coinc_sngls ):
         """
@@ -199,14 +199,14 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log(sngl.snr/math.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))
-                for sngl in coinc_sngls )
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log(sngl.snr/math.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))
+                for sngl in coinc_sngls ))
         else:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.snr/math.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))\
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.snr/math.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))\
                 **self.power
-                for sngl in coinc_sngls )
+                for sngl in coinc_sngls ))**(1./self.power)
 
-    def compute_combined_effective_snr( self, coinc_sngls ):
+    def compute_combined_effsnr( self, coinc_sngls ):
         """
         Computes a combined effective snr (magic number = rhoc^2) using the given coinc and 
         whatever the powers and prefactors are set to.
@@ -214,13 +214,13 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/rhoc)**2))**0.25 ) 
-                for sngl in coinc_sngls )
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/((sngl.chisq/\
+                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**2))**0.25 ) 
+                for sngl in coinc_sngls ))
         else:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/rhoc)**2))**0.25 ) **self.power 
-                for sngl in coinc_sngls )
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/((sngl.chisq/\
+                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**2))**0.25 ) **self.power 
+                for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_effsnrlike( self, coinc_sngls ):
         """
@@ -230,13 +230,13 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/rhoc)**(nlow-nhigh)))**(1./nlow) ) 
-                for sngl in coinc_sngls )
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/((sngl.chisq/\
+                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) 
+                for sngl in coinc_sngls ))
         else:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/rhoc)**(nlow-nhigh)))**(1./nlow) ) **self.power 
-                for sngl in coinc_sngls )
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/((sngl.chisq/\
+                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) **self.power 
+                for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_newsnrlike( self, coinc_sngls ):
         """
@@ -246,13 +246,13 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(q/nlow) +\
-                (sngl.chisq/(2*sngl.chisq_dof-2))**(q/nhigh)) )**(1./q) ) 
-                for sngl in coinc_sngls )
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( \
+                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh)) )**(1./self.q) ) 
+                for sngl in coinc_sngls ))
         else:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(q/nlow) +\
-                (sngl.chisq/(2*sngl.chisq_dof-2))**(q/nhigh)) )**(1./q) ) **self.power 
-                for sngl in coinc_sngls )
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) +\
+                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh)) )**(1./self.q) ) **self.power 
+                for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_newsnr( self, coinc_sngls ):
         """
@@ -261,13 +261,13 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( 1 + max(\
-			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(q/nhigh) )**(1./q) ) 
-                for sngl in coinc_sngls )
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( 1 + max(\
+			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) )**(1./self.q) ) 
+                for sngl in coinc_sngls ))
         else:
-            return sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( 1 + max(\
-			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(q/nhigh) )**(1./q) ) **self.power 
-                for sngl in coinc_sngls )
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( 1 + max(\
+			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) )**(1./self.q) ) **self.power 
+                for sngl in coinc_sngls ))
 
 
 
@@ -380,6 +380,7 @@ connection.create_aggregate( 'apply_function', nargs, ApplyCombiningFunction )
 # so I'm sticking in all the columns by name into the query.
 sngl_cols = str(','.join(['sngl_inspiral.'+col for col in sngl_columns]))
 
+sqlite3.enable_callback_tracebacks(True)
 sqlquery = ''.join([ """
     UPDATE
         coinc_inspiral
