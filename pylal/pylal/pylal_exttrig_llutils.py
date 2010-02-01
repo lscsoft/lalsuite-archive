@@ -1201,9 +1201,6 @@ class GRB(object):
     dagfile = self.get_basic_dagname()+'_inj_uberdag.dag'
     self.dag['inj'].set_dagname(dagfile)
 
-    # create the sed file
-    self.create_sed_file()
-
   # -----------------------------------------------------
   def prepare_injection_analysis(self):
 
@@ -1231,7 +1228,7 @@ class GRB(object):
     """
  
     # get the current tag first
-    tag = self.get_code_tag()
+    tag = get_code_tag()
     pylal_dir = self.get_pylal_dir()
 
     # make a consistency check
@@ -1265,9 +1262,9 @@ class GRB(object):
     self.create_setup_script(dir_onoff)
  
     # create the DAG file
-    infile = "%s/postproc.in" % dir_onoff
-    dagfile = "%s/postproc.dag" % dir_onoff
-    self.apply_sed_file(infile, dagfile)
+    #infile = "%s/postproc.in" % dir_onoff
+    #dagfile = "%s/postproc.dag" % dir_onoff
+    self.apply_sed_file(dir_onoff, 'postproc.in', 'postproc.dag')
 
     return dagfile
 
@@ -1280,7 +1277,7 @@ class GRB(object):
     """
 
     # get the current tag first
-    tag = self.get_code_tag()
+    tag = get_code_tag()
 
     # Prepare the postprocesing directory at this stage
     dir_lik = "%s/GRB%s/likelihood_%s" % (self.analysis_dir, self.name, tag)
@@ -1304,9 +1301,9 @@ class GRB(object):
     self.create_setup_script(dir_lik)
 
     # create the DAG file
-    infile = "%s/likelihood.in" % dir_lik
-    dagfile = "%s/likelihood.dag" % dir_lik
-    self.apply_sed_file(infile, dagfile)
+    #infile = "%s/likelihood.in" % dir_lik
+    #dagfile = "%s/likelihood.dag" % dir_lik
+    self.apply_sed_file(dir_lik, 'likelihood.in', 'likelihood.dag')
 
     return dagfile
 
@@ -1628,27 +1625,21 @@ class GRB(object):
       self.qvalues[ifo]=q
 
   # -----------------------------------------------------
-  def get_sed_filename(self):
-    """
-    Returns the name of the sed file
-    """
-    return self.analysis_dir+'/sed.file'
-
-  # -----------------------------------------------------
-  def apply_sed_file(self, infile, outfile):
+  def apply_sed_file(self, path, infile, outfile):
     """
     Applies the sed file to an in file
     """
 
     # get the sed filename
-    sedfile = self.get_sed_filename()
+    sedfile = path+'/sed.file'
+    self.create_sed_file(sedfile)
 
     # run the sed command
-    cmd = 'sed -f %s %s > %s' % (sedfile, infile, outfile)
+    cmd = 'sed -f %s %s/%s > %s/%s' % (sedfile, path, infile, path, outfile)
     system_call(self.name, cmd, False)
 
   # -----------------------------------------------------
-  def create_sed_file(self):
+  def create_sed_file(self, sedfile):
     """
     Creates the replacement sed file that will be used later
     on several in files.
@@ -1658,8 +1649,7 @@ class GRB(object):
     publishing_path = cp.get('paths','publishing_path')
     html_path = "%s/GRB%s" % (publishing_path, self.name)
 
-    # replace the in-file and create the DAG file
-    sedfile = self.get_sed_filename()
+    # create the sed file for in-file replacements
     f = file(sedfile,'w')
     f.write("# created %s\n"%get_time())
     f.write("s/@GRBNAME@/GRB%s/g\n"%self.name)
@@ -1682,21 +1672,6 @@ class GRB(object):
     f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('data','m2_boundaries'))
     f.close()
 
-
-  # -----------------------------------------------------
-  def get_code_tag(self):
-    """
-    Returns the name of the tag currently stored in an environment variable
-    @return: name of the tag
-    """
-    # get the tag information (which is the actual, most current tag)
-    tag = os.getenv('LAL_PYLAL_TAG')
-    if not tag:
-      del_lock()
-      raise EnvironmentError, "Environment variable LAL_PYLAL_TAG is missing, which contains the "\
-                         "tag of the code used, e.g. s6_exttrig_100119b. This should have beed set in the "\
-                         "lscsource script, called within runmonitor. Please check"
-    return tag
 
   # -----------------------------------------------------
   def get_code_setup(self):
