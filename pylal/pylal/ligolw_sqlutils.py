@@ -167,7 +167,7 @@ class parse_param_ranges:
         # check that table_name and table_param have no illegal characters in them
         table_name = validate_option( table_name )
         if re.search(r'\n|\t|DROP|DELETE', table_param) is not None:
-            raise ValueError r'param-name cannot have "\n","\t", "DROP", or "DELETE" in it'
+            raise ValueError, r'param-name cannot have "\n","\t", "DROP", or "DELETE" in it'
         table_param = table_param.strip()
 
         # append table_name if it isn't already in the table_param name
