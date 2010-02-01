@@ -20,11 +20,13 @@
 #
 # =============================================================================
 #
-#                                   Preamble
+#								   Preamble
 #
 # =============================================================================
 #
 
+description = \
+"Creates an ROC plot for either single databases or caches of databases. To specify a cache, use the --add-cache argument. To specify single files, give them as command line arguments. One curve will be generated for each cache file and for each single file. If you would like a label to appear on the plot for single files, add a colon and the label after each filename, e.g., lalapps_cbc_plotroc file1.sqlite:week1. Otherwise, if no label is given, files will be labeled 'fileN' where N is order in which the file was given. Similar rules apply to cache files."
 
 import math
 import matplotlib
@@ -55,7 +57,7 @@ try:
 except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
-import sys
+import sys, re
 
 from glue import lal
 from glue.ligolw import table
@@ -72,7 +74,7 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-#                                 Command Line
+#								 Command Line
 #
 # =============================================================================
 #
@@ -80,7 +82,9 @@ __date__ = git_version.date
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "Name: %%prog\n%s" % git_version.verbose_msg
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
+		usage   = "%prog [options] file1.sqlite[:label1] file2.sqlite[:label2] ...",
+		description = description
 	)
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotroc", help = "Set the prefix for output filenames (default = \"cbc_plotroc\")")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = ["png"], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
@@ -89,11 +93,12 @@ def parse_command_line():
 			"Redirect output to specified directory. Default is to save output " +
 			"to current directory."
 			)
-	parser.add_option("-c", "--add-cache", metavar = "file.cache", action = "append", default = [], help = "Cache file containing injection sqlite files for plotting ROC curves")
-	parser.add_option("-l", "--label", metavar = "label", action = "store", default = "", help = "Plotting label for ROC curve. Note: This cannot contain underscores.")
-	parser.add_option("", "--far-column", action = "store", default = "combined_far",
+	parser.add_option("-c", "--add-cache", metavar = "file.cache[:label]", action = "append", default = [], help = "Cache file containing injection sqlite files for plotting ROC curves. All files in each cache file will be grouped together into a single curve. To specify a label for this curve, add a colon and the label name after cache. For example, file_name1.cache:week1. If no label given, the file will be labeled cacheN where N is the order that the file was specified on the command line.")
+	parser.add_option("", "--far-column", action = "append", default = [],
 		help =
-			"Column to get false alarm rates from. Can be any column in the coinc_inspiral taable. Default is combined_far.")
+			"Column to get false alarm rates from. Can be any column in the coinc_inspiral taable. " +
+			"If specified multiple times, will create a separate curve for each column. " +
+			"Default is to plot combined_far only.")
 	parser.add_option( "", "--param-name", metavar = "PARAMETER",
 		action = "store", default = None,
 		help = 
@@ -105,7 +110,7 @@ def parse_command_line():
 			"'sim_inspiral.mass1+sim_inspiral.mass2', then give total mass ranges " +
 			"in the param-ranges argument. Note that when combining columns " +
 			"you must type the table name dot each column name. Allowed math operations " +
-			"are +,-,/,*."
+			"are +,-,*,/."
 			)
 	parser.add_option( "", "--param-ranges", action = "store", default = None,
 		metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
@@ -116,9 +121,9 @@ def parse_command_line():
 			"multiple ranges, separate each range by a ';'. To " +
 			"specify a single value, just type that value with no " +
 			"parentheses or brackets. To specify not equal to a single " +
-			"value, put a '!' before the value. If " +
-			"multiple ranges are specified, the triggers picked for " +
-			"creating ROC curves will come from the union of the ranges."
+			"value, put a '!' before the value. If multiple ranges are " +
+			"specified, a separate curve will be created " +
+            "for each range."
 			)
 	parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
 		metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];"
@@ -152,9 +157,13 @@ def parse_command_line():
 			)
 	parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
 		help =
-			"Create ROC curves for a specific simulation tag only, e.g., 'BNSINJ'. " +
-			"If not specified, will create curves for all injections grouped together. "
+			"Create ROC curves for a specific simulation tag, e.g., 'BNSINJ'. " +
+			"To specify multiple injection types, separate each type by a semi-colon, " +
+			"e.g., BNSLININJ;BBHLININJ. If multiple types are specified, a separate curve " +
+			"will be created for each type. If not specified, will create a single curve " +
+			"for all injections grouped (which is equivalent to giving ALLINJ as a sim-tag)."
 			)
+	parser.add_option("-T", "--title", action = "store", default = None, help = "Add a title to the plot.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-D", "--debug", action = "store_true", default = False,
 		help =
@@ -163,8 +172,8 @@ def parse_command_line():
 
 	options, filenames = parser.parse_args()
 
-	if "_" in options.label:
-		raise ValueError, "--label cannot contain underscores."
+	if options.far_column == []:
+		options.far_column = ['combined_far']
 
 	return options, filenames
 
@@ -172,7 +181,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                   Database
+#								   Database
 #
 # =============================================================================
 #
@@ -248,13 +257,13 @@ class CoincDatabase(object):
 #
 # =============================================================================
 #
-#                                  Utilities
+#								  Utilities
 #
 # =============================================================================
 #
 
 
-def create_plot(x_label = None, y_label = None, width = 165.0, aspect = (1 + math.sqrt(5)) / 2):
+def create_plot(x_label = None, y_label = None, title = None, width = 165.0, aspect = (1 + math.sqrt(5)) / 2):
 	fig = figure.Figure()
 	FigureCanvas(fig)
 	fig.set_size_inches(width / 25.4, width / 25.4 / aspect)
@@ -264,6 +273,8 @@ def create_plot(x_label = None, y_label = None, width = 165.0, aspect = (1 + mat
 		axes.set_xlabel(x_label)
 	if y_label is not None:
 		axes.set_ylabel(y_label)
+	if title is not None:
+		axes.set_title(re.sub(r'_', r'\_', title))
 	return fig, axes
 
 
@@ -271,7 +282,7 @@ def create_plot(x_label = None, y_label = None, width = 165.0, aspect = (1 + mat
 #
 # =============================================================================
 #
-#                              ROC Plots
+#							  ROC Plots
 #
 # =============================================================================
 #
@@ -284,7 +295,7 @@ class ROCPlots(object):
 		if contents.sim_inspiral_table:
 			sqlquery = ''.join([ """
 SELECT
-	coinc_inspiral.combined_far,
+	coinc_inspiral.""", far_column, """,
 	-- Work out the correction factor for injection population distances
 	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr")
 		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance
@@ -305,14 +316,14 @@ WHERE
 			for far, distance in contents.connection.cursor().execute( sqlquery ):
 				self.stats.setdefault(label,[]).append((far, distance))
 
-	def finish(self):
+	def finish(self, title):
 		norm = 0
 		for label in self.stats.keys():
 			norm = max(sum([x[1] for x in self.stats[label]]), norm)
 		for label in self.stats.keys():
 			self.stats[label] = [(x[0],x[1]/norm) for x in self.stats[label]]
 			self.stats[label].sort()
-		fig, axes = create_plot(r"False Alarm Rate", r"Relative $V \times T$", aspect = 1.0, width=100)
+		fig, axes = create_plot(r"False Alarm Rate", r"Relative $V \times T$", title = title, aspect = 1.0, width=100)
 		axes.hold(1)
 		for label in self.stats.keys():
 			axes.semilogx([x[0] for x in self.stats[label]], numpy.cumsum([x[1] for x in self.stats[label]]), label=label)
@@ -324,7 +335,7 @@ WHERE
 #
 # =============================================================================
 #
-#                                     Main
+#									 Main
 #
 # =============================================================================
 #
@@ -346,25 +357,50 @@ sqlite3.enable_callback_tracebacks(options.debug)
 plot = ROCPlots()
 
 if options.verbose and options.add_cache == []:
-    print >> sys.stderr, "Gathering files from cache files..."
+	print >> sys.stderr, "Gathering files from cache files..."
+for cachename in options.add_cache:
+	selected_files = [lal.CacheEntry(line).path() for line in file(cachename) if line.endswith('sqlite')]
 filenames += [lal.CacheEntry(line).path() for cachename in options.add_cache for line in file(cachename) if line.endswith('sqlite')]
+
+# get labels
+labels = {}
+for n, fnl in enumerate(filenames):
+	label = len(fnl.split(':')) > 1 and fnl.split(':')[-1] or "%s%d" % (fnl in options.add_cache and "cache" or "file", n)
+	fn = re.sub( label[::-1]+':', '', fnl[::-1], 1 )[::-1]
+	labels[fn] = label
 
 if options.verbose:
 	print >> sys.stderr, "Processing files..."
-for m, filename in enumerate(filenames):
+
+for m, filename in enumerate(labels.keys()):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (m + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	contents = CoincDatabase(connection, verbose = options.verbose)
-	if contents.sim_inspiral_table:
-		sim_tag = options.sim_tag
-	else:
-		sim_tag = 'ALLINJ'
-	filter = printutils.create_filter( connection, 'sim_inspiral', param_name = options.param_name, param_ranges = options.param_ranges,
-		exclude_coincs = options.exclude_coincs, include_only_coincs = options.include_only_coincs,
-		sim_tag = sim_tag, verbose = options.verbose)
-	plot.add_contents(options.label, contents, far_column = sqlutils.validate_option(options.far_column), filter = filter, debug = options.debug)
+	if not contents.sim_inspiral_table:
+		if options.verbose:
+			"No sim_inspiral table found in database %s; skipping..." % (filename)
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+		continue
+	for far_stat in options.far_column:
+		for sim_tag in options.sim_tag.split(';'):
+			if options.param_ranges is None:
+				param_ranges = ['']
+			else:
+				param_ranges = options.param_ranges.split(';')
+			for param_range in param_ranges:
+				filter = printutils.create_filter( connection, 'sim_inspiral', param_name = options.param_name, param_ranges = param_range,
+					exclude_coincs = options.exclude_coincs, include_only_coincs = options.include_only_coincs,
+					sim_tag = sim_tag, verbose = options.verbose)
+				label = "%s%s%s %s" %( labels[filename],
+					sim_tag != 'ALLINJ' and ' ' + sim_tag  or '',
+					param_range != '' and ' ' + re.sub(r'sim_inspiral[.]','',options.param_name) + ' ' + param_range or '',
+					far_stat)
+				# add escape characers to underscores in label as they can cause LaTeX problems
+				label = re.sub(r'_', r'\_', label)
+				plot.add_contents(label, contents, far_column = sqlutils.validate_option(far_stat), filter = filter, debug = options.debug)
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
@@ -375,9 +411,11 @@ for m, filename in enumerate(filenames):
 
 
 filename_template = "%s/%s_%s.%s"
-fig, filename_fragment = plot.finish()
+fig, filename_fragment = plot.finish( title = options.title )
 for format in options.format:
 	filename = filename_template % ( options.output_path, options.base, filename_fragment, format)
 	if options.verbose:
 		print >>sys.stderr, "writing %s ..." % filename
 	fig.savefig(filename)
+
+sys.exit(0)
