@@ -156,6 +156,7 @@ HrecOnline      V1:h_16384Hz
 def figure_out_cache(time):
 
 	cacheList=(
+		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
 		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
 		)
@@ -167,7 +168,7 @@ def figure_out_cache(time):
 			break
 
 	if 'phy.syr.edu' in get_hostname():
-		foundCache.replace("romain","rgouaty")
+		foundCache = foundCache.replace("romain","rgouaty")
 
 	if foundCache == "":
 		print time, " not found in method stfu_pipe.figure_out_cache"	
@@ -412,7 +413,8 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.__universe = string.strip(cp.get("makeCheckListWiki",
 						  "universe").strip())
 	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+	    self.add_condor_cmd('getenv','True')
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
 #End makeCheckListWikiJob class
 
 	    
@@ -437,7 +439,6 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
-
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 #The class responsible for checking for know veto flags
@@ -814,7 +815,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-	def __init__(self, dag, job, cp, opts, sngl, frame_cache, tag, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, frame_cache, chia, tag, p_nodes=[]):
 
 		tlen = 1.0
 		self.output_file_name = ""
@@ -826,10 +827,11 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		self.set_trig_start( int(sngl.time - tlen + 0.5) )
 		self.set_trig_end( int(sngl.time + tlen + 0.5) )
-		self.add_var_opt("write-snrsq","")
-		self.add_var_opt("write-chisq","")
-		self.add_var_opt("write-spectrum","")
-		self.add_var_opt("write-template","")
+                if not chia:
+		  self.add_var_opt("write-snrsq","")
+		  self.add_var_opt("write-chisq","")
+		  self.add_var_opt("write-spectrum","")
+		  self.add_var_opt("write-template","")
 		self.add_var_opt("write-cdata","")
 
 		skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
@@ -870,10 +872,14 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
 		self.set_bank(bankFile)
 
-		self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
-		self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
-      
-		self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+                if chia:
+		  self.set_user_tag( tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time) )
+		  self.__usertag = tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time)
+                else:     
+                  self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
+                  self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
+
+                self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
 		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
 		self.add_var_opt("output-path",job.outputPath)
@@ -934,7 +940,8 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
 			self.add_parent(parentNode)
-		dag.add_node(self)
+		if opts.do_makeCheckList:
+			dag.add_node(self)
 
 
 # FIND FLAGS NODE 
@@ -965,7 +972,13 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -1004,7 +1017,13 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -1170,7 +1189,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 	#def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
 
 	#def __init__(self,job,trig,opts,dag,cp):
-	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, p_nodes = []):
+	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, chia_node =None, p_nodes = []):
 
 		# the use of this class would require some reorganisation in fu_Condor.py
 		# and webCondor.py in order to set up the jobs following the same scheme
@@ -1179,7 +1198,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
-                user_tag = "CHIA_"+str(coinc.time)
+                user_tag = "COHERENT-"+str(coinc.time)
 
 		# These come from inspiral process param tables
 		self.add_var_opt( "segment-length", sngl.get_proc_param('segment-length') )
@@ -1191,17 +1210,23 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
 		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
+		self.add_var_opt("cdata-length",1.0)
 		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
 		self.add_var_opt("write-events","")
 		self.add_var_opt("write-compress","")
  		self.add_var_opt("debug-level","33")
-		self.add_var_opt("write-cohsnr","")
-		self.add_var_opt("write-cohnullstat","")
-		self.add_var_opt("write-h1h2nullstat","")
-		self.add_var_opt("write-cohh1h2snr","")
-		self.add_var_opt("maximize-over-chirp","")
+                self.add_var_opt("maximize-over-chirp","")
+		self.add_var_opt("followup","")
 		# required by followUpChiaPlotNode
+		if chia_node:
+			self.add_var_opt("exttrig","")
+			self.add_var_opt("chia-file",chia_node.output_file_name)
+			self.add_var_opt("write-cohsnr","")
+			self.add_var_opt("write-cohnullstat","")
+			self.add_var_opt("write-h1h2nullstat","")
+			self.add_var_opt("write-cohh1h2snr","")
+			
 
                 hLengthAnalyzed = 1
 		self._InspiralAnalysisNode__pad_data = 0
@@ -1220,9 +1245,12 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("gps-end-time",self.end)
 
 
-		#FIXME do --cohNullStatFrameFile when I understand it
-		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                if chia_node:
+		        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                else:
+                        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
  		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
  		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
@@ -1233,6 +1261,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name)))
 
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_frame_file)))
+
+		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.netnull_output_frame_file)))
 
 
                 bankname = 'trig_bank/%s-COHBANK_FOLLOWUP_%s-%d-%d.xml.gz' % (coinc.instruments.replace(',',''), str(coinc.time), int(coinc.time) - int(hLengthAnalyzed), 2 * int(hLengthAnalyzed))
@@ -1363,7 +1393,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("chiaFrameFile",chia_node.output_frame_file)
 		self.add_var_opt("cohH1H2SNRFrameFile",chia_node.h1h2coh_output_frame_file)
 		self.add_var_opt("H1H2NullStatFrameFile",chia_node.h1h2null_output_frame_file)
-		#FIXME do --cohNullStatFrameFile when I understand it
+		self.add_var_opt("cohNullStatFrameFile",chia_node.netnull_output_frame_file)
 		self.add_var_opt("gps-start-time",int(coinc.time-1))
 		self.add_var_opt("gps-end-time",int(coinc.time+1))
 		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))
@@ -1652,8 +1682,8 @@ class create_default_config(object):
 		# CHIA SECTION
 		cp.add_section("chia")
 		cp.set('chia','cohsnr-threshold', "1")
-		cp.set('chia','ra-step', "6")
-		cp.set('chia','dec-step', "6")
+		cp.set('chia','ra-step', "1")
+		cp.set('chia','dec-step', "1")
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
 
@@ -1753,7 +1783,7 @@ class create_default_config(object):
 		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
 
@@ -1765,7 +1795,7 @@ class create_default_config(object):
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas3.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 
@@ -1809,40 +1839,66 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	images marked [Eve,Owl,Day] via [p3,p2,p1] in filenames
 	this methd only for S6 and later
 	IFO naming start dates:
+	There were three naming conventions mixed, then p1,p2,p3 and lastly Day,Eve,Owl
 	LHO: 20090724 :: 932428815
 	LLO: 20090708 :: 931046415
+	It appears that the filenames are labeled by local times not
+	utc??? We need to confirm this for this method CVT Fri-Jan-29-2010:201001291523 
 	"""
 	urls={
-		"default":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+		"DEFAULT":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
 		"V1":"http://wwwcascina.virgo.infn.it/DetectorOperations/index.htm",
 		"L1":"https://llocds.ligo-la.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
 		"H1":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
 		"H2":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif"
 		}
+	ifoTag=ifo.upper()
+	shiftDuration=8;
+	#Give the IFO and shift start hour as integer
+	shiftStandardTime={'L1':{'day':14,'eve':22,'owl':6},
+			   'H1':{'day':16,'eve':0,'owl':8},
+			   'H2':{'day':16,'eve':0,'owl':8},
+			   'V1':{'day':6,'eve':14,'owl':22}}
+	shiftOrder=['day','eve','owl']
+	shiftLabel={'day':'p1','eve':'p3','owl':'p2'}
 	outputURLs=list()
 	if ((ifo==None) or (gpsTime==None)):
 		sys.stdout.write("getFOMLinks called incorrectly \
 using default opts instead!\n")
-		return [urls['default']]
-	#Create date string
-	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(gpsTime)))
-	tStamp="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
-	shiftLabels=['p1','p2','p3']
-	shiftTxt={'p3':'Eve',
-		  'p2':'Owl',
-		  'p1':'Day'}
-	fomLabels=[1,2,3]
-	ifoTag=ifo.upper().lstrip().rstrip()
-	if ('H1','H2','L1').__contains__(ifoTag):
-		for sL in shiftLabels:
-			for fL in fomLabels:
-				outputURLs.append(["%s,%s"%(ifoTag,shiftTxt[sL]),
-						   urls[ifoTag]%(tStamp,tStamp,sL,fL,""),
-						   urls[ifoTag]%(tStamp,tStamp,sL,fL,"Thumb")
+		return [urls['DEFAULT']]
+	outputURLs=[]
+	#Just return immediately if V1 encoutered (HACK)
+	if ifo.__contains__("V1"):
+		return([['V1',urls[ifoTag],'']])
+	#
+	if shiftStandardTime.keys().__contains__(ifoTag):
+		#Determine shift times n-1,n,n+1
+		tOffset=3600*shiftDuration
+		for thisTime in \
+		[gpsTime-tOffset,gpsTime,gpsTime+tOffset]:
+			Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(thisTime)))
+			#Get shift label
+			shiftString=''
+			humanShiftLabel=''
+			for shift,start in shiftStandardTime[ifoTag].iteritems():
+				hours=[x%24 for x in range(start,start+shiftDuration)]
+				if hours.__contains__(int(h)):
+					shiftString=shiftLabel[shift]
+					humanShiftLabel=shift
+			#Create txt string
+			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+			if ('V1').__contains__(ifoTag):
+				outputURLs.append(['V1',urls[ifoTag],''])
+			else:
+				sL=shiftString
+				for fL in [1,2,3]:
+					outputURLs.append(["%s,%s"%(ifoTag,humanShiftLabel),
+							   urls[ifoTag]%(tString,tString,sL,fL,""),
+							   urls[ifoTag]%(tString,tString,sL,fL,"Thumb")
 						   ])
-	if ('V1').__contains__(ifoTag):
-		outputURLs.append(['V1',urls[ifoTag],''])
-	return outputURLs
+		return outputURLs
+	else:
+		return [urls['DEFAULT']]
 
 #A simple method to convert GPS time to human readable for for
 #checklist
@@ -1954,6 +2010,10 @@ class filenameToURLMapper(object):
 		    #Strip of common path and create full blown URL
 		    myURL=filename.replace(self.commonString,self.commonURL)
 		    #Add a check to see if given filename is actually URL already!
+		    if filename.strip() == "":
+			    sys.stderr.write("Improper conversion for :%s\n"%filename)
+			    raise Error, "object:filenameToURLMapper given empty string to convert!\n"
+			    
 		    if myURL == filename:
 			    sys.stderr.write("Improper conversion for :%s\n"%filename)
 			    sys.stderr.write("web-url        : %s\n"%self.pURL)

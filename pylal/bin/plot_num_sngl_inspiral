@@ -35,7 +35,7 @@ def parse_command_line():
         )
         parser.add_option("-p", "--pattern", metavar = "pat", action="append", default = [], help = "Set the pattern for parsing the cache file for patterns to find sngl inspiral tables")
 	parser.add_option("-b", "--base", metavar = "str", help = "Set the figure basename, default derive from the cache")
-
+	parser.add_option("-s", "--stride", metavar = "num", help = "Set the stride of files to read in (in case you want to debug, or just decimate the dataset)")
 	options, filenames = parser.parse_args()
 	if not options.pattern: options.pattern = ['INSPIRAL_FIRST_FULL_DATA', 'INSPIRAL_SECOND_.*_FULL_DATA', 'TMPLTBANK_FULL_DATA', 'TRIGBANK_SECOND_.*_FULL_DATA']
 	if not options.base: options.base = os.path.basename(filenames[0]).replace(".cache","")
@@ -52,6 +52,7 @@ print >>sys.stderr, "found %d files of interest" % len(new_list)
 
 time_num = {}
 for i, line in enumerate(new_list):
+	if opts.stride and i % int(opts.stride): continue
 	print >>sys.stderr, "\tprocessing %d/%d\r" % (i, len(new_list)),
 	c = lal.CacheEntry(line)
 	patIX = [j for j, val in enumerate(pats) if val.search(c.description)][0]
@@ -71,12 +72,14 @@ for key, value in time_num.items():
 	start.append( min([t[0] for t in value]))
 start = min(start)
 data = time_num.items(); data.sort()
-
+outtab = open('%s_%s_%s.txt' % (opts.base, os.path.basename(sys.argv[0]), "-".join(opts.pattern).replace(".*","")),"w")
+outtab.write("||SET||AVG NUMBER||STD DEV||\n")
 for i, (key, value) in enumerate(data):
 	labels.append(" ".join(key))
+	outtab.write("||%s||%.2f||%.2f||\n" % (" ".join(key), numpy.mean([t[1] for t in value]), numpy.std([t[1] for t in value])))
 	lines.append(pylab.semilogy((numpy.array([t[0] for t in value]) - start) / 86400., [t[1] for t in value], label=str(key), color=ifodata.color(key[0]), linestyle='None', marker=ifodata.line(key[0])))
-
-leg = pylab.figlegend(lines, labels, 'upper right', labelspacing=0)
+outtab.close()
+leg = pylab.figlegend(lines, labels, 'upper right')#, labelspacing=0)
 leg.prop.set_size(6)
 leg.pad = 0
 pylab.ylabel("Number")

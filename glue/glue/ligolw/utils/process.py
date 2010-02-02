@@ -192,6 +192,31 @@ def doc_includes_process(xmldoc, program):
 	return program in table.get_table(xmldoc, lsctables.ProcessTable.tableName).getColumnByName("program")
 
 
+def process_params_from_dict(paramdict):
+	"""
+	Generator function yields (name, type, value) tuples constructed
+	from a dictionary of name/value pairs.  The tuples are suitable for
+	input to append_process_params().  This is intended as a
+	convenience for converting command-line options into process_params
+	rows.  The name values in the output have "--" prepended to them
+	and all "_" characters replaced with "-".  The type strings are
+	guessed from the Python types of the values.
+
+	Example:
+
+	>>> list(process_params_from_dict({"verbose": True, "window": 4.0}))
+	[('--window', u'real_8', 4.0), ('--verbose', None, None)]
+	"""
+	for name, value in paramdict.items():
+		# change the name back to the form it had on the command line
+		name = "--%s" % name.replace("_", "-")
+
+		if value is True or value is False:
+			yield (name, None, None)
+		elif value is not None:
+			yield (name, ligolwtypes.FromPyType[type(value)], value)
+
+
 def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 	"""
 	Register the current process and params to an XML document.
@@ -203,18 +228,7 @@ def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 	the process table.
 	"""
 	process = append_process(xmldoc, program = program, **kwargs)
-
-	def params(paramdict):
-		for name, value in paramdict.items():
-			# Change the name back to the form it had on the command line
-			name = '--' + name.replace('_','-')
-
-			if value is True or value is False:
-				yield (name, None, None)
-			elif value is not None:
-				yield (name, ligolwtypes.FromPyType[type(value)], value)
-
-	append_process_params(xmldoc, process, params(paramdict))
+	append_process_params(xmldoc, process, process_params_from_dict(paramdict))
 	return process
 
 

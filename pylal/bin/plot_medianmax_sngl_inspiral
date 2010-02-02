@@ -40,7 +40,7 @@ def parse_command_line():
         parser.add_option("-p", "--pattern", metavar = "pat", action="append", default = [], help = "Set the pattern for parsing the cache file for patterns to find sngl inspiral tables")
 	parser.add_option("-b", "--base", metavar = "str", help = "Set the figure basename, default derive from the cache")
 	parser.add_option("-c", "--col", metavar = "str", default = "snr", help = "Set the column in the sngl inspiral table to compute, default = snr")
-
+	parser.add_option("-s", "--stride", metavar = "num", help = "Set the stride of files to read in (in case you want to debug, or just decimate the dataset)")
 	options, filenames = parser.parse_args()
 	if not options.pattern: options.pattern = ['INSPIRAL_FIRST_FULL_DATA', 'INSPIRAL_SECOND_.*_FULL_DATA', 'TMPLTBANK_FULL_DATA', 'TRIGBANK_SECOND_.*_FULL_DATA']
 	if not options.base: options.base = os.path.basename(filenames[0]).replace(".cache","")
@@ -60,7 +60,7 @@ print >>sys.stderr, "found %d files of interest" % len(new_list)
 
 time_num = {}
 for i, line in enumerate(new_list):
-	#if i % 10: continue
+	if opts.stride and  i % int(opts.stride): continue
 	print >>sys.stderr, "\tprocessing %d/%d\r" % (i, len(new_list)),
 	c = lal.CacheEntry(line)
 	patIX = [j for j, val in enumerate(pats) if val.search(c.description)][0]

@@ -9,6 +9,7 @@ from glue.ligolw import table
 from glue.ligolw import ilwd
 from glue import segments
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes import snglinspiraltable
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
 from pylal import git_version
@@ -32,6 +33,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
 parser=OptionParser(usage=usage,version=git_version.verbose_msg)
 parser.add_option("", "--number", default=10, type="int", help="number for round robin")
 parser.add_option("", "--instruments", help="pair that you want to get like H1,L1")
+parser.add_option("", "--factor", default=50.0, type="float", help="the value of the magic number factor in the effective snr formula, should be 50 for highmass and 250 for lowmass")
 parser.add_option("", "--trainingstr", default="training", help="the string in the output .pat files that indicates it will be used as the training set in SprBaggerDecisionTreeApp") 
 parser.add_option("", "--testingstr", default="testing", help="the string in the output .pat files that indicates it will be used as the testing set in SprOutputWriterApp") 
 parser.add_option("", "--zerolagstr", default="zerolag", help="the string in the output .pat files that indicates it contains zerlag data, which will be run through SprOutputWriterApp") 
@@ -41,7 +43,7 @@ ifos.sort()
 
 time1=time()
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	"""
 	You need to make this subclass of xlaltools.SnglInspiralTable because the C version doesn't have the methods 
 	you need to slide the triggers on the ring, which you need to do for a correct calculation of ethinca
@@ -56,7 +58,7 @@ class SnglInspiral(xlaltools.SnglInspiralTable):
 
 dbtables.lsctables.SnglInspiralTable.RowType = SnglInspiral
 
-def calc_effective_snr(snr, chisq, chisq_dof, fac=250.0):
+def calc_effective_snr(snr, chisq, chisq_dof, fac=opts.factor):
 	return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
 def calc_ethinca(rowA,rowB):
@@ -154,7 +156,7 @@ for database in databases:
 			return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
 
 		def calc_delta_t(trigger1_ifo, trigger1_end_time, trigger1_end_time_ns, trigger2_ifo, trigger2_end_time, trigger2_end_time_ns, time_slide_id, rings = rings, offset_vectors = offset_vectors):
-			#print >>sys.stderr, "calculating delta_t"
+			time_slide_id = ilwd.get_ilwdchar(time_slide_id)
 			trigger1_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
 			trigger2_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger2_end_time, trigger2_end_time_ns)
 			# find the instruments that were on at trigger 1's end time and
@@ -174,10 +176,11 @@ for database in databases:
 				out = abs(trigger1_true_end_time - trigger2_true_end_time)
 				return float(out)
 			except:
-				print "calc delta t failed",trigger1_true_end_time, trigger2_true_end_time, ring
+				print >> sys.stderr,  "calc delta t failed because one of the trigger's true end times landed on the upper boundary of the thinca ring. See: trigger 1: ", trigger1_true_end_time, "trigger 2: ", trigger2_true_end_time, "ring: ", ring
 				out = float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
 				if out > 0.5:
 					out = 1.0 - out
+				print >> sys.stderr, "SO...delta t has been set to: ", out, "in accordance with the mod 1 hack"
 				return out
 	
 		
@@ -233,7 +236,7 @@ for database in databases:
 				is_background = values[-1]
 				values = values[:-1]
 				if is_background:
-					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],values[2*num_sngl_cols+1],rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (0,))
+					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (0,))
 					timeslides_info.append([values[0], database])
 				else:
 					zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (0,))
@@ -250,7 +253,6 @@ for database in databases:
 Nrounds = opts.number
 Ninj = len(injections)
 Nslide = len(timeslides)
-#print >>sys.stderr, injections
 
 trstr = opts.trainingstr
 testr = opts.testingstr
@@ -284,7 +286,6 @@ if len(injections) != 0:
 		set_i_slide_info = set_slide_info[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
 		print len(set_i_inj)
 		print len(set_i_inj_info)
-		#print set_i_inj_info
 		for row in set_i_inj:
 			f_testing.write("%s\n" % " ".join(map(str,row)))
 		for row in set_i_inj_info:
