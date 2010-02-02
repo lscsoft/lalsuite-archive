@@ -6,6 +6,8 @@ One can either read SIRE or COIRE files, however, COIRE is recommended
 (if we want to look at detected events found in coincidence only). 
 
 """
+from __future__ import division
+
 __version__ = "$Revision$"
 __date__ = "$Date$"
 __prog__ = "plotsnrchi"
@@ -23,6 +25,7 @@ from types import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from glue import lal
+from glue.ligolw import lsctables
 from pylal import InspiralUtils
 
 ##############################################################################
@@ -134,24 +137,22 @@ It makes various different plots:
 *) A scatter plot of continuous or autocorrelation chisq vs snr. Called with --cont-chisq
 
 *) A scatter plot of chisq vs snr, with contours of detection statistic drawn.
-
-   The detection statistic is chosen by calling either 
+   The detection statistic is chosen by calling either
    --effsnr-lines
    or
-    -newsnr-lines . 
+   --newsnr-lines . 
 
    The function used to specify the lines for effective snr is
    chisq = A * snr^4 / (snr^2 + CONST)
 
-   The value of CONST (the "magic number") must be given through the argument 
-   --denominator-constant.
+   The value of CONST ("magic number") must be given through the argument 
+   of --denominator-constant.
 
    For newsnr the value of snr is found via
    newsnr = snr, rchisq <= 1
    newsnr = snr / ((1+rchisq^(q/nhigh))/2)^(1/q), rchisq >1 
 
-   The value of CONST (the "magic number") must be given through the argument 
-   --chisq-index.
+   The value of q must be given through the argument of --chisq-index.
 
 *) A plot of triggers, with contours of detection statistic and of trigger density 
    drawn from either the time slides or the zero lag. (Needs time slides or zero lag 
@@ -169,12 +170,13 @@ triggers can be made.  Three such plots are available:
 
 *) Histograms as a function of newsnr. Called with --hist-newsnr 
    
-   newsnr = snr, rchisq <= 1
-   newsnr = snr / ((1+rchisq^(q/nhigh))/2)^(1/q), rchisq >1 
-   
    The value of q must be given as --chisq-index as for the contour plot.
    nhigh was chosen to be 2 in order to make contours of newsnr follow 
    chisq ~ rho^2 at large snr as expected from the template mismatch.
+
+*) Multicoloured background cumulative histograms split over 10 chirp mass bins.
+   Called with --masshist-newsnr or --masshist-effsnr 
+   Currently only useful for the lowmass search.
 
 *) A plot of snr vs rsq can also be made for a glob of triggers that are read in. 
    If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
@@ -244,6 +246,10 @@ def parse_command_line():
       help="chisq index for new snr")
   parser.add_option("-n","--nbins",action="store",type="int",default=40,\
       metavar=" NBINS", help="number of bins for the histogram plots" )
+  parser.add_option("","--masshist-newsnr",action="store_true",default=False,\
+      help="cumulative histograms of newsnr split by chirp mass")
+  parser.add_option("","--masshist-effsnr",action="store_true",default=False,\
+      help="cumulative histograms of effsnr split by chirp mass")
   parser.add_option("-r","--snr-rsq",action="store_true",default=False,\
       help="make a plot of snr vs rsq" )
   parser.add_option("","--rsq-threshold",action="store",type="float",\
@@ -866,7 +872,7 @@ if opts.hist_effsnr:
     stat = snr / ((chisq/chisq_dof) * (1 + snr**2/C))**0.25 
     inj_stat = inj_snr / ((inj_chisq/chisq_dof) * (1 + inj_snr**2/C))**0.25
     slide_stat = slide_snr / ((slide_chisq/chisq_dof) * (1 + slide_snr**2/C))**0.25
-
+    loudestslide = slide_stat.argmax()
     comments += InspiralUtils.message(opts,\
                     'Statistic is effective snr')
     comments += loghistval(stat,slide_stat,inj_stat,comments,opts.nbins)
@@ -924,6 +930,135 @@ if opts.hist_newsnr:
       tagList.append("newSNR_efficiency")
     if not opts.show_plot:
       close()
+
+###################################
+# cumulative histogram of newSNR split into mass bins
+if opts.masshist_newsnr:
+  if opts.chisq_index:
+    if slide_events:
+      q = opts.chisq_index
+      nhigh = 2.
+
+      st0 = lsctables.New( lsctables.SnglInspiralTable )
+      st1 = lsctables.New( lsctables.SnglInspiralTable )
+      st2 = lsctables.New( lsctables.SnglInspiralTable )
+      st3 = lsctables.New( lsctables.SnglInspiralTable )
+      st4 = lsctables.New( lsctables.SnglInspiralTable )
+      st5 = lsctables.New( lsctables.SnglInspiralTable )
+      st6 = lsctables.New( lsctables.SnglInspiralTable )
+      st7 = lsctables.New( lsctables.SnglInspiralTable )
+      st8 = lsctables.New( lsctables.SnglInspiralTable ) #CAN THIS BE DONE BETTER?
+      st9 = lsctables.New( lsctables.SnglInspiralTable )
+      slideTriggersbymc = [st0,st1,st2,st3,st4,st5,st6,st7,st8,st9]
+      mchirpBoundaries = (0.5, 2, 3.5, 5, 6.5, 8, 9.5, 11, 12.5, 14, 16)
+      for trigger in slideTriggers: 
+        for nbin, bin in enumerate(slideTriggersbymc):
+          if trigger.mchirp > mchirpBoundaries[nbin] and trigger.mchirp <= mchirpBoundaries[nbin+1]:
+            slideTriggersbymc[nbin].append(trigger)
+      slide_rchisq=[[],[],[],[],[],[],[],[],[],[]]
+      slide_rchisq_min1=[[],[],[],[],[],[],[],[],[],[]]
+      slide_newsnr6=[[],[],[],[],[],[],[],[],[],[]]
+      nsli=[[],[],[],[],[],[],[],[],[],[]]
+      binssli=[[],[],[],[],[],[],[],[],[],[]]
+      maxlen = 0
+      maxsnr = 0
+      figure(69)
+      for nbin, bin in enumerate(slideTriggersbymc):
+        slide_rchisq[nbin] = bin.get_column('chisq')/(2*bin.get_column('chisq_dof')-2)
+        slide_rchisq_min1[nbin]=zeros(len(slide_rchisq[nbin]))
+        for i in range(len(slide_rchisq[nbin])):
+          slide_rchisq_min1[nbin][i] = max(1,slide_rchisq[nbin][i])
+        slide_newsnr6[nbin] = bin.get_column('snr')/((1+slide_rchisq_min1[nbin]**3)/2)**(1./6)
+        maxlen = max(len(slide_rchisq[nbin]),maxlen)
+        maxsnr = max(max(slide_newsnr6[nbin]),maxsnr)
+        nsli[nbin],binssli[nbin],stuff = hist(slide_newsnr6[nbin], bins=20,\
+         log=True, normed=False, histtype='step', cumulative=-1)
+      close(69)
+      fig_num +=1
+      figure(fig_num)
+      histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
+      labels=['0.5-2', '2-3.5', '3.5-5', '5-6.5', '6.5-8', '8-9.5', '9.5-11', \
+       '11-12.5', '12.5-14', '14-15.5']
+      for nbin, bin in enumerate(slideTriggersbymc):
+        semilogy(binssli[nbin][:-1], nsli[nbin]+0.04*nbin, linewidth=2, \
+         color=histcolours[nbin], label=labels[nbin])
+      legend()
+      ylim(0.7,1.5*maxlen)
+      xlim(2.5,1.05*maxsnr)
+      title(opts.ifo_times + ' background newsnr distribution split by mchirp', size='x-large')
+      xlabel('newSNR', size='x-large')
+      ylabel('cumulative frequency', size='x-large')
+      if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "newSNR_cdf_by_mc")
+        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+          dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append("newSNR_cdf_by_mc")
+      if not opts.show_plot:
+        close()
+
+###################################
+# cumulative histogram of effSNR split into mass bins
+if opts.masshist_effsnr:
+  if opts.denominator_constant:
+    if slide_events:
+      magic = opts.denominator_constant
+
+      st0 = lsctables.New( lsctables.SnglInspiralTable )
+      st1 = lsctables.New( lsctables.SnglInspiralTable )
+      st2 = lsctables.New( lsctables.SnglInspiralTable )
+      st3 = lsctables.New( lsctables.SnglInspiralTable )
+      st4 = lsctables.New( lsctables.SnglInspiralTable )
+      st5 = lsctables.New( lsctables.SnglInspiralTable )
+      st6 = lsctables.New( lsctables.SnglInspiralTable )
+      st7 = lsctables.New( lsctables.SnglInspiralTable )
+      st8 = lsctables.New( lsctables.SnglInspiralTable ) #CAN THIS BE DONE BETTER?
+      st9 = lsctables.New( lsctables.SnglInspiralTable )
+      slideTriggersbymc = [st0,st1,st2,st3,st4,st5,st6,st7,st8,st9]
+      mchirpBoundaries = (0.5, 2, 3.5, 5, 6.5, 8, 9.5, 11, 12.5, 14, 16)
+      for trigger in slideTriggers:
+        for nbin, bin in enumerate(slideTriggersbymc):
+          if trigger.mchirp > mchirpBoundaries[nbin] and trigger.mchirp <= mchirpBoundaries[nbin+1]:
+            slideTriggersbymc[nbin].append(trigger)
+      slide_rchisq=[[],[],[],[],[],[],[],[],[],[]]
+      slide_effsnr=[[],[],[],[],[],[],[],[],[],[]]
+      nsli=[[],[],[],[],[],[],[],[],[],[]]
+      binssli=[[],[],[],[],[],[],[],[],[],[]]
+      maxlen = 0
+      maxsnr = 0
+      figure(69)
+      for nbin, bin in enumerate(slideTriggersbymc):
+        slide_rchisq[nbin] = bin.get_column('chisq')/(2*bin.get_column('chisq_dof')-2)
+        slide_effsnr[nbin] = bin.get_column('snr')/\
+         (slide_rchisq[nbin]*(1+bin.get_column('snr')**2/magic))**0.25
+        maxlen = max(len(slide_rchisq[nbin]),maxlen)
+        maxsnr = max(max(slide_effsnr[nbin]),maxsnr)
+        nsli[nbin],binssli[nbin],stuff = hist(slide_effsnr[nbin], bins=20,\
+         log=True, normed=False, histtype='step', cumulative=-1)
+      close(69)
+      
+      fig_num +=1
+      figure(fig_num)
+      histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
+      labels=['0.5-2', '2-3.5', '3.5-5', '5-6.5', '6.5-8', '8-9.5', '9.5-11', \
+       '11-12.5', '12.5-14', '14-15.5']
+      for nbin, bin in enumerate(slideTriggersbymc):
+        semilogy(binssli[nbin][:-1], nsli[nbin]+0.04*nbin, linewidth=2, \
+         color=histcolours[nbin], label=labels[nbin])
+      legend()
+      ylim(0.7,1.5*maxlen)
+      xlim(2.5,1.05*maxsnr)
+      title(opts.ifo_times + ' background effsnr distribution split by mchirp', size='x-large')
+      xlabel('effSNR', size='x-large')
+      ylabel('cumulative frequency', size='x-large')
+      if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "effSNR_cdf_by_mc")
+        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+          dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append("effSNR_cdf_by_mc")
+      if not opts.show_plot:
+        close()
 
 ###################################
 # plot of snr vs rsq
