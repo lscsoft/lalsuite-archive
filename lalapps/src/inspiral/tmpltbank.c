@@ -1515,8 +1515,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"disable-compute-moments", no_argument, 	   &computeMoments,   0 },
     /* standard candle parameters */
     {"candle-snr",              required_argument, 0,                'k'},
-    {"candle-mass1",            required_argument, 0,                'l'},
-    {"candle-mass2",            required_argument, 0,                'm'},
+    {"candle-total-mass",       required_argument, 0,                'l'},
+    {"candle-min-mass",         required_argument, 0,                'm'},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-response",          no_argument,       &writeResponse,    1 },
