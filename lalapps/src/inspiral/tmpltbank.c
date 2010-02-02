@@ -180,8 +180,8 @@ INT4  unitResponse      = 0;            /* set the response to unity    */
 /* standard candle parameters */
 INT4    computeCandle = 0;              /* should we compute a candle?  */
 REAL4   candleSnr = -1;                 /* candle signal to noise ratio */
-REAL4   candleMass1 = -1;               /* standard candle mass (solar) */
-REAL4   candleMass2 = -1;               /* standard candle mass (solar) */
+REAL4   candleTotMass = -1;               /* standard candle mass (solar) */
+REAL4   candleCompMass = -1;               /* standard candle mass (solar) */
 
 /* TD follow up filenames */
 CHAR **tdFileNames = NULL;
@@ -967,26 +967,32 @@ int main ( int argc, char *argv[] )
     REAL8 asymMass1;
     REAL8 asymMass2;
 
-    while ( candleMass1 <= 100.0 )
+    while ( candleTotMass <= 100.0 )
     {
-      symmMass1 = 0.5 * candleMass1;
-      asymMass1 = candleMass1 - candleMass2;
-      asymMass2 = candleMass2;
+      symmMass1 = 0.5 * candleTotMass;
+      asymMass1 = candleTotMass - candleCompMass;
+      asymMass2 = candleCompMass;
 
       if ( approximant == EOBNR )
       {
         distance = ComputeCandleDistanceTD( approximant, symmMass1, symmMass1,
           candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
-        distAsym = ComputeCandleDistanceTD( approximant, asymMass1, asymMass2,
-          candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+        if ( asymMass1 != symmMass1 )
+        {
+          distAsym = ComputeCandleDistanceTD( approximant, asymMass1, asymMass2,
+            candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+        }
       }
       else
       {
         /* experimental code to ease the computation of the standard candle */
         distance = compute_candle_distance(symmMass1, symmMass1,
             candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
-        distAsym = compute_candle_distance(asymMass1, asymMass2,
+        if ( asymMass1 != symmMass1 )
+        {
+          distAsym = compute_candle_distance(asymMass1, asymMass2,
             candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+        }
       }
      
 
@@ -1006,23 +1012,27 @@ int main ( int argc, char *argv[] )
 
       this_summvalue = &(*this_summvalue)->next;
 
-      if ( vrbflg ) fprintf( stdout, "maximum distance for (%3.2f,%3.2f) "
-          "at signal-to-noise %3.2f = ", asymMass1, asymMass2, candleSnr );
+      /* Output the asymmetric system if necessary. */
+      if ( asymMass1 != symmMass1 )
+      {
+        if ( vrbflg ) fprintf( stdout, "maximum distance for (%3.2f,%3.2f) "
+            "at signal-to-noise %3.2f = ", asymMass1, asymMass2, candleSnr );
 
-      /* experimental code to populate the summValue table */
-      LALSnprintf( candleComment, LIGOMETA_SUMMVALUE_COMM_MAX,
-          "%3.2f_%3.2f_%3.2f", asymMass1, asymMass2, candleSnr );
+        /* experimental code to populate the summValue table */
+        LALSnprintf( candleComment, LIGOMETA_SUMMVALUE_COMM_MAX,
+            "%3.2f_%3.2f_%3.2f", asymMass1, asymMass2, candleSnr );
 
-      this_summvalue =
-        add_summvalue_table(this_summvalue, gpsStartTime, gpsEndTime,
-            PROGRAM_NAME, ifo, "inspiral_effective_distance",
-            candleComment, distAsym);
+        this_summvalue =
+          add_summvalue_table(this_summvalue, gpsStartTime, gpsEndTime,
+              PROGRAM_NAME, ifo, "inspiral_effective_distance",
+              candleComment, distAsym);
 
-      if ( vrbflg ) fprintf( stdout, "%e Mpc\n", (*this_summvalue)->value );
+        if ( vrbflg ) fprintf( stdout, "%e Mpc\n", (*this_summvalue)->value );
 
-      this_summvalue = &(*this_summvalue)->next;
+        this_summvalue = &(*this_summvalue)->next;
+      }
 
-      candleMass2 = candleMass1 = candleMass1 + 1.0;
+      candleTotMass = candleTotMass + 2.0;
     }
   }
 
@@ -1377,8 +1387,8 @@ fprintf(a, "  --td-follow-up FILE          follow up BCV events contained in FIL
 fprintf(a, "\n");\
 fprintf(a, "  --standard-candle            compute a standard candle from the PSD\n");\
 fprintf(a, "  --candle-snr SNR             signal-to-noise ration of standard candle\n");\
-fprintf(a, "  --candle-mass1 M             mass of first component in candle binary\n");\
-fprintf(a, "  --candle-mass2 M             mass of second component in candle binary\n");\
+fprintf(a, "  --candle-total-mass M        min total mass for candle binary\n");\
+fprintf(a, "  --candle-min-mass M          min component mass for candle binary\n");\
 fprintf(a, "\n");\
 fprintf(a, "  --low-frequency-cutoff F     do not filter below F Hz\n");\
 fprintf(a, "  --high-frequency-cutoff F    upper frequency cutoff in Hz\n");\
@@ -2299,29 +2309,29 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         break;
 
       case 'l':
-        candleMass1 = (REAL4) atof( optarg );
-        if ( candleMass1 <= 0 )
+        candleTotMass = (REAL4) atof( optarg );
+        if ( candleTotMass <= 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
-              "standard candle first component mass must be > 0: "
+              "standard candle total mass must be > 0: "
               "(%f specified)\n",
-              long_options[option_index].name, candleMass1 );
+              long_options[option_index].name, candleTotMass );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "float", "%e", candleMass1 );
+        ADD_PROCESS_PARAM( "float", "%e", candleTotMass );
         break;
 
       case 'm':
-        candleMass2 = (REAL4) atof( optarg );
-        if ( candleMass2 <= 0 )
+        candleCompMass = (REAL4) atof( optarg );
+        if ( candleCompMass <= 0 )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
-              "standard candle second component mass must be > 0: "
+              "standard candle min component mass must be > 0: "
               "(%f specified)\n",
-              long_options[option_index].name, candleMass2 );
+              long_options[option_index].name, candleCompMass );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "float", "%e", candleMass2 );
+        ADD_PROCESS_PARAM( "float", "%e", candleCompMass );
         break;
 
       case 'w':
@@ -2773,16 +2783,22 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           "--candle-snr must be specified if --standard-candle is given\n" );
       exit( 1 );
     }
-    if ( candleMass1 < 0 )
+    if ( candleTotMass < 0 )
     {
       fprintf( stderr, 
-          "--candle-mass1 must be specified if --standard-candle is given\n" );
+          "--candle-total-mass must be specified if --standard-candle is given\n" );
       exit( 1 );
     }
-    if ( candleMass2 < 0 )
+    if ( candleCompMass < 0 )
     {
       fprintf( stderr, 
-          "--candle-mass2 must be specified if --standard-candle is given\n" );
+          "--candle-min-mass must be specified if --standard-candle is given\n" );
+      exit( 1 );
+    }
+    if ( candleCompMass > 0.5 * candleTotMass )
+    {
+      fprintf( stderr,
+          "Candle min component mass is inconsistent with candle total mass\n" );
       exit( 1 );
     }
   }
