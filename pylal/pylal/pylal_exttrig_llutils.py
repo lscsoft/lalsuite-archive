@@ -1262,10 +1262,10 @@ class GRB(object):
     self.create_setup_script(dir_onoff)
  
     # create the DAG file
-    #infile = "%s/postproc.in" % dir_onoff
-    #dagfile = "%s/postproc.dag" % dir_onoff
     self.apply_sed_file(dir_onoff, 'postproc.in', 'postproc.dag')
 
+    # return the DAG filename
+    dagfile = "%s/postproc.dag" % dir_onoff
     return dagfile
 
   # -----------------------------------------------------
@@ -1301,10 +1301,10 @@ class GRB(object):
     self.create_setup_script(dir_lik)
 
     # create the DAG file
-    #infile = "%s/likelihood.in" % dir_lik
-    #dagfile = "%s/likelihood.dag" % dir_lik
     self.apply_sed_file(dir_lik, 'likelihood.in', 'likelihood.dag')
 
+    # return the DAG filename
+    dagfile = "%s/likelihood.dag" % dir_lik
     return dagfile
 
 
