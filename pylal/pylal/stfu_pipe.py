@@ -1582,7 +1582,7 @@ class followUpDAG(pipeline.CondorDAG):
 ###### CONFIG PARSER WRAPPING #################################################
 ###############################################################################
 class create_default_config(object):
-	def __init__(self, config=None):
+	def __init__(self, configfile=None):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
@@ -1593,7 +1593,7 @@ class create_default_config(object):
 		cp.add_section("condor")
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
-                cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
+		cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
 		# SECTIONS TO SHUT UP WARNINGS
 		cp.add_section("inspiral")
@@ -1728,9 +1728,9 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 
 		# if we have an ini file override the options
-		if config: 
+		if configfile:
 			user_cp = ConfigParser.ConfigParser()
-			user_cp.read(config)
+			user_cp.read(configfile)
 		else:
 			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
 			try: 
@@ -1738,7 +1738,7 @@ class create_default_config(object):
 				user_cp.read('followup_pipe.ini')
 			except: pass
 		# override the default options
-		if user_cp: self.overwrite_config(user_cp)
+		if user_cp: self.overwrite_config(user_cp,cp)
 
 	def write(self):
 		self.get_cp().write(open(self.ini_file,"w"))
@@ -1822,7 +1822,7 @@ class create_default_config(object):
 		if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
 		return out
 
-	def overwrite_config(self,config):
+	def overwrite_config(self,config,cp):
 		for section in config.sections():
 			if not cp.has_section(section): cp.add_section(section)
 			for option in config.options(section):
