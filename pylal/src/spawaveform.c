@@ -178,50 +178,89 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 
 /* Function to wrap GSLs SVD */
 static PyObject *PySVD(PyObject *self, PyObject *args)
-	{
-	PyObject *a, *A, *V, *S, *out;
-	gsl_vector *gW;
+        {
+
+        /*
+	 * input A (m x n matrix)
+	 * output U,S,V
+	 */
+
+	/* input array */
+	PyObject *a, *A;
+
+	/* output data  */
+	PyObject *U, *V, *S, *out;
+
+	/* views of output data */
 	gsl_matrix_view gU, gV;
 	gsl_vector_view gS;
+
+	/* array sizes */
 	npy_intp *Adims = NULL;
 	npy_intp Vdims[] = {0.0, 0.0};
 	npy_intp Sdims[] = {0.0};
+
+	/* native C-datatype representation of numpy array data */
 	double *cA = NULL;
+	double *cU = NULL;
 	double *cV = NULL;
 	double *cS = NULL;
+
+	/* workspace data */
+	gsl_vector *gW;
+
+	/*
+	 * end declarations
+	 */
+
+	/* Read in input array, represent in a,A,cA,Adims */
 	if(!PyArg_ParseTuple(args, "O", &a)) return NULL;
-	/* The input matrix */
+
 	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
 	Adims = PyArray_DIMS(A);
 	cA = PyArray_DATA(A);
+
+	/* Don't support M < N */
+	if ( Adims[0] < Adims[1] ) return NULL;
+
 	/* allocate new ouput matrices */
+	U = PyArray_SimpleNew(2, Adims, NPY_DOUBLE);
+	cU = PyArray_DATA(U);
+	memcpy( cU, cA, Adims[0]*Adims[1]*sizeof(double) );
+
 	Vdims[0] = Vdims[1] = Adims[1];
 	V = PyArray_SimpleNew(2, Vdims, NPY_DOUBLE);
 	cV = PyArray_DATA(V);
+
 	Sdims[0] = Adims[1];
 	S = PyArray_SimpleNew(1, Sdims, NPY_DOUBLE);
 	cS = PyArray_DATA(S);
+
 	/* Allocate workspace gsl matrix */
-	/* FIXME no error checking done on size of A */
 	gW = gsl_vector_calloc(Adims[1]);
+
 	/* Get gsl matrix views of the numpy array data */
-	/* A is replaced by U */
-	gU = gsl_matrix_view_array(cA, Adims[0], Adims[1]);
-	/* Get gsl matrix views of the numpy array data */
+	/* U will be overwritten */
+	gU = gsl_matrix_view_array(cU, Adims[0], Adims[1]);
 	gS = gsl_vector_view_array(cS, Sdims[0]);
-	/* Get gsl matrix views of the numpy array data */
 	gV = gsl_matrix_view_array(cV, Vdims[0], Vdims[1]);
+
+	/* PERFORM THE SVD! */
 	gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+
 	/* take the transpose to be consistent with scipys svd */
 	gsl_matrix_transpose(&(gV.matrix));
-	out = Py_BuildValue("OOO", A, S, V);
+	out = Py_BuildValue("OOO", U, S, V);
+
 	/* FIXME HELP I don't know what to do about references... */
 	/*Py_DECREF(A); */
 	/*Py_DECREF(V); */
 	/*Py_DECREF(S); */
         /*Py_INCREF(Py_None); */
+
 	/* free the workspace matrix */
 	gsl_vector_free(gW);
+
 	return out;
 	}
 
