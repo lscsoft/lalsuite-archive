@@ -613,7 +613,8 @@ def generate_summary(publish_path, publish_url):
       tag_lik = 'None'
     table = add(table, tag_onoff+'<br>'+tag_lik)
     table = add(table, grb.time)
-    asctime = time.asctime(time.gmtime(grb.time+offset_gps_to_linux))
+    tm = date.XLALGPSToUTC(date.LIGOTimeGPS(grb.time))
+    asctime = time.strftime("%d %b %Y\n%H:%M:%S",tm)
     table = add(table, asctime)
     table = add_linked_value(table, grb.redshift, None )
     table = add_linked_value(table, grb.duration, None)
