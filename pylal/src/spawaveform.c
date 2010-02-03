@@ -380,15 +380,15 @@ void initspawaveform(void)
          */
 	}
 
-/*****************************************************************************/
-/* The remainder of this code defines the static functions that the python
+/*****************************************************************************
+ * The remainder of this code defines the static functions that the python
  * functions will use to compute various quantities.  They are not exposed
  * outside of this file directly but can be called from python via
  * the documentation described when doing help() on this module.
  * A lot of this code is in lal in some form or must be moved to lal.  Here
  * the functin prototypes have been vastly simplified (use of native c types
  * and double precision)
-/*****************************************************************************/
+ *****************************************************************************/
 
 /* FIXME make this function exist in LAL and have the LAL SPA waveform generator call it? */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints,  complex double *expPsi)
