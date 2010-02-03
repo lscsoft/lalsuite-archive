@@ -177,7 +177,7 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	}
 
 /* Function to wrap GSLs SVD */
-static PyObject *PySVD(PyObject *self, PyObject *args)
+static PyObject *PySVD(PyObject *self, PyObject *args, PyObject *keywds)
         {
 
         /*
@@ -210,16 +210,19 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 	gsl_vector *gW;
 	gsl_matrix *gX;
 
-	/* algorithm type */
-	char *algType;
-	algType = NULL;
+	/* list of available keywords */
+	char *kwlist[] = {"array","inplace","mod",NULL};
+
+	/* keyword argument vars */
+	int *modGolubReinsch = 0;
+	int *inplace = 0;
 
 	/*
 	 * end declarations
 	 */
 
 	/* Read in input array, represent in a,A,cA,Adims */
-	if(!PyArg_ParseTuple(args, "O|s", &a, &algType)) return NULL;
+	if(!PyArg_ParseTupleAndKeywords(args, keywds, "O|ii", kwlist, &a, &inplace, &modGolubReinsch)) return NULL;
 
 	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
 	Adims = PyArray_DIMS(A);
@@ -229,9 +232,17 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 	if ( Adims[0] < Adims[1] ) return NULL;
 
 	/* allocate new ouput matrices */
-	U = PyArray_SimpleNew(2, Adims, NPY_DOUBLE);
-	cU = PyArray_DATA(U);
-	memcpy( cU, cA, Adims[0]*Adims[1]*sizeof(double) );
+	if ( inplace )
+	{
+	    U = A;
+	    cU = cA;
+	}
+	else
+	{
+	    U = PyArray_SimpleNew(2, Adims, NPY_DOUBLE);
+	    cU = PyArray_DATA(U);
+	    memcpy( cU, cA, Adims[0]*Adims[1]*sizeof(double) );
+	}
 
 	Vdims[0] = Vdims[1] = Adims[1];
 	V = PyArray_SimpleNew(2, Vdims, NPY_DOUBLE);
@@ -251,20 +262,17 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 	gV = gsl_matrix_view_array(cV, Vdims[0], Vdims[1]);
 
 	/* PERFORM THE SVD! */
-	if ( algType )
+	if ( modGolubReinsch )
 	{
-	    if ( !strcmp(algType,"mod") )
-	    {
-		gX = gsl_matrix_calloc(Adims[1],Adims[1]);
-		gsl_linalg_SV_decomp_mod (&(gU.matrix),gX, &(gV.matrix), &(gS.vector), gW);
-		gsl_matrix_free(gX);
-	    }
-	    else fprintf(stderr,"Unsupported algorithm %s\n",algType);
+	    gX = gsl_matrix_calloc(Adims[1],Adims[1]);
+	    gsl_linalg_SV_decomp_mod (&(gU.matrix),gX, &(gV.matrix), &(gS.vector), gW);
+	    gsl_matrix_free(gX);
 	}
 	else
 	{
 	    gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
 	}
+	gsl_vector_free(gW);
 
 	/* take the transpose to be consistent with scipys svd */
 	gsl_matrix_transpose(&(gV.matrix));
@@ -275,9 +283,6 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 	/*Py_DECREF(V); */
 	/*Py_DECREF(S); */
         /*Py_INCREF(Py_None); */
-
-	/* free the workspace matrix */
-	gsl_vector_free(gW);
 
 	return out;
 	}
@@ -337,10 +342,10 @@ static struct PyMethodDef methods[] = {
 	 "This function calculates the mass weighted spin parameter chi\n\n"
 	 "computechi(m1, m2, spin1, spin2)\n\n"
 	},
-	{"svd", PySVD, METH_VARARGS, 
+	{"svd", (PyCFunction) PySVD, METH_KEYWORDS,
 	 "This function calculates the singular value decomposition via the gsl function\n"
 	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
-	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n" 
+	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n"
 	 "USAGE:\n\tU, S, V = svd(A)\n\n"
 	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
 	 "is an MxM numpy array (NOTE A IS REPLACED BY U AND IS THUS GONE)\n\n"
