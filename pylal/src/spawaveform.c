@@ -208,13 +208,18 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 
 	/* workspace data */
 	gsl_vector *gW;
+	gsl_matrix *gX;
+
+	/* algorithm type */
+	char *algType;
+	algType = NULL;
 
 	/*
 	 * end declarations
 	 */
 
 	/* Read in input array, represent in a,A,cA,Adims */
-	if(!PyArg_ParseTuple(args, "O", &a)) return NULL;
+	if(!PyArg_ParseTuple(args, "O|s", &a, &algType)) return NULL;
 
 	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
 	Adims = PyArray_DIMS(A);
@@ -246,7 +251,20 @@ static PyObject *PySVD(PyObject *self, PyObject *args)
 	gV = gsl_matrix_view_array(cV, Vdims[0], Vdims[1]);
 
 	/* PERFORM THE SVD! */
-	gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+	if ( algType )
+	{
+	    if ( !strcmp(algType,"mod") )
+	    {
+		gX = gsl_matrix_calloc(Adims[1],Adims[1]);
+		gsl_linalg_SV_decomp_mod (&(gU.matrix),gX, &(gV.matrix), &(gS.vector), gW);
+		gsl_matrix_free(gX);
+	    }
+	    else fprintf(stderr,"Unsupported algorithm %s\n",algType);
+	}
+	else
+	{
+	    gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+	}
 
 	/* take the transpose to be consistent with scipys svd */
 	gsl_matrix_transpose(&(gV.matrix));
