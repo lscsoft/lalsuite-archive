@@ -443,7 +443,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 			expPsi[k] = value;
 			}
 		/* put in the first order amplitude factor */
-		expPsi[k] *= pow (k, -7.0 / 6.0);
+		expPsi[k] *= pow(k, -7.0 / 6.0) * tNorm;
 		}
 	return 0;
 	}
