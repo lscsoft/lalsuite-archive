@@ -156,6 +156,7 @@ HrecOnline      V1:h_16384Hz
 def figure_out_cache(time):
 
 	cacheList=(
+		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
 		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
 		)
@@ -971,7 +972,13 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -1010,7 +1017,13 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -1569,7 +1582,7 @@ class followUpDAG(pipeline.CondorDAG):
 ###### CONFIG PARSER WRAPPING #################################################
 ###############################################################################
 class create_default_config(object):
-	def __init__(self, config=None):
+	def __init__(self, configfile=None):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
@@ -1580,7 +1593,7 @@ class create_default_config(object):
 		cp.add_section("condor")
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
-                cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
+		cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
 		# SECTIONS TO SHUT UP WARNINGS
 		cp.add_section("inspiral")
@@ -1715,9 +1728,9 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 
 		# if we have an ini file override the options
-		if config: 
+		if configfile:
 			user_cp = ConfigParser.ConfigParser()
-			user_cp.read(config)
+			user_cp.read(configfile)
 		else:
 			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
 			try: 
@@ -1725,7 +1738,7 @@ class create_default_config(object):
 				user_cp.read('followup_pipe.ini')
 			except: pass
 		# override the default options
-		if user_cp: self.overwrite_config(user_cp)
+		if user_cp: self.overwrite_config(user_cp,cp)
 
 	def write(self):
 		self.get_cp().write(open(self.ini_file,"w"))
@@ -1782,7 +1795,7 @@ class create_default_config(object):
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas3.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 
@@ -1809,7 +1822,7 @@ class create_default_config(object):
 		if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
 		return out
 
-	def overwrite_config(self,config):
+	def overwrite_config(self,config,cp):
 		for section in config.sections():
 			if not cp.has_section(section): cp.add_section(section)
 			for option in config.options(section):
@@ -1829,6 +1842,8 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	There were three naming conventions mixed, then p1,p2,p3 and lastly Day,Eve,Owl
 	LHO: 20090724 :: 932428815
 	LLO: 20090708 :: 931046415
+	It appears that the filenames are labeled by local times not
+	utc??? We need to confirm this for this method CVT Fri-Jan-29-2010:201001291523 
 	"""
 	urls={
 		"DEFAULT":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
@@ -1852,6 +1867,10 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 using default opts instead!\n")
 		return [urls['DEFAULT']]
 	outputURLs=[]
+	#Just return immediately if V1 encoutered (HACK)
+	if ifo.__contains__("V1"):
+		return([['V1',urls[ifoTag],'']])
+	#
 	if shiftStandardTime.keys().__contains__(ifoTag):
 		#Determine shift times n-1,n,n+1
 		tOffset=3600*shiftDuration
@@ -1860,10 +1879,12 @@ using default opts instead!\n")
 			Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(thisTime)))
 			#Get shift label
 			shiftString=''
+			humanShiftLabel=''
 			for shift,start in shiftStandardTime[ifoTag].iteritems():
 				hours=[x%24 for x in range(start,start+shiftDuration)]
 				if hours.__contains__(int(h)):
 					shiftString=shiftLabel[shift]
+					humanShiftLabel=shift
 			#Create txt string
 			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 			if ('V1').__contains__(ifoTag):
@@ -1871,7 +1892,7 @@ using default opts instead!\n")
 			else:
 				sL=shiftString
 				for fL in [1,2,3]:
-					outputURLs.append(["%s,%s"%(ifoTag,shiftString),
+					outputURLs.append(["%s,%s"%(ifoTag,humanShiftLabel),
 							   urls[ifoTag]%(tString,tString,sL,fL,""),
 							   urls[ifoTag]%(tString,tString,sL,fL,"Thumb")
 						   ])

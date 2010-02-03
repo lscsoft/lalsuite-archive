@@ -164,14 +164,17 @@ class parse_param_ranges:
         if verbose:
             print >> sys.stderr, "Parsing param-ranges..."
         
-        # check that table_name and table_param have no spaces in them
-        if len( table_name.split(' ') ) > 1:
-            raise ValueError, "table_name cannot have spaces in it."
-        if len ( table_param.split(' ') ) > 1:
-            raise ValueError, "table_param cannot have spaces in it."
+        # check that table_name and table_param have no illegal characters in them
+        table_name = validate_option( table_name )
+        if re.search(r'\n|\t|DROP|DELETE', table_param) is not None:
+            raise ValueError, r'param-name cannot have "\n","\t", "DROP", or "DELETE" in it'
+        table_param = table_param.strip()
 
-        # make param unique by appending table_name to the param_name
-        self.param = '.'.join([ table_name, table_param ])
+        # append table_name if it isn't already in the table_param name
+        if re.search( table_name+r'[.]', table_param ) is None:
+            table_param = '.'.join([ table_name, table_param ])
+
+        self.param = table_param
 
         ranges = param_ranges_opt.split(';')
 
