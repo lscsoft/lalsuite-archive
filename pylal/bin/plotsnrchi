@@ -24,9 +24,12 @@ from types import *
 
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
+from pylal import InspiralUtils
 from glue import lal
 from glue.ligolw import lsctables
-from pylal import InspiralUtils
+import pylal
+import glue.ligolw
+import numpy
 
 ##############################################################################
 def solve_for_chisq(snr, eff_snr, chisq_dof, denominator_constant):
@@ -54,7 +57,6 @@ def plotnewsnrlines(min_chisq, max_chisq, index, chisq_dof):
 ##############################################################################
 def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
 
-  figure(100)
   max_val = max(trig_val.max(),slide_val.max(),inj_val.max())
   min_val = min(trig_val.min(),slide_val.min(),inj_val.min())
   log_max_val = log10(max_val)
@@ -70,12 +72,11 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
   log_bins = arange(log_min_val, log_max_val + (log_max_val - log_min_val) /nbins ,\
          (log_max_val - log_min_val) /nbins )
   if len(trig_val):
-    [trigs,log_bins,stuff] = hist(log_trig_val, log_bins, normed=True)
+    [trigs,log_bins] = numpy.histogram(log_trig_val, log_bins, normed=True, new=True)
   if len(inj_val):
-    [injs,log_bins,stuff] = hist(log_inj_val, log_bins, normed=True)
+    [injs,log_bins] = numpy.histogram(log_inj_val, log_bins, normed=True, new=True)
   if len(slide_val):
-    [slides,log_bins,stuff] = hist(log_slide_val, log_bins, normed=True)
-  close(100)
+    [slides,log_bins] = numpy.histogram(log_slide_val, log_bins, normed=True, new=True)
 
   logplotbins = log_bins[0:-1] + (log_max_val - log_min_val)/(2.*nbins)
   bins = 10**logplotbins
@@ -126,7 +127,6 @@ If injections are given, calculates the number of injections with louder detecti
 statistic than the loudest slide [to be added: in each mass bin] as a rudimentary 
 measure of the efficacy of the statistic for detection. This is done for effective
 snr and newsnr (explained below).
-
 
 It makes various different plots:
 
@@ -250,6 +250,8 @@ def parse_command_line():
       help="cumulative histograms of newsnr split by chirp mass")
   parser.add_option("","--masshist-effsnr",action="store_true",default=False,\
       help="cumulative histograms of effsnr split by chirp mass")
+  parser.add_option("","--massbins",action="store",type="int",default=10,\
+      help="number of bins to split the mchirp range")
   parser.add_option("-r","--snr-rsq",action="store_true",default=False,\
       help="make a plot of snr vs rsq" )
   parser.add_option("","--rsq-threshold",action="store",type="float",\
@@ -869,10 +871,9 @@ if opts.hist_effsnr:
     fig_num +=1
     figure(fig_num)
     C = opts.denominator_constant
-    stat = snr / ((chisq/chisq_dof) * (1 + snr**2/C))**0.25 
-    inj_stat = inj_snr / ((inj_chisq/chisq_dof) * (1 + inj_snr**2/C))**0.25
-    slide_stat = slide_snr / ((slide_chisq/chisq_dof) * (1 + slide_snr**2/C))**0.25
-    loudestslide = slide_stat.argmax()
+    stat = inspTriggers.get_effective_snr(fac=C) 
+    inj_stat = injTriggers.get_effective_snr(fac=C)
+    slide_stat = slideTriggers.get_effective_snr(fac=C)
     comments += InspiralUtils.message(opts,\
                     'Statistic is effective snr')
     comments += loghistval(stat,slide_stat,inj_stat,comments,opts.nbins)
@@ -895,27 +896,9 @@ if opts.hist_newsnr:
     fig_num +=1
     figure(fig_num)
     q = opts.chisq_index
-    nhigh = 2.
-    rchisq = chisq / chisq_dof
-    inj_rchisq = inj_chisq / chisq_dof
-    slide_rchisq = slide_chisq / chisq_dof
- 
-    rchisq_min1=zeros(len(rchisq))
-    for i in xrange(len(rchisq)):
-      rchisq_min1[i] = max(1,rchisq[i])
-    
-    inj_rchisq_min1=zeros(len(inj_rchisq))
-    for i in xrange(len(inj_rchisq)):
-      inj_rchisq_min1[i] = max(1,inj_rchisq[i])
-
-    slide_rchisq_min1=zeros(len(slide_rchisq))
-    for i in xrange(len(slide_rchisq)):
-      slide_rchisq_min1[i] = max(1,slide_rchisq[i])
-
-    newsnr = snr/((1+rchisq_min1**(q/nhigh))/2.)**(1./q)
-    inj_newsnr = inj_snr/((1+inj_rchisq_min1**(q/nhigh))/2.)**(1./q)
-    slide_newsnr = slide_snr/((1+slide_rchisq_min1**(q/nhigh))/2.)**(1./q)
- 
+    newsnr = inspTriggers.get_new_snr(index=q)
+    inj_newsnr = injTriggers.get_new_snr(index=q)
+    slide_newsnr = slideTriggers.get_new_snr(index=q)
     comments += InspiralUtils.message(opts,\
                     'Statistic is newSNR')
     comments += loghistval(newsnr,slide_newsnr,inj_newsnr,comments,opts.nbins)
@@ -937,54 +920,28 @@ if opts.masshist_newsnr:
   if opts.chisq_index:
     if slide_events:
       q = opts.chisq_index
-      nhigh = 2.
-
-      st0 = lsctables.New( lsctables.SnglInspiralTable )
-      st1 = lsctables.New( lsctables.SnglInspiralTable )
-      st2 = lsctables.New( lsctables.SnglInspiralTable )
-      st3 = lsctables.New( lsctables.SnglInspiralTable )
-      st4 = lsctables.New( lsctables.SnglInspiralTable )
-      st5 = lsctables.New( lsctables.SnglInspiralTable )
-      st6 = lsctables.New( lsctables.SnglInspiralTable )
-      st7 = lsctables.New( lsctables.SnglInspiralTable )
-      st8 = lsctables.New( lsctables.SnglInspiralTable ) #CAN THIS BE DONE BETTER?
-      st9 = lsctables.New( lsctables.SnglInspiralTable )
-      slideTriggersbymc = [st0,st1,st2,st3,st4,st5,st6,st7,st8,st9]
-      mchirpBoundaries = (0.5, 2, 3.5, 5, 6.5, 8, 9.5, 11, 12.5, 14, 16)
-      for trigger in slideTriggers: 
-        for nbin, bin in enumerate(slideTriggersbymc):
-          if trigger.mchirp > mchirpBoundaries[nbin] and trigger.mchirp <= mchirpBoundaries[nbin+1]:
-            slideTriggersbymc[nbin].append(trigger)
-      slide_rchisq=[[],[],[],[],[],[],[],[],[],[]]
-      slide_rchisq_min1=[[],[],[],[],[],[],[],[],[],[]]
-      slide_newsnr6=[[],[],[],[],[],[],[],[],[],[]]
-      nsli=[[],[],[],[],[],[],[],[],[],[]]
-      binssli=[[],[],[],[],[],[],[],[],[],[]]
-      maxlen = 0
-      maxsnr = 0
-      figure(69)
-      for nbin, bin in enumerate(slideTriggersbymc):
-        slide_rchisq[nbin] = bin.get_column('chisq')/(2*bin.get_column('chisq_dof')-2)
-        slide_rchisq_min1[nbin]=zeros(len(slide_rchisq[nbin]))
-        for i in range(len(slide_rchisq[nbin])):
-          slide_rchisq_min1[nbin][i] = max(1,slide_rchisq[nbin][i])
-        slide_newsnr6[nbin] = bin.get_column('snr')/((1+slide_rchisq_min1[nbin]**3)/2)**(1./6)
-        maxlen = max(len(slide_rchisq[nbin]),maxlen)
-        maxsnr = max(max(slide_newsnr6[nbin]),maxsnr)
-        nsli[nbin],binssli[nbin],stuff = hist(slide_newsnr6[nbin], bins=20,\
-         log=True, normed=False, histtype='step', cumulative=-1)
-      close(69)
+      num_bins = opts.massbins
+      mc_bins = pylal.rate.LinearBins(0.5, 16, num_bins)
+      slides_by_mc = [glue.ligolw.table.new_from_template(slideTriggers) for i in range(num_bins)]
+      for trig in slideTriggers:
+        slides_by_mc[mc_bins[trig.mchirp]].append(trig)
+      newsnr = slideTriggers.get_new_snr(index=q)
       fig_num +=1
       figure(fig_num)
+      mc_indices = array([mc_bins[trig.mchirp] for trig in slideTriggers])
       histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
       labels=['0.5-2', '2-3.5', '3.5-5', '5-6.5', '6.5-8', '8-9.5', '9.5-11', \
        '11-12.5', '12.5-14', '14-15.5']
-      for nbin, bin in enumerate(slideTriggersbymc):
-        semilogy(binssli[nbin][:-1], nsli[nbin]+0.04*nbin, linewidth=2, \
-         color=histcolours[nbin], label=labels[nbin])
-      legend()
-      ylim(0.7,1.5*maxlen)
-      xlim(2.5,1.05*maxsnr)
+      for i in range(num_bins):
+        counts, edges = histogram(newsnr[mc_indices == i], bins=20, new=True)
+        cum_counts = counts[::-1].cumsum()[::-1] 
+        semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
+         color=histcolours[i], label=labels[i])  
+      if num_bins == 10:
+        legend()
+      maxcount = max(len(newsnr[mc_indices == i]) for i in range(num_bins))
+      ylim(0.8,1.5*maxcount)
+      xlim(3,1.05*max(newsnr))
       title(opts.ifo_times + ' background newsnr distribution split by mchirp', size='x-large')
       xlabel('newSNR', size='x-large')
       ylabel('cumulative frequency', size='x-large')
@@ -1002,52 +959,28 @@ if opts.masshist_newsnr:
 if opts.masshist_effsnr:
   if opts.denominator_constant:
     if slide_events:
-      magic = opts.denominator_constant
-
-      st0 = lsctables.New( lsctables.SnglInspiralTable )
-      st1 = lsctables.New( lsctables.SnglInspiralTable )
-      st2 = lsctables.New( lsctables.SnglInspiralTable )
-      st3 = lsctables.New( lsctables.SnglInspiralTable )
-      st4 = lsctables.New( lsctables.SnglInspiralTable )
-      st5 = lsctables.New( lsctables.SnglInspiralTable )
-      st6 = lsctables.New( lsctables.SnglInspiralTable )
-      st7 = lsctables.New( lsctables.SnglInspiralTable )
-      st8 = lsctables.New( lsctables.SnglInspiralTable ) #CAN THIS BE DONE BETTER?
-      st9 = lsctables.New( lsctables.SnglInspiralTable )
-      slideTriggersbymc = [st0,st1,st2,st3,st4,st5,st6,st7,st8,st9]
-      mchirpBoundaries = (0.5, 2, 3.5, 5, 6.5, 8, 9.5, 11, 12.5, 14, 16)
-      for trigger in slideTriggers:
-        for nbin, bin in enumerate(slideTriggersbymc):
-          if trigger.mchirp > mchirpBoundaries[nbin] and trigger.mchirp <= mchirpBoundaries[nbin+1]:
-            slideTriggersbymc[nbin].append(trigger)
-      slide_rchisq=[[],[],[],[],[],[],[],[],[],[]]
-      slide_effsnr=[[],[],[],[],[],[],[],[],[],[]]
-      nsli=[[],[],[],[],[],[],[],[],[],[]]
-      binssli=[[],[],[],[],[],[],[],[],[],[]]
-      maxlen = 0
-      maxsnr = 0
-      figure(69)
-      for nbin, bin in enumerate(slideTriggersbymc):
-        slide_rchisq[nbin] = bin.get_column('chisq')/(2*bin.get_column('chisq_dof')-2)
-        slide_effsnr[nbin] = bin.get_column('snr')/\
-         (slide_rchisq[nbin]*(1+bin.get_column('snr')**2/magic))**0.25
-        maxlen = max(len(slide_rchisq[nbin]),maxlen)
-        maxsnr = max(max(slide_effsnr[nbin]),maxsnr)
-        nsli[nbin],binssli[nbin],stuff = hist(slide_effsnr[nbin], bins=20,\
-         log=True, normed=False, histtype='step', cumulative=-1)
-      close(69)
-      
+      C = opts.denominator_constant
+      num_bins = opts.massbins
+      mc_bins = pylal.rate.LinearBins(0.5, 16, num_bins)
+      slides_by_mc = [glue.ligolw.table.new_from_template(slideTriggers) for i in range(num_bins)]
+      for trig in slideTriggers:
+        slides_by_mc[mc_bins[trig.mchirp]].append(trig)
+      effsnr = slideTriggers.get_effective_snr(fac=C)
       fig_num +=1
       figure(fig_num)
       histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
       labels=['0.5-2', '2-3.5', '3.5-5', '5-6.5', '6.5-8', '8-9.5', '9.5-11', \
        '11-12.5', '12.5-14', '14-15.5']
-      for nbin, bin in enumerate(slideTriggersbymc):
-        semilogy(binssli[nbin][:-1], nsli[nbin]+0.04*nbin, linewidth=2, \
-         color=histcolours[nbin], label=labels[nbin])
-      legend()
-      ylim(0.7,1.5*maxlen)
-      xlim(2.5,1.05*maxsnr)
+      for i in range(num_bins):
+        counts, edges = histogram(effsnr[mc_indices == i], bins=20, new=True)
+        cum_counts = counts[::-1].cumsum()[::-1]
+        semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
+         color=histcolours[i], label=labels[i])
+      if num_bins == 10:
+        legend()
+      maxcount = max(len(newsnr[mc_indices == i]) for i in range(num_bins))
+      ylim(0.8,1.5*maxcount)
+      xlim(3,1.05*max(effsnr))
       title(opts.ifo_times + ' background effsnr distribution split by mchirp', size='x-large')
       xlabel('effSNR', size='x-large')
       ylabel('cumulative frequency', size='x-large')
