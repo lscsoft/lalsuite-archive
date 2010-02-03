@@ -1540,6 +1540,8 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         pass
       print >> sitefile, """\
     <profile namespace="pegasus" key="gridstart">none</profile>
+    <profile namespace="condor" key="should_transfer_files">YES</profile>
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile> 
   </site>
 </sitecatalog>""" 
       sitefile.close()
