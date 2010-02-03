@@ -123,7 +123,7 @@ static PyObject *PyComputeChi(PyObject *self, PyObject *args)
 	}
 
 /* Function to compute the frequency domain SPA waveform */
-static PyObject *PySPAWaveform(PyObject *self, PyObject *args) 
+static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	PyObject *arg9, *py_spa_array;
@@ -288,7 +288,7 @@ static PyObject *PySVD(PyObject *self, PyObject *args, PyObject *keywds)
 	}
 
 /* Function to compute chirp time */
-static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
+static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	double mass1, mass2, fLower, fFinal, time;
@@ -305,12 +305,12 @@ static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 
 /* Structure defining the functions of this module and doc strings etc... */
 static struct PyMethodDef methods[] = {
-	{"waveform", PySPAWaveform, METH_VARARGS, 	
+	{"waveform", PySPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain waveform at a "
 	 "specified mass1, mass2 and PN order.\n\n"
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
 	},
-	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS, 
+	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain IMR waveform at a "
 	 "specified mass1, mass2 by calling \n\n"
 	 "imrwaveform(m1, m2, deltaF, fLower, signalArray)\n\n"
@@ -321,15 +321,15 @@ static struct PyMethodDef methods[] = {
 	 "specified mass1, mass2, z component spin1, z component spin2 by calling \n\n"
 	 "imrwaveform(m1, m2, deltaF, fLower, signalArray, spin1, spin2)\n\n"
 	},
-	{"chirptime", PyChirpTime, METH_VARARGS, 
-	 "This function calculates the SPA chirptime at a specified mass1, mass2 " 
+	{"chirptime", PyChirpTime, METH_VARARGS,
+	 "This function calculates the SPA chirptime at a specified mass1, mass2 "
 	 "and PN order between two frequencies.  If the second frequency is omitted "
 	 "it is assumed to be infinite.\n\n"
 	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
 	},
-	{"ffinal", PyFFinal, METH_VARARGS, 
+	{"ffinal", PyFFinal, METH_VARARGS,
 	 "This function calculates the ending frequency specified by "
-	 "mass1 and mass2.\n\n"  
+	 "mass1 and mass2.\n\n"
 	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
 	},
 	{"imrffinal", PyIMRFFinal, METH_VARARGS,
@@ -343,12 +343,20 @@ static struct PyMethodDef methods[] = {
 	 "computechi(m1, m2, spin1, spin2)\n\n"
 	},
 	{"svd", (PyCFunction) PySVD, METH_KEYWORDS,
-	 "This function calculates the singular value decomposition via the gsl function\n"
-	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
-	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n"
-	 "USAGE:\n\tU, S, V = svd(A)\n\n"
-	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
-	 "is an MxM numpy array (NOTE A IS REPLACED BY U AND IS THUS GONE)\n\n"
+	 "This function calculates the singular value decomposition of a matrix\n"
+	 "via the GSL implementation of the Golub-Reinsch algorithm.  The default\n"
+	 "GSL function used is\n"
+	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n\n"
+	 "USAGE:\n\tU, S, V = svd(A,mod=False,inplace=False)\n\n"
+	 "A is an MxN numpy array, V is an N dimensional numpy array and V is an MxM numpy array.\n"
+	 "The case M<N is not supported by GSL and this wrapping does not add support for this.\n"
+	 "If the mod keyword argument is set to True, then the modified Golub-Reinsch\n"
+	 "algorithm is used (implemented in GSL as gsl_linalg_SV_decomp_mod). This algorithm\n"
+	 "uses slightly more memory but is expected to out-perform the standard Golub-Reinsch\n"
+	 "in the limit M>>N.\n"
+	 "If the inplace keyword argument is set to True, the input array A is overwritten by U,\n"
+	 "instead of the default behavior which is to allocate new space for U and preserve A.\n"
+	 "USE THIS OPTION WITH CARE!\n\n"
 	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
 	 "\timport numpy\n"
 	 "\tA = numpy.random.randn(4,3)\n"
@@ -358,7 +366,7 @@ static struct PyMethodDef methods[] = {
 	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
 	 "\tprint Aprime\n\n"
 	},
-	{NULL, NULL, 0, NULL}	
+	{NULL, NULL, 0, NULL}
 	};
 
 /* The init function for this module */
