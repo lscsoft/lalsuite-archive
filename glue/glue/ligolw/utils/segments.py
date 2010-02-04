@@ -336,20 +336,14 @@ def segmenttable_get_by_name(xmldoc, name):
 	# and index
 	#
 
-	result = segments.segmentlistdict()
+	instruments = set(instrument for instruments in instrument_index.values() for instrument in instruments)
+	result = segments.segmentlistdict((instrument, segments.segmentlist()) for instrument in instruments)
 
 	for row in seg_table:
-		try:
-			instruments = instrument_index[row.segment_def_id]
-		except KeyError:
-			# not a segment we want
-			continue
-		seg = row.get()
-		for instrument in instruments:
-			try:
+		if row.segment_def_id in instrument_index:
+			seg = row.get()
+			for instrument in instrument_index[row.segment_def_id]:
 				result[instrument].append(seg)
-			except KeyError:
-				result[instrument] = segments.segmentlist([seg])
 
 	#
 	# done

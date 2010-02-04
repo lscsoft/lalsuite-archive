@@ -139,6 +139,12 @@ def parse_command_line():
 %prog [options] \n This program is designed to copy or link (via sshfs) the contents remote cache files to a local directory tree.  It produces a local cache file with local paths that can then be used by other programs.  For example, the CBC group uses lalapps_ihope for analysis.  ihope produces a cache file of its output.  If people run ihope over different GPS times on several different computers one could use this tool to concatenate the output.  You can also whittle down the cache with a regex.  For example the followingcommand would retrieve a local cache of two ihope run's injection files on different clusters
 
 lalapps_remote_cache --verbose --cache ldas-pcdev1.ligo.caltech.edu:/archive/home/channa/analysis/s5_highmass_20090517/871147814-875232014/highmass_ihope_871147814-875232014.cache --cache pcdev1.phys.uwm.edu:/home/lucia/s5/highMass/815155213-820555271/highmass_ihope_815155213-820555271.cache --regex="HL-"
+
+WARNING: You really need to make sure that you have ssh configured to stay alive otherwise these mounts will drop out.  I put in my ~/.ssh/config
+
+Host *
+        ServerAliveInterval 60
+
 """,
 		description = ""
 	)
