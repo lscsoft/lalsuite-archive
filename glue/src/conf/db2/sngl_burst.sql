@@ -57,6 +57,9 @@ CREATE TABLE sngl_burst
       snr                REAL,
 -- Confidence variable
       confidence         REAL,
+-- Chi-squared statistic, and number of degrees of freedom
+      chisq              REAL,
+      chisq_dof          REAL,
 -- time-frequency volume of the event, i.e, the number of pixels
       tfvolume           REAL,
 -- strength of the event in calibrated strain root-sum-square (in-band)

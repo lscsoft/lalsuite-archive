@@ -1515,7 +1515,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# if needed
 
 		if not found_instruments.issubset(on_instruments):
-			continue
+			on_instruments = on_instruments | found_instruments 
 		
 		# check if on_instruments matches instruments listed in experiment table
 		# for this coinc

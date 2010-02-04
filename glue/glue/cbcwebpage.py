@@ -27,8 +27,8 @@ from glue.markup import oneliner as e
 from glue import git_version
 
 import subprocess
-import os, sys, time, socket
-import shutil
+import os, sys, time, socket, glob, math
+import shutil,urllib
 
 __author__ = "Chad Hanna <channa@caltech.edu>"
 __version__ = "git id %s" % git_version.id
@@ -80,6 +80,11 @@ function loadFrame(sourceURL) {
 	$("#iframecontent").load(sourceURL,{},afterLoadFrame);
 	/* Remove the last two arguments to disable toggling from the title. */
 	}
+function toggleAllOpen() {
+	var tags = document.getElementsByTagName('div');
+	for (t in tags)
+		tags[t].style.display = "block";
+	}
 	""")
 	fname.close()
 	return filename
@@ -124,6 +129,51 @@ def user_and_date():
         tmstr += " " + ":".join([str(i) for i in time.gmtime()[3:5]])
 	return "%s - %s" % (os.environ['USER'], tmstr)
 
+def image_glob(pat,cols=3,ignore_thumb=True, width=240):
+	image_list = []
+	for image in glob.glob(pat):
+		if 'thumb' in image and ignore_thumb: continue
+		# add the absolute path
+		else: image_list.append(os.path.abspath(image))
+	image_list.sort()
+	plot_list = [_imagelinkcpy(plot,width=width) for plot in image_list]
+	cols = int(cols)
+	return [plot_list[i*cols:i*cols+cols] for i in range(int(math.ceil(len(plot_list) / float(cols))))]
+
+def image_table_from_url_table(table):
+	out = []
+	for col in table:
+		row = [_imagelinkcpy(url) for url in col]
+	 	out.append(row)
+        return out
+
+def image_table_from_cache(inputcache,cols=3,ignore_thumb=True):
+	image_list = []
+	for image in inputcache:
+		image_list.append(image.url)
+	image_list.sort()
+	plot_list = [_imagelinkcpy(plot) for plot in image_list]
+	cols = int(cols)
+	return [plot_list[i*cols:i*cols+cols] for i in range(int(math.ceil(len(plot_list) / float(cols))))]
+
+def wiki_table_parse(file):
+	#FIXME assumes table files of the form
+	# === title ===
+	# ||data||data||
+	# ||data||data||
+
+	tabs = []
+	titles = []
+	tab = []
+	for line in open(file).readlines():
+		if '===' in line:
+			titles.append(line.replace("=",""))
+			if tab: tabs.append(tab)
+			tab = []
+		if '||' in line: tab.append(line.split('||'))
+	tabs.append(tab)
+	return tabs, titles
+	
 ###############################################################################
 ##### CBC WEB PAGE CLASSES ####################################################
 ###############################################################################
@@ -149,12 +199,15 @@ class _imagelinkcpy(markup.page):
 		try: os.mkdir('Images')
 		except: pass
 		#So that you can give it a url
-		imagepath.replace('file://localhost','').strip()
+		#imagepath.replace('file://localhost','').strip()
+		imagepath, headers = urllib.urlretrieve(imagepath)
 		imgname = os.path.split(imagepath.rstrip('/'))[1]
 		shutil.copy(imagepath, 'Images/')
 		if not thumbpath:
+			# FIXME we cannot assume convert is installed everywhere
+			# Is there a python library to do this?
 			thumbname = 'Images/' + "thumb_" + imgname
-			command = 'convert ' + 'Images/' + imgname + ' -resize 300x300 -antialias ' + thumbname
+			command = 'convert Images/%s -resize %dx%d -antialias -sharpen 2x2 %s' % (imgname, width, width, thumbname)
 			popen = subprocess.Popen(command.split())
 			popen.communicate()
 			status = popen.returncode
@@ -210,8 +263,8 @@ class _section(markup.page):
 		self.div(id="div_"+secnum , style='display:none;')
 
 	def add_section(self, tag, title=""):
-		secnum = "%s.%s.%d" % (self.pagenum, self.secnum, len(self.sections.values())+1)
-		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=pagenum, level=self.level+1)
+		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
+		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1)
 		self.section_ids.append([len(self.sections.values()), tag])
 
 	def get_content(self):
@@ -225,7 +278,7 @@ class _section(markup.page):
 	
 	def add_table(self, two_d_data, title="", caption="", tag="table", num=0):
 		self.tables += 1
-		tabnum = "%s.%s.%s %s" %  (self.pagenum, self.secnum, "Table", str(self.tables))
+		tabnum = "%s %s.%s.%s" %  ("Table", self.pagenum, self.secnum, str(self.tables))
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=tabnum)
 		self.content.extend(table.get_content())
 
@@ -240,6 +293,7 @@ class cbcpage(markup.page):
 		if not css: css = copy_ihope_style()
 		scdict = script_dict()
 		if not script: script = scdict[0]
+		self.front = ""
 		scriptfiles = scdict[1]
 		self.verbose = verbose
 		self._style = css
@@ -273,6 +327,7 @@ class cbcpage(markup.page):
 
 		# tuple including number so it can be sorted later
 		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
+		self.subpages[tag].add('<table align=right><tr><td align=right onclick="javascript:toggleAllOpen();"><b>Toggle Open</b></td></tr></table>')
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
 
 	def close_subpage(self,id=None):
@@ -324,6 +379,7 @@ class cbcpage(markup.page):
 			self.add('<h3> ' + user_and_date() + ' </h3>')
 			self.div.close()
 			self.div(id_='iframecontent')
+			if self.front: self.add(self.front)
 			self.add('<p id="placeholder">Please select a report section on the left.</p>')
 			self.div.close()
 			self.div.close()

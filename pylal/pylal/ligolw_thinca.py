@@ -37,6 +37,7 @@ from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.xlal.datatypes import snglinspiraltable
 try:
 	all
 except NameError:
@@ -72,7 +73,7 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 #
 
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
 	def get_end(self):
@@ -137,7 +138,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -151,6 +152,10 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
 	if vetoes_name is not None:
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
+	if trigger_program is not None:
+		params += [(u"--trigger-program", u"lstring", trigger_program)]
+	if effective_snr is not None:
+		params += [(u"--effective-snr", u"lstring", effective_snr)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -202,7 +207,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
 		#
-		# extract the coalesced out segment lists from lalapps_inspiral
+		# extract the coalesced out segment lists from the trigger generator
 		#
 
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
@@ -404,6 +409,7 @@ def ligolw_thinca(
 	ntuple_comparefunc = lambda events: False,
 	effective_snr_factor = 250.0,
 	veto_segments = None,
+	trigger_program = u"inspiral",
 	verbose = False
 ):
 	#
@@ -412,7 +418,7 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
+	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments, program = trigger_program)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 

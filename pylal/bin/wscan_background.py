@@ -32,7 +32,7 @@ class create_default_config(object):
     cp.add_section("fu-condor")
     cp.set("fu-condor","datafind",self.which("ligo_data_find"))
     cp.set("fu-condor","convertcache",self.which("convertlalcache.pl"))
-    cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
+    #cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
     cp.set("fu-condor","setuplogfile",self.which("wscan_bg_setup_log.py"))
 
     cp.add_section("datafind")
@@ -60,12 +60,12 @@ class create_default_config(object):
     # fu-bg-rds-qscan SECTION
     cp.add_section("fu-bg-rds-qscan")
     for config in ["H1config","H2config","L1config","V1config"]:
-      cp.set("fu-bg-rds-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt"))
+      cp.set("fu-bg-rds-qscan",config,self.__qscan_config("s5_background_" + self.__config_name(config[:2],'rds') + ".txt"))
 
     # fu-bg-seismic-qscan SECTION
     cp.add_section("fu-bg-seismic-qscan")
     for config in ["H1config","H2config","L1config","V1config"]:
-      cp.set("fu-bg-seismic-qscan",config,self.__qscan_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt"))
+      cp.set("fu-bg-seismic-qscan",config,self.__qscan_config("s5_background_" + self.__config_name(config[:2],'seismic') + ".txt"))
 
     # OUTPUT SECTION
     cp.add_section("fu-output")
@@ -88,6 +88,17 @@ class create_default_config(object):
     cp.set("condor-max-jobs","wpipeline_BG_SEIS_RDS_","150")
 
     self.cp = cp
+    self.set_qscan_executable()
+
+  def set_qscan_executable(self):
+    host = self.__get_hostname()
+    if 'phy.syr.edu' in host:
+      self.cp.set("fu-condor","qscan",self.__home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
+    else:
+      self.cp.set("fu-condor","qscan",self.__home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
+
+  def __home_dirs(self):
+    return os.path.split(os.environ['HOME'])[0]
 
   def __qscan_config(self,config):
     #FIXME why isn't there an environment variable for things in lalapps share?
@@ -192,7 +203,8 @@ parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
 
 parser.add_option("-i","--ifos",action="store",type="string",\
-    default="H1L1V1",help="list of requested ifos")
+    default="H1L1V1",help="list of requested ifos, expected format is of " \
+    "the kind \"H1H2L1\" ")
 
 parser.add_option("", "--disable-dag-categories",action="store_true",\
     default=False,help="disable the internal dag category maxjobs")

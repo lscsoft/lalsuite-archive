@@ -26,11 +26,6 @@
 
 import itertools
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
 
 
 from glue import iterutils
@@ -148,9 +143,9 @@ def load_time_slides(filename, verbose = False, gz = False):
 	Load a time_slide table from the LIGO Light Weight XML file named
 	filename, or stdin if filename is None.  Extra verbosity is printed
 	if verbose is True, and the file is gzip decompressed while reading
-	if gz is Tue.  The output is returned as a dictionary, mapping each
-	time slide ID to a dictionary providing a mapping of instrument to
-	offset for that time slide.
+	if gz is True.  The return value is a dictionary mapping each time
+	slide ID to a dictionary of instrument/offset pairs for that time
+	slide.
 
 	Note that a side effect of this function is that the ID generator
 	associated with the TimeSlideTable class in glue.ligolw.lsctables
@@ -158,10 +153,9 @@ def load_time_slides(filename, verbose = False, gz = False):
 	will be immediately following the IDs listed in the dictionary
 	returned by this function.
 	"""
-	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), lsctables.TimeSlideTable.tableName)
-	time_slides = time_slide_table.as_dict()
+	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz")), lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
-	return time_slides
+	return time_slide_table.as_dict()
 
 
 #
@@ -215,11 +209,11 @@ def SlidesIter(slides):
 def Inspiral_Num_Slides_Iter(count, offsets):
 	"""
 	This generator yields a sequence of time slide dictionaries in the
-	style of the inspiral pipeline's time slides.  Each resulting
-	dictionary maps instrument to offset.  The input is a count of time
-	slides (an integer), and a dictionary mapping instrument to offset.
-	The output dictionaries describe time slides that are integer
-	multiples of the input time shifts.
+	style of lalapps_thinca's time slides.  Each resulting dictionary
+	maps instrument to offset.  The input is a count of time slides (an
+	integer), and a dictionary mapping instrument to offset.  The
+	output dictionaries describe time slides that are integer multiples
+	of the input time shifts.
 
 	Example:
 
@@ -314,8 +308,9 @@ def time_slides_vacuum(time_slides, verbose = False):
 	"""
 	Given a dictionary mapping time slide IDs to instrument-->offset
 	mappings, for example as returned by the as_dict() method of the
-	TimeSlideTable class in glue.ligolw.lsctables, construct and return
-	a mapping indicating time slide equivalences.  This can be used to
+	TimeSlideTable class in glue.ligolw.lsctables or by the
+	load_time_slides() function in this module, construct and return a
+	mapping indicating time slide equivalences.  This can be used to
 	delete redundant time slides from a time slide table, and then also
 	used via the applyKeyMapping() method of glue.ligolw.table.Table
 	instances to update cross references (for example in the
@@ -394,7 +389,7 @@ def time_slide_component_vectors(offset_vectors, n):
 	"""
 	Given an iterable of time slide vectors, return the shortest list
 	of the unique n-instrument time slide vectors from which all the
-	vectors in the input list can be consructed.  This can be used to
+	vectors in the input list can be constructed.  This can be used to
 	determine the minimal set of n-instrument coincs required to
 	construct all of the coincs for all of the requested instrument and
 	offset combinations in the time slide list.

@@ -164,14 +164,17 @@ class parse_param_ranges:
         if verbose:
             print >> sys.stderr, "Parsing param-ranges..."
         
-        # check that table_name and table_param have no spaces in them
-        if len( table_name.split(' ') ) > 1:
-            raise ValueError, "table_name cannot have spaces in it."
-        if len ( table_param.split(' ') ) > 1:
-            raise ValueError, "table_param cannot have spaces in it."
+        # check that table_name and table_param have no illegal characters in them
+        table_name = validate_option( table_name )
+        if re.search(r'\n|\t|DROP|DELETE', table_param) is not None:
+            raise ValueError, r'param-name cannot have "\n","\t", "DROP", or "DELETE" in it'
+        table_param = table_param.strip()
 
-        # make param unique by appending table_name to the param_name
-        self.param = '.'.join([ table_name, table_param ])
+        # append table_name if it isn't already in the table_param name
+        if re.search( table_name+r'[.]', table_param ) is None:
+            table_param = '.'.join([ table_name, table_param ])
+
+        self.param = table_param
 
         ranges = param_ranges_opt.split(';')
 
@@ -840,7 +843,7 @@ def clean_metadata(connection, key_tables, verbose = False):
         filter is a filter to apply to the table when selecting process_ids
     """
     if verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
+        print >> sys.stderr, "Removing unneeded metadata..."
     
     #
     # create a temp. table of process_ids to keep
@@ -890,7 +893,7 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     @end_time_col_name: name of the end_time column in the key_table
     """
     if verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
+        print >> sys.stderr, "Removing unneeded metadata..."
     
     key_column = '.'.join([key_table, key_column])
     connection.create_function('end_time_in_ns', 2, end_time_in_ns ) 
@@ -1005,7 +1008,7 @@ def clean_experiment_tables(connection, verbose = False):
     @connection: connection to a sqlite database
     """
     if verbose:
-        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+        print >> sys.stderr, "Removing experiments that no longer have events in them..."
 
     sqlscript = """
         DELETE FROM
@@ -1097,10 +1100,10 @@ class sim_tag_proc_id_mapper:
             self.tag_id_map[sim_tag] = proc_id
 
     def get_sim_tag( self, proc_id ):
-        return self.id_tag_map[proc_id]
+        return proc_id in self.id_tag_map and self.id_tag_map[proc_id] or None
 
     def get_proc_id( self, sim_tag ):
-        return self.tag_id_map[sim_tag]
+        return sim_tag in self.tag_id_map and self.tag_id_map[sim_tag] or None
 
             
 # =============================================================================
