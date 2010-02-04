@@ -15,6 +15,8 @@ from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
 from pylal.xlal import tools, inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
+from pylal import galaxyutils
+
 import glue.iterutils
 from glue.ligolw import utils, table as tab, lsctables
 
@@ -132,29 +134,42 @@ def get_delta_D_rms(latitude,longitude,coinc):
 
   return sqrt(delta_D_rms)
 
-def gridsky(resolution):
+def gridsky(resolution,shifted=False):
   """
   grid the sky up into roughly square regions
   resolution is the length of a side 
   the points get placed at the center of the squares and to 
   first order each square has an area of resolution^2
+  if shifted is true, the grids are reported with latitudes
+  in (0,pi).  otherwise (default) they lie in (-pi/2,pi/2)
   """
   latitude = 0.0
-  longitude = pi
+  longitude = 0.0
   ds = pi*resolution/180.0
-  points = [(latitude-0.5*pi, longitude)]
+  points = []
+  if shifted:
+    dlat = 0.0
+  else:
+    dlat = 0.5*pi
   while latitude <= pi:
     latitude += ds
     longitude = 0.0
-    points.append((latitude-0.5*pi, longitude))
+    points.append((latitude-dlat, longitude))
     while longitude <= 2.0*pi:
       longitude += ds / abs(sin(latitude))
-      points.append((latitude-0.5*pi, longitude))
+      points.append((latitude-dlat, longitude))
+  #add a point at the pole
+  points.append((0.0-dlat,0.0))
   #there's some slop so get rid of it and only focus on points on the sphere
   sphpts = []
+  if shifted:
+    latmin = 0.0
+    latmax = pi
+  else:
+    latmin = -pi/2
+    latmax = pi/2
   for pt in points:
-    if pt[0] > pi/2 or pt[0] < -pi/2 \
-       or pt[1] > 2*pi or pt[1] < 0:
+    if pt[0] > latmax or pt[0] < latmin or pt[1] > 2*pi or pt[1] < 0.0:
       pass
     else:
       sphpts.append(pt)
@@ -162,25 +177,44 @@ def gridsky(resolution):
 
 def map_grids(coarsegrid,finegrid,coarseres=4.0):
   """
-  takes the two grids (lists of lat/lon tuples) and returns a dictionary
+  takes the two grids (lists of lat/lon tuples) and returns (1) a dictionary
   where the points in the coarse grid are the keys and lists of tuples of
-  points in the fine grid are the values
+  points in the fine grid are the values and (2) (for debugging purposes) returns
+  a list of points in the fine grid that didn't make it 
+  NB:
+     *** should work alright if the resolution isn't too coarse (because it uses
+         the infinitesimal form of the metric); 5 is at the upper end of ok
+     *** there is a fudge factor (epsilon) in the distance computation to help account 
+         for not using the integrated distance and to help with floating point
+         comparisons
   """
   fgtemp = finegrid[:]
   coarsedict = {}
   ds = coarseres*pi/180.0
+  epsilon = ds/10.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
-         <=  ds*ds/4.0:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0])-ds*ds/4.0 <= epsilon and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0])-ds*ds/4.0 <= epsilon:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
       fgtemp.remove(rpt)
-
+  first_col = [pt for pt in coarsegrid if pt[1] == 0.0]
+  for cpt in first_col:
+    flist = []
+    for fpt in fgtemp:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0])-ds*ds/4.0 <= epsilon and \
+         (2*pi-fpt[1])*(2*pi-fpt[1])*sin(cpt[0])*sin(cpt[0])-ds*ds/4.0 <= epsilon:
+        coarsedict[cpt].append(fpt)
+        flist.append(fpt)
+    for rpt in flist:
+      fgtemp.remove(rpt)
   return coarsedict, fgtemp
+
+
+
 
 ##############################################################################
 #
@@ -547,8 +581,5 @@ def populate_GalaxyTable(galaxytable,coinc,galaxy):
   row.metal_correction = galaxy.metal_correction
 
   galaxytable.append(row)
-
-
-
 
 
