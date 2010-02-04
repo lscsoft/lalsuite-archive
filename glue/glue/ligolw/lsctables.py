@@ -54,7 +54,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import types as ligolwtypes
 from glue.ligolw import ilwd
-import numpy
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -1207,6 +1206,7 @@ class SnglInspiralTable(table.Table):
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
 	def get_new_snr(self, index=6.0):
+		import numpy
 		# the kwarg 'index' is to be assigned to the parameter chisq_index
 		# the parameter nhigh gives the asymptotic behaviour of 
 		# d (ln chisq) / d (ln rho) at large rho for fixed new_snr: 
