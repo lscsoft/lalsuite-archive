@@ -1359,12 +1359,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
           xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
 
-          dax_usertag = node.get_user_tag()
-          if dax_usertag:
-            pegasus_exec_subdir = os.path.join(dax_subdir,dax_usertag)
-          else:
-            pegasus_exec_subdir = dax_subdir
-          xml += """--dir %s """ % pegasus_exec_subdir
+          xml += """--dir %s """ % dax_subdir
 
           # FIXME pegasus should really do this for us
           caches = recurse_pfn_cache(node)
