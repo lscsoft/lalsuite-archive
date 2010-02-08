@@ -15,8 +15,6 @@ from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
 from pylal.xlal import tools, inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-from pylal import galaxyutils
-
 import glue.iterutils
 from glue.ligolw import utils, table as tab, lsctables
 
@@ -146,7 +144,6 @@ def gridsky(resolution,shifted=False):
   latitude = 0.0
   longitude = 0.0
   ds = pi*resolution/180.0
-  points = []
   if shifted:
     dlat = 0.0
   else:
@@ -158,7 +155,7 @@ def gridsky(resolution,shifted=False):
     while longitude <= 2.0*pi:
       longitude += ds / abs(sin(latitude))
       points.append((latitude-dlat, longitude))
-  #add a point at the pole
+  #add a point at the south pole
   points.append((0.0-dlat,0.0))
   #there's some slop so get rid of it and only focus on points on the sphere
   sphpts = []
@@ -177,44 +174,25 @@ def gridsky(resolution,shifted=False):
 
 def map_grids(coarsegrid,finegrid,coarseres=4.0):
   """
-  takes the two grids (lists of lat/lon tuples) and returns (1) a dictionary
+  takes the two grids (lists of lat/lon tuples) and returns a dictionary
   where the points in the coarse grid are the keys and lists of tuples of
-  points in the fine grid are the values and (2) (for debugging purposes) returns
-  a list of points in the fine grid that didn't make it 
-  NB:
-     *** should work alright if the resolution isn't too coarse (because it uses
-         the infinitesimal form of the metric); 5 is at the upper end of ok
-     *** there is a fudge factor (epsilon) in the distance computation to help account 
-         for not using the integrated distance and to help with floating point
-         comparisons
+  points in the fine grid are the values
   """
   fgtemp = finegrid[:]
   coarsedict = {}
+  
   ds = coarseres*pi/180.0
-  epsilon = ds/10.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0])-ds*ds/4.0 <= epsilon and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0])-ds*ds/4.0 <= epsilon:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) <=  ds*ds/4.0:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
       fgtemp.remove(rpt)
-  first_col = [pt for pt in coarsegrid if pt[1] == 0.0]
-  for cpt in first_col:
-    flist = []
-    for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0])-ds*ds/4.0 <= epsilon and \
-         (2*pi-fpt[1])*(2*pi-fpt[1])*sin(cpt[0])*sin(cpt[0])-ds*ds/4.0 <= epsilon:
-        coarsedict[cpt].append(fpt)
-        flist.append(fpt)
-    for rpt in flist:
-      fgtemp.remove(rpt)
+
   return coarsedict, fgtemp
-
-
-
 
 ##############################################################################
 #
@@ -230,7 +208,7 @@ class SkyPoints(list):
     * a method for sorting those lists
     * a method for writing itself to disk
   """
-  def _cmpL(self,x,y):
+  def _cmpdt(self,x,y):
     """
     a comparison function that sorts lists of (latitude, longitude, L)
     according to L values
@@ -242,21 +220,41 @@ class SkyPoints(list):
     else:
       return -1
 
-  def sort(self):
+  def _cmpdD(self,x,y):
+    """
+    a comparison function that sorts lists of (latitude, longitude, L)
+    according to L values
+    """
+    if x[3] > y[3]:
+      return 1
+    if x[3] == y[3]:
+      return 0
+    else:
+      return -1
+
+  def sort_dt(self):
     """
     replaces the list.sort() method with one that sorts lists of 
     (latitude,longitude,L) according to L
     """
-    super(grid,self).sort(self._cmpL)
+    super(SkyPoints,self).sort(self._cmpdt)
+
+  def sort_dD(self):
+    """
+    replaces the list.sort() method with one that sorts lists of 
+    (latitude,longitude,L) according to L
+    """
+    super(SkyPoints,self).sort(self._cmpdD)
 
   def write(self,fname,gzip=True):
     """
     write the grid to a text file
     """ 
-    grid = '#  ra' + '\t' + 'dec' + '\t' + 'L' + '\n'
-    self.sort()
+    grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt_rss' + '\t' + 'dD_rss' + '\n'
+    self.sort_dD()
+    self.sort_dt()
     for pt in self:
-      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\n'
+      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
     if gzip:
       f = gzip.open(fname, 'w')
     else:
@@ -581,5 +579,8 @@ def populate_GalaxyTable(galaxytable,coinc,galaxy):
   row.metal_correction = galaxy.metal_correction
 
   galaxytable.append(row)
+
+
+
 
 
