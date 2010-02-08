@@ -755,7 +755,7 @@ if opts.snr_snr or opts.slide_snr:
               legend_text.append('H1H2' + ifo + '(also in ' + add_ifo + ')')
 
 
-      if not opts.slide_snr:
+      if not opts.slide_snr and len(legend_text)>0:
         legend(legend_text,2)
       xlabel(snglStat.replace("_"," ") + ' Hanford', size='x-large')
       ylabel(snglStat.replace("_"," ") + ' '+ ifo, size='x-large')

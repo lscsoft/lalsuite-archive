@@ -132,29 +132,41 @@ def get_delta_D_rms(latitude,longitude,coinc):
 
   return sqrt(delta_D_rms)
 
-def gridsky(resolution):
+def gridsky(resolution,shifted=False):
   """
   grid the sky up into roughly square regions
   resolution is the length of a side 
   the points get placed at the center of the squares and to 
   first order each square has an area of resolution^2
+  if shifted is true, the grids are reported with latitudes
+  in (0,pi).  otherwise (default) they lie in (-pi/2,pi/2)
   """
   latitude = 0.0
-  longitude = pi
+  longitude = 0.0
   ds = pi*resolution/180.0
-  points = [(latitude-0.5*pi, longitude)]
+  if shifted:
+    dlat = 0.0
+  else:
+    dlat = 0.5*pi
   while latitude <= pi:
     latitude += ds
     longitude = 0.0
-    points.append((latitude-0.5*pi, longitude))
+    points.append((latitude-dlat, longitude))
     while longitude <= 2.0*pi:
       longitude += ds / abs(sin(latitude))
-      points.append((latitude-0.5*pi, longitude))
+      points.append((latitude-dlat, longitude))
+  #add a point at the south pole
+  points.append((0.0-dlat,0.0))
   #there's some slop so get rid of it and only focus on points on the sphere
   sphpts = []
+  if shifted:
+    latmin = 0.0
+    latmax = pi
+  else:
+    latmin = -pi/2
+    latmax = pi/2
   for pt in points:
-    if pt[0] > pi/2 or pt[0] < -pi/2 \
-       or pt[1] > 2*pi or pt[1] < 0:
+    if pt[0] > latmax or pt[0] < latmin or pt[1] > 2*pi or pt[1] < 0.0:
       pass
     else:
       sphpts.append(pt)
@@ -168,13 +180,13 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   """
   fgtemp = finegrid[:]
   coarsedict = {}
+  
   ds = coarseres*pi/180.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
       if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
-         <=  ds*ds/4.0:
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) <=  ds*ds/4.0:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
@@ -196,7 +208,7 @@ class SkyPoints(list):
     * a method for sorting those lists
     * a method for writing itself to disk
   """
-  def _cmpL(self,x,y):
+  def _cmpdt(self,x,y):
     """
     a comparison function that sorts lists of (latitude, longitude, L)
     according to L values
@@ -208,21 +220,41 @@ class SkyPoints(list):
     else:
       return -1
 
-  def sort(self):
+  def _cmpdD(self,x,y):
+    """
+    a comparison function that sorts lists of (latitude, longitude, L)
+    according to L values
+    """
+    if x[3] > y[3]:
+      return 1
+    if x[3] == y[3]:
+      return 0
+    else:
+      return -1
+
+  def sort_dt(self):
     """
     replaces the list.sort() method with one that sorts lists of 
     (latitude,longitude,L) according to L
     """
-    super(grid,self).sort(self._cmpL)
+    super(SkyPoints,self).sort(self._cmpdt)
+
+  def sort_dD(self):
+    """
+    replaces the list.sort() method with one that sorts lists of 
+    (latitude,longitude,L) according to L
+    """
+    super(SkyPoints,self).sort(self._cmpdD)
 
   def write(self,fname,gzip=True):
     """
     write the grid to a text file
     """ 
-    grid = '#  ra' + '\t' + 'dec' + '\t' + 'L' + '\n'
-    self.sort()
+    grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt_rss' + '\t' + 'dD_rss' + '\n'
+    self.sort_dD()
+    self.sort_dt()
     for pt in self:
-      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\n'
+      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
     if gzip:
       f = gzip.open(fname, 'w')
     else:
