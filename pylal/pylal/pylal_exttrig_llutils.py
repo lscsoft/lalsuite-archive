@@ -32,30 +32,16 @@ from pylal import git_version
 cp = None
 
 template_trigger_hipe = "./lalapps_trigger_hipe"\
-  " --h1-segments H1-science_grb%s.txt" \
-  " --l1-segments L1-science_grb%s.txt" \
-  " --v1-segments V1-science_grb%s.txt" \
-  " --list %s" \
-  " --grb %s --onsource-left 5" \
-  " --onsource-right 1 --config-file %s" \
-  " --injection-config injectionsWI.ini --log-path %s" \
-  " --number-buffer-left 8 --number-buffer-right 8" \
-  " --num-trials 340 --padding-time 72 --verbose" \
-  " --skip-datafind --skip-dataquality --user-tag onoff"
+  " --number-buffer-left 8 --number-buffer-right 8"\
+  " --verbose --skip-datafind --skip-dataquality "\
+  " --injection-config injectionsWI.ini" \
+  " --user-tag onoff"
 
 template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
-  " --h1-segments H1-science_grb%s.txt" \
-  " --l1-segments L1-science_grb%s.txt" \
-  " --v1-segments V1-science_grb%s.txt" \
-  " --list %s" \
-  " --grb %s --onsource-left 5" \
-  " --onsource-right 1 --config-file %s" \
-  " --injection-config %s --log-path %s" \
   " --number-buffer-left 8 --number-buffer-right 8" \
-  " --num-trials 340 --padding-time 72 --verbose" \
-  " --skip-datafind --skip-dataquality --skip-onsource --skip-offsource"\
-  " --user-tag inj --overwrite-dir"
-
+  " --verbose --skip-datafind --skip-dataquality "\
+  " --user-tag inj --skip-onsource --skip-offsource"\
+  " --overwrite-dir"
 
 ifo_list = ['H1','L1','V1']
 
@@ -1120,7 +1106,25 @@ class GRB(object):
     pc.write(cp_file)
     cp_file.close()
 
-
+  # -----------------------------------------------------
+  def get_hipe_arguments(self):
+    """
+    Returns the common part for the call to lalapps_trigger_hipe
+    """
+     
+    cmd  = " --h1-segments H1-science_grb%s.txt" % self.name
+    cmd += " --l1-segments L1-science_grb%s.txt" % self.name
+    cmd += " --v1-segments V1-science_grb%s.txt" % self.name
+    cmd += " --list "+self.trigger_file
+    cmd += " --grb "+self.name
+    cmd += " --onsource-left "+cp.get('data','onsource_left')
+    cmd += " --onsource-right "+cp.get('data','onsource_right')
+    cmd += " --config-file "+self.inifile
+    cmd += " --log-path "+self.condor_log_path
+    cmd += " --num-trials "+cp.get('data','num_trials')
+    cmd += " --padding-time "+cp.get('data','padding_time')
+    return cmd
+ 
   # -----------------------------------------------------
   def prepare_inspiral_analysis(self):
     """
@@ -1181,8 +1185,8 @@ class GRB(object):
     # make the call to trigger_hipe; create the DAG
     #
     cmd = 'cd %s;' % self.analysis_dir
-    cmd += template_trigger_hipe % \
-           (self.name, self.name, self.name, self.trigger_file, self.name, self.inifile, self.condor_log_path)
+    cmd += template_trigger_hipe 
+    cmd += self.get_hipe_arguments()
     system_call(self.name, cmd)
 
     # Need to rename the cache-file
@@ -1210,8 +1214,9 @@ class GRB(object):
     # call to create the injection DAG
     #
     cmd = 'cd %s;' % self.analysis_dir
-    cmd += template_trigger_hipe_inj % \
-           (self.name, self.name, self.name, self.trigger_file, self.name, self.inifile, self.injfile, self.condor_log_path)
+    cmd += template_trigger_hipe_inj
+    cmd += self.get_hipe_arguments()
+    cmd += "  --injection-config "+self.injfile
     system_call(self.name, cmd)
 
     # Need to unify the two cache files
