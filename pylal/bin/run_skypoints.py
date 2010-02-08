@@ -1,5 +1,16 @@
 #!/usr/bin/python
 
+import git_version
+
+__author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brady@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+import glob
+from optparse import *
+from pylal import skylocutils
+
+
 ##############################################################################
 #
 #          options
@@ -23,35 +34,61 @@ def parse_command_line():
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
-  parser.add_option("-c","--coarse-resolution",action="store",type="float",\
-      default=4.0, metavar=" COARSE_RESOLUTION",help="number of sky points to throw in round one" )
-  parser.add_option("-i","--fine-resolution",action="store",type="float",\
-      default=0.5, metavar=" FINE_RESOLUTION",help="number of sky points to throw in round two" )
   parser.add_option("-d","--plotpoints",action="store_true",\
       default=False, help="make a color coded plot of the sky" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
-  parser.add_option("-D","--Deffcut",action="store_true",\
-      default=True,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
   parser.add_option("-f","--reference-frequency",action="store",type="float", default=0.0, metavar=" REFERENCE_FREQUENCY", \
     help="reference frequency for signal timing" )
-  parser.add_option("--output-path", help="root of the HTML output")
-  parser.add_option("-n","--narrow-threshold",action="store",type="float",\
-      default=4, metavar=" L_NARROW_THRESH",help="threshold on L for 68% area" )
-  parser.add_option("-w","--wide-threshold",action="store",type="float",\
-      default=15, metavar=" L_WIDE_THRESH",help="threshold on L for 95% area" )
+  parser.add_option("-n","--dt90",action="store",type="float",\
+      default=4, metavar=" DT90",help="90% timing threshold" )
+  parser.add_option("-w","--dt60",action="store",type="float",\
+      default=15, metavar=" DT60",help="60% timing threshold" )
+  parser.add_option("-N","--snr-dt90",action="store",type="float",\
+      default=None, metavar=" SNRDT90",help="90% snr-dependent timing threshold" )
+  parser.add_option("-W","--snr-dt60",action="store",type="float",\
+      default=None, metavar=" SNRDT60",help="60% snr-dependent timing threshold" )
+  parser.add_option("-D","--dD90",action="store",type="float",\
+      default=None, metavar=" DD90",help="90% effective distance threshold" )
+  parser.add_option("-E","--dD60",action="store",type="float",\
+      default=None, metavar=" DD60",help="60% effective distance threshold" )
   parser.add_option("-o","--output",action="store",type="string",default=None,\
                     help="name of the xml file to store output in")
-  parser.add_option("-z","--input_type",action="store",default="coinctable",\
+  parser.add_option("-z","--input-type",action="store",default="coinctable",\
                     help="specify the type of input in the glob.  valid options are coinctable (DEFAULT) and coire")
   parser.add_option("-y","--timing-only",action="store_true",default=False,\
                     help="only use timing information for sky localization")
-  parser.add_option("-H", "--snr-threshold", action="store_true",default=True,\
-                    help="use SNR dependent threshold")
   (options,args) = parser.parse_args()
 
   return options, sys.argv[1:]
 
+
+
+##############################################################################
+#
+#          i/o setup
+#
+##############################################################################
+
+opts, args = parse_command_line()
+
+thresholds_60 = (opts.dt60,opts.snr_dt60,opts.dD60)
+thresholds_90 = (opts.dt90,opts.snr_dt90,opts.dD90)
+
+
+files = []
+for gl in opts.glob.split(" "):
+  files.extend(glob.glob(gl))
+if len(files) < 1:
+  print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+  sys.exit(1)
+
+coincs = Coincidences(files,opts.input_type)
+
+if opts.reference_frequency:
+  ref_freq = opts.reference_frequency
+else:
+  ref_freq = None
 
 ##############################################################################
 #
@@ -62,16 +99,72 @@ def parse_command_line():
 
 ##############################################################################
 #
-#          i/o setup
-#
-##############################################################################
-
-
-##############################################################################
-#
 #          main program
 #
 ##############################################################################
+
+#open up the pickled grids
+
+#the area of each pixel on the fine grid in square degrees
+pixel_area = 0.25
+
+for coinc in coincs:
+  sp = SkyPoints()
+
+  #for gathering information about area on the sky
+  dt90_area = 0.0
+  dt60_area = 0.0
+  dt90dD90_area = 0.0
+  dt60dD90_area = 0.0
+
+  #compute combined snr if snr dependent thresholds are specified
+  if thresholds_90[1] and thresholds_60[1]:
+    rhosquared = 0.0
+    for ifo in coinc.ifo_list:
+      rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
+    snr = sqrt(rhosquared)
+  else:
+    snr = None
+
+  #main loop over the coarse grid
+  for coarse_pt in grid.keys():
+    #use timing alone to determine if we should move to the fine grid
+    dtrss_coarse = skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
+    if dtrss_coarse <= 1.1*thresholds_90[0]:
+      #loop over points on the fine grid
+      for fine_pt in grid[coarse_pt]:
+        dtrss_fine = skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
+        dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
+        sp.append(fine_pt[0],fine_point[1],dtrss_fine,dDrss_fine)
+        #now compute relevant sky areas
+        if snr:
+          if dtrss_fine*snr/10.0 <= thresholds_60[1]:
+            dt60_area += pixel_area
+            dt90_area += pixel_area
+            if dDrss_fine <= thresholds_60[2]:
+              dt60dD60_area += pixel_area
+              dt90dD90_area += pixel_area
+          elif dtrss_fine*snr/10.0 <= thresholds_90[1]:
+            dt90_area += pixel_area
+            if dDrss_fine <= thresholds_90[2]:
+              dt90dD90_area += pixel_area
+        else:
+          if dtrss_fine <= thresholds_60[0]:
+            dt60_area += pixel_area
+            dt90_area += pixel_area
+            if dDrss_fine <= thresholds_60[2]:
+              dt60dD60_area += pixel_area
+              dt90dD90_area += pixel_area
+          elif dtrss_fine <= thresholds_90[0]:
+            dt90_area += pixel_area
+            if dDrss_fine <= thresholds_90[2]:
+              dt90dD90_area += pixel_area
+
+
+        #FIXME: insert galaxy catalog stuff here!!!
+                  
+    else:
+      sp.append(coarse_pt[0],coarse_pt[1],dtrss_coarse,None)
 
 
 
