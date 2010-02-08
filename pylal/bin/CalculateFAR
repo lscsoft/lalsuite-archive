@@ -329,8 +329,12 @@ for septime_file in septime_files:
 	if line_index ==1 :
           if (float(line[1])>21600) or (("H1" in septimeifotime) and ("L1" in septimeifotime)):
 	    total_zerolag_time += float(line[1])
+            keepThisIfoTime = True
+          else:
+            keepThisIfoTime = False
 	else:
-	  slide_time += float(line[1])
+          if keepThisIfoTime:
+	    slide_time += float(line[1])
 
   #close file
   timefile.close()
