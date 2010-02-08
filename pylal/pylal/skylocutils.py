@@ -179,16 +179,28 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   points in the fine grid are the values
   """
   fgtemp = finegrid[:]
-  coarsedict = {}
-  
+  coarsedict = {} 
   ds = coarseres*pi/180.0
+  epsilon = ds/10.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) <=  ds*ds/4.0:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
+         - ds*ds/4.0 <= epsilon:
         flist.append(fpt)
     coarsedict[cpt] = flist
+    for rpt in flist:
+      fgtemp.remove(rpt)
+  first_column = [pt for pt in coarsegrid if pt[1] ==0.0]
+  for cpt in first_column:
+    flist = []
+    for fpt in fgtemp:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
+         (2*pi-fpt[1])*(2*pi-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
+         - ds*ds/4.0 <= epsilon:
+        flist.append(fpt)
+    coarsedict[cpt].extend(flist)
     for rpt in flist:
       fgtemp.remove(rpt)
 
