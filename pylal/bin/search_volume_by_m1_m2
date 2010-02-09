@@ -60,7 +60,7 @@ class upper_limit(object):
     self.multi_burst_table = None
     self.coinc_inspiral_table = None
 
-    for f in flist: 
+    for f in flist:
       if opts.verbose: print >> sys.stderr, "Gathering stats from: %s...." % (f,)
       working_filename = dbtables.get_connection_filename(f, tmp_path=opts.tmp_space, verbose = opts.verbose)
       connection = sqlite3.connect(working_filename)
@@ -85,10 +85,9 @@ class upper_limit(object):
         self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
       except ValueError:
         self.coinc_inspiral_table = None
-      if self.multi_burst_table and self.coinc_inspiral_table: 
+      if self.multi_burst_table and self.coinc_inspiral_table:
         print >>sys.stderr, "both burst and inspiral tables found.  Aborting"
         raise ValueError
-        
 
       if not sim:
         if self.coinc_inspiral_table:
@@ -102,15 +101,14 @@ class upper_limit(object):
           #FIXME BURST CASE OF VETOS NOT HANDLED
           self.instruments = self.get_instruments(connection)
           #FIXME CWB case of rings not handled
-          self.segments += llwapp.segmentlistdict_fromsearchsummary(xmldoc, opts.live_time_program).coalesce()       
+          self.segments += llwapp.segmentlistdict_fromsearchsummary(xmldoc, opts.live_time_program).coalesce()
           self.get_far_thresholds(connection)
-      else: 
+      else:
         self.get_mass_ranges(connection)
-      
 
       #connection.close()
       dbtables.discard_connection_filename(f, working_filename, verbose = opts.verbose)
-      dbtables.DBTable_set_connection(None)      
+      dbtables.DBTable_set_connection(None)
 
     # remove redundant instruments
     self.instruments = list(set(self.instruments))
@@ -123,7 +121,7 @@ class upper_limit(object):
       else: self.far[i] = float(opts.far)
       # FIXME this bombs if any of the FARS are zero. maybe it should continue
       # and just remove that instrument combo from the calculation
-      if self.far[i] == 0: 
+      if self.far[i] == 0:
         print >> sys.stderr, "Encountered 0 FAR in %s, ABORTING" % (i,)
         sys.exit(1)
       self.zero_lag_segments[i] = self.segments.intersection(i) - self.segments.union(set(self.segments.keys()) - i)
@@ -136,7 +134,7 @@ class upper_limit(object):
 
   def get_distance_bins(self, instruments, found=None, missed=None):
     if not found and not missed: found, missed = self.get_injections(instruments)
-    if not found:  
+    if not found:
       print >>sys.stderr,"Found no injections cannot compute distance bins ABORTING"
       sys.exit(1)
     #Give the bins some padding based on the errors
@@ -153,12 +151,12 @@ class upper_limit(object):
     if opts.instruments in self.instruments:
       return frozenset(lsctables.instrument_set_from_ifos(i[0]))
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)  
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
       return []
 
   def get_mass_ranges(self, connection):
     query = 'SELECT MIN(mass1), MIN(mass2), MAX(mass1), MAX(mass2), MIN(mass1+mass2), MAX(mass1+mass2) FROM sim_inspiral;'
-    for v in connection.cursor().execute(query): 
+    for v in connection.cursor().execute(query):
       if self.minmass: self.minmass = min([v[0], v[1], self.minmass])
       else: self.minmass = min(v[0], v[1])
       if self.maxmass: self.maxmass = max([v[2], v[3], self.maxmass])
@@ -173,8 +171,8 @@ class upper_limit(object):
     for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
       if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
     return self.instruments
-    # used to set instruments 
-    #return self.instruments    
+    # used to set instruments
+    #return self.instruments
 
   def get_far_thresholds(self,connection):
     """
@@ -187,7 +185,7 @@ class upper_limit(object):
     # extract false alarm rate threshold
     query = 'CREATE TEMPORARY TABLE distinct_instruments AS SELECT DISTINCT(instruments) as instruments FROM coinc_event;'
     connection.cursor().execute(query)
-    
+
     def create_is_playground_func( connection, playground_segs = segmentsUtils.S2playground(self.segments.extent_all()) ):
       """
       Construct the is_playground() SQL function.
@@ -215,7 +213,7 @@ class upper_limit(object):
     #determine binning up front for infinite FAR
     found, missed = self.get_injections(instruments, FAR=float("inf"))
     dbin = rate.LogarithmicBins(min([l.distance for l in found]),max([l.distance for l in found]), int(self.opts.dist_bins))
-    
+
     livetime = float(abs(zero_lag_segments))
     FARh = FAR*100000
     FARl = FAR*0.001
@@ -232,8 +230,7 @@ class upper_limit(object):
     # the derivitive is calcuated with respect to FAR * t
     FARTS = rate.LogarithmicBins(FARl * livetime, FARh * livetime, nbins)
     return self._derivitave_fit(FARTS, FAR * livetime, vA, twoDMassBins)
-  
-  
+
   def _derivitave_fit(self, farts, FARt, vAs, twodbin):
     '''
        Relies on scipy spline fits for each mass bin
@@ -283,7 +280,7 @@ class upper_limit(object):
         dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
         dbtables.DBTable_set_connection(None)
         continue
- 
+
       # WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
       thincasegments = segments.segmentlistdict()
       thincasegments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
@@ -373,7 +370,7 @@ WHERE
             found.append(sim)
           else:
             missed.append(sim)
-  
+
 
       # done
       connection.close()
@@ -423,7 +420,7 @@ WHERE
     mass2Bin = rate.LinearBins(low,high,bins)
     twoDMB=rate.NDBins( (mass1Bin,mass2Bin) )
     return twoDMB
-    
+
   def _scramble_pop(self, m, f):
     """
     A function to draw a new injection sample in the "boot strap" method 
@@ -445,7 +442,7 @@ WHERE
     """
     dist_array = numpy.zeros(len(inj))
     for i,sim in enumerate(inj):
-      dist_array[i] = sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1))) 
+      dist_array[i] = sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1)))
     return dist_array
 
   def live_time_array(self, instruments):
@@ -457,10 +454,10 @@ WHERE
     live_time.array += 1.0
     live_time.array *= self.livetime[instruments]
     return live_time
-    
+
 
   def twoD_SearchVolume(self, instruments, dbin=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
-    """ 
+    """
     Compute the search volume in the mass/mass plane, bootstrap
     and measure the first and second moment (assumes the underlying 
     distribution can be characterized by those two parameters) 
@@ -498,19 +495,19 @@ WHERE
         rArrays[k].numerator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
         rArrays[k].denominator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
       #Scramble the inj population and distances
-      if bootnum > 1: 
+      if bootnum > 1:
         sm, sf = self._scramble_pop(missed, found)
         # I make a separate array of distances to speed up this calculation
         f_dist = self._scramble_dist(sf, derr, dsys)
-      else: 
+      else:
         sm, sf = missed, found
         f_dist = numpy.array([l.distance for l in found])
-     
+
       # compute the distance bins
-      if not dbin: 
+      if not dbin:
         dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), z)
       #else: print dbin.centres()
-      
+
 
       # get rid of all missed injections outside the distance bins
       # to prevent binning errors
@@ -524,9 +521,9 @@ WHERE
       for i, l in enumerate(sm):#missed:
         tbin = rArrays[dbin[m_dist[i]]]
         tbin.incdenominator( (l.mass1, l.mass2) )
-    
+
       tmpArray2=rate.BinnedArray(twodbin) #start with a zero array to compute the mean square
-      for k in range(z): 
+      for k in range(z):
         tbins = rArrays[k]
         tbins.denominator.array += tbins.numerator.array
         if wnfunc: rate.filter_array(tbins.denominator.array,wnfunc)
@@ -539,8 +536,8 @@ WHERE
         print >>sys.stderr, "bootstrapping:\t%.1f%% and Calculating smoothed volume:\t%.1f%%\r" % ((100.0 * n / bootnum), (100.0 * k / z)),
       tmpArray2.array *= tmpArray2.array
       volArray2.array += tmpArray2.array
-    
-    print >>sys.stderr, "" 
+
+    print >>sys.stderr, ""
     #Mean and variance
     volArray.array /= bootnum
     volArray2.array /= bootnum
@@ -548,7 +545,7 @@ WHERE
     volArray.array *= livetime
     volArray2.array *= livetime*livetime # this gets two powers of live time
     return volArray, volArray2
- 
+
 
   def cut_distance(self, sims, dbin):
     """
@@ -583,7 +580,7 @@ def parse_command_line():
   opts, filenames = parser.parse_args()
 
   if opts.instruments: opts.instruments = lsctables.instrument_set_from_ifos(opts.instruments)
-  if not filenames: 
+  if not filenames:
     print >>sys.stderr, "must specify at least one database file"
     sys.exit(1)
   return opts, filenames
@@ -628,12 +625,12 @@ for instruments in UL.set_instruments_to_calculate():
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(dvA, "2DsearchvolumeDerivative"))
 
   # DONE with vA, so it is okay to mess it up...
-  # Compute range 
+  # Compute range
   vA.array = (vA.array * secs_in_year / UL.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
   UL.trim_mass_space(vA, instruments, minthresh=0.0, minM=UL.mintotal, maxM=UL.maxtotal)
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeDistance"))
 
-  # make a live time 
+  # make a live time
   UL.trim_mass_space(ltA, instruments, minthresh=0.0, minM=UL.mintotal, maxM=UL.maxtotal)
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "2DsearchvolumeLiveTime"))
 
