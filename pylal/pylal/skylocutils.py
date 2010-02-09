@@ -52,8 +52,7 @@ def get_delta_t_rss(pt,coinc,reference_frequency=None):
   returns the rss timing error for a particular location in
   the sky (longitude,latitude)
   """
-  latitude = pt[0]
-  longitude = pt[1]
+  latitude, longitude = pt
   earth_center = (0.0,0.0,0.0)
   tref = {}
   tgeo={}
@@ -106,8 +105,7 @@ def get_delta_D_rms(pt,coinc):
   distance this is just the squared Deff integrated over inclination and polarization which
   is proportional to (F+^2 + Fx^2)^(-1)
   """
-  latitude = pt[0]
-  longitude = pt[1]
+  latitude, longitude = pt
   gmst = {}
   D_marg_sq = {}
   F_plus = {}
@@ -526,8 +524,7 @@ def populate_SkyLocTable(skyloctable,coinc,a60dt,a90dt,a60dtdD,a90dtdD,\
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
   row.comb_snr = sqrt(rhosquared)
-  row.ra = pt[1]
-  row.dec = pt[0]
+  row.dec, row.ra = pt
   row.area_60_dt = a60dt
   row.area_90_dt = a90dt
   row.area_60_dt_dD = a60dtdD
