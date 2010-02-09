@@ -654,7 +654,7 @@ static double _imrdur(double m1, double m2, double chi)
 	double c2 = -4.6 - 1.2 * pow(chi + 0.7, 3);
 	double c3 = 400.0 + 500.0 * pow(chi + 1.0, 3);
 	double eta = m1*m2 / (m1+m2) / (m1+m2);
-        double out = c1 * exp(c2 * eta + c3 * pow(eta,6)) * ((m1+m2) / 50.0 ) - (1500 - fabs(chi) * 200) * (m1+m2) * LAL_MTSUN_SI;
+	double out = c1 * exp(c2 * eta + c3 * pow(eta,6)) * ((m1+m2) / 50.0 ) - (1500 - fabs(chi) * 200) * (m1+m2) * LAL_MTSUN_SI;
 	return out;
 	}
 
