@@ -41,9 +41,7 @@ class upper_limit(object):
     self.segments = segments.segmentlistdict()
     self.non_inj_fnames = []
     self.inj_fnames = []
-    #self.der_fit = None
     self.twoDMassBins = None
-    #self.dBin = {}
     self.gw = None
     self.found = {}
     self.missed = {}
@@ -59,10 +57,12 @@ class upper_limit(object):
     self.maxmass = None
     self.mintotal = None
     self.maxtotal = None
+    self.multi_burst_table = None
+    self.coinc_inspiral_table = None
 
     for f in flist: 
       if opts.verbose: print >> sys.stderr, "Gathering stats from: %s...." % (f,)
-      working_filename = dbtables.get_connection_filename(f, verbose = opts.verbose)
+      working_filename = dbtables.get_connection_filename(f, tmp_path=opts.tmp_space, verbose = opts.verbose)
       connection = sqlite3.connect(working_filename)
       dbtables.DBTable_set_connection(connection)
       xmldoc = dbtables.get_xml(connection)
@@ -76,13 +76,34 @@ class upper_limit(object):
         self.non_inj_fnames.append(f)
         sim = False
 
-      if not sim: 
-	# NOTE!!! THE SEGMENTS STORED IN THIS CLASS OR FOR LIVE TIME CALCULATIONS ONLY IDENTIFYING FOUND MISSED INJECTIONS MUST BE
-        # HANDLED FILE BY FILE IN THE get_injections() METHOD (SEE BELOW)
-        if opts.veto_segments_name is not None: self.veto_segments = db_thinca_rings.get_veto_segments(connection, opts.veto_segments_name)
-        self.instruments = self.get_instruments(connection)
-        self.segments += db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
-        self.get_far_thresholds(connection)
+      # FIGURE OUT IF IT IS A BURST OR INSPIRAL RUN
+      try:
+        self.multi_burst_table = table.get_table(xmldoc, dbtables.lsctables.MultiBurstTable.tableName)
+      except ValueError:
+        self.multi_burst_table = None
+      try:
+        self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
+      except ValueError:
+        self.coinc_inspiral_table = None
+      if self.multi_burst_table and self.coinc_inspiral_table: 
+        print >>sys.stderr, "both burst and inspiral tables found.  Aborting"
+        raise ValueError
+        
+
+      if not sim:
+        if self.coinc_inspiral_table:
+          # NOTE!!! THE SEGMENTS STORED IN THIS CLASS ARE FOR LIVE TIME CALCULATIONS ONLY IDENTIFYING FOUND MISSED INJECTIONS MUST BE
+          # HANDLED FILE BY FILE IN THE get_injections() METHOD (SEE BELOW)
+          if opts.veto_segments_name is not None: self.veto_segments = db_thinca_rings.get_veto_segments(connection, opts.veto_segments_name)
+          self.instruments = self.get_instruments(connection)
+          self.segments += db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
+          self.get_far_thresholds(connection)
+        if self.multi_burst_table:
+          #FIXME BURST CASE OF VETOS NOT HANDLED
+          self.instruments = self.get_instruments(connection)
+          #FIXME CWB case of rings not handled
+          self.segments += llwapp.segmentlistdict_fromsearchsummary(xmldoc, opts.live_time_program).coalesce()       
+          self.get_far_thresholds(connection)
       else: 
         self.get_mass_ranges(connection)
       
@@ -98,7 +119,8 @@ class upper_limit(object):
 
     # compute far, segments and livetime by instruments
     for i in self.instruments:
-      self.far[i] = min(self.far[i])
+      if not opts.far: self.far[i] = min(self.far[i])
+      else: self.far[i] = float(opts.far)
       # FIXME this bombs if any of the FARS are zero. maybe it should continue
       # and just remove that instrument combo from the calculation
       if self.far[i] == 0: 
@@ -174,8 +196,8 @@ class upper_limit(object):
 
     create_is_playground_func(connection)
 
-    query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
-
+    if self.coinc_inspiral_table: query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
+    if self.multi_burst_table: query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
     for inst, far in connection.cursor().execute(query):
       inst = frozenset(lsctables.instrument_set_from_ifos(inst))
       self.far.setdefault(inst,[])
@@ -250,7 +272,7 @@ class upper_limit(object):
     print >>sys.stderr, ""
     for cnt, f in enumerate(injfnames):
       print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
-      working_filename = dbtables.get_connection_filename(f, tmp_path = None, verbose = verbose)
+      working_filename = dbtables.get_connection_filename(f, tmp_path = opts.tmp_space, verbose = verbose)
       connection = sqlite3.connect(working_filename)
       # DON'T BOTHER CONTINUING IF THE INSTRUMENTS OF INTEREST ARE NOT HERE
       instruments_in_this_file = []
@@ -281,7 +303,10 @@ class upper_limit(object):
 
       connection.create_function("injection_was_made", 2, injection_was_made)
       make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
-      for values in connection.cursor().execute("""
+
+      # INSPIRAL
+      if self.coinc_inspiral_table:
+        for values in connection.cursor().execute("""
 SELECT
   sim_inspiral.*,
   -- true if injection matched a coinc below the false alarm rate threshold
@@ -307,12 +332,48 @@ FROM
 WHERE
   -- only interested in injections that were injected
   injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
-      """, (FAR,)):
-        sim = make_sim_inspiral(values)
-        if values[-1]:
-          found.append(sim)
-        else:
-          missed.append(sim)
+        """, (FAR,)):
+          sim = make_sim_inspiral(values)
+          if values[-1]:
+            found.append(sim)
+          else:
+            missed.append(sim)
+
+      # BURSTS
+      if self.multi_burst_table:
+        for values in connection.cursor().execute("""
+SELECT
+  sim_inspiral.*,
+  -- true if injection matched a coinc below the false alarm rate threshold
+  EXISTS (
+    SELECT
+      *
+    FROM
+      coinc_event_map AS mapa
+      JOIN coinc_event_map AS mapb ON (
+        mapa.coinc_event_id == mapb.coinc_event_id
+      )
+      JOIN multi_burst ON (
+        mapb.table_name == "coinc_event"
+        AND mapb.event_id == multi_burst.coinc_event_id
+      )
+    WHERE
+      mapa.table_name == "sim_inspiral"
+      AND mapa.event_id == sim_inspiral.simulation_id
+      AND multi_burst.false_alarm_rate < ?
+  )
+FROM
+  sim_inspiral
+WHERE
+  -- only interested in injections that were injected
+  injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
+        """, (FAR,)):
+          sim = make_sim_inspiral(values)
+          if values[-1]:
+            found.append(sim)
+          else:
+            missed.append(sim)
+  
 
       # done
       connection.close()
@@ -511,10 +572,12 @@ def parse_command_line():
   parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
   parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000")
   parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of mass bins")
-  parser.add_option("--d-err", default = 0.197, metavar = "float", type = "int", help = "random calibration error on distance")
-  parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "int", help = "systematic calibration error on distance (should use worst)")
+  parser.add_option("--d-err", default = 0.197, metavar = "float", type = "float", help = "random calibration error on distance")
+  parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
   parser.add_option("--mass-bins", default = 11, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
+  parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event")
   parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
+  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
 
   opts, filenames = parser.parse_args()
