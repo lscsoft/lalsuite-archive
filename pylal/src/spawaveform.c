@@ -123,7 +123,7 @@ static PyObject *PyComputeChi(PyObject *self, PyObject *args)
 	}
 
 /* Function to compute the frequency domain SPA waveform */
-static PyObject *PySPAWaveform(PyObject *self, PyObject *args) 
+static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	PyObject *arg9, *py_spa_array;
@@ -177,56 +177,118 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	}
 
 /* Function to wrap GSLs SVD */
-static PyObject *PySVD(PyObject *self, PyObject *args)
-	{
-	PyObject *a, *A, *V, *S, *out;
-	gsl_vector *gW;
+static PyObject *PySVD(PyObject *self, PyObject *args, PyObject *keywds)
+        {
+
+        /*
+	 * input A (m x n matrix)
+	 * output U,S,V
+	 */
+
+	/* input array */
+	PyObject *a, *A;
+
+	/* output data  */
+	PyObject *U, *V, *S, *out;
+
+	/* views of output data */
 	gsl_matrix_view gU, gV;
 	gsl_vector_view gS;
+
+	/* array sizes */
 	npy_intp *Adims = NULL;
 	npy_intp Vdims[] = {0.0, 0.0};
 	npy_intp Sdims[] = {0.0};
+
+	/* native C-datatype representation of numpy array data */
 	double *cA = NULL;
+	double *cU = NULL;
 	double *cV = NULL;
 	double *cS = NULL;
-	if(!PyArg_ParseTuple(args, "O", &a)) return NULL;
-	/* The input matrix */
+
+	/* workspace data */
+	gsl_vector *gW;
+	gsl_matrix *gX;
+
+	/* list of available keywords */
+	char *kwlist[] = {"array","inplace","mod",NULL};
+
+	/* keyword argument vars */
+	int *modGolubReinsch = 0;
+	int *inplace = 0;
+
+	/*
+	 * end declarations
+	 */
+
+	/* Read in input array, represent in a,A,cA,Adims */
+	if(!PyArg_ParseTupleAndKeywords(args, keywds, "O|ii", kwlist, &a, &inplace, &modGolubReinsch)) return NULL;
+
 	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
 	Adims = PyArray_DIMS(A);
 	cA = PyArray_DATA(A);
+
+	/* Don't support M < N */
+	if ( Adims[0] < Adims[1] ) return NULL;
+
 	/* allocate new ouput matrices */
+	if ( inplace )
+	{
+	    U = A;
+	    cU = cA;
+	}
+	else
+	{
+	    U = PyArray_SimpleNew(2, Adims, NPY_DOUBLE);
+	    cU = PyArray_DATA(U);
+	    memcpy( cU, cA, Adims[0]*Adims[1]*sizeof(double) );
+	}
+
 	Vdims[0] = Vdims[1] = Adims[1];
 	V = PyArray_SimpleNew(2, Vdims, NPY_DOUBLE);
 	cV = PyArray_DATA(V);
+
 	Sdims[0] = Adims[1];
 	S = PyArray_SimpleNew(1, Sdims, NPY_DOUBLE);
 	cS = PyArray_DATA(S);
+
 	/* Allocate workspace gsl matrix */
-	/* FIXME no error checking done on size of A */
 	gW = gsl_vector_calloc(Adims[1]);
+
 	/* Get gsl matrix views of the numpy array data */
-	/* A is replaced by U */
-	gU = gsl_matrix_view_array(cA, Adims[0], Adims[1]);
-	/* Get gsl matrix views of the numpy array data */
+	/* U will be overwritten */
+	gU = gsl_matrix_view_array(cU, Adims[0], Adims[1]);
 	gS = gsl_vector_view_array(cS, Sdims[0]);
-	/* Get gsl matrix views of the numpy array data */
 	gV = gsl_matrix_view_array(cV, Vdims[0], Vdims[1]);
-	gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+
+	/* PERFORM THE SVD! */
+	if ( modGolubReinsch )
+	{
+	    gX = gsl_matrix_calloc(Adims[1],Adims[1]);
+	    gsl_linalg_SV_decomp_mod (&(gU.matrix),gX, &(gV.matrix), &(gS.vector), gW);
+	    gsl_matrix_free(gX);
+	}
+	else
+	{
+	    gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+	}
+	gsl_vector_free(gW);
+
 	/* take the transpose to be consistent with scipys svd */
 	gsl_matrix_transpose(&(gV.matrix));
-	out = Py_BuildValue("OOO", A, S, V);
+	out = Py_BuildValue("OOO", U, S, V);
+
 	/* FIXME HELP I don't know what to do about references... */
 	/*Py_DECREF(A); */
 	/*Py_DECREF(V); */
 	/*Py_DECREF(S); */
         /*Py_INCREF(Py_None); */
-	/* free the workspace matrix */
-	gsl_vector_free(gW);
+
 	return out;
 	}
 
 /* Function to compute chirp time */
-static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
+static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	double mass1, mass2, fLower, fFinal, time;
@@ -243,12 +305,12 @@ static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 
 /* Structure defining the functions of this module and doc strings etc... */
 static struct PyMethodDef methods[] = {
-	{"waveform", PySPAWaveform, METH_VARARGS, 	
+	{"waveform", PySPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain waveform at a "
 	 "specified mass1, mass2 and PN order.\n\n"
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
 	},
-	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS, 
+	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain IMR waveform at a "
 	 "specified mass1, mass2 by calling \n\n"
 	 "imrwaveform(m1, m2, deltaF, fLower, signalArray)\n\n"
@@ -259,15 +321,15 @@ static struct PyMethodDef methods[] = {
 	 "specified mass1, mass2, z component spin1, z component spin2 by calling \n\n"
 	 "imrwaveform(m1, m2, deltaF, fLower, signalArray, spin1, spin2)\n\n"
 	},
-	{"chirptime", PyChirpTime, METH_VARARGS, 
-	 "This function calculates the SPA chirptime at a specified mass1, mass2 " 
+	{"chirptime", PyChirpTime, METH_VARARGS,
+	 "This function calculates the SPA chirptime at a specified mass1, mass2 "
 	 "and PN order between two frequencies.  If the second frequency is omitted "
 	 "it is assumed to be infinite.\n\n"
 	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
 	},
-	{"ffinal", PyFFinal, METH_VARARGS, 
+	{"ffinal", PyFFinal, METH_VARARGS,
 	 "This function calculates the ending frequency specified by "
-	 "mass1 and mass2.\n\n"  
+	 "mass1 and mass2.\n\n"
 	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
 	},
 	{"imrffinal", PyIMRFFinal, METH_VARARGS,
@@ -280,13 +342,20 @@ static struct PyMethodDef methods[] = {
 	 "This function calculates the mass weighted spin parameter chi\n\n"
 	 "computechi(m1, m2, spin1, spin2)\n\n"
 	},
-	{"svd", PySVD, METH_VARARGS, 
-	 "This function calculates the singular value decomposition via the gsl function\n"
-	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n"
-	 "The definitions are the same, but this function doesn't require the explicit passing of a work space variable W\n\n" 
-	 "USAGE:\n\tU, S, V = svd(A)\n\n"
-	 "A is an MxN numpy array, V is an N dimensional numpy array and V "
-	 "is an MxM numpy array (NOTE A IS REPLACED BY U AND IS THUS GONE)\n\n"
+	{"svd", (PyCFunction) PySVD, METH_KEYWORDS,
+	 "This function calculates the singular value decomposition of a matrix\n"
+	 "via the GSL implementation of the Golub-Reinsch algorithm.  The default\n"
+	 "GSL function used is\n"
+	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n\n"
+	 "USAGE:\n\tU, S, V = svd(A,mod=False,inplace=False)\n\n"
+	 "A is an MxN numpy array, V is an Nx1 numpy array and V is an MxM numpy array.\n"
+	 "The case M<N is not supported by GSL and this wrapping does not add support for this.\n"
+	 "If mod=True, then the modified Golub-Reinsch algorithm is used (implemented in GSL\n"
+	 "as gsl_linalg_SV_decomp_mod). This algorithm uses slightly more memory but is expected\n"
+	 "to out-perform the standard Golub-Reinsch the limit M>>N.\n"
+	 "If the inplace=True, the input array A is overwritten by U, instead of the default\n"
+	 "behavior which is to allocate new space for U and preserve A.  Both variables continue\n"
+	 "to exist but point to the same data! USE THIS OPTION WITH CARE!\n\n"
 	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
 	 "\timport numpy\n"
 	 "\tA = numpy.random.randn(4,3)\n"
@@ -296,7 +365,7 @@ static struct PyMethodDef methods[] = {
 	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
 	 "\tprint Aprime\n\n"
 	},
-	{NULL, NULL, 0, NULL}	
+	{NULL, NULL, 0, NULL}
 	};
 
 /* The init function for this module */
@@ -311,15 +380,15 @@ void initspawaveform(void)
          */
 	}
 
-/*****************************************************************************/
-/* The remainder of this code defines the static functions that the python
+/*****************************************************************************
+ * The remainder of this code defines the static functions that the python
  * functions will use to compute various quantities.  They are not exposed
  * outside of this file directly but can be called from python via
  * the documentation described when doing help() on this module.
  * A lot of this code is in lal in some form or must be moved to lal.  Here
  * the functin prototypes have been vastly simplified (use of native c types
  * and double precision)
-/*****************************************************************************/
+ *****************************************************************************/
 
 /* FIXME make this function exist in LAL and have the LAL SPA waveform generator call it? */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints,  complex double *expPsi)
@@ -443,7 +512,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 			expPsi[k] = value;
 			}
 		/* put in the first order amplitude factor */
-		expPsi[k] *= pow (k, -7.0 / 6.0);
+		expPsi[k] *= pow(k, -7.0 / 6.0) * tNorm;
 		}
 	return 0;
 	}
