@@ -72,10 +72,16 @@ def parse_command_line():
 
 opts, args = parse_command_line()
 
+#dump the args into a single string to write with the grids
+argstring = ''
+for arg in args:
+  argstring += arg + ' '
+
+#put the thresholds here for easy access later
 thresholds_60 = (opts.dt60,opts.snr_dt60,opts.dD60)
 thresholds_90 = (opts.dt90,opts.snr_dt90,opts.dD90)
 
-
+#deal with the glob 
 files = []
 for gl in opts.glob.split(" "):
   files.extend(glob.glob(gl))
@@ -83,12 +89,28 @@ if len(files) < 1:
   print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
   sys.exit(1)
 
+#put the files into the coinc data structure
 coincs = Coincidences(files,opts.input_type)
 
+#set the reference frequency if requested
 if opts.reference_frequency:
   ref_freq = opts.reference_frequency
 else:
   ref_freq = None
+
+#setup the output xml tables
+xmldoc = ligolw.Document()
+xmldoc.appendChild(ligolw.LIGO_LW())
+skyloctable = lsctables.New(skylocutils.SkyLocTable)
+skylocinjtable = lsctables.New(skylocutils.SkyLocInjTable)
+xmldoc.childNodes[0].appendChild(skyloctable)
+xmldoc.childNodes[0].appendChild(skylocinjtable)
+
+#make it work with the XSL stylesheet
+ligolw.Header += u"""\n\n"""\
+                 +u"""<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>"""\
+                 +u"""\n\n"""
+
 
 ##############################################################################
 #
@@ -128,27 +150,34 @@ for coinc in coincs:
 
   #main loop over the coarse grid
   for coarse_pt in grid.keys():
+
     #use timing alone to determine if we should move to the fine grid
     dtrss_coarse = skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
     if dtrss_coarse <= 1.1*thresholds_90[0]:
+
       #loop over points on the fine grid
       for fine_pt in grid[coarse_pt]:
         dtrss_fine = skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
         dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
-        sp.append(fine_pt[0],fine_point[1],dtrss_fine,dDrss_fine)
+
         #now compute relevant sky areas
         if snr:
-          if dtrss_fine*snr/10.0 <= thresholds_60[1]:
+          #compute the quanitity for the snr-dependent threshold
+          snr_dtrss = dtrss_fine*snr/10.0
+          sp.append(fine_pt[0],fine_point[1],snr_dtrss,dDrss_fine)
+          if snr_dtrss <= thresholds_60[1]:
             dt60_area += pixel_area
             dt90_area += pixel_area
             if dDrss_fine <= thresholds_60[2]:
               dt60dD60_area += pixel_area
               dt90dD90_area += pixel_area
-          elif dtrss_fine*snr/10.0 <= thresholds_90[1]:
+          elif snr_dt_rss <= thresholds_90[1]:
             dt90_area += pixel_area
             if dDrss_fine <= thresholds_90[2]:
               dt90dD90_area += pixel_area
         else:
+          #just timing
+          sp.append(fine_pt[0],fine_point[1],dtrss_fine,dDrss_fine)
           if dtrss_fine <= thresholds_60[0]:
             dt60_area += pixel_area
             dt90_area += pixel_area
@@ -161,10 +190,20 @@ for coinc in coincs:
               dt90dD90_area += pixel_area
 
 
-        #FIXME: insert galaxy catalog stuff here!!!
-                  
+        #FIXME: put galaxy catalog stuff here!!!
+     
     else:
       sp.append(coarse_pt[0],coarse_pt[1],dtrss_coarse,None)
+  
+  #write the grid
+  sp.write(grid_file,argstring)
 
+  #populate the output tables
+  #list of points has been sorted so the best one is at the top
+  populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,dt60dD60_area,\
+                       dt90dD90_area,sp[0],grid_file,skymap_file)
+  if coinc.is_injection:
+    populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj, \
+                            dtrss_inj,dDrss_inj):
 
 

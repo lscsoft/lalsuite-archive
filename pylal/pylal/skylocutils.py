@@ -47,11 +47,13 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 #
 ##############################################################################
 
-def get_delta_t_rss(latitude,longitude,coinc,reference_frequency=None):
+def get_delta_t_rss(pt,coinc,reference_frequency=None):
   """
   returns the rss timing error for a particular location in
   the sky (longitude,latitude)
   """
+  latitude = pt[0]
+  longitude = pt[1]
   earth_center = (0.0,0.0,0.0)
   tref = {}
   tgeo={}
@@ -97,13 +99,15 @@ def get_signal_duration(ifo,coinc,frequency):
     
   return duration
   
-def get_delta_D_rms(latitude,longitude,coinc):
+def get_delta_D_rms(pt,coinc):
   """
   compute the rms difference in the ratio of the difference of the squares of Deff to
   the sum of the squares of Deff between the measured values and a "marginalized" effective
   distance this is just the squared Deff integrated over inclination and polarization which
   is proportional to (F+^2 + Fx^2)^(-1)
   """
+  latitude = pt[0]
+  longitude = pt[1]
   gmst = {}
   D_marg_sq = {}
   F_plus = {}
@@ -258,9 +262,10 @@ class SkyPoints(list):
     """
     super(SkyPoints,self).sort(self._cmpdD)
 
-  def write(self,fname,gzip=True):
+  def write(self,fname,comment=None,gzip=True):
     """
     write the grid to a text file
+    note that the dt_rss column may actually be the dt_rss*rho/10
     """ 
     grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt_rss' + '\t' + 'dD_rss' + '\n'
     self.sort_dD()
@@ -271,6 +276,8 @@ class SkyPoints(list):
       f = gzip.open(fname, 'w')
     else:
       f = open(fname, 'w')
+    if comment:
+      grid += '# ' + comment
     f.write(grids)
     f.close()  
 
@@ -287,6 +294,7 @@ class CoincData(object):
     self.ifo_coincs = []
     
     self.snr = {}
+    self.comb_snr = None
     self.gps = {}
     self.eff_distances = {}
     self.mass1 = {}
@@ -295,6 +303,7 @@ class CoincData(object):
     self.time = None
     
     #this stuff is only needed for injections
+    self.is_injection = False
     self.latitude_inj = None
     self.longitude_inj = None
     self.mass1_inj = None 
@@ -311,6 +320,7 @@ class CoincData(object):
 
   def set_snr(self,snrdict):
     self.snr = snrdict
+    
  
   def set_gps(self,gpsdict):
     self.gps = gpsdict
@@ -327,6 +337,7 @@ class CoincData(object):
     """
     set all of the injection parameters at once
     """
+    self.is_injection = True
     self.latitude_inj = lat
     self.longitude_inj = lon
     self.mass1_inj = m1
@@ -444,8 +455,10 @@ class SkyLocTable(tab.Table):
     "comb_snr": "real_4",
     "ra": "real_4",
     "dec": "real_4",
-    "area_60pct": "real_4",
-    "area_90pct": "real_4",
+    "area_60_dt": "real_4",
+    "area_90_dt": "real_4",
+    "area_60_dt_dD": "real_4",
+    "area_90_dt_dD": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -501,8 +514,8 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
-def populate_SkyLocTable(skyloctable,coinc,area60,area90,\
-                         grid_fname,skymap_fname=None):
+def populate_SkyLocTable(skyloctable,coinc,a60dt,a90dt,a60dtdD,a90dtdD,\
+                         pt,grid_fname,skymap_fname=None):
   """
   populate a row in a skyloctable
   """
@@ -513,10 +526,12 @@ def populate_SkyLocTable(skyloctable,coinc,area60,area90,\
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
   row.comb_snr = sqrt(rhosquared)
-  row.ra = skypoints.longitude
-  row.dec = skypoints.latitude
-  row.area_60pct = area60
-  row.area_90pct = area90
+  row.ra = pt[1]
+  row.dec = pt[0]
+  row.area_60_dt = a60dt
+  row.area_90_dt = a90dt
+  row.area_60_dt_dD = a60dtdD
+  row.area_90_dt_dD = a90dtdD
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
