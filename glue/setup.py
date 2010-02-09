@@ -204,6 +204,7 @@ setup(
     os.path.join('bin','ligolw_segment_union'),
     os.path.join('bin','ligolw_segment_query'),
     os.path.join('bin','ligolw_dq_query'),
+    os.path.join('bin','ligo_data_find'),
     os.path.join('sbin','ldbdd'),
     os.path.join('sbin','segpagegen'),
     os.path.join('sbin','segdb_coalesce'),
