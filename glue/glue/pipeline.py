@@ -638,7 +638,6 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
-    self.__user_tag = None
 
     # generate the md5 node name
     t = str( long( time.time() * 1000 ) )
@@ -709,19 +708,6 @@ class CondorDAGNode:
     Get the category for this node in the DAG.
     """
     return self.__category
-
-  def set_user_tag(self,usertag):
-    """
-    Set the user tag that is passed to the analysis code.
-    @param user_tag: the user tag to identify the job
-    """
-    self.__user_tag = usertag
-
-  def get_user_tag(self):
-    """
-    Returns the usertag string
-    """
-    return self.__user_tag
 
   def set_priority(self,priority):
     """
@@ -1090,6 +1076,33 @@ class CondorDAGNode:
     minute clean up (such as setting extra command line arguments)
     """
     pass
+
+
+class CondorDAGManNode(CondorDAGNode):
+  """
+  Condor DAGMan node class. Appropriate for setting up DAGs to run within a
+  DAG. Adds the user-tag functionality to condor_dagman processes running in
+  the DAG. May also be used to extend dagman-node specific functionality.
+  """
+  def __init__(self, job):
+    """
+    @job: an Sqlite job
+    """
+    CondorDAGNode.__init__(self, job)
+    self.__user_tag = None
+
+  def set_user_tag(self,usertag):
+    """
+    Set the user tag that is passed to the analysis code.
+    @param user_tag: the user tag to identify the job
+    """
+    self.__user_tag = usertag
+
+  def get_user_tag(self):
+    """
+    Returns the usertag string
+    """
+    return self.__user_tag
 
 
 class CondorDAG:
