@@ -73,9 +73,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 
 #dump the args into a single string to write with the grids
-argstring = ''
-for arg in args:
-  argstring += arg + ' '
+argstring = " ".join(args)
 
 #put the thresholds here for easy access later
 thresholds_60 = (opts.dt60,opts.snr_dt60,opts.dD60)
