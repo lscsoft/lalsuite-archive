@@ -6,6 +6,7 @@ __author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brad
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
+import os
 import glob
 from optparse import *
 from pylal import skylocutils
@@ -34,8 +35,9 @@ def parse_command_line():
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
-  parser.add_option("-d","--plotpoints",action="store_true",\
-      default=False, help="make a color coded plot of the sky" )
+#plotting functionality will be moved elsewhere and is disabled for now
+#  parser.add_option("-d","--plotpoints",action="store_true",\
+#      default=False, help="make a color coded plot of the sky" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
   parser.add_option("-f","--reference-frequency",action="store",type="float", default=0.0, metavar=" REFERENCE_FREQUENCY", \
@@ -52,8 +54,8 @@ def parse_command_line():
       default=None, metavar=" DD90",help="90% effective distance threshold" )
   parser.add_option("-E","--dD60",action="store",type="float",\
       default=None, metavar=" DD60",help="60% effective distance threshold" )
-  parser.add_option("-o","--output",action="store",type="string",default=None,\
-                    help="name of the xml file to store output in")
+  parser.add_option("-o","--output-prefix",action="store",type="string",default='',\
+                    help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
                     help="specify the type of input in the glob.  valid options are coinctable (DEFAULT) and coire")
   parser.add_option("-y","--timing-only",action="store_true",default=False,\
@@ -103,12 +105,18 @@ skyloctable = lsctables.New(skylocutils.SkyLocTable)
 skylocinjtable = lsctables.New(skylocutils.SkyLocInjTable)
 xmldoc.childNodes[0].appendChild(skyloctable)
 xmldoc.childNodes[0].appendChild(skylocinjtable)
+#FIXME: insert a process params table!
+
 
 #make it work with the XSL stylesheet
 ligolw.Header += u"""\n\n"""\
                  +u"""<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>"""\
                  +u"""\n\n"""
 
+#setup the output filenames
+base_name = 'SKYPOINTS_' + opts.output_prefix
+grid_fname = base_name + '_grid_GPSTIME.txt.gz'
+outfile = base_name + '_GPSTIME.xml'
 
 ##############################################################################
 #
@@ -116,6 +124,17 @@ ligolw.Header += u"""\n\n"""\
 #
 ##############################################################################
 
+def get_unique_filename(name):
+  """
+  use this to avoid name collisions
+  """
+  counter = 1
+  base_name, ext = os.path.splitext(file_name)
+  while os.path.isfile(name):
+    name = base_name + '_' + str(counter) + ext
+    counter += 1
+
+  return name
 
 ##############################################################################
 #
@@ -126,7 +145,9 @@ ligolw.Header += u"""\n\n"""\
 #open up the pickled grids
 
 #the area of each pixel on the fine grid in square degrees
-pixel_area = 0.25
+#this gets recorded for each point and makes computing areas simple
+fine_area = 0.25
+coare_area = 16
 
 for coinc in coincs:
   sp = SkyPoints()
@@ -162,7 +183,7 @@ for coinc in coincs:
         if snr:
           #compute the quanitity for the snr-dependent threshold
           snr_dtrss = dtrss_fine*snr/10.0
-          sp.append(fine_pt[0],fine_point[1],snr_dtrss,dDrss_fine)
+          sp.append(fine_pt[0],fine_point[1],snr_dtrss,dDrss_fine,fine_area)
           if snr_dtrss <= thresholds_60[1]:
             dt60_area += pixel_area
             dt90_area += pixel_area
@@ -175,7 +196,7 @@ for coinc in coincs:
               dt90dD90_area += pixel_area
         else:
           #just timing
-          sp.append(fine_pt[0],fine_point[1],dtrss_fine,dDrss_fine)
+          sp.append(fine_pt[0],fine_point[1],dtrss_fine,dDrss_fine,fine_area)
           if dtrss_fine <= thresholds_60[0]:
             dt60_area += pixel_area
             dt90_area += pixel_area
@@ -191,9 +212,11 @@ for coinc in coincs:
         #FIXME: put galaxy catalog stuff here!!!
      
     else:
-      sp.append(coarse_pt[0],coarse_pt[1],dtrss_coarse,None)
+      sp.append(coarse_pt[0],coarse_pt[1],dtrss_coarse,None,coarse_area)
   
-  #write the grid
+  #check for name collisions and then write the grid
+  #use seconds of the smallest gpstime to label the event
+  gird_file = get_unique_filename(grid_fname.replace('GPSTIME',str(min([t.seconds for t in coinc.gps.values()]))))
   sp.write(grid_file,argstring)
 
   #populate the output tables
@@ -211,8 +234,21 @@ for coinc in coincs:
     area_inj = 0.0
     for pt in sp:
       if pt[2] <= dtrss_inj and pt[3] <= dDrss_inj:
-        area_inj += pixel_area
+        area_inj += pt[4]
     populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj,dtrss_inj,\
                             dDrss_inj)
 
+#name the xml file
+if len(coincs) > 1:
+  tmin = min([c.gps.values() for c in coincs])
+  tmax = max([c.gps.values() for c in coincs])
+  outfile.replace('GPSTIME',str(tmin)+'-'+str(tmax))
+else:
+  tmin = min([c for c in coincs[0].gps.values()])
+  outfile.replace('GPSTIME',str(tmin))
+output = get_unique_filename(outfile)
+#write the xml file and we're done
+f = open(output,'w')
+xmldoc.write(output)
+f.close()
 
