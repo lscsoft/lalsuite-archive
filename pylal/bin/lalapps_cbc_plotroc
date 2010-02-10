@@ -88,87 +88,18 @@ def parse_command_line():
 	)
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotroc", help = "Set the prefix for output filenames (default = \"cbc_plotroc\")")
 	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = ["png"], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
-	parser.add_option("-O", "--output-path", action = "store", default = ".",
-		help =
-			"Redirect output to specified directory. Default is to save output " +
-			"to current directory."
-			)
+	parser.add_option("-O", "--output-path", action = "store", default = ".", help = "Redirect output to specified directory. Default is to save output " +
+			"to current directory."	)
 	parser.add_option("-c", "--add-cache", metavar = "file.cache[:label]", action = "append", default = [], help = "Cache file containing injection sqlite files for plotting ROC curves. All files in each cache file will be grouped together into a single curve. To specify a label for this curve, add a colon and the label name after cache. For example, file_name1.cache:week1. If no label given, the file will be labeled cacheN where N is the order that the file was specified on the command line.")
-	parser.add_option("", "--far-column", action = "append", default = [],
-		help =
-			"Column to get false alarm rates from. Can be any column in the coinc_inspiral taable. " +
-			"If specified multiple times, will create a separate curve for each column. " +
-			"Default is to plot combined_far only.")
-	parser.add_option( "", "--param-name", metavar = "PARAMETER",
-		action = "store", default = None,
-		help = 
-			"Can be any parameter in the sim_inspiral table. " +
-			"Specifying this and param-ranges will only select " +
-			"triggers that fall within the given parameter ranges. " +
-			"You can also combine parameters using simple math. For example, " +
-			"to select triggers bassed on total mass, type " +
-			"'sim_inspiral.mass1+sim_inspiral.mass2', then give total mass ranges " +
-			"in the param-ranges argument. Note that when combining columns " +
-			"you must type the table name dot each column name. Allowed math operations " +
-			"are +,-,*,/."
-			)
-	parser.add_option( "", "--param-ranges", action = "store", default = None,
-		metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
-		help = 
-			"Requires --param-name. Specify the parameter ranges " +
-			"to select triggers in. A '(' or ')' implies an open " +
-			"boundary, a '[' or ']' a closed boundary. To specify " +
-			"multiple ranges, separate each range by a ';'. To " +
-			"specify a single value, just type that value with no " +
-			"parentheses or brackets. To specify not equal to a single " +
-			"value, put a '!' before the value. If multiple ranges are " +
-			"specified, a separate curve will be created " +
-            "for each range."
-			)
-	parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
-		metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];"
-			"[ALL in INSTRUMENTS_ON2]; etc.",
-		help = 
-			"Exclude coincident types in specified detector times, " +
-			"e.g., '[H2,L1 in H1,H2,L1]'. Some rules: " +
-				"* Coinc-types and detector time must be separated by " +
-				"an ' in '. When specifying a coinc_type or detector " +
-				"time, detectors and/or ifos must be separated by " +
-				"commas, e.g. 'H1,L1' not 'H1L1'. " +
-				"* To specify multiple coinc-types in one type of time, " +
-				"separate each coinc-type by a '+', e.g., " +
-				"'[H1,H2 + H2,L1 in H1,H2,L1]'. " +
-				"* To exclude all coincs in a specified detector time " +
-				"or specific coinc-type in all times, use 'ALL'. E.g., " +
-				"to exclude all H1,H2 triggers, use '[H1,H2 in ALL]' " +
-				"or to exclude all H2,L1 time use '[ALL in H2,L1]'. " + 
-				"* To specify multiple exclusions, separate each " +
-				"bracket by a ';'. " +
-				"* Order of the instruments nor case of the letters " +
-				"matter. So if your pinky is broken and you're " +
-				"dyslexic you can type '[h2,h1 in all]' without a " +
-				"problem." 
-			)
-	parser.add_option( "", "--include-only-coincs", action = "store", type = "string", default = None,
-		metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
-			"[ALL in INSTRUMENTS_ON2]; etc.",
-		help =
-			"Opposite of --exclude-coincs: only create plots for the specified coinc types. "
-			)
-	parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
-		help =
-			"Create ROC curves for a specific simulation tag, e.g., 'BNSINJ'. " +
-			"To specify multiple injection types, separate each type by a semi-colon, " +
-			"e.g., BNSLININJ;BBHLININJ. If multiple types are specified, a separate curve " +
-			"will be created for each type. If not specified, will create a single curve " +
-			"for all injections grouped (which is equivalent to giving ALLINJ as a sim-tag)."
-			)
+	parser.add_option("", "--far-column", action = "append", default = [], help = "Column to get false alarm rates from. Can be any column in the coinc_inspiral taable. If specified multiple times, will create a separate curve for each column. Default is to plot combined_far only.")
+	parser.add_option( "", "--param-name", metavar = "PARAMETER", action = "store", default = None,	help = "Can be any parameter in the sim_inspiral table. Specifying this and param-ranges will only select triggers that fall within the given parameter ranges. You can also combine parameters using simple math. For example, to select triggers bassed on total mass, type 'sim_inspiral.mass1+sim_inspiral.mass2', then give total mass ranges in the param-ranges argument. Note that when combining columns you must type the table name dot each column name. Allowed math operations are +,-,*,/.")
+	parser.add_option( "", "--param-ranges", action = "store", default = None, metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.", help = "Requires --param-name. Specify the parameter ranges to select triggers in. A '(' or ')' implies an open boundary, a '[' or ']' a closed boundary. To specify multiple ranges, separate each range by a ';'. To specify a single value, just type that value with no parentheses or brackets. To specify not equal to a single value, put a '!' before the value. If multiple ranges are specified, a separate curve will be created for each range.")
+	parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None, metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];[ALL in INSTRUMENTS_ON2]; etc.",	help = "Exclude coincident types in specified detector times, e.g., '[H2,L1 in H1,H2,L1]'. Some rules: * Coinc-types and detector time must be separated by an ' in '. When specifying a coinc_type or detector time, detectors and/or ifos must be separated by commas, e.g. 'H1,L1' not 'H1L1'. * To specify multiple coinc-types in one type of time, separate each coinc-type by a '+', e.g., '[H1,H2 + H2,L1 in H1,H2,L1]'. * To exclude all coincs in a specified detector time or specific coinc-type in all times, use 'ALL'. E.g., to exclude all H1,H2 triggers, use '[H1,H2 in ALL]' or to exclude all H2,L1 time use '[ALL in H2,L1]'. * To specify multiple exclusions, separate each bracket by a ';'. * Order of the instruments nor case of the letters matter. So if your pinky is broken and you're dyslexic you can type '[h2,h1 in all]' without a problem.")
+	parser.add_option( "", "--include-only-coincs", action = "store", type = "string", default = None, metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];[ALL in INSTRUMENTS_ON2]; etc.", help = "Opposite of --exclude-coincs: only create plots for the specified coinc types. ")
+	parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ', help = "Create ROC curves for a specific simulation tag, e.g., 'BNSINJ'. To specify multiple injection types, separate each type by a semi-colon, e.g., BNSLININJ;BBHLININJ. If multiple types are specified, a separate curve will be created for each type. If not specified, will create a single curve for all injections grouped (which is equivalent to giving ALLINJ as a sim-tag).")
 	parser.add_option("-T", "--title", action = "store", default = None, help = "Add a title to the plot.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
-	parser.add_option("-D", "--debug", action = "store_true", default = False,
-		help =
-			"Turns on sqlite3.enable_callback_traceback and prints main sqlquery used."
-			)
+	parser.add_option("-D", "--debug", action = "store_true", default = False, help = "Turns on sqlite3.enable_callback_traceback and prints main sqlquery used.")
 
 	options, filenames = parser.parse_args()
 
@@ -312,9 +243,7 @@ WHERE
 	experiment_summary.datatype != "slide"
 	""", filter is not '' and 'AND ' + filter or '', """
 GROUP BY
-	mapB.event_id
-ORDER BY
-	coinc_inspiral.""", far_column, """ ASC"""])
+	mapB.event_id """])
 			if debug:
 				print >> sys.stderr, "SQLite query used to retrieve triggers:"
 				print >> sys.stderr, sqlquery
