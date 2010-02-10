@@ -253,6 +253,22 @@ LALFindChirpACTDTemplate(
   if( - ppnParams.fStopIn  <= params->fLow )
     istart++;
   /* Signal generation would have failed if 3rd harmonic not in band */
+  
+  /* However, we should still check there is anything to filter, */
+  /* because we do not filter the 3rd harmonic for equal mass systems */
+  if ( istart == istop )
+  {
+    XLALPrintError( "All applicable signal harmonics out of band!\n" );
+    LALSDestroyVectorSequence( status->statusPtr, &(waveform.h->data) );
+    LALSDestroyVectorSequence( status->statusPtr, &(waveform.a->data) );
+    LALSDestroyVector( status->statusPtr, &(waveform.f->data) );
+    LALSDestroyVector( status->statusPtr, &(ppnParams.ppn) );
+    LALFree( waveform.h );
+    LALFree( waveform.a );
+    LALFree( waveform.f );
+    LALFree( waveform.phi );
+    ABORT( status, FINDCHIRPH_ECHTZ, FINDCHIRPH_MSGECHTZ );
+  }
 
   /* Set tmplt params so that we can track which harmonics are actually used */
   fcTmplt->startVecACTD = istart;
