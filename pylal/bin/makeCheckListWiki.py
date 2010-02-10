@@ -1291,13 +1291,13 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for myFile in fnmatch.filter(filesOmega,\
                                  "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened?thumb.png"%\
                                  (sngl.ifo,sngl.time)):
-      if not "PEM" in myFile.upper() or not "SEI" in myFile.upper():
+      if not "PEM" in myFile.upper() and not "SEI" in myFile.upper():
         thumbDict[sngl.ifo].append(myFile)
     zValueDict[sngl.ifo]=list()
     for zFile in fnmatch.filter(filesOmega,\
                                 "*/%s_RDS_*/%s/*summary.txt"%(sngl.ifo,sngl.time)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if not "PEM" in chan[0] or not "SEI" in chan[0]:
+        if not "PEM" in chan[0] and not "SEI" in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
       sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
@@ -1312,7 +1312,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*_z_scat-unspecified-gpstime?thumb.png"%\
                                  (sngl.ifo,timeString)):
-      if not "PEM" in myFile.upper() or not "SEI" in myFile.upper():
+      if not "PEM" in myFile.upper() and not "SEI" in myFile.upper():
         thumbDictAQ[sngl.ifo].append(myFile)
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*html"%(sngl.ifo,timeString)):
@@ -1321,7 +1321,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for zFile in fnmatch.filter(filesAnalyze,\
                                 "*%s-*_%s_*txt"%(sngl.ifo,timeString)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if not "PEM" in chan[0] or not "SEI" in chan[0]:
+        if not "PEM" in chan[0] and not "SEI" in chan[0]:
           zValueDictAQ[sngl.ifo].append(chan)
     if len(zValueDictAQ[sngl.ifo]) == 0:
       sys.stdout.write("AnalyzeQscan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
