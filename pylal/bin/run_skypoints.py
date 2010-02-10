@@ -201,7 +201,18 @@ for coinc in coincs:
   populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,dt60dD60_area,\
                        dt90dD90_area,sp[0],grid_file,skymap_file)
   if coinc.is_injection:
-    populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj, \
-                            dtrss_inj,dDrss_inj):
+    #NB: using the *recovered* snr for the snr dependent threshold
+    inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
+    if snr:
+      dtrss_inj = snr*skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)/10.0
+    else:
+      dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
+    dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
+    area_inj = 0.0
+    for pt in sp:
+      if pt[2] <= dtrss_inj and pt[3] <= dDrss_inj:
+        area_inj += pixel_area
+    populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj,dtrss_inj,\
+                            dDrss_inj)
 
 

@@ -16,8 +16,8 @@ from pylal.xlal import tools, inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 import glue.iterutils
-from glue.ligolw import utils, table as tab, lsctables
-
+from glue.ligolw import ligolw, utils, table as tab, lsctables
+from glue.ligolw.utils import ligolw_add
 
 
 
@@ -318,7 +318,6 @@ class CoincData(object):
 
   def set_snr(self,snrdict):
     self.snr = snrdict
-    
  
   def set_gps(self,gpsdict):
     self.gps = gpsdict
