@@ -733,13 +733,6 @@ class AnalysisDag(object):
     self.dagname = name
 
   # --------------------------------------
-  def get_basename(self):
-    """
-    returns basename without any ending.
-    """
-    return self.analysis_dir+'/'+self.dagname[:-4]
-  
-  # --------------------------------------
   def get_outname(self):
     """
     Returns the outname of this DAG
@@ -758,7 +751,8 @@ class AnalysisDag(object):
     """
     Returns the name of the sh file
     """
-    return self.get_basename()+'.sh'
+    basename = self.dagname[:-4]
+    return basename+'.sh'
 
   # --------------------------------------
   def start(self):
