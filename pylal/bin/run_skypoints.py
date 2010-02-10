@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
-import git_version
+from glue import git_version
 
 __author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brady@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 import os
+import sys
 import glob
 from optparse import *
 from pylal import skylocutils
@@ -30,7 +31,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version="%prog "+__version__ )
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -83,14 +84,17 @@ thresholds_90 = (opts.dt90,opts.snr_dt90,opts.dD90)
 
 #deal with the glob 
 files = []
-for gl in opts.glob.split(" "):
-  files.extend(glob.glob(gl))
-if len(files) < 1:
-  print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+if opts.glob is not None:
+  for gl in opts.glob.split(" "):
+    files.extend(glob.glob(gl))
+  if len(files) < 1:
+    print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+    sys.exit(1)
+else:
+  print >>sys.stderr, "Need to specify a glob"
   sys.exit(1)
-
 #put the files into the coinc data structure
-coincs = Coincidences(files,opts.input_type)
+coincs = skylocutils.Coincidences(files,opts.input_type)
 
 #set the reference frequency if requested
 if opts.reference_frequency:
@@ -150,7 +154,7 @@ fine_area = 0.25
 coare_area = 16
 
 for coinc in coincs:
-  sp = SkyPoints()
+  sp = skylocutils.SkyPoints()
 
   #for gathering information about area on the sky
   dt90_area = 0.0

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import git_version
+from glue import git_version
 
 __author__ = "Larry Price <larry.price@ligo.org> and Patrick Brady <patrick.brady@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -400,11 +400,11 @@ class Coincidences(list):
     """
     uses CoincInspiralUtils to get data from old-style (coire'd) coincs
     """
-    coincTrigs = CoincInspiralUtils.coincInspiralTable()
+    #coincTrigs = CoincInspiralUtils.coincInspiralTable()
     inspTrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, \
                                   mangle_event_id = True,verbose=None)
     #note that it's hardcoded to use snr as the statistic
-    coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTriggers,'snr')
+    coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTrigs,'snr')
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
