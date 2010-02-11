@@ -8,13 +8,6 @@
 # =============================================================================
 #
 
-
-usage = \
-'''
-Prints the largest triggers in either foreground or background along with
-relevant statistics and parameters to stdout.
-'''
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -35,14 +28,17 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
 
 __prog__ = "ligolw_cbc_printlc"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Prints the largest triggers in either foreground or background along with " + \
+"relevant statistics and parameters to a specified file or to stdout."
 
 # =============================================================================
 #
@@ -56,7 +52,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string",
@@ -195,6 +195,11 @@ def parse_command_line():
         help =
             "Web address of the daily ihope pages. " +
             "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
+            )
+    parser.add_option("-S", "--get-sngl-info", action = "store_true", default = False,
+        help =
+            "Retrieve single event information along with coincident info. All sngl_inspiral columns " +
+            "will be prefixed with 'sngl_'. A single end_time_utc column will also be included. "
             )
 
     (options, args) = parser.parse_args()
@@ -387,7 +392,7 @@ lcdoc = ligolw.Document()
 # setup the LIGOLW tag
 lcdoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__, version = git_version.id)
 # add the table
 lctable = lsctables.New(LoudestEventsTable)
 # connect the table to the document
@@ -446,6 +451,95 @@ for values in connection.cursor().execute( sqlquery ):
     # add the row
     lctable.append(lcrow)
 
+#
+#   Add sngl_inspiral info if desired
+#
+if opts.get_sngl_info:
+    
+    if opts.verbose:
+        print >> sys.stderr, "Getting SnglInspiral info..."
+
+    # index the lctable
+    lcindex = dict([ [row.coinc_event_id, row] for row in lctable ])
+
+    # get sngl_inspiral columns
+    sngl_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'sngl_inspiral' )
+
+    # create an object to store the info
+    import copy
+    class MergedTable(table.Table):
+        tableName = "loudest_events:table"
+        validcolumns = copy.deepcopy(lctable.validcolumns)
+        for sngl_col in sngl_inspiral_cols:
+            validcolumns['sngl_'+sngl_col] = sqlutils.get_col_type('sngl_inspiral', sngl_col)
+        validcolumns['sngl_end_time_utc__Px_click_for_daily_ihope_xP_'] = 'lstring'
+        validcolumns['sngl_ifo__Px_click_for_elog_xP_'] = 'lstring'
+
+    class Merged(object):
+        __slots__ = MergedTable.validcolumns.keys()
+        def get_pyvalue(self):
+            return printutils.generic_get_pyvalue()
+
+    # connect the row to the table
+    MergedTable.RowType = Merged
+
+    #
+    # create a document
+    #
+    mdoc = ligolw.Document()
+    # setup the LIGOLW tag
+    mdoc.appendChild(ligolw.LIGO_LW())
+    # add this program's metadata
+    mproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+    # add the table
+    mtable = lsctables.New(MergedTable)
+    # connect the table to the document
+    mdoc.childNodes[0].appendChild(mtable)
+
+    sqlquery = "CREATE TEMP TABLE select_ceids (coinc_event_id)"
+    connection.cursor().execute(sqlquery)
+    sqlquery = "INSERT INTO select_ceids (coinc_event_id) VALUES (?)"
+    connection.cursor().executemany(sqlquery, [(row.coinc_event_id,) for row in lctable])
+    
+    sqlquery = """
+        SELECT
+            select_ceids.coinc_event_id,
+            sngl_inspiral.*
+        FROM
+            sngl_inspiral
+        JOIN
+            select_ceids, coinc_event_map
+        ON
+            select_ceids.coinc_event_id == coinc_event_map.coinc_event_id AND
+            coinc_event_map.table_name == "sngl_inspiral" AND
+            coinc_event_map.event_id == sngl_inspiral.event_id
+        """
+    if opts.verbose:
+        print >> sys.stderr, "SQLite Query Used is:"
+        print >> sys.stderr, sqlquery
+    for data in connection.cursor().execute(sqlquery).fetchall():
+        mrow = Merged()
+        data = list(data)
+        mrow.coinc_event_id = data.pop(0)
+        # set sngl info
+        for sngl_col, value in zip(sngl_inspiral_cols, data):
+            setattr(mrow, 'sngl_'+sngl_col, value)
+        # set coinc info
+        [setattr(mrow, col, getattr(lcindex[mrow.coinc_event_id], col))
+            for col in lcindex[mrow.coinc_event_id].__slots__ if col != 'coinc_event_id']
+        # set sngl end time utc
+        end_time_utc = printutils.format_end_time_in_utc( mrow.sngl_end_time ) 
+        daily_ihope_address = printutils.get_daily_ihope_page(mrow.end_time, pages_location = opts.daily_ihope_pages_location)
+        mrow.sngl_end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
+        # set elog page
+        mrow.sngl_ifo__Px_click_for_elog_xP_ = printutils.create_hyperlink( printutils.get_elog_page(mrow.sngl_ifo, mrow.end_time), mrow.sngl_ifo )
+        # add the row
+        mtable.append(mrow)
+
+    # set lctable to the mtable
+    lcdoc = mdoc
+    lcproc_id = mproc_id
+    lctable = mtable
 
 #
 #   Print the summary data
@@ -456,7 +550,9 @@ if opts.verbose and not opts.output:
 
 if opts.output_format != "xml":
     tableList = ['loudest_events']
-    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0])
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0], with_sngl = opts.get_sngl_info)
+    # remove the mini_followup column since it'll be empty
+    columnList.remove('mini_followup')
     if opts.columns is not None:
         # overwrite columnList with specified columns
         columnList = [col.strip() for col in opts.columns.split(',')]

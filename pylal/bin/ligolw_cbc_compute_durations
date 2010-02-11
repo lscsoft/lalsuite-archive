@@ -24,6 +24,7 @@ import sys
 import os
 import copy
 
+from glue import git_version
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import table
@@ -34,16 +35,12 @@ from glue.ligolw.utils import process
 
 from pylal import db_thinca_rings
 
-
-usage = """
-Computes durations for every row in the experiment_summary table in a
-database and stores them.
-"""
-
+__prog__ = "ligolw_cbc_compute_durations"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
 
+description = \
+"Computes durations for every row in the experiment_summary table in a " + \
+"database and stores them."
 
 # =============================================================================
 #
@@ -57,7 +54,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     parser.add_option( "-d", "--database", action = "store", type = "string", default = None,
         help = 
@@ -119,14 +120,14 @@ class Durations:
     def map_slides_to_durations( self, veto_def_name, datatype, time_slide_dict, livetime_dict ):
         for instruments in livetime_dict:
             for slide_id, duration in zip(time_slide_dict.keys(), livetime_dict[instruments]):
-                self.durations[(instruments, veto_def_name, datatype, slide_id)] = duration
+                self.durations[(instruments, veto_def_name, datatype, str(slide_id))] = duration
 
     def retrieve_duration( self, on_instruments, veto_def_name, datatype, time_slide_id ):
         on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
         if not (datatype == "playground" or datatype == "exclude_play"):
             datatype = "full_data"
-        if (on_instruments, veto_def_name, datatype, time_slide_id) in self.durations:
-            return self.durations[( on_instruments, veto_def_name, datatype, time_slide_id )]
+        if (on_instruments, veto_def_name, datatype, str(time_slide_id)) in self.durations:
+            return self.durations[( on_instruments, veto_def_name, datatype, str(time_slide_id) )]
 
 
 # =============================================================================
@@ -163,7 +164,7 @@ xmldoc = dbtables.get_xml(connection)
 from glue.ligolw import types as ligolwtypes
 ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 
-proc_id = process.register_to_xmldoc(xmldoc, 'compute_durations', options.__dict__)
+proc_id = process.register_to_xmldoc(xmldoc, __prog__, options.__dict__, version = git_version.id)
 
 #
 #       Compute Durations
