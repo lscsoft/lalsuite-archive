@@ -364,7 +364,8 @@ class Coincidences(list):
     inspTrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, \
                                   mangle_event_id = True,verbose=None)
     #note that it's hardcoded to use snr as the statistic
-    coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTrigs,'snr')
+    statistic = CoincInspiralUtils.coincStatistic('snr',None,None)
+    coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTrigs,statistic)
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
