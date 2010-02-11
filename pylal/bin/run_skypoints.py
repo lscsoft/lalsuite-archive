@@ -11,7 +11,7 @@ import sys
 import glob
 from optparse import *
 from pylal import skylocutils
-
+from glue.ligolw import ligolw, lsctables
 
 ##############################################################################
 #

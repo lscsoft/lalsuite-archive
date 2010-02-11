@@ -143,6 +143,7 @@ def gridsky(resolution,shifted=False):
   if shifted is true, the grids are reported with latitudes
   in (0,pi).  otherwise (default) they lie in (-pi/2,pi/2)
   """
+  points = []
   latitude = 0.0
   longitude = 0.0
   ds = pi*resolution/180.0
@@ -178,7 +179,8 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   """
   takes the two grids (lists of lat/lon tuples) and returns a dictionary
   where the points in the coarse grid are the keys and lists of tuples of
-  points in the fine grid are the values
+  points in the fine grid are the values. assumes latitudes run 0 to pi
+  and corrects for it
   """
   fgtemp = finegrid[:]
   coarsedict = {} 
