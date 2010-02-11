@@ -166,6 +166,9 @@ REAL4 ComputeCandleDistanceTD(
   /* Generate the waveform */
   LAL_CALL( LALInspiralWave( &status, waveform, &tmplt ), &status );
 
+  /* Taper the waveform. For now we will hard-code to taper the start */
+  XLALInspiralWaveTaper( waveform, INSPIRAL_TAPER_START ); 
+
   XLALREAL4ForwardFFT( waveFFT, waveform, fwdPlan );
 
   sigmaSq = 0.0;
