@@ -10,6 +10,7 @@ import os
 import sys
 import glob
 from optparse import *
+import cPickle
 from pylal import skylocutils
 from glue.ligolw import ligolw, lsctables
 
@@ -36,6 +37,8 @@ def parse_command_line():
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+  parser.add_option("-G","--grids",action="store",type="string",\
+      default=None, metavar=" GRID",help="pickled sky grids")
 #plotting functionality will be moved elsewhere and is disabled for now
 #  parser.add_option("-d","--plotpoints",action="store_true",\
 #      default=False, help="make a color coded plot of the sky" )
@@ -147,6 +150,10 @@ def get_unique_filename(name):
 ##############################################################################
 
 #open up the pickled grids
+grid_file = open(opts.grids,'r')
+grid = cPickle.load(grid_file)
+grid_file.close()
+
 
 #the area of each pixel on the fine grid in square degrees
 #this gets recorded for each point and makes computing areas simple
