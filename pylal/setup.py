@@ -485,6 +485,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
+		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "extractCommand"),
 		os.path.join("bin", "OddsPostProc.py"),
 		os.path.join("bin", "make_inspiral_summary_page"),
