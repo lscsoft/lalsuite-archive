@@ -903,6 +903,13 @@ class CondorDAGNode:
     """
     self.__retry = retry
 
+  def get_retry(self):
+    """
+    Return the number of times that this node in the DAG should retry.
+    @param retry: number of times to retry node.
+    """
+    return self.__retry
+
   def write_job(self,fh):
     """
     Write the DAG entry for this node's job to the DAG file descriptor.
@@ -1086,10 +1093,11 @@ class CondorDAGManNode(CondorDAGNode):
   """
   def __init__(self, job):
     """
-    @job: an Sqlite job
+    @job: a CondorDAGNodeJob
     """
     CondorDAGNode.__init__(self, job)
     self.__user_tag = None
+    self.__maxjobs_categories = []
 
   def set_user_tag(self,usertag):
     """
@@ -1103,6 +1111,19 @@ class CondorDAGManNode(CondorDAGNode):
     Returns the usertag string
     """
     return self.__user_tag
+
+  def add_maxjobs_category(self,categoryName,maxJobsNum):
+    """
+    Add a category to this DAG called categoryName with a maxjobs of maxJobsNum.
+    @param node: Add (categoryName,maxJobsNum) tuple to CondorDAG.__maxjobs_categories.
+    """
+    self.__maxjobs_categories.append((str(categoryName),str(maxJobsNum)))
+
+  def get_maxjobs_categories(self):
+    """
+    Return an array of tuples containing (categoryName,maxJobsNum)
+    """
+    return self.__maxjobs_categories
 
 
 class CondorDAG:
@@ -1210,6 +1231,12 @@ class CondorDAG:
     @param node: Add (categoryName,maxJobsNum) tuple to CondorDAG.__maxjobs_categories.
     """
     self.__maxjobs_categories.append((str(categoryName),str(maxJobsNum)))
+
+  def get_maxjobs_categories(self):
+    """
+    Return an array of tuples containing (categoryName,maxJobsNum)
+    """
+    return self.__maxjobs_categories
 
   def write_maxjobs(self,fh,category):
     """
@@ -1370,9 +1397,15 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
             
           print >>dagfile, """<dax id="%s" file="%s">""" % (id_tag, subdax_name)
 
+          # set the storage and execute directory locations
           xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
-
           xml += """--dir %s """ % dax_subdir
+
+          # set the maxjobs categories for the subdax
+          # FIXME pegasus should expose this in the dax, so it can
+          # be handled like the MAXJOBS keyword in dag files
+          for maxjobcat in node.get_maxjobs_categories():
+            xml += "-Dpegasus.dagman." + maxjobcat[0] + ".maxjobs=" + maxjobcat[1] + " "
 
           # FIXME pegasus should really do this for us
           caches = recurse_pfn_cache(node)
@@ -1383,7 +1416,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           if not self.is_dax():
             xml += "--nocleanup "
 
-          xml += "-vvvvvv --force</argument>"
+          xml += "-vvvvvv --force --cluster horizontal</argument>"
           print >>dagfile, xml
 
           print >>dagfile, """\
@@ -1441,6 +1474,21 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         if node.get_dax_collapse():
           template = """     <profile namespace="pegasus" key="collapse">%s</profile>\n"""
           xml = xml + template % (node.get_dax_collapse())
+
+        # write number of times the node should be retried
+        if node.get_retry():
+          template = """     <profile namespace="dagman" key="retry">%s</profile>\n"""
+          xml = xml + template % (node.get_retry())
+
+        # write the dag node category if this node has one
+        if node.get_category():
+          template = """     <profile namespace="dagman" key="category">%s</profile>\n"""
+          xml = xml + template % (node.get_category())
+
+        # write the dag node priority if this node has one
+        if node.get_priority():
+          template = """     <profile namespace="dagman" key="priority">%s</profile>\n"""
+          xml = xml + template % (node.get_priority())
 
         if self.is_dax():
           # FIXME should put remote universe property here
