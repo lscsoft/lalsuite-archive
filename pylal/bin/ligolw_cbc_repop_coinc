@@ -46,34 +46,34 @@ def parse_command_line():
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
-        help = 
+        help =
             "Input database to read. Can only input one at a time."
             )
     parser.add_option( "-o", "--output", action = "store", type = "string", default = None,
-        help = 
+        help =
             "Name of output database to save to."
             )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
-        help = 
+        help =
             "Required. Location of local disk on which to do work. " +
             "This is used to enhance performance in a networked " +
-            "environment, and to protect against accidently " +      
+            "environment, and to protect against accidentally " +
             "overwriting the input database."
             )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
-        help = 
+        help =
             "Print progress information"
            )
     # following are standard options for database-based programs
-    parser.add_option( "", "--output-column", action = "store", type = "string", default = None, 
-        help = 
+    parser.add_option( "", "--output-column", action = "store", type = "string", default = None,
+        help =
             "Required. Column in the coinc_inspiral table to store output to."
             )
     # following are specific to this program
     parser.add_option("", "--statistic-type", action = "store", type="string",
         default=None, metavar="STATTYPE",
-        help = 
+        help =
             "type of single-ifo statistic to be computed: " +
             "allowed values are snr, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike"
         )
@@ -165,8 +165,8 @@ class CombiningFunctions:
     variables can be set when the class is called, thus allowing them to automatically be used by sqlite
     when computing the results in the UPDATE SET command.
     """
-    def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, power = 2., hfac = 1., lfac = 1.,
-        vfac = .1 ):
+    def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, power = 2., \
+     hfac = 1., lfac = 1., vfac = .1 ):
         """
         Sets outside variables.
         """
