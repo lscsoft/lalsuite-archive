@@ -77,14 +77,14 @@ def parse_command_line():
             "type of single-ifo statistic to be computed: " +
             "allowed values are snr, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike"
         )
-    parser.add_option("", "--nlow", action = "store", type = "string",
-        default = None,
+    parser.add_option("", "--nlow", action = "store", type = "float",
+        default = 4.,
         help =
             "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
             "contours of constant statistic at small snr"
         )
-    parser.add_option("", "--nhigh", action = "store", type = "string",
-        default = None,
+    parser.add_option("", "--nhigh", action = "store", type = "float",
+        default = 2.,
         help =
             "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
             "contours of constant statistic at large snr"
@@ -247,11 +247,11 @@ class CombiningFunctions:
         """
         if self.power == 0:
             return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( \
-                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh)) )**(1./self.q) ) 
+                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) 
                 for sngl in coinc_sngls ))
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) +\
-                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh)) )**(1./self.q) ) **self.power 
+                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) **self.power 
                 for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_newsnr( self, coinc_sngls ):
@@ -261,13 +261,13 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( 1 + max(\
-			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) )**(1./self.q) ) 
+            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( 1 + (max(\
+			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) ))**(1./self.q) ) 
                 for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( 1 + max(\
-			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) )**(1./self.q) ) **self.power 
-                for sngl in coinc_sngls ))
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( 1 + (max(\
+			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) ))**(1./self.q) ) **self.power 
+                for sngl in coinc_sngls ))**(1./self.power)
 
 
 
