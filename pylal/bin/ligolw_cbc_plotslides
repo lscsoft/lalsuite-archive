@@ -7,17 +7,6 @@
 #
 # ============================================================================
 
-
-__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__prog__ = "ligolw_cbc_plotslides"
-__Id__ = "$Id$"
-usage = """
-Plots number of events and durations for each slide in each
-experiment time in a database.
-"""
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -29,10 +18,17 @@ import numpy
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue import git_version
 
 from pylal import InspiralUtils
 from pylal import CoincInspiralUtils
 
+__prog__ = "ligolw_cbc_plotslides"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+
+description = \
+"Plots number of events and durations for each slide in each experiment " + \
+"time in a database."
 
 # ============================================================================
 #
@@ -44,8 +40,12 @@ def parse_command_line():
     """
     Parser function dedicated
     """
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
-    parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
         help = 
@@ -274,7 +274,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     opts.gps_end_time = gps_end_time
     opts.ifo_times = ''.join(sorted(on_instruments))
     opts.ifo_tag = ''
-    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, __version__ )
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
 
     fnameList = []
     tagList = []

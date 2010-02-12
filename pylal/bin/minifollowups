@@ -7,10 +7,7 @@ routine to follow triggers from new style coinc xml tables
 from __future__ import division
 
 __author__ = "Ian Harry <ian.harry@astro.cf.ac.uk>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="minifollowups"
-__Id__ = "$Id$"
 
 import sys,os
 from optparse import *
@@ -23,9 +20,11 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import print_tables
+from glue import git_version
 import matplotlib
 matplotlib.use('Agg')
 from pylal import followup_trigger
+from pylal import printutils
 
 def organize_coincs(new_coincs,sngls,coinc_map):
 # This function takes a (new style) coinc table and sngl table along with
@@ -72,14 +71,18 @@ def organize_found_injs(summTable,sims):
     i += 1
   return injList
 
-def get_column_list(tableName):
+def get_column_list(tableName, with_sngl = False):
   if tableName == "loudest_events":
-    columnList = []
+    columnList, row_span_columns, rspan_break_columns = \
+        printutils.get_columns_to_print(xmlSummary, tableName, with_sngl = with_sngl)
+    columnList.remove('instruments_on')
   elif tableName == "close_missed_injections":
     columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
+    row_span_columns = rspan_break_columns = []
   elif tableName == 'selected_found_injections':
     columnList = ['recovered_combined_far','recovered_snr','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_distance']
-  return columnList
+    row_span_columns = rspan_break_columns = []
+  return columnList, row_span_columns, rspan_break_columns
 
 usage = """%prog [options]
 
@@ -88,7 +91,7 @@ coinc_inspiral_tables in them. It can also take in the html table files output
 by printlc and add the mini followup to it for write_ihope_page usage.
 """
 
-parser = OptionParser( usage=usage)
+parser = OptionParser( usage=usage, version = git_version.verbose_msg)
 parser.add_option("-g","--cache-string",action="store",type="string",\
       default=None, metavar=" USERTAG",\
       help="This is used to parse the cache file. Only files with this string in them will be used" )
@@ -218,21 +221,12 @@ elif FUPtype == 'CMI' or FUPtype == 'SFI':
 if opts.output_html_table is not None:
   output = open(opts.output_html_table,'w')
   tableList = [opts.table_name]
-  if FUPtype == 'LE':
-    # This import is here to avoid SQL clashes when reading xml files
-    from pylal import printutils
-    columnList, row_span_columns, rspan_break_columns = \
-        printutils.get_columns_to_print(xmlSummary, tableList[0])
-    print_tables.print_tables(summTable, output, "html",\
-        tableList = tableList, columnList = columnList, round_floats = True, \
-        decimal_places = 2, title = None, print_table_names = False,
-        row_span_columns = row_span_columns, 
-        rspan_break_columns = rspan_break_columns)
-  else:
-    columnList = get_column_list(opts.table_name)
-    print_tables.print_tables(summTable, output, "html",\
-        tableList = tableList,columnList = columnList,round_floats = True, \
-        decimal_places = 2, title = None,print_table_names = False)
+  columnList, row_span_columns, rspan_break_columns = get_column_list(opts.table_name, with_sngl = opts.time_slides)
+  print_tables.print_tables(summTable, output, "html",\
+    tableList = tableList, columnList = columnList, round_floats = True, \
+    decimal_places = 2, title = None, print_table_names = False, unique_rows = True,
+    row_span_columns = row_span_columns, 
+    rspan_break_columns = rspan_break_columns)
   output.close()
 
 if FUPtype == 'LE':

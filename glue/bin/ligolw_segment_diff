@@ -53,6 +53,8 @@ from glue.segmentdb.segmentdb_utils import add_to_segment_definer
 from glue.segmentdb.segmentdb_utils import add_to_segment
 from glue.segmentdb.segmentdb_utils import find_segments
 
+from glue import git_version
+
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
 
@@ -63,8 +65,8 @@ except:
 
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__    = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -80,13 +82,11 @@ def parse_command_line():
     """
 
     parser = OptionParser(
-        version = "%prog CVS $Header$",
+        version = "Name: %%prog\n%s" % git_version.verbose_msg,
         usage   = "%prog [--segment | --segment-summary] [options] file1.xml file2.xml ...",
         description = "Takes two or more XML files containing segment tables, and calculates the\n" +
         "difference A - B - C - ... between either (1) the union of all specified segment definers\n" +
-        "across files or (2) each individual segment definer between files\n"
-
-                      
+        "across files or (2) each individual segment definer between files\n"                      
 	)
     
     parser.add_option("-o", "--output-file", metavar = "output_file", help = "Output file (default = stdout)")
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     xmldoc.appendChild(ligolw.LIGO_LW())
     
     # Register ourselves
-    proc_id = process.register_to_xmldoc(xmldoc, PROGRAM_NAME, options.__dict__).process_id
+    proc_id = process.register_to_xmldoc(xmldoc, PROGRAM_NAME, options.__dict__, version=git_version.id).process_id
 
     # If we have no filenames, assume that we're reading from stdin
     # (ligolw_add uses None as a flag for stdin)

@@ -47,12 +47,11 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 #
 ##############################################################################
 
-def get_delta_t_rss(pt,coinc,reference_frequency=None):
+def get_delta_t_rss(latitude,longitude,coinc,reference_frequency=None):
   """
   returns the rss timing error for a particular location in
   the sky (longitude,latitude)
   """
-  latitude, longitude = pt
   earth_center = (0.0,0.0,0.0)
   tref = {}
   tgeo={}
@@ -65,7 +64,7 @@ def get_delta_t_rss(pt,coinc,reference_frequency=None):
       tref[ifo] = 0.0   
          
     #compute the geocentric time from each trigger
-    tgeo[ifo] = coinc_dat.gps[ifo] - tref[ifo] - \
+    tgeo[ifo] = coinc.gps[ifo] - tref[ifo] - \
                 LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],\
                 earth_center,longitude,latitude,coinc.gps[ifo]))  
       
@@ -98,14 +97,13 @@ def get_signal_duration(ifo,coinc,frequency):
     
   return duration
   
-def get_delta_D_rms(pt,coinc):
+def get_delta_D_rms(latitude,longitude,coinc):
   """
   compute the rms difference in the ratio of the difference of the squares of Deff to
   the sum of the squares of Deff between the measured values and a "marginalized" effective
   distance this is just the squared Deff integrated over inclination and polarization which
   is proportional to (F+^2 + Fx^2)^(-1)
   """
-  latitude, longitude = pt
   gmst = {}
   D_marg_sq = {}
   F_plus = {}
@@ -181,28 +179,16 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   points in the fine grid are the values
   """
   fgtemp = finegrid[:]
-  coarsedict = {} 
+  coarsedict = {}
+  
   ds = coarseres*pi/180.0
-  epsilon = ds/10.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
-         - ds*ds/4.0 <= epsilon:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) <=  ds*ds/4.0:
         flist.append(fpt)
     coarsedict[cpt] = flist
-    for rpt in flist:
-      fgtemp.remove(rpt)
-  first_column = [pt for pt in coarsegrid if pt[1] ==0.0]
-  for cpt in first_column:
-    flist = []
-    for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
-         (2*pi-fpt[1])*(2*pi-fpt[1])*sin(cpt[0])*sin(cpt[0]) \
-         - ds*ds/4.0 <= epsilon:
-        flist.append(fpt)
-    coarsedict[cpt].extend(flist)
     for rpt in flist:
       fgtemp.remove(rpt)
 
@@ -222,7 +208,7 @@ class SkyPoints(list):
     * a method for sorting those lists
     * a method for writing itself to disk
   """
-  def _cmpdt(self,x,y):
+  def _cmpL(self,x,y):
     """
     a comparison function that sorts lists of (latitude, longitude, L)
     according to L values
@@ -234,48 +220,25 @@ class SkyPoints(list):
     else:
       return -1
 
-  def _cmpdD(self,x,y):
-    """
-    a comparison function that sorts lists of (latitude, longitude, L)
-    according to L values
-    """
-    if x[3] > y[3]:
-      return 1
-    if x[3] == y[3]:
-      return 0
-    else:
-      return -1
-
-  def sort_dt(self):
+  def sort(self):
     """
     replaces the list.sort() method with one that sorts lists of 
     (latitude,longitude,L) according to L
     """
-    super(SkyPoints,self).sort(self._cmpdt)
+    super(grid,self).sort(self._cmpL)
 
-  def sort_dD(self):
-    """
-    replaces the list.sort() method with one that sorts lists of 
-    (latitude,longitude,L) according to L
-    """
-    super(SkyPoints,self).sort(self._cmpdD)
-
-  def write(self,fname,comment=None,gzip=True):
+  def write(self,fname,gzip=True):
     """
     write the grid to a text file
-    note that the dt_rss column may actually be the dt_rss*rho/10
     """ 
-    grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt_rss' + '\t' + 'dD_rss' + '\n'
-    self.sort_dD()
-    self.sort_dt()
+    grid = '#  ra' + '\t' + 'dec' + '\t' + 'L' + '\n'
+    self.sort()
     for pt in self:
-      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
+      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\n'
     if gzip:
       f = gzip.open(fname, 'w')
     else:
       f = open(fname, 'w')
-    if comment:
-      grid += '# ' + comment
     f.write(grids)
     f.close()  
 
@@ -292,7 +255,6 @@ class CoincData(object):
     self.ifo_coincs = []
     
     self.snr = {}
-    self.comb_snr = None
     self.gps = {}
     self.eff_distances = {}
     self.mass1 = {}
@@ -301,7 +263,6 @@ class CoincData(object):
     self.time = None
     
     #this stuff is only needed for injections
-    self.is_injection = False
     self.latitude_inj = None
     self.longitude_inj = None
     self.mass1_inj = None 
@@ -318,7 +279,6 @@ class CoincData(object):
 
   def set_snr(self,snrdict):
     self.snr = snrdict
-    
  
   def set_gps(self,gpsdict):
     self.gps = gpsdict
@@ -335,7 +295,6 @@ class CoincData(object):
     """
     set all of the injection parameters at once
     """
-    self.is_injection = True
     self.latitude_inj = lat
     self.longitude_inj = lon
     self.mass1_inj = m1
@@ -405,7 +364,8 @@ class Coincidences(list):
     inspTrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, \
                                   mangle_event_id = True,verbose=None)
     #note that it's hardcoded to use snr as the statistic
-    coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTriggers,'snr')
+    statistic = CoincInspiralUtils.coincStatistic('snr',None,None)
+    coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTrigs,statistic)
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
@@ -453,10 +413,8 @@ class SkyLocTable(tab.Table):
     "comb_snr": "real_4",
     "ra": "real_4",
     "dec": "real_4",
-    "area_60_dt": "real_4",
-    "area_90_dt": "real_4",
-    "area_60_dt_dD": "real_4",
-    "area_90_dt_dD": "real_4",
+    "area_60pct": "real_4",
+    "area_90pct": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -512,8 +470,8 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
-def populate_SkyLocTable(skyloctable,coinc,a60dt,a90dt,a60dtdD,a90dtdD,\
-                         pt,grid_fname,skymap_fname=None):
+def populate_SkyLocTable(skyloctable,coinc,area60,area90,\
+                         grid_fname,skymap_fname=None):
   """
   populate a row in a skyloctable
   """
@@ -524,11 +482,10 @@ def populate_SkyLocTable(skyloctable,coinc,a60dt,a90dt,a60dtdD,a90dtdD,\
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
   row.comb_snr = sqrt(rhosquared)
-  row.dec, row.ra = pt
-  row.area_60_dt = a60dt
-  row.area_90_dt = a90dt
-  row.area_60_dt_dD = a60dtdD
-  row.area_90_dt_dD = a90dtdD
+  row.ra = skypoints.longitude
+  row.dec = skypoints.latitude
+  row.area_60pct = area60
+  row.area_90pct = area90
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))

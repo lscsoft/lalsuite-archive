@@ -9,12 +9,14 @@
 #
 
 description = \
-"""
-Compiles rate statistics about an ihope run and creates a rate_statistics table
-and a file_statistics table. The rate_statistics gives the average trigger rate for the
-specified file type per ifo. The file_statistics table lists statistics about each file,
-including where the file ranks for different statistics.
-"""
+"Compiles rate statistics about an ihope run and creates a rate_statistics table " + \
+"and a file_statistics table. The rate_statistics gives the average trigger rate for the " + \
+"specified file type per ifo. The file_statistics table lists statistics about each file, " + \
+"including where the file ranks for different statistics."
+
+__prog__ = "lalapps_cbc_compute_rs"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+
 import os, sys, time, datetime, re
 import numpy
 from optparse import OptionParser
@@ -35,8 +37,6 @@ except ImportError:
     # s6 code
     from pylal.xlal.date import LIGOTimeGPS
 
-__prog__ = "lalapps_cbc_compile_rfs"
-__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 
 # =============================================================================
 #

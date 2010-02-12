@@ -508,7 +508,7 @@ class followUpChiaJob(inspiral.ChiaJob,FUJob):
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self._InspiralAnalysisNode__pad_data = 0
+		self._AnalysisNode__pad_data = 0
 
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
@@ -860,7 +860,7 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 				self.__start = value
 				self._AnalysisNode__start = int(value)
 			if param == 'pad-data':
-				self._InspiralAnalysisNode__pad_data = int(value)
+				self._AnalysisNode__pad_data = int(value)
 			if param == 'ifo-tag':
 				self.__ifotag = value
 			if param == 'channel-name': self.inputIfo = value[0:2]
@@ -1229,7 +1229,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 			
 
                 hLengthAnalyzed = 1
-		self._InspiralAnalysisNode__pad_data = 0
+		self._AnalysisNode__pad_data = 0
 
 		#CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
 		#self.setupNodeWeb(job,False,None,None,None,dag.cache)
