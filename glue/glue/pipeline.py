@@ -1098,13 +1098,14 @@ class CondorDAGManNode(CondorDAGNode):
     CondorDAGNode.__init__(self, job)
     self.__user_tag = None
     self.__maxjobs_categories = []
+    self.__cluster_jobs = None
 
   def set_user_tag(self,usertag):
     """
     Set the user tag that is passed to the analysis code.
     @param user_tag: the user tag to identify the job
     """
-    self.__user_tag = usertag
+    self.__user_tag = str(usertag)
 
   def get_user_tag(self):
     """
@@ -1124,6 +1125,19 @@ class CondorDAGManNode(CondorDAGNode):
     Return an array of tuples containing (categoryName,maxJobsNum)
     """
     return self.__maxjobs_categories
+
+  def set_cluster_jobs(self,cluster):
+    """
+    Set the type of job clustering pegasus can use to collapse jobs
+    @param cluster: clustering type
+    """
+    self.__cluster_jobs = str(cluster)
+
+  def get_cluster_jobs(self):
+    """
+    Returns the usertag string
+    """
+    return self.__cluster_jobs
 
 
 class CondorDAG:
@@ -1416,7 +1430,10 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
           if not self.is_dax():
             xml += "--nocleanup "
 
-          xml += "-vvvvvv --force --cluster horizontal</argument>"
+          if node.get_cluster_jobs():
+            xml += "--cluster " + node.get_cluster_jobs() + " "
+
+          xml += "-vvvvvv --force</argument>"
           print >>dagfile, xml
 
           print >>dagfile, """\
