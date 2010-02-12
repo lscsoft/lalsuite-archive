@@ -123,7 +123,7 @@ a GLOB of input triggers,time slides and/or injections. Alternatively a cache fi
 can be used. The code will run given any combination of time slides, zero lag
 triggers and injections as input.
 
-If injections are given, calculates the number of injections with louder detection 
+If injections are given, calculates the number of injections with louder detection
 statistic than the loudest slide [to be added: in each mass bin] as a rudimentary
 measure of the efficacy of the statistic for detection. This is done for effective
 snr and newsnr (explained below).
@@ -145,7 +145,7 @@ It makes various different plots:
    The function used to specify the lines for effective snr is
    chisq = A * snr^4 / (snr^2 + CONST)
 
-   The value of CONST ("magic number") must be given through the argument 
+   The value of CONST ("magic number") must be given through the argument
    of --denominator-constant.
 
    For newsnr the value of snr is found via
@@ -154,9 +154,9 @@ It makes various different plots:
 
    The value of q must be given through the argument of --chisq-index.
 
-*) A plot of triggers, with contours of detection statistic and of trigger density 
+*) A plot of triggers, with contours of detection statistic and of trigger density
    drawn from either the time slides or the zero lag. (Needs time slides or zero lag
-   to be created). Called with --snr-chisq-contours and takes the same options as 
+   to be created). Called with --snr-chisq-contours and takes the same options as
    snr-chisq-lines.
 
 Additionally, various plots of the distribution of background and injection
@@ -174,9 +174,8 @@ triggers can be made.  Three such plots are available:
    nhigh was chosen to be 2 in order to make contours of newsnr follow
    chisq ~ rho^2 at large snr as expected from the template mismatch.
 
-*) Multicoloured background cumulative histograms split over chirp mass bins.
+*) Multicoloured background cumulative histograms split over 10 chirp mass bins.
    Called with --masshist-newsnr or --masshist-effsnr
-   The number of mass bins may be specified with --massbins (default 10)
    Currently only useful for the lowmass search.
 
 *) A plot of snr vs rsq can also be made for a glob of triggers that are read in.
@@ -335,7 +334,7 @@ def parse_command_line():
   if (options.hist_effsnr or options.hist_newsnr or options.hist_snr or options.hist_snr_chi) and not \
       (options.inj_glob or options.cache_file):
     print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
-    print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
+    print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-effsnr, --hist-newsnr"
     sys.exit(1)
 
   if not (options.glob or options.inj_glob or options.slide_glob) \
@@ -402,7 +401,7 @@ if opts.trig_pattern:
       print >>sys.stderr, "ERROR: No file in %s matches the trig_pattern '%s'" % (opts.cache_file, opts.trig_pattern)
       trigFiles = None
     else: 
-      comments += InspiralUtils.message(opts,  'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
+      comments += InspiralUtils.message(opts, 'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
 else:
   trigFiles = None
 
@@ -420,10 +419,10 @@ if opts.slide_pattern:
     found, missed = slide_cache.checkfilesexist()
     slideFiles = found.pfnlist()
     if not len(slideFiles):
-      print >>sys.stderr,  "ERROR: No file in %s matches the slide_pattern '%s'" % (opts.cache_file, opts.slide_pattern)
+      print >>sys.stderr, "ERROR: No file in %s matches the slide_pattern '%s'" % (opts.cache_file, opts.slide_pattern)
       slideFiles = None
     else:
-      comments += InspiralUtils.message(opts,  'Reading ' +str(len(slideFiles)) + ' files having the pattern '+opts.slide_pattern)
+      comments += InspiralUtils.message(opts, 'Reading ' +str(len(slideFiles)) + ' files having the pattern '+opts.slide_pattern)
 else:
   slideFiles = None
 
@@ -443,7 +442,7 @@ if opts.found_pattern:
       print >>sys.stderr, "ERROR: No file in %s matches the found_pattern '%s'" % (opts.cache_file, opts.found_pattern)
       injFiles = None
     else: 
-      comments += InspiralUtils.message(opts,  'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
+      comments += InspiralUtils.message(opts, 'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
 else:
   injFiles = None
 
@@ -457,7 +456,12 @@ chisq_dof = 0
 ###################################
 # Input triggers
 
+snr = array([])
+chisq = array([])
+bankchisq = array([])
+rsq = array([])
 nevents = 0
+
 if trigFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
       verbose=opts.verbose)
@@ -477,7 +481,12 @@ if trigFiles:
 
 # Time slide triggers
 
+slide_snr = array([])
+slide_chisq = array([])
+slide_bankchisq = array([])
+slide_rsq = array([])
 slide_events = 0
+
 if slideFiles:
   slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles, \
       verbose=opts.verbose)
@@ -491,13 +500,18 @@ if slideFiles:
     slide_snr = slideTriggers.get_column('snr')
     slide_chisq = slideTriggers.get_column('chisq')
     slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof')[0] - 1)
-    slide_bankchisq = inspTriggers.get_column('bank_chisq')
-    slide_bankchisq_dof = 2 * (inspTriggers.get_column('bank_chisq_dof') - 1)
+    slide_bankchisq = slideTriggers.get_column('bank_chisq')
+    slide_bankchisq_dof = 2 * (slideTriggers.get_column('bank_chisq_dof') - 1)
     slide_rsq = slideTriggers.get_column('rsqveto_duration') + 0.00001
 
 # input injections:
 
 ninj_events = 0
+inj_snr = array([])
+inj_chisq = array([])
+inj_bankchisq = array([])
+inj_rsq = array([])
+
 if injFiles:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
       verbose=opts.verbose)
@@ -509,8 +523,8 @@ if injFiles:
     inj_snr = injTriggers.get_column('snr')
     inj_chisq = injTriggers.get_column('chisq')
     inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof')[0] - 1)
-    inj_bankchisq = inspTriggers.get_column('bank_chisq')
-    inj_bankchisq_dof = 2 * (inspTriggers.get_column('bank_chisq_dof') - 1)
+    inj_bankchisq = injTriggers.get_column('bank_chisq')
+    inj_bankchisq_dof = 2 * (injTriggers.get_column('bank_chisq_dof') - 1)
     inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
   comments += InspiralUtils.message(opts, \
       'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
@@ -532,8 +546,9 @@ if (nevents == 0) and (ninj_events == 0) and (slide_events == 0):
 
 ###################################
 # Determine SNR range
-max_snr = max(snr.max(),slide_snr.max(),inj_snr.max())
-min_snr = min(snr.min(),slide_snr.min(),inj_snr.min())
+max_snr = max(len(snr) and snr.max(), len(slide_snr) and \
+ slide_snr.max(), len(inj_snr) and inj_snr.max())
+min_snr = min(concatenate((snr,slide_snr,inj_snr)))
 
 log_min = log10(min_snr)
 log_max = 1.1*log10(max_snr)
@@ -543,8 +558,9 @@ snr_range = 10**snr_logrange
 
 ###################################
 # Determine chisq range
-max_chisq = max(chisq.max(),slide_chisq.max(),inj_chisq.max())
-min_chisq = min(chisq.min(),slide_chisq.min(),inj_chisq.min())
+max_chisq = max(len(chisq) and chisq.max(), len(slide_chisq) and \
+ slide_chisq.max(), len(inj_chisq) and inj_chisq.max())
+min_chisq = min(concatenate((chisq,slide_chisq,inj_chisq)))
 
 log_min_chisq = log10(min_chisq)
 log_max_chisq = 1.1*log10(max_chisq)
@@ -554,8 +570,9 @@ chisq_range = 10**chisq_logrange
 
 ###################################
 # Determine bank chisq range
-max_bankchisq = max(bankchisq.max(),slide_bankchisq.max(),inj_bankchisq.max())
-min_bankchisq = min(bankchisq.min(),slide_bankchisq.min(),inj_bankchisq.min())
+max_bankchisq = max(len(bankchisq) and bankchisq.max(), len(slide_bankchisq) and \
+ slide_bankchisq.max(), len(inj_bankchisq) and inj_bankchisq.max())
+min_bankchisq = min(concatenate((bankchisq,slide_bankchisq,inj_bankchisq)))
 
 log_min_bank = log10(min_bankchisq)
 log_max_bank = 1.1*log10(max_bankchisq)
@@ -565,7 +582,7 @@ bankchisq_range = 10**bankchisq_logrange
 
 ###################################
 # Determine rsq range
-max_rsq = max(rsq.max(),slide_rsq.max(),inj_rsq.max())
+max_rsq = max(concatenate((rsq,slide_rsq,inj_rsq)))
 
 ###################################
 # calculate the contours
@@ -690,13 +707,13 @@ if opts.bank_chisq:
   figure(fig_num)
   legendText= []
   if ninj_events:
-    viz.plot_a_v_b(injTriggers,'snr','reduced_bank_chisq','loglog','r+')
+    viz.plot_a_v_b(injTriggers,'snr','bank_chisq','loglog','r+')
     legendText.append('Injections')
   if slide_events:
-    viz.plot_a_v_b(slideTriggers,'snr','reduced_bank_chisq','loglog','kx')
+    viz.plot_a_v_b(slideTriggers,'snr','bank_chisq','loglog','kx')
     legendText.append('Background')
   if nevents:
-    viz.plot_a_v_b(inspTriggers,'snr','reduced_bank_chisq','loglog','b2')
+    viz.plot_a_v_b(inspTriggers,'snr','bank_chisq','loglog','b2')
     legendText.append('Triggers')
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'Bank $\chi^2$', size='x-large')
