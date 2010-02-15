@@ -333,9 +333,9 @@ for m, filename in enumerate(labels.keys()):
 					exclude_coincs = options.exclude_coincs, include_only_coincs = options.include_only_coincs,
 					sim_tag = sim_tag, verbose = options.verbose)
 				label = "%s%s%s %s" %( labels[filename],
-					sim_tag != 'ALLINJ' and ' ' + sim_tag  or '',
-					param_range != '' and ' ' + re.sub(r'sim_inspiral[.]','',options.param_name) + ' ' + param_range or '',
-					far_stat)
+					len(options.sim_tag.split(';')) > 1 and sim_tag != 'ALLINJ' and ' ' + sim_tag  or '',
+					len(param_ranges) > 1 and param_range != '' and ' ' + re.sub(r'sim_inspiral[.]','',options.param_name) + ' ' + param_range or '',
+					len(options.far_column) > 1 and far_stat or '')
 				# add escape characers to underscores in label as they can cause LaTeX problems
 				label = re.sub(r'_', r'\_', label)
 				plot.add_contents(label, contents, far_column = sqlutils.validate_option(far_stat), filter = filter, debug = options.debug)
