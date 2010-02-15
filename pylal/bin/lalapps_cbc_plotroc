@@ -291,14 +291,17 @@ sqlite3.enable_callback_tracebacks(options.debug)
 
 plot = ROCPlots()
 
-if options.verbose and options.add_cache == []:
-	print >> sys.stderr, "Gathering files from cache files..."
-for cachename in options.add_cache:
-	selected_files = [lal.CacheEntry(line).path() for line in file(cachename) if line.endswith('sqlite')]
-filenames += [lal.CacheEntry(line).path() for cachename in options.add_cache for line in file(cachename) if line.endswith('sqlite')]
-
-# get labels
 labels = {}
+# get cache-files
+if options.verbose and options.add_cache != []:
+	print >> sys.stderr, "Gathering files from cache files..."
+for n, cachename in enumerate(options.add_cache):
+	label = len(cachename.split(':')) > 1 and cachename.split(':')[-1] or "%s%d" % ("cache", n)
+	cn = re.sub( label[::-1]+':', '', cachename[::-1], 1 )[::-1]
+	for fn in [lal.CacheEntry(line).path() for line in file(cn) if lal.CacheEntry(line).path().endswith('sqlite')]:
+		labels[fn] = label
+
+# get files
 for n, fnl in enumerate(filenames):
 	label = len(fnl.split(':')) > 1 and fnl.split(':')[-1] or "%s%d" % (fnl in options.add_cache and "cache" or "file", n)
 	fn = re.sub( label[::-1]+':', '', fnl[::-1], 1 )[::-1]
