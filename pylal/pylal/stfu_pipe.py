@@ -852,21 +852,15 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			if param in skipParams: continue
 			if param == 'injection-file': value = sngl.inj_file_name
 			if param == 'gps-end-time':
-				#self.__end = value
-				#self._AnalysisNode__end = int(value)
 				self.set_end(int(value))
 				continue
 			if param == 'gps-start-time':
-				#self.__start = value
-				#self._AnalysisNode__start = int(value)
 				self.set_start(int(value))
 				continue
 			if param == 'pad-data':
-				#self._AnalysisNode__pad_data = int(value)
 				self.set_pad_data(int(value))
 				continue
 			if param == 'ifo-tag':
-				#self.__ifotag = value
 				self.set_ifo_tag(value)
 				continue
 			self.add_var_opt(param,value)
@@ -884,7 +878,6 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		  #self.__usertag = tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time)
                 else:     
                   self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
-                  #self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
 
                 self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.get_ifo_tag() + "_" + self.get_user_tag() + "-" + str(self.get_start()) + "-" + str(int(self.get_end())-int(self.get_start())) + extension
 		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.get_start()) + ' ' + str(int(self.get_end())-int(self.get_start())) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.get_start()) + ' ' + str(int(self.get_end())-int(self.get_start())) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
@@ -1201,7 +1194,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		# the use of this class would require some reorganisation in fu_Condor.py
 		# and webCondor.py in order to set up the jobs following the same scheme
 		# as the way it is done for the Inspiral pipeline...
-		#pipeline.CondorDAGNode.__init__(self,job)
 		inspiral.ChiaNode.__init__(self,job)
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
@@ -1237,7 +1229,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 			
 
                 hLengthAnalyzed = 1
-		#self._AnalysisNode__pad_data = 0
 
 		#CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
 		#self.setupNodeWeb(job,False,None,None,None,dag.cache)
