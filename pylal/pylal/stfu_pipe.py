@@ -818,7 +818,8 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		tlen = 1.0
 		self.output_file_name = ""
-		inspiral.InspiralNode.__init__(self,job)
+		pipeline.CondorDAGNode.__init__(self,job)
+		pipeline.AnalysisNode.__init__(self)
 
 		#FIXME HANDLE INJECTION FILES AND datafind cache
 		# injFile = self.checkInjections(cp)
@@ -860,9 +861,9 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			if param == 'ifo-tag':
 				self.set_ifo_tag(value)
 				continue
+			self.add_var_opt(param,value)
 			if param == 'pad-data':
 				self.set_pad_data(int(value))
-			self.add_var_opt(param,value)
 			if param == 'channel-name': self.inputIfo = value[0:2]
 			if param == 'write-compress':
 				extension = '.xml.gz'
@@ -1192,7 +1193,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		# the use of this class would require some reorganisation in fu_Condor.py
 		# and webCondor.py in order to set up the jobs following the same scheme
 		# as the way it is done for the Inspiral pipeline...
-		inspiral.ChiaNode.__init__(self,job)
+		pipeline.CondorDAGNode.__init__(self,job)
+		pipeline.AnalysisNode.__init__(self)
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
