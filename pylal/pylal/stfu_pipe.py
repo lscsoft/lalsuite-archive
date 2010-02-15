@@ -508,7 +508,6 @@ class followUpChiaJob(inspiral.ChiaJob,FUJob):
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self._AnalysisNode__pad_data = 0
 
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
