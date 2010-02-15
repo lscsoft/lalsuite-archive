@@ -857,12 +857,11 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			if param == 'gps-start-time':
 				self.set_start(int(value))
 				continue
-			if param == 'pad-data':
-				self.set_pad_data(int(value))
-				continue
 			if param == 'ifo-tag':
 				self.set_ifo_tag(value)
 				continue
+			if param == 'pad-data':
+				self.set_pad_data(int(value))
 			self.add_var_opt(param,value)
 			if param == 'channel-name': self.inputIfo = value[0:2]
 			if param == 'write-compress':
@@ -875,7 +874,6 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
                 if chia:
 		  self.set_user_tag( tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time) )
-		  #self.__usertag = tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time)
                 else:     
                   self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
 
