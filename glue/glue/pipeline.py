@@ -52,13 +52,10 @@ except:
 
 def s2play(t):
   """
-  Return 1 if t is in the S2 playground, 0 otherwise
+  Return True if t is in the S2 playground, False otherwise
   t = GPS time to test if playground
   """
-  if ((t - 729273613) % 6370) < 600:
-    return 1
-  else:
-    return 0
+  return ((t - 729273613) % 6370) < 600
 
 # FIXME convenience function until pegasus does this for us
 def recurse_pfn_cache(node,caches=[]):
