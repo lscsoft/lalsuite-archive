@@ -243,12 +243,16 @@ for coinc in coincs:
     else:
       dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
-    area_inj = 0.0
+    dt_area = 0.0
+    dtdD_area = 0.0
     for pt in sp:
+      if pt[2] <= dtrss_inj:
+        dt_area += pt[4]
+      #FIXME: utlimately the next line is the place where we compute area according to rank
       if pt[2] <= dtrss_inj and pt[3] <= dDrss_inj:
-        area_inj += pt[4]
-    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj,dtrss_inj,\
-                            dDrss_inj)
+        dtdD_area += pt[4]
+    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,dtdD_area,\
+                                        dtrss_inj,dDrss_inj)
 
 #name the xml file
 if len(coincs) > 1:

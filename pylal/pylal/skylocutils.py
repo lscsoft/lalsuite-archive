@@ -436,10 +436,10 @@ class SkyLocInjTable(tab.Table):
     "v1_snr": "real_4",
     "ra": "real_4",
     "dec": "real_4",
-    "sky_area": "real_4",
-    "L": "real_8",
-    "delta_t_rms": "real_8",
-    "delta_D_rms": "real_8",
+    "dt_area": "real_4",
+    "rank_area": "real_4",
+    "delta_t_rss": "real_8",
+    "delta_D_rss": "real_8",
     "h1_eff_distance": "real_4",
     "l1_eff_distance": "real_4",
     "v1_eff_distance": "real_4",
@@ -497,7 +497,7 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj, \
+def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
                             dtrss_inj,dDrss_inj):
   """
   given an instance of skypoints populate and return skylocinjtable
@@ -523,8 +523,8 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj, \
     row.v1_snr = None
   row.ra = coinc.longitude_inj
   row.dec = coinc.latitude_inj
-  row.sky_area = area_inj
-  row.L = L_inj
+  row.dt_area = dt_area
+  row.rank_area = rank_area
   row.delta_t_rss = dtrss_inj
   row.delta_D_rss = dDrss_inj
   try:
