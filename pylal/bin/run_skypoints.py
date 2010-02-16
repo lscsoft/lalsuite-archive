@@ -121,7 +121,7 @@ ligolw.Header += u"""\n\n"""\
                  +u"""\n\n"""
 
 #setup the output filenames
-base_name = 'SKYPOINTS_' + opts.output_prefix
+base_name = 'SKYPOINTS' + opts.output_prefix
 grid_fname = base_name + '_grid_GPSTIME.txt.gz'
 outfile = base_name + '_GPSTIME.xml'
 
@@ -136,12 +136,12 @@ def get_unique_filename(name):
   use this to avoid name collisions
   """
   counter = 1
-  base_name, ext = os.path.splitext(file_name)
+  base_name, ext = os.path.splitext(name)
   while os.path.isfile(name):
-    name = base_name + '_' + str(counter) + ext
+    base_name = base_name + '_' + str(counter) + ext
     counter += 1
 
-  return name
+  return base_name + ext
 
 ##############################################################################
 #
@@ -150,15 +150,15 @@ def get_unique_filename(name):
 ##############################################################################
 
 #open up the pickled grids
-grid_file = open(opts.grids,'r')
-grid = cPickle.load(grid_file)
-grid_file.close()
+skygrids = open(opts.grids,'r')
+grid = cPickle.load(skygrids)
+skygrids.close()
 
 
 #the area of each pixel on the fine grid in square degrees
 #this gets recorded for each point and makes computing areas simple
 fine_area = 0.25
-coare_area = 16
+coarse_area = 16
 
 for coinc in coincs:
   sp = skylocutils.SkyPoints()
@@ -167,7 +167,7 @@ for coinc in coincs:
   dt90_area = 0.0
   dt60_area = 0.0
   dt90dD90_area = 0.0
-  dt60dD90_area = 0.0
+  dt60dD60_area = 0.0
 
   #compute combined snr if snr dependent thresholds are specified
   if thresholds_90[1] and thresholds_60[1]:
@@ -194,46 +194,47 @@ for coinc in coincs:
         if snr:
           #compute the quanitity for the snr-dependent threshold
           snr_dtrss = dtrss_fine*snr/10.0
-          sp.append(fine_pt[0],fine_point[1],snr_dtrss,dDrss_fine,fine_area)
+          sp.append((fine_pt[0],fine_pt[1],snr_dtrss,dDrss_fine,fine_area))
           if snr_dtrss <= thresholds_60[1]:
-            dt60_area += pixel_area
-            dt90_area += pixel_area
+            dt60_area += fine_area 
+            dt90_area += fine_area
             if dDrss_fine <= thresholds_60[2]:
-              dt60dD60_area += pixel_area
-              dt90dD90_area += pixel_area
+              dt60dD60_area += fine_area
+              dt90dD90_area += fine_area
           elif snr_dt_rss <= thresholds_90[1]:
-            dt90_area += pixel_area
+            dt90_area += fine_area
             if dDrss_fine <= thresholds_90[2]:
-              dt90dD90_area += pixel_area
+              dt90dD90_area += fine_area
         else:
           #just timing
-          sp.append(fine_pt[0],fine_point[1],dtrss_fine,dDrss_fine,fine_area)
+          sp.append((fine_pt[0],fine_pt[1],dtrss_fine,dDrss_fine,fine_area))
           if dtrss_fine <= thresholds_60[0]:
-            dt60_area += pixel_area
-            dt90_area += pixel_area
+            dt60_area += fine_area
+            dt90_area += fine_area
             if dDrss_fine <= thresholds_60[2]:
-              dt60dD60_area += pixel_area
-              dt90dD90_area += pixel_area
+              dt60dD60_area += fine_area
+              dt90dD90_area += fine_area
           elif dtrss_fine <= thresholds_90[0]:
-            dt90_area += pixel_area
+            dt90_area += fine_area
             if dDrss_fine <= thresholds_90[2]:
-              dt90dD90_area += pixel_area
+              dt90dD90_area += fine_area
 
 
         #FIXME: put galaxy catalog stuff here!!!
      
     else:
-      sp.append(coarse_pt[0],coarse_pt[1],dtrss_coarse,None,coarse_area)
+      sp.append((coarse_pt[0],coarse_pt[1],dtrss_coarse,None,coarse_area))
   
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
-  gird_file = get_unique_filename(grid_fname.replace('GPSTIME',str(min([t.seconds for t in coinc.gps.values()]))))
+  grid_file = get_unique_filename(grid_fname.replace('GPSTIME',str(coinc.time.seconds)))
   sp.write(grid_file,argstring)
 
   #populate the output tables
   #list of points has been sorted so the best one is at the top
-  populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,dt60dD60_area,\
-                       dt90dD90_area,sp[0],grid_file,skymap_file)
+  #FIXME: replace None with a link to the skymap file name!!!
+  skylocutils.populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,dt60dD60_area,\
+                       dt90dD90_area,sp[0],grid_file,None)
   if coinc.is_injection:
     #NB: using the *recovered* snr for the snr dependent threshold
     inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
@@ -246,20 +247,20 @@ for coinc in coincs:
     for pt in sp:
       if pt[2] <= dtrss_inj and pt[3] <= dDrss_inj:
         area_inj += pt[4]
-    populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj,dtrss_inj,\
+    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,area_inj,L_inj,dtrss_inj,\
                             dDrss_inj)
 
 #name the xml file
 if len(coincs) > 1:
-  tmin = min([c.gps.values() for c in coincs])
-  tmax = max([c.gps.values() for c in coincs])
-  outfile.replace('GPSTIME',str(tmin)+'-'+str(tmax))
+  tmin = min([min(c.gps.values()) for c in coincs]).seconds
+  tmax = max([max(c.gps.values()) for c in coincs]).seconds
+  ofname=outfile.replace('GPSTIME',str(tmin)+'-'+str(tmax))
 else:
   tmin = min([c for c in coincs[0].gps.values()])
-  outfile.replace('GPSTIME',str(tmin))
-output = get_unique_filename(outfile)
+  ofname=outfile.replace('GPSTIME',str(tmin))
+output = get_unique_filename(ofname)
 #write the xml file and we're done
 f = open(output,'w')
-xmldoc.write(output)
+xmldoc.write(f)
 f.close()
 
