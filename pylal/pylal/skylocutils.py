@@ -8,6 +8,7 @@ __date__ = git_version.date
 
 import sys
 import os
+import operator
 from math import sqrt, sin, cos
 import gzip 
 
@@ -346,7 +347,7 @@ class Coincidences(list):
             effDs_inj[ifo] = row.eff_dist_v
         coinc.set_inj_params(row.latitude,row.longitude,row.mass1,row.mass2, \
                              effDs_inj)
-        self.is_injection = True
+        coinc.is_injection = True
       #FIXME: name the exception!
       except:
         pass
@@ -362,10 +363,10 @@ class Coincidences(list):
                                   mangle_event_id = True,verbose=None)
     statistic = CoincInspiralUtils.coincStatistic(stat,None,None)
     coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTrigs,statistic)
+
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
-      self.is_injection = True
     #FIXME: name the exception!
     except:
       pass
@@ -391,7 +392,8 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
                              getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
-      #FIXME: name the exception!
+        coinc.is_injection = True
+        #FIXME: name the exception!
       except:
         pass
       

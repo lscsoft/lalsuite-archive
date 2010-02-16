@@ -137,7 +137,7 @@ def get_unique_filename(name):
   """
   counter = 1
   base_name, ext = os.path.splitext(name)
-  while os.path.isfile(name):
+  while os.path.isfile(base_name):
     base_name = base_name + '_' + str(counter) + ext
     counter += 1
 
@@ -236,6 +236,7 @@ for coinc in coincs:
   skylocutils.populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,dt60dD60_area,\
                        dt90dD90_area,sp[0],grid_file,None)
   if coinc.is_injection:
+    print 'got here'
     #NB: using the *recovered* snr for the snr dependent threshold
     inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
     if snr:
