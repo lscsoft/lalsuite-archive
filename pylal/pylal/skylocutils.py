@@ -211,51 +211,20 @@ class SkyPoints(list):
     * a method for sorting those lists
     * a method for writing itself to disk
   """
-  def _cmpdt(self,x,y):
+  def nsort(self,n):
     """
-    a comparison function that sorts lists of (latitude, longitude, L)
-    according to L values
+    in place sort of (latitude,longitude,dt,dD...) tuples 
+    according to the values in the nth column
     """
-    if x[2] > y[2]:
-      return 1
-    if x[2] == y[2]:
-      return 0
-    else:
-      return -1
-
-  def _cmpdD(self,x,y):
-    """
-    a comparison function that sorts lists of (latitude, longitude, L)
-    according to L values
-    """
-    if x[3] > y[3]:
-      return 1
-    if x[3] == y[3]:
-      return 0
-    else:
-      return -1
-
-  def dtsort(self):
-    """
-    replaces the list.sort() method with one that sorts lists of 
-    (latitude,longitude,L) according to L
-    """
-    super(SkyPoints,self).sort(self._cmpdt)
-
-  def dDsort(self):
-    """
-    replaces the list.sort() method with one that sorts lists of 
-    (latitude,longitude,L) according to L
-    """
-    super(SkyPoints,self).sort(self._cmpdD)
+    super(SkyPoints,self).sort(key=operator.itemgetter(n))
 
   def write(self,fname,comment=None,gz=True):
     """
     write the grid to a text file
     """ 
     grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt' + '\t' + 'dD' + '\n'
-    self.dDsort()
-    self.dtsort()
+    self.nsort(3)
+    self.nsort(2)
     for pt in self:
       grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
     if comment:
@@ -384,19 +353,19 @@ class Coincidences(list):
 
       self.append(coinc)
   
-  def get_coincs_from_coire(self,files):
+  def get_coincs_from_coire(self,files,stat='snr'):
     """
     uses CoincInspiralUtils to get data from old-style (coire'd) coincs
     """
     coincTrigs = CoincInspiralUtils.coincInspiralTable()
     inspTrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, \
                                   mangle_event_id = True,verbose=None)
-    #note that it's hardcoded to use snr as the statistic
-    statistic = CoincInspiralUtils.coincStatistic('snr',None,None)
+    statistic = CoincInspiralUtils.coincStatistic(stat,None,None)
     coincTrigs = CoincInspiralUtils.coincInspiralTable(inspTrigs,statistic)
     try:
       inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(files)
       coincTrigs.add_sim_inspirals(inspInj)
+      self.is_injection = True
     #FIXME: name the exception!
     except:
       pass
@@ -422,7 +391,6 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
                              getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
-        self.is_injection = True
       #FIXME: name the exception!
       except:
         pass
