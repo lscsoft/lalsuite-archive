@@ -500,7 +500,7 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
 def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
                             dtrss_inj,dDrss_inj):
   """
-  given an instance of skypoints populate and return skylocinjtable
+  record injection data in a skylocinjtable
   """
   row = skylocinjtable.RowType()
 
@@ -546,8 +546,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
 
 def populate_GalaxyTable(galaxytable,coinc,galaxy):
   """
-  given an instance of skypoints and a relevant galaxy
-  populate a row in galaxytable
+  record galaxy data in a galaxytable
   """
   row = galaxytable.RowType()
 
