@@ -428,7 +428,7 @@ def analysis_finalized(grb, dag):
 def check_rerun(grb, dag, cp):
 
   # don't do anything if this DAG has not finished
-  if dag.get_status()!=5:
+  if dag.get_status()!=5 and dag.get_status()>0:
     return
 
   # check if there is a tag mismatch
