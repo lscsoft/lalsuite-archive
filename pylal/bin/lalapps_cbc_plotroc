@@ -291,14 +291,17 @@ sqlite3.enable_callback_tracebacks(options.debug)
 
 plot = ROCPlots()
 
-if options.verbose and options.add_cache == []:
-	print >> sys.stderr, "Gathering files from cache files..."
-for cachename in options.add_cache:
-	selected_files = [lal.CacheEntry(line).path() for line in file(cachename) if line.endswith('sqlite')]
-filenames += [lal.CacheEntry(line).path() for cachename in options.add_cache for line in file(cachename) if line.endswith('sqlite')]
-
-# get labels
 labels = {}
+# get cache-files
+if options.verbose and options.add_cache != []:
+	print >> sys.stderr, "Gathering files from cache files..."
+for n, cachename in enumerate(options.add_cache):
+	label = len(cachename.split(':')) > 1 and cachename.split(':')[-1] or "%s%d" % ("cache", n)
+	cn = re.sub( label[::-1]+':', '', cachename[::-1], 1 )[::-1]
+	for fn in [lal.CacheEntry(line).path() for line in file(cn) if lal.CacheEntry(line).path().endswith('sqlite')]:
+		labels[fn] = label
+
+# get files
 for n, fnl in enumerate(filenames):
 	label = len(fnl.split(':')) > 1 and fnl.split(':')[-1] or "%s%d" % (fnl in options.add_cache and "cache" or "file", n)
 	fn = re.sub( label[::-1]+':', '', fnl[::-1], 1 )[::-1]
@@ -330,9 +333,9 @@ for m, filename in enumerate(labels.keys()):
 					exclude_coincs = options.exclude_coincs, include_only_coincs = options.include_only_coincs,
 					sim_tag = sim_tag, verbose = options.verbose)
 				label = "%s%s%s %s" %( labels[filename],
-					sim_tag != 'ALLINJ' and ' ' + sim_tag  or '',
-					param_range != '' and ' ' + re.sub(r'sim_inspiral[.]','',options.param_name) + ' ' + param_range or '',
-					far_stat)
+					len(options.sim_tag.split(';')) > 1 and sim_tag != 'ALLINJ' and ' ' + sim_tag  or '',
+					len(param_ranges) > 1 and param_range != '' and ' ' + re.sub(r'sim_inspiral[.]','',options.param_name) + ' ' + param_range or '',
+					len(options.far_column) > 1 and far_stat or '')
 				# add escape characers to underscores in label as they can cause LaTeX problems
 				label = re.sub(r'_', r'\_', label)
 				plot.add_contents(label, contents, far_column = sqlutils.validate_option(far_stat), filter = filter, debug = options.debug)
