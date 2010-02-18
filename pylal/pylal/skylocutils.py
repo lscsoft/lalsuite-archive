@@ -410,6 +410,7 @@ class SkyLocTable(tab.Table):
   validcolumns = {
     "end_time": "int_4s",
     "comb_snr": "real_4",
+    "ifos": "lstring",
     "ra": "real_4",
     "dec": "real_4",
     "a60dt": "real_4",
@@ -423,6 +424,20 @@ class SkyLocTable(tab.Table):
     
 class SkyLocRow(object):
   __slots__ = SkyLocTable.validcolumns.keys()
+  
+  def get_ifos(self):
+    """
+    Return a set of the instruments for this row.
+    """
+    return lsctables.instrument_set_from_ifos(self.ifos)
+
+  def set_ifos(self, instruments):
+    """
+    Serialize a sequence of instruments into the ifos
+    attribute.  The instrument names must not contain the ","
+    character.
+    """
+    self.ifos = lsctables.ifos_from_instrument_set(instruments)
 
 SkyLocTable.RowType = SkyLocRow
 
@@ -430,6 +445,7 @@ class SkyLocInjTable(tab.Table):
   tableName = "SkyLocInj:table"
   validcolumns = {
     "end_time": "int_4s",
+    "ifos": "lstring",
     "comb_snr": "real_4",
     "h1_snr": "real_4",
     "l1_snr": "real_4",
@@ -449,6 +465,21 @@ class SkyLocInjTable(tab.Table):
     
 class SkyLocInjRow(object):
   __slots__ = SkyLocInjTable.validcolumns.keys()
+
+  def get_ifos(self):
+    """
+    Return a set of the instruments for this row.
+    """
+    return lsctables.instrument_set_from_ifos(self.ifos)
+
+  def set_ifos(self, instruments):
+    """
+    Serialize a sequence of instruments into the ifos
+    attribute.  The instrument names must not contain the ","
+    character.
+    """
+    self.ifos = lsctables.ifos_from_instrument_set(instruments)
+
 
 SkyLocInjTable.RowType = SkyLocInjRow
 
@@ -479,6 +510,7 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
   row = skyloctable.RowType()
   
   row.end_time = coinc.time
+  row.set_ifos(coinc.ifo_list)
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
@@ -505,6 +537,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
   row = skylocinjtable.RowType()
 
   row.end_time = coinc.time
+  row.set_ifos(coinc.ifo_list)
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]

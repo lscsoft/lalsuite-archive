@@ -162,7 +162,7 @@ coarse_area = 16
 
 for coinc in coincs:
   sp = skylocutils.SkyPoints()
-
+  
   #for gathering information about area on the sky
   dt90_area = 0.0
   dt60_area = 0.0
