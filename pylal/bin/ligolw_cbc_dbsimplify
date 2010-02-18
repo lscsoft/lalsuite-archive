@@ -7,12 +7,6 @@
 # ============================================================================
 
 
-__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__prog__ = "ligolw_cbc_dbsimplify"
-__Id__ = "$Id$"
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -25,12 +19,15 @@ import os
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 
-usage = """
-Cleans and simplifies a database by removing redundant ids.
-"""
+__prog__ = "ligolw_cbc_dbsimplify"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+
+description = \
+"Cleans and simplifies a database by removing redundant ids."
 
 # ============================================================================
 #
@@ -42,8 +39,11 @@ def parse_command_line():
     """
     Parser function dedicated
     """
-
-    parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
     # following are related to file input and output naming
     parser.add_option( "-d", "--database", action = "store", type = "string", default = None,
         help =
@@ -111,7 +111,7 @@ from glue.ligolw import types as ligolwtypes
 ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 
 xmldoc = dbtables.get_xml(connection)
-proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__)
+proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__, version = git_version.id)
 
 # create needed functions
 connection.create_aggregate("concatenate", 2, sqlutils.aggregate_concatenate)

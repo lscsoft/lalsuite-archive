@@ -32,6 +32,9 @@ import random
 import math
 import urlparse
 import stat
+import socket
+import itertools
+import glue.segments
 try:
   # use hashlib if available, python25 and above
   from hashlib import md5
@@ -39,15 +42,34 @@ except ImportError:
   # md5 is deprecated in python26
   from md5 import new as md5
 
+try:
+  import httplib
+  import urlparse
+  import M2Crypto
+  import cjson
+except:
+  pass
+
 def s2play(t):
   """
-  Return 1 if t is in the S2 playground, 0 otherwise
+  Return True if t is in the S2 playground, False otherwise
   t = GPS time to test if playground
   """
-  if ((t - 729273613) % 6370) < 600:
-    return 1
-  else:
-    return 0
+  return ((t - 729273613) % 6370) < 600
+
+# FIXME convenience function until pegasus does this for us
+def recurse_pfn_cache(node,caches=[]):
+  for parent in node._CondorDAGNode__parents:
+    if isinstance(parent.job(), CondorDAGManJob):
+      if parent.job().get_dax() is None:
+        pass
+      else:
+        caches = recurse_pfn_cache(parent,caches)
+        dax_name = os.path.basename(parent.job().get_dax())
+        dax_basename = '.'.join(dax_name.split('.')[0:-1])
+        caches.append( os.path.join(
+          parent.job().get_pegasus_exec_dir(), dax_basename + '_0.cache') )
+  return caches
 
 
 class CondorError(exceptions.Exception):
@@ -299,7 +321,6 @@ class CondorJob:
       arg = string.strip(cp.get(section,opt))
       self.__options[opt] = arg
 
-
   def set_notification(self, value):
     """
     Set the email address to send notification to.
@@ -498,32 +519,17 @@ class CondorDAGManJob:
   Condor DAGMan job class. Appropriate for setting up DAGs to run within a
   DAG.
   """
-  def __init__(self, dag, dir=None):
+  def __init__(self, dag, dir=None, dax=None):
     """
     dag = the name of the condor dag file to run
     dir = the diretory in which the dag file is located
     """
     self.__dag = dag
-    self.__options = {}
+    self.__dax = dax
     self.__notification = None
     self.__dag_directory= dir
-
-  def add_opt(self, opt, value):
-    """
-    Add a command line option to the executable. The order that the arguments
-    will be appended to the command line is not guaranteed, but they will
-    always be added before any command line arguments. The name of the option
-    is prefixed with single hyphen.
-    @param opt: command line option to add.
-    @param value: value to pass to the option (None for no argument).
-    """
-    self.__options[opt] = value
-
-  def get_opts(self):
-    """
-    Return the dictionary of opts for the job.
-    """
-    return self.__options
+    self.__pegasus_exec_dir = None
+    self.__pfn_cache = []
 
   def set_dag_directory(self, dir):
     """
@@ -547,40 +553,53 @@ class CondorDAGManJob:
 
   def get_sub_file(self):
     """
-    Get the name of the file which the Condor submit file will be
-    written to when write_sub_file() is called.
+    Return the name of the dag as the submit file name for the
+    SUBDAG EXTERNAL command in the uber-dag
     """
-    return self.__dag + ".condor.sub"
+    return self.__dag
 
   def write_sub_file(self):
     """
-    Write a submit file for this Condor job.
+    Do nothing as there is not need for a sub file with the
+    SUBDAG EXTERNAL command in the uber-dag
     """
-    cwd = os.getcwd()
-    if self.get_dag_directory() is not None:
-      try: os.chdir(self.get_dag_directory())
-      except: raise CondorSubmitError, \
-          "directory " + self.get_dag_directory() + " doesn't exist"
+    pass
 
-    command = "condor_submit_dag -f -no_submit "
+  def get_dax(self):
+    """
+    Return the name of any associated dax file
+    """
+    return self.__dax
 
-    if self.__options.keys():
-      for c in self.__options.keys():
-        if self.__options[c]:
-          command +=  ' -' + c + ' ' + self.__options[c]
-        else:
-          command += ' -' + c
-      command += ' '
+  def get_dag(self):
+    """
+    Return the name of any associated dag file
+    """
+    return self.__dag
 
-    command += self.__dag
+  def set_pegasus_exec_dir(self,dir):
+    """
+    Set the directory in which pegasus will generate all log files
+    """
+    self.__pegasus_exec_dir = dir
 
-    stdin, out, err = os.popen3(command)
-    pid, status = os.wait()
+  def get_pegasus_exec_dir(self):
+    """
+    Return the directory in which pegasus will generate all log files
+    """
+    return self.__pegasus_exec_dir
 
-    if status != 0:
-      raise CondorSubmitError, command + " failed."
+  def add_pfn_cache(self,file):
+    """
+    Add an lfn pfn and pool tuple to the pfn cache
+    """
+    self.__pfn_cache.append(file)
 
-    os.chdir(cwd)
+  def get_pfn_cache(self):
+    """
+    Return the pfn cache
+    """
+    return self.__pfn_cache
 
 
 class CondorDAGNode:
@@ -614,6 +633,7 @@ class CondorDAGNode:
     self.__bad_macro_chars = re.compile(r'[_-]')
     self.__output_files = []
     self.__input_files = []
+    self.__dax_collapse = None
     self.__vds_group = None
 
     # generate the md5 node name
@@ -753,6 +773,18 @@ class CondorDAGNode:
     """
     return self.__vds_group
 
+  def set_dax_collapse(self,collapse):
+    """
+    Set the DAX collapse key for this node
+    """
+    self.__dax_collapse = str(collapse)
+
+  def get_dax_collapse(self):
+    """
+    Get the DAX collapse key for this node
+    """
+    return self.__dax_collapse
+
   def add_macro(self,name,value):
     """
     Add a variable (macro) for this node.  This can be different for
@@ -868,15 +900,27 @@ class CondorDAGNode:
     """
     self.__retry = retry
 
+  def get_retry(self):
+    """
+    Return the number of times that this node in the DAG should retry.
+    @param retry: number of times to retry node.
+    """
+    return self.__retry
+
   def write_job(self,fh):
     """
     Write the DAG entry for this node's job to the DAG file descriptor.
     @param fh: descriptor of open DAG file.
     """
-    fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() )
-    if isinstance(self.job(),CondorDAGManJob) and \
-        self.job().get_dag_directory() is not None:
-      fh.write( ' DIR ' + self.job().get_dag_directory() )
+    if isinstance(self.job(),CondorDAGManJob):
+      # create an external subdag from this dag
+      fh.write( ' '.join(
+        ['SUBDAG EXTERNAL', self.__name, self.__job.get_sub_file()]) )
+      if self.job().get_dag_directory():
+        fh.write( ' DIR ' + self.job().get_dag_directory() )
+    else:
+      # write a regular condor job
+      fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() )
     fh.write( '\n')
 
     fh.write( 'RETRY ' + self.__name + ' ' + str(self.__retry) + '\n' )
@@ -1038,6 +1082,61 @@ class CondorDAGNode:
     pass
 
 
+class CondorDAGManNode(CondorDAGNode):
+  """
+  Condor DAGMan node class. Appropriate for setting up DAGs to run within a
+  DAG. Adds the user-tag functionality to condor_dagman processes running in
+  the DAG. May also be used to extend dagman-node specific functionality.
+  """
+  def __init__(self, job):
+    """
+    @job: a CondorDAGNodeJob
+    """
+    CondorDAGNode.__init__(self, job)
+    self.__user_tag = None
+    self.__maxjobs_categories = []
+    self.__cluster_jobs = None
+
+  def set_user_tag(self,usertag):
+    """
+    Set the user tag that is passed to the analysis code.
+    @param user_tag: the user tag to identify the job
+    """
+    self.__user_tag = str(usertag)
+
+  def get_user_tag(self):
+    """
+    Returns the usertag string
+    """
+    return self.__user_tag
+
+  def add_maxjobs_category(self,categoryName,maxJobsNum):
+    """
+    Add a category to this DAG called categoryName with a maxjobs of maxJobsNum.
+    @param node: Add (categoryName,maxJobsNum) tuple to CondorDAG.__maxjobs_categories.
+    """
+    self.__maxjobs_categories.append((str(categoryName),str(maxJobsNum)))
+
+  def get_maxjobs_categories(self):
+    """
+    Return an array of tuples containing (categoryName,maxJobsNum)
+    """
+    return self.__maxjobs_categories
+
+  def set_cluster_jobs(self,cluster):
+    """
+    Set the type of job clustering pegasus can use to collapse jobs
+    @param cluster: clustering type
+    """
+    self.__cluster_jobs = str(cluster)
+
+  def get_cluster_jobs(self):
+    """
+    Returns the usertag string
+    """
+    return self.__cluster_jobs
+
+
 class CondorDAG:
   """
   A CondorDAG is a Condor Directed Acyclic Graph that describes a collection
@@ -1054,14 +1153,13 @@ class CondorDAG:
     self.__log_file_path = log
     self.__dax = dax
     self.__dag_file_path = None
+    self.__dax_file_path = None
     self.__jobs = []
     self.__nodes = []
     self.__maxjobs_categories = []
     self.__integer_node_names = 0
     self.__node_count = 0
     self.__nodes_finalized = 0
-    self.__rls_filelist = []
-    self.__data_find_files = []
 
   def get_nodes(self):
     """
@@ -1075,7 +1173,6 @@ class CondorDAG:
     """
     return self.__jobs
 
-
   def is_dax(self):
     """
     Returns true if this DAG is really a DAX
@@ -1088,27 +1185,37 @@ class CondorDAG:
     """
     self.__integer_node_names = 1
 
-  def set_dag_file(self, path, no_append=0):
+  def set_dag_file(self, path):
     """
     Set the name of the file into which the DAG is written.
     @param path: path to DAG file.
     """
-    if no_append:
-      self.__dag_file_path = path
-    else:
-      if self.__dax:
-        self.__dag_file_path = path + '.dax'
-      else:
-        self.__dag_file_path = path + '.dag'
+    self.__dag_file_path = path + '.dag'
 
   def get_dag_file(self):
     """
     Return the path to the DAG file.
     """
     if not self.__log_file_path:
-      raise CondorDAGError, "No path for DAG or DAX file"
+      raise CondorDAGError, "No path for DAG file"
     else:
       return self.__dag_file_path
+
+  def set_dax_file(self, path):
+    """
+    Set the name of the file into which the DAG is written.
+    @param path: path to DAG file.
+    """
+    self.__dax_file_path = path + '.dax'
+
+  def get_dax_file(self):
+    """
+    Return the path to the DAG file.
+    """
+    if not self.__log_file_path:
+      raise CondorDAGError, "No path for DAX file"
+    else:
+      return self.__dax_file_path
 
   def add_node(self,node):
     """
@@ -1135,6 +1242,12 @@ class CondorDAG:
     @param node: Add (categoryName,maxJobsNum) tuple to CondorDAG.__maxjobs_categories.
     """
     self.__maxjobs_categories.append((str(categoryName),str(maxJobsNum)))
+
+  def get_maxjobs_categories(self):
+    """
+    Return an array of tuples containing (categoryName,maxJobsNum)
+    """
+    return self.__maxjobs_categories
 
   def write_maxjobs(self,fh,category):
     """
@@ -1188,22 +1301,22 @@ class CondorDAG:
     """
     Write all the nodes in the workflow to the DAX file.
     """
-    if not self.__dag_file_path:
-      raise CondorDAGError, "No path for DAX file"
+    if not self.__dax_file_path:
+      # this workflow is not dax-compatible, so don't write a dax
+      return
     try:
-      dagfile = open( self.__dag_file_path, 'w' )
+      dagfile = open( self.__dax_file_path, 'w' )
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
 
     # write the preamble
-    preamble = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<adag xmlns="http://www.griphyn.org/chimera/DAX"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.griphyn.org/chimera/DAX
-        http://www.griphyn.org/chimera/dax-1.8.xsd"
-"""
-    preamble_2 = 'name="' + os.path.split(self.__dag_file_path)[-1]  + '" index="0" count="1" version="1.8">'
+    preamble = """<?xml version="1.0" encoding="UTF-8"?>
+<adag xmlns="http://pegasus.isi.edu/schema/DAX"
+xsi:schemaLocation="http://pegasus.isi.edu/schema/DAX http://pegasus.isi.edu/schema/dax-3.0.xsd"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" index="0" """
+    dax_name = os.path.split(self.__dax_file_path)[-1]
+    dax_basename = '.'.join(dax_name.split('.')[0:-1])
+    preamble_2 = 'name="' + dax_basename  + '">'
     print >>dagfile, preamble,preamble_2
 
     # find unique input and output files from nodes
@@ -1212,18 +1325,17 @@ class CondorDAG:
 
     # creating dictionary for input- and output-files
     for node in self.__nodes:
-      if isinstance(node, LSCDataFindNode):
-        # make a list of the output files here so that I can have a
-        # more sensible rls_cache method that doesn't just ignore .gwf
-        self.__data_find_files.extend(node.get_output())
 
-      else:
-        input_files = node.get_input_files()
-        output_files = node.get_output_files()
-        for f in input_files:
-          input_file_dict[f] = 1
-        for f in output_files:
-          output_file_dict[f] = 1
+      input_files = node.get_input_files()
+      output_files = node.get_output_files()
+      for f in input_files:
+        # FIXME need a better way of dealing with the cache subdirectory
+        f = os.path.basename(f)
+        input_file_dict[f] = 1
+      for f in output_files:
+        # FIXME need a better way of dealing with the cache subdirectory
+        f = os.path.basename(f)
+        output_file_dict[f] = 1
 
     # move union of input and output into inout
     inout_file_dict = {}
@@ -1236,31 +1348,13 @@ class CondorDAG:
       del input_file_dict[f]
       del output_file_dict[f]
 
-    # print input, inout, and output to dax
+    # create and soft input, inout, and output dictionaries
     input_filelist = input_file_dict.keys()
     input_filelist.sort()
-    self.__rls_filelist = input_filelist
-    for f in input_filelist:
-      msg = """\
-    <filename file="%s" link="input"/>\
-"""
-      print >>dagfile, msg % f
-
     inout_filelist = inout_file_dict.keys()
     inout_filelist.sort()
-    for f in inout_filelist:
-      msg = """\
-    <filename file="%s" link="inout"/>\
-"""
-      print >>dagfile, msg % f
-
     output_filelist = output_file_dict.keys()
     output_filelist.sort()
-    for f in output_filelist:
-      msg = """\
-    <filename file="%s" link="output"/>\
-"""
-      print >>dagfile, msg % f
 
     # write the jobs themselves to the DAX, making sure
     # to replace logical file references by the appropriate
@@ -1274,9 +1368,79 @@ class CondorDAG:
 
     id = 0
     for node in self.__nodes:
-      if isinstance(node, LSCDataFindNode):
+      if self.is_dax() and isinstance(node, LSCDataFindNode):
         pass
+
+      elif isinstance(node.job(), CondorDAGManJob):
+        id += 1
+        id_tag = "ID%06d" % id
+        node_name = node._CondorDAGNode__name
+        node_name_id_dict[node_name] = id_tag
+
+        if node.job().get_dax() is None:
+          # write this node as a sub-dag
+          subdag_name = os.path.split(node.job().get_dag())[-1]
+          try:
+            subdag_exec_path = os.path.join(
+              os.getcwd(),node.job().get_dag_directory())
+          except AttributeError:
+            subdag_exec_path = os.getcwd()
+
+          print >>dagfile, """<dag id="%s" file="%s">""" % (id_tag, subdag_name)
+          print >>dagfile, """
+     <profile namespace="dagman" key="DIR">%s</profile>""" % subdag_exec_path
+          print >>dagfile, """\
+     <uses file="%s" link="input" register="false" transfer="true" type="data">
+          <pfn url="%s" site="local"/>
+     </uses>
+</dag>""" % (subdag_name, os.path.join(subdag_exec_path,subdag_name))
+
+        else:
+          # write this node as a sub-dax
+          subdax_name = os.path.split(node.job().get_dax())[-1]
+          dax_subdir = node.job().get_dag_directory()
+          if dax_subdir:
+            subdax_path = os.path.join(
+              os.getcwd(),node.job().get_dag_directory(),subdax_name)
+          else:
+            subdax_path = os.path.join(os.getcwd(),subdax_name)
+            dax_subdir = '.'
+            
+          print >>dagfile, """<dax id="%s" file="%s">""" % (id_tag, subdax_name)
+
+          # set the storage and execute directory locations
+          xml = """     <argument>-Dpegasus.dir.storage=%s """ % dax_subdir
+          xml += """--dir %s """ % dax_subdir
+
+          # set the maxjobs categories for the subdax
+          # FIXME pegasus should expose this in the dax, so it can
+          # be handled like the MAXJOBS keyword in dag files
+          for maxjobcat in node.get_maxjobs_categories():
+            xml += "-Dpegasus.dagman." + maxjobcat[0] + ".maxjobs=" + maxjobcat[1] + " "
+
+          # FIXME pegasus should really do this for us
+          caches = recurse_pfn_cache(node)
+
+          caches += node.job().get_pfn_cache()
+          xml += "--cache " + ','.join(caches) + " "
+
+          if not self.is_dax():
+            xml += "--nocleanup "
+
+          if node.get_cluster_jobs():
+            xml += "--cluster " + node.get_cluster_jobs() + " "
+
+          xml += "-vvvvvv --force</argument>"
+          print >>dagfile, xml
+
+          print >>dagfile, """\
+     <uses file="%s" link="input" register="false" transfer="true" type="data">
+          <pfn url="%s" site="local"/>
+     </uses>
+</dax>""" % (subdax_name, subdax_path)
+
       else:
+        # write this job as a regular node
         executable = node.job()._CondorJob__executable
         node_name = node._CondorDAGNode__name
 
@@ -1294,52 +1458,99 @@ class CondorDAG:
         for f in node.get_output_files():
           node_file_dict[f] = 1
         for f in node_file_dict.keys():
-          xml = '<filename file="%s" />' % f
+          # FIXME need a better way of dealing with the cache subdirectory
+          xml = '<filename file="%s" />' % os.path.basename(f)
           cmd_line = cmd_line.replace(f, xml)
 
         template = """\
 <job id="%s" namespace="ligo" name="%s" version="1.0" level="1" dv-name="%s">
      <argument>%s
-     </argument>\
+     </argument>
 """
         xml = template % (id_tag, os.path.basename(executable), node_name, cmd_line)
 
+        # write the executable into the dax
+        executable_path = os.path.join(os.getcwd(),executable)
+        if self.is_dax():
+          executable_path = '/'.join(
+            ['gsiftp:/', socket.gethostbyaddr(socket.gethostname())[0], 
+            executable_path.lstrip('/')])
+        else:
+          xml = xml + """     <execution key="site">local</execution>\n"""
+        xml = xml +  """     <execution key="executable">%s</execution>\n""" % executable_path
+
         # write the group if this node has one
         if node.get_vds_group():
-          template = """<profile namespace="vds" key="group">%s</profile>"""
+          template = """     <profile namespace="pegasus" key="group">%s</profile>\n"""
           xml = xml + template % (node.get_vds_group())
 
-        print >>dagfile, xml
+        # write the bundle parameter if this node has one
+        if node.get_dax_collapse():
+          template = """     <profile namespace="pegasus" key="collapse">%s</profile>\n"""
+          xml = xml + template % (node.get_dax_collapse())
+
+        # write number of times the node should be retried
+        if node.get_retry():
+          template = """     <profile namespace="dagman" key="retry">%s</profile>\n"""
+          xml = xml + template % (node.get_retry())
+
+        # write the dag node category if this node has one
+        if node.get_category():
+          template = """     <profile namespace="dagman" key="category">%s</profile>\n"""
+          xml = xml + template % (node.get_category())
+
+        # write the dag node priority if this node has one
+        if node.get_priority():
+          template = """     <profile namespace="dagman" key="priority">%s</profile>\n"""
+          xml = xml + template % (node.get_priority())
+
+        if self.is_dax():
+          # FIXME should put remote universe property here
+          pass
+        else:
+          if node.get_dax_collapse():
+            # collapsed jobs must run in the vanilla universe
+            template = """     <profile namespace="condor" key="universe">vanilla</profile>\n"""
+            xml = xml + template
+          else:
+            template = """     <profile namespace="condor" key="universe">%s</profile>\n"""
+            xml = xml + template % (node.job().get_universe())
+
+        print >>dagfile, xml,
 
         for f in node.get_input_files():
+          # FIXME need a better way of dealing with the cache subdirectory
+          f = os.path.basename(f)
           if f in inout_filelist:
             print >>dagfile, """\
-     <uses file="%s" link="inout" dontRegister="true" dontTransfer="false"/>\
+     <uses file="%s" link="inout" register="false" transfer="true"/>\
 """ % f
           else:
             print >>dagfile, """\
-     <uses file="%s" link="input" dontRegister="true" dontTransfer="false"/>\
+     <uses file="%s" link="input" register="false" transfer="true"/>\
 """ % f
 
         for f in node.get_output_files():
+          # FIXME need a better way of dealing with the cache subdirectory
+          f = os.path.basename(f)
           print >>dagfile, """\
-     <uses file="%s" link="output" dontRegister="true" dontTransfer="false"/>\
+     <uses file="%s" link="output" register="false" transfer="true"/>\
 """ % f
 
         print >>dagfile, "</job>"
 
     # print parent-child relationships to DAX
     for node in self.__nodes:
-      if isinstance(node, LSCDataFindNode):
+      if self.is_dax() and isinstance(node, LSCDataFindNode):
         pass
-      elif ( len(node._CondorDAGNode__parents) == 1 ) and isinstance(node._CondorDAGNode__parents[0], LSCDataFindNode):
+      elif self.is_dax() and ( len(node._CondorDAGNode__parents) == 1 ) and isinstance(node._CondorDAGNode__parents[0], LSCDataFindNode):
         pass
       else:
         child_id = node_name_id_dict[str(node)]
         if node._CondorDAGNode__parents:
           print >>dagfile, '<child ref="%s">' % child_id
           for parent in node._CondorDAGNode__parents:
-            if isinstance(parent, LSCDataFindNode):
+            if self.is_dax() and isinstance(parent, LSCDataFindNode):
               pass
             else:
               parent_id = node_name_id_dict[str(parent)]
@@ -1350,17 +1561,63 @@ class CondorDAG:
 
     dagfile.close()
 
-  def write_pegasus_rls_cache(self,gsiftp,pool):
+    # write the site catalog file which is needed by the DAG
     try:
-      outfilename = self.__dag_file_path+'.peg_cache'
-      outfile = open(outfilename, "w")
+      sitefile = open( 'site-local.xml', 'w' )
+      hostname = socket.gethostbyaddr(socket.gethostname())[0]
+      pwd = os.getcwd()
+      print >> sitefile, """\
+<?xml version="1.0" encoding="UTF-8"?>
+<sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-3.0.xsd" version="3.0">
+  <site handle="local" arch="x86_64" os="LINUX">
+    <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
+    <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+    <head-fs>
+      <scratch>
+        <shared>
+          <file-server protocol="file" url="file://" mount-point="%s">
+          </file-server>
+          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
+        </shared>
+      </scratch>
+      <storage>
+        <shared>
+          <file-server protocol="file" url="file://" mount-point="%s">
+          </file-server>
+          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
+        </shared>
+      </storage>
+    </head-fs>
+    <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+    </replica-catalog>
+""" % (hostname,hostname,pwd,pwd,pwd,pwd)
+      try:
+        print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="LD_LIBRARY_PATH">%s</profile>""" % os.environ['LD_LIBRARY_PATH']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="PYTHONPATH">%s</profile>""" % os.environ['PYTHONPATH']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
+      except:
+        pass
+      print >> sitefile, """\
+    <profile namespace="pegasus" key="gridstart">none</profile>
+    <profile namespace="condor" key="should_transfer_files">YES</profile>
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile> 
+  </site>
+</sitecatalog>""" 
+      sitefile.close()
     except:
-      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+      pass
 
-    for filename in set(self.__rls_filelist):
-      if filename in self.__data_find_files: continue
-      # try to figure out if the path is absolute
-      outfile.write(os.path.split(filename)[-1] + ' ' + 'gsiftp://'+gsiftp +os.path.abspath(filename)+' pool="'+pool+'"\n')
   def write_dag(self):
     """
     Write either a dag or a dax.
@@ -1368,10 +1625,8 @@ class CondorDAG:
     if not self.__nodes_finalized:
       for node in self.__nodes:
         node.finalize()
-    if self.is_dax():
-      self.write_abstract_dag()
-    else:
-      self.write_concrete_dag()
+    self.write_concrete_dag()
+    self.write_abstract_dag()
 
   def write_script(self):
     """
@@ -1454,6 +1709,7 @@ class AnalysisNode(CondorDAGNode):
     self.__start = 0
     self.__end = 0
     self.__data_start = 0
+    self.__pad_data = 0
     self.__data_end = 0
     self.__trig_start = 0
     self.__trig_end = 0
@@ -1512,6 +1768,19 @@ class AnalysisNode(CondorDAGNode):
     Get the GPS start time of the data needed by this node.
     """
     return self.__data_start
+
+  def set_pad_data(self,pad):
+    """
+    Set the GPS start time of the data needed by this analysis node.
+    @param time: GPS start time of job.
+    """
+    self.__pad_data = pad
+
+  def get_pad_data(self):
+    """
+    Get the GPS start time of the data needed by this node.
+    """
+    return self.__pad_data
 
   def set_data_end(self,time):
     """
@@ -1641,23 +1910,22 @@ class AnalysisNode(CondorDAGNode):
       # the name of a lal cache file created by a datafind node
       self.add_var_opt('frame-cache', filename)
       self.add_input_file(filename)
+    elif isinstance( filename, list ):
+      # we have an LFN list
+      self.add_var_opt('glob-frame-data',' ')
+      # only add the LFNs that actually overlap with this job
+      # XXX FIXME this is a very slow algorithm
+      for lfn in filename:
+        a, b, c, d = lfn.split('.')[0].split('-')
+        t_start = int(c)
+        t_end = int(c) + int(d)
+        if (t_start <= (self.get_data_end()+self.get_pad_data()+int(d)+1) \
+          and t_end >= (self.get_data_start()-self.get_pad_data()-int(d)-1)):
+          self.add_input_file(lfn)
+      # set the frame type based on the LFNs returned by datafind
+      self.add_var_opt('frame-type',b)
     else:
-      # check we have an LFN list
-      from glue import LDRdataFindClient
-      if isinstance( filename, LDRdataFindClient.lfnlist ):
-        self.add_var_opt('glob-frame-data',' ')
-        # only add the LFNs that actually overlap with this job
-        # FIXME this doesnt handle edge cases quite right
-        for lfn in filename:
-          a, b, c, d = lfn.split('.')[0].split('-')
-          t_start = int(c)
-          t_end = int(c) + int(d)
-          if (t_start <= (self.__data_end+int(d)+1) and t_end >= (self.__data_start-int(d)-1)):
-            self.add_input_file(lfn)
-        # set the frame type based on the LFNs returned by datafind
-        self.add_var_opt('frame-type',b)
-      else:
-        raise CondorDAGNodeError, "Unknown LFN cache format"
+      raise CondorDAGNodeError, "Unknown LFN cache format"
 
   def calibration_cache_path(self):
     """
@@ -2520,6 +2788,158 @@ class ScienceData:
 
 
 
+class LsyncCache:
+  def __init__(self,path):
+    # location of the cache file
+    self.__path = path
+
+    # dictionary where the keys are data types like 'gwf', 'sft', 'xml'
+    # and the values are dictionaries 
+    self.cache = {'gwf': None, 'sft' : None, 'xml' : None}
+
+    # for each type create a dictionary where keys are sites and values
+    # are dictionaries
+    for type in self.cache.keys():
+      self.cache[type] = {}
+
+  def group(self, lst, n):
+    """
+    Group an iterable into an n-tuples iterable. Incomplete
+    tuples are discarded
+    """
+    return itertools.izip(*[itertools.islice(lst, i, None, n) for i in range(n)])
+
+  def parse(self,type_regex=None):
+    """
+    Each line of the frame cache file is like the following:
+
+    /frames/E13/LHO/frames/hoftMon_H1/H-H1_DMT_C00_L2-9246,H,H1_DMT_C00_L2,1,16 1240664820 6231 {924600000 924646720 924646784 924647472 924647712 924700000}
+
+    The description is as follows:
+
+    1.1) Directory path of files
+    1.2) Site
+    1.3) Type
+    1.4) Number of frames in the files (assumed to be 1)
+    1.5) Duration of the frame files.
+
+    2) UNIX timestamp for directory modification time.
+
+    3) Number of files that that match the above pattern in the directory.
+
+    4) List of time range or segments [start, stop)
+
+    We store the cache for each site and frameType combination
+    as a dictionary where the keys are (directory, duration)
+    tuples and the values are segment lists. 
+
+    Since the cache file is already coalesced we do not
+    have to call the coalesce method on the segment lists.
+    """
+    path = self.__path
+    cache = self.cache
+    if type_regex:
+      type_filter = re.compile(type_regex)
+    else:
+      type_filter = None
+
+    f = open(path, 'r')
+
+    # holds this iteration of the cache
+    gwfDict = {}
+
+    # parse each line in the cache file
+    for line in f:
+      # ignore lines that don't match the regex
+      if type_filter and type_filter.search(line) is None:
+        continue
+
+      # split on spaces and then comma to get the parts
+      header, modTime, fileCount, times = line.strip().split(' ', 3)
+      dir, site, frameType, frameCount, duration = header.split(',')
+      duration = int(duration)
+
+      # times string has form { t1 t2 t3 t4 t5 t6 ... tN t(N+1) }
+      # where the (ti, t(i+1)) represent segments
+      #
+      # first turn the times string into a list of integers
+      times = [ int(s) for s in times[1:-1].split(' ') ]
+
+      # group the integers by two and turn those tuples into segments
+      segments = [ glue.segments.segment(a) for a in self.group(times, 2) ]
+
+      # initialize if necessary for this site
+      if not gwfDict.has_key(site):
+        gwfDict[site] = {}
+
+      # initialize if necessary for this frame type
+      if not gwfDict[site].has_key(frameType):
+        gwfDict[site][frameType] = {}
+
+      # record segment list as value indexed by the (directory, duration) tuple
+      key = (dir, duration)
+      if gwfDict[site][frameType].has_key(key):
+        msg = "The combination %s is not unique in the frame cache file" \
+          % str(key)
+        raise RuntimeError, msg
+                
+      gwfDict[site][frameType][key] = glue.segments.segmentlist(segments)                    
+    f.close()
+
+    cache['gwf'] = gwfDict
+
+  def get_lfns(self, site, frameType, gpsStart, gpsEnd):
+    """
+    """
+    # get the cache from the manager
+    cache = self.cache
+            
+    # if the cache does not contain any mappings for this site type return empty list
+    if not cache['gwf'].has_key(site):
+      return []
+
+    # if the cache does nto contain any mappings for this frame type return empty list
+    if not cache['gwf'][site].has_key(frameType):
+      return []
+
+    # segment representing the search interval
+    search = glue.segments.segment(gpsStart, gpsEnd)
+
+    # segment list representing the search interval
+    searchlist = glue.segments.segmentlist([search])
+
+    # dict of LFNs returned that match the metadata query
+    lfnDict = {}
+
+    for key,seglist in cache['gwf'][site][frameType].items():
+      dir, dur = key
+
+      # see if the seglist overlaps with our search
+      overlap = seglist.intersects(searchlist)
+
+      if not overlap: continue
+
+      # the seglist does overlap with search so build file paths
+      # but reject those outside of the search segment
+
+      for s in seglist:
+        if s.intersects(search):
+          t1, t2 = s
+          times = xrange(t1, t2, dur)
+
+          # loop through the times and create paths 
+          for t in times:
+            if search.intersects(glue.segments.segment(t, t + dur)):
+              lfn =  "%s-%s-%d-%d.gwf" % (site, frameType, t, dur) 
+              lfnDict[lfn] = None
+                
+    # sort the LFNs to deliver URLs in GPS order
+    lfns = lfnDict.keys()
+    lfns.sort()
+
+    return lfns
+
+
 class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   """
   An LSCdataFind job used to locate data. The static options are
@@ -2529,7 +2949,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   is directed to the logs directory. The job always runs in the scheduler
   universe. The path to the executable is determined from the ini file.
   """
-  def __init__(self,cache_dir,log_dir,config_file,dax=0):
+  def __init__(self,cache_dir,log_dir,config_file,dax=0,lsync_cache_file=None,lsync_type_regex=None):
     """
     @param cache_dir: the directory to write the output lal cache files to.
     @param log_dir: the directory to write the stderr file to.
@@ -2544,6 +2964,10 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.__cache_dir = cache_dir
     self.__dax = dax
     self.__config_file = config_file
+    self.__lsync_cache = None
+    if lsync_cache_file:
+      self.__lsync_cache = LsyncCache(lsync_cache_file)
+      self.__lsync_cache.parse(lsync_type_regex)
 
     # we have to do this manually for backwards compatibility with type
     for o in self.__config_file.options('datafind'):
@@ -2583,6 +3007,9 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     return the configuration file object
     """
     return self.__config_file
+
+  def lsync_cache(self):
+    return self.__lsync_cache
 
 
 class LSCDataFindNode(CondorDAGNode, AnalysisNode):
@@ -2692,53 +3119,83 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     or the files itself as tuple (for DAX)
     """
     if self.__dax:
-      if not self.__lfn_list:
-        # call the datafind client to get the LFNs
-        from pyGlobus import security
-        from glue import LDRdataFindClient
-        from glue import gsiserverutils
+      # we are a dax running in grid mode so we need to resolve the
+      # frame file metadata into LFNs so pegasus can query the RLS
+      if self.__lfn_list is None:
 
-        hostPortString = os.environ['LSC_DATAFIND_SERVER']
-        print >>sys.stderr, ".",
-        if hostPortString.find(':') < 0:
-          # no port specified
-          myClient = LDRdataFindClient.LSCdataFindClient(hostPortString)
+        if self.job().lsync_cache():
+          # get the lfns from the lsync cache object
+          if self.__lfn_list is None:
+            self.__lfn_list = self.job().lsync_cache().get_lfns(
+              self.get_observatory(), self.get_type(),
+              self.get_start(), self.get_end())
+
         else:
-          # server and port specified
-          host, portString = hostPortString.split(':')
-          port = int(portString)
-          myClient = LDRdataFindClient.LSCdataFindClient(host,port)
+          # try querying the ligo_data_find server
+          try:
+            server = os.environ['LIGO_DATAFIND_SERVER']
+          except KeyError:
+            raise RuntimeError, \
+              "Environment variable LIGO_DATAFIND_SERVER is not set"
 
-        clientMethod = 'findFrameNames'
-        clientMethodArgDict = {
-          'observatory': self.get_observatory(),
-          'end': str(self.get_end()),
-          'start': str(self.get_start()),
-          'type': self.get_type(),
-          'filename': None,
-          'urlType': None,
-          'match': None,
-          'limit': None,
-          'offset': None,
-          'strict' : None,
-          'namesOnly' : True
-          }
+          # try and get a proxy or certificate
+          # FIXME this doesn't check that it is valid, though
+          cert = None
+          key = None
+          try:
+            proxy = os.environ['X509_USER_PROXY']
+            cert = proxy
+            key = proxy
+          except:
+            try:
+              cert = os.environ['X509_USER_CERT']
+              key = os.environ['X509_USER_KEY']
+            except:
+              uid = os.getuid()
+              proxy_path = "/tmp/x509up_u%d" % uid
+              if os.access(path, os.R_OK):
+                cert = proxy_path
+                key = proxy_path
 
-        print >>sys.stderr, ".",
-        time.sleep( 1 )
-        result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
+          # if we have a credential then use it when setting up the connection
+          if cert and key:
+            h = httplib.HTTPSConnection(server, key_file = key, cert_file = cert)
+          else:
+            h = httplib.HTTPConnection(server)
 
-        if not isinstance(result,LDRdataFindClient.lfnlist):
-          msg = "datafind server did not return LFN list : " + str(result)
-          raise SegmentError, msg
-        if len(result) == 0:
-          msg = "No LFNs returned for segment %s %s" % ( str(self.get_start()),
-            str(self.get_end()) )
-          raise SegmentError, msg
-        self.__lfn_list = result
+          # construct the URL for a simple data find query
+          url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s.json" % (
+            self.get_observatory(), self.get_type(),
+            str(self.get_start()), str(self.get_end()))
+
+          # query the server
+          h.request("GET", url)
+          response = h.getresponse()
+
+          if response.status != 200:
+            msg = "Server returned code %d: %s" % (response.status, response.reason)
+            body = response.read()
+            msg += body
+            raise RuntimeError, msg
+
+          # since status is 200 OK read the URLs
+          body = response.read()
+
+          # decode the JSON
+          urlList = cjson.decode(body)
+          lfnDict = {}
+          for url in urlList:
+            path = urlparse.urlparse(url)[2]
+            lfn = os.path.split(path)[1]
+            lfnDict[lfn] = 1
+
+          self.__lfn_list = lfnDict.keys()
+          self.__lfn_list.sort()
+
       return self.__lfn_list
     else:
       return self.__output
+
 
 class LigolwAddJob(CondorDAGJob, AnalysisJob):
   """

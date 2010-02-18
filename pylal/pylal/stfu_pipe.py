@@ -508,7 +508,6 @@ class followUpChiaJob(inspiral.ChiaJob,FUJob):
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self._InspiralAnalysisNode__pad_data = 0
 
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
@@ -820,6 +819,7 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		tlen = 1.0
 		self.output_file_name = ""
 		pipeline.CondorDAGNode.__init__(self,job)
+		pipeline.AnalysisNode.__init__(self)
 
 		#FIXME HANDLE INJECTION FILES AND datafind cache
 		# injFile = self.checkInjections(cp)
@@ -852,17 +852,18 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			if param == 'user-tag': continue
 			if param in skipParams: continue
 			if param == 'injection-file': value = sngl.inj_file_name
-			self.add_var_opt(param,value)
 			if param == 'gps-end-time':
-				self.__end = value
-				self._AnalysisNode__end = int(value)
+				self.set_end(int(value))
+				continue
 			if param == 'gps-start-time':
-				self.__start = value
-				self._AnalysisNode__start = int(value)
-			if param == 'pad-data':
-				self._InspiralAnalysisNode__pad_data = int(value)
+				self.set_start(int(value))
+				continue
 			if param == 'ifo-tag':
-				self.__ifotag = value
+				self.set_ifo_tag(value)
+				continue
+			self.add_var_opt(param,value)
+			if param == 'pad-data':
+				self.set_pad_data(int(value))
 			if param == 'channel-name': self.inputIfo = value[0:2]
 			if param == 'write-compress':
 				extension = '.xml.gz'
@@ -874,18 +875,16 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
                 if chia:
 		  self.set_user_tag( tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time) )
-		  self.__usertag = tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time)
                 else:     
                   self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
-                  self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
 
-                self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
-		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+                self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.get_ifo_tag() + "_" + self.get_user_tag() + "-" + str(self.get_start()) + "-" + str(int(self.get_end())-int(self.get_start())) + extension
+		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.get_start()) + ' ' + str(int(self.get_end())-int(self.get_start())) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.get_start()) + ' ' + str(int(self.get_end())-int(self.get_start())) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
 		self.add_var_opt("output-path",job.outputPath)
 		self.output_cache = []
-		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name))
-		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.get_start()), float(self.get_end())), "file://localhost/"+self.output_file_name))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.get_start()), float(self.get_end())), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
 		
 		self.output_frame_file = self.output_file_name.replace(extension,'.gwf')
 
@@ -1195,6 +1194,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		# and webCondor.py in order to set up the jobs following the same scheme
 		# as the way it is done for the Inspiral pipeline...
 		pipeline.CondorDAGNode.__init__(self,job)
+		pipeline.AnalysisNode.__init__(self)
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
@@ -1229,7 +1229,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 			
 
                 hLengthAnalyzed = 1
-		self._InspiralAnalysisNode__pad_data = 0
 
 		#CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
 		#self.setupNodeWeb(job,False,None,None,None,dag.cache)
@@ -1582,7 +1581,7 @@ class followUpDAG(pipeline.CondorDAG):
 ###### CONFIG PARSER WRAPPING #################################################
 ###############################################################################
 class create_default_config(object):
-	def __init__(self, config=None):
+	def __init__(self, configfile=None):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
@@ -1593,7 +1592,7 @@ class create_default_config(object):
 		cp.add_section("condor")
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
-                cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
+		cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
 		# SECTIONS TO SHUT UP WARNINGS
 		cp.add_section("inspiral")
@@ -1728,9 +1727,9 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 
 		# if we have an ini file override the options
-		if config: 
+		if configfile:
 			user_cp = ConfigParser.ConfigParser()
-			user_cp.read(config)
+			user_cp.read(configfile)
 		else:
 			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
 			try: 
@@ -1738,7 +1737,7 @@ class create_default_config(object):
 				user_cp.read('followup_pipe.ini')
 			except: pass
 		# override the default options
-		if user_cp: self.overwrite_config(user_cp)
+		if user_cp: self.overwrite_config(user_cp,cp)
 
 	def write(self):
 		self.get_cp().write(open(self.ini_file,"w"))
@@ -1822,7 +1821,7 @@ class create_default_config(object):
 		if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
 		return out
 
-	def overwrite_config(self,config):
+	def overwrite_config(self,config,cp):
 		for section in config.sections():
 			if not cp.has_section(section): cp.add_section(section)
 			for option in config.options(section):

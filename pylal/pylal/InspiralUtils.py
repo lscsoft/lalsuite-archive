@@ -19,8 +19,6 @@ from pylal import git_version
 from glue import markup
 from glue.markup import oneliner as extra_oneliner
 
-import pylab
-
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
@@ -115,7 +113,7 @@ class InspiralPage(object):
     else:
       self.ifo_tag = None
 
-    if hasattr(self.opts, 'iuser-tag'):
+    if hasattr(self.opts, 'user_tag'):
       self.user_tag = self.opts.user_tag
     else:
       self.user_tag = None
@@ -167,7 +165,7 @@ class InspiralPage(object):
     @param output_dir: alternate output directory [optional]
     """
 
-    fname = "Images/" + self.prefix + "_"+ fig_description + self.suffix + ".png"
+    fname = "Images/" + self.prefix + "_"+ fig_description + self.suffix
 
     if output_dir:
       fname = output_dir + '/' + fname
@@ -190,16 +188,19 @@ class InspiralPage(object):
     @param dpi_thumb: resolution of the thumbnail (dpi=50 by default)
     """
 
-    if dpi is None:
-      dpi = pylab.rcParams["savefig.dpi"]
+    savefig_kwargs = {}
+    if dpi is not None:
+      savefig_kwargs["dpi"] = dpi
 
     # create the image file
     filename = filename_base + '.png'
-    fig.savefig(filename, dpi=dpi)
+    fig.savefig(filename, **savefig_kwargs)
 
     if doThumb:
       filename_thumb =  filename_base + '_thumb.png'
       fig.savefig(filename_thumb, dpi=dpi_thumb)
+    else:
+      filename_thumb = None
 
     return filename, filename_thumb
 
