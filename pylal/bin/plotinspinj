@@ -494,7 +494,8 @@ trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbo
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
 
 if (trigs is None) :
-  raise ValueError, "the number of triggers   is zero"   
+  print "WARNING: The number of triggers is zero."
+  sys.exit(0)
 if (sims is None):
   raise ValueError, "the number of sims is zero"   
   
