@@ -323,7 +323,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False):
 
 	epoch = min([min(seg[0] for seg in seglist) for seglist in seglists.values() if seglist] or [None])
 	segmentlistdict_normalize(seglists, epoch)
-	seglists = llwapp.get_coincident_segmentlistdict(seglists, ligolw_tisi.time_slide_component_vectors(offset_vectors, 2))
+	seglists = llwapp.get_coincident_segmentlistdict(seglists, [offset_vector for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, 2) if set(offset_vector.keys()).issubset(set(seglists.keys()))])
 	segmentlistdict_unnormalize(seglists, epoch)
 
 	#
