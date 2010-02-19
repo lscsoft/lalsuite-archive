@@ -217,19 +217,15 @@ class Rankings(object):
     create the cumulative histograms from the values
     """
     #keep a sorted copy along with the  reverse sorted copy
-    self.dto = dts[:]
-    self.dto.sort()
-    self.dto = np.asarray(self.dto)
-    self.dDo = dDs[:]
-    self.dDo.sort()
-    self.dDo = np.asarray(self.dDo)
-    self.dtrs = dts[:]
-    self.dtrs.sort(reverse=True)
-    self.dDrs = dDs[:]
-    self.dDrs.sort(reverse=True)
-    self.dtvals = np.asarray(self.dtrs)
+    self.dto = np.unique(np.asarray(dts[:]))
+    self.dDo = np.unique(np.asarray(dDs[:]))
+    dtr = dict().fromkeys(dts[:]).keys()
+    dtr.sort(reverse=True)
+    dDr = dict().fromkeys(dDs[:]).keys()
+    dDr.sort(reverse=True)
+    self.dtvals =  np.asarray(dtr)
     self.dtranks = np.arange(len(self.dtvals),dtype=float)/len(self.dtvals)
-    self.dDvals = np.asarray(self.dDrs)
+    self.dDvals = np.asarray(dDr)
     self.dDranks = np.arange(len(self.dDvals),dtype=float)/len(self.dDvals)
   
   def get_dt_rank(self,val):
