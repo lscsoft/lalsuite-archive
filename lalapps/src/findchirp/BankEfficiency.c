@@ -2171,7 +2171,19 @@ void BankEfficiencyGetMaximumSize(
   /* first the longest template */
   params            = randIn.param;
   params.massChoice = m1Andm2;
-  params.mass1 = params.mass2 = coarseBankIn.mMin;
+
+  /* If we specify a min total mass, the longest template will be */
+  /* the most asymmetric template of that mass */
+  if ( coarseBankIn.massRange == MinMaxComponentMass 
+       || coarseBankIn.massRange == MinComponentMassMaxTotalMass )
+  {
+    params.mass1 = params.mass2 = coarseBankIn.mMin;
+  }
+  else
+  {
+    params.mass1 = coarseBankIn.mMin;
+    params.mass2 = coarseBankIn.MMin - coarseBankIn.mMin;
+  }
   /* For ampCorPPN filtering we seem to understimate the length, because
      of the 'ignore corrupted data' issue with the inspiral pipeline, so we 
      increase the ampOrder by 2 for length calculation */
@@ -2191,7 +2203,6 @@ void BankEfficiencyGetMaximumSize(
   }
   else
   {
-    params.mass1 = params.mass2 = randIn.mMin;
     LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
              status->statusPtr);
   }
