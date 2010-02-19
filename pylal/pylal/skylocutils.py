@@ -10,6 +10,7 @@ import sys
 import os
 import operator
 from math import sqrt, sin, cos
+import numpy as np
 import gzip 
 
 from pylal import date
@@ -29,7 +30,7 @@ from glue.ligolw import utils, table as tab, lsctables
 #
 ##############################################################################
 
-pi = 3.14159265358979324
+pi = np.pi
 
 #set the detector locations
 detector_locations = {}
@@ -203,6 +204,80 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
 #          class definitions
 #
 ##############################################################################
+
+class Rankings(object):
+  """
+  class for determining the expected rank (probability) of a value constructed from
+  a cumulative histogram of measured values
+  this is designed as a template for improved probaility estimators as
+  they are developed
+  """
+  def __init__(self,dts,dDs):
+    """
+    create the cumulative histograms from the values
+    """
+    #keep a sorted copy along with the  reverse sorted copy
+    self.dto = dts[:]
+    self.dto.sort()
+    self.dto = np.asarray(self.dto)
+    self.dDo = dDs[:]
+    self.dDo.sort()
+    self.dDo = np.asarray(self.dDo)
+    self.dtrs = dts[:]
+    self.dtrs.sort(reverse=True)
+    self.dDrs = dDs[:]
+    self.dDrs.sort(reverse=True)
+    self.dtvals = np.asarray(self.dtrs)
+    self.dtranks = np.arange(len(self.dtvals),dtype=float)/len(self.dtvals)
+    self.dDvals = np.asarray(self.dDrs)
+    self.dDranks = np.arange(len(self.dDvals),dtype=float)/len(self.dDvals)
+  
+  def get_dt_rank(self,val):
+    """
+    return the rank of the val as interpolated from
+    dtrank and dtvals
+    """
+    rind = np.searchsorted(self.dto,val)
+    if rind == 0:
+      return self.dtranks[rind]
+    elif rind == len(self.dtranks):
+      return self.dtranks[len(self.dtranks)-1]
+    else:
+      lind = rind - 1
+
+      lpt = (self.dtvals[lind],self.dtranks[lind])
+      rpt = (self.dtvals[rind],self.dtranks[rind])
+
+      return self._lerp(lpt,rpt,val)
+
+  def get_dD_rank(self,val):
+    """
+    return the rank of the val as interpolated from
+    dDrank and dDvals
+    """
+    rind = np.searchsorted(self.dDo,val)
+    if rind == 0:
+      return self.dDranks[rind]
+    elif rind == len(self.dDranks):
+      return self.dDranks[len(self.dDranks)-1]
+    else:
+      lind = rind - 1
+
+      lpt = (self.dDvals[lind],self.dDranks[lind])
+      rpt = (self.dDvals[rind],self.dDranks[rind])
+
+      return self._lerp(lpt,rpt,val)
+
+  def _lerp(self,lpt,rpt,xval):
+    """
+    simple linear interpolation to find the y value corresponding to xval 
+    between lpt (on the left) and rpt (on the right)
+    """
+    return (lpt[1] + (xval-lpt[0])*(rpt[1]-lpt[1])/(rpt[0]-lpt[0]))
+
+
+
+    
 
 class SkyPoints(list):
   """
@@ -410,6 +485,7 @@ class SkyLocTable(tab.Table):
   validcolumns = {
     "end_time": "int_4s",
     "comb_snr": "real_4",
+    "ifos": "lstring",
     "ra": "real_4",
     "dec": "real_4",
     "a60dt": "real_4",
@@ -423,6 +499,20 @@ class SkyLocTable(tab.Table):
     
 class SkyLocRow(object):
   __slots__ = SkyLocTable.validcolumns.keys()
+  
+  def get_ifos(self):
+    """
+    Return a set of the instruments for this row.
+    """
+    return lsctables.instrument_set_from_ifos(self.ifos)
+
+  def set_ifos(self, instruments):
+    """
+    Serialize a sequence of instruments into the ifos
+    attribute.  The instrument names must not contain the ","
+    character.
+    """
+    self.ifos = lsctables.ifos_from_instrument_set(instruments)
 
 SkyLocTable.RowType = SkyLocRow
 
@@ -430,6 +520,7 @@ class SkyLocInjTable(tab.Table):
   tableName = "SkyLocInj:table"
   validcolumns = {
     "end_time": "int_4s",
+    "ifos": "lstring",
     "comb_snr": "real_4",
     "h1_snr": "real_4",
     "l1_snr": "real_4",
@@ -449,6 +540,21 @@ class SkyLocInjTable(tab.Table):
     
 class SkyLocInjRow(object):
   __slots__ = SkyLocInjTable.validcolumns.keys()
+
+  def get_ifos(self):
+    """
+    Return a set of the instruments for this row.
+    """
+    return lsctables.instrument_set_from_ifos(self.ifos)
+
+  def set_ifos(self, instruments):
+    """
+    Serialize a sequence of instruments into the ifos
+    attribute.  The instrument names must not contain the ","
+    character.
+    """
+    self.ifos = lsctables.ifos_from_instrument_set(instruments)
+
 
 SkyLocInjTable.RowType = SkyLocInjRow
 
@@ -479,6 +585,7 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
   row = skyloctable.RowType()
   
   row.end_time = coinc.time
+  row.set_ifos(coinc.ifo_list)
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
@@ -505,6 +612,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
   row = skylocinjtable.RowType()
 
   row.end_time = coinc.time
+  row.set_ifos(coinc.ifo_list)
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
