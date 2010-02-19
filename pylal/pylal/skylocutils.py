@@ -216,64 +216,34 @@ class Rankings(object):
     """
     create the cumulative histograms from the values
     """
-    #keep a sorted copy along with the  reverse sorted copy
-    self.dto = np.unique(np.asarray(dts[:]))
-    self.dDo = np.unique(np.asarray(dDs[:]))
-    dtr = dict().fromkeys(dts[:]).keys()
-    dtr.sort(reverse=True)
-    dDr = dict().fromkeys(dDs[:]).keys()
-    dDr.sort(reverse=True)
-    self.dtvals =  np.asarray(dtr)
-    self.dtranks = np.arange(len(self.dtvals),dtype=float)/len(self.dtvals)
-    self.dDvals = np.asarray(dDr)
-    self.dDranks = np.arange(len(self.dDvals),dtype=float)/len(self.dDvals)
-  
-  def get_dt_rank(self,val):
+    #the basic idea is to keep the dt and dD arrays sorted
+    #and reverse-sort the rankings.  this makes interpolation
+    #trivial
+    self.dts = dts[:]
+    self.dts.sort()
+    self.dDs = dDs[:]
+    self.dDs.sort()
+    #reverse sort the rankings
+    tranktemp = range(len(self.dts))
+    tranktemp.sort(reverse=True)
+    self.dtranks = np.asarray(tranktemp,dtype=float)/len(self.dts) 
+    Dranktemp = range(len(self.dDs))
+    Dranktemp.sort(reverse=True)
+    self.dDranks = np.asarray(Dranktemp,dtype=float)/len(self.dDs) 
+
+  def dt_rank(self,val):
     """
-    return the rank of the val as interpolated from
-    dtrank and dtvals
+    return the rank of val as obtained via 
+    linear interpolation
     """
-    rind = np.searchsorted(self.dto,val)
-    if rind == 0:
-      return self.dtranks[rind]
-    elif rind == len(self.dtranks):
-      return self.dtranks[len(self.dtranks)-1]
-    else:
-      lind = rind - 1
+    return np.interp(val,self.dts,self.dtranks)
 
-      lpt = (self.dtvals[lind],self.dtranks[lind])
-      rpt = (self.dtvals[rind],self.dtranks[rind])
-
-      return self._lerp(lpt,rpt,val)
-
-  def get_dD_rank(self,val):
+  def dD_rank(self,val):
     """
-    return the rank of the val as interpolated from
-    dDrank and dDvals
+    return the rank of val as obtained via 
+    linear interpolation
     """
-    rind = np.searchsorted(self.dDo,val)
-    if rind == 0:
-      return self.dDranks[rind]
-    elif rind == len(self.dDranks):
-      return self.dDranks[len(self.dDranks)-1]
-    else:
-      lind = rind - 1
-
-      lpt = (self.dDvals[lind],self.dDranks[lind])
-      rpt = (self.dDvals[rind],self.dDranks[rind])
-
-      return self._lerp(lpt,rpt,val)
-
-  def _lerp(self,lpt,rpt,xval):
-    """
-    simple linear interpolation to find the y value corresponding to xval 
-    between lpt (on the left) and rpt (on the right)
-    """
-    return (lpt[1] + (xval-lpt[0])*(rpt[1]-lpt[1])/(rpt[0]-lpt[0]))
-
-
-
-    
+    return np.interp(val,self.dDs,self.dDranks)
 
 class SkyPoints(list):
   """
