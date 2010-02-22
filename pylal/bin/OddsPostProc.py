@@ -200,7 +200,7 @@ def skyhist_cart(skycarts,samples):
 				mindx=i
 		bins[mindx]=bins[mindx]+1
 		j=j+1
-		print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
+	#	print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
 	return (skypoints,bins)
 
 # Load in the main data
