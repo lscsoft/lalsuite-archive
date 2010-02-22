@@ -446,8 +446,8 @@ if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d_sorted[-1,-1])+'<br>')
 if(incoflag!=0): htmlfile.write('Odds of coherent vs incoherent: '+str(exp(logZ-Zinco))+'<br>')
 if(opts.skyres is not None):
 	htmlfile.write('<table><tr><td>Confidence region</td><td>size (sq. deg)</td>')
-	for (frac,size) in skyreses:
-		htmlfile.write('<tr><td>%f</td>%f</td></tr>'%(frac,size))
+	for (frac,skysize) in skyreses:
+		htmlfile.write('<tr><td>%f</td>%f</td></tr>'%(frac,skysize))
 	htmlfile.write('</table>')
 htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(size(d_sorted,0))+' NS samples using '+str(size(opts.data,0)*Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
