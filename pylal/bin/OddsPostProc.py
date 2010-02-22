@@ -311,13 +311,13 @@ if(opts.skyres is not None):
 	frac=0
 	Nbins=0
 	while(frac<0.5):
+		maxbin=0
 		for i in range(0,len(bins)):
-			maxbin=0
 			if hist[i]>maxbin:
 				maxbin=hist[i]
 				maxpos=i
-		hist[maxbin]=0
-		frac=frac+(maxbin/len(pos))
+		hist[maxpos]=0
+		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
 	print '%d confidence region in %i bins of %s^2 radians' % (frac,Nbins,opts.skyres)
 
