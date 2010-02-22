@@ -23,6 +23,8 @@ parser.add_option("--inco0",dest="inco0",action="append",help="single-ifo runs f
 parser.add_option("--inco1",dest="inco1",action="append",help="single-ifo runs for 1th ifo")
 parser.add_option("--inco2",dest="inco2",action="append",help="single-ifo runs for 2th ifo")
 parser.add_option("--inco3",dest="inco3",action="append",help="single-ifo runs for 3th ifo")
+parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
+
 
 (opts,args)=parser.parse_args()
 
@@ -148,6 +150,59 @@ def loaddata(datalist):
             outfile[:,-1]-=Bfile[2]
     return out,Bfiles
 
+def ang_dist(long1,lat1,long2,lat2):
+# Find the angular separation of (long1,lat1) and (long2,lat2)
+# which are specified in radians
+	x1=cos(lat1)*cos(long1)
+	y1=cos(lat1)*sin(long1)
+	z1=sin(lat1)
+	x2=cos(lat2)*cos(long2)
+	y2=cos(lat2)*sin(long2)
+	z2=sin(lat2)
+	sep=math.acos(x1*x2+y1*y2+z1*z2)
+	return(sep)
+
+def pol2cart(long,lat):
+	x=cos(lat)*cos(long)
+	y=cos(lat)*sin(long)
+	z=sin(lat)
+	return array([x,y,z])
+
+def sky_hist(skypoints,samples):
+	N=len(skypoints)
+	print 'operating on %d sky points' % (N)
+	bins=zeros(N)
+	j=0
+	for sample in samples:
+		seps=map(lambda s: ang_dist(sample[6],sample[7],s[1],s[0]),skypoints)
+		minsep=math.pi
+		for i in range(0,N):
+			if seps[i]<minsep:
+				minsep=seps[i]
+				mindx=i
+		bins[mindx]=bins[mindx]+1
+		j=j+1
+		print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),minsep*(180.0/3.1415926))
+	return (skypoints,bins)
+
+def skyhist_cart(skycarts,samples):
+	N=len(skypoints)
+	print 'operating on %d sky points'%(N)
+	bins=zeros(N)
+	j=0
+	for sample in samples:
+		sampcart=pol2cart(sample[6],sample[7])
+		dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
+		maxdot=0
+		for i in range(0,N):
+			if dots[i]>maxdot:
+				maxdot=dots[i]
+				mindx=i
+		bins[mindx]=bins[mindx]+1
+		j=j+1
+		print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
+	return (skypoints,bins)
+
 # Load in the main data
 (d,Bfiles)=loaddata(opts.data)
 if not None in Bfiles:
@@ -245,6 +300,27 @@ if injection:
 if(Bflag==1):
     BayesFactor = logZ
     print 'log B = '+str(BayesFactor)
+
+
+if(opts.skyres is not None):
+	from pylal import skylocutils
+	skypoints=array(skylocutils.gridsky(float(opts.skyres)))
+	skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
+	(bins,hist)=skyhist_cart(skycarts,pos)
+	#(bins,hist)=sky_hist(skypoints,pos)
+	frac=0
+	Nbins=0
+	while(frac<0.5):
+		for i in range(0,len(bins)):
+			maxbin=0
+			if hist[i]>maxbin:
+				maxbin=hist[i]
+				maxpos=i
+		hist[maxbin]=0
+		frac=frac+(maxbin/len(pos))
+		Nbins=Nbins+1
+	print '%d confidence region in %i bins of %s^2 radians' % (frac,Nbins,opts.skyres)
+
     
 myfig=figure(1,figsize=(6,4),dpi=80)
 
