@@ -8,14 +8,6 @@
 # =============================================================================
 #
 
-
-usage = \
-'''
-Ranks 'found' injections as if they were the only injection in a given datatype and
-prints information about that injection and the recovered parameters of all coinc-events
-that match that injection.
-'''
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -37,14 +29,18 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
 
 __prog__ = "ligolw_cbc_printsims"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Ranks 'found' injections as if they were the only injection in a given datatype and " + \
+"prints information about that injection and the recovered parameters of all coinc-events " + \
+"that match that injection."
 
 # =============================================================================
 #
@@ -58,7 +54,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string",
@@ -278,7 +278,7 @@ sfdoc = ligolw.Document()
 # setup the LIGOLW tag
 sfdoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-sfproc_id = process.register_to_xmldoc(sfdoc, __prog__, opts.__dict__)
+sfproc_id = process.register_to_xmldoc(sfdoc, __prog__, opts.__dict__, version = git_version.id)
 # connect the table to the document
 sfdoc.childNodes[0].appendChild(sftable)
 

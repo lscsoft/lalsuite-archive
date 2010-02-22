@@ -17,6 +17,7 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue import git_version
 
 from pylal.xlal.date import XLALGPSToUTC
 try:
@@ -27,9 +28,7 @@ except ImportError:
 
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
-
+__version__ = git_version.id
 
 
 # =============================================================================
@@ -44,10 +43,13 @@ def generic_get_pyvalue(obj):
     return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
 
 
-def get_columns_to_print(xmldoc, tableName):
+def get_columns_to_print(xmldoc, tableName, with_sngl = False):
     """
     Retrieves canonical columns to print for the given tableName.
     Returns a columnList, row_span and rspan_break lists.
+
+    @with_sngl: for the loudest_events table, if with_sngl turned on, will print
+     sngl_ifo end_times
     """
     tableName = tableName.endswith(":table") and tableName or tableName+":table"
     summTable = table.get_table(xmldoc, tableName )
@@ -55,9 +57,10 @@ def get_columns_to_print(xmldoc, tableName):
     rankname = [col.getAttribute("Name").split(":")[-1]
         for col in summTable.getElementsByTagName(u'Column') if "rank" in col.getAttribute("Name")][0]
 
-    if tableName == "loudest_events:table":
+    if tableName == "loudest_events:table" and not with_sngl:
         durname = [col.getAttribute("Name").split(":")[-1]
-            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
+            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")
+            and not col.getAttribute("Name").split(":")[-1].startswith('sngl_')][0]
         columnList = [
             rankname,
             'combined_far',
@@ -67,11 +70,32 @@ def get_columns_to_print(xmldoc, tableName):
             'end_time',
             'end_time_utc__Px_click_for_daily_ihope_xP_',
             'ifos__Px_click_for_elog_xP_',
+            'instruments_on',
             'mass',
             'mchirp',
             'mini_followup',
             durname]
         row_span_columns = rspan_break_columns = [durname]
+    elif tableName == "loudest_events:table" and with_sngl:
+        durname = [col.getAttribute("Name").split(":")[-1]
+            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")
+            and not col.getAttribute("Name").split(":")[-1].startswith(u'sngl_')][0]
+        columnList = [
+            rankname,
+            'combined_far',
+            'fap',
+            'fap_1yr',
+            'snr',
+            'mass',
+            'mchirp',
+            'instruments_on',
+            'sngl_ifo__Px_click_for_elog_xP_',
+            'sngl_end_time',
+            'sngl_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'mini_followup',
+            durname]
+        row_span_columns = rspan_break_columns = \
+            [col for col in summTable.columnnames if not col.startswith('sngl_')]
     elif tableName == "selected_found_injections:table":
         durname = [col.getAttribute("Name").split(":")[-1]
             for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
