@@ -183,15 +183,6 @@ class TimeSlideGraphNode(object):
 
 
 class TimeSlideGraph(object):
-	# FIXME:  this class is broken by the offset vector
-	# {"H2":60.37383539249436, "H1":-201.2461179749811, "L1":0} because
-	# floating point round-off causes some numerical transformations to
-	# be irreversible, but it should be possible to fix the algorithm
-	# so that we are immune to this:  there shouldn't be a need to
-	# reverse any of the arithmetic.
-	#
-	# FIXME:  I think I might have fixed this, try to figure out if
-	# it's still broken
 	def __init__(self, offset_vector_dict, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
