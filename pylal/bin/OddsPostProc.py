@@ -306,17 +306,17 @@ if(opts.skyres is not None):
 	from pylal import skylocutils
 	skypoints=array(skylocutils.gridsky(float(opts.skyres)))
 	skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
-	(bins,hist)=skyhist_cart(skycarts,pos)
+	(bins,shist)=skyhist_cart(skycarts,pos)
 	#(bins,hist)=sky_hist(skypoints,pos)
 	frac=0
 	Nbins=0
 	while(frac<0.67):
 		maxbin=0
 		for i in range(0,len(bins)):
-			if hist[i]>maxbin:
-				maxbin=hist[i]
+			if shist[i]>maxbin:
+				maxbin=shist[i]
 				maxpos=i
-		hist[maxpos]=0
+		shist[maxpos]=0
 		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
 	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
@@ -324,10 +324,10 @@ if(opts.skyres is not None):
 	while(frac<0.9):
                 maxbin=0
                 for i in range(0,len(bins)):
-                        if hist[i]>maxbin:
-                                maxbin=hist[i]
+                        if shist[i]>maxbin:
+                                maxbin=shist[i]
                                 maxpos=i
-                hist[maxpos]=0
+                shist[maxpos]=0
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
@@ -335,10 +335,10 @@ if(opts.skyres is not None):
 	while(frac<0.95):
                 maxbin=0
                 for i in range(0,len(bins)):
-                        if hist[i]>maxbin:
-                                maxbin=hist[i]
+                        if shist[i]>maxbin:
+                                maxbin=shist[i]
                                 maxpos=i
-                hist[maxpos]=0
+                shist[maxpos]=0
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
