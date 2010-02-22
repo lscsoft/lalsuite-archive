@@ -310,7 +310,7 @@ if(opts.skyres is not None):
 	#(bins,hist)=sky_hist(skypoints,pos)
 	frac=0
 	Nbins=0
-	while(frac<0.5):
+	while(frac<0.67):
 		maxbin=0
 		for i in range(0,len(bins)):
 			if hist[i]>maxbin:
@@ -319,8 +319,27 @@ if(opts.skyres is not None):
 		hist[maxpos]=0
 		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
-	print '%d confidence region in %i bins of %s^2 radians' % (frac,Nbins,opts.skyres)
-
+	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
+	while(frac<0.9):
+                maxbin=0
+                for i in range(0,len(bins)):
+                        if hist[i]>maxbin:
+                                maxbin=hist[i]
+                                maxpos=i
+                hist[maxpos]=0
+                frac=frac+(float(maxbin)/float(len(pos)))
+                Nbins=Nbins+1
+        print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
+        while(frac<0.95):
+                maxbin=0
+                for i in range(0,len(bins)):
+                        if hist[i]>maxbin:
+                                maxbin=hist[i]
+                                maxpos=i
+                hist[maxpos]=0
+                frac=frac+(float(maxbin)/float(len(pos)))
+                Nbins=Nbins+1
+        print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
     
 myfig=figure(1,figsize=(6,4),dpi=80)
 
