@@ -113,8 +113,7 @@ class TimeSlideGraphNode(object):
 			# FIXME:  assumes the instrument column is named
 			# "ifo".  works for inspirals, bursts, and
 			# ring-downs.
-			self.coincs = [tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)]
-			self.coincs.sort()
+			self.coincs = sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose))
 			self.coincs = tuple(self.coincs)
 			return self.coincs
 
@@ -157,7 +156,8 @@ class TimeSlideGraphNode(object):
 			print >>sys.stderr, "\tassembling %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
 
 		self.coincs = []
-		self.unused_coincs = reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components)) | reduce(lambda a, b: a | b, (set(component.coincs) for component in self.components))
+		self.unused_coincs = reduce(lambda a, b: a | b, (set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)) for component in self.components))
+		self.unused_coincs |= reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components))
 		for n, coinc0 in enumerate(allcoincs0):
 			if verbose and not (n % 200):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
@@ -189,6 +189,9 @@ class TimeSlideGraph(object):
 	# be irreversible, but it should be possible to fix the algorithm
 	# so that we are immune to this:  there shouldn't be a need to
 	# reverse any of the arithmetic.
+	#
+	# FIXME:  I think I might have fixed this, try to figure out if
+	# it's still broken
 	def __init__(self, offset_vector_dict, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
