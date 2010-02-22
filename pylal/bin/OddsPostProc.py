@@ -301,7 +301,7 @@ if(Bflag==1):
     BayesFactor = logZ
     print 'log B = '+str(BayesFactor)
 
-
+skyreses=[]
 if(opts.skyres is not None):
 	from pylal import skylocutils
 	skypoints=array(skylocutils.gridsky(float(opts.skyres)))
@@ -320,6 +320,7 @@ if(opts.skyres is not None):
 		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
 	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
+	skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
 	while(frac<0.9):
                 maxbin=0
                 for i in range(0,len(bins)):
@@ -330,7 +331,8 @@ if(opts.skyres is not None):
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
-        while(frac<0.95):
+        skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
+	while(frac<0.95):
                 maxbin=0
                 for i in range(0,len(bins)):
                         if hist[i]>maxbin:
@@ -340,6 +342,7 @@ if(opts.skyres is not None):
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
+        skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
     
 myfig=figure(1,figsize=(6,4),dpi=80)
 
@@ -441,6 +444,11 @@ if(Bflag==1): htmlfile.write('<h4>log Bayes Factor: '+str(BayesFactor)+'</h4><br
 htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bits.<br>')
 if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d_sorted[-1,-1])+'<br>')
 if(incoflag!=0): htmlfile.write('Odds of coherent vs incoherent: '+str(exp(logZ-Zinco))+'<br>')
+if(opts.skyres is not None):
+	htmlfile.write('<table><tr><td>Confidence region</td><td>size (sq. deg)</td>')
+	for (frac,size) in skyreses:
+		htmlfile.write('<tr><td>%f</td>%f</td></tr>'%(frac,size))
+	htmlfile.write('</table>')
 htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(size(d_sorted,0))+' NS samples using '+str(size(opts.data,0)*Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
 htmlfile.write('<table border=1><tr>')
