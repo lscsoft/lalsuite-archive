@@ -51,10 +51,6 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 
-# so they can be inserted into a database
-dbtables.ligolwtypes.ToPyType["ilwd:char"] = str
-
-
 # so they aren't inserted into a database
 dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
 
@@ -92,7 +88,7 @@ def parse_command_line():
 		if options.T010150 == "":
 			options.T010150 = "EXCESSPOWER_LIKELIHOOD"
 		elif set(options.T010150) - T010150_letters:
-			raise ValueError, "invalid description \"%s\"" % options.T010150
+			raise ValueError, "invalid characters description \"%s\"" % options.T010150
 
 	if options.add_from_cache:
 		options.add_from += [CacheEntry(line).path() for line in file(options.add_from_cache)]
