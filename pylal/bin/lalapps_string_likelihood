@@ -43,6 +43,8 @@ from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
 from pylal import git_version
+from pylal import inject
+from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -92,18 +94,10 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                                     Main
+#                                  Machinery
 #
 # =============================================================================
 #
-
-
-#
-# Command line.
-#
-
-
-options, filenames = parse_command_line()
 
 
 #
@@ -121,7 +115,7 @@ def coinc_params_func(events, offsetdict):
 	for event in events:
 		prefix = "%s_" % event.ifo
 
-		params["%ssnr_chi2" % prefix] = (event.snr, event.chisq / event.chisq_dof)
+		params["%ssnr2_chi2" % prefix] = (event.snr**2.0, event.chisq / event.chisq_dof)
 
 	#
 	# two-instrument parameters
@@ -145,12 +139,89 @@ def coinc_params_func(events, offsetdict):
 
 
 #
+# Parameter distributions
+#
+
+
+def dt_binning(instrument1, instrument2):
+	dt = 0.02 + inject.light_travel_time(instrument1, instrument2)	# seconds
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001),))
+
+
+class DistributionsStats(ligolw_burca_tailor.Stats):
+	"""
+	A subclass of the Stats class used to populate a
+	CoincParamsDistribution instance with the data from the outputs of
+	ligolw_burca and ligolw_binjfind.
+	"""
+
+	binnings = {
+		"H1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
+		"H2_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
+		"L1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
+		"V1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
+		"H1_H2_dt": dt_binning("H1", "H2"),
+		"H1_L1_dt": dt_binning("H1", "L1"),
+		"H1_V1_dt": dt_binning("H1", "V1"),
+		"H2_L1_dt": dt_binning("H2", "L1"),
+		"H2_V1_dt": dt_binning("H2", "V1"),
+		"L1_V1_dt": dt_binning("L1", "V1")
+	}
+
+	filters = {
+		"H1_snr2_chi2": rate.gaussian_window2d(11, 11),
+		"H2_snr2_chi2": rate.gaussian_window2d(11, 11),
+		"L1_snr2_chi2": rate.gaussian_window2d(11, 11),
+		"V1_snr2_chi2": rate.gaussian_window2d(11, 11),
+		"H1_H2_dt": rate.gaussian_window(11),
+		"H1_L1_dt": rate.gaussian_window(11),
+		"H1_V1_dt": rate.gaussian_window(11),
+		"H2_L1_dt": rate.gaussian_window(11),
+		"H2_V1_dt": rate.gaussian_window(11),
+		"L1_V1_dt": rate.gaussian_window(11)
+	}
+
+	def __init__(self):
+		Stats.__init__(self)
+		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
+
+	def _add_zero_lag(self, param_func, events, offsetdict, *args):
+		self.distributions.add_zero_lag(param_func, events, offsetdict, *args)
+
+	def _add_background(self, param_func, events, offsetdict, *args):
+		self.distributions.add_background(param_func, events, offsetdict, *args)
+
+	def _add_injections(self, param_func, sim, events, offsetdict, *args):
+		self.distributions.add_injection(param_func, events, offsetdict, *args)
+
+	def finish(self):
+		self.distributions.finish(filters = self.filters)
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Command line.
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
 # Clear the statistics book-keeping object.
 #
 
 
 segs = segments.segmentlistdict()
-stats = None
+stats = DistributionsStats()
 
 
 #
@@ -174,17 +245,9 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	database = SnglBurstUtils.CoincDatabase(connection, "lalapps_power", verbose = options.verbose)
+	# FIXME:  check the livetime program and search names
+	database = SnglBurstUtils.CoincDatabase(connection, live_time_program = "lalapps_StringSearch", search = "string", verbose = options.verbose)
 	segs |= database.seglists
-
-	#
-	# If not already done, construct a DistributionsStats instance to
-	# populate a CoincParamsDistributions book-keeping object from the
-	# information in the input files.
-	#
-
-	if stats is None:
-		stats = ligolw_burca_tailor.DistributionsStats()
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
@@ -204,14 +267,6 @@ for n, filename in enumerate(filenames):
 
 
 #
-# Get the result.
-#
-
-
-coinc_params_distributions = stats.distributions
-
-
-#
 # Output.
 #
 
@@ -225,4 +280,4 @@ if options.T010150:
 else:
 	filename = options.output
 
-utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coinc_params_distributions, segs), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(stats.distributions, segs), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
