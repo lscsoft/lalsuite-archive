@@ -445,6 +445,7 @@ setup(
 		os.path.join("bin", "lalapps_followup_page"),
 		os.path.join("bin", "lalapps_remote_cache"),
 		os.path.join("bin", "lalapps_run_sqlite"),
+		os.path.join("bin", "lalapps_string_likelihood"),
 		os.path.join("bin", "wscan_background.py"),
 		os.path.join("bin", "wscan_bg_setup_log.py"),
 		os.path.join("bin", "lalapps_stringfinal"),
