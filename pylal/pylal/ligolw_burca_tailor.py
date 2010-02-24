@@ -77,7 +77,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 def coinc_params(events, offsetdict):
 	params = {}
-	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 	if events:
 		# the "time" is the ms_snr squared weighted average of the
@@ -94,7 +93,7 @@ def coinc_params(events, offsetdict):
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
 		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
-	for event1, event2 in iterutils.choices(events, 2):
+	for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
 			# inter-instrument deltas

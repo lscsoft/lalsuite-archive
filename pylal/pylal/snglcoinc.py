@@ -124,7 +124,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tcopying from %s" % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.components[0].offset_vector.items())))
+				print >>sys.stderr, "\tgetting coincs from %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.components[0].offset_vector.items())))
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -147,17 +147,16 @@ class TimeSlideGraphNode(object):
 		# synthesis algorithm to populate its coincs
 		#
 
-		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
-		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
-		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
-		length = len(allcoincs0)
-
-		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
-
 		self.coincs = []
 		self.unused_coincs = reduce(lambda a, b: a | b, (set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)) for component in self.components))
 		self.unused_coincs |= reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components))
+
+		if verbose:
+			print >>sys.stderr, "\tassembling %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
+		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
+		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
+		length = len(allcoincs0)
 		for n, coinc0 in enumerate(allcoincs0):
 			if verbose and not (n % 200):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
@@ -183,15 +182,6 @@ class TimeSlideGraphNode(object):
 
 
 class TimeSlideGraph(object):
-	# FIXME:  this class is broken by the offset vector
-	# {"H2":60.37383539249436, "H1":-201.2461179749811, "L1":0} because
-	# floating point round-off causes some numerical transformations to
-	# be irreversible, but it should be possible to fix the algorithm
-	# so that we are immune to this:  there shouldn't be a need to
-	# reverse any of the arithmetic.
-	#
-	# FIXME:  I think I might have fixed this, try to figure out if
-	# it's still broken
 	def __init__(self, offset_vector_dict, verbose = False):
 		if verbose:
 			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)

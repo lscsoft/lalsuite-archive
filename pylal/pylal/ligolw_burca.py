@@ -388,11 +388,11 @@ def ligolw_burca(
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 		for coinc in node.unused_coincs:
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 
