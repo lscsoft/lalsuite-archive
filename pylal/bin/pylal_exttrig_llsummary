@@ -689,6 +689,10 @@ if opts.output_path_html:
   command = 'cp -r %s/* %s/OPENBOX' % (opts.openbox_path, opts.output_path_html)
   subprocess.call(command, shell=True)
 
+  # make the OPENBOX read protected
+  os.chmod('%s/OPENBOX'%opts.output_path_html, 0)
+
+  # set two links to the kml file and the segplot
   link_openbox(opts.output_path_html, kml_filename)
   link_openbox(opts.output_path_html, segplot)
 
