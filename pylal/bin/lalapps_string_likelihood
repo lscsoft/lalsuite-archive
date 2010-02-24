@@ -26,6 +26,7 @@
 #
 
 
+import math
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -131,6 +132,9 @@ def coinc_params_func(events, offsetdict):
 		dt = float((event1.get_peak() + offsetdict[event1.ifo]) - (event2.get_peak() + offsetdict[event2.ifo]))
 		params["%sdt" % prefix] = (dt,)
 
+		dA = math.log(event1.amplitude / event2.amplitude)
+		params["%sdA" % prefix] = (dA,)
+
 	#
 	# done
 	#
@@ -156,16 +160,22 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	"""
 
 	binnings = {
-		"H1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
-		"H2_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
-		"L1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
-		"V1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(.1, 1e8, 12001), rate.LogarithmicBins(.1, 1e8, 12001))),
+		"H1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
+		"H2_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
+		"L1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
+		"V1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H1_V1_dt": dt_binning("H1", "V1"),
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
-		"L1_V1_dt": dt_binning("L1", "V1")
+		"L1_V1_dt": dt_binning("L1", "V1"),
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),))
 	}
 
 	filters = {
@@ -178,7 +188,13 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H1_V1_dt": rate.gaussian_window(11),
 		"H2_L1_dt": rate.gaussian_window(11),
 		"H2_V1_dt": rate.gaussian_window(11),
-		"L1_V1_dt": rate.gaussian_window(11)
+		"L1_V1_dt": rate.gaussian_window(11),
+		"H1_H2_dA": rate.gaussian_window(11),
+		"H1_L1_dA": rate.gaussian_window(11),
+		"H1_V1_dA": rate.gaussian_window(11),
+		"H2_L1_dA": rate.gaussian_window(11),
+		"H2_V1_dA": rate.gaussian_window(11),
+		"L1_V1_dA": rate.gaussian_window(11)
 	}
 
 	def __init__(self):
