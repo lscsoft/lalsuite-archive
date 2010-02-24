@@ -23,13 +23,12 @@ for grb in monitor_list:
   if grb.name==grb_name:
    
     # set the openbox flag
-    grb.openbox=True
-    print "Box for GRB %s opened..." % grb_name
+    grb.openbox=False
+    print "Box for GRB %s closed ..." % grb_name
 
     # change the permissions on the OPENBOX path
     path = cp.get('paths','publishing_path')+'/GRB'+grb.name+'/OPENBOX'
-    os.chmod(path, 365)
-
+    os.chmod(path, 0)
 
 # rewrite the files
 pickle.dump(monitor_list, file(monitor_file,'w'))
