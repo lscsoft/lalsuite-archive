@@ -607,7 +607,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions, seglists):
+def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor"):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
@@ -617,7 +617,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists):
 	process = append_process(xmldoc, comment = u"")
 	llwapp.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
-	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, u"ligolw_burca_tailor"))
+	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, name))
 
 	llwapp.set_process_end_time(process)
 
