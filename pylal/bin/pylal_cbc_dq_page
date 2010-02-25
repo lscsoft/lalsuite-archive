@@ -78,12 +78,15 @@ parser.add_option("-n","--number-of-days",action="store",type="int",\
 parser.add_option("-u","--username",action="store",type="string",\
     dest="username",help="username required to access Scimon DQ Flag webpage")
 
-#parser.add_option("-p","--password",action="store",type="string",\
-#    dest="password",help="password required to access Scimon DQ Flag webpage")
-
 parser.add_option("-d","--skip-common-dqflags",action="store_true",\
     default=False,dest="skip_dq_flags",\
     help="skip generation of common DQ flag lists")
+
+parser.add_option("-c","--common-flag-cat",action="store",type="int",\
+    default=4,dest="cat_level",help="category veto level for common DQ flags")
+
+parser.add_option("-s","--common-flag-threshold",action="store",type="int",\
+    default=100,dest="snr_threshold",help="snr threshold for common DQ flags")
 
 parser.add_option("-k","--skip-hveto-kw",action="store_true",default=False,\
     dest="skip_hveto_kw",help="skip analysis of hveto_ihope results")
@@ -288,14 +291,15 @@ if options.skip_dq_flags is False:
 	        commonDQfilename[i] = commonDQtag+'_'+str(ifo[i])+'-'+str(GPSstart)+'-'+str(GPSlength)+'.txt'
 		commonDQfile[i]=commonDQpath+commonDQfilename[i]
 		f = open(commonDQfile[i],'w')
-		commonDQcommand[i]+=ifo[i]+''' 100 '''
+		commonDQcommand[i]+=ifo[i]+''' '''+str(options.cat_level)+''' '''+str(options.snr_threshold)+''' '''
 		for j in range(0,len(ihopePath)):
-			lsCheck = 'ls '+ihopePath[j]+'H1-4-INSPIRAL_16SEC_CLUSTERED.csv'
+			lsCheck = 'ls '+ihopePath[j]+'H1-'+str(options.cat_level)+'-INSPIRAL_16SEC_CLUSTERED.csv'
 			status = GetCommandOutput(lsCheck)[1]
 			if status == 0:
 				commonDQcommand[i]+=ihopePath[j]+''' '''
 			else:
 				skippedDays[i]+=''' '''+date[j]+''' '''
+		print commonDQcommand[i]
 		commonDQflags[i],status=GetCommandOutput(commonDQcommand[i])
 		if status==0:
 			f.write(commonDQflags[i])
@@ -311,7 +315,7 @@ if options.skip_dq_flags is False:
 		print >>output, "===== "+ifo[i]+" ====="
 		print >>output
 		print >>output, "The output of the above command for "+ifo[i]+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
-		if skippedDays != '':
+		if skippedDays[i] != '':
 			print >>output, "The following days were not analysed due to a lack of data:"
 			print >>output, "  "+skippedDays[i]
 	print >>output
