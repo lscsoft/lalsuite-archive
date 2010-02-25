@@ -405,6 +405,7 @@ setup(
 		os.path.join("bin", "plot_tmpltbank_range"),
 		os.path.join("bin", "pylal_cache_to_mvsc.py"),
 		os.path.join("bin", "pylal_mvsc_player.py"),
+		os.path.join("bin", "pylal_cbc_dq_page"),
 		os.path.join("bin", "mvsc_plots.py"),
 		os.path.join("bin", "mvsc_plot_cuts.py"),
 		os.path.join("bin", "mvsc_htmlwriter.py"),
