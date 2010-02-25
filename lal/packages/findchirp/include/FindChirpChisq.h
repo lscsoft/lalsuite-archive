@@ -104,6 +104,12 @@ tagFindChirpChisqInput
 {
   COMPLEX8Vector               *qtildeVec;
   COMPLEX8Vector               *qVec;
+  COMPLEX8VectorSequence       *PTFqVec;
+  COMPLEX8VectorSequence       *PTFqtildeVec;
+  REAL4VectorSequence          *PTFPVec;
+  REAL4VectorSequence          *PTFsegNormVec;
+  INT4                          kmax;
+  REAL4                         deltaF;
 }
 FindChirpChisqInput;
 /* </lalVerbatim> */
@@ -144,6 +150,10 @@ tagFindChirpChisqParams
   COMPLEX8Vector               *qtildeBinVecBCV;
   COMPLEX8Vector              **qBinVecPtr;
   COMPLEX8Vector              **qBinVecPtrBCV;
+  COMPLEX8Vector              **PTFqBinVecPtr;
+  REAL4Vector                  *PTFhc;
+  REAL4Vector                  *PTFhs;
+  REAL4VectorSequence          *PTFB;
   Approximant                   approximant;
 }
 FindChirpChisqParams;

@@ -278,6 +278,7 @@ tagFindChirpSegment
   UINT4Vector                  *chisqBinVecBCV;
   REAL8                         deltaT;
   REAL4Vector                  *segNorm;
+  REAL4VectorSequence          *PTFsegNormVec;
   REAL4Vector                  *tmpltPowerVec;
   REAL4Vector                  *a1;
   REAL4Vector                  *b1;
@@ -432,6 +433,7 @@ tagFindChirpTemplate
   InspiralTemplate              tmplt;
   COMPLEX8Vector               *data;
   COMPLEX8VectorSequence       *ACTDtilde;
+  REAL4VectorSequence          *PTFQ;
   COMPLEX8VectorSequence       *PTFQtilde;
   REAL4Array                   *PTFBinverse;
   REAL4Array                   *PTFB;
