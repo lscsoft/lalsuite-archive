@@ -160,10 +160,10 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	"""
 
 	binnings = {
-		"H1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
-		"H2_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
-		"L1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
-		"V1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
+		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"H2_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"L1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"V1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H1_V1_dt": dt_binning("H1", "V1"),
@@ -297,4 +297,4 @@ if options.T010150:
 else:
 	filename = options.output
 
-utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(stats.distributions, segs), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(stats.distributions, segs, name = u"string_cusp_likelihood"), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
