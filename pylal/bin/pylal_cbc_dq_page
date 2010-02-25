@@ -472,6 +472,8 @@ if options.skip_hveto_kw is False:
 		for k in range(0,len(winner)):
 			print "[["+hvetoURL[k]+"|"+winner[k]+"]]||",
 		print
+	cleanUpCommand='rm -r '+hvetoKWpath
+	status = GetCommandOutput(cleanUpCommand)[1]
 	print "[[#top|Back to top]]"
 # ==========
 # Detailed Results
