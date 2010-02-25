@@ -3,6 +3,7 @@
 from optparse import OptionParser
 import sys
 import os
+import getpass
 
 # =============================================================================
 # Function to execute shell command and get output
@@ -41,7 +42,7 @@ def GetCommandOutput(command, show_stdout=False, show_command=False, show_error=
     sys.exit(status)
   if show_stdout:
     if this_output[0:1]=='\n':
-      print  this_output[1:]  #first character is \n
+      print this_output[1:]  #first character is \n
     else:
       print this_output
 
@@ -77,8 +78,8 @@ parser.add_option("-n","--number-of-days",action="store",type="int",\
 parser.add_option("-u","--username",action="store",type="string",\
     dest="username",help="username required to access Scimon DQ Flag webpage")
 
-parser.add_option("-p","--password",action="store",type="string",\
-    dest="password",help="password required to access Scimon DQ Flag webpage")
+#parser.add_option("-p","--password",action="store",type="string",\
+#    dest="password",help="password required to access Scimon DQ Flag webpage")
 
 parser.add_option("-d","--skip-common-dqflags",action="store_true",\
     default=False,dest="skip_dq_flags",\
@@ -102,13 +103,23 @@ parser.add_option("-L","--skip-l1",action="store_true",\
 parser.add_option("-V","--skip-v1",action="store_true",\
     default=False,dest="skip_v1",help="skip generation of V1 daily plots")
 
+parser.add_option("-o","--output-file",action="store",type="string",\
+    dest="output_file",help="output file")
+
 (options, args) = parser.parse_args()
 
 if options.start_date is None:
         parser.error("Please specify a start date")
 
+if options.username != None:
+	password = getpass.getpass()
+if options.output_file == None:
+	output = sys.stdout
+else:
+	output = open(options.output_file,'w')
+
 # ==========
-# Set up ifo name variables from options
+# Set up name variables from options
 # ==========
 ifo=[]
 ligoIfo=[]
@@ -226,38 +237,37 @@ webPath=webURL+'/'+dqFolder
 # ==========
 # HEADER
 # ==========
-print "= S6C Data Quality Checks for",GPSstart, "-", GPSend, "="
-print
-print "<<TableOfContents(3)>>"
+print >>output, "= S6C Data Quality Checks for "+str(GPSstart)+" - "+str(GPSend)+" ="
+print >>output 
+print >>output, "<<TableOfContents(3)>>"
 
 # ==========
 # SUMMARY
 # ==========
-print "== Summary Information =="
-print "\'\'\'Start Time:\'\'\' "+DateStart+", "+str(GPSstart)+". \'\'\'End Time:\'\'\' "+DateEnd+", "+str(GPSend)
-print
-print "Live time statistics:"
-print "||IFO||Science time %||Science time in seconds (days)||"
+print >>output, "== Summary Information =="
+print >>output, "\'\'\'Start Time:\'\'\' "+DateStart+", "+str(GPSstart)+". \'\'\'End Time:\'\'\' "+DateEnd+", "+str(GPSend)
+print >>output
+print >>output, "Live time statistics:"
+print >>output, "||IFO||Science time %||Science time in seconds (days)||"
 for obs in ifo:
-	print "||"+obs+"||?||?||"
-print
-print "[[#top|Back to top]]"
+	print >>output, "||"+obs+"||?||?||"
+print >>output
+print >>output, "[[#top|Back to top]]"
 # ==========
 # Scimon DQ flags
 # ==========
 
 if options.username != None:
-	print "== Scimon DQ Flags =="
-	print "{{{"
-	print '''curl -k -s --user albert.einstein:<password> https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= GPSstart && $1 < GPSend) || ( $2 >= GPSstart && $2 < GPSend ) || ( $1 < GPSstart && $2 > GPSend DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
-	print "}}}"
-	print "The following scimon flags were generated this week:"
-	scimonFlagCommand = '''curl -k -s --user '''+options.username+''':'''+options.password+''' https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= '''+str(GPSstart)+''' && $1 < '''+str(GPSend)+''') || ( $2 >= '''+str(GPSstart)+''' && $2 < '''+str(GPSend)+''' ) || ( $1 < '''+str(GPSstart)+''' && $2 > '''+str(GPSend)+''' DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
-	scimonFlags = GetCommandOutput(scimonFlagCommand)[0]
-	print "||IFO||Start time||End time||Duration||Notes||Ilog link||"
-	print scimonFlags
-	print
-	print "[[#top|Back to top]]"
+	print >>output, "== Scimon DQ Flags =="
+	print >>output, "{{{"
+	print >>output, '''curl -k -s --user albert.einstein:<password> https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= GPSstart && $1 < GPSend) || ( $2 >= GPSstart && $2 < GPSend ) || ( $1 < GPSstart && $2 > GPSend DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
+	print >>output, "}}}"
+	print >>output, "The following scimon flags were generated this week:"
+	scimonFlagCommand = '''curl -k -s --user '''+options.username+''':'''+password+''' https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= '''+str(GPSstart)+''' && $1 < '''+str(GPSend)+''') || ( $2 >= '''+str(GPSstart)+''' && $2 < '''+str(GPSend)+''' ) || ( $1 < '''+str(GPSstart)+''' && $2 > '''+str(GPSend)+''' DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
+	scimonFlags,status = GetCommandOutput(scimonFlagCommand)
+	print >>output, "||IFO||Start time||End time||Duration||Notes||Ilog link||"
+	print >>output, scimonFlags
+	print >>output, "[[#top|Back to top]]"
 
 # ==========
 # Common DQ Flags
@@ -292,19 +302,20 @@ if options.skip_dq_flags is False:
 		else:
 			f.write("Command:\n "+commonDQcommand[i])
 			f.write("\nfailed, please rerun.")
-	print "== Common DQ Flags =="
-	print "{{{"
-	print "lalapps_flag_triggers $IFO $SNR_THRESHOLD $DAILY_DIRECTORIES" 
-	print "}}}"
+		f.close()
+	print >>output, "== Common DQ Flags =="
+	print >>output, "{{{"
+	print >>output, "lalapps_flag_triggers $IFO $SNR_THRESHOLD $DAILY_DIRECTORIES" 
+	print >>output, "}}}"
 	for i in range(0,len(ifo)):
-		print "===== "+ifo[i]+" ====="
-		print
-		print "The output of the above command for "+ifo[i]+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
+		print >>output, "===== "+ifo[i]+" ====="
+		print >>output
+		print >>output, "The output of the above command for "+ifo[i]+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
 		if skippedDays != '':
-			print "The following days were not analysed due to a lack of data:"
-			print "  "+skippedDays[i]
-	print
-	print "[[#top|Back to top]]"
+			print >>output, "The following days were not analysed due to a lack of data:"
+			print >>output, "  "+skippedDays[i]
+	print >>output
+	print >>output, "[[#top|Back to top]]"
 
 # ==========
 # UPV
@@ -326,12 +337,12 @@ else:
 	UPVstart[-1]=UPVstart[-2]+604800
 	UPVlink = ['']*(3*(numWeeks))
 
-print "== Used Percentage Veto =="
-print "The UPV studies run weekly starting on Tuesdays. The results for this week can be found at the following locations:"
-print "||Week||",
+print >>output, "== Used Percentage Veto =="
+print >>output, "The UPV studies run weekly starting on Tuesdays. The results for this week can be found at the following locations:"
+print >>output, "||Week||",
 for i in range(0,len(ifo)):
-	print ifo[i]+'||',
-print
+	print >>output, ifo[i]+'||',
+print >>output
 
 for i in range(0,len(UPVstart)-1):
 	for j in range(0,len(ifo)):
@@ -344,12 +355,12 @@ for i in range(0,len(UPVstart)-1):
 			UPVlink[3*i+j]="https://ldas-jobs.ligo"+site[j]+\
 			    ".caltech.edu/~detchar/S6/UPV/weekly/V1_PR_B1_ACP_"\
 			    +str(UPVstart[i])+"_"+str(UPVstart[i+1])+"_webpage/"
-	print "||"+str(i+1)+"||",
+	print >>output, "||"+str(i+1)+"||",
 	for j in range(0,len(ifo)):
-		print "[["+UPVlink[3*i+j]+"|link]]||",
-	print 
-print
-print "[[#top|Back to top]]"
+		print >>output, "[["+UPVlink[3*i+j]+"|link]]||",
+	print >>output
+print >>output
+print >>output, "[[#top|Back to top]]"
 
 # ==========
 # Glitch Shifts
@@ -357,11 +368,11 @@ print "[[#top|Back to top]]"
 
 if len(ligoIfo)>0:
 	numWeeks = int(round(numDays/7))
-	print "== Glitch Shifts =="
+	print >>output, "== Glitch Shifts =="
 	if numWeeks > 1:
-		print "The glitch shifts for these "+str(numWeeks)+" weeks can be found here:",
+		print >>output, "The glitch shifts for these "+str(numWeeks)+" weeks can be found here:",
 	else:
-		print "The glitch shifts for this week can be found here:",
+		print >>output, "The glitch shifts for this week can be found here:",
 	if dayOfWeek[0] != "Sat":
 		glitchDate=['']*(numWeeks+1)
 		for i in range(0,numDays):
@@ -372,8 +383,8 @@ if len(ligoIfo)>0:
 		for i in range(0,len(glitchDate)):
 			for j in range(0,len(ligoIfo)):
 				glitchLink="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchWeek-"+ligoIfo[j]+"-"+glitchDate[i/2]
-				print " [["+glitchLink[i]+"|"+ligoName[j]+" "+glitchDate[i/2]+"]], ",
-		print "and all other glitch information can be found on the Glitch Studies page, [[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies|here]]."
+				print >>output, " [["+glitchLink[i]+"|"+ligoName[j]+" "+glitchDate[i/2]+"]], ",
+		print >>output, "and all other glitch information can be found on the Glitch Studies page, [[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies|here]]."
 	else:
 		glitchLink=['']*len(ligoIfo)*numWeeks
 		for i in range(0,numWeeks):
@@ -381,11 +392,11 @@ if len(ligoIfo)>0:
 			glitchDate=glitchDate.replace("\n","")
 			for j in range(0,len(ligoIfo)):
 				glitchLink[i]="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchWeek"+ligoIfo[j]+"-"+glitchDate
-				print " [["+glitchLink[i]+"|"+ligoName[j]+" "+glitchDate+"]], ",
-		        print "and all other glitch information can be found on the Glitch Studies page, [[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies|here]]."
+				print >>output, " [["+glitchLink[i]+"|"+ligoName[j]+" "+glitchDate+"]], ",
+		        print >>output, "and all other glitch information can be found on the Glitch Studies page, [[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies|here]]."
 
-print
-print "[[#top|Back to top]]"
+print >>output
+print >>output, "[[#top|Back to top]]"
 
 # ==========
 # HVeto
@@ -400,41 +411,41 @@ winnerGrep='''cat ./hveto_summaries/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{p
 hvetoIhopeURLstart=webURL+'''/hveto_ihope/'''
 
 if options.skip_hveto_ihope is False or options.skip_hveto_kw is False:
-	print "== HVeto =="
+	print >>output, "== HVeto =="
 
 if options.skip_hveto_ihope is False:
-	print "HVeto can be run on ihope triggers following the instructions [[https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/100131174312DQandVetoeshveto_ihope_daily|here]]. The results for this week are:\n"
-        print "||Date||",
+	print >>output, "HVeto can be run on ihope triggers following the instructions [[https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/100131174312DQandVetoeshveto_ihope_daily|here]]. The results for this week are:\n"
+        print >>output, "||Date||",
 	for det in ligoIfo:
-		print det+" INST winner||"+det+" PEM winner||",
-	print
+		print >>output, det+" INST winner||"+det+" PEM winner||",
+	print >>output
 	for i in range(0,len(ligoIfo)):
 		hvetoIhopeURL[len(ligoIfo)*i] = hvetoIhopeURLstart+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
 		hvetoIhopeURL[len(ligoIfo)*i+1] = hvetoIhopeURLstart+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ligoIfo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
 		hvetoWinnerGrep = '''cat ~/public_html/hveto_ihope/'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-                output, status = GetCommandOutput(hvetoWinnerGrep)
+                command_output, status = GetCommandOutput(hvetoWinnerGrep)
 		if status == 0:
-			if output == '\n':
+			if command_output == '\n':
 				hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
 			else:
-				hvetoIhopeWinner[len(ligoIfo)*i]=str(output)
+				hvetoIhopeWinner[len(ligoIfo)*i]=str(command_output)
 				hvetoIhopeWinner[len(ligoIfo)*i]=hvetoIhopeWinner[len(ligoIfo)*i].replace("\n","")
 		else:
 			hvetoIhopeWinner[2*i]='hveto error'
 		hvetoWinnerGrep = '''cat ~/public_html/hveto_ihope/'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-                output, status = GetCommandOutput(hvetoWinnerGrep)
+		command_output,status = GetCommandOutput(hvetoWinnerGrep)
 		if status==0:
 			if output =='\n':
 				hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
 			else:
-		                hvetoIhopeWinner[len(ligoIfo)*i+1]=str(output)
+		                hvetoIhopeWinner[len(ligoIfo)*i+1]=str(command_output)
 				hvetoIhopeWinner[len(ligoIfo)*i+1]=hvetoIhopeWinner[len(ligoIfo)*i+1].replace("\n","")
 	        else:
 	                hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
-	print "||Full period||",
+	print >>output, "||Full period||",
 	for k in range(0,len(hvetoIhopeWinner)):
-		print "[["+hvetoIhopeURL[k]+"|"+hvetoIhopeWinner[k]+"]]||",
-	print
+		print >>output, "[["+hvetoIhopeURL[k]+"|"+hvetoIhopeWinner[k]+"]]||",
+	print >>output
 
 if options.skip_hveto_kw is False:
 	hvetoKWpath = dqPath+'/hveto_summaries' 
@@ -442,11 +453,11 @@ if options.skip_hveto_kw is False:
 	mkdirStatus=GetCommandOutput(mkdirCommand)[1]
 	winnerGrep='''cat '''+hvetoKWpath+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
 
-	print "HVeto is run daily on the Kleine-Welle triggers. The results are:\n"
-	print "||Date||",
+	print >>output, "HVeto is run daily on the Kleine-Welle triggers. The results are:\n"
+	print >>output, "||Date||",
 	for det in ligoIfo:
-		print det+" INST winner|| "+det+" PEM winner||",
-	print
+		print >>output, det+" INST winner|| "+det+" PEM winner||",
+	print >>output
 	for i in range(0,numDays):
 		hvetoGPSday[i]=GPSday[i]-15	
 		for j in range(0,len(ligoIfo)):
@@ -455,69 +466,70 @@ if options.skip_hveto_kw is False:
 			hvetoSummaryCopy = '''gsiscp ldas-grid.ligo'''+ligoSite[j]+'''.caltech.edu:/archive/home/jrsmith/public_html/hveto/s6b/'''+ligoIfo[j]+'''-HVETO_KW_INST-'''+str(hvetoGPSday[i])+'''-86400/summary_stats.txt '''+hvetoKWpath
 			copystatus = GetCommandOutput(hvetoSummaryCopy)[1]
 			if copystatus==0:	
-				output,status = GetCommandOutput(winnerGrep)
-				winner[len(ligoIfo)*j]=str(output)
+				command_output,status = GetCommandOutput(winnerGrep)
+				winner[len(ligoIfo)*j]=str(command_output)
 				winner[len(ligoIfo)*j]=winner[len(ligoIfo)*j].replace("\n","")
 			else:
 				winner[len(ligoIfo)*j]='hveto error'
 			hvetoSummaryCopy = '''gsiscp ldas-grid.ligo'''+ligoSite[j]+'''.caltech.edu:/archive/home/jrsmith/public_html/hveto/s6b/'''+ligoIfo[j]+'''-HVETO_KW_PEM-'''+str(hvetoGPSday[i])+'''-86400/summary_stats.txt '''+hvetoKWpath
 			copystatus=GetCommandOutput(hvetoSummaryCopy)[1]
 			if copystatus==0:
-				output,status = GetCommandOutput(winnerGrep)
-				winner[len(ligoIfo)*j+1]=str(output)
+				command_output,status = GetCommandOutput(winnerGrep)
+				winner[len(ligoIfo)*j+1]=str(command_output)
 	        	        winner[len(ligoIfo)*j+1]=winner[len(ligoIfo)*j+1].replace("\n","")
 			else:
 				winner[len(ligoIfo)*j+1]='hveto error'
-		print "||"+dateFormatted[i]+"||",
+		print >>output, "||"+dateFormatted[i]+"||",
 		for k in range(0,len(winner)):
-			print "[["+hvetoURL[k]+"|"+winner[k]+"]]||",
-		print
+			print >>output, "[["+hvetoURL[k]+"|"+winner[k]+"]]||",
+		print >>output
 	cleanUpCommand='rm -r '+hvetoKWpath
+	print >>output, cleanUpCommand
 	status = GetCommandOutput(cleanUpCommand)[1]
-	print "[[#top|Back to top]]"
+	print >>output, "[[#top|Back to top]]"
 # ==========
 # Detailed Results
 # ==========
 
-print "== Detailed Results =="
+print >>output, "== Detailed Results =="
 
-print "=== Site Weekly ==="
-print "The Site Weekly report from Mike Landry can be found in the archives, [[http://relativity.phys.lsu.edu/pipermail/siteweekly/|here]]."
-print
-print "[[#top|Back to top]]"
+print >>output, "=== Site Weekly ==="
+print >>output, "The Site Weekly report from Mike Landry can be found in the archives, [[http://relativity.phys.lsu.edu/pipermail/siteweekly/|here]]."
+print >>output
+print >>output, "[[#top|Back to top]]"
 # ==========
 # Daily Results
 # ==========
 
 if options.skip_daily is False:
 	for i in range(0,numDays):
-		print "=== "+dateFormatted[i]+" ==="
+		print >>output, "=== "+dateFormatted[i]+" ==="
 		if options.skip_h1 is False:
-			print "'''Links: '''[[http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector&date_to_view="+month[i]+"/"+day[i]+"/"+year[i]+"|LHO ilog]], ",
+			print >>output, "'''Links: '''[[http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector&date_to_view="+month[i]+"/"+day[i]+"/"+year[i]+"|LHO ilog]], ",
 		if options.skip_l1 is False:
-			print "[[http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector&date_to_view="+month[i]+"/"+day[i]+"/"+year[i]+"|LLO ilog]], ",
+			print >>output, "[[http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector&date_to_view="+month[i]+"/"+day[i]+"/"+year[i]+"|LLO ilog]], ",
 		if len(ligoIfo) != 0:
-			print "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"|Daily ihope]], ",
+			print >>output, "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"|Daily ihope]], ",
 		if options.skip_h1 is False:
-			print "[[https://ldas-jobs.ligo-wa.caltech.edu/~detchar/S6/glitch/report/Omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+".html|H1 Omega]], ",
+			print >>output, "[[https://ldas-jobs.ligo-wa.caltech.edu/~detchar/S6/glitch/report/Omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+".html|H1 Omega]], ",
 		if options.skip_l1 is False:
-			print "[[https://ldas-jobs.ligo-la.caltech.edu/~detchar/S6/glitch/report/Omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+".html|L1 Omega]], ",
+			print >>output, "[[https://ldas-jobs.ligo-la.caltech.edu/~detchar/S6/glitch/report/Omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+".html|L1 Omega]], ",
 		if options.skip_v1 is False:
-			print "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"|V1 Omega]]."
-		print
-		print "|| ||",
+			print >>output, "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"|V1 Omega]]."
+		print >>output
+		print >>output, "|| ||",
 		for det in ifo:		
-			print det+"||",
-		print
-		print "|| SNR vs. time <<BR>> (100ms / CAT4) ||",
+			print >>output, det+"||",
+		print >>output
+		print >>output, "|| SNR vs. time <<BR>> (100ms / CAT4) ||",
 		for j in range(0,len(ifo)):
-			print "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"/"+ifo[j]+"_4_100MILLISEC_CLUSTERED_snr_vs_time.png|{{https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"/"+ifo[j]+"_4_100MILLISEC_CLUSTERED_snr_vs_time.png||width=300}}]]||",
-		print		
-		print "|| Omega ||",
+			print >>output, "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"/"+ifo[j]+"_4_100MILLISEC_CLUSTERED_snr_vs_time.png|{{https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"/"+ifo[j]+"_4_100MILLISEC_CLUSTERED_snr_vs_time.png||width=300}}]]||",
+		print >>output
+		print >>output, "|| Omega ||",
 		for j in range(0,len(ifo)):
 			if ifo[j] == "H1" or ifo[j] =="L1":
-				print "[[https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/figures/"+str(GPSday[i])+"_"+str(GPSday[i+1])+"/S6-"+ifo[j]+"-omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+"-GlitchTS.gif|{{https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/figures/"+str(GPSday[i])+"_"+str(GPSday[i+1])+"/S6-"+ifo[j]+"-omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+"-GlitchTS.gif||width=300}}]]||",
+				print >>output, "[[https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/figures/"+str(GPSday[i])+"_"+str(GPSday[i+1])+"/S6-"+ifo[j]+"-omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+"-GlitchTS.gif|{{https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/figures/"+str(GPSday[i])+"_"+str(GPSday[i+1])+"/S6-"+ifo[j]+"-omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+"-GlitchTS.gif||width=300}}]]||",
 			elif ifo[j] == "V1":
-				print "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"/Plots/V1-GlitchTS.gif|{{http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"/Plots/V1-GlitchTS.gif||width=300}}]]||",
-		print
-		print "[[#top|Back to top]]"
+				print >>output, "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"/Plots/V1-GlitchTS.gif|{{http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"/Plots/V1-GlitchTS.gif||width=300}}]]||",
+		print >>output
+		print >>output, "[[#top|Back to top]]"
