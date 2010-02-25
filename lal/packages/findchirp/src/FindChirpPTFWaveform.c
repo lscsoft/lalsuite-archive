@@ -477,7 +477,7 @@ XLALFindChirpPTFWaveform(
   REAL8 kappa = InspTmplt->kappa;
   REAL8 t, t_next;
   REAL8 step_size;
-  REAL8 dE_dt, dE_dt_n_1=0, dE_dt_n_2=0;
+  REAL8 dE_dOm, dE_dOm_n_1=0, dE_dOm_n_2=0;
   REAL8 N_steps;
 
   ptf_evolution_params_t pn_params;
@@ -622,8 +622,7 @@ XLALFindChirpPTFWaveform(
          isnan( e1y ) || isnan( e1z ) )
     {
       /* check if we are close to the MECO */
-      N_steps = ((i-2) * dE_dt_n_1 - (i-1) * dE_dt_n_2) /
-        ( dE_dt_n_1 -  dE_dt_n_2) - i + 1;
+      N_steps = dE_dOm_n_1 / ( dE_dOm_n_2 -  dE_dOm_n_1);
 
       if ( N_steps > 5.0 )
       {
@@ -634,18 +633,18 @@ XLALFindChirpPTFWaveform(
       break;
     }
 
-    /*  Store the last two values of dE/dt so as to be able to estimate   */
+    /*  Store the last two values of dE/domega so as to be able to estimate   */
     /* how far from the MECO condition we are in case the code is failing */
     if ( i <= 1 )
     {
-      dE_dt_n_1 = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
+      dE_dOm_n_1 = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
           0, 0, m1, m2, chi1, 0, orbital_energy_coeffs);
-      dE_dt_n_2 = dE_dt_n_1 * 1.01;
+      dE_dOm_n_2 = dE_dOm_n_1 * 1.01;
     }
     else if ( i > 1 )
     {
-      dE_dt_n_2 = dE_dt_n_1;
-      dE_dt_n_1 = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
+      dE_dOm_n_2 = dE_dOm_n_1;
+      dE_dOm_n_1 = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
           0, 0, m1, m2, chi1, 0, orbital_energy_coeffs);
     }
 
@@ -656,8 +655,10 @@ XLALFindChirpPTFWaveform(
 
     /* terminate if the derivative of the orbital energy is zero or positive */
     /* this is the MECO termination condition discessed in BCV2 Eq. (13)     */
-    if ( (dE_dt = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
-            0, 0, m1, m2, chi1, 0, orbital_energy_coeffs )) >= 0 ) break;
+
+    dE_dOm = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
+        0, 0, m1, m2, chi1, 0, orbital_energy_coeffs );
+    if ( dE_dOm >= 0 ) break;
 
     /* If all check are ok set the final frequency */
     InspTmplt->fFinal = omega * omegam_to_hz;

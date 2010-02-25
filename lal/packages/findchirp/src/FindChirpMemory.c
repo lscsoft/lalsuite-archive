@@ -110,6 +110,7 @@ LALU4DestroyVector()
 #include <lal/AVFactories.h>
 #include <lal/Date.h>
 #include <lal/FindChirp.h>
+#include <lal/SeqFactories.h>
 
 NRCSID (FINDCHIRPMEMORYC, "$Id$");
 
@@ -471,7 +472,7 @@ LALCreateFindChirpSegmentVector (
     )
 /* </lalVerbatim> */
 {
-  UINT4                         i/*,k*/;
+  UINT4                         i,l/*,k*/;
   FindChirpSegmentVector       *vectorPtr;
   FindChirpSegment             *segPtr;
 
@@ -648,6 +649,16 @@ LALCreateFindChirpSegmentVector (
       }
     }
 
+    if ( params->approximant == FindChirpPTF)
+    {
+      /* segment dependent part of normalisation, for the PTF templates */
+      segPtr[i].PTFsegNormVec = XLALCreateVectorSequence( 25 , params->numPoints/2 + 1 );
+      if ( !  segPtr[i].PTFsegNormVec )
+      {
+        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+      }
+    }
+
     /* segment dependent part of normalisation, for the SP templates */
     LALCreateVector( status->statusPtr, &(segPtr[i].segNorm),
         params->numPoints/2 + 1 );
@@ -745,6 +756,11 @@ LALDestroyFindChirpSegmentVector (
     {
       LALDestroyVector( status->statusPtr, &(segPtr[i].segNorm) );
       CHECKSTATUSPTR( status );
+    }
+
+    if ( segPtr[i].PTFsegNormVec )
+    {
+      XLALDestroyVectorSequence( segPtr[i].PTFsegNormVec);
     }
 
     if ( segPtr[i].a1 )

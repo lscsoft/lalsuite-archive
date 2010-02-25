@@ -73,10 +73,12 @@ LALDestroyVector()
 #include <lal/FindChirp.h>
 #include <lal/FindChirpPTF.h>
 #include <lal/MatrixUtils.h>
+#include <lal/FindChirpTD.h>
 
 NRCSID(FINDCHIRPPTFTEMPLATEC, "$Id$");
 
 /* <lalVerbatim file="FindChirpPTFTemplateCP"> */
+
 void
 LALFindChirpPTFTemplate (
     LALStatus                  *status,
@@ -88,16 +90,24 @@ LALFindChirpPTFTemplate (
 {
   UINT4 errcode;
   /* local variables */
-  UINT4 i, N;
-  REAL4 phi, omega_2_3, e1x, e1y, e1z, e2x, e2y, e2z, sqrtoftwo,
-        onebysqrtoftwo, onebysqrtofsix;
-  REAL4Vector Q[5];
+  UINT4          i, N;
+  REAL4          phi, omega_2_3, e1x, e1y, e1z, e2x, e2y, e2z, sqrtoftwo,
+                 onebysqrtofthree, *xfac;
+  REAL4Vector    Q[5];
+  const REAL4    cannonDist = 1.0; /* Mpc */
+  REAL8          deltaF, deltaT, sampleRate;
   COMPLEX8Vector Qtilde[5];
 
-  sqrtoftwo      = sqrt(2.0);
-  onebysqrtoftwo = 1.0 / sqrtoftwo;
-  onebysqrtofsix = 1.0 / sqrt(6.0);
+  sqrtoftwo        = sqrt(2.0);
+  onebysqrtofthree = sqrt(1.0/3.0);
   N = params->PTFphi->length;
+
+  /* store deltaT and zero out the time domain waveform vector */
+  deltaT = params->deltaT;
+  deltaF = 1.0 / ( deltaT * 2 * N );
+  sampleRate = 1.0 / deltaT;
+  xfac = params->xfacVec->data;
+  memset( xfac, 0, N * sizeof(REAL4) );
 
   INITSTATUS( status, "LALFindChirpPTFTemplate", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
@@ -110,35 +120,42 @@ LALFindChirpPTFTemplate (
    */
 
   /* check that the output structures exist */
-  ASSERT( fcTmplt, status,
+  ASSERT( fcTmplt, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( fcTmplt->data, status,
+      FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
+  ASSERT( fcTmplt->data->data, status, 
+      FINDCHIRPTDH_ENULL, FINDCHIRPTDH_MSGENULL );
   ASSERT( fcTmplt->PTFQtilde, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcTmplt->PTFQtilde->length == 5, status,
+  ASSERT( fcTmplt->PTFQtilde->length == 5, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcTmplt->PTFQtilde->data, status,
+  ASSERT( fcTmplt->PTFQtilde->data, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the parameter structure exists */
-  ASSERT( params, status,
+  ASSERT( params, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->PTFQ, status,
+  ASSERT( fcTmplt->PTFQ, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->PTFQ->length == 5, status,
+  ASSERT( fcTmplt->PTFQ->length == 5, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->PTFQ->data, status,
+  ASSERT( fcTmplt->PTFQ->data, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
-  ASSERT( params->fwdPlan, status,
+  ASSERT( params->fwdPlan, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the timestep is positive */
-  ASSERT( params->deltaT > 0, status,
+  ASSERT( params->deltaT > 0, status, 
       FINDCHIRPH_EDTZO, FINDCHIRPH_MSGEDTZO );
 
   /* check that the input exists */
-  ASSERT( InspTmplt, status,
+  ASSERT( InspTmplt, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  
+  ASSERT( N == (2 * (fcTmplt->data->length - 1)), status,
+      FINDCHIRPTDH_EMISM, FINDCHIRPTDH_MSGEMISM );
 
   /* check that the parameter structure is set */
   /* to the correct waveform approximant       */
@@ -148,27 +165,34 @@ LALFindChirpPTFTemplate (
   }
   LALInfo( status, "Generating template using FindChirpPTF" );
 
-  /* copy the template parameters to the finchirp template structure */
+#if 0  /* copy the template parameters to the finchirp template structure */
   memcpy( &(fcTmplt->tmplt), InspTmplt, sizeof(InspiralTemplate) );
   fcTmplt->tmplt.approximant = params->approximant;
+#endif
 
-  /* XXX delete this line if the low frequency cutoff XXX */
-  /* XXX should be read from the template bank        XXX */
-  InspTmplt->fLower = fcTmplt->tmplt.fLower = params->fLow;
+  /* set up additional template parameters */
+  InspTmplt->ieta            = 1;
+  InspTmplt->approximant     = params->approximant;
+  InspTmplt->order           = params->order;
+  InspTmplt->massChoice      = m1Andm2;
+  InspTmplt->tSampling       = sampleRate;
+  InspTmplt->fLower          = params->fLow;
+  InspTmplt->fCutoff         = sampleRate / 2.0 - deltaF;
+  /* XXX Check the correct value XXX */
+  InspTmplt->signalAmplitude = 1.0;
 
   /* Zero out the Q and Qtilde vectors */
-  memset( params->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
+  memset( fcTmplt->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
   memset( fcTmplt->PTFQtilde->data, 0, 5 * (N /2 + 1) * sizeof(COMPLEX8) );
-
+  
  /* Point the dummy variables Q and Qtilde to the actual output structures */
   for ( i = 0; i < 5; ++i )
   {
     Q[i].length      = N;
     Qtilde[i].length = N / 2 + 1;
-    Q[i].data        = params->PTFQ->data + (i * N);
+    Q[i].data        = fcTmplt->PTFQ->data + (i * N);
     Qtilde[i].data   = fcTmplt->PTFQtilde->data + (i * (N / 2 + 1)) ;
-  }
-
+  }  
 
   /* call the waveform generation function */
 
@@ -179,8 +203,7 @@ LALFindChirpPTFTemplate (
   {
     ABORT( status, FINDCHIRPH_EPTFW, FINDCHIRPH_MSGEPTFW );
   }
-
-
+  
   /* evaluate the Q^I factors from the dynamical variables */
   for( i = 0; i < N; ++i)
   {
@@ -188,26 +211,26 @@ LALFindChirpPTFTemplate (
     phi       = params->PTFphi->data[i];
     e1x       = params->PTFe1->data[i];
     e1y       = params->PTFe1->data[N + i];
-    e1z       = params->PTFe1->data[2 * N + i];
+    e1z       = params->PTFe1->data[2 * N + i]; 
     e2x       = params->PTFe2->data[i];
     e2y       = params->PTFe2->data[N + i];
     e2z       = params->PTFe2->data[2 * N + i];
-
-    Q[0].data[i] = omega_2_3 * onebysqrtoftwo * ( cos(2 * phi) * ( e1x * e1x +
-          e2y * e2y - e2x * e2x - e1y * e1y ) + 2 * sin(2 * phi) *
-        ( e1x * e2x - e1y * e2y ));
-    Q[1].data[i] = omega_2_3 * sqrtoftwo * ( cos(2 * phi) * ( e1x * e1y -
+    
+    Q[0].data[i] =  - omega_2_3 * ( cos(2 * phi) * ( e1x * e1x + 
+          e2y * e2y - e2x * e2x - e1y * e1y ) + 2 * sin(2 * phi) * 
+          ( e1x * e2x - e1y * e2y ));
+    Q[1].data[i] = - omega_2_3 * 2 * ( cos(2 * phi) * ( e1x * e1y - 
           e2x * e2y ) + sin(2 * phi) * ( e1x * e2y + e1y * e2x ));
-    Q[2].data[i] = omega_2_3 * sqrtoftwo * ( cos(2 * phi) * ( e1x * e1z -
+    Q[2].data[i] = - omega_2_3 * 2 * ( cos(2 * phi) * ( e1x * e1z - 
           e2x * e2z ) + sin(2 * phi) * ( e1x * e2z + e1z * e2x ));
-    Q[3].data[i] = omega_2_3 * sqrtoftwo * ( cos(2 * phi) * ( e1y * e1z -
+    Q[3].data[i] = - omega_2_3 * 2 * ( cos(2 * phi) * ( e1y * e1z - 
           e2y * e2z ) + sin(2 * phi) * ( e1y * e2z + e1z * e2y ));
-    Q[4].data[i] = omega_2_3 * onebysqrtofsix * ( cos(2 * phi) *
-        ( 2 * e2z * e2z - 2 * e1z * e1z + e1x * e1x + e1y * e1y -
+    Q[4].data[i] = - omega_2_3 * onebysqrtofthree * ( cos(2 * phi) * 
+        ( 2 * e2z * e2z - 2 * e1z * e1z + e1x * e1x + e1y * e1y - 
           e2x * e2x - e2y * e2y ) + 2 * sin(2 * phi) * ( e1x * e2x +
-            e1y * e2y - 2 * e1z * e2z ));
+            e1y * e2y - 2 * e1z * e2z ));                              
+    xfac[i] = Q[0].data[i] + Q[1].data[i];
   }
-
 
   /* Fourier transform the Q's into the Qtilde's */
   for ( i = 0; i < 5; ++i )
@@ -215,10 +238,35 @@ LALFindChirpPTFTemplate (
     LALForwardRealFFT( status->statusPtr, &Qtilde[i], &Q[i],
         params->fwdPlan);
   }
+  CHECKSTATUSPTR( status );
+ 
+  /* template dependent normalization */
+  fcTmplt->tmpltNorm  = 2 * sqrtoftwo * InspTmplt->mu;
+  fcTmplt->tmpltNorm *= 2 * LAL_MRSUN_SI / ( cannonDist * 1.0e6 * LAL_PC_SI );
+  fcTmplt->tmpltNorm *= params->dynRange;
+  fcTmplt->tmpltNorm *= fcTmplt->tmpltNorm;
+  
+  /*
+   *
+   * create the frequency domain findchirp template
+   *
+   */
 
-  /* XXX set this to be the correct values XXX */
-  fcTmplt->tmplt.tC = InspTmplt->tC; /* length of template in seconds */
-  fcTmplt->tmplt.fFinal = InspTmplt->fFinal; /* upper freq of template in Hz */
+  memset( fcTmplt->data->data, 0, (N / 2 + 1) * sizeof(COMPLEX8) );
+  /* fft chirp */
+  if ( XLALREAL4ForwardFFT( fcTmplt->data, params->xfacVec, 
+      params->fwdPlan ) == XLAL_FAILURE )
+  {
+    ABORTXLAL( status );
+  }
+  
+  /* copy the template parameters to the findchirp template structure */
+  memcpy( &(fcTmplt->tmplt), InspTmplt, sizeof(InspiralTemplate) );
+
+#if 0   /* XXX set this to be the correct values XXX */
+        fcTmplt->tmplt.tC = InspTmplt->tC; /* length of template in seconds */
+        fcTmplt->tmplt.fFinal = InspTmplt->fFinal; /* upper freq of template in Hz */
+#endif
 
   /* normal exit */
   DETATCHSTATUSPTR( status );
@@ -237,39 +285,42 @@ LALFindChirpPTFNormalize(
 /* </lalVerbatim> */
 {
   UINT4         i, j, k, kmin, len, kmax;
-  REAL4         f_min, deltaT, deltaF, fFinal;
+  REAL4         fmin, deltaT, deltaF, fFinal, xfac, segNormSum;
   REAL4        *det         = NULL;
-  REAL4        *PTFB        = NULL;
+  REAL4        *PTFB        = NULL; 
+  REAL4        *PTFsegNorm  = NULL;
   COMPLEX8     *wtilde      = NULL;
   COMPLEX8     *PTFQtilde   = NULL;
 
   /* wtilde contains 1/S_n(f) (up to dynamic range issues) */
-  wtilde    = params->wtildeVec->data;
-  PTFQtilde = fcTmplt->PTFQtilde->data;
-  PTFB      = fcTmplt->PTFB->data;
-  len       = params->wtildeVec->length;
-  deltaT    = (REAL4) fcSeg->deltaT;
-  deltaF    = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
-  f_min     = (REAL4) fcTmplt->tmplt.fLower;
-  kmin      = f_min / deltaF > 1 ?  f_min / deltaF : 1;
-  fFinal    = (REAL4) fcTmplt->tmplt.fFinal;
-  kmax      = fFinal / deltaF < (len - 1) ? fFinal / deltaF : (len - 1);
-
+  wtilde     = params->wtildeVec->data;
+  PTFQtilde  = fcTmplt->PTFQtilde->data;
+  PTFB       = fcTmplt->PTFB->data;
+  PTFsegNorm = fcSeg->PTFsegNormVec->data;
+  
+  len        = params->wtildeVec->length;
+  deltaT     = (REAL4) fcSeg->deltaT;
+  deltaF     = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
+  fmin       = (REAL4) fcTmplt->tmplt.fLower;
+  kmin       = fmin / deltaF > 1 ?  fmin / deltaF : 1;
+  fFinal     = (REAL4) fcTmplt->tmplt.fFinal;
+  kmax       = fFinal / deltaF < (len - 1) ? fFinal / deltaF : (len - 1);
+  
   INITSTATUS( status, "LALFindChirpPTFNormalize", FINDCHIRPPTFTEMPLATEC );
   ATTATCHSTATUSPTR( status );
 
   /* check the required input exists */
-  ASSERT( fcTmplt, status,
+  ASSERT( fcTmplt, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( fcSeg, status,
-      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-
-  ASSERT( params, status,
+  ASSERT( fcSeg, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
-  ASSERT( params->wtildeVec, status,
+  ASSERT( params, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->wtildeVec->data, status,
+
+  ASSERT( params->wtildeVec, status, 
+      FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( params->wtildeVec->data, status, 
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the parameter structure is set to a time domain approximant */
@@ -287,33 +338,44 @@ LALFindChirpPTFNormalize(
    */
 
   /* Zero out the element sof matrix B and Binverse*/
-  memset( fcTmplt->PTFB->data, 0, 25 * sizeof(REAL4) );
+  memset( fcTmplt->PTFB->data, 0, 25 * sizeof(REAL4) ); 
   memset( fcTmplt->PTFBinverse->data, 0, 25 * sizeof(REAL4) );
-
+  memset( fcSeg->PTFsegNormVec->data, 0, 25 * len * sizeof(REAL4) );
+  
   /* Compute B_ij from Qtilde_i and Qtilde_j */
   for( i = 0; i < 5; ++i )
   {
     for ( j = 0; j < i + 1; ++j )
-    {
+    {  
+      segNormSum = 0.0;
       for ( k = kmin; k < kmax ; ++k )
-      {
-        PTFB[5 * i + j] += (PTFQtilde[k + i * len].re *
-                            PTFQtilde[k + j * len].re +
-                            PTFQtilde[k + i * len].im *
-                            PTFQtilde[k + j * len].im )
-                            * wtilde[k].re ;
-      }
-      PTFB[5 * i + j] *= 4.0 * deltaF ;
-      /* Use the symmetry of B */
-      PTFB[5 * j + i] = PTFB[5 * i + j];
-    }
-  }
-
+      {  
+        segNormSum += (PTFQtilde[k + i * len].re * PTFQtilde[k + j * len].re +
+                       PTFQtilde[k + i * len].im * PTFQtilde[k + j * len].im )
+                       * wtilde[k].re ;
+        PTFsegNorm[(5 * i + j) * len + k] = PTFsegNorm[(5 * j + i) * len + k] 
+                                          = segNormSum;
+      }   
+      PTFB[5 * i + j] = PTFB[5 * j + i] = segNormSum * 4.0 * deltaF;
+    }    
+  }  
+ 
   /* Invert B and store the output in Binverse */
-  LALSMatrixInverse ( status->statusPtr,
+  LALSMatrixInverse ( status->statusPtr, 
       det, fcTmplt->PTFB, fcTmplt->PTFBinverse );
   CHECKSTATUSPTR( status );
 
+  /* Refill matrix B with the correct values since it has been corrupted */
+
+  for( i = 0; i < 5; ++i )
+  {
+    for ( j = 0; j < i + 1; ++j )
+    {
+      PTFB[5 * i + j] = PTFB[5 * j + i] = PTFsegNorm[(5 * i + j) * len + kmax - 1]
+                                          * 4.0 * deltaF;
+    }
+  }
+  
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );

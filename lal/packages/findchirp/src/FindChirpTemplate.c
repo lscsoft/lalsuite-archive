@@ -93,6 +93,7 @@ LALFindChirpTemplateInit (
 /* </lalVerbatim> */
 {
   UINT4                         k;
+  FindChirpTmpltParams         *PTFoutputPtr;
   FindChirpTmpltParams         *outputPtr;
   REAL4                        *xfac = NULL;
   const REAL4                   exponent = -1.0/3.0;
@@ -139,6 +140,30 @@ LALFindChirpTemplateInit (
 
   switch ( params->approximant )
   {
+    case FindChirpPTF:
+      /* create workspace for the dynamical variables needed to */
+      /* compute the PTF Q(t) vectors                           */
+      outputPtr->PTFphi = XLALCreateVector( params->numPoints );
+      if ( ! outputPtr->PTFphi )
+      {
+        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+      }
+      outputPtr->PTFomega_2_3 = XLALCreateVector( params->numPoints );
+      if ( ! outputPtr->PTFomega_2_3 )
+      {
+        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+      }
+      outputPtr->PTFe1 = XLALCreateVectorSequence( 3, params->numPoints );
+      if ( ! outputPtr->PTFe1 )
+      {
+        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+      }
+      outputPtr->PTFe2 = XLALCreateVectorSequence( 3, params->numPoints );
+      if ( ! outputPtr->PTFe2 )
+      {
+        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+      }
+
     case TaylorT1:
     case TaylorT2:
     case TaylorT3:
@@ -193,47 +218,6 @@ LALFindChirpTemplateInit (
         xfac[k] = pow( (REAL4) k, exponent );
       break;
 
-    case FindChirpPTF:
-      /* create workspace memory for the time-domain Q vectors */
-      outputPtr->PTFQ = XLALCreateVectorSequence( 5, params->numPoints );
-      if ( ! outputPtr->PTFQ )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-
-      /* create workspace for the dynamical variables needed to */
-      /* compute the PTF Q(t) vectors                           */
-      outputPtr->PTFphi = XLALCreateVector( params->numPoints );
-      if ( ! outputPtr->PTFphi )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-      outputPtr->PTFomega_2_3 = XLALCreateVector( params->numPoints );
-      if ( ! outputPtr->PTFomega_2_3 )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-      outputPtr->PTFe1 = XLALCreateVectorSequence( 3, params->numPoints );
-      if ( ! outputPtr->PTFe1 )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-      outputPtr->PTFe2 = XLALCreateVectorSequence( 3, params->numPoints );
-      if ( ! outputPtr->PTFe2 )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-
-      /* create a forward FFT plan */
-      outputPtr->fwdPlan =
-        XLALCreateForwardREAL4FFTPlan( params->numPoints, 0 );
-      if ( ! outputPtr->fwdPlan )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-
-      break;
-
     case AmpCorPPN:
       /* create workspace memory for the time-domain Q vectors */
       outputPtr->ACTDVecs =
@@ -252,7 +236,6 @@ LALFindChirpTemplateInit (
       }
 
       break;
-
 
     default:
       /* unknown approximant type */
@@ -321,10 +304,6 @@ LALFindChirpTemplateFinalize (
   }
 
   /* destroy the vectors used for the PTF template if they exist */
-  if ( outputPtr->PTFQ )
-  {
-    XLALDestroyVectorSequence( outputPtr->PTFQ );
-  }
   if ( outputPtr->PTFphi )
   {
     XLALDestroyVector( outputPtr->PTFphi );

@@ -87,6 +87,7 @@ LALCOMPLEX8VectorFFT()
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
 #include <lal/AVFactories.h>
+#include <lal/SeqFactories.h>
 #include <lal/ComplexFFT.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpChisq.h>
@@ -103,7 +104,7 @@ LALFindChirpChisqVetoInit (
     )
 /* </lalVerbatim> */
 {
-  UINT4                         l, m;
+  UINT4                         i, l, m;
 
   INITSTATUS( status, "FindChirpChisqVetoInit", FINDCHIRPCHISQINITC );
   ATTATCHSTATUSPTR( status );
@@ -182,6 +183,25 @@ LALFindChirpChisqVetoInit (
   }
   ENDFAIL( status );
 
+  /* create additional workspace for PTF */
+  if ( params->approximant == FindChirpPTF)
+  {
+    params->PTFhc = XLALCreateREAL4Vector( numPoints);
+    if ( !params->PTFhc )
+    {
+      ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
+    }
+    params->PTFhs = XLALCreateREAL4Vector( numPoints);
+    if ( !params->PTFhs )
+    {
+      ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
+    }
+    params->PTFB = XLALCreateVectorSequence( numChisqBins, 25 ); 
+    if ( !params->PTFB )
+    {
+      ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
+    }
+  }
 
   /* create one vector for the additional BCV fourier domain data */
   if ( params->approximant == BCV)
@@ -199,45 +219,66 @@ LALFindChirpChisqVetoInit (
   }
 
 
-  /* create numBins vectors for the time domain data */
-  params->qBinVecPtr = (COMPLEX8Vector **)
-    LALCalloc( 1, numChisqBins * sizeof(COMPLEX8Vector*) );
-  if ( ! params->qBinVecPtr )
+  if ( params->approximant == FindChirpPTF)
   {
-    TRY( LALCDestroyVector( status->statusPtr,
-          &(params->qtildeBinVec) ), status );
-    if( params->qtildeBinVecBCV )
+    /* vector for the time domain data */
+    params->PTFqBinVecPtr = (COMPLEX8Vector **) 
+      LALCalloc( 1, 5 * sizeof(COMPLEX8Vector*) );
+    if ( ! params->PTFqBinVecPtr )
     {
-      TRY( LALCDestroyVector( status->statusPtr,
-            &(params->qtildeBinVecBCV) ), status );
+      ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
     }
-    TRY( LALDestroyComplexFFTPlan( status->statusPtr,
-          &(params->plan) ), status );
-    ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
-  }
-
-  for ( l = 0; l < numChisqBins; ++l )
-  {
-    LALCCreateVector( status->statusPtr, params->qBinVecPtr + l, numPoints );
-    BEGINFAIL( status )
+    for ( i = 0; i < 5; i++)
     {
-      for ( m = 0; m < l ; ++m )
+      *(params->PTFqBinVecPtr + i) = XLALCreateCOMPLEX8Vector( numPoints );
+      if ( ! *(params->PTFqBinVecPtr + i) )
       {
-        TRY( LALCDestroyVector( status->statusPtr,
-              params->qBinVecPtr + m ), status );
+        ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
       }
-      LALFree( params->qBinVecPtr );
+    }
+  }
+  else
+  {
+    /* create numBins vectors for the time domain data */
+    params->qBinVecPtr = (COMPLEX8Vector **)
+      LALCalloc( 1, numChisqBins * sizeof(COMPLEX8Vector*) );
+    if ( ! params->qBinVecPtr )
+    {
       TRY( LALCDestroyVector( status->statusPtr,
             &(params->qtildeBinVec) ), status );
-      if (params->qtildeBinVecBCV)
+      if( params->qtildeBinVecBCV )
       {
         TRY( LALCDestroyVector( status->statusPtr,
               &(params->qtildeBinVecBCV) ), status );
       }
       TRY( LALDestroyComplexFFTPlan( status->statusPtr,
             &(params->plan) ), status );
+      ABORT( status, FINDCHIRPCHISQH_EALOC, FINDCHIRPCHISQH_MSGEALOC );
     }
-    ENDFAIL( status );
+
+    for ( l = 0; l < numChisqBins; ++l )
+    {
+      LALCCreateVector( status->statusPtr, params->qBinVecPtr + l, numPoints );
+      BEGINFAIL( status )
+      {
+        for ( m = 0; m < l ; ++m )
+        {
+          TRY( LALCDestroyVector( status->statusPtr,
+                params->qBinVecPtr + m ), status );
+        }
+        LALFree( params->qBinVecPtr );
+        TRY( LALCDestroyVector( status->statusPtr,
+              &(params->qtildeBinVec) ), status );
+        if (params->qtildeBinVecBCV)
+        {
+          TRY( LALCDestroyVector( status->statusPtr,
+                &(params->qtildeBinVecBCV) ), status );
+        }
+        TRY( LALDestroyComplexFFTPlan( status->statusPtr,
+              &(params->plan) ), status );
+      }
+      ENDFAIL( status );
+    }
   }
 
   /* create additional numBins vectors for the BCV time domain data */
@@ -307,7 +348,7 @@ LALFindChirpChisqVetoFinalize (
     )
 /* </lalVerbatim> */
 {
-  UINT4                         l;
+  UINT4                         i, l;
 
   INITSTATUS( status, "FindChirpChisqVetoInit", FINDCHIRPCHISQINITC );
   ATTATCHSTATUSPTR( status );
@@ -360,10 +401,24 @@ LALFindChirpChisqVetoFinalize (
       FINDCHIRPCHISQH_ENULL, FINDCHIRPCHISQH_MSGENULL );
   ASSERT( params->plan, status,
       FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
-  ASSERT( params->qtildeBinVec, status,
-      FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
-  ASSERT( params->qtildeBinVec, status,
-      FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+  if ( params->approximant == FindChirpPTF )
+  {
+    ASSERT( params->PTFqBinVecPtr, status,
+        FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+    ASSERT( params->PTFB, status,
+        FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+    ASSERT( params->PTFhc, status,
+        FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+    ASSERT( params->PTFhs, status,
+        FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+  }
+  else
+  {
+    ASSERT( params->qtildeBinVec, status,
+        FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+    ASSERT( params->qtildeBinVec, status,
+        FINDCHIRPCHISQH_ENNUL, FINDCHIRPCHISQH_MSGENNUL );
+  }
 
   if ( params->approximant == BCV )
   {
@@ -381,16 +436,30 @@ LALFindChirpChisqVetoFinalize (
    */
 
 
-  for ( l = 0; l < numChisqBins; ++l )
+  if ( params->approximant == FindChirpPTF )
   {
-    LALCDestroyVector( status->statusPtr, (params->qBinVecPtr + l) );
+    for ( i = 0; i < 5; i++ )
+    {  
+      XLALDestroyCOMPLEX8Vector( *(params->PTFqBinVecPtr + i) );
+    }
+    LALFree( params->PTFqBinVecPtr );
+    XLALDestroyVectorSequence( params->PTFB );
+    XLALDestroyREAL4Vector( params->PTFhc );
+    XLALDestroyREAL4Vector( params->PTFhs );
+  }  
+  else
+  {  
+    for ( l = 0; l < numChisqBins; ++l )
+    {
+      LALCDestroyVector( status->statusPtr, (params->qBinVecPtr + l) );
+      CHECKSTATUSPTR( status );
+    }
+
+    LALFree( params->qBinVecPtr );
+
+    LALCDestroyVector( status->statusPtr, &(params->qtildeBinVec) );
     CHECKSTATUSPTR( status );
   }
-
-  LALFree( params->qBinVecPtr );
-
-  LALCDestroyVector( status->statusPtr, &(params->qtildeBinVec) );
-  CHECKSTATUSPTR( status );
 
   if ( params->approximant == BCV )
   {

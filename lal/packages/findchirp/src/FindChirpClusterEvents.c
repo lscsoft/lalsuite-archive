@@ -72,7 +72,7 @@ LALFindChirpClusterEvents (
   UINT4                 ignoreIndex = 0;
   UINT4                 eventStartIdx = 0;
   UINT4  		deltaEventIndex = 0;
-  UINT4                 j, kmax;
+  UINT4                 j, kmax, kmin;
   UINT4 		doChisqFlag = 1;
   UINT4			BVLen = 0;
   REAL4                 norm = 0;
@@ -133,6 +133,8 @@ LALFindChirpClusterEvents (
   deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
   kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ?
     input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
+  kmin = input->fcTmplt->tmplt.fLower / deltaF > 1.0 ? 
+    input->fcTmplt->tmplt.fLower / deltaF : 1;
 
   /* normalisation */
   norm = input->fcTmplt->norm;
@@ -216,6 +218,17 @@ LALFindChirpClusterEvents (
         /* compute the chisq vector for this segment */
         memset( params->chisqVec->data, 0,
           params->chisqVec->length * sizeof(REAL4) );
+
+        /* chisq input for PTF */
+        if ( params->approximant == FindChirpPTF )
+        {
+          params->chisqInput->PTFqtildeVec  = params->PTFqtildeVec;
+          params->chisqInput->PTFqVec       = params->PTFqVec;
+          params->chisqInput->PTFPVec       = params->PTFPVec;
+          params->chisqInput->PTFsegNormVec = input->segment->PTFsegNormVec;
+          params->chisqInput->deltaF        = deltaF;
+          params->chisqInput->kmax          = kmax;
+        }
 
         /* pointers to chisq input */
         params->chisqInput->qtildeVec = params->qtildeVec;
