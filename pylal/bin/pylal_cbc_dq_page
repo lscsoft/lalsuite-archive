@@ -108,7 +108,7 @@ if options.start_date is None:
         parser.error("Please specify a start date")
 
 # ==========
-# Set up name variables from options
+# Set up ifo name variables from options
 # ==========
 ifo=[]
 ligoIfo=[]
