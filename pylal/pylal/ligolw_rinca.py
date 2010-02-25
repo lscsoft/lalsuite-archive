@@ -170,7 +170,7 @@ RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, d
 
 
 class RingdownCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, vetoes = None, program = u"ring"):
+	def __init__(self, xmldoc, vetoes = None, program = u"lalapps_ring"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
