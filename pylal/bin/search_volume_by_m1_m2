@@ -137,7 +137,7 @@ class upper_limit(object):
       if self.opts.veto_segments_name is not None: return db_thinca_rings.get_veto_segments(connection, opts.self.veto_segments_name)
         # FIXME BURST CASE VETOS NOT HANDLED
       else: return segments.segmentlistdict()
-    else: return segments.segmentlistdict() 
+    else: return segments.segmentlistdict()
 
   def get_distance_bins(self, instruments, found=None, missed=None):
     if not found and not missed: found, missed = self.get_injections(instruments)
