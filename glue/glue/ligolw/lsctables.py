@@ -1457,8 +1457,7 @@ class SnglRingdownTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#next_id = SnglRingdownID(0)
+	next_id = SnglRingdownID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
