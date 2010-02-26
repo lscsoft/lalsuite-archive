@@ -164,7 +164,7 @@ class Summaries(object):
 			if verbose:
 				print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
 				veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
- 			else:
+			else:
 				veto_segments = segments.segmentlistdict()
 
 		if verbose:
