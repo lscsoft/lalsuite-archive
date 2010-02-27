@@ -132,7 +132,7 @@ def coinc_params_func(events, offsetdict):
 		dt = float((event1.get_peak() + offsetdict[event1.ifo]) - (event2.get_peak() + offsetdict[event2.ifo]))
 		params["%sdt" % prefix] = (dt,)
 
-		dA = math.log(event1.amplitude / event2.amplitude)
+		dA = math.log(abs(event1.amplitude) / abs(event2.amplitude))
 		params["%sdA" % prefix] = (dA,)
 
 	#
@@ -160,10 +160,10 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	"""
 
 	binnings = {
-		"H1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
-		"H2_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
-		"L1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
-		"V1_snr2_chi2": rate.NDBins((rate.LogarithmicBins(1, 1e8, 12001), rate.LogarithmicBins(.01, 1e8, 12001))),
+		"H1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"H2_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"L1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
+		"V1_snr2_chi2": rate.NDBins((rate.ATanLogarithmicBins(10, 1e7, 1201), rate.ATanLogarithmicBins(.1, 1e4, 1201))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H1_V1_dt": dt_binning("H1", "V1"),
@@ -198,7 +198,7 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	}
 
 	def __init__(self):
-		Stats.__init__(self)
+		ligolw_burca_tailor.Stats.__init__(self)
 		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
 
 	def _add_zero_lag(self, param_func, events, offsetdict, *args):
@@ -261,8 +261,9 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	# FIXME:  check the livetime program and search names
-	database = SnglBurstUtils.CoincDatabase(connection, live_time_program = "lalapps_StringSearch", search = "string", verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", verbose = options.verbose)
+	if not database.seglists and options.verbose:
+		print >>sys.stderr, "\twarning:  no segments found"
 	segs |= database.seglists
 
 	#
@@ -296,4 +297,4 @@ if options.T010150:
 else:
 	filename = options.output
 
-utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(stats.distributions, segs), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(stats.distributions, segs, name = u"string_cusp_likelihood"), filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
