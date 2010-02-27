@@ -76,7 +76,7 @@ parser.add_option("-n","--number-of-days",action="store",type="int",\
     default=7,dest="number_days",help="number of days required for DQ page")
 
 parser.add_option("-u","--username",action="store",type="string",\
-    dest="username",help="username required to access Scimon DQ Flag webpage")
+    help="username required to access Scimon DQ Flag webpage")
 
 parser.add_option("-d","--skip-common-dqflags",action="store_true",\
     default=False,dest="skip_dq_flags",\
@@ -89,13 +89,13 @@ parser.add_option("-s","--common-flag-threshold",action="store",type="int",\
     default=100,dest="snr_threshold",help="snr threshold for common DQ flags")
 
 parser.add_option("-k","--skip-hveto-kw",action="store_true",default=False,\
-    dest="skip_hveto_kw",help="skip analysis of hveto_ihope results")
+    help="skip analysis of hveto_ihope results")
 
 parser.add_option("-i","--skip-hveto-ihope",action="store_true",default=False,\
-    dest="skip_hveto_ihope",help="skip analysis of KW hveto results")
+    help="skip analysis of KW hveto results")
 
 parser.add_option("-r","--skip-daily",action="store_true",\
-    default=False,dest="skip_daily",help="skip generation of daily plots")
+    default=False,help="skip generation of daily plots")
 
 parser.add_option("-H","--skip-h1",action="store_true",\
     default=False,dest="skip_h1",help="skip generation of H1 daily plots")
@@ -291,7 +291,7 @@ if options.skip_dq_flags is False:
 	        commonDQfilename[i] = commonDQtag+'_'+str(ifo[i])+'-'+str(GPSstart)+'-'+str(GPSlength)+'.txt'
 		commonDQfile[i]=commonDQpath+commonDQfilename[i]
 		f = open(commonDQfile[i],'w')
-		commonDQcommand[i]+=ifo[i]+''' '''+str(options.cat_level)+''' '''+str(options.snr_threshold)+''' '''
+		commonDQcommand[i]+=ifo[i]+''' '''+str(options.snr_threshold)+''' '''
 		for j in range(0,len(ihopePath)):
 			lsCheck = 'ls '+ihopePath[j]+'H1-'+str(options.cat_level)+'-INSPIRAL_16SEC_CLUSTERED.csv'
 			status = GetCommandOutput(lsCheck)[1]
@@ -299,7 +299,6 @@ if options.skip_dq_flags is False:
 				commonDQcommand[i]+=ihopePath[j]+''' '''
 			else:
 				skippedDays[i]+=''' '''+date[j]+''' '''
-		print commonDQcommand[i]
 		commonDQflags[i],status=GetCommandOutput(commonDQcommand[i])
 		if status==0:
 			f.write(commonDQflags[i])
@@ -314,7 +313,7 @@ if options.skip_dq_flags is False:
 	for i in range(0,len(ifo)):
 		print >>output, "===== "+ifo[i]+" ====="
 		print >>output
-		print >>output, "The output of the above command for "+ifo[i]+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
+		print >>output, "The output of the above command for "+ifo[i]+" with Category "+options.cat_level+" vetoes applied, and an SNR threshold of "+options.snr_threshold+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
 		if skippedDays[i] != '':
 			print >>output, "The following days were not analysed due to a lack of data:"
 			print >>output, "  "+skippedDays[i]
@@ -411,7 +410,6 @@ hvetoURL=['']*2*len(ligoIfo)
 hvetoIhopeURL=['']*2*len(ligoIfo)
 winner=['']*2*len(ligoIfo)
 hvetoIhopeWinner=['']*2*len(ligoIfo)
-winnerGrep='''cat ./hveto_summaries/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
 hvetoIhopeURLstart=webURL+'''/hveto_ihope/'''
 
 if options.skip_hveto_ihope is False or options.skip_hveto_kw is False:
@@ -424,23 +422,23 @@ if options.skip_hveto_ihope is False:
 		print >>output, det+" INST winner||"+det+" PEM winner||",
 	print >>output
 	for i in range(0,len(ligoIfo)):
-		hvetoIhopeURL[len(ligoIfo)*i] = hvetoIhopeURLstart+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
-		hvetoIhopeURL[len(ligoIfo)*i+1] = hvetoIhopeURLstart+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ligoIfo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
-		hvetoWinnerGrep = '''cat ~/public_html/hveto_ihope/'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
+		hvetoIhopeURL[len(ligoIfo)*i] = hvetoIhopeURLstart+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
+		hvetoIhopeURL[len(ligoIfo)*i+1] = hvetoIhopeURLstart+ligoIfo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
+		hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
                 command_output, status = GetCommandOutput(hvetoWinnerGrep)
 		if status == 0:
-			if command_output == '\n':
+			if command_output == "":
 				hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
 			else:
 				hvetoIhopeWinner[len(ligoIfo)*i]=str(command_output)
 				hvetoIhopeWinner[len(ligoIfo)*i]=hvetoIhopeWinner[len(ligoIfo)*i].replace("\n","")
 		else:
-			hvetoIhopeWinner[2*i]='hveto error'
-		hvetoWinnerGrep = '''cat ~/public_html/hveto_ihope/'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''+ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
+			hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
+		hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
 		command_output,status = GetCommandOutput(hvetoWinnerGrep)
 		if status==0:
-			if output =='\n':
-				hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
+			if command_output == "":
+				hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
 			else:
 		                hvetoIhopeWinner[len(ligoIfo)*i+1]=str(command_output)
 				hvetoIhopeWinner[len(ligoIfo)*i+1]=hvetoIhopeWinner[len(ligoIfo)*i+1].replace("\n","")
