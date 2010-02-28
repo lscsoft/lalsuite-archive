@@ -12,6 +12,7 @@ import os, sys, subprocess, string, socket
 from optparse import *
 import ConfigParser
 import time
+import subprocess
 
 from glue import pipeline
 from glue import gpstime
@@ -184,6 +185,44 @@ class setupLogFileNode(pipeline.CondorDAGNode,stfu_pipe.FUNode):
 		self.validate()
 
 ##############################################################################
+# METHOD TO PREPARE FILES FOR REMOTE VIRGO SCANS AT LYON CCIN2P3
+##############################################################################
+
+class prepareLyonRemoteScans(object):
+  def __init__(self,cp,ifo):
+    depIfoIniConfig = ifo+'config'
+    self.depIfoDir = ifo+'_qscans_config'
+    depQscanList = ['bg-rds-qscan', 'bg-seismic-qscan']
+
+    # Build directories
+    os.system('mkdir -p '+self.depIfoDir)
+    os.system('mkdir -p '+self.depIfoDir+'/CONFIG')
+    os.system('mkdir -p '+self.depIfoDir+'/RESULTS')
+    for depQscan in depQscanList:
+      os.system('mkdir -p '+self.depIfoDir+'/RESULTS/results_'+depQscan)
+    os.system('mkdir -p '+self.depIfoDir+'/SCRIPTS')
+    os.system('mkdir -p '+self.depIfoDir+'/TIMES')
+
+    # Copy the qscan configuration files
+    for depQscan in depQscanList:
+      if cp.has_option("fu-"+depQscan, depIfoIniConfig):
+        qscanConfig = string.strip(cp.get("fu-"+depQscan, depIfoIniConfig))
+        if qscanConfig!='':
+          print 'copy '+qscanConfig+' -----> '+self.depIfoDir+'/CONFIG/'+depQscan+'_config.txt'
+          os.system('cp '+qscanConfig+' '+self.depIfoDir+'/CONFIG/'+depQscan+'_config.txt')
+
+    # Copy the scripts used in the remote computing center
+    #   first, get the path to the scripts
+    scriptPath = subprocess.Popen(["which", "analyseQscan.py"], stdout=subprocess.PIPE).communicate()[0]
+
+    scriptPath = scriptPath.strip('analyseQscan.py\n')
+    os.system('cp '+scriptPath+'/qsub_wscanlite.sh '+self.depIfoDir+'/SCRIPTS/')
+    os.system('cp '+scriptPath+'/wscanlite_in2p3.sh '+self.depIfoDir+'/SCRIPTS/')
+    os.system('cp '+scriptPath+'/prepare_sendback.py '+self.depIfoDir)
+    os.system('cp '+scriptPath+'/virgo_qscan_in2p3.py '+self.depIfoDir)
+    os.system('chmod +x '+self.depIfoDir+'/virgo_qscan_in2p3.py')
+
+##############################################################################
 #MAIN PROGRAM
 ##############################################################################
 
@@ -224,6 +263,10 @@ parser.add_option("","--no-htQscan-datafind", action="store_true",\
 parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
     default=False,help="disable rds qscan datafind nodes")
 
+parser.add_option("","--prepare-scan-ccin2p3", action="store_true",\
+    default=False,help="prepare the scripts to submit Virgo omega scans at " \
+    "Lyon CC")
+
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
@@ -263,6 +306,10 @@ time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
 #Initialize dag
 dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp,opts)
 
+#Prepare files for remote scans at Lyon CC...
+if opts.prepare_scan_ccin2p3:
+  for ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(","):
+    CCRemoteScans = prepareLyonRemoteScans(cp,ifo)
 
 # CONDOR JOB CLASSES
 htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
@@ -294,9 +341,19 @@ for ifo in ifos_list:
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
+    # WRITE TIMES FOR REMOTE (DEPORTED)CALCULATIONS
+    if opts.prepare_scan_ccin2p3:
+      if ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(",") and timeListFile:
+        os.system('cp '+timeListFile+' '+CCRemoteScans.depIfoDir+'/TIMES/background_qscan_times.txt')
+
 end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
 
 #### ALL FINNISH ####
+
+# Prepare for moving the deported qscan directory (tar-gzip)
+if opts.prepare_scan_ccin2p3:
+  os.system('tar zcvf '+CCRemoteScans.depIfoDir+'.tar.gz '+CCRemoteScans.depIfoDir)
+
 cp.write(open(time_now + "-" + range_string + ".ini","w"))
 dag.write_all()
 
