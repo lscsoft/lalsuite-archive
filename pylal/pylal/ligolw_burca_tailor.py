@@ -30,6 +30,12 @@ from scipy.stats import stats
 
 
 from glue import iterutils
+try:
+	any
+	all
+except NameError:
+	# Python <2.5
+	from glue.iterutils import any, all
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
 from glue.ligolw import param
@@ -77,7 +83,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 def coinc_params(events, offsetdict):
 	params = {}
-	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 	if events:
 		# the "time" is the ms_snr squared weighted average of the
@@ -94,7 +99,7 @@ def coinc_params(events, offsetdict):
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
 		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
-	for event1, event2 in iterutils.choices(events, 2):
+	for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
 			# inter-instrument deltas
@@ -602,7 +607,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions, seglists):
+def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor"):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
@@ -612,7 +617,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists):
 	process = append_process(xmldoc, comment = u"")
 	llwapp.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
-	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, u"ligolw_burca_tailor"))
+	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, name))
 
 	llwapp.set_process_end_time(process)
 

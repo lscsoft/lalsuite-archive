@@ -146,6 +146,7 @@ def gridsky(resolution,shifted=False):
   if shifted is true, the grids are reported with latitudes
   in (0,pi).  otherwise (default) they lie in (-pi/2,pi/2)
   """
+  points = []
   latitude = 0.0
   longitude = 0.0
   ds = pi*resolution/180.0
@@ -456,8 +457,8 @@ class SkyLocTable(tab.Table):
     "dec": "real_4",
     "a60dt": "real_4",
     "a90dt": "real_4",
-    "a60dt60dD": "real_4",
-    "a90dt90dD": "real_4",
+    "a60rank": "real_4",
+    "a90rank": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -543,7 +544,7 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
-def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
+def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,arank60,arank90,\
                          pt,grid_fname,skymap_fname=None):
   """
   populate a row in a skyloctable
@@ -559,8 +560,8 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
   row.dec,row.ra  = pt[0],pt[1]
   row.a60dt = adt60
   row.a90dt = adt90
-  row.a60dt60dD = adt60dD60
-  row.a90dt90dD = adt90dD90
+  row.a60rank = arank60
+  row.a90rank = arank90
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
