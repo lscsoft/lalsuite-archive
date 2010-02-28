@@ -12,7 +12,6 @@ import os, sys, subprocess, string, socket, shutil, tarfile
 from optparse import *
 import ConfigParser
 import time
-import subprocess
 
 from glue import pipeline
 from glue import gpstime
