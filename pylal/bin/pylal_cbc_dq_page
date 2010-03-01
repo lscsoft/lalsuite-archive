@@ -474,7 +474,7 @@ if options.skip_hveto_ihope is False:
 		hvetoIhopeURL[len(ligoIfo)*i+1] = hvetoIhopeURLstart+ligoIfo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
 		if hostname == "ldas-pcdev1.ligo.caltech.edu" or hostname == 'ldas-grid.ligo.caltech.edu':
 			hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-        	        command_output, status = GetCommandOutput(hvetoWinnerGrep)
+			command_output, status = GetCommandOutput(hvetoWinnerGrep)
 			if status == 0:
 				if command_output == "":
 					hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
@@ -489,10 +489,10 @@ if options.skip_hveto_ihope is False:
 				if command_output == "":
 					hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
 				else:
-			                hvetoIhopeWinner[len(ligoIfo)*i+1]=str(command_output)
+					hvetoIhopeWinner[len(ligoIfo)*i+1]=str(command_output)
 					hvetoIhopeWinner[len(ligoIfo)*i+1]=hvetoIhopeWinner[len(ligoIfo)*i+1].replace("\n","")
 		        else:
-	        	        hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
+	        		hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
 		else:
 			hvetoIhopeWinner[len(ligoIfo*i)]=hvetoIhopeWinner[len(ligoIfo)*i+1]='copy winner from link'
         print >>output, "||Date||",
