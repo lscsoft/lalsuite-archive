@@ -287,10 +287,8 @@ def del_lock():
    """
    Removes the lock file
    """
-   try:
+   if os.path.exists(get_lockname()):
      os.remove(get_lockname())
-   except:
-     pass
    info('monitor','Program exit normally')   
 
 # --------------------------------------
