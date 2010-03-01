@@ -346,6 +346,16 @@ for ifo in ifos_list:
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
+      if opts.prepare_scan_ccin2p3 and ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(","):
+        if hasattr(qRdsBgNode.output_cache,'__iter__'):
+          dag.output_cache.extend(qRdsBgNode.output_cache)
+        else:
+          dag.output_cache.append(qRdsBgNode.output_cache)
+        if hasattr(qSeisBgNode.output_cache,'__iter__'):
+          dag.output_cache.extend(qSeisBgNode.output_cache)
+        else:
+          dag.output_cache.append(qSeisBgNode.output_cache)
+
     # WRITE TIMES FOR REMOTE (DEPORTED)CALCULATIONS
     if opts.prepare_scan_ccin2p3:
       if ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(",") and timeListFile:
