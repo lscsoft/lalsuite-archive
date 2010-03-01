@@ -80,22 +80,22 @@ else:
    outputDir = opts.output_directory
 
 if not opts.configuration_file_scan:
-   depConfigScan = 'CONFIG/foreground-qscan_config.txt'
+   depConfigScan = 'CONFIG/fg-rds-qscan_config.txt'
 else:
    depConfigScan = opts.configuration_file_scan
 
 if not opts.configuration_file_scan_seismic:
-   depConfigSeismicScan = 'CONFIG/foreground-seismic-qscan_config.txt'
+   depConfigSeismicScan = 'CONFIG/fg-seismic-qscan_config.txt'
 else:
    depConfigSeismicScan = opts.configuration_file_scan_seismic
 
 if not opts.configuration_file_scanlite:
-   depConfigScanLite = 'CONFIG/background-qscan_config.txt'
+   depConfigScanLite = 'CONFIG/bg-rds-qscan_config.txt'
 else:
    depConfigScanLite = opts.configuration_file_scanlite
 
 if not opts.configuration_file_scanlite_seismic:
-   depConfigSeismicScanLite = 'CONFIG/background-seismic-qscan_config.txt'
+   depConfigSeismicScanLite = 'CONFIG/bg-seismic-qscan_config.txt'
 else:
    depConfigSeismicScanLite = opts.configuration_file_scanlite_seismic
 
@@ -114,12 +114,12 @@ if os.path.exists(depIfoDir+'/TIMES/qscan_times.txt'):
    for qscanTimeRaw in qscanLines:
       qscanTime = qscanTimeRaw.rstrip('\n')
       print 'Launching foreground qscan for time '+qscanTime
-      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigScan+' '+outputDir+'/results_foreground-qscan @foreground@'
+      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigScan+' '+outputDir+'/results_fg-rds-qscan @foreground@'
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
       os.system(qscanCommand)
-      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigSeismicScan+' '+outputDir+'/results_foreground-seismic-qscan @foreground-seismic@'
+      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigSeismicScan+' '+outputDir+'/results_fg-seismic-qscan @foreground-seismic@'
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
@@ -133,12 +133,12 @@ if os.path.exists(depIfoDir+'/TIMES/background_qscan_times.txt'):
    for qscanTimeRaw in qscanLines:
       qscanTime = qscanTimeRaw.rstrip('\n')
       print 'Launching background qscan (qscanlite) for time '+qscanTime
-      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigScanLite+' '+outputDir+'/results_background-qscan'
+      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigScanLite+' '+outputDir+'/results_bg-rds-qscan'
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
       os.system(qscanCommand)
-      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigSeismicScanLite+' '+outputDir+'/results_background-seismic-qscan'
+      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigSeismicScanLite+' '+outputDir+'/results_bg-seismic-qscan'
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
