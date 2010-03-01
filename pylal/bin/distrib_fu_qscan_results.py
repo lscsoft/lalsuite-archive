@@ -32,7 +32,7 @@ sys.path.append('@PYTHONLIBDIR@')
 ##############################################################################
 # import the modules we need from GLUE/LAL/LALAPPS/PYLAL
 
-from pylal import fu_utils
+from pylal import stfu_pipe
 
 ##############################################################################
 #
@@ -96,7 +96,7 @@ if not opts.remote_ifo:
 
 if not opts.qscan_type_list:
   print >> sys.stderr, "No qscan type specified!!"
-  print >> sys.stderr, "Use --qscan-type-list to specify the list of types (example \"qscan,seismic-qscan\")."
+  print >> sys.stderr, "Use --qscan-type-list to specify the list of types (example \"rds-qscan,seismic-qscan\")."
   sys.exit(1)
 
 
@@ -114,7 +114,7 @@ if (opts.qscan_cache_background and not os.path.exists(opts.qscan_cache_backgrou
 # get the list of qscans in the cache files
 if opts.qscan_cache_foreground and os.path.exists(opts.qscan_cache_foreground):
   for qscan_type in qscanShortTypeList:
-    exec("foreground_"+qscan_type.replace('-','_') + "List = fu_utils.getPathFromCache(opts.qscan_cache_foreground,\"foreground-"+qscan_type+"\",opts.remote_ifo)")
+    exec("foreground_"+qscan_type.replace('-','_') + "List = stfu_pipe.getParamsFromCache(opts.qscan_cache_foreground,\"foreground-"+qscan_type+"\",opts.remote_ifo)")
     qscanTypeList.append("foreground-"+qscan_type)
 else:
   if not opts.qscan_cache_foreground:
@@ -124,7 +124,7 @@ else:
 
 if opts.qscan_cache_background and os.path.exists(opts.qscan_cache_background):
   for qscan_type in qscanShortTypeList:
-    exec("background_"+qscan_type.replace('-','_') + "List = fu_utils.getPathFromCache(opts.qscan_cache_background,\"background-"+qscan_type+"\",opts.remote_ifo)")
+    exec("background_"+qscan_type.replace('-','_') + "List = stfu_pipe.getParamsFromCache(opts.qscan_cache_background,\"background-"+qscan_type+"\",opts.remote_ifo)")
     qscanTypeList.append("background-"+qscan_type)
 else:
   if not opts.qscan_cache_background:
