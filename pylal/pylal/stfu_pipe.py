@@ -187,6 +187,28 @@ def get_hostname():
 	return host
 
 ###############################################################################
+##### USEFULL FUNCTIONS CALLED BY PYTHON JOBS
+###############################################################################
+
+def getParamsFromCache(fileName,type,ifo=None,time=None):
+	qscanList = []
+	cacheList = lal.Cache.fromfile(open(fileName))
+	if not cacheList:
+		return qscanList
+	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
+	if time:
+		cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+
+	for cacheEntry in cacheSelected:
+		path_output = cacheEntry.path()
+		time_output = str(cacheEntry.segment[0])
+		type_output = cacheEntry.description
+		ifo_output = cacheEntry.observatory
+		qscanList.append([path_output,time_output,type_output,ifo_output])
+
+	return qscanList
+
+###############################################################################
 ##### CONDOR JOB CLASSES ######################################################
 ###############################################################################
 
@@ -636,6 +658,7 @@ The omega scan command line is
 		self.add_var_arg("-o " + output_path)
 		
 		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(float(time), float(time)), "file://localhost/"+output_path)
+
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("-f "+frame_cache)
 		
