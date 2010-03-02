@@ -170,7 +170,7 @@ RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, d
 
 
 class RingdownCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, vetoes = None, program = u"ring"):
+	def __init__(self, xmldoc, vetoes = None, program = u"lalapps_ring"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
@@ -441,12 +441,12 @@ def ligolw_rinca(
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 		if small_coincs:
 			for coinc in node.unused_coincs:
-				ntuple = [sngl_index[id] for id in coinc]
+				ntuple = tuple(sngl_index[id] for id in coinc)
 				if not ntuple_comparefunc(ntuple):
 					coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 

@@ -140,8 +140,12 @@ class Summaries(object):
 		self.categories = []
 		self.times = []
 
+	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 
-	def add_livetime(self, connection, live_time_program, verbose = False):
+		if live_time_program == "omega_to_coinc": return self.add_livetime_nonring(self, connection, live_time_program, verbose = verbose)
+		if live_time_program == "waveburst": return self.add_livetime_ring(self, connection, live_time_program, verbose = verbose)
+
+	def add_livetime_nonring(self, connection, live_time_program, verbose = False):
 
 		# get the segment lists and live time
 		xmldoc = dbtables.get_xml(connection)
@@ -154,6 +158,27 @@ class Summaries(object):
 		self.zero_lag_live_time[self.category_func(instruments)] += SnglBurstUtils.time_slides_livetime(seglists, zero_lag_time_slides.values(), verbose = verbose)
                 self.background_live_time[self.category_func(instruments)] += SnglBurstUtils.time_slides_livetime(seglists, background_time_slides.values(), verbose = verbose)
 
+	def add_livetime_ring(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+
+		if veto_segments_name is not None:
+			if verbose:
+				print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
+				veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+			else:
+				veto_segments = segments.segmentlistdict()
+
+		if verbose:
+			print >>sys.stderr, "\tcomputing livetimes:",
+
+		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+
+			#on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
+			self.zero_lag_live_time.setdefault(self.category_func(on_instruments), 0)
+			self.background_live_time.setdefault(self.category_func(on_instruments), 0)
+			self.background_live_time[self.category_func(on_instruments)] += sum(livetimes)
+
+			if verbose:
+				print >>sys.stderr
 
 	def add_coinc(self, on_instruments, snr, likelihood):
 

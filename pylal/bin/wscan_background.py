@@ -8,7 +8,7 @@ __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
 
-import os, sys, subprocess, string, socket
+import os, sys, subprocess, string, socket, shutil, tarfile
 from optparse import *
 import ConfigParser
 import time
@@ -184,6 +184,50 @@ class setupLogFileNode(pipeline.CondorDAGNode,stfu_pipe.FUNode):
 		self.validate()
 
 ##############################################################################
+# METHOD TO PREPARE FILES FOR REMOTE VIRGO SCANS AT LYON CCIN2P3
+##############################################################################
+
+class prepareLyonRemoteScans(object):
+  def __init__(self,cp,ifo):
+    depIfoIniConfig = ifo+'config'
+    self.depIfoDir = ifo+'_qscans_config'
+    depQscanList = ['bg-rds-qscan', 'bg-seismic-qscan']
+
+    # Build directories
+    if not os.path.isdir(self.depIfoDir):
+      os.makedirs(self.depIfoDir)
+    if not os.path.isdir(self.depIfoDir+'/CONFIG'):
+      os.makedirs(self.depIfoDir+'/CONFIG')
+    if not os.path.isdir(self.depIfoDir+'/RESULTS'):
+      os.makedirs(self.depIfoDir+'/RESULTS')
+    for depQscan in depQscanList:
+      if not os.path.isdir(self.depIfoDir+'/RESULTS/results_'+depQscan):
+        os.makedirs(self.depIfoDir+'/RESULTS/results_'+depQscan)
+    if not os.path.isdir(self.depIfoDir+'/SCRIPTS'):
+      os.makedirs(self.depIfoDir+'/SCRIPTS')
+    if not os.path.isdir(self.depIfoDir+'/TIMES'):
+      os.makedirs(self.depIfoDir+'/TIMES')
+
+    # Copy the qscan configuration files
+    for depQscan in depQscanList:
+      if cp.has_option("fu-"+depQscan, depIfoIniConfig):
+        qscanConfig = string.strip(cp.get("fu-"+depQscan, depIfoIniConfig))
+        if qscanConfig!='':
+          print 'copy '+qscanConfig+' -----> '+self.depIfoDir+'/CONFIG/'+depQscan+'_config.txt'
+          shutil.copy(qscanConfig,self.depIfoDir+'/CONFIG/'+depQscan+'_config.txt')
+
+    # Copy the scripts used in the remote computing center
+    #   first, get the path to the scripts
+    scriptPath = subprocess.Popen(["which", "analyseQscan.py"], stdout=subprocess.PIPE).communicate()[0]
+
+    scriptPath = scriptPath.strip('analyseQscan.py\n')
+    shutil.copy(scriptPath+'/qsub_wscanlite.sh',self.depIfoDir+'/SCRIPTS/')
+    shutil.copy(scriptPath+'/wscanlite_in2p3.sh',self.depIfoDir+'/SCRIPTS/')
+    shutil.copy(scriptPath+'/prepare_sendback.py',self.depIfoDir)
+    shutil.copy(scriptPath+'/virgo_qscan_in2p3.py',self.depIfoDir)
+    os.chmod(self.depIfoDir+'/virgo_qscan_in2p3.py',0755)
+
+##############################################################################
 #MAIN PROGRAM
 ##############################################################################
 
@@ -224,6 +268,10 @@ parser.add_option("","--no-htQscan-datafind", action="store_true",\
 parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
     default=False,help="disable rds qscan datafind nodes")
 
+parser.add_option("","--prepare-scan-ccin2p3", action="store_true",\
+    default=False,help="prepare the scripts to submit Virgo omega scans at " \
+    "Lyon CC")
+
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
@@ -263,6 +311,10 @@ time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
 #Initialize dag
 dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp,opts)
 
+#Prepare files for remote scans at Lyon CC...
+if opts.prepare_scan_ccin2p3:
+  for ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(","):
+    CCRemoteScans = prepareLyonRemoteScans(cp,ifo)
 
 # CONDOR JOB CLASSES
 htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
@@ -294,9 +346,21 @@ for ifo in ifos_list:
 
       qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
 
+    # WRITE TIMES FOR REMOTE (DEPORTED)CALCULATIONS
+    if opts.prepare_scan_ccin2p3:
+      if ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(",") and timeListFile:
+        shutil.copy(timeListFile,CCRemoteScans.depIfoDir+'/TIMES/background_qscan_times.txt')
+
 end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
 
 #### ALL FINNISH ####
+
+# Prepare for moving the deported qscan directory (tar-gzip)
+if opts.prepare_scan_ccin2p3:
+  tar = tarfile.open(CCRemoteScans.depIfoDir+'.tar.gz','w:gz')
+  tar.add(CCRemoteScans.depIfoDir)
+  tar.close()
+
 cp.write(open(time_now + "-" + range_string + ".ini","w"))
 dag.write_all()
 
