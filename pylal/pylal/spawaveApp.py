@@ -130,7 +130,7 @@ def IMRpeakAmp(m1,m2,spin1z,spin2z,d):
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     s = scipy.ifft(s)
     #s = numpy.abs(s)
-	s = numpy.real(s)
+    s = numpy.real(s)
     max = numpy.max(s)/d
     return max
 
