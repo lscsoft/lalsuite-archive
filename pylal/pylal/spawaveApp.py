@@ -54,8 +54,8 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 design = numpy.loadtxt('ligo4k_design.txt')
-#interpolatation = interpolate.interp1d(design[:,0],design[:,1]) 
-interpolatation = interpolate.splrep(design[:,0],design[:,1],s=0) 
+interpolatation = interpolate.interp1d(design[:,0],design[:,1]) 
+#interpolatation = interpolate.splrep(design[:,0],design[:,1],s=0) 
 
 def IMRsnr(m1,m2,spin1z,spin2z,d):
 
@@ -79,9 +79,9 @@ def IMRsnr(m1,m2,spin1z,spin2z,d):
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     S = numpy.abs(s)
     x = scipy.linspace(fLower, imrfFinal, numpy.size(S))
-    #N = interpolatation(x)
-    N = interpolate.splev(x,interpolatation)
-    SNR = 59.6007*math.sqrt(numpy.sum(numpy.divide(numpy.square(S),numpy.square(N))))/d
+    N = interpolatation(x)
+    #N = interpolate.splev(x,interpolatation)
+    SNR = math.sqrt(numpy.sum(numpy.divide(numpy.square(S),numpy.square(N))))/d
     return SNR
 
 def IMRhrss(m1,m2,spin1z,spin2z,d):
@@ -105,7 +105,8 @@ def IMRhrss(m1,m2,spin1z,spin2z,d):
     s = numpy.empty(sr * dur, 'complex128')	
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     s = numpy.abs(s)
-    hrss = numpy.sum(s)/d
+    s = numpy.square(s)
+    hrss = math.sqrt(numpy.sum(s))/d
     return hrss
 
 def IMRpeakAmp(m1,m2,spin1z,spin2z,d):
@@ -129,7 +130,8 @@ def IMRpeakAmp(m1,m2,spin1z,spin2z,d):
     s = numpy.empty(sr * dur, 'complex128')	
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     s = scipy.ifft(s)
-    s = numpy.abs(s)
+    #s = numpy.abs(s)
+    s = numpy.real(s)
     max = numpy.max(s)/d
     return max
 
@@ -156,8 +158,8 @@ def IMRtargetburstfreq(m1,m2,spin1z,spin2z):
     #S = numpy.real(s)
     S = numpy.abs(s)
     x = scipy.linspace(fFinal, imrfFinal, numpy.size(S))
-    #N = interpolatation(x)
-    N = interpolate.splev(x,interpolatation)
+    N = interpolatation(x)
+    #N = interpolate.splev(x,interpolatation)
     ratio = numpy.divide(numpy.square(S),numpy.square(N))
     #ratio = numpy.divide(S,N)
     maxindex = numpy.argmax(ratio)
