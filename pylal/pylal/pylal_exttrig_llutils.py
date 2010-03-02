@@ -464,7 +464,7 @@ def obtain_results(grb):
   @param grb: the grb stucture with all the infos in it
   """
 
-  tag = get_code_tag()
+  tag = grb.code['onoff'].tag
   path_to_result = '%s/GRB%s/postprocessing_%s/OPENBOX/llsummary_onoff_GRB%s.pickle' %\
      (grb.analysis_dir, grb.name, tag, grb.name)
   data = pickle.load(file(path_to_result))
