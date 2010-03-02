@@ -104,6 +104,7 @@ def IMRhrss(m1,m2,spin1z,spin2z,d):
     deltaT = 1.0 / sr
     s = numpy.empty(sr * dur, 'complex128')	
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
+    s = numpy.abs(s)
     s = numpy.square(s)
     hrss = math.sqrt(numpy.sum(s))/d
     return hrss
