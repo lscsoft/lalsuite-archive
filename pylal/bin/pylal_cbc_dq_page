@@ -75,6 +75,9 @@ parser.add_option("-t","--start-date",action="store",type="string",\
 parser.add_option("-n","--number-of-days",action="store",type="int",\
     default=7,dest="number_days",help="number of days required for DQ page")
 
+parser.add_option("-q","--skip-science-time",action="store_true",\
+    default=False,dest="skip_science_time",help="skip calculation of science time")
+
 parser.add_option("-u","--username",action="store",type="string",\
     help="username required to access Scimon DQ Flag webpage")
 
@@ -243,39 +246,43 @@ webPath=webURL+'/'+dqFolder
 gw_channel = ['']*len(ifo)
 segment_xml = ['']*len(ifo)
 science_time = [0]*len(ifo)
-for i in range(0,len(gw_channel)):
-	if ifo[i]=="H1":
-		gw_channel[i] = 'H1:DMT-SCIENCE:1'
-	elif ifo[i]=="L1":
-		gw_channel[i] = 'L1:DMT-SCIENCE:1'
-	elif ifo[i]=="V1":
-		gw_channel[i] = 'V1:ITF_SCIENCEMODE:1'
-	segment_xml[i] = dqPath+'''/'''+ifo[i]+'''science_segments.xml'''
-for i in range(0,len(ifo)):
-		segment_query_command = '''ligolw_segment_query -q -a '''+gw_channel[i]+''' -d https://segdb.ligo.caltech.edu -s '''+str(GPSstart)+''' -e '''+str(GPSend)+''' -o '''+segment_xml[i]
-		segment_status = GetCommandOutput(segment_query_command)[1]
-		if segment_status==0:
-			temp_segment_list = dqPath+'''/temp_segment.txt'''
-			cat_segments_command = '''ligolw_print '''+segment_xml[i]+''' --table segment --column start_time --column end_time --delimiter " " > '''+temp_segment_list
-			GetCommandOutput(cat_segments_command)
-			number_segments_command = "wc -l < "+temp_segment_list
-			number_segments = GetCommandOutput(number_segments_command)[0]
-			number_segments = number_segments.replace('\n','')
-			number_segments = int(number_segments)
-			for j in range(0,number_segments):
-				segment_start_command = '''cat '''+temp_segment_list+''' | awk 'NR=='''+str(j+1)+'''' | cut -c1-9'''
-				segment_start = GetCommandOutput(segment_start_command)[0]
-				segment_start = segment_start.replace('\n','')
-				segment_start = int(segment_start)
-				segment_end_command = '''cat '''+temp_segment_list+''' | awk 'NR=='''+str(j+1)+'''' | cut -c11-19'''
-				segment_end = GetCommandOutput(segment_end_command)[0]
-				segment_end = int(segment_end.replace('\n',''))
-				segment_length = segment_end-segment_start
-				science_time[i]+=segment_length
-			rm_command = '''rm '''+temp_segment_list
-			GetCommandOutput(rm_command)
-		else:
-			raise Exception, "ligolw_segment_query has failed."
+analysable_time = [0]*len(ifo)
+if options.skip_science_time is False:
+	for i in range(0,len(gw_channel)):
+		if ifo[i]=="H1":
+			gw_channel[i] = 'H1:DMT-SCIENCE:1'
+		elif ifo[i]=="L1":
+			gw_channel[i] = 'L1:DMT-SCIENCE:1'
+		elif ifo[i]=="V1":
+			gw_channel[i] = 'V1:ITF_SCIENCEMODE:1'
+		segment_xml[i] = dqPath+'''/'''+ifo[i]+'''science_segments.xml'''
+	for i in range(0,len(ifo)):
+			segment_query_command = '''ligolw_segment_query -q -a '''+gw_channel[i]+''' -d https://segdb.ligo.caltech.edu -s '''+str(GPSstart)+''' -e '''+str(GPSend)+''' -o '''+segment_xml[i]
+			segment_status = GetCommandOutput(segment_query_command)[1]
+			if segment_status==0:
+				temp_segment_list = dqPath+'''/temp_segment.txt'''
+				cat_segments_command = '''ligolw_print '''+segment_xml[i]+''' --table segment --column start_time --column end_time --delimiter " " > '''+temp_segment_list
+				GetCommandOutput(cat_segments_command)
+				number_segments_command = "wc -l < "+temp_segment_list
+				number_segments = GetCommandOutput(number_segments_command)[0]
+				number_segments = number_segments.replace('\n','')
+				number_segments = int(number_segments)
+				for j in range(0,number_segments):
+					segment_start_command = '''cat '''+temp_segment_list+''' | awk 'NR=='''+str(j+1)+'''' | cut -c1-9'''
+					segment_start = GetCommandOutput(segment_start_command)[0]
+					segment_start = segment_start.replace('\n','')
+					segment_start = int(segment_start)
+					segment_end_command = '''cat '''+temp_segment_list+''' | awk 'NR=='''+str(j+1)+'''' | cut -c11-19'''
+					segment_end = GetCommandOutput(segment_end_command)[0]
+					segment_end = int(segment_end.replace('\n',''))
+					segment_length = segment_end-segment_start
+					science_time[i]+=segment_length
+					if segment_length > 2048:
+						analysable_time[i]+=segment_length
+				rm_command = '''rm '''+temp_segment_list
+				GetCommandOutput(rm_command)
+			else:
+				raise Exception, "ligolw_segment_query has failed."
 
 # ==========
 # HEADER
@@ -291,11 +298,14 @@ print >>output, "== Summary Information =="
 print >>output, "\'\'\'Start Time:\'\'\' "+DateStart+", "+str(GPSstart)+". \'\'\'End Time:\'\'\' "+DateEnd+", "+str(GPSend)
 print >>output
 print >>output, "Live time statistics:"
-print >>output, "||IFO||Science time %||Science time in seconds (days)||"
+print >>output, "||IFO||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||"
 for i in range(0,len(ifo)):
 	science_percentage = round(float(float(science_time[i])/float(GPSlength)*100),2)
 	science_days = round(float(float(science_time[i])/86400),2)
-	print >>output, "||"+ifo[i]+"||"+str(science_percentage)+"||"+str(science_time[i])+" ("+str(science_days)+")||"
+	analysable_percentage = round(float(float(analysable_time[i])/float(GPSlength)*100),2)
+        analysable_days = round(float(float(analysable_time[i])/86400),2)
+
+	print >>output, "||"+ifo[i]+"||"+str(science_percentage)+"||"+str(science_time[i])+" ("+str(science_days)+")|| ||"+str(analysable_percentage)+"||"+str(analysable_time[i])+" ("+str(analysable_days)+")||"
 print >>output
 print >>output, "[[#top|Back to top]]"
 # ==========
@@ -355,7 +365,7 @@ if options.skip_dq_flags is False:
 	for i in range(0,len(ifo)):
 		print >>output, "===== "+ifo[i]+" ====="
 		print >>output
-		print >>output, "The output of the above command for "+ifo[i]+" with Category "+options.cat_level+" vetoes applied, and an SNR threshold of "+options.snr_threshold+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
+		print >>output, "The output of the above command for "+ifo[i]+" with Category "+str(options.cat_level)+" vetoes applied, and an SNR threshold of "+str(options.snr_threshold)+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
 		if skippedDays[i] != '':
 			print >>output, "The following days were not analysed due to a lack of data:"
 			print >>output, "  "+skippedDays[i]
@@ -459,37 +469,42 @@ if options.skip_hveto_ihope is False or options.skip_hveto_kw is False:
 
 if options.skip_hveto_ihope is False:
 	print >>output, "HVeto can be run on ihope triggers following the instructions [[https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/100131174312DQandVetoeshveto_ihope_daily|here]]. The results for this week are:\n"
-        print >>output, "||Date||",
-	for det in ligoIfo:
-		print >>output, det+" INST winner||"+det+" PEM winner||",
-	print >>output
 	for i in range(0,len(ligoIfo)):
 		hvetoIhopeURL[len(ligoIfo)*i] = hvetoIhopeURLstart+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
 		hvetoIhopeURL[len(ligoIfo)*i+1] = hvetoIhopeURLstart+ligoIfo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
-		hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-                command_output, status = GetCommandOutput(hvetoWinnerGrep)
-		if status == 0:
-			if command_output == "":
+		if hostname == "ldas-pcdev1.ligo.caltech.edu" or hostname == 'ldas-grid.ligo.caltech.edu':
+			hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ligoIfo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
+			command_output, status = GetCommandOutput(hvetoWinnerGrep)
+			if status == 0:
+				if command_output == "":
+					hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
+				else:
+					hvetoIhopeWinner[len(ligoIfo)*i]=str(command_output)
+					hvetoIhopeWinner[len(ligoIfo)*i]=hvetoIhopeWinner[len(ligoIfo)*i].replace("\n","")
+			else:
 				hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
-			else:
-				hvetoIhopeWinner[len(ligoIfo)*i]=str(command_output)
-				hvetoIhopeWinner[len(ligoIfo)*i]=hvetoIhopeWinner[len(ligoIfo)*i].replace("\n","")
+			hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
+			command_output,status = GetCommandOutput(hvetoWinnerGrep)
+			if status==0:
+				if command_output == "":
+					hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
+				else:
+					hvetoIhopeWinner[len(ligoIfo)*i+1]=str(command_output)
+					hvetoIhopeWinner[len(ligoIfo)*i+1]=hvetoIhopeWinner[len(ligoIfo)*i+1].replace("\n","")
+		        else:
+	        		hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
 		else:
-			hvetoIhopeWinner[len(ligoIfo)*i]='hveto error'
-		hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-		command_output,status = GetCommandOutput(hvetoWinnerGrep)
-		if status==0:
-			if command_output == "":
-				hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
-			else:
-		                hvetoIhopeWinner[len(ligoIfo)*i+1]=str(command_output)
-				hvetoIhopeWinner[len(ligoIfo)*i+1]=hvetoIhopeWinner[len(ligoIfo)*i+1].replace("\n","")
-	        else:
-	                hvetoIhopeWinner[len(ligoIfo)*i+1]='hveto error'
+			hvetoIhopeWinner[len(ligoIfo*i)]=hvetoIhopeWinner[len(ligoIfo)*i+1]='copy winner from link'
+        print >>output, "||Date||",
+        for det in ligoIfo:
+                print >>output, det+" INST winner||"+det+" PEM winner||",
+        print >>output
 	print >>output, "||Full period||",
 	for k in range(0,len(hvetoIhopeWinner)):
 		print >>output, "[["+hvetoIhopeURL[k]+"|"+hvetoIhopeWinner[k]+"]]||",
 	print >>output
+	if hostname == "ldas-pcdev1.ligo.caltech.edu" or hostname == 'ldas-grid.ligo.caltech.edu':
+		print >>output, 'Achtung: This run was not performed on CIT, so the winning channels have not been linked automatically, please copy them from the results pages in the table. Please also check the links for the correct path. Delete this message when complete.'
 
 if options.skip_hveto_kw is False:
 	hvetoKWpath = dqPath+'/hveto_summaries' 

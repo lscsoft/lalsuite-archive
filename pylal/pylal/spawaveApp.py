@@ -54,8 +54,8 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 design = numpy.loadtxt('ligo4k_design.txt')
-#interpolatation = interpolate.interp1d(design[:,0],design[:,1]) 
-interpolatation = interpolate.splrep(design[:,0],design[:,1],s=0) 
+interpolatation = interpolate.interp1d(design[:,0],design[:,1]) 
+#interpolatation = interpolate.splrep(design[:,0],design[:,1],s=0) 
 
 def IMRsnr(m1,m2,spin1z,spin2z,d):
 
@@ -79,9 +79,9 @@ def IMRsnr(m1,m2,spin1z,spin2z,d):
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     S = numpy.abs(s)
     x = scipy.linspace(fLower, imrfFinal, numpy.size(S))
-    #N = interpolatation(x)
-    N = interpolate.splev(x,interpolatation)
-    SNR = 59.6007*math.sqrt(numpy.sum(numpy.divide(numpy.square(S),numpy.square(N))))/d
+    N = interpolatation(x)
+    #N = interpolate.splev(x,interpolatation)
+    SNR = math.sqrt(numpy.sum(numpy.divide(numpy.square(S),numpy.square(N))))/d
     return SNR
 
 def IMRhrss(m1,m2,spin1z,spin2z,d):
@@ -105,7 +105,8 @@ def IMRhrss(m1,m2,spin1z,spin2z,d):
     s = numpy.empty(sr * dur, 'complex128')	
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     s = numpy.abs(s)
-    hrss = numpy.sum(s)/d
+    s = numpy.square(s)
+    hrss = math.sqrt(numpy.sum(s))/d
     return hrss
 
 def IMRpeakAmp(m1,m2,spin1z,spin2z,d):
@@ -129,7 +130,8 @@ def IMRpeakAmp(m1,m2,spin1z,spin2z,d):
     s = numpy.empty(sr * dur, 'complex128')	
     spawaveform.imrwaveform(m1, m2, deltaF, fLower, s, spin1z, spin2z)
     s = scipy.ifft(s)
-    s = numpy.abs(s)
+    #s = numpy.abs(s)
+    s = numpy.real(s)
     max = numpy.max(s)/d
     return max
 
@@ -156,10 +158,47 @@ def IMRtargetburstfreq(m1,m2,spin1z,spin2z):
     #S = numpy.real(s)
     S = numpy.abs(s)
     x = scipy.linspace(fFinal, imrfFinal, numpy.size(S))
-    #N = interpolatation(x)
-    N = interpolate.splev(x,interpolatation)
+    N = interpolatation(x)
+    #N = interpolate.splev(x,interpolatation)
     ratio = numpy.divide(numpy.square(S),numpy.square(N))
     #ratio = numpy.divide(S,N)
     maxindex = numpy.argmax(ratio)
     maxfreq = x[maxindex]
     return maxfreq
+
+
+def IMRfinalspin(m1, m2,spin1z,spin2z):
+
+    """
+	The final spin calculation is based on Rezolla et al. 
+	IMRfinalspin final spin of the end product black hole.	
+	usage: IMRfinalspin(m1,m2,spin1z,spin2z)
+	e.g.
+	spawaveApp.IMRfinalspin(30.,40.,0.45,0.5)
+
+	"""
+
+    s4 = -0.129
+    s5 = -0.384
+    t0 = -2.686
+    t2 = -3.454
+    t3 = 2.353
+    spin1x = 0.
+    spin1y = 0.
+    spin2x = 0.
+    spin2y = 0.
+    M = m1 + m2
+    q = m2/m1
+    eta = m1*m2/(m1+m2)**2
+    a1 = math.sqrt(spin1x**2 + spin1y**2 + spin1z**2)
+    a2 = math.sqrt(spin2x**2 + spin2y**2 + spin2z**2)
+    if (a1 != 0) and (a2 != 0): cosa = (spin1x*spin2x + spin1y*spin2y + spin1z*spin2z)/(a1*a2)
+    else:cosa = 0
+    if a1 != 0: cosb = spin1z/a1
+    else: cosb = 0
+    if a2 != 0: cosc = spin2z/a2
+    else: cosc = 0
+    l = (s4/(1+q**2)**2 * (a1**2 + (a2**2)*(q**4) + 2*a1*a2*(q**2)*cosa) + (s5*eta + t0 + 2)/(1+q**2) * (a1*cosb + a2*(q**2)*cosc) + 2*math.sqrt(3.) + t2*eta + t3*(eta**2))
+    afin = 1/(1+q)**2 * math.sqrt(a1**2 + (a2**2)*(q**4) + 2*a1*a2*(q**2)*cosa + 2*(a1*cosb + a2*(q**2)*cosc)*l*q + (l**2)*(q**2))
+    return afin
+

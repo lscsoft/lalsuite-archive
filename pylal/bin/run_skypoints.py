@@ -39,31 +39,26 @@ def parse_command_line():
       default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
   parser.add_option("-G","--grids",action="store",type="string",\
       default=None, metavar=" GRID",help="pickled sky grids")
+  parser.add_option("-R","--ranks",action="store",type="string",\
+      default=None, metavar=" RANKS",help="pickled ranking object")
 #plotting functionality will be moved elsewhere and is disabled for now
-#  parser.add_option("-d","--plotpoints",action="store_true",\
+#  parser.add_option("-p","--plotpoints",action="store_true",\
 #      default=False, help="make a color coded plot of the sky" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
   parser.add_option("-f","--reference-frequency",action="store",type="float", default=0.0, metavar=" REFERENCE_FREQUENCY", \
     help="reference frequency for signal timing" )
-  parser.add_option("-n","--dt90",action="store",type="float",\
-      default=4, metavar=" DT90",help="90% timing threshold" )
-  parser.add_option("-w","--dt60",action="store",type="float",\
-      default=15, metavar=" DT60",help="60% timing threshold" )
-  parser.add_option("-N","--snr-dt90",action="store",type="float",\
-      default=None, metavar=" SNRDT90",help="90% snr-dependent timing threshold" )
-  parser.add_option("-W","--snr-dt60",action="store",type="float",\
-      default=None, metavar=" SNRDT60",help="60% snr-dependent timing threshold" )
-  parser.add_option("-D","--dD90",action="store",type="float",\
-      default=None, metavar=" DD90",help="90% effective distance threshold" )
-  parser.add_option("-E","--dD60",action="store",type="float",\
-      default=None, metavar=" DD60",help="60% effective distance threshold" )
+  parser.add_option("-s","--snr-threshold",action="store_true",\
+    default=False, help="use an snr-dependent quantity for the timing ranking" )
   parser.add_option("-o","--output-prefix",action="store",type="string",default='',\
                     help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
                     help="specify the type of input in the glob.  valid options are coinctable (DEFAULT) and coire")
   parser.add_option("-y","--timing-only",action="store_true",default=False,\
                     help="only use timing information for sky localization")
+  parser.add_option("-d","--debug",action="store_true",default=False,\
+                    help="write out debugging info in addition to normal output")
+
   (options,args) = parser.parse_args()
 
   return options, sys.argv[1:]
@@ -81,9 +76,6 @@ opts, args = parse_command_line()
 #dump the args into a single string to write with the grids
 argstring = " ".join(args)
 
-#put the thresholds here for easy access later
-thresholds_60 = (opts.dt60,opts.snr_dt60,opts.dD60)
-thresholds_90 = (opts.dt90,opts.snr_dt90,opts.dD90)
 
 #deal with the glob 
 files = []
@@ -154,9 +146,18 @@ skygrids = open(opts.grids,'r')
 grid = cPickle.load(skygrids)
 skygrids.close()
 
+#open up the pickled rankings
+rankfile = open(opts.ranks,'r')
+rankings = cPickle.load(rankfile)
+rankfile.close()
+dtr = rankings['dt']
+dDr = rankings['dD']
+dtdDr = rankings['dtdD']
+
 
 #the area of each pixel on the fine grid in square degrees
 #this gets recorded for each point and makes computing areas simple
+#FIXME: record this information in the grid pickles!
 fine_area = 0.25
 coarse_area = 16
 
@@ -166,64 +167,52 @@ for coinc in coincs:
   #for gathering information about area on the sky
   dt90_area = 0.0
   dt60_area = 0.0
-  dt90dD90_area = 0.0
-  dt60dD60_area = 0.0
+  r90_area = 0.0
+  r60_area = 0.0
 
   #compute combined snr if snr dependent thresholds are specified
-  if thresholds_90[1] and thresholds_60[1]:
+  if opts.snr_threshold:
     rhosquared = 0.0
     for ifo in coinc.ifo_list:
       rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
-    snr = sqrt(rhosquared)
+    snrfac = sqrt(rhosquared)/10.0
   else:
-    snr = None
+  #otherwise just multiply by unity
+    snrfac = 1.0
 
   #main loop over the coarse grid
   for coarse_pt in grid.keys():
 
     #use timing alone to determine if we should move to the fine grid
     dtrss_coarse = skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
-    if dtrss_coarse <= 1.1*thresholds_90[0]:
-
+    coarse_rank = dtr.get_rank(dtrss_coarse*snrfac)
+    if coarse_rank >= 0.05:
+      
       #loop over points on the fine grid
       for fine_pt in grid[coarse_pt]:
         dtrss_fine = skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
+        dtrank = dtr.get_rank(dtrss_fine*snrfac)
         dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
-
-        #now compute relevant sky areas
-        if snr:
-          #compute the quanitity for the snr-dependent threshold
-          snr_dtrss = dtrss_fine*snr/10.0
-          sp.append((fine_pt[0],fine_pt[1],snr_dtrss,dDrss_fine,fine_area))
-          if snr_dtrss <= thresholds_60[1]:
-            dt60_area += fine_area 
-            dt90_area += fine_area
-            if dDrss_fine <= thresholds_60[2]:
-              dt60dD60_area += fine_area
-              dt90dD90_area += fine_area
-          elif snr_dt_rss <= thresholds_90[1]:
-            dt90_area += fine_area
-            if dDrss_fine <= thresholds_90[2]:
-              dt90dD90_area += fine_area
-        else:
-          #just timing
-          sp.append((fine_pt[0],fine_pt[1],dtrss_fine,dDrss_fine,fine_area))
-          if dtrss_fine <= thresholds_60[0]:
-            dt60_area += fine_area
-            dt90_area += fine_area
-            if dDrss_fine <= thresholds_60[2]:
-              dt60dD60_area += fine_area
-              dt90dD90_area += fine_area
-          elif dtrss_fine <= thresholds_90[0]:
-            dt90_area += fine_area
-            if dDrss_fine <= thresholds_90[2]:
-              dt90dD90_area += fine_area
-
+        dDrank = dDr.get_rank(dDrss_fine)
+        ranking = dtrank*dDrank
+        sp.append((fine_pt[0],fine_pt[1],ranking,dtrss_fine*snrfac,dDrss_fine,fine_area))
+        #compute relevant areas
+        #note that 1-rank is the percantage of injections with the same or lower rss
+        if 0.1 <= dtrank < 0.4:
+          dt90_area += fine_area
+        elif dtrank >= 0.4:
+          dt90_area += fine_area
+          dt60_area += fine_area
+        if 0.1 <= ranking < 0.4:
+          r90_area += fine_area
+        elif ranking >=0.4:
+          r90_area += fine_area
+          r60_area += fine_area
 
         #FIXME: put galaxy catalog stuff here!!!
      
     else:
-      sp.append((coarse_pt[0],coarse_pt[1],dtrss_coarse,None,coarse_area))
+      sp.append((coarse_pt[0],coarse_pt[1],None,coarse_rank,dtrss_coarse*snrfac,None,coarse_area))
   
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
@@ -233,25 +222,39 @@ for coinc in coincs:
   #populate the output tables
   #list of points has been sorted so the best one is at the top
   #FIXME: replace None with a link to the skymap file name!!!
-  skylocutils.populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,dt60dD60_area,\
-                       dt90dD90_area,sp[0],grid_file,None)
+  skylocutils.populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,r60_area,\
+                       r90_area,sp[0],grid_file,None)
   if coinc.is_injection:
     #NB: using the *recovered* snr for the snr dependent threshold
     inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
-    if snr:
-      dtrss_inj = snr*skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)/10.0
+    #compute combined snr if snr dependent thresholds are specified
+    if opts.snr_threshold:
+      rhosquared = 0.0
+      for ifo in coinc.ifo_list:
+        rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
+      snrfac = sqrt(rhosquared)/10.0
     else:
-      dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
+      #otherwise just multiply by unity
+      snrfac = 1.0
+    
+    dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
+    dtrank_inj = dtr.get_rank(dtrss_inj*snrfac)
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
+    dDrank_inj = dDr.get_rank(dDrss_inj)
+    rank_inj = dtrank_inj*dDrank_inj
     dt_area = 0.0
-    dtdD_area = 0.0
+    rank_area = 0.0
     for pt in sp:
-      if pt[2] <= dtrss_inj:
-        dt_area += pt[4]
+      if pt[2] == None:
+        pass
+      elif pt[3] <= dtrss_inj:
+        dt_area += pt[5]
       #FIXME: utlimately the next line is the place where we compute area according to rank
-      if pt[2] <= dtrss_inj and pt[3] <= dDrss_inj:
-        dtdD_area += pt[4]
-    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,dtdD_area,\
+      if pt[2] == None:
+        pass
+      elif pt[2] >= rank_inj:
+        rank_area += pt[5]
+    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
                                         dtrss_inj,dDrss_inj)
 
 #name the xml file
