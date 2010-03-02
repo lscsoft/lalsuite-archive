@@ -1,6 +1,4 @@
-# $Id$
-#
-# Copyright (C) 2006  Kipp C. Cannon
+# Copyright (C) 2006  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,10 +32,6 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
-
 
 from xml import sax
 try:
@@ -53,6 +47,7 @@ except NameError:
 	from glue.iterutils import any, all
 
 
+from glue import git_version
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
