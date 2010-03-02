@@ -658,15 +658,14 @@ The omega scan command line is
 		self.add_var_arg("-o " + output_path)
 		
 		self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(float(time), float(time)), "file://localhost/"+output_path)
-
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("-f "+frame_cache)
 		
 		self.add_var_arg(repr(time))
 
-		self.set_pre_script( "checkForDir.sh %s %s" %(output, repr(time)) )
+		self.set_pre_script( "checkForDir.sh %s %s" %(output, str(time)) )
 		#FIXME is deleting the lock file the right thing to do?
-		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
+		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, str(time)) )
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())

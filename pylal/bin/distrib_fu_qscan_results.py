@@ -65,7 +65,7 @@ parser.add_option("","--remote-ifo",action="store",type="string",\
     remotely (example: V1)")
 
 parser.add_option("","--qscan-type-list",action="store",type="string",\
-    help="types of qscan to be analysed (example: \"foreground-qscan,foreground-seismic-qscan,background-qscan,background-seismic-qscan\")")
+    help="types of qscan to be analysed (example: \"rds-qscan,seismic-qscan\")")
 
 nd_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -114,8 +114,13 @@ if (opts.qscan_cache_background and not os.path.exists(opts.qscan_cache_backgrou
 # get the list of qscans in the cache files
 if opts.qscan_cache_foreground and os.path.exists(opts.qscan_cache_foreground):
   for qscan_type in qscanShortTypeList:
-    exec("foreground_"+qscan_type.replace('-','_') + "List = stfu_pipe.getParamsFromCache(opts.qscan_cache_foreground,\"foreground-"+qscan_type+"\",opts.remote_ifo)")
-    qscanTypeList.append("foreground-"+qscan_type)
+    type_description = "WPIPELINE_FG_"
+    if qscan_type == "rds-qscan":
+      type_description += "RDS"
+    elif qscan_type == "seismic-qscan":
+      type_description += "SEIS"
+    exec("fg_"+qscan_type.replace('-','_') + "List = stfu_pipe.getParamsFromCache(opts.qscan_cache_foreground,\""+type_description+"\",opts.remote_ifo)")
+    qscanTypeList.append("fg-"+qscan_type)
 else:
   if not opts.qscan_cache_foreground:
     print >> sys.stderr, "Foreground qscans won't be processed because option qscan-cache-foreground is not provided."
@@ -124,8 +129,13 @@ else:
 
 if opts.qscan_cache_background and os.path.exists(opts.qscan_cache_background):
   for qscan_type in qscanShortTypeList:
-    exec("background_"+qscan_type.replace('-','_') + "List = stfu_pipe.getParamsFromCache(opts.qscan_cache_background,\"background-"+qscan_type+"\",opts.remote_ifo)")
-    qscanTypeList.append("background-"+qscan_type)
+    type_description = "WPIPELINE_BG_" 
+    if qscan_type == "rds-qscan":
+      type_description += "RDS"
+    elif qscan_type == "seismic-qscan":
+      type_description += "SEIS"
+    exec("bg_"+qscan_type.replace('-','_') + "List = stfu_pipe.getParamsFromCache(opts.qscan_cache_background,\""+type_description+"\",opts.remote_ifo)")
+    qscanTypeList.append("bg-"+qscan_type)
 else:
   if not opts.qscan_cache_background:
     print >> sys.stderr, "Background qscans won't be processed because option qscan-cache-background is not provided."
@@ -148,10 +158,9 @@ else:
   print >> sys.stderr, "File " + opts.qscan_input_file + " could not be found!!"
   sys.exit(1)
 
-
 for qscan_type in qscanTypeList:
   # define the input path of the qscan directories to be copied
-  result_path = opts.qscan_input_file.strip(".tar.gz")+ "/RESULTS/results_" + qscan_type + "/"
+  result_path = opts.qscan_input_file.split(".tar.gz")[0]+ "/RESULTS/results_" + qscan_type + "/"
   # check whether the qscan input directory is empty or not. If it is empty we don't need to do anything
   if not os.listdir(result_path):
     print >> sys.stderr, "Directory "+result_path+" does not contain any result, it will be ignored"
