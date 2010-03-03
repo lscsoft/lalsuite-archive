@@ -467,7 +467,12 @@ def obtain_results(grb):
   tag = grb.code['onoff'].tag
   path_to_result = '%s/GRB%s/postprocessing_%s/OPENBOX/llsummary_onoff_GRB%s.pickle' %\
      (grb.analysis_dir, grb.name, tag, grb.name)
-  data = pickle.load(file(path_to_result))
+  if os.path.exists(path_to_result):
+    data = pickle.load(file(path_to_result))
+  else:
+     info(grb.name, "OPENBOX results file %s does not exist! "\
+          "Maybe this is a rerun and the --force-rerun option have been forgotten? "%path_to_result)  
+     return -1
 
   min_prob = 2.0
   for coinc in data:
@@ -596,7 +601,7 @@ def generate_summary(publish_path, publish_url):
     except:
       tag_onoff = 'None'
     try:
-      tag_lik = grb.code['lik'].get_tag()
+      tag_lik = grb.code['inj'].get_tag()
     except:
       tag_lik = 'None'
     table = add(table, tag_onoff+'<br>'+tag_lik)
@@ -684,7 +689,12 @@ def get_code_tag():
 class CodeTagger(object):
 
   def __init__(self):
-    self.tag = git_version.tag
+    # Consider the case there is no tag (i.e. for testing purposes)
+    # then take the branch name (like s6_exttrig)
+    if git_version.tag:
+      self.tag = git_version.tag
+    else:
+      self.tag = git_version.branch
     self.verbose = git_version.verbose_msg
     self.id = git_version.id
     self.status = git_version.status
@@ -811,7 +821,7 @@ class AnalysisDag(object):
     return text
 
   # --------------------------------------
-  def check_status(self, grb, dag):
+  def check_status(self, grb):
     """
     Updating the status for this DAG,
     and return the fstat value
@@ -822,10 +832,13 @@ class AnalysisDag(object):
     try:
       # read the last line only
       line = file(self.get_outname()).readlines()[-1]
-      if "EXITING WITH STATUS 1" in line:
-        fstat = -1
-      if "EXITING WITH STATUS 0" in line:
-        fstat = 1
+      # check if the status is 0 for completed DAG
+      # status can be 1 (error) or 2 (user delete) otherwise (and more)
+      if "EXITING WITH STATUS" in line:
+        if "EXITING WITH STATUS 0" in line:
+          fstat = 1
+        else:
+          fstat = -1
     except IOError:
       fstat = -2
 
@@ -836,9 +849,9 @@ class AnalysisDag(object):
        self.status = -self.status
 
        if fstat == -1:
-         notify(grb, dag, 'DAG exited on error')
+         notify(grb, self, 'DAG exited on error')
        elif fstat==-2:
-         notify(grb, dag, 'DAG file vanished!?')
+         notify(grb, self, 'DAG file vanished!?')
     # change the status to NON-error if everything is ok
     if fstat>=0 and self.status<0:
       self.status = -self.status
@@ -880,7 +893,7 @@ class GRB(object):
     self.dag = {'onoff':None, 'inj':None}
 
     # prepare the code tag handling instances
-    self.code = {'inspiral':None, 'onoff':None, 'lik':None}
+    self.code = {'inspiral':None, 'onoff':None, 'inj':None}
 
     # prepare variables for later use
     self.qvalues = {}
@@ -892,6 +905,9 @@ class GRB(object):
     self.use_offline_data = False
     self.type_online = {'H1':'H1_DMT_C00_L2', 'L1':'L1_DMT_C00_L2', 'V1':'V1_DMT_HREC'}
     self.type_offline = {'H1':'H1_LDAS_C00_L2','L1':'L1_LDAS_C00_L2','V1':'HrecOnline'}
+
+    # veto handling
+    self.veto_definer = None
 
   # -----------------------------------------------------
   def set_paths(self, input_dir=None, main_dir=None,\
@@ -1245,8 +1261,8 @@ class GRB(object):
     dir_onoff = "%s/GRB%s/postprocessing_%s" % (self.analysis_dir, self.name, tag)
     # check the existance of the directory
     if os.path.exists(dir_onoff):
-      info(self.name, "    WARNING: The directory %s already exists. Maybe this is a test? Doing nothing." %\
-                       dir_onoff)
+      info(self.name, "    WARNING: The directory %s already exists. Maybe this is a test? "
+	              "Then (re)move the directory..." % dir_onoff)
       return None
 
     system_call(self.name, 'mkdir -p %s/logs'%dir_onoff)
@@ -1284,8 +1300,8 @@ class GRB(object):
     # Prepare the postprocesing directory at this stage
     dir_lik = "%s/GRB%s/likelihood_%s" % (self.analysis_dir, self.name, tag)
     if os.path.exists(dir_lik):
-      info(self.name, "    WARNING: The directory %s already exists. Maybe this is a test? Doing nothing." %\
-                       dir_lik)
+      info(self.name, "    WARNING: The directory %s already exists. Maybe this is a test? "
+                      "Then (re)move the directory..." % dir_lik)
       return None
 
     system_call(self.name, 'mkdir -p %s/logs'%dir_lik)
@@ -1299,7 +1315,7 @@ class GRB(object):
     system_call(self.name, cmd)
 
     # set the used code version and create the setup script
-    self.code['lik'] = CodeTagger()
+    self.code['inj'] = CodeTagger()
     self.create_setup_script(dir_lik)
 
     # create the DAG file
@@ -1444,6 +1460,10 @@ class GRB(object):
     starttime = self.time-timeoffset
     endtime = self.time+timeoffset
 
+    if self.veto_definer == os.path.basename(definer_file):
+      # Same veto definer file; nothing to do
+      return
+
     # check for the files first
     files_ready = True
     for ifo in ifo_list:
@@ -1467,6 +1487,16 @@ class GRB(object):
       segtxtfile = file_parts[0]+'-'+file_parts[1]+'_grb%s'%self.name+'.txt'
       self.convert_segxml_to_segtxt(file, segtxtfile)
 
+    # Call the cleanup routine if the veto-definer field is already defined. 
+    # Then the definer file has been updated, and will be copied into the right directory
+    if self.veto_definer:
+       info(self.name, "The veto files for GRB %s has been updated with veto-definer %s" %\
+           ( self.name,definer_file))
+       thispath = self.main_dir +'/GRB'+self.name
+       self.cleanup(thispath)
+
+    # remember the veto definer file used
+    self.veto_definer = os.path.basename(definer_file)
 
   # -----------------------------------------------------
   def check_veto_onsource(self):
@@ -1672,6 +1702,10 @@ class GRB(object):
     f.write("s=@GRBPICKLE@=%s=g\n"%get_monitor_filename())
     f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
     f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('data','m2_boundaries'))
+    vetofiles = ''
+    for ifo in self.ifolist:
+      vetofiles+=',%s-VETOTIME_CAT2_grb%s.txt' %(ifo, self.name)
+    f.write("s/@VETOFILES@/%s/g\n" % vetofiles)
     f.close()
 
 

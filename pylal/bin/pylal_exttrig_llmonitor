@@ -139,40 +139,44 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
     grb.update_veto_lists(int(cp.get('data','min_diff')))
     grb.check_veto_onsource()
 
-    # check again; this quantiti might have been changed by 
+    # check again; this quantity might have been changed by 
     # the function check_veto_onsource()
     if grb.has_data:
 
       # create the exttrig xml file
       grb.create_exttrig_xml_file()
 
-      # set up the directory and start the onoff DAG
-      grb.prepare_inspiral_analysis()
-      grb.dag['onoff'].start()
+      if opts.dag_injections!='only':
 
-      # set the used tag for the inspiral analysis
-      grb.code['inspiral'] = peu.CodeTagger()
+        # set up the directory and start the onoff DAG
+        grb.prepare_inspiral_analysis()
+        grb.dag['onoff'].start()
+
+        # set the used tag for the inspiral analysis
+        grb.code['inspiral'] = peu.CodeTagger()
   
-      # cleaning up
-      grb.cleanup(analysis_path)
+        # cleaning up
+        grb.cleanup(analysis_path)
+  
+        # multiple notifications
+        subject = "New analysis started for GRB%s " %grb.name
+        email_msg = 'The GRB was detected at GPS %s at position (ra %s / dec %s) [deg]\n' %\
+                     (grb.time, grb.ra, grb.de)
+        email_msg += 'Enough coincident data found from detectors %s\n' % grb.ifolist
+        if grb_duration:
+          email_msg += 'The duration of this GRB is %.1f seconds.\n' % grb_duration
+        else:
+          email_msg += 'The duration is not know at this time.\n'
+        email_msg += 'The DAG is located at UWM in directory %s\n'% analysis_path
+        email_msg += 'The overview-page is located here: <%s/total_summary.html> \n' %\
+                      cp.get('paths','publishing_url')
+        peu.send_mail(subject, email_msg)
 
-      # multiple notifications
-      subject = "New analysis started for GRB%s " %grb.name
-      email_msg = 'The GRB was detected at GPS %s at position (ra %s / dec %s) [deg]\n' %\
-                   (grb.time, grb.ra, grb.de)
-      email_msg += 'Enough coincident data found from detectors %s\n' % grb.ifolist
-      if grb_duration:
-        email_msg += 'The duration of this GRB is %.1f seconds.\n' % grb_duration
       else:
-        email_msg += 'The duration is not know at this time.\n'
-      email_msg += 'The DAG is located at UWM in directory %s\n'% analysis_path
-      email_msg += 'The overview-page is located here: <%s/total_summary.html> \n' %\
-                    cp.get('paths','publishing_url')
-      peu.send_mail(subject, email_msg)
+        peu.info(grb_name, "GRB%s: the onoff analysis will not be started. "%grb.name)
 
     else:
-      peu.info(grb_name, "GRB%s: the onsource segment is vetoed by a CAT2 veto. "\
-         "This GRB will be marked with NoData."%grb.name)
+      peu.info(grb_name, "GRB%s: the onsource segment is vetoed by a CAT2 veto. "%grb.name)
 
       # multiple notifications
       subject = "Not enough data for GRB%s (vetoed)" % grb.name
@@ -223,7 +227,9 @@ def check_start_inj_dag(monitor_list):
     if grb.has_data and grb.dag['inj'].status == 0:
 
       # check the duration criterion
-      if grb.duration and grb.duration<float(cp.get('data','max-duration')):
+      if (opts.dag_injections=='short' and (grb.duration and grb.duration<float(cp.get('data','max-duration'))) )\
+	or (opts.dag_injections=='always') \
+	or (opts.dag_injections=='only'):
 
         # starting the injection DAG
         grb.prepare_injection_analysis()
@@ -333,6 +339,9 @@ def start_post(grb, dag, cp):
   @param cp: the object of the configuration file
   """
 
+  # check the veto definer file to see changes
+  grb.update_veto_lists(int(cp.get('data','min_diff')))
+
   # prepare the html output path
   publishing_path = cp.get('paths','publishing_path')
   command = 'mkdir -p %s/GRB%s' % (publishing_path, grb.name)
@@ -363,6 +372,9 @@ def start_post_inj(grb, dag, cp):
   @param dag: the DAG dictionary
   @param cp: the object of the configuration file
   """
+
+  # check the veto definer file to see changes
+  grb.update_veto_lists(int(cp.get('data','min_diff')))
 
   # prepare the html output path; might be in onoff DAG, but just a precaution
   publishing_path = cp.get('paths','publishing_path')
@@ -425,10 +437,11 @@ def analysis_finalized(grb, dag):
 
 
 # -----------------------------------------------------
-def check_rerun(grb, dag, cp):
+def check_rerun(grb, dag, cp, force = False):
 
-  # don't do anything if this DAG has not finished
-  if dag.get_status()!=5 and dag.get_status()>0:
+  # execute this function only for finished DAGs
+  # or for DAGs with errors
+  if not (dag.get_status()==5 or dag.get_status()<0):
     return
 
   # check if there is a tag mismatch
@@ -437,7 +450,7 @@ def check_rerun(grb, dag, cp):
   tag_used = grb.code[type].tag 
 
   # if the used tag is the current one, just leave it
-  if tag_used==tag_current:
+  if tag_used==tag_current and not force:    
     return
 
   if type=='onoff':
@@ -465,16 +478,25 @@ def parse_args():
     parser.add_option("--check-time-window", type="float", default=None,
         help="Specifies the time window to be checked from the current date (in days)."\
              " Any GRB outside this range (i.e. earlier ones) and not analyzed.")
+    parser.add_option("--gps-start-time", type="int", default=None,
+        help="Specifies the start time of GRBs to process. Any GRB outside will not be started/rerun.")
+    parser.add_option("--gps-end-time", type="int", default=None,
+        help="Specifies the end time of GRBs to process. Any GRB outside will not be started/rerun.")
+
+
 
     # injection related setting
-    parser.add_option( "--with-injections",default=False, \
-        help="If this flag is set, an injection run is started as well.")
+    parser.add_option( "--dag-injections", default = None,\
+        help="Sets what to do with injections: always, short, never, only.")
     parser.add_option("--injection-config",default=None,\
         help="Specifies the injection ini file (if required).")
 
     # rerun flag
     parser.add_option( "--rerun",default=False, action="store_true",\
         help="If this flag is set, do a rerun of the postprocessing for onoff and lik stages.")
+    parser.add_option( "--force-rerun",default=False, action="store_true",\
+        help="If this flag is set, it forced a rerun even if the tag agrees (for testing of new code etc.).")
+
   
     # verbosity arguments
     parser.add_option("--info", action="store_true", default=False, \
@@ -490,9 +512,13 @@ def parse_args():
     if options.check_number is not None and options.grb is not None:
       raise ValueError, "Only option '--check-number' or '--grb' can be specified, not both together!"
 
-    if options.with_injections and not options.injection_config:
+    if options.dag_injections and not options.injection_config:
       raise ValueError, "injection ini-file must be specified with '--injection-config'"\
-                        " if the option '--with-injections' is set!"
+                        " if the option '--dag-injections' is set!"
+
+    if options.gps_start_time or options.gps_end_time:
+      if not (options.gps_start_time and options.gps_end_time):
+        raise ValueError, "Either do not set any gps times or both of them."
 
 
     return options, arguments
@@ -541,12 +567,20 @@ for grb in monitor_list:
   if not grb.has_data:
     continue
 
+  if opts.gps_start_time:
+    if opts.gps_start_time>grb.time or opts.gps_end_time<grb.time:
+      # do not analyze this GRB; its outside the time window
+      peu.info('INFO', "GRB%s: Any analysis suspended because trigger is outside window [%d - %d]."%\
+        (grb.name,opts.gps_start_time, opts.gps_end_time))
+      continue
+
+
   # loop over the DAGs for this GRB
   for dag_key, dag in grb.dag.iteritems():
 
     # check if the postprocessing analyses should be rerun
     if opts.rerun:
-      check_rerun(grb, dag, cp)
+      check_rerun(grb, dag, cp, opts.force_rerun)
 
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:
@@ -560,7 +594,7 @@ for grb in monitor_list:
       continue
 
     # check the status on this DAG
-    fstat = dag.check_status(grb, dag)
+    fstat = dag.check_status(grb)
     status = dag.get_status()
 
     if fstat == -2:
