@@ -35,9 +35,9 @@ page.subpages["injections"].add_section("spin", "final spin missed found")
 imgtab = cbcwebpage.image_glob(base_name+"*finalspin.png")
 page.subpages["injections"].sections["spin"].add_table(imgtab,"final spin missed found", "final spin missed found")
 
-page.subpages["injections"].add_section("spin", "final spin missed found")
-imgtab = cbcwebpage.image_glob(base_name+"*finalspin.png")
-page.subpages["injections"].sections["spin"].add_table(imgtab,"final spin missed found", "final spin missed found")
+page.subpages["injections"].add_section("spin", "mass weighted final spin missed found")
+imgtab = cbcwebpage.image_glob(base_name+"*massweightedspin.png")
+page.subpages["injections"].sections["spin"].add_table(imgtab,"mass weighted final spin missed found", "mass weighted final spin missed found")
 
 page.add_subpage("volume", "volume", "Detection volume")
 
