@@ -324,6 +324,12 @@ relic_onsource_xml = opts.relic_onsource.replace(".pickle", ".xml")
 shutil.copy(relic_onsource_xml, op.join(opts.output_path, os.path.basename(relic_onsource_xml)))
 html_footer += "Loudest on-source coincidences [<a href=\"" \
     + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
+# make overall statement
+html_footer += "ln (&Sigma; <em>L</em><sub>obs</sub>) = %.2g<br>\n" \
+        % log_sum_L
+html_footer += "P(ln (&Sigma; <em>L</em>) &gt; "\
+        "ln (&Sigma; <em>L</em><sub>obs</sub>) | 0) "\
+        "= %.2g<br><br>\n" % pLsum0
 
 ## x-start
 
