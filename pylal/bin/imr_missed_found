@@ -347,7 +347,7 @@ for instruments in summ.set_instruments_to_calculate():
     pylab.semilogy([m.mass1+m.mass2 for m in missed], [m.eff_dist_h for m in missed],'k.')
     pylab.xlabel('Total Mass ($M_\odot$)')
     pylab.ylabel('Effective Distance (Mpc): H1')
-    pylab.title('Missed-Found:H1 Effective Distance vs Total Mass')    
+    pylab.title('Missed-Found:H1 Effective Distance vs Total Mass')
     pylab.savefig('H1effdist_mass.png')
 
     fignum = fignum + 1
