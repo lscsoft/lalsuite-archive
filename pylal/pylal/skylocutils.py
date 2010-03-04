@@ -325,6 +325,7 @@ class CoincData(object):
     self.longitude_inj = None
     self.mass1_inj = None 
     self.mass2_inj = None
+    self.distance_inj = None
     self.eff_distances_inj = {}
 
   
@@ -350,7 +351,7 @@ class CoincData(object):
     self.mass1 = m1
     self.mass2 = m2
 
-  def set_inj_params(self,lat,lon,m1,m2,effDs):
+  def set_inj_params(self,lat,lon,m1,m2,dist,effDs):
     """
     set all of the injection parameters at once
     """
@@ -358,6 +359,7 @@ class CoincData(object):
     self.longitude_inj = lon
     self.mass1_inj = m1
     self.mass2_inj = m2
+    self.distance_inj = dist
     self.eff_distances_inj = effDs
 
 class Coincidences(list):
@@ -407,8 +409,9 @@ class Coincidences(list):
             effDs_inj[ifo] = row.eff_dist_l
           elif ifo == 'V1':
             effDs_inj[ifo] = row.eff_dist_v
+        dist_inj = row.distance
         coinc.set_inj_params(row.latitude,row.longitude,row.mass1,row.mass2, \
-                             effDs_inj)
+                             dist_inj,effDs_inj)
         coinc.is_injection = True
       #FIXME: name the exception!
       except:
@@ -452,8 +455,9 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_l
           elif ifo == 'V1':
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
+        dist_inj = getattr(ctrig,'sim').distance
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
-                             getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
+                             getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2,dist_inj,effDs_inj)
         coinc.is_injection = True
         #FIXME: name the exception!
       except:
