@@ -1704,8 +1704,9 @@ class GRB(object):
     f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('data','m2_boundaries'))
     vetofiles = ''
     for ifo in self.ifolist:
-      vetofiles+=',%s-VETOTIME_CAT2_grb%s.txt' %(ifo, self.name)
-    f.write("s/@VETOFILES@/%s/g\n" % vetofiles)
+      vetofiles+=',../../%s-VETOTIME_CAT2_grb%s.txt' %(ifo, self.name)
+    f.write("s=@VETOFILES@=%s=g\n" % vetofiles)
+    f.write("s/@STATISTIC@/%s/g\n" % cp.get('data','statistic')) 
     f.close()
 
 
