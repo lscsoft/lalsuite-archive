@@ -128,8 +128,8 @@ class upper_limit(object):
     if self.coinc_inspiral_table:
       segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
     if self.multi_burst_table:
-      #FIXME CWB case of rings not handled
-      segments = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+      if opts.live_time_program == "omega_to_coinc": segments = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+      if opts.live_time_program == "waveburst": segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
     return segments
 
   def get_veto_segments(self, connection):

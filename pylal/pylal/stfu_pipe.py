@@ -187,6 +187,28 @@ def get_hostname():
 	return host
 
 ###############################################################################
+##### USEFULL FUNCTIONS CALLED BY PYTHON JOBS
+###############################################################################
+
+def getParamsFromCache(fileName,type,ifo=None,time=None):
+	qscanList = []
+	cacheList = lal.Cache.fromfile(open(fileName))
+	if not cacheList:
+		return qscanList
+	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
+	if time:
+		cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+
+	for cacheEntry in cacheSelected:
+		path_output = cacheEntry.path()
+		time_output = str(cacheEntry.segment[0])
+		type_output = cacheEntry.description
+		ifo_output = cacheEntry.observatory
+		qscanList.append([path_output,time_output,type_output,ifo_output])
+
+	return qscanList
+
+###############################################################################
 ##### CONDOR JOB CLASSES ######################################################
 ###############################################################################
 
@@ -641,9 +663,9 @@ The omega scan command line is
 		
 		self.add_var_arg(repr(time))
 
-		self.set_pre_script( "checkForDir.sh %s %s" %(output, repr(time)) )
+		self.set_pre_script( "checkForDir.sh %s %s" %(output, str(time)) )
 		#FIXME is deleting the lock file the right thing to do?
-		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
+		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, str(time)) )
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
