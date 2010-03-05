@@ -125,7 +125,7 @@ class upper_limit(object):
     self.twoDMassBins = self.get_2d_mass_bins(self.minmass, self.maxmass, opts.mass_bins)
 
   def get_segments(self, connection, xmldoc):
-    segs = segments.segmentlistdict()    
+    segs = segments.segmentlistdict()
     if self.coinc_inspiral_table:
       segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
     if self.multi_burst_table:
