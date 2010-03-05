@@ -76,7 +76,7 @@ def parse_command_line():
 	names.
 	"""
 	parser = OptionParser(
-		version = "%prog CVS $Id$",
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog -d|--database filename [options] [url ...]",
 		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML documents listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If the database exists the contents of the XML documents will be added to it, otherwise a new database file is created.  If --extract is given on the command line, then the database contents will be converted to XML and written to the file named by this argument.  The input XML documents can be regular files or many common URLs such as ftp:// and http://.  If no input documents are named then input is read from stdin unless --extract is given in which case the datase contents are extracted to XML without reading any input documents.  Input XML documents ending in .gz will be gzip-decompressed while being read, and if the file named by --extract ends in .gz then it will be gzip-compressed when written."
 	)
@@ -97,7 +97,6 @@ def parse_command_line():
 	return options, (urls or [None])
 
 
-
 #
 # =============================================================================
 #
@@ -111,6 +110,7 @@ def parse_command_line():
 # Command line
 #
 
+
 if __name__ == '__main__':
 	options, urls = parse_command_line()
 
@@ -118,16 +118,21 @@ if __name__ == '__main__':
 	will_replace_file = will_write_to_file and options.replace
 	will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
+
 	#
 	# Open database
 	#
-	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 
+
+	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 	connection = ligolw_sqlite.setup(target)
+
 
 	#
 	# Insert files
 	#
+
+
 	if (options.extract is None) or (urls != [None]):
 		ligolw_sqlite.insert(connection, urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
@@ -135,6 +140,8 @@ if __name__ == '__main__':
 	#
 	# Extract database contents
 	#
+
+
 	if options.extract is not None:
 		if options.extract == "-":
 			# stdout
@@ -145,12 +152,23 @@ if __name__ == '__main__':
 	#
 	# Close database
 	#
+
+
 	connection.close()
+
 
 	#
 	# Move database to final location
 	#
+
+
 	dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
+
+
+	#
+	# Done
+	#
+
 
 	if options.verbose:
 		print >>sys.stderr, "done."

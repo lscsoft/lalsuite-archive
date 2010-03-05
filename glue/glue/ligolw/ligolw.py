@@ -238,7 +238,17 @@ class Element(object):
 		# modifies its internal data.  probably not a good idea,
 		# but I don't know how else to edit an attribute because
 		# the stupid things don't export a method to do it.
-		self.attributes._attrs[attrname] = str(value)
+		self.attributes._attrs[attrname] = unicode(value)
+
+	def removeAttribute(self, attrname):
+		# cafeful:  this digs inside an AttributesImpl object and
+		# modifies its internal data.  probably not a good idea,
+		# but I don't know how else to edit an attribute because
+		# the stupid things don't export a method to do it.
+		try:
+			del self.attributes._attrs[attrname]
+		except KeyError:
+			pass
 
 	def appendData(self, content):
 		"""
@@ -323,6 +333,42 @@ class Param(Element):
 	tagName = u"Param"
 	validchildren = [u"Comment"]
 	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
+
+	def get_unit(self):
+		"""
+		Retrieve the value of the "Unit" attribute.
+		"""
+		return self.getAttribute(u"Unit")
+
+	def set_unit(self, value):
+		"""
+		Set the value of the "Unit" attribute.
+		"""
+		self.setAttribute(u"Unit", unicode(value))
+
+	def del_unit(self):
+		"""
+		Remove the "Unit" attribute.
+		"""
+		self.removeAttribute(u"Unit")
+
+	def get_dataunit(self):
+		"""
+		Retrieve the value of the "DataUnit" attribute.
+		"""
+		return self.getAttribute(u"DataUnit")
+
+	def set_dataunit(self, value):
+		"""
+		Set the value of the "DataUnit" attribute.
+		"""
+		self.setAttribute(u"DataUnit", unicode(value))
+
+	def del_dataunit(self):
+		"""
+		Remove the "DataUnit" attribute.
+		"""
+		self.removeAttribute(u"DataUnit")
 
 
 class Table(Element):
@@ -487,6 +533,14 @@ class Time(Element):
 			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
 		Element.__init__(self, attrs)
 
+	def write(self, file = sys.stdout, indent = u""):
+		if self.pcdata:
+			file.write(self.start_tag(indent))
+			file.write(xmlescape(self.pcdata))
+			file.write(self.end_tag(u"") + u"\n")
+		else:
+			file.write(self.start_tag(indent) + self.end_tag(u"") + u"\n")
+
 
 class Document(Element):
 	"""
@@ -495,11 +549,13 @@ class Document(Element):
 	tagName = u"Document"
 	validchildren = [u"LIGO_LW"]
 
-	def write(self, file = sys.stdout):
+	def write(self, file = sys.stdout, xsl_file = None ):
 		"""
 		Write the document.
 		"""
 		file.write(Header + u"\n")
+		if xsl_file is not None:
+			file.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)

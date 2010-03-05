@@ -136,11 +136,10 @@ def write_git_version(fileobj):
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
   # determine tree status
-  status_cmd = 'git status'
+  status_cmd = 'git diff-index --name-only HEAD'
   status_output = run_external_command(status_cmd, honour_ret_code=False)[1]\
                   .strip()
-  if ("# Changed but not updated:\n" in status_output) or \
-     ("# Changes to be committed:\n" in status_output):
+  if len(status_output) != 0:
     git_status = 'UNCLEAN: Some modifications not committed'
   else:
     git_status = 'CLEAN: All modifications committed'

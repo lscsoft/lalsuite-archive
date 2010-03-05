@@ -3043,6 +3043,13 @@ class LigolwSqliteJob(SqliteJob):
     sections = ['ligolw_sqlite']
     SqliteJob.__init__(self, cp, sections, exec_name, dax)
 
+  def set_replace(self):
+    """
+    Sets the --replace option. This will cause the job
+    to overwrite existing databases rather than add to them.
+    """
+    self.add_var_opt('replace')
+
 
 class LigolwSqliteNode(SqliteNode):
   """

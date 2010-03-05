@@ -73,7 +73,9 @@ def write_error_lines(lines):
 
 
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
+	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg
+	)
 	parser.add_option("--segwizard-segments", metavar = "filename", help = "Read segments to check from the named segwizard-format text file.")
 	parser.add_option("--gps-start-time", metavar = "seconds", help = "Check a single segment starting at this time (must also set --gps-end-time).")
 	parser.add_option("--gps-end-time", metavar = "seconds", help = "Check a single segment ending at this time (must also set --gps-start-time).")

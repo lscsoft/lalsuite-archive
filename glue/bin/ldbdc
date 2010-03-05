@@ -29,8 +29,7 @@ import exceptions
 import re
 
 try:
-  from glue import LDBDClient
-  from glue import gsiserverutils
+  from glue.segmentdb import segmentdb_utils
 except ImportError, e:
   print >> sys.stderr, """
 Error: unable to import modules from glue.
@@ -45,19 +44,17 @@ Check that glue is correctly installed and in your PYTHONPATH.
 def usage():
   msg = """\
 Usage: ldbdc.py [OPTIONS]
-
-  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30015)
-  -j, --identity SUBJECT  the subject of the servers service certififcate
+  -t, --segment-url       Users have to specify either 'https://' for a secure connection or 'http://' for an insecure connection in the segment database url. For example, '--segment-url=https://segdb.ligo.caltech.edu'. No need to specify port number 
+  -d, --database          use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=https://segdb.ligo.caltech.edu'"
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -f, --pfn PFNLIST       a comma separated list of PFNs to insert
   -q, --query QUERY       execute SQL query QUERY
   -o, --output FILE       write output to FILE
   -D, --dmt-segments      insert the XML data as DMT segment data
-  -a, --disable-gssapi    disable grid certificate authentication
   -p, --ping              ping the server
   -h, --help              print this message
 
-One of the options --query or --insert must be specified.
+One of the options --ping, --query, --insert must be specified.
 \
 """
   print msg
@@ -66,17 +63,16 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:j:d:i:f:q:o:Dvpha"
+shortop = "t:i:f:q:o:dDph"
 longop = [
-  "server=",
+  "segment-url=",
   "identity=",
-  "database=",
+  "database",
   "insert=",
   "pfn=",
   "query=",
   "output=",
   "dmt-segments",
-  "disable-gssapi",
   "ping",
   "help"
   ]
@@ -84,35 +80,32 @@ longop = [
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
 except getopt.GetoptError:
+  print >>sys.stderr, "Error: %s \n" % str(e)
   usage()
   sys.exit(1)
 
 # defaults
-hostPortString = None
-port = 30015
-identity = None
+segment_url = None
 infile = None
 pfnlist = None
 outfile = None
 squery = None
+database = None
 dmtsegs = None
-disableauth = None
 ping = None
 
-# environment variables override defaults but not
-# command line options
+# environment variables override defaults but not command line options
+# This block of code is also required for web pages calling ldbdc to work
 try:
-  hostPortString = os.environ['LDBD_SERVER']
+  segment_url = os.environ['LDBD_SERVER']
 except:
   pass
 
 for o, a in opts:
   if o in ("-h", "--help"):
     help()
-  elif o in ("-r", "--server"):
-    hostPortString = a
-  elif o in ("-j", "--identity"):
-    identity = a
+  elif o in ("-t", "--segment-url"):
+    segment_url = a
   elif o in ("-i", "--insert"):
     infile = a
   elif o in ("-f", "--pfn"):
@@ -120,30 +113,23 @@ for o, a in opts:
   elif o in ("-q", "--query"):
     squery = a
   elif o in ("-d", "--database"):
-    database = a
+    database = os.environ['S6_SEGMENT_SERVER']
   elif o in ("-o", "--output"):
     outfile = a
   elif o in ("-D", "--dmt-segments"):
     dmtsegs = 1
-  elif o in ("-D", "--disable-gssapi"):
-    disableauth = 1
   elif o in ("-p", "--ping"):
     ping = 1
 
-# determine server and port
-if not hostPortString:
-  print >>sys.stderr, "No ldbd server specified"
-  print >>sys.stderr, "Enter 'ldbdc --help' for usage"
+
+if segment_url and database:
+  print "\nMust specify either --segment-url or --database"
+  usage()
   sys.exit(1)
-
-if hostPortString.find(':') < 0:
-  # no port specified
-  host = hostPortString
-else:
-  # server and port specified
-  host, portString = hostPortString.split(':')
-  port = int(portString)
-
+if not segment_url and not database:
+  print "\nMust specify either --segment-url or --database"
+  usage()
+  sys.exit(1)
 if not infile and not squery and not ping:
   print "\nNo operation specified\n"
   usage()
@@ -165,23 +151,10 @@ if dmtsegs and pfnlist:
   usage()
   sys.exit(1)
 
-if not identity:
-  identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
-if disableauth:
-  identity = None
+# open connection to LDBD(W)Server
+myClient = segmentdb_utils.setup_database(segment_url)
 
-# open connection to LDBD Server
-try:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
-
-except Exception, e:
-  print >>sys.stderr, \
-    "Unable to connect to LDBD Server %s:%d" % (host, port)
-  if gsiserverutils.checkCredentials():
-    print >>sys.stderr, "Got the following error : " + str(e)
-    print >>sys.stderr, "Enter 'ldbdc --help' for usage"
-  sys.exit(1)
 
 try:
   if ping:

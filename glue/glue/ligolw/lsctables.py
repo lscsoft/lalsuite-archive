@@ -55,6 +55,7 @@ from glue.ligolw import table
 from glue.ligolw import types as ligolwtypes
 from glue.ligolw import ilwd
 
+
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -148,7 +149,7 @@ def instrument_set_from_ifos(ifos):
 	input contains "," --> output is set of strings split on "," with
 	leading and trailing whitespace stripped from each piece
 
-	input contains "+" --> output is set of strings split on "," with
+	input contains "+" --> output is set of strings split on "+" with
 	leading and trailing whitespace stripped from each piece
 
 	else, after stripping input of leading and trailing whitespace,
@@ -375,6 +376,9 @@ class SearchSummaryTable(table.Table):
 		"out_end_time_ns": "int_4s",
 		"nevents": "int_4s",
 		"nnodes": "int_4s"
+	}
+	how_to_index = {
+		"ss_pi_index": ("process_id",),
 	}
 
 	def get_inlist(self):
@@ -1021,7 +1025,14 @@ class MultiBurstTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"coinc_event_id": "ilwd:char"
 	}
-	constraints = "PRIMARY KEY (coinc_event_id)"
+	# FIXME:  like some other tables here, this table should have the
+	# constraint that the coinc_event_id column is a primary key.  this
+	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
+	# the constraint is being replaced with an index.
+	#constraints = "PRIMARY KEY (coinc_event_id)"
+	how_to_index = {
+		"mb_cei_index": ("coinc_event_id",)
+	}
 
 
 class MultiBurst(object):
@@ -1196,17 +1207,18 @@ class SnglInspiralTable(table.Table):
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
 	def get_new_snr(self, index=6.0):
-		import numpy
-		# the kwarg 'index' is to be assigned to the parameter chisq_index
-		# the parameter nhigh gives the asymptotic behaviour of 
-		# d (ln chisq) / d (ln rho) at large rho for fixed new_snr: 
-		# eg nhigh = 2 means chisq ~ rho^2 at large rho 
+		# the kwarg 'index' is to be assigned to the parameter chisq_index occurring in the .ini files etc
+		# the parameter nhigh gives the asymptotic behaviour d (ln chisq) / d (ln rho) at large rho
+		# nhigh=2 means chisq~rho^2 along contours of new_snr as expected from the behaviour of mismatched templates
 		snr = self.get_column('snr')
-		rchisq = self.get_column('chisq')/(2*self.get_column('chisq_dof') - 2)
+		chisq = self.get_column('chisq')
+		chisq_dof = self.get_column('chisq_dof')
+		rchisq = chisq/ (2*chisq_dof - 2)
 		nhigh = 2.
-		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
-		numpy.putmask(newsnr, rchisq < 1, snr)
-		return newsnr
+		if rchisq > 1.:
+			return snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return snr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
@@ -1411,10 +1423,10 @@ CoincInspiralTable.RowType = CoincInspiral
 #
 
 
-SnglRingDownID = ilwd.get_ilwdchar_class(u"sngl_ringdown", u"event_id")
+SnglRingdownID = ilwd.get_ilwdchar_class(u"sngl_ringdown", u"event_id")
 
 
-class SnglRingDownTable(table.Table):
+class SnglRingdownTable(table.Table):
 	tableName = "sngl_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1441,12 +1453,12 @@ class SnglRingDownTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#next_id = SnglRingDownID(0)
+	#next_id = SnglRingdownID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
-class SnglRingDown(object):
-	__slots__ = SnglRingDownTable.validcolumns.keys()
+class SnglRingdown(object):
+	__slots__ = SnglRingdownTable.validcolumns.keys()
 
 	def get_start(self):
 		return LIGOTimeGPS(self.start_time, self.start_time_ns)
@@ -1455,7 +1467,58 @@ class SnglRingDown(object):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 
-SnglRingDownTable.RowType = SnglRingDown
+SnglRingdownTable.RowType = SnglRingdown
+
+
+#
+# =============================================================================
+#
+#                             coinc_ringdown:table
+#
+# =============================================================================
+#
+
+
+class CoincRingdownTable(table.Table):
+	tableName = "coinc_ringdown:table"
+	validcolumns = {
+		"coinc_event_id": "ilwd:char",
+		"ifos": "lstring",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"frequency": "real_8",
+		"quality": "real_8",
+		"snr": "real_8",
+		"false_alarm_rate": "real_8"
+	}
+	# FIXME:  like some other tables here, this table should have the
+	# constraint that the coinc_event_id column is a primary key.  this
+	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
+	# the constraint is being replaced with an index.
+	#constraints = "PRIMARY KEY (coinc_event_id)"
+	how_to_index = {
+		"cr_cei_index": ("coinc_event_id",)
+	}
+	interncolumns = ("coinc_event_id", "ifos")
+
+
+class CoincRingdown(object):
+	__slots__ = CoincRingdownTable.validcolumns.keys()
+
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	def set_ifos(self, ifos):
+		self.ifos = ifos_from_instrument_set(ifos)
+
+	def get_ifos(self):
+		return instrument_set_from_ifos(self.ifos)
+
+
+CoincRingdownTable.RowType = CoincRingdown
 
 
 #
@@ -1482,38 +1545,57 @@ class MultiInspiralTable(table.Table):
 		"impulse_time": "int_4s",
 		"impulse_time_ns": "int_4s",
 		"amplitude": "real_4",
-		"ifo1_eff_distance": "real_4",
-		"ifo2_eff_distance": "real_4",
-		"eff_distance": "real_4",
+		"distance": "real_4",
+		"eff_dist_h1": "real_4",
+		"eff_dist_h2": "real_4",
+		"eff_dist_l": "real_4",
+		"eff_dist_g": "real_4",
+		"eff_dist_t": "real_4",
+		"eff_dist_v": "real_4",
+		"eff_dist_h1h2": "real_4",
 		"coa_phase": "real_4",
 		"mass1": "real_4",
 		"mass2": "real_4",
 		"mchirp": "real_4",
 		"eta": "real_4",
+		"chi": "real_4",
+		"kappa": "real_4",
 		"tau0": "real_4",
 		"tau2": "real_4",
 		"tau3": "real_4",
 		"tau4": "real_4",
 		"tau5": "real_4",
 		"ttotal": "real_4",
-		"ifo1_snr": "real_4",
-		"ifo2_snr": "real_4",
 		"snr": "real_4",
+                "snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
-		"sigmasq": "real_4",
-		"ligo_axis_ra": "real_4",
-		"ligo_axis_dec": "real_4",
+		"sigmasq_h1": "real_8",
+		"sigmasq_h2": "real_8",
+		"sigmasq_l": "real_8",
+		"sigmasq_g": "real_8",
+		"sigmasq_t": "real_8",
+		"sigmasq_v": "real_8",
+		"chisq_h1": "real_4",
+		"chisq_h2": "real_4",
+		"chisq_l": "real_4",
+		"chisq_g": "real_4",
+		"chisq_t": "real_4",
+		"chisq_v": "real_4",
+		"ra": "real_4",
+		"dec": "real_4",
 		"ligo_angle": "real_4",
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "ilwd:char",
 		"null_statistic": "real_4",
+		"null_stat_h1h2": "real_4",
+		"null_stat_degen": "real_4",
+		"event_id": "ilwd:char",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
 		"h2quad_re": "real_4",
@@ -1525,7 +1607,15 @@ class MultiInspiralTable(table.Table):
 		"g1quad_re": "real_4",
 		"g1quad_im": "real_4",
 		"t1quad_re": "real_4",
-		"t1quad_im": "real_4"
+		"t1quad_im": "real_4",
+                "coh_snr_h1h2": "real_4",
+		"cohSnrSqLocal": "real_4",
+		"autoCorrCohSq": "real_4",
+		"crossCorrCohSq": "real_4",
+		"autoCorrNullSq": "real_4",
+		"crossCorrNullSq": "real_4",
+		"ampMetricEigenVal1": "real_8",
+		"ampMetricEigenVal2": "real_8"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1799,10 +1889,10 @@ SimBurstTable.RowType = SimBurst
 #
 
 
-SimRingDownID = ilwd.get_ilwdchar_class(u"sim_ringdown", u"simulation_id")
+SimRingdownID = ilwd.get_ilwdchar_class(u"sim_ringdown", u"simulation_id")
 
 
-class SimRingDownTable(table.Table):
+class SimRingdownTable(table.Table):
 	tableName = "sim_ringdown:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
@@ -1835,12 +1925,12 @@ class SimRingDownTable(table.Table):
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
-	next_id = SimRingDownID(0)
+	next_id = SimRingdownID(0)
 	interncolumns = ("process_id", "waveform", "coordinates")
 
 
-class SimRingDown(object):
-	__slots__ = SimRingDownTable.validcolumns.keys()
+class SimRingdown(object):
+	__slots__ = SimRingdownTable.validcolumns.keys()
 
 	def get_start(self, site = None):
 		if not site:
@@ -1850,7 +1940,7 @@ class SimRingDown(object):
 			return LIGOTimeGPS(getattr(self, site + '_start_time'), getattr(self, site + '_start_time_ns'))
 
 
-SimRingDownTable.RowType = SimRingDown
+SimRingdownTable.RowType = SimRingdown
 
 
 #
@@ -2401,10 +2491,11 @@ class CoincDefTable(table.Table):
 		description.
 		"""
 		# look for the ID
-		for row in self:
-			if (row.search, row.search_coinc_type) == (search, search_coinc_type):
-				# found it
-				return row.coinc_def_id
+		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
+		if len(rows) > 1:
+			raise ValueError, "search/search coinc type = %s/%d is not unique" % (search, search_coinc_type)
+		if len(rows) > 0:
+			return rows[0].coinc_def_id
 
 		# coinc type not found in table
 		if not create_new:
@@ -2708,15 +2799,17 @@ TableByName = {
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
 	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
 	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
+	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
 	table.StripTableName(CoincInspiralTable.tableName): CoincInspiralTable,
-	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
+	table.StripTableName(SnglRingdownTable.tableName): SnglRingdownTable,
+	table.StripTableName(CoincRingdownTable.tableName): CoincRingdownTable,
 	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
 	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
 	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
-	table.StripTableName(SimRingDownTable.tableName): SimRingDownTable,
+	table.StripTableName(SimRingdownTable.tableName): SimRingdownTable,
 	table.StripTableName(SummValueTable.tableName): SummValueTable,
 	table.StripTableName(SimInstParamsTable.tableName): SimInstParamsTable,
 	table.StripTableName(StochasticTable.tableName): StochasticTable,

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 ###################################################################
 import os
@@ -7,7 +7,6 @@ import pwd
 import re
 import time
 import sys
-import getopt
 import commands
 import StringIO
 import exceptions
@@ -27,10 +26,8 @@ You must have pyRXP installed and in your PYTHONPATH to run %s.
 try:
   from glue import gpstime
   from glue import ldbd
-  from glue import LDBDClient
-  from glue import gsiserverutils
   from glue import segments
-  from glue import segmentsUtils
+  from glue.segmentdb import segmentdb_utils
   from glue.ligolw import table
   from glue.ligolw import lsctables
   from glue.ligolw import ligolw 
@@ -53,7 +50,12 @@ __src__ = "$Source: /usr/local/cvs/lscsoft/glue/bin/ligolw_segment_insert,v $"
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
+
+try:
+  USER_NAME = os.getlogin()
+except:
+  USER_NAME = pwd.getpwuid(os.getuid())[0]
+
 
 ##################################################################
 #            Command Line
@@ -62,8 +64,8 @@ def parse_command_line():
   parser = OptionParser()
   
   parser.add_option("-p", "--ping", action = "store_true", default = None, help = "Ping the target server")
-  parser.add_option("-s", "--server", action = "store", metavar = "HOST:PORT", default = None, \
-                    help = "Connect to ldbd on HOST:PORT (default port 30015)")
+  parser.add_option("-t", "--segment-url", action = "store", metavar = "URL", default = None, \
+                    help = "Users have to specify protocol 'https://' for a secure connection in the segment database url. For example, '--segment-url=https://segdb.ligo.caltech.edu'. No need to specify port number'.")
   parser.add_option("-o", "--output", action = "store", metavar = "FILE", default = None, \
                     help = "Write segments to FILE rather than the segment database")
   parser.add_option("-j", "--identity", action = "store", metavar = "IDENTITY", default = None, \
@@ -76,7 +78,7 @@ def parse_command_line():
                     help = "Set the name of the segment to NAME (e.g. DMT-BADMONTH)")
   parser.add_option("-v", "--version", action = "store", metavar = "VERSION", default = None, \
                     help = "Set the numeric version of the segment to VERSION (e.g. 1)")
-  parser.add_option("-e", "--explain", action = "store", metavar = "COMMENT", default = None, \
+  parser.add_option("-e", "--explain", action = "store", metavar = "EXPLAIN", default = None, \
                     help = "Set the segment_definer:comment to COMMENT. This should explaining WHAT this flag mean (e.g. \"Light dip 10%\"). Required when --Insert/-I is specified.")
   parser.add_option("-c", "--comment", action = "store", metavar = "COMMENT", default = None, \
                     help = "Set the segment_summary:comment to COMMENT. This should explaining WHY these segments were inserted (e.g. \"Created from hveto results\")")
@@ -90,24 +92,11 @@ def parse_command_line():
   
     
 (options, args) = parse_command_line()
-if options.server:
-  if options.server.find(':') < 0:
-  # no port specified
-    host = options.server 
-    port = 30015
-  else:
-    # server and port specified
-    host, portString = options.server.split(':')
-    port = int(portString)
-
-  # used the standard ldbd server service certificate
-  if not options.identity:
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
     
 # Make sure all necessary command line arguments are properly given
 errmsg = ""
-if not options.server:
-  errmsg += "Error: --server must be specified\n"
+if not options.segment_url:
+  errmsg += "Error: --segment-url must be specified\n"
 if not options.ifos:
   errmsg += "Error: --ifos must be specified\n"
 if not options.name:
@@ -131,22 +120,18 @@ if len(errmsg) and not options.ping:
   print >> sys.stderr, errmsg
   print >> sys.stderr, "Run\n    %s --help\nfor more information." % sys.argv[0]
   sys.exit(1)
-########################################################################
-#                    Open connection to LDBD Server
-########################################################################
-try:
-  myClient = LDBDClient.LDBDClient(host, port, identity)
 
-except Exception, e:
-  print >>sys.stderr, \
-    "Unable to connect to LDBDServer %s:%d" % (host, port)
-  if gsiserverutils.checkCredentials():
-    print >>sys.stderr, "Got the following error : " + str(e)
-    print >>sys.stderr, "Enter '%s --help' for usage" % sys.argv[0]
-  sys.exit(1)
-######################################################################
+
+########################################################################
+# open connection to LDBD(W)Server
+myClient = segmentdb_utils.setup_database(options.segment_url)
+
 if options.ping:
- print myClient.ping()
+   try:
+     print myClient.ping()
+   except Exception, e:
+     print "Error ping --segment-url", str(e)
+     sys.exit(1)
 else:
 ########################################################################
   def dtd_uri_callback(uri):
@@ -170,8 +155,8 @@ else:
   ########################################################################
   # Table process and process_params will be popullated by calling the 
   # process/process_params utility
-
-  myClient = LDBDClient.LDBDClient(host, port, identity)
+  
+  #myClient = segmentdb_utils.setup_database(options.segment_url)
   doc = ligolw.Document()
   doc.appendChild(ligolw.LIGO_LW())
 
@@ -189,7 +174,6 @@ else:
   active_segments = segments.segmentlist()
 
   #-----------------Check version and type existence-------------------------
-  myClient = LDBDClient.LDBDClient(host, port, identity)
   if options.insert:
     sql = "SELECT max(segment_definer.version), count(segment_definer.segment_def_id), " 
     sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
@@ -202,10 +186,10 @@ else:
     sql += "name = '%s' AND " % options.name
     sql += "version = %d " % int(options.version)
   typexml = myClient.query(sql)
-
-
+  
   del myClient
   myClient = None
+
 
   # parse the result returned from the database query
   type_md = ldbd.LIGOMetadata(xmlparser,lwtparser)
@@ -367,8 +351,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
       fp.write(fake_file.getvalue())
       fp.close()
     else:
-      if not myClient:
-        myClient = LDBDClient.LDBDClient(host, port, identity)
+      myClient = segmentdb_utils.setup_database(options.segment_url)
       myClient.insert(fake_file.getvalue())
      
   #######################################################################################
@@ -386,7 +369,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     #-----------------------------------------------------------# 
     # query the database to get the segment_def_id and creator_db 
     # of this given segment type
-    myClient = LDBDClient.LDBDClient(host, port, identity)
+    myClient = segmentdb_utils.setup_database(options.segment_url)
     sql = "SELECT creator_db, hex(segment_def_id) AS segment_def_id "
     sql += "From segment_definer WHERE "
     sql += "ifos = '%s' AND " % options.ifos
@@ -597,8 +580,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
       fp.write(segment_md.xml())
       fp.close()
     else:
-      if not myClient:
-        myClient = LDBDClient.LDBDClient(host, port, identity)
+      myClient = segmentdb_utils.setup_database(options.segment_url)
       myClient.insert(segment_md.xml())
 
 sys.exit(0)

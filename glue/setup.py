@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.28.1"
+ver = "1.29"
 
 def remove_root(path,root):
   if root:
@@ -158,7 +158,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb' ],
+  packages = [ 'glue', 'glue.gracedb', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb' ],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
@@ -222,15 +222,18 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dq_active'),
     os.path.join('bin','ligolw_dq_active_cats'),
+    os.path.join('bin','ligolw_dq_grapher'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
-    os.path.join('bin','segdb_coalesce'), ],
+    os.path.join('bin','segdb_coalesce'),
+    os.path.join('bin', 'ligolw_print_tables') ],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),
+        os.path.join('etc','cbcwebpage.css'),
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
@@ -238,6 +241,7 @@ setup(
         os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw.xsl'),
         os.path.join('etc','ligolw.js'),
+        os.path.join('etc','LDBDWServer.wsgi'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),

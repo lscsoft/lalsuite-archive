@@ -62,7 +62,7 @@ install: build
 #	$(MAKE) DESTDIR=$(CURDIR)/debian/$(PACKAGE) install
 	mkdir -p $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/share/doc/glue
 	set -e; \
-	for v in 2.5 2.4; do                                             \
+	for v in 2.4 2.5; do                                             \
 	        CFLAGS="$(CFLAGS)"                                  \
 		python$$v setup.py build;                                \
 	        CFLAGS="$(CFLAGS)"                                  \
@@ -86,10 +86,11 @@ install: build
 	set -e; \
 	for i in `find debian/$(PACKAGE)/$(PREFIX)/bin -type f`; do      \
 		echo $$i;                                                \
-		if head -n1 $$i | grep -q '^#!.*python$$' ; then         \
-			sed -i '1s/python$$/python2.4/' $$i;             \
+		if head -n1 $$i | grep -q '^#!.*python2\..' ; then         \
+			sed -i '1s/python2\../python/' $$i;             \
 		fi ;                                                     \
 	done
+	cp -p debian/glue-user-env.* $(CURDIR)/debian/$(PACKAGE)/$(PREFIX)/etc/
 
 binary: build install
 	dh_testdir

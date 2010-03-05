@@ -7,8 +7,8 @@ Standards-Version: 3.7.2
 
 Package: python-glue
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, python2.4 (>= 2.4), python-cjson, python-m2crypto
-Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp, python2.5
+Depends: ${shlibs:Depends}, ${misc:Depends}, python (>= 2.4), python-cjson, python-m2crypto
+Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3), pyrxp | python-pyrxp, python2.4, python2.5
 Replaces: glue
 Conflicts: glue
 Description: The Grid LSC User Environment
