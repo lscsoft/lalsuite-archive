@@ -28,6 +28,8 @@ lalburst_pkg_config = PkgConfig("lalburst")
 # FIXME:  works for GCC only!!!
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
+lalmetaio_pkg_config = PkgConfig("lalmetaio")
+lalinspiral_pkg_config = PkgConfig("lalinspiral")
 
 def remove_root(path, root):
 	if root:
@@ -172,10 +174,10 @@ setup(
 		Extension(
 			"pylal.tools",
 			["src/tools.c"],
-			include_dirs = lal_pkg_config.incdirs,
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs,
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalinspiral_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.xlal.datatypes.complex16fftplan",
@@ -261,28 +263,28 @@ setup(
 		Extension(
 			"pylal.xlal.datatypes.siminspiraltable",
 			["src/xlal/datatypes/siminspiraltable.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglinspiraltable",
 			["src/xlal/datatypes/snglinspiraltable.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.snglringdowntable",
 			["src/xlal/datatypes/snglringdowntable.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + ["src/xlal", "src/xlal/datatypes"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -324,10 +326,10 @@ setup(
 		Extension(
 			"pylal.xlal.tools",
 			["src/xlal/tools.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
+			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
+			libraries = lal_pkg_config.libs + lalmetaio_pkg_config.libs + lalinspiral_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalmetaio_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
@@ -351,10 +353,10 @@ setup(
 		Extension(
 			"pylal.spawaveform",
 			["src/spawaveform.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs
+			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
 		)
 	],
 	scripts = [
@@ -405,6 +407,7 @@ setup(
 		os.path.join("bin", "plot_tmpltbank_range"),
 		os.path.join("bin", "pylal_cache_to_mvsc.py"),
 		os.path.join("bin", "pylal_mvsc_player.py"),
+		os.path.join("bin", "pylal_cbc_dq_page"),
 		os.path.join("bin", "mvsc_plots.py"),
 		os.path.join("bin", "mvsc_plot_cuts.py"),
 		os.path.join("bin", "mvsc_htmlwriter.py"),
@@ -446,6 +449,7 @@ setup(
 		os.path.join("bin", "lalapps_remote_cache"),
 		os.path.join("bin", "lalapps_run_sqlite"),
 		os.path.join("bin", "lalapps_string_meas_likelihood"),
+		os.path.join("bin", "lalapps_string_plot_likelihood"),
 		os.path.join("bin", "wscan_background.py"),
 		os.path.join("bin", "wscan_bg_setup_log.py"),
 		os.path.join("bin", "lalapps_stringfinal"),
@@ -504,6 +508,8 @@ setup(
 		os.path.join("bin", "wscanlite_in2p3.sh"),
 		os.path.join("bin", "minifollowups"),
 		os.path.join("bin", "ligolw_cbc_plotcumhist"),
+		os.path.join("bin", "imr_missed_found"),
+		os.path.join("bin", "make_imr_summary_page"),
         os.path.join("bin", "lalapps_cbc_compute_rs"),
         os.path.join("bin", "lalapps_cbc_print_rs"),
         os.path.join("bin", "ligolw_cbc_printsims"),

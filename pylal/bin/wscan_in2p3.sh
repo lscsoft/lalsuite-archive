@@ -52,18 +52,18 @@ if [ -z $testpath ]; then
   export LD_LIBRARY_PATH=$matlabDirectory:$LD_LIBRARY_PATH
 fi
 
-if [ -d $outputDirectory/$eventTime ]; then
+if [ -d $outputDirectory ]; then
   echo ""
-  echo "Directory $outputDirectory/$eventTime exists already."
+  echo "Directory $outputDirectory exists already."
   echo "**********************"
   echo "*** Cleaning it... ***"
   echo "**********************"
-  rm -rf $outputDirectory/$eventTime
+  rm -rf $outputDirectory
 fi
 
 # Execute the wscan
 
-OMEGASCAN="$omegaDirectory/bin/wpipeline scan -r -c $configFile -f $FFLFile -o $outputDirectory/$eventTime $eventTime"
+OMEGASCAN="$omegaDirectory/bin/wpipeline scan -r -c $configFile -f $FFLFile -o $outputDirectory $eventTime"
 
 echo "execute : $OMEGASCAN"
 export LD_LIBRARY_PATH_SAV=${LD_LIBRARY_PATH}
@@ -77,9 +77,9 @@ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH_SAV}
 
 #tempConvert="tmpConvert$QSUB_FILEID.sh"
 
-#for i in `ls -1 $outputDirectory/$eventTime` ; do
+#for i in `ls -1 $outputDirectory` ; do
 #  pngEnd=`echo $i | sed "s/.*.png$/.png/"`
-#  fileName=$outputDirectory/$eventTime/$i
+#  fileName=$outputDirectory/$i
 #  if [ $pngEnd = ".png" ]; then
 #     echo $fileName | awk '{tmp = substr($1,1,length($1)-4);print "convert -resize 300x " $1 "  -strip -depth 8 -colors 256 " tmp"_thumbnail.png" }' >> $tempConvert
 #  fi
@@ -88,8 +88,8 @@ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH_SAV}
 #./$tempConvert; rm $tempConvert
 
 echo "transfer files to web directory"
-#scp -i ~/.ssh/id_rsa -r $outputDirectory/$eventTime $webDirectory/$webSubDirectory
+#scp -i ~/.ssh/id_rsa -r $outputDirectory $webDirectory/$webSubDirectory
 mkdir -p $webDirectory/$webSubDirectory
-cp -r $outputDirectory/$eventTime $webDirectory/$webSubDirectory
+cp -r $outputDirectory $webDirectory/$webSubDirectory
 
 exit 0

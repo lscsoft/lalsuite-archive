@@ -246,11 +246,13 @@ def burca1(options, filenames):
 	if options.coincidence_algorithm == "excesspower":
 		EventListType = ligolw_burca.ExcessPowerEventList
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
+		ntuple_comparefunc = lambda events: False
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
 		CoincDef = ligolw_burca.ExcessPowerBBCoincDef
 	elif options.coincidence_algorithm == "stringcusp":
 		EventListType = ligolw_burca.StringEventList
 		comparefunc = ligolw_burca.StringCoincCompare
+		ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
 		CoincTables = snglcoinc.CoincTables
 		CoincDef = ligolw_burca.StringCuspBBCoincDef
 	else:
@@ -296,7 +298,17 @@ def burca1(options, filenames):
 		# Run coincidence algorithm.
 		#
 
-		ligolw_burca.ligolw_burca(xmldoc, process.process_id, EventListType, CoincTables, CoincDef, comparefunc, options.thresholds, verbose = options.verbose)
+		ligolw_burca.ligolw_burca(
+			xmldoc = xmldoc,
+			process_id = process.process_id,
+			EventListType = EventListType,
+			CoincTables = CoincTables,
+			coinc_definer_row = CoincDef,
+			event_comparefunc = comparefunc,
+			thresholds = options.thresholds,
+			ntuple_comparefunc = ntuple_comparefunc,
+			verbose = options.verbose
+		)
 
 		#
 		# Close out the process table.

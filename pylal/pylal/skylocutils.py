@@ -206,31 +206,47 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
 #
 ##############################################################################
 
-class Rankings(object):
+class Ranking(object):
   """
   class for determining the expected rank (probability) of a value constructed from
   a cumulative histogram of measured values
   this is designed as a template for improved probaility estimators as
   they are developed
   """
-  def __init__(self,dts,dDs):
+  def __init__(self,values,smaller_is_better=True):
     """
     create the cumulative histograms from the values
+    requires the values (measured from some simulation)
+    and boolean (smaller_is_better) which controls whether the
+    histogram is counted from the right (default) or left
     """
     #the basic idea is to keep the dt and dD arrays sorted
     #and reverse-sort the rankings.  this makes interpolation
     #trivial
-    self.dts = dts[:]
-    self.dts.sort()
-    self.dDs = dDs[:]
-    self.dDs.sort()
+    self.vals = values[:]
+    self.vals.sort()
+
+    #self.dts = dts[:]
+    #self.dts.sort()
+    #self.dDs = dDs[:]
+    #self.dDs.sort()
     #reverse sort the rankings
-    tranktemp = range(len(self.dts))
-    tranktemp.sort(reverse=True)
-    self.dtranks = np.asarray(tranktemp,dtype=float)/len(self.dts) 
-    Dranktemp = range(len(self.dDs))
-    Dranktemp.sort(reverse=True)
-    self.dDranks = np.asarray(Dranktemp,dtype=float)/len(self.dDs) 
+    ranktemp = range(len(self.vals))
+    ranktemp.sort(reverse=smaller_is_better)
+    self.rankings = np.asarray(ranktemp,dtype=float)/len(self.vals)
+
+    #tranktemp = range(len(self.dts))
+    #tranktemp.sort(reverse=True)
+    #self.dtranks = np.asarray(tranktemp,dtype=float)/len(self.dts) 
+    #Dranktemp = range(len(self.dDs))
+    #Dranktemp.sort(reverse=True)
+    #self.dDranks = np.asarray(Dranktemp,dtype=float)/len(self.dDs) 
+  
+  def get_rank(self,value):
+    """
+    return the rank of value as obtained via linear interpolation
+    """
+    return np.interp(value,self.vals,self.rankings)
 
   def dt_rank(self,val):
     """
@@ -254,22 +270,26 @@ class SkyPoints(list):
     * a method for sorting those lists
     * a method for writing itself to disk
   """
-  def nsort(self,n):
+  def nsort(self,n,rev=True):
     """
     in place sort of (latitude,longitude,dt,dD...) tuples 
     according to the values in the nth column
     """
-    super(SkyPoints,self).sort(key=operator.itemgetter(n))
+    super(SkyPoints,self).sort(key=operator.itemgetter(n),reverse=rev)
 
-  def write(self,fname,comment=None,gz=True):
+  def write(self,fname,comment=None,debug=False,gz=True):
     """
     write the grid to a text file
     """ 
-    grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt' + '\t' + 'dD' + '\n'
-    self.nsort(3)
     self.nsort(2)
-    for pt in self:
-      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
+    if debug:
+      grid = '#  ra' + '\t' + 'dec' + '\t' + 'ranking' + '\t' + 'dt' + '\t' + 'dD' + '\n'
+      for pt in self:
+        grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\t' + str(pt[4]) + '\n'
+    else:
+      grid = '#  ra' + '\t' + 'dec' + '\t' + 'ranking' + '\n'
+      for pt in self:
+        grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\n'
     if comment:
       grid += '# ' + comment
     if gz:
@@ -305,6 +325,7 @@ class CoincData(object):
     self.longitude_inj = None
     self.mass1_inj = None 
     self.mass2_inj = None
+    self.distance_inj = None
     self.eff_distances_inj = {}
 
   
@@ -330,7 +351,7 @@ class CoincData(object):
     self.mass1 = m1
     self.mass2 = m2
 
-  def set_inj_params(self,lat,lon,m1,m2,effDs):
+  def set_inj_params(self,lat,lon,m1,m2,dist,effDs):
     """
     set all of the injection parameters at once
     """
@@ -338,6 +359,7 @@ class CoincData(object):
     self.longitude_inj = lon
     self.mass1_inj = m1
     self.mass2_inj = m2
+    self.distance_inj = dist
     self.eff_distances_inj = effDs
 
 class Coincidences(list):
@@ -387,8 +409,9 @@ class Coincidences(list):
             effDs_inj[ifo] = row.eff_dist_l
           elif ifo == 'V1':
             effDs_inj[ifo] = row.eff_dist_v
+        dist_inj = row.distance
         coinc.set_inj_params(row.latitude,row.longitude,row.mass1,row.mass2, \
-                             effDs_inj)
+                             dist_inj,effDs_inj)
         coinc.is_injection = True
       #FIXME: name the exception!
       except:
@@ -432,8 +455,9 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_l
           elif ifo == 'V1':
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
+        dist_inj = getattr(ctrig,'sim').distance
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
-                             getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
+                             getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2,dist_inj,effDs_inj)
         coinc.is_injection = True
         #FIXME: name the exception!
       except:
@@ -498,6 +522,7 @@ class SkyLocInjTable(tab.Table):
     "rank_area": "real_4",
     "delta_t_rss": "real_8",
     "delta_D_rss": "real_8",
+    "rank": "real_8",
     "h1_eff_distance": "real_4",
     "l1_eff_distance": "real_4",
     "v1_eff_distance": "real_4",
@@ -571,7 +596,7 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,arank60,arank90,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
+def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area, \
                             dtrss_inj,dDrss_inj):
   """
   record injection data in a skylocinjtable
@@ -580,6 +605,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
 
   row.end_time = coinc.time
   row.set_ifos(coinc.ifo_list)
+  row.rank = rank
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]

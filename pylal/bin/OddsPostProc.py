@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 #from numpy import *
 import scipy
@@ -24,9 +24,12 @@ parser.add_option("--inco1",dest="inco1",action="append",help="single-ifo runs f
 parser.add_option("--inco2",dest="inco2",action="append",help="single-ifo runs for 2th ifo")
 parser.add_option("--inco3",dest="inco3",action="append",help="single-ifo runs for 3th ifo")
 parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
-
+parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
 
 (opts,args)=parser.parse_args()
+
+if opts.eventnum is not None and opts.injfile is None:
+    print "You specified an event number but no injection file. Ignoring!"
 
 def logadd(a,b):
     if(a>b): (a,b)=(b,a)
@@ -249,6 +252,7 @@ print 'Applying parallelised nested sampling algorithm to samples'
 (logZ,H,d_sorted,d_weights)=nestPar(d,Nlive)
 
 d_sorted[:,0]=exp(d_sorted[:,0])
+d_sorted[:,4]=exp(d_sorted[:,4])
 maxL=d_sorted[-1,-1]
 print 'maxL = ' + str(maxL)
 # Maximum likelihood point
@@ -271,13 +275,20 @@ print '||'+out+'||'
 #pos[:,2]=pos[:,2]-means[2]
 injection=None
 # Select injections using tc +/- 0.1s if it exists
-if(opts.injfile):
+if(opts.injfile is not None):
     import itertools
     injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.injfile])
-    if(len(injections)<1):
-	print 'Warning: Cannot find injection with end time %f' %(means[2])
+    if(opts.eventnum is not None):
+	if(len(injections)<opts.eventnum):
+		print "Error: You asked for event %d, but %s contains only %d injections" %(opts.eventnum,opts.opts.injfile,len(injections))
+		sys.exit(1)
+	else:
+		injection=injections[opts.eventnum]
     else:
-    	injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
+        if(len(injections)<1):
+	    print 'Warning: Cannot find injection with end time %f' %(means[2])
+        else:
+    	    injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
 
 def getinjpar(inj,parnum):
     if parnum==0: return inj.mchirp
@@ -445,9 +456,9 @@ htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bi
 if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d_sorted[-1,-1])+'<br>')
 if(incoflag!=0): htmlfile.write('Odds of coherent vs incoherent: '+str(exp(logZ-Zinco))+'<br>')
 if(opts.skyres is not None):
-	htmlfile.write('<table><tr><td>Confidence region</td><td>size (sq. deg)</td>')
+	htmlfile.write('<table border=1><tr><td>Confidence region<td>size (sq. deg)</tr>')
 	for (frac,skysize) in skyreses:
-		htmlfile.write('<tr><td>%f</td>%f</td></tr>'%(frac,skysize))
+		htmlfile.write('<tr><td>%f<td>%f</tr>'%(frac,skysize))
 	htmlfile.write('</table>')
 htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(size(d_sorted,0))+' NS samples using '+str(size(opts.data,0)*Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')

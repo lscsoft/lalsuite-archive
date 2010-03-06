@@ -25,6 +25,7 @@
 
 
 import bisect
+import itertools
 import math
 import sys
 
@@ -32,6 +33,7 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
+from pylal import inject
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools
@@ -334,6 +336,35 @@ def StringCoincCompare(a, b, thresholds):
 	return not coincident
 
 
+# redefine:  new version for S5
+def StringCoincCompare(a, b, thresholds):
+	"""
+	Returns False (a & b are coincident) if their peak times agree
+	within dt, and in the case of H1+H2 pairs if their amplitudes agree
+	according to some kinda test.
+	"""
+	# unpack thresholds
+	# FIXME:  only dt is used now, update codes to remove kappa and
+	# epsilon
+	dt, kappa, epsilon = thresholds
+
+	# test for time coincidence
+	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt + inject.light_travel_time(a.ifo, b.ifo)
+
+	# return result
+	return not coincident
+
+
+def StringNTupleCoincCompare(events):
+	instruments = set(event.ifo for event in events)
+
+	# disallow H1,H2 only coincs
+	coincident = instruments != set(["H1", "H2"])
+
+	# return result
+	return not coincident
+
+
 #
 # =============================================================================
 #
@@ -387,12 +418,8 @@ def ligolw_burca(
 	for n, node in enumerate(time_slide_graph.head):
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
-		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = [sngl_index[id] for id in coinc]
-			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
-		for coinc in node.unused_coincs:
-			ntuple = [sngl_index[id] for id in coinc]
+		for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 
