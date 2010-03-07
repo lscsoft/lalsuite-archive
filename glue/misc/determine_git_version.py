@@ -135,13 +135,20 @@ def write_git_version(fileobj):
   git_committer_email = run_external_command(committer_email_cmd)[1].strip()
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
-  # determine tree status
-  status_cmd = 'git diff-index --quiet HEAD'
-  status_output = run_external_command(status_cmd, honour_ret_code=False)[0]
+  # refresh index
+  retcode = subprocess.call('git update-index -q --refresh', shell=True)
+
+  # check working copy for changes
+  status_output = subprocess.call('git diff-files --quiet', shell=True)
   if status_output != 0:
-    git_status = 'UNCLEAN: Some modifications not committed'
+    git_status = 'UNCLEAN: Modified working tree'
   else:
-    git_status = 'CLEAN: All modifications committed'
+    # check index for changes
+    status_output = subprocess.call('git diff-index --cached --quiet HEAD', shell=True)
+    if status_output != 0:
+      git_status = 'UNCLEAN: Modified index'
+    else:
+      git_status = 'CLEAN: All modifications committed'
 
   # print details in a directly importable form
   print >>fileobj, 'id = "%s"' % git_id
