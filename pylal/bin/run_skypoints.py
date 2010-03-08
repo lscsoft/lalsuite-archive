@@ -9,8 +9,9 @@ __date__ = git_version.date
 import os
 import sys
 import glob
-from optparse import *
 import cPickle
+from optparse import *
+from numpy import zeros
 from pylal import skylocutils
 from glue.ligolw import ligolw, lsctables
 
@@ -162,13 +163,13 @@ fine_area = 0.25
 coarse_area = 16
 
 for coinc in coincs:
+  if len(coinc.ifo_list) < 3:
+    continue
   sp = skylocutils.SkyPoints()
   
   #for gathering information about area on the sky
-  dt90_area = 0.0
-  dt60_area = 0.0
-  r90_area = 0.0
-  r60_area = 0.0
+  dt_areas = zeros(9)
+  r_areas = zeros(9)
 
   #compute combined snr if snr dependent thresholds are specified
   if opts.snr_threshold:
@@ -186,33 +187,63 @@ for coinc in coincs:
     #use timing alone to determine if we should move to the fine grid
     dtrss_coarse = skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
     coarse_rank = dtr.get_rank(dtrss_coarse*snrfac)
-    if coarse_rank >= 0.05:
+    #if we don't hit the 91% threshold then don't bother
+    if coarse_rank >= 0.09:
       
-      #loop over points on the fine grid
+      #loop over points on the fine grid 
       for fine_pt in grid[coarse_pt]:
         dtrss_fine = skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
         dtrank = dtr.get_rank(dtrss_fine*snrfac)
         dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
         dDrank = dDr.get_rank(dDrss_fine)
-        ranking = dtrank*dDrank
+        ranking = dtdDr.get_rank(dtrank*dDrank)
         sp.append((fine_pt[0],fine_pt[1],ranking,dtrss_fine*snrfac,dDrss_fine,fine_area))
         #compute relevant areas
-        #note that 1-rank is the percantage of injections with the same or lower rss
-        if 0.1 <= dtrank < 0.4:
-          dt90_area += fine_area
-        elif dtrank >= 0.4:
-          dt90_area += fine_area
-          dt60_area += fine_area
-        if 0.1 <= ranking < 0.4:
-          r90_area += fine_area
-        elif ranking >=0.4:
-          r90_area += fine_area
-          r60_area += fine_area
+        #note that 1-rank is the percentage of injections with the same or lower rss
+        if dtrank >= 0.9:
+          dt_areas[8] += fine_area
+        if dtrank >= 0.8:
+          dt_areas[7] += fine_area
+        if dtrank >= 0.7:
+          dt_areas[6] += fine_area
+        if dtrank >= 0.6:
+          dt_areas[5] += fine_area
+        if dtrank >= 0.5:
+          dt_areas[4] += fine_area
+        if dtrank >= 0.4:
+          dt_areas[3] += fine_area
+        if dtrank >= 0.3:
+          dt_areas[2] += fine_area
+        if dtrank >= 0.2:
+          dt_areas[1] += fine_area
+        if dtrank >= 0.1:
+          dt_areas[0] += fine_area
+
+        if ranking >= 0.9:
+          r_areas[8] += fine_area
+        if ranking >= 0.8:
+          r_areas[7] += fine_area
+        if ranking >= 0.7:
+          r_areas[6] += fine_area
+        if ranking >= 0.6:
+          r_areas[5] += fine_area
+        if ranking >= 0.5:
+          r_areas[4] += fine_area
+        if ranking >= 0.4:
+          r_areas[3] += fine_area
+        if ranking >= 0.3:
+          r_areas[2] += fine_area
+        if ranking >= 0.2:
+          r_areas[1] += fine_area
+        if ranking >= 0.1:
+          r_areas[0] += fine_area
+
 
         #FIXME: put galaxy catalog stuff here!!!
      
     else:
-      sp.append((coarse_pt[0],coarse_pt[1],None,coarse_rank,dtrss_coarse*snrfac,None,coarse_area))
+      #we assign a ranking of 0.0 to everything not within the 91% threshold
+      sp.append((coarse_pt[0],coarse_pt[1],0.0,dtrss_coarse*snrfac,0.0,coarse_area))
   
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
@@ -222,37 +253,21 @@ for coinc in coincs:
   #populate the output tables
   #list of points has been sorted so the best one is at the top
   #FIXME: replace None with a link to the skymap file name!!!
-  skylocutils.populate_SkyLocTable(skyloctable,coinc,dt60_area,dt90_area,r60_area,\
-                       r90_area,sp[0],grid_file,None)
+  skylocutils.populate_SkyLocTable(skyloctable,coinc,dt_areas,r_areas,sp[0],grid_file,None)
   if coinc.is_injection:
     #NB: using the *recovered* snr for the snr dependent threshold
     inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
-    #compute combined snr if snr dependent thresholds are specified
-    if opts.snr_threshold:
-      rhosquared = 0.0
-      for ifo in coinc.ifo_list:
-        rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
-      snrfac = sqrt(rhosquared)/10.0
-    else:
-      #otherwise just multiply by unity
-      snrfac = 1.0
-    
     dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
     dtrank_inj = dtr.get_rank(dtrss_inj*snrfac)
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
-    rank_inj = dtrank_inj*dDrank_inj
+    rank_inj = dtdDr.get_rank(dtrank_inj*dDrank_inj)
     dt_area = 0.0
     rank_area = 0.0
     for pt in sp:
-      if pt[2] == None:
-        pass
-      elif pt[3] <= dtrss_inj:
+      if pt[3] <= dtrss_inj:
         dt_area += pt[5]
-      #FIXME: utlimately the next line is the place where we compute area according to rank
-      if pt[2] == None:
-        pass
-      elif pt[2] >= rank_inj:
+      if pt[2] >= rank_inj:
         rank_area += pt[5]
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
                                         dtrss_inj,dDrss_inj)

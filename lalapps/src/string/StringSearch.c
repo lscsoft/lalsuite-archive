@@ -68,9 +68,10 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataBurstUtils.h>
 
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLBurstRead.h>
 
 #include <lal/FrequencySeries.h>
 #include <lal/TimeSeries.h>
@@ -99,6 +100,7 @@ extern int optind, opterr, optopt;
 NRCSID( STRINGSEARCHC, "StringSearch $Id$");
 RCSID( "StringSearch $Id$");
 
+/* FIXME:  should be "lalapps_StringSearch" to match the executable */
 #define PROGRAM_NAME "StringSearch"
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"

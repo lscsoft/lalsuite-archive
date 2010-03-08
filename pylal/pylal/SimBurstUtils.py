@@ -73,12 +73,12 @@ def injection_was_made(sim, seglists, instruments):
 	return True
 
 
-def create_sim_burst_best_string_sngl_view(connection, coinc_def_id):
+def create_sim_burst_best_string_sngl_map(connection, coinc_def_id):
 	"""
 	Construct a sim_burst --> best matching coinc_event mapping.
 	"""
 	connection.cursor().execute("""
-CREATE TEMPORARY VIEW
+CREATE TEMPORARY TABLE
 	sim_burst_best_string_sngl_map
 AS
 	SELECT
@@ -109,14 +109,53 @@ AS
 	FROM
 		sim_burst
 	WHERE
-		EXISTS event_id
+		event_id IS NOT NULL
+	""", (coinc_def_id,))
+
+
+def create_sim_burst_best_string_coinc_map(connection, coinc_def_id):
+	"""
+	Construct a sim_burst --> best matching coinc_event mapping for
+	string cusp injections and coincs.
+	"""
+	# FIXME:  this hasn't finished being ported from the inspiral code
+	connection.cursor().execute("""
+CREATE TEMPORARY TABLE
+	sim_burst_best_string_coinc_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		(
+			SELECT
+				coinc_inspiral.coinc_event_id
+			FROM
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_inspiral ON (
+					b.table_name == 'coinc_event'
+					AND b.event_id == coinc_inspiral.coinc_event_id
+				)
+			WHERE
+				a.table_name == 'sim_burst'
+				AND a.event_id == sim_burst.simulation_id
+				AND coinc_event.coinc_def_id == ?
+			ORDER BY
+				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
+			LIMIT 1
+		) AS coinc_event_id
+	FROM
+		sim_burst
+	WHERE
+		coinc_event_id IS NOT NULL
 	""", (coinc_def_id,))
 
 
 #
 # =============================================================================
 #
-#                            h_{rss} in Instrument
+#                           Amplitudes in Instrument
 #
 # =============================================================================
 #
@@ -172,6 +211,29 @@ def hrss_in_instrument(sim, instrument):
 	return math.sqrt((fplus * hplusrss)**2 + (fcross * hcrossrss)**2)
 
 
+def string_amplitude_in_instrument(sim, instrument):
+	"""
+	Given a string cusp injection and an instrument, compute and return
+	the amplitude of the injection as should be observed in the
+	instrument.
+	"""
+	assert sim.waveform == "StringCusp"
+
+	# antenna response factors
+
+	fplus, fcross = inject.XLALComputeDetAMResponse(
+		inject.cached_detector[inject.prefix_to_name[instrument]].response,
+		sim.ra,
+		sim.dec,
+		sim.psi,
+		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument))
+	)
+
+	# amplitude in detector
+
+	return fplus * sim.amplitude
+
+
 #
 # =============================================================================
 #
@@ -181,7 +243,7 @@ def hrss_in_instrument(sim, instrument):
 #
 
 
-burst_is_near_injection_window = 2.0
+burst_is_near_injection_window = 2.0	# seconds
 
 
 def burst_is_near_injection(sim, start, start_ns, duration, instrument):
