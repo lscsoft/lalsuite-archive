@@ -727,6 +727,7 @@ def new_coinc_plots(instruments, amplitude_func, amplitude_lbl, plots):
 options, filenames = parse_command_line()
 if not options.plot and not options.coinc_plot or not filenames:
 	print >>sys.stderr, "Nothing to do!"
+	sys.exit(0)
 
 
 #
