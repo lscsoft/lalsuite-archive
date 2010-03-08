@@ -170,12 +170,12 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
 		"L1_V1_dt": dt_binning("L1", "V1"),
-		"H1_H2_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H1_L1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H1_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H2_L1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H2_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),))
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),))
 	}
 
 	filters = {
