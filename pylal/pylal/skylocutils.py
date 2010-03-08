@@ -227,9 +227,10 @@ class Ranking(object):
     self.vals.sort()
 
     #reverse sort the rankings
-    ranktemp = range(len(self.vals))
-    ranktemp.sort(reverse=smaller_is_better)
-    self.rankings = asarray(ranktemp,dtype=float)/len(self.vals)
+    ranktemp = linspace(0,1,len(self.vals),endpoint=False)
+    if smaller_is_better:
+      ranktemp = ranktemp[::-1]
+    self.rankings = ranktemp
   
   def get_rank(self,value):
     """
