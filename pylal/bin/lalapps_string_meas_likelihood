@@ -132,7 +132,7 @@ def coinc_params_func(events, offsetdict):
 		dt = float((event1.get_peak() + offsetdict[event1.ifo]) - (event2.get_peak() + offsetdict[event2.ifo]))
 		params["%sdt" % prefix] = (dt,)
 
-		dA = math.log(abs(event1.amplitude) / abs(event2.amplitude))
+		dA = math.log10(abs(event1.amplitude / event2.amplitude))
 		params["%sdA" % prefix] = (dA,)
 
 	#
@@ -170,12 +170,12 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
 		"L1_V1_dt": dt_binning("L1", "V1"),
-		"H1_H2_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H1_L1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H1_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H2_L1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"H2_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-3, +3, 12001),))
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),))
 	}
 
 	filters = {
