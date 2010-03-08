@@ -153,7 +153,7 @@ LALFindChirpTDTemplate (
     case PadeT1:
     case EOB:
     case EOBNR:
-    case FindChirpPTF;
+    case FindChirpPTF:
       break;
 
     default:
