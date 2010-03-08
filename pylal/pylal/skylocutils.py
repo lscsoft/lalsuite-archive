@@ -10,7 +10,7 @@ import sys
 import os
 import operator
 from math import sqrt, sin, cos
-from numpy import pi, asarray, interp
+from numpy import pi, linspace, interp
 import gzip 
 
 from pylal import date
