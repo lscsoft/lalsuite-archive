@@ -450,6 +450,7 @@ setup(
 		os.path.join("bin", "lalapps_run_sqlite"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "lalapps_string_meas_likelihood"),
+		os.path.join("bin", "lalapps_string_plot_binj"),
 		os.path.join("bin", "lalapps_string_plot_likelihood"),
 		os.path.join("bin", "wscan_background.py"),
 		os.path.join("bin", "wscan_bg_setup_log.py"),
