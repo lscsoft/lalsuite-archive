@@ -113,7 +113,7 @@ def clip_binned_array_2d(binnedarray, xlim, ylim):
 	return xcoords[imin:imax], ycoords[jmin:jmax], binnedarray.array[imin:imax,jmin:jmax]
 
 
-def snr2_chi2_plot(title, background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data, ncontours = 9):
+def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data, ncontours = 9):
 	fig = figure.Figure(figsize=(3, 3))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.15, .15, .95 - .15, .90 - .15))
@@ -123,37 +123,41 @@ def snr2_chi2_plot(title, background_xcoords, background_ycoords, background_dat
 	cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log(injections_data), ncontours, cmap = cm.Reds)
 	#cbar = fig.add_axes((.75,.15,.1,.75))
 	#colorbar.Colorbar(cbar, cset)
-	axes.set_title(title)
+	axes.set_title(key)
 	axes.set_ylabel(r"$\chi^{2} / \mathrm{DOF}$")
 	axes.set_xlabel(r"$\rho^{2}$")
 	return fig
 
 
-def dA_plot(title, background_coords, background_data, injections_coords, injections_data):
+def dA_plot(key, background_coords, background_data, injections_coords, injections_data):
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
 
-	axes.semilogy(background_coords, background_data, "k-")
-	axes.semilogy(injections_coords, injections_data, "r-")
+	if numpy.any(background_data):
+		axes.semilogy(background_coords, background_data, "k-")
+	if numpy.any(injections_data):
+		axes.semilogy(injections_coords, injections_data, "r-")
 
-	instrument1, instrument2 = title.split("-")[:2]
-	axes.set_title(title)
+	instrument1, instrument2 = key.split("-")[:2]
+	axes.set_title(key)
 	axes.set_ylabel("Probability Density")
 	axes.set_xlabel(r"$\log_{10} \left|A_{\mathrm{%s}} / A_{\mathrm{%s}}\right|$" % (instrument1, instrument2))
 	return fig
 
 
-def dt_plot(title, background_coords, background_data, injections_coords, injections_data):
+def dt_plot(key, background_coords, background_data, injections_coords, injections_data):
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
 
-	axes.semilogy(background_coords, background_data, "k-")
-	axes.semilogy(injections_coords, injections_data, "r-")
+	if numpy.any(background_data):
+		axes.semilogy(background_coords, background_data, "k-")
+	if numpy.any(injections_data):
+		axes.semilogy(injections_coords, injections_data, "r-")
 
-	instrument1, instrument2 = title.split("-")[:2]
-	axes.set_title(title)
+	instrument1, instrument2 = key.split("-")[:2]
+	axes.set_title(key)
 	axes.set_ylabel("Probability Density")
 	axes.set_xlabel(r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % (instrument1, instrument2))
 	return fig
@@ -210,8 +214,8 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 		outname = "%s.png" % name
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
-		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-4, +4))
-		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-4, +4))
+		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))
+		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
 		fig = dA_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % outname
