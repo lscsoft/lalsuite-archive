@@ -10,7 +10,7 @@ import sys
 import os
 import operator
 from math import sqrt, sin, cos
-import numpy as np
+from numpy import pi, asarray, interp
 import gzip 
 
 from pylal import date
@@ -30,7 +30,7 @@ from glue.ligolw import utils, table as tab, lsctables
 #
 ##############################################################################
 
-pi = np.pi
+pi = pi
 
 #set the detector locations
 detector_locations = {}
@@ -221,46 +221,22 @@ class Ranking(object):
     histogram is counted from the right (default) or left
     """
     #the basic idea is to keep the dt and dD arrays sorted
-    #and reverse-sort the rankings.  this makes interpolation
-    #trivial
+    #and reverse-sort the rankings if necessary.  
+    #this makes interpolation trivial
     self.vals = values[:]
     self.vals.sort()
 
-    #self.dts = dts[:]
-    #self.dts.sort()
-    #self.dDs = dDs[:]
-    #self.dDs.sort()
     #reverse sort the rankings
     ranktemp = range(len(self.vals))
     ranktemp.sort(reverse=smaller_is_better)
-    self.rankings = np.asarray(ranktemp,dtype=float)/len(self.vals)
-
-    #tranktemp = range(len(self.dts))
-    #tranktemp.sort(reverse=True)
-    #self.dtranks = np.asarray(tranktemp,dtype=float)/len(self.dts) 
-    #Dranktemp = range(len(self.dDs))
-    #Dranktemp.sort(reverse=True)
-    #self.dDranks = np.asarray(Dranktemp,dtype=float)/len(self.dDs) 
+    self.rankings = asarray(ranktemp,dtype=float)/len(self.vals)
   
   def get_rank(self,value):
     """
     return the rank of value as obtained via linear interpolation
     """
-    return np.interp(value,self.vals,self.rankings)
+    return interp(value,self.vals,self.rankings)
 
-  def dt_rank(self,val):
-    """
-    return the rank of val as obtained via 
-    linear interpolation
-    """
-    return np.interp(val,self.dts,self.dtranks)
-
-  def dD_rank(self,val):
-    """
-    return the rank of val as obtained via 
-    linear interpolation
-    """
-    return np.interp(val,self.dDs,self.dDranks)
 
 class SkyPoints(list):
   """
@@ -479,10 +455,24 @@ class SkyLocTable(tab.Table):
     "ifos": "lstring",
     "ra": "real_4",
     "dec": "real_4",
-    "a60dt": "real_4",
-    "a90dt": "real_4",
-    "a60rank": "real_4",
-    "a90rank": "real_4",
+    "dt10": "real_4",
+    "dt20": "real_4",
+    "dt30": "real_4",
+    "dt40": "real_4",
+    "dt50": "real_4",
+    "dt60": "real_4",
+    "dt70": "real_4",
+    "dt80": "real_4",
+    "dt90": "real_4",
+    "P10": "real_4",
+    "P20": "real_4",
+    "P30": "real_4",
+    "P40": "real_4",
+    "P50": "real_4",
+    "P60": "real_4",
+    "P70": "real_4",
+    "P80": "real_4",
+    "P90": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -569,7 +559,7 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
-def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,arank60,arank90,\
+def populate_SkyLocTable(skyloctable,coinc,dt_areas,P_areas,\
                          pt,grid_fname,skymap_fname=None):
   """
   populate a row in a skyloctable
@@ -583,10 +573,24 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,arank60,arank90,\
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
   row.comb_snr = sqrt(rhosquared)
   row.dec,row.ra  = pt[0],pt[1]
-  row.a60dt = adt60
-  row.a90dt = adt90
-  row.a60rank = arank60
-  row.a90rank = arank90
+  row.dt90 = dt_areas[8]
+  row.dt80 = dt_areas[7]
+  row.dt70 = dt_areas[6]
+  row.dt60 = dt_areas[5]
+  row.dt50 = dt_areas[4]
+  row.dt40 = dt_areas[3]
+  row.dt30 = dt_areas[2]
+  row.dt20 = dt_areas[1]
+  row.dt10 = dt_areas[0]
+  row.P90 = P_areas[8]
+  row.P80 = P_areas[7]
+  row.P70 = P_areas[6]
+  row.P60 = P_areas[5]
+  row.P50 = P_areas[4]
+  row.P40 = P_areas[3]
+  row.P30 = P_areas[2]
+  row.P20 = P_areas[1]
+  row.P10 = P_areas[0]
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
