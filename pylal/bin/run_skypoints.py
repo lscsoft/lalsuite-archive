@@ -265,7 +265,7 @@ for coinc in coincs:
     dt_area = 0.0
     rank_area = 0.0
     for pt in sp:
-      if pt[3] <= dtrss_inj and pt[3] != 0.0:
+      if pt[3] <= dtrss_inj:
         dt_area += pt[5]
       if pt[2] >= rank_inj:
         rank_area += pt[5]
