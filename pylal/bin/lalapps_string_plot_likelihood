@@ -113,7 +113,7 @@ def clip_binned_array_2d(binnedarray, xlim, ylim):
 	return xcoords[imin:imax], ycoords[jmin:jmax], binnedarray.array[imin:imax,jmin:jmax]
 
 
-def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data, ncontours = 9):
+def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data, injections_xcoords, injections_ycoords, injections_data, ncontours = 49):
 	fig = figure.Figure(figsize=(3, 3))
 	FigureCanvas(fig)
 	axes = fig.add_axes((.15, .15, .95 - .15, .90 - .15))
@@ -196,7 +196,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [10, 1e4], [.01, 1e4])
 		injections_xcoords, injections_ycoords, injections_data = clip_binned_array_2d(injections_binnedarray, [10, 1e4], [.01, 1e4])
 		zero_lag_xcoords, zero_lag_ycoords, injections_data = clip_binned_array_2d(zero_lag_binnedarray, [10, 1e4], [.01, 1e4])
-		fig = snr2_chi2_plot("%s" % name.replace("_", "-"), background_xcoords, background_ycoords, numpy.transpose(background_data), injections_xcoords, injections_ycoords, numpy.transpose(injections_data), ncontours = 49)
+		fig = snr2_chi2_plot("%s" % name.replace("_", "-"), background_xcoords, background_ycoords, numpy.transpose(background_data), injections_xcoords, injections_ycoords, numpy.transpose(injections_data))
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % outname
 		fig.savefig(outname)
