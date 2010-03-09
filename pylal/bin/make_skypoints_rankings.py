@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import git_version
+from pylal import git_version
 
 __author__ = "Larry Price <larry.price@ligo.org>"
 __version__ = "git id %s" % git_version.id
