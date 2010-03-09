@@ -143,9 +143,12 @@ def get_unique_filename(name):
 ##############################################################################
 
 #open up the pickled grids
-skygrids = open(opts.grids,'r')
-grid = cPickle.load(skygrids)
-skygrids.close()
+gridfile = open(opts.grids,'r')
+griddata = cPickle.load(gridfile)
+grid = griddata['grids']
+coarse_res = griddata['coarse_res']
+fine_res = griddata['fine_res']
+gridfile.close()
 
 #open up the pickled rankings
 rankfile = open(opts.ranks,'r')
@@ -158,9 +161,8 @@ dtdDr = rankings['dtdD']
 
 #the area of each pixel on the fine grid in square degrees
 #this gets recorded for each point and makes computing areas simple
-#FIXME: record this information in the grid pickles!
-fine_area = 0.25
-coarse_area = 16
+fine_area = fine_res*fine_res
+coarse_area = coarse_res*coarse_res
 
 for coinc in coincs:
   if len(coinc.ifo_list) < 3:
