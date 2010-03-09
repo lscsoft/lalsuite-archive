@@ -28,7 +28,7 @@ imgtab = cbcwebpage.image_glob(base_name+"*1*2.png")
 page.subpages["injections"].sections["injected"].add_table(imgtab,"injected spin and mass","injected spin and mass")
 
 page.subpages["injections"].add_section("mass", "total mass missed found")
-imgtab = cbcwebpage.image_glob(base_name+"*mass.png")
+imgtab = cbcwebpage.image_glob(base_name+"*_mass.png")
 page.subpages["injections"].sections["mass"].add_table(imgtab,"total mass missed found", "total mass missed found")
 
 page.subpages["injections"].add_section("chirpmass", "chirp mass missed found")
