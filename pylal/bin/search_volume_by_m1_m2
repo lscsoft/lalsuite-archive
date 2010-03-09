@@ -92,7 +92,6 @@ class upper_limit(object):
       if not sim:
           self.instruments = self.get_instruments(connection)
           self.segments += self.get_segments(connection, xmldoc)
-          self.veto_segments = self.get_veto_segments(connection)
           self.get_far_thresholds(connection)
       else:
         self.get_mass_ranges(connection)
@@ -104,8 +103,6 @@ class upper_limit(object):
 
     # remove redundant instruments
     self.instruments = list(set(self.instruments))
-    # FIXME Do these have to be done by instruments?
-    self.segments -= self.veto_segments
 
     # compute far, segments and livetime by instruments
     for i in self.instruments:
@@ -131,6 +128,7 @@ class upper_limit(object):
     if self.multi_burst_table:
       if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
       if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+    segs -= get_veto_segments(connection)
     return segs
 
   def get_veto_segments(self, connection):
@@ -302,8 +300,6 @@ class upper_limit(object):
 
       # WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
       segments = self.get_segments(connection, xmldoc)
-      # FIXME ONLY ONE SET OF VETO SEGMENTS
-      segments -= self.veto_segments
       zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
       ###############
       if zero_lag_segments:
