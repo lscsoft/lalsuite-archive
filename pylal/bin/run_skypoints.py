@@ -11,6 +11,7 @@ import sys
 import glob
 import cPickle
 from optparse import *
+from math import sqrt
 from numpy import zeros
 from pylal import skylocutils
 from glue.ligolw import ligolw, lsctables
