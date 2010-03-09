@@ -123,6 +123,7 @@ class Summary(object):
 		verbose = self.opts.verbose
 		found = []
 		missed = []
+		sims = []
 		print >>sys.stderr, ""
 		for cnt, f in enumerate(injfnames):
 			print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
@@ -156,7 +157,7 @@ class Summary(object):
 
 			connection.create_function("injection_was_made", 2, injection_was_made)
 			make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
-
+			sims.extend(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName))
 			# INSPIRAL
 			if self.coinc_inspiral_table:
 				for values in connection.cursor().execute("""
@@ -231,7 +232,7 @@ WHERE
 			dbtables.DBTable_set_connection(None)
 
 			print >>sys.stderr, "\nFound = %d Missed = %d" % (len(found), len(missed))
-		return found, missed
+		return found, missed, sims
 
 	def set_instruments_to_calculate(self):
 		if not self.opts.instruments: return self.instruments
@@ -297,7 +298,24 @@ def finalspin(m1, m2, s1z, s2z):
 #Missed-Found plots
 fignum = 0
 for instruments in summ.set_instruments_to_calculate():
-    found, missed = summ.get_injections(instruments)
+    found, missed, sims = summ.get_injections(instruments)
+
+    fignum = fignum + 1
+    pylab.figure(fignum)
+    pylab.plot([s.mass1 for s in sims], [s.mass2 for s in sims],'.')
+    pylab.xlabel('Injected Mass One ($M_\odot$)')
+    pylab.ylabel('Injected Mass Two ($M_\odot$)')
+    pylab.title('Injected Mass One Vs Mass Two')
+    pylab.savefig('mass1_mass2.png')
+
+    fignum = fignum + 1
+    pylab.figure(fignum)
+    pylab.plot([s.spin1z for s in sims], [s.spin2z for s in sims],'.')
+    pylab.xlabel('Injected Spin One z')
+    pylab.ylabel('Injected Spin Two z')
+    pylab.title('Injected Spin One Vs Spin Two')
+    pylab.savefig('spin1_spin2.png')
+
     fignum = fignum + 1
     pylab.figure(fignum)
     pylab.semilogy([f.mchirp for f in found], [f.eff_dist_l for f in found],'.')
