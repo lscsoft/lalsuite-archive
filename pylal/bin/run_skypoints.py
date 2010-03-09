@@ -130,11 +130,11 @@ def get_unique_filename(name):
   """
   counter = 1
   base_name, ext = os.path.splitext(name)
-  while os.path.isfile(base_name):
-    base_name = base_name + '_' + str(counter) + ext
+  while os.path.isfile(name):
+    name = base_name + '_' + str(counter) + ext
     counter += 1
 
-  return base_name + ext
+  return name
 
 ##############################################################################
 #
