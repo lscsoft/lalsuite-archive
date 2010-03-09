@@ -1495,11 +1495,7 @@ class CoincRingdownTable(table.Table):
 		"snr": "real_8",
 		"false_alarm_rate": "real_8"
 	}
-	# FIXME:  like some other tables here, this table should have the
-	# constraint that the coinc_event_id column is a primary key.  this
-	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
-	# the constraint is being replaced with an index.
-	#constraints = "PRIMARY KEY (coinc_event_id)"
+	constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
 		"cr_cei_index": ("coinc_event_id",)
 	}
