@@ -48,12 +48,6 @@ def parse_command_line():
 #      default=False, help="make a color coded plot of the sky" )
   parser.add_option("-u","--galaxy-priors-dir",action="store",type="string",\
       default=None, metavar=" PRIDIR", help="path to a directory containg pickles for using galaxy catalog priors (generated with make_skypoints_galaxy_priors.py)")
-  #FIXME: move these options to the ranking pickle to simplify things
-  parser.add_option("-f","--reference-frequency",action="store",type="float", default=0.0, metavar=" REFERENCE_FREQUENCY", \
-    help="reference frequency for signal timing" )
-  parser.add_option("-s","--snr-threshold",action="store_true",\
-    default=False, help="use an snr-dependent quantity for the timing ranking" )
-  #END FIXME
   parser.add_option("-o","--output-prefix",action="store",type="string",default='',\
                     help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
@@ -94,12 +88,6 @@ else:
   sys.exit(1)
 #put the files into the coinc data structure
 coincs = skylocutils.Coincidences(files,opts.input_type)
-
-#set the reference frequency if requested
-if opts.reference_frequency:
-  ref_freq = opts.reference_frequency
-else:
-  ref_freq = None
 
 #setup the output xml tables
 xmldoc = ligolw.Document()
@@ -160,7 +148,12 @@ rankfile.close()
 dtr = rankings['dt']
 dDr = rankings['dD']
 dtdDr = rankings['dtdD']
+ref_freq = rankings['ref_freq']
+snr_threshold = rankings['snr_threshold']
 
+#add reference frequency and snr threshold arguments to metadata
+argstring += ' --reference-frequency='+str(ref_freq)+\
+             ' --snr-threshold='+str(snr_threshold)
 
 #the area of each pixel on the fine grid in square degrees
 #this gets recorded for each point and makes computing areas simple
@@ -177,7 +170,7 @@ for coinc in coincs:
   r_areas = zeros(9)
 
   #compute combined snr if snr dependent thresholds are specified
-  if opts.snr_threshold:
+  if snr_threshold:
     rhosquared = 0.0
     for ifo in coinc.ifo_list:
       rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
@@ -262,15 +255,15 @@ for coinc in coincs:
   if coinc.is_injection:
     #NB: using the *recovered* snr for the snr dependent threshold
     inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
-    dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
-    dtrank_inj = dtr.get_rank(dtrss_inj*snrfac)
+    dtrss_inj = snrfac*skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
+    dtrank_inj = dtr.get_rank(dtrss_inj)
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
     rank_inj = dtdDr.get_rank(dtrank_inj*dDrank_inj)
     dt_area = 0.0
     rank_area = 0.0
     for pt in sp:
-      if pt[3] <= dtrss_inj:
+      if pt[2] >= 0.0 and pt[3] <= dtrss_inj:
         dt_area += pt[5]
       if pt[2] >= rank_inj:
         rank_area += pt[5]
