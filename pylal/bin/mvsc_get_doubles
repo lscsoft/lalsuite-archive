@@ -114,7 +114,12 @@ for database in databases:
 			snglA.rsqveto_duration,
 			snglB.rsqveto_duration,
 			snglA.bank_chisq,
-			snglB.bank_chisq
+			snglB.bank_chisq,
+			coinc_inspiral.snr,
+			CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
+				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
+				WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
+				ELSE 1.0 END
 		FROM
 			coinc_inspiral 
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
@@ -176,7 +181,7 @@ for database in databases:
 				out = abs(trigger1_true_end_time - trigger2_true_end_time)
 				return float(out)
 			except:
-				print >> sys.stderr,  "calc delta t failed because one of the trigger's true end times landed on the upper boundary of the thinca ring. See: trigger 1: ", trigger1_true_end_time, "trigger 2: ", trigger2_true_end_time, "ring: ", ring
+				print >> sys.stderr, "calc delta t failed because one of the trigger's true end times landed on the upper boundary of the thinca ring. See: trigger 1: ", trigger1_true_end_time, "trigger 2: ", trigger2_true_end_time, "ring: ", ring
 				out = float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
 				if out > 0.5:
 					out = 1.0 - out
@@ -208,6 +213,7 @@ for database in databases:
 			snglB.rsqveto_duration,
 			snglA.bank_chisq,
 			snglB.bank_chisq,
+			coinc_inspiral.snr,
 			EXISTS (
 				SELECT
 					*
@@ -236,10 +242,10 @@ for database in databases:
 				is_background = values[-1]
 				values = values[:-1]
 				if is_background:
-					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (0,))
+					timeslides.append((calc_ethinca_ts(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:] + (1,) + (0,))
 					timeslides_info.append([values[0], database])
 				else:
-					zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (0,))
+					zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+2:] + (1,) + (0,))
 					zerolag_info.append([values[0], database])
 		
 		dbtables.put_connection_filename(database, working_filename, verbose = True)
@@ -260,12 +266,12 @@ zlstr = opts.zerolagstr
 
 
 if len(injections) != 0:	
-	Nparams = len(injections[0]) - 1
+	Nparams = len(injections[0]) - 2
 
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq \n")
+		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq coinc_inspiral_snr \n")
 		return f
 	
 	for i in range(Nrounds):
@@ -303,7 +309,7 @@ if len(injections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq \n")
+	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq coinc_inspiral_snr \n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')

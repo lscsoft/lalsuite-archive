@@ -116,7 +116,7 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.trainingfile.replace('_training.pat','.spr')
     #print self.trainedforest
 #FIXME to make this changable by the user
-    self.add_file_arg("-a 1 -n 100 -l 4 -s 4 - c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
+    self.add_file_arg("-a 4 -n 100 -l 4 -s 4 -c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
     for p in p_node:
       self.add_parent(p)
@@ -151,7 +151,7 @@ class use_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = self.file_to_rank.replace('.pat','.dat')
-    self.add_file_arg("-A -a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+    self.add_file_arg("-A -a 4 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     self.add_output_file(self.ranked_file)
 # I need to figure out how to parse these options
     for p in p_node:
