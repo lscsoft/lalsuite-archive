@@ -106,6 +106,9 @@ class upper_limit(object):
 
     # compute far, segments and livetime by instruments
     for i in self.instruments:
+      self.far.setdefault(i,[])
+      #FIXME how do I handle no fars?  inf causes things to bust later
+      if not self.far[i]: self.far[i].append(1e20)
       if not opts.far: self.far[i] = min(self.far[i])
       else: self.far[i] = float(opts.far)
       # FIXME this bombs if any of the FARS are zero. maybe it should continue
@@ -191,6 +194,7 @@ class upper_limit(object):
 
     # if we don't have any segments move on
     if not self.segments:
+      print "no segments"
       return
 
     query = 'CREATE TEMPORARY TABLE distinct_instruments AS SELECT DISTINCT(instruments) as instruments FROM coinc_event;'
@@ -204,11 +208,12 @@ class upper_limit(object):
 
     create_is_playground_func(connection)
 
-    if self.coinc_inspiral_table: query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
-    else: query = None
-
-    if self.multi_burst_table: query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
-    else: query = None
+    if self.coinc_inspiral_table:
+	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
+    elif self.multi_burst_table:
+	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
+    else:
+	query = None
 
     if query:
       for inst, far in connection.cursor().execute(query):

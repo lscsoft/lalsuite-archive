@@ -241,6 +241,8 @@ if opts.verbose:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 #

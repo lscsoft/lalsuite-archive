@@ -36,7 +36,7 @@ database containing lsctables.
 #
 # =============================================================================
 
-# Following utilities can be used with any coinc_table
+# Following utilities are generic sqlite utilities and can be used with any table 
 
 def concatenate( *args ):
     """
@@ -169,7 +169,7 @@ class parse_param_ranges:
         table_param = table_param.strip()
 
         # append table_name if it isn't already in the table_param name
-        if re.search( table_name+r'[.]', table_param ) is None:
+        if table_param.find( table_name+'.' ) == -1:
             table_param = '.'.join([ table_name, table_param ])
 
         self.param = table_param
