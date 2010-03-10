@@ -38,20 +38,22 @@ def parse_command_line():
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
-      default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+      default=None, metavar=" GLOB",help="GLOB of files to read" )
   parser.add_option("-G","--grids",action="store",type="string",\
-      default=None, metavar=" GRID",help="pickled sky grids")
+      default=None, metavar=" GRID",help="pickled sky grids (generated with make_skypoints_grids.py)")
   parser.add_option("-R","--ranks",action="store",type="string",\
-      default=None, metavar=" RANKS",help="pickled ranking object")
+      default=None, metavar=" RANKS",help="pickled ranking object (generated with make_skypoints_rankings.py)")
 #plotting functionality will be moved elsewhere and is disabled for now
 #  parser.add_option("-p","--plotpoints",action="store_true",\
 #      default=False, help="make a color coded plot of the sky" )
-  parser.add_option("-u","--usecatalog",action="store",type="string",\
-      default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
+  parser.add_option("-u","--galaxy-priors-dir",action="store",type="string",\
+      default=None, metavar=" PRIDIR", help="path to a directory containg pickles for using galaxy catalog priors (generated with make_skypoints_galaxy_priors.py)")
+  #FIXME: move these options to the ranking pickle to simplify things
   parser.add_option("-f","--reference-frequency",action="store",type="float", default=0.0, metavar=" REFERENCE_FREQUENCY", \
     help="reference frequency for signal timing" )
   parser.add_option("-s","--snr-threshold",action="store_true",\
     default=False, help="use an snr-dependent quantity for the timing ranking" )
+  #END FIXME
   parser.add_option("-o","--output-prefix",action="store",type="string",default='',\
                     help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
