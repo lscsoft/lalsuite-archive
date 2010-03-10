@@ -688,17 +688,20 @@ LALFindChirpACTDNormalize(
          && ( j % NACTDVECS - fcTmplt->startVecACTD < matrixDim / 2 ) )
       {
         UINT4 idx1, idx2, nVec;
+        REAL4 matrixMultiplier;
 
         nVec = matrixDim / 2;
         idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS - fcTmplt->startVecACTD;
         idx2 = (j / NACTDVECS) * nVec + j % NACTDVECS - fcTmplt->startVecACTD;
 
+        matrixMultiplier = (REAL4)gsl_matrix_get( eigenVect, idx2, idx1);
+
         for ( k = 0; k < numPoints; k++ )
         {
           tmpVec[i]->data[k].re += 
-              (REAL4)gsl_matrix_get( eigenVect, idx2, idx1) * ACTDtilde[j].data[k].re;
+              matrixMultiplier * ACTDtilde[j].data[k].re;
           tmpVec[i]->data[k].im += 
-              (REAL4)gsl_matrix_get( eigenVect, idx2, idx1) * ACTDtilde[j].data[k].im;
+              matrixMultiplier * ACTDtilde[j].data[k].im;
         }
       }
     }
