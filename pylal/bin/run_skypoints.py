@@ -52,10 +52,6 @@ def parse_command_line():
                     help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
                     help="specify the type of input in the glob.  valid options are coinctable (DEFAULT) and coire")
-  parser.add_option("-y","--timing-only",action="store_true",default=False,\
-                    help="only use timing information for sky localization")
-  parser.add_option("-d","--debug",action="store_true",default=False,\
-                    help="write out debugging info in addition to normal output")
 
   (options,args) = parser.parse_args()
 
