@@ -514,7 +514,10 @@ setup(
 		os.path.join("bin", "lalapps_cbc_compute_rs"),
 		os.path.join("bin", "lalapps_cbc_print_rs"),
 		os.path.join("bin", "ligolw_cbc_printsims"),
-		os.path.join("bin", "ligolw_cbc_printmissed")
+		os.path.join("bin", "ligolw_cbc_printmissed"),
+		os.path.join("bin", "run_skypoints.py"),
+		os.path.join("bin", "make_skypoints_grids.py"),
+		os.path.join("bin", "make_skypoints_rankings.py")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

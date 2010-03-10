@@ -9,9 +9,9 @@ __date__ = git_version.date
 import sys
 import os
 import operator
-from math import sqrt, sin, cos
-from numpy import pi, asarray, interp
 import gzip 
+from math import sqrt, sin, cos
+from numpy import pi, linspace, interp
 
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
@@ -29,8 +29,6 @@ from glue.ligolw import utils, table as tab, lsctables
 #          global variables
 #
 ##############################################################################
-
-pi = pi
 
 #set the detector locations
 detector_locations = {}
@@ -188,15 +186,27 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   coarsedict = {}
   
   ds = coarseres*pi/180.0
+  epsilon = ds/10.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) <=  ds*ds/4.0:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) - ds*ds/4.0 <= epsilon:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
       fgtemp.remove(rpt)
+  first_column = [pt for pt in coarsegrid if pt[1] == 0.0]
+  for cpt in first_column:
+    flist = []
+    for fpt in fgtemp:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
+         (2*pi-fpt[1])*(2*pi-fpt[1])*sin(cpt[0])*sin(cpt[0]) - ds*ds/4.0 <= epsilon:
+        flist.append(fpt)
+    coarsedict[cpt] = flist
+    for rpt in flist:
+      fgtemp.remove(rpt)
+
 
   return coarsedict, fgtemp
 
@@ -227,9 +237,10 @@ class Ranking(object):
     self.vals.sort()
 
     #reverse sort the rankings
-    ranktemp = range(len(self.vals))
-    ranktemp.sort(reverse=smaller_is_better)
-    self.rankings = asarray(ranktemp,dtype=float)/len(self.vals)
+    ranktemp = linspace(0,1,len(self.vals),endpoint=False)
+    if smaller_is_better:
+      ranktemp = ranktemp[::-1]
+    self.rankings = ranktemp
   
   def get_rank(self,value):
     """

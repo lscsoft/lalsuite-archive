@@ -11,6 +11,7 @@ import sys
 import glob
 import cPickle
 from optparse import *
+from math import sqrt
 from numpy import zeros
 from pylal import skylocutils
 from glue.ligolw import ligolw, lsctables
@@ -130,11 +131,11 @@ def get_unique_filename(name):
   """
   counter = 1
   base_name, ext = os.path.splitext(name)
-  while os.path.isfile(base_name):
-    base_name = base_name + '_' + str(counter) + ext
+  while os.path.isfile(name):
+    name = base_name + '_' + str(counter) + ext
     counter += 1
 
-  return base_name + ext
+  return name
 
 ##############################################################################
 #
@@ -143,9 +144,12 @@ def get_unique_filename(name):
 ##############################################################################
 
 #open up the pickled grids
-skygrids = open(opts.grids,'r')
-grid = cPickle.load(skygrids)
-skygrids.close()
+gridfile = open(opts.grids,'r')
+griddata = cPickle.load(gridfile)
+grid = griddata['grids']
+coarse_res = griddata['coarse_res']
+fine_res = griddata['fine_res']
+gridfile.close()
 
 #open up the pickled rankings
 rankfile = open(opts.ranks,'r')
@@ -158,9 +162,8 @@ dtdDr = rankings['dtdD']
 
 #the area of each pixel on the fine grid in square degrees
 #this gets recorded for each point and makes computing areas simple
-#FIXME: record this information in the grid pickles!
-fine_area = 0.25
-coarse_area = 16
+fine_area = fine_res*fine_res
+coarse_area = coarse_res*coarse_res
 
 for coinc in coincs:
   if len(coinc.ifo_list) < 3:
@@ -187,7 +190,7 @@ for coinc in coincs:
     #use timing alone to determine if we should move to the fine grid
     dtrss_coarse = skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
     coarse_rank = dtr.get_rank(dtrss_coarse*snrfac)
-    #if we don't hit the 91% threshold then don't bother
+    #if we don't hit the 91% timing threshold then don't bother
     if coarse_rank >= 0.09:
       
       #loop over points on the fine grid 
@@ -201,42 +204,42 @@ for coinc in coincs:
         #compute relevant areas
         #note that 1-rank is the percentage of injections with the same or lower rss
         if dtrank >= 0.9:
-          dt_areas[8] += fine_area
+          dt_areas[0] += fine_area
         if dtrank >= 0.8:
-          dt_areas[7] += fine_area
+          dt_areas[1] += fine_area
         if dtrank >= 0.7:
-          dt_areas[6] += fine_area
+          dt_areas[2] += fine_area
         if dtrank >= 0.6:
-          dt_areas[5] += fine_area
+          dt_areas[3] += fine_area
         if dtrank >= 0.5:
           dt_areas[4] += fine_area
         if dtrank >= 0.4:
-          dt_areas[3] += fine_area
+          dt_areas[5] += fine_area
         if dtrank >= 0.3:
-          dt_areas[2] += fine_area
+          dt_areas[6] += fine_area
         if dtrank >= 0.2:
-          dt_areas[1] += fine_area
+          dt_areas[7] += fine_area
         if dtrank >= 0.1:
-          dt_areas[0] += fine_area
+          dt_areas[8] += fine_area
 
         if ranking >= 0.9:
-          r_areas[8] += fine_area
+          r_areas[0] += fine_area
         if ranking >= 0.8:
-          r_areas[7] += fine_area
+          r_areas[1] += fine_area
         if ranking >= 0.7:
-          r_areas[6] += fine_area
+          r_areas[2] += fine_area
         if ranking >= 0.6:
-          r_areas[5] += fine_area
+          r_areas[3] += fine_area
         if ranking >= 0.5:
           r_areas[4] += fine_area
         if ranking >= 0.4:
-          r_areas[3] += fine_area
+          r_areas[5] += fine_area
         if ranking >= 0.3:
-          r_areas[2] += fine_area
+          r_areas[6] += fine_area
         if ranking >= 0.2:
-          r_areas[1] += fine_area
+          r_areas[7] += fine_area
         if ranking >= 0.1:
-          r_areas[0] += fine_area
+          r_areas[8] += fine_area
 
 
         #FIXME: put galaxy catalog stuff here!!!
