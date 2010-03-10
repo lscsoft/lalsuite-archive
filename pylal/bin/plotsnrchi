@@ -451,7 +451,7 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-   
+
 ###################################
 # Input triggers
 
@@ -766,7 +766,7 @@ if opts.effsnr_lines:
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
     legendText.append('Injections')
-    plotdof = inj_chisq_dof 
+    plotdof = inj_chisq_dof
 # at least one of inj_chisq_dof, slide_chisq_dof, chisq_dof must exist
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
@@ -845,7 +845,7 @@ if opts.snr_chisq_contours:
       if nevents:
         viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
         legendText.append('Triggers')
-        plotdof = chisq_dof 
+        plotdof = chisq_dof
      plotconstlines(snr_range, opts.denominator_constant, plotdof)
       contour(snr_range,chisq_range,cont,v)
       xlabel(r'$\rho$', size='x-large')
