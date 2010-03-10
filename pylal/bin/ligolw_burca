@@ -125,16 +125,11 @@ def parse_thresholds(options):
 
 	elif options.coincidence_algorithm == "stringcusp":
 		#
-		# parse threshold components into dt, kappa, epsilon
-		# triples for stringcusp coincidence algorithm
+		# parse thresholds into dt values
 		#
 
 		try:
-			kappa, epsilon = map(float, options.stringcusp_params.split(","))
-		except Exception, e:
-			raise ValueError, "error parsing --stringcusp-params: %s" % str(e)
-		try:
-			thresholds = dict((instrumentpair, (float(dt), kappa, epsilon)) for instrumentpair, (dt,) in thresholds.iteritems())
+			thresholds = dict((instrumentpair, (float(dt),)) for instrumentpair, (dt,) in thresholds.iteritems())
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
 
@@ -167,7 +162,6 @@ def parse_command_line():
 	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=[threshold,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower there are no thresholds.  For stringcusp, each instrument pair has a single threshold setting dt.  One set of thresholds must be provided for each instrument combination that will be compared, even if there are no thresholds to set.")
 	parser.add_option("--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	# FIXME:  split this next one into two arguments
-	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "Set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 

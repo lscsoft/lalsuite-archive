@@ -314,28 +314,6 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-def StringCoincCompare(a, b, thresholds):
-	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
-	"""
-	# unpack thresholds
-	dt, kappa, epsilon = thresholds
-
-	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt
-
-	# for H1+H2, also test for amplitude coincidence
-	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
-		adelta = abs(a.amplitude) * (kappa / a.snr + epsilon)
-		bdelta = abs(b.amplitude) * (kappa / b.snr + epsilon)
-		coincident = coincident and a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta and b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta
-
-	# return result
-	return not coincident
-
-
 # redefine:  new version for S5
 def StringCoincCompare(a, b, thresholds):
 	"""
@@ -343,13 +321,11 @@ def StringCoincCompare(a, b, thresholds):
 	within dt, and in the case of H1+H2 pairs if their amplitudes agree
 	according to some kinda test.
 	"""
-	# unpack thresholds
-	# FIXME:  only dt is used now, update codes to remove kappa and
-	# epsilon
-	dt, kappa, epsilon = thresholds
+	# unpack thresholds (it's just the \Delta t window)
+	dt, = thresholds
 
 	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt + inject.light_travel_time(a.ifo, b.ifo)
+	coincident = abs(float(a.get_peak() - b.get_peak())) <= (dt + inject.light_travel_time(a.ifo, b.ifo))
 
 	# return result
 	return not coincident
