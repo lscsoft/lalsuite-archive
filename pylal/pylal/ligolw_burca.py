@@ -314,12 +314,11 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-# redefine:  new version for S5
 def StringCoincCompare(a, b, thresholds):
 	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
+	Returns False (a & b are coincident) if the events' peak times
+	differ from each other by no more than dt plus the light travel
+	time from one instrument to the next.
 	"""
 	# unpack thresholds (it's just the \Delta t window)
 	dt, = thresholds
