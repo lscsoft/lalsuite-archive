@@ -2,10 +2,8 @@
 """
 Plots involving injections and background (for second stage only)
 
-One can either read SIRE or COIRE files, however, COIRE is recommanded 
+One can either read SIRE or COIRE files, however, COIRE is recommended 
 (if we want to look at detected events found in coincidence only). 
-
-
 
 """
 __version__ = "$Revision$"
@@ -13,8 +11,6 @@ __date__ = "$Date$"
 __name__ = "plotsnrchi"
 __Id__ = "$Id$"
 __title__ = "Inspiral Plots"
-
-
 
 import sys
 import os
@@ -48,23 +44,19 @@ def constant_effective_snr(snr, eff_snr, chisq_dof, denominator_constant):
   return (chisq_dof * snr**4 / ( 1 + snr**2/denominator_constant) / eff_snr**4)
 
 def plotconstlines(snr_range, const, chisq_dof):
-  for [eff_snr,color] in [6,'b-'], [7,'g-'], [8,'r-'], [9,'y-'],
-      [10,'c-'], [11,'m-'], [12,'b-']]:
+  for [eff_snr,color] in [[6,'b-'], [7,'g-'], [8,'r-'], [9,'y-'], [10,'c-'], [11,'m-']]:
     loglog( snr_range, constant_effective_snr( snr_range, eff_snr, chisq_dof, 
       const), color, linewidth=1)
 
-
-
 ##############################################################################
-def loghistval(trig_val,slide_val,inj_val,comments,nbins=20):
+def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
 
   figure(100)
   max_val = max(concatenate((trig_val,slide_val,inj_val)))
   min_val = min(concatenate((trig_val,slide_val,inj_val)))
-  
-  
   max_val = log10(max_val)
   min_val = log10(min_val)
+  
   if len(trig_val):
     trig_val = log10(trig_val)
   if len(inj_val):
@@ -76,7 +68,7 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=20):
   if len(trig_val):
     [trigs,bins,stuff] = hist(trig_val, bins, normed=True)
   if len(inj_val):
-    [inj,bins,stuff] = hist(inj_val,bins, normed=True)
+    [inj,bins,stuff] = hist(inj_val, bins, normed=True)
   if len(slide_val):
     [slide,bins,stuff] = hist(slide_val, bins, normed=True)
   close(100)
@@ -100,22 +92,21 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=20):
     leg.append('Time slides')
   legend(leg) 
   xlim(10**min_val, 10**max_val)
- 
   grid(True)
 
   if len(slide_val):
-    max_snr = max(slide_val)
+    max_stat = max(slide_val)
   else:
-    max_snr = 0
-  comments = InspiralUtils.message(opts,  'loudest noise trigger = ' + \
-      str(max_snr) )
-  num_above = sum(inj_val > max_snr) 
-  comments += InspiralUtils.message(opts,  'total number of injections = ' + \
-      str(len(inj_val)))
-  comments += InspiralUtils.message(opts,  \
-      'number of injections louder than all noise = ' + str(num_above))
-  
+    max_stat = 0
+  comments = InspiralUtils.message(opts, 'loudest noise trigger = ' + \
+      str(max_stat) )
+  comments += InspiralUtils.message(opts, 'total number of injections = ' + \
+      str(len(inj_val)) )
+  num_above = sum(inj_val > max_stat)
+  comments += InspiralUtils.message(opts, \
+      'number of injections louder than all noise = ' + str(num_above) )
   return comments
+
 
 ##############################################################################
 usage = """
@@ -141,7 +132,7 @@ a) chisq = A * snr^4 / (snr^2 + CONST)
 
 b) chisq = A * snr^4 / (snr^2 + VAR * (15 - A) )
 
-   This statistic is chonse by specifying --denominator-variable.  The value
+   This statistic is chosen by specifying --denominator-variable.  The value
    of VAR must also be given.
 
 Additionally, various plots of the distribution of background and injection
@@ -149,7 +140,7 @@ triggers can be made.  Three such plots are available:
 
 4) Histograms as a function of snr.  Called with --hist-snr
 
-5) Histogramw as a function of snr/chi.  Called with --hist-snr-chi
+5) Histograms as a function of snr/chi.  Called with --hist-snr-chi
 
 6) Histograms as a function of the statistic given above.  Called with
    --hist-stat.
@@ -217,17 +208,21 @@ def parse_command_line():
       help="histogram of the snr for triggers/injections" )
   parser.add_option("-e","--hist-snr-chi",action="store_true",default=False,\
       help="histogram of snr/chi for triggers/injections" )
+  parser.add_option("","--hist-newsnr",action="store_true",default=False,\
+      help="histogram of newsnr statistic for triggers/injections" )
   parser.add_option("-k","--hist-stat",action="store_true",default=False,\
       help="histogram of snr,chi statistic for triggers/injections" )
   parser.add_option("-D","--denominator-constant",action="store",type="float",\
       default=0,metavar=" CONST",\
       help="value for the denominator of the statistic")
+  parser.add_option("","--chisq-index",action="store",type="float",\
+      default=6.0,metavar=" CONST",\
+      help="chisq index for new snr")
   parser.add_option("-d","--denominator-variable",action="store",type="float",\
       default=0,metavar=" VAR",\
       help="value for the variable denominator form of the statistic")
-  parser.add_option("-n","--nbins",action="store",type="int",default=20,\
+  parser.add_option("-n","--nbins",action="store",type="int",default=40,\
       metavar=" NBINS", help="number of bins for the histogram plots" )
-  
   parser.add_option("-r","--snr-rsq",action="store_true",default=False,\
       help="make a plot of snr vs rsq" )
   parser.add_option("","--rsq-threshold",action="store",type="float",\
@@ -543,7 +538,7 @@ if (opts.snr_chisq_contours) and (nevents or slide_events):
   v = concatenate( (v,zeros(1)) )
 
 ###################################
-# calculate rsq cut line amd sort triggers
+# calculate rsq cut line and sort triggers
 if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
   if opts.rsq_coeff and opts.rsq_pow:
     rsq_cut_line_x = [min_snr, opts.rsq_max_snr, opts.rsq_max_snr, max_snr]
@@ -616,15 +611,15 @@ if opts.snr_chisq:
   fig_num +=1
   figure(fig_num)
   legendText = []
+  if ninj_events:
+    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+    legendText.append('Injections')
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
     legendText.append('Triggers')
-  if ninj_events:
-    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-    legendText.append('Injections')
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'$\chi^2$', size='x-large')
   xlim(min_snr, max_snr)
@@ -646,15 +641,15 @@ if opts.bank_chisq:
   fig_num +=1
   figure(fig_num)
   legendText= []
+  if ninj_events:
+    viz.plot_a_v_b(injTriggers,'snr','reduced_bank_chisq','loglog','r+')
+    legendText.append('Injections')
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','reduced_bank_chisq','loglog','kx')
     legendText.append('Background')
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','reduced_bank_chisq','loglog','b2')
     legendText.append('Triggers')
-  if ninj_events:
-    viz.plot_a_v_b(injTriggers,'snr','reduced_bank_chisq','loglog','r+')
-    legendText.append('Injections')
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'Bank $\chi^2$', size='x-large')
   xlim(min_snr, max_snr)
@@ -670,20 +665,20 @@ if opts.bank_chisq:
     close()
 
 ###################################
-# plot of snr vs chisq
+# plot of snr vs cont chisq
 if opts.cont_chisq:
   fig_num +=1
   figure(fig_num)
   legendText=[]
-  if nevents:
-    viz.plot_a_v_b(inspTriggers,'snr','reduced_cont_chisq','loglog','kx')
-    legendText.append('Triggers')
-  if slide_events:
-    viz.plot_a_v_b(slideTriggers,'snr','reduced_cont_chisq','loglog','kx')
-    legendText.append('Background')
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','reduced_cont_chisq','loglog','r+')
     legendText.append('Injections')
+  if slide_events:
+    viz.plot_a_v_b(slideTriggers,'snr','reduced_cont_chisq','loglog','kx')
+    legendText.append('Background')
+  if nevents:
+    viz.plot_a_v_b(inspTriggers,'snr','reduced_cont_chisq','loglog','b2')
+    legendText.append('Triggers')
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'Cont $\chi^2$', size='x-large')
   xlim(min_snr, max_snr)
@@ -706,15 +701,15 @@ if opts.snr_chisq_lines:
     fig_num +=1
     figure(fig_num)
     legendText = []
+    if ninj_events:
+      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     if slide_events:
       viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
       legendText.append('Background')
     if nevents:
       viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
       legendText.append('Triggers')
-    if ninj_events:
-      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-      legendText.append('Injections')
     plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
 
     xlabel(r'$\rho$', size='x-large')
@@ -736,15 +731,15 @@ if opts.snr_chisq_lines:
     fig_num +=1
     figure(fig_num)
     legendText = []
+    if ninj_events:
+      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     if slide_events:
       viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
       legendText.append('Background')
     if nevents:
       viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
       legendText.append('Triggers')
-    if ninj_events:
-      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-      legendText.append('Injections')
     plotvarlines(snr_range, opts.denominator_variable)
     xlabel(r'$\rho$', size='x-large')
     ylabel(r'$\chi^2$', size='x-large')
@@ -767,15 +762,15 @@ if opts.snr_chisq_contours and (nevents or slide_events):
     fig_num +=1
     figure(fig_num)
     legendText = []
+    if ninj_events:
+      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     if slide_events:
       viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
       legendText.append('Background')
     if nevents:
       viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
       legendText.append('Triggers')
-    if ninj_events:
-      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-      legendText.append('Injections')
     plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
     contour(snr_range,chisq_range,cont,v)
     xlabel(r'$\rho$', size='x-large')
@@ -798,15 +793,15 @@ if opts.snr_chisq_contours and (nevents or slide_events):
     fig_num +=1
     figure(fig_num)
     legendText = []
+    if ninj_events:
+      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     if slide_events:
       viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
       legendText.append('Background')
     if nevents:
       viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
       legendText.append('Triggers')
-    if ninj_events:
-      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-      legendText.append('Injections')
 
     plotvarlines(snr_range, opts.denominator_variable)
     contour(snr_range,chisq_range,cont,v)
@@ -876,7 +871,7 @@ if opts.hist_stat:
   if opts.denominator_variable:
     fig_num +=1
     figure(fig_num)
-    comments += InspiralUtils.message(opts, '\nFunky SNR/chi histogram')
+#    comments += InspiralUtils.message(opts, '\nFunky SNR/chi histogram')
     B = opts.denominator_variable
     p = 15
     stat = (snr**4 + B * chisq) / (chisq * ( snr**2 + p * B)) 
@@ -898,15 +893,14 @@ if opts.hist_stat:
     if not opts.show_plot:
       close()
 
- 
   if opts.denominator_constant:
     fig_num +=1
     figure(fig_num)
-    comments += InspiralUtils.message(opts, '\nFunky SNR/chi histogram')
+#    comments += InspiralUtils.message(opts, '\nFunky SNR/chi histogram')
     C = opts.denominator_constant
-    stat = (snr**4) / (chisq * ( 1 + snr**2/C)) 
-    inj_stat = (inj_snr**4) / (inj_chisq * ( 1 + inj_snr**2/C))
-    slide_stat = (slide_snr**4) / (slide_chisq * ( 1 + slide_snr**2/C))
+    stat = snr / ((chisq/chisq_dof) * (1 + snr**2/C))**0.25 
+    inj_stat = inj_snr / ((inj_chisq/chisq_dof) * (1 + inj_snr**2/C))**0.25
+    slide_stat = slide_snr / ((slide_chisq/chisq_dof) * (1 + slide_snr**2/C))**0.25
 
     comments += InspiralUtils.message(opts,\
                     'Statistic is constant denominator snr chi')
@@ -915,11 +909,55 @@ if opts.hist_stat:
     xlabel("Effective SNR", size='x-large')
     ylabel('pdf', size='x-large')
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "const_den_efficiency")
+      fname = InspiralUtils.set_figure_name(opts, "effective_snr_efficiency")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append("const_den_efficiency")
+      tagList.append("effective_snr_efficiency")
+    if not opts.show_plot:
+      close()
+
+###################################
+# histogram of newSNR
+if opts.hist_newsnr:
+
+  if opts.chisq_index:
+    fig_num +=1
+    figure(fig_num)
+    q = opts.chisq_index
+    nhigh = 2.
+    rchisq = chisq / chisq_dof
+    inj_rchisq = inj_chisq / chisq_dof
+    slide_rchisq = slide_chisq / chisq_dof
+ 
+    rchisq_min1=zeros(len(rchisq))
+    for i in xrange(len(rchisq)):
+      rchisq_min1[i] = max(1,rchisq[i])
+    
+    inj_rchisq_min1=zeros(len(inj_rchisq))
+    for i in xrange(len(inj_rchisq)):
+      inj_rchisq_min1[i] = max(1,inj_rchisq[i])
+
+    slide_rchisq_min1=zeros(len(slide_rchisq))
+    for i in xrange(len(slide_rchisq)):
+      slide_rchisq_min1[i] = max(1,slide_rchisq[i])
+
+    newsnr = snr/((1+rchisq_min1**(q/nhigh))/2.)**(1./q)
+    inj_newsnr = inj_snr/((1+inj_rchisq_min1**(q/nhigh))/2.)**(1./q)
+    slide_newsnr = slide_snr/((1+slide_rchisq_min1**(q/nhigh))/2.)**(1./q)
+ 
+    comments += InspiralUtils.message(opts,\
+                    'Statistic is newSNR')
+    comments += loghistval(newsnr,slide_newsnr,inj_newsnr,comments,opts.nbins)
+    title(opts.ifo_times + ' statistic', size='x-large')
+    xlabel("newSNR", size='x-large')
+    ylabel('pdf', size='x-large')
+    if opts.enable_output:
+      fname = InspiralUtils.set_figure_name(opts, "newSNR_efficiency")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+          dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append("newSNR_efficiency")
     if not opts.show_plot:
       close()
 
