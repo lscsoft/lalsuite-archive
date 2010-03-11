@@ -822,7 +822,7 @@ the inifile + the ifo and gps time.  For example:
 
 		self.add_var_arg(repr(time))
 
-		self.name_output_file = job.tag_base + "-" + str(time) + ".tgz"
+		self.name_output_file = job.tag_base + "-" + repr(time) + ".tgz"
 		self.add_macro("macrofile", self.name_output_file)
 
 		if not opts.disable_dag_categories:
