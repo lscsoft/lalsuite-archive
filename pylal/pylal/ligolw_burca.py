@@ -33,7 +33,6 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import inject
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools
