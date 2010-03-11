@@ -480,7 +480,6 @@ setup(
 		os.path.join("bin", "KW_veto_reportPage"),
 		os.path.join("bin", "KW_veto_insert"),
 		os.path.join("bin", "pylal_plot_inspiral_skymap"),
-		os.path.join("bin", "plotskypoints"),
 		os.path.join("bin", "upper_limit_results"),
 		os.path.join("bin", "pylal_expose"),
 		os.path.join("bin", "ligolw_cbc_dbsimplify"),
@@ -517,7 +516,8 @@ setup(
 		os.path.join("bin", "ligolw_cbc_printmissed"),
 		os.path.join("bin", "run_skypoints.py"),
 		os.path.join("bin", "make_skypoints_grids.py"),
-		os.path.join("bin", "make_skypoints_rankings.py")
+		os.path.join("bin", "make_skypoints_rankings.py"),
+                os.path.join("bin", "plot_skypoints.py")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
