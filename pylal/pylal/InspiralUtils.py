@@ -571,7 +571,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   page.hr()
 
   # -- filename
-  html_filename = prefix + opts.suffix +".html"  
+  html_filename = prefix + opts.suffix +".html"
   if opts.output_path:
     html_filename = opts.output_path + html_filename
   html_file = file(html_filename, "w")
