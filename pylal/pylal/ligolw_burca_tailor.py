@@ -260,10 +260,10 @@ class CoincParamsDistributions(object):
 		# is done by dividing each bin by dx).
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		n = 0
-		for name, binnedarray in itertools.chain(self.zero_lag_rates.items(), self.background_rates.items(), self.injection_rates.items()):
+		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
 			if verbose:
-				print >>sys.stderr, "\t%d / %d: \"%s\"" % (n, N, name)
+				print >>sys.stderr, "\t%d / %d: %s \"%s\"" % (n, N, group, name)
 			binnedarray.array /= numpy.sum(binnedarray.array)
 			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
 		return self
