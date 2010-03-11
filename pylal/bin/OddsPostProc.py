@@ -509,7 +509,7 @@ for i in [0,1,2,3,4,5,6,7,8]:
     if injection and min(pos[:,i])<getinjpar(injection,i) and max(pos[:,i])>getinjpar(injection,i):
 	plot([0,len(pos)],[getinjpar(injection,i),getinjpar(injection,i)],'r-.')
     myfig.savefig(outdir+'/'+paramnames[i]+'_samps.png')
-    htmlfile.write('<img src="'+paramnames[i]+'.png"><img src="'+paramnames[i]+'_samps.png><br>')
+    htmlfile.write('<img src="'+paramnames[i]+'.png"><img src="'+paramnames[i]+'_samps.png"><br>')
 
 htmlfile.write('<hr><br>Produced using lalapps_inspnest and OddsPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S"))
 htmlfile.write('</BODY></HTML>')
