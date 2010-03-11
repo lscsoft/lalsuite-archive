@@ -813,7 +813,7 @@ the inifile + the ifo and gps time.  For example:
 		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+output_path)
 
 		# ADD FRAME CACHE FILE
-		self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-939000000.qcache")
+		self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# NOW WE NEED TO SET UP THE REMOTE OUTPUTPATH
 		username = subprocess.Popen("whoami",shell=True,stdout=subprocess.PIPE).communicate()[0].strip() 
