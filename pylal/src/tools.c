@@ -157,8 +157,7 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
 
 SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     /* Convert a Python SimInspiral (row) to a C SimInspiralTable.
-    Used in function PyThincaParameterForInjection.
-    Calls LAL functions LALSnprintf and LALCalloc. */
+    Used in function PyThincaParameterForInjection. */
 
     SimInspiralTable *event; /* Return value */
 

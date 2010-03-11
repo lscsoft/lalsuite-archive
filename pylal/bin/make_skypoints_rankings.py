@@ -93,6 +93,11 @@ rankings = {}
 rankings['dt'] = dtrankings
 rankings['dD'] = dDrankings
 rankings['dtdD'] = dtdDrankings
+rankings['snr_threshold'] = opts.snr_threshold
+if opts.reference_frequency:
+  rankings['ref_freq'] = opts.reference_frequency
+else:
+  rankings['ref_freq'] = None
 
 f = open('rankings.pkl','w')
 cPickle.dump(rankings,f,protocol=2)
