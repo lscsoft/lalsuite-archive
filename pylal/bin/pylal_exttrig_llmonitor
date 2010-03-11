@@ -447,7 +447,10 @@ def check_rerun(grb, dag, cp, force = False):
   # check if there is a tag mismatch
   tag_current = peu.get_code_tag()
   type = dag.type
-  tag_used = grb.code[type].tag 
+  try:
+    tag_used = grb.code[type].tag 
+  except:
+    tag_used = None
 
   # if the used tag is the current one, just leave it
   if tag_used==tag_current and not force:    
