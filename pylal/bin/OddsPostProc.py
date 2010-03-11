@@ -3,7 +3,7 @@
 #from numpy import *
 import scipy
 import matplotlib 
-#matplotlib.use("Agg")
+matplotlib.use("Agg")
 import sys
 import math
 from pylab import *
