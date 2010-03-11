@@ -246,7 +246,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 			event.set_peak(event.get_peak() + delta)
 			event.set_start(event.get_start() + delta)
 
-	def get_coincs(self, event_a, light_travel_time, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, ignored, comparefunc):
 		# event_a's peak time
 		peak = event_a.get_peak()
 
@@ -268,7 +268,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed peak times to quickly
 		# identify a subset of the full list)
-		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, event_b, light_travel_time)]
+		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, event_b, light_travel_time, ignored)]
 
 
 #
@@ -298,11 +298,11 @@ class StringEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_peak(event.get_peak() + delta)
 
-	def get_coincs(self, event_a, threshold, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, threshold, comparefunc):
 		min_peak = max_peak = event_a.get_peak()
-		min_peak -= threshold[0]
-		max_peak += threshold[0]
-		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
+		min_peak -= threshold[0] + light_travel_time
+		max_peak += threshold[0] + light_travel_time
+		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, light_travel_time, threshold)]
 
 
 #
@@ -314,7 +314,7 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-def StringCoincCompare(a, b, thresholds):
+def StringCoincCompare(a, b, light_travel_time, thresholds):
 	"""
 	Returns False (a & b are coincident) if the events' peak times
 	differ from each other by no more than dt plus the light travel
@@ -324,7 +324,7 @@ def StringCoincCompare(a, b, thresholds):
 	dt, = thresholds
 
 	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= (dt + inject.light_travel_time(a.ifo, b.ifo))
+	coincident = abs(float(a.get_peak() - b.get_peak())) <= (dt + light_travel_time)
 
 	# return result
 	return not coincident

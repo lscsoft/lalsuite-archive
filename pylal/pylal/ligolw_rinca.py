@@ -289,7 +289,7 @@ class RingdownEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_start(event.get_start() + delta)
 
-	def get_coincs(self, event_a, ds_sq_threshold, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, ds_sq_threshold, comparefunc):
 		#
 		# event_a's start time
 		#
@@ -303,7 +303,7 @@ class RingdownEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, start - self.dt) : bisect.bisect_right(self, start + self.dt)] if not comparefunc(event_a, event_b, ds_sq_threshold)]
+		return [event_b for event_b in self[bisect.bisect_left(self, start - self.dt) : bisect.bisect_right(self, start + self.dt)] if not comparefunc(event_a, event_b, light_travel_time, ds_sq_threshold)]
 
 
 #
@@ -332,7 +332,7 @@ def ringdown_max_dt(events, ds_sq_threshold):
 	return sum(sorted(max(xlaltools.XLALRingdownTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
-def ringdown_coinc_compare(a, b, ds_sq_threshold):
+def ringdown_coinc_compare(a, b, light_travel_time, ds_sq_threshold):
 	"""
 	Returns False (a & b are coincident) if they pass the metric
 	rinca test.
