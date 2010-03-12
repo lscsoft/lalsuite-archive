@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+from glue import git_version
+
+__author__ = "Larry Price <larry.price@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 import sys
 import gzip
 from optparse import *
@@ -21,7 +27,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser()
+  parser = OptionParser( usage=usage, version="%prog "+__version__ )
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
