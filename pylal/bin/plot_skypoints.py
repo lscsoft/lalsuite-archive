@@ -65,7 +65,7 @@ for file in files:
     else:
       lon, lat, c = line.strip().split()
       #this line cuts out most of the boring coarse grid stuff
-      if float(c) - 0.0001 <= 0.0:
+      if float(c) - 0.00001 <= 0.0:
         continue
       else:
         latitude.append(float(lat)*180/np.pi)
@@ -86,6 +86,6 @@ for file in files:
   m.drawmapboundary()
   m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-') # draw parallels
   m.drawmeridians(np.arange(0.,420.,90.),labels=[0,0,0,1],labelstyle='+/-') # draw meridians
-  #pyplot.title("") # add a title
+  pyplot.title("Skymap for "+str(file)) # add a title
   pyplot.colorbar()
   pyplot.savefig(file.replace('gz','png'))
