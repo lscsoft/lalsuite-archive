@@ -31,6 +31,7 @@ from scipy.interpolate import interpolate
 import sys
 
 
+from glue.ligolw import ilwd
 from glue.ligolw import lsctables
 from pylal import git_version
 
@@ -306,22 +307,21 @@ AS
 			AND coinc_event_map.event_id == sngl_burst.event_id
 		)
 	""")
-	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id == ?", (database.bb_definer_id,))):
-		if verbose and not n % 200:
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
-		# retrieve sngl_burst events
-		events = map(database.sngl_burst_table.row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
+	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = cursor, time_slides = time_slides, params_func = params_func, params_func_extra_args = params_func_extra_args):
+		events = map(row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
+		likelihood_ratio(params_func, events, time_slides[ilwd.get_ilwdchar(time_slide_id)], *params_func_extra_args)
 
-		# compute and store likelihood ratio
-		cursor.execute("""
+	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
+
+	database.connection.cursor().execute("""
 UPDATE
 	coinc_event
 SET
-	likelihood = ?
+	likelihood = likelihood_ratio(coinc_event_id, time_slide_id)
 WHERE
-	coinc_event_id == ?
-		""", (likelihood_ratio(params_func, events, time_slides[time_slide_id], *params_func_extra_args), coinc_event_id))
+	coinc_def_id == ?
+		""", (database.bb_definer_id,))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
