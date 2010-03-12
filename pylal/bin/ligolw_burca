@@ -348,10 +348,6 @@ def burca2(options, filenames):
 	from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
-	# so they can be inserted into a database
-	dbtables.ligolwtypes.ToPyType["ilwd:char"] = str
-
-
 	# so they aren't insterted into a database
 	dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
 
