@@ -29,6 +29,7 @@ import math
 import numpy
 from scipy.stats import stats
 import sys
+import threading
 
 
 from glue import iterutils
@@ -260,12 +261,17 @@ class CoincParamsDistributions(object):
 		# is done by dividing each bin by dx).
 		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
 		n = 0
+		threads = []
 		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
 			if verbose:
 				print >>sys.stderr, "\t%d / %d: %s \"%s\"" % (n, N, group, name)
 			binnedarray.array /= numpy.sum(binnedarray.array)
+			threads.append(threading.Thread(target = rate.to_moving_mean_density, args = (binnedarray, filters.get(name, default_filter))))
+			threads[-1].start()
 			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
+		for thread in threads:
+			thread.join()
 		return self
 
 
