@@ -294,7 +294,7 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 
 	cursor = database.connection.cursor()
 	cursor.execute("""
-CREATE TEMPORARY VIEW
+CREATE TEMPORARY TABLE
 	coinc_burst_map
 AS
 	SELECT
@@ -325,7 +325,7 @@ WHERE
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
-	cursor.execute("""DROP VIEW coinc_burst_map""")
+	cursor.execute("""DROP TABLE coinc_burst_map""")
 
 	#
 	# Done
