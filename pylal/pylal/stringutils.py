@@ -95,8 +95,8 @@ def coinc_params_func(events, offsetdict):
 
 
 def dt_binning(instrument1, instrument2):
-	dt = 0.02 + inject.light_travel_time(instrument1, instrument2)	# seconds
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001),))
+	dt = 0.005 + inject.light_travel_time(instrument1, instrument2)	# seconds
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 3001),))
 
 
 class DistributionsStats(ligolw_burca_tailor.Stats):
@@ -117,12 +117,12 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H2_L1_dt": dt_binning("H2", "L1"),
 		"H2_V1_dt": dt_binning("H2", "V1"),
 		"L1_V1_dt": dt_binning("L1", "V1"),
-		"H1_H2_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
-		"H1_L1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
-		"H1_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
-		"H2_L1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
-		"H2_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-1, +1, 12001),))
+		"H1_H2_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
 	}
 
 	filters = {
@@ -159,3 +159,13 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
+
+
+#
+# I/O
+#
+
+
+def get_coincparamsdistributions(xmldoc):
+	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
+	return coincparamsdistributions
