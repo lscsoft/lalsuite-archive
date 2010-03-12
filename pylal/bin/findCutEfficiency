@@ -157,14 +157,6 @@ def parse_command_line():
       default=50, metavar="FIGURERESOLUTION", \
       help="resolution of the thumbnails (50 by default)" )
 
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
-
-
   (opts,args) = parser.parse_args()
 
   return opts, sys.argv[1:]
@@ -614,9 +606,6 @@ if opts.get_ROC_curve:
 if opts.enable_output:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 ##############################################################################################################
 			

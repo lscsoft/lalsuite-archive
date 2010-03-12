@@ -182,8 +182,6 @@ parser.add_option("", "--user-tag", help="a tag to label your plots")
 parser.add_option("", "--output-path", help="root of the HTML output")
 parser.add_option("", "--enable-output", action="store_true", default=False,
     help="enable plots and HTML output")
-parser.add_option("", "--html-for-cbcweb", action="store_true", default=False,
-    help="enable HTML output with the appropriate headers for the CBC website")
 
 (opts, args) = parser.parse_args()
 
@@ -504,9 +502,6 @@ for loudest_sq, counts, mc_range in \
 #############################################################################
 # Generate HTML and cache file
 page.write_page()
-if opts.html_for_cbcweb:
-    InspiralUtils.write_html_output(opts, sys.argv[1:], page.fnameList,
-        page.tagList, comment=page.html_footer or None, cbcweb=True)
 
 if opts.show_plot:
     pylab.show()

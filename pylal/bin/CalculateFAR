@@ -3,7 +3,7 @@ __author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
 __version__ = "$Revision: 1.7 $"[11:-2]
 __date__ = "$Date: 2009/03/18 22:18:59 $"[7:-2]
 __prog__="CalculateFAR"
-__Id__ = "$Id: CalculateFAR,v 1.7 2009/03/18 22:18:59 jclayton Exp $"
+__Id__ = "$Id$"
 
 #loading standard modules
 from optparse import *
@@ -105,7 +105,10 @@ def parse_command_line():
   Parser function dedicated
   """
 
-  parser = OptionParser( usage=usage, version="%prog CVS $Id: inspiral_search_summary,v 1.7 2009/03/18 22:18:59 jclayton Exp $ " )
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
 
   parser.add_option("","--slides-glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB time slides files to read" )
