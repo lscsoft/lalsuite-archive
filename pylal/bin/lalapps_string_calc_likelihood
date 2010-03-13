@@ -109,7 +109,7 @@ for n, filename in enumerate(options.likelihood_file):
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
-#coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
 
 likelihood_ratio = ligolw_burca2.LikelihoodRatio(coincparamsdistributions)
 
