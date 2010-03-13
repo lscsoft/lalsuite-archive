@@ -108,6 +108,7 @@ class upper_limit(object):
     for i in self.instruments:
       self.far.setdefault(i,[])
       #FIXME how do I handle no fars?  inf causes things to bust later
+      #this causes the upper limit to be above the loudest time slide
       if not self.far[i]: self.far[i].append(1e20)
       if not opts.far: self.far[i] = min(self.far[i])
       else: self.far[i] = float(opts.far)
@@ -219,6 +220,7 @@ class upper_limit(object):
       for inst, far in connection.cursor().execute(query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
         self.far.setdefault(inst,[])
+	#FIXME this won't ever choose a zero FAR!
         if far: self.far[inst].append(far)
       query = 'DROP TABLE distinct_instruments'
       connection.cursor().execute(query)
