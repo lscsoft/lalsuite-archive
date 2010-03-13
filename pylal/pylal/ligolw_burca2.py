@@ -323,7 +323,7 @@ SET
 WHERE
 	coinc_def_id == ?
 	""", (database.bb_definer_id,))
-	connection.commit()
+	database.connection.commit()
 
 	#
 	# Done
