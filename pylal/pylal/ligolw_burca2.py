@@ -31,7 +31,6 @@ from scipy.interpolate import interpolate
 import sys
 
 
-from glue.ligolw import ilwd
 from glue.ligolw import lsctables
 from pylal import git_version
 
@@ -279,10 +278,33 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 	likelihood_ratio is a LikelihoodRatio class instance.
 	"""
 	#
-	# Find document parts.
+	# Get offset vectors.  Convert keys to strings so that we can use
+	# the dictionary inside an SQL query
 	#
 
-	time_slides = database.time_slide_table.as_dict()
+	offset_vectors = database.time_slide_table.as_dict()
+	offset_vectors = dict((unicode(time_slide_id), offset_vector) for time_slide_id, offset_vector in offset_vectors.items())
+
+	#
+	# Construct the in-SQL likelihood ratio function
+	#
+
+	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
+		events = map(row_from_cols, cursor.execute("""
+SELECT
+	sngl_burst.*
+FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
+	)
+WHERE
+	coinc_event_map.coinc_event_id == ?
+		""", (coinc_event_id,)))
+		return likelihood_ratio(params_func, events, offset_vectors[time_slide_id], *params_func_extra_args)
+
+	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 
 	#
 	# Iterate over all coincs, assigning likelihood ratios to
@@ -293,27 +315,6 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 		print >>sys.stderr, "computing likelihood ratios ..."
 		n_coincs = len(database.coinc_table)
 
-	cursor = database.connection.cursor()
-	cursor.execute("""
-CREATE TEMPORARY TABLE
-	coinc_burst_map
-AS
-	SELECT
-		*
-	FROM
-		sngl_burst
-		JOIN coinc_event_map ON (
-			coinc_event_map.table_name == 'sngl_burst'
-			AND coinc_event_map.event_id == sngl_burst.event_id
-		)
-	""")
-
-	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = cursor, time_slides = time_slides, params_func = params_func, params_func_extra_args = params_func_extra_args):
-		events = map(row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
-		likelihood_ratio(params_func, events, time_slides[ilwd.get_ilwdchar(time_slide_id)], *params_func_extra_args)
-
-	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
-
 	database.connection.cursor().execute("""
 UPDATE
 	coinc_event
@@ -321,11 +322,8 @@ SET
 	likelihood = likelihood_ratio(coinc_event_id, time_slide_id)
 WHERE
 	coinc_def_id == ?
-		""", (database.bb_definer_id,))
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
-
-	cursor.execute("""DROP TABLE coinc_burst_map""")
+	""", (database.bb_definer_id,))
+	connection.commit()
 
 	#
 	# Done
