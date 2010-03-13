@@ -423,7 +423,6 @@ def burca2(options, filenames):
 		#
 
 
-		connection.commit()
 		connection.close()
 		dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
 
