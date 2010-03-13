@@ -52,6 +52,7 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
+from pylal import inject
 from pylal import ligolw_burca_tailor
 from pylal import stringutils
 
@@ -92,11 +93,6 @@ def parse_command_line():
 #
 
 
-def get_coincparamsdistributions(xmldoc):
-	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
-	return coincparamsdistributions
-
-
 def clip_binned_array_1d(binnedarray, xlim):
 	imin, = binnedarray.bins[xlim[0],]
 	imax, = binnedarray.bins[xlim[1],]
@@ -117,8 +113,12 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 	axes = fig.add_axes((.15, .15, .95 - .15, .90 - .15))
 	axes.loglog()
 
-	cset = axes.contour(background_xcoords, background_ycoords, numpy.log(background_data), ncontours, cmap = cm.Greys)
-	cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log(injections_data), ncontours, cmap = cm.Reds)
+	hi = math.log10(max(background_data.max(), injections_data.max()))
+	contours = numpy.arange(hi - 10, hi, 0.5, dtype = "double")
+	injections_cset = axes.contour(injections_xcoords, injections_ycoords, numpy.log10(injections_data), contours, cmap = cm.Reds)
+	background_cset = axes.contour(background_xcoords, background_ycoords, numpy.log10(background_data), contours, cmap = cm.Greys)
+	axes.set_xlim([min(background_xcoords[0], injections_xcoords[0]), max(background_xcoords[-1], injections_xcoords[-1])])
+	axes.set_ylim([min(background_ycoords[0], injections_ycoords[0]), max(background_ycoords[-1], injections_ycoords[-1])])
 	#cbar = fig.add_axes((.75,.15,.1,.75))
 	#colorbar.Colorbar(cbar, cset)
 	axes.set_title(key)
@@ -133,9 +133,10 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
 
 	if numpy.any(background_data):
-		axes.semilogy(background_coords, background_data, "k-")
+		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
-		axes.semilogy(injections_coords, injections_data, "r-")
+		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
 	axes.set_title(key)
@@ -150,9 +151,10 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
 
 	if numpy.any(background_data):
-		axes.semilogy(background_coords, background_data, "k-")
+		axes.semilogy(background_coords, background_data, "k-", label = "Background")
 	if numpy.any(injections_data):
-		axes.semilogy(injections_coords, injections_data, "r-")
+		axes.semilogy(injections_coords, injections_data, "r-", label = "Injections")
+	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
 	axes.set_title(key)
@@ -179,9 +181,9 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
 	if coincparamsdistributions is None:
-		coincparamsdistributions = get_coincparamsdistributions(xmldoc)
+		coincparamsdistributions = stringutils.get_coincparamsdistributions(xmldoc)
 	else:
-		coincparamsdistributions += get_coincparamsdistributions(xmldoc)
+		coincparamsdistributions += stringutils.get_coincparamsdistributions(xmldoc)
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
@@ -191,13 +193,19 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	assert injections_name == background_name
 	assert zero_lag_name == background_name
 	name = background_name
+	# FIXME:  hard-coded list of allowed instruments = BAD BAD BAD
+	instruments = set(name.split("_")) & set(("G1", "H1", "H2", "L1", "T1", "V1"))
+	if "V1" in instruments:
+		# FIXME:  remove this when math range/domain errors for
+		# empty data fixed
+		continue
 	if name.endswith("_snr2_chi2"):
 		outname = "%s.png" % name
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
-		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [10, 1e4], [.01, 1e4])
-		injections_xcoords, injections_ycoords, injections_data = clip_binned_array_2d(injections_binnedarray, [10, 1e4], [.01, 1e4])
-		zero_lag_xcoords, zero_lag_ycoords, injections_data = clip_binned_array_2d(zero_lag_binnedarray, [10, 1e4], [.01, 1e4])
+		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [10, 1e6], [.01, 1e4])
+		injections_xcoords, injections_ycoords, injections_data = clip_binned_array_2d(injections_binnedarray, [10, 1e6], [.01, 1e4])
+		zero_lag_xcoords, zero_lag_ycoords, zero_lag_data = clip_binned_array_2d(zero_lag_binnedarray, [10, 1e6], [.01, 1e4])
 		fig = snr2_chi2_plot("%s" % name.replace("_", "-"), background_xcoords, background_ycoords, numpy.transpose(background_data), injections_xcoords, injections_ycoords, numpy.transpose(injections_data))
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % outname
@@ -206,8 +214,10 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 		outname = "%s.png" % name
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
-		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-.03, +.03))
-		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-.03, +.03))
+		dt = .008 + inject.light_travel_time(*instruments) / 2
+		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-dt, +dt))
+		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-dt, +dt))
+		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-dt, +dt))
 		fig = dt_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % outname
@@ -218,6 +228,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 			print >>sys.stderr, "generating %s ..." % outname
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
+		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-2, +2))
 		fig = dA_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % outname
