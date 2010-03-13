@@ -1,0 +1,156 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2009  Kipp Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+import math
+import numpy
+from optparse import OptionParser
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal import git_version
+from pylal import ligolw_burca_tailor
+from pylal import ligolw_burca2
+from pylal import SnglBurstUtils
+from pylal import stringutils
+
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg
+	)
+	parser.add_option("-l", "--likelihood-file", action = "append", help = "Set the name of the likelihood ratio data file to use.  Can be given more than once.")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	if options.likelihood_file is None:
+		raise ValueError, "missing required option --likelihood-file"
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# load likelihood data
+#
+
+
+coincparamsdistributions = None
+for n, filename in enumerate(options.likelihood_file):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(options.likelihood_file)),
+	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
+	if coincparamsdistributions is None:
+		coincparamsdistributions = stringutils.get_coincparamsdistributions(xmldoc)
+	else:
+		coincparamsdistributions += stringutils.get_coincparamsdistributions(xmldoc)
+
+if options.verbose:
+	print >>sys.stderr, "computing event densities ..."
+#coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+
+likelihood_ratio = ligolw_burca2.LikelihoodRatio(coincparamsdistributions)
+
+
+#
+# iterate over files
+#
+
+
+from glue.ligolw import dbtables
+
+
+for n, filename in enumerate(filenames):
+	#
+	# Open the database file.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+	dbtables.DBTable_set_connection(connection)
+
+	#
+	# Summarize the database.
+	#
+
+	database = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", verbose = options.verbose)
+	if not database.seglists and options.verbose:
+		print >>sys.stderr, "\twarning:  no segments found"
+
+	#
+	# Run likelihood ratio calculation.
+	#
+
+	ligolw_burca2.ligolw_burca2(database, likelihood_ratio, stringutils.coinc_params_func, verbose = options.verbose)
+
+	#
+	# Clean up.
+	#
+
+	connection.close()
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
