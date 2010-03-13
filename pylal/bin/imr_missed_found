@@ -244,7 +244,7 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog computes missed found plots")
 	parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
 	parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-	parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event")
+	parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event", default=float("inf"), type="float")
 	parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
@@ -295,7 +295,7 @@ def finalspin(m1, m2, s1z, s2z):
 #Missed-Found plots
 fignum = 0
 for instruments in summ.set_instruments_to_calculate():
-    found, missed, sims = summ.get_injections(instruments)
+    found, missed, sims = summ.get_injections(instruments,opts.far)
 
     fignum = fignum + 1
     pylab.figure(fignum)
