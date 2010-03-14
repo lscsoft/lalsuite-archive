@@ -17,6 +17,7 @@ from time import clock,time
 from optparse import *
 import glob
 import sys
+import random
 
 from pylal import ligolw_thinca
 usage="""
@@ -250,6 +251,14 @@ for database in databases:
 		
 		dbtables.put_connection_filename(database, working_filename, verbose = True)
 
+random.seed(1)
+random.shuffle(injections)
+random.seed(1)
+random.shuffle(injections_info)
+random.seed(2)
+random.shuffle(timeslides)
+random.seed(2)
+random.shuffle(timeslides_info)
 
 # this part of the code writes the triggers' information into .pat files, in the format needed for SprBaggerDecisionTreeApp
 # to get the MVSC rank for each timeslide and injection, we do a round-robin of training and testing, with the number of rounds determined by opts.number
