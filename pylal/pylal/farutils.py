@@ -56,7 +56,7 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 		off_inst = frozenset(off_inst)
 		key = on_inst
 		old_offsets = seglists.offsets.copy()
-		background_livetime.setdefault(key, {})	
+		background_livetime.setdefault(key, {})
 		for id, time_slide in background_time_slides.items():
 			seglists.offsets.update(time_slide)
 			segs=seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
@@ -69,7 +69,7 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 def background_livetime_ring_by_slide(connection, live_time_program, seglists, veto_segments, verbose = False):
 	background_livetime = {}
 	instruments = frozenset(seglists.keys())
-	offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)		
+	offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
 	# first work out time slide live time
 	for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, offset_vectors, verbose = verbose).items():
 		on_instruments = frozenset(on_instruments)#lsctables.ifos_from_instrument_set(on_instruments)
@@ -102,7 +102,7 @@ def playground_nonplayground_livetime(seglists, playground_segs=None, verbose=Fa
 		if playground_segs:
 			playground_livetime[on_inst] = float(abs(selected_segs & playground_segs))
 			nonplayground_livetime[on_inst] = float(abs(selected_segs - playground_segs))
-		else: 
+		else:
 			playground_livetime[on_inst] = 0
 			nonplayground_livetime[on_inst] = float(abs(selected_segs))
 
@@ -110,13 +110,13 @@ def playground_nonplayground_livetime(seglists, playground_segs=None, verbose=Fa
 
 def get_veto_segments(connection, program_name, veto_segments_name=None):
 	veto_segments = segments.segmentlistdict()
-	#FIXME only handles thinca case 
+	#FIXME only handles thinca case
 	if not veto_segments_name: return veto_segments
 	if program_name == "thinca": veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
 	return veto_segments
 
 
-def get_segments(connection, xmldoc, program_name):	
+def get_segments(connection, xmldoc, program_name):
 	seglists = segments.segmentlistdict()
 	if program_name == "thinca": 
 		seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name)
