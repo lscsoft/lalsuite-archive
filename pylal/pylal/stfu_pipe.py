@@ -158,7 +158,7 @@ def figure_out_cache(time):
 	cacheList=(
 		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
-		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999)
 		)
 
 	foundCache = ""
