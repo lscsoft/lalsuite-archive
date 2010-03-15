@@ -64,8 +64,9 @@ def time_at_instrument(sim, instrument):
 
 def injection_was_made(sim, seglists, instruments):
 	"""
-	Return True if the "time" of the injection as seen at each of the
-	named instruments lies within the corresponding segment list.
+	Return True if the "time" of the injection at each of the named
+	instruments lies within the corresponding segment list, otherwise
+	return False.
 	"""
 	for instrument in instruments:
 		if time_at_instrument(sim, instrument) not in seglists[instrument]:

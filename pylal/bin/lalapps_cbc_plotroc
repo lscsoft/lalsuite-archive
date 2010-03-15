@@ -315,8 +315,6 @@ for m, filename in enumerate(labels.keys()):
 		print >>sys.stderr, "%d/%d: %s" % (m + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	if options.tmp_space:
-		dbtables.set_temp_store_directory(connection, options.tmp_space, verbose = options.verbose)
 	contents = CoincDatabase(connection, verbose = options.verbose)
 	if not contents.sim_inspiral_table:
 		if options.verbose:

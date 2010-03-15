@@ -179,19 +179,19 @@ for coinc in coincs:
   for coarse_pt in grid.keys():
 
     #use timing alone to determine if we should move to the fine grid
-    dtrss_coarse = skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
-    coarse_rank = dtr.get_rank(dtrss_coarse*snrfac)
+    dtrss_coarse = snrfac*skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
+    coarse_rank = dtr.get_rank(dtrss_coarse)
     #if we don't hit the 91% timing threshold then don't bother
     if coarse_rank >= 0.09:
       
       #loop over points on the fine grid 
       for fine_pt in grid[coarse_pt]:
-        dtrss_fine = skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
-        dtrank = dtr.get_rank(dtrss_fine*snrfac)
+        dtrss_fine = snrfac*skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
+        dtrank = dtr.get_rank(dtrss_fine)
         dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
         dDrank = dDr.get_rank(dDrss_fine)
         ranking = dtdDr.get_rank(dtrank*dDrank)
-        sp.append((fine_pt[0],fine_pt[1],ranking,dtrss_fine*snrfac,dDrss_fine,fine_area))
+        sp.append((fine_pt[0],fine_pt[1],ranking,dtrss_fine,dDrss_fine,fine_area))
         #compute relevant areas
         #note that 1-rank is the percentage of injections with the same or lower rss
         if dtrank >= 0.9:
@@ -237,7 +237,7 @@ for coinc in coincs:
      
     else:
       #we assign a ranking of 0.0 to everything not within the 91% threshold
-      sp.append((coarse_pt[0],coarse_pt[1],0.0,dtrss_coarse*snrfac,0.0,coarse_area))
+      sp.append((coarse_pt[0],coarse_pt[1],0.0,dtrss_coarse,0.0,coarse_area))
   
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event

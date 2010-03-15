@@ -71,6 +71,7 @@ def parse_command_line():
 		usage = "%prog [options] [file ...]",
 		description = "%prog does blah blah blah."
 	)
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", help = "Retrieve database files from this LAL cache.  Can be given multiple times.")
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
 	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"ifos-oninstruments\",\"oninstruments\",\"none\"}", help = "Select the event categorization algorithm.  Required.")
@@ -124,6 +125,13 @@ def parse_command_line():
 
 	if options.live_time_program is None:
 		raise ValueError, "missing required option -p or --live-time-program"
+
+	#
+	# caches
+	#
+
+	if options.input_cache is not None:
+		filenames += [lal.CacheEntry(line).path() for filename in options.input_cache for line in file(filename)]
 
 	#
 	# done

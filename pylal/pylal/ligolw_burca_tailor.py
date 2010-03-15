@@ -24,9 +24,12 @@
 #
 
 
+import itertools
 import math
 import numpy
 from scipy.stats import stats
+import sys
+import threading
 
 
 from glue import iterutils
@@ -250,21 +253,25 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def finish(self, filters = {}):
+	def finish(self, filters = {}, verbose = False):
 		default_filter = rate.gaussian_window(21)
 		# normalizing each array so that its sum is 1 has the
 		# effect of making the integral of P(x) dx equal 1 after
 		# the array is transformed to an array of densities (which
 		# is done by dividing each bin by dx).
-		for name, binnedarray in self.zero_lag_rates.items():
+		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
+		n = 0
+		threads = []
+		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
+			n += 1
+			if verbose:
+				print >>sys.stderr, "\t%d / %d: %s \"%s\"" % (n, N, group, name)
 			binnedarray.array /= numpy.sum(binnedarray.array)
+			threads.append(threading.Thread(target = rate.to_moving_mean_density, args = (binnedarray, filters.get(name, default_filter))))
+			threads[-1].start()
 			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
-		for name, binnedarray in self.background_rates.items():
-			binnedarray.array /= numpy.sum(binnedarray.array)
-			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
-		for name, binnedarray in self.injection_rates.items():
-			binnedarray.array /= numpy.sum(binnedarray.array)
-			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
+		for thread in threads:
+			thread.join()
 		return self
 
 
