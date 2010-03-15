@@ -314,7 +314,7 @@ class InspiralEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_end(event.get_end() + delta)
 
-	def get_coincs(self, event_a, e_thinca_parameter, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, e_thinca_parameter, comparefunc):
 		#
 		# event_a's end time
 		#
@@ -328,7 +328,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, light_travel_time, e_thinca_parameter)]
 
 
 #
@@ -357,7 +357,7 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
-def inspiral_coinc_compare(a, b, e_thinca_parameter):
+def inspiral_coinc_compare(a, b, light_travel_time, e_thinca_parameter):
 	"""
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test.

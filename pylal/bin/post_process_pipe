@@ -86,7 +86,7 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
   def __init__(self, job, dag, instruments, databases, number=10, factor=50.0, trainingstr='training', testingstr='testing', zerolagstr='zerolag', p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     self.number = number
-		self.add_var_opt("factor",factor)
+    self.add_var_opt("factor",factor)
     self.add_var_opt("instruments", instruments)
     self.add_var_opt("trainingstr",trainingstr)
     self.add_var_opt("testingstr",testingstr)
@@ -130,7 +130,7 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.add_input_file(trainingfile)
     self.trainingfile = self.get_input_files()[0]
     self.trainedforest = self.trainingfile.replace('_training.pat','.spr')
-    self.add_file_arg("-a 1 -n 100 -l 4 -s 4 - c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
+    self.add_file_arg("-a 4 -n 100 -l 4 -s 4 -c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
     for p in p_node:
       self.add_parent(p)
@@ -163,7 +163,7 @@ class use_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = self.file_to_rank.replace('.pat','.dat')
-    self.add_file_arg("-A -a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+    self.add_file_arg("-A -a 4 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     self.add_output_file(self.ranked_file)
 # I need to figure out how to parse these options
     for p in p_node:
@@ -667,7 +667,7 @@ class lalapps_newcorse_node(pipeline.CondorDAGNode):
     self.add_var_opt("live-time-program",live_time_program)
     self.add_var_opt("veto-segments-name",veto_segments_name)
     self.add_var_opt("rank-by", rank)
-    self.add_var_opt("extrapolation-num", ext_num)
+    if rank != "likelihood": self.add_var_opt("extrapolation-num", ext_num)
     self.add_var_arg(database)
     for p in p_node:
       self.add_parent(p)

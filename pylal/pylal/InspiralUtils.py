@@ -131,12 +131,6 @@ class InspiralPage(object):
     else:
       self.output_path = './'
 
-
-    if hasattr(self.opts,'html_for_cbcweb'):
-      self.html_for_cbcweb = self.opts.html_for_cbcweb
-    else:
-      self.html_for_cbcweb = None
-
     # create the output directory later
 
   # ------------------------------------------------------
@@ -205,14 +199,14 @@ class InspiralPage(object):
     return filename, filename_thumb
 
   # ------------------------------------------------------
-  def write_page(self, infix = None, doThumb = True, cbcweb = False, \
+  def write_page(self, infix = None, doThumb = True, \
                  map_list = [], coinc_summ_table = None ):
     """
     Create the pages if output is enabled
     """
     if self.opts.enable_output:
-      html_filename = self.create_htmlname(infix, cbcweb)
-      self.write_html_output(html_filename, doThumb = doThumb, cbcweb = cbcweb, \
+      html_filename = self.create_htmlname(infix)
+      self.write_html_output(html_filename, doThumb = doThumb, \
                              map_list = map_list, coinc_summ_table = coinc_summ_table,\
                              comment=self.html_footer or None)
       self.write_cache_output(html_filename)
@@ -228,7 +222,7 @@ class InspiralPage(object):
     self.html_footer+=text+'<br>'
   
   # ------------------------------------------------------
-  def create_htmlname(self, infix, cbcweb):
+  def create_htmlname(self, infix):
     """
     Create the html filename
     """
@@ -239,10 +233,7 @@ class InspiralPage(object):
     else:
       html_filename = self.prefix + self.suffix
 
-    if cbcweb:
-      html_filename += "_publish.html"
-    else:
-      html_filename += ".html"
+    html_filename += ".html"
 
     if self.output_path:
       html_filename = self.output_path + html_filename
@@ -250,11 +241,10 @@ class InspiralPage(object):
     return html_filename
   
   # ------------------------------------------------------  
-  def write_html_output(self, html_filename, doThumb = True, cbcweb = False, map_list = [],\
+  def write_html_output(self, html_filename, doThumb = True, map_list = [],\
                           comment = None, coinc_summ_table = None ):
     """
     @param doThumb: Uses the thumbnail file as the sourcs for the images
-    @param cbcweb: Creates the output as a CVS webpage
     @param map_list: A list of dictionaries to create the image maps
     @param comment: A comment that can be added to the page
     @param coinc_summ_table: A CoincSummTable that can be added to the page
@@ -267,12 +257,7 @@ class InspiralPage(object):
     except:
       page.init()
 
-    if cbcweb:
-      page.addheader("<%method title>" + self.name + " results</%method>")
-      page.addheader("<%method headline>" + self.name + " results</%method>")
-      page.addheader("<%method cvsid> $Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $ </%method>")
-    else:
-      page.h1(self.name + " results")
+    page.h1(self.name + " results")
 
     page.p(self.prefix + self.suffix)
     page.hr()
@@ -284,10 +269,7 @@ class InspiralPage(object):
     for tag,filename in zip(self.tag_list, self.fname_list):
 
       # set the correct name for linking (two '//' does not bother)
-      if self.html_for_cbcweb:
-        fname = opts.html_for_cbcweb + "/Images/" + os.path.basename(filename)
-      else:
-        fname = "Images/" + os.path.basename(filename)
+      fname = "Images/" + os.path.basename(filename)
 
       # set the thumbnail pictures if required
       if doThumb:
@@ -549,7 +531,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
   return CoincSummTable
 
 def write_html_output(opts, args, fnameList, tagLists, \
-      doThumb=True, cbcweb = False, mapList = [],\
+      doThumb=True, mapList = [],\
       comment=None, CoincSummTable=None,\
       html_tag = '', add_box_flag=False):
   """
@@ -558,7 +540,6 @@ def write_html_output(opts, args, fnameList, tagLists, \
   @param fnameList: A list of the filenames
   @param tagLists: A list for the tags, getting added to the links
   @param doThumb: Uses the _thumb file as the sourcs for the images
-  @param cbcweb: Creates the output as a CBC webpage
   @param mapList: A list of dictionaries to create the image maps
   @html_tag: tag to add to html filename
   @add_box_flag: Adds _OPEN_BOX to the html file name if any
@@ -584,21 +565,13 @@ def write_html_output(opts, args, fnameList, tagLists, \
   # -- the HTML document and output cache file
   # -- initialise the web page calling init_page
   page, extra = init_markup_page(opts)
-  if cbcweb:
-    page.addheader("<%method title>" + opts.name + " results</%method>")
-    page.addheader("<%method headline>" + opts.name + " results</%method>")
-    page.addheader("<%method cvsid> $Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $ </%method>")
-  else:
-    page.h1(opts.name + " results")
+  page.h1(opts.name + " results")
 
   page.p(prefix + opts.suffix)
   page.hr()
 
   # -- filename
-  if cbcweb:
-    html_filename = prefix + opts.suffix +"_publish.html"
-  else:
-    html_filename = prefix + opts.suffix +".html"  
+  html_filename = prefix + opts.suffix +".html"
   if opts.output_path:
     html_filename = opts.output_path + html_filename
   html_file = file(html_filename, "w")
@@ -607,10 +580,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   for tag,filename in zip(tagLists,fnameList):
 
     # set the correct name for linking (two '//' does not bother)
-    if cbcweb:
-      fname = opts.html_for_cbcweb + "/Images/" + os.path.basename(filename)
-    else:
-      fname = "Images/" + os.path.basename(filename)
+    fname = "Images/" + os.path.basename(filename)
      
 
       # set the thumbnail pictures if required

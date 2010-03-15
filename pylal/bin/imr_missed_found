@@ -81,16 +81,12 @@ class Summary(object):
 			if not sim:
 				self.get_instruments(connection)
 				self.segments += self.get_segments(connection,xmldoc)
-				#FIXME, don't assume veto segments are the same in every file!
-				self.veto_segments = self.get_veto_segments(connection)
 
 			dbtables.discard_connection_filename(f, working_filename, verbose = opts.verbose)
 			dbtables.DBTable_set_connection(None)
 
 		# remove redundant instruments
 		self.instruments = list(set(self.instruments))
-		# FIXME Do these have to be done by instruments?
-		self.segments -= self.veto_segments
 
 		# segments and livetime by instruments
 		for i in self.instruments:
@@ -105,6 +101,7 @@ class Summary(object):
 			#FIXME CWB case of rings not handled
 			if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
 			if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+		segs -= self.get_veto_segments(connection)
 		return segs
 
 	def get_veto_segments(self, connection):
@@ -123,6 +120,7 @@ class Summary(object):
 		verbose = self.opts.verbose
 		found = []
 		missed = []
+		sims = []
 		print >>sys.stderr, ""
 		for cnt, f in enumerate(injfnames):
 			print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
@@ -142,7 +140,7 @@ class Summary(object):
 
 			# WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
 			segments = self.get_segments(connection, xmldoc)
-			segments -= self.veto_segments
+			#segments -= self.veto_segments
 			#print thincasegments
 			zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
 			###############
@@ -156,7 +154,7 @@ class Summary(object):
 
 			connection.create_function("injection_was_made", 2, injection_was_made)
 			make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
-
+			sims.extend(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName))
 			# INSPIRAL
 			if self.coinc_inspiral_table:
 				for values in connection.cursor().execute("""
@@ -231,7 +229,7 @@ WHERE
 			dbtables.DBTable_set_connection(None)
 
 			print >>sys.stderr, "\nFound = %d Missed = %d" % (len(found), len(missed))
-		return found, missed
+		return found, missed, sims
 
 	def set_instruments_to_calculate(self):
 		if not self.opts.instruments: return self.instruments
@@ -246,7 +244,7 @@ def parse_command_line():
 	parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog computes missed found plots")
 	parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
 	parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-	parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event")
+	parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event", default=float("inf"), type="float")
 	parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
@@ -297,7 +295,24 @@ def finalspin(m1, m2, s1z, s2z):
 #Missed-Found plots
 fignum = 0
 for instruments in summ.set_instruments_to_calculate():
-    found, missed = summ.get_injections(instruments)
+    found, missed, sims = summ.get_injections(instruments,opts.far)
+
+    fignum = fignum + 1
+    pylab.figure(fignum)
+    pylab.plot([s.mass1 for s in sims], [s.mass2 for s in sims],'.')
+    pylab.xlabel('Injected Mass One ($M_\odot$)')
+    pylab.ylabel('Injected Mass Two ($M_\odot$)')
+    pylab.title('Injected Mass One Vs Mass Two')
+    pylab.savefig('mass1_mass2.png')
+
+    fignum = fignum + 1
+    pylab.figure(fignum)
+    pylab.plot([s.spin1z for s in sims], [s.spin2z for s in sims],'.')
+    pylab.xlabel('Injected Spin One z')
+    pylab.ylabel('Injected Spin Two z')
+    pylab.title('Injected Spin One Vs Spin Two')
+    pylab.savefig('spin1_spin2.png')
+
     fignum = fignum + 1
     pylab.figure(fignum)
     pylab.semilogy([f.mchirp for f in found], [f.eff_dist_l for f in found],'.')

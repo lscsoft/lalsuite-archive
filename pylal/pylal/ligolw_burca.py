@@ -33,7 +33,6 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import inject
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools
@@ -246,7 +245,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 			event.set_peak(event.get_peak() + delta)
 			event.set_start(event.get_start() + delta)
 
-	def get_coincs(self, event_a, light_travel_time, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, ignored, comparefunc):
 		# event_a's peak time
 		peak = event_a.get_peak()
 
@@ -268,7 +267,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed peak times to quickly
 		# identify a subset of the full list)
-		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, event_b, light_travel_time)]
+		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, event_b, light_travel_time, ignored)]
 
 
 #
@@ -298,11 +297,11 @@ class StringEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_peak(event.get_peak() + delta)
 
-	def get_coincs(self, event_a, threshold, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, threshold, comparefunc):
 		min_peak = max_peak = event_a.get_peak()
-		min_peak -= threshold[0]
-		max_peak += threshold[0]
-		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
+		min_peak -= threshold[0] + light_travel_time
+		max_peak += threshold[0] + light_travel_time
+		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, light_travel_time, threshold)]
 
 
 #
@@ -314,42 +313,17 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-def StringCoincCompare(a, b, thresholds):
+def StringCoincCompare(a, b, light_travel_time, thresholds):
 	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
+	Returns False (a & b are coincident) if the events' peak times
+	differ from each other by no more than dt plus the light travel
+	time from one instrument to the next.
 	"""
-	# unpack thresholds
-	dt, kappa, epsilon = thresholds
+	# unpack thresholds (it's just the \Delta t window)
+	dt, = thresholds
 
 	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt
-
-	# for H1+H2, also test for amplitude coincidence
-	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
-		adelta = abs(a.amplitude) * (kappa / a.snr + epsilon)
-		bdelta = abs(b.amplitude) * (kappa / b.snr + epsilon)
-		coincident = coincident and a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta and b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta
-
-	# return result
-	return not coincident
-
-
-# redefine:  new version for S5
-def StringCoincCompare(a, b, thresholds):
-	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
-	"""
-	# unpack thresholds
-	# FIXME:  only dt is used now, update codes to remove kappa and
-	# epsilon
-	dt, kappa, epsilon = thresholds
-
-	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt + inject.light_travel_time(a.ifo, b.ifo)
+	coincident = abs(float(a.get_peak() - b.get_peak())) <= (dt + light_travel_time)
 
 	# return result
 	return not coincident

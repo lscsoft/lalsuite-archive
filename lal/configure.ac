@@ -1,6 +1,6 @@
 AC_INIT([lal],[6.3.2.2],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([include/config.h include/lal/LALConfig.h])
-AC_CONFIG_SRCDIR([include/config.h.in])
+AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([misc])
 AC_CONFIG_MACRO_DIR([misc])
 AC_CONFIG_FILES([ \
@@ -135,7 +135,7 @@ AC_DEFINE_UNQUOTED([LAL_PREFIX],["$lal_prefix"],[LAL Install Prefix])
 
 # check for pthreads
 lal_pthread_available="yes"
-ACX_PTHREAD(,[lal_pthread_available="no"])
+AX_PTHREAD(,[lal_pthread_available="no"])
 if test "$lal_pthread_lock" = "true" ; then
   if test "$lal_pthread_available" = "yes" ; then
     LIBS="$PTHREAD_LIBS $LIBS"
@@ -287,7 +287,7 @@ else
   else
     AC_CHECK_LIB([mkl],[DftiCreateDescriptor],,[AC_MSG_ERROR([could not find the Intel FFT library])])
   fi
-  AC_CHECK_HEADERS([mkl_fft.h],,[AC_MSG_ERROR([could not find the Intel FFT header])])
+  AC_CHECK_HEADERS([mkl_dfti.h],,[AC_MSG_ERROR([could not find the Intel FFT header])])
 fi
 
 # check for fft headers

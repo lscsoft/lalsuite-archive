@@ -88,10 +88,11 @@ static PyObject *pylal_ExcessPowerCoincCompare(PyObject *self, PyObject *args)
 	LIGOTimeGPS a_start, b_start;
 	double a_duration, b_duration;
 	double light_travel_time;
+	PyObject *ignored;
 	double deltat;
 	PyObject *attribute;
 
-	if(!PyArg_ParseTuple(args, "OOd", &a, &b, &light_travel_time))
+	if(!PyArg_ParseTuple(args, "OOdO", &a, &b, &light_travel_time, &ignored))
 		return NULL;
 
 	if((attribute = PyObject_GetAttrString(a, "central_freq"))) {

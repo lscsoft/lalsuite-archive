@@ -3,7 +3,7 @@
 #from numpy import *
 import scipy
 import matplotlib 
-#matplotlib.use("Agg")
+matplotlib.use("Agg")
 import sys
 import math
 from pylab import *
@@ -166,9 +166,9 @@ def ang_dist(long1,lat1,long2,lat2):
 	return(sep)
 
 def pol2cart(long,lat):
-	x=cos(lat)*cos(long)
-	y=cos(lat)*sin(long)
-	z=sin(lat)
+	x=numpy.cos(lat)*numpy.cos(long)
+	y=numpy.cos(lat)*numpy.sin(long)
+	z=numpy.sin(lat)
 	return array([x,y,z])
 
 def sky_hist(skypoints,samples):
@@ -177,7 +177,7 @@ def sky_hist(skypoints,samples):
 	bins=zeros(N)
 	j=0
 	for sample in samples:
-		seps=map(lambda s: ang_dist(sample[6],sample[7],s[1],s[0]),skypoints)
+		seps=map(lambda s: ang_dist(sample[5],sample[6],s[1],s[0]),skypoints)
 		minsep=math.pi
 		for i in range(0,N):
 			if seps[i]<minsep:
@@ -189,22 +189,23 @@ def sky_hist(skypoints,samples):
 	return (skypoints,bins)
 
 def skyhist_cart(skycarts,samples):
-	N=len(skypoints)
+	N=len(skycarts)
 	print 'operating on %d sky points'%(N)
 	bins=zeros(N)
 	j=0
 	for sample in samples:
-		sampcart=pol2cart(sample[6],sample[7])
-		dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
+		sampcart=pol2cart(sample[5],sample[6])
+		#dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
 		maxdot=0
 		for i in range(0,N):
-			if dots[i]>maxdot:
-				maxdot=dots[i]
+			thisdot=numpy.dot(sampcart,skycarts[i])
+			if thisdot>maxdot:
+				maxdot=thisdot
 				mindx=i
 		bins[mindx]=bins[mindx]+1
 		j=j+1
 	#	print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
-	return (skypoints,bins)
+	return (skycarts,bins)
 
 # Load in the main data
 (d,Bfiles)=loaddata(opts.data)
@@ -317,10 +318,12 @@ if(opts.skyres is not None):
 	from pylal import skylocutils
 	skypoints=array(skylocutils.gridsky(float(opts.skyres)))
 	skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
+	#skycarts=pol2carts(skypoints[:,0],skypoints[:,1])
 	(bins,shist)=skyhist_cart(skycarts,pos)
 	#(bins,hist)=sky_hist(skypoints,pos)
 	frac=0
 	Nbins=0
+	toppoints=[]
 	while(frac<0.67):
 		maxbin=0
 		for i in range(0,len(bins)):
@@ -330,6 +333,8 @@ if(opts.skyres is not None):
 		shist[maxpos]=0
 		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
+		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
 	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
 	skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
 	while(frac<0.9):
@@ -341,6 +346,8 @@ if(opts.skyres is not None):
                 shist[maxpos]=0
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
+		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
 	while(frac<0.95):
@@ -352,9 +359,26 @@ if(opts.skyres is not None):
                 shist[maxpos]=0
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
+		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
-    
+  	
+	from mpl_toolkits.basemap import Basemap
+	myfig=figure()
+	clf()
+	m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+	plx,ply=m(numpy.asarray(toppoints)[:,0],numpy.asarray(toppoints)[:,1])
+	scatter(plx,ply,s=5,c=numpyasarray(toppoints)[:,2],faceted=False,cmap=matplotlib.cm.jet)
+	m.drawmapboundary()
+	m.drawparallels(numpy.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
+	# draw parallels
+	m.drawmeridians(numpy.arange(0.,420.,90.),labels=[0,0,0,1],labelstyle='+/-')
+	# draw meridians
+	title("Skymap") # add a title
+	colorbar()
+	myfig.savefig('skymap.png')
+
 myfig=figure(1,figsize=(6,4),dpi=80)
 
 def plot2Dkernel(xdat,ydat,Nx,Ny):
@@ -371,9 +395,10 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
     imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
     colorbar()
 
+
 plot2Dkernel(pos[:,0],pos[:,1],100,100)
 if injection and getinjpar(injection,0)<max(pos[:,0]) and getinjpar(injection,0)>min(pos[:,0]) and getinjpar(injection,1)>min(pos[:,1]) and getinjpar(injection,1)<max(pos[:,1]):
-        plot(getinjpar(injection,0),getinjpar(injection,1),'go')
+        plot(getinjpar(injection,0),getinjpar(injection,1),'go',scalex=False,scaley=False)
 xlabel('chirp mass (Msun)')
 ylabel('eta')
 grid()
@@ -383,7 +408,7 @@ if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
     myfig.clear()
     plot2Dkernel(pos[:,5],pos[:,6],100,100)
     if injection and getinjpar(injection,5)<max(pos[:,5]) and getinjpar(injection,5)>min(pos[:,5]) and getinjpar(injection,6)>min(pos[:,6]) and getinjpar(injection,6)<max(pos[:,6]):
-        plot(getinjpar(injection,5),getinjpar(injection,6),'go')	
+        plot(getinjpar(injection,5),getinjpar(injection,6),'go',scalex=False,scaley=False)	
     xlabel('RA')
     ylabel('dec')
     grid()
@@ -391,7 +416,7 @@ if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
 
 myfig.clear()
 plot2Dkernel(pos[:,7],pos[:,8],100,100)
-if injection and getinjpar(injection,7)<max(pos[:,7]) and getinjpar(injection,7)>min(pos[:,7]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]): plot(getinjpar(injection,7),getinjpar(injection,8),'go')
+if injection and getinjpar(injection,7)<max(pos[:,7]) and getinjpar(injection,7)>min(pos[:,7]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]): plot(getinjpar(injection,7),getinjpar(injection,8),'go',scalex=False,scaley=False)
 xlabel('psi')
 ylabel('iota')
 grid()
@@ -401,7 +426,7 @@ myfig.clear()
 (m1,m2)=mc2ms(pos[:,0],pos[:,1])
 plot2Dkernel(m1,m2,100,100)
 if injection and injection.mass1>min(m1) and injection.mass1 < max(m1) and injection.mass2>min(m2) and injection.mass2<max(m2):
-    plot(injection.mass1,injection.mass2,'go')
+    plot(injection.mass1,injection.mass2,'go',scalex=False,scaley=False)
 xlabel('mass 1')
 ylabel('mass 2')
 grid()
@@ -410,7 +435,7 @@ myfig.clear()
 
 plot2Dkernel(m1,pos[:,4],100,100)
 if injection and injection.mass1<max(m1) and injection.mass1>min(m1) and getinjpar(injection,4)<max(pos[:,4]) and getinjpar(injection,4)>min(pos[:,4]):
-    plot(injection.mass1,injection.distance,'go')
+    plot(injection.mass1,injection.distance,'go',scalex=False,scaley=False)
 xlabel('m1')
 ylabel('Distance (Mpc)')
 grid()
@@ -425,7 +450,7 @@ myfig.clear()
 
 plot2Dkernel(pos[:,4],pos[:,8],100,100)
 if injection and getinjpar(injection,4)>min(pos[:,4]) and getinjpar(injection,4)<max(pos[:,4]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]):
-    plot(getinjpar(injection,4),getinjpar(injection,8),'go')
+    plot(getinjpar(injection,4),getinjpar(injection,8),'go',scalex=False,scaley=False)
 xlabel('distance')
 ylabel('iota')
 grid()
@@ -440,7 +465,7 @@ for i in range(0,Nd-1):
         if (size(unique(pos[:,i]))<2 or size(unique(pos[:,j]))<2):   continue
         plot2Dkernel(pos[:,i],pos[:,j],50,50)
         if injection and reduce (lambda a,b: a and b, map(lambda idx: getinjpar(injection,idx)>min(pos[:,idx]) and getinjpar(injection,idx)<max(pos[:,idx]),[i,j])) :
-            plot(getinjpar(injection,i),getinjpar(injection,j),'go')
+            plot(getinjpar(injection,i),getinjpar(injection,j),'go',scalex=False,scaley=False)
         xlabel(paramnames[i])
         ylabel(paramnames[j])
         grid()
@@ -478,7 +503,10 @@ htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
 htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
-htmlfile.write('<td width=30%><img width=100% src="m1dist.png"></td>')
+if opts.skyres is not None:
+	htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
+else:
+	htmlfile.write('<td width=30%><img width=100% src="m1dist.png:></td>')
 htmlfile.write('<td width=30%><img width=100% src="m2dist.png"></td>')
 htmlfile.write('</table>')
 htmlfile.write('<br><a href="2D/">All 2D Marginal PDFs</a><hr><h5>1D marginal posterior PDFs</h5><br>')
@@ -491,14 +519,32 @@ for i in [0,1,2,3,4,5,6,7,8]:
     kdepdf=gkde.evaluate(ind)
     plot(ind,kdepdf,label='density estimate')
     if injection and min(pos[:,i])<getinjpar(injection,i) and max(pos[:,i])>getinjpar(injection,i):   
-        plot([getinjpar(injection,i),getinjpar(injection,i)],[0,max(kdepdf)],'r-.')
+        plot([getinjpar(injection,i),getinjpar(injection,i)],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
         print 'i=%i, %f' % (i,getinjpar(injection,i))
     grid()
     xlabel(paramnames[i])
     ylabel('Probability Density')
     myfig.savefig(outdir+'/'+paramnames[i]+ '.png')
-    htmlfile.write('<img src="'+paramnames[i]+'.png">')
+    myfig=figure(figsize=(4,3.5),dpi=80)
+    plot(pos[:,i],'.')
+    if injection and min(pos[:,i])<getinjpar(injection,i) and max(pos[:,i])>getinjpar(injection,i):
+	plot([0,len(pos)],[getinjpar(injection,i),getinjpar(injection,i)],'r-.')
+    myfig.savefig(outdir+'/'+paramnames[i]+'_samps.png')
+    htmlfile.write('<img src="'+paramnames[i]+'.png"><img src="'+paramnames[i]+'_samps.png"><br>')
 
 htmlfile.write('<hr><br>Produced using lalapps_inspnest and OddsPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S"))
 htmlfile.write('</BODY></HTML>')
 htmlfile.close()
+
+
+# Save posterior samples too...
+
+posfilename=outdir+'/posterior_samples.dat'
+posfile=open(posfilename,'w')
+for row in pos:
+	for i in row:
+		posfile.write('%f\t'%(i))
+	posfile.write('\n')
+
+posfile.close()
+
