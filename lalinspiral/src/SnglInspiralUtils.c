@@ -1751,8 +1751,10 @@ LALCreateTrigBank(
   {
     if ( *test == m1_and_m2 )
     {
-      if ( (prevEvent->mass1 == eventHandle[i]->mass1)  &&
-          (prevEvent->mass2 == eventHandle[i]->mass2) )
+      if ( (prevEvent->mass1 == eventHandle[i]->mass1) &&
+          (prevEvent->mass2 == eventHandle[i]->mass2) &&
+          (prevEvent->chi == eventHandle[i]->chi) &&
+          (prevEvent->kappa == eventHandle[i]->kappa) )
       {
         /* discard the event as it is a duplicate */
         LALFreeSnglInspiral( status->statusPtr, &(eventHandle[i]) );
