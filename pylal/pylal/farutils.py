@@ -76,7 +76,7 @@ def background_livetime_ring_by_slide(connection, live_time_program, seglists, v
 		for offset, lt in zip(offset_vectors,livetimes):
 			background_livetime.setdefault(on_instruments,{})
 			key = frozenset(offset.items())
-			background_livetime[on_instruments].setdfault(key, 0)
+			background_livetime[on_instruments].setdefault(key, 0)
 			background_livetime[on_instruments][key] += lt
 
 	return background_livetime
