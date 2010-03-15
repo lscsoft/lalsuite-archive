@@ -31,54 +31,118 @@ from pylal import llwapp
 from pylal import db_thinca_rings
 
 # get choices from a set (useful for on/off ifos)
-def detector_combos( ifo_set ):
+def detector_combos( instruments ):
 	out = []
-	for i in range(1, len(ifo_set)):
-		X = list(iterutils.choices(ifo_set, i))
-		Y = list(iterutils.choices(ifo_set, len(ifo_set) - i))
+	instruments = tuple(instruments)
+	for i in range(1, len(instruments)):
+		X = list(iterutils.choices(instruments, i))
+		Y = list(iterutils.choices(instruments, len(instruments) - i))
 		Y.reverse()
-		out.extend(zip(X, Y))
-	ifo_set = list(ifo_set)
-	ifo_set.sort()
-	ifo_set = tuple(ifo_set)
-	out.append((ifo_set, ()))
+		out.extend(zip(X,Y)) #out.extend(zip(X, Y))
+	instruments = list(instruments)
+	instruments.sort()
+	instruments = tuple(instruments)
+	out.append((instruments, ()))
 	return out
 
-def add_livetime_nonring(connection, live_time_program, verbose = False):
+def background_livetime_nonring_by_slide(connection, seglists, veto_segments=None, verbose = False):
 	# get the segment lists and live time
 	# FIXME veto segments not handled yet
-	xmldoc = dbtables.get_xml(connection)
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
-	seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 	instruments = frozenset(seglists.keys())
-	cached_livetime = {}
+	background_livetime = {}
 	for on_inst, off_inst in detector_combos(list(instruments)):
 		on_inst = frozenset(on_inst)
 		off_inst = frozenset(off_inst)
-		for time_slide in background_time_slides.values():
+		key = on_inst
+		old_offsets = seglists.offsets.copy()
+		background_livetime.setdefault(key, {})	
+		for id, time_slide in background_time_slides.items():
 			seglists.offsets.update(time_slide)
 			segs=seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
-			key = lsctables.ifos_from_instrument_set(on_inst)
-			cached_livetime.setdefault(key, 0)
-			cached_livetime[key] += float(abs(segs))
-	return cached_livetime
+			tskey = frozenset(time_slide.items())
+			background_livetime[key].setdefault(tskey,0)
+			background_livetime[key][tskey] += float(abs(segs))
+		seglists.offsets.update(old_offsets)
+	return background_livetime
 
-def add_livetime_ring(connection, live_time_program, veto_segments_name=None, verbose = False):
-	cached_livetime = {}
-	if veto_segments_name is not None:
-		if verbose:
-			print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
-			veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
-		else:
-			veto_segments = segments.segmentlistdict()
-		if verbose:
-			print >>sys.stderr, "\tcomputing livetimes:",
-		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
-			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
-			try:
-				cached_livetime[on_instruments] += sum(livetimes)
-			except KeyError:
-				cached_livetime[on_instruments] = sum(livetimes)
-		if verbose:
-			print >>sys.stderr
-	return cached_livetime
+def background_livetime_ring_by_slide(connection, live_time_program, seglists, veto_segments, verbose = False):
+	background_livetime = {}
+	instruments = frozenset(seglists.keys())
+	offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)		
+	# first work out time slide live time
+	for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, offset_vectors, verbose = verbose).items():
+		on_instruments = frozenset(on_instruments)#lsctables.ifos_from_instrument_set(on_instruments)
+		for offset, lt in zip(offset_vectors,livetimes):
+			background_livetime.setdefault(on_instruments,{})
+			key = frozenset(offset.items())
+			background_livetime[on_instruments].setdfault(key, 0)
+			background_livetime[on_instruments][key] += lt
+
+	return background_livetime
+
+def add_background_livetime(connection, live_time_program, seglists, veto_segments, verbose=False):
+	if live_time_program == "thinca": lt = background_livetime_ring_by_slide(connection, live_time_program, seglists, veto_segments, verbose)
+	if live_time_program == "gstlal_inspiral": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, verbose)
+	out = {}
+	for k, v in lt.items():
+		out.setdefault(k,0)
+		out[k] += sum(v.values())
+	return out
+
+def playground_nonplayground_livetime(seglists, playground_segs=None, verbose=False):
+	playground_livetime = {}
+	nonplayground_livetime = {}
+	instruments = frozenset(seglists.keys())
+	for on_inst, off_inst in detector_combos(list(instruments)):
+		on_inst = frozenset(on_inst)
+		off_inst = frozenset(off_inst)
+		key = lsctables.ifos_from_instrument_set(on_inst)
+		selected_segs = seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
+		if playground_segs:
+			playground_livetime[on_inst] = float(abs(selected_segs & playground_segs))
+			nonplayground_livetime[on_inst] = float(abs(selected_segs - playground_segs))
+		else: 
+			playground_livetime[on_inst] = 0
+			nonplayground_livetime[on_inst] = float(abs(selected_segs))
+
+	return playground_livetime, nonplayground_livetime
+
+def get_veto_segments(connection, program_name, veto_segments_name=None):
+	veto_segments = segments.segmentlistdict()
+	#FIXME only handles thinca case 
+	if not veto_segments_name: return veto_segments
+	if program_name == "thinca": veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+	return veto_segments
+
+
+def get_segments(connection, xmldoc, program_name):	
+	seglists = segments.segmentlistdict()
+	if program_name == "thinca": 
+		seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name)
+	if program_name == "gstlal_inspiral":
+		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
+	return seglists
+
+def get_background_livetime_by_slide(connection, program_name, seglists, veto_segments=None, verbose = False):
+	
+	if program_name == "thinca": 
+		return background_livetime_ring_by_slide(connection, program_name, seglists, veto_segments, verbose)
+
+	if program_name == "gstlal_inspiral":
+		return background_livetime_nonring_by_slide(connection, seglists, veto_segments, verbose)
+
+def get_livetime_by_offset(background_by_slide, zero_live_time=None, det='L1'):
+	lt = {}
+	if zero_live_time:
+		for inst in zero_live_time.keys():
+			lt.setdefault(inst,{})
+			lt[inst][0] = zero_live_time[inst]
+
+	for inst, slide in background_by_slide.items():
+		lt.setdefault(inst,{})
+		for offsets, value in slide.items():
+			for ifo, offset in offsets:
+				if ifo == det:
+					lt[inst][offset] = value
+	return lt
