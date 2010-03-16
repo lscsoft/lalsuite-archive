@@ -2441,6 +2441,12 @@ int main( int argc, char *argv[] )
                 break;
 
               case FindChirpPTF:
+                if ( fcFilterInput->segment->chisqBinVec->length )
+                {
+                  LAL_CALL( LALFindChirpTDNormalize( &status, 
+                      fcFilterInput->fcTmplt, fcFilterInput->segment, 
+                      fcDataParams ), &status );
+                }
                 LAL_CALL( LALFindChirpPTFNormalize( &status,
                       fcFilterInput->fcTmplt, fcFilterInput->segment,
                       fcDataParams ), &status );
@@ -2555,6 +2561,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case FindChirpPTF:
                 /* recompute the template norm since it has been over written */
                 /* ( When doing the chisq test and the bank veto for          */
                 /* time domain searches that don't use the                    */
@@ -2773,6 +2780,7 @@ int main( int argc, char *argv[] )
         case EOB:
         case EOBNR:
         case FindChirpSP:
+        case FindChirpPTF:
           /* the chisq bins need to be re-computed for the next template */
           for ( i = 0; i < fcSegVec->length ; ++i )
           {
