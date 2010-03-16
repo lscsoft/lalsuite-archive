@@ -475,6 +475,7 @@ LALFindChirpTDNormalize(
     case PadeT1:
     case EOB:
     case EOBNR:
+    case FindChirpPTF:
       break;
     default:
       ABORT( status, FINDCHIRPTDH_EMAPX, FINDCHIRPTDH_MSGEMAPX );
