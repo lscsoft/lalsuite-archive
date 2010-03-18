@@ -166,9 +166,9 @@ def ang_dist(long1,lat1,long2,lat2):
 	return(sep)
 
 def pol2cart(long,lat):
-	x=cos(lat)*cos(long)
-	y=cos(lat)*sin(long)
-	z=sin(lat)
+	x=numpy.cos(lat)*numpy.cos(long)
+	y=numpy.cos(lat)*numpy.sin(long)
+	z=numpy.sin(lat)
 	return array([x,y,z])
 
 def sky_hist(skypoints,samples):
@@ -189,22 +189,23 @@ def sky_hist(skypoints,samples):
 	return (skypoints,bins)
 
 def skyhist_cart(skycarts,samples):
-	N=len(skypoints)
+	N=len(skycarts)
 	print 'operating on %d sky points'%(N)
 	bins=zeros(N)
 	j=0
 	for sample in samples:
 		sampcart=pol2cart(sample[5],sample[6])
-		dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
+		#dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
 		maxdot=0
 		for i in range(0,N):
-			if dots[i]>maxdot:
-				maxdot=dots[i]
+			thisdot=numpy.dot(sampcart,skycarts[i])
+			if thisdot>maxdot:
+				maxdot=thisdot
 				mindx=i
 		bins[mindx]=bins[mindx]+1
 		j=j+1
 	#	print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
-	return (skypoints,bins)
+	return (skycarts,bins)
 
 # Load in the main data
 (d,Bfiles)=loaddata(opts.data)
@@ -317,6 +318,7 @@ if(opts.skyres is not None):
 	from pylal import skylocutils
 	skypoints=array(skylocutils.gridsky(float(opts.skyres)))
 	skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
+	#skycarts=pol2carts(skypoints[:,0],skypoints[:,1])
 	(bins,shist)=skyhist_cart(skycarts,pos)
 	#(bins,hist)=sky_hist(skypoints,pos)
 	frac=0
@@ -361,7 +363,22 @@ if(opts.skyres is not None):
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
-    
+  	
+	from mpl_toolkits.basemap import Basemap
+	myfig=figure()
+	clf()
+	m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
+	plx,ply=m(numpy.asarray(toppoints)[:,0],numpy.asarray(toppoints)[:,1])
+	scatter(plx,ply,s=5,c=numpyasarray(toppoints)[:,2],faceted=False,cmap=matplotlib.cm.jet)
+	m.drawmapboundary()
+	m.drawparallels(numpy.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
+	# draw parallels
+	m.drawmeridians(numpy.arange(0.,420.,90.),labels=[0,0,0,1],labelstyle='+/-')
+	# draw meridians
+	title("Skymap") # add a title
+	colorbar()
+	myfig.savefig('skymap.png')
+
 myfig=figure(1,figsize=(6,4),dpi=80)
 
 def plot2Dkernel(xdat,ydat,Nx,Ny):
@@ -377,6 +394,7 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
 #    if(asp<0.8 or asp > 1.6): asp=1.4
     imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
     colorbar()
+
 
 plot2Dkernel(pos[:,0],pos[:,1],100,100)
 if injection and getinjpar(injection,0)<max(pos[:,0]) and getinjpar(injection,0)>min(pos[:,0]) and getinjpar(injection,1)>min(pos[:,1]) and getinjpar(injection,1)<max(pos[:,1]):
@@ -485,7 +503,10 @@ htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
 htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
-htmlfile.write('<td width=30%><img width=100% src="m1dist.png"></td>')
+if opts.skyres is not None:
+	htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
+else:
+	htmlfile.write('<td width=30%><img width=100% src="m1dist.png:></td>')
 htmlfile.write('<td width=30%><img width=100% src="m2dist.png"></td>')
 htmlfile.write('</table>')
 htmlfile.write('<br><a href="2D/">All 2D Marginal PDFs</a><hr><h5>1D marginal posterior PDFs</h5><br>')
