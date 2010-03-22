@@ -34,24 +34,24 @@ const char *gengetopt_args_info_description = "";
 const char *gengetopt_args_info_help[] = {
   "  -h, --help                    Print help and exit",
   "  -V, --version                 Print version and exit",
-  "      --A=DOUBLE                Amplitude of fake signal",
-  "      --f0=DOUBLE               Frequency of fake signal",
-  "      --P=DOUBLE                Period of binary orbit of fake signal",
-  "      --df=DOUBLE               Modulation depth of the signal due to the \n                                  binary orbit",
   "      --Tobs=DOUBLE             Total observation time",
   "      --Tcoh=DOUBLE             SFT coherence time  (default=`1800')",
   "      --t0=DOUBLE               Start time of the search in GPS seconds",
-  "      --fs=DOUBLE               Sampling frequency of time series",
   "      --fmin=DOUBLE             Minimum frequency of band",
   "      --fspan=DOUBLE            Frequency span of band",
-  "      --cols=INT                Maximum column width to search",
+  "      --Pmin=DOUBLE             Minimum period to be searched  \n                                  (default=`7200.0')",
+  "      --Pmax=DOUBLE             Maximum period to be searched",
+  "      --dfmin=DOUBLE            Minimum modulation depth to search",
+  "      --dfmax=DOUBLE            Maximum modulation depth to search",
   "      --ihsfar=DOUBLE           IHS FAR threshold  (default=`0.01')",
   "      --tmplfar=DOUBLE          Template FAR threshold  (default=`0.01')",
   "      --blksize=INT             Blocksize for running median of 1st FFT band  \n                                  (default=`1001')",
   "      --outdirectory=STRING     Output directory",
+  "      --sftDir=STRING           Directory containing SFTs  (default=`./')",
   "      --ephemDir=STRING         Path to ephemeris files  \n                                  (default=`/opt/lscsoft/lal/share/lal')",
   "      --dopplerMultiplier=DOUBLE\n                                Multiplier for the Doppler velocity  \n                                  (default=`1.0')",
   "      --templateLength=INT      Number of pixels to use in the template  \n                                  (default=`50')",
+  "      --skyRegion=STRING        Region of the sky to search (e.g. \n                                  (ra1,dec1),(ra2,dec2),(ra3,dec3)...) or \n                                  allsky  (default=`allsky')",
     0
 };
 
@@ -103,42 +103,41 @@ void clear_given (struct gengetopt_args_info *args_info)
 {
   args_info->help_given = 0 ;
   args_info->version_given = 0 ;
-  args_info->A_given = 0 ;
-  args_info->f0_given = 0 ;
-  args_info->P_given = 0 ;
-  args_info->df_given = 0 ;
   args_info->Tobs_given = 0 ;
   args_info->Tcoh_given = 0 ;
   args_info->t0_given = 0 ;
-  args_info->fs_given = 0 ;
   args_info->fmin_given = 0 ;
   args_info->fspan_given = 0 ;
-  args_info->cols_given = 0 ;
+  args_info->Pmin_given = 0 ;
+  args_info->Pmax_given = 0 ;
+  args_info->dfmin_given = 0 ;
+  args_info->dfmax_given = 0 ;
   args_info->ihsfar_given = 0 ;
   args_info->tmplfar_given = 0 ;
   args_info->blksize_given = 0 ;
   args_info->outdirectory_given = 0 ;
+  args_info->sftDir_given = 0 ;
   args_info->ephemDir_given = 0 ;
   args_info->dopplerMultiplier_given = 0 ;
   args_info->templateLength_given = 0 ;
+  args_info->skyRegion_given = 0 ;
 }
 
 static
 void clear_args (struct gengetopt_args_info *args_info)
 {
   FIX_UNUSED (args_info);
-  args_info->A_orig = NULL;
-  args_info->f0_orig = NULL;
-  args_info->P_orig = NULL;
-  args_info->df_orig = NULL;
   args_info->Tobs_orig = NULL;
   args_info->Tcoh_arg = 1800;
   args_info->Tcoh_orig = NULL;
   args_info->t0_orig = NULL;
-  args_info->fs_orig = NULL;
   args_info->fmin_orig = NULL;
   args_info->fspan_orig = NULL;
-  args_info->cols_orig = NULL;
+  args_info->Pmin_arg = 7200.0;
+  args_info->Pmin_orig = NULL;
+  args_info->Pmax_orig = NULL;
+  args_info->dfmin_orig = NULL;
+  args_info->dfmax_orig = NULL;
   args_info->ihsfar_arg = 0.01;
   args_info->ihsfar_orig = NULL;
   args_info->tmplfar_arg = 0.01;
@@ -147,12 +146,16 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->blksize_orig = NULL;
   args_info->outdirectory_arg = NULL;
   args_info->outdirectory_orig = NULL;
+  args_info->sftDir_arg = gengetopt_strdup ("./");
+  args_info->sftDir_orig = NULL;
   args_info->ephemDir_arg = gengetopt_strdup ("/opt/lscsoft/lal/share/lal");
   args_info->ephemDir_orig = NULL;
   args_info->dopplerMultiplier_arg = 1.0;
   args_info->dopplerMultiplier_orig = NULL;
   args_info->templateLength_arg = 50;
   args_info->templateLength_orig = NULL;
+  args_info->skyRegion_arg = gengetopt_strdup ("allsky");
+  args_info->skyRegion_orig = NULL;
   
 }
 
@@ -163,24 +166,24 @@ void init_args_info(struct gengetopt_args_info *args_info)
 
   args_info->help_help = gengetopt_args_info_help[0] ;
   args_info->version_help = gengetopt_args_info_help[1] ;
-  args_info->A_help = gengetopt_args_info_help[2] ;
-  args_info->f0_help = gengetopt_args_info_help[3] ;
-  args_info->P_help = gengetopt_args_info_help[4] ;
-  args_info->df_help = gengetopt_args_info_help[5] ;
-  args_info->Tobs_help = gengetopt_args_info_help[6] ;
-  args_info->Tcoh_help = gengetopt_args_info_help[7] ;
-  args_info->t0_help = gengetopt_args_info_help[8] ;
-  args_info->fs_help = gengetopt_args_info_help[9] ;
-  args_info->fmin_help = gengetopt_args_info_help[10] ;
-  args_info->fspan_help = gengetopt_args_info_help[11] ;
-  args_info->cols_help = gengetopt_args_info_help[12] ;
-  args_info->ihsfar_help = gengetopt_args_info_help[13] ;
-  args_info->tmplfar_help = gengetopt_args_info_help[14] ;
-  args_info->blksize_help = gengetopt_args_info_help[15] ;
-  args_info->outdirectory_help = gengetopt_args_info_help[16] ;
-  args_info->ephemDir_help = gengetopt_args_info_help[17] ;
-  args_info->dopplerMultiplier_help = gengetopt_args_info_help[18] ;
-  args_info->templateLength_help = gengetopt_args_info_help[19] ;
+  args_info->Tobs_help = gengetopt_args_info_help[2] ;
+  args_info->Tcoh_help = gengetopt_args_info_help[3] ;
+  args_info->t0_help = gengetopt_args_info_help[4] ;
+  args_info->fmin_help = gengetopt_args_info_help[5] ;
+  args_info->fspan_help = gengetopt_args_info_help[6] ;
+  args_info->Pmin_help = gengetopt_args_info_help[7] ;
+  args_info->Pmax_help = gengetopt_args_info_help[8] ;
+  args_info->dfmin_help = gengetopt_args_info_help[9] ;
+  args_info->dfmax_help = gengetopt_args_info_help[10] ;
+  args_info->ihsfar_help = gengetopt_args_info_help[11] ;
+  args_info->tmplfar_help = gengetopt_args_info_help[12] ;
+  args_info->blksize_help = gengetopt_args_info_help[13] ;
+  args_info->outdirectory_help = gengetopt_args_info_help[14] ;
+  args_info->sftDir_help = gengetopt_args_info_help[15] ;
+  args_info->ephemDir_help = gengetopt_args_info_help[16] ;
+  args_info->dopplerMultiplier_help = gengetopt_args_info_help[17] ;
+  args_info->templateLength_help = gengetopt_args_info_help[18] ;
+  args_info->skyRegion_help = gengetopt_args_info_help[19] ;
   
 }
 
@@ -261,26 +264,28 @@ static void
 cmdline_parser_release (struct gengetopt_args_info *args_info)
 {
 
-  free_string_field (&(args_info->A_orig));
-  free_string_field (&(args_info->f0_orig));
-  free_string_field (&(args_info->P_orig));
-  free_string_field (&(args_info->df_orig));
   free_string_field (&(args_info->Tobs_orig));
   free_string_field (&(args_info->Tcoh_orig));
   free_string_field (&(args_info->t0_orig));
-  free_string_field (&(args_info->fs_orig));
   free_string_field (&(args_info->fmin_orig));
   free_string_field (&(args_info->fspan_orig));
-  free_string_field (&(args_info->cols_orig));
+  free_string_field (&(args_info->Pmin_orig));
+  free_string_field (&(args_info->Pmax_orig));
+  free_string_field (&(args_info->dfmin_orig));
+  free_string_field (&(args_info->dfmax_orig));
   free_string_field (&(args_info->ihsfar_orig));
   free_string_field (&(args_info->tmplfar_orig));
   free_string_field (&(args_info->blksize_orig));
   free_string_field (&(args_info->outdirectory_arg));
   free_string_field (&(args_info->outdirectory_orig));
+  free_string_field (&(args_info->sftDir_arg));
+  free_string_field (&(args_info->sftDir_orig));
   free_string_field (&(args_info->ephemDir_arg));
   free_string_field (&(args_info->ephemDir_orig));
   free_string_field (&(args_info->dopplerMultiplier_orig));
   free_string_field (&(args_info->templateLength_orig));
+  free_string_field (&(args_info->skyRegion_arg));
+  free_string_field (&(args_info->skyRegion_orig));
   
   
 
@@ -315,28 +320,24 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "help", 0, 0 );
   if (args_info->version_given)
     write_into_file(outfile, "version", 0, 0 );
-  if (args_info->A_given)
-    write_into_file(outfile, "A", args_info->A_orig, 0);
-  if (args_info->f0_given)
-    write_into_file(outfile, "f0", args_info->f0_orig, 0);
-  if (args_info->P_given)
-    write_into_file(outfile, "P", args_info->P_orig, 0);
-  if (args_info->df_given)
-    write_into_file(outfile, "df", args_info->df_orig, 0);
   if (args_info->Tobs_given)
     write_into_file(outfile, "Tobs", args_info->Tobs_orig, 0);
   if (args_info->Tcoh_given)
     write_into_file(outfile, "Tcoh", args_info->Tcoh_orig, 0);
   if (args_info->t0_given)
     write_into_file(outfile, "t0", args_info->t0_orig, 0);
-  if (args_info->fs_given)
-    write_into_file(outfile, "fs", args_info->fs_orig, 0);
   if (args_info->fmin_given)
     write_into_file(outfile, "fmin", args_info->fmin_orig, 0);
   if (args_info->fspan_given)
     write_into_file(outfile, "fspan", args_info->fspan_orig, 0);
-  if (args_info->cols_given)
-    write_into_file(outfile, "cols", args_info->cols_orig, 0);
+  if (args_info->Pmin_given)
+    write_into_file(outfile, "Pmin", args_info->Pmin_orig, 0);
+  if (args_info->Pmax_given)
+    write_into_file(outfile, "Pmax", args_info->Pmax_orig, 0);
+  if (args_info->dfmin_given)
+    write_into_file(outfile, "dfmin", args_info->dfmin_orig, 0);
+  if (args_info->dfmax_given)
+    write_into_file(outfile, "dfmax", args_info->dfmax_orig, 0);
   if (args_info->ihsfar_given)
     write_into_file(outfile, "ihsfar", args_info->ihsfar_orig, 0);
   if (args_info->tmplfar_given)
@@ -345,12 +346,16 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "blksize", args_info->blksize_orig, 0);
   if (args_info->outdirectory_given)
     write_into_file(outfile, "outdirectory", args_info->outdirectory_orig, 0);
+  if (args_info->sftDir_given)
+    write_into_file(outfile, "sftDir", args_info->sftDir_orig, 0);
   if (args_info->ephemDir_given)
     write_into_file(outfile, "ephemDir", args_info->ephemDir_orig, 0);
   if (args_info->dopplerMultiplier_given)
     write_into_file(outfile, "dopplerMultiplier", args_info->dopplerMultiplier_orig, 0);
   if (args_info->templateLength_given)
     write_into_file(outfile, "templateLength", args_info->templateLength_orig, 0);
+  if (args_info->skyRegion_given)
+    write_into_file(outfile, "skyRegion", args_info->skyRegion_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -607,24 +612,24 @@ cmdline_parser_internal (
       static struct option long_options[] = {
         { "help",	0, NULL, 'h' },
         { "version",	0, NULL, 'V' },
-        { "A",	1, NULL, 0 },
-        { "f0",	1, NULL, 0 },
-        { "P",	1, NULL, 0 },
-        { "df",	1, NULL, 0 },
         { "Tobs",	1, NULL, 0 },
         { "Tcoh",	1, NULL, 0 },
         { "t0",	1, NULL, 0 },
-        { "fs",	1, NULL, 0 },
         { "fmin",	1, NULL, 0 },
         { "fspan",	1, NULL, 0 },
-        { "cols",	1, NULL, 0 },
+        { "Pmin",	1, NULL, 0 },
+        { "Pmax",	1, NULL, 0 },
+        { "dfmin",	1, NULL, 0 },
+        { "dfmax",	1, NULL, 0 },
         { "ihsfar",	1, NULL, 0 },
         { "tmplfar",	1, NULL, 0 },
         { "blksize",	1, NULL, 0 },
         { "outdirectory",	1, NULL, 0 },
+        { "sftDir",	1, NULL, 0 },
         { "ephemDir",	1, NULL, 0 },
         { "dopplerMultiplier",	1, NULL, 0 },
         { "templateLength",	1, NULL, 0 },
+        { "skyRegion",	1, NULL, 0 },
         { 0,  0, 0, 0 }
       };
 
@@ -646,64 +651,8 @@ cmdline_parser_internal (
 
 
         case 0:	/* Long option with no short option */
-          /* Amplitude of fake signal.  */
-          if (strcmp (long_options[option_index].name, "A") == 0)
-          {
-          
-          
-            if (update_arg( (void *)&(args_info->A_arg), 
-                 &(args_info->A_orig), &(args_info->A_given),
-                &(local_args_info.A_given), optarg, 0, 0, ARG_DOUBLE,
-                check_ambiguity, override, 0, 0,
-                "A", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* Frequency of fake signal.  */
-          else if (strcmp (long_options[option_index].name, "f0") == 0)
-          {
-          
-          
-            if (update_arg( (void *)&(args_info->f0_arg), 
-                 &(args_info->f0_orig), &(args_info->f0_given),
-                &(local_args_info.f0_given), optarg, 0, 0, ARG_DOUBLE,
-                check_ambiguity, override, 0, 0,
-                "f0", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* Period of binary orbit of fake signal.  */
-          else if (strcmp (long_options[option_index].name, "P") == 0)
-          {
-          
-          
-            if (update_arg( (void *)&(args_info->P_arg), 
-                 &(args_info->P_orig), &(args_info->P_given),
-                &(local_args_info.P_given), optarg, 0, 0, ARG_DOUBLE,
-                check_ambiguity, override, 0, 0,
-                "P", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* Modulation depth of the signal due to the binary orbit.  */
-          else if (strcmp (long_options[option_index].name, "df") == 0)
-          {
-          
-          
-            if (update_arg( (void *)&(args_info->df_arg), 
-                 &(args_info->df_orig), &(args_info->df_given),
-                &(local_args_info.df_given), optarg, 0, 0, ARG_DOUBLE,
-                check_ambiguity, override, 0, 0,
-                "df", '-',
-                additional_error))
-              goto failure;
-          
-          }
           /* Total observation time.  */
-          else if (strcmp (long_options[option_index].name, "Tobs") == 0)
+          if (strcmp (long_options[option_index].name, "Tobs") == 0)
           {
           
           
@@ -744,20 +693,6 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* Sampling frequency of time series.  */
-          else if (strcmp (long_options[option_index].name, "fs") == 0)
-          {
-          
-          
-            if (update_arg( (void *)&(args_info->fs_arg), 
-                 &(args_info->fs_orig), &(args_info->fs_given),
-                &(local_args_info.fs_given), optarg, 0, 0, ARG_DOUBLE,
-                check_ambiguity, override, 0, 0,
-                "fs", '-',
-                additional_error))
-              goto failure;
-          
-          }
           /* Minimum frequency of band.  */
           else if (strcmp (long_options[option_index].name, "fmin") == 0)
           {
@@ -786,16 +721,58 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* Maximum column width to search.  */
-          else if (strcmp (long_options[option_index].name, "cols") == 0)
+          /* Minimum period to be searched.  */
+          else if (strcmp (long_options[option_index].name, "Pmin") == 0)
           {
           
           
-            if (update_arg( (void *)&(args_info->cols_arg), 
-                 &(args_info->cols_orig), &(args_info->cols_given),
-                &(local_args_info.cols_given), optarg, 0, 0, ARG_INT,
+            if (update_arg( (void *)&(args_info->Pmin_arg), 
+                 &(args_info->Pmin_orig), &(args_info->Pmin_given),
+                &(local_args_info.Pmin_given), optarg, 0, "7200.0", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
-                "cols", '-',
+                "Pmin", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Maximum period to be searched.  */
+          else if (strcmp (long_options[option_index].name, "Pmax") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->Pmax_arg), 
+                 &(args_info->Pmax_orig), &(args_info->Pmax_given),
+                &(local_args_info.Pmax_given), optarg, 0, 0, ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "Pmax", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Minimum modulation depth to search.  */
+          else if (strcmp (long_options[option_index].name, "dfmin") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->dfmin_arg), 
+                 &(args_info->dfmin_orig), &(args_info->dfmin_given),
+                &(local_args_info.dfmin_given), optarg, 0, 0, ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "dfmin", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Maximum modulation depth to search.  */
+          else if (strcmp (long_options[option_index].name, "dfmax") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->dfmax_arg), 
+                 &(args_info->dfmax_orig), &(args_info->dfmax_given),
+                &(local_args_info.dfmax_given), optarg, 0, 0, ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "dfmax", '-',
                 additional_error))
               goto failure;
           
@@ -856,6 +833,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* Directory containing SFTs.  */
+          else if (strcmp (long_options[option_index].name, "sftDir") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->sftDir_arg), 
+                 &(args_info->sftDir_orig), &(args_info->sftDir_given),
+                &(local_args_info.sftDir_given), optarg, 0, "./", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "sftDir", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* Path to ephemeris files.  */
           else if (strcmp (long_options[option_index].name, "ephemDir") == 0)
           {
@@ -894,6 +885,20 @@ cmdline_parser_internal (
                 &(local_args_info.templateLength_given), optarg, 0, "50", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "templateLength", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Region of the sky to search (e.g. (ra1,dec1),(ra2,dec2),(ra3,dec3)...) or allsky.  */
+          else if (strcmp (long_options[option_index].name, "skyRegion") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->skyRegion_arg), 
+                 &(args_info->skyRegion_orig), &(args_info->skyRegion_given),
+                &(local_args_info.skyRegion_given), optarg, 0, "allsky", ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "skyRegion", '-',
                 additional_error))
               goto failure;
           

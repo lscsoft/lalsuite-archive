@@ -30,16 +30,17 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import dbtables
+#from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from glue import lal
-from pylal import db_thinca_rings
+#from pylal import db_thinca_rings
 from lalapps import inspiral
 from pylal import date
 from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+#dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
