@@ -11,7 +11,8 @@ RINGPROG = \
 	lalapps_rinca \
 	lalapps_coincringread \
 	lalapps_collatesim \
-        lalapps_coh_PTF_inspiral
+        lalapps_coh_PTF_inspiral \
+        lalapps_coh_PTF_testing
 endif
 endif
 endif
@@ -41,6 +42,14 @@ lalapps_ring_SOURCES = ring.c ring.h ring_option.c ring_filter.c ring_output.c \
 	 spectrm.c spectrm.h \
 	 segment.c segment.h
 lalapps_coh_PTF_inspiral_SOURCES = coh_PTF_inspiral.c coh_PTF.h coh_PTF_option.c coh_PTF_template.c coh_PTF_output.c \
+         errutil.c errutil.h \
+         gpstime.c gpstime.h \
+         injsgnl.c injsgnl.h \
+         getdata.c getdata.h \
+         getresp.c getresp.h \
+         spectrm.c spectrm.h \
+         segment.c segment.h
+lalapps_coh_PTF_testing_SOURCES = coh_PTF_testing.c coh_PTF.h coh_PTF_option.c coh_PTF_template.c coh_PTF_output.c \
          errutil.c errutil.h \
          gpstime.c gpstime.h \
          injsgnl.c injsgnl.h \
