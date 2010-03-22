@@ -47,27 +47,8 @@ from glue import lal
 from glue import segments
 from pylal import webUtils
 from pylal import InspiralUtils
-#from pylal import stfu_pipe
+from pylal import stfu_pipe
 
-############################################################################
-
-def getParamsFromCache(fileName,type,ifo=None,time=None):
-        qscanList = []
-        cacheList = lal.Cache.fromfile(open(fileName))
-        if not cacheList:
-                return qscanList
-        cacheSelected = cacheList.sieve(description=type,ifos=ifo)
-        if time:
-                cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
-
-        for cacheEntry in cacheSelected:
-                path_output = cacheEntry.path()
-                time_output = str(cacheEntry.segment[0])
-                type_output = cacheEntry.description
-                ifo_output = cacheEntry.observatory
-                qscanList.append([path_output,time_output,type_output,ifo_output])
-
-        return qscanList
 
 ##############################################################################
 # function to check the length of the summary files (for debugging)
@@ -102,7 +83,7 @@ def getQscanTable(opts,type):
   elif "BG" in type: type_string = "background"
 
   if eval("opts.qscan_cache_" + type_string):
-    qscanList = getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
+    qscanList = stfu_pipe.getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
   else:
     try:
       inputPath = eval("opts." + type_string + "_input_path")
@@ -668,7 +649,7 @@ if not opts.process_background_only:
       time_string = None
 
     if opts.qscan_cache_foreground:
-      candidates_path = getParamsFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
+      candidates_path = stfu_pipe.getParamsFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
     else:
       print >> sys.stderr, "Please specify the option --qscan-cache= FILE"
       sys.exit(1)
