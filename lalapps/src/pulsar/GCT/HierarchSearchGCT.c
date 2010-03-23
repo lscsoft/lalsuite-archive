@@ -568,12 +568,9 @@ int MAIN( int argc, char *argv[]) {
   }
   
   /* for 1st stage: read sfts, calculate detector states */  
-  /*LogPrintf (LOG_DEBUG, "Reading SFTs and setting up segments ... ");*/
   LogPrintf( LOG_NORMAL,"Reading input data ... ");
   LAL_CALL( SetUpSFTs( &status, &stackMultiSFT, &stackMultiNoiseWeights, &stackMultiDetStates, &usefulParams), &status);
-  /*LogPrintfVerbatim (LOG_DEBUG, "done\n");*/
   fprintf(stderr," done.\n");  
-
 
   /* some useful params computed by SetUpSFTs */
   tStack = usefulParams.tStack;
@@ -1164,13 +1161,13 @@ int MAIN( int argc, char *argv[]) {
 						
 	      /* -------------- Single-trial check ------------- */
 	      /*
-		if ( ifine == 850642 && (k+1) == nStacks ) {
-		fprintf(stderr, "MyFineGridPoint,%d f: %.13f fdot: %g  NC: %d  2F: %f\n",
-		k+1, finegrid.freqmin_fg + ifreq_fg * finegrid.dfreq_fg,
-		finegrid.f1dotmin_fg + if1dot_fg * finegrid.df1dot_fg,
-		finegrid.list[ifine].nc, (finegrid.list[ifine].sumTwoF / nStacks)
-		);
-		}
+         if ( ifine == 850642 && (k+1) == nStacks ) {
+         fprintf(stderr, "MyFineGridPoint,%d f: %.13f fdot: %g  NC: %d  2F: %f\n",
+         k+1, finegrid.freqmin_fg + ifreq_fg * finegrid.dfreq_fg,
+         finegrid.f1dotmin_fg + if1dot_fg * finegrid.df1dot_fg,
+         finegrid.list[ifine].nc, (finegrid.list[ifine].sumTwoF / nStacks)
+         );
+         }
 	      */
 							
               ifine++;
@@ -1195,9 +1192,9 @@ int MAIN( int argc, char *argv[]) {
           LAL_CALL( UpdateSemiCohToplist(&status, semiCohToplist, &finegrid, &usefulParams), &status); 
         }
 
-	SHOW_PROGRESS(dopplerpos.Alpha, dopplerpos.Delta,
-		      skyGridCounter + (REAL4)ifdot / (REAL4)nf1dot,
-		      thisScan.numSkyGridPoints, uvar_Freq, uvar_FreqBand);
+        SHOW_PROGRESS(dopplerpos.Alpha, dopplerpos.Delta,
+                      skyGridCounter + (REAL4)ifdot / (REAL4)nf1dot,
+                      thisScan.numSkyGridPoints, uvar_Freq, uvar_FreqBand);
 
       } /* ########## End of loop over coarse-grid f1dot values (ifdot) ########## */
        
@@ -1216,9 +1213,11 @@ int MAIN( int argc, char *argv[]) {
         SHOW_PROGRESS(dopplerpos.Alpha,dopplerpos.Delta, \
 		      skyGridCounter,thisScan.numSkyGridPoints, \
 		      uvar_Freq, uvar_FreqBand);
-  
+
+#ifdef EAH_BOINC 
         SET_CHECKPOINT;
-  
+#endif  
+
         XLALNextDopplerSkyPos( &dopplerpos, &thisScan );
       }
 
@@ -2032,7 +2031,7 @@ static inline UINT4 ComputeU1idx( REAL8 freq_event,
                           REAL8 U1winInv)
 {
 	/* compute the index of global-correlation coordinate U1, Eq. (1) */
-  return ((((freq_event * A1 + f1dot_eventB1) - U1start) * U1winInv) + 0.5);
+  return (UINT4) ((((freq_event * A1 + f1dot_eventB1) - U1start) * U1winInv) + 0.5);
   
 } /* ComputeU1idx */
 

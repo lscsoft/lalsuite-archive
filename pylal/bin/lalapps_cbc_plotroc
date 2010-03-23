@@ -37,8 +37,8 @@ matplotlib.rcParams.update({
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
 	"legend.fontsize": 8.0,
-	"figure.dpi": 400,
-	"savefig.dpi": 400,
+	"figure.dpi": 200,
+	"savefig.dpi": 200,
 	"text.usetex": True,
 	"path.simplify": True
 })
