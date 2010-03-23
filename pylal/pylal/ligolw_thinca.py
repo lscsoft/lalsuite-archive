@@ -371,20 +371,20 @@ def inspiral_coinc_compare(a, b, light_travel_time, e_thinca_parameter):
 		return True
 
 
-def inspiral_coinc_compare_exact(a, b, e_thinca_parameter):
+def inspiral_coinc_compare_exact(a, b, light_travel_time, e_thinca_parameter):
 	"""
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test and their test masses are equal.
 	"""
-	if (a.mass1 == b.mass1) and (a.mass2 == b.mass2):
-		try:
-			# FIXME:  should it be ">" or ">="?
-			return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
-		except ValueError:
-			# ethinca test failed to converge == events are not
-			# coincident
-			return True
-	else:
+	if (a.mass1 != b.mass1) or (a.mass2 != b.mass2):
+		# different templates --> not coincident
+		return True
+	try:
+		# FIXME:  should it be ">" or ">="?
+		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
+	except ValueError:
+		# ethinca test failed to converge == events are not
+		# coincident
 		return True
 
 
