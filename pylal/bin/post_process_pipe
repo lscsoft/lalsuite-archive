@@ -1284,7 +1284,7 @@ for cat in cats:
   for comb in get_doubles(instruments):
     comb = ','.join(comb)
     get_node[cat+comb] = mvsc_get_doubles_node(get_job, dag, comb, db[cat], trainingstr=base_name+"training",testingstr=base_name+"testing",zerolagstr=base_name+"zerolag",p_node=[lalappsNewcorseNode[cat]])
-    [info_pat_files.append(file) for file in mvsc_get_doubles_node.get_output_files() if file.endswith('_info.pat')]
+    [info_pat_files.append(file) for file in get_node[cat+comb].get_output_files() if file.endswith('_info.pat')]
 
     for i in range(get_node[cat+comb].number):
       file_for_this_set = get_node[cat+comb].out_file_group[i]
