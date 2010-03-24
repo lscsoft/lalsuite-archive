@@ -31,21 +31,26 @@ def make_external_call(command, show_stdout=False, show_command=False):
   """
   if show_command: print command
 
-  stdin, out, err = os.popen3(command)
-  pid, status = os.wait()
+  proc = subprocess.Popen( command, shell=True, stdin=subprocess.PIPE, \
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
 
-  if status != 0:
+  #stdin, out, err = os.popen3(command)
+  #pid, status = os.wait()
+
+  (out, err) = proc.communicate()
+
+  if proc.returncode != 0:
       print >>sys.stderr, "External call failed."
-      print >>sys.stderr, "  status: %d" % status
-      print >>sys.stderr, "  stdout: %s" % out.read()
-      print >>sys.stderr, "  stderr: %s" % err.read()
-      print >>sys.stderr, "  command: %s" % command
+      print >>sys.stderr, "  status: %d" % proc.returncode
+      print >>sys.stderr, "  stdout: %s" % out
+      print >>sys.stderr, "  stderr: %s" % err
+#      print >>sys.stderr, "  command: %s" % command
       sys.exit(status)
-  if show_stdout:
-      print out.read()
-  stdin.close()
-  out.close()
-  err.close()
+#  if show_stdout:
+#      print out.read()
+#  stdin.close()
+#  out.close()
+#  err.close()
 
 ##############################################################################
 def mkdir( newdir ):
