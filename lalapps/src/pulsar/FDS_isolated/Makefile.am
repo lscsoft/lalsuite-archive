@@ -1,20 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 # $Id$
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_srcdir)/misc
 
-## make sure lalapps.la is built
-lalappsla = $(top_builddir)/src/lalapps/liblalapps.la
-$(lalappsla):
-	cd $(top_builddir)/src/lalapps && $(MAKE)
-LDADD = $(lalappsla)
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps
+LDADD = $(top_builddir)/src/lalapps/liblalapps.la
 
 SUBDIRS = OptimizedCFS ResamplingFstat
-
-## make sure LALAPPSgitID.h is re-generated at every 'make'
-.PHONY: gitID
-gitID:
-	cd $(top_builddir)/misc && $(MAKE) gitID
 
 bin_PROGRAMS = lalapps_ComputeFStatistic lalapps_FstatShapeTest lalapps_SemiAnalyticF \
 	lalapps_polka lalapps_uberpolka lalapps_FstatShapeTestLAL lalapps_compareFstats\
@@ -86,9 +77,7 @@ lalapps_ComputeFStatistic_v2_cuda_LDADD = $(LDADD) -lcudart
 
 lalapps_PredictFStat_SOURCES = PredictFStat.c
 # force linking in C++ mode for E@H
-eah_PredictFStat_SOURCES = PredictFStat.c fake.cpp
-fake.cpp: Makefile
-	echo '//' >$@
+eah_PredictFStat_SOURCES = PredictFStat.c ../hough/src2/EinsteinAtHome/win_lib.cpp
 
 lalapps_ComputeFStatAnalyticMonteCarloUpperLimit_SOURCES = ComputeFStatAnalyticMonteCarloUpperLimit.c
 
@@ -113,9 +102,13 @@ TESTS_ENVIRONMENT = \
 LALSUITE_TOP_SRCDIR=$(LALSUITE_TOP_SRCDIR) \
 LAL_DATA_PATH=.:$${LALPULSAR_PREFIX:+"$${LALPULSAR_PREFIX}/share/lalpulsar"}:$${LALSUITE_TOP_SRCDIR:+"$${LALSUITE_TOP_SRCDIR}/lalpulsar/test/"}
 
-CLEANFILES = testFstat_v3-LFT.sft testFstat_v3-timeseries.dat fake.cpp
+CLEANFILES = testFstat_v3-LFT.sft testFstat_v3-timeseries.dat
 
 # how to compile CUDA files (.cu)
 NVCC ?= nvcc
 .cu.o:
 	$(NVCC) $(CPPFLAGS) -c $< -o $@
+
+## make sure lalapps.la is rebuilt when appropriate
+BUILT_SOURCES =
+include $(top_srcdir)/misc/vcsID.common
