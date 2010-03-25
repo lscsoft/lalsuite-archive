@@ -219,7 +219,7 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
     sngl_value = viz.readcol(injection['sngl_inspiral'], column, ifo)
     if second_column == 'snr':
       second_value = injection['sngl_inspiral'].get_column('snr')
-      second_axis_lowerlim = min(second_value) 
+      second_axis_lowerlim = min(second_value)
       second_axis_upperlim = max(second_value)
     else:
       second_value = viz.readcol(injection['sim_inspiral'], second_column, ifo)
