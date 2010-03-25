@@ -102,7 +102,7 @@ def plot_parameter_accuracy(opts, plot_num, injections, \
 
 #############################################################################
 def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
-    column, units, axis_width, second_column, second_units, second_axis_range, \
+    column, units, axis_width, second_column, second_units, \
     plot_type = 'linear', error_type = 'actual' ):
   """
   opts = the command line options
@@ -113,7 +113,6 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
   axis_width = range of the axis
   second_column = column to plot on x-axis
   second_units = units of second column
-  second_axis_range = range on x-axis for second parameter
   plot_type = log or linear
   error_type = actual or fractional
   """
@@ -122,13 +121,15 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
           second_column.replace("_"," ") )
   figure(plot_num.next())
   hold(True) 
-  second_axis_lowerlim = second_axis_range[0]
-  second_axis_upperlim = second_axis_range[1]
+  second_axis_lowerlim = 0  #default values passed to viz
+  second_axis_upperlim = 0
   for ifo in ifos:
     injection = injections[ifo]
     if second_column == 'snr':
       firstSet = injection['sngl_inspiral']
       secondSet = injection['sim_inspiral']
+      second_axis_lowerlim = min(firstSet.get_column(second_column))
+      second_axis_upperlim = max(firstSet.get_column(second_column))
     else:
       firstSet = injection['sim_inspiral']
       secondSet = injection['sngl_inspiral']
@@ -140,10 +141,10 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
           plot_type, InspiralUtils.colors[ifo] + 'x')
   if error_type == 'actual': 
     viz.labeldiffa_vs_b(column, second_column, units, second_units, \
-        [second_axis_lowerlim,second_axis_upperlim,-axis_width,axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width,axis_width], None, opts.title_text)
   elif error_type == 'fractional': 
     viz.labelfracdiffa_vs_b(column, second_column, units, second_units, \
-        [second_axis_lowerlim,second_axis_upperlim,-axis_width,axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width,axis_width], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, column + "_vs_" + \
         second_column)
@@ -190,7 +191,7 @@ def hist_parameter_accuracy(opts, plot_num, injections, \
 #############################################################################
 def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
     injections, column, units, axis_width, second_column, second_units, \
-    second_axis_range, color_column, plot_type = 'linear', error_type = 'actual' ):
+    color_column, plot_type = 'linear', error_type = 'actual' ):
   """
   opts = the command line options
   plot_num = plot number
@@ -200,7 +201,6 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
   axis_width = range of the axis
   second_column = column to plot on x-axis
   second_units = units of second column
-  second_axis_range = range of x-axes for second parameter
   color_column = column to use for color scale
   plot_type = log or linear
   error_type = actual or fractional
@@ -211,14 +211,16 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
           color_column.replace("_"," ") )
   figure(plot_num.next())
   hold(True) 
-  second_axis_lowerlim = second_axis_range[0]
-  second_axis_upperlim = second_axis_range[1]
+  second_axis_lowerlim = 0  #default value passed to viz
+  second_axis_upperlim = 0
   for ifo in ifos:
     injection = injections[ifo]
     sim_value = viz.readcol(injection['sim_inspiral'], column, ifo)
     sngl_value = viz.readcol(injection['sngl_inspiral'], column, ifo)
     if second_column == 'snr':
       second_value = injection['sngl_inspiral'].get_column('snr')
+      second_axis_lowerlim = min(second_value)
+      second_axis_upperlim = max(second_value)
     else:
       second_value = viz.readcol(injection['sim_inspiral'], second_column, ifo)
     if color_column == 'snr':
@@ -237,10 +239,10 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
 
   if error_type == 'actual':
     viz.labeldiffa_vs_b(column, second_column,units,second_units, \
-        [second_axis_lowerlim,second_axis_upperlim,-axis_width, axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width, axis_width], None, opts.title_text)
   elif error_type == 'fractional':
     viz.labelfracdiffa_vs_b(column, second_column,units,second_units, \
-        [second_axis_lowerlim,second_axis_upperlim,-axis_width, axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width, axis_width], None, opts.title_text)
   colorbar()
 
   if opts.enable_output:
@@ -626,7 +628,7 @@ if opts.dist_dist:
 if opts.chirp_dist:
   fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
       plot_num, injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, 'eff_dist',\
-      'Mpc', [0,0], plot_type = 'log', error_type = 'actual' )
+      'Mpc', plot_type = 'log', error_type = 'actual' )
   fnameList.append(fname)
   tagList.append(text)
 
@@ -635,7 +637,7 @@ if opts.chirp_dist:
 if opts.time_dist:
   fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
       plot_num, injSets, 'end_time', 'seconds', opts.time_axis, 'eff_dist',\
-      'Mpc', [0,0], plot_type = 'log', error_type = 'actual' )
+      'Mpc', plot_type = 'log', error_type = 'actual' )
   fnameList.append(fname)
   tagList.append(text)
 
@@ -644,7 +646,7 @@ if opts.time_dist:
 if opts.chirp_snr:
   fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
       plot_num, injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, 'snr',\
-      None, [5.5,1000], plot_type = 'log', error_type = 'actual' )
+      None, plot_type = 'log', error_type = 'actual' )
   fnameList.append(fname)
   tagList.append(text)
 
@@ -652,7 +654,7 @@ if opts.chirp_snr_mtotal:
   fname, text, plot_num = \
       plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
       plot_num, injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, \
-      'snr', None, [5.5,1000], 'mtotal', plot_type = 'log', error_type ='fractional')
+      'snr', None, 'mtotal', plot_type = 'log', error_type ='fractional')
   fnameList.append(fname)
   tagList.append(text)
 
@@ -661,7 +663,7 @@ if opts.chirp_snr_mtotal:
 if opts.time_snr:
   fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
       plot_num, injSets, 'end_time', 'seconds', opts.time_axis, 'snr',\
-      None, [5.5,1000], plot_type = 'log', error_type = 'actual' )
+      None, plot_type = 'log', error_type = 'actual' )
   fnameList.append(fname)
   tagList.append(text)
 
@@ -669,7 +671,7 @@ if opts.time_snr_mtotal:
   fname, text, plot_num = \
       plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
       plot_num, injSets, 'end_time', 'seconds', opts.time_axis, 'snr',\
-      None, [5.5,1000], 'mtotal', plot_type = 'log', error_type ='actual')
+      None, 'mtotal', plot_type = 'log', error_type ='actual')
   fnameList.append(fname)
   tagList.append(text)
 
@@ -679,7 +681,7 @@ if opts.time_snr_mtotal:
 if opts.eta_snr:
   fname, text, plot_num = plot_parameter_accuracy_vs_second_parameter(opts, \
       plot_num, injSets, 'eta', None, opts.chirp_axis, 'snr',\
-      None, [5.5,1000], plot_type = 'log', error_type = 'actual' )
+      None, plot_type = 'log', error_type = 'actual' )
   fnameList.append(fname)
   tagList.append(text)
 
@@ -687,7 +689,7 @@ if opts.eta_snr_mtotal:
   fname, text, plot_num = \
       plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
       plot_num, injSets, 'eta', None, opts.time_axis, 'snr',\
-      None, [5.5,1000], 'mtotal', plot_type = 'log', error_type ='fractional')
+      None, 'mtotal', plot_type = 'log', error_type ='fractional')
   fnameList.append(fname)
   tagList.append(text)
 
