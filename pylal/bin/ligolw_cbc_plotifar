@@ -7,13 +7,6 @@
 #
 # ============================================================================
 
-
-__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__prog__ = "ligolw_cbc_plotifar"
-__Id__ = "$Id$"
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -27,6 +20,7 @@ import bisect
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 import glue.iterutils
+from glue import git_version
 
 from pylal import InspiralUtils
 
@@ -37,8 +31,12 @@ import matplotlib.mlab as mlab
 
 from pylal import ligolw_sqlutils as sqlutils
 
-usage =  """
-"""
+__prog__ = "ligolw_cbc_plotifar"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+
+description = \
+"Creates IFAR plots."
+
 # ============================================================================
 # def poly_between; needed if using older version of matplotlib
 def poly_between(x, ylower, yupper):
@@ -72,8 +70,11 @@ def parse_command_line():
     """
     Parser function dedicated
     """
-
-    parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
         help = 
@@ -236,6 +237,8 @@ if opts.verbose:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 #
@@ -517,7 +520,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     opts.ifo_tag = ''
 
     # set InspiralUtils options for file and plot naming
-    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, __version__ )
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
     # set the proper color code and symbols
     figure_number = 0 # used for the figure label (showplot)
     fnameList = [] # used for the html cache file

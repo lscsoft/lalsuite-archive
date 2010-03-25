@@ -36,6 +36,7 @@ from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
+from pylal.xlal.datatypes import snglringdowntable
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 try:
 	all
@@ -72,7 +73,7 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 #
 
 
-class SnglRingdown(xlaltools.SnglRingdownTable):
+class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	__slots__ = ()
 
 	def get_start(self):
@@ -169,7 +170,7 @@ RingdownCoincDef = lsctables.CoincDef(search = u"ring", search_coinc_type = 0, d
 
 
 class RingdownCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, vetoes = None, program = u"ring"):
+	def __init__(self, xmldoc, vetoes = None, program = u"lalapps_ring"):
 		snglcoinc.CoincTables.__init__(self, xmldoc)
 
 		#
@@ -288,7 +289,7 @@ class RingdownEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_start(event.get_start() + delta)
 
-	def get_coincs(self, event_a, ds_sq_threshold, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, ds_sq_threshold, comparefunc):
 		#
 		# event_a's start time
 		#
@@ -302,7 +303,7 @@ class RingdownEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, start - self.dt) : bisect.bisect_right(self, start + self.dt)] if not comparefunc(event_a, event_b, ds_sq_threshold)]
+		return [event_b for event_b in self[bisect.bisect_left(self, start - self.dt) : bisect.bisect_right(self, start + self.dt)] if not comparefunc(event_a, event_b, light_travel_time, ds_sq_threshold)]
 
 
 #
@@ -331,7 +332,7 @@ def ringdown_max_dt(events, ds_sq_threshold):
 	return sum(sorted(max(xlaltools.XLALRingdownTimeError(event, ds_sq_threshold) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
-def ringdown_coinc_compare(a, b, ds_sq_threshold):
+def ringdown_coinc_compare(a, b, light_travel_time, ds_sq_threshold):
 	"""
 	Returns False (a & b are coincident) if they pass the metric
 	rinca test.
@@ -440,12 +441,12 @@ def ligolw_rinca(
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 		if small_coincs:
 			for coinc in node.unused_coincs:
-				ntuple = [sngl_index[id] for id in coinc]
+				ntuple = tuple(sngl_index[id] for id in coinc)
 				if not ntuple_comparefunc(ntuple):
 					coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 

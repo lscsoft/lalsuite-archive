@@ -34,11 +34,7 @@ interested users.
 
 
 from xml import sax
-try:
-	set
-except NameError:
-	# Python < 2.4
-	from sets import Set as set
+
 try:
 	any
 	all
@@ -48,13 +44,13 @@ except NameError:
 
 
 from glue import git_version
+from glue import iterutils
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import types as ligolwtypes
 from glue.ligolw import ilwd
-
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -877,6 +873,8 @@ class SnglBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"chisq": "real_8",
+		"chisq_dof": "real_8",
 		"tfvolume": "real_4",
 		"hrss": "real_4",
 		"time_lag": "real_4",
@@ -1019,6 +1017,7 @@ class MultiBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"false_alarm_rate": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1207,18 +1206,17 @@ class SnglInspiralTable(table.Table):
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
 	def get_new_snr(self, index=6.0):
-		# the kwarg 'index' is to be assigned to the parameter chisq_index occurring in the .ini files etc
-		# the parameter nhigh gives the asymptotic behaviour d (ln chisq) / d (ln rho) at large rho
-		# nhigh=2 means chisq~rho^2 along contours of new_snr as expected from the behaviour of mismatched templates
+		import numpy
+		# the kwarg 'index' is to be assigned to the parameter chisq_index
+		# the parameter nhigh gives the asymptotic behaviour of 
+		# d (ln chisq) / d (ln rho) at large rho for fixed new_snr: 
+		# eg nhigh = 2 means chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
-		chisq = self.get_column('chisq')
-		chisq_dof = self.get_column('chisq_dof')
-		rchisq = chisq/ (2*chisq_dof - 2)
+		rchisq = self.get_column('chisq')/(2*self.get_column('chisq_dof') - 2)
 		nhigh = 2.
-		if rchisq > 1.:
-			return snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
-		else:
-			return snr
+		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(newsnr, rchisq < 1, snr)
+		return newsnr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
@@ -1231,12 +1229,19 @@ class SnglInspiralTable(table.Table):
 	def get_lvS5stat(self):
 		return self.get_column('beta')
 
-	def ifocut(self,ifo):
-		ifoTrigs = table.new_from_template(self)
-		for row in self:
-			if row.ifo == ifo:
-				ifoTrigs.append(row)
-		return ifoTrigs
+	def ifocut(self, ifo, inplace=False):
+		"""
+		Return a SnglInspiralTable with rows from self having IFO equal
+		to the given ifo. If inplace, modify self directly, else create
+		a new table and fill it.
+		"""
+		if inplace:
+			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
+			return self
+		else:
+			ifoTrigs = table.new_from_template(self)
+			ifoTrigs.extend([row for row in self if row.ifo == ifo])
+			return ifoTrigs
 
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
@@ -1452,8 +1457,7 @@ class SnglRingdownTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#next_id = SnglRingdownID(0)
+	next_id = SnglRingdownID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
@@ -1491,11 +1495,7 @@ class CoincRingdownTable(table.Table):
 		"snr": "real_8",
 		"false_alarm_rate": "real_8"
 	}
-	# FIXME:  like some other tables here, this table should have the
-	# constraint that the coinc_event_id column is a primary key.  this
-	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
-	# the constraint is being replaced with an index.
-	#constraints = "PRIMARY KEY (coinc_event_id)"
+	constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
 		"cr_cei_index": ("coinc_event_id",)
 	}
@@ -1602,12 +1602,12 @@ class MultiInspiralTable(table.Table):
 		"h2quad_im": "real_4",
 		"l1quad_re": "real_4",
 		"l1quad_im": "real_4",
-		"v1quad_re": "real_4",
-		"v1quad_im": "real_4",
 		"g1quad_re": "real_4",
 		"g1quad_im": "real_4",
 		"t1quad_re": "real_4",
 		"t1quad_im": "real_4",
+		"v1quad_re": "real_4",
+		"v1quad_im": "real_4",
                 "coh_snr_h1h2": "real_4",
 		"cohSnrSqLocal": "real_4",
 		"autoCorrCohSq": "real_4",
@@ -1814,14 +1814,26 @@ class SimInspiralTable(table.Table):
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+
+	def set_time_geocent(self, gps):
+		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.longitude, self.latitude
+
 	def get_end(self, site = None):
 		if site is None:
-			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return self.get_time_geocent()
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
 	def get_eff_dist(self, instrument):
 		return getattr(self, "eff_dist_%s" % instrument[0].lower())
+
+	def get_chirp_dist(self,instrument,ref_mass = 1.40):
+		return self.get_eff_dist(instrument) * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -1875,6 +1887,9 @@ class SimBurst(object):
 
 	def set_time_geocent(self, gps):
 		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.ra, self.dec
 
 
 SimBurstTable.RowType = SimBurst

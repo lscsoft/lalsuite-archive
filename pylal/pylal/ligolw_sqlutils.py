@@ -6,11 +6,6 @@
 # =============================================================================
 #
 
-'''
-A collection of utilities to assist in carrying out operations on a SQLite
-database containing lsctables.
-'''
-
 try:
     import sqlite3
 except ImportError:
@@ -25,12 +20,15 @@ import bisect
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
 from glue.iterutils import any
+from glue import git_version
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+__version__ = git_version.verbose_msg
 
-
+"""
+A collection of utilities to assist in carrying out operations on a SQLite
+database containing lsctables.
+"""
 
 # =============================================================================
 #
@@ -38,7 +36,7 @@ __version__ = "$Revision$"
 #
 # =============================================================================
 
-# Following utilities can be used with any coinc_table
+# Following utilities are generic sqlite utilities and can be used with any table 
 
 def concatenate( *args ):
     """
@@ -135,9 +133,6 @@ def validate_option(option, lower = True):
 
 class parse_param_ranges:
     
-    param = None
-    param_ranges = []
-
     def __init__( self, table_name, table_param, param_ranges_opt, verbose = False ):
         """
         Parse --param-ranges option. Creates self.param which is the table_name and
@@ -163,15 +158,21 @@ class parse_param_ranges:
         """
         if verbose:
             print >> sys.stderr, "Parsing param-ranges..."
-        
-        # check that table_name and table_param have no spaces in them
-        if len( table_name.split(' ') ) > 1:
-            raise ValueError, "table_name cannot have spaces in it."
-        if len ( table_param.split(' ') ) > 1:
-            raise ValueError, "table_param cannot have spaces in it."
+       
+        self.param = None
+        self.param_ranges = []
 
-        # make param unique by appending table_name to the param_name
-        self.param = '.'.join([ table_name, table_param ])
+        # check that table_name and table_param have no illegal characters in them
+        table_name = validate_option( table_name )
+        if re.search(r'\n|\t|DROP|DELETE', table_param) is not None:
+            raise ValueError, r'param-name cannot have "\n","\t", "DROP", or "DELETE" in it'
+        table_param = table_param.strip()
+
+        # append table_name if it isn't already in the table_param name
+        if table_param.find( table_name+'.' ) == -1:
+            table_param = '.'.join([ table_name, table_param ])
+
+        self.param = table_param
 
         ranges = param_ranges_opt.split(';')
 
@@ -813,6 +814,25 @@ def get_col_type(table_name, col_name, default = 'lstring'):
     else:
         return default
 
+def create_column( connection, table_name, column_name ):
+    """
+    Creates a column in the given table if it doesn't exist. Note that table_name and
+    column_name must be all lower-case.
+    """
+    if table_name != table_name.lower() or column_name != column_name.lower():
+        raise ValueError, "table_name (%s) and column_name (%s) must be all lower-case" % (table_name, column_name)
+    table_name = validate_option( table_name )
+    column_name = validate_option( column_name )
+    if column_name not in get_column_names_from_table( connection, table_name ):
+        sqlquery = ''.join([ """
+            ALTER TABLE
+                """, table_name, """
+            ADD COLUMN
+                """, column_name ])
+        connection.cursor().execute( sqlquery )
+
+    return table_name, column_name
+
 
 # =============================================================================
 #
@@ -840,7 +860,7 @@ def clean_metadata(connection, key_tables, verbose = False):
         filter is a filter to apply to the table when selecting process_ids
     """
     if verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
+        print >> sys.stderr, "Removing unneeded metadata..."
     
     #
     # create a temp. table of process_ids to keep
@@ -890,7 +910,7 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     @end_time_col_name: name of the end_time column in the key_table
     """
     if verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
+        print >> sys.stderr, "Removing unneeded metadata..."
     
     key_column = '.'.join([key_table, key_column])
     connection.create_function('end_time_in_ns', 2, end_time_in_ns ) 
@@ -1005,7 +1025,7 @@ def clean_experiment_tables(connection, verbose = False):
     @connection: connection to a sqlite database
     """
     if verbose:
-        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+        print >> sys.stderr, "Removing experiments that no longer have events in them..."
 
     sqlscript = """
         DELETE FROM
@@ -1097,10 +1117,10 @@ class sim_tag_proc_id_mapper:
             self.tag_id_map[sim_tag] = proc_id
 
     def get_sim_tag( self, proc_id ):
-        return self.id_tag_map[proc_id]
+        return proc_id in self.id_tag_map and self.id_tag_map[proc_id] or None
 
     def get_proc_id( self, sim_tag ):
-        return self.tag_id_map[sim_tag]
+        return sim_tag in self.tag_id_map and self.tag_id_map[sim_tag] or None
 
             
 # =============================================================================
@@ -1148,16 +1168,46 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
         connection.cursor().execute( sqlquery )
         connection.commit()
 
+    # Delete from coinc_event_map
+    if clean_coinc_event_map:
+        if verbose:
+            print >> sys.stderr, "Cleaning the coinc_event_map table..."
+        skip_tables = [ ''.join(['table_name != "', tname, '"'])
+            for tname in get_cem_table_names(connection) if tname == 'coinc_event' or tname.startswith('sim_')
+            ]
+
+        sqlquery = ''.join([ """
+            DELETE
+            FROM coinc_event_map
+            WHERE
+                coinc_event_id NOT IN (
+                    SELECT coinc_event_id
+                    FROM """, table_name, ')',
+                skip_tables != [] and ' AND\n\t\t'+' AND\n\t\t'.join(skip_tables) or '' ])
+        connection.cursor().execute( sqlquery )
+        connection.commit()
+
+    # Find tables listed in coinc_event_map
+    if clean_mapped_tables and selected_tables == []:
+        selected_tables = get_cem_table_names(connection)
+
+    # Delete events from tables that were listed in the coinc_event_map
+    # we only want to delete event_ids, not simulations, so if a table
+    # does not have an event_id, we just pass
+    if clean_mapped_tables:
+        clean_mapped_event_tables( connection, selected_tables,
+            raise_err_on_missing_evid = False, verbose = verbose )
+
     # Delete from coinc_event
     if clean_coinc_event_table:
         if verbose:
             print >> sys.stderr, "Cleaning the coinc_event table..."
-        sqlquery = ''.join(["""
+        sqlquery = """
             DELETE
             FROM coinc_event 
             WHERE coinc_event_id NOT IN (
-                SELECT coinc_event_id
-                FROM """, table_name, ')' ])
+                SELECT DISTINCT coinc_event_id
+                FROM coinc_event_map)"""
         connection.cursor().execute( sqlquery )
         connection.commit()
   
@@ -1173,30 +1223,6 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
                 FROM coinc_event )"""
         connection.cursor().execute( sqlquery )
         connection.commit()
-
-    # Find tables listed in coinc_event_map
-    if clean_mapped_tables and selected_tables == []:
-        selected_tables = get_cem_table_names(connection)
-
-    # Delete from coinc_event_map
-    if clean_coinc_event_map:
-        if verbose:
-            print >> sys.stderr, "Cleaning the coinc_event_map table..."
-        sqlquery = ''.join([ """
-            DELETE
-            FROM coinc_event_map
-            WHERE coinc_event_id NOT IN (
-                SELECT coinc_event_id
-                FROM """, table_name, ')' ])
-        connection.cursor().execute( sqlquery )
-        connection.commit()
-
-    # Delete events from tables that were listed in the coinc_event_map
-    # we only want to delete event_ids, not simulations, so if a table
-    # does not have an event_id, we just pass
-    if clean_mapped_tables:
-        clean_mapped_event_tables( connection, selected_tables,
-            raise_err_on_missing_evid = False, verbose = verbose )
 
 
 # =============================================================================

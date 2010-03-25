@@ -94,21 +94,36 @@ lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 #
 
 
-ExcessPowerSBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
-ExcessPowerSCCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
-ExcessPowerSCNearCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+ExcessPowerSBBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+ExcessPowerSIBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 4, description = u"sim_inspiral<-->sngl_burst coincidences")
+ExcessPowerSBCCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+ExcessPowerSBCNearCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+ExcessPowerSICCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
+ExcessPowerSICNearCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
 
-StringCuspSBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
-StringCuspSCCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
-StringCuspSCNearCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+StringCuspSBBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+StringCuspSIBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 4, description = u"sim_inspiral<-->sngl_burst coincidences")
+StringCuspSBCCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+StringCuspSBCNearCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+StringCuspSICCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
+StringCuspSICNearCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
+
+
+OmegaBBCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+OmegaSBBCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+OmegaSIBCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 4, description = u"sim_inspiral<-->sngl_burst coincidences")
+OmegaSBCCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+OmegaSBCNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+OmegaSICCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 5, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
+OmegaSICNearCoincDef = lsctables.CoincDef(search = u"omega", search_coinc_type = 6, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
 
 class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process):
+	def __init__(self, xmldoc, b_b_def, sb_b_def, si_b_def, sb_c_e_def, sb_c_n_def, si_c_e_def, si_c_n_def, process):
 		#
 		# store the process row
 		#
@@ -120,43 +135,69 @@ class DocContents(object):
 		#
 
 		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
-		self.simbursttable = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+		try:
+			self.simbursttable = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+		except ValueError:
+			self.simbursttable = None
+		try:
+			self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+		except ValueError:
+			self.siminspiraltable = None
 
 		#
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
 		# its ID (or create it if needed)
 		#
-		# FIXME:  in the future, the sim_burst table should
-		# indicate time slide at which the injection was done
+		# FIXME:  in the future, the sim_* tables should indicate
+		# time slide at which the injection was done
 		#
 
 		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglbursttable.getColumnByName("ifo"), 0.0), create_new = process)
 
 		#
-		# get coinc_definer row for sim_burst <--> sngl_burst
-		# coincs; this creates a coinc_definer table if the
-		# document doesn't have one
+		# get coinc_definer rows for sim_* <--> sngl_burst coincs
+		# for whichever sim_* tables are present; this creates a
+		# coinc_definer table if the document doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
+		if self.simbursttable is not None:
+			self.sb_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_b_def.search, sb_b_def.search_coinc_type, create_new = True, description = sb_b_def.description)
+		else:
+			self.sb_b_coinc_def_id = None
+		if self.siminspiraltable is not None:
+			self.si_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_b_def.search, si_b_def.search_coinc_type, create_new = True, description = si_b_def.description)
+		else:
+			self.si_b_coinc_def_id = None
 
 		#
 		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
-		# both kinds of sim_burst <--> coinc_event coincs.  set all
-		# to None if this document does not contain any sngl_burst
+		# both kinds of sim_* <--> coinc_event coincs.  set all to
+		# None if this document does not contain any sngl_burst
 		# <--> sngl_burst coincs.
 		#
 
 		try:
-			bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			b_b_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, b_b_def.search, b_b_def.search_coinc_type, create_new = False)
 		except KeyError:
-			bb_coinc_def_id = None
-			self.sce_coinc_def_id = None
-			self.scn_coinc_def_id = None
+			b_b_coinc_def_id = None
+			self.sb_c_e_coinc_def_id = None
+			self.sb_c_n_coinc_def_id = None
+			self.si_c_e_coinc_def_id = None
+			self.si_c_n_coinc_def_id = None
 		else:
-			self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
-			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
+			if self.simbursttable is not None:
+				self.sb_c_e_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_c_e_def.search, sb_c_e_def.search_coinc_type, create_new = True, description = sb_c_e_def.description)
+				self.sb_c_n_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sb_c_n_def.search, sb_c_n_def.search_coinc_type, create_new = True, description = sb_c_n_def.description)
+			else:
+				self.sb_c_e_coinc_def_id = None
+				self.sb_c_n_coinc_def_id = None
+			if self.siminspiraltable is not None:
+				self.si_c_e_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_c_e_def.search, si_c_e_def.search_coinc_type, create_new = True, description = si_c_e_def.description)
+				self.si_c_n_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, si_c_n_def.search, si_c_n_def.search_coinc_type, create_new = True, description = si_c_n_def.description)
+			else:
+				self.si_c_e_coinc_def_id = None
+				self.si_c_n_coinc_def_id = None
 
 		#
 		# get coinc table, create one if needed
@@ -190,7 +231,7 @@ class DocContents(object):
 		# index sngl_burst table
 		index = dict((row.event_id, row) for row in self.snglbursttable)
 		# find IDs of burst<-->burst coincs
-		self.coincs = dict((row.coinc_event_id, []) for row in self.coinctable if row.coinc_def_id == bb_coinc_def_id)
+		self.coincs = dict((row.coinc_event_id, []) for row in self.coinctable if row.coinc_def_id == b_b_coinc_def_id)
 		# construct event list for each burst<-->burst coinc
 		for row in self.coincmaptable:
 			try:
@@ -226,9 +267,9 @@ class DocContents(object):
 		# the radius of Earth in light seconds.  (the most an
 		# injection's peak time column can differ from the time it
 		# peaks in an instrument)  6.378140e6 m = mean radius of
-		# earth at equator, 299792458 m/s = c, 1.5 = add 50% for
+		# earth at equator, 299792458 m/s = c, 1.25 = add 25% for
 		# good luck.  (constants copied from LALConstants.h)
-		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.5
+		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.25
 
 		# add the duration of the longest burst event (the most an
 		# event's peak time could differ from either the start or
@@ -337,17 +378,40 @@ def ExcessPowerSnglCompare(sim, burst):
 	return StringCuspSnglCompare(sim, burst) or (sim.frequency not in burst.get_band())
 
 
-def NearCoincCompare(sim, burst):
+def OmegaSnglCompare(sim, burst, delta_t = 10.0):
+	"""
+	Return False if the peak time and centre frequency of sim lie
+	within the time-frequency tile of burst.
+	"""
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
+
+
+def StringCuspNearCoincCompare(sim, burst):
+	"""
+	Return False if the peak time of the sim is "near" the burst event.
+	"""
+	return OmegaNearCoincCompare(sim, burst)
+
+
+def ExcessPowerNearCoincCompare(sim, burst):
 	"""
 	Return False if the peak time of the sim is "near" the burst event.
 	"""
 	return not SimBurstUtils.burst_is_near_injection(sim, burst.start_time, burst.start_time_ns, burst.duration, burst.ifo)
 
 
+def OmegaNearCoincCompare(sim, burst):
+	"""
+	Return False if the peak time of the sim is "near" the burst event.
+	"""
+	start_time = burst.get_peak() - burst.duration / 2.0
+	return not SimBurstUtils.burst_is_near_injection(sim, start_time.seconds, start_time.nanoseconds, burst.duration, burst.ifo)
+
+
 #
 # =============================================================================
 #
-#                 Build sim_burst <--> sngl_burst Coincidences
+#                 Build sim_* <--> sngl_burst Coincidences
 #
 # =============================================================================
 #
@@ -360,14 +424,14 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	return [burst for burst in contents.bursts_near_peaktime(sim.get_time_geocent()) if not comparefunc(sim, burst)]
 
 
-def add_sim_burst_coinc(contents, sim, events):
+def add_sim_burst_coinc(contents, sim, events, coinc_def_id):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
 	coinc_event_map table linking the sim_burst row and the list of
 	sngl_burst rows to the new coinc_event row.
 	"""
-	coinc = contents.new_coinc(contents.sb_coinc_def_id)
-	coinc.set_instruments(event.ifo for event in events)
+	coinc = contents.new_coinc(coinc_def_id)
+	coinc.set_instruments(set(event.ifo for event in events))
 	coinc.nevents = len(events)
 
 	coincmap = contents.coincmaptable.RowType()
@@ -455,60 +519,139 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bbdef = {
-		"StringCusp": ligolw_burca.StringCuspCoincDef,
-		"excesspower": ligolw_burca.ExcessPowerCoincDef
+	b_b_def = {
+		"StringCusp": ligolw_burca.StringCuspBBCoincDef,
+		"excesspower": ligolw_burca.ExcessPowerBBCoincDef,
+		"omega": OmegaBBCoincDef
 	}[search]
-	sbdef = {
-		"StringCusp": StringCuspSBCoincDef,
-		"excesspower": ExcessPowerSBCoincDef
+	sb_b_def = {
+		"StringCusp": StringCuspSBBCoincDef,
+		"excesspower": ExcessPowerSBBCoincDef,
+		"omega": OmegaSBBCoincDef
 	}[search]
-	scedef = {
-		"StringCusp": StringCuspSCCoincDef,
-		"excesspower": ExcessPowerSCCoincDef
+	si_b_def = {
+		"StringCusp": StringCuspSIBCoincDef,
+		"excesspower": ExcessPowerSIBCoincDef,
+		"omega": OmegaSIBCoincDef
 	}[search]
-	scndef = {
-		"StringCusp": StringCuspSCNearCoincDef,
-		"excesspower": ExcessPowerSCNearCoincDef
+	sb_c_e_def = {
+		"StringCusp": StringCuspSBCCoincDef,
+		"excesspower": ExcessPowerSBCCoincDef,
+		"omega": OmegaSBCCoincDef
+	}[search]
+	sb_c_n_def = {
+		"StringCusp": StringCuspSBCNearCoincDef,
+		"excesspower": ExcessPowerSBCNearCoincDef,
+		"omega": OmegaSBCNearCoincDef
+	}[search]
+	si_c_e_def = {
+		"StringCusp": StringCuspSICCoincDef,
+		"excesspower": ExcessPowerSICCoincDef,
+		"omega": OmegaSICCoincDef
+	}[search]
+	si_c_n_def = {
+		"StringCusp": StringCuspSICNearCoincDef,
+		"excesspower": ExcessPowerSICNearCoincDef,
+		"omega": OmegaSICNearCoincDef
 	}[search]
 
-	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process)
-	N = len(contents.simbursttable)
+	contents = DocContents(
+		xmldoc = xmldoc,
+		b_b_def = b_b_def,
+		sb_b_def = sb_b_def,
+		si_b_def = si_b_def,
+		sb_c_e_def = sb_c_e_def,
+		sb_c_n_def = sb_c_n_def,
+		si_c_e_def = si_c_e_def,
+		si_c_n_def = si_c_n_def,
+		process = process
+	)
 
 	#
-	# Find sim_burst <--> sngl_burst coincidences.
+	# Search for sim_burst <--> * coincidences
 	#
 
-	if verbose:
-		print >>sys.stderr, "constructing %s:" % sbdef.description
-	for n, sim in enumerate(contents.simbursttable):
+	if contents.simbursttable is not None:
+		N = len(contents.simbursttable)
+
+		#
+		# Find sim_burst <--> sngl_burst coincidences.
+		#
+
 		if verbose:
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		events = find_sngl_burst_matches(contents, sim, snglcomparefunc)
-		if events:
-			add_sim_burst_coinc(contents, sim, events)
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
-
-	#
-	# Find sim_burst <--> coinc_event coincidences.
-	#
-
-	if contents.sce_coinc_def_id:
+			print >>sys.stderr, "constructing %s:" % sb_b_def.description
+		for n, sim in enumerate(contents.simbursttable):
+			if verbose:
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+			events = find_sngl_burst_matches(contents, sim, snglcomparefunc)
+			if events:
+				add_sim_burst_coinc(contents, sim, events, contents.sb_b_coinc_def_id)
 		if verbose:
-			print >>sys.stderr, "constructing %s and %s:" % (scedef.description, scndef.description)
+			print >>sys.stderr, "\t100.0%"
+
+		#
+		# Find sim_burst <--> coinc_event coincidences.
+		#
+
+		if verbose:
+			print >>sys.stderr, "constructing %s and %s:" % (sb_c_e_def.description, sb_c_n_def.description)
 		for n, sim in enumerate(contents.simbursttable):
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			coincs = contents.coincs_near_peaktime(sim.get_time_geocent())
 			coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			if coinc_event_ids:
-				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sce_coinc_def_id)
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sb_c_e_coinc_def_id)
 			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
 			if coinc_event_ids:
-				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sb_c_n_coinc_def_id)
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
+	elif verbose:
+		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimBurstTable.tableName)
+
+	#
+	# Search for sim_inspiral <--> * coincidences
+	#
+
+	if contents.siminspiraltable is not None:
+		N = len(contents.siminspiraltable)
+
+		#
+		# Find sim_inspiral <--> sngl_burst coincidences.
+		#
+
+		if verbose:
+			print >>sys.stderr, "constructing %s:" % si_b_def.description
+		for n, sim in enumerate(contents.siminspiraltable):
+			if verbose:
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+			events = find_sngl_burst_matches(contents, sim, snglcomparefunc)
+			if events:
+				add_sim_burst_coinc(contents, sim, events, contents.si_b_coinc_def_id)
+		if verbose:
+			print >>sys.stderr, "\t100.0%"
+
+		#
+		# Find sim_inspiral <--> coinc_event coincidences.
+		#
+
+		if verbose:
+			print >>sys.stderr, "constructing %s and %s:" % (si_c_e_def.description, si_c_n_def.description)
+		for n, sim in enumerate(contents.siminspiraltable):
+			if verbose:
+				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+			coincs = contents.coincs_near_peaktime(sim.get_time_geocent())
+			coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
+			if coinc_event_ids:
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.si_c_e_coinc_def_id)
+			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
+			if coinc_event_ids:
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.si_c_n_coinc_def_id)
+		if verbose:
+			print >>sys.stderr, "\t100.0%"
+	elif verbose:
+		print >>sys.stderr, "no %s table in document, skipping" % table.StripTableName(lsctables.SimInspiralTable.tableName)
 
 	#
 	# Restore the original event order.

@@ -47,6 +47,7 @@ import tempfile
 import urllib
 import pwd
 
+from glue import git_version
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -55,8 +56,8 @@ USER_NAME    = pwd.getpwuid(os.getuid())[0]
 
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__    = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 #
 # =============================================================================
@@ -73,7 +74,7 @@ def parse_command_line():
     """
 
     parser = OptionParser(
-        version     = "%prog CVS $Header$",
+        version = "Name: %%prog\n%s" % git_version.verbose_msg,
         usage       = "%prog --ifo ifo --time-file timefile --input-dir dir",
         description = "Prints a list of the flags that were active at each of the specified times"
 	)

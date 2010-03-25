@@ -33,12 +33,6 @@ LIGO Light-Weight XML Coincidence Analysis Front End.
 
 from optparse import OptionParser
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
-
 
 from pylal import git_version
 from pylal import ligolw_tisi

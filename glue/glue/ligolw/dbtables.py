@@ -40,11 +40,6 @@ import signal
 import sys
 import tempfile
 from xml.sax.xmlreader import AttributesImpl
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
 import warnings
 
 
@@ -189,6 +184,20 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	del cpy
 
 	return target
+
+def set_temp_store_directory( connection, temp_store_directory, verbose = False ):
+	"""
+	Sets the temp_store_directory parameter in sqlite.
+	"""
+	try:
+		import sqlite3
+	except ImportError:
+		# pre 2.5.x
+		from pysqlite2 import dbapi2 as sqlite3
+
+	if verbose:
+		print >> sys.stderr, "setting the temp_store_directory to %s ..." % temp_store_directory
+	connection.cursor().execute('PRAGMA temp_store_directory = "%s"' % temp_store_directory)
 
 
 class IOTrappedSignal(Exception):

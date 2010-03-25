@@ -37,6 +37,7 @@ from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal.xlal.datatypes import snglinspiraltable
 try:
 	all
 except NameError:
@@ -72,7 +73,7 @@ lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
 #
 
 
-class SnglInspiral(xlaltools.SnglInspiralTable):
+class SnglInspiral(snglinspiraltable.SnglInspiralTable):
 	__slots__ = ()
 
 	def get_end(self):
@@ -137,7 +138,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -151,6 +152,10 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--effective-snr-factor", u"real_8", effective_snr_factor)]
 	if vetoes_name is not None:
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
+	if trigger_program is not None:
+		params += [(u"--trigger-program", u"lstring", trigger_program)]
+	if effective_snr is not None:
+		params += [(u"--effective-snr", u"lstring", effective_snr)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -202,7 +207,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
 		#
-		# extract the coalesced out segment lists from lalapps_inspiral
+		# extract the coalesced out segment lists from the trigger generator
 		#
 
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
@@ -309,7 +314,7 @@ class InspiralEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_end(event.get_end() + delta)
 
-	def get_coincs(self, event_a, e_thinca_parameter, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, e_thinca_parameter, comparefunc):
 		#
 		# event_a's end time
 		#
@@ -323,7 +328,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, light_travel_time, e_thinca_parameter)]
 
 
 #
@@ -352,11 +357,28 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
-def inspiral_coinc_compare(a, b, e_thinca_parameter):
+def inspiral_coinc_compare(a, b, light_travel_time, e_thinca_parameter):
 	"""
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test.
 	"""
+	try:
+		# FIXME:  should it be ">" or ">="?
+		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
+	except ValueError:
+		# ethinca test failed to converge == events are not
+		# coincident
+		return True
+
+
+def inspiral_coinc_compare_exact(a, b, light_travel_time, e_thinca_parameter):
+	"""
+	Returns False (a & b are coincident) if they pass the ellipsoidal
+	thinca test and their test masses are equal.
+	"""
+	if (a.mass1 != b.mass1) or (a.mass2 != b.mass2):
+		# different templates --> not coincident
+		return True
 	try:
 		# FIXME:  should it be ">" or ">="?
 		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
@@ -404,6 +426,7 @@ def ligolw_thinca(
 	ntuple_comparefunc = lambda events: False,
 	effective_snr_factor = 250.0,
 	veto_segments = None,
+	trigger_program = u"inspiral",
 	verbose = False
 ):
 	#
@@ -412,7 +435,7 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments)
+	coinc_tables = CoincTables(xmldoc, vetoes = veto_segments, program = trigger_program)
 	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row.search, coinc_definer_row.search_coinc_type, create_new = True, description = coinc_definer_row.description)
 	sngl_index = dict((row.event_id, row) for row in lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))
 
@@ -461,11 +484,11 @@ def ligolw_thinca(
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 		for coinc in node.unused_coincs:
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 

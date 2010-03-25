@@ -8,7 +8,6 @@
 # =============================================================================
 #
 
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -20,19 +19,16 @@ import os
 
 from pylal import ligolw_sqlutils as sqlutils
 
+from glue import git_version
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
 
-usage = \
-'''
-Calculates false alarm rates (FAR) in units of yr^(-1) and stores to
-specified output_column.
-Writes results out to a new database.
-'''
-
+__prog__ = "ligolw_cbc_cfar"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Calculates false alarm rates (FAR) in units of yr^(-1) and stores to " + \
+"specified output_column. Writes results out to a new database. "
 
 
 # =============================================================================
@@ -47,7 +43,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
@@ -74,7 +74,7 @@ def parse_command_line():
         help =
             "Print SQLite queries used and the approximate time taken to run each one." )
     # following are generic inspiral_sql options
-    parser.add_option( "", "--param-name", action = "store", default = None,
+    parser.add_option( "-P", "--param-name", action = "store", default = None,
         metavar = "PARAMETER", 
         help = 
             "Can be any parameter in the coinc_inspiral table. " + 
@@ -85,7 +85,7 @@ def parse_command_line():
             "the uncombined FAR and so the uncombined FAR will be the same as " +
             "the combined FAR."
              )
-    parser.add_option( "", "--param-ranges", action = "store", default = None,
+    parser.add_option( "-R", "--param-ranges", action = "store", default = None,
         metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
         help = 
             "Requires --param-name. Specify the parameter ranges " +
@@ -95,7 +95,7 @@ def parse_command_line():
             "coincidences that fall outside of the union of all " +
             "specified ranges will be deleted." 
             )
-    parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
+    parser.add_option( "-X", "--exclude-coincs", action = "store", type = "string", default = None,
         metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
             "[ALL in INSTRUMENTS_ON2]; etc.",
         help = 
@@ -119,7 +119,7 @@ def parse_command_line():
                 "dyslexic you can type '[h2,h1 in all]' without a " +
                 "problem. " 
             )
-    parser.add_option( "", "--include-only-coincs", action = "store", type = "string", default = None,
+    parser.add_option( "-I", "--include-only-coincs", action = "store", type = "string", default = None,
         metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
             "[ALL in INSTRUMENTS_ON2]; etc.",
         help =
@@ -128,7 +128,7 @@ def parse_command_line():
             "deleted from the output database). To avoid confusing overlaps, " +
             "cannot specify both --exclude-coincs and --include-only-coincs." 
             )
-    parser.add_option( "", "--vacuum", action = "store_true", default = False,
+    parser.add_option( "-V", "--vacuum", action = "store_true", default = False,
         help = 
             "If turned on, will vacuum the database before saving. " +
             "This cleans any fragmentation and removes empty space " +
@@ -138,26 +138,33 @@ def parse_command_line():
             "database, this can take awhile for larger files." 
             )
     # following are options specific to this program
-    parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
+    parser.add_option( "-s", "--ranking-stat", action = "store", type = "string", default = None,
         help =
             "Required. The stat to use to rank triggers for calculating " +
             "the false alarm rate. Can be any column in the coinc_inspiral table." 
             )
-    parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
+    parser.add_option( "-b", "--rank-by", action = "store", type = "string", default = None, 
         metavar = "MAX or MIN",
         help = 
             "Requried. Options are MAX or MIN. " +
             "This specifies whether to rank triggers by ascending (MAX) or " +
             "descending (MIN) stat value." 
             )
-    parser.add_option( "", "--output-column", action = "store", type = "string", default = None, 
+    parser.add_option( "-c", "--output-column", action = "store", type = "string", default = None, 
         help = 
-          "Required. Column in the coinc_inspiral table to store output to."
+            "Required. Column in the coinc_inspiral table to store output to. " +
+            "If it doesn't exist, it will be created. Column name must be all lower-case."
             )
-    parser.add_option( "", "--group-by-ifos", action = "store_true", default = False, 
+    parser.add_option( "-G", "--group-by-ifos", action = "store_true", default = False, 
         help = 
-          "Turning on will cause triggers to be grouped by coincident ifos when " +
-          "calculating FARs."
+            "Turning on will cause triggers to be grouped by coincident ifos when " +
+            "calculating FARs."
+            )
+    parser.add_option( "-T", "--time-units", action = "store", default = 'yr',
+        metavar = "s, min, hr, days, OR yr",
+        help = 
+            "Time units to use when calculating FARs (the units of the FARs will be the inverse of this). " +
+            "Options are s, min, hr, days, or yr. Default is yr."
             )
   
     (options, args) = parser.parse_args()
@@ -189,20 +196,6 @@ def parse_command_line():
 
 # =============================================================================
 #
-#                       Function Definitions
-#
-# =============================================================================
-
-def convert_to_yrs( duration ):
-    """
-    Uses sqlutils.convert_duration to automatically convert the frg_durs
-    to years. 
-    """
-    return sqlutils.convert_duration( duration, 'yr' )
-                   
-
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -212,6 +205,8 @@ def convert_to_yrs( duration ):
 #
 
 opts, args = parse_command_line()
+
+sqlite3.enable_callback_tracebacks(opts.debug)
 
 # get input database filename
 filename = opts.input
@@ -224,6 +219,8 @@ if opts.verbose:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 # Add program to process and process params table
@@ -237,7 +234,7 @@ ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 # process and process-params
 xmldoc = dbtables.get_xml(connection)
 # Add entries to process and process_params tables for this program
-proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_cfar', opts.__dict__)
+proc_id = process.register_to_xmldoc(xmldoc, __prog__, opts.__dict__, version = git_version.id)
 
 # Get param and param-ranges if specified
 if opts.param_name:
@@ -273,18 +270,24 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 #         Program-specific Initialization
 # 
 
-# Get ranking stat
-if " " in opts.ranking_stat.strip():
-  raise ValueError, "ranking-stat must not contain spaces"
-ranking_stat =  opts.ranking_stat.strip()
+# validate ranking stats
+ranking_stat = sqlutils.validate_option( opts.ranking_stat )
+rank_by = sqlutils.validate_option( opts.rank_by, lower = False ).upper()
 
-if opts.rank_by.strip().upper() == 'MAX':
-    rank_by = 'MAX'
-else:
-    rank_by = 'MIN'
+# create column to store output to if it doesn't already exist
+output_table, output_column = sqlutils.create_column( connection, 'coinc_inspiral', opts.output_column )
 
-# sqlitize convert_to_yrs
-connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
+# sqlitize desired conversion function
+
+def convert_livetime( duration, unit = opts.time_units ):
+    """
+    Uses sqlutils.convert_duration to automatically convert the frg_durs
+    to the desired unit.
+    """
+    unit = sqlutils.validate_option( unit, lower = True )
+    return sqlutils.convert_duration( duration, unit )
+
+connection.create_function( 'convert_livetime', 1, convert_livetime )
 
 # sqlitize param_parser.group_by_param_range()
 if opts.param_name:
@@ -307,7 +310,7 @@ sqlquery = """
     SELECT
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        convert_to_yrs(experiment_summary.duration),
+        convert_livetime(experiment_summary.duration),
         experiment_summary.datatype
     FROM
         experiment_summary
@@ -362,8 +365,6 @@ if rank_by == "MIN":
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_min)
 else:
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
-
-output_column = opts.output_column.strip().lower()
 
 
 #

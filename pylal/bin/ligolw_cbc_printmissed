@@ -8,12 +8,6 @@
 # =============================================================================
 #
 
-
-usage = \
-'''
-Prints information about closest missed injections.
-'''
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -36,6 +30,7 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
@@ -43,8 +38,9 @@ from pylal import db_thinca_rings
 
 __prog__ = "ligolw_cbc_printmissed"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Prints information about closest missed injections."
 
 # =============================================================================
 #
@@ -58,7 +54,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string",
@@ -121,7 +121,13 @@ def parse_command_line():
             "Required. Table to look in to see if injections were missed. " +
             "Can be any lsctable with a coinc_event_id."
             )
-    parser.add_option( "-X", "--exclude-instrument-times", action = "store", type = "string", default = None,
+    parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, separate column names with a comma."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
+    parser.add_option( "-X", "--exclude-coincs", action = "store", type = "string", default = None,
         metavar = " [ALL IN INSTRUMENTS_ON1];[ALL IN INSTRUMENTS_ON2]; etc.",
         help = 
             "Exclude specified instrument times. Must specify by typing '[ALL IN INSTRUMENTS_ON]' " +
@@ -137,7 +143,7 @@ def parse_command_line():
                 "dyslexic you can type '[all in v1,h1]' without a " +
                 "problem." 
             )
-    parser.add_option( "-I", "--include-only-times", action = "store", type = "string", default = None,
+    parser.add_option( "-I", "--include-only-coincs", action = "store", type = "string", default = None,
         metavar = " [ALL IN INSTRUMENTS_ON1];[ALL IN INSTRUMENTS_ON2]; etc.",
         help =
             "Opposite of --exclude-coincs: only get missed injections from the specified instrument time. " +
@@ -192,15 +198,17 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 cmtable = printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,
-    param_name = opts.param_name, param_ranges = opts.param_ranges, include_only_coincs = opts.include_only_times,
-    exclude_coincs = opts.exclude_instrument_times, sim_tag = opts.sim_tag, limit = opts.limit, 
+    param_name = opts.param_name, param_ranges = opts.param_ranges, include_only_coincs = opts.include_only_coincs,
+    exclude_coincs = opts.exclude_coincs, sim_tag = opts.sim_tag, limit = opts.limit, 
     daily_ihope_pages_location = opts.daily_ihope_pages_location, verbose = opts.verbose)
 
 #
@@ -210,7 +218,7 @@ cmdoc = ligolw.Document()
 # setup the LIGOLW tag
 cmdoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-cmproc_id = process.register_to_xmldoc(cmdoc, __prog__, opts.__dict__)
+cmproc_id = process.register_to_xmldoc(cmdoc, __prog__, opts.__dict__, version = git_version.id)
 # connect the table to the document
 cmdoc.childNodes[0].appendChild(cmtable)
 
@@ -219,18 +227,21 @@ cmdoc.childNodes[0].appendChild(cmtable)
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
     # set table list
     tableList = ['close_missed_injections']
     columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(cmdoc, tableList[0])
+    if opts.columns is not None:
+        # overwrite columnList with specified columns
+        columnList = [col.strip() for col in opts.columns.split(',')]
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
     print_tables.print_tables(cmdoc, opts.output, opts.output_format, tableList = tableList,
-        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None, print_table_names = False,
         row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()

@@ -240,7 +240,12 @@ def query_segments(engine, table, segdefs):
             tmp &= search_span_list
 
             # The intersection is guaranteed to be non-empty if the row passed match()
-            return tmp[0]
+            # PR 2969: The above comment is incorrect.  Negative padding may cause
+            # an empty intersection.
+            if len(tmp) == 0:
+                return segment(0,0)
+            else:
+                return tmp[0]
 
         # Build a segment list from the returned segments, padded and trunctated.  The segments will
         # not necessarily be disjoint, if the padding crosses gaps.  They are also not gauranteed to
