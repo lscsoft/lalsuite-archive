@@ -46,7 +46,7 @@ from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
+from glue import lal
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
