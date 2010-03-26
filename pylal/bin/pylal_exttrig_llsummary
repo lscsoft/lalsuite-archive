@@ -42,10 +42,12 @@ ifo_list = ['H1','L1','V1']
 
 # the html template. File html_template.html
 html_template ="""
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td><td>IFOS</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td><td>macroifos</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td><td>T<sub>90</sub></td><td>IFOS</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td><td>macrot90</td><td>macroifos</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>
 summary of this GRB <a href="http://grblog.org/grblog.php?view=burst&GRB=macrogrbname">here</a><br>
 google sky kml-file <a href="macrokml">here</a><br>
 segments availability <a href="macrosegplot">here</a><br>
+ini-file used <a href="macroinifile">here</a><br>
+conf-file used <a href="macroconffile">here</a><br>
 """
 
 
@@ -132,13 +134,14 @@ def create_html(grb, opts):
   html = html.replace('macrodate',date_text)
   html = html.replace('macrora','%.2f'%grb.ra)
   html = html.replace('macrodec','%.2f'%grb.de)
+  html = html.replace('macrot90','%.2f'%grb.duration)
   html = html.replace('macroifos','%s'%"".join(grb.ifolist))
 
   return html
 
 
 # --------------------------------
-def create_sanity_page(html, grb, opts):
+def create_sanity_page(html, grb, opts, statistic):
   """
   Function to create the complete sanity page 
   with general information, links to selected images
@@ -146,6 +149,7 @@ def create_sanity_page(html, grb, opts):
   @param html: the html template
   @param grb: the grb instance
   @param opts: The option structure of this code call
+  @param statistic: the name of the statistic used
   """
 
   ifo_times = "".join(grb.ifolist)
@@ -157,6 +161,7 @@ def create_sanity_page(html, grb, opts):
     fn = fn.replace('MACIDENT',ident)
     fn = fn.replace('MACIFOS',ifo_times)
     fn = fn.replace('MACGRB',grb.name)        
+    fn = fn.replace('MACSTAT', statistic)
     return fn
         
   # define a complete list of images to be shown on the sanity page
@@ -173,11 +178,11 @@ def create_sanity_page(html, grb, opts):
                                  'images':['V1-plotinspiral_SECOND_V1_GRBMACGRB_snr_vs_time-MACIDENT.png',\
                                            'V1-plotinspiral_SECOND_V1_GRBMACGRB_snr_histogram-MACIDENT.png']}    
   page_sections['thinca']={'page':'MACIFOS-plotthinca_GRBMACGRB-MACIDENT.html',\
-                             'images':['MACIFOS-plotthinca_GRBMACGRB_cum_hist_effective_snr-MACIDENT.png']}
+                             'images':['MACIFOS-plotthinca_GRBMACGRB_cum_hist_MACSTAT-MACIDENT.png']}
   page_sections['grbstats'] = {'page':'pylal_grbtimeslide_stats_GRBMACGRB-MACIDENT.html',
-                                 'images':['pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-0.86-3.48-MACIDENT.png',\
-                                           'pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-3.48-7.40-MACIDENT.png',\
-                                           'pylal_grbtimeslide_stats_GRBMACGRB_trials_effective_snr_cum_hist-7.40-17.50-MACIDENT.png']}
+                                 'images':['pylal_grbtimeslide_stats_GRBMACGRB_trials_MACSTAT_cum_hist-0.86-3.48-MACIDENT.png',\
+                                           'pylal_grbtimeslide_stats_GRBMACGRB_trials_MACSTAT_cum_hist-3.48-7.40-MACIDENT.png',\
+                                           'pylal_grbtimeslide_stats_GRBMACGRB_trials_MACSTAT_cum_hist-7.40-17.50-MACIDENT.png']}
     
   # replace the macro definitions and put it together, in the given order
   for key in ['numtemplates','inspiralH1','inspiralL1','inspiralV1','thinca','grbstats']:
@@ -262,13 +267,21 @@ def create_mchirp_plot(statistic, mc_bins, ifos,\
   @params onsource_loudest_cat: loudest onsource coincs by mchirp
   @params p0_by_cat: the FAP by mchirp
   """
+
+  if statistic=="effective_snr":
+    txt_stat = "eff"
+  elif statistic=="new_snr":
+    txt_stat = "new"
+  else:
+    raise ValueError, "ERROR: Only effective_snr and new_snr supported. "\
+                      "Requested statistic is: %s" % statistic
   
   ## mchirp vs loudest stat horizontal bar graph
   text = "mchirp vs loudest statistic"
   mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 
   plot = plotutils.NumberVsBinBarPlot(\
-    r"$\rho_\mathrm{eff}$",
+    r"$\rho_\mathrm{"+txt_stat+"}$",
     "$" + mc_latex + "$", "Loudest statistics by template bank mchirp %s"%ifos)
   plot.add_content(mc_bins, onsource_loudest_by_mc)
   plot.finalize(orientation="horizontal")
@@ -277,8 +290,8 @@ def create_mchirp_plot(statistic, mc_bins, ifos,\
   for mc, snr, pc0 in \
           zip(mc_bins.centres(), onsource_loudest_by_mc, p0_by_mc):
 
-    plot.ax.text(snr + 0.2, mc, r"$\mathrm{FAP} = %.3f;\; \rho_\mathrm{eff,comb}=%.2f$" \
-                   % (pc0, snr), verticalalignment="center")
+    plot.ax.text(snr + 0.2, mc, r"$\mathrm{FAP} = %.3f;\; \rho_\mathrm{%s,comb}=%.2f$" \
+                   % (pc0, txt_stat, snr), verticalalignment="center")
       
   if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -448,6 +461,16 @@ statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
 # some dummy hack, fix, feature, whatever
 cats = [cat[0] for cat in mc_ifo_cats.centres()]
 
+
+if statistic=="effective_snr":
+  txt_stat = "eff"
+elif statistic=="new_snr":
+  txt_stat = "new"
+else:
+  raise ValueError, "ERROR: Only effective_snr and new_snr supported. "\
+                    "Requested statistic is: %s" % statistic
+
+
 #
 # Process the input data
 #
@@ -490,8 +513,8 @@ if len(onsource_coincs) > len(mc_ifo_cats):
 
 ifos_list = ['H1L1V1','H1L1','H1V1','L1V1']
 columns = ["ifos","mc_bin", "event_id"] \
-          + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifo_list] \
-          + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
+          + ["<em>&rho;</em><sub>%s,%s</sub>" % (txt_stat, ifo) for ifo in ifo_list] \
+          + ["combined <em>&rho;</em><sub>%s</sub>"%txt_stat, "mchirp",
              "FAP"]
 output_list = []
 rows = []
@@ -634,6 +657,13 @@ segplot = 'plot_segments_grb%s.png' % grb_name
 source = grb.analysis_dir+'/'+segplot
 copysafe(source, opts.output_path)
 
+# copy the ini-file and the configuration file
+inifile = grb.analysis_dir+'/'+cp.get('data','ini_file')
+copysafe(inifile, opts.output_path)
+html = html.replace('macroinifile',cp.get('data','ini_file'))
+copysafe(opts.config_file, opts.output_path)
+html = html.replace('macroconffile', os.path.basename(opts.config_file))
+
 # put in some more links and copy needed files
 copysafe(opts.onsource_xml, opts.openbox_path)
 html = html.replace('macrokml',kml_filename)
@@ -665,7 +695,7 @@ for nr, plots in enumerate(list_overview_plots):
 
 
 ## Update the other page with sanity plots
-html_sanity = create_sanity_page(html_sanity, grb, opts)
+html_sanity = create_sanity_page(html_sanity, grb, opts, statistic)
 
 # put some status information 
 text = "<hr>This page has been created at %s\n"%time.asctime(time.localtime())
@@ -683,18 +713,25 @@ write_file(opts.output_path, 'pylal_exttrig_llsummary_'+grb_name+'-sanity.html' 
 
 # if a html output path is specified, copy all the sanity plots 
 if opts.output_path_html:
+  # make the OPENBOX read/write enables
+  os.chmod('%s/OPENBOX'%opts.output_path_html, 493)
+
   mkdirsafe(opts.output_path_html+'/OPENBOX')
   command = 'cp -r %s/* %s' % (opts.output_path, opts.output_path_html)
   subprocess.call(command, shell=True)
   command = 'cp -r %s/* %s/OPENBOX' % (opts.openbox_path, opts.output_path_html)
   subprocess.call(command, shell=True)
 
-  # make the OPENBOX read protected
-  os.chmod('%s/OPENBOX'%opts.output_path_html, 0)
-
   # set two links to the kml file and the segplot
   link_openbox(opts.output_path_html, kml_filename)
   link_openbox(opts.output_path_html, segplot)
+  link_openbox(opts.output_path_html, cp.get('data','ini_file'))
+  link_openbox(opts.output_path_html, os.path.basename(opts.config_file))
+
+  if not grb.openbox:
+    # make the OPENBOX read protected
+    os.chmod('%s/OPENBOX'%opts.output_path_html, 0)
+
 
   
   
