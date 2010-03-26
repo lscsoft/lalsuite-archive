@@ -265,13 +265,17 @@ def offset_vector_to_deltas(offset_vector):
 	Example:
 
 	>>> offset_vector_to_deltas({"H1": 0, "L1": 10, "V1": 20})
-	{('H1', 'L1'): 10, ('L1', 'V1'): 10}
+	{('H1', 'H1'): 0, ('H1', 'L1'): 10, ('H1', 'V1'): 20}
 
 	The keys in the result are instrument pairs, (a, b), and the values
 	are the relative time offsets, (offset[b] - offset[a]).
 	"""
-	instruments = sorted(offset_vector)
-	return dict(((a, b), offset_vector[b] - offset_vector[a]) for a, b in zip(instruments[:-1], instruments[1:]))
+	# NOTE:  the arithmetic used to construct the offsets *must* match
+	# the arithmetic used by time_slide_component_vectors() so that the
+	# results of the two functions can be compared to each other
+	# without worry of floating-point round off confusing things.
+	ref_instrument = min(offset_vector)
+	return dict(((ref_instrument, instrument), offset_vector[instrument] - offset_vector[ref_instrument]) for instrument in offset_vector)
 
 
 def time_slide_cmp(offsetdict1, offsetdict2):
@@ -409,6 +413,12 @@ def time_slide_component_vectors(offset_vectors, n):
 	delta_sets = {}
 	for offset_vector in offset_vectors:
 		for instruments in iterutils.choices(sorted(offset_vector), n):
+			# NOTE:  the arithmetic used to construct the
+			# offsets *must* match the arithmetic used by
+			# offset_vector_to_deltas() so that the results of
+			# the two functions can be compared to each other
+			# without worry of floating-point round off
+			# confusing things.
 			delta_sets.setdefault(instruments, set()).add(tuple(offset_vector[instrument] - offset_vector[instruments[0]] for instrument in instruments))
 
 	#

@@ -46,18 +46,18 @@ if [ -z $testpath ]; then
   export LD_LIBRARY_PATH=$matlabDirectory:$LD_LIBRARY_PATH
 fi
 
-if [ -d $outputDirectory/$eventTime ]; then
+if [ -d $outputDirectory ]; then
   echo ""
-  echo "Directory $outputDirectory/$eventTime exists already."
+  echo "Directory $outputDirectory exists already."
   echo "**********************"
   echo "*** Cleaning it... ***"
   echo "**********************"
-  rm -rf $outputDirectory/$eventTime
+  rm -rf $outputDirectory
 fi
 
 # Execute the wscanlite
 
-OMEGASCAN="$omegaDirectory/bin/wpipeline scan -c $configFile -f $FFLFile -o $outputDirectory/$eventTime $eventTime"
+OMEGASCAN="$omegaDirectory/bin/wpipeline scan -c $configFile -f $FFLFile -o $outputDirectory $eventTime"
 
 echo "execute : $OMEGASCAN"
 export LD_LIBRARY_PATH_SAV=${LD_LIBRARY_PATH}

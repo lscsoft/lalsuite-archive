@@ -161,7 +161,7 @@ def get_row_data(row, column_name, cat_time_ns = True):
 
 def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
     round_floats = True, decimal_places = 2, format_links = True,
-    title = None, print_table_names = True,
+    title = None, print_table_names = True, unique_rows = False,
     row_span_columns = [], rspan_break_columns = []):
     """
     Method to print tables in an xml file in other formats.
@@ -186,6 +186,8 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
     @decimal_places: If round_floats turned on, will smart_round to this
      number of decimal places.
     @title: Add a title to this set of tables.
+    @unique_rows: If two consecutive rows are exactly the same, will condense into
+     one row.
     @print_table_names: If set to True, will print the name of each table
      in the caption section.
     @row_span_columns: For the columns listed, will
@@ -233,12 +235,16 @@ def print_tables(xmldoc, output, output_format, tableList = [], columnList = [],
 
         # format the data in the table
         out_table = []
+        last_row = ''
         for row in this_table:
             out_row = [ str(format_cell( get_row_data(row, col_name),
                 round_floats = round_floats, decimal_places = decimal_places,
                 format_links = format_links,  hlx = hlx, hxl = hxl, xhl = xhl ))
                 for col_name in col_names ]
+            if unique_rows and out_row == last_row:
+                continue
             out_table.append(out_row)
+            last_row = out_row
 
         rspan_count = {}
         for mm, row in enumerate(out_table[::-1]):

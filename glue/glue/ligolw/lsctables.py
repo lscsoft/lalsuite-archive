@@ -52,7 +52,6 @@ from glue.ligolw import table
 from glue.ligolw import types as ligolwtypes
 from glue.ligolw import ilwd
 
-
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -1207,18 +1206,17 @@ class SnglInspiralTable(table.Table):
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
 
 	def get_new_snr(self, index=6.0):
-		# the kwarg 'index' is to be assigned to the parameter chisq_index occurring in the .ini files etc
-		# the parameter nhigh gives the asymptotic behaviour d (ln chisq) / d (ln rho) at large rho
-		# nhigh=2 means chisq~rho^2 along contours of new_snr as expected from the behaviour of mismatched templates
+		import numpy
+		# the kwarg 'index' is to be assigned to the parameter chisq_index
+		# the parameter nhigh gives the asymptotic behaviour of 
+		# d (ln chisq) / d (ln rho) at large rho for fixed new_snr: 
+		# eg nhigh = 2 means chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
-		chisq = self.get_column('chisq')
-		chisq_dof = self.get_column('chisq_dof')
-		rchisq = chisq/ (2*chisq_dof - 2)
+		rchisq = self.get_column('chisq')/(2*self.get_column('chisq_dof') - 2)
 		nhigh = 2.
-		if rchisq > 1.:
-			return snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
-		else:
-			return snr
+		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(newsnr, rchisq < 1, snr)
+		return newsnr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
@@ -1459,8 +1457,7 @@ class SnglRingdownTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#next_id = SnglRingdownID(0)
+	next_id = SnglRingdownID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
@@ -1498,11 +1495,7 @@ class CoincRingdownTable(table.Table):
 		"snr": "real_8",
 		"false_alarm_rate": "real_8"
 	}
-	# FIXME:  like some other tables here, this table should have the
-	# constraint that the coinc_event_id column is a primary key.  this
-	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
-	# the constraint is being replaced with an index.
-	#constraints = "PRIMARY KEY (coinc_event_id)"
+	constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
 		"cr_cei_index": ("coinc_event_id",)
 	}

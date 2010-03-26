@@ -1092,8 +1092,6 @@ def parse_command_line():
   parser.add_option("--write-inj-data", action="store_true", default=False, \
                     help="create a file with data from injections")
   
-  #parser.add_option("--html-for-cbcweb", action="store_true", \
-  #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
                     help="display the plots to screen if an X11 display is available")
 

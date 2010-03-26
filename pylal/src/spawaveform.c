@@ -380,15 +380,15 @@ void initspawaveform(void)
          */
 	}
 
-/*****************************************************************************
- * The remainder of this code defines the static functions that the python
- * functions will use to compute various quantities.  They are not exposed
- * outside of this file directly but can be called from python via
- * the documentation described when doing help() on this module.
- * A lot of this code is in lal in some form or must be moved to lal.  Here
- * the functin prototypes have been vastly simplified (use of native c types
- * and double precision)
- *****************************************************************************/
+/*****************************************************************************/
+/* The remainder of this code defines the static functions that the python   */
+/* functions will use to compute various quantities.  They are not exposed   */
+/* outside of this file directly but can be called from python via           */
+/* the documentation described when doing help() on this module.             */
+/* A lot of this code is in lal in some form or must be moved to lal.  Here  */
+/* the functin prototypes have been vastly simplified (use of native c types */
+/* and double precision)                                                     */
+/*****************************************************************************/
 
 /* FIXME make this function exist in LAL and have the LAL SPA waveform generator call it? */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints,  complex double *expPsi)
@@ -646,6 +646,18 @@ static double imr_fcut(double m1, double m2, double chi) {
 	return fCut;
 	}
 
+/* FIXME a hack fit to unwrap the imr waveforms and provide a time correction*/
+static double _imrdur(double m1, double m2, double chi)
+	{
+	/* FIT done to + 1500 M */
+	double c1 = 1.39 - 0.88 * chi;
+	double c2 = -4.6 - 1.2 * pow(chi + 0.7, 3);
+	double c3 = 400.0 + 500.0 * pow(chi + 1.0, 3);
+	double eta = m1*m2 / (m1+m2) / (m1+m2);
+	double out = c1 * exp(c2 * eta + c3 * pow(eta,6)) * ((m1+m2) / 50.0 ) - (1500 - fabs(chi) * 200) * (m1+m2) * LAL_MTSUN_SI;
+	return out;
+	}
+
 int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2, double deltaF, double fLower, int numPoints,  complex double *hOfF) {
 	double chi = compute_chi(mass1, mass2, spin1, spin2);
 	return IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, numPoints, hOfF);
@@ -653,26 +665,26 @@ int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2, doubl
 
 /****************************************************************************/
 /* Ajith's code *************************************************************/
+/* FIXME make white space style similar	*************************************/
 /****************************************************************************/
 int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF) {
 
     double totalMass, piM, eta;
-    double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, fMerg, fRing, fCut, sigma;
+    double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, psi8, fMerg, fRing, fCut, sigma;
     double f, shft, amp0, ampEff, psiEff, fNorm;
     double v, alpha2, alpha3, w1, vMerg, epsilon_1, epsilon_2, w2, vRing;
-    double startPhase = 0., startTime = 0., distance, Lorentzian;
+    double startPhase = 0., startTime, distance, Lorentzian;
     int k, kmin, kmax;
 
-    /* calculate the total mass, symmetric mass ratio and asymmetric 
- *      * mass ratio */
+    /* calculate the total mass, symmetric mass ratio and asymmetric       */
+    /* mass ratio                                                          */
     totalMass = mass1+mass2;
     eta = mass1*mass2/pow(totalMass,2.);
     piM = totalMass*LAL_PI*LAL_MTSUN_SI;
-    /*delta = sqrt(1.-4.*eta); */
     
-    /*********************************************************************/
-    /*              compute the phenomenological parameters              */
-    /*********************************************************************/
+    /***********************************************************************/
+    /*              compute the phenomenological parameters                */
+    /***********************************************************************/
 
     psi0 = 3./(128.*eta);
 
@@ -698,6 +710,10 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
     psi7 = 8.6960e+05*eta + -6.7098e+05*eta*chi + -3.0082e+04*eta*pow(chi,2.) +
             -5.8379e+06*pow(eta,2.) + 1.5145e+06*pow(eta,2.)*chi +
             1.0891e+07*pow(eta,3.);
+
+    psi8 = -3.6600e+05*eta + 3.0670e+05*eta*chi + 6.3176e+02*eta*pow(chi,2.) +
+            2.4265e+06*pow(eta,2.) + -7.2180e+05*pow(eta,2.)*chi + 
+            -4.5524e+06*pow(eta,3.);
 
     fMerg =  1. - 4.4547*pow(1.-chi,0.217) + 3.521*pow(1.-chi,0.26) +
             6.4365e-01*eta + 8.2696e-01*eta*chi + -2.7063e-01*eta*pow(chi,2.) +
@@ -734,25 +750,27 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
     /*********************************************************************/
     /*      set other parameters required for the waveform generation    */
     /*********************************************************************/
+    startTime = -50.*totalMass*LAL_MTSUN_SI;
     shft = 2.*LAL_PI *startTime;
     distance = 1e6*LAL_PC_SI;  /*1 Mpc in meters */
         
-    /* Now compute the amplitude.  NOTE the distance is assumed to
- *      * me in meters. This is, in principle, inconsistent with the LAL
- *           * documentation (inspiral package). But this seems to be the convention
- *                * employed in the injection codes */
+    /* Now compute the amplitude.  NOTE the distance is assumed to          */
+    /* be in meters. This is, in principle, inconsistent with the LAL       */
+    /* documentation (inspiral package). But this seems to be the           */
+    /* convention employed in the injection codes                           */
+    
     amp0 = pow(LAL_MTSUN_SI*totalMass, 5./6.)*pow(fMerg,-7./6.)/pow(LAL_PI,2./3.);
     amp0 *= pow(5.*eta/24., 1./2.)/(distance/LAL_C_SI);
 
-    /* PN correctiosn to the frequency domain amplitude of the (2,2) mode */
+    /* PN correctiosn to the frequency domain amplitude of the (2,2) mode   */
     alpha2   = -323./224. + 451.*eta/168.;
     alpha3   = (27./8. - 11.*eta/6.)*chi;
 
-    /* spin-dependant corrections to the merger amplitude */
+    /* spin-dependant corrections to the merger amplitude                   */
     epsilon_1 =  1.4547*chi - 1.8897;
     epsilon_2 = -1.8153*chi + 1.6557;
 
-    /* normalisation constant of the inspiral amplitude */
+    /* normalisation constant of the inspiral amplitude                     */
     vMerg = pow(LAL_PI*totalMass*LAL_MTSUN_SI*fMerg, 1./3.);
     vRing = pow(LAL_PI*totalMass*LAL_MTSUN_SI*fRing, 1./3.);
 
@@ -762,23 +780,23 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
             + epsilon_2*vRing*vRing);
 
     /* zero output */
-	memset (hOfF, 0, numPoints * sizeof (complex double));
+    memset (hOfF, 0, numPoints * sizeof (complex double));
     ampEff = 0.;
     psiEff = 0.;
 
-    /*********************************************************************/
-    /*          now generate the waveform at all frequency bins          */
-    /*********************************************************************/
+    /************************************************************************/
+    /*          now generate the waveform at all frequency bins             */
+    /************************************************************************/
     for (k = kmin; k < kmax; k++) {
 
-        /* fourier frequency corresponding to this bin */
+        /* fourier frequency corresponding to this bin                      */
       	f = k * deltaF;
         fNorm = f/fMerg;
 
-        /* PN expansion parameter */
+        /* PN expansion parameter                                           */
         v = pow(LAL_PI*totalMass*LAL_MTSUN_SI*f, 1./3.);
 
-    	/* compute the amplitude */
+    	/* compute the amplitude                                            */
         if (f <= fMerg) {
             ampEff = pow(fNorm, -7./6.)*(1. + alpha2*pow(v,2.) + alpha3*pow(v,3.));
         }
@@ -790,18 +808,19 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
             ampEff = w2*Lorentzian;
         }
 
-        /* now compute the phase */
+        /* now compute the phase                                             */
         psiEff =  shft*f + startPhase
                     + 3./(128.*eta*pow(v,5.))*(1 + psi2*pow(v, 2.)
                     + psi3*pow(v, 3.) + psi4*pow(v, 4.)
                     + psi5*pow(v, 5.) + psi6*pow(v, 6.)
-                    + psi7*pow(v, 7.));
+                    + psi7*pow(v, 7.) + psi8*pow(v, 8.));
 
-       	/* generate the waveform */
-       	hOfF[k] = amp0*ampEff * (cos(psiEff) - I * sin(psiEff)); 
+        /* generate the waveform                                             */
+        hOfF[k] = amp0*ampEff * (cos(psiEff) - I * sin(psiEff)); 
 
     }
 
     return 0;
 
 }
+

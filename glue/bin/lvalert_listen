@@ -85,6 +85,9 @@ usage = """\
   would result in ./mycounter being executed and the output printed to
   screen whenever a message was received via the lvalert_test node. 
 
+  Alternatively, instead of the name of an executable, you could
+  indicate either "stdout" or "-" (withouth quotes) and the alert
+  payload will be written to standard output.
 """
 
 #################################################################
@@ -162,8 +165,12 @@ class LVAlertHandler(object):
         n=self.get_node(stanza)
         if e:
             if n in self.actions:
-                p = Popen([self.actions[n]], stdin=PIPE, stdout=PIPE)
-                print p.communicate(e)[0]
+                action = self.actions[n]
+                if action == 'stdout' or action == '-':
+                    sys.stdout.write(str(e))
+                else:
+                    p = Popen([self.actions[n]], stdin=PIPE, stdout=PIPE)
+                    print p.communicate(e)[0]
                 sys.stdout.flush()
             else:
                 print "Payload received at %s" % (datetime.datetime.now().ctime())
@@ -231,7 +238,10 @@ if opts.config_file:
     cp=ConfigParser.ConfigParser()
     cp.read(opts.config_file)
     for node in cp.sections():
-        actions[node]=cp.get(node,'executible')
+        try:
+            actions[node] = cp.get(node,'executible')
+        except ConfigParser.NoOptionError:
+            actions[node] = cp.get(node,'executable')
 
 # set up the stream
 myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)
