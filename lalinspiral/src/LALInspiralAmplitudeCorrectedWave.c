@@ -516,10 +516,9 @@ LALInspiralAmplitudeCorrectedWaveEngine(
   }
 
   params->tC = count*dt;
-  params->tC = 0.0;
 
   /* The final frequency needs to take into account the amplitude corrected order */
-  params->fFinal = waveform.f->data->data[count-1];
+  params->fFinal = waveform.f->data->data[count-1] * (params->ampOrder+2.)/2.;
 
   *countback = count;
 
