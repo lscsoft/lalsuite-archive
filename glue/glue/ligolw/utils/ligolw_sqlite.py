@@ -66,7 +66,7 @@ __date__ = git_version.date
 #
 
 
-def setup(target, check_same_thread=False):
+def setup(target, check_same_thread=True):
 	connection = sqlite3.connect(target, check_same_thread=check_same_thread)
 	dbtables.DBTable_set_connection(connection)
 
@@ -80,7 +80,10 @@ def setup(target, check_same_thread=False):
 # How to insert
 #
 
-def _update_ids(xmldoc, connection, verbose = False):
+def update_ids(xmldoc, connection, verbose = False):
+	"""
+	For internal use only.
+	"""
 	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
 	for i, tbl in enumerate(table_elems):
 		if verbose:
@@ -114,7 +117,7 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 
 		# update references to row IDs
 		if not preserve_ids:
-			_update_ids(xmldoc, connection, verbose)
+			update_ids(xmldoc, connection, verbose)
 		# delete cursors
 		xmldoc.unlink()
 	connection.commit()
@@ -145,7 +148,7 @@ def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False
 			dbtab.append(row)
 		dbtab._end_of_rows()
 	if not preserve_ids:
-		_update_ids(dbtables.get_xml(connection), connection, verbose)
+		update_ids(dbtables.get_xml(connection), connection, verbose)
 	dbtables.build_indexes(connection, verbose)
 
 
