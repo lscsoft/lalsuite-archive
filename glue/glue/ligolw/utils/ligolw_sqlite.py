@@ -94,7 +94,7 @@ def update_ids(xmldoc, connection, verbose = False):
 
 	# reset ID mapping for next document
 	dbtables.idmap_reset(connection)
-	
+
 
 def insert(connection, urls, preserve_ids = False, verbose = False):
 	"""
