@@ -44,6 +44,7 @@ from pylal import grbsummary
 from pylal import viz
 from glue import lal
 from glue import markup
+from glue import pipeline
 from glue import segments
 from glue import segmentsUtils
 from glue import iterutils
@@ -760,7 +761,7 @@ class FollowupTrigger:
 	           (eval("inj.eff_dist_%s" % ifo_id), eval("inj_sned.eff_dist_%s" % ifo_id))] )
       else:
         self.fill_table( page, ['eff_dist_%s' % ifo_id, '%5.1f' % eval("inj.eff_dist_%s" % ifo_id)] )
-    self.fill_table( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )    
+    self.fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )    
     page.add('</table></td>')
     page.hr()
     

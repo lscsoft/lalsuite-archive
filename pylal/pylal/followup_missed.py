@@ -38,6 +38,7 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from glue import lal
 from glue import markup
+from glue import pipeline
 from glue import segments
 from glue import segmentsUtils
 from glue.markup import oneliner as extra
@@ -669,21 +670,21 @@ class FollowupMissed:
     # add a table
     page.add('<table border="3" ><tr><td>')
     page.add('<table border="2" >')          
-    fillTable( page, ['<b>parameter','<b>value'] )
-    fillTable( page, ['Number', self.number] )
-    fillTable( page, ['inj ID', injID] )
-    fillTable( page, ['mass1', '%.2f'% inj.mass1] )
-    fillTable( page, ['mass2', '%.2f'%inj.mass2] )
-    fillTable( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
-    fillTable( page, ['mchirp', '%.2f' % (inj.mchirp)] )
-    fillTable( page, ['end_time', inj.geocent_end_time] )
-    fillTable( page, ['end_time_ns', inj.geocent_end_time_ns] )    
-    fillTable( page, ['distance', '%.1f' % inj.distance] )
-    fillTable( page, ['eff_dist_h','%.1f' %  inj.eff_dist_h] )
-    fillTable( page, ['eff_dist_l','%.1f' %  inj.eff_dist_l] )
-    fillTable( page, ['eff_dist_v','%.1f' %  inj.eff_dist_v] )
-    fillTable( page, ['eff_dist_g','%.1f' %  inj.eff_dist_g] )  
-    fillTable( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )    
+    fill_table( page, ['<b>parameter','<b>value'] )
+    fill_table( page, ['Number', self.number] )
+    fill_table( page, ['inj ID', injection_id] )
+    fill_table( page, ['mass1', '%.2f'% inj.mass1] )
+    fill_table( page, ['mass2', '%.2f'%inj.mass2] )
+    fill_table( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
+    fill_table( page, ['mchirp', '%.2f' % (inj.mchirp)] )
+    fill_table( page, ['end_time', inj.geocent_end_time] )
+    fill_table( page, ['end_time_ns', inj.geocent_end_time_ns] )    
+    fill_table( page, ['distance', '%.1f' % inj.distance] )
+    fill_table( page, ['eff_dist_h','%.1f' %  inj.eff_dist_h] )
+    fill_table( page, ['eff_dist_l','%.1f' %  inj.eff_dist_l] )
+    fill_table( page, ['eff_dist_v','%.1f' %  inj.eff_dist_v] )
+    fill_table( page, ['eff_dist_g','%.1f' %  inj.eff_dist_g] )  
+    fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )    
     page.add('</table></td>')
     
     # print infos to screen as well
