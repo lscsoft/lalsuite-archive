@@ -187,13 +187,13 @@ def findUserCredentials(warnOnOldProxy=1):
     certFile = os.environ.get('X509_USER_CERT')
     keyFile = os.environ.get('X509_USER_KEY')
 
+    if certFile and keyFile:
+        return certFile, keyFile
+
     if proxyFile:
         if warnOnOldProxy:
             checkProxy(proxyFile)
         return proxyFile, proxyFile
-
-    if certFile and keyFile:
-        return certFile, keyFile
 
     # Try default proxy
     proxyFile = os.path.join('/tmp', "x509up_u%d" % os.getuid())
@@ -324,8 +324,8 @@ Environment Variables:
     X509_USER_KEY
 
 Credentials are looked for in this order:
-    (1) $(X509_USER_PROXY)
-    (2) $(X509_USER_CERT) / $(X509_USER_KEY)
+    (1) $(X509_USER_CERT) / $(X509_USER_KEY)
+    (2) $(X509_USER_PROXY)
     (3) Default location of grid proxy ( /tmp/x509up_u$(UID) )
     (4) $(HOME)/.globus/usercert.pem / $(HOME)/.globus/userkey.pem
 
