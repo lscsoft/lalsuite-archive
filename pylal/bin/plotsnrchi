@@ -91,7 +91,7 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
   if len(slide_val):
     loglog(bins, slides, 'k-x',markersize=9, markerfacecolor='None',\
         markeredgewidth=1, linewidth=1)
-    leg.append('Time slides')
+    leg.append('Background')
   if len(trig_val):
     loglog(bins, trigs, 'b-2',markersize=9, markerfacecolor='None',\
         markeredgewidth=1, linewidth=1)
@@ -293,13 +293,6 @@ def parse_command_line():
   parser.add_option("", "--exact-match",action="store_true",
       default=False,  \
       help="the pattern should match exactly if this option is used" )
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
-
 
   (options,args) = parser.parse_args()
 
@@ -452,7 +445,6 @@ if not opts.show_plot:
 from pylab import *
 from pylal import viz
 
-chisq_dof = 0   
 ###################################
 # Input triggers
 
@@ -767,13 +759,17 @@ if opts.effsnr_lines:
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
     legendText.append('Injections')
+    plotdof = inj_chisq_dof
+# at least one of inj_chisq_dof, slide_chisq_dof, chisq_dof must exist
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
+    plotdof = slide_chisq_dof
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
     legendText.append('Triggers')
-  plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
+    plotdof = chisq_dof
+  plotconstlines(snr_range, opts.denominator_constant, plotdof)
 
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'$\chi^2$', size='x-large')
@@ -798,13 +794,16 @@ if opts.newsnr_lines:
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
     legendText.append('Injections')
+    plotdof = inj_chisq_dof
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
+    plotdof = slide_chisq_dof
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
     legendText.append('Triggers')
-  plotnewsnrlines(min_chisq, max_chisq, opts.chisq_index, chisq_dof)
+    plotdof = chisq_dof
+  plotnewsnrlines(min_chisq, max_chisq, opts.chisq_index, plotdof)
 
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'$\chi^2$', size='x-large')
@@ -831,13 +830,16 @@ if opts.snr_chisq_contours:
       if ninj_events:
         viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
         legendText.append('Injections')
+        plotdof = inj_chisq_dof
       if slide_events:
         viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
         legendText.append('Background')
+        plotdof = slide_chisq_dof
       if nevents:
         viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
         legendText.append('Triggers')
-      plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
+        plotdof = chisq_dof
+     plotconstlines(snr_range, opts.denominator_constant, plotdof)
       contour(snr_range,chisq_range,cont,v)
       xlabel(r'$\rho$', size='x-large')
       ylabel(r'$\chi^2$', size='x-large')
@@ -1100,9 +1102,6 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
       tagList, comment=comments)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()

@@ -267,9 +267,9 @@ class DocContents(object):
 		# the radius of Earth in light seconds.  (the most an
 		# injection's peak time column can differ from the time it
 		# peaks in an instrument)  6.378140e6 m = mean radius of
-		# earth at equator, 299792458 m/s = c, 1.5 = add 50% for
+		# earth at equator, 299792458 m/s = c, 1.25 = add 25% for
 		# good luck.  (constants copied from LALConstants.h)
-		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.5
+		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.25
 
 		# add the duration of the longest burst event (the most an
 		# event's peak time could differ from either the start or
@@ -386,7 +386,14 @@ def OmegaSnglCompare(sim, burst, delta_t = 10.0):
 	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
 
 
-def NearCoincCompare(sim, burst):
+def StringCuspNearCoincCompare(sim, burst):
+	"""
+	Return False if the peak time of the sim is "near" the burst event.
+	"""
+	return OmegaNearCoincCompare(sim, burst)
+
+
+def ExcessPowerNearCoincCompare(sim, burst):
 	"""
 	Return False if the peak time of the sim is "near" the burst event.
 	"""

@@ -1501,7 +1501,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
 
         # write the dag node priority if this node has one
         if node.get_priority():
-          template = """     <profile namespace="dagman" key="priority">%s</profile>\n"""
+          template = """     <profile namespace="condor" key="priority">%s</profile>\n"""
           xml = xml + template % (node.get_priority())
 
         if self.is_dax():

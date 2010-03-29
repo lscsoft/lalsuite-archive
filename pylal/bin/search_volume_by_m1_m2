@@ -90,33 +90,26 @@ class upper_limit(object):
         raise ValueError
 
       if not sim:
-        if self.coinc_inspiral_table:
-          # NOTE!!! THE SEGMENTS STORED IN THIS CLASS ARE FOR LIVE TIME CALCULATIONS ONLY IDENTIFYING FOUND MISSED INJECTIONS MUST BE
-          # HANDLED FILE BY FILE IN THE get_injections() METHOD (SEE BELOW)
-          if opts.veto_segments_name is not None: self.veto_segments = db_thinca_rings.get_veto_segments(connection, opts.veto_segments_name)
           self.instruments = self.get_instruments(connection)
-          self.segments += db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
-          self.get_far_thresholds(connection)
-        if self.multi_burst_table:
-          #FIXME BURST CASE OF VETOS NOT HANDLED
-          self.instruments = self.get_instruments(connection)
-          #FIXME CWB case of rings not handled
-          self.segments += llwapp.segmentlistdict_fromsearchsummary(xmldoc, opts.live_time_program).coalesce()
+          self.segments += self.get_segments(connection, xmldoc)
           self.get_far_thresholds(connection)
       else:
         self.get_mass_ranges(connection)
 
+      connection.commit()
       #connection.close()
       dbtables.discard_connection_filename(f, working_filename, verbose = opts.verbose)
       dbtables.DBTable_set_connection(None)
 
     # remove redundant instruments
     self.instruments = list(set(self.instruments))
-    # FIXME Do these have to be done by instruments?
-    self.segments -= self.veto_segments
 
     # compute far, segments and livetime by instruments
     for i in self.instruments:
+      self.far.setdefault(i,[])
+      #FIXME how do I handle no fars?  inf causes things to bust later
+      #this causes the upper limit to be above the loudest time slide
+      if not self.far[i]: self.far[i].append(1e20)
       if not opts.far: self.far[i] = min(self.far[i])
       else: self.far[i] = float(opts.far)
       # FIXME this bombs if any of the FARS are zero. maybe it should continue
@@ -131,6 +124,23 @@ class upper_limit(object):
 
     # get a 2D mass binning
     self.twoDMassBins = self.get_2d_mass_bins(self.minmass, self.maxmass, opts.mass_bins)
+
+  def get_segments(self, connection, xmldoc):
+    segs = segments.segmentlistdict()
+    if self.coinc_inspiral_table:
+      segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+    if self.multi_burst_table:
+      if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+      if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
+    segs -= self.get_veto_segments(connection)
+    return segs
+
+  def get_veto_segments(self, connection):
+    if self.coinc_inspiral_table:
+      if self.opts.veto_segments_name is not None: return db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
+        # FIXME BURST CASE VETOS NOT HANDLED
+      else: return segments.segmentlistdict()
+    else: return segments.segmentlistdict()
 
   def get_distance_bins(self, instruments, found=None, missed=None):
     if not found and not missed: found, missed = self.get_injections(instruments)
@@ -182,7 +192,12 @@ class upper_limit(object):
     live_time_program = opts.live_time_program
     verbose = opts.verbose
     if self.opts.verbose: print >>sys.stderr, "getting FAR thresholds..."
-    # extract false alarm rate threshold
+
+    # if we don't have any segments move on
+    if not self.segments:
+      print "no segments"
+      return
+
     query = 'CREATE TEMPORARY TABLE distinct_instruments AS SELECT DISTINCT(instruments) as instruments FROM coinc_event;'
     connection.cursor().execute(query)
 
@@ -194,14 +209,21 @@ class upper_limit(object):
 
     create_is_playground_func(connection)
 
-    if self.coinc_inspiral_table: query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
-    if self.multi_burst_table: query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
-    for inst, far in connection.cursor().execute(query):
-      inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-      self.far.setdefault(inst,[])
-      if far: self.far[inst].append(far)
-    query = 'DROP TABLE distinct_instruments'
-    connection.cursor().execute(query)
+    if self.coinc_inspiral_table:
+	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
+    elif self.multi_burst_table:
+	query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND NOT is_playground(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
+    else:
+	query = None
+
+    if query:
+      for inst, far in connection.cursor().execute(query):
+        inst = frozenset(lsctables.instrument_set_from_ifos(inst))
+        self.far.setdefault(inst,[])
+	#FIXME this won't ever choose a zero FAR!
+        if far: self.far[inst].append(far)
+      query = 'DROP TABLE distinct_instruments'
+      connection.cursor().execute(query)
 
   def get_volume_derivative(self,instruments):
     injfnames = self.inj_fnames
@@ -271,6 +293,8 @@ class upper_limit(object):
       print >>sys.stderr, "getting injections below FAR: " + str(FAR) + ":\t%.1f%%\r" % (100.0 * cnt / len(injfnames),),
       working_filename = dbtables.get_connection_filename(f, tmp_path = opts.tmp_space, verbose = verbose)
       connection = sqlite3.connect(working_filename)
+      xmldoc = dbtables.get_xml(connection)
+
       # DON'T BOTHER CONTINUING IF THE INSTRUMENTS OF INTEREST ARE NOT HERE
       instruments_in_this_file = []
       for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
@@ -282,12 +306,11 @@ class upper_limit(object):
         continue
 
       # WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
-      thincasegments = segments.segmentlistdict()
-      thincasegments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
-      thincasegments -= self.veto_segments
-      #print thincasegments
-      zero_lag_segments  = thincasegments.intersection(instruments) - thincasegments.union(set(thincasegments.keys()) - instruments)
+      segments = self.get_segments(connection, xmldoc)
+      zero_lag_segments  = segments.intersection(instruments) - segments.union(set(segments.keys()) - instruments)
+      ###############
       if zero_lag_segments:
+        #FIXME we shouldn't assume that we want to remove playground
         zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
       ###############
 
@@ -373,7 +396,8 @@ WHERE
 
 
       # done
-      connection.close()
+      connection.commit()
+      #connection.close()
       dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
       dbtables.DBTable_set_connection(None)
 

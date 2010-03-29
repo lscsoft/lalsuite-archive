@@ -30,16 +30,17 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import dbtables
+#from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from glue import lal
-from pylal import db_thinca_rings
+#from pylal import db_thinca_rings
 from lalapps import inspiral
 from pylal import date
 from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+#dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
@@ -158,7 +159,7 @@ def figure_out_cache(time):
 	cacheList=(
 		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
-		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999)
 		)
 
 	foundCache = ""
@@ -185,6 +186,28 @@ def home_dirs():
 def get_hostname():
 	host = socket.getfqdn()
 	return host
+
+###############################################################################
+##### USEFULL FUNCTIONS CALLED BY PYTHON JOBS
+###############################################################################
+
+def getParamsFromCache(fileName,type,ifo=None,time=None):
+	qscanList = []
+	cacheList = lal.Cache.fromfile(open(fileName))
+	if not cacheList:
+		return qscanList
+	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
+	if time:
+		cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+
+	for cacheEntry in cacheSelected:
+		path_output = cacheEntry.path()
+		time_output = str(cacheEntry.segment[0])
+		type_output = cacheEntry.description
+		ifo_output = cacheEntry.observatory
+		qscanList.append([path_output,time_output,type_output,ifo_output])
+
+	return qscanList
 
 ###############################################################################
 ##### CONDOR JOB CLASSES ######################################################
@@ -227,7 +250,6 @@ class FUJob(object):
 		if not os.path.isdir(self.relPath+'/DataProducts'):
 			os.mkdir(self.relPath+'/DataProducts')
 		# Set up the usual stuff and name the log files appropriately
-		self.tag_base = tag_base
 		try: self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
 		except: pass
 		self.set_sub_file(self.name+'.sub')
@@ -280,6 +302,76 @@ fi
 		rm_lock_script.write("#!/bin/bash\nif [ -e $1 ]\nthen\n\trm $1\nfi")
 		rm_lock_script.close()
 		os.chmod('rmLock.sh',0755)
+
+# CLASS TO SETUP THE PROXY FILE NEEDED FOR REMOTE JOBS (CONDOR FLOCKING)
+
+class setupProxyJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	"""
+	def __init__(self, opts, cp, dir='', tag_base=''):
+		self.setup_proxy_script()
+		self.__executable = "getProxy.sh"
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "local"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_proxy_script(self):
+		proxy_script = open('getProxy.sh','w')
+		proxy_script.write("""#!/bin/bash
+if [ ! -e \"proxy.pem\" ]
+then
+	file=`grid-proxy-info -path`
+	cp ${file} proxy.pem
+fi
+		""")
+		proxy_script.close()
+		os.chmod('getProxy.sh',0755)
+
+# REMOTE QSCAN CLASS
+
+class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	A remote qscan job
+	"""
+	def __init__(self, opts, cp, dir='', tag_base=''):
+		"""
+		"""
+		self.setup_submission_script(tag_base)
+		self.__executable = "remoteScan_"+tag_base+".sh"
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.add_condor_cmd('input','proxy.pem')
+		self.add_condor_cmd('should_transfer_files','yes')
+		self.add_condor_cmd('when_to_transfer_output','ON_EXIT_OR_EVICT')
+		self.add_condor_cmd('+RunOnEGEEGrid','True')
+		self.add_condor_cmd("Requirements","(Arch == \"INTEL\" || Arch == \"X86_64\" ) && ( Pilot_SiteName == \"Bologna\")")
+		self.add_condor_cmd('transfer_output_files','$(macrofile)')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_submission_script(self,tag_base):
+		submit_script = open('remoteScan_'+tag_base+'.sh','w')
+		submit_script.write("""#!/bin/bash
+. /opt/exp_software/virgo/etc/virgo-env.sh
+. /opt/glite/etc/profile.d/grid-env.sh
+export X509_USER_PROXY=`pwd`/proxy.pem
+if [ ! -d $3 ]
+then
+	mkdir -p $3
+fi
+if [ -e $3/lock.txt ]
+then
+        rm $3/lock.txt
+fi
+/storage/gpfs_virgo3/virgo/omega/omega_r2625_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+
+tar -czf %s-$4.tgz $3 
+		"""%(tag_base))
+		submit_script.close()
+		os.chmod('remoteScan_'+tag_base+'.sh',0755)
 
 # A CLASS TO ANALYSE QSCAN RESULTS
 class analyseQscanJob(pipeline.CondorDAGJob,FUJob):
@@ -641,9 +733,9 @@ The omega scan command line is
 		
 		self.add_var_arg(repr(time))
 
-		self.set_pre_script( "checkForDir.sh %s %s" %(output, repr(time)) )
+		self.set_pre_script( "checkForDir.sh %s %s" %(output, str(time)) )
 		#FIXME is deleting the lock file the right thing to do?
-		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
+		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, str(time)) )
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
@@ -665,6 +757,84 @@ The omega scan command line is
 		config_path = os.path.split(config)
 		out = "/".join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
 		return out
+
+# SETUP PROXY FOR REMOTE SCANS
+class setupProxyNode(pipeline.CondorDAGNode,FUNode):
+
+	def __init__(self, dag, job, cp, opts):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		dag.add_node(self)
+		self.validate()
+
+
+# REMOTE QSCAN NODE
+class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
+	"""
+Remote QScan node.  This node writes its output to the web directory specified in
+the inifile + the ifo and gps time.  For example:
+
+	/archive/home/channa/public_html/followup/htQscan/H1/999999999.999
+
+	"""
+	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
+		self.scan_ifo = ifo
+
+		if variety == "bg":
+			preString = "omega/" + science_run(time).upper() + "/background"
+		else:
+			preString = "omega/" + science_run(time).upper() + "/foreground"
+		config = cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip()
+		self.add_var_arg( config )
+
+		if type == "ht":
+			dataString = figure_out_type(time, ifo, 'hoft')[0]
+		else:
+			dataString = figure_out_type(time, ifo, 'rds')[0]
+		if type == "seismic":
+			dataString = dataString + "_SEIS"
+		if dataString[:2]!=ifo:
+			dataString = ifo + "_" + dataString
+		timeString = "-".join(get_day_boundaries(int(time)))
+		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+			output = cp.get('fu-output','output-dir') + '/' + preString + '/' + dataString + '/' + timeString
+		else:
+			output = os.getcwd() + '/' + preString + '/' + dataString + '/' + timeString
+
+		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
+		mkdir(output)
+
+		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
+		output_path = output+"/"+str(time)
+
+		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+output_path)
+
+		# ADD FRAME CACHE FILE
+		self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
+
+		# NOW WE NEED TO SET UP THE REMOTE OUTPUTPATH
+		username = subprocess.Popen("whoami",shell=True,stdout=subprocess.PIPE).communicate()[0].strip() 
+		remote_output_path = '/storage/gpfs_virgo3/virgo/omega/cbc/' + username + '/' + preString.strip("omega/") + '/' + dataString + '/' + timeString + '/' + str(time)
+		self.add_var_arg(remote_output_path)
+
+		self.add_var_arg(repr(time))
+
+		self.name_output_file = job.tag_base + "-" + repr(time) + ".tgz"
+		self.add_macro("macrofile", self.name_output_file)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		dag.add_node(self)
+		self.validate()
+
 
 # ANALYSEQSCAN NODE
 class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
@@ -1640,13 +1810,15 @@ class create_default_config(object):
 
 		# fu-fg-rds-qscan SECTION
 		cp.add_section("fu-fg-rds-qscan")
-		for config in ["H1config","H2config","L1config","V1config"]:
+		for config in ["H1config","H2config","L1config"]:
 			cp.set("fu-fg-rds-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt","QSCAN CONFIG"))
+		cp.set("fu-fg-rds-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/foreground-qscan_config.txt")
 
 		# fu-fg-seismic-qscan SECTION
 		cp.add_section("fu-fg-seismic-qscan")
-		for config in ["H1config","H2config","L1config","V1config"]:
+		for config in ["H1config","H2config","L1config"]:
 			cp.set("fu-fg-seismic-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt","QSCAN CONFIG"))
+		cp.set("fu-fg-seismic-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/foreground-seismic-qscan_config.txt")
 
 		# fu-analyse-qscan SECTION
 		cp.add_section("fu-analyse-qscan")

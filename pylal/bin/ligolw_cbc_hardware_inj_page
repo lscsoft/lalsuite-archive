@@ -246,7 +246,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	outfile=open(opts.outfile,'w')
 	cachefile=open(opts.outfile.replace('.html','.cache'),'w')
 	print >>outfile, '<html><head><title>Hardware injection summary: '+str(opts.gps_start_time)+' - '+str(opts.gps_end_time)+\
-			'</title></head><body><table border=1><tr bgcolor="#9999ff"><th>GPS end time</th><th>Mass 1</th><th>Mass 2</th><th>mChirp</th><th>Distance (Mpc)</th><th>H1 eff. dist</th><th>L1 eff. dist</th><th>V1 eff. dist</th>'
+			'</title></head><body><table border=1><tr bgcolor="#9999ff"><th>GPS end time</th><th>Mass 1</th><th>Mass 2</th><th>mChirp</th><th>Distance (Mpc)</th><th>H1 eff. dist</th><th>L1 eff. dist</th><th>V1 eff. dist</th><th>Chirp Dist H</th><th>Chirp Dist L</th><th>Chirp Dist V</th>'
 	print >>cachefile, opts.outfile
 	# Check for image directory and create
 	imagedirname = os.path.dirname(opts.outfile)
@@ -284,7 +284,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 				print >>sys.stderr,'Injection %d not coincident in 2 or more detectors' % (inj.geocent_end_time)
 				continue
 		print >>outfile,'<tr><td>%.3f</td>' % (inj.geocent_end_time)
-		print >>outfile,'<td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td>'% (inj.mass1,inj.mass2,inj.mchirp,inj.distance,inj.eff_dist_h,inj.eff_dist_l,inj.eff_dist_v)
+		print >>outfile,'<td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.3f</td>'% (inj.mass1,inj.mass2,inj.mchirp,inj.distance,inj.eff_dist_h,inj.eff_dist_l,inj.eff_dist_v,chirp_dist(inj,'H'),chirp_dist(inj,'L'),chirp_dist(inj,'V'))
 		for ifo in ifos:
 			expSNR=get_expected_snr(rangefilenames,ifo,inj.get_end(ifo[0]))
 			if(expSNR is not None):
@@ -302,7 +302,13 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		print >>outfile,'<td>%i / %i / %i</td>'%(totalfound[ifo],totalanalysed[ifo],totalinj[ifo])
 	print >>outfile,'</tr>'
 	print >>outfile,'</table>'
-	
+	outfile.close()
+	outfile=open(opts.outfile,'a')
+	os.popen('cp %s %s'%(opts.outfile,opts.outfile.replace('.html','_table.html')))
+	tabfile=open(opts.outfile.replace('.html','_table.html'),'a')
+	print >>tabfile,'</body></html>'
+	tabfile.close()
+
 	# Generate plot for injections
 	import matplotlib
 	matplotlib.use('Agg')
@@ -324,6 +330,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		# Plot each type of injection
 		for (filt,symb,injtype) in zip((isBNS,isNSBH,isBBH) , ('+','x','o'),('BNS','NSBH','BBH')):
 			results=filter(filt,statelist[ifo])
+			
 			# Build a list of found and missed
 			if results is not None:
 				(foundx,foundy)=(map(lambda i: int(i[0]), filter(lambda tup: tup[2] and tup[4],results)),map(lambda i: chirp_dist(i[1],ifo),filter(lambda tup: tup[2] and tup[4],results)))
@@ -345,6 +352,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		#print 'save figure'
 		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
 		pylab.savefig(imagedirname+plotname)
+		pylab.savefig(imagedirname+plotname.replace('.png','_thumb.png'),dpi=40)
 		print >>cachefile, 'Images/'+plotname
                 print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
 	if(SNRAvailable): print 'Producing SNR plots'
@@ -382,7 +390,8 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			#print 'save SNR figure'
                 	plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'_snr.png'
                 	pylab.savefig(plotname)
-                        print >>cachefile, 'Images/'+plotname
+                        pylab.savefig(imagedirname+plotname.replace('.png','_thumb.png'),dpi=40)
+			print >>cachefile, 'Images/'+plotname
 			print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
 	print >>outfile,'</body></html>'
 	return
@@ -549,6 +558,15 @@ if opts.cache_file is not None:
 # =============================================================================
 # Read in the injections
 injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.source_xml])
+def injsortfilter(a,b):
+	if a.get_end<b.get_end:
+		return -1
+	if a.get_end==b.get_end:
+		return 0
+	else:
+		return 1
+
+injections.sort(injsortfilter)
 
 # =============================================================================
 # Write the output pages

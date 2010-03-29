@@ -200,14 +200,15 @@ class ArrayStream(ligolw.Stream):
 		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
 		n = iter(IndexIter(a.shape)).next
+		newline = u"\n" + indent + ligolw.Indent
 		file.write(self.start_tag(indent))
 		try:
-			indeces = n()
+			indexes = n()
 			while True:
-				if not indeces[0]:
-					file.write(u"\n" + indent + ligolw.Indent)
-				file.write(xmlescape(format(a[indeces])))
-				indeces = n()
+				if not indexes[0]:
+					file.write(newline)
+				file.write(xmlescape(format(a[indexes])))
+				indexes = n()
 				file.write(delim)
 		except StopIteration:
 			file.write(u"\n" + self.end_tag(indent) + u"\n")

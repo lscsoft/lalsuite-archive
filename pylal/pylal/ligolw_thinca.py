@@ -42,7 +42,7 @@ try:
 	all
 except NameError:
 	# Python < 2.5.x
-	from glue.iterutils import all as all
+	from glue.iterutils import all
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -314,7 +314,7 @@ class InspiralEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_end(event.get_end() + delta)
 
-	def get_coincs(self, event_a, e_thinca_parameter, comparefunc):
+	def get_coincs(self, event_a, light_travel_time, e_thinca_parameter, comparefunc):
 		#
 		# event_a's end time
 		#
@@ -328,7 +328,7 @@ class InspiralEventList(snglcoinc.EventList):
 		# a subset of the full list)
 		#
 
-		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
+		return [event_b for event_b in self[bisect.bisect_left(self, end - self.dt) : bisect.bisect_right(self, end + self.dt)] if not comparefunc(event_a, event_b, light_travel_time, e_thinca_parameter)]
 
 
 #
@@ -357,11 +357,28 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
 
 
-def inspiral_coinc_compare(a, b, e_thinca_parameter):
+def inspiral_coinc_compare(a, b, light_travel_time, e_thinca_parameter):
 	"""
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test.
 	"""
+	try:
+		# FIXME:  should it be ">" or ">="?
+		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
+	except ValueError:
+		# ethinca test failed to converge == events are not
+		# coincident
+		return True
+
+
+def inspiral_coinc_compare_exact(a, b, light_travel_time, e_thinca_parameter):
+	"""
+	Returns False (a & b are coincident) if they pass the ellipsoidal
+	thinca test and their test masses are equal.
+	"""
+	if (a.mass1 != b.mass1) or (a.mass2 != b.mass2):
+		# different templates --> not coincident
+		return True
 	try:
 		# FIXME:  should it be ">" or ">="?
 		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
@@ -467,11 +484,11 @@ def ligolw_thinca(
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 		for coinc in node.unused_coincs:
-			ntuple = [sngl_index[id] for id in coinc]
+			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple, effective_snr_factor)
 

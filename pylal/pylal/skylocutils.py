@@ -9,9 +9,9 @@ __date__ = git_version.date
 import sys
 import os
 import operator
-from math import sqrt, sin, cos
-import numpy as np
 import gzip 
+from math import sqrt, sin, cos
+from numpy import pi, linspace, interp
 
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
@@ -29,8 +29,6 @@ from glue.ligolw import utils, table as tab, lsctables
 #          global variables
 #
 ##############################################################################
-
-pi = np.pi
 
 #set the detector locations
 detector_locations = {}
@@ -146,6 +144,7 @@ def gridsky(resolution,shifted=False):
   if shifted is true, the grids are reported with latitudes
   in (0,pi).  otherwise (default) they lie in (-pi/2,pi/2)
   """
+  points = []
   latitude = 0.0
   longitude = 0.0
   ds = pi*resolution/180.0
@@ -187,15 +186,27 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
   coarsedict = {}
   
   ds = coarseres*pi/180.0
+  epsilon = ds/10.0
   for cpt in coarsegrid:
     flist = []
     for fpt in fgtemp:
-      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) <= ds*ds/4.0 and \
-         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) <=  ds*ds/4.0:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
+         (cpt[1]-fpt[1])*(cpt[1]-fpt[1])*sin(cpt[0])*sin(cpt[0]) - ds*ds/4.0 <= epsilon:
         flist.append(fpt)
     coarsedict[cpt] = flist
     for rpt in flist:
       fgtemp.remove(rpt)
+  first_column = [pt for pt in coarsegrid if pt[1] == 0.0]
+  for cpt in first_column:
+    flist = []
+    for fpt in fgtemp:
+      if (cpt[0]-fpt[0])*(cpt[0]-fpt[0]) - ds*ds/4.0 <= epsilon and \
+         (2*pi-fpt[1])*(2*pi-fpt[1])*sin(cpt[0])*sin(cpt[0]) - ds*ds/4.0 <= epsilon:
+        flist.append(fpt)
+    coarsedict[cpt] = flist
+    for rpt in flist:
+      fgtemp.remove(rpt)
+
 
   return coarsedict, fgtemp
 
@@ -205,79 +216,38 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
 #
 ##############################################################################
 
-class Rankings(object):
+class Ranking(object):
   """
   class for determining the expected rank (probability) of a value constructed from
   a cumulative histogram of measured values
   this is designed as a template for improved probaility estimators as
   they are developed
   """
-  def __init__(self,dts,dDs):
+  def __init__(self,values,smaller_is_better=True):
     """
     create the cumulative histograms from the values
+    requires the values (measured from some simulation)
+    and boolean (smaller_is_better) which controls whether the
+    histogram is counted from the right (default) or left
     """
-    #keep a sorted copy along with the  reverse sorted copy
-    self.dto = dts[:]
-    self.dto.sort()
-    self.dto = np.asarray(self.dto)
-    self.dDo = dDs[:]
-    self.dDo.sort()
-    self.dDo = np.asarray(self.dDo)
-    self.dtrs = dts[:]
-    self.dtrs.sort(reverse=True)
-    self.dDrs = dDs[:]
-    self.dDrs.sort(reverse=True)
-    self.dtvals = np.asarray(self.dtrs)
-    self.dtranks = np.arange(len(self.dtvals),dtype=float)/len(self.dtvals)
-    self.dDvals = np.asarray(self.dDrs)
-    self.dDranks = np.arange(len(self.dDvals),dtype=float)/len(self.dDvals)
+    #the basic idea is to keep the dt and dD arrays sorted
+    #and reverse-sort the rankings if necessary.  
+    #this makes interpolation trivial
+    self.vals = values[:]
+    self.vals.sort()
+
+    #reverse sort the rankings
+    ranktemp = linspace(0,1,len(self.vals),endpoint=False)
+    if smaller_is_better:
+      ranktemp = ranktemp[::-1]
+    self.rankings = ranktemp
   
-  def get_dt_rank(self,val):
+  def get_rank(self,value):
     """
-    return the rank of the val as interpolated from
-    dtrank and dtvals
+    return the rank of value as obtained via linear interpolation
     """
-    rind = np.searchsorted(self.dto,val)
-    if rind == 0:
-      return self.dtranks[rind]
-    elif rind == len(self.dtranks):
-      return self.dtranks[len(self.dtranks)-1]
-    else:
-      lind = rind - 1
+    return interp(value,self.vals,self.rankings)
 
-      lpt = (self.dtvals[lind],self.dtranks[lind])
-      rpt = (self.dtvals[rind],self.dtranks[rind])
-
-      return self._lerp(lpt,rpt,val)
-
-  def get_dD_rank(self,val):
-    """
-    return the rank of the val as interpolated from
-    dDrank and dDvals
-    """
-    rind = np.searchsorted(self.dDo,val)
-    if rind == 0:
-      return self.dDranks[rind]
-    elif rind == len(self.dDranks):
-      return self.dDranks[len(self.dDranks)-1]
-    else:
-      lind = rind - 1
-
-      lpt = (self.dDvals[lind],self.dDranks[lind])
-      rpt = (self.dDvals[rind],self.dDranks[rind])
-
-      return self._lerp(lpt,rpt,val)
-
-  def _lerp(self,lpt,rpt,xval):
-    """
-    simple linear interpolation to find the y value corresponding to xval 
-    between lpt (on the left) and rpt (on the right)
-    """
-    return (lpt[1] + (xval-lpt[0])*(rpt[1]-lpt[1])/(rpt[0]-lpt[0]))
-
-
-
-    
 
 class SkyPoints(list):
   """
@@ -287,22 +257,26 @@ class SkyPoints(list):
     * a method for sorting those lists
     * a method for writing itself to disk
   """
-  def nsort(self,n):
+  def nsort(self,n,rev=True):
     """
     in place sort of (latitude,longitude,dt,dD...) tuples 
     according to the values in the nth column
     """
-    super(SkyPoints,self).sort(key=operator.itemgetter(n))
+    super(SkyPoints,self).sort(key=operator.itemgetter(n),reverse=rev)
 
-  def write(self,fname,comment=None,gz=True):
+  def write(self,fname,comment=None,debug=False,gz=True):
     """
     write the grid to a text file
     """ 
-    grid = '#  ra' + '\t' + 'dec' + '\t' + 'dt' + '\t' + 'dD' + '\n'
-    self.nsort(3)
     self.nsort(2)
-    for pt in self:
-      grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
+    if debug:
+      grid = '#  ra' + '\t' + 'dec' + '\t' + 'ranking' + '\t' + 'dt' + '\t' + 'dD' + '\n'
+      for pt in self:
+        grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\t' + str(pt[4]) + '\n'
+    else:
+      grid = '#  ra' + '\t' + 'dec' + '\t' + 'ranking' + '\n'
+      for pt in self:
+        grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\n'
     if comment:
       grid += '# ' + comment
     if gz:
@@ -338,6 +312,7 @@ class CoincData(object):
     self.longitude_inj = None
     self.mass1_inj = None 
     self.mass2_inj = None
+    self.distance_inj = None
     self.eff_distances_inj = {}
 
   
@@ -363,7 +338,7 @@ class CoincData(object):
     self.mass1 = m1
     self.mass2 = m2
 
-  def set_inj_params(self,lat,lon,m1,m2,effDs):
+  def set_inj_params(self,lat,lon,m1,m2,dist,effDs):
     """
     set all of the injection parameters at once
     """
@@ -371,6 +346,7 @@ class CoincData(object):
     self.longitude_inj = lon
     self.mass1_inj = m1
     self.mass2_inj = m2
+    self.distance_inj = dist
     self.eff_distances_inj = effDs
 
 class Coincidences(list):
@@ -420,8 +396,9 @@ class Coincidences(list):
             effDs_inj[ifo] = row.eff_dist_l
           elif ifo == 'V1':
             effDs_inj[ifo] = row.eff_dist_v
+        dist_inj = row.distance
         coinc.set_inj_params(row.latitude,row.longitude,row.mass1,row.mass2, \
-                             effDs_inj)
+                             dist_inj,effDs_inj)
         coinc.is_injection = True
       #FIXME: name the exception!
       except:
@@ -465,8 +442,9 @@ class Coincidences(list):
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_l
           elif ifo == 'V1':
             effDs_inj[ifo] = getattr(ctrig,'sim').eff_dist_v
+        dist_inj = getattr(ctrig,'sim').distance
         coinc.set_inj_params(getattr(ctrig,'sim').latitude,getattr(ctrig,'sim').longitude, \
-                             getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2, effDs_inj)
+                             getattr(ctrig,'sim').mass1,getattr(ctrig,'sim').mass2,dist_inj,effDs_inj)
         coinc.is_injection = True
         #FIXME: name the exception!
       except:
@@ -488,10 +466,24 @@ class SkyLocTable(tab.Table):
     "ifos": "lstring",
     "ra": "real_4",
     "dec": "real_4",
-    "a60dt": "real_4",
-    "a90dt": "real_4",
-    "a60dt60dD": "real_4",
-    "a90dt90dD": "real_4",
+    "dt10": "real_4",
+    "dt20": "real_4",
+    "dt30": "real_4",
+    "dt40": "real_4",
+    "dt50": "real_4",
+    "dt60": "real_4",
+    "dt70": "real_4",
+    "dt80": "real_4",
+    "dt90": "real_4",
+    "P10": "real_4",
+    "P20": "real_4",
+    "P30": "real_4",
+    "P40": "real_4",
+    "P50": "real_4",
+    "P60": "real_4",
+    "P70": "real_4",
+    "P80": "real_4",
+    "P90": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -531,6 +523,7 @@ class SkyLocInjTable(tab.Table):
     "rank_area": "real_4",
     "delta_t_rss": "real_8",
     "delta_D_rss": "real_8",
+    "rank": "real_8",
     "h1_eff_distance": "real_4",
     "l1_eff_distance": "real_4",
     "v1_eff_distance": "real_4",
@@ -577,7 +570,7 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
-def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
+def populate_SkyLocTable(skyloctable,coinc,dt_areas,P_areas,\
                          pt,grid_fname,skymap_fname=None):
   """
   populate a row in a skyloctable
@@ -591,10 +584,24 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
   row.comb_snr = sqrt(rhosquared)
   row.dec,row.ra  = pt[0],pt[1]
-  row.a60dt = adt60
-  row.a90dt = adt90
-  row.a60dt60dD = adt60dD60
-  row.a90dt90dD = adt90dD90
+  row.dt90 = dt_areas[8]
+  row.dt80 = dt_areas[7]
+  row.dt70 = dt_areas[6]
+  row.dt60 = dt_areas[5]
+  row.dt50 = dt_areas[4]
+  row.dt40 = dt_areas[3]
+  row.dt30 = dt_areas[2]
+  row.dt20 = dt_areas[1]
+  row.dt10 = dt_areas[0]
+  row.P90 = P_areas[8]
+  row.P80 = P_areas[7]
+  row.P70 = P_areas[6]
+  row.P60 = P_areas[5]
+  row.P50 = P_areas[4]
+  row.P40 = P_areas[3]
+  row.P30 = P_areas[2]
+  row.P20 = P_areas[1]
+  row.P10 = P_areas[0]
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
@@ -604,7 +611,7 @@ def populate_SkyLocTable(skyloctable,coinc,adt60,adt90,adt60dD60,adt90dD90,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
+def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area, \
                             dtrss_inj,dDrss_inj):
   """
   record injection data in a skylocinjtable
@@ -613,6 +620,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,dt_area,rank_area, \
 
   row.end_time = coinc.time
   row.set_ifos(coinc.ifo_list)
+  row.rank = rank
   rhosquared = 0.0
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]

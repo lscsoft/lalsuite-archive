@@ -259,12 +259,6 @@ def parse_command_line():
         type="string",default=None, \
 	help="optional: specifies the path to lalapps_sned to compute "\
 	     "the correct effective distance")
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
   parser.add_option("","--count-vetoes-as-missed",action="store_true",\
       default=False,help="counts vetoes as missed injections. They are included in "\
       "followups if --do-followup is enabled.")  
@@ -693,10 +687,6 @@ if opts.enable_output is True:
       InspiralUtils.write_html_output(opts, args, fnameList, tagList,\
                                       doThumb=True, mapList=mapList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = \
-         InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
   # create the cache-file
   if opts.do_followup:
