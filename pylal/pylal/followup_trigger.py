@@ -42,6 +42,7 @@ from pylal import CoincInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import grbsummary
 from pylal import viz
+from pylal import tools
 from glue import lal
 from glue import markup
 from glue import pipeline
@@ -647,6 +648,8 @@ class FollowupTrigger:
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
           loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
           loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
+          loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
+          loudest_details[ifo]["trig"] = loudest
 
         # plot the triggers
         pylab.plot( time_large, selected_large.get_column('snr'),\
@@ -714,7 +717,7 @@ class FollowupTrigger:
     return new_list
 
   # -----------------------------------------------------  
-  def fill_table(self, page, contents):
+  def fill_table(self, page, contents,header=False,no_wrapping=False):
     """ 
     Fills contents in a html table
     @param page: the pagfe object describing a html page
@@ -723,9 +726,19 @@ class FollowupTrigger:
 
     page.add('<tr>')
     for content in contents:
-      page.add('<td>')
+      if header:
+        tmpString = '<th'
+      else:
+        tmpString = '<td'
+      if no_wrapping:
+        tmpString += ' style="white-space: nowrap;"'
+      tmpString += '>'
+      page.add(tmpString)
       page.add( str(content) )
-      page.add('</td>')
+      if header:
+        page.add('</th>')
+      else:
+        page.add('</td>')
     page.add('</tr>')
 
  
@@ -745,6 +758,7 @@ class FollowupTrigger:
     page = markup.page()
     page.h1("Followup injection #"+str(self.number))
     page.add('<table border="2" >')          
+    page.add('<caption><b> Injection parameters </b> </caption>')
     self.fill_table( page, ['<b>parameter','<b>value'] )
     self.fill_table( page, ['Number', self.number] )
     self.fill_table( page, ['inj ID', self.injection_id] )
@@ -763,7 +777,6 @@ class FollowupTrigger:
         self.fill_table( page, ['eff_dist_%s' % ifo_id, '%5.1f' % eval("inj.eff_dist_%s" % ifo_id)] )
     self.fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )    
     page.add('</table></td>')
-    page.hr()
     
     return page
   
@@ -811,12 +824,26 @@ class FollowupTrigger:
     page.h1("Followup trigger #"+str(self.number))
     page.add('<table border="2">')
 
+    page.add('<caption><b>Coincidence Information</b></caption>')
     if not snglInspirals:
       self.fill_table( page, ['Statistic: ', coinc.stat] )
     else:
       self.fill_table( page, ['Combined FAR: ', coinc.combined_far] )
       self.fill_table( page, ['Uncombined FAR: ', coinc.false_alarm_rate] )
+      for i in range(len(snglInspirals)):
+        for j in range(i+1,len(snglInspirals)):
+          sngl1 = snglInspirals[i]
+          sngl2 = snglInspirals[j]
+          ifo1 = sngl1.ifo
+          ifo2 = sngl2.ifo 
+          ethinca = tools.XLALCalculateEThincaParameter(sngl1,sngl2)
+          Name = 'Ethinca distance between ' + ifo1 + ' and ' + ifo2
+          self.fill_table( page, [Name + ': ', ethinca])
 
+    page.add('</table><br>')
+
+    page.add('<table border="2" >')
+    page.add('<caption><b>Individual IFO Information</b></caption>')
     for ifo in ['H1','H2','L1','V1','G1']:
       trig = None
       if snglInspirals:
@@ -829,7 +856,7 @@ class FollowupTrigger:
       if trig:
         page.add('<td><table border="2" >')        
     
-        self.fill_table( page, ['<b>parameter','<b>'+ifo] )
+        self.fill_table( page, ['parameter',ifo],header=True )
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
         self.fill_table( page, ['Effective SNR',self.get_effective_snr(trig)] )
@@ -881,11 +908,12 @@ class FollowupTrigger:
     """
     
     ## print out the result for this particular injection
-    page.add('<td><table border="2" >')
-    self.fill_table( page, ['<b>step','<b>F/M', '<b>Rec. SNR', \
-                            '<b>Rec. mchirp', '<b>Rec. eff_dist', \
-                            '<b>Rec. chisq', '<b>Rec eff_snr',\
-                            '<b>Rec. new_snr', '<b>Veto ON/OFF'] )
+    page.add('<table border="2" >')
+    page.add('<caption><b> Parameters of the loudest (by SNR) recovered single ifo triggers at each stage of the pipeline </b> </caption>')
+    self.fill_table( page, ['step','F/M', 'SNR', \
+                            'Mchirp', 'eff_dist', \
+                            'chisq', 'eff_snr',\
+                            'new_snr','end_time','ethinca', 'Veto ON/OFF'],header=True )
 
     # loop over the stages and create the table with
     # the various data in it (when available)
@@ -901,10 +929,14 @@ class FollowupTrigger:
         loudest_chisq = ''
 	loudest_effsnr = ''
         loudest_newsnr = ''
+        loudest_ethinca = ' '
+        loudest_time = ' '
         veto_onoff = ''
 
         # add all the IFO's for this coincident
-        for ifo in result['foundset']:
+        result['foundlist'] = list(result['foundset'])
+        for i in range(len(result['foundlist'])):
+          ifo = (result['foundlist'])[i]
           found_ifo += ifo+' '
           
           # Parameters of the loudest trigger, taken from the
@@ -921,6 +953,19 @@ class FollowupTrigger:
                          (ifo, result['loudest_details'][ifo]['eff_snr'])
 	  loudest_newsnr += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['new_snr'])   
+          loudest_time += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['end_time'])
+          for j in range(i+1,len(result['foundlist'])):
+            ifo2 = (result['foundlist'])[j]
+            try:
+              ethinca = tools.XLALCalculateEThincaParameter(
+                         result['loudest_details'][ifo]['trig'],
+                         result['loudest_details'][ifo2]['trig'])
+              loudest_ethinca += "%s and %s: %.3f <br>" % \
+                         (ifo,ifo2,ethinca)
+            except:
+              loudest_ethinca += "%s and %s: %s <br>" % \
+                         (ifo,ifo2,'Not coincident')
           
           # Check whether some of the ifo times is vetoed
           time_trigger = float(result['loudest_details'][ifo]['timeTrigger'])
@@ -935,14 +980,16 @@ class FollowupTrigger:
 
         # Fill the table whether something is found or not
         if len(result['foundset'])>0:
-          self.fill_table( page, [ stage,  'FOUND in '+found_ifo, \
-                                   'loudest<br>'+loudest_snr, \
-                                   'loudest<br>'+loudest_mchirp, \
-                                   'loudest<br>'+loudest_eff_dist,\
-                                   'loudest<br>'+loudest_chisq, \
-				   'loudest<br>'+loudest_effsnr, \
-				   'loudest<br>'+loudest_snr,
-				   veto_onoff])
+          self.fill_table( page, [ stage,  'FOUND in <br>'+found_ifo, \
+                                   loudest_snr, \
+                                   loudest_mchirp, \
+                                   loudest_eff_dist,\
+                                   loudest_chisq, \
+                                   loudest_effsnr, 
+                                   loudest_newsnr, \
+                                   loudest_time, \
+                                   loudest_ethinca, \
+				   veto_onoff],no_wrapping=True)
         else:
           self.fill_table( page, [ stage,  '<font color="red">MISSED'])
           
