@@ -55,7 +55,7 @@ def check_proxy():
   if it runs out. Any way to improve that???
   """
 
-  my_email = 'Alexander.Dietz@lapp.in2p3.fr'
+  my_email = cp.get('notifications','email').replace(',',' ').split()
   cmd = 'grid-proxy-info > grid.info'
   peu.system_call('monitor',cmd, False)
 
@@ -65,14 +65,14 @@ def check_proxy():
       flag = True
       time_in_hours = int(line.split()[2].split(':')[0])
       if time_in_hours<40:
-        peu.send_mail('Grid Cert aging, %d hleft'%time_in_hours,'Have to renew grid certificate',[my_email])
+        peu.send_mail('Grid Cert aging, %d hleft'%time_in_hours,'Have to renew grid certificate',my_email)
       if time_in_hours==0:
         peu.send_mail('Grid Cert expired. Suspended further actions.',\
-                      'Need renew grid certificate NOW.',[my_email])
+                      'Need renew grid certificate NOW.',my_email)
         raise SystemError, "Grid certificate is invalid."
 
   if not flag:
-    peu.send_mail('Grid Cert not available','Have to init grid certificate',[my_email])
+    peu.send_mail('Grid Cert not available','Have to init grid certificate',my_email)
 
 # -----------------------------------------------------
 def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
@@ -549,7 +549,7 @@ if pid:
 peu.set_lock()
 
 # check the proxy if enough time is left
-check_proxy()
+check_proxy(cp)
 
 #
 # First, update the internal database (llmonitor.pickle)
