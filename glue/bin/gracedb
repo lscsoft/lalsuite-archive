@@ -205,7 +205,7 @@ def findUserCredentials(warnOnOldProxy=1):
     # Try default cert/key
     homeDir = os.environ.get('HOME')
     certFile = os.path.join(homeDir, '.globus', 'usercert.pem')
-    keyFile = os.path.join(homeDir, '.globus', 'keycert.pem')
+    keyFile = os.path.join(homeDir, '.globus', 'userkey.pem')
 
     if os.path.exists(certFile) and os.path.exists(keyFile):
         return certFile, keyFile
