@@ -25,6 +25,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 
+from glue import lal
+from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import grbsummary
@@ -36,6 +38,7 @@ from pylal import InspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import git_version
+from pylal import followup_trigger
 from pylal import pylal_exttrig_llutils as peu
 
 ifo_list = ['H1','L1','V1']
@@ -511,11 +514,29 @@ if len(onsource_coincs) > len(mc_ifo_cats):
   raise ValueError, "ERROR: more on-source coincs (%d) than result bins (%d)" %\
                     (len(onsource_coincs), len(mc_ifo_cats))
 
+#
+# mini-followup
+#
+
+# define a dummy-option instance
+fuopts = copy.deepcopy(opts)
+fuopts.prefix = 'pylal_exttrig_llsummary'
+fuopts.suffix = '_GRB'+grb.name
+fuopts.figure_resolution = 60
+fuopts.output_path = opts.openbox_path+'/'
+
+# read the cache file and initialize the followup class
+cache = lal.Cache.fromfile(open('../GRB'+grb.name+'.cache'))
+followup = followup_trigger.FollowupTrigger(cache, fuopts, False)
+
+#
+# create the trigger table
+#
 ifos_list = ['H1L1V1','H1L1','H1V1','L1V1']
 columns = ["ifos","mc_bin", "event_id"] \
           + ["<em>&rho;</em><sub>%s,%s</sub>" % (txt_stat, ifo) for ifo in ifo_list] \
           + ["combined <em>&rho;</em><sub>%s</sub>"%txt_stat, "mchirp",
-             "FAP"]
+             "minifu","FAP"]
 output_list = []
 rows = []
 for cat in cats:
@@ -538,6 +559,12 @@ for cat in cats:
     if coinc.ifos == ifos:
       use_coinc = coinc
       break
+
+  # run the minifollowup on this coinc
+  if use_coinc:
+    followupname = followup.from_coinc(use_coinc)
+  else:
+    followupname = None
   
   ifo_str = ifo_string(ifos)    
   row = ["%s"%ifo_str, "[%.2f, %.2f)" % (mchirp_low, mchirp_upp)]
@@ -561,13 +588,15 @@ for cat in cats:
 
     pc0 = onsource_fap_by_cat[index]
     row += ["%.4g" % use_coinc.stat, "%.4g" % \
-           grbsummary.get_mean_mchirp(use_coinc),"%.4g" % pc0]
+           grbsummary.get_mean_mchirp(use_coinc),
+           "<a href=%s>link</a>"%followupname,"%.4g" % pc0]
     output_dict['snr_effective']=use_coinc.stat
     output_dict['mchirp']=grbsummary.get_mean_mchirp(use_coinc)
+    output_dict['minifu']=followupname
     output_dict['prob']=pc0
       
   else:
-    row += ['&mdash','&mdash','&mdash','&mdash','&mdash','&mdash']
+    row += ['&mdash','&mdash','&mdash','&mdash','&mdash','&mdash','&mdash']
 
   # add this row to the rows-list
   rows.append(row)
