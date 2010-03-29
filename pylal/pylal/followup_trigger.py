@@ -28,8 +28,6 @@ from math import sqrt, pi
 import subprocess
 import tempfile
 
-import matplotlib
-matplotlib.use('Agg')
 import pylab
 import numpy
 ## try:

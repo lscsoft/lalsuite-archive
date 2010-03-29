@@ -27,7 +27,10 @@ import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
+<<<<<<< HEAD:pylal/bin/plotifar
 from numpy import histogram
+=======
+>>>>>>> c164a65... Remove matplotlib.use('Agg') from followup_missed.py and followup_trigger.py and let calling codes handle it.:pylal/bin/plotifar
 
 import itertools
 import numpy
@@ -161,7 +164,12 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+<<<<<<< HEAD:pylal/bin/plotifar
 from numpy import histogram
+=======
+from pylal import followup_trigger
+# turning off LaTex for now because of bugs
+>>>>>>> c164a65... Remove matplotlib.use('Agg') from followup_missed.py and followup_trigger.py and let calling codes handle it.:pylal/bin/plotifar
 rc('text', usetex=True)
 
 
