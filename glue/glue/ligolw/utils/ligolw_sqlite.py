@@ -38,10 +38,6 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 
 
-# so they can be inserted into a database
-dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
-
-
 # FIXME: remove this hack when the SnglInspiralTable class uses the
 # standard ID generator by default.
 dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
