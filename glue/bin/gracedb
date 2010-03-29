@@ -316,9 +316,18 @@ def main():
     analysis type(s), labels, etc.  Note that text is case insensitive
     Example: %%prog search G0100..G0200 mbta LUMIN_GO
 
-Environment Variables (can all be overridden by options):
-    GRACEDB_SERVICE_URL
-    HTTP_PROXY              
+Environment Variables:
+    GRACEDB_SERVICE_URL   (can be overridden by --service-url)
+    HTTP_PROXY            (can be overridden by --proxy)
+    X509_USER_PROXY
+    X509_USER_CERT
+    X509_USER_KEY
+
+Credentials are looked for in this order:
+    (1) $(X509_USER_PROXY)
+    (2) $(X509_USER_CERT) / $(X509_USER_KEY)
+    (3) Default location of grid proxy ( /tmp/x509up_u$(UID) )
+    (4) $(HOME)/.globus/usercert.pem / $(HOME)/.globus/userkey.pem
 
 Note that comments can only be 200 characters long.
 Longer strings will be truncated.""" % {
