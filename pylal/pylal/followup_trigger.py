@@ -76,6 +76,7 @@ class FollowupTrigger:
   htmlname3 = followup.from_missed(missed_inj)
   htmlname4 = followup.from_found(found_inj)
   htmlname5 = followup.from_new_coinc(new_coinc,[sngls])
+  htmlname6 = followup.from_new_slide_coinc(new_coinc,[sngls],slideDict,segs)
 
   # In each case the path to the created html file is returned. 
   # In the first call a CoincInspirals table is expected, a SngleInspiral
@@ -1056,6 +1057,50 @@ class FollowupTrigger:
     # do the followup
     return self.followup(page)
 
+  # -----------------------------------------------------  
+  def from_new_slide_coinc(self, coinc, sngls,slideDict,segList,\
+                 more_infos = False, injection_id = None):
+    """
+    Creates a followup page from a slid coincident trigger. This function
+    does not yet produce the plots (as I'm not sure how to!) but the
+    relevant information to do this (the slide dictionary and the segment list)
+    are provided to this function.
+    @param coinc: the coincidence to be followed up
+    @param ifo: specifies the ifo to be used from the coinc.
+    @param more_infos: to have some additional informations
+    @param injection_id: Must be specified for exttrig search
+                         to specify what injection to use
+    """
+
+    sngl = sngls[0]
+
+    # set the time
+    self.followup_time = float(sngl.get_end())
+
+    # prepare the page
+    self.injection_id = injection_id
+    page =  self.create_table_coinc(coinc,snglInspirals= sngls)
+    self.flag_followup = more_infos
+
+    # When time slides are properly implemented delete from here
+    self.number+=1
+    page.add("<hr>")
+    page.add("Figure(s) and data produced with " + __prog__ + ", version " \
+              + __version__)
+        
+    htmlfilename = self.opts.prefix + "_followup_"+str(self.number) +\
+                         self.opts.suffix+'.html'
+    file = open(self.opts.output_path+htmlfilename,'w')
+    file.write(page(False))
+    file.close()
+
+    self.fname_list.append(htmlfilename)
+
+    # to here and uncomment the next line.
+
+#    return self.followup(page)
+
+    return htmlfilename
 
   # -----------------------------------------------------
   def from_sngl(self, sngl, ifo = None, more_infos = False, \
