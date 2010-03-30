@@ -369,7 +369,7 @@ if(opts.skyres is not None):
 	clf()
 	m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
 	plx,ply=m(numpy.asarray(toppoints)[:,0],numpy.asarray(toppoints)[:,1])
-	scatter(plx,ply,s=5,c=numpyasarray(toppoints)[:,2],faceted=False,cmap=matplotlib.cm.jet)
+	scatter(plx,ply,s=5,c=numpy.asarray(toppoints)[:,2],faceted=False,cmap=matplotlib.cm.jet)
 	m.drawmapboundary()
 	m.drawparallels(numpy.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
 	# draw parallels
