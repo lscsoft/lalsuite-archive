@@ -155,9 +155,10 @@ class TimeSlideGraphNode(object):
 		#
 
 		self.coincs = []
-		self.unused_coincs = reduce(lambda a, b: a | b, (set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)) for component in self.components))
-		# FIXME:  this does not produce the correct answer
-		self.unused_coincs |= reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components))
+		for component in self.components:
+			self.unused_coincs |= set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+		for componenta, componentb in iterutils.choices(self.components, 2):
+			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
 			print >>sys.stderr, "\tassembling %s ..." % offset_vector_str(self.offset_vector)
