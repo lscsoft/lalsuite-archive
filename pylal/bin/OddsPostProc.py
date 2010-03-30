@@ -365,22 +365,22 @@ if(opts.skyres is not None):
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
   	
 	from mpl_toolkits.basemap import Basemap
-	myfig=figure()
+	myfig=figure(1,figsize=(6,4),dpi=80)
 	clf()
 	m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
-	plx,ply=m(numpy.asarray(toppoints)[:,0],numpy.asarray(toppoints)[:,1])
-	scatter(plx,ply,s=5,c=numpy.asarray(toppoints)[:,2],faceted=False,cmap=matplotlib.cm.jet)
+	plx,ply=m(numpy.asarray(toppoints)[::-1,1]*57.296,numpy.asarray(toppoints)[::-1,0]*57.296)
+	scatter(plx,ply,s=5,c=numpy.asarray(toppoints)[::-1,2],faceted=False,cmap=matplotlib.cm.jet)
 	m.drawmapboundary()
 	m.drawparallels(numpy.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-')
 	# draw parallels
-	m.drawmeridians(numpy.arange(0.,420.,90.),labels=[0,0,0,1],labelstyle='+/-')
+	m.drawmeridians(numpy.arange(0.,360.,90.),labels=[0,0,0,1],labelstyle='+/-')
 	# draw meridians
 	title("Skymap") # add a title
 	colorbar()
-	myfig.savefig('skymap.png')
+	myfig.savefig(outdir+'/skymap.png')
 
 myfig=figure(1,figsize=(6,4),dpi=80)
-
+clf()
 def plot2Dkernel(xdat,ydat,Nx,Ny):
     xax=linspace(min(xdat),max(xdat),Nx)
     yax=linspace(min(ydat),max(ydat),Ny)
@@ -503,10 +503,7 @@ htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
 htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
-if opts.skyres is not None:
-	htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
-else:
-	htmlfile.write('<td width=30%><img width=100% src="m1dist.png:></td>')
+htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="m2dist.png"></td>')
 htmlfile.write('</table>')
 htmlfile.write('<br><a href="2D/">All 2D Marginal PDFs</a><hr><h5>1D marginal posterior PDFs</h5><br>')
