@@ -178,15 +178,15 @@ if(opts.injfile is not None):
     	    injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
 
 def getinjpar(inj,parnum):
-    if paramnames(parnum)=='mchirp': return inj.mchirp
-    if paramname(parnum)=='eta': return inj.eta
-    if paramname(parnum)=='time': return inj.get_end()
-    if paramname(parnum)=='phi0': return inj.phi0
-    if paramname(parnum)=='dist': return inj.distance
-    if paramname(parnum)=='RA': return inj.longitude
-    if paramname(parnum)=='dec': return inj.latitude
-    if paramname(parnum)=='psi': return inj.polarization
-    if paramname(parnum)=='iota': return inj.inclination
+    if paramnames[parnum]=='mchirp': return inj.mchirp
+    if paramnames[parnum]=='eta': return inj.eta
+    if paramnames[parnum]=='time': return inj.get_end()
+    if paramnames[parnum]=='phi0': return inj.phi0
+    if paramnames[parnum]=='dist': return inj.distance
+    if paramnames[parnum]=='RA': return inj.longitude
+    if paramnames[parnum]=='dec': return inj.latitude
+    if paramnames[parnum]=='psi': return inj.polarization
+    if paramnames[parnum]=='iota': return inj.inclination
     return None
 
 if injection:
@@ -277,7 +277,7 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
     colorbar()
 
 plot2Dkernel(pos[:,paramnames.index('mchirp')],pos[:,paramnames.index('eta')],100,100)
-if injection and getinjpar(injection,paramnames.index('mchirp'))<max(pos[:,paranmanes.index('mchirp')]) and getinjpar(injection,paramnames.index('mchirp'))>min(pos[:,paramnames.index('mchirp')]) and getinjpar(injection,paramnames.index('eta'))>min(pos[:,paramnames.index('eta')]) and getinjpar(injection,paramnames.index('eta'))<max(pos[:,paramnames.index('eta')]):
+if injection and getinjpar(injection,paramnames.index('mchirp'))<max(pos[:,paramnames.index('mchirp')]) and getinjpar(injection,paramnames.index('mchirp'))>min(pos[:,paramnames.index('mchirp')]) and getinjpar(injection,paramnames.index('eta'))>min(pos[:,paramnames.index('eta')]) and getinjpar(injection,paramnames.index('eta'))<max(pos[:,paramnames.index('eta')]):
         plot(getinjpar(injection,0),getinjpar(injection,1),'go',scalex=False,scaley=False)
 xlabel('chirp mass (Msun)')
 ylabel('eta')
