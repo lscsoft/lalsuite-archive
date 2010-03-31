@@ -155,8 +155,10 @@ class TimeSlideGraphNode(object):
 		#
 
 		self.coincs = []
-		self.unused_coincs = reduce(lambda a, b: a | b, (set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)) for component in self.components))
-		self.unused_coincs |= reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components))
+		for component in self.components:
+			self.unused_coincs |= set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+		for componenta, componentb in iterutils.choices(self.components, 2):
+			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
 			print >>sys.stderr, "\tassembling %s ..." % offset_vector_str(self.offset_vector)
@@ -586,10 +588,10 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	comparison function and so the thresholds dictionary must provide a
 	threshold for the instruments in both orders.
 
-	Each tuple returned by this generator will contain exactly one
-	event from each of the instruments in the instrument list.
+	Each tuple returned by this generator will contain events from
+	distinct instruments.
 
-	NOTE:  the instruments iterator must contain exactly two
+	NOTE:  the instruments sequence must contain exactly two
 	instruments.
 	"""
 	# retrieve the event lists for the requested instrument combination
@@ -601,7 +603,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	eventlists = [eventlists[instrument] for instrument in instruments]
 
 	# determine the shorter and longer of the two event lists;  record
-	# the list of the shortest
+	# the length of the shortest
 
 	if len(eventlists[0]) <= len(eventlists[1]):
 		eventlista, eventlistb = eventlists

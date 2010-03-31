@@ -442,8 +442,17 @@ for file_type in opts.file_type:
     if opts.verbose:
         print >> sys.stderr, "Analyzing %s..." % file_type
 
+    # check what kind of TMPLTBANK names are in the cache; older versions of ihope had things like
+    # TMPLTBANK_FULL_DATA, TMPLTBANK_PLAYGROUND, etc., whereas the current version just has TMPLTBANK for all
+    # data types
+
+    # old format
     this_tmpltbank = re.sub('(INSPIRAL_FIRST)|(INSPIRAL_SECOND)|(THINCA_FIRST)|(THINCA_SECOND)', 'TMPLTBANK', file_type)
     this_tmpltbank = re.sub('_CAT_[0-9]_VETO', '', this_tmpltbank)
+    # check for old format
+    if len( ihope_cache.sieve(description = this_tmpltbank) ) == 0:
+        # assume new format
+        this_tmpltbank = 'TMPLTBANK'
     
     # if this_tmpltbank doesn't match tmpltbank_sieve, get the tmpltbank stats
     if this_tmpltbank != tmpltbank_sieve:

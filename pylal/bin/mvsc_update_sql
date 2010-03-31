@@ -7,12 +7,17 @@ except ImportError:
 from glue.ligolw import dbtables 
 from pylal import SnglInspiralUtils
 from pylal import db_thinca_rings
+from pylal import git_version
 from time import clock,time
 from optparse import *
 import glob
 import sys
 
-usage="""
+__author__ = "Kari Hodge <kari.hodge@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+description="""
 put the MVSC rank back into the SQL tables, after it's been turned into a likelihood, we put it in the likelihood column of the coinc_inspiral table
 use it like:
 mvsc_update_sql db1.sqlite db2.sqlite ... etc
@@ -22,17 +27,20 @@ or a combination of the two
 
 time1=time()
 
-parser=OptionParser(usage=usage, version="kari on 08/24/09")
-parser.add_option("", "--files", default="*.dat", help="glob of .dat files that are output by SprOutputWriterApp, these should contain the MVSC rank in the last column")
-parser.add_option("", "--infofiles", default="*_info.pat", help="glob of .pat files that are output by mvsc_get_doubles.py, these should contain the coinc_id (first column) for and sqlite database (second column) containing the trigger")
-(opts,databases)=parser.parse_args()
+parser=OptionParser(usage="%prog [options] [file ...]", description = description, version="Name: %%prog\n%s" % git_version.verbose_msg)
+(opts,inputfiles)=parser.parse_args()
 
-for db in databases:
-	if not db.endswith('sqlite'):
-		print >> sys.stderr, "Error: args contain %s which is not a database file" % db
-
-files = glob.glob(opts.files)
-infofiles = glob.glob(opts.infofiles)
+files = []
+infofiles = []
+databases = []
+for file in inputfiles:
+	extension = file.split('.')[-1]
+	if extension == 'dat': files.append(file)
+	elif extension == 'pat': infofiles.append(file)
+	elif extension == 'sqlite': databases.append(file)
+	else:
+		print >> sys.stderr, "Error: args contain %s which is not a database, .dat, or .pat file" % file
+		sys.exit(1)
 
 def files_to_dict(f1, f1_info, databases, ldict):
 	for f in databases: 

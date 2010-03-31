@@ -670,10 +670,10 @@ int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2, doubl
 int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF) {
 
     double totalMass, piM, eta;
-    double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, fMerg, fRing, fCut, sigma;
+    double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, psi8, fMerg, fRing, fCut, sigma;
     double f, shft, amp0, ampEff, psiEff, fNorm;
     double v, alpha2, alpha3, w1, vMerg, epsilon_1, epsilon_2, w2, vRing;
-    double startPhase = 0., startTime = 0., distance, Lorentzian;
+    double startPhase = 0., startTime, distance, Lorentzian;
     int k, kmin, kmax;
 
     /* calculate the total mass, symmetric mass ratio and asymmetric       */
@@ -711,6 +711,10 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
             -5.8379e+06*pow(eta,2.) + 1.5145e+06*pow(eta,2.)*chi +
             1.0891e+07*pow(eta,3.);
 
+    psi8 = -3.6600e+05*eta + 3.0670e+05*eta*chi + 6.3176e+02*eta*pow(chi,2.) +
+            2.4265e+06*pow(eta,2.) + -7.2180e+05*pow(eta,2.)*chi + 
+            -4.5524e+06*pow(eta,3.);
+
     fMerg =  1. - 4.4547*pow(1.-chi,0.217) + 3.521*pow(1.-chi,0.26) +
             6.4365e-01*eta + 8.2696e-01*eta*chi + -2.7063e-01*eta*pow(chi,2.) +
             -5.8218e-02*pow(eta,2.) + -3.9346e+00*pow(eta,2.)*chi +
@@ -739,12 +743,14 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
     fMerg /= piM;
     fRing /= piM;
     sigma /= piM;
-    kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
-    kmax = fCut / deltaF < numPoints / 2 ? fCut / deltaF : numPoints / 2;
-    /************************************************************************/
-    /*      set other parameters required for the waveform generation       */
-    /************************************************************************/
-    startTime = 0.0 - _imrdur(mass1, mass2, chi);
+
+	kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
+	kmax = fCut / deltaF < numPoints / 2 ? fCut / deltaF : numPoints / 2;
+
+    /*********************************************************************/
+    /*      set other parameters required for the waveform generation    */
+    /*********************************************************************/
+    startTime = -50.*totalMass*LAL_MTSUN_SI;
     shft = 2.*LAL_PI *startTime;
     distance = 1e6*LAL_PC_SI;  /*1 Mpc in meters */
         
@@ -807,7 +813,7 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
                     + 3./(128.*eta*pow(v,5.))*(1 + psi2*pow(v, 2.)
                     + psi3*pow(v, 3.) + psi4*pow(v, 4.)
                     + psi5*pow(v, 5.) + psi6*pow(v, 6.)
-                    + psi7*pow(v, 7.));
+                    + psi7*pow(v, 7.) + psi8*pow(v, 8.));
 
         /* generate the waveform                                             */
         hOfF[k] = amp0*ampEff * (cos(psiEff) - I * sin(psiEff)); 
@@ -817,3 +823,4 @@ int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF,
     return 0;
 
 }
+
