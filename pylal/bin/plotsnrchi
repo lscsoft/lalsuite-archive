@@ -839,7 +839,7 @@ if opts.snr_chisq_contours:
         viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
         legendText.append('Triggers')
         plotdof = chisq_dof
-     plotconstlines(snr_range, opts.denominator_constant, plotdof)
+      plotconstlines(snr_range, opts.denominator_constant, plotdof)
       contour(snr_range,chisq_range,cont,v)
       xlabel(r'$\rho$', size='x-large')
       ylabel(r'$\chi^2$', size='x-large')
