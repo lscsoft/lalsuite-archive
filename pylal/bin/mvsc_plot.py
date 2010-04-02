@@ -12,19 +12,22 @@ import matplotlib
 matplotlib.use('Agg')
 import pylab
 
-parser=OptionParser(usage='make plots', version='%prog')
-parser.add_option("", "--injections", default="*INJ*.sqlite", help="glob of injection sqlite databases")
-parser.add_option("", "--fulldata", default ="FULL_DATA*.sqlite", help="glob of full data sqlite databases (these should already include the timeslides)")
-(opts,args)=parser.parse_args()
-
-inj_files = glob.glob(opts.injections)
-fulldata_files = glob.glob(opts.fulldata)
+parser=OptionParser(usage="""
+%prog [sqlite database file(s)]
+in S6, fulldata databases include timeslides, injections, and zerolag
+so in general, you will only be providing one file, for example:
+~/lalsuite/pylal/bin/mvsc_plot.py H1L1-FULL_DATA_CAT_2_VETO_CLUSTERED_CBC_RESULTS-951868815-1209600.sqlite
+"""
+, version='%prog')
+(opts,files)=parser.parse_args()
 
 timeslide_likelihood = []
 timeslide_snr = []
 zerolag_likelihood = []
 zerolag_snr = []
-for filename in fulldata_files:
+injection_likelihood = []
+injection_snr = []
+for filename in files:
   local_disk = None #"/tmp"
   working_filename = dbtables.get_connection_filename(filename, tmp_path = local_disk, verbose = True)
   connection = sqlite3.connect(working_filename)
@@ -54,17 +57,6 @@ for filename in fulldata_files:
     else:
       zerolag_likelihood.append(likelihood)
       zerolag_snr.append(snr)
-  dbtables.put_connection_filename(filename, working_filename, verbose = True)
-
-injection_likelihood = []
-injection_snr = []
-for filename in inj_files:
-  local_disk = None #"/tmp"
-  working_filename = dbtables.get_connection_filename(filename, tmp_path = local_disk, verbose = True)
-  connection = sqlite3.connect(working_filename)
-  dbtables.DBTable_set_connection(connection)
-  xmldoc = dbtables.get_xml(connection)
-  cursor = connection.cursor()
   for likelihood,snr in connection.cursor().execute("""
   SELECT
     insp_coinc_event.likelihood, 
@@ -76,16 +68,22 @@ for filename in inj_files:
     JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapD.event_id)
     JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
     JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id)
+		JOIN coinc_definer AS insp_coinc_definer ON (insp_coinc_definer.coinc_def_id == insp_coinc_event.coinc_def_id) 
+		JOIN coinc_definer AS sim_coinc_definer ON (sim_coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id) 
   WHERE
-    sim_coinc_event.coinc_def_id == 'coinc_definer:coinc_def_id:2'
-    AND insp_coinc_event.coinc_def_id == 'coinc_definer:coinc_def_id:0'
+		insp_coinc_definer.search == 'inspiral'
+		AND sim_coinc_definer.search == 'inspiral'
+		AND insp_coinc_definer.search_coinc_type == 0
+		AND sim_coinc_definer.search_coinc_type == 2
     AND mapC.table_name == 'coinc_event'
     AND mapD.table_name == 'sim_inspiral'
   """):
     injection_likelihood.append(likelihood)
     injection_snr.append(snr)
   dbtables.put_connection_filename(filename, working_filename, verbose = True)
-
+print "number of timeslides:", len(timeslide_likelihood)
+print "number of zerolags:", len(zerolag_likelihood)
+print "number of injections:", len(injection_likelihood)
 # map all 0 likelihoods to lowest non-zero likelihood and all 'inf' likelihoods to the highest non-infinity likelihood
 all_likelihood = timeslide_likelihood + zerolag_likelihood + injection_likelihood
 likelihood_set = set(all_likelihood)
