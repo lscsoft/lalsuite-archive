@@ -240,7 +240,7 @@ def burca1(options, filenames):
 	if options.coincidence_algorithm == "excesspower":
 		EventListType = ligolw_burca.ExcessPowerEventList
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
-		ntuple_comparefunc = lambda events: False
+		ntuple_comparefunc = lambda events, offset_vector: False
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
 		CoincDef = ligolw_burca.ExcessPowerBBCoincDef
 	elif options.coincidence_algorithm == "stringcusp":
