@@ -72,20 +72,20 @@ for filename in files:
     JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapD.event_id)
     JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
     JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id)
-		JOIN coinc_definer AS insp_coinc_definer ON (insp_coinc_definer.coinc_def_id == insp_coinc_event.coinc_def_id) 
-		JOIN coinc_definer AS sim_coinc_definer ON (sim_coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id) 
+    JOIN coinc_definer AS insp_coinc_definer ON (insp_coinc_definer.coinc_def_id == insp_coinc_event.coinc_def_id)
+    JOIN coinc_definer AS sim_coinc_definer ON (sim_coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
   WHERE
-		insp_coinc_definer.search == 'inspiral'
-		AND sim_coinc_definer.search == 'inspiral'
-		AND insp_coinc_definer.search_coinc_type == 0
-		AND sim_coinc_definer.search_coinc_type == 2
+    insp_coinc_definer.search == 'inspiral'
+    AND sim_coinc_definer.search == 'inspiral'
+    AND insp_coinc_definer.search_coinc_type == 0
+    AND sim_coinc_definer.search_coinc_type == 2
     AND mapC.table_name == 'coinc_event'
     AND mapD.table_name == 'sim_inspiral'
   """):
     injection_likelihood.append(likelihood)
     injection_snr.append(snr)
   #livetimes = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection,'thinca'), db_thinca_rings.get_veto_segments(connection, 'vetoes'), db_thinca_rings.get_background_offset_vectors(connection), verbose=True)
-	# above is the correct calculation of livetimes, but it takes a while. You can comment it out and uncomment the line below for an approximate calculation of livetime.
+  # above is the correct calculation of livetimes, but it takes a while. You can comment it out and uncomment the line below for an approximate calculation of livetime.
   livetimes = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection,'thinca'), segments.segmentlistdict(), db_thinca_rings.get_background_offset_vectors(connection), verbose=True)
   dbtables.put_connection_filename(filename, working_filename, verbose = True)
 print "number of timeslides:", len(timeslide_likelihood)
@@ -110,9 +110,9 @@ injection_likelihoods.clip(min_likelihood, max_likelihood, out=injection_likelih
 sorted_timeslide_likelihoods = numpy.sort(timeslide_likelihoods)
 sorted_timeslide_snrs = numpy.sort(timeslide_snrs)
 pylab.figure(0)
-pylab.loglog(injection_likelihoods,injection_snrs,'rx',label='injections')	
+pylab.loglog(injection_likelihoods,injection_snrs,'rx',label='injections')
 pylab.hold(1)
-pylab.loglog(timeslide_likelihoods,timeslide_snrs,'k.',label='timeslides')	
+pylab.loglog(timeslide_likelihoods,timeslide_snrs,'k.',label='timeslides')
 pylab.axvline(x=sorted_timeslide_likelihoods[-100], color='g', label='100th loudest timeslide, by MVSCL')
 pylab.axhline(y=sorted_timeslide_snrs[-100], label='100th loudest timeslide, by SNR')
 pylab.xlabel('MVSC likelihood')
@@ -123,7 +123,7 @@ pylab.savefig('MVSC_likelihood_scatterplot.png')
 
 t=0
 for comb in livetimes:
-	t += sum(livetimes[comb])
+  t += sum(livetimes[comb])
 print "total livetime:", t
 
 bkg_likelihoods = timeslide_likelihood[:]
@@ -139,12 +139,12 @@ timeslide_snr_ifar = []
 zerolag_snr_ifar = []
 
 def get_ifar(statistic_list,bkg_statistics,ifar_list): 
-	for i in range(len(statistic_list)):
-		n = len(bkg_likelihoods) - bisect.bisect_left(bkg_statistics,statistic_list[i])
-		if n != 0:
-			ifar_list.append(t/float(n))
-		else:
-			ifar_list.append(float('inf'))
+  for i in range(len(statistic_list)):
+    n = len(bkg_likelihoods) - bisect.bisect_left(bkg_statistics,statistic_list[i])
+    if n != 0:
+      ifar_list.append(t/float(n))
+    else:
+      ifar_list.append(float('inf'))
 
 get_ifar(injection_likelihood,bkg_likelihoods,injection_likelihood_ifar)
 get_ifar(timeslide_likelihood,bkg_likelihoods,timeslide_likelihood_ifar)
