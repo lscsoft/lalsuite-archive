@@ -12,6 +12,9 @@ import matplotlib
 matplotlib.use('Agg')
 import pylab
 import numpy
+import bisect
+from pylal import db_thinca_rings
+from glue import segments
 
 parser=OptionParser(usage="""
 %prog [sqlite database file(s)]
@@ -81,25 +84,13 @@ for filename in files:
   """):
     injection_likelihood.append(likelihood)
     injection_snr.append(snr)
+  #livetimes = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection,'thinca'), db_thinca_rings.get_veto_segments(connection, 'vetoes'), db_thinca_rings.get_background_offset_vectors(connection), verbose=True)
+	# above is the correct calculation of livetimes, but it takes a while. You can comment it out and uncomment the line below for an approximate calculation of livetime.
+  livetimes = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection,'thinca'), segments.segmentlistdict(), db_thinca_rings.get_background_offset_vectors(connection), verbose=True)
   dbtables.put_connection_filename(filename, working_filename, verbose = True)
 print "number of timeslides:", len(timeslide_likelihood)
 print "number of zerolags:", len(zerolag_likelihood)
 print "number of injections:", len(injection_likelihood)
-# map all 0 likelihoods to lowest non-zero likelihood and all 'inf' likelihoods to the highest non-infinity likelihood
-all_likelihood = timeslide_likelihood + zerolag_likelihood + injection_likelihood
-likelihood_set = set(all_likelihood)
-likelihood_list = list(likelihood_set)
-likelihood_list.sort()
-min_likelihood = likelihood_list[1]
-max_likelihood = likelihood_list[-2]
-for llist in timeslide_likelihood, zerolag_likelihood, injection_likelihood:
-  for i in range(len(llist)):
-    if llist[i] == 0:
-      llist[i] = min_likelihood
-    if llist[i] == float('inf'):
-      llist[i] = max_likelihood
-  #print list
-# find the "threshold," which is the likelihood of the 100th loudest timeslide
 
 all_likelihoods = numpy.array(timeslide_likelihood + zerolag_likelihood + injection_likelihood, dtype=float)
 timeslide_likelihoods = numpy.array(timeslide_likelihood)
@@ -130,3 +121,63 @@ pylab.legend(loc='lower right')
 pylab.hold(0)
 pylab.savefig('MVSC_likelihood_scatterplot.png')
 
+t=0
+for comb in livetimes:
+	t += sum(livetimes[comb])
+print "total livetime:", t
+
+bkg_likelihoods = timeslide_likelihood[:]
+bkg_likelihoods.sort()
+bkg_snrs = timeslide_snr[:]
+bkg_snrs.sort()
+
+injection_likelihood_ifar = []
+timeslide_likelihood_ifar = []
+zerolag_likelihood_ifar = []
+injection_snr_ifar = []
+timeslide_snr_ifar = []
+zerolag_snr_ifar = []
+
+def get_ifar(statistic_list,bkg_statistics,ifar_list): 
+	for i in range(len(statistic_list)):
+		n = len(bkg_likelihoods) - bisect.bisect_left(bkg_statistics,statistic_list[i])
+		if n != 0:
+			ifar_list.append(t/float(n))
+		else:
+			ifar_list.append(float('inf'))
+
+get_ifar(injection_likelihood,bkg_likelihoods,injection_likelihood_ifar)
+get_ifar(timeslide_likelihood,bkg_likelihoods,timeslide_likelihood_ifar)
+get_ifar(zerolag_likelihood,bkg_likelihoods,zerolag_likelihood_ifar)
+get_ifar(injection_snr,bkg_snrs,injection_snr_ifar)
+get_ifar(timeslide_snr,bkg_snrs,timeslide_snr_ifar)
+get_ifar(zerolag_snr,bkg_snrs,zerolag_snr_ifar)
+
+# note, infs are not plotted! 
+pylab.figure(1)
+pylab.loglog(injection_likelihood_ifar,injection_snr_ifar,'rx',label='injections')
+pylab.hold(1)
+pylab.loglog(timeslide_likelihood_ifar,timeslide_snr_ifar,'k.',label='timeslides')
+pylab.hold(0)
+pylab.xlabel('IFAR from MVSC Likelihood')
+pylab.ylabel('IFAR from combined effective SNR')
+pylab.savefig('IFAR_IFAR_scatterplot.png')
+ax = pylab.figure(0).gca()
+
+pylab.figure(2)
+pylab.hexbin(injection_likelihood_ifar,injection_snr_ifar,gridsize=50,xscale='log',yscale='log',bins='log',cmap=pylab.cm.jet,alpha=1)
+pylab.gca = ax
+pylab.colorbar()
+pylab.xlabel('IFAR from MVSC Likelihood')
+pylab.ylabel('IFAR from coinc inspiral snr')
+pylab.title('log10 density of injections')
+pylab.savefig('IFAR_densityfig_injection.png')
+
+pylab.figure(3)
+pylab.hexbin(timeslide_likelihood_ifar,timeslide_snr_ifar,gridsize=50,xscale='log',yscale='log',bins='log',cmap=pylab.cm.jet,alpha=1)
+pylab.gca = ax
+pylab.colorbar()
+pylab.xlabel('IFAR from MVSC Likelihood')
+pylab.ylabel('IFAR from coinc inspiral snr')
+pylab.title('log10 density of timeslides')
+pylab.savefig('IFAR_densityfig_timeslide.png')
