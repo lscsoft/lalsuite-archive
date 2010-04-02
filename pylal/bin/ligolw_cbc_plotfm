@@ -1,0 +1,550 @@
+#!/usr/bin/python
+
+
+# ============================================================================
+#
+#                               Preamble
+#
+# ============================================================================
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys, os, math, re
+import numpy
+#import itertools
+#from glue.iterutils import any
+
+from glue import git_version
+#from glue import iterutils
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+
+from pylal import InspiralUtils
+#from pylal import CoincInspiralUtils
+from pylal import ligolw_sqlutils as sqlutils
+from pylal import printutils
+
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__prog__ = "ligolw_cbc_plotfm"
+
+description = \
+"Creates found/missed plots."
+
+# ============================================================================
+#
+#                               Set Options
+#
+# ============================================================================
+
+def parse_command_line():
+    """
+    Parser function dedicated
+    """
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
+    # following are related to file input and output naming
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
+        help = 
+            "Location of local disk on which to do work. This is optional; " +
+            "it is only used to enhance performance in a networked " +
+            "environment. "
+        )
+    parser.add_option( "-P", "--output-path", action = "store", type = "string",
+        default = os.getcwd(), metavar = "PATH",
+        help = 
+            "Optional. Path where the figures should be stored. Default is current directory." 
+        )
+    parser.add_option( "-O", "--enable-output", action = "store_true",
+        default =  False, metavar = "OUTPUT",
+        help = 
+            "enable the generation of html and cache documents" 
+        )
+    parser.add_option( "-u", "--user-tag", action = "store", type = "string",
+        help =
+            "Set a user-tag for plot and html naming."
+        )
+    parser.add_option( "-x", "--independent-variable", action = "append", default = [],
+        metavar = "VAR(:unit)",
+        help = 
+            "Required. What variable(s) to plot on the x-axis. The variables are assumed to be in the simulation table, " +
+            "but if would like to plot a variable from the recovery table, use 'recovered_var_name'. For example, " +
+            "if you want to plot against some recovery statistic, like combined_far, type -x recovered_combined_far. " +
+            "If multiple specified, will create a plot for each one. To specify multiple variables, " +
+            "either give the argument multiple times, or once as a comma separated string. To specify what units the variable " +
+            "is in, type var:unit, e.g, 'combined_far:yr^-1'. If units are set to gps_(s|min|hr|days|yr), will plot " +
+            "in (s|min|hr|days|yr) since the start time in the database. " +
+            "Note: if one of the variables is the same as --param-name, will create one plot of the union of the " +
+            "param-ranges when plotting against that variable."
+        )
+    parser.add_option( "-r", "--ranking-stat", action = "store", default = "combined_far",
+        help =
+            "Stat to rank found injections by. Can be any column in the recovery-table. Default is combined_far."
+        )
+    parser.add_option( "-b", "--rank-by", action = "store", default = "MIN",
+        help =
+            "How to rank the injections. Options are 'MAX' or 'MIN', default is 'MIN'. If set to 'MIN', any trigger " +
+             "with a 0 ranking_stat value will be plotted with a star as opposed to a circle. If set to 'MAX', any " +
+             "trigger with an infinite value will be plotted with a star."
+        )
+    parser.add_option( "-c", "--colorbar-stat", action = "store", default = "combined_far:yr$^{-1}$",
+        metavar = " stat(:unit)",
+        help =
+            "Stat to use for the colorbar. Default is combined_far. As with --independent-variable, to specify a unit " +
+            "for plot labelling, put a colon followed by the unit. "
+        )
+    parser.add_option( "", "--param-name", metavar = "PARAMETER",
+        action = "store", default = None,
+        help = 
+            "Can be any parameter in the recovery table. " +
+            "Specifying this and param-ranges will only select " +
+            "triggers that fall within the parameter ranges. " 
+        )
+    parser.add_option( "", "--param-ranges", action = "store", default = None,
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
+        help = 
+            "Requires --param-name. Specify the parameter ranges " +
+            "to select triggers in. A '(' or ')' implies an open " +
+            "boundary, a '[' or ']' a closed boundary. To specify " +
+            "multiple ranges, separate each range by a ';'. To " +
+            "specify a single value, just type that value with no " +
+            "parentheses or brackets. To specify not equal to a single " +
+            "value, put a '!' before the value. If " +
+            "multiple ranges are specified, the triggers picked for " +
+            "ranking will come from the union of the ranges."
+        )
+    parser.add_option( "-s", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
+        help =
+            "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
+            "If not specified, will group all injections together."
+        )
+    parser.add_option('-l', '--logx', action = 'store_true', default = False,
+        help =
+            'Make x-axis logarithmic. Note: this will apply to all plots generated.'
+        )
+    parser.add_option('-L', '--logy', action = 'store_true', default = False,
+        help =
+            'Make y-axis logarithmic. Note: this will apply to all plots generated.'
+        )
+    parser.add_option( "-S", "--simulation-table", action = "store", type = "string", default = "sim_inspiral",
+        help =
+            "Table to look in for injection parameters. " +
+            "Can be any lsctable with a simulation_id. Default is 'sim_inspiral'."
+        )
+    parser.add_option( "-R", "--recovery-table", action = "store", type = "string", default = "coinc_inspiral",
+        help =
+            "Required. Table to look in for recovered injections. " +
+            "Can be any lsctable with a coinc_event_id. Default is coinc_inspiral."
+        )
+    parser.add_option( "", "--show-plot", action = "store_true", default = False, \
+        help = 
+            "display the plots on the terminal" 
+        )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False, \
+        help = 
+            "Be verbose."
+        )
+
+    (options,filenames) = parser.parse_args()
+
+    #check if required options specified and for self-consistency
+    if options.independent_variable == []:
+        raise ValueError, "At least one --independent-variable must be specified."
+
+    return options, filenames
+            
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+def get_sfrow_stat(row, stat):
+    """
+    Wrapper method to get the right column from either a SelectedFound table 
+    or a CloseMissed table given the input stat.
+    """
+    if stat == 'mtotal':
+        return row.injected_mass1+row.injected_mass2
+    elif not ('recovered_' in stat or 'injected_' in stat):
+        return getattr(row, 'injected_'+stat)
+    else:
+        return getattr(row, stat)
+        
+def get_cmrow_stat(row, stat):
+    """
+    Wrapper method to get the right column from a CloseMissed table given the input stat.
+    """
+    if stat == 'mtotal':
+        return row.mass1+row.mass2
+    else:
+        return getattr(row, stat)
+        
+def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank = True):
+    """
+    If an injection is mapped to multiple events, picks out the best match via
+    some selection stat. If use_match_rank is True, will always use the match_rank
+    column first, thus only using the selection_stat as a tie-breaker. For example,
+    if the found_table was generated using combined_far, combined_far determines the
+    match_rank entry and therefore is the primary selection criteria. In the event
+    that two events have the same match rank -- they had the same far -- the selection_stat
+    is then used to pick one of the two. In the event that both triggers have the same
+    selection stat, the first one in the table is used.
+
+    @found_table: a SelectedFound table created by printsims
+    @selection_stat: any recovered stat in the found_table, e.g., recovered_snr
+    @select_by: must be 'MAX' or 'MIN'; whether to use max or min values of selection_stat
+    @use_match_rank: toggle whether or not to use match_rank
+    """
+
+    # cycle through the table, getting coinc_event_ids of events to delete
+    delete_ceids = []
+    # get all events with multiple matches
+    simid_index = dict([ [row.simulation_id, [all_rows for all_rows in found_table if all_rows.simulation_id == row.simulation_id]]
+        for row in found_table ])
+    
+    for sim_id, matchlist in simid_index.items():
+        if len(matchlist) > 1:
+            # apply selection criteria
+            delete_these = [ row.coinc_event_id for row in matchlist
+                if use_match_rank and row.recovered_match_rank != 1
+                or select_by == "MAX" and getattr(row, 'recovered_'+selection_stat) != max([getattr(x, 'recovered_'+selection_stat) for x in matchlist])
+                or select_by == "MIN" and getattr(row, 'recovered_'+selection_stat) != min([getattr(x, 'recovered_'+selection_stat) for x in matchlist])
+                ]
+            # check that only have one event left, if not, just keep the first non-deleted event in the list
+            if len(matchlist) - len(delete_these) > 1:
+                add_these = [ match.coinc_event_id for match in matchlist if match.coinc_event_id not in delete_these ]
+                add_these.pop(0)
+                delete_these.extend( add_these )
+            # add to list to be deleted
+            delete_ceids.extend( delete_these )
+
+    # remove the deletes
+    [ found_table.remove(row) for row in found_table[::-1] if row.coinc_event_id in delete_ceids ]
+
+        
+
+
+# ============================================================================
+#
+#                                 Main
+#
+# ============================================================================
+
+#
+#   Generic Initialization
+#
+
+# parse command line
+opts, filenames = parse_command_line()
+# check for comma separated arguments
+stats = []
+for x in opts.independent_variable:
+    varlist = x.split(',')
+    stats.extend( (var.split(':')[0], len(var.split(':')) > 1 and var.split(':')[1] or '') for var in varlist )
+# get rank_by
+rank_by = sqlutils.validate_option(opts.rank_by, lower = False).upper()
+# get colorbar stat
+if len(opts.colorbar_stat.split(':')) == 2:
+    cbstat, cbunit = opts.colorbar_stat.split(':')
+else:
+    cbstat = opts.colorbar_stat
+    cbunit = ''
+# check if binning by param-range at all
+if opts.param_ranges is not None:
+    param_parser = sqlutils.parse_param_ranges(opts.recovery_table, opts.param_name, opts.param_ranges, verbose = opts.verbose)
+
+
+sqlite3.enable_callback_tracebacks(True)
+
+#
+#   Plotting Initialization
+#
+
+# Change to Agg back-end if show() will not be called 
+# thus avoiding display problem
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+rc('text', usetex=True)
+
+#
+#   Program-specific Initialization
+#
+
+# get available instrument times
+experiments = {}
+if opts.verbose:
+    print >> sys.stderr, "Opening database(s) and checking for instrument times..."
+for filename in filenames:
+    working_filename = dbtables.get_connection_filename( 
+        filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+    connection = sqlite3.connect( working_filename )
+    if opts.tmp_space:
+        dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
+    sqlquery = "SELECT DISTINCT instruments, gps_start_time, gps_end_time FROM experiment"
+    for on_insts, gps_start, gps_end in connection.cursor().execute(sqlquery):
+        current_times = experiments.setdefault( frozenset(lsctables.instrument_set_from_ifos(on_insts)), (int(gps_start), int(gps_end)) )
+        if current_times is not None:
+            update_start, update_end = current_times
+            if update_start > int(gps_start):
+                update_start = int(gps_start)
+            if update_end < int(gps_end):
+                update_end = int(gps_end)
+            experiments[ frozenset(lsctables.instrument_set_from_ifos(on_insts)) ] = (update_start,update_end)
+    # only close the connection if there are more than one database being used
+    if len(filenames) > 1:
+        connection.close()
+        dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
+# cycle over available instrument times
+found_table = []
+missed_table = []
+for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
+    on_instr = r','.join(sorted(on_instruments))
+    if opts.verbose:
+        print >> sys.stderr, "Creating plots for %s time..." % on_instr
+
+    for filename in filenames:
+        if len(filenames) > 1:
+            working_filename = dbtables.get_connection_filename( 
+                filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+            connection = sqlite3.connect( working_filename )
+            if opts.tmp_space:
+                dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
+
+        # get found table
+        if opts.verbose:
+            print >> sys.stderr, "\tgetting 'found' triggers from %s..." % filename
+            
+        found_table += [ row for row in 
+            printutils.printsims(connection, opts.simulation_table, opts.recovery_table, opts.ranking_stat, opts.rank_by,
+            "slide", param_name = opts.param_name, param_ranges = opts.param_ranges,
+            include_only_coincs = '[all in %s]' % on_instr,
+            sim_tag = opts.sim_tag, verbose = False)]
+
+        # select best matches using snr
+        select_best_inj_match(found_table, 'snr', 'MAX', use_match_rank = True)
+
+        # get missed table
+        if opts.verbose:
+            print >> sys.stderr, "\tgetting missed triggers from %s..." % filename
+        missed_table += [ row for row in 
+            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,
+            param_name = opts.param_name, param_ranges = opts.param_ranges,
+            include_only_coincs = '[all in %s]' % on_instr,
+            sim_tag = opts.sim_tag, limit = None, 
+            verbose = False) ]
+
+        if len(filenames) > 1:
+            connection.close()
+            dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
+    #
+    #   Plot
+    #
+    # set InspiralUtils options for file and plot naming
+    if opts.verbose:
+        print >> sys.stderr, "\tplotting..."
+    opts.gps_start_time = int(gps_start_time)
+    opts.gps_end_time = int(gps_end_time)
+    opts.ifo_times = ''.join(sorted(on_instruments))
+    opts.ifo_tag = ''
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
+
+    fnameList = []
+    tagList = []
+    figure_numbers = []
+    fig_num = 0
+
+    for stat, unit in stats:
+
+        if opts.param_ranges is None or opts.param_name == stat:
+            group_by_param = False
+            num_subgroups = 1
+        else:
+            group_by_param = True
+            num_subgroups = len(param_parser.param_ranges)
+
+        for n in range(num_subgroups):
+            figure(fig_num)
+            figure_numbers.append(fig_num)
+            fig_num += 1
+            hold(True)
+            xmax = -numpy.inf
+            xmin = numpy.inf
+            ymax = -numpy.inf
+            ymin = numpy.inf
+
+            # get desired plot values
+            plotvals = [ (
+                get_sfrow_stat(row, stat),
+                row.injected_decisive_distance,
+                get_sfrow_stat(row, 'recovered_%s' % cbstat),
+                getattr( row, 'recovered_%s' % opts.ranking_stat ) )
+                for row in found_table
+                if (group_by_param and param_parser.group_by_param_range( getattr(row, 'injected_%s' % opts.param_name.lower()) ) == n) or not group_by_param ]
+            # if logx, remove any 0 valued things
+            if opts.logx:
+                popis = [ j for j, (statval, _, _, _) in enumerate(plotvals) if statval == 0 ]
+                for j in popis[::-1]:
+                    del plotvals[j]
+            # set time unit
+            is_time = re.match(r'gps_(s|min|hr|days|yr)', unit)
+            if is_time is not None:
+                plotvals = [ (sqlutils.convert_duration( x - gps_start_time + 1, is_time.group(1) ), y, z, r) for (x,y,z,r) in plotvals ]
+            # separate out the 0/inf valued things
+            plotspecial = [ j for j, (_,_,_, statval) in enumerate(plotvals)
+                if rank_by == 'MIN' and statval == 0 or rank_by == 'MAX' and statval == numpy.inf ]
+            plotspecial = [ plotvals.pop(j) for j in plotspecial[::-1] ]
+            
+            # Plot stars
+            if plotspecial != []:
+                x = [x[0] for x in plotspecial]
+                y = [y[1] for y in plotspecial]
+                z = [z[2] for z in plotspecial]
+
+                scatter( x, y, c = z, marker = (5,1,0), s = 40, alpha = .8, label = '_nolegend_' )
+
+                xmax = xmax < max( x ) and max( x ) or xmax
+                xmin = xmin > min( x ) and min( x ) or xmin
+                ymax = ymax < max( y ) and max( y ) or ymax
+                ymin = ymin > min( y ) and min( y ) or ymin
+
+            # Plot missed
+            if 'recovered' not in stat:
+                plotmissed = [ (get_cmrow_stat(row,stat), row.decisive_distance) for row in missed_table
+                    if (group_by_param and param_parser.group_by_param_range( getattr(row, opts.param_name.lower()) ) == n) or not group_by_param ]
+                if is_time is not None:
+                    plotmissed = [ (sqlutils.convert_duration( x - gps_start_time, is_time.group(1) ), y) for (x,y) in plotmissed ]
+
+                x = [x[0] for x in plotmissed]
+                y = [y[1] for y in plotmissed]
+
+                scatter( x, y, marker = 'x', s = 40, color = 'r', alpha = .8, label = '_nolegend_')
+
+                xmax = xmax < max( x ) and max( x ) or xmax
+                xmin = xmin > min( x ) and min( x ) or xmin
+                ymax = ymax < max( y ) and max( y ) or ymax
+                ymin = ymin > min( y ) and min( y ) or ymin
+
+            # Plot circles
+            if plotvals != []:
+                x = [x[0] for x in plotvals]
+                y = [y[1] for y in plotvals]
+                z = [z[2] for z in plotvals]
+
+                scatter( x, y, c = z, s = 30, edgecolor = 'white', linewidth = .5, label = '_nolegend_' )
+
+                xmax = xmax < max( x ) and max( x ) or xmax
+                xmin = xmin > min( x ) and min( x ) or xmin
+                ymax = ymax < max( y ) and max( y ) or ymax
+                ymin = ymin > min( y ) and min( y ) or ymin
+
+                cb = colorbar()
+                cblabel = cbstat.replace('_', ' ').title()
+                if cbunit != '':
+                    cblabel = ''.join([ cblabel, '(', cbunit, ')' ])
+                cb.ax.set_ylabel( cblabel )
+
+            # if nothing to plot, just plot a warning message
+            if plotvals == [] and plotspecial == [] and ('recovered' not in stat and plotmissed == []):
+                text(0.5,0.5, 'Nothing to plot.')
+                xmin = ymin = 0
+                xmax = ymax = 1
+                no_data = True
+            else:
+                no_data = False
+
+            #
+            # Set plot parameters
+            #
+            if  group_by_param:
+                t = "%s Time: F/M Inj. v. %s: %s %s" % (on_instr, stat.replace('_', ' ').title(), opts.param_name.replace('_', ' ').title(), param_parser.param_range_by_group(n))
+            else:
+                t = "%s Time: Found/Missed Injections v. %s" % (on_instr, stat.replace('_', ' ').title())
+            title( t )
+
+            # set x-axis parameters
+            if is_time is not None:
+                lbl = '%s (%i + %s)' % (stat.replace('_', ' ').title(), gps_start_time-1, is_time.group(1))
+            elif unit != '':
+                lbl = '%s (%s)' % (stat.replace('_', ' ').title(), unit)
+            else:
+                lbl = stat.replace('_', ' ').capitalize()
+            xlabel(lbl)
+
+            if opts.logx and not no_data:
+                gca().semilogx()
+                
+            ylabel("Injected Decisive Distance (Mpc)")
+
+            if opts.logy and not no_data:
+                gca().semilogy()
+
+            # set x/y limits
+            if opts.logx and not no_data:
+                xlim( math.pow(10,(math.log(xmin,10)-0.5)), math.pow(10,(math.log(xmax,10)+0.5)) )
+            else:
+                xlim( xmin-.1*(xmax-xmin), xmax+.1*(xmax-xmin) )
+
+            if opts.logy and not no_data:
+                ylim( math.pow(10,(math.log(ymin,10)-0.5)), math.pow(10,(math.log(ymax,10)+0.5)) )
+            else:
+                ylim( ymin-.1*(ymax-ymin), ymax+.1*(ymax-ymin) )
+                
+            if opts.enable_output:
+                param_tag = group_by_param and opts.param_name.lower() or ''
+                if group_by_param:
+                    param_tag = '_'.join([ param_tag,
+                        `int(param_parser.param_ranges[n][0][1])`,
+                        `int(param_parser.param_ranges[n][1][1])` ])
+                plot_description = '_'.join([ param_tag, ''.join(sorted(on_instruments)), "foundmissed", stat ])
+                name = InspiralUtils.set_figure_tag( plot_description, 
+                    datatype_plotted = opts.sim_tag, open_box = False)
+                fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+                fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+                fnameList.append(fname)
+                tagList.append(name)
+
+    #
+    #   Create the html page for this instrument time
+    #
+    
+    if opts.enable_output:
+        if opts.verbose:
+            print >> sys.stdout, "\twriting html file and cache."
+
+        # create html of closed box plots
+        plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, filenames, fnameList,
+            tagList, add_box_flag = False )
+        InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
+
+    if opts.show_plot:
+        show()
+
+    #
+    # Close the figures and clear memory for the next instrument time
+    #
+
+    for number in figure_numbers:
+        close(number)
+
+#
+#   Finished cycling over experiments; exit
+#
+if len(filenames) == 1:
+    connection.close()
+    dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
+if opts.verbose:
+    print >> sys.stdout, "Finished!"
+sys.exit(0)
