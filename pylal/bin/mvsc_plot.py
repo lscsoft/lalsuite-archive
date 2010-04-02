@@ -11,6 +11,7 @@ import glob
 import matplotlib
 matplotlib.use('Agg')
 import pylab
+import numpy
 
 parser=OptionParser(usage="""
 %prog [sqlite database file(s)]
@@ -99,22 +100,33 @@ for llist in timeslide_likelihood, zerolag_likelihood, injection_likelihood:
       llist[i] = max_likelihood
   #print list
 # find the "threshold," which is the likelihood of the 100th loudest timeslide
-timeslide_likelihood_temp = tuple(timeslide_likelihood)
-timeslide_likelihood.sort()
-timeslide_likelihood_sorted = timeslide_likelihood
-timeslide_likelihood = list(timeslide_likelihood_temp)
-timeslide_snr_temp = tuple(timeslide_snr)
-timeslide_snr.sort()
-timeslide_snr_sorted = timeslide_snr
-timeslide_snr = list(timeslide_snr_temp)
+
+all_likelihoods = numpy.array(timeslide_likelihood + zerolag_likelihood + injection_likelihood, dtype=float)
+timeslide_likelihoods = numpy.array(timeslide_likelihood)
+zerolag_likelihoods = numpy.array(zerolag_likelihood)
+injection_likelihoods = numpy.array(injection_likelihood)
+timeslide_snrs = numpy.array(timeslide_snr)
+zerolag_snrs = numpy.array(zerolag_snr)
+injection_snrs = numpy.array(injection_snr)
+# set all zero likelihoods to the next lowest calculated likelihood, and all infinity likelihoods to the next highest, so plotting can work
+plottable_likelihoods = all_likelihoods[~numpy.isinf(all_likelihoods) & (all_likelihoods > 0)]
+min_likelihood = plottable_likelihoods.min()
+max_likelihood = plottable_likelihoods.max()
+timeslide_likelihoods.clip(min_likelihood, max_likelihood, out=timeslide_likelihoods)
+zerolag_likelihoods.clip(min_likelihood, max_likelihood, out=zerolag_likelihoods)
+injection_likelihoods.clip(min_likelihood, max_likelihood, out=injection_likelihoods)
+# to find the 'threshold,' which here is the likelihood or combined effective snr of the 100th loudest timeslide
+sorted_timeslide_likelihoods = numpy.sort(timeslide_likelihoods)
+sorted_timeslide_snrs = numpy.sort(timeslide_snrs)
 pylab.figure(0)
-pylab.loglog(injection_likelihood,injection_snr,'rx',label='injections')
+pylab.loglog(injection_likelihoods,injection_snrs,'rx',label='injections')	
 pylab.hold(1)
-pylab.loglog(timeslide_likelihood,timeslide_snr,'.k',label='time slides')
-pylab.axvline(x=timeslide_likelihood_sorted[-100],color='g', label='100th loudest time slide')
-pylab.axhline(y=timeslide_snr_sorted[-100], label='100th loudest time slide')
-pylab.xlabel('likelihood')
+pylab.loglog(timeslide_likelihoods,timeslide_snrs,'k.',label='timeslides')	
+pylab.axvline(x=sorted_timeslide_likelihoods[-100], color='g', label='100th loudest timeslide, by MVSCL')
+pylab.axhline(y=sorted_timeslide_snrs[-100], label='100th loudest timeslide, by SNR')
+pylab.xlabel('MVSC likelihood')
 pylab.ylabel('combined effective SNR')
-pylab.legend(loc='lower right') 
+pylab.legend(loc='lower right')
 pylab.hold(0)
-pylab.savefig('myfigure.png')
+pylab.savefig('MVSC_likelihood_scatterplot.png')
+
