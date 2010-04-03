@@ -298,9 +298,6 @@ def has_segment_tables(xmldoc, name = None):
 	"""
 	try:
 		def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-	except ValueError:
-		return False
-	try:
 		table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	except ValueError:
 		return False
