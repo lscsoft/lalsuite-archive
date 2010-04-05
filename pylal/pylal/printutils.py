@@ -106,9 +106,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'elogs',
             'mini_followup',
             'sim_tag',
-            'injected_eff_dist_h',
-            'injected_eff_dist_l',
-            'injected_eff_dist_v',
+            'injected_decisive_distance',
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2',
@@ -128,9 +126,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'elogs',
             'mini_followup',
             'sim_tag',
-            'injected_eff_dist_h',
-            'injected_eff_dist_l',
-            'injected_eff_dist_v',
+            'injected_decisive_distance',
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2']
@@ -324,7 +320,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
 # =============================================================================
 
 def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_by, comparison_datatype,
-    param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
+    sort_by = 'rank', param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
 
@@ -640,7 +636,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     
     # Re-sort the sftable by rank, recovered_match_rank
     sftable = lsctables.New(SelectedFoundTable)
-    for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, rankname) ):
+    for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, sort_by == 'rank' and rankname or sort_by) ):
         if sfrow.simulation_id not in [row.simulation_id for row in sftable]:
             sftable.append(sfrow)
             sftable.extend(sub_row for sub_row in sorted([row for row in tmp_sftable
