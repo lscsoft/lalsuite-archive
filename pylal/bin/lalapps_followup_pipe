@@ -829,6 +829,11 @@ trigs.topN()
 ##### CONSTRUCT DAG ###########################################################
 ###############################################################################
 
+# if the "do_remoteScans" option is valid, we need to prepare a job to check grid proxy path at the starting of the dag.
+if options.do_remoteScans:
+	setup_proxy_job         = stfu_pipe.setupProxyJob(options,cp)
+	setup_proxy_node        = stfu_pipe.setupProxyNode(dag,setup_proxy_job,cp,options)
+
 # generate a playground set and full data set
 for search, candidates in [('playground',trigs.playground_candidates), ('full_data',trigs.candidates), ('time_slides', trigs.background_candidates)]:
 
@@ -860,13 +865,14 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	mcmc_sngl_job           = stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="sngl")
 	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
 	if options.do_remoteScans:
-		setup_proxy_job		= stfu_pipe.setupProxyJob(options,cp, dir=search)
+		#setup_proxy_job		= stfu_pipe.setupProxyJob(options,cp, dir=search)
 		remote_rds_qscan_job	= stfu_pipe.remoteQscanJob(options,cp, dir=search, tag_base='FG_RDS')
 		remote_seis_qscan_job	= stfu_pipe.remoteQscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
+		distrib_remote_rds_qscan_job = stfu_pipe.distribRemoteQscanJob(options,cp, dir=search, tag_base='FG_RDS')
+		distrib_remote_seis_qscan_job = stfu_pipe.distribRemoteQscanJob(options,cp, dir=search, tag_base='FG_SEIS_RDS')
 
-
-	if options.do_remoteScans:
-		setup_proxy_node	= stfu_pipe.setupProxyNode(dag,setup_proxy_job,cp,options)
+	#if options.do_remoteScans:
+	#	setup_proxy_node	= stfu_pipe.setupProxyNode(dag,setup_proxy_job,cp,options)
 
 	# LOOP OVER COINC EVENTS
 	for coinc_cnt, coinc in enumerate(candidates):
@@ -900,6 +906,9 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				if cp.has_option('fu-remote-jobs','remote-ifos') and ifo in cp.get('fu-remote-jobs','remote-ifos'):
 					remote_rds_qscan_node = stfu_pipe.fuRemoteQscanNode(dag, remote_rds_qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[setup_proxy_node], type="rds")
 					remote_seis_qscan_node = stfu_pipe.fuRemoteQscanNode(dag, remote_seis_qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[setup_proxy_node], type="seismic")
+					distrib_remote_rds_qscan_node = stfu_pipe.distribRemoteQscanNode(dag, distrib_remote_rds_qscan_job, cp, options, ifo, p_nodes=[remote_rds_qscan_node], type="rds")
+					distrib_remote_rds_qscan_node = stfu_pipe.distribRemoteQscanNode(dag, distrib_remote_seis_qscan_job, cp, options, ifo, p_nodes=[remote_seis_qscan_node], type="seismic")
+
 			# h(t) INSPIRAL datafind Node
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)
 
