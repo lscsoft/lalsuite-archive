@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
 
 	if (options.extract is None) or (urls != [None]):
-		ligolw_sqlite.insert(connection, urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
+		ligolw_sqlite.insert_from_urls(connection, urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
 
 	#
