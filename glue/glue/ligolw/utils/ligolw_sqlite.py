@@ -38,10 +38,6 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 
 
-# so they can be inserted into a database
-dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
-
-
 # FIXME: remove this hack when the SnglInspiralTable class uses the
 # standard ID generator by default.
 dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
@@ -66,8 +62,8 @@ __date__ = git_version.date
 #
 
 
-def setup(target):
-	connection = sqlite3.connect(target)
+def setup(target, check_same_thread=True):
+	connection = sqlite3.connect(target, check_same_thread=check_same_thread)
 	dbtables.DBTable_set_connection(connection)
 
 	for tbl in dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName):
@@ -80,6 +76,21 @@ def setup(target):
 # How to insert
 #
 
+def update_ids(xmldoc, connection, verbose = False):
+	"""
+	For internal use only.
+	"""
+	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
+	for i, tbl in enumerate(table_elems):
+		if verbose:
+			print >>sys.stderr, "updating IDs: %d%%\r" % (100 * i / len(table_elems)),
+		tbl.applyKeyMapping()
+	if verbose:
+		print >>sys.stderr, "updating IDs: 100%"
+
+	# reset ID mapping for next document
+	dbtables.idmap_reset(connection)
+
 
 def insert(connection, urls, preserve_ids = False, verbose = False):
 	"""
@@ -90,6 +101,9 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 		# enable ID remapping
 		dbtables.idmap_create(connection)
 		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+	else:
+		# disable ID remapping
+		dbtables.DBTable.append = dbtables.DBTable._append
 	for n, url in enumerate(urls):
 		# load document (if enabled, row IDs are reassigned on
 		# input)
@@ -99,21 +113,38 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 
 		# update references to row IDs
 		if not preserve_ids:
-			table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
-			for i, tbl in enumerate(table_elems):
-				if verbose:
-					print >>sys.stderr, "updating IDs: %d%%\r" % (100 * i / len(table_elems)),
-				tbl.applyKeyMapping()
-			if verbose:
-				print >>sys.stderr, "updating IDs: 100%"
-
-			# reset ID mapping for next document
-			dbtables.idmap_reset(connection)
-
+			update_ids(xmldoc, connection, verbose)
 		# delete cursors
 		xmldoc.unlink()
 	connection.commit()
+	dbtables.build_indexes(connection, verbose)
 
+
+def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False):
+	"""
+	Insert the tables from an in-ram XML document into the database at
+	the given connection.
+	"""
+	if not preserve_ids:
+		# enable ID remapping
+		dbtables.idmap_create(connection)
+		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+	else:
+		# disable ID remapping
+		dbtables.DBTable.append = dbtables.DBTable._append
+
+	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
+	for tbl in table_elems:
+		dbtab = dbtables.DBTable(tbl.attributes, connection=connection)
+		for elem in tbl.childNodes:
+			if isinstance(elem, dbtables.table.TableStream):
+				dbtab._end_of_columns()
+			dbtab.appendChild(type(elem)(elem.attributes))
+		for row in tbl:
+			dbtab.append(row)
+		dbtab._end_of_rows()
+	if not preserve_ids:
+		update_ids(dbtables.get_xml(connection), connection, verbose)
 	dbtables.build_indexes(connection, verbose)
 
 
