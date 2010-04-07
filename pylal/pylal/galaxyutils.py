@@ -66,37 +66,6 @@ def is_within_distances(gal_dist, dmin, dmax):
         raise ValueError, "negative distance " + str(dmin) + " " + str(dmax)
     return (dmax > gal_dist) and (dmin < gal_dist)
 
-def plot_points(points, polygon):
-    """
-    Return the handle to a figure containing a scatter plot of a set of
-    points, each colored by is_inside_polygon's determination of whether it is
-    inside or outside the given polygon.
-
-    This is an excellent way to test is_inside_polygon.
-    """
-    found_list = [is_inside_polygon(point, polygon) for point in points]
-    found_points = numpy.array([point for point,found in \
-        itertools.izip(points, found_list) if found])
-    missed_points = numpy.array([point for point,found in \
-        itertools.izip(points, found_list) if not found])
-
-    fig = pylab.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(found_points[:, 0], found_points[:, 1], "bx", label="found")
-    ax.plot(missed_points[:, 0], missed_points[:, 1], "ro", label="missed")
-
-    closed_poly = numpy.vstack((polygon, polygon[0]))
-    ax.plot(closed_poly[:, 0], closed_poly[:, 1], "k-", label="_nolabel_")
-    return fig
-
-# visual test code for is_inside_polygon
-
-# import pylab
-# points = numpy.random.uniform(low=0.0, high=5.0, size=(5000,2))
-# test_polygon = numpy.array([[2, 2], [2, 3], [3, 2]], dtype=float)
-# plot_points(points, test_polygon)
-# pylab.show()
-# sys.exit()
 
 ##############################################################################
 # unit conversion
