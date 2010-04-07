@@ -42,7 +42,7 @@ def is_inside_polygon(point, vertices):
     """
     Return True if the (2-D) point is inside the (2-D) polygon defined by the
     vertices.
-  
+
     Adapted from:
     http://local.wasp.uwa.edu.au/~pbourke/geometry/insidepoly/ (solution 2)
     """
@@ -70,7 +70,7 @@ def plot_points(points, polygon):
     Return the handle to a figure containing a scatter plot of a set of
     points, each colored by is_inside_polygon's determination of whether it is
     inside or outside the given polygon.
-    
+
     This is an excellent way to test is_inside_polygon.
     """
     found_list = [is_inside_polygon(point, polygon) for point in points]
@@ -78,12 +78,12 @@ def plot_points(points, polygon):
         itertools.izip(points, found_list) if found])
     missed_points = numpy.array([point for point,found in \
         itertools.izip(points, found_list) if not found])
-    
+
     fig = pylab.figure()
     ax = fig.add_subplot(111)
     ax.plot(found_points[:, 0], found_points[:, 1], "bx", label="found")
     ax.plot(missed_points[:, 0], missed_points[:, 1], "ro", label="missed")
-    
+
     closed_poly = numpy.vstack((polygon, polygon[0]))
     ax.plot(closed_poly[:, 0], closed_poly[:, 1], "k-", label="_nolabel_")
     return fig
@@ -110,7 +110,7 @@ def hms2rad(ra_sex):
     h = int(tup[0])
     m = int(tup[1])
     s = float(tup[2])
-    
+
     if (h < 0 or h > 23) or (m < 0 or m > 60) or (s < 0 or s >= 60):
         raise ValueError, "hour, minute, or second out of bounds " + ra_sex
     return 2 * numpy.pi * (h + (m + s / 60) / 60) / 24
@@ -129,7 +129,7 @@ def dms2rad(dec_sex):
         sign = +1
     m = int(tup[1])
     s = float(tup[2])
-  
+
     if (d > 89) or (m < 0 or m > 60) or (s < 0 or s >= 60):
         raise ValueError, "degree, minute, or second out of bounds: " + dec_sex
     return numpy.pi * sign * (d + (m + s / 60) / 60) / 180
@@ -142,7 +142,7 @@ def hm2rad(ra_sex):
     tup = ra_sex.split(":")
     h = int(tup[0])
     m = float(tup[1])
-  
+
     if (h < 0 or h > 23) or (m < 0 or m > 60):
         raise ValueError, "hour or minute out of bounds " + ra_sex
     return 2 * numpy.pi * (h + m / 60) / 24
@@ -161,7 +161,7 @@ def dm2rad(dec_sex):
       sign = 1
   m = float(tup[1])
 
-  
+
   if (d > 89) or (m < 0 or m > 60):
     raise ValueError, "degree or minute out of bounds: " + dec_sex
   return numpy.pi * sign * (d + m / 60) / 180
@@ -233,22 +233,22 @@ class CBCGC(list):
         "magnitude_error": (6, float),
         "distance_error": (7, float),
         }
-    
+
     def entry_from_line(cls, line, load_columns):
         # create blank entry
         row = cls.entry_class()
-        
+
         # parse line
         tup = line.split()
-        
+
         # fill the entry
         for col_name in load_columns:
             col_index, col_type = cls.valid_columns[col_name]
             setattr(row, col_name, col_type(tup[col_index]))
-        
+
         return row
     entry_from_line = classmethod(entry_from_line)
-    
+
     def from_file(cls, fileobj, load_columns=None):
         # set/validate columns to load
         if load_columns is None:
@@ -258,7 +258,7 @@ class CBCGC(list):
                 if col not in cls.valid_columns:
                     raise ValueError, "no such column exists"
         cls.entry_class.__slots__ = load_columns
-        
+
         # load them
         return cls([cls.entry_from_line(line, load_columns) for line \
                     in fileobj if not line.startswith("#")])
@@ -299,7 +299,7 @@ class GWGC(CBCGC):
         "app_mag": (5, float_or_tilde),
         #major diameter
         "maj_diam": (6, amin2rad),
-        #error in major diameter 
+        #error in major diameter
         "maj_diam_error": (7, amin2rad),
         #minor diameter
         "min_diam": (8, amin2rad),
@@ -326,10 +326,10 @@ class GWGC(CBCGC):
     def entry_from_line(cls, line, load_columns):
         # create blank entry
         row = cls.entry_class()
-        
+
         # parse line
         tup = line.split('|')
-        
+
         # fill the entry
         for col_name in load_columns:
             col_index, col_type = cls.valid_columns[col_name]
@@ -346,7 +346,7 @@ class GWGC(CBCGC):
                 if col not in cls.valid_columns:
                     raise ValueError, "no such column exists"
         cls.entry_class.__slots__ = load_columns
-        
+
         # load them
         return cls([cls.entry_from_line(line, load_columns) for line \
                     in fileobj if not line.startswith("#")])
