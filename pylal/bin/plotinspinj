@@ -108,7 +108,7 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
   opts = the command line options
   plot_num = plot number
   injections = set of recovered injections with sim and sngl inspiral entries
-  column = colum to plot accuracy of
+  column = column to plot accuracy of
   units = units of column
   axis_width = range of the axis
   second_column = column to plot on x-axis
@@ -121,11 +121,15 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
           second_column.replace("_"," ") )
   figure(plot_num.next())
   hold(True) 
+  second_axis_lowerlim = 0  #default values passed to viz
+  second_axis_upperlim = 0
   for ifo in ifos:
     injection = injections[ifo]
     if second_column == 'snr':
       firstSet = injection['sngl_inspiral']
       secondSet = injection['sim_inspiral']
+      second_axis_lowerlim = min(firstSet.get_column(second_column))
+      second_axis_upperlim = max(firstSet.get_column(second_column))
     else:
       firstSet = injection['sim_inspiral']
       secondSet = injection['sngl_inspiral']
@@ -137,10 +141,10 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
           plot_type, InspiralUtils.colors[ifo] + 'x')
   if error_type == 'actual': 
     viz.labeldiffa_vs_b(column, second_column, units, second_units, \
-        [0,0,-axis_width,axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width,axis_width], None, opts.title_text)
   elif error_type == 'fractional': 
     viz.labelfracdiffa_vs_b(column, second_column, units, second_units, \
-        [0,0,-axis_width,axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width,axis_width], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, column + "_vs_" + \
         second_column)
@@ -192,7 +196,7 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
   opts = the command line options
   plot_num = plot number
   injections = set of recovered injections with sim and sngl inspiral entries
-  column = colum to plot accuracy of
+  column = column to plot accuracy of
   units = units of column
   axis_width = range of the axis
   second_column = column to plot on x-axis
@@ -207,12 +211,16 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
           color_column.replace("_"," ") )
   figure(plot_num.next())
   hold(True) 
+  second_axis_lowerlim = 0  #default value passed to viz
+  second_axis_upperlim = 0
   for ifo in ifos:
     injection = injections[ifo]
     sim_value = viz.readcol(injection['sim_inspiral'], column, ifo)
     sngl_value = viz.readcol(injection['sngl_inspiral'], column, ifo)
     if second_column == 'snr':
       second_value = injection['sngl_inspiral'].get_column('snr')
+      second_axis_lowerlim = min(second_value)
+      second_axis_upperlim = max(second_value)
     else:
       second_value = viz.readcol(injection['sim_inspiral'], second_column, ifo)
     if color_column == 'snr':
@@ -231,10 +239,10 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
 
   if error_type == 'actual':
     viz.labeldiffa_vs_b(column, second_column,units,second_units, \
-        [0,0,-axis_width, axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width, axis_width], None, opts.title_text)
   elif error_type == 'fractional':
     viz.labelfracdiffa_vs_b(column, second_column,units,second_units, \
-        [0,0,-axis_width, axis_width], None, opts.title_text)
+        [second_axis_lowerlim,1.1*second_axis_upperlim,-axis_width, axis_width], None, opts.title_text)
   colorbar()
 
   if opts.enable_output:
@@ -424,12 +432,6 @@ def parse_command_line():
       metavar="VERBOSE", help="verbose option")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, help="dpi of the thumbnails (50 by default)")
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be put "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   parser.add_option("", "--old-document",action="store_true",\
       default=False,help="this option turns on mangling. you are only "\
@@ -652,7 +654,7 @@ if opts.chirp_snr_mtotal:
   fname, text, plot_num = \
       plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
       plot_num, injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, \
-      'snr', None, 'mtotal' , plot_type = 'log', error_type ='fractional')
+      'snr', None, 'mtotal', plot_type = 'log', error_type ='fractional')
   fnameList.append(fname)
   tagList.append(text)
 
@@ -668,8 +670,8 @@ if opts.time_snr:
 if opts.time_snr_mtotal:
   fname, text, plot_num = \
       plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
-      plot_num, injSets, 'end_time', 'seconds', opts.time_axis, \
-      'snr', None, 'mtotal' , plot_type = 'log', error_type ='actual')
+      plot_num, injSets, 'end_time', 'seconds', opts.time_axis, 'snr',\
+      None, 'mtotal', plot_type = 'log', error_type ='actual')
   fnameList.append(fname)
   tagList.append(text)
 
@@ -686,8 +688,8 @@ if opts.eta_snr:
 if opts.eta_snr_mtotal:
   fname, text, plot_num = \
       plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
-      plot_num, injSets, 'eta', None, opts.time_axis, \
-      'snr', None, 'mtotal' , plot_type = 'log', error_type ='fractional')
+      plot_num, injSets, 'eta', None, opts.time_axis, 'snr',\
+      None, 'mtotal', plot_type = 'log', error_type ='fractional')
   fnameList.append(fname)
   tagList.append(text)
 
@@ -828,10 +830,6 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
       tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, \
-        fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()

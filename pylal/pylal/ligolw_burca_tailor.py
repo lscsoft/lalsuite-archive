@@ -24,12 +24,21 @@
 #
 
 
+import itertools
 import math
 import numpy
 from scipy.stats import stats
+import sys
+import threading
 
 
 from glue import iterutils
+try:
+	any
+	all
+except NameError:
+	# Python <2.5
+	from glue.iterutils import any, all
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
 from glue.ligolw import param
@@ -77,7 +86,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 def coinc_params(events, offsetdict):
 	params = {}
-	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 	if events:
 		# the "time" is the ms_snr squared weighted average of the
@@ -94,7 +102,7 @@ def coinc_params(events, offsetdict):
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
 		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
-	for event1, event2 in iterutils.choices(events, 2):
+	for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
 			# inter-instrument deltas
@@ -245,21 +253,25 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def finish(self, filters = {}):
+	def finish(self, filters = {}, verbose = False):
 		default_filter = rate.gaussian_window(21)
 		# normalizing each array so that its sum is 1 has the
 		# effect of making the integral of P(x) dx equal 1 after
 		# the array is transformed to an array of densities (which
 		# is done by dividing each bin by dx).
-		for name, binnedarray in self.zero_lag_rates.items():
+		N = len(self.zero_lag_rates) + len(self.background_rates) + len(self.injection_rates)
+		n = 0
+		threads = []
+		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
+			n += 1
+			if verbose:
+				print >>sys.stderr, "\t%d / %d: %s \"%s\"" % (n, N, group, name)
 			binnedarray.array /= numpy.sum(binnedarray.array)
+			threads.append(threading.Thread(target = rate.to_moving_mean_density, args = (binnedarray, filters.get(name, default_filter))))
+			threads[-1].start()
 			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
-		for name, binnedarray in self.background_rates.items():
-			binnedarray.array /= numpy.sum(binnedarray.array)
-			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
-		for name, binnedarray in self.injection_rates.items():
-			binnedarray.array /= numpy.sum(binnedarray.array)
-			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
+		for thread in threads:
+			thread.join()
 		return self
 
 
@@ -602,7 +614,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions, seglists):
+def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw_burca_tailor"):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
@@ -612,7 +624,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists):
 	process = append_process(xmldoc, comment = u"")
 	llwapp.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
-	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, u"ligolw_burca_tailor"))
+	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, name))
 
 	llwapp.set_process_end_time(process)
 

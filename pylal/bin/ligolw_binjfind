@@ -124,8 +124,8 @@ snglcomparefunc = {
 }[options.match_algorithm]
 
 nearcoinccomparefunc = {
-	"stringcusp": ligolw_binjfind.NearCoincCompare,
-	"excesspower": ligolw_binjfind.NearCoincCompare,
+	"stringcusp": ligolw_binjfind.StringCuspNearCoincCompare,
+	"excesspower": ligolw_binjfind.ExcessPowerNearCoincCompare,
 	"omega": ligolw_binjfind.OmegaNearCoincCompare
 }[options.match_algorithm]
 

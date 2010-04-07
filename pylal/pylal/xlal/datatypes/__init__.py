@@ -20,5 +20,8 @@ __all__ = [
 	"real8fftplan",
 	"real8frequencyseries",
 	"real8timeseries",
-	"real8window"
+	"real8window",
+	"siminspiraltable",
+	"snglinspiraltable",
+	"snglringdowntable"
 ]

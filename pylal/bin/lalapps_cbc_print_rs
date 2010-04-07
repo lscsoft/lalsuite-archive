@@ -8,11 +8,6 @@
 # =============================================================================
 #
 
-description = \
-"""
-Prints information about rate statistics.
-"""
-
 import os, sys, copy, time
 import numpy
 from optparse import OptionParser
@@ -37,6 +32,9 @@ except ImportError:
 
 __prog__ = "lalapps_cbc_print_rs"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+
+description = \
+"Prints information about rate statistics."
 
 # =============================================================================
 #
@@ -198,7 +196,7 @@ out_doc = ligolw.Document()
 # setup the LIGOLW tag
 out_doc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-proc_id = process.register_to_xmldoc(out_doc, __prog__, opts.__dict__)
+proc_id = process.register_to_xmldoc(out_doc, __prog__, opts.__dict__, version = git_version.id)
 
 # set the output to sys.stdout if None specified
 if opts.output is None:

@@ -152,7 +152,7 @@ def setup_files(dir_name, db_name, gps_start_time, gps_end_time):
         target     = dbtables.get_connection_filename(temp_db, None, True, False)
         connection = ligolw_sqlite.setup(target)
 
-        ligolw_sqlite.insert(connection, xml_files)
+        ligolw_sqlite.insert_from_urls(connection, xml_files)
 
     return temp_db, connection
     
@@ -357,7 +357,9 @@ if __name__ == '__main__':
             if full_path.find('%s') != -1:
                 full_path = full_path.replace('%s', ifo[0])
 
-            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
+            conf = options.omega_conf.replace('%s',ifo[0])
+
+            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( conf, full_path, options.omega_out_dir, end_time, end_time ))
 
 
     # Convert to html, prepend to the file.

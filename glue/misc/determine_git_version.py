@@ -2,8 +2,8 @@
 #
 # git_version.py - determine git version info
 #
-# Copyright (C) 2009, Adam Mercer <adam.mercer@ligo.org>,
-#                     Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
+# Copyright (C) 2009,2010 Adam Mercer <adam.mercer@ligo.org>
+# Copyright (C) 2009 Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ import exceptions
 import re
 import subprocess
 import time
+import os
 
 #
 # process management functions
@@ -108,13 +109,12 @@ def write_git_version(fileobj):
   git_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime(git_udate))
 
   # determine branch
-  branch_cmd = 'git branch --no-color'
-  branch_regexp = re.compile(r"\* ((?!\(no branch\)).*)", re.MULTILINE)
-  branch_match = branch_regexp.search(run_external_command(branch_cmd)[1].strip())
-  if branch_match is None:
+  branch_cmd = 'git rev-parse --symbolic-full-name HEAD'
+  branch_match = run_external_command(branch_cmd)[1].strip()
+  if branch_match == "HEAD":
     git_branch = None
   else:
-    git_branch = branch_match.group(1)
+    git_branch = os.path.basename(branch_match)
 
   # determine tag
   tag_cmd = 'git describe --exact-match --tags %s' % git_id
@@ -135,14 +135,20 @@ def write_git_version(fileobj):
   git_committer_email = run_external_command(committer_email_cmd)[1].strip()
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
-  # determine tree status
-  status_cmd = 'git diff-index --name-only HEAD'
-  status_output = run_external_command(status_cmd, honour_ret_code=False)[1]\
-                  .strip()
-  if len(status_output) != 0:
-    git_status = 'UNCLEAN: Some modifications not committed'
+  # refresh index
+  retcode = subprocess.call('git update-index -q --refresh', shell=True)
+
+  # check working copy for changes
+  status_output = subprocess.call('git diff-files --quiet', shell=True)
+  if status_output != 0:
+    git_status = 'UNCLEAN: Modified working tree'
   else:
-    git_status = 'CLEAN: All modifications committed'
+    # check index for changes
+    status_output = subprocess.call('git diff-index --cached --quiet HEAD', shell=True)
+    if status_output != 0:
+      git_status = 'UNCLEAN: Modified index'
+    else:
+      git_status = 'CLEAN: All modifications committed'
 
   # print details in a directly importable form
   print >>fileobj, 'id = "%s"' % git_id

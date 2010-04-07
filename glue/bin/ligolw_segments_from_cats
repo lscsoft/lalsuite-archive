@@ -63,6 +63,8 @@ from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import process
 
+from glue import git_version
+
 import re
 import urllib
 
@@ -75,8 +77,8 @@ except:
 
 
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -94,7 +96,7 @@ def parse_command_line():
     """
 
     parser = OptionParser(
-        version = "%prog CVS $Header$",
+        version = "Name: %%prog\n%s" % git_version.verbose_msg,
         usage   = "%prog -v|--veto-file filename [options]",
         description = "Reads one or more segment files and a veto file and generates files of veto segments"        
 	)
@@ -278,7 +280,7 @@ if __name__ == '__main__':
         segment_connection   = segmentdb_utils.setup_database(db_location)
         segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
-    ligolw_sqlite.insert(veto_connection, xml_files)
+    ligolw_sqlite.insert_from_urls(veto_connection, xml_files)
 
     # If we're working with DMT files make sure we have a segment table
     if file_location:
@@ -301,7 +303,7 @@ if __name__ == '__main__':
             doc.appendChild(ligolw.LIGO_LW())
 
             # Register ourselves
-            proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
+            proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__, version=git_version.id).process_id
 
             # Keep the veto_definer for tracking purposes
             doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['veto_definer']).childNodes[0])

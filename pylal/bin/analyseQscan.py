@@ -47,6 +47,8 @@ from glue import lal
 from glue import segments
 from pylal import webUtils
 from pylal import InspiralUtils
+from pylal import stfu_pipe
+
 
 ##############################################################################
 # function to check the length of the summary files (for debugging)
@@ -81,7 +83,7 @@ def getQscanTable(opts,type):
   elif "BG" in type: type_string = "background"
 
   if eval("opts.qscan_cache_" + type_string):
-    qscanList = getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
+    qscanList = stfu_pipe.getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
   else:
     try:
       inputPath = eval("opts." + type_string + "_input_path")
@@ -192,24 +194,6 @@ def listFromFile(fileName):
       listInstance.append(string.strip(line))
     else: pass
   return listInstance
-
-def getParamsFromCache(fileName,type,ifo=None,time=None):
-  qscanList = []
-  cacheList = lal.Cache.fromfile(open(fileName))
-  if not cacheList:
-    return qscanList
-  cacheSelected = cacheList.sieve(description=type,ifos=ifo)
-  if time:
-    cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
-
-  for cacheEntry in cacheSelected:
-    path_output = cacheEntry.path()
-    time_output = str(cacheEntry.segment[0])
-    type_output = cacheEntry.description
-    ifo_output = cacheEntry.observatory
-    qscanList.append([path_output,time_output,type_output,ifo_output])
-
-  return qscanList
 
 ##############################################################################
 # functions to compute and plot histograms
@@ -665,7 +649,7 @@ if not opts.process_background_only:
       time_string = None
 
     if opts.qscan_cache_foreground:
-      candidates_path = getParamsFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
+      candidates_path = stfu_pipe.getParamsFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
     else:
       print >> sys.stderr, "Please specify the option --qscan-cache= FILE"
       sys.exit(1)
@@ -715,6 +699,9 @@ if not opts.process_background_only:
       webpage.table[0].row[0].cell[0].text("Channel")
       webpage.table[0].row[0].cell[1].text("z significance")
       webpage.table[0].row[0].cell[2].text("dt (peak-time - central time)")
+
+    #initialize string containing list of channels with Z value
+    listZvalues = ""
 
     row_number = 0
     for i,channel in enumerate(candidateTable['channel_name']):
@@ -777,6 +764,13 @@ if not opts.process_background_only:
         dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,dtpercentiles,dtCandidate,dt_candidate_rank)
         fnameList.append(dtFigure)
 
+      #append the list of channels with Z values
+      if zCandidate > 0:
+        if opts.plot_z_distribution:
+          listZvalues += channel + " %.3f %.3f \n" %(zCandidate,z_candidate_rank)
+        else:
+          listZvalues += channel + " %.3f \n" % zCandidate
+
       #append the html page
       row_number = row_number + 1
       if opts.enable_output:
@@ -795,6 +789,16 @@ if not opts.process_background_only:
           webpage.table[0].row[row_number].cell[2].link("Images/" + os.path.basename(dtFigure),"Delta t distribution")
 
     if opts.enable_output:
+
+      #save file containing list of channels
+      txtChannels = file(html_filename.replace(".html",".txt"),"w")
+      if opts.plot_z_distribution:
+        txtChannels.write("#channel Z rank\n")
+      else:
+        txtChannels.write("#channel Z\n")
+      txtChannels.write(listZvalues)
+      txtChannels.close()
+
       webpage.cleanWrite('IUL')
       InspiralUtils.write_cache_output(opts,html_filename,fnameList)
 

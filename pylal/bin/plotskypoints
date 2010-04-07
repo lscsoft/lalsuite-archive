@@ -584,8 +584,6 @@ def parse_command_line():
   parser.add_option("--write-inj-data", action="store_true", default=False, \
                     help="create a file with data from injections")
   
-  #parser.add_option("--html-for-cbcweb", action="store_true", \
-  #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
                     help="display the plots to screen if an X11 display is available")
 
@@ -1158,7 +1156,7 @@ for coinc in coincTriggers:
         '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
 
     html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
-                     [fname], [text], comment=html_footer, cbcweb=False)
+                     [fname], [text], comment=html_footer)
     if not opts.show_plot:
       close()
     #next create the google sky output
@@ -1388,7 +1386,7 @@ if opts.write_summary_plots:
 #  html_footer += "Mean pointings (narrow) " + str(meanpointings_narrow) + "<br>"
 #  html_footer += "Mean pointings (wide) " + str(meanpointings_wide) + "<br>"
   html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
-                                                fnameList, tagList, comment=html_footer, cbcweb=False)
+                                                fnameList, tagList, comment=html_footer)
 if opts.write_inj_data:
   if opts.output_path:
     write_file(opts.output_path, "plotskypoints_inj_data.dat", inj_data)
@@ -1401,10 +1399,6 @@ if opts.write_inj_data:
 #    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],\
 #                     fnameList, tagList, comment=html_footer)
 #    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-#    if opts.html_for_cbcweb:
-#        html_filename_publish = InspiralUtils.write_html_output(opts, \
-#                                 sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=False)
 
 if opts.show_plot:
     show()

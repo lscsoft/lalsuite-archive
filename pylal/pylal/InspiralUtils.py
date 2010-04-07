@@ -16,6 +16,8 @@ from glue.iterutils import any
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import git_version
+from glue import markup
+from glue.markup import oneliner as extra_oneliner
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
@@ -52,48 +54,165 @@ def get_coinc_ifo_colors( ifo_set ):
   else: # other coincs just set to black
     return 'k'
 
+
+############################################################
 class InspiralPage(object):
   """
   This is a class to contain all the bits of a inspiral page
   showing the results of a piece of code.
   """
 
-  def __init__(self, options):
+  # ------------------------------------------------------
+  # ------------------------------------------------------
+  def __init__(self, options, ifo_times = None, ifo_tag = None, user_tag = None,\
+               gps_start_time = None, gps_end_time = None):
     """
     Initializes this class with the options.
+    @params options: option object from the calling function
     """
     self.opts = options
+
+    # set the version of the code and the caling executable
+    self.version = git_version.verbose_msg.replace('\n','<br>')
+    self.name = os.path.basename(sys.argv[0])
+    self.arguments = sys.argv[1:]
+
+    # use the values from this option object to initialize some variables
+    self.initialize()
+
+    # overwrite the default values if needed
+    if ifo_times: self.ifo_times = ifo_times
+    if ifo_tag: self.ifo_tag = ifo_tag
+    if user_tag: self.user_tag = user_tag
+    if gps_start_time: self.gps_start_time = gps_start_time
+    if gps_end_time: self.gps_end_time = gps_end_time
+
+    # and NOW create the suffix and prefixes
+    self.create_affixes()
     
+    # create some empty lists
     self.fname_list = []
     self.tag_list = []
     self.html_footer = ""
 
-    # just adding some stuff to the opts structure
-    # (should be fixed later)
-    initialise(self.opts, os.path.basename(sys.argv[0]))
 
-  def add_plot(self, plot_fig, text):
+  # ------------------------------------------------------
+  def initialize(self):
     """
-    Add a plot to the page
+    Extract information from the option structure.
+    Does NOT alter the information in the option structure
     """
-    
-    fname = set_figure_name(self.opts, text)
-    fname_thumb = savefig_pylal(fname, fig=plot_fig)
-    
-    self.fname_list.append(fname)
-    self.tag_list.append(fname)
 
-  def write_page(self):
+    if hasattr(self.opts, 'ifo_times'):
+      self.ifo_times = self.opts.ifo_times
+    else:
+      self.ifo_times = None
+
+    if hasattr(self.opts, 'ifo_tag'):
+      self.ifo_tag = self.opts.ifo_tag
+    else:
+      self.ifo_tag = None
+
+    if hasattr(self.opts, 'user_tag'):
+      self.user_tag = self.opts.user_tag
+    else:
+      self.user_tag = None
+
+    if hasattr(self.opts, 'gps_start_time'):
+      self.time_string = str(int(self.opts.gps_start_time))+"-"+\
+                         str(int(math.ceil(self.opts.gps_end_time))-int(self.opts.gps_start_time))
+    else:
+      self.time_string = "unspecified-gpstime"
+
+    if hasattr(self.opts,'output_path'):
+      self.output_path = self.opts.output_path
+      if not self.output_path.endswith('/'):
+        self.output_path+= '/'
+    else:
+      self.output_path = './'
+
+    # create the output directory later
+
+  # ------------------------------------------------------
+  def create_affixes(self):
     """
-    create the page
+    Create the affixes (prefix/suffix) for the image naming
+    """
+    self.prefix = self.name
+
+    if self.ifo_times:
+      self.prefix = self.ifo_times + "-" + self.prefix
+    if self.ifo_tag:
+      self.prefix = self.prefix + "_" + self.ifo_tag
+    if self.user_tag:
+      self.prefix = self.prefix + "_" + self.user_tag
+
+    self.suffix = "-"+self.time_string
+
+
+  # ------------------------------------------------------
+  def add_plot(self, plot_fig, fig_description, output_dir = None):
+    """
+    Add a plot to the page.
+    @param plot_fig: handle of the figure
+    @param fig_description: descriptive figure text for the filename
+    @param output_dir: alternate output directory [optional]
+    """
+
+    fname = "Images/" + self.prefix + "_"+ fig_description + self.suffix
+
+    if output_dir:
+      fname = output_dir + '/' + fname
+    else:
+      fname = self.output_path + fname
+
+    filename, filename_thumb = self.savefig(fname, plot_fig)
+    
+    self.fname_list.append(filename)
+    self.tag_list.append(filename)
+
+  # ------------------------------------------------------
+  def savefig(self, filename_base, fig, doThumb=True, dpi = None, dpi_thumb=50):
+    """
+    Function to create the image file. 
+    @param filename_base: basename of the filename (without the .png ending) 
+    @param fig: handle to the figure to save
+    @param doThumb: save the thumbnail or not (doThumb=True by default)
+    @param dpi: resolution of the figure
+    @param dpi_thumb: resolution of the thumbnail (dpi=50 by default)
+    """
+
+    savefig_kwargs = {}
+    if dpi is not None:
+      savefig_kwargs["dpi"] = dpi
+
+    # create the image file
+    filename = filename_base + '.png'
+    fig.savefig(filename, **savefig_kwargs)
+
+    if doThumb:
+      filename_thumb =  filename_base + '_thumb.png'
+      fig.savefig(filename_thumb, dpi=dpi_thumb)
+    else:
+      filename_thumb = None
+
+    return filename, filename_thumb
+
+  # ------------------------------------------------------
+  def write_page(self, infix = None, doThumb = True, \
+                 map_list = [], coinc_summ_table = None ):
+    """
+    Create the pages if output is enabled
     """
     if self.opts.enable_output:
-      html_filename = write_html_output(self.opts, sys.argv[1:],\
-                                        self.fname_list, self.tag_list,\
-                                        comment=self.html_footer or None)
-      write_cache_output(self.opts, html_filename, self.fname_list)
+      html_filename = self.create_htmlname(infix)
+      self.write_html_output(html_filename, doThumb = doThumb, \
+                             map_list = map_list, coinc_summ_table = coinc_summ_table,\
+                             comment=self.html_footer or None)
+      self.write_cache_output(html_filename)
       return html_filename
 
+  # ------------------------------------------------------
   def write(self, text):
     """
     Write some text to the standard output AND
@@ -101,8 +220,145 @@ class InspiralPage(object):
     """
     print text
     self.html_footer+=text+'<br>'
-      
   
+  # ------------------------------------------------------
+  def create_htmlname(self, infix):
+    """
+    Create the html filename
+    """
+
+    # Any infix to use?
+    if infix:
+      html_filename = self.prefix + '_'+ infix  +self.suffix
+    else:
+      html_filename = self.prefix + self.suffix
+
+    html_filename += ".html"
+
+    if self.output_path:
+      html_filename = self.output_path + html_filename
+
+    return html_filename
+  
+  # ------------------------------------------------------  
+  def write_html_output(self, html_filename, doThumb = True, map_list = [],\
+                          comment = None, coinc_summ_table = None ):
+    """
+    @param doThumb: Uses the thumbnail file as the sourcs for the images
+    @param map_list: A list of dictionaries to create the image maps
+    @param comment: A comment that can be added to the page
+    @param coinc_summ_table: A CoincSummTable that can be added to the page
+    """
+
+    # Initialise the html output file
+    page = markup.page()
+    try:
+      page.init(title=__title__)
+    except:
+      page.init()
+
+    page.h1(self.name + " results")
+
+    page.p(self.prefix + self.suffix)
+    page.hr()
+
+    # open the output file
+    html_file = file(html_filename, "w")
+
+    # loop over the contents
+    for tag,filename in zip(self.tag_list, self.fname_list):
+
+      # set the correct name for linking (two '//' does not bother)
+      fname = "Images/" + os.path.basename(filename)
+
+      # set the thumbnail pictures if required
+      if doThumb:
+        fname_thumb = fname[:-4] + "_thumb.png"
+      else:
+        fname_thumb = fname
+
+      # add the image to the page
+      page.a(extra_oneliner.img(src=[fname_thumb], width=400, \
+          alt=tag, border="2"), title=tag, href=[ fname])
+
+    page.add("<hr/>")
+
+    # add maps to this page
+    m=0
+    for map_dict in map_list:
+      m+=1
+      page.add( map_dict['text']+'<br>' )
+      page.add( '<IMG src="%s" width=800px '\
+                'usemap="#map%d">' % ( map_dict['object'], m) )
+      page.add( '<MAP name="map%d"> <P>' % m )
+      n=0
+      for px, py, link in zip( map_dict['xCoords'],  \
+                               map_dict['yCoords'],  \
+                               map_dict['links']):
+        n+=1
+        page.add( '<area href="%s" shape="circle" '\
+                  'coords="%d, %d, 5"> Point%d</a>' %\
+                  ( link, px, py, n) )
+      page.add('</P></MAP></OBJECT><br>')
+      page.add("<hr/>")    
+        
+    # add some extra stuff if needed
+    if comment:
+      page.add("<div> "+comment+"</div>")
+      page.hr()
+
+    if coinc_summ_table:
+      page.add(coinc_summ_table)
+      page.hr()
+        
+    text = self.write_process_params()
+    page.add(text)
+    html_file.write(page(False))
+    html_file.close()
+    
+
+  # ------------------------------------------------------
+  def write_cache_output(self, html_filename):
+    """
+    Write the output cache file of the plotting functions.
+    @param: html_filename: the name of the html file
+    """
+
+    output_cache_name = self.prefix + self.suffix +'.cache'
+    if self.output_path:
+      output_cache_name = self.output_path + output_cache_name
+
+    # open the cachefile
+    cachefile = open(output_cache_name, 'w')
+    cachefile.write(os.path.basename(html_filename) + '\n')
+
+    # loop over each entry in fname_list
+    for filename in self.fname_list:
+      if filename.endswith('.png'):
+        fname = "Images/"+os.path.basename(filename) # set the correct name for linking
+      elif filename.endswith('.html'):
+        fname = os.path.basename(str(filename)) # set the correct name for linking
+
+      # add the name to the cache file
+      cachefile.write(fname + '\n')
+
+    # and close the file
+    cachefile.close()
+
+  # ------------------------------------------------------
+  def write_process_params(self): 
+    """
+    Returns the version and the full command run 
+    """
+    
+    text = "Figure(s) produced with '" + self.name + "' with version: <br>" \
+           + self.version  \
+           + '<br>\n<p style="width:80%; color:blue">'+ self.name
+    for arg in self.arguments:
+      text += " " +  arg
+    text+='</p>'
+  
+    return text
 
 def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
   dpi_thumb=50, fig=None):
@@ -275,7 +531,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
   return CoincSummTable
 
 def write_html_output(opts, args, fnameList, tagLists, \
-      doThumb=True, cbcweb = False, mapList = [],\
+      doThumb=True, mapList = [],\
       comment=None, CoincSummTable=None,\
       html_tag = '', add_box_flag=False):
   """
@@ -284,7 +540,6 @@ def write_html_output(opts, args, fnameList, tagLists, \
   @param fnameList: A list of the filenames
   @param tagLists: A list for the tags, getting added to the links
   @param doThumb: Uses the _thumb file as the sourcs for the images
-  @param cbcweb: Creates the output as a CBC webpage
   @param mapList: A list of dictionaries to create the image maps
   @html_tag: tag to add to html filename
   @add_box_flag: Adds _OPEN_BOX to the html file name if any
@@ -310,21 +565,13 @@ def write_html_output(opts, args, fnameList, tagLists, \
   # -- the HTML document and output cache file
   # -- initialise the web page calling init_page
   page, extra = init_markup_page(opts)
-  if cbcweb:
-    page.addheader("<%method title>" + opts.name + " results</%method>")
-    page.addheader("<%method headline>" + opts.name + " results</%method>")
-    page.addheader("<%method cvsid> $Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $ </%method>")
-  else:
-    page.h1(opts.name + " results")
+  page.h1(opts.name + " results")
 
   page.p(prefix + opts.suffix)
   page.hr()
 
   # -- filename
-  if cbcweb:
-    html_filename = prefix + opts.suffix +"_publish.html"
-  else:
-    html_filename = prefix + opts.suffix +".html"  
+  html_filename = prefix + opts.suffix +".html"
   if opts.output_path:
     html_filename = opts.output_path + html_filename
   html_file = file(html_filename, "w")
@@ -333,10 +580,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   for tag,filename in zip(tagLists,fnameList):
 
     # set the correct name for linking (two '//' does not bother)
-    if cbcweb:
-      fname = opts.html_for_cbcweb + "/Images/" + os.path.basename(filename)
-    else:
-      fname = "Images/" + os.path.basename(filename)
+    fname = "Images/" + os.path.basename(filename)
      
 
       # set the thumbnail pictures if required
