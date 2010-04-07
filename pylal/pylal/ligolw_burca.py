@@ -33,11 +33,9 @@ import sys
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
-from pylal import inject
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal import tools
-from pylal.xlal.burstsearch import ExcessPowerCoincCompare
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -128,7 +126,7 @@ def append_process(xmldoc, **kwargs):
 ExcessPowerBBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
-def make_multi_burst(process_id, coinc_event_id, events):
+def make_multi_burst(process_id, coinc_event_id, events, offset_vector):
 	multiburst = lsctables.MultiBurst()
 	multiburst.process_id = process_id
 	multiburst.coinc_event_id = coinc_event_id
@@ -142,8 +140,8 @@ def make_multi_burst(process_id, coinc_event_id, events):
 	# don't like being multiplied by things, so the first event's peak
 	# time is used as a reference epoch.
 
-	t = events[0].get_peak()
-	multiburst.set_peak(t + sum(event.ms_snr**2.0 * float(event.get_peak() - t) for event in events) / multiburst.snr**2.0)
+	t = events[0].get_peak() + offset_vector[events[0].ifo]
+	multiburst.set_peak(t + sum(event.ms_snr**2.0 * float(event.get_peak() + offset_vector[event.ifo] - t) for event in events) / multiburst.snr**2.0)
 
 	# duration = ms_snr squared weighted average of durations
 
@@ -187,7 +185,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
-		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events))
+		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events, self.time_slide_index[time_slide_id]))
 		return coinc
 
 
@@ -238,15 +236,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 			# max() doesn't like empty lists
 			self.max_edge_peak_delta = 0
 
-	def _add_offset(self, delta):
-		"""
-		Add an amount to the peak time of each event.
-		"""
-		for event in self:
-			event.set_peak(event.get_peak() + delta)
-			event.set_start(event.get_start() + delta)
-
-	def get_coincs(self, event_a, light_travel_time, comparefunc):
+	def get_coincs(self, event_a, offset_a, light_travel_time, ignored, comparefunc):
 		# event_a's peak time
 		peak = event_a.get_peak()
 
@@ -264,11 +254,14 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		# be coincident)
 		dt += self.max_edge_peak_delta + light_travel_time
 
+		# apply time shift
+		peak += offset_a - self.offset
+
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed peak times to quickly
 		# identify a subset of the full list)
-		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, event_b, light_travel_time)]
+		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, ignored)]
 
 
 #
@@ -291,18 +284,11 @@ class StringEventList(snglcoinc.EventList):
 		"""
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 
-	def _add_offset(self, delta):
-		"""
-		Add an amount to the peak time of each event.
-		"""
-		for event in self:
-			event.set_peak(event.get_peak() + delta)
-
-	def get_coincs(self, event_a, threshold, comparefunc):
-		min_peak = max_peak = event_a.get_peak()
-		min_peak -= threshold[0]
-		max_peak += threshold[0]
-		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
+		min_peak = max_peak = event_a.get_peak() + offset_a - self.offset
+		min_peak -= threshold[0] + light_travel_time
+		max_peak += threshold[0] + light_travel_time
+		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, offset_a, event_b, self.offset, light_travel_time, threshold)]
 
 
 #
@@ -314,48 +300,41 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-def StringCoincCompare(a, b, thresholds):
+def ExcessPowerCoincCompare(a, offseta, b, offsetb, light_travel_time, thresholds):
+	if abs(a.central_freq - b.central_freq) > (a.bandwidth + b.bandwidth) / 2:
+		return True
+
+	astart = a.get_start() + offseta
+	bstart = b.get_start() + offsetb
+	if astart > bstart + b.duration + light_travel_time:
+		# a starts after the end of b
+		return True
+
+	if bstart > astart + a.duration + light_travel_time:
+		# b starts after the end of a
+		return True
+
+	# time-frequency times intersect
+	return False
+
+
+def StringCoincCompare(a, offseta, b, offsetb, light_travel_time, thresholds):
 	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
+	Returns False (a & b are coincident) if the events' peak times
+	differ from each other by no more than dt plus the light travel
+	time from one instrument to the next.
 	"""
-	# unpack thresholds
-	dt, kappa, epsilon = thresholds
+	# unpack thresholds (it's just the \Delta t window)
+	dt, = thresholds
 
 	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt
-
-	# for H1+H2, also test for amplitude coincidence
-	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
-		adelta = abs(a.amplitude) * (kappa / a.snr + epsilon)
-		bdelta = abs(b.amplitude) * (kappa / b.snr + epsilon)
-		coincident = coincident and a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta and b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta
+	coincident = abs(float(a.get_peak() + offseta - b.get_peak() - offsetb)) <= (dt + light_travel_time)
 
 	# return result
 	return not coincident
 
 
-# redefine:  new version for S5
-def StringCoincCompare(a, b, thresholds):
-	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
-	"""
-	# unpack thresholds
-	# FIXME:  only dt is used now, update codes to remove kappa and
-	# epsilon
-	dt, kappa, epsilon = thresholds
-
-	# test for time coincidence
-	coincident = abs(float(a.get_peak() - b.get_peak())) <= dt + inject.light_travel_time(a.ifo, b.ifo)
-
-	# return result
-	return not coincident
-
-
-def StringNTupleCoincCompare(events):
+def StringNTupleCoincCompare(events, offset_vector):
 	instruments = set(event.ifo for event in events)
 
 	# disallow H1,H2 only coincs
@@ -382,7 +361,7 @@ def ligolw_burca(
 	coinc_definer_row,
 	event_comparefunc,
 	thresholds,
-	ntuple_comparefunc = lambda events: False,
+	ntuple_comparefunc = lambda events, offset_vector: False,
 	verbose = False
 ):
 	#
@@ -420,7 +399,7 @@ def ligolw_burca(
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(time_slide_graph.head), ", ".join(("%s = %+.16g s" % x) for x in sorted(node.offset_vector.items())))
 		for coinc in itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs):
 			ntuple = tuple(sngl_index[id] for id in coinc)
-			if not ntuple_comparefunc(ntuple):
+			if not ntuple_comparefunc(ntuple, node.offset_vector):
 				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
 
 	#

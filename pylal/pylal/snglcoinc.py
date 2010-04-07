@@ -38,6 +38,7 @@ from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import git_version
+from pylal import inject
 from pylal import llwapp
 from pylal import ligolw_tisi
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS # FIXME:  not needed once graph construction arithmetic is fixed
@@ -57,6 +58,12 @@ __date__ = git_version.date
 #
 
 
+def offset_vector_str(offset_vector, compact = False):
+	if compact:
+		return ",".join(("%s=%g" % x) for x in sorted(offset_vector.items()))
+	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
+
+
 class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector, time_slide_id = None):
 		self.time_slide_id = time_slide_id
@@ -74,7 +81,7 @@ class TimeSlideGraphNode(object):
 
 		if self.coincs is not None:
 			if verbose:
-				print >>sys.stderr, "\treusing %s" % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+				print >>sys.stderr, "\treusing %s" % offset_vector_str(self.offset_vector)
 			return self.coincs
 
 		#
@@ -83,7 +90,7 @@ class TimeSlideGraphNode(object):
 
 		if self.components is None:
 			if verbose:
-				print >>sys.stderr, "\tconstructing %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+				print >>sys.stderr, "\tconstructing %s ..." % offset_vector_str(self.offset_vector)
 			#
 			# can we do it?
 			#
@@ -113,7 +120,7 @@ class TimeSlideGraphNode(object):
 			# FIXME:  assumes the instrument column is named
 			# "ifo".  works for inspirals, bursts, and
 			# ring-downs.
-			self.coincs = sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose))
+			self.coincs = sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose))
 			self.coincs = tuple(self.coincs)
 			return self.coincs
 
@@ -124,7 +131,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.components[0].offset_vector.items())))
+				print >>sys.stderr, "\tgetting coincs from %s ..." % offset_vector_str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -148,11 +155,13 @@ class TimeSlideGraphNode(object):
 		#
 
 		self.coincs = []
-		self.unused_coincs = reduce(lambda a, b: a | b, (set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)) for component in self.components))
-		self.unused_coincs |= reduce(lambda a, b: a & b, (component.unused_coincs for component in self.components))
+		for component in self.components:
+			self.unused_coincs |= set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+		for componenta, componentb in iterutils.choices(self.components, 2):
+			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % (", ".join(("%s = %+.16g s" % x) for x in sorted(self.offset_vector.items())))
+			print >>sys.stderr, "\tassembling %s ..." % offset_vector_str(self.offset_vector)
 		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
@@ -243,21 +252,19 @@ class TimeSlideGraph(object):
 		Write a DOT graph representation of the time slide graph to
 		fileobj.
 		"""
-		vectorstring = lambda offset_vector: ",".join("%s=%g" % (instrument, offset) for instrument, offset in sorted(offset_vector.items()))
-
 		print >>fileobj, "digraph \"Time Slides\" {"
 		for nodes in self.generations.values():
 			for node in nodes:
-				node_name = vectorstring(node.offset_vector)
+				node_name = offset_vector_str(node.offset_vector, compact = True)
 				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
 				if node.components is not None:
 					for component in node.components:
-						print >>fileobj, "\t\"%s\" -> \"%s\";" % (vectorstring(component.offset_vector), node_name)
+						print >>fileobj, "\t\"%s\" -> \"%s\";" % (offset_vector_str(component.offset_vector, compact = True), node_name)
 		for node in self.head:
-			node_name = vectorstring(node.offset_vector)
+			node_name = offset_vector_str(node.offset_vector, compact = True)
 			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node_name
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (vectorstring(component.offset_vector), node_name)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (offset_vector_str(component.offset_vector, compact = True), node_name)
 		print >>fileobj, "}"
 
 
@@ -306,6 +313,14 @@ class CoincTables(object):
 		Takes a process ID, a time slide ID, and a list of events,
 		and adds the events as a new coincidence to the coinc_event
 		and coinc_map tables.
+
+		Subclasses that wish to override this method should first
+		chain to this method to construct and initialize the
+		coinc_event and coinc_event_map rows.  When subclassing
+		this method, if the time shifts that were applied to the
+		events in constructing the coincidence are required to
+		compute additional metadata, they can be retrieved from
+		self.time_slide_index using the time_slide_id.
 		"""
 		# so we can iterate over it more than once incase we've
 		# been given a generator expression.
@@ -417,7 +432,13 @@ class EventList(list):
 	unless you know what you're doing.
 	"""
 	def __init__(self, instrument):
+		# the offset that should be added to the times of events in
+		# this list when comparing to the times of other events.
+		# used to implement time-shifted coincidence tests
 		self.offset = lsctables.LIGOTimeGPS(0)
+
+		# the name of the instrument from which the events in this
+		# list have been taken
 		self.instrument = instrument
 
 	def make_index(self):
@@ -431,18 +452,6 @@ class EventList(list):
 		"""
 		pass
 
-	def _add_offset(self, delta):
-		"""
-		Add an amount to the time of each event.  This method is
-		used internally by the set_offset() method, and is provided
-		to simplify the construction of search-specific subclasses.
-		Typically, the _add_offset() method will be overridden with
-		a search-specific implementation, while the set_offset()
-		method is not modified (which does some additional book
-		keeping, such as updating the offset attribute).
-		"""
-		raise NotImplementedError
-
 	def set_offset(self, offset):
 		"""
 		Set an offset on the times of all events in the list.
@@ -453,26 +462,38 @@ class EventList(list):
 		# LIGOTimeGPS objects are exact, so by recording the offset
 		# as a LIGOTimeGPS it should be possible to return the
 		# events to exactly their original times before exiting.
-		offset = lsctables.LIGOTimeGPS(offset)
+		self.offset = lsctables.LIGOTimeGPS(offset)
 
-		# check for no-op
-		if offset != self.offset:
-			# apply the delta
-			self._add_offset(offset - self.offset)
-
-			# record the new offset
-			self.offset = offset
-
-	def get_coincs(self, event_a, threshold, comparefunc):
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		"""
 		Return a list of the events from this list that are
 		coincident with event_a.
+
+		offset_a is the time shift to be added to the time of
+		event_a before comparing to the times of events in this
+		list.  The offset attribute of will contain the time shift
+		to be added to the times of the events in this list before
+		comparing to event_a.  That is, the times of arrival of the
+		events in this list should have (self.offset - offset_a)
+		added to them before comparing to the time of arrival of
+		event_a.  Or, equivalently, the time of arrival of event_a
+		should have (offset_a - self.offset) added to it before
+		comparing to the times of arrival of the events in this
+		list.  This must be done to support the construction of
+		time shifted coincidences.
+
+		Because it is frequently needed by implementations of this
+		method, the distance in light seconds between the two
+		instruments is provided as the light_travel_time parameter.
 
 		The threshold argument will be the thresholds appropriate
 		for "instrument_a, instrument_b", in that order, where
 		instrument_a is the instrument for event_a, and
 		instrument_b is the instrument for the events in this
 		EventList.
+
+		comparefunc is the function to use to compare events in
+		this list to event_a.
 		"""
 		raise NotImplementedError
 
@@ -501,6 +522,9 @@ class EventListDict(dict):
 		"""
 		for event in event_table:
 			if (process_ids is None) or (event.process_id in process_ids):
+				# FIXME:  only works when the isntrument
+				# name is in the "ifo" column.  true for
+				# inspirals, bursts and ringdowns
 				if event.ifo not in self:
 					self[event.ifo] = EventListType(event.ifo)
 				self[event.ifo].append(event)
@@ -545,7 +569,7 @@ def make_eventlists(xmldoc, EventListType, event_table_name, process_ids = None)
 #
 
 
-def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose = False):
+def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = False):
 	"""
 	Given an instance of an EventListDict, an event comparison
 	function, an iterable (e.g., a list) of instruments, and a
@@ -554,13 +578,19 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 
 	The signature of the comparison function should be
 
-	>>> comparefunc(event1, event2, threshold_data)
+	>>> comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
 
 	where event1 and event2 are two objects drawn from the event lists
-	(from different instruments) and threshold_data is the value
+	(from different instruments), offset1 and offset2 are the time
+	shifts that should be added to the arrival times of event1 and
+	event2 respectively, light_travel_time is the distance between the
+	instruments in light seconds, and threshold_data is the value
 	contained in the thresholds dictionary for the pair of instruments
 	from which event1 and event2 have been drawn.  The return value
-	should be 0 if the events are coincident, and non-zero otherwise.
+	should be 0 (False) if the events are coincident, and non-zero
+	otherwise (the behaviour of the comparison function is like a
+	subtraction operator, returning 0 when the two events are "the
+	same").
 
 	The thresholds dictionary should look like
 
@@ -574,63 +604,49 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 	comparison function and so the thresholds dictionary must provide a
 	threshold for the instruments in both orders.
 
-	Each tuple returned by this generator will contain exactly one
-	event from each of the instruments in the instrument list.
+	Each tuple returned by this generator will contain events from
+	distinct instruments.
+
+	NOTE:  the instruments sequence must contain exactly two
+	instruments.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
-	eventlists = [(eventlists[instrument], instrument) for instrument in instruments]
-	if not eventlists:
-		# no instruments == nothing to do
-		return
+	instruments = tuple(instruments)
+	assert len(instruments) == 2
+	for instrument in instruments:
+		assert eventlists[instrument].instrument == instrument
+	eventlists = [eventlists[instrument] for instrument in instruments]
 
-	# sort the list of event lists from longest to shortest, extract
-	# the shortest list, the name of its instrument, and record its length
+	# determine the shorter and longer of the two event lists;  record
+	# the length of the shortest
 
-	eventlists.sort(lambda a, b: cmp(len(a[0]), len(b[0])), reverse = True)
-	shortestlist, shortestinst = eventlists.pop()
-	length = len(shortestlist)
+	if len(eventlists[0]) <= len(eventlists[1]):
+		eventlista, eventlistb = eventlists
+	else:
+		eventlistb, eventlista = eventlists
+	length = len(eventlista)
+
+	# extract the thresholds and pre-compute the light travel time
 
 	try:
-		# pre-construct the sequence of thresholds for pairs of the
-		# remaining instruments in the order in which they will be
-		# used by the inner loop
-
-		threshold_sequence = tuple(thresholds[pair] for pair in iterutils.choices([instrument for eventlist, instrument in eventlists], 2))
-
-		# retrieve the thresholds to be used in comparing events
-		# from the shortest list to those in each of the remaining
-		# event lists
-
-		eventlists = tuple((eventlist, thresholds[(shortestinst, instrument)]) for eventlist, instrument in eventlists)
+		thresholds = thresholds[(eventlista.instrument, eventlistb.instrument)]
 	except KeyError, e:
-		raise KeyError, "no coincidence thresholds provided for instrument pair %s" % str(e)
+		raise KeyError, "no coincidence thresholds provided for instrument pair %s, %s" % str(e)
+	light_travel_time = inject.light_travel_time(eventlista.instrument, eventlistb.instrument)
 
 	# for each event in the shortest list
 
-	for n, event in enumerate(shortestlist):
-		if verbose and not (n % 1000):
+	for n, eventa in enumerate(eventlista):
+		if verbose and not (n % 2000):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
 
-		head = (event,)
+		# iterate over events from the other list that are
+		# coincident with the event.
 
-		# iterate over n-tuples of events from the other lists that
-		# are coincident with the outer event.  each n-tuple
-		# contains one event from each list.
-
-		for tail in iterutils.MultiIter(*[eventlist.get_coincs(event, threshold, comparefunc) for eventlist, threshold in eventlists]):
-
-			# if the events in the inner n-tuple are
-			# mutually-coincident, combine with the outer event
-			# and report as a coincident n-tuple.
-
-			for (a, b), threshold in zip(iterutils.choices(tail, 2), threshold_sequence):
-				if comparefunc(a, b, threshold):
-					# not coincident
-					break
-			else:
-				# made it through the loop, all pairs are
-				# coincident
-				yield head + tail
+		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
+			yield (eventa, eventb)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
+
+	# done
