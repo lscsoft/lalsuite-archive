@@ -41,6 +41,8 @@ def is_inside_polygon(point, vertices):
     Return True if the (2-D) point is inside the (2-D) polygon defined by the
     vertices.
 
+    Warning: Result is undefined for points lying along the edge of the polygon.
+
     Adapted from:
     http://local.wasp.uwa.edu.au/~pbourke/geometry/insidepoly/ (solution 2)
     """
