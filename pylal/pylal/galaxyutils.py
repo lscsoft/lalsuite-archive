@@ -206,7 +206,7 @@ def int_or_tilde(num):
   in the GWGC catalog
   """
   if num == '~':
-    return -1
+    return None
   else:
     return int(num)
 
