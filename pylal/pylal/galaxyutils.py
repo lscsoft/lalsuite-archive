@@ -60,7 +60,8 @@ def is_within_distances(gal_dist, dmin, dmax):
     Return True if dmax > gal_dist > dmin
     """
     if (dmin > dmax):
-        raise ValueError, "minimum distance is greater than maximum distance " + str(dmin) + " > "+ str(dmax)
+        raise ValueError, "minimum distance is greater than maximum distance "\
+            + str(dmin) + " > "+ str(dmax)
     if (0 > dmin) or (0 > dmax):
         raise ValueError, "negative distance " + str(dmin) + " " + str(dmax)
     return (dmax > gal_dist) and (dmin < gal_dist)
@@ -217,8 +218,13 @@ def int_or_tilde(num):
 
 class CBCGC(list):
     """
-    class for working with the galaxy catalog created and maintained by the CBC group
+    class for working with the galaxy catalog created and maintained by the
+    CBC group
+
+    Current catalog:
     http://www.lsc-group.phys.uwm.edu/cgit/lalsuite/plain/lalapps/src/inspiral/inspsrcs100Mpc.errors
+
+    Literature reference:
     http://arxiv.org/pdf/0706.1283
     """
     valid_columns =  {
@@ -265,10 +271,12 @@ class CBCGC(list):
     from_file = classmethod(from_file)
 
     def within_polygon(self, vertices):
-        return self.__class__([gal for gal in self if is_inside_polygon(gal.coords, vertices)])
+        return self.__class__([gal for gal in self if \
+            is_inside_polygon(gal.coords, vertices)])
 
     def within_distances(self, dmin, dmax):
-        return self.__class__([gal for gal in self if is_within_distances(gal.distance_kpc, dmin, dmax)])
+        return self.__class__([gal for gal in self if \
+            is_within_distances(gal.distance_kpc, dmin, dmax)])
 
     def __repr__(self):
         return "\n".join(itertools.imap(str, self))
@@ -278,13 +286,16 @@ class GalaxyCatalog(CBCGC):
     left here to maintain compatibility with existing codes
     """
     def __init__(self,*args,**kwargs):
-      warnings.warn('The GalaxyCatalog class has been replaced by the CBCGC class.', \
-                   DeprecationWarning, stacklevel=3)
+      warnings.warn( \
+        'The GalaxyCatalog class has been replaced by the CBCGC class.',
+        DeprecationWarning, stacklevel=3)
       CBCGC.__init__(self,*args,**kwargs)
 
 class GWGC(CBCGC):
     """
     useful class for dealing with the gravitational wave galaxy catalog
+
+    Current catalog:
     https://www.lsc-group.phys.uwm.edu/cgi-bin/pcvs/viewcvs.cgi/bursts/collabs/DO_proposal/gwgc/GWGCCatalog.txt?rev=1.4&content-type=text/vnd.viewcvs-markup
     """
     valid_columns =  {
@@ -353,7 +364,8 @@ class GWGC(CBCGC):
     from_file = classmethod(from_file)
 
     def within_distances(self, dmin, dmax):
-        return self.__class__([gal for gal in self if is_within_distances(gal.distance_mpc, dmin, dmax)])
+        return self.__class__([gal for gal in self if \
+            is_within_distances(gal.distance_mpc, dmin, dmax)])
 
 class CBCGGalaxy(object):
     """
