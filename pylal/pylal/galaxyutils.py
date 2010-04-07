@@ -25,6 +25,7 @@ import math
 itertools = __import__("itertools")  # system-wide itertools
 
 import numpy
+import warnings
 
 ##############################################################################
 # math
@@ -165,17 +166,61 @@ def dm2rad(dec_sex):
     raise ValueError, "degree or minute out of bounds: " + dec_sex
   return numpy.pi * sign * (d + m / 60) / 180
 
+def amin2rad(amins):
+  """
+  convert arcminutes to radians
+  """
+  if amins == '~':
+    return float('nan')
+  else:
+    return 1080*float(amins)/numpy.pi
+
+def deg2rad(degs):
+  """
+  convert degrees to radians
+  """
+  if degs == '~':
+    return float('nan')
+  else:
+      return float(degs)*numpy.pi/180
+
+def h2rad(hours):
+  """
+  convert hours to radians
+  """
+  return float(hours)*numpy.pi/12
+
+def float_or_tilde(num):
+  """
+  deal with the use of tildes (and other strings) for unknown float quantities
+  in the GWGC catalog
+  """
+  if num == '~':
+    return float('nan')
+  else:
+      return float(num)
+
+def int_or_tilde(num):
+  """
+  deal with the use of tildes for unknown int quantities
+  in the GWGC catalog
+  """
+  if num == '~':
+    return -1
+  else:
+    return int(num)
+
+
 ##############################################################################
 # galaxy and galaxy catalog representations
 ##############################################################################
 
-def column_cmp(k1, k2):
+class CBCGC(list):
     """
-    Comparison function to sort column names by their column index.
+    class for working with the galaxy catalog created and maintained by the CBC group
+    http://www.lsc-group.phys.uwm.edu/cgit/lalsuite/plain/lalapps/src/inspiral/inspsrcs100Mpc.errors
+    http://arxiv.org/pdf/0706.1283
     """
-    return cmp(GalaxyCatalog.valid_columns[k1][0], GalaxyCatalog.valid_columns[k2][0])
-
-class GalaxyCatalog(list):
     valid_columns =  {
         "name": (0, str),
         "ra": (1, hm2rad),
@@ -208,7 +253,6 @@ class GalaxyCatalog(list):
         # set/validate columns to load
         if load_columns is None:
             load_columns = cls.valid_columns.keys()
-            load_columns.sort(column_cmp)
         else:
             for col in load_columns:
                 if col not in cls.valid_columns:
@@ -229,13 +273,94 @@ class GalaxyCatalog(list):
     def __repr__(self):
         return "\n".join(itertools.imap(str, self))
 
-class Galaxy(object):
+class GalaxyCatalog(CBCGC):
+    """
+    left here to maintain compatibility with existing codes
+    """
+    def __init__(self,*args,**kwargs):
+      warnings.warn('The GalaxyCatalog class has been replaced by the CBCGC class.', \
+                   DeprecationWarning, stacklevel=3)
+      CBCGC.__init__(self,*args,**kwargs)
+
+class GWGC(CBCGC):
+    """
+    useful class for dealing with the gravitational wave galaxy catalog
+    https://www.lsc-group.phys.uwm.edu/cgi-bin/pcvs/viewcvs.cgi/bursts/collabs/DO_proposal/gwgc/GWGCCatalog.txt?rev=1.4&content-type=text/vnd.viewcvs-markup
+    """
+    valid_columns =  {
+        #hyperleda identifier
+        "pgc": (0,int_or_tilde),
+        "name": (1, str),
+        "ra": (2, h2rad),
+        "dec": (3, deg2rad),
+        #morphological type
+        "mtype": (4, str),
+        #apparent blue magnitude
+        "app_mag": (5, float_or_tilde),
+        #major diameter
+        "maj_diam": (6, amin2rad),
+        #error in major diameter 
+        "maj_diam_error": (7, amin2rad),
+        #minor diameter
+        "min_diam": (8, amin2rad),
+        #error in minor diameter
+        "min_diam_error": (9, amin2rad),
+        #ratio of minor to major diameters
+        "ratio_diams": (10, float_or_tilde),
+        #error in ratio of diameters
+        "ratio_diams_error": (11, float_or_tilde),
+        #position angle of galaxy
+        "pos_ang": (12, deg2rad),
+        #absolute blue magnitude
+        "abs_mag": (13, float_or_tilde),
+        # distance measured in mpc
+        "distance_mpc": (14, float_or_tilde),
+        #distance error in mpc
+        "distance_error": (15, float_or_tilde),
+        #apparent magnitude error
+        "app_mag_error": (16, float_or_tilde),
+        #absolute magnitude error
+        "abs_mag_error": (17, float_or_tilde)
+        }
+
+    def entry_from_line(cls, line, load_columns):
+        # create blank entry
+        row = cls.entry_class()
+        
+        # parse line
+        tup = line.split('|')
+        
+        # fill the entry
+        for col_name in load_columns:
+            col_index, col_type = cls.valid_columns[col_name]
+            setattr(row, col_name, col_type(tup[col_index]))
+        return row
+    entry_from_line = classmethod(entry_from_line)
+
+    def from_file(cls, fileobj, load_columns=None):
+        # set/validate columns to load
+        if load_columns is None:
+            load_columns = cls.valid_columns.keys()
+        else:
+            for col in load_columns:
+                if col not in cls.valid_columns:
+                    raise ValueError, "no such column exists"
+        cls.entry_class.__slots__ = load_columns
+        
+        # load them
+        return cls([cls.entry_from_line(line, load_columns) for line \
+                    in fileobj if not line.startswith("#")])
+    from_file = classmethod(from_file)
+
+    def within_distances(self, dmin, dmax):
+        return self.__class__([gal for gal in self if is_within_distances(gal.distance_mpc, dmin, dmax)])
+
+class CBCGGalaxy(object):
     """
     A galaxy object that knows how to initialize itself from a line in a text
     file and consumes a minimum of memory.
     """
     __slots__ = GalaxyCatalog.valid_columns.keys()
-    __slots__.sort(column_cmp)
 
     def __str__(self):
         return "\t".join([str(getattr(self, slot)) for slot in self.__slots__])
@@ -247,4 +372,9 @@ class Galaxy(object):
         return (self.ra, self.dec)
     coords = property(fget=_coords_getter)
 
-GalaxyCatalog.entry_class = Galaxy
+class GWGCgalaxy(CBCGGalaxy):
+  __slots__ = GWGC.valid_columns.keys()
+
+GalaxyCatalog.entry_class = CBCGGalaxy
+CBCGC.entry_class = CBCGGalaxy
+GWGC.entry_class = GWGCgalaxy
