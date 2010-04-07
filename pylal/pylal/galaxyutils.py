@@ -173,7 +173,7 @@ def amin2rad(amins):
   if amins == '~':
     return float('nan')
   else:
-    return 1080*float(amins)/numpy.pi
+    return 10800*float(amins)/numpy.pi
 
 def deg2rad(degs):
   """
