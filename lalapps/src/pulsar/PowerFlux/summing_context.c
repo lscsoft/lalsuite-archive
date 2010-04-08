@@ -39,6 +39,8 @@ if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
 	ctx->summing_step=864000; /* ten days */
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
+	fprintf(LOG, "single_bin_loose: only tested with delta of pi/2 and pi/5\n");
+	fprintf(stderr, "single_bin_loose: only tested with delta of pi/2 and pi/5\n");
 	ctx->get_uncached_power_sum=get_uncached_loose_single_bin_partial_power_sum;
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached_diff;
 	ctx->accumulate_power_sums=accumulate_single_bin_loose_power_sums_sidereal_step;
@@ -50,6 +52,8 @@ if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
 	ctx->time_group_count=3;
 	} else
 if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
+	fprintf(LOG, "**** WARNING matched_loose: this experimental code has not been reviewed yet.\n");
+	fprintf(stderr, "**** WARNING matched_loose: this experimental code has not been reviewed yet.\n");
 	ctx->get_uncached_power_sum=get_uncached_loose_matched_partial_power_sum;
 	ctx->accumulate_power_sum_cached=accumulate_power_sum_cached_diff;
 	ctx->accumulate_power_sums=accumulate_matched_loose_power_sums_sidereal_step;
@@ -116,6 +120,6 @@ return(ctx);
 
 void free_summing_context(SUMMING_CONTEXT *ctx)
 {
-free(ctx);
 if(ctx->free_cache!=NULL)ctx->free_cache(ctx);
+free(ctx);
 }
