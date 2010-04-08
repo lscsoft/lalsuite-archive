@@ -23,7 +23,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
-itertools = __import__("itertools")  # absolute import of system-wide itertools
+import itertools
 
 import numpy
 import pylab

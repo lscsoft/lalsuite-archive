@@ -14,7 +14,7 @@ import os
 import re
 import exceptions
 import glob
-itertools = __import__("itertools")  # system-wide itertools
+import itertools
 from types import *
 from optparse import *
 

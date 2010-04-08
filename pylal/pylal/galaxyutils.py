@@ -21,8 +21,8 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
+import itertools
 import math
-itertools = __import__("itertools")  # system-wide itertools
 
 import numpy
 import warnings
