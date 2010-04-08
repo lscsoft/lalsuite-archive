@@ -273,14 +273,14 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
  	d2=&(datasets[si_local2->dataset]);
 
 	bin_shift=rintf(si_local->bin_shift)-pps->offset;
-	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
+	if((bin_shift+side_cut<0) || (bin_shift+pps_bins>nbins)) {
 		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
 			bin_shift, si_local->bin_shift);
 		exit(-1);
 		}
 
 	bin_shift2=rintf(si_local2->bin_shift)-pps->offset;
-	if((bin_shift2+side_cut<0) || (bin_shift2>pps_bins+side_cut)) {
+	if((bin_shift2+side_cut<0) || (bin_shift2+pps_bins>nbins)) {
 		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
 			bin_shift2, si_local2->bin_shift);
 		exit(-1);
@@ -744,10 +744,12 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	priv->emission_time=NULL;
 	free(priv);
 	ctx->patch_private_data=NULL;
+	priv=NULL;
 	}
 
 for(i=0;i<count;i++) {
 	if(ps[i].min_gps<0 || ps[i].min_gps>gps_start)ps[i].min_gps=gps_start;
 	if(ps[i].max_gps<0 || ps[i].max_gps<gps_stop)ps[i].max_gps=gps_stop;
 	}
+if(status.statusPtr)FREESTATUSPTR(&status);
 }

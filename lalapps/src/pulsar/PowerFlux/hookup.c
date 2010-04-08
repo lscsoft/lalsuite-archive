@@ -220,6 +220,7 @@ detectorvel_inputs.detector=detector;
 detectorvel_inputs.edat=&ephemeris;
 #endif
 fprintf(stderr,"Successfully initialized ephemeris data\n");
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
 void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
@@ -249,6 +250,7 @@ TESTSTATUS(&status);
 
 *cross=response.cross;
 *plus=response.plus;
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
 void get_detector_vel(INT64 gps, float *velocity)
@@ -281,6 +283,7 @@ fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 #endif
 
 for(i=0;i<3;i++)velocity[i]=det_velocity[i];
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
 
