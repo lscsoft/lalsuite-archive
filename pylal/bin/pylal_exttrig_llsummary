@@ -526,10 +526,11 @@ fuopts.figure_resolution = 60
 fuopts.output_path = opts.openbox_path+'/'
 
 # read the cache file and initialize the followup class
-cache = lal.Cache.fromfile(open('../GRB'+grb.name+'.cache'))
+cache = lal.Cache.fromfile(open('../GRB'+grb.name+'.cache')).sieve(description='ONSOURCE')
 followup = followup_trigger.FollowupTrigger(cache, fuopts, False)
+lctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
+        "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
-#
 # create the trigger table
 #
 ifos_list = ['H1L1V1','H1L1','H1V1','L1V1']

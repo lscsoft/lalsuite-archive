@@ -49,7 +49,7 @@ plot_hipe_template="""
   --write-script"""
 
 # -----------------------------------------------------
-def check_proxy():
+def check_proxy(cp):
   """
   Checks the status of the grid-proxy and sends an email 
   if it runs out. Any way to improve that???
