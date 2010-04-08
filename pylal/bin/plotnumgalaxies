@@ -1,11 +1,7 @@
 #!/usr/bin/python
 
-
-# $Id: plotnumgalaxies,v 1.92.2.10 2009/03/27 20:44:40 sfairhur Exp $
 __author__ = "Stephen Fairhurst <fairhurst_s@ligo.caltech.edu>"
-__version__ = "$Revision: 1.92.2.10 $"[11:-2]
-__date__ = "$Date: 2009/03/27 20:44:40 $"[7:-2]
-	
+
 import sys
 import os
 import re
@@ -28,6 +24,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
+from pylal import git_version
 
 ##############################################################################
 # redefine the SimInspiral columns of interest
@@ -1591,7 +1588,7 @@ plotnumgalaxies [options]
 """
 
 ##############################################################################
-parser = OptionParser( usage=usage, version= "%prog CVS $Id: plotnumgalaxies,v 1.92.2.10 2009/03/27 20:44:40 sfairhur Exp $")
+parser = OptionParser( usage=usage, version=git_version.verbose_msg)
 
 # used letters: 
 # abcdefghijklmnopqrstuvwxyz
