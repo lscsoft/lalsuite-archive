@@ -33,15 +33,17 @@
 \listoffigures
 \chapter{Coding Conventions}
 \section{General}
-The executables should contain some standard code at the beginning of the document such
-as
+The executables should contain some standard code at the beginning of the
+document such as
+%
 \begin{verbatim}
-__version__ = "$Revision$"
-__date__ = "$Date$"[7:-2]
-__id__ = "$Id$"
-__name__="plotthinca"
+__author__ = "Albert Einstein <albert.einstein@ligo.org>
 \end{verbatim}
-so that the version, and Id can be used within the document if needed.
+to identify the author. If you parse arguments with the \prog{optparse}
+module, be sure to do \progarg{from pylal import git\_version} and in the
+parser initialization, use the kwarg
+\progarg{version=git\_version.verbose\_msg} in order to support
+\progarg{--version}.
 
 \section{Naming conventions}
 The output file should be 
