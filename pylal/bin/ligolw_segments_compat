@@ -65,21 +65,41 @@ for filename in filenames:
 	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
 
 	#
-	# add ns columns to segment table
+	# retrieve segment table
 	#
 
 	try:
-		segment_table = lsctables.table.get_table(xmldoc, lsctables.Segment.tableName)
+		segment_table = lsctables.table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	except ValueError:
-		pass
-	else:
-		column1 = segment_table.appendColumn("start_time_ns")
-		column2 = segment_table.appendColumn("end_time_ns")
+		#
+		# no table --> no op
+		#
+
+		continue
+
+	#
+	# add ns columns to segment table
+	#
+
+	for column_name in ("start_time_ns", "end_time_ns"):
+		try:
+			column = segment_table.appendColumn(column_name)
+		except ValueError:
+			#
+			# table already has this column
+			#
+
+			continue
+
+		#
+		# fill with 0s
+		#
+
 		for i in range(len(segment_table)):
-			column1[i] = column2[i] = 0
+			column[i] = 0
 
 	#
 	# write file
 	#
 
-	utils.write_filename(filename, xmldoc, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
+	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
