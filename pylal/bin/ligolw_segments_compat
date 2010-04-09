@@ -69,7 +69,7 @@ for filename in filenames:
 	#
 
 	try:
-		segment_table = lsctables.table.get_table(xmldoc, lsctables.Segment.tableName)
+		segment_table = lsctables.table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	except ValueError:
 		pass
 	else:
@@ -82,4 +82,4 @@ for filename in filenames:
 	# write file
 	#
 
-	utils.write_filename(filename, xmldoc, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
+	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
