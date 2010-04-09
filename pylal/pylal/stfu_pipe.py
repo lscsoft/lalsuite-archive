@@ -1940,8 +1940,8 @@ class create_default_config(object):
 
 		# CONDOR MAX JOBS SECTION
 		cp.add_section("condor-max-jobs")
-		cp.add_section("condor-max-jobs","remoteScan_FG_RDS.sh_FG_RDS_full_data","30")
-		cp.add_section("condor-max-jobs","remoteScan_FG_SEIS_RDS.sh_FG_SEIS_RDS_full_data","30")
+		cp.set("condor-max-jobs","remoteScan_FG_RDS.sh_FG_RDS_full_data","30")
+		cp.set("condor-max-jobs","remoteScan_FG_SEIS_RDS.sh_FG_SEIS_RDS_full_data","30")
 		cp.set("condor-max-jobs","ligo_data_find_HT_full_data","3")
 		cp.set("condor-max-jobs","ligo_data_find_Q_HT_full_data","3")
 		cp.set("condor-max-jobs","ligo_data_find_Q_RDS_full_data","3")
