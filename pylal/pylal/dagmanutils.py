@@ -23,11 +23,10 @@ except ImportError:
 
 import datetime
 import hashlib
+import itertools
 import os
 import sys
 import time
-
-itertools = __import__("itertools")
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __date__ = "$Date$"

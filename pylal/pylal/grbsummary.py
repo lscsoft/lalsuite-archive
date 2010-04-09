@@ -1,7 +1,7 @@
 from __future__ import division
 
+import itertools
 import sys
-itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 import numpy
 
