@@ -15,16 +15,12 @@ except ImportError:
     from pysqlite2 import dbapi2 as sqlite3
 import sys, os, math, re
 import numpy
-#import itertools
-#from glue.iterutils import any
 
 from glue import git_version
-#from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 
 from pylal import InspiralUtils
-#from pylal import CoincInspiralUtils
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
 
@@ -46,7 +42,7 @@ def parse_command_line():
     """
     parser = OptionParser(
         version = git_version.verbose_msg,
-        usage   = "%prog [options]",
+        usage   = "%prog [options] file1.sqlite file2.sqlite ...",
         description = description
         )
     # following are related to file input and output naming
@@ -158,7 +154,7 @@ def parse_command_line():
     if options.independent_variable == []:
         raise ValueError, "At least one --independent-variable must be specified."
 
-    return options, filenames
+    return options, filenames, sys.argv[1:]
             
 # =============================================================================
 #
@@ -230,7 +226,8 @@ def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank
     [ found_table.remove(row) for row in found_table[::-1] if row.coinc_event_id in delete_ceids ]
 
         
-
+def ColorFormatter(y, pos):
+    return "$10^{%.1f}$" % y
 
 # ============================================================================
 #
@@ -243,12 +240,12 @@ def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank
 #
 
 # parse command line
-opts, filenames = parse_command_line()
+opts, filenames, args = parse_command_line()
 # check for comma separated arguments
 stats = []
 for x in opts.independent_variable:
     varlist = x.split(',')
-    stats.extend( (var.split(':')[0], len(var.split(':')) > 1 and var.split(':')[1] or '') for var in varlist )
+    stats.extend( (sqlutils.validate_option(var.split(':')[0]), len(var.split(':')) > 1 and var.split(':')[1].strip() or '') for var in varlist )
 # get rank_by
 rank_by = sqlutils.validate_option(opts.rank_by, lower = False).upper()
 # get colorbar stat
@@ -273,8 +270,19 @@ sqlite3.enable_callback_tracebacks(True)
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
+import pylab
 from pylab import *
 rc('text', usetex=True)
+
+def cMapClipped():
+    """
+    Cuts upper edge of jet colormap scheme at rgba = (1,0,0,1), i.e., red.
+    """
+    cdict = matplotlib.cm.jet._segmentdata
+    # remap red scale
+    cdict['red'] = ([ x == cdict['red'][-1] and (1,1,1) or x for x in cdict['red'] ])
+    
+    return matplotlib.colors.LinearSegmentedColormap('clrs', cdict) 
 
 #
 #   Program-specific Initialization
@@ -410,9 +418,8 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             if plotspecial != []:
                 x = [x[0] for x in plotspecial]
                 y = [y[1] for y in plotspecial]
-                z = [z[2] for z in plotspecial]
 
-                scatter( x, y, c = z, marker = (5,1,0), s = 40, alpha = .8, label = '_nolegend_' )
+                scatter( x, y, c = (0.,0.,.5,1.), marker = (5,1,0), s = 40, linewidth = .5, alpha = 1., label = '_nolegend_' )
 
                 xmax = xmax < max( x ) and max( x ) or xmax
                 xmin = xmin > min( x ) and min( x ) or xmin
@@ -423,36 +430,37 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             if 'recovered' not in stat:
                 plotmissed = [ (get_cmrow_stat(row,stat), row.decisive_distance) for row in missed_table
                     if (group_by_param and param_parser.group_by_param_range( getattr(row, opts.param_name.lower()) ) == n) or not group_by_param ]
-                if is_time is not None:
-                    plotmissed = [ (sqlutils.convert_duration( x - gps_start_time, is_time.group(1) ), y) for (x,y) in plotmissed ]
+                if plotmissed != []:
+                    if is_time is not None:
+                        plotmissed = [ (sqlutils.convert_duration( x - gps_start_time, is_time.group(1) ), y) for (x,y) in plotmissed ]
 
-                x = [x[0] for x in plotmissed]
-                y = [y[1] for y in plotmissed]
+                    x = [x[0] for x in plotmissed]
+                    y = [y[1] for y in plotmissed]
 
-                scatter( x, y, marker = 'x', s = 40, color = 'r', alpha = .8, label = '_nolegend_')
+                    scatter( x, y, marker = 'x', s = 40, color = (1.,0.,0.,1.), alpha = .8, label = '_nolegend_')
 
-                xmax = xmax < max( x ) and max( x ) or xmax
-                xmin = xmin > min( x ) and min( x ) or xmin
-                ymax = ymax < max( y ) and max( y ) or ymax
-                ymin = ymin > min( y ) and min( y ) or ymin
+                    xmax = xmax < max( x ) and max( x ) or xmax
+                    xmin = xmin > min( x ) and min( x ) or xmin
+                    ymax = ymax < max( y ) and max( y ) or ymax
+                    ymin = ymin > min( y ) and min( y ) or ymin
 
             # Plot circles
             if plotvals != []:
                 x = [x[0] for x in plotvals]
                 y = [y[1] for y in plotvals]
-                z = [z[2] for z in plotvals]
+                z = [math.log(z[2],10) for z in plotvals]
 
-                scatter( x, y, c = z, s = 30, edgecolor = 'white', linewidth = .5, label = '_nolegend_' )
+                scatter( x, y, c = z, cmap = cMapClipped(), s = 20, edgecolor = 'white', linewidth = .5, label = '_nolegend_' )
 
                 xmax = xmax < max( x ) and max( x ) or xmax
                 xmin = xmin > min( x ) and min( x ) or xmin
                 ymax = ymax < max( y ) and max( y ) or ymax
                 ymin = ymin > min( y ) and min( y ) or ymin
 
-                cb = colorbar()
+                cb = colorbar(format = pylab.FuncFormatter(ColorFormatter))
                 cblabel = cbstat.replace('_', ' ').title()
                 if cbunit != '':
-                    cblabel = ''.join([ cblabel, '(', cbunit, ')' ])
+                    cblabel = ''.join([ cblabel, ' (', cbunit, ')' ])
                 cb.ax.set_ylabel( cblabel )
 
             # if nothing to plot, just plot a warning message
@@ -467,7 +475,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             #
             # Set plot parameters
             #
-            if  group_by_param:
+            if group_by_param:
                 t = "%s Time: F/M Inj. v. %s: %s %s" % (on_instr, stat.replace('_', ' ').title(), opts.param_name.replace('_', ' ').title(), param_parser.param_range_by_group(n))
             else:
                 t = "%s Time: Found/Missed Injections v. %s" % (on_instr, stat.replace('_', ' ').title())
@@ -511,7 +519,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 name = InspiralUtils.set_figure_tag( plot_description, 
                     datatype_plotted = opts.sim_tag, open_box = False)
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
-                fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+                fname_thumb = InspiralUtils.savefig_pylal( filename=fname, dpi=200 )
                 fnameList.append(fname)
                 tagList.append(name)
 
@@ -524,7 +532,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             print >> sys.stdout, "\twriting html file and cache."
 
         # create html of closed box plots
-        plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, filenames, fnameList,
+        plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
             tagList, add_box_flag = False )
         InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
 
