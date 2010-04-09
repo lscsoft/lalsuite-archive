@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+from optparse import OptionParser
+import sys
+
+
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser()
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# parse command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# iterate over files
+#
+
+
+for filename in filenames:
+	#
+	# load file
+	#
+
+	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
+
+	#
+	# add ns columns to segment table
+	#
+
+	try:
+		segment_table = lsctables.table.get_table(xmldoc, lsctables.Segment.tableName)
+	except ValueError:
+		pass
+	else:
+		column1 = segment_table.appendColumn("start_time_ns")
+		column2 = segment_table.appendColumn("end_time_ns")
+		for i in range(len(segment_table)):
+			column1[i] = column2[i] = 0
+
+	#
+	# write file
+	#
+
+	utils.write_filename(filename, xmldoc, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
