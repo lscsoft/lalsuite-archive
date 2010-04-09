@@ -434,7 +434,7 @@ if opts.write_injections:
     inj_loudest_by_inj_cat = inj_loudest_by_inj_cat[~inj_mask, ...]
 
     # extract m2 and D values of sims
-    m2_D_by_inj = [(sim.mass1, sim.distance) for sim in sims]
+    m2_D_by_inj = [(sim.mass2, sim.distance) for sim in sims]
 
     if opts.verbose:
         print "Done. Found loudest coincs for %d injections." % len(sims)
