@@ -494,9 +494,6 @@ usage = """usage: %prog [options]
 
 parser = OptionParser(usage, version=git_version.verbose_msg)
 
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
-
 parser.add_option("","--gps-string",action="store",type="string",\
     metavar=" GPS",help="provide GPS time of the trigger to be investigated."\
     + " Should be a string.")
