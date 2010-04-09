@@ -154,17 +154,18 @@ HrecOnline      V1:h_16384Hz
 		os.abort()
 	return str(foundType), str(foundChannel)
 
-def figure_out_cache(time):
+def figure_out_cache(time,ifo):
 
 	cacheList=(
-		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999)
+		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR1b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
 	foundCache = ""
-	for cacheFile,start,stop in cacheList:
-		if ((start<=time) and (time<stop)):
+	for cacheFile,start,stop,ifos in cacheList:
+		if ((start<=time) and (time<stop) and ifo in ifos):
 			foundCache = cacheFile
 			break
 
@@ -172,7 +173,7 @@ def figure_out_cache(time):
 		foundCache = foundCache.replace("romain","rgouaty")
 
 	if foundCache == "":
-		print time, " not found in method stfu_pipe.figure_out_cache"	
+		print ifo, time, " not found in method stfu_pipe.figure_out_cache"	
 	else:
 		if not os.path.isfile(foundCache):
 			print "file " + foundCache + " not found"
@@ -938,7 +939,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 		if cp.has_option('fu-analyse-qscan','background-cache'):
 			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
 		else:
-			backgroundCache = figure_out_cache(time)
+			backgroundCache = figure_out_cache(time,ifo)
 			cp.set('fu-analyse-qscan','background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
