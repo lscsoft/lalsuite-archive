@@ -31,14 +31,74 @@ This module provides plotting routines for use in data quality investigations. A
 """
 
 # =============================================================================
-# Function to plot before/after cumulative SNR histograms
+# Set plot parameters aux helper functions
+# =============================================================================
+
+def set_rcParams():
+
+  # customise plot appearance
+  pylab.rcParams.update( {"text.usetex": True,
+                          "text.verticalalignment": "center",
+                          "lines.linewidth": 5,
+                          "xtick.labelsize": 18,
+                          "ytick.labelsize": 18,
+                          "axes.titlesize": 18,
+                          "axes.labelsize": 20,
+                          "axes.linewidth": 1,
+                          "grid.linewidth": 1,
+                          "legend.fontsize": 18,
+                          "legend.loc": "best",
+                          "figure.figsize": [12,6],
+                          "figure.dpi": 80,
+                          "axes.grid": True,
+                          "axes.axisbelow": True } )
+
+def set_ticks(ax):
+  if len(ax.get_xticks())<=2:
+    ax.xaxis.set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+  if len(ax.get_yticks())<=2:
+    ax.yaxis.set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+
+  # set xticks for 4 hours rather than 5
+  xticks = ax.get_xticks()
+  if len(xticks)>1 and xticks[1]-xticks[0]==5:
+    ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(base=4))
+
+# =============================================================================
+# Translate column name into display format
+# =============================================================================
+
+def display_name(columnName):
+  acro  = ['snr', 'ra','dof']
+  greek = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta',\
+           'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi', 'omicron',\
+           'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi', 'omega']
+
+  words = columnName.split('_')
+  for i,w in enumerate(words):
+    if w in acro:
+      words[i] = w.upper()
+    elif w in greek:
+      words[i] = '$\%s$' % w
+    elif re.match('(%s)' % '|'.join(greek), w):
+      if w[-1].isdigit():
+        words[i] = '$\%s_{%s}$''' % tuple(re.findall(r"[a-zA-Z]+|\d+",w))
+      elif w.endswith('sq'):
+        words[i] = '$\%s^2$' % w.rstrip('sq')
+    else:
+      words[i] = w.title()
+
+  return ' '.join(words) 
+
+# =============================================================================
+# Plot before/after cumulative SNR histograms
 # =============================================================================
 
 def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
-                       start=None, end=None,
-                       flag='unknowns', etg='Unknown',\
-                       livetime=None, fill=False, logx=True,
-                       cumulative=True, rate=True ):
+                       start=None, end=None, bins=1000,\
+                       flag='unknown', etg='Unknown',\
+                       livetime=None, fill=False, logx=True, logy=True,
+                       cumulative=True, rate=True, xlim=None, greyscale=False ):
 
   """
     Plot a histogram of the value in any column of the ligolw table triggers.
@@ -87,8 +147,11 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
   livetime = float(livetime)
 
   # generate vetoed trigger list: inspiral trigs have dedicated function 
-  if not segments:
+  if segments==None:
     segments = segmentlist()
+    veto = False
+  else:
+    veto = True
 
   aftertriggers = table.new_from_template( triggers )
   aftertriggers.extend([ t for t in triggers if get_time(t) not in segments ])
@@ -109,24 +172,33 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     err = 'Column %s not found in %s.' % ( column,triggers.tableName )
     raise KeyError, err
 
-  if segments:
-    color = ['red','green']
+  if veto:
+    color = ['r','g']
   else:
-    color = ['blue']
+    color = ['b']
+  if greyscale:
+    color = ['k','k']
+    linestyle = ['-','--']
+  else:
+    linestyle = ['-','-']
+
+  for i,c in enumerate(color):
+    color[i] = '%s%s' % ( c, linestyle[i] )
 
   # generate histogram
-  num_bins = 1000
+  if not bins:
+    bins = 1000 
+
   if len( triggers )>=1:
 
     if cumulative:
       cumulative = -1
 
-    start_n,start_bins,start_p = pylab.hist( start_data, bins=num_bins,\
+    start_n,start_bins,start_p = pylab.hist( start_data, bins=bins,\
                                              range=( min( start_data ),\
                                                      max( start_data ) ),\
                                              histtype='stepfilled',\
                                              cumulative=cumulative,\
-                                             facecolor=color[0],\
                                              visible=False )
 
   else:
@@ -134,12 +206,11 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     start_n = []
     
   if len( aftertriggers)>=1:
-    end_n,end_bins,end_p = pylab.hist( end_data, bins=num_bins,\
+    end_n,end_bins,end_p = pylab.hist( end_data, bins=bins,\
                                        range=( min( start_data ),\
                                                max( start_data ) ),\
                                        histtype='stepfilled',\
                                        cumulative=cumulative,\
-                                       facecolor=color[-1],\
                                        visible=False )
 
   else:
@@ -178,25 +249,18 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     flag = flag.replace( '_','\_' )
   else:
     flag = 'unknown'
-  column = ' '.join([ w.title().replace('Snr','SNR')\
-                      for w in column.split('_') ])
+  column = display_name(column)
 
   # customise plot appearance
-  pylab.rcParams.update( {"text.usetex": True,
-                         "text.verticalalignment": "center",
-                         "lines.linewidth": 5,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
-                         "axes.titlesize": 22,
-                         "axes.labelsize": 18,
-                         "axes.linewidth": 1,
-                         "grid.linewidth": 1,
-                         "legend.fontsize": 20} )
+  set_rcParams()
 
   # plot data
   fig = pylab.figure( figsize=[12,6] )
   ax  = fig.gca()
-  ax.loglog()
+  if logx:
+    ax.set_xscale('log')
+  if logy:
+    ax.set_yscale('log')
 
   if not fill:
     ax.plot( bins,start_n,color[0],linewidth=2,label='Before vetoes' )
@@ -204,22 +268,24 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
       ax.plot( bins,end_n,color[-1],linewidth=2,label='After vetoes' )
   if fill:
     ax.plot( bins,start_n,color[0],linewidth=0,label='Before vetoes' )
-    ax.fill_between( bins,base,start_n,color=color[-1],edgecolor='k',\
+    ax.fill_between( bins,base,start_n,color=color[-1][0],edgecolor='k',\
                      linewidth=0.5 )
     if len( aftertriggers )>=1:
       ax.plot( bins,end_n,color[-1],linewidth=0,label='After vetoes' )
-      ax.fill_between( bins,base,end_n,color=color[-1],edgecolor='k',\
+      ax.fill_between( bins,base,end_n,color=color[-1][0],edgecolor='k',\
                        linewidth=0.5, alpha=0.9 )
 
   # figure sundries
-  if segments:
+  if veto:
     leg = ax.legend( loc='best' )
     for l in leg.get_lines():
       l.set_linewidth( 4 )
   if bins:
-    ax.set_xlim( min( bins ),max( bins ) )
+    ax.set_xlim( float(min(bins)), float(max(bins)) )
     ax.set_ylim( base,max( start_n )*1.01 )
-  ax.set_xlabel( column.replace( '_','\_' ) )
+  if xlim:
+    ax.set_xlim( tuple(xlim) )
+
   if rate and cumulative:
     ax.set_ylabel( 'Cumulative rate (Hz)' )
   elif rate:
@@ -228,15 +294,21 @@ def plot_trigger_hist( triggers, outfile, column='snr', segments=None,\
     ax.set_ylabel( 'Cumulative number' )
   elif not rate and not cumulative:
     ax.set_ylabel( 'Number' )
+
+  set_ticks(ax)
+
   tit = '%s triggers' % ( etg.replace( '_','\_' ) )
-  if segments:
+  if veto:
     tit += ' and %s segments' % ( flag )
+  ax.set_title( tit, x=0.5, y=1.035 )
+
   if start and end:
-    tit += ': %s-%s' % ( start, end )
-  ax.set_title( tit )
+    subtit = '%s-%s' % ( start, end )
+    ax.text( 0.5, 1.03, subtit, horizontalalignment='center',\
+             transform = ax.transAxes, verticalalignment='top' )
+
   ax.grid( True,which='major' )
   ax.grid( True,which='majorminor' )
-  ax.set_axisbelow( True )
   fig.savefig( outfile, bbox_inches='tight' )
 
 # =============================================================================
@@ -248,7 +320,8 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
                    segments=None, flag=None,\
                    xcolumn='time', ycolumn='snr', zcolumn=None,\
                    xlabel=None, ylabel=None, zlabel=None,\
-                   logx=False, logy=True, logz=True, ylim=None ):
+                   logx=False, logy=True, logz=True, xlim=None, ylim=None,\
+                   greyscale=False, set_plot_params=True ):
 
   """
     Plots ycolumn against xcolumn for columns in given
@@ -310,6 +383,8 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   if not zero:
     zero = start
 
+  span = segment([start,end])
+
   columns = [ xcolumn, ycolumn]
   xcolumn = xcolumn.lower()
   ycolumn = ycolumn.lower()
@@ -317,10 +392,9 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     columns.append(zcolumn)
     zcolumn = zcolumn.lower()
 
-  for i,c in enumerate(columns):
-    columns[i] = ' '.join([ w.title().replace('Snr','SNR')\
-                            for w in c.split('_') ])
-
+  # format columns for display
+  columns = [display_name(c) for c in columns]
+   
   # sort triggers by z param
   if zcolumn:
     triggers.sort( key=lambda trig: trig.__getattribute__( zcolumn ),\
@@ -329,6 +403,7 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   # apply veto segments if required
   if segments is not None:
     segments = segmentlist( segments )
+    segments & segmentlist([segment(start,end)])
   
     # set up vetoed/nonvetoed trigger lists, inspiral triggers have dicated func
     trigs =  table.new_from_template( triggers )
@@ -339,17 +414,28 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
 
   # or copy lists with empty vetoed triggers list
   else:
-    trigs     = triggers
+    trigs     = table.new_from_template( triggers)
+    trigs.extend( t for t in triggers if get_time(t) in span )
     vetotrigs = table.new_from_template( triggers )
 
   # set plot time unit whether it's used or not
-  if ( end-start ) < 20000:
-    t_unit = 60
-  elif ( end-start ) >= 20000 and ( end-start ) < 604800:
-    t_unit = 3600
+  if (end-start) < 1000:
+    unit = 1
+  elif (end-start) < 20000:
+    unit = 60
+  elif (end-start) >= 20000 and (end-start) < 604800:
+    unit = 3600
   else:
-    t_unit = 86400
-  t_string = {60:'minutes',3600:'hours',86400:'days'}
+    unit = 86400
+  unitstr = {1:'seconds', 60:'minutes',3600:'hours',86400:'days'}
+
+  if ( end-start ) < 20000:
+    unit = 60
+  elif ( end-start ) >= 20000 and ( end-start ) < 604800:
+    unit = 3600
+  else:
+    unit = 86400
+  unitstr = {60:'minutes',3600:'hours',86400:'days'}
 
   # set up plot lists
   notvetoed = {}
@@ -359,9 +445,9 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     try:
       # treat 'time as special case'
       if col=='time':
-        notvetoed[col] = [ float( get_time(t) - zero ) / t_unit\
+        notvetoed[col] = [ float( get_time(t) - zero ) / unit\
                            for t in trigs ]
-        vetoed[col] = [ float( get_time(t) - zero ) / t_unit\
+        vetoed[col] = [ float( get_time(t) - zero ) / unit\
                         for t in vetotrigs ]
       else:
         notvetoed[col]   = list( trigs.getColumnByName( col ) )
@@ -403,16 +489,8 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     etg  = 'Unknown'
 
   # customise plot appearance
-  pylab.rcParams.update( {"text.usetex": True,
-                         "text.verticalalignment": "center",
-                         "lines.linewidth": 5,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
-                         "axes.titlesize": 22,
-                         "axes.labelsize": 18,
-                         "axes.linewidth": 1,
-                         "grid.linewidth": 1,
-                         "legend.fontsize": 20} )
+  if set_plot_params:
+    set_rcParams()
 
   fig = pylab.figure( figsize=[12,6] )
   ax  = fig.gca()
@@ -421,18 +499,30 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   plots = []
 
   # define colour colormap
-  cdict = matplotlib.cm.jet._segmentdata
+  if greyscale:
+    cdict = matplotlib.cm.hot._segmentdata
+  else:
+    cdict2 = matplotlib.cm.jet._segmentdata
+    cdict = cdict2
+    #cdict = {}
+    #for c in cdict2.keys():
+    #  row = map(list, cdict2[c][1:])
+    #  row[0][0] = 0
+    #  cdict[c] = map(tuple,row)
   cmap = matplotlib.colors.LinearSegmentedColormap( 'clrs', cdict )
 
   # define colour range
   cmin = None
   if zcolumn:
-    if numtrigs + numveto >= 1:
+    if numtrigs + numveto >= 1 and zcolumn.lower()!='snr':
       cmin = min( notvetoed[zcolumn]+vetoed[zcolumn] )
       cmax = max( notvetoed[zcolumn]+vetoed[zcolumn] )
-      colorticks = arange( cmin, cmax, float(cmax - cmin)/5 )
+      if cmin==cmax:
+        colorticks = [cmin]
+      else:
+        colorticks = arange( cmin, cmax, float(cmax - cmin)/5 )
     # if colouring by SNR, move to standard DQ range of 5->100
-    if zcolumn.lower()=='snr' or numtrigs + numveto < 1:
+    else:
       if logz:
         cmin = math.log( 3, 10 )
         cmax = math.log( 110, 10 )
@@ -444,20 +534,17 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
     colorticks = [10,50,100]
 
   if numtrigs >= 1:
+
     p1 = ax.scatter( notvetoed[xcolumn], notvetoed[ycolumn],\
                      c=notvetoed[zcolumn], marker='o', cmap=cmap,\
                      vmin=cmin, vmax=cmax )
 
   # plot vetoed triggers if required
   if numveto >= 1:
-    if zcolumn:
-      c='k'
-    else:
-      c='r'
-    p2 = ax.scatter( vetoed[xcolumn],vetoed[ycolumn],marker='x',\
-                     label='Vetoed',edgecolor=c, vmin=cmin, vmax=cmax )
+    p2 = ax.scatter( vetoed[xcolumn],vetoed[ycolumn], marker='x',\
+                     label='Vetoed',edgecolor='r', vmin=cmin, vmax=cmax )
 
-  if numtrigs + numveto < 1:
+  if numtrigs < 1:
     p1 = ax.scatter( [0], [0], c=[cmin], cmap=cmap, vmin=cmin, vmax=cmax,\
                      visible=False )
 
@@ -509,9 +596,9 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   if re.search( 'time', xcolumn ):
     if not xlabel:
       xlabel = 'Time (%s) since %s (%s)'\
-                % ( t_string[t_unit], zerostring, zero )
-    pstart = float( start-zero )/t_unit
-    pend   = float( end-zero )/t_unit
+                % ( unitstr[unit], zerostring, zero )
+    pstart = float( start-zero )/unit
+    pend   = float( end-zero )/unit
     ax.set_xlim( pstart, pend)
 
   else:
@@ -527,43 +614,49 @@ def plot_triggers( triggers, outfile, etg='Unknown',\
   if re.search( 'time',ycolumn ):
     if not ylabel:
       ylabel = 'Time (%s) since %s (%s)'\
-               % ( t_string[t_unit], zerostring, zero )
+               % ( unitstr[unit], zerostring, zero )
     if len( triggers )>=1:
-      ax.set_ylim( 0,float( end-start )/t_unit )
+      ax.set_ylim( 0,float( end-start )/unit )
   else:
     if not ylabel:
       ylabel = columns[1]
-    if len( triggers )>=1:
-      ax.set_ylim( min( vetoed[ycolumn]+notvetoed[ycolumn] )*0.99,\
-                  max( vetoed[ycolumn]+notvetoed[ycolumn] )*1.01 )
+    if len(triggers)>=1 and not ylim:
+      ax.set_ylim(min(vetoed[ycolumn]+notvetoed[ycolumn])*0.99,\
+                  max(vetoed[ycolumn]+notvetoed[ycolumn])*1.01)
 
-  ax.set_ylabel( ylabel )
+  ax.set_ylabel(ylabel)
 
+  if xlim:
+    ax.set_xlim( tuple(xlim) )
   if ylim:
-    ax.set_ylim( tuple(ylim) )
+    ax.set_ylim(tuple(ylim))
+
+  set_ticks(ax)
 
   # set title
   tit = '%s triggers' % ( etg )
   if segments is not None:
     tit += ' \&  %s segments' % ( flag )
-  ax.set_title( tit, x=0.5, y=1.03 )
+  ax.set_title( tit, x=0.5, y=1.035 )
 
   # set subtitle
-  if zcolumn:
-    if re.search( 'time',xcolumn ):  maxx = maxx*t_unit+start
-    if re.search( 'time',ycolumn ):  maxy = maxy*t_unit+start
+  if zcolumn and zcolumn.lower() == 'snr':
+    if re.search( 'time',xcolumn ):  maxx = maxx*unit+start
+    if re.search( 'time',ycolumn ):  maxy = maxy*unit+start
 
     subtit = 'Loudest event: %s=%s %s=%.2f %s=%.2f'\
              % ( columns[0], maxx,\
                  columns[1], maxy,\
                  columns[2], maxz )
-    ax.text( 0.5, 1.001, subtit, horizontalalignment='center',\
-             transform = ax.transAxes )
+  else:
+    subtit = '%s-%s' % ( start, end )
+  ax.text( 0.5, 1.03, subtit, horizontalalignment='center',\
+           transform = ax.transAxes, verticalalignment='top' )
+
+  ax.grid( True,which='major' )
+  ax.grid( True,which='majorminor' )
 
   # get both major and minor grid lines
-  ax.grid( True, which='major' )
-  ax.grid( True, which='majorminor' )
-  ax.set_axisbelow( True )
   fig.savefig( outfile, bbox_inches='tight' )
 
 # =============================================================================
@@ -574,8 +667,8 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
                       logx=False,logy=False ):
 
   """
-    Plots a histogram of segment duration for the glue.segments.segmentlist
     segments.
+    Plots a histogram of segment duration for the glue.segments.segmentlist
 
     Arguments:
 
@@ -611,16 +704,7 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
     flag = flag.replace( '_','\_' )
 
   # customise plot appearance
-  pylab.rcParams.update( {"text.usetex": True,
-                         "text.verticalalignment": "center",
-                         "lines.linewidth": 5,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
-                         "axes.titlesize": 22,
-                         "axes.labelsize": 18,
-                         "axes.linewidth": 1,
-                         "grid.linewidth": 1,
-                         "legend.fontsize": 20} )
+  set_rcParams()
 
   # generate plot
   fig = pylab.figure( figsize=[12,6] )
@@ -678,6 +762,9 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
                   ( math.pow( 10,max( durations ) )*1.01 ) )
 
     ax.set_ylim( base,math.pow( 10,math.log10( ( max( n )+base )*1.01 ) ) )
+
+  set_ticks(ax)
+
   ax.set_xlabel( 'Length of segment ( seconds )' )
   ax.set_ylabel( 'Number of segments' )
   tit = 'Segment Duration Histogram'
@@ -688,6 +775,351 @@ def plot_segment_hist( segments,outfile,flag=None,coltype=int,\
   # get both major and minor grid lines
   ax.grid( True,which='major' )
   ax.grid( True,which='majorminor' )
-  ax.set_axisbelow( True )
+
   fig.savefig( outfile, bbox_inches='tight' )
+
+# =============================================================================
+# Rate versus time
+# =============================================================================
+
+def plot_trigger_rate( triggers, outfile, average=600, start=None, end=None,\
+                       bincolumn='peak_frequency', bins=[], etg='Unknown',\
+                       logx=False, logy=True, zero=None, ylim=None ):
+
+  """
+    INSERT DOCSTRING
+  """
+
+  get_time = def_get_time( triggers.tableName )
+
+  # set start and end times
+  if not start and not end:
+    times = [ get_time( t ) for t in triggers ]
+  if not start:
+    start = min( times )
+  if not end:
+    end   = max( times )
+
+  if not zero:
+    zero = start
+
+  # format bins
+  bins = [ map( float, bin) for bin in bins ]
+
+  bintrigs = {}
+  label = {}
+  if not bins:
+    bins = [ (0,float('inf')) ]
+    label[bins[0]] = None
+  else:
+    for i,bin in enumerate(bins):
+      label[i] = '-'.join( map( str, bin ) )
+
+  # get triggers for each bin 
+  for i,bin in enumerate(bins):
+    bintrigs[i] = table.new_from_template(triggers)
+    bintrigs[i].extend([ t for t in triggers if\
+                           bin[0] <= t.__getattribute__(bincolumn) < bin[1] ])
+
+  # calculate rates
+  xcol = []
+  rate = {}
+  for i,bin in enumerate(bins):
+    rate[i] = []
+  s = start
+  while s < end:
+    e = min( s+average, end )
+    xcol.append(float(e+s)/2)
+    for i,bin in enumerate(bins):
+      numtrigs = len([ t for t in bintrigs[i] if s<=get_time(t)<e ])
+      rate[i].append(numtrigs/average)
+    s = e
+
+  # customise plot appearance
+  set_rcParams()
+
+  # set plot time unit whether it's used or not
+  if ( end-start ) < 20000:
+    unit = 60
+  elif ( end-start ) >= 20000 and ( end-start ) < 604800:
+    unit = 3600
+  else:
+    unit = 86400
+  unitstr = {60:'minutes',3600:'hours',86400:'days'}
+
+  # set time axis
+  xcol = [ float(t-zero)/unit for t in xcol ]
+
+  # generate figure
+  fig = pylab.figure( figsize=[12,6] )
+  ax = fig.gca()
+
+  # plot rates
+  for i in range(len(bins)):
+    ax.plot( xcol, rate[i], 'o', label=label[i] )
+
+  if len(triggers)<1:
+    ax.plot([1],[0.1],visible=False)
+
+  # set axes
+  if logx:
+    ax.set_xscale( 'log' )
+  if logy:
+    ax.set_yscale( 'log' )
+
+  # get start time in UTC for axis
+  zerostring = datetime( *date.XLALGPSToUTC( LIGOTimeGPS( zero ) )[:6] )\
+                   .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
+
+  # plot sundries
+  ax.legend(loc='best')
+  ax.set_ylabel( 'Rate (Hz)' )
+  ax.set_xlabel( 'Time (%s) since %s (%s)'#
+                 % ( unitstr[unit], zerostring, zero ) )
+
+  ax.set_xlim( float(start-zero)/unit, float(end-zero)/unit )
+  if ylim:
+    ax.set_ylim( tuple(ylim) )
+  etg = etg.replace('_','\_')
+  bincolumn = display_name(bincolumn)
+
+  set_ticks(ax)
+
+  tit = '%s triggers' % (etg)
+  if label[0]:
+    tit += ' binned by %s' % bincolumn
+  ax.set_title( tit, x=0.5, y=1.035 )
+  subtit = '%s-%s' % ( start, end )
+  ax.text( 0.5, 1.03, subtit, horizontalalignment='center',
+           transform=ax.transAxes, verticalalignment='top' )
+
+  fig.savefig( outfile, bbox_inches='tight' )
+
+# =============================================================================
+# Plot time series
+# =============================================================================
+
+def plot_time_series( data, outfile, start=None, end=None, zero=None, \
+                      zeroindicator=False, subtitle=None, style='-',\
+                      logx=False, logy=False, ylim=None, ylabel=None ):
+
+  """
+    Plot the time series of a given set (or given sets) of data.
+
+    Arguments:
+
+      data : list
+        list of (ChannelName,time,amplitude) tuples with channel name (or data 
+        source) and time/amplitude arrays for each channel. Channels are
+        plotted in the order given.
+      outfile : str
+        output plot path
+
+    Keyword Arguments:
+
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time of plot
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time of plot
+      zero : [ float | int | LIGOTimeGPS ]
+        time around which to centre plot
+      zeroindicator : [ False | True ]
+        indicate zero time with veritcal dashed line, default: False
+      ylabel : str
+        title string for y axis, default: 'Signal'
+      subtitle : str
+        descriptive string used for sub title
+      style : str
+        matplotlib style string for line formatting, '-','--','.','x', etc,
+        default: '-'
+  """
+
+  # format times
+  if not start:
+    start = min([ min(d[1]) for d in data ])
+  if not end:
+    end   = max([ max(d[1]) for d in data ])
+  if not zero:
+    zero = start
+
+  start = LIGOTimeGPS( start )
+  end   = LIGOTimeGPS( end )
+  zero  = LIGOTimeGPS( zero )
+
+
+  # set plot time unit whether it's used or not
+  if (end-start) < 1000:
+    unit = 1
+  elif (end-start) < 20000:
+    unit = 60
+  elif (end-start) >= 20000 and (end-start) < 604800:
+    unit = 3600
+  else:
+    unit = 86400
+  unitstr = {1:'seconds', 60:'minutes',3600:'hours',86400:'days'}
+
+  # customise plot appearance
+  set_rcParams()
+
+  # plot data
+  fig = pylab.figure()
+  ax  = fig.gca()
+
+  for channel,time,amplitude in data:
+
+    time = [ float( t - zero ) / unit for t in time ]
+    lab = str(channel).replace('_','\_')
+
+    if style in ['-','--']:
+      ax.plot( time, amplitude, style, label = lab,\
+               linewidth = 0.7 )
+
+    else:
+      ax.plot( time, amplitude, style, label = lab,\
+               markersize = 2 )
+
+  ax.legend( loc = 'best' )
+
+  if ylim:
+    ax.set_ylim( tuple(ylim) )
+
+  # FIXME add zero indicator
+  axis_lims = ax.get_ylim()
+  if zeroindicator:
+    ax.plot([0,0],[axis_lims[0],axis_lims[1]],'r--', linewidth=2.0)
+    ax.set_ylim([ axis_lims[0], axis_lims[1] ])
+
+  # set x axis
+  ax.set_xlim([ float(start-zero)/unit, float(end-zero)/unit ])
+  zero = LIGOTimeGPS('%.3f' % zero )
+  if zero.nanoseconds==0:
+    zerostr = datetime( *date.XLALGPSToUTC(LIGOTimeGPS(zero ))[:6])\
+                  .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
+  else:
+    zerostr = datetime( *date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                  .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
+    zerostr = zerostr.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+  ax.set_xlabel( 'Time (%s) since %s (%s)' % ( unitstr[unit], zerostr, zero ) )
+
+  # set y axis
+  if ylabel:
+    ax.set_ylabel(ylabel)
+  else:
+    ax.set_ylabel('Signal')
+
+  # set legend
+  leg = ax.legend()
+  for l in leg.get_lines():
+    l.set_linewidth( 4 )
+
+  # set scale
+  if logx:
+    ax.set_xscale('log')
+  if logy:
+    ax.set_yscale('log')
+
+  set_ticks(ax)
+
+  # set title
+  ax.set_title( 'Time series', x=0.5, y=1.035 )
+  if subtitle:
+    ax.text( 0.5, 1.03, subtitle, horizontalalignment='center',
+             transform=ax.transAxes, verticalalignment='top' )
+
+  ax.grid( True,which='major' )
+  ax.grid( True,which='majorminor' )
+
+  fig.savefig( outfile, bbox_inches = 'tight' )
+
+# =============================================================================
+# Plot spectrum
+# =============================================================================
+
+def plot_spectrum( data, outfile, logx=False, logy=False, xlim=None, ylim=None,\
+                   subtitle=None, style='-', ylabel=None ):
+
+  """
+    Plot the time series of a given set (or given sets) of data.
+
+    Arguments:
+
+      data : list
+        list of (channel,frequency,spectral amplitude) tuples with channel 
+        name (or data source) and frequency/spectral amplitude arrays for each
+        channel. Channels are plotted in given order.
+      outfile : str
+        output plot path
+
+    Keyword Arguments:
+
+      logx : [ False | True ]
+        plot x axis in log scale, default False
+      logy : [ False | True ]
+        plot y axis in log scale, default False
+      xlim : [ list | tuple ]
+        (min,max) tuple/list with limits for x axis
+      ylim : [ list | tuple ]
+        (min,maxy) tuple/list with limits for y axis
+      subtitle : str
+        descriptive string used for sub title
+      style : str
+        matplotlib style string for line formatting, '-','--','.','x', etc,
+        default: '-'
+  """
+
+  # customise plot appearance
+  set_rcParams()
+
+  # plot data
+  fig = pylab.figure()
+  ax  = fig.gca()
+
+  for channel,freq,spec in data:
+
+    lab = str(channel).replace('_','\_')
+
+    if style in ['-','--']:
+      ax.plot( freq, spec, style, label = lab,\
+               linewidth = 0.7 )
+
+    else:
+      ax.plot( freq, spec, style, label = lab,\
+               markersize = 2 )
+
+  # set legend
+  leg = ax.legend()
+  for l in leg.get_lines():
+    l.set_linewidth( 4 )
+
+  # set scale
+  if logx:
+    ax.set_xscale('log')
+  if logy:
+    ax.set_yscale('log')
+
+  # set limits
+  if xlim:
+    ax.set_xlim( tuple(xlim) )
+  if ylim:
+    ax.set_ylim( tuple(ylim) )
+
+  # set labels
+  ax.set_xlabel( 'Frequency (Hz)' )
+  if ylabel:
+    ax.set_ylabel(ylabel)
+  else:
+    ax.set_ylabel( 'Spectrum' )
+
+  set_ticks(ax)
+
+  # set title
+  ax.set_title( 'Frequency Spectrum', x=0.5, y=1.035 )
+  if subtitle:
+    ax.text( 0.5, 1.03, subtitle, horizontalalignment='center',
+             transform=ax.transAxes, verticalalignment='top' )
+
+  ax.grid( True,which='major' )
+  ax.grid( True,which='majorminor' )
+
+  fig.savefig( outfile, bbox_inches = 'tight' )
 

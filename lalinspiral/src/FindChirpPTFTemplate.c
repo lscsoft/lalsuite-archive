@@ -23,49 +23,38 @@
  *
  * Author: Brown, D. A., and Fazi, D.
  *
- * Revision: $Id$
- *
  *-----------------------------------------------------------------------
  */
 
-#if 0
-<lalVerbatim file="FindChirpPTFTemplateCV">
-Author: Brown, D. A., and Fazi, D.
-$Id$
-</lalVerbatim>
+/**
 
-<lalLaTeX>
-\subsection{Module \texttt{FindChirpPTFTemplate.c}}
-\label{ss:FindChirpPTFTemplate.c}
+\author Brown, D. A., and Fazi, D.
+\file
+\ingroup FindChirpPTF_h
 
-Provides functions to create physical template family templates in a
-form that can be used by the \texttt{FindChirpPTFFilter()} function.
+\brief Provides functions to create physical template family templates in a
+form that can be used by the <tt>FindChirpPTFFilter()</tt> function.
 
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{FindChirpPTFTemplateCP}
-\idx{LALFindChirpPTFTemplate()}
+\heading{Prototypes}
 
-The function \texttt{LALFindChirpPTFTemplate()} creates a physical template
+The function <tt>LALFindChirpPTFTemplate()</tt> creates a physical template
 family template as described by the algorithm below.
 
-\subsubsection*{Algorithm}
+\heading{Algorithm}
 
 Blah.
 
-\subsubsection*{Uses}
-\begin{verbatim}
+\heading{Uses}
+\code
 LALCalloc()
 LALFree()
 LALCreateVector()
 LALDestroyVector()
-\end{verbatim}
+\endcode
 
-\subsubsection*{Notes}
+\heading{Notes}
 
-\vfill{\footnotesize\input{FindChirpPTFTemplateCV}}
-</lalLaTeX>
-#endif
+*/
 
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
@@ -77,7 +66,6 @@ LALDestroyVector()
 
 NRCSID(FINDCHIRPPTFTEMPLATEC, "$Id$");
 
-/* <lalVerbatim file="FindChirpPTFTemplateCP"> */
 
 void
 LALFindChirpPTFTemplate (
@@ -86,7 +74,7 @@ LALFindChirpPTFTemplate (
     InspiralTemplate           *InspTmplt,
     FindChirpTmpltParams       *params
     )
-/* </lalVerbatim> */
+
 {
   UINT4 errcode;
   /* local variables */
@@ -274,7 +262,7 @@ LALFindChirpPTFTemplate (
 }
 
 
-/* <lalVerbatim file="FindChirpPTFTemplateCP"> */
+
 void
 LALFindChirpPTFNormalize(
     LALStatus                  *status,
@@ -282,7 +270,7 @@ LALFindChirpPTFNormalize(
     FindChirpSegment           *fcSeg,
     FindChirpDataParams        *params
     )
-/* </lalVerbatim> */
+
 {
   UINT4         i, j, k, kmin, len, kmax;
   REAL4         f_min, deltaT, deltaF, fFinal, segNormSum;

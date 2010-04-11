@@ -234,7 +234,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.ylabel("Probability Density",fontsize=axis_font_size)
    pylab.xlabel('Merger Rate $\mathrm{(Mpc^{-3} yr^{-1})}$',fontsize=axis_font_size)
    pylab.grid()
-   pylab.xlim([mu.min(), mu.max()]) #FIXME hardcoded rate limits are bad for advanced ligo
+   pylab.xlim([mu.min(), mu.max()])
    #pylab.ylim([0, 1e-1])
    savefig_pylal('combined_posterior_density', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
@@ -246,7 +246,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.xlabel('Merger Rate $\mathrm{(Mpc^{-3} yr^{-1})}$',fontsize=axis_font_size)
    pylab.ylim([1e-2, 1])
    pylab.grid()
-   pylab.xlim([mu.min(), mu.max()]) #FIXME hardcoded rate limits are bad for advanced ligo
+   pylab.xlim([mu.min(), mu.max()])
    savefig_pylal('combined_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
 
@@ -256,7 +256,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    pylab.ylabel('Probability Density',fontsize=axis_font_size)
    pylab.xlabel('Merger Rate $\mathrm{(Mpc^{-3} yr^{-1})}$',fontsize=axis_font_size)
    pylab.grid()
-   pylab.xlim([mu.min(), mu.max()]) #FIXME hardcoded rate limits are bad for advanced ligo
+   pylab.xlim([mu.min(), mu.max()])
    savefig_pylal('prior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
    pylab.clf()
 

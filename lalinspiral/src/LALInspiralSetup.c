@@ -17,45 +17,39 @@
 *  MA  02111-1307  USA
 */
 
-/*  <lalVerbatim file="LALInspiralSetupCV">
-Author: Sathyaprakash, B. S.
-$Id$
-</lalVerbatim>  */
+/**
+\author Sathyaprakash, B. S.
+\file
+\ingroup LALInspiral_h
 
-/*  <lalLaTeX>
-
-\subsection{Module \texttt{LALInspiralSetup.c}}
-
-Module to generate all the Taylor and Pade coefficients needed in
+\brief Module to generate all the Taylor and Pade coefficients needed in
 waveform generation.
 
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{LALInspiralSetupCP}
-\idx{LALInspiralSetup()}
-\begin{itemize}
-\item {\tt ak:} Output containing PN expansion coefficients of various physical
-quantities such as energy, flux, frequency, phase and timing.
-\item {\tt params:} Input containing binary chirp parameters.
-\end{itemize}
+\heading{Prototypes}
 
-\subsubsection*{Description}
+<tt>LALInspiralSetup()</tt>
+<ul>
+<li> \c ak: Output containing PN expansion coefficients of various physical
+quantities such as energy, flux, frequency, phase and timing.</li>
+<li> \c params: Input containing binary chirp parameters.</li>
+</ul>
+
+\heading{Description}
 
 Module to generate all the coefficiants needed in the Taylor and Pade expressions
-for the energy and flux functions $E^{\prime}(v)$ and $\mathcal{F}(v)$.
+for the energy and flux functions \f$E^{\prime}(v)\f$ and \f$\mathcal{F}(v)\f$.
 These are used to solve the gravitational wave phasing formula.
-The coefficients are used by the function \texttt{LALInspiralChooseModel} to define
-the energy and flux functions by accessing the structure {\tt ak} and are tabulated
-in the two Tables \ref{table:energy} and \ref{table:flux}.
+The coefficients are used by the function \c LALInspiralChooseModel to define
+the energy and flux functions by accessing the structure \c ak and are tabulated
+in the two Tables\tableref{table_energy} and\tableref{table_flux}.
 
+\heading{Algorithm}
+None.
+\heading{Uses}
+None.
+\heading{Notes}
 
-\subsubsection*{Algorithm}
-None.
-\subsubsection*{Uses}
-None.
-\subsubsection*{Notes}
-\vfill{\footnotesize\input{LALInspiralSetupCV}}
-</lalLaTeX>  */
+*/
 
 
 
@@ -69,14 +63,14 @@ None.
 NRCSID (LALINSPIRALSETUPC, "$Id$");
 
 
-/*  <lalVerbatim file="LALInspiralSetupCP"> */
+
 void
 LALInspiralSetup (
    LALStatus        *status,
    expnCoeffs       *ak,
    InspiralTemplate *params
    )
-{  /* </lalVerbatim>  */
+{
 
    INT4 ieta;
    /*INT4  pnorder=7;
@@ -86,6 +80,9 @@ LALInspiralSetup (
    REAL8 c1, c2, c3, c4, c5, c6, c7, c8;
    REAL8 a12, a22, a32, a42, a52, a62, a72, a23, a33, a43, a53, a34, a44;
    REAL8 oneby6=1.0/6.0;
+   REAL8 beta = 0.L;
+   REAL8 sigma = 0.L;
+   REAL8 chi1, chi2;
 
    INITSTATUS (status, "LALInspiralSetup", LALINSPIRALSETUPC);
    ATTATCHSTATUSPTR(status);
@@ -128,6 +125,22 @@ LALInspiralSetup (
    ak->eta = (ak->m1*ak->m2) / (ak->totalmass*ak->totalmass);
    eta = ak->eta;
    ak->totalmass = ak->totalmass * LAL_MTSUN_SI;
+
+
+/* Aligned spin corrections (Poisson and Will PRD 52 848 (1995))
+   Use the z components of the spins */
+  chi1 = params->spin1[2];
+  chi2 = params->spin2[2];
+  if (eta <= 0.25L)
+  {
+    /* Chi1 is spin on larger mass
+       m1 = mtot * (1 + sqrt(1 - 4 eta)) / 2
+       m2 = mtot * (1 - sqrt(1 - 4 eta)) / 2 */
+    beta = ((113.L - 76.L * ieta * eta) * (chi1 + chi2) / 24.L)
+         + (113.L * sqrt(1.L - 4.L * ieta * eta) * (chi1 - chi2) / 24.L);
+    sigma = 474.L * ieta * eta * chi1 * chi2 / 48.L;
+  }
+
 
 /* Set initial velocity according to initial frequency */
 
@@ -303,9 +316,9 @@ LALInspiralSetup (
 
    ak->pfaN = 3.L/(128.L * eta);
    ak->pfa2 = 5.L*(743.L/84.L + 11.L * ieta*eta)/9.L;
-   ak->pfa3 = -16.L*LAL_PI;
+   ak->pfa3 = -16.L*LAL_PI + 4.L*beta;
    ak->pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * ieta*eta
-		   + 617.L * ieta*eta*eta)/72.L;
+		   + 617.L * ieta*eta*eta)/72.L - 10.L*sigma;
    ak->pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * ieta*eta) * LAL_PI;
    ak->pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * ieta*eta) * LAL_PI;
 

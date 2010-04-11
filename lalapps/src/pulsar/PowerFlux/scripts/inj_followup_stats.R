@@ -67,7 +67,7 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 
 	C[,"Found_input"]<-C[,"Found_input"]*100
 	C[,"Found_output"]<-C[,"Found_output"]*100
-	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), cex=1, ...))
+	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), par.settings=list(superpose.symbol=list(pch=c(3,1,4))), cex=1, ...))
 	}
 
 ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
@@ -80,16 +80,16 @@ ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FA
 	if(omit.found) {
 		C<-C[is.na(C[,"snr_output"]) & !is.na(C[,"snr_input"]),,drop=FALSE]
 		}
-	print(xyplot(formula, C, auto.key=auto.key, pch=pch, ...))
-	}
-
-make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
-	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
+	print(xyplot(formula, C, auto.key=auto.key, pch=pch, par.settings=list(superpose.symbol=list(pch=c(3,1,4))), ...))
 	}
 
 # make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
-# 	pdf(p(name, ".pdf"), width=width*5/600, height=height*5/600, bg="white", ...)
+# 	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
 # 	}
+
+make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
+	pdf(p(name, ".pdf"), width=width*5/600, height=height*5/600, bg="white", ...)
+	}
 
 
 make_plot("injection_recovery")

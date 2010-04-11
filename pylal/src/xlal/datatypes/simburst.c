@@ -51,6 +51,7 @@
 
 
 static PyObject *sim_burst_simulation_id_type = NULL;
+static PyObject *time_slide_id_type = NULL;
 static PyObject *process_id_type = NULL;
 
 
@@ -83,6 +84,7 @@ static struct PyMemberDef members[] = {
 static struct PyGetSetDef getset[] = {
 	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimBurst, sim_burst.process_id), &process_id_type}},
 	{"waveform", pylal_inline_string_get, pylal_inline_string_set, "waveform", &(struct pylal_inline_string_description) {offsetof(pylal_SimBurst, sim_burst.waveform), LIGOMETA_WAVEFORM_MAX}},
+	{"time_slide_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "time_slide_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimBurst, sim_burst.time_slide_id), &time_slide_id_type}},
 	{"simulation_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "simulation_id", &(struct pylal_ilwdchar_id_description) {offsetof(pylal_SimBurst, sim_burst.simulation_id), &sim_burst_simulation_id_type}},
 	{NULL,}
 };
@@ -193,6 +195,7 @@ void initsimburst(void)
 
 	/* Cached ID types */
 	sim_burst_simulation_id_type = pylal_get_ilwdchar_class("sim_burst", "simulation_id");
+	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
 	process_id_type = pylal_get_ilwdchar_class("process", "process_id");
 
 	/* SimBurst */

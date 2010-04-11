@@ -87,9 +87,6 @@ def grab_data(start,end,ifo,channel,type,\
   # loop over frames in cache
   for frame in cache:
 
-    # check frame file exists
-    if not os.path.isfile(frame.path()):  continue
-
     # check for Segmentation fault
     segtest = subprocess.Popen([frcheck, "-i", frame.path()],\
                                  stdout=subprocess.PIPE )
@@ -941,7 +938,7 @@ class FrameCache(LALCache):
 
 def FrameCachetoLALCache( fcache ):
 
-  lcache = FrameCache()
+  lcache = LALCache()
 
   files = fcache.get_files()
 

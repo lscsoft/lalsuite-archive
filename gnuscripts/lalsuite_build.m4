@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 16
+# serial 18
 
 AC_DEFUN([LALSUITE_USE_LIBTOOL],
 [## $0: Generate a libtool script for use in configure tests
@@ -129,6 +129,18 @@ AC_DEFUN([LALSUITE_ENABLE_NIGHTLY],
   AC_SUBST(NIGHTLY_VERSION)
 ])
 
+AC_DEFUN([LALSUITE_ENABLE_DEBUG],
+[AC_ARG_ENABLE(
+  [debug],
+  AC_HELP_STRING([--enable-debug],[include standard LAL debugging code [default=yes]]),
+  [ case "${enableval}" in
+      yes) ;;
+      no) AC_DEFINE(LAL_NDEBUG, 1, Suppress debugging code) ;;
+      *) AC_MSG_ERROR(bad value for ${enableval} for --enable-debug) ;;
+    esac
+  ], )
+])
+
 AC_DEFUN([LALSUITE_ENABLE_ALL_LAL],
 [AC_ARG_ENABLE(
   [all_lal],
@@ -236,6 +248,30 @@ AC_DEFUN([LALSUITE_ENABLE_LALSTOCHASTIC],
   ], [ lalstochastic=${all_lal:-true} ] )
 if test "$lalmetaio" = "false"; then
   lalstochastic=false
+fi
+])
+
+AC_DEFUN([LALSUITE_ENABLE_LALINFERENCE],
+[AC_ARG_ENABLE(
+  [lalinference],
+  AC_HELP_STRING([--enable-lalinference],[compile code that requires lalinference library [default=yes]]),
+  [ case "${enableval}" in
+      yes) lalinference=true;;
+      no) lalinference=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalinference) ;;
+    esac
+  ], [ lalinference=true ] )
+if test "$lalmetaio" = "false"; then
+  lalinference=false
+fi
+if test "$lalframe" = "false"; then
+  lalinference=false
+fi
+if test "$lalinspiral" = "false"; then
+  lalinference=false
+fi
+if test "$lalpulsar" = "false"; then
+  lalinference=false
 fi
 ])
 

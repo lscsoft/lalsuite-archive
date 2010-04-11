@@ -191,7 +191,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for ifo in self.segments:
-        print "\t%s was on for %g seconds" % (ifo,abs(self.segments[ifo]))
+        print "\t%s was on for %d seconds" % (ifo,abs(self.segments[ifo]))
 
     if self.opts.verbose: print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
 
@@ -221,7 +221,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for ifo in self.segments:
-        print "\t%s was on for %g seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
+        print "\t%s was on for %d seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
 
     return self.segments
 
@@ -234,10 +234,12 @@ class upper_limit(object):
     for inst in self.instruments:
       self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
       if self.opts.verbose:
-        print >>sys.stdout,"\t%s were on for %g seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
+        print >>sys.stdout,"\t%s were on for %d seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
 
       if not self.opts.include_play: #subtract playground segments
         self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
+        if self.opts.verbose:
+          print >>sys.stdout,"\t%s were on for %d seconds (excludes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
 
     return self.zero_lag_segments
 
@@ -345,7 +347,6 @@ class upper_limit(object):
       WHERE experiment_summary.datatype == "%s"
       GROUP BY coinc_event.instruments;
       """ %(datatype,)
-      if self.opts.verbose: print >>sys.stdout,"\t"+far_threshold_query
 
       for inst, far in self.connection.cursor().execute(far_threshold_query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
@@ -353,7 +354,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for inst in self.instruments:
-        print >>sys.stdout,"\tloudest event in %s time has FAR = %g" % (','.join(sorted(list(inst))),self.far[inst])
+        print >>sys.stdout,"\tloudest event in %s time has FAR = %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
 
     return self.far
 
@@ -586,8 +587,8 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser.add_option("--max-bhmass", metavar = "m", type = 'float', default = 6.0, help = "Specify the maximum mass for a black hole (default is 6Msun)")
 
   # Specify which instrument set to look for
-  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
-  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 2.0, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 100.0, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency

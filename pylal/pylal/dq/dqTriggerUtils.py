@@ -274,13 +274,15 @@ def trigger(data,etg,ifo=None,channel=None):
   # HACR
   # ====
 
-  # based on output of chosen columns: Macleod 2011
+  # based on output of hacr web interface
   if etg=='hacr':
     # peak time
     trig.peak_time               = int(data[0])
-    trig.peak_time_ns            = int(data[1])
+    trig.peak_time_ns            = int(float(data[1])*math.pow(10,9))
+    trig.param_one_name          = 'peak_time_offset'
+    trig.param_one_value         = float(data[1])
     # duration
-    trig.duration                = LIGOTimeGPS(data[2])
+    trig.duration                = float(data[4])
     # start time
     start = trig.get_peak()-trig.duration
     trig.start_time              = start.seconds
@@ -290,13 +292,13 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.stop_time               = stop.seconds
     trig.stop_time_ns            = stop.nanoseconds
     # bandwidth, and flow,fhigh,central_freq
-    trig.central_freq            = float(data[3])
+    trig.central_freq            = float(data[2])
     trig.peak_frequency          = trig.central_freq
-    trig.bandwidth               = float(data[4])
+    trig.bandwidth               = float(data[3])
     trig.flow                    = trig.central_freq - 0.5*trig.bandwidth
     trig.fhigh                   = trig.central_freq + 0.5*trig.bandwidth
     #snr
-    trig.snr                     = float(data[5])
+    trig.snr                     = float(data[6])
     trig.ms_snr                  = float(data[6])
 
     # ms extras
@@ -311,7 +313,13 @@ def trigger(data,etg,ifo=None,channel=None):
     trig.ms_flow                 = trig.flow
     trig.ms_bandwidth            = trig.ms_fhigh-trig.ms_flow
 
-    trig.process_id              = int(float(data[10]))
+    # others
+    trig.param_two_name = 'numPixels'
+    trig.param_two_value = int(data[5])
+    trig.param_three_name = 'totPower'
+    trig.param_three_value = float(data[7])
+
+    #trig.process_id              = int(float(data[10]))
 
   # sundries
   if ifo:
@@ -325,7 +333,7 @@ def trigger(data,etg,ifo=None,channel=None):
 # Write triggers to file in etg standard form
 # =============================================================================
 
-def totrigxml(file,table,program=None,params=[]):
+def totrigxml( file, table, program=None, params=[] ):
 
   """
     Write the given lsctables compatible table object to the file object file
@@ -354,21 +362,23 @@ def totrigxml(file,table,program=None,params=[]):
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
   xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
 
-  #== append process to table
+  # append process to table
   if not program:
-    program='pylal.dq.dqDataUtils.toxml'
+    program='pylal.dq.dqDataUtils.totrigxml'
 
-  process = llwapp.append_process(xmldoc,program=program,\
-                                         version=__version__,\
-                                         cvs_repository = 'lscsoft',\
-                                         cvs_entry_time = __date__)
+  process = llwapp.append_process( xmldoc, program=program,\
+                                           version=__version__,\
+                                           cvs_repository = 'lscsoft',\
+                                           cvs_entry_time = __date__ )
 
-  ligolw_process.append_process_params(xmldoc,process,params)
+  ligolw_process.append_process_params( xmldoc, process, params )
 
+  # append trig table to file
   xmldoc.childNodes[-1].appendChild(table)
 
+  # write triggers to file object file
   llwapp.set_process_end_time(process)
-  utils.write_fileobj(xmldoc,file)
+  utils.write_fileobj( xmldoc, file, gz=file.name.endswith('gz') )
 
 # =============================================================================
 # Write triggers to text file in etg standard form
@@ -410,9 +420,8 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'energy','amplitude','num_pixels','significance','N']
 
     elif re.match('hacr',etg.lower()):
-      columns =['peak_time','peak_time_ns','duration','central_freq',\
-                'bandwidth','snr','ms_snr','num_pixels','totPower','maxPower',\
-                'process_id']
+      columns = ['peak_time','param_one_value','central_freq','bandwidth',\
+                'duration','param_two_value','snr','param_three_value']
 
   # set delimiter
   if etg=='ihope':
@@ -422,13 +431,21 @@ def totrigfile(file,table,etg,header=True,columns=None):
 
   # print header
   if header:
-    print >>file, d.join(['#']+columns)
+    cols = []
+    for c in columns:
+      if c.startswith('param') and c.endswith('value'):
+        try:
+          cols.append(table[0].__getattribute__(c.replace('value','name')))
+        except IndexError:
+          cols.append(c)
+      else:
+        cols.append(c)
+    print >>file, d.join(['#']+cols)
 
   columnnames = table.columnnames
   if not columnnames:
     t = table[0]
     columnnames = table[0].__slots__
-
   # print triggers
   for row in table:
     line = []
@@ -439,7 +456,11 @@ def totrigfile(file,table,etg,header=True,columns=None):
        entry = ''
        # if ihope, print column
        if re.match('(ihope|hacr)',etg.lower()):
-         entry = str(row.__getattribute__(col))
+         # HACR default is to have peak_time_ns in seconds, not ns
+         if re.match('hacr',etg.lower()) and col=='peak_time_ns':
+           entry = str(row.__getattribute__(col)/math.pow(10,9))
+         else:
+           entry = str(row.__getattribute__(col))
        # if not ihope, check for time and print full GPS
        else:
          if col=='peak_time':

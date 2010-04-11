@@ -82,13 +82,13 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.amplitude_func == "hrsswave":
-		options.amplitude_func = lambda sim, instrument: sim.hrss
+		options.amplitude_func = lambda sim, instrument, offsetvector: sim.hrss
 		options.amplitude_lbl = r"$h_{\mathrm{rss}}$"
 	elif options.amplitude_func == "hrssdet":
 		options.amplitude_func = SimBurstUtils.hrss_in_instrument
 		options.amplitude_lbl = r"$h_{\mathrm{rss}}^{\mathrm{det}}$"
 	elif options.amplitude_func == "E":
-		options.amplitude_func = lambda sim, instrument: sim.egw_over_rsquared
+		options.amplitude_func = lambda sim, instrument, offsetvector: sim.egw_over_rsquared
 		options.amplitude_lbl = r"$M_{\odot} / \mathrm{pc}^{2}$"
 	else:
 		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
@@ -200,6 +200,7 @@ class HrssVsFreqScatter(object):
 		self.missed_y = []
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	*,
@@ -222,7 +223,7 @@ FROM
 			found = values[-1]
 			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
 				self.num_injections += 1
-				amplitude = self.amplitude_func(sim, self.instrument)
+				amplitude = self.amplitude_func(sim, self.instrument, offsetvectors[sim.time_slide_id])
 				self.injected_x.append(sim.frequency)
 				self.injected_y.append(amplitude)
 				if not found:
@@ -297,6 +298,7 @@ class RecoveredVsInjectedhrss(object):
 		self.c = []
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -316,7 +318,7 @@ WHERE
 			sim = contents.sim_burst_table.row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
-			self.x.append(self.amplitude_func(sim, self.instrument))
+			self.x.append(self.amplitude_func(sim, self.instrument, offsetvectors[sim.time_slide_id]))
 			self.y.append(hrss_rec)
 			self.c.append(math.log(freq_rec))
 
@@ -348,6 +350,7 @@ class RecoveredPerInjectedhrssVsFreq(object):
 		self.c = []
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -368,7 +371,7 @@ WHERE
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.frequency)
-			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument))
+			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument, offsetvectors[sim.time_slide_id]))
 			self.c.append(math.log(freq_rec))
 
 	def finish(self):
@@ -392,6 +395,7 @@ class RecoveredPerInjectedhrssVsBandwidth(object):
 		self.c = []
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -413,7 +417,7 @@ WHERE
 			bandwidth, freq_rec, hrss_rec = values[-3:]
 			self.matches += 1
 			self.x.append(bandwidth)
-			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument))
+			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument, offsetvectors[sim.time_slide_id]))
 			self.c.append(math.log(freq_rec))
 
 	def finish(self):
@@ -594,6 +598,7 @@ class RecoveredVsInjectedFreq(object):
 		self.c = []
 
 	def add_contents(self, contents):
+		offsetvectors = contents.time_slide_table.as_dict()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -615,7 +620,7 @@ WHERE
 			self.matches += 1
 			self.x.append(sim.frequency)
 			self.y.append(freq_rec)
-			self.c.append(math.log(hrss_rec / self.amplitude_func(sim, self.instrument)))
+			self.c.append(math.log(hrss_rec / self.amplitude_func(sim, self.instrument, offsetvectors[sim.time_slide_id])))
 
 	def finish(self):
 		self.axes.scatter(self.x, self.y, c = self.c, s = 16)

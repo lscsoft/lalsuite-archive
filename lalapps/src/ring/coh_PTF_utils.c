@@ -201,12 +201,13 @@ RingDataSegments *coh_PTF_get_segments(
     REAL4TimeSeries         *channel,
     REAL4FrequencySeries    *invspec,
     REAL4FFTPlan            *fwdplan,
+    InterferometerNumber     NumberIFO,
     struct coh_PTF_params   *params
     )
 {
   RingDataSegments *segments = NULL;
   COMPLEX8FrequencySeries  *response = NULL;
-  UINT4  sgmnt,i;
+  UINT4  sgmnt,i, slidSegNum;
   UINT4  segListToDo[params->numOverlapSegments];
 
   segments = LALCalloc( 1, sizeof( *segments ) );
@@ -291,6 +292,8 @@ RingDataSegments *coh_PTF_get_segments(
       else
       {
         if ( is_in_list( sgmnt, params->segmentsToDoList ) )
+      /* we are sliding the names of segments here */
+          slidSegNum = ( sgmnt + ( params->slideSegments[NumberIFO] ) ) % ( segments->numSgmnt );
           compute_data_segment( &segments->sgmnt[count++], sgmnt, channel,
             invspec, response, params->segmentDuration, params->strideDuration,
             fwdplan );
@@ -591,7 +594,7 @@ REAL4FFTPlan *coh_PTF_get_fft_fwdplan( struct coh_PTF_params *params )
   {
     UINT4 segmentLength;
     segmentLength = floor( params->segmentDuration * params->sampleRate + 0.5 );
-    plan = XLALCreateForwardREAL4FFTPlan( segmentLength, 0 );
+    plan = XLALCreateForwardREAL4FFTPlan( segmentLength, 1 );
   }
   return plan;
 }
@@ -605,7 +608,7 @@ REAL4FFTPlan *coh_PTF_get_fft_revplan( struct coh_PTF_params *params )
   {
     UINT4 segmentLength;
     segmentLength = floor( params->segmentDuration * params->sampleRate + 0.5 );
-    plan = XLALCreateReverseREAL4FFTPlan( segmentLength, 0 );
+    plan = XLALCreateReverseREAL4FFTPlan( segmentLength, 1 );
   }
   return plan;
 }
@@ -721,7 +724,7 @@ void coh_PTF_sky_grid(
   double baseline,lightTravelTime;
   REAL4 theta,phi;                  /* sky parameters */
   REAL4 raNp  = 0.;                 /* north */
-  REAL4 decNp = LAL_PI / 2.;        /* pole */
+  REAL4 decNp = LAL_PI_2;        /* pole */
 
   REAL4 rho;                        /* magnitude of rotation vector */
   REAL4 axis[3];                    /* rotation axis vector */
@@ -766,12 +769,12 @@ void coh_PTF_sky_grid(
    
           /* if pi/2 is in the range, choose that, 
            * otherwise get as close as possible */
-          if ( lambdamin < LAL_PI/2. && lambdamax > LAL_PI/2. )
+          if ( lambdamin < LAL_PI_2 && lambdamax > LAL_PI_2 )
           {
-            lambda = LAL_PI/2;
+            lambda = LAL_PI_2;
           }
           else
-            if ( abs( LAL_PI/2. - lambdamin) < abs( LAL_PI/2. - lambdamax ) )
+            if ( abs( LAL_PI_2 - lambdamin) < abs( LAL_PI_2 - lambdamax ) )
               lambda = lambdamin;
             else
               lambda = lambdamax;
@@ -798,7 +801,7 @@ void coh_PTF_sky_grid(
   
   /* calculate angle between north pole and (ra,dec) */
   raNp  = 0.;
-  decNp = LAL_PI / 2.;
+  decNp = LAL_PI_2;
 
   angle = acos ( sin(decNp)*sin(params->declination) +
                  cos(decNp)*cos(params->declination) * 
@@ -842,12 +845,13 @@ void coh_PTF_sky_grid(
 
     /* convert to spherical */
     phi   = skyPoints->rightAscension[i];
-    theta = LAL_PI / 2. - skyPoints->declination[i];
+    theta = LAL_PI_2 - skyPoints->declination[i];
     
     /* convert to cartesian */
     pos[0] = sin(theta)*cos(phi);
     pos[1] = sin(theta)*sin(phi);
     pos[2] = cos(theta);
+
 
     /* rotate */
     for ( k=0; k<3; k++ )
@@ -859,7 +863,12 @@ void coh_PTF_sky_grid(
     theta = acos(rotPos[2]);
     phi   = atan2(rotPos[1],rotPos[0]);
     skyPoints->rightAscension[i] = phi;
-    skyPoints->declination[i]    = LAL_PI / 2. - theta;
+    skyPoints->declination[i]    = LAL_PI_2 - theta;
+
+    if ( skyPoints->rightAscension[i] < 0.0 )
+      skyPoints->rightAscension[i] += LAL_TWOPI;
+    if ( skyPoints->rightAscension[i] >= LAL_TWOPI )
+      skyPoints->rightAscension[i] -= LAL_TWOPI;
 
   }
 
@@ -868,6 +877,7 @@ void coh_PTF_sky_grid(
     if ( detectors[ifoNumber] )
       LALFree(detectors[ifoNumber]);
   }
+
 
 }
 
@@ -922,7 +932,13 @@ struct coh_PTF_skyPoints coh_PTF_circular_grid(
       phi = ( -LAL_PI + dPhi / 2. ) + dPhi * j;
       /* assign sky point */
       skyPoints.rightAscension[p] = phi;
-      skyPoints.declination[p]    = LAL_PI / 2. - theta;
+      skyPoints.declination[p]    = LAL_PI_2 - theta;
+
+      if ( skyPoints.rightAscension[p] < 0.0 )
+        skyPoints.rightAscension[p] += LAL_TWOPI;
+      else if ( skyPoints.rightAscension[p] >= LAL_TWOPI )
+        skyPoints.rightAscension[p] -= LAL_TWOPI;
+
       p++;
     }
 
