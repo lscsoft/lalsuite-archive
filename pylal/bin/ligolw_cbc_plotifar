@@ -974,6 +974,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
 #
 #   Finished cycling over experiments; exit
 #
+connection.close()
+dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 if opts.verbose:
     print >> sys.stdout, "Finished!"
 sys.exit(0)
