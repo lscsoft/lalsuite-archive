@@ -10,7 +10,7 @@ GRB triggered inspiral search.
 """
 from __future__ import division
 
-itertools = __import__("itertools")  # absolute import of system-wide itertools
+import itertools
 import os
 import sys
 import copy
