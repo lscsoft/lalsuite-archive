@@ -809,7 +809,7 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 	def __init__(self, dag, job, cp, opts, ifo, p_nodes=[], type=""):
 
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.scan_type = type
+		self.scan_type = type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
 		self.add_var_arg(p_nodes[0].name_output_file)
 		self.add_var_arg(os.getcwd() + p_nodes[0].remote_output_path)
