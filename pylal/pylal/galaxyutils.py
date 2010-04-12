@@ -166,21 +166,21 @@ def dm2rad(dec_sex):
     raise ValueError, "degree or minute out of bounds: " + dec_sex
   return numpy.pi * sign * (d + m / 60) / 180
 
-def amin2rad(amins):
+def amin2rad_or_tilde(amins):
   """
   convert arcminutes to radians
   """
   if amins == '~':
-    return float('nan')
+    return numpy.nan
   else:
     return 10800*float(amins)/numpy.pi
 
-def deg2rad(degs):
+def deg2rad_or_tilde(degs):
   """
   convert degrees to radians
   """
   if degs == '~':
-    return float('nan')
+    return numpy.nan
   else:
       return float(degs)*numpy.pi/180
 
@@ -196,7 +196,7 @@ def float_or_tilde(num):
   in the GWGC catalog
   """
   if num == '~':
-    return float('nan')
+    return numpy.nan
   else:
       return float(num)
 
@@ -292,25 +292,25 @@ class GWGC(CBCGC):
         "pgc": (0,int_or_tilde),
         "name": (1, str),
         "ra": (2, h2rad),
-        "dec": (3, deg2rad),
+        "dec": (3, deg2rad_or_tilde),
         #morphological type
         "mtype": (4, str),
         #apparent blue magnitude
         "app_mag": (5, float_or_tilde),
         #major diameter
-        "maj_diam": (6, amin2rad),
+        "maj_diam": (6, amin2rad_or_tilde),
         #error in major diameter 
-        "maj_diam_error": (7, amin2rad),
+        "maj_diam_error": (7, amin2rad_or_tilde),
         #minor diameter
-        "min_diam": (8, amin2rad),
+        "min_diam": (8, amin2rad_or_tilde),
         #error in minor diameter
-        "min_diam_error": (9, amin2rad),
+        "min_diam_error": (9, amin2rad_or_tilde),
         #ratio of minor to major diameters
         "ratio_diams": (10, float_or_tilde),
         #error in ratio of diameters
         "ratio_diams_error": (11, float_or_tilde),
         #position angle of galaxy
-        "pos_ang": (12, deg2rad),
+        "pos_ang": (12, deg2rad_or_tilde),
         #absolute blue magnitude
         "abs_mag": (13, float_or_tilde),
         # distance measured in mpc
