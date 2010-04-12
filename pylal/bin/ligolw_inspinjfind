@@ -66,6 +66,7 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process even if file has already been processed.")
 	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be written to the process table (default = None).")
 	parser.add_option("-c", "--match-algorithm", metavar = "[inspiral]", default = "inspiral", help = "Set the algorithm used to match burst candidates with injections (required).")
+	parser.add_option("-w", "--time-window", type = 'float', default = 9000, help = "Set the time window, in milliseconds, used by the inspiral match-algorithm. Default is 9000 (ms).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -110,10 +111,12 @@ ligolw_inspinjfind.table.RowBuilder = ligolw_inspinjfind.table.InterningRowBuild
 
 options, filenames = parse_command_line()
 
-# must match columns in sngl_burst table
+# must match columns in sngl_inspiral table
 search = {"inspiral": "inspiral"}[options.match_algorithm]
-snglcomparefunc = {"inspiral": ligolw_inspinjfind.InspiralSnglCompare}[options.match_algorithm]
-nearcoinccomparefunc = {"inspiral": ligolw_inspinjfind.NearCoincCompare}[options.match_algorithm]
+# create the compare functions class with desired input variables
+cf = ligolw_inspinjfind.CompareFunctions( twindow = options.time_window )
+snglcomparefunc = {"inspiral": cf.InspiralSnglCompare}[options.match_algorithm]
+nearcoinccomparefunc = {"inspiral": cf.NearCoincCompare}[options.match_algorithm]
 
 
 #
@@ -152,7 +155,7 @@ for n, filename in enumerate(filenames):
 	process = ligolw_inspinjfind.append_process(xmldoc, match_algorithm = options.match_algorithm, comment = options.comment)
 
 	#
-	# run binjfind algorithm
+	# run inspinjfind algorithm
 	#
 
 	ligolw_inspinjfind.ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, verbose = options.verbose)
