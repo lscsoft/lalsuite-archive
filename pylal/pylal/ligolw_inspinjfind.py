@@ -296,18 +296,31 @@ def append_process(xmldoc, match_algorithm, comment):
 # =============================================================================
 #
 
-def InspiralSnglCompare(sim, inspiral):
-        """
-	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
-        """
-	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
+class CompareFunctions:
+	"""
+	Class to store different compare functions. Any extra args needed by the called
+	functions are created when the function is initialized.
+	"""
+	def __init__( self, twindow = 9000 ):
+		"""
+		Any extra variables needed by the compare functions.
+
+		@twindow: the default time window, in milliseconds, to use for InspiralSnglCompare and NearCoincCompare
+		"""
+		self.twindow = LIGOTimeGPS( int(twindow/1000), (twindow % 1000)*1e6 )
+
+	def InspiralSnglCompare(self, sim, inspiral):
+		"""
+		Return False if the peak time of the sim is within self.twindow milliseconds of the inspiral event.
+		"""
+		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
 
 
-def NearCoincCompare(sim, inspiral):
-	"""
-	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
-	"""
-	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
+	def NearCoincCompare(self, sim, inspiral):
+		"""
+		Return False if the peak time of the sim is within self.twindow milliseconds of the inspiral event.
+		"""
+		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
 
 
 #
@@ -429,7 +442,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	N = len(contents.siminspiraltable)
 
 	#
-	# Find sim_burst <--> sngl_inspiral coincidences.
+	# Find sim_inspiral <--> sngl_inspiral coincidences.
 	#
 
 	if verbose:
