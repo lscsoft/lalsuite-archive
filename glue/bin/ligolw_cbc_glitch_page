@@ -119,7 +119,7 @@ def generate_html(outf, triggers, colors):
         for res in trig[1:-1]:
             print >>outf, '    <td>%s</td>' % res
         
-        print >>outf, '    <td><a href="omega/%s/index.html">&Omega; scan</a></td>' % (trig[1])
+        print >>outf, '    <td><a href="omega/%s.%s/index.html">&Omega; scan</a></td>' % (trig[1], trig[2])
 
         print >>outf, '    <td>'
         for name, value in trig[-1].items():
@@ -359,7 +359,7 @@ if __name__ == '__main__':
 
             conf = options.omega_conf.replace('%s',ifo[0])
 
-            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( conf, full_path, options.omega_out_dir, end_time, end_time ))
+            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d.%d  %d.%d < /dev/null &>/dev/null &" % ( conf, full_path, options.omega_out_dir, end_time, end_time_ns, end_time, end_time_ns ))
 
 
     # Convert to html, prepend to the file.

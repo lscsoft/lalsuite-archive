@@ -12,10 +12,10 @@ __date__ = "$Date$"[7:-2]
 __prog__="tuneethinca"
 __Id__ = "$Id$"
 
+import itertools
 import sys, os, re, glob, exceptions
 from optparse import *
 from types import *
-itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 from glue import lal
 from glue import segmentsUtils

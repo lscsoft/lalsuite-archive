@@ -97,6 +97,7 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 	Iterate over a sequence of URLs and parse and insert each one into
 	the database the dbtables.DBTable class is currently connected to.
 	"""
+	orig_DBTable_append = dbtables.DBTable.append
 	if not preserve_ids:
 		# enable ID remapping
 		dbtables.idmap_create(connection)
@@ -118,6 +119,7 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 		xmldoc.unlink()
 	connection.commit()
 	dbtables.build_indexes(connection, verbose)
+	dbtables.DBTable.append = orig_DBTable_append
 
 
 def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False):
@@ -125,6 +127,7 @@ def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False
 	Insert the tables from an in-ram XML document into the database at
 	the given connection.
 	"""
+	orig_DBTable_append = dbtables.DBTable.append
 	if not preserve_ids:
 		# enable ID remapping
 		dbtables.idmap_create(connection)
@@ -145,6 +148,7 @@ def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False
 	if not preserve_ids:
 		update_ids(dbtables.get_xml(connection), connection, verbose)
 	dbtables.build_indexes(connection, verbose)
+	dbtables.DBTable.append = orig_DBTable_append
 
 
 #

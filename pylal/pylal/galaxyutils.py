@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007  Nickolas Fotopoulos
+# Copyright (C) 2007-2010  Nickolas Fotopoulos, Larry Price
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -17,12 +17,10 @@
 
 from __future__ import division
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
+import itertools
 import math
-itertools = __import__("itertools")  # system-wide itertools
 
 import numpy
 import warnings
@@ -42,7 +40,9 @@ def is_inside_polygon(point, vertices):
     """
     Return True if the (2-D) point is inside the (2-D) polygon defined by the
     vertices.
-  
+
+    Warning: Result is undefined for points lying along the edge of the polygon.
+
     Adapted from:
     http://local.wasp.uwa.edu.au/~pbourke/geometry/insidepoly/ (solution 2)
     """
@@ -60,42 +60,12 @@ def is_within_distances(gal_dist, dmin, dmax):
     Return True if dmax > gal_dist > dmin
     """
     if (dmin > dmax):
-        raise ValueError, "minimum distance is greater than maximum distance " + str(dmin) + " > "+ str(dmax)
+        raise ValueError, "minimum distance is greater than maximum distance "\
+            + str(dmin) + " > "+ str(dmax)
     if (0 > dmin) or (0 > dmax):
         raise ValueError, "negative distance " + str(dmin) + " " + str(dmax)
     return (dmax > gal_dist) and (dmin < gal_dist)
 
-def plot_points(points, polygon):
-    """
-    Return the handle to a figure containing a scatter plot of a set of
-    points, each colored by is_inside_polygon's determination of whether it is
-    inside or outside the given polygon.
-    
-    This is an excellent way to test is_inside_polygon.
-    """
-    found_list = [is_inside_polygon(point, polygon) for point in points]
-    found_points = numpy.array([point for point,found in \
-        itertools.izip(points, found_list) if found])
-    missed_points = numpy.array([point for point,found in \
-        itertools.izip(points, found_list) if not found])
-    
-    fig = pylab.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(found_points[:, 0], found_points[:, 1], "bx", label="found")
-    ax.plot(missed_points[:, 0], missed_points[:, 1], "ro", label="missed")
-    
-    closed_poly = numpy.vstack((polygon, polygon[0]))
-    ax.plot(closed_poly[:, 0], closed_poly[:, 1], "k-", label="_nolabel_")
-    return fig
-
-# visual test code for is_inside_polygon
-
-# import pylab
-# points = numpy.random.uniform(low=0.0, high=5.0, size=(5000,2))
-# test_polygon = numpy.array([[2, 2], [2, 3], [3, 2]], dtype=float)
-# plot_points(points, test_polygon)
-# pylab.show()
-# sys.exit()
 
 ##############################################################################
 # unit conversion
@@ -110,7 +80,7 @@ def hms2rad(ra_sex):
     h = int(tup[0])
     m = int(tup[1])
     s = float(tup[2])
-    
+
     if (h < 0 or h > 23) or (m < 0 or m > 60) or (s < 0 or s >= 60):
         raise ValueError, "hour, minute, or second out of bounds " + ra_sex
     return 2 * numpy.pi * (h + (m + s / 60) / 60) / 24
@@ -129,7 +99,7 @@ def dms2rad(dec_sex):
         sign = +1
     m = int(tup[1])
     s = float(tup[2])
-  
+
     if (d > 89) or (m < 0 or m > 60) or (s < 0 or s >= 60):
         raise ValueError, "degree, minute, or second out of bounds: " + dec_sex
     return numpy.pi * sign * (d + (m + s / 60) / 60) / 180
@@ -142,7 +112,7 @@ def hm2rad(ra_sex):
     tup = ra_sex.split(":")
     h = int(tup[0])
     m = float(tup[1])
-  
+
     if (h < 0 or h > 23) or (m < 0 or m > 60):
         raise ValueError, "hour or minute out of bounds " + ra_sex
     return 2 * numpy.pi * (h + m / 60) / 24
@@ -161,7 +131,7 @@ def dm2rad(dec_sex):
       sign = 1
   m = float(tup[1])
 
-  
+
   if (d > 89) or (m < 0 or m > 60):
     raise ValueError, "degree or minute out of bounds: " + dec_sex
   return numpy.pi * sign * (d + m / 60) / 180
@@ -217,8 +187,13 @@ def int_or_tilde(num):
 
 class CBCGC(list):
     """
-    class for working with the galaxy catalog created and maintained by the CBC group
+    class for working with the galaxy catalog created and maintained by the
+    CBC group
+
+    Current catalog:
     http://www.lsc-group.phys.uwm.edu/cgit/lalsuite/plain/lalapps/src/inspiral/inspsrcs100Mpc.errors
+
+    Literature reference:
     http://arxiv.org/pdf/0706.1283
     """
     valid_columns =  {
@@ -233,22 +208,22 @@ class CBCGC(list):
         "magnitude_error": (6, float),
         "distance_error": (7, float),
         }
-    
+
     def entry_from_line(cls, line, load_columns):
         # create blank entry
         row = cls.entry_class()
-        
+
         # parse line
         tup = line.split()
-        
+
         # fill the entry
         for col_name in load_columns:
             col_index, col_type = cls.valid_columns[col_name]
             setattr(row, col_name, col_type(tup[col_index]))
-        
+
         return row
     entry_from_line = classmethod(entry_from_line)
-    
+
     def from_file(cls, fileobj, load_columns=None):
         # set/validate columns to load
         if load_columns is None:
@@ -258,17 +233,19 @@ class CBCGC(list):
                 if col not in cls.valid_columns:
                     raise ValueError, "no such column exists"
         cls.entry_class.__slots__ = load_columns
-        
+
         # load them
         return cls([cls.entry_from_line(line, load_columns) for line \
                     in fileobj if not line.startswith("#")])
     from_file = classmethod(from_file)
 
     def within_polygon(self, vertices):
-        return self.__class__([gal for gal in self if is_inside_polygon(gal.coords, vertices)])
+        return self.__class__([gal for gal in self if \
+            is_inside_polygon(gal.coords, vertices)])
 
     def within_distances(self, dmin, dmax):
-        return self.__class__([gal for gal in self if is_within_distances(gal.distance_kpc, dmin, dmax)])
+        return self.__class__([gal for gal in self if \
+            is_within_distances(gal.distance_kpc, dmin, dmax)])
 
     def __repr__(self):
         return "\n".join(itertools.imap(str, self))
@@ -278,13 +255,16 @@ class GalaxyCatalog(CBCGC):
     left here to maintain compatibility with existing codes
     """
     def __init__(self,*args,**kwargs):
-      warnings.warn('The GalaxyCatalog class has been replaced by the CBCGC class.', \
-                   DeprecationWarning, stacklevel=3)
+      warnings.warn( \
+        'The GalaxyCatalog class has been replaced by the CBCGC class.',
+        DeprecationWarning, stacklevel=3)
       CBCGC.__init__(self,*args,**kwargs)
 
 class GWGC(CBCGC):
     """
     useful class for dealing with the gravitational wave galaxy catalog
+
+    Current catalog:
     https://www.lsc-group.phys.uwm.edu/cgi-bin/pcvs/viewcvs.cgi/bursts/collabs/DO_proposal/gwgc/GWGCCatalog.txt?rev=1.4&content-type=text/vnd.viewcvs-markup
     """
     valid_columns =  {
@@ -326,10 +306,10 @@ class GWGC(CBCGC):
     def entry_from_line(cls, line, load_columns):
         # create blank entry
         row = cls.entry_class()
-        
+
         # parse line
         tup = line.split('|')
-        
+
         # fill the entry
         for col_name in load_columns:
             col_index, col_type = cls.valid_columns[col_name]
@@ -346,14 +326,15 @@ class GWGC(CBCGC):
                 if col not in cls.valid_columns:
                     raise ValueError, "no such column exists"
         cls.entry_class.__slots__ = load_columns
-        
+
         # load them
         return cls([cls.entry_from_line(line, load_columns) for line \
                     in fileobj if not line.startswith("#")])
     from_file = classmethod(from_file)
 
     def within_distances(self, dmin, dmax):
-        return self.__class__([gal for gal in self if is_within_distances(gal.distance_mpc, dmin, dmax)])
+        return self.__class__([gal for gal in self if \
+            is_within_distances(gal.distance_mpc, dmin, dmax)])
 
 class CBCGGalaxy(object):
     """
