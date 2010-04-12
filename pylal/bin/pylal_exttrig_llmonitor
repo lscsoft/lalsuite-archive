@@ -91,7 +91,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   # since the trigger-time
   gps_now = time.time() - peu.offset_gps_to_linux
   time_diff = gps_now-int(grb_time)
-  if time_diff < int(cp.get('data','min_diff')):
+  if time_diff < int(cp.get('analysis','min_diff')):
     # do not analyze this GRB now; postpone to later time
     peu.info(grb_name, "GRB%s: Analysis postponsed because time difference too small"%grb_name)
     return None
@@ -120,15 +120,15 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   # set the paths to the GRB instance
   grb.set_paths(input_dir=cp.get('paths','cvs'), \
                 main_dir=cp.get('paths','main'),\
-                ini_file = cp.get('data','ini_file'),\
-                inj_file = cp.get('data','inj_file'),\
+                ini_file = cp.get('analysis','ini_file'),\
+                inj_file = cp.get('analysis','inj_file'),\
                 config_file = opts.config_file,\
                 condor_log_path = cp.get('paths','condor_log_path'),\
                 log_file=log_file)
   grb.set_addresses(email_adresses)
 
   # check if there is enough data for this GRB
-  grb.update_segment_lists(int(cp.get('data','min_diff')))
+  grb.update_segment_lists(int(cp.get('analysis','min_diff')))
   grb.get_segment_info(seg_file)
   grb.calculate_optimality()
 
@@ -136,7 +136,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
   if grb.has_data:
     
     # check the veto list for that time, if it overlaps with the on-source
-    grb.update_veto_lists(int(cp.get('data','min_diff')))
+    grb.update_veto_lists(int(cp.get('analysis','min_diff')))
     grb.check_veto_onsource()
 
     # check again; this quantity might have been changed by 
@@ -227,7 +227,7 @@ def check_start_inj_dag(monitor_list):
     if grb.has_data and grb.dag['inj'].status == 0:
 
       # check the duration criterion
-      if (opts.dag_injections=='short' and (grb.duration and grb.duration<float(cp.get('data','max-duration'))) )\
+      if (opts.dag_injections=='short' and (grb.duration and grb.duration<float(cp.get('analysis','max-duration'))) )\
 	or (opts.dag_injections=='always') \
 	or (opts.dag_injections=='only'):
 
@@ -340,7 +340,7 @@ def start_post(grb, dag, cp):
   """
 
   # check the veto definer file to see changes
-  grb.update_veto_lists(int(cp.get('data','min_diff')))
+  grb.update_veto_lists(int(cp.get('analysis','min_diff')))
 
   # prepare the html output path
   publishing_path = cp.get('paths','publishing_path')
@@ -374,7 +374,7 @@ def start_post_inj(grb, dag, cp):
   """
 
   # check the veto definer file to see changes
-  grb.update_veto_lists(int(cp.get('data','min_diff')))
+  grb.update_veto_lists(int(cp.get('analysis','min_diff')))
 
   # prepare the html output path; might be in onoff DAG, but just a precaution
   publishing_path = cp.get('paths','publishing_path')

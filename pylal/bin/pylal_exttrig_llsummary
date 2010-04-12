@@ -528,7 +528,7 @@ fuopts.output_path = opts.openbox_path+'/'
 # read the cache file and initialize the followup class
 cache = lal.Cache.fromfile(open('../GRB'+grb.name+'.cache')).sieve(description='ONSOURCE')
 followup = followup_trigger.FollowupTrigger(cache, fuopts, False)
-lctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
+lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
         "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
 # create the trigger table
@@ -582,8 +582,9 @@ for cat in cats:
     for ifo in ifo_list:
       try:
         trig = getattr(use_coinc, ifo)
-        row += ["%.4g"%trig.get_effective_snr()]
-        output_dict['snr'+ifo[0].upper()]=trig.get_effective_snr()
+        stat = getattr(trig, 'get_'+statistic)()
+        row += ["%.4g"%stat]
+        output_dict['snr'+ifo[0].upper()]=stat
       except:
         row += ["&mdash"]
 
@@ -688,9 +689,9 @@ source = grb.analysis_dir+'/'+segplot
 copysafe(source, opts.output_path)
 
 # copy the ini-file and the configuration file
-inifile = grb.analysis_dir+'/'+cp.get('data','ini_file')
+inifile = grb.analysis_dir+'/'+cp.get('analysis','ini_file')
 copysafe(inifile, opts.output_path)
-html = html.replace('macroinifile',cp.get('data','ini_file'))
+html = html.replace('macroinifile',cp.get('analysis','ini_file'))
 copysafe(opts.config_file, opts.output_path)
 html = html.replace('macroconffile', os.path.basename(opts.config_file))
 
@@ -755,7 +756,7 @@ if opts.output_path_html:
   # set two links to the kml file and the segplot
   link_openbox(opts.output_path_html, kml_filename)
   link_openbox(opts.output_path_html, segplot)
-  link_openbox(opts.output_path_html, cp.get('data','ini_file'))
+  link_openbox(opts.output_path_html, cp.get('analysis','ini_file'))
   link_openbox(opts.output_path_html, os.path.basename(opts.config_file))
 
   if not grb.openbox:

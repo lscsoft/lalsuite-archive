@@ -519,7 +519,7 @@ def generate_summary(publish_path, publish_url):
   # Read the list of all processed GRBs
   monitor_list = read_monitor_list()
 
-  short_grb_duration = float(cp.get('data','max-duration'))
+  short_grb_duration = float(cp.get('analysis','max-duration'))
 
   # get some statistics
   number_short = number_long = number_data = number_nodata = number_long_data = number_short_data = 0
@@ -622,7 +622,8 @@ def generate_summary(publish_path, publish_url):
       table = add(table, '<a href="%s">%s</a>'%(segplot_link, txt))
     
     if status_onoff==5:
-     
+    
+      print grb.name, grb.openbox 
       #Add link to sanity pages
       htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity.html' % (grb.name, grb.name)
       htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity_inj.html' % (grb.name, grb.name)
@@ -903,8 +904,8 @@ class GRB(object):
 
     # datafind variables
     self.use_offline_data = False
-    self.type_online = {'H1':'H1_DMT_C00_L2', 'L1':'L1_DMT_C00_L2', 'V1':'V1_DMT_HREC'}
-    self.type_offline = {'H1':'H1_LDAS_C00_L2','L1':'L1_LDAS_C00_L2','V1':'HrecOnline'}
+    self.type_online = {'H1':cp.get('data','channel_online_H1'), 'L1':cp.get('data','channel_online_L1'), 'V1':cp.get('data','channel_online_V1')}
+    self.type_offline = {'H1':cp.get('data','channel_offline_H1'), 'L1':cp.get('data','channel_offline_L1'), 'V1':cp.get('data','channel_offline_V1')}
 
     # veto handling
     self.veto_definer = None
@@ -1129,12 +1130,12 @@ class GRB(object):
     cmd += " --v1-segments V1-science_grb%s.txt" % self.name
     cmd += " --list "+self.trigger_file
     cmd += " --grb "+self.name
-    cmd += " --onsource-left "+cp.get('data','onsource_left')
-    cmd += " --onsource-right "+cp.get('data','onsource_right')
+    cmd += " --onsource-left "+cp.get('analysis','onsource_left')
+    cmd += " --onsource-right "+cp.get('analysis','onsource_right')
     cmd += " --config-file "+self.inifile
     cmd += " --log-path "+self.condor_log_path
-    cmd += " --num-trials "+cp.get('data','num_trials')
-    cmd += " --padding-time "+cp.get('data','padding_time')
+    cmd += " --num-trials "+cp.get('analysis','num_trials')
+    cmd += " --padding-time "+cp.get('analysis','padding_time')
     return cmd
  
   # -----------------------------------------------------
@@ -1370,7 +1371,7 @@ class GRB(object):
     
     # get the name of the ini-file to be used
     # note: must be the inifile from CVS, just to create some information
-    ini_file = cp.get('paths','cvs') + '/'+cp.get('data','ini_file')
+    ini_file = cp.get('paths','cvs') + '/'+cp.get('analysis','ini_file')
  
     # the following is just a copy-and-paste from trigger_hipe
     # having replaced 'cp' by 'pc'
@@ -1456,7 +1457,7 @@ class GRB(object):
   # -----------------------------------------------------
   def update_veto_lists(self, timeoffset):
 
-    definer_file = cp.get('paths','veto_definer')
+    definer_file = cp.get('data','veto_definer')
     starttime = self.time-timeoffset
     endtime = self.time+timeoffset
 
@@ -1563,8 +1564,8 @@ class GRB(object):
     ifolist.sort()
 
     # create the onsource segment
-    onsource_left = int(cp.get('data','onsource_left'))
-    onsource_right = int(cp.get('data','onsource_right'))
+    onsource_left = int(cp.get('analysis','onsource_left'))
+    onsource_right = int(cp.get('analysis','onsource_right'))
     trigger = int(self.time)
     onSourceSegment = segments.segment(trigger - onsource_left,
                                        trigger + onsource_right)
@@ -1573,8 +1574,8 @@ class GRB(object):
     self.onsource_segment = [onSourceSegment[0], onSourceSegment[1]]
 
     # convert string in integer
-    padding_time = int(cp.get('data','padding_time'))
-    num_trials = int(cp.get('data','num_trials'))
+    padding_time = int(cp.get('analysis','padding_time'))
+    num_trials = int(cp.get('analysis','num_trials'))
     symmetric = False
     offSourceSegment, grb_ifolist = micos(segdict, onSourceSegment,
                                           padding_time = padding_time, \
@@ -1697,16 +1698,16 @@ class GRB(object):
     f.write("s=@OPENBOXPATH@=OPENBOX=g\n")
     f.write("s=@HTMLOUTPUT@=%s=g\n"%html_path)
     f.write("s/@LOGNAME@/%s/g\n" % os.getenv("LOGNAME"))
-    f.write("s/@BOUNDARIESMC@/%s/g\n" % cp.get('data','mc_boundaries'))
+    f.write("s/@BOUNDARIESMC@/%s/g\n" % cp.get('analysis','mc_boundaries'))
     f.write("s/@GRBID@/%s/g\n"%self.name)
     f.write("s=@GRBPICKLE@=%s=g\n"%get_monitor_filename())
     f.write("s=@CONFIGFILE@=%s=g\n"%self.config_file)
-    f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('data','m2_boundaries'))
+    f.write("s/@BOUNDARIESM2@/%s/g\n" % cp.get('analysis','m2_boundaries'))
     vetofiles = ''
     for ifo in self.ifolist:
       vetofiles+=',../../%s-VETOTIME_CAT2_grb%s.txt' %(ifo, self.name)
     f.write("s=@VETOFILES@=%s=g\n" % vetofiles)
-    f.write("s/@STATISTIC@/%s/g\n" % cp.get('data','statistic')) 
+    f.write("s/@STATISTIC@/%s/g\n" % cp.get('analysis','statistic')) 
     f.close()
 
 
