@@ -28,9 +28,9 @@ __title__ = "GRB timeslide and trial statistics"
 
 
 import glob
+import itertools
 import optparse
 import sys
-itertools = __import__("itertools")  # system-wide itertools
 
 import numpy
 numpy.seterr(all="raise")

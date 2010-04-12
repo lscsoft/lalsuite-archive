@@ -16,10 +16,10 @@
 #
 from __future__ import division
 
+import itertools
 import os
 import sys
 import random
-itertools = __import__("itertools")
 
 import numpy as np
 from scipy import stats
