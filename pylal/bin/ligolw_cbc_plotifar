@@ -637,8 +637,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if category in uncomb_zero_cumnum:
                     xval = 1. / min_bkg_ufar[ zero_esid ]
                     yval = uncomb_zero_cumnum[ category ]
-                    text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', 
-                        color = 'k', label='_nolegend_' )
+                    text( xval, yval, '$\longrightarrow$', ha = 'left', va = 'center', 
+                        color = 'k', fontsize = 20, label='_nolegend_' )
                 # reset xmin, xmax, ymin
                 if xmin > 1./ufars[0]:
                     xmin = 1./ufars[0]
@@ -687,7 +687,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             if ymax == 0.: ymax = 1000.
             # Re-set xmin and ymax to be slightly smaller/larger
             xmin = xmin * 0.8
-            xmax = xmax * 1.4
+            xmax = 10**.5 * xmax
             ymax = ymax * 1.2
             # if plot limits specified on command line, override values to whatever was specified
             # and check for consistency
@@ -874,8 +874,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if category in comb_zero_cumnum:
                     xval = 1. / ( min_bkg_ufar[ zero_esid ] * len(max_bkg_fars[zero_esid].values()) )
                     yval = comb_zero_cumnum[ category ]
-                    text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', 
-                        color = 'k', label='_nolegend_' )
+                    text( xval, yval, '$\longrightarrow$', ha = 'left', va = 'center', 
+                        color = 'k', fontsize = 20, label='_nolegend_' )
                 # reset xmin, xmax, ymin
                 if xmin > 1./cfars[0]:
                     xmin = 1./cfars[0]
@@ -896,7 +896,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             if ymax == 0.: ymax = 1000.
             # Re-set xmin and ymax to be slightly smaller/larger
             xmin = xmin * 0.8
-            xmax = xmax * 1.4
+            xmax = 10**.5 * xmax
             ymax = ymax * 1.2
             # if plot limits specified on command line, override values to whatever was specified
             # and check for consistency
