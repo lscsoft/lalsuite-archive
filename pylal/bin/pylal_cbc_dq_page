@@ -466,7 +466,7 @@ print >>output, "<<TableOfContents(3)>>"
 # ==========
 if options.skip_range_plot is False:
   maxVal=0
-  figure(figsize[10,6])
+  figure(figsize=[10,6])
   for j in range(0,len(ifo)):
     rangePlotFile = dqPath+'/'+ifo[j]+'-inspiral_range.txt'
     GetCommandOutput('rm -f '+rangePlotFile)
