@@ -407,7 +407,7 @@ if [ -e $3/lock.txt ]
 then
         rm $3/lock.txt
 fi
-/storage/gpfs_virgo3/virgo/omega/omega_r2625_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-$4.tgz $3 
 		"""%(tag_base))
