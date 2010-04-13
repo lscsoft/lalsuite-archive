@@ -167,7 +167,7 @@ for qscan_type in qscanTypeList:
     continue
   else:
     for qscan in eval(qscan_type.replace('-','_') + "List"):
-      qscan_result_path = result_path + qscan[1]
+      qscan_result_path = result_path + qscan[0].strip('/').split('/')[-1]
       # check if directory exists before trying to move it
       if os.path.exists(qscan_result_path):
         # do not overwrite an existing output directory
