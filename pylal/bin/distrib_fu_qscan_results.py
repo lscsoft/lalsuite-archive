@@ -175,10 +175,10 @@ for qscan_type in qscanTypeList:
           print >> sys.stderr, "Directory " + qscan[0] + " already exists, cannot be overwritten with new qscan results"
         else:
           shutil.move(qscan_result_path, qscan[0]) 
-          print "\n Copying file " + qscan_result_path + " to " + qscan[0]
+          #print "\n Copying file " + qscan_result_path + " to " + qscan[0]
       else:
         print >> sys.stderr, "Directory " + qscan_result_path + " could not be found!!"
-        sys.exit(1)
+        #sys.exit(1)
 
 
 # Do some cleaning in the local directory before exiting
