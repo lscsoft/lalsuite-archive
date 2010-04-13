@@ -1076,7 +1076,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'hoft')
     if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      frametype = sngl.ifo + "_" + frametype
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
                                        "*/%s/*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
@@ -1123,11 +1123,11 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
     if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      frametype = sngl.ifo + "_" + frametype
     if sngl.ifo == "V1":
-        chankey = "Em_SE"
+      chankey = "Em_SE"
     else:
-        chankey = "SEI"
+      chankey = "SEI"
     indexDict[sngl.ifo]=fnmatch.filter(filesOmega,\
                                        "*/%s_*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(filesOmega,\
@@ -1209,13 +1209,13 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
     if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      frametype = sngl.ifo + "_" + frametype
     if sngl.ifo == "V1":
-        chankeyseis = "Em_SE"
-        chankeyenv = "Em_"
+      chankeyseis = "Em_SE"
+      chankeyenv = "Em_"
     else:
-        chankeyseis = "SEI"
-        chankeyenv = "PEM"
+      chankeyseis = "SEI"
+      chankeyenv = "PEM"
     for myFile in fnmatch.filter(filesOmega,\
                                  "*/%s/*/%s/*html"%(frametype,sngl.time)):
       indexDict[sngl.ifo].append(myFile)
@@ -1307,13 +1307,13 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
     if not sngl.ifo in frametype:
-        frametype = sngl.ifo + "_" + frametype
+      frametype = sngl.ifo + "_" + frametype
     if sngl.ifo == "V1":
-        chankeyseis = "Em_SE"
-        chankeyenv = "Em_"
+      chankeyseis = "Em_SE"
+      chankeyenv = "Em_"
     else:
-        chankeyseis = "SEI"
-        chankeyenv = "PEM"
+      chankeyseis = "SEI"
+      chankeyenv = "PEM"
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     for myFile in fnmatch.filter(filesOmega,\
