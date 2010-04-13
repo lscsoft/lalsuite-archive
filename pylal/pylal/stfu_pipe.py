@@ -199,7 +199,10 @@ def getParamsFromCache(fileName,type,ifo=None,time=None):
 		return qscanList
 	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
 	if time:
-		cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		if math.floor(float(time)) != math.ceil(float(time)):
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		else:
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time))-0.5, math.floor(float(time))+0.5))
 
 	for cacheEntry in cacheSelected:
 		path_output = cacheEntry.path()
