@@ -1167,9 +1167,11 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
 			self.add_parent(parentNode)
-		if opts.do_makeCheckList:
+		if not opts.no_makeCheckList:
 			dag.add_node(self)
-
+			self.validate()
+		else:
+			self.invalidate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):

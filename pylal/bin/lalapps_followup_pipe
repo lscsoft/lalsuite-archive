@@ -725,8 +725,8 @@ def parse_command_line():
 	parser.add_option("","--no-rdsQscan-datafind", action="store_true",\
         default=False,help="disable rds qscan datafind nodes")
 
-	parser.add_option("","--do-makeCheckList", action="store_true",\
-	default=False,help="enable the checklist generation")
+	parser.add_option("","--no-makeCheckList", action="store_true",\
+	default=False,help="disable the checklist generation")
 
 	parser.add_option("","--do-remoteScans", action="store_true",\
 	default=False,help="enable the remote scans through condor flocking." \
