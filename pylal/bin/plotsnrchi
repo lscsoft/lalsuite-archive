@@ -463,7 +463,8 @@ if trigFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
       verbose=opts.verbose)
   if inspTriggers:
-    inspTriggers = inspTriggers.ifocut(opts.ifo_times)  # do this in case single-ifo triggers are being read in from COIREs
+    if opts.ifo_times:
+      inspTriggers.ifocut(opts.ifo_times, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
     nevents = len(inspTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(nevents)+ ' triggers from inspiral files')
@@ -488,7 +489,8 @@ if slideFiles:
   slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles, \
       verbose=opts.verbose)
   if slideTriggers:
-    slideTriggers = slideTriggers.ifocut(opts.ifo_times)
+    if opts.ifo_times:
+      slideTriggers.ifocut(opts.ifo_times, inplace=True)
     slide_events = len(slideTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(slide_events)+ ' triggers from inspiral files')
@@ -513,7 +515,8 @@ if injFiles:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
       verbose=opts.verbose)
   if injTriggers:
-    injTriggers = injTriggers.ifocut(opts.ifo_times)
+    if opts.ifo_times:
+      injTriggers.ifocut(opts.ifo_times, inplace=True)
     ninj_events = len(injTriggers)
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
