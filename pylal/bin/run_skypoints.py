@@ -52,6 +52,8 @@ def parse_command_line():
                     help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
                     help="specify the type of input in the glob.  valid options are coinctable (DEFAULT) and coire")
+  parser.add_option("-c","--coarse-cut",action="store",type="float", default=0.0, metavar=" COARSE_CUT", \
+    help="probability (based on timing only) required for moving from the coarse to the fine grid. default is 98% probability." )
 
   (options,args) = parser.parse_args()
 
@@ -143,9 +145,14 @@ rankings = cPickle.load(rankfile)
 rankfile.close()
 dtr = rankings['dt']
 dDr = rankings['dD']
-dtdDr = rankings['dtdD']
+P = rankings['P']
 ref_freq = rankings['ref_freq']
 snr_threshold = rankings['snr_threshold']
+
+if opts.coarse_cut:
+  coarse_cut = skylocutils.percentile(opts.coarse_cut,rankings['dtvals'])
+else:
+  coarse_cut = rankings['coarse_cut']
 
 #add reference frequency and snr threshold arguments to metadata
 argstring += ' --reference-frequency='+str(ref_freq)+\
@@ -155,116 +162,80 @@ argstring += ' --reference-frequency='+str(ref_freq)+\
 #this gets recorded for each point and makes computing areas simple
 fine_area = fine_res*fine_res
 coarse_area = coarse_res*coarse_res
+#keep this for normalizing the skymaps
+area_fac = fine_area/coarse_area
 
 for coinc in coincs:
   if len(coinc.ifo_list) < 3:
     continue
   sp = skylocutils.SkyPoints()
   
-  #for gathering information about area on the sky
-  dt_areas = zeros(9)
-  r_areas = zeros(9)
-
   #compute combined snr if snr dependent thresholds are specified
   if snr_threshold:
     rhosquared = 0.0
     for ifo in coinc.ifo_list:
       rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
-    snrfac = sqrt(rhosquared)/10.0
+    dtsnrfac = sqrt(rhosquared)/10.0
+    dDsnrfac = rhosquared
   else:
   #otherwise just multiply by unity
-    snrfac = 1.0
+    dtsnrfac = 1.0
+    dDsnrfac = 1.0
 
+  print >>sys.stdout, 'Processing trigger at '+str(coinc.time)
   #main loop over the coarse grid
   for coarse_pt in grid.keys():
 
     #use timing alone to determine if we should move to the fine grid
-    dtrss_coarse = snrfac*skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
-    coarse_rank = dtr.get_rank(dtrss_coarse)
-    #if we don't hit the 91% timing threshold then don't bother
-    if coarse_rank >= 0.09:
-      
+    dtrss_coarse = dtsnrfac*skylocutils.get_delta_t_rss(coarse_pt,coinc,ref_freq)
+    if dtrss_coarse <= coarse_cut:#P_coarse >= opts.coarse_cut:
       #loop over points on the fine grid 
       for fine_pt in grid[coarse_pt]:
-        dtrss_fine = snrfac*skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
+        dtrss_fine = dtsnrfac*skylocutils.get_delta_t_rss(fine_pt,coinc,ref_freq)
         dtrank = dtr.get_rank(dtrss_fine)
-        dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
+        dDrss_fine = dDsnrfac*skylocutils.get_delta_D_rss(fine_pt,coinc)
         dDrank = dDr.get_rank(dDrss_fine)
-        ranking = dtdDr.get_rank(dtrank*dDrank)
-        sp.append((fine_pt[0],fine_pt[1],ranking,dtrss_fine,dDrss_fine,fine_area))
-        #compute relevant areas
-        #note that 1-rank is the percentage of injections with the same or lower rss
-        if dtrank >= 0.9:
-          dt_areas[0] += fine_area
-        if dtrank >= 0.8:
-          dt_areas[1] += fine_area
-        if dtrank >= 0.7:
-          dt_areas[2] += fine_area
-        if dtrank >= 0.6:
-          dt_areas[3] += fine_area
-        if dtrank >= 0.5:
-          dt_areas[4] += fine_area
-        if dtrank >= 0.4:
-          dt_areas[5] += fine_area
-        if dtrank >= 0.3:
-          dt_areas[6] += fine_area
-        if dtrank >= 0.2:
-          dt_areas[7] += fine_area
-        if dtrank >= 0.1:
-          dt_areas[8] += fine_area
-
-        if ranking >= 0.9:
-          r_areas[0] += fine_area
-        if ranking >= 0.8:
-          r_areas[1] += fine_area
-        if ranking >= 0.7:
-          r_areas[2] += fine_area
-        if ranking >= 0.6:
-          r_areas[3] += fine_area
-        if ranking >= 0.5:
-          r_areas[4] += fine_area
-        if ranking >= 0.4:
-          r_areas[5] += fine_area
-        if ranking >= 0.3:
-          r_areas[6] += fine_area
-        if ranking >= 0.2:
-          r_areas[7] += fine_area
-        if ranking >= 0.1:
-          r_areas[8] += fine_area
-
+        ranking = P.get_rank(dtrank*dDrank)
+        sp.append([fine_pt,ranking,dtrank])
 
         #FIXME: put galaxy catalog stuff here!!!
      
-    else:
-      #we assign a ranking of 0.0 to everything not within the 91% threshold
-      sp.append((coarse_pt[0],coarse_pt[1],0.0,dtrss_coarse,0.0,coarse_area))
-  
-  #check for name collisions and then write the grid
-  #use seconds of the smallest gpstime to label the event
   grid_file = get_unique_filename(grid_fname.replace('GPSTIME',str(coinc.time.seconds)))
-  sp.write(grid_file,argstring)
 
-  #populate the output tables
-  #list of points has been sorted so the best one is at the top
-  #FIXME: replace None with a link to the skymap file name!!!
-  skylocutils.populate_SkyLocTable(skyloctable,coinc,dt_areas,r_areas,sp[0],grid_file,None)
+  if sp:
+    print >>sys.stdout, 'Populating sky localization table...'
+    #populate the output tables
+    #list of points has been sorted so the best one is at the top
+    #FIXME: replace None with a link to the skymap file name!!!
+    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,grid_file,None)
+  else:
+    print >>sys.stdout, 'Unable to localize.'
   if coinc.is_injection:
+    print >>sys.stdout, 'Recording injection data...'
     #NB: using the *recovered* snr for the snr dependent threshold
     inj_pt = (coinc.latitude_inj,coinc.longitude_inj)
-    dtrss_inj = snrfac*skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
+    dtrss_inj = dtsnrfac*skylocutils.get_delta_t_rss(inj_pt,coinc,ref_freq)
     dtrank_inj = dtr.get_rank(dtrss_inj)
-    dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
+    dDrss_inj = dDsnrfac*skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
-    rank_inj = dtdDr.get_rank(dtrank_inj*dDrank_inj)
+    rank_inj = P.get_rank(dtrank_inj*dDrank_inj)
     dt_area = 0.0
     rank_area = 0.0
     for pt in sp:
-      if pt[2] >= 0.0 and pt[3] <= dtrss_inj:
-        dt_area += pt[5]
-      if pt[2] >= rank_inj:
-        rank_area += pt[5]
+      if pt[1] >= 0.0 and pt[2] >= dtrank_inj:
+        dt_area += fine_area
+      if pt[1] >= rank_inj:
+        rank_area += fine_area
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
-                                        dtrss_inj,dDrss_inj)
+                                        dtrss_inj,dDrss_inj,grid_file)
+
+  #check for name collisions and then write the grid
+  #use seconds of the smallest gpstime to label the event
+  print >>sys.stdout, 'Writing skymap...'
+  normfac = sp.normalize(1)
+  sp.write(grid_file,normfac,argstring)
+  
+  print >>sys.stdout, 'Finished processing trigger.'
 
 #name the xml file
 if len(coincs) > 1:

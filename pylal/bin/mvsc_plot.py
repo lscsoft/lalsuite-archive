@@ -169,7 +169,7 @@ pylab.hexbin(injection_likelihood_ifar,injection_snr_ifar,gridsize=50,xscale='lo
 pylab.gca = ax
 pylab.colorbar()
 pylab.xlabel('IFAR from MVSC Likelihood')
-pylab.ylabel('IFAR from coinc inspiral snr')
+pylab.ylabel('IFAR from combined effective SNR')
 pylab.title('log10 density of injections')
 pylab.savefig('IFAR_densityfig_injection.png')
 
@@ -178,6 +178,6 @@ pylab.hexbin(timeslide_likelihood_ifar,timeslide_snr_ifar,gridsize=50,xscale='lo
 pylab.gca = ax
 pylab.colorbar()
 pylab.xlabel('IFAR from MVSC Likelihood')
-pylab.ylabel('IFAR from coinc inspiral snr')
+pylab.ylabel('IFAR from combined effective SNR')
 pylab.title('log10 density of timeslides')
 pylab.savefig('IFAR_densityfig_timeslide.png')
