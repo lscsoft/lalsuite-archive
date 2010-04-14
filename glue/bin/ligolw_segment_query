@@ -474,7 +474,7 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
+    ligolw_sqlite.insert_from_urls(connection, xml_files) # [temp_xml])
 
     segmentdb_utils.ensure_segment_table(connection)
         

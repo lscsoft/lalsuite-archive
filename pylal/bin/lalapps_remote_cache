@@ -11,8 +11,9 @@ __date__ = git_version.date
 
 
 class RemoteCache(object):
-	def __init__(self, url, verbose=False, regex=None, copy=False, base=''):
+	def __init__(self, url, verbose=False, regex=None, copy=False, ignore_local=False, base=''):
 		self.copy = copy
+		self.ignore_local = ignore_local
 		self.verbose=verbose
 		self.base = base
 		self.regex=regex
@@ -53,6 +54,7 @@ class RemoteCache(object):
 		except: pass
 
 	def is_local(self):
+		if self.ignore_local: return False
 		if self.host == socket.getfqdn(): return True
 		else: return False
 
@@ -154,6 +156,7 @@ Host *
         parser.add_option("-o", "--output", metavar = "name", default="remote_cache.cache", help = "output file name")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-f", "--force-copy", action = "store_true", help = "force copying files instead of sshfs (this could be slow and reuquire GBs of free space)")
+	parser.add_option("-i", "--ignore-local", action = "store_true", help = "force copying or linking files even if they are on the local file system")
 
 	options, urls = parser.parse_args()
 	if not options.force_copy and subprocess.call(["which", "sshfs"]):
@@ -170,7 +173,7 @@ mount = ["#!/bin/bash"]
 unmount = ["#!/bin/bash"]
 
 for i, cache in enumerate(opts.cache):
-	R = RemoteCache(cache, verbose = opts.verbose, regex = opts.regex, copy = opts.force_copy)
+	R = RemoteCache(cache, verbose = opts.verbose, regex = opts.regex, copy = opts.force_copy, ignore_local = opts.ignore_local)
 	outcache.extend(R.local_cache)
 	mount.extend(R.mount)
 	unmount.extend(R.unmount)

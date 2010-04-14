@@ -65,14 +65,8 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
     pipeline.CondorDAGNode.__init__(self,job)
     #FIXME add tmp file space
     self.add_macro("macroid", dag.id)
-#    self.add_var_opt("injections", injections)
-#    self.add_var_opt("fulldata", fulldata)
-#    self.add_var_opt("number", number)
     self.number = number
     self.add_var_opt("instruments", instruments)
-#    self.add_var_opt("trainingstr", trainingstr)
-#    self.add_var_opt("testingstr", testingstr)
-#    self.add_var_opt("zerolagstr", zerolagstr)
     for database in databases:
       self.add_file_arg(database)
     ifos=instruments.strip().split(',')
@@ -81,7 +75,6 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
     for i in range(number):
       self.out_file_group[i] = ((''.join(ifos) + '_set' + str(i) + '_' + str(trainingstr) + '.pat'), (''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '.pat'), self.add_output_file(''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '_info.pat'))
     self.zerolag_file = [''.join(ifos) + '_' + str(zerolagstr) + '.pat']
-    #print self.out_file_group
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -112,9 +105,7 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.add_macro("macroid", dag.id)
     self.add_input_file(trainingfile)
     self.trainingfile = self.get_input_files()[0]
-    #print self.trainingfile
     self.trainedforest = self.trainingfile.replace('_training.pat','.spr')
-    #print self.trainedforest
 #FIXME to make this changable by the user
     self.add_file_arg("-a 4 -n 100 -l 4 -s 4 -c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
@@ -187,7 +178,6 @@ class mvsc_update_sql_node(pipeline.CondorDAGNode):
     self.add_var_opt("files", files)
     self.add_var_opt("infofiles", infofiles)
     [self.add_var_arg(database) for database in databases]
-# do I need to put the databases as output files? 
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -249,13 +239,11 @@ for comb in ifo_combinations:
   get_node[comb] = mvsc_get_doubles_node(get_job, dag, comb, databases)
   for i in range(get_node[comb].number):
     file_for_this_set = get_node[comb].out_file_group[i]
-#    print file_for_this_set[0]
     train_node[i] = train_forest_node(train_job, dag, file_for_this_set[0], p_node=[get_node[comb]])
     try: rank_node[comb]
     except: rank_node[comb] = {}
 
     rank_node[comb][i] = use_forest_node(rank_job, dag, train_node[i].trainedforest, file_for_this_set[1], p_node=[train_node[i]])
-  #print get_node[comb].get_output_files()
   zl_rank_node[comb] = use_forest_node(zl_rank_job, dag, train_node[0].trainedforest, get_node[comb].zerolag_file[0], p_node=[get_node[comb],train_node[0]])
 print rank_node
 print rank_node.values()

@@ -30,16 +30,17 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import dbtables
+#from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from glue import lal
-from pylal import db_thinca_rings
+#from pylal import db_thinca_rings
 from lalapps import inspiral
 from pylal import date
 from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+#dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
@@ -327,6 +328,41 @@ fi
 		""")
 		proxy_script.close()
 		os.chmod('getProxy.sh',0755)
+
+# DISTRIBUTE REMOTE QSCANS CLASS
+
+class distribRemoteQscanJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	This class sets up a script to be run as child of the remote scans in order to distribute its results to the appropriate paths. It takes the qscan tarball as input, uncompress it and copy the results to the path specified in cache file.
+	"""
+	def __init__(self, opts, cp, dir='', tag_base=''):
+		"""
+		"""
+		self.setup_distrib_script(tag_base)
+		self.__executable = 'distribRemoteScan_'+tag_base+'.sh'
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_distrib_script(self,tag_base):
+		distrib_script = open('distribRemoteScan_'+tag_base+'.sh','w')
+		distrib_script.write("""#!/bin/bash
+tar -xzvf $1
+mv $2 $3
+for figPath in `find $3 -name "*.png" -print` ; do
+	echo $figPath ;
+	thumbPath=`echo $figPath | sed s/.png/.thumb.png/g` ;
+	figDPI=120; 
+	fullSize='600x';
+	thumbSize='300x';
+	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
+done
+rm $1
+		""")
+		distrib_script.close()
+		os.chmod('distribRemoteScan_'+tag_base+'.sh',0755)
 
 # REMOTE QSCAN CLASS
 
@@ -766,6 +802,23 @@ class setupProxyNode(pipeline.CondorDAGNode,FUNode):
 		dag.add_node(self)
 		self.validate()
 
+# DISTRIBUTE REMOTE QSCAN RESULTS
+class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
+
+	def __init__(self, dag, job, cp, opts, ifo, p_nodes=[], type=""):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.scan_type = type
+		self.scan_ifo = ifo
+		self.add_var_arg(p_nodes[0].name_output_file)
+		self.add_var_arg(os.getcwd() + p_nodes[0].remote_output_path)
+		self.add_var_arg(p_nodes[0].output_path)
+
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		dag.add_node(self)
+		self.validate()
 
 # REMOTE QSCAN NODE
 class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
@@ -808,17 +861,17 @@ the inifile + the ifo and gps time.  For example:
 		mkdir(output)
 
 		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
-		output_path = output+"/"+str(time)
+		self.output_path = output+"/"+str(time)
 
-		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+output_path)
+		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path)
 
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# NOW WE NEED TO SET UP THE REMOTE OUTPUTPATH
 		username = subprocess.Popen("whoami",shell=True,stdout=subprocess.PIPE).communicate()[0].strip() 
-		remote_output_path = '/storage/gpfs_virgo3/virgo/omega/cbc/' + username + '/' + preString.strip("omega/") + '/' + dataString + '/' + timeString + '/' + str(time)
-		self.add_var_arg(remote_output_path)
+		self.remote_output_path = '/storage/gpfs_virgo3/virgo/omega/cbc/' + username + '/' + preString.strip("omega/") + '/' + dataString + '/' + timeString + '/' + str(time)
+		self.add_var_arg(self.remote_output_path)
 
 		self.add_var_arg(repr(time))
 
@@ -905,7 +958,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			#	if node.validNode:
 			#		self.add_parent(node)
 			# add all qscan nodes of the same type as parents
-			if isinstance(node,fuQscanNode):
+			if isinstance(node,fuQscanNode) or isinstance(node,distribRemoteQscanNode):
 				if node.validNode:
 					if (node.scan_type in name and node.scan_ifo == ifo):
 						self.add_parent(node)
