@@ -154,17 +154,18 @@ HrecOnline      V1:h_16384Hz
 		os.abort()
 	return str(foundType), str(foundChannel)
 
-def figure_out_cache(time):
+def figure_out_cache(time,ifo):
 
 	cacheList=(
-		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999)
+		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",931035296,999999999,"V1")
 		)
 
 	foundCache = ""
-	for cacheFile,start,stop in cacheList:
-		if ((start<=time) and (time<stop)):
+	for cacheFile,start,stop,ifos in cacheList:
+		if ((start<=time) and (time<stop) and ifo in ifos):
 			foundCache = cacheFile
 			break
 
@@ -172,7 +173,7 @@ def figure_out_cache(time):
 		foundCache = foundCache.replace("romain","rgouaty")
 
 	if foundCache == "":
-		print time, " not found in method stfu_pipe.figure_out_cache"	
+		print ifo, time, " not found in method stfu_pipe.figure_out_cache"	
 	else:
 		if not os.path.isfile(foundCache):
 			print "file " + foundCache + " not found"
@@ -198,7 +199,10 @@ def getParamsFromCache(fileName,type,ifo=None,time=None):
 		return qscanList
 	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
 	if time:
-		cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		if math.floor(float(time)) != math.ceil(float(time)):
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		else:
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time))-0.5, math.floor(float(time))+0.5))
 
 	for cacheEntry in cacheSelected:
 		path_output = cacheEntry.path()
@@ -808,7 +812,7 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 	def __init__(self, dag, job, cp, opts, ifo, p_nodes=[], type=""):
 
 		pipeline.CondorDAGNode.__init__(self,job)
-		self.scan_type = type
+		self.scan_type = type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
 		self.add_var_arg(p_nodes[0].name_output_file)
 		self.add_var_arg(os.getcwd() + p_nodes[0].remote_output_path)
@@ -935,11 +939,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 
 		self.add_var_opt('qscan-cache-foreground',dag.basename+'.cache')
 		
-		if cp.has_option('fu-analyse-qscan','background-cache'):
-			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
+		if cp.has_option('fu-analyse-qscan',ifo+'-background-cache'):
+			backgroundCache = cp.get('fu-analyse-qscan',ifo+'-background-cache').strip()
 		else:
-			backgroundCache = figure_out_cache(time)
-			cp.set('fu-analyse-qscan','background-cache',backgroundCache)
+			backgroundCache = figure_out_cache(time,ifo)
+			cp.set('fu-analyse-qscan',ifo+'-background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
 		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
@@ -1939,6 +1943,8 @@ class create_default_config(object):
 
 		# CONDOR MAX JOBS SECTION
 		cp.add_section("condor-max-jobs")
+		cp.set("condor-max-jobs","remoteScan_FG_RDS.sh_FG_RDS_full_data","30")
+		cp.set("condor-max-jobs","remoteScan_FG_SEIS_RDS.sh_FG_SEIS_RDS_full_data","30")
 		cp.set("condor-max-jobs","ligo_data_find_HT_full_data","3")
 		cp.set("condor-max-jobs","ligo_data_find_Q_HT_full_data","3")
 		cp.set("condor-max-jobs","ligo_data_find_Q_RDS_full_data","3")

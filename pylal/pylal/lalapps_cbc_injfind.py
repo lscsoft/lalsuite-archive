@@ -45,6 +45,7 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
+from pylal import ligolw_rinca
 from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
@@ -79,6 +80,12 @@ def sngl_inspiral___cmp__(self, other):
 
 lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
 
+def sngl_ringdown___cmp__(self, other):
+        # compare self's end time to the LIGOTimeGPS instance other
+        return cmp(self.start_time, other.seconds) or cmp(self.start_time_ns, other.nanoseconds)
+
+
+lsctables.SnglRingdown.__cmp__ = sngl_ringdown___cmp__
 
 #
 # =============================================================================
@@ -92,11 +99,14 @@ lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
 InspiralSICoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 1, description = u"sim_inspiral<-->sngl_inspiral coincidences")
 InspiralSCNearCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 2, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
+RingdownSICoincDef = lsctables.CoincDef(search = u"ringdown", search_coinc_type = 1, description = u"sim_ringdown<-->sngl_ringdown coincidences")
+RingdownSCNearCoincDef= lsctables.CoincDef(search = u"ringdown", search_coinc_type = 2, description = u"sim_ringdown<-->coinc_event coincidences (nearby)")
+
 class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, bbdef, sbdef, scndef, process):
+	def __init__(self, xmldoc, bbdef, sbdef, scndef, process, sngl_type, sim_type, get_sngl_time):
 		#
 		# store the process row
 		#
@@ -107,9 +117,12 @@ class DocContents(object):
 		# locate the sngl_inspiral and sim_inspiral tables
 		#
 
-		self.snglinspiraltable = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-		self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
-
+		self.sngltable = table.get_table(xmldoc, sngl_type.tableName)
+		try:
+			self.simtable = table.get_table(xmldoc, sim_type.tableName)
+		except ValueError:
+			self.simtable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+			print >>sys.stderr,"No SimRingdownTable, use SimInspiralTable instead!"
 		#
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
@@ -119,10 +132,10 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglinspiraltable.getColumnByName("ifo"), 0.0), create_new = process)
+		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.sngltable.getColumnByName("ifo"), 0.0), create_new = process)
 
 		#
-		# get coinc_definer row for sim_inspiral <--> sngl_inspiral
+		# get coinc_definer row for sim_type <--> sngl_type
 		# coincs; this creates a coinc_definer table if the
 		# document doesn't have one
 		#
@@ -130,10 +143,10 @@ class DocContents(object):
 		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
-		# get coinc_def_id's for sngl_inspiral <--> sngl_inspiral, and
-		# the sim_inspiral <--> coinc_event coincs.  set all
-		# to None if this document does not contain any sngl_inspiral
-		# <--> sngl_inspiral coincs.
+		# get coinc_def_id's for sngl_type <--> sngl_type, and
+		# the sim_type <--> coinc_event coincs.  set all
+		# to None if this document does not contain any sngl_type
+		# <--> sngl_type coincs.
 		#
 
 		try:
@@ -168,47 +181,48 @@ class DocContents(object):
 		#
 		# index the document
 		#
-		# FIXME:  inspiral<-->inspiral coincs should be organized by time
+		# FIXME:  type<-->type coincs should be organized by time
 		# slide ID, but since injections are only done at zero lag
 		# for now this is ignored.
 		#
 
-		# index sngl_inspiral table
+		# index sngl_type table
 		index = {}
-		for row in self.snglinspiraltable:
+		for row in self.sngltable:
 			index[row.event_id] = row
-		# find IDs of inspiral<-->inspiral coincs
+		# find IDs of type<-->type coincs
 		self.coincs = {}
 		for coinc in self.coinctable:
 			if coinc.coinc_def_id == bb_coinc_def_id:
 				self.coincs[coinc.coinc_event_id] = []
-		# construct event list for each inspiral<-->inspiral coinc
+		# construct event list for each type<-->type coinc
 		for row in self.coincmaptable:
 			if row.coinc_event_id in self.coincs:
 				self.coincs[row.coinc_event_id].append(index[row.event_id])
 		del index
-		# sort each event list by end time and convert to tuples
+		# sort each event list by end/start time and convert to tuples
 		# for speed
-		for coinc_event_id in self.coincs.keys():
-			events = self.coincs[coinc_event_id]
-			events.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
-			self.coincs[coinc_event_id] = tuple(events)
+		
+		for coinc_event_id, events in self.coincs.iteritems():
+			events.sort(key=get_sngl_time)
+			self.coincs[coinc_event_id]=tuple(events)
 		# convert dictionary to a list
+
 		self.coincs = self.coincs.items()
 
 		#
 		# FIXME Is this true for inspirals too?
-		# sort sngl_inspiral table by end time, and sort the coincs
-		# list by the end time of the first (earliest) event in
+		# sort sngl_type table by end/start time, and sort the coincs
+		# list by the end/start time of the first (earliest) event in
 		# each coinc (recall that the event tuple for each coinc
 		# has been time-ordered)
 		#
 
-		self.snglinspiraltable.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
-		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].end_time, b[0].end_time) or cmp(a[0].end_time_ns, b[0].end_time_ns))
+		self.sngltable.sort(key=get_sngl_time)
+		self.coincs.sort(key=lambda(id,a): get_sngl_time(a[0]))
 
 		#
-		# set the window for inspirals_near_endtime().  this window
+		# set the window for type_near_time().  this window
 		# is the amount of time such that if an injection's end
 		# time and a inspiral event's end time differ by more than
 		# this it is *impossible* for them to match one another.
@@ -216,35 +230,35 @@ class DocContents(object):
 
  		# FIXME I'll just make the windows one second
 
-                self.inspiral_end_time_window = 1.0
-                self.coinc_end_time_window = 1.0
+                self.search_time_window = 1.0
+                self.coinc_time_window = 1.0
 
 
-	def inspirals_near_endtime(self, t):
+	def type_near_time(self, t):
 		"""
 		Return a list of the inspiral events whose peak times are
-		within self.inspiral_end_time_window of t.
+		within self.search_time_window of t.
 		"""
-		return self.snglinspiraltable[bisect.bisect_left(self.snglinspiraltable, t - self.inspiral_end_time_window):bisect.bisect_right(self.snglinspiraltable, t + self.inspiral_end_time_window)]
+		return self.sngltable[bisect.bisect_left(self.sngltable, t - self.search_time_window):bisect.bisect_right(self.sngltable, t + self.search_time_window)]
 
-	def coincs_near_endtime(self, t):
+	def coincs_near_time(self, t, get_time):
 		"""
 		Return a list of the (coinc_event_id, event list) tuples in
-		which at least one inspiral event's end time is within
-		self.coinc_end_time_window of t.
+		which at least one type event's end time is within
+		self.coinc_time_window of t.
 		"""
 		# FIXME:  this test does not consider the time slide
 		# offsets that should be applied to the coinc, but for now
 		# injections are done at zero lag so this isn't a problem
 		# yet
-		return [(coinc_event_id, inspirals) for coinc_event_id, inspirals in self.coincs if (t - self.coinc_end_time_window <= inspirals[-1].get_end()) and (inspirals[0].get_end() <= t + self.coinc_end_time_window)]
-
+		return [(coinc_event_id, search_type) for coinc_event_id, search_type in self.coincs if (t - self.coinc_time_window <= get_time(search_type[-1])) and (get_time(search_type[0]) <= t + self.coinc_time_window)]
+	
 	def sort_triggers_by_id(self):
 		"""
-		Sort the sngl_burst table's rows by ID (tidy-up document
+		Sort the sngl_table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.snglinspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
+		self.sngltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
 
 	def new_coinc(self, coinc_def_id):
 		"""
@@ -273,7 +287,7 @@ class DocContents(object):
 #
 
 
-process_program_name = "ligolw_inspinjfind"
+process_program_name = "lalapps_cbc_injfind"
 
 
 def append_process(xmldoc, match_algorithm, comment):
@@ -291,63 +305,57 @@ def append_process(xmldoc, match_algorithm, comment):
 #
 # =============================================================================
 #
-#                 Injection <--> Inspiral Event Comparison Tests
+#                 Injection <--> Inspiral/Ringdown Event Comparison Tests
 #
 # =============================================================================
 #
 
-class CompareFunctions:
+def InspiralSnglCompare(sim, inspiral):
+        """
+	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
+        """
+	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
+
+
+def InspiralNearCoincCompare(sim, inspiral):
 	"""
-	Class to store different compare functions. Any extra args needed by the called
-	functions are created when the function is initialized.
+	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
 	"""
-	def __init__( self, twindow = 9.0 ):
-		"""
-		Any extra variables needed by the compare functions.
+	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
 
-		@twindow: the default time window, in seconds, to use for InspiralSnglCompare and NearCoincCompare
-		"""
-		self.twindow = LIGOTimeGPS( int(twindow), (twindow % 1)*1e9 )
-
-	def InspiralSnglCompare(self, sim, inspiral):
-		"""
-		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
-		"""
-		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
-
-
-	def NearCoincCompare(self, sim, inspiral):
-		"""
-		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
-		"""
-		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
+def cmp_sngl_sim(sim, sngl, get_sim_time, get_sngl_time, twindow = LIGOTimeGPS(9)):
+	tdiff = abs(get_sngl_time(sngl) - get_sim_time(sim))
+	if tdiff < twindow:
+	  return 0
+	else:
+	  return cmp(get_sngl_time(sngl), get_sim_time(sim))
 
 
 #
 # =============================================================================
 #
-#                 Build sim_burst <--> sngl_burst Coincidences
+#                 Build sim_type <--> sngl_type Coincidences
 #
 # =============================================================================
 #
 
 
-def find_sngl_inspiral_matches(contents, sim, comparefunc):
+def find_sngl_type_matches(contents, sim, comparefunc, get_sim_time, get_sngl_time) :
 	"""
-	Scan the inspiral table for triggers matching sim.
+	Scan the type table for triggers matching sim.
 	"""
-	return [inspiral for inspiral in contents.inspirals_near_endtime(sim.get_end()) if not comparefunc(sim, inspiral)]
+	return [type_table for type_table in contents.type_near_time(get_sim_time(sim)) if not comparefunc(sim, type_table, get_sim_time, get_sngl_time)]
 
 
-def add_sim_inspiral_coinc(contents, sim, inspirals):
+def add_sim_type_coinc(contents, sim, types):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
-	coinc_event_map table linking the sim_inspiral row and the list of
-	sngl_inspiral rows to the new coinc_event row.
+	coinc_event_map table linking the sim_type row and the list of
+	sngl_type rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(contents.sb_coinc_def_id)
-	coinc.set_instruments(set(event.ifo for event in inspirals))
-	coinc.nevents = len(inspirals)
+	coinc.set_instruments(set(event.ifo for event in types))
+	coinc.nevents = len(types)
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
@@ -355,7 +363,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
-	for event in inspirals:
+	for event in types:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
 		coincmap.table_name = event.event_id.table_name
@@ -366,7 +374,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 #
 # =============================================================================
 #
-#                   Build sim_burst <--> coinc Coincidences
+#                   Build sim_type <--> coinc Coincidences
 #
 # =============================================================================
 #
@@ -382,22 +390,21 @@ def find_coinc_matches(coincs, sim, comparefunc):
 	# at zero lag so this isn't a problem yet
 	return [coinc_event_id for coinc_event_id, inspirals in coincs if True not in [bool(comparefunc(sim, inspiral)) for inspiral in inspirals]]
 
-
-def find_near_coinc_matches(coincs, sim, comparefunc):
+def find_near_coinc_matches(coincs, sim, comparefunc, get_sim_time, get_sngl_time):
 	"""
-	Return a list of the coinc_event_ids of the inspiral<-->inspiral coincs
-	in which at least one inspiral event matches sim.
+	Return a list of the coinc_event_ids of the type<-->type coincs
+	in which at least one type event matches sim.
 	"""
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, inspirals in coincs if False in [bool(comparefunc(sim, inspiral)) for inspiral in inspirals]]
+	return [coinc_event_id for coinc_event_id, coinc_types in coincs if False in [bool(comparefunc(sim, coinc_type, get_sim_time, get_sngl_time)) for coinc_type in coinc_types]]
 
 
 def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
-	coinc_event_map table linking the sim_inspiral row and the list of
+	coinc_event_map table linking the sim_type row and the list of
 	coinc_event rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(coinc_def_id)
@@ -426,7 +433,7 @@ def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 #
 
 
-def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, verbose = False):
+def lalapps_cbc_injfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, verbose = False):
 	#
 	# Analyze the document's contents.
 	#
@@ -434,40 +441,50 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef}[search]
-	sbdef = {"inspiral": InspiralSICoincDef}[search]
-	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
+	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef, "ringdown": ligolw_rinca.RingdownCoincDef}[search]
+	sbdef = {"inspiral": InspiralSICoincDef, "ringdown": RingdownSICoincDef}[search]
+	scndef = {"inspiral": InspiralSCNearCoincDef, "ringdown": RingdownSCNearCoincDef}[search]
+	sngl_type = {"inspiral": lsctables.SnglInspiralTable, "ringdown": lsctables.SnglRingdownTable}[search]
+	sim_type = {"inspiral": lsctables.SimInspiralTable, "ringdown": lsctables.SimRingdownTable}[search]
+	get_sngl_time = {"inspiral": lsctables.SnglInspiral.get_end, "ringdown": lsctables.SnglRingdown.get_start}[search]
 
-	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scndef = scndef, process = process)
-	N = len(contents.siminspiraltable)
+	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scndef = scndef, process = process, sngl_type = sngl_type, sim_type = sim_type, get_sngl_time = get_sngl_time)
+	N = len(contents.simtable)
+
+	if isinstance(contents.simtable, lsctables.SimInspiralTable):
+		get_sim_time = lsctables.SimInspiral.get_end
+	elif isinstance(contents.simtable, lsctables.SimRingdownTable):
+		get_sim_time = lsctables.SimRingdown.get_start
+	else:
+		raise ValueError, "Unknown sim table"
 
 	#
-	# Find sim_inspiral <--> sngl_inspiral coincidences.
+	# Find sim_type <--> sngl_type coincidences.
 	#
 
 	if verbose:
 		print >>sys.stderr, "constructing %s:" % sbdef.description
-	for n, sim in enumerate(contents.siminspiraltable):
+	for n, sim in enumerate(contents.simtable):
 		if verbose:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		inspirals = find_sngl_inspiral_matches(contents, sim, snglcomparefunc)
-		if inspirals:
-			add_sim_inspiral_coinc(contents, sim, inspirals)
+		types = find_sngl_type_matches(contents, sim, snglcomparefunc, get_sim_time, get_sngl_time)
+		if types:
+			add_sim_type_coinc(contents, sim, types)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
 	#
-	# Find sim_inspiral <--> coinc_event coincidences.
+	# Find sim_type <--> coinc_event coincidences.
 	#
 
 	if contents.scn_coinc_def_id:
 		if verbose:
 			print >>sys.stderr, "constructing %s:" % (scndef.description)
-		for n, sim in enumerate(contents.siminspiraltable):
+		for n, sim in enumerate(contents.simtable):
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coincs = contents.coincs_near_endtime(sim.get_end())
-			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
+			coincs = contents.coincs_near_time(get_sim_time(sim), get_sngl_time)
+			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc, get_sim_time, get_sngl_time)
 			if coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
 		if verbose:
