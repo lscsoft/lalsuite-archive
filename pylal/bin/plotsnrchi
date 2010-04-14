@@ -267,7 +267,7 @@ def parse_command_line():
   
   # output related
   parser.add_option("-Z","--user-tag",action="store",type="string",\
-      default=None,metavar=" FNAME",\
+      default=None,metavar="FNAME",\
       help="a user tag for the output filenames" )
   parser.add_option("-o","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
@@ -279,15 +279,15 @@ def parse_command_line():
       type="int",  metavar="GPSSTARTTIME",\
       help="gps start time (for naming figure and output files")
   parser.add_option("","--gps-end-time",action="store",\
-      type="int",  metavar=" GPSENDTIME",\
+      type="int",  metavar="GPSENDTIME",\
       help="gps end time (for naming figure and output files")
   parser.add_option("", "--ifo-tag", action="store", type="string",\
       default=None,\
-      metavar="IFOTAG", help="sets the IFO tag")
+      metavar="IFOTAG", help="sets the IFO tag for plots")
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       default=None,metavar="IFOTIMES", \
-      help="sieve a cache file according to a particular ifo type, also \
-      used to select the correct single-ifo triggers from COIRE files")
+      help="sieve a cache file according to a particular ifo type, also " \
+      "used to select the correct single-ifo triggers from COIRE files")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   parser.add_option("", "--figure-resolution",action="store",type="int",\
@@ -296,12 +296,6 @@ def parse_command_line():
   parser.add_option("", "--exact-match",action="store_true",
       default=False,  \
       help="the pattern should match exactly if this option is used" )
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
 
   (options,args) = parser.parse_args()
@@ -401,7 +395,7 @@ if opts.trig_pattern:
     found, missed = trig_cache.checkfilesexist()
     trigFiles = found.pfnlist()
     if not len(trigFiles):
-      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
+      print >>sys.stderr, "WARNING: No file in %s matches the trig_pattern '%s'" % (opts.cache_file, opts.trig_pattern)
       trigFiles = None
     else: 
       comments += InspiralUtils.message(opts, 'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
@@ -422,7 +416,7 @@ if opts.slide_pattern:
     found, missed = slide_cache.checkfilesexist()
     slideFiles = found.pfnlist()
     if not len(slideFiles):
-      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
+      print >>sys.stderr, "WARNING: No file in %s matches the slide_pattern '%s'" % (opts.cache_file, opts.slide_pattern)
       slideFiles = None
     else:
       comments += InspiralUtils.message(opts, 'Reading ' +str(len(slideFiles)) + ' files having the pattern '+opts.slide_pattern)
@@ -442,7 +436,7 @@ if opts.found_pattern:
     found, missed = inj_cache.checkfilesexist()
     injFiles = found.pfnlist()
     if not len(injFiles):
-      print >>sys.stderr, opts.cache_file + " contains no files with " + opts.found_pattern + " description"
+      print >>sys.stderr, "WARNING: No file in %s matches the found_pattern '%s'" % (opts.cache_file, opts.found_pattern)
       injFiles = None
     else: 
       comments += InspiralUtils.message(opts, 'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
@@ -478,9 +472,7 @@ if trigFiles:
     chisq = inspTriggers.get_column('chisq')
     chisq_dof = 2 * (inspTriggers.get_column('chisq_dof')[0] - 1)
     bankrchisq = inspTriggers.get_column('reduced_bank_chisq')
- #   bankchisq_dof = 2 * inspTriggers.get_column('bank_chisq_dof') # currently bank_chisq_dof is the correct number of complex dof
     contrchisq = inspTriggers.get_column('reduced_cont_chisq')     # the new auto chisq is called cont chisq
- #   contchisq_dof = inspTriggers.get_column('cont_chisq_dof')     # it already has the right number of dof
     rsq = inspTriggers.get_column('rsqveto_duration') + 0.00001
 
 # Time slide triggers
@@ -505,9 +497,7 @@ if slideFiles:
     slide_chisq = slideTriggers.get_column('chisq')
     slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof')[0] - 1)
     slide_bankrchisq = slideTriggers.get_column('reduced_bank_chisq')
- #   slide_bankchisq_dof = 2 * slideTriggers.get_column('bank_chisq_dof')
     slide_contrchisq = slideTriggers.get_column('reduced_cont_chisq')
- #   slide_contchisq_dof = slideTriggers.get_column('cont_chisq_dof')
     slide_rsq = slideTriggers.get_column('rsqveto_duration') + 0.00001
 
 # input injections:
@@ -530,9 +520,7 @@ if injFiles:
     inj_chisq = injTriggers.get_column('chisq')
     inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof')[0] - 1)
     inj_bankrchisq = injTriggers.get_column('reduced_bank_chisq')
- #   inj_bankchisq_dof = 2 * injTriggers.get_column('bank_chisq_dof')
     inj_contrchisq = injTriggers.get_column('reduced_cont_chisq')
- #   inj_contchisq_dof = injTriggers.get_column('cont_chisq_dof')
     inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
   comments += InspiralUtils.message(opts, \
       'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
@@ -787,7 +775,7 @@ if opts.effsnr_lines:
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
     legendText.append('Injections')
-    plotdof = inj_chisq_dof 
+    plotdof = inj_chisq_dof
 # at least one of inj_chisq_dof, slide_chisq_dof, chisq_dof must exist
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
@@ -866,7 +854,7 @@ if opts.snr_chisq_contours:
       if nevents:
         viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
         legendText.append('Triggers')
-        plotdof = chisq_dof 
+        plotdof = chisq_dof
       plotconstlines(snr_range, opts.denominator_constant, plotdof)
       contour(snr_range,chisq_range,cont,v)
       xlabel(r'$\rho$', size='x-large')
@@ -1142,9 +1130,6 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
       tagList, comment=comments)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()
