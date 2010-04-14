@@ -161,7 +161,7 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1")
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
