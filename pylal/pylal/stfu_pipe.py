@@ -159,8 +159,10 @@ def figure_out_cache(time,ifo):
 	cacheList=(
 		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",931035296,999999999,"V1")
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
 	foundCache = ""
@@ -405,7 +407,7 @@ if [ -e $3/lock.txt ]
 then
         rm $3/lock.txt
 fi
-/storage/gpfs_virgo3/virgo/omega/omega_r2625_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-$4.tgz $3 
 		"""%(tag_base))
@@ -1165,9 +1167,11 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
 			self.add_parent(parentNode)
-		if opts.do_makeCheckList:
+		if not opts.no_makeCheckList:
 			dag.add_node(self)
-
+			self.validate()
+		else:
+			self.invalidate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
