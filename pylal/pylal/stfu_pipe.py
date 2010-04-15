@@ -355,9 +355,12 @@ class distribRemoteQscanJob(pipeline.CondorDAGJob, FUJob):
 	def setup_distrib_script(self,tag_base):
 		distrib_script = open('distribRemoteScan_'+tag_base+'.sh','w')
 		distrib_script.write("""#!/bin/bash
-tar -xzvf $1
-mv $2 $3
-for figPath in `find $3 -name "*.png" -print` ; do
+currentPath=`pwd` ;
+mv $1 $2/. ;
+cd $2 ;
+tar -xzvf $1 ;
+cd $currentPath ;
+for figPath in `find $2/$3 -name "*.png" -print` ; do
 	echo $figPath ;
 	thumbPath=`echo $figPath | sed s/.png/.thumb.png/g` ;
 	figDPI=120; 
@@ -365,7 +368,7 @@ for figPath in `find $3 -name "*.png" -print` ; do
 	thumbSize='300x';
 	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
 done
-rm $1
+rm $2/$1 ;
 		""")
 		distrib_script.close()
 		os.chmod('distribRemoteScan_'+tag_base+'.sh',0755)
@@ -399,14 +402,6 @@ class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
 . /opt/exp_software/virgo/etc/virgo-env.sh
 . /opt/glite/etc/profile.d/grid-env.sh
 export X509_USER_PROXY=`pwd`/proxy.pem
-if [ ! -d $3 ]
-then
-	mkdir -p $3
-fi
-if [ -e $3/lock.txt ]
-then
-        rm $3/lock.txt
-fi
 /storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-$4.tgz $3 
@@ -811,14 +806,14 @@ class setupProxyNode(pipeline.CondorDAGNode,FUNode):
 # DISTRIBUTE REMOTE QSCAN RESULTS
 class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 
-	def __init__(self, dag, job, cp, opts, ifo, p_nodes=[], type=""):
+	def __init__(self, dag, job, cp, opts, ifo, time, p_nodes=[], type=""):
 
 		pipeline.CondorDAGNode.__init__(self,job)
 		self.scan_type = type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
 		self.add_var_arg(p_nodes[0].name_output_file)
-		self.add_var_arg(os.getcwd() + p_nodes[0].remote_output_path)
 		self.add_var_arg(p_nodes[0].output_path)
+		self.add_var_arg(str(time))
 
 		for node in p_nodes:
 			if node.validNode:
@@ -829,11 +824,6 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 # REMOTE QSCAN NODE
 class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 	"""
-Remote QScan node.  This node writes its output to the web directory specified in
-the inifile + the ifo and gps time.  For example:
-
-	/archive/home/channa/public_html/followup/htQscan/H1/999999999.999
-
 	"""
 	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
 
@@ -867,18 +857,19 @@ the inifile + the ifo and gps time.  For example:
 		mkdir(output)
 
 		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
-		self.output_path = output+"/"+str(time)
+		self.output_path = output
 
-		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path)
+		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path+"/"+str(time))
 
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# NOW WE NEED TO SET UP THE REMOTE OUTPUTPATH
-		username = subprocess.Popen("whoami",shell=True,stdout=subprocess.PIPE).communicate()[0].strip() 
-		self.remote_output_path = '/storage/gpfs_virgo3/virgo/omega/cbc/' + username + '/' + preString.strip("omega/") + '/' + dataString + '/' + timeString + '/' + str(time)
-		self.add_var_arg(self.remote_output_path)
 
+		# String used in the naming of the omega scan directory
+		self.add_var_arg(str(time))
+
+		# Time at which the omega scan is performed
 		self.add_var_arg(repr(time))
 
 		self.name_output_file = job.tag_base + "-" + repr(time) + ".tgz"
