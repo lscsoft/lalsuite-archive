@@ -355,8 +355,11 @@ class distribRemoteQscanJob(pipeline.CondorDAGJob, FUJob):
 	def setup_distrib_script(self,tag_base):
 		distrib_script = open('distribRemoteScan_'+tag_base+'.sh','w')
 		distrib_script.write("""#!/bin/bash
-mv $1 $2/.
-tar -xzvf $2/$1
+currentPath=`pwd` ;
+mv $1 $2/. ;
+cd $2 ;
+tar -xzvf $1 ;
+cd $currentPath ;
 for figPath in `find $2/$3 -name "*.png" -print` ; do
 	echo $figPath ;
 	thumbPath=`echo $figPath | sed s/.png/.thumb.png/g` ;
@@ -365,7 +368,7 @@ for figPath in `find $2/$3 -name "*.png" -print` ; do
 	thumbSize='300x';
 	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
 done
-rm $2/$1
+rm $2/$1 ;
 		""")
 		distrib_script.close()
 		os.chmod('distribRemoteScan_'+tag_base+'.sh',0755)
