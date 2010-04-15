@@ -83,7 +83,7 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
     trig_val = 10**log_trig_val
   if len(inj_val):
     inj_val = 10**log_inj_val
-  if len(slide_val):  
+  if len(slide_val):
     slide_val = 10**log_slide_val
   leg = []
   if len(inj_val):
