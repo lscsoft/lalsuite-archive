@@ -491,6 +491,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_cfar"),
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
+		os.path.join("bin", "ligolw_cbc_plotfm"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "extractCommand"),
