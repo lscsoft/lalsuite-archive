@@ -62,7 +62,7 @@ class BackgroundEstimator(object):
         self.loudest_in_bg_trials = loudest_in_bg_trials
 
     def __call__(self, loudest_in_trial):
-        raise NotImplemented
+        raise NotImplementedError
 
 class ConstantBackgroundEstimator(BackgroundEstimator):
     """
@@ -133,10 +133,10 @@ class ForegroundEstimator(object):
     becomes active and will return the ln(p(c(mc)|h(m2)) (for each bin).
     """
     def __init__(self, inj_loudest_by_inj_mc_m2, num_sims_by_m2):
-        raise NotImplemented
+        raise NotImplementedError
 
     def __call__(self, trial_loudest_by_mc):
-        raise NotImplemented
+        raise NotImplementedError
 
 class ConstantForegroundEstimator(ForegroundEstimator):
     """
@@ -391,7 +391,7 @@ statistic, mc_bins, offsource_loudest_by_trial_mc \
 statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
-    raise NotImplemented
+    raise NotImplementedError
 
 # compute useful quantities
 num_inj = len(inj_loudest_by_inj_mc)
