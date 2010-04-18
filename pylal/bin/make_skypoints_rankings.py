@@ -98,10 +98,9 @@ for coinc in coincs:
       for ifo in coinc.ifo_list:
         rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
       dtrss_inj = sqrt(rhosquared)*skylocutils.get_delta_t_rss(inj_pt,coinc,opts.reference_frequency)/10.0
-      dDrss_inj = rhosquared*skylocutils.get_delta_D_rss(inj_pt,coinc)
     else:
       dtrss_inj = skylocutils.get_delta_t_rss(inj_pt,coinc,opts.reference_frequency)
-      dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
+    dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dt.append(dtrss_inj)
     dD.append(dDrss_inj)
 
@@ -112,6 +111,9 @@ dtbw = compute_bw(dt,npts)
 dtdat = np.array(dt,'float').reshape(len(dt),1)
 pdtx = np.linspace(0.0,max(dt),npts)
 pdty = [skylocutils.gaussian_kde(dtdat,xn,dtbw) for xn in pdtx]
+pdtnorm = np.trapz(pdty,pdtx)
+Ptx = pdtx
+Pty = np.array([np.trapz(pdty[:i],Ptx[:i])/pdtnorm for i in np.arange(1,len(Ptx)+1)])
 
 dDbw = compute_bw(dD,npts)
 dDdat = np.array(dD,'float').reshape(len(dD),1)
@@ -121,8 +123,7 @@ pdDy = np.array([skylocutils.gaussian_kde(dDdat,xn,dDbw) for xn in pdDx])
 
 rankings = {}
 rankings['dt'] = skylocutils.Ranking(pdtx,pdty)
-rankings['dtvals'] = dt
-rankings['coarse_cut'] = skylocutils.percentile(98.,dt)
+rankings['Pdt'] = skylocutils.Ranking(Ptx,Pty)
 rankings['dD'] = skylocutils.Ranking(pdDx,pdDy)
 rankings['snr_threshold'] = opts.snr_threshold
 if opts.reference_frequency:
@@ -135,13 +136,13 @@ Lbw = compute_bw(Ls,npts)
 Ldat = np.array(Ls,'float').reshape(len(Ls),1)
 #first construct the pdf for the values of L
 #denote the pdf by f
-fLx = np.linspace(min(Ls),max(Ls),npts)
+fLx = np.linspace(0.0,max(Ls),npts)
 fLy = np.array([skylocutils.gaussian_kde(Ldat,xn,Lbw) for xn in fLx])
 #make sure the probabilities end at 1
-pnorm = np.trapz(fLy,fLx)
+fLnorm = np.trapz(fLy,fLx)
 #now integrate to find the probability
 Px = fLx
-Py = np.array([np.trapz(fLy[:i],Px[:i])/pnorm for i in np.arange(1,len(Px)+1)])
+Py = np.array([np.trapz(fLy[:i],Px[:i])/fLnorm for i in np.arange(1,len(Px)+1)])
 
 rankings['P'] = skylocutils.Ranking(Px,Py)
 
@@ -152,7 +153,7 @@ f.close()
 
 if opts.plot_pdfs:
   
-  #for the histograms
+  #compute bin widths for the histograms
   dtbins = compute_nbins(dt,len(dt))
   dDbins = compute_nbins(dD,len(dD))
   Lbins = compute_nbins(Ls,len(Ls))
@@ -162,45 +163,23 @@ if opts.plot_pdfs:
   figure()
   hist(dt,bins=dtbins,normed=1)
   plot(pdtx,pdty,'ro')
-  title(r'$\Delta t_{\rm rss}$', fontsize=20)
+  title(r'p($\Delta t_{\rm rss}|\alpha,\delta)$', fontsize=20)
+  savefig('pdt.png')
 
   figure()
   hist(dD,bins=dDbins,normed=1)
   plot(pdDx,pdDy,'ro')
-  title(r'$\Delta \tilde{D}_{\rm rss}$', fontsize=20)
+  title(r'p($\Delta \tilde{D}_{\rm rss}|\alpha,\delta)$', fontsize=20)
+  savefig('pdD.png')
+
+  figure()
+  hist(dt,bins=dtbins,normed=1,cumulative=1)
+  plot(Ptx,Pty,'ro')
+  title(r'Cumulative distribution of $p(\Delta t_{\rm rss}|\alpha,\delta)$', fontsize=20)
+  savefig('cumpdt.png')
 
   figure()
   hist(Ls,bins=Lbins,normed=1,cumulative=1)
   plot(Px,Py,'ro')
-  title(r'Probability', fontsize=20)
-
-
-  show()
-
-
-
-#dtrankings = skylocutils.Ranking(dt)
-#dDrankings = skylocutils.Ranking(dD)
-
-#by making a ranking of the combined (multiplied) dt and dD rankings
-#we can easily read off sky areas since a dtdD ranking of 0.x will 
-#reflect an x% probability, i.e., we're just approximating a cdf from the 
-#joint probabilities
-#dtdD = [dtrankings.get_rank(i)*dDrankings.get_rank(j) for i,j in zip(dt,dD)]
-#dtdDrankings = skylocutils.Ranking(dtdD,smaller_is_better=False)
-
-#rankings = {}
-#rankings['dt'] = dtrankings
-#rankings['dD'] = dDrankings
-#rankings['dtdD'] = dtdDrankings
-#rankings['snr_threshold'] = opts.snr_threshold
-#if opts.reference_frequency:
-#  rankings['ref_freq'] = opts.reference_frequency
-#else:
-#  rankings['ref_freq'] = None
-
-#f = open('rankings.pkl','w')
-#cPickle.dump(rankings,f,protocol=2)
-#f.close
-
-
+  title(r'Cumulative distribution of $p(\Delta t_{\rm rss}|\alpha,\delta)p(\Delta \tilde{D}_{\rm rss}|\alpha\delta)$', fontsize=20)
+  savefig('PdtdD.png')
