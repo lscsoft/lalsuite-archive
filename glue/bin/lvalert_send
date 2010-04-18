@@ -8,6 +8,7 @@ import select
 import logging
 import libxml2
 from optparse import *
+from M2Crypto.SSL import Context
 
 # pubsub import must come first because it overloads part of the
 # StanzaProcessor class
@@ -124,7 +125,10 @@ class MyClient(Client):
             jid=JID(jid.node, jid.domain, "sender")
 
         # we require a TLS connection
-        t=TLSSettings(require=True,verify_peer=False)
+        #  Specify sslv3 to get around Sun Java SSL bug handling session ticket
+        #  https://rt.phys.uwm.edu/Ticket/Display.html?id=1825
+        #  http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6728126
+        t=TLSSettings(require=True,verify_peer=False, ctx=Context('sslv3'))
 
         # setup client with provided connection information
         # and identity data

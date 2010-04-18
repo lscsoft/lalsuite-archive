@@ -441,17 +441,11 @@ class CondorJob:
       subfile.write( 'arguments = "' )
       for c in self.__options.keys():
         if self.__options[c]:
-          if ' ' in self.__options[c] and '$(macro' not in self.__options[c]:
-            # option has space, add single quotes around it
-            self.__options[c] = ''.join([ "'", self.__options[c], "'" ])
           subfile.write( ' --' + c + ' ' + self.__options[c] )
         else:
           subfile.write( ' --' + c )
       for c in self.__short_options.keys():
         if self.__short_options[c]:
-          if ' ' in self.__short_options[c] and '$(macro' not in self.__short_options[c]:
-            # option has space, add single quotes around it
-            self.__short_options[c] = ''.join([ "'", self.__short_options[c], "'" ])
           subfile.write( ' -' + c + ' ' + self.__short_options[c] )
         else:
           subfile.write( ' -' + c )

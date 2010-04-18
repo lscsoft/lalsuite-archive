@@ -159,8 +159,10 @@ def figure_out_cache(time,ifo):
 	cacheList=(
 		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,999999999,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",931035296,999999999,"V1")
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
 	foundCache = ""
@@ -199,7 +201,10 @@ def getParamsFromCache(fileName,type,ifo=None,time=None):
 		return qscanList
 	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
 	if time:
-		cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		if math.floor(float(time)) != math.ceil(float(time)):
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		else:
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time))-0.5, math.floor(float(time))+0.5))
 
 	for cacheEntry in cacheSelected:
 		path_output = cacheEntry.path()
@@ -350,9 +355,12 @@ class distribRemoteQscanJob(pipeline.CondorDAGJob, FUJob):
 	def setup_distrib_script(self,tag_base):
 		distrib_script = open('distribRemoteScan_'+tag_base+'.sh','w')
 		distrib_script.write("""#!/bin/bash
-tar -xzvf $1
-mv $2 $3
-for figPath in `find $3 -name "*.png" -print` ; do
+currentPath=`pwd` ;
+mv $1 $2/. ;
+cd $2 ;
+tar -xzvf $1 ;
+cd $currentPath ;
+for figPath in `find $2/$3 -name "*.png" -print` ; do
 	echo $figPath ;
 	thumbPath=`echo $figPath | sed s/.png/.thumb.png/g` ;
 	figDPI=120; 
@@ -360,7 +368,7 @@ for figPath in `find $3 -name "*.png" -print` ; do
 	thumbSize='300x';
 	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
 done
-rm $1
+rm $2/$1 ;
 		""")
 		distrib_script.close()
 		os.chmod('distribRemoteScan_'+tag_base+'.sh',0755)
@@ -394,15 +402,7 @@ class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
 . /opt/exp_software/virgo/etc/virgo-env.sh
 . /opt/glite/etc/profile.d/grid-env.sh
 export X509_USER_PROXY=`pwd`/proxy.pem
-if [ ! -d $3 ]
-then
-	mkdir -p $3
-fi
-if [ -e $3/lock.txt ]
-then
-        rm $3/lock.txt
-fi
-/storage/gpfs_virgo3/virgo/omega/omega_r2625_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-$4.tgz $3 
 		"""%(tag_base))
@@ -806,14 +806,14 @@ class setupProxyNode(pipeline.CondorDAGNode,FUNode):
 # DISTRIBUTE REMOTE QSCAN RESULTS
 class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 
-	def __init__(self, dag, job, cp, opts, ifo, p_nodes=[], type=""):
+	def __init__(self, dag, job, cp, opts, ifo, time, p_nodes=[], type=""):
 
 		pipeline.CondorDAGNode.__init__(self,job)
 		self.scan_type = type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
 		self.add_var_arg(p_nodes[0].name_output_file)
-		self.add_var_arg(os.getcwd() + p_nodes[0].remote_output_path)
 		self.add_var_arg(p_nodes[0].output_path)
+		self.add_var_arg(str(time))
 
 		for node in p_nodes:
 			if node.validNode:
@@ -824,11 +824,6 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 # REMOTE QSCAN NODE
 class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 	"""
-Remote QScan node.  This node writes its output to the web directory specified in
-the inifile + the ifo and gps time.  For example:
-
-	/archive/home/channa/public_html/followup/htQscan/H1/999999999.999
-
 	"""
 	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
 
@@ -862,18 +857,19 @@ the inifile + the ifo and gps time.  For example:
 		mkdir(output)
 
 		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
-		self.output_path = output+"/"+str(time)
+		self.output_path = output
 
-		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path)
+		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path+"/"+str(time))
 
 		# ADD FRAME CACHE FILE
 		self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
 
 		# NOW WE NEED TO SET UP THE REMOTE OUTPUTPATH
-		username = subprocess.Popen("whoami",shell=True,stdout=subprocess.PIPE).communicate()[0].strip() 
-		self.remote_output_path = '/storage/gpfs_virgo3/virgo/omega/cbc/' + username + '/' + preString.strip("omega/") + '/' + dataString + '/' + timeString + '/' + str(time)
-		self.add_var_arg(self.remote_output_path)
 
+		# String used in the naming of the omega scan directory
+		self.add_var_arg(str(time))
+
+		# Time at which the omega scan is performed
 		self.add_var_arg(repr(time))
 
 		self.name_output_file = job.tag_base + "-" + repr(time) + ".tgz"
@@ -1162,9 +1158,11 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
 			self.add_parent(parentNode)
-		if opts.do_makeCheckList:
+		if not opts.no_makeCheckList:
 			dag.add_node(self)
-
+			self.validate()
+		else:
+			self.invalidate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
