@@ -137,7 +137,10 @@ def create_html(grb, opts):
   html = html.replace('macrodate',date_text)
   html = html.replace('macrora','%.2f'%grb.ra)
   html = html.replace('macrodec','%.2f'%grb.de)
-  html = html.replace('macrot90','%.2f'%grb.duration)
+  if grb.duration>0:
+    html = html.replace('macrot90','%.2f'%grb.duration)
+  else:
+    html = html.replace('macrot90','&mdash')
   html = html.replace('macroifos','%s'%"".join(grb.ifolist))
 
   return html
@@ -744,13 +747,17 @@ write_file(opts.output_path, 'pylal_exttrig_llsummary_'+grb_name+'-sanity.html' 
 
 # if a html output path is specified, copy all the sanity plots 
 if opts.output_path_html:
-  # make the OPENBOX read/write enables
-  os.chmod('%s/OPENBOX'%opts.output_path_html, 493)
 
-  mkdirsafe(opts.output_path_html+'/OPENBOX')
+  openboxpath = opts.output_path_html+'/OPENBOX'
+  if not os.path.exists(openboxpath):
+    mkdirsafe(openboxpath)
+
+  # make the OPENBOX read/write enables
+  os.chmod(openboxpath, 493)
+
   command = 'cp -r %s/* %s' % (opts.output_path, opts.output_path_html)
   subprocess.call(command, shell=True)
-  command = 'cp -r %s/* %s/OPENBOX' % (opts.openbox_path, opts.output_path_html)
+  command = 'cp -r %s/* %s' % (opts.openbox_path, openboxpath)
   subprocess.call(command, shell=True)
 
   # set two links to the kml file and the segplot
@@ -761,7 +768,7 @@ if opts.output_path_html:
 
   if not grb.openbox:
     # make the OPENBOX read protected
-    os.chmod('%s/OPENBOX'%opts.output_path_html, 0)
+    os.chmod(openboxpath, 0)
 
 
   
