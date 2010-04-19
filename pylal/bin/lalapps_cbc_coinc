@@ -1,0 +1,248 @@
+#!/usr/bin/python
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
+import sys
+import numpy
+from optparse import OptionParser
+from pylal import git_version
+from pylal import SnglBurstUtils
+from glue.ligolw import dbtables
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw.utils import process
+from xml import sax
+from glue import iterutils
+from glue import lal
+from pylal import llwapp
+
+__author__ = "Chad Hanna channa@ligo.caltech.edu"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+# FIXME lookup this sax thing and import it.
+# A custom DBtable for coinc event, 
+# DO THIS FOR OTHER TABLES
+#dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincTable.tableName}))
+
+def mchirp(m1,m2):
+	return (m1+m2)**(0.6) / (m1*m2)**(0.2)
+
+def check_table(xmldoc, tab, choke=False):
+	# Find out if there is a table and make one if not
+	try:
+		ret_tab = table.get_table(xmldoc, tab.tableName)
+	except ValueError:
+		if choke: raise
+		else: ret_tab = lsctables.New(dbtables.TableByName[table.StripTableName(tab.tableName)])
+		#xmldoc.childNodes[0].appendChild(coinc_event_table)
+	return ret_tab
+
+def add_process(t, ifos):
+	#FIXME this is mostly wrong
+        row = t.RowType()
+	row.process_id = t.get_next_id()
+        row.program = sys.argv[0]
+        row.version = __version__
+        row.cvs_repository = None
+        row.cvs_entry_time = None
+        row.comment = "cbc coincidence tool"
+        row.is_online = None
+        row.node = None
+        row.username = None
+        row.unix_procid = None
+        row.start_time = None
+        row.end_time = None
+        row.jobid = None
+        row.domain = None
+        row.ifos = None
+        t.append(row)
+        return row.process_id
+
+	
+def parse_command_line():
+	parser = OptionParser(
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
+		usage = "%prog [options] [file ...]",
+		description = "%prog does blah blah blah."
+	)
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", help = "Retrieve database files from this LAL cache.  Can be given multiple times.")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-p", "--live-time-program", help="live time program for extracting seglists")
+	parser.add_option("-w", "--coinc-window", type="float", default=0.1, help="time window for coincidence, default 0.1 seconds")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+
+	options, filenames = parser.parse_args()
+	
+	if options.input_cache is not None:
+		filenames += [lal.CacheEntry(line).path() for filename in options.input_cache for line in file(filename)]
+
+	return options, filenames
+
+options, filenames = parse_command_line()
+
+cetab = None
+citab = None
+cemtab = None
+cdtab = None
+ptab = None
+
+# This program treats every file as self contained and does not do coincidences across files
+for filename in filenames:
+
+
+	#########################################################
+	# Open database and extract xmldoc
+	#########################################################
+
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+	if options.verbose:
+                print >>sys.stderr, "\tcalculating coincidences in %s with time window %f" % (working_filename, options.coinc_window)
+
+	dbtables.DBTable_set_connection(connection)
+	# pull this out so that we can build tables
+	xmldoc = dbtables.get_xml(connection)
+
+	#########################################################
+	# SETUP TABLES 
+	#########################################################
+
+	# define custom classes if they don't exist
+	if not cetab: cetab = dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincTable.tableName}))
+	if not cemtab: cemtab = dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincMapTable.tableName}))
+	if not cdtab: cdtab = dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincDefTable.tableName}))
+	if not citab: citab = dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincInspiralTable.tableName}))
+	if not ptab: ptab = dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.ProcessTable.tableName}))
+
+	# Find out if there is a time slide table and barf if not
+	time_slide_table = check_table(xmldoc, lsctables.TimeSlideTable, choke=True)
+	# Find out if there are other tables and make them if not
+	coinc_event_table = check_table(xmldoc, lsctables.CoincTable)
+	coinc_event_map = check_table(xmldoc, lsctables.CoincMapTable)
+	coinc_definer = check_table(xmldoc, lsctables.CoincDefTable)
+	coinc_inspiral_table = check_table(xmldoc, lsctables.CoincInspiralTable)
+	process_table = check_table(xmldoc, lsctables.ProcessTable)
+
+	# sync the ids
+	dbtables.idmap_sync(connection)
+
+	# setup coinc definer row
+	CoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
+	CoincDef.coinc_def_id = coinc_definer.get_next_id()
+	coinc_definer.append(CoincDef)
+
+	#########################################################
+	# Create a temporary table to help find doubles and index it
+	#########################################################
+
+	connection.cursor().execute("""
+CREATE TEMPORARY TABLE sngl AS 
+	SELECT event_id, ifo, mass1, mass2, end_time + end_time_ns*1e-9 AS time
+		FROM sngl_inspiral
+""")
+	connection.cursor().execute("""CREATE INDEX tmpindex1 ON sngl (time)""")
+	connection.cursor().execute("""CREATE INDEX tmpindex2 ON sngl (mass1,mass2)""")
+
+	# FIXME make a function to pull out unique doubles?
+	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
+	# FIXME make the process entry better	
+	instruments = background_time_slides.items()[0][1].keys()
+	proc = process.append_process(xmldoc, program = sys.argv[0], version = __version__, cvs_repository = None, cvs_entry_time = None, comment = "cbc coinc", is_online = False, jobid = 0, domain = None, ifos = instruments)	
+	process_id = proc.process_id
+	
+
+	seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).coalesce()
+	old_offsets = seglists.offsets.copy()
+
+	#########################################################
+	# Iterate over time slides and form double coincs
+	#########################################################
+	cnt=0
+	if options.verbose: print >> sys.stderr, "\n"
+	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
+	for i, (id, time_slide), in enumerate(background_time_slides.items() + zero_lag_time_slides.items()):
+
+		seglists.offsets.update(time_slide)
+		# verbosity
+		if options.verbose: print >> sys.stderr, "processing slides %.0f %%: found %d double coincs\r" % (100.0 * float(i) / len(background_time_slides.items()), cnt),
+
+		#########################################################
+		# define a function for the slid time
+		#########################################################
+
+		def slidtime(ifoA, timeA, ifoB, timeB, slide=time_slide):
+			return abs((slide[ifoA] + timeA) - (slide[ifoB]+timeB))
+
+		connection.create_function("slidtime", 4, slidtime)
+
+		#########################################################
+		# Iterate over the double coincidences found within the time window
+		# right now this just does exact mass coincidence, but a little
+		# work might get e-thinca working too.
+		#########################################################
+        	for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time in connection.cursor().execute("""
+SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time)
+	FROM sngl AS snglA 
+		JOIN sngl AS snglB
+			ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2)
+		WHERE snglA.ifo != snglB.ifo 
+			AND slidtime(snglA.ifo, snglA.time, snglB.ifo, snglB.time) < ?
+			AND snglA.event_id > snglB.event_id
+		""", (options.coinc_window,)):
+
+			# for verbosity
+			cnt+=1
+		
+			#########################################################
+			# first do coinc_event
+			#########################################################
+			row = coinc_event_table.RowType()
+			row.coinc_event_id = coinc_event_table.get_next_id()
+			row.nevents = 2
+			row.likelihood = None
+			row.set_instruments(seglists.keys_at(time))
+			row.time_slide_id = id
+			row.coinc_def_id = CoincDef.coinc_def_id
+			row.process_id = process_id #FIXME do a proper process entry
+			coinc_event_table.append(row)
+
+			#########################################################
+			# Then do coinc event map
+			#########################################################
+			for ceid in [id1, id2]:
+				cemrow = coinc_event_map.RowType()
+				cemrow.coinc_event_id = row.coinc_event_id
+				#FIXME is that right?
+				cemrow.table_name = 'sngl_inspiral'
+				cemrow.event_id = ceid
+				coinc_event_map.append(cemrow)
+			
+			#########################################################
+			# Then do coinc inspiral
+			#########################################################
+			cirow = coinc_inspiral_table.RowType()
+			cirow.coinc_event_id = row.coinc_event_id
+			cirow.snr = None #FIXME
+			cirow.set_ifos([ifo1, ifo2])
+			cirow.false_alarm_rate = None
+			cirow.combined_far = None
+			# Arithmetic mean of total mass and chirpmass
+			cirow.mass = numpy.mean([mass1_1+mass2_1, mass1_2+mass2_2])
+			cirow.mchirp = numpy.mean([mchirp(mass1_1,mass2_1), mchirp(mass1_2,mass2_2)])
+			gps = lal.LIGOTimeGPS(time)
+			cirow.end_time, cirow.end_time_ns = gps.seconds, gps.nanoseconds
+			coinc_inspiral_table.append(cirow)
+		
+		# put the offsets back 
+		seglists.offsets.update(old_offsets)
+
+	# DROP INDICES
+	connection.cursor().execute("""DROP INDEX tmpindex1""")
+	connection.cursor().execute("""DROP INDEX tmpindex2""")
+
+	connection.commit()
+#	connection.close()
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
