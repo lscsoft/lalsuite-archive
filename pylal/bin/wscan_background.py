@@ -38,10 +38,13 @@ class create_default_config(object):
     cp.add_section("datafind")
 
     cp.add_section("fu-q-rds-datafind")
-    cp.set("fu-q-rds-datafind","search-time-range","1024")
+    for ifo in ["H1","H2","L1"]:
+      cp.set(ifo+"-fu-q-rds-datafind","search-time-range","1024")
+    cp.set("V1-fu-q-rds-datafind","search-time-range","2048")
 
     cp.add_section("fu-q-hoft-datafind")
-    cp.set("fu-q-hoft-datafind","search-time-range","128")
+    for ifo in ["H1","H2","L1","V1"]:
+      cp.set(ifo+"-fu-q-hoft-datafind","search-time-range","128")
 
     cp.add_section("followup-background-qscan-times")
     cp.set("followup-background-qscan-times","H1range","")
