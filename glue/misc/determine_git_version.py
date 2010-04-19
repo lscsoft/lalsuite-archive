@@ -27,7 +27,6 @@ __author__ = 'Adam Mercer <adam.mercer@ligo.org>'
 
 # import required system modules
 import exceptions
-import re
 import subprocess
 import time
 import os
