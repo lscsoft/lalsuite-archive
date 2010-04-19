@@ -874,7 +874,7 @@ class remoteDatafindNode(pipeline.CondorDAGNode,FUNode):
 		pipeline.CondorDAGNode.__init__(self,job)
 
 		type, channel = figure_out_type(time,ifo,data_type)
-		q_time = float(cp.get(ifo+"-fu-q-"+data_type+"-datafind","search-time-range"))/2.
+		q_time = float(cp.get("fu-q-"+data_type+"-datafind",ifo+"-search-time-range"))/2.
 		start_time = int( time - q_time - 1.)
 		end_time = int( time + q_time + 1.)
 		outputFileName = ifo[0]+'-'+type+'-'+str(start_time)+'-'+str(end_time)+'.qcache'
@@ -1090,7 +1090,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		# next sample done by qscan.
 		type, channel = figure_out_type(time,ifo,data_type)
 		self.set_type(type)
-		self.q_time = float(cp.get(ifo+"-fu-q-"+data_type+"-datafind","search-time-range"))/2.
+		self.q_time = float(cp.get("fu-q-"+data_type+"-datafind",ifo+"-search-time-range"))/2.
 		self.set_observatory(ifo[0])
 		self.set_start(int( time - self.q_time - 1.))
 		self.set_end(int( time + self.q_time + 1.))
@@ -1933,13 +1933,13 @@ class create_default_config(object):
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
 		for ifo in ["H1","H2","L1","V1"]:
-			cp.set(ifo+"-fu-q-hoft-datafind","search-time-range","128")
+			cp.set("fu-q-hoft-datafind",ifo+"-search-time-range","128")
 
 		# fu-q-rds-datafind SECTION
 		cp.add_section("fu-q-rds-datafind")
 		for ifo in ["H1","H2","L1"]:
-			cp.set(ifo+"-fu-q-rds-datafind","search-time-range","1024")
-		cp.set("V1-fu-q-rds-datafind","search-time-range","2048")
+			cp.set("fu-q-rds-datafind",ifo+"-search-time-range","1024")
+		cp.set("fu-q-rds-datafind","V1-search-time-range","2048")
 		
 		# fu-fg-ht-qscan SECTION
 		cp.add_section("fu-fg-ht-qscan")
