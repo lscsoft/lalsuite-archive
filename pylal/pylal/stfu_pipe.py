@@ -1947,13 +1947,13 @@ class create_default_config(object):
 		cp.add_section("fu-fg-rds-qscan")
 		for config in ["H1config","H2config","L1config"]:
 			cp.set("fu-fg-rds-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt","QSCAN CONFIG"))
-		cp.set("fu-fg-rds-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/foreground-qscan_config.txt")
+		cp.set("fu-fg-rds-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/s6_foreground_V1-raw-cbc.txt")
 
 		# fu-fg-seismic-qscan SECTION
 		cp.add_section("fu-fg-seismic-qscan")
 		for config in ["H1config","H2config","L1config"]:
 			cp.set("fu-fg-seismic-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt","QSCAN CONFIG"))
-		cp.set("fu-fg-seismic-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/foreground-seismic-qscan_config.txt")
+		cp.set("fu-fg-seismic-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/s6_foreground_V1-raw-seismic-cbc.txt")
 
 		# fu-analyse-qscan SECTION
 		cp.add_section("fu-analyse-qscan")
