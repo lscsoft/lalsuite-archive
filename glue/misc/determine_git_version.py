@@ -3,7 +3,7 @@
 # git_version.py - determine git version info
 #
 # Copyright (C) 2009,2010 Adam Mercer <adam.mercer@ligo.org>
-# Copyright (C) 2009 Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
+#                         Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
