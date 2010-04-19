@@ -382,6 +382,7 @@ class remoteDatafindJob(pipeline.CondorDAGJob, FUJob):
 
 		self.setup_df_submission_script(dir,tag_base)
 		self.__executable = 'remoteDatafind_'+dir+'_'+tag_base+'.sh'
+		self.dir = dir
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.__universe = "vanilla"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
