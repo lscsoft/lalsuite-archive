@@ -447,7 +447,7 @@ class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
 export X509_USER_PROXY=`pwd`/proxy.pem
 /storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
-tar -czf %s-%s-$4.tgz $3 
+tar -czf %s-%s-$4.tgz $3
 		"""%(dir,tag_base))
 		submit_script.close()
 		os.chmod('remoteScan_'+dir+'_'+tag_base+'.sh',0755)
@@ -881,7 +881,7 @@ class remoteDatafindNode(pipeline.CondorDAGNode,FUNode):
 
 		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
 		#self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(start_time, end_time), "file://localhost/"+job.outputPath+'/'+os.path.abspath(outputFileName))
-		
+	
 		self.add_var_arg(ifo[0])
 		self.add_var_arg(str(start_time))
 		self.add_var_arg(str(end_time))
