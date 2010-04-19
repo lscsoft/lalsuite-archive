@@ -908,8 +908,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 					remote_datafind_node = stfu_pipe.remoteDatafindNode(dag, remote_datafind_job, cp, options, ifo, sngl_inspiral.time, data_type="rds", p_nodes=[setup_proxy_node])
 					remote_rds_qscan_node = stfu_pipe.fuRemoteQscanNode(dag, remote_rds_qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[remote_datafind_node], type="rds")
 					remote_seis_qscan_node = stfu_pipe.fuRemoteQscanNode(dag, remote_seis_qscan_job, cp, options, sngl_inspiral.time, ifo, p_nodes=[remote_datafind_node], type="seismic")
-					distrib_remote_rds_qscan_node = stfu_pipe.distribRemoteQscanNode(dag, distrib_remote_rds_qscan_job, cp, options, ifo, sngl_inspiral.time, p_nodes=[remote_rds_qscan_node], type="rds")
-					distrib_remote_rds_qscan_node = stfu_pipe.distribRemoteQscanNode(dag, distrib_remote_seis_qscan_job, cp, options, ifo, sngl_inspiral.time, p_nodes=[remote_seis_qscan_node], type="seismic")
+					distrib_remote_rds_qscan_node = stfu_pipe.distribRemoteQscanNode(dag, distrib_remote_rds_qscan_job, cp, options, ifo, sngl_inspiral.time, p_nodes=[remote_rds_qscan_node,remote_datafind_node], type="rds")
+					distrib_remote_rds_qscan_node = stfu_pipe.distribRemoteQscanNode(dag, distrib_remote_seis_qscan_job, cp, options, ifo, sngl_inspiral.time, p_nodes=[remote_seis_qscan_node,remote_datafind_node], type="seismic")
 
 			# h(t) INSPIRAL datafind Node
 			insp_datafind_node[ifo] = stfu_pipe.fuDataFindNode(dag, ht_data_find_job, cp, options, ifo, sngl=sngl_inspiral)

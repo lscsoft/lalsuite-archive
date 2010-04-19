@@ -340,6 +340,7 @@ fi
 class distribRemoteQscanJob(pipeline.CondorDAGJob, FUJob):
 	"""
 	This class sets up a script to be run as child of the remote scans in order to distribute its results to the appropriate paths. It takes the qscan tarball as input, uncompress it and copy the results to the path specified in cache file.
+	Moreover this job also deletes the temporary remote datafind cache files in order to clean up the followup directory.
 	"""
 	def __init__(self, opts, cp, dir='', tag_base=''):
 		"""
@@ -369,6 +370,7 @@ for figPath in `find $2/$3 -name "*.png" -print` ; do
 	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
 done
 rm $2/$1 ;
+rm $4 ;
 		""")
 		distrib_script.close()
 		os.chmod('distribRemoteScan_'+dir+'_'+tag_base+'.sh',0755)
@@ -849,9 +851,12 @@ class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		pipeline.CondorDAGNode.__init__(self,job)
 		self.scan_type = type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
+		# WARNING: First element in p_nodes list is assumed to be the omega scan node
 		self.add_var_arg(p_nodes[0].name_output_file)
 		self.add_var_arg(p_nodes[0].output_path)
 		self.add_var_arg(str(time))
+		# WARNING: Second element in p_nodes list is assumed to be the datafind node
+		self.add_var_arg(p_nodes[1].name_output_file)
 
 		for node in p_nodes:
 			if node.validNode:
