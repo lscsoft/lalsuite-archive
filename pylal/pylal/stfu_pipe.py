@@ -370,7 +370,10 @@ for figPath in `find $2/$3 -name "*.png" -print` ; do
 	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
 done
 rm $2/$1 ;
-rm $4 ;
+if [ -e $4 ]
+then
+	rm $4 ;
+fi
 		""")
 		distrib_script.close()
 		os.chmod('distribRemoteScan_'+dir+'_'+tag_base+'.sh',0755)
