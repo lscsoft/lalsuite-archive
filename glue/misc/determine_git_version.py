@@ -42,23 +42,16 @@ class GitInvocationError(exceptions.LookupError):
 # return output from running given command
 def run_external_command(command, honour_ret_code=True):
   # start external command process
-  p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE, close_fds=True)
+  p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   # get outputs
-  try:
-    output = p.stdout.read()
-    err = p.stderr.read()
-    ret_code = p.wait()
-  finally:
-    p.stdout.close()
-    p.stderr.close()
+  out, err = p.communicate()
 
   # throw exception if process failed
-  if honour_ret_code and (ret_code != 0):
+  if honour_ret_code and (p.returncode != 0):
     raise GitInvocationError, 'failed to run "%s"' % command
 
-  return ret_code, output
+  return p.returncode, out
 
 #
 # primary functions
@@ -72,9 +65,11 @@ def in_git_repository():
   of success conditions, but I cannot find any documentation of them. 128 was
   determined empirically. I sure hope that it's portable.
   """
-  ret_code, output = run_external_command('which git', honour_ret_code=False)
+  ret_code, output = run_external_command(('/usr/bin/which', 'git'),
+      honour_ret_code=False)
   return (ret_code != 1) and not output.startswith('no') \
-      and (run_external_command('git status', honour_ret_code=False)[0] != 128)
+      and (run_external_command(('git', 'status'),
+          honour_ret_code=False)[0] != 128)
 
 def write_git_version(fileobj):
   """
@@ -91,8 +86,8 @@ def write_git_version(fileobj):
   build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
 
   # determine builder
-  builder_name_cmd = 'git config user.name'
-  builder_email_cmd = 'git config user.email'
+  builder_name_cmd = ('git', 'config', 'user.name')
+  builder_email_cmd = ('git', 'config', 'user.email')
   git_builder_name = run_external_command(builder_name_cmd,
     honour_ret_code=False)[1].strip()
   git_builder_email = run_external_command(builder_email_cmd,
@@ -100,16 +95,16 @@ def write_git_version(fileobj):
   git_builder = "%s <%s>" % (git_builder_name, git_builder_email)
 
   # determine git id
-  id_cmd = 'git log -1 --pretty="format:%H"'
+  id_cmd = ('git', 'log', '-1', '--pretty=%H')
   git_id = run_external_command(id_cmd)[1].strip()
 
   # determine commit date, iso utc
-  date_cmd = 'git log -1 --pretty="format:%ct"'
+  date_cmd = ('git', 'log', '-1', '--pretty=%ct')
   git_udate = float(run_external_command(date_cmd)[1].strip())
   git_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime(git_udate))
 
   # determine branch
-  branch_cmd = 'git rev-parse --symbolic-full-name HEAD'
+  branch_cmd = ('git', 'rev-parse', '--symbolic-full-name', 'HEAD')
   branch_match = run_external_command(branch_cmd)[1].strip()
   if branch_match == "HEAD":
     git_branch = None
@@ -117,17 +112,17 @@ def write_git_version(fileobj):
     git_branch = os.path.basename(branch_match)
 
   # determine tag
-  tag_cmd = 'git describe --exact-match --tags %s' % git_id
+  tag_cmd = ('git', 'describe', '--exact-match', '--tags', git_id)
   status, git_tag = run_external_command(tag_cmd, honour_ret_code=False)
   git_tag = git_tag.strip()
   if status != 0:
     git_tag = None
 
   # determine author and committer
-  author_name_cmd = 'git log -1 --pretty="format:%an"'
-  author_email_cmd = 'git log -1 --pretty="format:%ae"'
-  committer_name_cmd = 'git log -1 --pretty="format:%cn"'
-  committer_email_cmd = 'git log -1 --pretty="format:%ce"'
+  author_name_cmd = ('git', 'log', '-1', '--pretty=%an')
+  author_email_cmd = ('git', 'log', '-1', '--pretty=%ae')
+  committer_name_cmd = ('git', 'log', '-1', '--pretty=%cn')
+  committer_email_cmd = ('git', 'log', '-1', '--pretty=%ce')
   git_author_name = run_external_command(author_name_cmd)[1].strip()
   git_author_email = run_external_command(author_email_cmd)[1].strip()
   git_author = '%s <%s>' % (git_author_name, git_author_email)
@@ -136,15 +131,16 @@ def write_git_version(fileobj):
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
   # refresh index
-  retcode = subprocess.call('git update-index -q --refresh', shell=True)
+  retcode = subprocess.call(('git', 'update-index', '-q', '--refresh'))
 
   # check working copy for changes
-  status_output = subprocess.call('git diff-files --quiet', shell=True)
+  status_output = subprocess.call(('git', 'diff-files', '--quiet'))
   if status_output != 0:
     git_status = 'UNCLEAN: Modified working tree'
   else:
     # check index for changes
-    status_output = subprocess.call('git diff-index --cached --quiet HEAD', shell=True)
+    status_output = subprocess.call(('git', 'diff-index', '--cached',
+      '--quiet', 'HEAD'))
     if status_output != 0:
       git_status = 'UNCLEAN: Modified index'
     else:
