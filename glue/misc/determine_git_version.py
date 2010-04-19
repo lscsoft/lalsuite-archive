@@ -99,23 +99,25 @@ def write_git_version(fileobj):
   >>> print git_version.id
   1b0549019e992d0e001f3c28e8488946f825e873
   """
+  git_path = check_call_out(('/usr/bin/which', 'git'))
+
   # determine current time and treat it as the build time
   build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
 
   # determine builder
-  git_builder_name = check_call_out(('git', 'config', 'user.name'))
-  git_builder_email = check_call_out(('git', 'config', 'user.email'))
+  git_builder_name = check_call_out((git_path, 'config', 'user.name'))
+  git_builder_email = check_call_out((git_path, 'config', 'user.email'))
   git_builder = "%s <%s>" % (git_builder_name, git_builder_email)
 
   # determine git id
-  git_id = check_call_out(('git', 'log', '-1', '--pretty=%H'))
+  git_id = check_call_out((git_path, 'log', '-1', '--pretty=%H'))
 
   # determine commit date, iso utc
-  git_udate = float(check_call_out(('git', 'log', '-1', '--pretty=%ct')))
+  git_udate = float(check_call_out((git_path, 'log', '-1', '--pretty=%ct')))
   git_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime(git_udate))
 
   # determine branch
-  branch_match = check_call_out(('git', 'rev-parse', '--symbolic-full-name',
+  branch_match = check_call_out((git_path, 'rev-parse', '--symbolic-full-name',
     'HEAD'))
   if branch_match == "HEAD":
     git_branch = None
@@ -123,29 +125,29 @@ def write_git_version(fileobj):
     git_branch = os.path.basename(branch_match)
 
   # determine tag
-  status, git_tag = call_out(('git', 'describe', '--exact-match',
+  status, git_tag = call_out((git_path, 'describe', '--exact-match',
     '--tags', git_id))
   if status != 0:
     git_tag = None
 
   # determine author and committer
-  git_author_name = check_call_out(('git', 'log', '-1', '--pretty=%an'))
-  git_author_email = check_call_out(('git', 'log', '-1', '--pretty=%ae'))
+  git_author_name = check_call_out((git_path, 'log', '-1', '--pretty=%an'))
+  git_author_email = check_call_out((git_path, 'log', '-1', '--pretty=%ae'))
   git_author = '%s <%s>' % (git_author_name, git_author_email)
-  git_committer_name = check_call_out(('git', 'log', '-1', '--pretty=%cn'))
-  git_committer_email = check_call_out(('git', 'log', '-1', '--pretty=%ce'))
+  git_committer_name = check_call_out((git_path, 'log', '-1', '--pretty=%cn'))
+  git_committer_email = check_call_out((git_path, 'log', '-1', '--pretty=%ce'))
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
   # refresh index
-  check_call_out(('git', 'update-index', '-q', '--refresh'))
+  check_call_out((git_path, 'update-index', '-q', '--refresh'))
 
   # check working copy for changes
-  status_output = subprocess.call(('git', 'diff-files', '--quiet'))
+  status_output = subprocess.call((git_path, 'diff-files', '--quiet'))
   if status_output != 0:
     git_status = 'UNCLEAN: Modified working tree'
   else:
     # check index for changes
-    status_output = subprocess.call(('git', 'diff-index', '--cached',
+    status_output = subprocess.call((git_path, 'diff-index', '--cached',
       '--quiet', 'HEAD'))
     if status_output != 0:
       git_status = 'UNCLEAN: Modified index'
