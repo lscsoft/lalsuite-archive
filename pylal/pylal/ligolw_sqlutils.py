@@ -326,8 +326,6 @@ class parse_param_ranges:
 
 class parse_coinc_options:
 
-    coinc_types = {}
-    
     def __init__( self, coincs_opt, verbose = False):
         """
         Parses --exclude-coincs and --include-coincs options. The class doesn't
@@ -364,6 +362,8 @@ class parse_coinc_options:
 
         if verbose:
             print >> sys.stderr, "Parsing coinc options..."
+
+        self.coinc_types = {}
 
         for rule in coincs_opt.split(';'):
             rule = rule.strip().lstrip('[').rstrip(']').upper()
