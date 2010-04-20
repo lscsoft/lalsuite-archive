@@ -10,8 +10,8 @@ import sys
 import os
 import operator
 import gzip 
-from math import sqrt, sin, cos
-from numpy import pi, linspace, interp
+from math import sqrt, sin, cos, modf
+from numpy import pi, linspace, interp, sum as npsum, exp
 
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
@@ -122,7 +122,7 @@ def get_delta_D_rss(pt,coinc):
   effD_sum = 0.0
   Dmarg_diff = 0.0
   Dmarg_sum = 0.0
-  delta_D_rms = 0.0
+  delta_D_rss = 0.0
   for ifos in coinc.ifo_coincs:
     effD_diff = coinc.eff_distances[ifos[0]] * coinc.eff_distances[ifos[0]]\
                 - coinc.eff_distances[ifos[1]] * coinc.eff_distances[ifos[1]]
@@ -131,9 +131,9 @@ def get_delta_D_rss(pt,coinc):
     Dmarg_diff = D_marg_sq[ifos[0]] - D_marg_sq[ifos[1]]
     Dmarg_sum = D_marg_sq[ifos[0]] + D_marg_sq[ifos[1]]
     delta_D[ifos[0]+ifos[1]] = (effD_diff/effD_sum) - (Dmarg_diff/Dmarg_sum)
-    delta_D_rms += delta_D[ifos[0]+ifos[1]]*delta_D[ifos[0]+ifos[1]]
+    delta_D_rss += delta_D[ifos[0]+ifos[1]]*delta_D[ifos[0]+ifos[1]]
 
-  return sqrt(delta_D_rms)
+  return sqrt(delta_D_rss)
 
 def gridsky(resolution,shifted=False):
   """
@@ -207,8 +207,48 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
     for rpt in flist:
       fgtemp.remove(rpt)
 
-
   return coarsedict, fgtemp
+
+def gaussian_kde(data,x,w):
+  """
+  kernel density estimate of the pdf represented by data
+  at point x with bandwidth w
+  """
+  N = float(len(data))
+
+  return npsum([_gauss_kern(x,xn,w) for xn in data])/(N*w*sqrt(2.*pi))
+
+def _gauss_kern(x,xn,w):
+  """
+  gaussian kernel for kernel density estimator
+  """
+  a = x-xn
+  return exp(-a*a/(2.*w*w))
+
+def percentile(p,dat):
+  """
+  compute p%-tile of data in dat
+  """
+  N = len(dat)
+  n = float(p)/100*(N-1) + 1
+  values = dat[:]
+  values.sort()
+
+  if n == 1:
+    return values[0]
+  elif n == N:
+    return values[N-1]
+  else:
+    dpart, ipart = modf(n)
+    return values[int(ipart)-1] + dpart*(values[int(ipart)] - values[int(ipart)-1])
+
+
+def iqr(data):
+  """
+  computes the interquartile range of data
+  useful for determing widths of bins in histograms or bandwidths in kdes
+  """
+  return (percentile(75.,data) - percentile(25.,data))
 
 ##############################################################################
 #
@@ -218,35 +258,20 @@ def map_grids(coarsegrid,finegrid,coarseres=4.0):
 
 class Ranking(object):
   """
-  class for determining the expected rank (probability) of a value constructed from
-  a cumulative histogram of measured values
-  this is designed as a template for improved probaility estimators as
-  they are developed
+  class for storing pdfs 
   """
-  def __init__(self,values,smaller_is_better=True):
+  def __init__(self,xvals,yvals):
     """
-    create the cumulative histograms from the values
-    requires the values (measured from some simulation)
-    and boolean (smaller_is_better) which controls whether the
-    histogram is counted from the right (default) or left
+    storing pdfs
     """
-    #the basic idea is to keep the dt and dD arrays sorted
-    #and reverse-sort the rankings if necessary.  
-    #this makes interpolation trivial
-    self.vals = values[:]
-    self.vals.sort()
-
-    #reverse sort the rankings
-    ranktemp = linspace(0,1,len(self.vals),endpoint=False)
-    if smaller_is_better:
-      ranktemp = ranktemp[::-1]
-    self.rankings = ranktemp
+    self.x = xvals
+    self.y = yvals
   
   def get_rank(self,value):
     """
-    return the rank of value as obtained via linear interpolation
+    return the probability of value as obtained via linear interpolation
     """
-    return interp(value,self.vals,self.rankings)
+    return interp(value,self.x,self.y)
 
 
 class SkyPoints(list):
@@ -264,27 +289,40 @@ class SkyPoints(list):
     """
     super(SkyPoints,self).sort(key=operator.itemgetter(n),reverse=rev)
 
-  def write(self,fname,comment=None,debug=False,gz=True):
+  def normalize(self,n):
+    """
+    in place normalization of the data in the n-th column
+    by the factor in normfac
+    """
+    normfac = sum([pt[n] for pt in self])
+    for i in range(len(self)):
+      self[i][n] /= normfac
+    return normfac
+
+  def write(self,fname,normfac,comment=None,debug=False,gz=True):
     """
     write the grid to a text file
-    """ 
-    self.nsort(2)
-    if debug:
-      grid = '#  ra' + '\t' + 'dec' + '\t' + 'ranking' + '\t' + 'dt' + '\t' + 'dD' + '\n'
-      for pt in self:
-        grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\t' + str(pt[4]) + '\n'
-    else:
-      grid = '#  ra' + '\t' + 'dec' + '\t' + 'ranking' + '\n'
-      for pt in self:
-        grid += str(pt[1]) + '\t' + str(pt[0]) + '\t' + str(pt[2]) + '\n'
+    """
+    self.nsort(1)
+    prob_grid = '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
+    post_grid = '# normfac = ' + str(normfac) + '\n' + '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    for pt in self:
+        prob_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
+        post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
     if comment:
-      grid += '# ' + comment
+      prob_grid += '# ' + comment + '\n'
+      post_grid += '# ' + comment + '\n'
     if gz:
-      f = gzip.open(fname, 'w')
+      fprob = gzip.open(fname.replace('grid','probability'), 'w')
+      fpost = gzip.open(fname.replace('grid','posterior'), 'w')
     else:
-      f = open(fname, 'w')
-    f.write(grid)
-    f.close()  
+      fprob = open(fname.replace('grid','probability'), 'w')
+      fpost = open(fname.replace('grid','posterior'), 'w')
+
+    fprob.write(prob_grid)
+    fpost.write(post_grid)
+    fprob.close() 
+    fpost.close()
 
 class CoincData(object):
   """
@@ -528,7 +566,8 @@ class SkyLocInjTable(tab.Table):
     "l1_eff_distance": "real_4",
     "v1_eff_distance": "real_4",
     "mass1": "real_4",
-    "mass2": "real_4"
+    "mass2": "real_4",
+    "grid": "lstring"
     }
     
 class SkyLocInjRow(object):
@@ -570,8 +609,8 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
-def populate_SkyLocTable(skyloctable,coinc,dt_areas,P_areas,\
-                         pt,grid_fname,skymap_fname=None):
+def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
+                         skymap_fname=None):
   """
   populate a row in a skyloctable
   """
@@ -583,25 +622,30 @@ def populate_SkyLocTable(skyloctable,coinc,dt_areas,P_areas,\
   for ifo in coinc.ifo_list:
     rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
   row.comb_snr = sqrt(rhosquared)
-  row.dec,row.ra  = pt[0],pt[1]
-  row.dt90 = dt_areas[8]
-  row.dt80 = dt_areas[7]
-  row.dt70 = dt_areas[6]
-  row.dt60 = dt_areas[5]
-  row.dt50 = dt_areas[4]
-  row.dt40 = dt_areas[3]
-  row.dt30 = dt_areas[2]
-  row.dt20 = dt_areas[1]
-  row.dt10 = dt_areas[0]
-  row.P90 = P_areas[8]
-  row.P80 = P_areas[7]
-  row.P70 = P_areas[6]
-  row.P60 = P_areas[5]
-  row.P50 = P_areas[4]
-  row.P40 = P_areas[3]
-  row.P30 = P_areas[2]
-  row.P20 = P_areas[1]
-  row.P10 = P_areas[0]
+  row.dec,row.ra  = grid[0][0]
+  #compute areas
+  def area(sp,pct,A,n):
+    return float(len([pt for pt in sp if pt[n] >= pct/100.]))*A
+  grid.nsort(2)
+  row.dt90 = area(grid,90.,A,2)
+  row.dt80 = area(grid,80.,A,2)
+  row.dt70 = area(grid,70.,A,2)
+  row.dt60 = area(grid,60.,A,2)
+  row.dt50 = area(grid,50.,A,2)
+  row.dt40 = area(grid,40.,A,2)
+  row.dt30 = area(grid,30.,A,2)
+  row.dt20 = area(grid,20.,A,2)
+  row.dt10 = area(grid,10.,A,2)
+  grid.nsort(1)
+  row.P90 = area(grid,90.,A,1)
+  row.P80 = area(grid,80.,A,1)
+  row.P70 = area(grid,70.,A,1)
+  row.P60 = area(grid,60.,A,1)
+  row.P50 = area(grid,50.,A,1)
+  row.P40 = area(grid,40.,A,1)
+  row.P30 = area(grid,30.,A,1)
+  row.P20 = area(grid,20.,A,1)
+  row.P10 = area(grid,10.,A,1)
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
@@ -611,8 +655,8 @@ def populate_SkyLocTable(skyloctable,coinc,dt_areas,P_areas,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area, \
-                            dtrss_inj,dDrss_inj):
+def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area,\
+                            dtrss_inj,dDrss_inj,grid_fname):
   """
   record injection data in a skylocinjtable
   """
@@ -657,6 +701,7 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area, \
     row.v1_eff_distance = None
   row.mass1 = coinc.mass1_inj
   row.mass2 = coinc.mass2_inj
+  row.grid = os.path.basename(str(grid_fname))
 
   skylocinjtable.append(row)
 

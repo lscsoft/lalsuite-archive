@@ -371,7 +371,7 @@ segment_data=[0]*len(ifo)
 if options.skip_science_time is False:
   for i in range(0,len(ifo)):
     segment_xml = dqPath+'''/'''+ifo[i]+'''-science_segments.xml'''
-    segment_query_command = '''ligolw_segment_query -q -d -a '''+gw_channel[ifo[i]]+''' -s '''+str(GPSstart)+''' -e '''+str(GPSend)+''' -o '''+segment_xml
+    segment_query_command = '''ligolw_segment_query -q -t https://segdb.ligo.caltech.edu -a '''+gw_channel[ifo[i]]+''' -s '''+str(GPSstart)+''' -e '''+str(GPSend)+''' -o '''+segment_xml
     segment_status = GetCommandOutput(segment_query_command)[1]
     if segment_status==0:
       temp_segment_list = dqPath+'''/'''+ifo[i]+'''-temp_segment.txt'''
@@ -466,7 +466,7 @@ print >>output, "<<TableOfContents(3)>>"
 # ==========
 if options.skip_range_plot is False:
   maxVal=0
-  figure()
+  figure(figsize=[10,6])
   for j in range(0,len(ifo)):
     rangePlotFile = dqPath+'/'+ifo[j]+'-inspiral_range.txt'
     GetCommandOutput('rm -f '+rangePlotFile)
@@ -571,7 +571,7 @@ if options.skip_dq_flags is False:
     commonDQfilename[i] = commonDQtag+'_'+str(ifo[i])+'-'+str(GPSstart)+'-'+str(GPSlength)+'.txt'
     commonDQfile[i]=commonDQpath+commonDQfilename[i]
     f = open(commonDQfile[i],'w')
-    commonDQcommand[i]+=ifo[i]+''' '''+str(options.snr_threshold)+''' '''
+    commonDQcommand[i]+=ifo[i]+''' '''+str(options.cat_level)+''' '''+str(options.snr_threshold)+''' '''
     for j in range(0,len(ihopePath)):
       lsCheck = 'ls '+ihopePath[j]+'H1-'+str(options.cat_level)+'-INSPIRAL_16SEC_CLUSTERED.csv'
       status = GetCommandOutput(lsCheck)[1]

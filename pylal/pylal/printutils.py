@@ -106,9 +106,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'elogs',
             'mini_followup',
             'sim_tag',
-            'injected_eff_dist_h',
-            'injected_eff_dist_l',
-            'injected_eff_dist_v',
+            'injected_decisive_distance',
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2',
@@ -128,9 +126,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'elogs',
             'mini_followup',
             'sim_tag',
-            'injected_eff_dist_h',
-            'injected_eff_dist_l',
-            'injected_eff_dist_v',
+            'injected_decisive_distance',
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2']
@@ -324,7 +320,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
 # =============================================================================
 
 def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_by, comparison_datatype,
-    param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
+    sort_by = 'rank', param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
 
@@ -463,7 +459,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             injected_cols.append('simulation_id')
         else:
             injected_cols.append('injected_'+col)
-    injected_cols.extend(['injected_end_time', 'injected_end_time_ns', 'injected_end_time_utc__Px_click_for_daily_ihope_xP_'])
+    injected_cols.extend(['injected_decisive_distance','injected_end_time', 'injected_end_time_ns', 'injected_end_time_utc__Px_click_for_daily_ihope_xP_'])
     
     # Get list of column names from the recovery table
     recovered_cols = []
@@ -511,6 +507,8 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
                 validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
             elif col_name == 'injected_end_time' or col_name == 'injected_end_time_ns':
                 validcolumns[col_name] = "int_4s"
+            elif col_name == 'injected_decisive_distance':
+                validcolumns[col_name] = "real_8"
             elif 'injected_' in col_name or col_name == 'simulation_id':
                 validcolumns[col_name] = sqlutils.get_col_type(simulation_table, re.sub('injected_', '', col_name))
             elif 'recovered_' in col_name or col_name == 'coinc_event_id':
@@ -628,6 +626,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         sfrow.injected_end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
         # set any other info
         sfrow.instruments_on = ','.join(sorted(on_instruments))
+        sfrow.injected_decisive_distance = sorted([getattr(sfrow, 'injected_eff_dist_%s' % ifo[0].lower()) for ifo in on_instruments])[1]
         sfrow.mini_followup = None
         sfrow.sim_tag = values[-6]
         setattr(sfrow, durname, duration)
@@ -637,7 +636,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     
     # Re-sort the sftable by rank, recovered_match_rank
     sftable = lsctables.New(SelectedFoundTable)
-    for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, rankname) ):
+    for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, sort_by == 'rank' and rankname or sort_by) ):
         if sfrow.simulation_id not in [row.simulation_id for row in sftable]:
             sftable.append(sfrow)
             sftable.extend(sub_row for sub_row in sorted([row for row in tmp_sftable
@@ -769,7 +768,6 @@ def printmissed(connection, simulation_table, recovery_table,
             # will get an AttributeError if using newer format veto segment file because
             # the new format does not include _ns; if so, remove the _ns columns from the
             # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-            from glue.lal import LIGOTimeGPS
         
             del lsctables.SegmentTable.validcolumns['start_time_ns']
             del lsctables.SegmentTable.validcolumns['end_time_ns']
@@ -867,7 +865,7 @@ def printmissed(connection, simulation_table, recovery_table,
                 FROM
                     """, simulation_table, """
                 """, in_this_filter, """
-                    AND rank(""", decisive_distance, """) <= """, str(limit), """
+                    %s""" % (limit is not None and ''.join(['AND rank(', decisive_distance, ') <= ', str(limit)]) or ''), """
                 ORDER BY
                     rank(""", decisive_distance, """) ASC
                     """])

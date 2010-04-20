@@ -956,6 +956,12 @@ class segmentlistdict(dict):
 		"""
 		return self.map(lambda x: x.find(item))
 
+	def keys_at(self, x):
+		"""
+		Return a list of the keys for the segment lists that contain x.
+		"""
+		return [key for key, segs in self.items() if x in segs]
+
 	# list-by-list arithmetic
 
 	def __iand__(self, other):

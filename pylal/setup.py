@@ -288,6 +288,15 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
+			"pylal.xlal.constants",
+			["src/xlal/constants.c"],
+			include_dirs = lal_pkg_config.incdirs,
+			libraries = ["lal"],  # this really, truly has no other deps
+			library_dirs = lal_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
+		Extension(
 			"pylal.xlal.date",
 			["src/xlal/date.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
@@ -464,6 +473,7 @@ setup(
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_inspinjfind"),
+		os.path.join("bin", "lalapps_cbc_injfind"),		
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
@@ -490,6 +500,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_cfar"),
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
+		os.path.join("bin", "ligolw_cbc_plotfm"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
 		os.path.join("bin", "extractCommand"),
@@ -504,6 +515,8 @@ setup(
 		os.path.join("bin", "qsub_wscanlite.sh"),
 		os.path.join("bin", "search_volume_by_m1_m2"),
 		os.path.join("bin", "search_upper_limit_by_m1_m2"),
+		os.path.join("bin", "search_volume_by_s1_s2"),
+		os.path.join("bin", "search_upper_limit_by_s1_s2"),
 		os.path.join("bin", "virgo_qscan_in2p3.py"),
 		os.path.join("bin", "wscan_in2p3.sh"),
 		os.path.join("bin", "wscanlite_in2p3.sh"),

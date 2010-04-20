@@ -23,7 +23,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
-itertools = __import__("itertools")  # absolute import of system-wide itertools
+import itertools
 
 import numpy
 import pylab
@@ -68,14 +68,14 @@ class BasicPlot(object):
         to accept complicated inputs, but try to store only the raw numbers
         that will enter the plot.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def finalize(self):
         """
         Stub.  Replace with a function that creates and makes your plot
         pretty.  Do not do I/O here.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def savefig(self, *args, **kwargs):
         self.fig.savefig(*args, **kwargs)
