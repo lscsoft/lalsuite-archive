@@ -42,7 +42,7 @@ def parse_command_line():
     """
     parser = OptionParser(
         version = git_version.verbose_msg,
-        usage   = "%prog [options] file1.sqlite file2.sqlite ...",
+        usage   = "%prog -x var1 [options] file1.sqlite file2.sqlite ...",
         description = description
         )
     # following are related to file input and output naming
@@ -68,7 +68,7 @@ def parse_command_line():
             "Set a user-tag for plot and html naming."
         )
     parser.add_option( "-x", "--variables", action = "append", default = [],
-        metavar = "independent_var1(:label)(;dependent_var1(:label))",
+        metavar = "independent_var1[:label][;dependent_var1[:label]]",
         help = 
             "Required. What variable(s) to plot. At least one independent variable is needed. If no dependent variable " +
             "is specified, will plot injected decisive distance on the y-axis. For example, if you specify -x injected_mchirp, " +
@@ -88,14 +88,12 @@ def parse_command_line():
             "(s|min|hr|days|yr) since the earliest experiment start time in the databases. For example, if you type injected_end_time:gps_days, "
             "and the earilest start time is 987654321, the x-axis will be 'Injected End Time ($987654320 + days$)'. " +
             "If multiple variables are specified, will create a plot for each one. To specify multiple variables, " +
-            "give the argument multiple times. " + 
-            "Note: if one of the variables is the same as --param-name, will create one plot of the union of the " +
-            "param-ranges when plotting against that variable."
+            "give the argument multiple times. "
         )
-    parser.add_option( "-r", "--ranking-stat", action = "store", default = "recovered_combined_far:Combined FAR ($yr^{-1}$)",
-        metavar = " stat(:label)",
+    parser.add_option( "-r", "--ranking-stat", action = "store", default = "combined_far:Combined FAR ($yr^{-1}$)",
+        metavar = " stat[:label]",
         help =
-            "Stat to rank found injections with. Default is recovered_combined_far. As with --variables, to specify a label " +
+            "Stat to rank found injections with. The stat must be a column in the recovery table; default is combined_far. As with --variables, to specify a label " +
             "for plotting, put a colon followed by the label. This label will be put on the colorbar, if it is turned on (see --colorbar). " +
             "Unlike --variables, only a single column may be used and math operations are not supported."
         )
@@ -109,14 +107,22 @@ def parse_command_line():
         help =
             "Turn on the colorbar. This will cause all found injections to be colored according to the ranking-stat."
         )
-    parser.add_option( "", "--param-name", metavar = "PARAMETER",
+    parser.add_option( "-p", "--param-name", metavar = "PARAMETER[:label]",
         action = "store", default = None,
-        help = 
-            "Can be any parameter in the recovery table. " +
-            "Specifying this and param-ranges will only select " +
-            "triggers that fall within the parameter ranges. " 
+        help =
+            "Specifying this and param-ranges will only select triggers that fall within the given range for each plot. " +
+            "This will apply to all plots. Any column(s) in the simulation or recovery table may be used. " +
+            "To specify a parameter in the simulation table, prefix with 'injected_'; " +
+            "for recovery table, 'recovered_'. As with variables, math operations are permitted between columns, e.g.," +
+            "injected_mass1+injected_mass2. Any function in the python math module may be used; syntax is python. The parameter name " +
+            "will be in the title of each plot; to give a label for the name, add a colon and the label. If no label is specified, the " +
+            "the parameter name as given will be used. " +
+            "WARNING: if you use any recovered parameters, missed injections will not be included in plots " +
+            "as recovered parameters are undefined for them. For example, if you chose to bin by recovered_mchirp " +
+            "missed injections will not be plotted on any plot. If you chose to bin by injected_mchirp, however, missed injections " +
+            "will be plotted. "
         )
-    parser.add_option( "", "--param-ranges", action = "store", default = None,
+    parser.add_option( "-q", "--param-ranges", action = "store", default = None,
         metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
         help = 
             "Requires --param-name. Specify the parameter ranges " +
@@ -126,8 +132,7 @@ def parse_command_line():
             "specify a single value, just type that value with no " +
             "parentheses or brackets. To specify not equal to a single " +
             "value, put a '!' before the value. If " +
-            "multiple ranges are specified, the triggers picked for " +
-            "ranking will come from the union of the ranges."
+            "multiple ranges are specified, a separate plot for each range will be generated."
         )
     parser.add_option( "-s", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
         help =
@@ -146,6 +151,37 @@ def parse_command_line():
         help =
             'Make the colorbar logarithmic. Note: this will apply to all plots generated.'
         )
+    parser.add_option('', '--xmin', action = 'store', type = 'float', default = None,
+        help =
+            'Set a minimum value for the x-axis. If logx set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('', '--xmax', action = 'store', type = 'float', default = None,
+        help =
+            'Set a maximum value for the x-axis. If logx set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('', '--ymin', action = 'store', type = 'float', default = None,
+        help =
+            'Set a minimum value for the y-axis. If logy set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('', '--ymax', action = 'store', type = 'float', default = None,
+        help =
+            'Set a maximum value for the y-axis. If logy set, must be > 0. This will apply to all plots generated.'
+        )
+    parser.add_option('-f', '--plot-x-function', action = 'append', default = [], metavar = 'f(x)[:label]',
+        help =
+            "Plot the curve y=f(x) where f(x) is the given function of x. As with --variables, any function in the python math module may " +
+            "be used; syntax is python. Functions should be in terms of 'x'. The domain is evenly " +
+            "spaced across the space spanned by the x-axis. Some examples: to plot the sine of pi times x, " +
+            "type 'sin(pi*x)'. To plot 'log10(x)' type 'log(x, 10)'. To plot y=x type 'x'. To plot a horizontal line " +
+            "at some value, say y=6, just type '6'. To plot multiple functions, give the argument multiple times. To put a label " +
+            "for the function on the plot(s), add a colon and the label. As with variables, LaTex is supported by enclosing in $ signs."
+        )
+    parser.add_option('-g', '--plot-y-function', action = 'append', default = [], metavar = 'g(y)[:label]',
+        help =
+            "Plot the curve x=g(y) where g(y) is the given function of y. Syntax is the same as plot-x-function, " +
+            "except that functions should be in terms of 'y'. The domain is evenly spaced across the space spanned " +
+            "by the y-axis. For example, to plot a vertical line at some value, say x=6, just type '6'."
+        )
     parser.add_option( "-S", "--simulation-table", action = "store", type = "string", default = "sim_inspiral",
         help =
             "Table to look in for injection parameters. " +
@@ -153,7 +189,7 @@ def parse_command_line():
         )
     parser.add_option( "-R", "--recovery-table", action = "store", type = "string", default = "coinc_inspiral",
         help =
-            "Required. Table to look in for recovered injections. " +
+            "Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id. Default is coinc_inspiral."
         )
     parser.add_option( "", "--show-plot", action = "store_true", default = False, \
@@ -170,6 +206,14 @@ def parse_command_line():
     #check if required options specified and for self-consistency
     if options.variables == []:
         raise ValueError, "At least one --variable must be specified."
+    if options.logx and options.xmin is not None and options.xmin <= 0:
+        raise ValueError, "If --logx desired, --xmin must be > 0."
+    if options.logx and options.xmax is not None and options.xmax <= 0:
+        raise ValueError, "If --logx desired, --xmax must be > 0."
+    if options.logy and options.ymin is not None and options.ymin <= 0:
+        raise ValueError, "If --logy desired, --ymin must be > 0."
+    if options.logy and options.ymax is not None and options.ymax <= 0:
+        raise ValueError, "If --logy desired, --ymax must be > 0."
 
     return options, filenames, sys.argv[1:]
             
@@ -191,9 +235,9 @@ def get_sfrow_stat(row, arg):
         
 def get_cmrow_stat(row, arg):
     """
-    Wrapper method to evaluate the desired operation on columns from a row in the SelectedFound table. 
+    Wrapper method to evaluate the desired operation on columns from a row in the ClosestMissed table. 
     """
-    return get_sfrow_stat( row, arg.replace("injected_", '').replace("recovered_", '') )
+    return get_sfrow_stat( row, arg.replace("injected_", '') )
         
 def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank = True):
     """
@@ -268,11 +312,18 @@ rank_by = sqlutils.validate_option(opts.rank_by, lower = False).upper()
 if len(opts.ranking_stat.split(':')) == 2:
     cbstat, cblabel = opts.ranking_stat.split(':')
 else:
-    cbstat = opts.colorbar_stat
+    cbstat = opts.ranking_stat
     cblabel = cbstat.replace('_', ' ').title()
 # check if binning by param-range at all
-if opts.param_ranges is not None:
-    param_parser = sqlutils.parse_param_ranges(opts.recovery_table, opts.param_name, opts.param_ranges, verbose = opts.verbose)
+if opts.param_name is not None:
+    param_name, param_label = len(opts.param_name.split(':')) == 2 and opts.param_name.split(':') or [opts.param_name, opts.param_name.replace('_', ' ').title()]
+    param_name = sqlutils.validate_option( param_name, lower = False )
+    param_label = param_label.strip()
+    param_parser = sqlutils.parse_param_ranges('', param_name, opts.param_ranges, verbose = opts.verbose)
+    num_subgroups = len(param_parser.param_ranges)
+else:
+    param_name = None
+    num_subgroups = 1
 
 sqlite3.enable_callback_tracebacks(True)
 
@@ -328,10 +379,10 @@ for filename in filenames:
         dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
 # cycle over available instrument times
-found_table = []
-missed_table = []
 for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
     on_instr = r','.join(sorted(on_instruments))
+    found_table = []
+    missed_table = []
     if opts.verbose:
         print >> sys.stderr, "Creating plots for %s time..." % on_instr
 
@@ -348,9 +399,10 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             print >> sys.stderr, "\tgetting 'found' triggers from %s..." % filename
             
         found_table += [ row for row in 
-            printutils.printsims(connection, opts.simulation_table, opts.recovery_table, cbstat.replace('recovered_', '').replace('injected_',''), opts.rank_by,
-            "slide", param_name = opts.param_name, param_ranges = opts.param_ranges,
-            include_only_coincs = '[all in %s]' % on_instr,
+            printutils.printsims(connection, opts.simulation_table, opts.recovery_table,
+            cbstat.replace('recovered_', ''), opts.rank_by,
+            "slide", param_name = None, param_ranges = None,
+            include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, verbose = False)]
 
 
@@ -362,8 +414,8 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             print >> sys.stderr, "\tgetting missed triggers from %s..." % filename
         missed_table += [ row for row in 
             printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,
-            param_name = opts.param_name, param_ranges = opts.param_ranges,
-            include_only_coincs = '[all in %s]' % on_instr,
+            param_name = None, param_ranges = None,
+            include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, limit = None, 
             verbose = False) ]
 
@@ -389,13 +441,9 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
     fig_num = 0
 
     for xstat, xlabel, ystat, ylabel in stats:
-
-        if opts.param_ranges is None or opts.param_name == xstat or opts.param_name == ystat:
-            group_by_param = False
-            num_subgroups = 1
-        else:
-            group_by_param = True
-            num_subgroups = len(param_parser.param_ranges)
+    
+        x_is_string = False
+        y_is_string = False
 
         for n in range(num_subgroups):
             pylab.figure(fig_num)
@@ -411,9 +459,9 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             plotvals = [ (
                 get_sfrow_stat(row, xstat),
                 get_sfrow_stat(row, ystat),
-                get_sfrow_stat(row, cbstat) )
+                get_sfrow_stat(row, 'recovered_' not in cbstat and 'recovered_' + cbstat or cbstat) )
                 for row in found_table
-                if (group_by_param and param_parser.group_by_param_range( getattr(row, 'injected_%s' % opts.param_name.lower()) ) == n) or not group_by_param ]
+                if (param_name is not None and param_parser.group_by_param_range( get_sfrow_stat(row, param_name) ) == n) or param_name is None ]
             # if logx, remove any 0 valued things
             if opts.logx:
                 popis = [ j for j, (statval, _, _ ) in enumerate(plotvals) if statval == 0 ]
@@ -441,18 +489,33 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 x = [x[0] for x in plotspecial]
                 y = [y[1] for y in plotspecial]
 
+                # if x is a list of strings, re-map to indices
+                if isinstance(x[0], basestring):
+                    tagdictx = dict([ [tag, num] for num, tag in enumerate(sorted(set(x))) ])
+                    rev_tagdictx = dict([ [num, tag] for tag, num in tagdictx.items() ])
+                    x = [tagdictx[xval] for xval in x]
+                    x_is_string = True
+                # ditto y
+                if isinstance(y[0], basestring):
+                    tagdicty = dict([ [tag, num] for num, tag in enumerate(sorted(set(y))) ])
+                    rev_tagdicty = dict([ [num, tag] for tag, num in tagdicty.items() ])
+                    y = [tagdicty[yval] for yval in y]
+                    y_is_string = True
+
                 pylab.scatter( x, y, c = (0.,0.,.5,1.), marker = (5,1,0), s = 40, linewidth = .5, alpha = 1., label = '_nolegend_' )
 
-                xmax = xmax < max( x ) and max( x ) or xmax
-                xmin = xmin > min( x ) and min( x ) or xmin
-                ymax = ymax < max( y ) and max( y ) or ymax
-                ymin = ymin > min( y ) and min( y ) or ymin
+                xmax = max(xmax, max(x))
+                xmin = min(xmin, min(x))
+                ymax = max(ymax, max(y))
+                ymin = min(ymin, min(y))
 
             # Plot missed
-            if not ('recovered_' in xstat or 'recovered_' in ystat):
+            if 'recovered_' not in xstat and 'recovered_' not in ystat and (param_name is not None and 'recovered_' not in param_name or param_name is None):
                 plotmissed = [ ( get_cmrow_stat(row,xstat), get_cmrow_stat(row,ystat) ) for row in missed_table
-                    if (group_by_param and param_parser.group_by_param_range( getattr(row, opts.param_name.lower()) ) == n) or not group_by_param ]
+                    if (param_name is not None and param_parser.group_by_param_range( get_cmrow_stat(row, param_name) ) == n) or param_name is None ]
+
                 if plotmissed != []:
+                    print "\tplotting missed"
                     if is_time_x is not None:
                         plotmissed = [ (sqlutils.convert_duration( x - gps_start_time, is_time_x.group(1) ), y) for (x,y) in plotmissed ]
                     if is_time_y is not None:
@@ -461,12 +524,33 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     x = [x[0] for x in plotmissed]
                     y = [y[1] for y in plotmissed]
 
+                    # remap x if strings
+                    if isinstance( x[0], basestring ):
+                        this_dict = dict([ [tag, num] for num, tag in enumerate(sorted(set(x))) ])
+                        if x_is_string:
+                            tagdictx.update(dict([ [tag, num+len(tagdictx.keys())-1] for tag, num in this_dict.items() if tag not in tagdictx ]))
+                        else:
+                            tagdictx = this_dict
+                        rev_tagdictx = dict([ [num, tag] for tag, num in tagdictx.items() ])
+                        x = [tagdictx[xval] for xval in x]
+                        x_is_string = True
+                    # ditto y
+                    if isinstance( y[0], basestring ):
+                        this_dict = dict([ [tag, num] for num, tag in enumerate(sorted(set(y))) ])
+                        if y_is_string:
+                            tagdicty.update(dict([ [tag, num+len(tagdicty.keys())-1] for tag, num in this_dict.items() if tag not in tagdicty ]))
+                        else:
+                            tagdicty = this_dict
+                        rev_tagdicty = dict([ [num, tag] for tag, num in tagdicty.items() ])
+                        y = [tagdicty[yval] for yval in y]
+                        y_is_string = True
+
                     pylab.scatter( x, y, marker = 'x', s = 40, color = (1.,0.,0.,1.), alpha = .8, label = '_nolegend_')
 
-                    xmax = xmax < max( x ) and max( x ) or xmax
-                    xmin = xmin > min( x ) and min( x ) or xmin
-                    ymax = ymax < max( y ) and max( y ) or ymax
-                    ymin = ymin > min( y ) and min( y ) or ymin
+                    xmax = max(xmax, max(x))
+                    xmin = min(xmin, min(x))
+                    ymax = max(ymax, max(y))
+                    ymin = min(ymin, min(y))
 
             # Plot circles
             if plotvals != []:
@@ -474,12 +558,33 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 y = [y[1] for y in plotvals]
                 z = opts.colorbar and [opts.logz and math.log(z[2],10) or z[2] for z in plotvals] or (0.,0.,.5,1.)
 
+                # remap x if strings
+                if isinstance( x[0], basestring ):
+                    this_dict = dict([ [tag, num] for num, tag in enumerate(sorted(set(x))) ])
+                    if x_is_string:
+                        tagdictx.update(dict([ [tag, num+len(tagdictx.keys())-1] for tag, num in this_dict.items() if tag not in tagdictx ]))
+                    else:
+                        tagdictx = this_dict
+                    rev_tagdictx = dict([ [num, tag] for tag, num in tagdictx.items() ])
+                    x = [tagdictx[xval] for xval in x]
+                    x_is_string = True
+                # ditto y
+                if isinstance( y[0], basestring ):
+                    this_dict = dict([ [tag, num] for num, tag in enumerate(sorted(set(y))) ])
+                    if y_is_string:
+                        tagdicty.update(dict([ [tag, num+len(tagdicty.keys())-1] for tag, num in this_dict.items() if tag not in tagdicty ]))
+                    else:
+                        tagdicty = this_dict
+                    rev_tagdicty = dict([ [num, tag] for tag, num in tagdicty.items() ])
+                    y = [tagdicty[yval] for yval in y]
+                    y_is_string = True
+
                 pylab.scatter( x, y, c = z, cmap = cMapClipped(), s = 20, edgecolor = 'white', linewidth = .5, label = '_nolegend_' )
 
-                xmax = xmax < max( x ) and max( x ) or xmax
-                xmin = xmin > min( x ) and min( x ) or xmin
-                ymax = ymax < max( y ) and max( y ) or ymax
-                ymin = ymin > min( y ) and min( y ) or ymin
+                xmax = max(xmax, max(x))
+                xmin = min(xmin, min(x))
+                ymax = max(ymax, max(y))
+                ymin = min(ymin, min(y))
 
                 if opts.colorbar:
                     cb = pylab.colorbar(format = opts.logz and pylab.FuncFormatter(ColorFormatter) or None)
@@ -494,12 +599,60 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             else:
                 no_data = False
 
+            # plot any x-functions
+            if opts.plot_x_function != [] and not no_data:
+                safe_dict = dict([ [name,val] for name,val in math.__dict__.items() if not name.startswith('__') ])
+                if opts.logx and not x_is_string:
+                    x_vals = numpy.logspace( math.log(xmin,10), math.log(xmax,10), num=1000, endpoint=True, base=10.0 )
+                    xtext = xmax * 10**-.5
+                else:
+                    x_vals = numpy.linspace( xmin, xmax, num=1000, endpoint = True )
+                    xtext = xmax-.1*(xmax-xmin)
+                for f in opts.plot_x_function:
+                    f, flabel = len(f.split(':')) == 2 and f.split(':') or [f, False]
+                    y_vals = [eval( f, {"__builtins__":None, 'x':x}, safe_dict ) for x in x_vals]
+                    pylab.plot( x_vals, y_vals, 'k--' )
+                    ymin = min(y_vals) < ymin and min(y_vals) or ymin
+                    ymax = max(y_vals) > ymax and max(y_vals) or ymax
+                    if flabel:
+                        x,y = ( x_vals[len(y_vals)-y_vals[::-1].index(max(y_vals))-1], max(y_vals) )
+                        if opts.logy and not y_is_string:
+                            ytext = max(y_vals) * 10**.25
+                        else:
+                            ytext = max(y_vals)+.05*(ymax-ymin)
+                        pylab.annotate( '$y=$'+flabel, xy=(x,y), xytext = (xtext,ytext), arrowprops=dict(arrowstyle='->'))
+
+            # plot any y-functions
+            if opts.plot_y_function != [] and not no_data:
+                safe_dict = dict([ [name,val] for name,val in math.__dict__.items() if not name.startswith('__') ])
+                if opts.logy and not y_is_string:
+                    y_vals = numpy.logspace( math.log(ymin,10), math.log(ymax,10), num=1000, endpoint=True, base=10.0 )
+                    ytext = ymax * 10**.25
+                else:
+                    y_vals = numpy.linspace( ymin, ymax, num=1000, endpoint = True )
+                    ytext = ymax+.05*(ymax-ymin)
+                for g in opts.plot_y_function:
+                    g, glabel = len(g.split(':')) == 2 and g.split(':') or [g, False]
+                    x_vals = [eval( g, {"__builtins__":None, 'y':y}, safe_dict ) for y in y_vals]
+                    pylab.plot( x_vals, y_vals, 'k--' )
+                    xmin = min(x_vals) < xmin and min(x_vals) or xmin
+                    xmax = max(x_vals) > xmax and max(x_vals) or xmax
+                    if glabel:
+                        x,y = ( max(x_vals), y_vals[len(x_vals)-x_vals[::-1].index(max(x_vals))-1] )
+                        if opts.logx and not x_is_string:
+                            xtext = max(x_vals) * 10**-.5
+                        else:
+                            xtext = max(x_vals)-.1*(xmax-xmin)
+                        pylab.annotate( '$x=$'+glabel, xy=(x,y), xytext = (xtext,ytext), arrowprops=dict(arrowstyle='->'))
+                
+
             #
             # Set plot parameters
             #
+
             t = "%s Time: %s" % (on_instr, opts.sim_tag.replace('_', '\_'))
-            if group_by_param:
-                t = "%s %s %s" % (t, opts.param_name.replace('_', ' ').title(), param_parser.param_range_by_group(n))
+            if param_name is not None:
+                t = "%s %s %s" % (t, param_label, param_parser.param_range_by_group(n))
             pylab.title( t )
 
             # set x-axis parameters
@@ -509,7 +662,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = xlabel 
             pylab.xlabel(lbl)
 
-            if opts.logx and not no_data:
+            if opts.logx and not no_data and not x_is_string:
                 pylab.gca().semilogx()
                 
             # set y-axis parameters
@@ -519,29 +672,51 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = ylabel
             pylab.ylabel(lbl)
 
-            if opts.logy and not no_data:
+            if opts.logy and not no_data and not y_is_string:
                 pylab.gca().semilogy()
 
             # set x/y limits
-            if opts.logx and not no_data:
-                pylab.xlim( xmin * 10**-.5, xmax * 10**.5 )
+            if opts.logx and not no_data and not x_is_string:
+                xmin, xmax = ( xmin * 10**-.5, xmax * 10**.5 )
+            elif x_is_string:
+                xmin = min(tagdictx.values()) - 1
+                xmax = max(tagdictx.values()) + 1
             else:
-                pylab.xlim( xmin-.1*(xmax-xmin), xmax+.1*(xmax-xmin) )
+                xmin = opts.xmin is not None and not no_data and opts.xmin or xmin-.1*(xmax-xmin)
+                xmax = opts.xmax is not None and not no_data and opts.xmax or xmax+.1*(xmax-xmin)
+
+            pylab.xlim( xmin, xmax )
+
+            if x_is_string:
+                pylab.gca().set_xticks( [xmin]+sorted(tagdictx.values())+[xmax] )
+                pylab.gca().set_xticklabels([n in rev_tagdictx and rev_tagdictx[n].replace('_', '\_') or '' for n in pylab.gca().get_xticks()],
+                    size = 'small', rotation = 'vertical')
 
             if opts.logy and not no_data:
-                pylab.ylim( ymin * 10**-.5, ymax * 10**.5 )
+                ymin, ymax = ( ymin * 10**-.5, ymax * 10**.5 )
+            elif y_is_string:
+                ymin = min(tagdicty.values()) - 1
+                ymax = max(tagdicty.values()) + 1
             else:
-                pylab.ylim( ymin-.1*(ymax-ymin), ymax+.1*(ymax-ymin) )
+                ymin = opts.ymin is not None and not no_data and opts.ymin or ymin-.1*(ymax-ymin)
+                ymax = opts.ymax is not None and not no_data and opts.ymax or ymax+.1*(ymax-ymin)
+
+            pylab.ylim( ymin, ymax )
+
+            if y_is_string:
+                pylab.gca().set_yticks( [ymin]+sorted(tagdicty.values())+[ymax] )
+                pylab.gca().set_yticklabels([n in rev_tagdicty and rev_tagdicty[n].replace('_', '\_') or '' for n in pylab.gca().get_yticks()],
+                    size = 'xx-small')
 
             pylab.grid()
                 
             if opts.enable_output:
-                param_tag = group_by_param and opts.param_name.lower() or ''
-                if group_by_param:
-                    param_tag = '_'.join([ param_tag,
+                param_tag = param_name is not None and param_label or ''
+                if param_name is not None:
+                    param_tag = '_'.join([ re.sub( r'\W', '', param_tag),
                         `int(param_parser.param_ranges[n][0][1])`,
                         `int(param_parser.param_ranges[n][1][1])` ])
-                plot_description = '_'.join([ param_tag, ystat, 'v', xstat ])
+                plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
                 name = InspiralUtils.set_figure_tag( plot_description, 
                     datatype_plotted = opts.sim_tag, open_box = False)
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
@@ -575,6 +750,9 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
 
     for number in figure_numbers:
         pylab.close(number)
+
+    del found_table
+    del missed_table
 
 #
 #   Finished cycling over experiments; exit

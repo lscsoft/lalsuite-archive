@@ -181,7 +181,7 @@ statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
 statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
     = pickle.load(open(opts.relic_injections))
-if statistic != "effective_snr":
+if statistic not in ("effective_snr", "new_snr"):
     raise NotImplemented
 
 log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, \
