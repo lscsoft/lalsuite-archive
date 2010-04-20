@@ -395,7 +395,7 @@ statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
     = pickle.load(open(opts.relic_offsource))
 statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat \
     = pickle.load(open(opts.relic_injections))
-if statistic != "effective_snr":
+if statistic not in ("effective_snr", "new_snr"):
     raise NotImplementedError
 
 # compute useful quantities
