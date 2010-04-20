@@ -322,7 +322,7 @@ if opts.verbose:
 statistic, mc_bins, mc_ifo_cuts, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
-    raise NotImplemented
+    raise NotImplementedError
 
 _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
 _, _, offsource_log_L_by_trial_m2, _ = \

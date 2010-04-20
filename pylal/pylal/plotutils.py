@@ -70,14 +70,14 @@ class BasicPlot(object):
         to accept complicated inputs, but try to store only the raw numbers
         that will enter the plot.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def finalize(self):
         """
         Stub.  Replace with a function that creates and makes your plot
         pretty.  Do not do I/O here.
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def savefig(self, *args, **kwargs):
         self.fig.savefig(*args, **kwargs)
