@@ -304,23 +304,25 @@ class SkyPoints(list):
     write the grid to a text file
     """
     self.nsort(1)
-    grid = '# normfac = ' + str(normfac) + '\n'
-    if debug:
-      grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\t' + 'dt' + '\t' + 'dD' + '\n'
-      for pt in self:
-        grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\t' + str(pt[2]) + '\t' + str(pt[3]) + '\n'
-    else:
-      grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
-      for pt in self:
-        grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
+    prob_grid = '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
+    post_grid = '# normfac = ' + str(normfac) + '\n' + '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    for pt in self:
+        prob_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
+        post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
     if comment:
-      grid += '# ' + comment
+      prob_grid += '# ' + comment + '\n'
+      post_grid += '# ' + comment + '\n'
     if gz:
-      f = gzip.open(fname, 'w')
+      fprob = gzip.open(fname.replace('grid','probability'), 'w')
+      fpost = gzip.open(fname.replace('grid','posterior'), 'w')
     else:
-      f = open(fname, 'w')
-    f.write(grid)
-    f.close()  
+      fprob = open(fname.replace('grid','probability'), 'w')
+      fpost = open(fname.replace('grid','posterior'), 'w')
+
+    fprob.write(prob_grid)
+    fpost.write(post_grid)
+    fprob.close() 
+    fpost.close()
 
 class CoincData(object):
   """
