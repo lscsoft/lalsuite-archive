@@ -61,6 +61,13 @@ from pylal import db_thinca_rings
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
+#####################################################
+## Misc Constants used by multiple classes/methods ##
+#####################################################
+interferometers=["H1","H2","L1","V1"]
+defaultsegmentserver="https://segdb.ligo.caltech.edu"
+
+
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -979,7 +986,7 @@ def getSciSegs(ifo=None,
   if serverURL == None:
     serverURL=os.getenv('S6_SEGMENT_SERVER')
     if serverURL == None:
-      serverURL="https://segdb.ligo.caltech.edu"
+      serverURL=defaultsegmentserver
   try:
     connection=None
     connection=segmentdb_utils.setup_database(serverURL)
@@ -2211,6 +2218,38 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
 
   return maxIFO
 
+###########################################
+## Class to build our DQ Veto background ##
+###########################################
+class followupDQVbackground:
+  """
+  This class will estimate a probability of random chance for
+  the DQ flags active at a given time inside of a given
+  search epoch.  This class needs to know 
+  the list of flags seen at the trigger time in question, and
+  the trigger time in question. The output of a call to this
+  method is a 2D dict keyed with the flag names and ifos, the data
+  stored is the probability that this flag would be randomly active.
+  The method assumes that the flag is either on or off.  We can
+  compute a binomial probability assuming we have X sample
+  measurement from a binomial distribution.
+  """
+  def __init__(self,dbConnection=None):
+    """
+    The method is initialized with a cursor object to connect
+    to the database otherwise a manual call to
+    connectDB is required to access the DB for queries.
+    """
+    self.serverURL=defaultsegmentserver
+    self.dbConnection=dbConnection
+    self.ifos=interferometers
+    self.resultDict=dict()
+    for ifo in self.ifos:
+      self.resultDict[ifo]=dict()
+    self._tmpSpace_=None
+  
+  #End class definition
+
 class followupDQV:
   """
   This class is intended to provide a mechanism to access DQ segment
@@ -2228,10 +2267,10 @@ class followupDQV:
     determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
-    self.ifos=["H1","H2","L1","V1"]
+    self.ifos=interferometers
     self.ifos.sort()
     self.triggerTime=int(-1)
-    self.serverURL="https://segdb.ligo.caltech.edu"
+    self.serverURL=defaultsegmentserver
     if LDBDServerURL==None:
       envServer=None
       envServer=os.getenv('S6_SEGMENT_SERVER')
