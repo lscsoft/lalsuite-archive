@@ -212,7 +212,7 @@ if opts.verbose:
     print "Reading in bin definitions..."
 statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
-if statistic != "effective_snr":
+if statistic not in ("effective_snr", "new_snr"):
     raise NotImplementedError
 
 _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
