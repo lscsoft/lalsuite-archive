@@ -66,7 +66,7 @@ def check_call_out(command):
 
   # throw exception if process failed
   if p.returncode != 0:
-    raise GitInvocationError, 'failed to run "%s"' % command
+    raise GitInvocationError, 'failed to run "%s"' % " ".join(command)
 
   return out.strip()
 
