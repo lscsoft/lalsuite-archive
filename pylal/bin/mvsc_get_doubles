@@ -116,6 +116,8 @@ for database in databases:
 			snglB.rsqveto_duration,
 			snglA.bank_chisq,
 			snglB.bank_chisq,
+			snglA.cont_chisq,
+			snglB.cont_chisq,
 			coinc_inspiral.snr,
 			CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
 				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
@@ -213,6 +215,8 @@ for database in databases:
 		snglB.rsqveto_duration,
 		snglA.bank_chisq,
 		snglB.bank_chisq,
+		snglA.cont_chisq,
+		snglB.cont_chisq,
 		coinc_inspiral.snr,
 		EXISTS (
 			SELECT
@@ -293,7 +297,7 @@ if len(injections) != 0:
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq coinc_inspiral_snr \n")
+		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq a_cont_chisq b_cont_chisq coinc_inspiral_snr \n")
 		return f
 	
 	for i in range(Nrounds):
@@ -331,7 +335,7 @@ if len(injections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq coinc_inspiral_snr \n")
+	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq a_cont_chisq b_cont_chisq coinc_inspiral_snr \n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')
