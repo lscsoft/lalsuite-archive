@@ -5,8 +5,6 @@
 Tomoki Isogai (isogait@carleton.edu)
 
 This program parses param file, sets up a segment file, and creates dag file.
-
-$Id: KW_veto_setup,v 1.6 2008/12/06 06:57:09 isogait Exp $
 """
 # =============================================================================
 #
@@ -31,8 +29,6 @@ from pylal import git_version
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date: 2008/12/06 06:57:09 $"[7:-2]
-__version__ = "$Revision: 1.6 $"[11:-2]
 
 def parse_commandline():
     """

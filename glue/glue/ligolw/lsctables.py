@@ -66,7 +66,7 @@ __date__ = git_version.date
 #
 
 
-def New(Type, columns = None):
+def New(Type, columns = None, **kwargs):
 	"""
 	Convenience function for constructing pre-defined LSC tables.  The
 	optional columns argument is a list of the names of the columns the
@@ -79,7 +79,7 @@ def New(Type, columns = None):
 	>>> tbl = New(ProcessTable)
 	>>> tbl.write()
 	"""
-	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
+	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
 	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
 	if columns is not None:
 		for key in columns:
