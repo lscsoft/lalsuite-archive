@@ -66,7 +66,7 @@ def check_call_out(command):
 
   # throw exception if process failed
   if p.returncode != 0:
-    raise GitInvocationError, 'failed to run "%s"' % command
+    raise GitInvocationError, 'failed to run "%s"' % " ".join(command)
 
   return out.strip()
 
@@ -109,10 +109,10 @@ def write_git_version(fileobj):
   git_builder = "%s <%s>" % (git_builder_name, git_builder_email)
 
   # determine git id
-  git_id = check_call_out((git_path, 'log', '-1', '--pretty=%H'))
+  git_id = check_call_out((git_path, 'log', '-1', '--pretty=format:%H'))
 
   # determine commit date, iso utc
-  git_udate = float(check_call_out((git_path, 'log', '-1', '--pretty=%ct')))
+  git_udate = float(check_call_out((git_path, 'log', '-1', '--pretty=format:%ct')))
   git_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime(git_udate))
 
   # determine branch
@@ -130,11 +130,11 @@ def write_git_version(fileobj):
     git_tag = None
 
   # determine author and committer
-  git_author_name = check_call_out((git_path, 'log', '-1', '--pretty=%an'))
-  git_author_email = check_call_out((git_path, 'log', '-1', '--pretty=%ae'))
+  git_author_name = check_call_out((git_path, 'log', '-1', '--pretty=format:%an'))
+  git_author_email = check_call_out((git_path, 'log', '-1', '--pretty=format:%ae'))
   git_author = '%s <%s>' % (git_author_name, git_author_email)
-  git_committer_name = check_call_out((git_path, 'log', '-1', '--pretty=%cn'))
-  git_committer_email = check_call_out((git_path, 'log', '-1', '--pretty=%ce'))
+  git_committer_name = check_call_out((git_path, 'log', '-1', '--pretty=format:%cn'))
+  git_committer_email = check_call_out((git_path, 'log', '-1', '--pretty=format:%ce'))
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
   # refresh index

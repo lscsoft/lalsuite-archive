@@ -101,7 +101,8 @@ ligolw.Header += u"""\n\n"""\
 
 #setup the output filenames
 base_name = 'SKYPOINTS' + opts.output_prefix
-grid_fname = base_name + '_grid_GPSTIME.txt.gz'
+post_fname = base_name + '_posterior_GPSTIME.txt.gz'
+prob_fname = base_name + '_probability_GPSTIME.txt.gz'
 outfile = base_name + '_GPSTIME.xml'
 
 ##############################################################################
@@ -190,15 +191,18 @@ for coinc in coincs:
         sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank)])
 
         #FIXME: put galaxy catalog stuff here!!!
-     
-  grid_file = get_unique_filename(grid_fname.replace('GPSTIME',str(coinc.time.seconds)))
+  
+  fnames = {}
+  fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
+  fnames['probability'] = get_unique_filename(prob_fname.replace('GPSTIME',str(coinc.time.seconds)))
+
 
   if sp:
     print >>sys.stdout, 'Populating sky localization table...'
     #populate the output tables
     #list of points has been sorted so the best one is at the top
     #FIXME: replace None with a link to the skymap file name!!!
-    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,grid_file,None)
+    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['probability'],None)
   else:
     print >>sys.stdout, 'Unable to localize.'
   if coinc.is_injection:
@@ -218,13 +222,13 @@ for coinc in coincs:
       if pt[1] >= rank_inj:
         rank_area += fine_area
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
-                                        dtrss_inj,dDrss_inj,grid_file)
+                                        dtrss_inj,dDrss_inj,fnames['probability'])
 
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
   print >>sys.stdout, 'Writing skymap...'
   normfac = sp.normalize(2)
-  sp.write(grid_file,normfac,argstring)
+  sp.write(fnames,normfac,argstring)
   
   print >>sys.stdout, 'Finished processing trigger.'
 
