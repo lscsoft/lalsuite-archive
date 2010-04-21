@@ -188,7 +188,7 @@ for coinc in coincs:
         dDrank = dDr.get_rank(dDrss_fine)
         L = dtrank*dDrank
         prob = P.get_rank(L)
-        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank)])
+        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank),dtrank])
 
         #FIXME: put galaxy catalog stuff here!!!
   
@@ -213,14 +213,9 @@ for coinc in coincs:
     dtrank_inj = dtr.get_rank(dtrss_inj)
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
-    rank_inj = P.get_rank(dtrank_inj*dDrank_inj)
-    dt_area = 0.0
-    rank_area = 0.0
-    for pt in sp:
-      if pt[1] >= 0.0 and pt[2] >= dtrank_inj:
-        dt_area += fine_area
-      if pt[1] >= rank_inj:
-        rank_area += fine_area
+    rank_inj = dtrank_inj*dDrank_inj
+    dt_area = fine_area*len([pt for pt in sp if pt[4] >= dtrank_inj])
+    rank_area = fine_area*len([pt for pt in sp if pt[2] >= rank_inj])
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
                                         dtrss_inj,dDrss_inj,fnames['probability'])
 
