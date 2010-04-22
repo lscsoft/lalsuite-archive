@@ -690,7 +690,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             if x_is_string:
                 pylab.gca().set_xticks( [xmin]+sorted(tagdictx.values())+[xmax] )
                 pylab.gca().set_xticklabels([n in rev_tagdictx and rev_tagdictx[n].replace('_', '\_') or '' for n in pylab.gca().get_xticks()],
-                    size = 'small', rotation = 'vertical')
+                    size = 'small', rotation = 45)
 
             if opts.logy and not no_data:
                 ymin, ymax = ( ymin * 10**-.5, ymax * 10**.5 )
@@ -716,7 +716,8 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     param_tag = '_'.join([ re.sub( r'\W', '', param_tag),
                         `int(param_parser.param_ranges[n][0][1])`,
                         `int(param_parser.param_ranges[n][1][1])` ])
-                plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
+                plot_description = '_'.join([ param_tag, 'F%i' % fig_num ])
+                #plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
                 name = InspiralUtils.set_figure_tag( plot_description, 
                     datatype_plotted = opts.sim_tag, open_box = False)
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
