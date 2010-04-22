@@ -2247,7 +2247,14 @@ class followupDQVbackground:
     for ifo in self.ifos:
       self.resultDict[ifo]=dict()
     self._tmpSpace_=None
-  
+  #Generate 1000 other Science Times
+  #Only times in science mode
+  #Create Dict of Flags found each IFO each TIME
+  #Calculate Percentage On for all IFO Flag combos
+  #Save as a local pickle
+  #When queried give a list of tuples
+  #as output (IFO,Flag,Percentage)
+  #
   #End class definition
 
 class followupDQV:
@@ -2267,6 +2274,9 @@ class followupDQV:
     determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
+    self.__haveBackgroundDict__=bool(False)
+    self.__backgroundDict__=dict()
+    self.__backgroundResults__=list()
     self.ifos=interferometers
     self.ifos.sort()
     self.triggerTime=int(-1)
@@ -2388,6 +2398,32 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
+  def query(queryString=None):
+    """
+    Simple wrapper method to do query and return result
+    """
+    closeConnection=False
+    if queryString == None:
+      return []
+    if (self.__engine__ == None) or \
+           (self.__connection__ == None):
+      self.__connectToSegmentDB__()
+      closeConnection=True
+    try:
+      myOutput=self.__engine__.query(queryString)
+    except Exception, errMsg:
+      sys.stderr.write("Query failed %s \n"%(serverURL))
+      sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
+      sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
+      sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+      self.__disconnectFromSegmentDB__()
+      return []
+    if closeConnection:
+      self.__disconnectFromSegmentDB__()      
+    return myOutput
+  #End query
+
+
   def fetchInformation(self,triggerTime=None,window=300):
     """
     Wrapper for fetchInformationDualWindow that mimics original
@@ -2395,6 +2431,44 @@ defaulting to %s"%(self.serverURL))
     """
     return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
 
+  def __querySegmentDB__(self,myQuery=None):
+    """
+    A simplifed method to submit a query to the segment database and
+    return the answer to the query raising needed error flags
+    along the way
+    """
+    print "HI"
+  #End __querySegmentDB__()
+
+  def __connectToSegmentDB__(serverURL=None):
+    """
+    Private method to execute connection to segment DB
+    """
+    if serverURL==None:
+      serverURL=self.serverURL
+    try:
+      self.__connection__=segmentdb_utils.setup_database(serverURL)
+    except Exception, errMsg:
+      sys.stderr.write("Error connecting to %s\n"\
+                         %(serverURL))
+      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.resultList=list()
+    try:
+      self.__engine__=query_engine.LdbdQueryEngine(connection)
+    except Exception, errMsg:
+      sys.stderr.write("Error building query engine using %s\n"\
+                         %(serverURL))
+      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.resultList=list()
+    return
+
+  def __disconnectFromSegmentDB__():
+    """
+    Private method to close query engine.
+    """
+    self.__engine__.close()
+    return
+  
   def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,\
                                  backWindow=150,ifoList='DEFAULT'):
     """
@@ -2420,32 +2494,12 @@ defaulting to %s"%(self.serverURL))
       return
     else:
       self.triggerTime = float(triggerTime)
-      try:
-        connection=None
-        serverURL=self.serverURL
-        connection=segmentdb_utils.setup_database(serverURL)
-      except Exception, errMsg:
-        sys.stderr.write("Error connection to %s\n"\
-                         %(serverURL))
-        sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
-        self.resultList=list()
-        return
-    try:
-      gpsEnd=int(triggerTime)+int(backWindow)
-      gpsStart=int(triggerTime)-int(frontWindow)
-      sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
-      engine=query_engine.LdbdQueryEngine(connection)
-      queryResult=engine.query(sqlString)
-      self.resultList=queryResult
-      if len(queryResult) < 1:
-        sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
-    except Exception, errMsg:
-      sys.stderr.write("Query failed %s \n"%(serverURL))
-      sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
-      sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
-      sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
-      return
-    engine.close()
+    gpsEnd=int(triggerTime)+int(backWindow)
+    gpsStart=int(triggerTime)-int(frontWindow)
+    sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
+    self.resultList=self.query(sqlString)
+    if len(queryResult) < 1:
+      sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     #Coalesce the segments for each DQ flag
     #Reparse the information
     newDQSeg=list()
@@ -2603,6 +2657,8 @@ class followupdqdb:
         The __init__ method which can be overrridden using 
         other methods defined in this class.
         """
+        self.__connection__=None
+        self.__engine__=None
         self.defaultVersion=99
         self.activeRecords="1"
         self.db=None
