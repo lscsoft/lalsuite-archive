@@ -1,11 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "plotinspinj"
-__Id__ = "$Id$"
 __title__ = "Injection Plots"
 
 
@@ -14,7 +10,7 @@ import os
 import re
 import exceptions
 import glob
-itertools = __import__("itertools")  # system-wide itertools
+import itertools
 from types import *
 from optparse import *
 
@@ -26,6 +22,7 @@ from glue import lal
 from pylal import SnglInspiralUtils, SimInspiralUtils, CoincInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 from pylal import InspiralUtils
+from pylal import git_version
 
 #############################################################################
 def plot_injected_vs_recovered_parameter(opts, plot_num, injections, \
@@ -305,10 +302,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
     
   parser.add_option("-m","--plot-mchirp",action="store_true",default=False,\
@@ -456,7 +450,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __prog__,__version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file

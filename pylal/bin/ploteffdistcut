@@ -8,15 +8,10 @@ routine to look at  ethinca parameter
 
 i.e. : --kappa = 2*(kappa from ini file)
 """
-# $Id$
-
 from __future__ import division
 
 __author__ = "CBC "
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="ploteffdistcut"
-__Id__ = "$Id$"
 
 
 import sys
@@ -44,6 +39,8 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
+
 ##############################################################################
 def disterr(coinc_table, ifo_list, use_avg, statistic):
 
@@ -83,10 +80,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg)
 
 
   # options to read the data
@@ -195,7 +189,7 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 # -- Initialise
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file

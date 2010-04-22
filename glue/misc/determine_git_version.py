@@ -3,7 +3,7 @@
 # git_version.py - determine git version info
 #
 # Copyright (C) 2009,2010 Adam Mercer <adam.mercer@ligo.org>
-# Copyright (C) 2009 Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
+#                         Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@ __author__ = 'Adam Mercer <adam.mercer@ligo.org>'
 
 # import required system modules
 import exceptions
-import re
 import subprocess
 import time
 import os
@@ -40,25 +39,37 @@ class GitInvocationError(exceptions.LookupError):
   pass
 
 # return output from running given command
-def run_external_command(command, honour_ret_code=True):
+def call_out(command):
+  """
+  Run the given command (with shell=False) and return a tuple of
+  (int returncode, str output). Strip the output of enclosing whitespace.
+  """
   # start external command process
-  p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE, close_fds=True)
+  p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   # get outputs
-  try:
-    output = p.stdout.read()
-    err = p.stderr.read()
-    ret_code = p.wait()
-  finally:
-    p.stdout.close()
-    p.stderr.close()
+  out, _ = p.communicate()
+
+  return p.returncode, out.strip()
+
+def check_call_out(command):
+  """
+  Run the given command (with shell=False) and return the output as a
+  string. Strip the output of enclosing whitespace.
+  If the return code is non-zero, throw GitInvocationError.
+  """
+  # start external command process
+  p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+  # get outputs
+  out, _ = p.communicate()
 
   # throw exception if process failed
-  if honour_ret_code and (ret_code != 0):
-    raise GitInvocationError, 'failed to run "%s"' % command
+  if p.returncode != 0:
+    raise GitInvocationError, 'failed to run "%s"' % " ".join(command)
 
-  return ret_code, output
+  return out.strip()
+
 
 #
 # primary functions
@@ -72,9 +83,9 @@ def in_git_repository():
   of success conditions, but I cannot find any documentation of them. 128 was
   determined empirically. I sure hope that it's portable.
   """
-  ret_code, output = run_external_command('which git', honour_ret_code=False)
-  return (ret_code != 1) and not output.startswith('no') \
-      and (run_external_command('git status', honour_ret_code=False)[0] != 128)
+  ret_code, git_path = call_out(('/usr/bin/which', 'git'))
+  return (ret_code != 1) and not git_path.startswith('no') \
+      and (call_out((git_path, 'status'))[0] != 128)
 
 def write_git_version(fileobj):
   """
@@ -87,64 +98,56 @@ def write_git_version(fileobj):
   >>> print git_version.id
   1b0549019e992d0e001f3c28e8488946f825e873
   """
+  git_path = check_call_out(('/usr/bin/which', 'git'))
+
   # determine current time and treat it as the build time
   build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
 
   # determine builder
-  builder_name_cmd = 'git config user.name'
-  builder_email_cmd = 'git config user.email'
-  git_builder_name = run_external_command(builder_name_cmd,
-    honour_ret_code=False)[1].strip()
-  git_builder_email = run_external_command(builder_email_cmd,
-    honour_ret_code=False)[1].strip()
+  git_builder_name = check_call_out((git_path, 'config', 'user.name'))
+  git_builder_email = check_call_out((git_path, 'config', 'user.email'))
   git_builder = "%s <%s>" % (git_builder_name, git_builder_email)
 
   # determine git id
-  id_cmd = 'git log -1 --pretty="format:%H"'
-  git_id = run_external_command(id_cmd)[1].strip()
+  git_id = check_call_out((git_path, 'log', '-1', '--pretty=format:%H'))
 
   # determine commit date, iso utc
-  date_cmd = 'git log -1 --pretty="format:%ct"'
-  git_udate = float(run_external_command(date_cmd)[1].strip())
+  git_udate = float(check_call_out((git_path, 'log', '-1', '--pretty=format:%ct')))
   git_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime(git_udate))
 
   # determine branch
-  branch_cmd = 'git rev-parse --symbolic-full-name HEAD'
-  branch_match = run_external_command(branch_cmd)[1].strip()
+  branch_match = check_call_out((git_path, 'rev-parse', '--symbolic-full-name',
+    'HEAD'))
   if branch_match == "HEAD":
     git_branch = None
   else:
     git_branch = os.path.basename(branch_match)
 
   # determine tag
-  tag_cmd = 'git describe --exact-match --tags %s' % git_id
-  status, git_tag = run_external_command(tag_cmd, honour_ret_code=False)
-  git_tag = git_tag.strip()
+  status, git_tag = call_out((git_path, 'describe', '--exact-match',
+    '--tags', git_id))
   if status != 0:
     git_tag = None
 
   # determine author and committer
-  author_name_cmd = 'git log -1 --pretty="format:%an"'
-  author_email_cmd = 'git log -1 --pretty="format:%ae"'
-  committer_name_cmd = 'git log -1 --pretty="format:%cn"'
-  committer_email_cmd = 'git log -1 --pretty="format:%ce"'
-  git_author_name = run_external_command(author_name_cmd)[1].strip()
-  git_author_email = run_external_command(author_email_cmd)[1].strip()
+  git_author_name = check_call_out((git_path, 'log', '-1', '--pretty=format:%an'))
+  git_author_email = check_call_out((git_path, 'log', '-1', '--pretty=format:%ae'))
   git_author = '%s <%s>' % (git_author_name, git_author_email)
-  git_committer_name = run_external_command(committer_name_cmd)[1].strip()
-  git_committer_email = run_external_command(committer_email_cmd)[1].strip()
+  git_committer_name = check_call_out((git_path, 'log', '-1', '--pretty=format:%cn'))
+  git_committer_email = check_call_out((git_path, 'log', '-1', '--pretty=format:%ce'))
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
   # refresh index
-  retcode = subprocess.call('git update-index -q --refresh', shell=True)
+  check_call_out((git_path, 'update-index', '-q', '--refresh'))
 
   # check working copy for changes
-  status_output = subprocess.call('git diff-files --quiet', shell=True)
+  status_output = subprocess.call((git_path, 'diff-files', '--quiet'))
   if status_output != 0:
     git_status = 'UNCLEAN: Modified working tree'
   else:
     # check index for changes
-    status_output = subprocess.call('git diff-index --cached --quiet HEAD', shell=True)
+    status_output = subprocess.call((git_path, 'diff-index', '--cached',
+      '--quiet', 'HEAD'))
     if status_output != 0:
       git_status = 'UNCLEAN: Modified index'
     else:
