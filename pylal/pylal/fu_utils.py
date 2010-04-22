@@ -2274,6 +2274,8 @@ class followupDQV:
     determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
+    self.__connection__= None
+    self.__engine__= None
     self.__haveBackgroundDict__=bool(False)
     self.__backgroundDict__=dict()
     self.__backgroundResults__=list()
@@ -2398,7 +2400,7 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
-  def query(queryString=None):
+  def query(self,queryString=None):
     """
     Simple wrapper method to do query and return result
     """
@@ -2412,11 +2414,10 @@ defaulting to %s"%(self.serverURL))
     try:
       myOutput=self.__engine__.query(queryString)
     except Exception, errMsg:
-      sys.stderr.write("Query failed %s \n"%(serverURL))
-      sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
+      sys.stderr.write("Query failed %s \n"%(self.serverURL))
+      sys.stdout.write("Error fetching query results.\n")
       sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
-      sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
-      self.__disconnectFromSegmentDB__()
+      sys.stderr.write("Query Tried: \n %s \n"%(queryString))
       return []
     if closeConnection:
       self.__disconnectFromSegmentDB__()      
@@ -2440,7 +2441,7 @@ defaulting to %s"%(self.serverURL))
     print "HI"
   #End __querySegmentDB__()
 
-  def __connectToSegmentDB__(serverURL=None):
+  def __connectToSegmentDB__(self,serverURL=None):
     """
     Private method to execute connection to segment DB
     """
@@ -2454,7 +2455,7 @@ defaulting to %s"%(self.serverURL))
       sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
       self.resultList=list()
     try:
-      self.__engine__=query_engine.LdbdQueryEngine(connection)
+      self.__engine__=query_engine.LdbdQueryEngine(self.__connection__)
     except Exception, errMsg:
       sys.stderr.write("Error building query engine using %s\n"\
                          %(serverURL))
@@ -2462,7 +2463,7 @@ defaulting to %s"%(self.serverURL))
       self.resultList=list()
     return
 
-  def __disconnectFromSegmentDB__():
+  def __disconnectFromSegmentDB__(self):
     """
     Private method to close query engine.
     """
@@ -2498,7 +2499,7 @@ defaulting to %s"%(self.serverURL))
     gpsStart=int(triggerTime)-int(frontWindow)
     sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
     self.resultList=self.query(sqlString)
-    if len(queryResult) < 1:
+    if len(self.resultList) < 1:
       sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     #Coalesce the segments for each DQ flag
     #Reparse the information
@@ -2657,8 +2658,6 @@ class followupdqdb:
         The __init__ method which can be overrridden using 
         other methods defined in this class.
         """
-        self.__connection__=None
-        self.__engine__=None
         self.defaultVersion=99
         self.activeRecords="1"
         self.db=None
