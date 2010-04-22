@@ -1,13 +1,8 @@
 """
 This module contains condor jobs / node classes for the SQlite Triggered Follow Up dag
-
-$Id$
-
 """
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>, Cristina Torres <cristina.torres@ligo.org>, Romain Gouaty <gouaty@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 try:
 	import sqlite3

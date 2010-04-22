@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 """
-$Id$
-
 Manager program to run specific parts of the followup on the CCIN2P3 cluster
 """
 
 __author__ = 'Romain Gouaty  <gouaty@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules
@@ -32,6 +28,7 @@ sys.path.append('@PYTHONLIBDIR@')
 ##############################################################################
 # import the modules we need from GLUE/LAL/LALAPPS/PYLAL
 
+from pylal import git_version
 from pylal import stfu_pipe
 
 ##############################################################################
@@ -45,7 +42,7 @@ from pylal import stfu_pipe
 usage = """
 usage: %prog [options]
 """
-parser = OptionParser( usage )
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 
 parser.add_option("-v","--version",action="store_true",default=False,\
@@ -69,12 +66,6 @@ parser.add_option("","--qscan-type-list",action="store",type="string",\
 
 nd_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #################################
 # Sanity check of input arguments

@@ -2,8 +2,6 @@
 #
 # script to extract science mode segments from ldas rds frames
 #
-# $Id$
-#
 # Copyright (C) 2009 Duncan Brown
 # 
 # This is part of the Grid LSC User Environment (GLUE)
@@ -30,7 +28,6 @@ from optparse import OptionParser
 
 import pylal.Fr
 
-from glue import git_version
 from glue import lal
 from glue import segments
 from glue import gpstime
@@ -44,6 +41,8 @@ from glue.ligolw.utils import process as ligolw_process
 
 from glue.segmentdb import segmentdb_utils
 
+from pylal import git_version
+
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
 
@@ -55,7 +54,7 @@ except:
 __author__  = "Duncan Brown <dabrown@physics.syr.edu>"
 
 parser = OptionParser(
-  version = "%prog CVS $Header$",
+  version = git_version.verbose_msg,
   usage   = "%prog [OPTIONS]",
   description = "Extracts science mode segments from frame files")
 

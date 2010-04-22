@@ -7,8 +7,6 @@ instructions, as well as the html template and config file.
 (also available at https://ldas-jobs.ligo.caltech.edu/~tmiller/MVSC/MVSC_help)"""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
 __prog__ = 'pylal_mvsc_player'
 
 ##############################################################################
@@ -16,10 +14,12 @@ __prog__ = 'pylal_mvsc_player'
 import sys,os,random
 from optparse import OptionParser
 
+from pylal import git_version
+
 ##############################################################################
 # parse options and arguments
 
-parser = OptionParser()
+parser = OptionParser(version=git_version.verbose_msg)
 parser.add_option("-r","--run-name", default=False, \
     help="The name of the run (required). Any name is okay, as long as " + \
     "it's the same one used to generate the pat files")
