@@ -1,0 +1,11 @@
+MultiNest v 2.7
+
+Licence Agreement
+
+This software is Copyright 2009 Farhan Feroz and Mike Hobson. The software
+may be used for experimental and research purposes only. Commercial use is
+not permitted without prior agreement of the Copyright holders. The
+software may be shared or distributed under the same restrictions, provided
+all such users are made aware of this agreement. The software may not be
+sold in whole or within part of a larger software product, whether in
+source or binary forms.
