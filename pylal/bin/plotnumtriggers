@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
-__version__ = "$Revision$"
 __prog__ = "plotnumtriggers"
-__Id__ = "$Id$"
 
 import sys
 import glob
@@ -27,7 +25,7 @@ def writeProcessParams(page, command_line):
   """
   function to write out the process params that the code was called with
   """
-  text = "Figures produced with "+ __prog__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __prog__
+  text = "Figures produced with "+ __prog__+", "+ git_version.verbose_msg +", invoked with arguments:\n\n"+ __prog__
 
   for arg in command_line:
     text += " " +  arg
@@ -86,13 +84,9 @@ Usage: plotnumtriggers [options]
 """
 
 ##############################################################################
-parser = OptionParser( usage=usage, \
-    version= "%prog CVS\n" +
-    "$Id$\n" +
-    "$Name$\n")
+parser = OptionParser( usage=usage, version=git_version.verbose_msg)
 
 
- 
 parser.add_option("-t","--glob-inspiral",action="store",type="string",\
     default=None,metavar="INSPIRAL",\
     help="glob for files containing the string INSPIRAL")

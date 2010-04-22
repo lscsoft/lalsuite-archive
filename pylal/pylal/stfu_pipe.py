@@ -1,13 +1,8 @@
 """
 This module contains condor jobs / node classes for the SQlite Triggered Follow Up dag
-
-$Id$
-
 """
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>, Cristina Torres <cristina.torres@ligo.org>, Romain Gouaty <gouaty@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 try:
 	import sqlite3
@@ -938,7 +933,7 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
 		self.output_path = output
 
-		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path+"/"+str(time))
+		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.dir+"_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path+"/"+str(time))
 
 		# ADD FRAME CACHE FILE
 		#self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
