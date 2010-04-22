@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Patrick Brady <patrick.brady@ligo.org> and Larry Price <larry.price@ligo.org> "
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotskypoints"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -33,6 +28,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import date
+from pylal import git_version
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
@@ -530,7 +526,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -1125,7 +1121,7 @@ for coinc in coincTriggers:
     opts.ifo_tag = coinc_type
     opts.gps_start_time =  min(coinc.get_gps_times()[ifo] for ifo in coinc.get_gps_times())
     opts.gps_end_time =  max(coinc.get_gps_times()[ifo] for ifo in coinc.get_gps_times())
-    InspiralUtils.initialise(opts, __prog__, __version__)
+    InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
     html_footer = ""
     text = "Reconstructed sky position"
     fname = InspiralUtils.set_figure_name(opts, "sky_position")
@@ -1204,7 +1200,7 @@ for coinc in coincTriggers:
                 + str(total_num_gals) + '\n' 
 
 if opts.enable_output and opts.write_summary_plots:
-  InspiralUtils.initialise(opts, __prog__, __version__)
+  InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
   html_footer = ""
   fnameList = []
   tagList = []

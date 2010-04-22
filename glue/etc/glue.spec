@@ -6,14 +6,14 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.29
+Version:	1.30
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python python-cjson m2crypto python-pyxmpp
+Requires:	python python-cjson m2crypto pyxmpp
 BuildRequires:  python-devel
 Prefix:         %{_prefix}
 
@@ -46,6 +46,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/var/
 
 %changelog
+* Thu Apr 22 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Third S6 release of glue
+
 * Wed Nov 11 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Second S6 release of glue
 

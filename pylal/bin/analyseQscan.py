@@ -2,14 +2,10 @@
 """
 Something
 
-$Id$
-
 This program plots the background distribution of qscan auxialiary channels
 """
 
 __author__ = 'Romain Gouaty <romain@phys.lsu.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 __prog__ = 'analyseQscan'
 
 ##############################################################################
@@ -45,6 +41,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue import lal
 from glue import segments
+from pylal import git_version
 from pylal import webUtils
 from pylal import InspiralUtils
 from pylal import stfu_pipe
@@ -495,10 +492,7 @@ def plotHistogram(chan,opts,distribution,histoList,binList,percentiles=None,cand
 usage = """usage: %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("","--gps-string",action="store",type="string",\
     metavar=" GPS",help="provide GPS time of the trigger to be investigated."\
@@ -595,10 +589,6 @@ parser.add_option("-c", "--create-param-list",action="store_true",\
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-if opts.version:
-  print "$ Id: makeQscanBackground.py,v 1.0 2007/08/02 18:46:00 romain Exp $"
-  sys.exit(0)
-
 ####################### SANITY CHECKS #####################################
 
 
@@ -607,7 +597,7 @@ if opts.version:
 # initialize some variables
 figNumber = 0
 currentDir = os.path.abspath('.')
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 fnameList = []
 
 # Get the list of qscan channels to be analyzed (should become optional later...). The script needs to be improved to follow this behavior: if the text file is not specified in the configuration file, then all the channels found in the summary files should be analyzed...

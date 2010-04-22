@@ -12,7 +12,7 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog summary web page")
+	parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] [file ...]", description = "%prog summary web page")
 	parser.add_option("--title", help = "Set the the title of the page default: IMR", default="IMR")
 	opts, filenames = parser.parse_args()
 	return opts, filenames

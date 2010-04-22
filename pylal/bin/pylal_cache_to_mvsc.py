@@ -35,6 +35,7 @@ from glue.ligolw import table
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
+from pylal import git_version
 from pylal.tools import XLALCalculateEThincaParameter
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -285,15 +286,12 @@ SprBaggerDecisionTreeApp creates a random forest of bagged decision trees. Each 
 """
 
 __author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
-__version__ = "$Revision: 1.1 $"
-__date__ = "$Date: 2009/03/03 22:02:42 $"
-__Id__ = "$Id: pylal_ihope_to_randomforest_input.py,v 1.1 2009/03/03 22:02:42 KariHodge Exp $"
 __prog__ = "pylal_ihope_to_randomforest_input"
 __title__ = "Create input files for random forest from the ihope cache"
 
 
 # parse the options and their arguments that you provide when you run the program
-parser=OptionParser(usage=usage,version="%prog CVS $Id: pylal_ihope_to_randomforest_input.py,v 1.1 2009/03/03 22:02:42 KariHodge Exp $")
+parser=OptionParser(usage=usage, version=git_version.verbose_msg)
 
 parser.add_option("", "--cache-file", default="*ihope.cache",metavar="CACHEFILE", help="cache pointing to files of interest")
 parser.add_option("","--playground-zerolag-pattern", default="COIRE_SECOND*_PLAYGROUND_CAT_2_VETO", action="store",type="string", metavar="PLAYZLTRIGPTTRN", help="sieve pattern for trig-files" )

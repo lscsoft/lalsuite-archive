@@ -2,8 +2,6 @@
 """Contains functions to create various plots from lalapps_mvsc_player"""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
 __prog__ = 'mvsc_plots'
 
 ##############################################################################

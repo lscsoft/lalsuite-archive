@@ -20,8 +20,6 @@ to minimize formulaic copying and pasting.
 """
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
 
 import itertools
 

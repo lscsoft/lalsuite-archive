@@ -8,10 +8,7 @@ One can either read SIRE or COIRE files, however, COIRE is recommended
 """
 from __future__ import division
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotsnrchi"
-__Id__ = "$Id$"
 __title__ = "Plots of CBC signal discriminators and detection statistics"
 
 import sys
@@ -25,6 +22,7 @@ from types import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from glue import lal
 from glue.ligolw import lsctables
 import pylal
@@ -190,10 +188,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   ## arguments for data reading
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -366,7 +361,7 @@ from pylal import viz
 
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 # -- set the proper color code
 colors = InspiralUtils.colors

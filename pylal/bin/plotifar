@@ -1,11 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotifar"
-__Id__ = "$Id$"
 
 import sys,os,re
 import copy
@@ -27,6 +23,7 @@ import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 
 import itertools
 import numpy
@@ -64,7 +61,7 @@ def parse_command_line():
   Parser function dedicated
   """
 
-  parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+  parser = OptionParser( usage = usage, version = git_version.verbose_msg )
   # following are related to file input and output naming
   parser.add_option( "-g", "--glob", action = "store", type = "string", \
         default = None, metavar = " GLOB", \
@@ -217,7 +214,7 @@ from pylal import followup_trigger
 rc('text', usetex=True)
 
 # set InspiralUtils options for file and plot naming
-opts = InspiralUtils.initialise( opts, __prog__, __version__ )
+opts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
 # set the proper color code and symbols
 figure_number = 0 # used for the figure label (showplot)
 fnameList = [] # used for the html cache file

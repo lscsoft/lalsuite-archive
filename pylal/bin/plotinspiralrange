@@ -34,14 +34,8 @@ todo
   - Use ContentHandler function from InspiralUtils
 
 """
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotinspiralrange"
-__Id__ = "$Id$"
 __title__ = "Inspiral Range Plots"
-
-# $Source$
-
 
 import sys
 import glob
@@ -52,7 +46,8 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue import lal
-from pylal import InspiralUtils 
+from pylal import InspiralUtils
+from pylal import git_version
 
 # ============================================================================
 class ContentHandler(ligolw.PartialLIGOLWContentHandler):
@@ -322,10 +317,7 @@ def parse_command_line():
   Parser function dedicated 
   """
   
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
   parser.add_option("-I","--inspiral-glob",action="store",type="string",\
       default=None,metavar="INSPIRAL",\
       help="glob for INSPIRAL files")
@@ -415,7 +407,7 @@ OR the cachefile options (--cache-file), not both at the same time.
 # -- get command line arguments
 opts, args = parse_command_line()
 # -- Initialise
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 # -- set the proper color code
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file

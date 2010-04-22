@@ -313,11 +313,11 @@ class SkyPoints(list):
       prob_grid += '# ' + comment + '\n'
       post_grid += '# ' + comment + '\n'
     if gz:
-      fprob = gzip.open(fname.replace('grid','probability'), 'w')
-      fpost = gzip.open(fname.replace('grid','posterior'), 'w')
+      fprob = gzip.open(fname['probability'], 'w')
+      fpost = gzip.open(fname['posterior'], 'w')
     else:
-      fprob = open(fname.replace('grid','probability'), 'w')
-      fpost = open(fname.replace('grid','posterior'), 'w')
+      fprob = open(fname['probability'], 'w')
+      fpost = open(fname['posterior'], 'w')
 
     fprob.write(prob_grid)
     fpost.write(post_grid)

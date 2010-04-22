@@ -1,16 +1,10 @@
 """
 followup utilities
 
-$Id$
-
 This
 """
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
-
-
 
 import sys
 import os, shutil
@@ -64,6 +58,7 @@ from pylal.xlal import date as xlaldate
 #Part of bandaid
 from xml import sax
 from pylal import db_thinca_rings
+from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 #####################################################
@@ -1545,7 +1540,7 @@ class HTMLcontainer:
 # Function to write the HTML tables to pages
 ##############################################################################
 def writeIULHeader(file):
-  file.write('<%method title>Follow Up Report</%method><%method headline>Follow Up Report</%method><%method cvsid>$Id$</%method>\n')
+  file.write('<%method title>Follow Up Report</%method><%method headline>Follow Up Report</%method><%method cvsid>' + git_version.id + '</%method>\n')
 
 def beginSummaryTable(file, table):
   file.write("<h3>Trigger [" + str(table.eventID) + 

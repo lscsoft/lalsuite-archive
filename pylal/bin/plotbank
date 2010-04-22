@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import sys
 import os
@@ -16,6 +13,7 @@ from types import *
 #import operator
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from pylal import git_version
 from pylal import SnglInspiralUtils
 
 ##############################################################################
@@ -27,7 +25,7 @@ Bank Plotting Function
 Generates plots showing the sngl_inspiral mass paramters contain in a file
 """
 
-parser = OptionParser( usage=usage, version="" )
+parser = OptionParser( usage=usage, version=git_version.verbose_msg )
 parser.add_option("-T","--template-glob",action="store",type="string",\
     default=None, metavar="TMPLT",\
     help="Glob the list of sngl_inspirals from the template banks" )
