@@ -2,6 +2,16 @@
 /* (C) John Veitch 2009 */
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_linalg.h>
+#include <lal/Units.h>
+#include <lal/LALStdlib.h>
+#include "LALInspiralMCMC.h"
+#include "LALInspiralMCMCUser.h"
+#include <lal/LALError.h>
+#include <lal/TimeDelay.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <gsl/gsl_randist.h>
+#include <float.h>
 
 extern gsl_matrix *cov_mat;
 

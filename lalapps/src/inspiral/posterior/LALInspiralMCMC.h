@@ -259,6 +259,13 @@ typedef REAL8 (MCMCPriorFunction)(
    LALMCMCParameter  *parameter);
 /* </lalVerbatim>  */
 
+/* <lalVerbatim file="MultiNestPriorFunctionH">  */
+typedef int (MultiNestPriorFunction)(
+   double *Cube,
+   struct tagLALMCMCInput      *inputMCMC,
+   LALMCMCParameter  *parameter);
+/* </lalVerbatim>  */
+
 /* <lalVerbatim file="LALMCMCInputH">  */
 typedef struct
 tagLALMCMCInput
@@ -339,6 +346,9 @@ tagLALMCMCInput
 	/* Parameter for nested sampling */
   UINT4 Nlive;
   LALMCMCParameter **Live;
+	
+  /* MultiNest Parameters */
+  MultiNestPriorFunction *funcMultiNestPrior;
 
 }  LALMCMCInput;
 /* </lalVerbatim>  */

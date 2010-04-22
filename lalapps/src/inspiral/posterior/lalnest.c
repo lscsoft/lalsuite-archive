@@ -30,6 +30,7 @@
 #include <lal/VectorOps.h>
 
 #include "nest_calc.h"
+#include "MultiNest_calc.h"
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
@@ -754,10 +755,16 @@ doneinit:
 	if(inputMCMC.approximant==AmpCorPPN) inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCor;
 	
 	inputMCMC.funcPrior = NestPrior;
-	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
+	inputMCMC.funcMultiNestPrior = CubeToNestPrior;
+	if(GRBflag) {
+		inputMCMC.funcPrior = GRBPrior;
+		inputMCMC.funcMultiNestPrior = CubeToGRBPrior;
 		inputMCMC.funcInit = NestInitGRB;
 	}
-	if(HighMassFlag) inputMCMC.funcPrior = NestPriorHighMass;
+	if(HighMassFlag) {
+		inputMCMC.funcPrior = NestPriorHighMass;
+		inputMCMC.funcMultiNestPrior = CubeToNestPriorHighMass;
+	}
 	
 	/* Live is an array of LALMCMCParameter * types */
 	Live = (LALMCMCParameter **)LALMalloc(Nlive*sizeof(LALMCMCParameter *));
@@ -775,8 +782,11 @@ doneinit:
 	}
 	fprintf(stdout,"reduced chi squared = %e\n",ReducedChiSq);
 	fprintf(stdout,"Number of points in F-domain above fLow = %i\n",(int)inputMCMC.stilde[0]->data->length-(int)(fLow/(double)inputMCMC.stilde[0]->deltaF));
-	evidence = nestZ(Nruns,Nlive,Live,&inputMCMC);
-	fprintf(stdout,"logZ = %lf\n",evidence);
+	//evidence = nestZ(Nruns,Nlive,Live,&inputMCMC);
+	//fprintf(stdout,"logZ = %lf\n",evidence);
+
+	/* MultiNest Call */
+	MultiNestZ(Nlive, &inputMCMC);
 	
 	/* Clean up */
 	XLALDestroyREAL8Window(windowplan);
@@ -1007,7 +1017,7 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"iota",LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI,0);
 	
-	
+
 	return;
 
 }
