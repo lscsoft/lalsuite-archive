@@ -8,14 +8,6 @@
 # =============================================================================
 #
 
-
-usage = \
-'''
-Ranks 'found' injections as if they were the only injection in a given datatype and
-prints information about that injection and the recovered parameters of all coinc-events
-that match that injection.
-'''
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -37,14 +29,18 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
 
 __prog__ = "ligolw_cbc_printsims"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Ranks 'found' injections as if they were the only injection in a given datatype and " + \
+"prints information about that injection and the recovered parameters of all coinc-events " + \
+"that match that injection."
 
 # =============================================================================
 #
@@ -58,7 +54,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string",
@@ -187,6 +187,14 @@ def parse_command_line():
             "as if they were the only injection event in the specified datatype. " +
             "Options are 'all_data', 'playground', 'exclude_play', 'slide' or 'simulation'."
             )
+    parser.add_option( "", "--sort-by", action = "store", type = "string", default = "rank", 
+        help = 
+            "Options are 'rank', 'injected_decisive_distance', or any column in the simulation or recovery table. " +
+            "This specifies the order which triggers will be printed out. Default is the rank." +
+            "To specify a sort column in the simulation table, prefix the column name with 'injected_', " +
+            "e.g., 'injected_mchirp'. To specify a sort column from the recovery table, prefix " +
+            "with 'recovered_', e.g., 'recovered_mchirp'."
+            )
     parser.add_option( "", "--rank-range", action = "store", type = "string", default = None,
         help =
             "Specify what range of ranks to print. Same syntax rules as param-ranges apply. " +
@@ -260,13 +268,15 @@ if opts.verbose and opts.tmp_space:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 #
 #   Run printsims to get the data into a selected_found table
 #
 sftable = printutils.printsims(connection, opts.simulation_table, opts.recovery_table, opts.ranking_stat, opts.rank_by,
-    opts.comparison_datatype, param_name = opts.param_name, param_ranges = opts.param_ranges,
+    opts.comparison_datatype, sort_by = opts.sort_by, param_name = opts.param_name, param_ranges = opts.param_ranges,
     exclude_coincs = opts.exclude_coincs, include_only_coincs = opts.include_only_coincs,
     sim_tag = opts.sim_tag, rank_range = opts.rank_range, convert_durations = opts.convert_durations,
     daily_ihope_pages_location = opts.daily_ihope_pages_location, verbose = opts.verbose)
@@ -278,7 +288,7 @@ sfdoc = ligolw.Document()
 # setup the LIGOLW tag
 sfdoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-sfproc_id = process.register_to_xmldoc(sfdoc, __prog__, opts.__dict__)
+sfproc_id = process.register_to_xmldoc(sfdoc, __prog__, opts.__dict__, version = git_version.id)
 # connect the table to the document
 sfdoc.childNodes[0].appendChild(sftable)
 

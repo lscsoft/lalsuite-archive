@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import sys, os, re, glob, exceptions
 import glob
@@ -18,6 +15,7 @@ from pylab import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
+from pylal import git_version
 from pylal import viz
 
 ##############################################################################
@@ -26,7 +24,7 @@ usage = """Usage: %prog [options]
 
 Generate efficiency plots for inspiral triggers
 """
-parser = OptionParser( usage=usage, version = "%prog CVS $Id$" )
+parser = OptionParser( usage=usage, version=git_version.verbose_msg )
 parser.add_option("-g","--glob-found",action="store",type="string",\
     default=None, metavar=" FOUND_GLOB", \
     help="GLOB of found trigger/injection files to read" )

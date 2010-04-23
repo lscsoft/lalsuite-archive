@@ -17,6 +17,7 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue import git_version
 
 from pylal.xlal.date import XLALGPSToUTC
 try:
@@ -27,9 +28,7 @@ except ImportError:
 
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
-
+__version__ = git_version.id
 
 
 # =============================================================================
@@ -44,10 +43,13 @@ def generic_get_pyvalue(obj):
     return ligolwtypes.ToPyType[obj.type or "lstring"](obj.value)
 
 
-def get_columns_to_print(xmldoc, tableName):
+def get_columns_to_print(xmldoc, tableName, with_sngl = False):
     """
     Retrieves canonical columns to print for the given tableName.
     Returns a columnList, row_span and rspan_break lists.
+
+    @with_sngl: for the loudest_events table, if with_sngl turned on, will print
+     sngl_ifo end_times
     """
     tableName = tableName.endswith(":table") and tableName or tableName+":table"
     summTable = table.get_table(xmldoc, tableName )
@@ -55,9 +57,10 @@ def get_columns_to_print(xmldoc, tableName):
     rankname = [col.getAttribute("Name").split(":")[-1]
         for col in summTable.getElementsByTagName(u'Column') if "rank" in col.getAttribute("Name")][0]
 
-    if tableName == "loudest_events:table":
+    if tableName == "loudest_events:table" and not with_sngl:
         durname = [col.getAttribute("Name").split(":")[-1]
-            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
+            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")
+            and not col.getAttribute("Name").split(":")[-1].startswith('sngl_')][0]
         columnList = [
             rankname,
             'combined_far',
@@ -67,11 +70,32 @@ def get_columns_to_print(xmldoc, tableName):
             'end_time',
             'end_time_utc__Px_click_for_daily_ihope_xP_',
             'ifos__Px_click_for_elog_xP_',
+            'instruments_on',
             'mass',
             'mchirp',
             'mini_followup',
             durname]
         row_span_columns = rspan_break_columns = [durname]
+    elif tableName == "loudest_events:table" and with_sngl:
+        durname = [col.getAttribute("Name").split(":")[-1]
+            for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")
+            and not col.getAttribute("Name").split(":")[-1].startswith(u'sngl_')][0]
+        columnList = [
+            rankname,
+            'combined_far',
+            'fap',
+            'fap_1yr',
+            'snr',
+            'mass',
+            'mchirp',
+            'instruments_on',
+            'sngl_ifo__Px_click_for_elog_xP_',
+            'sngl_end_time',
+            'sngl_end_time_utc__Px_click_for_daily_ihope_xP_',
+            'mini_followup',
+            durname]
+        row_span_columns = rspan_break_columns = \
+            [col for col in summTable.columnnames if not col.startswith('sngl_')]
     elif tableName == "selected_found_injections:table":
         durname = [col.getAttribute("Name").split(":")[-1]
             for col in summTable.getElementsByTagName(u'Column') if "duration" in col.getAttribute("Name")][0]
@@ -82,9 +106,7 @@ def get_columns_to_print(xmldoc, tableName):
             'elogs',
             'mini_followup',
             'sim_tag',
-            'injected_eff_dist_h',
-            'injected_eff_dist_l',
-            'injected_eff_dist_v',
+            'injected_decisive_distance',
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2',
@@ -104,9 +126,7 @@ def get_columns_to_print(xmldoc, tableName):
             'elogs',
             'mini_followup',
             'sim_tag',
-            'injected_eff_dist_h',
-            'injected_eff_dist_l',
-            'injected_eff_dist_v',
+            'injected_decisive_distance',
             'injected_mchirp',
             'injected_mass1',
             'injected_mass2']
@@ -300,7 +320,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
 # =============================================================================
 
 def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_by, comparison_datatype,
-    param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
+    sort_by = 'rank', param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
 
@@ -439,7 +459,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             injected_cols.append('simulation_id')
         else:
             injected_cols.append('injected_'+col)
-    injected_cols.extend(['injected_end_time', 'injected_end_time_ns', 'injected_end_time_utc__Px_click_for_daily_ihope_xP_'])
+    injected_cols.extend(['injected_decisive_distance','injected_end_time', 'injected_end_time_ns', 'injected_end_time_utc__Px_click_for_daily_ihope_xP_'])
     
     # Get list of column names from the recovery table
     recovered_cols = []
@@ -487,6 +507,8 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
                 validcolumns[col_name] = lsctables.ExperimentTable.validcolumns['instruments']
             elif col_name == 'injected_end_time' or col_name == 'injected_end_time_ns':
                 validcolumns[col_name] = "int_4s"
+            elif col_name == 'injected_decisive_distance':
+                validcolumns[col_name] = "real_8"
             elif 'injected_' in col_name or col_name == 'simulation_id':
                 validcolumns[col_name] = sqlutils.get_col_type(simulation_table, re.sub('injected_', '', col_name))
             elif 'recovered_' in col_name or col_name == 'coinc_event_id':
@@ -604,6 +626,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         sfrow.injected_end_time_utc__Px_click_for_daily_ihope_xP_ = create_hyperlink( daily_ihope_address, end_time_utc ) 
         # set any other info
         sfrow.instruments_on = ','.join(sorted(on_instruments))
+        sfrow.injected_decisive_distance = sorted([getattr(sfrow, 'injected_eff_dist_%s' % ifo[0].lower()) for ifo in on_instruments])[1]
         sfrow.mini_followup = None
         sfrow.sim_tag = values[-6]
         setattr(sfrow, durname, duration)
@@ -613,7 +636,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     
     # Re-sort the sftable by rank, recovered_match_rank
     sftable = lsctables.New(SelectedFoundTable)
-    for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, rankname) ):
+    for sfrow in sorted([ row for row in tmp_sftable ], key = lambda row: getattr(row, sort_by == 'rank' and rankname or sort_by) ):
         if sfrow.simulation_id not in [row.simulation_id for row in sftable]:
             sftable.append(sfrow)
             sftable.extend(sub_row for sub_row in sorted([row for row in tmp_sftable
@@ -745,7 +768,6 @@ def printmissed(connection, simulation_table, recovery_table,
             # will get an AttributeError if using newer format veto segment file because
             # the new format does not include _ns; if so, remove the _ns columns from the
             # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-            from glue.lal import LIGOTimeGPS
         
             del lsctables.SegmentTable.validcolumns['start_time_ns']
             del lsctables.SegmentTable.validcolumns['end_time_ns']
@@ -843,7 +865,7 @@ def printmissed(connection, simulation_table, recovery_table,
                 FROM
                     """, simulation_table, """
                 """, in_this_filter, """
-                    AND rank(""", decisive_distance, """) <= """, str(limit), """
+                    %s""" % (limit is not None and ''.join(['AND rank(', decisive_distance, ') <= ', str(limit)]) or ''), """
                 ORDER BY
                     rank(""", decisive_distance, """) ASC
                     """])

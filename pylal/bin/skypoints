@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Patrick Brady <patrick.brady@ligo.org> and Larry Price <larry.price@ligo.org> "
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotskypoints"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -38,6 +33,7 @@ from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import llwapp
 from pylal import date
+from pylal import git_version
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
@@ -476,13 +472,18 @@ class SkyPoints(object):
     coarse_L = []
     if plot_name:
       figure()
-
+    
+    if opts.snr_threshold:
+      scaled_comb_snr = numpy.sqrt(sum([rho*rho for rho in self.snr.values()]))/10
     
     for point in coarse_grid:
       longitude = point[1]
       latitude = point[0]
-      
-      pt_L = self.get_L(longitude,latitude)
+      if opts.snr_threshold:
+        pt_L = self.get_L(longitude,latitude)*scaled_comb_snr
+      else:
+        pt_L = self.get_L(longitude,latitude)
+
       coarse_L.append([(point[0],point[1]),pt_L])
     
     Lmin_coarse = self.wide_threshold #min([pt[1] for pt in coarse_L])
@@ -546,7 +547,11 @@ class SkyPoints(object):
         longitude = point[1]
         latitude = point[0]
         
-        pt_L = self.get_L(longitude,latitude)
+        if opts.snr_threshold:
+          pt_L = self.get_L(longitude,latitude)*scaled_comb_snr
+	else:
+          pt_L = self.get_L(longitude,latitude)
+
         fine_L.append([(point[0],point[1]),pt_L,cluster_count])
         
       cluster_count += 1
@@ -1034,7 +1039,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -1083,8 +1088,6 @@ def parse_command_line():
   parser.add_option("--write-inj-data", action="store_true", default=False, \
                     help="create a file with data from injections")
   
-  #parser.add_option("--html-for-cbcweb", action="store_true", \
-  #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
                     help="display the plots to screen if an X11 display is available")
 
@@ -1104,6 +1107,8 @@ def parse_command_line():
                     help="specify that input uses coinc tables")
   parser.add_option("-y","--timing-only",action="store_true",default=False,\
                     help="only use timing information for sky localization")
+  parser.add_option("-H", "--snr-threshold", action="store_true",default=False,\
+                    help="use SNR dependent threshold")
   (options,args) = parser.parse_args()
 
   if options.enable_google_sky_output and (options.google_map_key is None):

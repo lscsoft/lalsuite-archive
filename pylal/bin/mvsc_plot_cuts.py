@@ -2,8 +2,6 @@
 """Plots the cuts made on any two dimensions by SprBaggerDecisionTreeApp."""
 
 __author__ = 'Tristan Miller <tmiller@caltech.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
 __prog__ = 'mvsc_plot_cuts'
 
 ##############################################################################

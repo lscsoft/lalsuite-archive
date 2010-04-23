@@ -72,116 +72,6 @@ static PyObject *pylal_XLALEPGetTimingParameters(PyObject *self, PyObject *args)
 
 
 /*
- * Returns Py_False if the time-frequency tiles of the sngl_burst rows a
- * and b intersect after allowing for the light travel time.  Returns
- * Py_True if they do not intersect.  If the return values seem backwards,
- * it's the convention of comparison operators behaving like subtraction:
- * 0 == arguments are "equal".
- */
-
-
-static PyObject *pylal_ExcessPowerCoincCompare(PyObject *self, PyObject *args)
-{
-	PyObject *a, *b;
-	double a_central_freq, b_central_freq;
-	double a_bandwidth, b_bandwidth;
-	LIGOTimeGPS a_start, b_start;
-	double a_duration, b_duration;
-	double light_travel_time;
-	double deltat;
-	PyObject *attribute;
-
-	if(!PyArg_ParseTuple(args, "OOd", &a, &b, &light_travel_time))
-		return NULL;
-
-	if((attribute = PyObject_GetAttrString(a, "central_freq"))) {
-		a_central_freq = PyFloat_AsDouble(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-	if((attribute = PyObject_GetAttrString(a, "bandwidth"))) {
-		a_bandwidth = PyFloat_AsDouble(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-
-	if((attribute = PyObject_GetAttrString(b, "central_freq"))) {
-		b_central_freq = PyFloat_AsDouble(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-	if((attribute = PyObject_GetAttrString(b, "bandwidth"))) {
-		b_bandwidth = PyFloat_AsDouble(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-
-	if(PyErr_Occurred())
-		return NULL;
-
-	if(fabs(a_central_freq - b_central_freq) > (a_bandwidth + b_bandwidth) / 2) {
-		Py_INCREF(Py_True);
-		return Py_True;
-	}
-
-	if((attribute = PyObject_GetAttrString(a, "start_time"))) {
-		a_start.gpsSeconds = PyInt_AsLong(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-	if((attribute = PyObject_GetAttrString(a, "start_time_ns"))) {
-		a_start.gpsNanoSeconds = PyInt_AsLong(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-	if((attribute = PyObject_GetAttrString(a, "duration"))) {
-		a_duration = PyFloat_AsDouble(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-
-	if((attribute = PyObject_GetAttrString(b, "start_time"))) {
-		b_start.gpsSeconds = PyInt_AsLong(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-	if((attribute = PyObject_GetAttrString(b, "start_time_ns"))) {
-		b_start.gpsNanoSeconds = PyInt_AsLong(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-	if((attribute = PyObject_GetAttrString(b, "duration"))) {
-		b_duration = PyFloat_AsDouble(attribute);
-		Py_DECREF(attribute);
-	} else
-		return NULL;
-
-	if(PyErr_Occurred())
-		return NULL;
-
-	deltat = XLALGPSDiff(&b_start, &a_start);
-	if(deltat >= 0) {
-		/* b starts at the same time as or after a */
-		if(deltat > a_duration + light_travel_time) {
-			Py_INCREF(Py_True);
-			return Py_True;
-		}
-	} else {
-		/* b starts before a */
-		if(-deltat > b_duration + light_travel_time) {
-			Py_INCREF(Py_True);
-			return Py_True;
-		}
-	}
-
-	/* time-frequency tiles intersect */
-
-	Py_INCREF(Py_False);
-	return Py_False;
-}
-
-
-/*
  * ============================================================================
  *
  *                            Module Registration
@@ -192,7 +82,6 @@ static PyObject *pylal_ExcessPowerCoincCompare(PyObject *self, PyObject *args)
 
 static struct PyMethodDef methods[] = {
 	{"XLALEPGetTimingParameters", pylal_XLALEPGetTimingParameters, METH_VARARGS, NULL},
-	{"ExcessPowerCoincCompare", pylal_ExcessPowerCoincCompare, METH_VARARGS, NULL},
 	{NULL,}
 };
 

@@ -82,7 +82,7 @@ from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
-
+from glue import git_version
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -96,8 +96,8 @@ except:
 
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__    = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 #
 # =============================================================================
@@ -114,7 +114,7 @@ def parse_command_line():
     """
 
     parser = OptionParser(
-        version     = "%prog CVS $Header$",
+        version = "Name: %%prog\n%s" % git_version.verbose_msg,
         usage       = "%prog [ --version | --ping | --defined | --active | --report ]  [ --segment | --database | --dmt-file ] options gps-time1 gps-time2 ... ",
         description = "Performs a number of queries against either a set of DMT files or a segment database"
 	)
@@ -440,7 +440,7 @@ def setup_files(dir_name, options, times):
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files)
+    ligolw_sqlite.insert_from_urls(connection, xml_files)
 
     segmentdb_utils.ensure_segment_table(connection)
 
@@ -483,7 +483,7 @@ if __name__ == '__main__':
     # set up the response
     doc = ligolw.Document()
     doc.appendChild(ligolw.LIGO_LW())
-    process_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__, version = __version__, cvs_entry_time = __date__).process_id
+    process_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__, version = git_version.id, cvs_entry_time = __date__).process_id
 
     temp_files = False
 

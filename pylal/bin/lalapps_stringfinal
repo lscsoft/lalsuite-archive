@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2009  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -44,12 +44,18 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
+try:
+	any
+	all
+except NameError:
+	from glue.iterutils import any, all
 
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue import iterutils
 from glue import segments
 from pylal import git_version
 from pylal import rate
@@ -95,18 +101,15 @@ def parse_command_line():
 	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", default = 0.0, help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).")
 	parser.add_option("-i", "--injections", action = "store_true", help = "Generate efficiency plots from the output files of an injection run.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves.")
-	parser.add_option("--loudest-survivor", metavar = "instrument=amplitude", help = "Set amplitude of loudest zero-lag non-injection survivor for efficiency plots.")
+	parser.add_option("--loudest-survivor", metavar = "likelihood-ratio", type = "float", help = "Set likelihood ratio from loudest zero-lag non-injection survivor to use as detection threshold for efficiency measurement.")
 	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions.  Default = \"png,pdf\"")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.injections:
-		if options.loudest_survivor is None:
-			raise ValueError, "must set --loudest-survivor with --injections"
-		options.loudest_survivor = options.loudest_survivor.split("=")
-		options.loudest_survivor = {options.loudest_survivor[0]: abs(float(options.loudest_survivor[1]))}
+	if options.injections and options.loudest_survivor is None:
+		raise ValueError, "must set --loudest-survivor with --injections"
 
 	if options.cal_uncertainty is None:
 		raise ValueError, "must set --cal-uncertainty"
@@ -170,58 +173,86 @@ WHERE
 #
 # =============================================================================
 #
-#                              Rate vs. Amplitude
+#                              Rate vs. Threshold
 #
 # =============================================================================
 #
 
 
-class TimeSlideBin(object):
+def clip_offset_vector(offset_vector, instruments):
+	return dict((instrument, offset) for instrument, offset in offset_vector.items() if instrument in instruments)
+
+
+def clip_offset_vectors(offset_vectors, instruments):
+	return dict((id, clip_offset_vector(offset_vector, instruments)) for id, offset_vector in offset_vectors.items())
+
+
+def ratevsthresh_bounds(background_x, background_y, zero_lag_x, zero_lag_y):
+	if len(zero_lag_x):
+		if len(background_x):
+			minX, maxX = min(min(zero_lag_x), min(background_x)), max(max(zero_lag_x), max(background_x))
+			minY, maxY = min(min(zero_lag_y), min(background_y)), max(max(zero_lag_y), max(background_y))
+		else:
+			minX, maxX = min(zero_lag_x), max(zero_lag_x)
+			minY, maxY = min(zero_lag_y), max(zero_lag_y)
+	else:
+		# don't check for background, if there's no zero-lag and no
+		# background we're screwed anyway
+		minX, maxX = min(background_x), max(background_x)
+		minY, maxY = min(background_y), max(background_y)
+	return minX, maxX, minY, maxY
+
+
+def compress_ratevsthresh_curve(x, y, yerr):
+	#
+	# construct a background mask to retain the highest-ranked 10,000
+	# elements, then every 10th until the 100,000th highest-ranked
+	# element, then every 100th after that.  this is for reducing the
+	# dataset size so matplotlib can handle it and vector graphics
+	# output isn't ridiculous in size.
+	#
+
+	mask = numpy.arange(len(x))[::-1]
+	mask = (mask < 10000) | ((mask < 100000) & (mask % 10 == 0)) | (mask % 100 == 0)
+
+	return x.compress(mask), y.compress(mask), yerr.compress(mask)
+
+
+class RateVsThreshold(SnglBurstUtils.BurstPlot):
 	def __init__(self):
-		self.livetime = 0.0
-		self.amplitudes = []
-
-
-class RateVsAmplitude(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, amplitude_factor):
-		SnglBurstUtils.BurstPlot.__init__(self, r"%s Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))" % instrument, "Coincident Event Rate (Hz)", width = 108.0)
-		self.instrument = instrument
-		self.amplitude_factor = amplitude_factor
-		self.time_slide_bins = {}
-		self.foreground = []
+		SnglBurstUtils.BurstPlot.__init__(self, r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
+		self.zero_lag = []
 		self.background = []
-		self.foreground_time = 0.0
+		self.zero_lag_time = 0.0
 		self.background_time = 0.0
 		self.axes.loglog()
 		self.axes.set_position([0.125, 0.15, 0.83, 0.75])
 
 	def add_contents(self, contents):
+		#
+		# retrieve the offset vectors, retain only instruments that
+		# are available
+		#
+
 		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(contents.connection)
-		time_slide_index = {}
-		for time_slide_id, offsets in background_time_slides.items():
-			key = frozenset(offsets.items())
-			if key not in self.time_slide_bins:
-				self.time_slide_bins[key] = TimeSlideBin()
-			self.time_slide_bins[key].livetime += SnglBurstUtils.time_slides_livetime(contents.seglists, [offsets])
-			time_slide_index[time_slide_id] = self.time_slide_bins[key]
-		if len(self.time_slide_bins) != len(background_time_slides):
-			# FIXME:  this is here because I'm not convinced
-			# that the procedure used above for mapping offset
-			# vectors back to "experiments" is 100% reliable
-			# (using frozenset(offsets.items()) as an immutable
-			# key), so as a safety check I impose the
-			# constraint that the number of time slides can't
-			# change from one file to the next.  this is an
-			# arbitrary restriction that happens to match how
-			# the pipeline currently works.
-			raise ValueError, "internal time slide offset vector representation mismatch"
-		self.foreground_time += SnglBurstUtils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values())
+		assert len(zero_lag_time_slides) == 1
+		zero_lag_time_slides = clip_offset_vectors(zero_lag_time_slides, contents.instruments)
+		background_time_slides = clip_offset_vectors(background_time_slides, contents.instruments)
+
+		#
+		# compute the live time
+		#
+
+		self.zero_lag_time += SnglBurstUtils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values())
 		self.background_time += SnglBurstUtils.time_slides_livetime(contents.seglists, background_time_slides.values())
 
-		for amplitude, time_slide_id, is_background in contents.connection.cursor().execute("""
+		#
+		# count events
+		#
+
+		for likelihood_ratio, is_background in contents.connection.cursor().execute("""
 SELECT
-	sngl_burst.amplitude,
-	coinc_event.time_slide_id,
+	coinc_event.likelihood,
 	EXISTS (
 		SELECT
 			*
@@ -233,76 +264,74 @@ SELECT
 	)
 FROM
 	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-	JOIN sngl_burst ON (
-		coinc_event_map.table_name == 'sngl_burst'
-		AND coinc_event_map.event_id == sngl_burst.event_id
-	)
 WHERE
-	sngl_burst.ifo == ?
-	AND coinc_event.coinc_def_id == ?
-		""", (self.instrument, contents.bb_definer_id)):
+	coinc_event.coinc_def_id == ?
+		""", (contents.bb_definer_id,)):
 			if is_background:
-				self.background.append(abs(amplitude) * self.amplitude_factor)
-				time_slide_index[time_slide_id].amplitudes.append(abs(amplitude) * self.amplitude_factor)
+				self.background.append(likelihood_ratio)
 			else:
-				self.foreground.append(abs(amplitude) * self.amplitude_factor)
+				self.zero_lag.append(likelihood_ratio)
 
 	def finish(self):
-		print "%s zero-lag events: %d" % (self.instrument, len(self.foreground))
-		print "Total time in %s zero-lag segments: %s s" % (self.instrument, str(self.foreground_time))
-		print "%s time-slide events: %d" % (self.instrument, len(self.background))
-		print "Total time in %s time-slide segments: %s s" % (self.instrument, str(self.background_time))
-		self.axes.set_title(r"Cumulative Coincident Event Rate vs.\ Amplitude in %s" % self.instrument)
+		print "Zero-lag events: %d" % len(self.zero_lag)
+		print "Total time in zero-lag segments: %s s" % str(self.zero_lag_time)
+		print "Time-slide events: %d" % len(self.background)
+		print "Total time in time-slide segments: %s s" % str(self.background_time)
+
+		self.axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
+
 		self.background.sort()
-		self.foreground.sort()
+		self.zero_lag.sort()
 		self.background = numpy.array(self.background, dtype = "double")
-		self.foreground = numpy.array(self.foreground, dtype = "double")
-		print "Amplitude of loudest %s zero-lag survivor: %.9g s^(-1/3)" % (self.instrument, self.foreground[-1])
-		# number expected in zero-lag and \sqrt{N} std dev
-		background_y = numpy.arange(len(self.background), 0.0, -1.0, dtype = "double") / self.background_time * self.foreground_time
+		self.zero_lag = numpy.array(self.zero_lag, dtype = "double")
+
+		print "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % self.zero_lag[-1]
+
+		#
+		# convert counts to rates and their uncertainties
+		#
+
+		# background count expected in zero-lag and \sqrt{N}
+		# standard deviation
+		background_y = numpy.arange(len(self.background), 0.0, -1.0, dtype = "double") / self.background_time * self.zero_lag_time
 		background_yerr = numpy.sqrt(background_y)
-		# convert to rate and uncertainty expected in zero-lag
-		background_y /= self.foreground_time
-		background_yerr /= self.foreground_time
+
+		# convert to background rate and uncertainty expected in
+		# zero-lag
+		background_y /= self.zero_lag_time
+		background_yerr /= self.zero_lag_time
+
 		# rate observed in zero-lag
-		foreground_y = numpy.arange(len(self.foreground), 0.0, -1.0, dtype = "double") / self.foreground_time
+		zero_lag_y = numpy.arange(len(self.zero_lag), 0.0, -1.0, dtype = "double") / self.zero_lag_time
 
-		# plot
+		#
+		# determine the horizontal and vertical extent of the plot
+		#
 
-		crimson_shower_plot = False
-		if crimson_shower_plot:
-			for time_slide in self.time_slide_bins.values():
-				time_slide.amplitudes.sort()
-				time_slide.amplitudes = numpy.array(time_slide.amplitudes, dtype = "double")
-				self.axes.plot(time_slide.amplitudes, numpy.arange(len(time_slide.amplitudes), 0.0, -1.0, dtype = "double") / time_slide.livetime, "r-", alpha = 0.3)
-			variance = numpy.zeros(len(self.background), dtype = "double")
-			for i, (amplitude, mean_rate) in enumerate(zip(self.background, background_y)):
-				variance[i] = sum(((time_slide.amplitudes >= amplitude).sum() / time_slide.livetime * self.foreground_time - mean_rate * self.foreground_time)**2 for time_slide in self.time_slide_bins.values()) / len(self.time_slide_bins)
+		minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, self.zero_lag, zero_lag_y)
+		minX = 1e-2	# FIXME:  don't hard-code
+
+		#
+		# compress the background data
+		#
+
+		background, background_y, background_yerr = compress_ratevsthresh_curve(self.background, background_y, background_yerr)
 
 		# warning:  the error bar polygon is not *really* clipped
 		# to the axes' bounding box, the result will be incorrect
-		# if the number of sample points is small.
-		xmin = 5e-21
-		xmax = 1e-19
-		ymin = 1e-7
-		ymax = 1e-4
-		poly_x = numpy.concatenate((self.background, self.background[::-1]))
+		# if the density of data points is small where the polygon
+		# encounters the axes' bounding box.
+
+		poly_x = numpy.concatenate((background, background[::-1]))
 		poly_y = numpy.concatenate((background_y + 1 * background_yerr, (background_y - 1 * background_yerr)[::-1]))
-		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
-		line1, = self.axes.plot(self.background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "-")
-		if crimson_shower_plot:
-			self.axes.plot(self.background, background_y + numpy.sqrt(variance) / self.foreground_time, color = "k", linestyle = "-")
-			self.axes.plot(self.background, background_y - numpy.sqrt(variance) / self.foreground_time, color = "k", linestyle = "-")
-		#line2, = self.axes.plot(self.foreground.repeat(2)[:-1], foreground_y.repeat(2)[1:], color = "k", linestyle = "-")
-		line2, = self.axes.plot(self.foreground, foreground_y, "ko", markeredgecolor = "k")
+		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, minY, maxY)), edgecolor = "k", facecolor = "k", alpha = 0.3))
+		line1, = self.axes.loglog(background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "--")
+		line2, = self.axes.loglog(self.zero_lag.repeat(2)[:-1], zero_lag_y.repeat(2)[1:], color = "k", linestyle = "-", linewidth = 2)
 
-		self.axes.legend((line1, line2), (r"Time-slide events", r"Zero-lag events"), loc = "upper right")
+		self.axes.legend((line1, line2), (r"Expected background", r"Zero-lag"), loc = "lower left")
 
-		self.axes.set_xlim([xmin, xmax])
-		self.axes.set_ylim([ymin, ymax])
+		self.axes.set_xlim((minX, maxX))
+		self.axes.set_ylim((minY, maxY))
 		self.axes.xaxis.grid(True, which="minor")
 		self.axes.yaxis.grid(True, which="minor")
 
@@ -316,49 +345,39 @@ WHERE
 #
 
 
-def create_recovered_snr_view(connection, bb_coinc_def_id):
-	# Create a temporary virtual table containing three columns:  the
-	# simulation_id of an injection, the name of an instrument, and the
-	# largest SNR at which that injection was recovered in that
-	# instrument by a burst event that participates in a coincidence of
-	# type bb_coinc_def_id.
-	#
-	# NOTE:  can't use parameters in views, so must construct a query
-	# string directly with the coinc_def_id.
-	connection.cursor().execute("""
-CREATE TEMPORARY VIEW
-	recovered_snr
-AS
-	SELECT
-		sim_burst.simulation_id AS simulation_id,
-		sngl_burst.ifo AS ifo,
-		MAX(ABS(sngl_burst.amplitude)) AS snr
-	FROM
-		sim_burst
-		JOIN coinc_event_map AS a ON (
-			a.table_name == "sim_burst"
-			AND a.event_id == sim_burst.simulation_id
-		)
-		JOIN coinc_event_map AS b ON (
-			b.coinc_event_id == a.coinc_event_id
-		)
-		JOIN sngl_burst ON (
-			b.table_name == "sngl_burst"
-			AND b.event_id == sngl_burst.event_id
-		)
-		JOIN coinc_event_map AS c ON (
-			c.table_name == "sngl_burst"
-			AND c.event_id == b.event_id
-		)
-		JOIN coinc_event ON (
-			coinc_event.coinc_event_id == c.coinc_event_id
-		)
-	WHERE
-		coinc_event.coinc_def_id == "%s"
-	GROUP BY
-		sim_burst.simulation_id,
-		sngl_burst.ifo
-	""" % bb_coinc_def_id)
+def create_recovered_likelihood_view(connection, bb_coinc_def_id):
+	# Create a temporary virtual table containing two columns:  the
+	# simulation_id of an injection, and the highest likelihood ratio
+	# at which that injection was recovered by a coincidence of type
+	# bb_coinc_def_id.
+	cursor = connection.cursor()
+	cursor.execute("""
+CREATE TEMPORARY TABLE recovered_likelihood (simulation_id TEXT PRIMARY KEY, likelihood REAL)
+	""")
+	cursor.execute("""
+INSERT OR REPLACE INTO
+	recovered_likelihood
+SELECT
+	sim_burst.simulation_id AS simulation_id,
+	MAX(coinc_event.likelihood) AS likelihood
+FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		a.table_name == "sim_burst"
+		AND a.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN coinc_event ON (
+		b.table_name == "coinc_event"
+		AND b.event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+GROUP BY
+	sim_burst.simulation_id
+	""", (bb_coinc_def_id,))
 
 
 def slope(x, y):
@@ -450,16 +469,15 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 
 
 class Efficiency(SnglBurstUtils.BurstPlot):
-	def __init__(self, instruments, loudest_survivor, cal_uncertainty, amplitude_factor, filter_width):
+	def __init__(self, instruments, loudest_survivor_likelihood, cal_uncertainty, amplitude_factor, filter_width):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.instruments = instruments
-		[(self.loudest_survivor_inst, self.loudest_survivor_ampl)] = loudest_survivor.items()
+		self.loudest_survivor_likelihood = loudest_survivor_likelihood
 		self.cal_uncertainty = cal_uncertainty
 		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
 		self.found = []
-		self.found_above_loudest = []
 		self.all = []
 		self.axes.semilogx()
 		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
@@ -473,27 +491,26 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# events that were found to match the injection and that
 		# participated in burst<-->burst coincidences or null if no
 		# such matching burst events were found
-		create_recovered_snr_view(contents.connection, contents.bb_definer_id)
+		create_recovered_likelihood_view(contents.connection, contents.bb_definer_id)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
-	recovered_snr.snr
+	recovered_likelihood.likelihood
 FROM
 	sim_burst
-	LEFT JOIN recovered_snr ON (
-		recovered_snr.simulation_id == sim_burst.simulation_id
-		AND recovered_snr.ifo == ?
+	LEFT JOIN recovered_likelihood ON (
+		recovered_likelihood.simulation_id == sim_burst.simulation_id
 	)
-		""", (self.loudest_survivor_inst,)):
+		"""):
 			sim = contents.sim_burst_table.row_from_cols(values[:-1])
-			snr = values[-1]
-			found = snr is not None
-			if SimBurstUtils.injection_was_made(sim, contents.seglists, self.instruments):
+			likelihood_ratio = values[-1]
+			found = likelihood_ratio is not None
+			# were at least 2 instruments on when the injection
+			# was made?
+			if any(SimBurstUtils.injection_was_made(sim, contents.seglists, instruments) for instruments in iterutils.choices(contents.seglists.keys(), 2)):
 				self.all.append(sim)
-				if found:
+				if found and likelihood_ratio > self.loudest_survivor_likelihood:
 					self.found.append(sim)
-					if snr * self.amplitude_factor > self.loudest_survivor_ampl:
-						self.found_above_loudest.append(sim)
 			elif found:
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
@@ -502,19 +519,14 @@ FROM
 		# numerators of the efficiency bins
 		bins = rate.NDBins((rate.LogarithmicBins(min(sim.amplitude for sim in self.all) * self.amplitude_factor, max(sim.amplitude for sim in self.all) * self.amplitude_factor, 400),))
 		efficiency = rate.BinnedRatios(bins)
-		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
 			efficiency.incnumerator((sim.amplitude * self.amplitude_factor,))
-		for sim in self.found_above_loudest:
-			efficiency_above_loudest.incnumerator((sim.amplitude * self.amplitude_factor,))
 		for sim in self.all:
 			efficiency.incdenominator((sim.amplitude * self.amplitude_factor,))
-			efficiency_above_loudest.incdenominator((sim.amplitude * self.amplitude_factor,))
 
 		# regularize:  adjust unused bins so that the efficiency
 		# ratio comes out to 0
 		efficiency.regularize()
-		efficiency_above_loudest.regularize()
 
 		# generate and plot trend curves.  adjust window function
 		# normalization so that denominator array correctly
@@ -527,16 +539,12 @@ FROM
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_binned_ratios(efficiency, windowfunc)
-		rate.filter_binned_ratios(efficiency_above_loudest, windowfunc)
 
-		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "--", erroralpha = 0.2)
+		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
 		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
-		line2, A50_above_loudest, A50_above_loudest_err = render_data_from_bins(file("string_efficiency_above_loudest.dat", "w"), self.axes, efficiency_above_loudest, self.cal_uncertainty, self.width, colour = "k", linestyle = "-")
-		print "Pipeline's 50%% efficiency point for detections above loudest = %g +/- %g%%\n" % (A50_above_loudest, A50_above_loudest_err * 100)
-
 		# add a legend to the axes
-		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\) in %s" % (SnglBurstUtils.latexnumber("%.2g" % self.loudest_survivor_ampl), self.loudest_survivor_inst)), loc = "lower right")
+		self.axes.legend((line1,), (r"\noindent Injections recovered with$\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.loudest_survivor_likelihood),), loc = "lower right")
 
 		# adjust limits
 		self.axes.set_xlim([4e-21, 1e-17])
@@ -561,11 +569,11 @@ if options.injections:
 	survivors = None
 else:
 	plots = [
-		RateVsAmplitude("H1", options.amplitude_factor),
-		RateVsAmplitude("H2", options.amplitude_factor),
-		RateVsAmplitude("L1", options.amplitude_factor),
+		RateVsThreshold()
 	]
-	survivors = Survivors()
+	# FIXME:  Survivors() is busted
+	#survivors = Survivors()
+	survivors = None
 
 
 for n, filename in enumerate(filenames):

@@ -1,16 +1,10 @@
 """
 followup utilities
 
-$Id$
-
 This
 """
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
-
-
 
 import sys
 import os, shutil
@@ -64,6 +58,7 @@ from pylal.xlal import date as xlaldate
 #Part of bandaid
 from xml import sax
 from pylal import db_thinca_rings
+from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
@@ -1538,7 +1533,7 @@ class HTMLcontainer:
 # Function to write the HTML tables to pages
 ##############################################################################
 def writeIULHeader(file):
-  file.write('<%method title>Follow Up Report</%method><%method headline>Follow Up Report</%method><%method cvsid>$Id$</%method>\n')
+  file.write('<%method title>Follow Up Report</%method><%method headline>Follow Up Report</%method><%method cvsid>' + git_version.id + '</%method>\n')
 
 def beginSummaryTable(file, table):
   file.write("<h3>Trigger [" + str(table.eventID) + 
@@ -2115,10 +2110,10 @@ class ratioTest:
     Creates a small snippet of MOINMOIN wiki syntax for display on web browser.
     """
     #[[ImageLink(image,target[,width=width[,height=height]][,alt=alttag])]]    
-    resultString="|| IFO:IFO || || ToF || || Deff Ratio || || Probability || || Figure ||\n"
+    resultString="|| IFO:IFO || ToF || Deff Ratio || Probability || Figure ||\n"
     for ifoA,ifoB,gpsDiff,snrRatio,pairURL,result in outputList:
-      myURL=str('[[ImageLink(%s,%s ,width=300,alt=RatioTestPlot)]]')%(pairURL,pairURL)
-      myString="|| %s:%s || || %2.4f || || %5.2f || || %1.3f || || %s ||\n"%\
+      myURL=str('[[%s|{{%s|RatioTestPlot|width=300}}]]')%(pairURL,pairURL)
+      myString="|| %s:%s || %2.4f || %5.2f || %1.3f || %s ||\n"%\
                 (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
       resultString="%s%s"%(resultString,myString)
     resultString="%s \n"%(resultString)
@@ -2233,6 +2228,8 @@ class followupDQV:
     determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
+    self.ifos=["H1","H2","L1","V1"]
+    self.ifos.sort()
     self.triggerTime=int(-1)
     self.serverURL="https://segdb.ligo.caltech.edu"
     if LDBDServerURL==None:
@@ -2271,6 +2268,22 @@ defaulting to %s"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id \
     AND segment_definer.version+2 > (SELECT MAX(x.version) \
+    FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
+    AND segment.segment_def_cdb = segment_definer.creator_db \
+    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
+    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
+    """
+    self.dqvQueryLatestVersion= """SELECT \
+    segment_definer.ifos, \
+    segment_definer.name, \
+    segment_definer.version, \
+    segment_definer.comment, \
+    segment.start_time, \
+    segment.end_time \
+    FROM segment,segment_definer \
+    WHERE \
+    segment_definer.segment_def_id = segment.segment_def_id \
+    AND segment_definer.version = (SELECT MAX(x.version) \
     FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
     AND segment.segment_def_cdb = segment_definer.creator_db \
     AND NOT (segment.start_time > %s OR %s > segment.end_time) \
@@ -2341,9 +2354,10 @@ defaulting to %s"%(self.serverURL))
     Wrapper for fetchInformationDualWindow that mimics original
     behavior
     """
-    self.fetchInformationDualWindow(triggerTime,window,window)
+    return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
 
-  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,backWindow=150):
+  def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,\
+                                 backWindow=150,ifoList='DEFAULT'):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2352,6 +2366,15 @@ defaulting to %s"%(self.serverURL))
     desired. The version argument will fetch segments with that
     version or higher.
     """
+    if ifoList=="DEFAULT":
+      ifoList=self.ifos
+    if (ifoList == None) or \
+       (len(ifoList) < 1):
+      sys.stderr.write("Ifolist passed is malformed! : %s\n"%ifoList)
+      return
+    if sum([x.upper() in self.ifos for x in ifoList]) < 1:
+      sys.stderr.write("Valid ifos not specified for DQ lookups. %s\n"%ifoList)
+      return
     triggerTime=float(triggerTime)
     if triggerTime==int(-1):
       os.stdout.write("Specify trigger time please.\n")
@@ -2371,7 +2394,7 @@ defaulting to %s"%(self.serverURL))
     try:
       gpsEnd=int(triggerTime)+int(backWindow)
       gpsStart=int(triggerTime)-int(frontWindow)
-      sqlString=self.dqvQueryTop2Versions%(gpsEnd,gpsStart)
+      sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
       engine=query_engine.LdbdQueryEngine(connection)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
@@ -2388,10 +2411,15 @@ defaulting to %s"%(self.serverURL))
     #Reparse the information
     newDQSeg=list()
     if self.resultList.__len__() > 0:
-      #Obtain list of all flags
+      #Obtain list of all flags, ignore IFOs not specified
       uniqSegmentName=list()
       for ifo,name,version,comment,start,end in self.resultList:
-        if not uniqSegmentName.__contains__((ifo,name,version,comment)):
+        if (not uniqSegmentName.__contains__((ifo,name,version,comment))) and \
+               (ifo.strip().upper() in ifoList):
+          uniqSegmentName.append((ifo,name,version,comment))
+        #Add the SCIENCE segment no matter which IFOs are specified!
+        if ((name.lower().__contains__('science')) and \
+            not (ifo.strip().upper() in ifoList)):
           uniqSegmentName.append((ifo,name,version,comment))
       #Save textKey for all uniq segments combos
       for uifo,uname,uversion,ucomment in uniqSegmentName:
@@ -2402,17 +2430,15 @@ defaulting to %s"%(self.serverURL))
             segmentIntervals.append((start,end))
         segmentIntervals.sort()
         #Coalesce those segments
-        newStyle=bool(True)
-        if newStyle:
-          newSegmentIntervals=self.__merge__(segmentIntervals)
-        else:
-          newSegmentIntervals=segmentIntervals
+        newSegmentIntervals=self.__merge__(segmentIntervals)
         #Write them to the object which we will return
         for newStart,newStop in newSegmentIntervals:
           newDQSeg.append([uifo,uname,uversion,ucomment,newStart,newStop])
         newDQSeg.sort()
         del segmentIntervals
+    #Reset the result list to the IFO restricted set
     self.resultList=newDQSeg
+    return newDQSeg
   #End method fetchInformation()
 
   def generateResultList(self):
@@ -2443,6 +2469,10 @@ defaulting to %s"%(self.serverURL))
     tableString+="<table bgcolor=grey border=1px>"
     tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
 <th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
+    tableEmptyString="<tr><th>0</th><th>None_Found</th><th>0</th>\
+<th>0</th><th>0</th><th>0</th><th>0</th><th>0</th></tr>"
+    if len(self.resultList) == 0:
+      tableString=tableString+tableEmptyString
     for ifo,name,version,comment,start,stop in self.resultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
@@ -2461,7 +2491,7 @@ defaulting to %s"%(self.serverURL))
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
           tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
-      else:
+      elif tableType.upper().strip() not in ["VETO","DQ"]:
         tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
@@ -2478,8 +2508,24 @@ defaulting to %s"%(self.serverURL))
     myColor="grey"
     rowString="""||<rowbgcolor="%s"> %s || %s || %s || %s || %s || %s || %s || %s ||\n"""
     titleString="""||<rowbgcolor="%s"> IFO || Flag || Ver || Start || Offset || Stop || Offset || Size ||\n"""%(myColor)
+    emptyRowString="""||<rowbgcolor="%s"> None_Found || 0 || 0 || 0 || 0 || 0 || 0 || 0 ||\n"""
     tableString=titleString
-    for ifo,name,version,comment,start,stop in self.resultList:
+    #Extract only DQ row or only VETO rows
+    tmpResultList=list()
+    for myRow in self.resultList:
+      ifo,name,version,comment,start,stop=myRow
+      #Select base on table type
+      if ((tableType.upper() == "DQ") and \
+          (not name.strip().upper().startswith("UPV"))):
+        tmpResultList.append(myRow)
+      elif ((tableType.upper() == "VETO") and \
+            (name.strip().upper().startswith("UPV"))):
+        tmpResultList.append(myRow)
+      elif tableType.upper().strip() not in ["VETO","DQ"]:
+        tmpResultList.append(myRow)
+    if len(tmpResultList) == 0:
+      tableString=tableString+emptyRowString%myColor
+    for ifo,name,version,comment,start,stop in tmpResultList:
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2491,14 +2537,7 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      if tableType.upper().strip() == "DQ":
-        if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
-      elif tableType.upper().strip() == "VETO":
-        if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
-      else:
-        tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
     tableString+="\n"
     return tableString
 

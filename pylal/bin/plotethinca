@@ -2,15 +2,11 @@
 """
 routine to look at  ethinca parameter
 """
-# $Id$
 
 from __future__ import division
 
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotethinca"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -32,6 +28,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from numpy import histogram, float64
 #from pylal import itertools as pylal_itertools
 
@@ -58,7 +55,7 @@ def parse_command_line():
   """
 
 
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg )
   # options related to input and output
   parser.add_option("-g","--injection-glob",action="append",type="string",\
       default=[], metavar=" GLOB",help="GLOB of injection thinca files to read" )
@@ -187,13 +184,6 @@ def parse_command_line():
       default=50, metavar="FIGURERESOLUTION", \
       help="resolution of the thumbnails (50 by default)" )
   
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir") 
-
   parser.add_option("", "--old-document",action="store_true",\
       default=False,help="this option turns on mangling. you are only "\
       "supposed to use it if you are handling old documents")
@@ -220,7 +210,7 @@ def populate_mtotal(sngl_table):
 # -- get command line arguments
 opts, args = parse_command_line()
 InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 # -- set the proper color code
 colors = InspiralUtils.colors
 fnameList = []   # use for the cache file
@@ -413,7 +403,19 @@ if offsourcefilelists:
     populate_mtotal(offsourceTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
-    slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
+    # Check the seglists agree with the ifo times
+    for i in segs.keys():
+      if opts.ifo_times.find(i) == -1:
+        raise ValueError
+
+    if len(opts.ifo_times) != len(segs.keys()) * len(segs.keys()[0]):
+      raise ValueError
+
+    slideTimeAnalyzed = float(abs(segs.intersection(segs.iterkeys())))
+
+    # set a formal number of 'slides' to one, otherewise 
+    # a div-by-zero error will occor
+    opts.num_slides = 1
 
     # perform the veto
     if opts.veto_file is not None:
@@ -837,10 +839,6 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
-
 
 # ============================================================================
 

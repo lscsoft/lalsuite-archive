@@ -1,13 +1,8 @@
 """
 This module contains condor jobs / node classes for the SQlite Triggered Follow Up dag
-
-$Id$
-
 """
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>, Cristina Torres <cristina.torres@ligo.org>, Romain Gouaty <gouaty@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 try:
 	import sqlite3
@@ -30,16 +25,17 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import dbtables
+#from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import pipeline
 from glue import lal
-from pylal import db_thinca_rings
+#from pylal import db_thinca_rings
 from lalapps import inspiral
 from pylal import date
 from pylal.xlal import date as xlaldate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+#dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
@@ -153,24 +149,28 @@ HrecOnline      V1:h_16384Hz
 		os.abort()
 	return str(foundType), str(foundChannel)
 
-def figure_out_cache(time):
+def figure_out_cache(time,ifo):
 
 	cacheList=(
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415),
-		(home_dirs()+"/ctorres/followupbackgrounds/background_online.cache",935798415,999999999)
+		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
 	foundCache = ""
-	for cacheFile,start,stop in cacheList:
-		if ((start<=time) and (time<stop)):
+	for cacheFile,start,stop,ifos in cacheList:
+		if ((start<=time) and (time<stop) and ifo in ifos):
 			foundCache = cacheFile
 			break
 
 	if 'phy.syr.edu' in get_hostname():
-		foundCache.replace("romain","rgouaty")
+		foundCache = foundCache.replace("romain","rgouaty")
 
 	if foundCache == "":
-		print time, " not found in method stfu_pipe.figure_out_cache"	
+		print ifo, time, " not found in method stfu_pipe.figure_out_cache"	
 	else:
 		if not os.path.isfile(foundCache):
 			print "file " + foundCache + " not found"
@@ -184,6 +184,31 @@ def home_dirs():
 def get_hostname():
 	host = socket.getfqdn()
 	return host
+
+###############################################################################
+##### USEFULL FUNCTIONS CALLED BY PYTHON JOBS
+###############################################################################
+
+def getParamsFromCache(fileName,type,ifo=None,time=None):
+	qscanList = []
+	cacheList = lal.Cache.fromfile(open(fileName))
+	if not cacheList:
+		return qscanList
+	cacheSelected = cacheList.sieve(description=type,ifos=ifo)
+	if time:
+		if math.floor(float(time)) != math.ceil(float(time)):
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time)), math.ceil(float(time))))
+		else:
+			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time))-0.5, math.floor(float(time))+0.5))
+
+	for cacheEntry in cacheSelected:
+		path_output = cacheEntry.path()
+		time_output = str(cacheEntry.segment[0])
+		type_output = cacheEntry.description
+		ifo_output = cacheEntry.observatory
+		qscanList.append([path_output,time_output,type_output,ifo_output])
+
+	return qscanList
 
 ###############################################################################
 ##### CONDOR JOB CLASSES ######################################################
@@ -226,7 +251,6 @@ class FUJob(object):
 		if not os.path.isdir(self.relPath+'/DataProducts'):
 			os.mkdir(self.relPath+'/DataProducts')
 		# Set up the usual stuff and name the log files appropriately
-		self.tag_base = tag_base
 		try: self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
 		except: pass
 		self.set_sub_file(self.name+'.sub')
@@ -279,6 +303,149 @@ fi
 		rm_lock_script.write("#!/bin/bash\nif [ -e $1 ]\nthen\n\trm $1\nfi")
 		rm_lock_script.close()
 		os.chmod('rmLock.sh',0755)
+
+# CLASS TO SETUP THE PROXY FILE NEEDED FOR REMOTE JOBS (CONDOR FLOCKING)
+
+class setupProxyJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	"""
+	def __init__(self, opts, cp, dir='', tag_base=''):
+		self.setup_proxy_script()
+		self.__executable = "getProxy.sh"
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "local"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_proxy_script(self):
+		proxy_script = open('getProxy.sh','w')
+		proxy_script.write("""#!/bin/bash
+if [ ! -e \"proxy.pem\" ]
+then
+	file=`grid-proxy-info -path`
+	cp ${file} proxy.pem
+fi
+		""")
+		proxy_script.close()
+		os.chmod('getProxy.sh',0755)
+
+# DISTRIBUTE REMOTE QSCANS CLASS
+
+class distribRemoteQscanJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	This class sets up a script to be run as child of the remote scans in order to distribute its results to the appropriate paths. It takes the qscan tarball as input, uncompress it and copy the results to the path specified in cache file.
+	Moreover this job also deletes the temporary remote datafind cache files in order to clean up the followup directory.
+	"""
+	def __init__(self, opts, cp, dir='', tag_base=''):
+		"""
+		"""
+		self.setup_distrib_script(dir,tag_base)
+		self.__executable = 'distribRemoteScan_'+dir+'_'+tag_base+'.sh'
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_distrib_script(self,dir,tag_base):
+		distrib_script = open('distribRemoteScan_'+dir+'_'+tag_base+'.sh','w')
+		distrib_script.write("""#!/bin/bash
+currentPath=`pwd` ;
+mv $1 $2/. ;
+cd $2 ;
+tar -xzvf $1 ;
+cd $currentPath ;
+for figPath in `find $2/$3 -name "*.png" -print` ; do
+	echo $figPath ;
+	thumbPath=`echo $figPath | sed s/.png/.thumb.png/g` ;
+	figDPI=120; 
+	fullSize='600x';
+	thumbSize='300x';
+	convert -resize $thumbSize -strip -depth 8 -colors 256 $figPath $thumbPath  ;
+done
+rm $2/$1 ;
+if [ -e $4 ]
+then
+	rm $4 ;
+fi
+		""")
+		distrib_script.close()
+		os.chmod('distribRemoteScan_'+dir+'_'+tag_base+'.sh',0755)
+
+# REMOTE DATAFIND JOB
+
+class remoteDatafindJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	"""
+	def __init__(self, opts, cp, tag_base='', dir=''):
+
+		self.setup_df_submission_script(dir,tag_base)
+		self.__executable = 'remoteDatafind_'+dir+'_'+tag_base+'.sh'
+		self.dir = dir
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.add_condor_cmd('input','proxy.pem')
+		self.add_condor_cmd('should_transfer_files','yes')
+		self.add_condor_cmd('when_to_transfer_output','ON_EXIT_OR_EVICT')
+		self.add_condor_cmd('+RunOnEGEEGrid','True')
+		self.add_condor_cmd("Requirements","(Arch == \"INTEL\" || Arch == \"X86_64\" ) && ( Pilot_SiteName == \"Bologna\")")
+		self.add_condor_cmd('transfer_output_files','$(macrooutputfile)')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_df_submission_script(self,dir,tag_base):
+		submit_script = open('remoteDatafind_'+dir+'_'+tag_base+'.sh','w')
+		submit_script.write("""#!/bin/bash
+. /opt/exp_software/virgo/etc/virgo-env.sh
+. /opt/glite/etc/profile.d/grid-env.sh
+export X509_USER_PROXY=`pwd`/proxy.pem
+/opt/exp_software/virgo/lscsoft/etc/LSCdataFind --observatory $1 --gps-start-time $2 --gps-end-time $3 --url-type file --lal-cache --type $4 --output $5
+outputCache=$5
+outputQcache=${outputCache/.cache/.qcache}
+/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/convertlalcache $5 %s-%s-$outputQcache
+		"""%(dir,tag_base))
+		submit_script.close()
+		os.chmod('remoteDatafind_'+dir+'_'+tag_base+'.sh',0755)
+
+# REMOTE QSCAN CLASS
+
+class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
+	"""
+	A remote qscan job
+	"""
+	def __init__(self, opts, cp, dir='', tag_base=''):
+		"""
+		"""
+		self.setup_submission_script(dir,tag_base)
+		self.__executable = "remoteScan_"+dir+"_"+tag_base+".sh"
+		self.dir = dir
+		self.name = os.path.split(self.__executable.rstrip('/'))[1]
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.add_condor_cmd('input','proxy.pem')
+		self.add_condor_cmd('should_transfer_files','yes')
+		self.add_condor_cmd('when_to_transfer_output','ON_EXIT_OR_EVICT')
+		self.add_condor_cmd('+RunOnEGEEGrid','True')
+		self.add_condor_cmd("Requirements","(Arch == \"INTEL\" || Arch == \"X86_64\" ) && ( Pilot_SiteName == \"Bologna\")")
+		self.add_condor_cmd('transfer_output_files','$(macrooutputfile)')
+		self.add_condor_cmd('transfer_input_files','$(macroinputfile)')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
+	def setup_submission_script(self,dir,tag_base):
+		submit_script = open('remoteScan_'+dir+'_'+tag_base+'.sh','w')
+		submit_script.write("""#!/bin/bash
+. /opt/exp_software/virgo/etc/virgo-env.sh
+. /opt/glite/etc/profile.d/grid-env.sh
+export X509_USER_PROXY=`pwd`/proxy.pem
+/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+
+tar -czf %s-%s-$4.tgz $3
+		"""%(dir,tag_base))
+		submit_script.close()
+		os.chmod('remoteScan_'+dir+'_'+tag_base+'.sh',0755)
 
 # A CLASS TO ANALYSE QSCAN RESULTS
 class analyseQscanJob(pipeline.CondorDAGJob,FUJob):
@@ -412,7 +579,8 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.__universe = string.strip(cp.get("makeCheckListWiki",
 						  "universe").strip())
 	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+	    self.add_condor_cmd('getenv','True')
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
 #End makeCheckListWikiJob class
 
 	    
@@ -437,7 +605,6 @@ class findFlagsJob(pipeline.CondorDAGJob, FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
-
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
 
 #The class responsible for checking for know veto flags
@@ -507,7 +674,6 @@ class followUpChiaJob(inspiral.ChiaJob,FUJob):
 		self.__universe = "standard"
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.add_condor_cmd('getenv','True')
-		self._InspiralAnalysisNode__pad_data = 0
 
 		self.name = os.path.split(self.__executable.rstrip('/'))[1]
 		self.setupJob(name=self.name,tag_base=tag_base, dir=dir)
@@ -641,9 +807,9 @@ The omega scan command line is
 		
 		self.add_var_arg(repr(time))
 
-		self.set_pre_script( "checkForDir.sh %s %s" %(output, repr(time)) )
+		self.set_pre_script( "checkForDir.sh %s %s" %(output, str(time)) )
 		#FIXME is deleting the lock file the right thing to do?
-		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, repr(time)) )
+		self.set_post_script( "rmLock.sh %s/%s/lock.txt" %(output, str(time)) )
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
@@ -665,6 +831,138 @@ The omega scan command line is
 		config_path = os.path.split(config)
 		out = "/".join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
 		return out
+
+# SETUP PROXY FOR REMOTE SCANS
+class setupProxyNode(pipeline.CondorDAGNode,FUNode):
+
+	def __init__(self, dag, job, cp, opts):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		dag.add_node(self)
+		self.validate()
+
+# DISTRIBUTE REMOTE QSCAN RESULTS
+class distribRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
+
+	def __init__(self, dag, job, cp, opts, ifo, time, p_nodes=[], type=""):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+		self.scan_type = type.replace("seismic","seis").upper()
+		self.scan_ifo = ifo
+		# WARNING: First element in p_nodes list is assumed to be the omega scan node
+		self.add_var_arg(p_nodes[0].name_output_file)
+		self.add_var_arg(p_nodes[0].output_path)
+		self.add_var_arg(str(time))
+		# WARNING: Second element in p_nodes list is assumed to be the datafind node
+		self.add_var_arg(p_nodes[1].name_output_file)
+
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		dag.add_node(self)
+		self.validate()
+
+# REMOTE DATAFIND NODE
+class remoteDatafindNode(pipeline.CondorDAGNode,FUNode):
+
+	def __init__(self, dag, job, cp, opts, ifo, time, data_type="rds", p_nodes=[]):
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		type, channel = figure_out_type(time,ifo,data_type)
+		q_time = float(cp.get("fu-q-"+data_type+"-datafind",ifo+"-search-time-range"))/2.
+		start_time = int( time - q_time - 1.)
+		end_time = int( time + q_time + 1.)
+		outputFileName = ifo[0]+'-'+type+'-'+str(start_time)+'-'+str(end_time)+'.qcache'
+
+		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
+		#self.output_cache = lal.CacheEntry(ifo, job.name.upper(), segments.segment(start_time, end_time), "file://localhost/"+job.outputPath+'/'+os.path.abspath(outputFileName))
+	
+		self.add_var_arg(ifo[0])
+		self.add_var_arg(str(start_time))
+		self.add_var_arg(str(end_time))
+		self.add_var_arg(type)
+		self.add_var_arg(outputFileName.replace('qcache','cache'))
+
+		self.name_output_file = job.dir + "-" + job.tag_base + "-" + outputFileName
+		self.add_macro("macrooutputfile", self.name_output_file)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		dag.add_node(self)
+		self.validate()
+
+
+# REMOTE QSCAN NODE
+class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	"""
+	def __init__(self, dag, job, cp, opts, time, ifo, p_nodes=[], type="ht", variety="fg"):
+
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
+		self.scan_ifo = ifo
+
+		if variety == "bg":
+			preString = "omega/" + science_run(time).upper() + "/background"
+		else:
+			preString = "omega/" + science_run(time).upper() + "/foreground"
+		config = cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip()
+		self.add_var_arg( config )
+
+		if type == "ht":
+			dataString = figure_out_type(time, ifo, 'hoft')[0]
+		else:
+			dataString = figure_out_type(time, ifo, 'rds')[0]
+		if type == "seismic":
+			dataString = dataString + "_SEIS"
+		if dataString[:2]!=ifo:
+			dataString = ifo + "_" + dataString
+		timeString = "-".join(get_day_boundaries(int(time)))
+		if cp.has_option('fu-output','output-dir') and cp.get('fu-output','output-dir'):
+			output = cp.get('fu-output','output-dir') + '/' + preString + '/' + dataString + '/' + timeString
+		else:
+			output = os.getcwd() + '/' + preString + '/' + dataString + '/' + timeString
+
+		# CREATE AND MAKE SURE WE CAN WRITE TO THE OUTPUT DIRECTORY
+		mkdir(output)
+
+		# THIS IS THE DIRECTORY WHERE THE DATA WILL ULTIMATELY BE COPIED ONCE THE DATAPRODUCT ARE SENT BACK LOCALLY
+		self.output_path = output
+
+		self.output_cache = lal.CacheEntry(ifo, job.name.replace("remoteScan_"+job.dir+"_"+job.tag_base+".sh","wpipeline").upper(), segments.segment(float(time), float(time)), "file://localhost/"+self.output_path+"/"+str(time))
+
+		# ADD FRAME CACHE FILE
+		#self.add_var_arg("/storage/gpfs_virgo3/virgo/omega/cbc/S6/foreground/RAW/V-raw-930000000-947260815.qcache")
+
+		# The first parent node must be the cache file!
+		input_cache_file = p_nodes[0].name_output_file
+		self.add_var_arg(input_cache_file)
+		self.add_macro("macroinputfile", input_cache_file)
+
+		# NOW WE NEED TO SET UP THE REMOTE OUTPUTPATH
+
+		# String used in the naming of the omega scan directory
+		self.add_var_arg(str(time))
+
+		# Time at which the omega scan is performed
+		self.add_var_arg(repr(time))
+
+		self.name_output_file = job.dir + "-" + job.tag_base + "-" + repr(time) + ".tgz"
+		self.add_macro("macrooutputfile", self.name_output_file)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		for node in p_nodes:
+			if node.validNode:
+				self.add_parent(node)
+		dag.add_node(self)
+		self.validate()
+
 
 # ANALYSEQSCAN NODE
 class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
@@ -713,11 +1011,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 
 		self.add_var_opt('qscan-cache-foreground',dag.basename+'.cache')
 		
-		if cp.has_option('fu-analyse-qscan','background-cache'):
-			backgroundCache = cp.get('fu-analyse-qscan','background-cache').strip()
+		if cp.has_option('fu-analyse-qscan',ifo+'-background-cache'):
+			backgroundCache = cp.get('fu-analyse-qscan',ifo+'-background-cache').strip()
 		else:
-			backgroundCache = figure_out_cache(time)
-			cp.set('fu-analyse-qscan','background-cache',backgroundCache)
+			backgroundCache = figure_out_cache(time,ifo)
+			cp.set('fu-analyse-qscan',ifo+'-background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
 		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
@@ -736,7 +1034,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			#	if node.validNode:
 			#		self.add_parent(node)
 			# add all qscan nodes of the same type as parents
-			if isinstance(node,fuQscanNode):
+			if isinstance(node,fuQscanNode) or isinstance(node,distribRemoteQscanNode):
 				if node.validNode:
 					if (node.scan_type in name and node.scan_ifo == ifo):
 						self.add_parent(node)
@@ -787,7 +1085,7 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 		# next sample done by qscan.
 		type, channel = figure_out_type(time,ifo,data_type)
 		self.set_type(type)
-		self.q_time = float(cp.get("fu-q-"+data_type+"-datafind","search-time-range"))/2.
+		self.q_time = float(cp.get("fu-q-"+data_type+"-datafind",ifo+"-search-time-range"))/2.
 		self.set_observatory(ifo[0])
 		self.set_start(int( time - self.q_time - 1.))
 		self.set_end(int( time + self.q_time + 1.))
@@ -814,11 +1112,12 @@ class fuDataFindNode(pipeline.LSCDataFindNode,FUNode):
 class followUpInspNode(inspiral.InspiralNode,FUNode):
 
   #def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-	def __init__(self, dag, job, cp, opts, sngl, frame_cache, tag, p_nodes=[]):
+	def __init__(self, dag, job, cp, opts, sngl, frame_cache, chia, tag, p_nodes=[]):
 
 		tlen = 1.0
 		self.output_file_name = ""
 		pipeline.CondorDAGNode.__init__(self,job)
+		pipeline.AnalysisNode.__init__(self)
 
 		#FIXME HANDLE INJECTION FILES AND datafind cache
 		# injFile = self.checkInjections(cp)
@@ -826,10 +1125,11 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 
 		self.set_trig_start( int(sngl.time - tlen + 0.5) )
 		self.set_trig_end( int(sngl.time + tlen + 0.5) )
-		self.add_var_opt("write-snrsq","")
-		self.add_var_opt("write-chisq","")
-		self.add_var_opt("write-spectrum","")
-		self.add_var_opt("write-template","")
+                if not chia:
+		  self.add_var_opt("write-snrsq","")
+		  self.add_var_opt("write-chisq","")
+		  self.add_var_opt("write-spectrum","")
+		  self.add_var_opt("write-template","")
 		self.add_var_opt("write-cdata","")
 
 		skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
@@ -850,17 +1150,18 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 			if param == 'user-tag': continue
 			if param in skipParams: continue
 			if param == 'injection-file': value = sngl.inj_file_name
-			self.add_var_opt(param,value)
 			if param == 'gps-end-time':
-				self.__end = value
-				self._AnalysisNode__end = int(value)
+				self.set_end(int(value))
+				continue
 			if param == 'gps-start-time':
-				self.__start = value
-				self._AnalysisNode__start = int(value)
-			if param == 'pad-data':
-				self._InspiralAnalysisNode__pad_data = int(value)
+				self.set_start(int(value))
+				continue
 			if param == 'ifo-tag':
-				self.__ifotag = value
+				self.set_ifo_tag(value)
+				continue
+			self.add_var_opt(param,value)
+			if param == 'pad-data':
+				self.set_pad_data(int(value))
 			if param == 'channel-name': self.inputIfo = value[0:2]
 			if param == 'write-compress':
 				extension = '.xml.gz'
@@ -870,16 +1171,18 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		bankFile = self.write_trig_bank(sngl, 'trig_bank/' + sngl.ifo + '-TRIGBANK_FOLLOWUP_' + repr(sngl.time) + '.xml.gz')
 		self.set_bank(bankFile)
 
-		self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
-		self.__usertag = tag.upper() + "_FOLLOWUP_" + repr(sngl.time)
-      
-		self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
-		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+                if chia:
+		  self.set_user_tag( tag.upper() + "_CHIA_FOLLOWUP_" + repr(sngl.time) )
+                else:     
+                  self.set_user_tag( tag.upper() + "_FOLLOWUP_" + repr(sngl.time) )
+
+                self.output_file_name = job.outputPath + sngl.ifo + "-INSPIRAL_" + self.get_ifo_tag() + "_" + self.get_user_tag() + "-" + str(self.get_start()) + "-" + str(int(self.get_end())-int(self.get_start())) + extension
+		self.outputCache = sngl.ifo + ' ' + 'INSPIRAL' + ' ' + str(self.get_start()) + ' ' + str(int(self.get_end())-int(self.get_start())) + ' ' + self.output_file_name  + '\n' + sngl.ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.get_start()) + ' ' + str(int(self.get_end())-int(self.get_start())) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
 		self.add_var_opt("output-path",job.outputPath)
 		self.output_cache = []
-		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name))
-		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.__start), float(self.__end)), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.get_start()), float(self.get_end())), "file://localhost/"+self.output_file_name))
+		self.output_cache.append(lal.CacheEntry(sngl.ifo, job.name.upper(), segments.segment(float(self.get_start()), float(self.get_end())), "file://localhost/"+self.output_file_name.replace(extension,'.gwf')))
 		
 		self.output_frame_file = self.output_file_name.replace(extension,'.gwf')
 
@@ -934,8 +1237,11 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
 			self.add_parent(parentNode)
-		dag.add_node(self)
-
+		if not opts.no_makeCheckList:
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
@@ -947,7 +1253,7 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findFlags",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"dqResults.wiki"}
 		  }
@@ -965,7 +1271,13 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -986,7 +1298,7 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 	"""
 	defaults={"section":"findVetoes",
 		  "options":{"window":"60,15",
-			     "segment-url":"https://segdb.ligo.caltech.edu:30015",
+			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
 			     "output-file":"vetoResults.wiki"}
 		  }
@@ -1004,7 +1316,13 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
-
+		#IFO arg string
+		myArgString=""
+		for sngl in coincEvent.sngl_inspiral.itervalues():
+			myArgString=myArgString+"%s,"%sngl.ifo
+		myArgString=myArgString.rstrip(",")
+		self.add_var_opt("ifo-list",myArgString)
+		
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -1170,16 +1488,17 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 	#def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
 
 	#def __init__(self,job,trig,opts,dag,cp):
-	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, p_nodes = []):
+	def __init__(self, dag, job, cp, opts, coinc, inspiral_node_dict, chia_node =None, p_nodes = []):
 
 		# the use of this class would require some reorganisation in fu_Condor.py
 		# and webCondor.py in order to set up the jobs following the same scheme
 		# as the way it is done for the Inspiral pipeline...
 		pipeline.CondorDAGNode.__init__(self,job)
+		pipeline.AnalysisNode.__init__(self)
 		self.output_file_name = ""
 		sngl = coinc.sngl_inspiral_coh.values()[0]
 
-                user_tag = "CHIA_"+str(coinc.time)
+                user_tag = "COHERENT-"+str(coinc.time)
 
 		# These come from inspiral process param tables
 		self.add_var_opt( "segment-length", sngl.get_proc_param('segment-length') )
@@ -1191,20 +1510,25 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("ra-step",cp.get('chia','ra-step'))
 		self.add_var_opt("dec-step",cp.get('chia','dec-step'))
 		self.add_var_opt("numCohTrigs",cp.get('chia','numCohTrigs'))
+		self.add_var_opt("cdata-length",1.0)
 		self.add_var_opt("user-tag",user_tag)
 		self.add_var_opt("ifo-tag",coinc.instruments.replace(',',''))
 		self.add_var_opt("write-events","")
 		self.add_var_opt("write-compress","")
  		self.add_var_opt("debug-level","33")
-		self.add_var_opt("write-cohsnr","")
-		self.add_var_opt("write-cohnullstat","")
-		self.add_var_opt("write-h1h2nullstat","")
-		self.add_var_opt("write-cohh1h2snr","")
-		self.add_var_opt("maximize-over-chirp","")
+                self.add_var_opt("maximize-over-chirp","")
+		self.add_var_opt("followup","")
 		# required by followUpChiaPlotNode
+		if chia_node:
+			self.add_var_opt("exttrig","")
+			self.add_var_opt("chia-file",chia_node.output_file_name)
+			self.add_var_opt("write-cohsnr","")
+			self.add_var_opt("write-cohnullstat","")
+			self.add_var_opt("write-h1h2nullstat","")
+			self.add_var_opt("write-cohh1h2snr","")
+			
 
                 hLengthAnalyzed = 1
-		self._InspiralAnalysisNode__pad_data = 0
 
 		#CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
 		#self.setupNodeWeb(job,False,None,None,None,dag.cache)
@@ -1220,9 +1544,12 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.add_var_opt("gps-end-time",self.end)
 
 
-		#FIXME do --cohNullStatFrameFile when I understand it
-		self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                if chia_node:
+		        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+                else:
+                        self.output_file_name = "%s/%s-CHIA_1_%s-%d-%d-ALLSKY.xml.gz" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 		self.output_frame_file = "%s/%s-CHIA_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
+		self.netnull_output_frame_file = "%s/%s-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, coinc.instruments.replace(',',''), user_tag, self.start, self.end-self.start )
 
  		self.h1h2null_output_frame_file = "%s/H1H2-CHIA_NULL_STAT_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
  		self.h1h2coh_output_frame_file = "%s/H1H2-CHIA_COHSNR_1_%s-%d-%d.gwf" % (job.outputPath, user_tag, self.start, self.end-self.start )
@@ -1233,6 +1560,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_file_name)))
 
 		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.output_frame_file)))
+
+		self.output_cache.append(lal.CacheEntry("".join(coinc.instruments.split(",")), job.name.upper(), segments.segment(float(coinc.time), float(coinc.time)), "file://localhost/"+os.path.abspath(self.netnull_output_frame_file)))
 
 
                 bankname = 'trig_bank/%s-COHBANK_FOLLOWUP_%s-%d-%d.xml.gz' % (coinc.instruments.replace(',',''), str(coinc.time), int(coinc.time) - int(hLengthAnalyzed), 2 * int(hLengthAnalyzed))
@@ -1363,7 +1692,7 @@ job = A CondorDAGJob that can run an instance of plotChiaJob followup.
 		self.add_var_opt("chiaFrameFile",chia_node.output_frame_file)
 		self.add_var_opt("cohH1H2SNRFrameFile",chia_node.h1h2coh_output_frame_file)
 		self.add_var_opt("H1H2NullStatFrameFile",chia_node.h1h2null_output_frame_file)
-		#FIXME do --cohNullStatFrameFile when I understand it
+		self.add_var_opt("cohNullStatFrameFile",chia_node.netnull_output_frame_file)
 		self.add_var_opt("gps-start-time",int(coinc.time-1))
 		self.add_var_opt("gps-end-time",int(coinc.time+1))
 		self.add_var_opt("sample-rate",str(coinc.get_sample_rate()))
@@ -1552,7 +1881,7 @@ class followUpDAG(pipeline.CondorDAG):
 ###### CONFIG PARSER WRAPPING #################################################
 ###############################################################################
 class create_default_config(object):
-	def __init__(self, config=None):
+	def __init__(self, configfile=None):
 		cp = ConfigParser.ConfigParser()
 		self.cp = cp
 		self.time_now = "_".join([str(i) for i in time_method.gmtime()[0:6]])
@@ -1563,7 +1892,7 @@ class create_default_config(object):
 		cp.add_section("condor")
 		cp.set("condor","datafind",self.which("ligo_data_find"))
 		cp.set("condor","inspiral",self.which("lalapps_inspiral"))
-                cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
+		cp.set("condor","chia", self.which("lalapps_coherent_inspiral"))
 		cp.set("condor","universe","standard")
 		# SECTIONS TO SHUT UP WARNINGS
 		cp.add_section("inspiral")
@@ -1598,11 +1927,14 @@ class create_default_config(object):
 		
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
-		cp.set("fu-q-hoft-datafind","search-time-range","128")
+		for ifo in ["H1","H2","L1","V1"]:
+			cp.set("fu-q-hoft-datafind",ifo+"-search-time-range","128")
 
 		# fu-q-rds-datafind SECTION
 		cp.add_section("fu-q-rds-datafind")
-		cp.set("fu-q-rds-datafind","search-time-range","1024")
+		for ifo in ["H1","H2","L1"]:
+			cp.set("fu-q-rds-datafind",ifo+"-search-time-range","1024")
+		cp.set("fu-q-rds-datafind","V1-search-time-range","2048")
 		
 		# fu-fg-ht-qscan SECTION
 		cp.add_section("fu-fg-ht-qscan")
@@ -1611,13 +1943,15 @@ class create_default_config(object):
 
 		# fu-fg-rds-qscan SECTION
 		cp.add_section("fu-fg-rds-qscan")
-		for config in ["H1config","H2config","L1config","V1config"]:
+		for config in ["H1config","H2config","L1config"]:
 			cp.set("fu-fg-rds-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'rds') + ".txt","QSCAN CONFIG"))
+		cp.set("fu-fg-rds-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/s6_foreground_V1-raw-cbc.txt")
 
 		# fu-fg-seismic-qscan SECTION
 		cp.add_section("fu-fg-seismic-qscan")
-		for config in ["H1config","H2config","L1config","V1config"]:
+		for config in ["H1config","H2config","L1config"]:
 			cp.set("fu-fg-seismic-qscan",config,self.__find_config("s5_foreground_" + self.__config_name(config[:2],'seismic') + ".txt","QSCAN CONFIG"))
+		cp.set("fu-fg-seismic-qscan","V1config","/storage/gpfs_virgo3/virgo/omega/configurations/s6_foreground_V1-raw-seismic-cbc.txt")
 
 		# fu-analyse-qscan SECTION
 		cp.add_section("fu-analyse-qscan")
@@ -1652,8 +1986,8 @@ class create_default_config(object):
 		# CHIA SECTION
 		cp.add_section("chia")
 		cp.set('chia','cohsnr-threshold', "1")
-		cp.set('chia','ra-step', "6")
-		cp.set('chia','dec-step', "6")
+		cp.set('chia','ra-step', "1")
+		cp.set('chia','dec-step', "1")
 		cp.set('chia','numCohTrigs', "2000")
 		cp.set('chia', 'sample-rate', "4096")
 
@@ -1686,21 +2020,35 @@ class create_default_config(object):
 
 		# CONDOR MAX JOBS SECTION
 		cp.add_section("condor-max-jobs")
+		cp.set("condor-max-jobs","remoteScan_full_data_FG_RDS.sh_FG_RDS_full_data","20")
+		cp.set("condor-max-jobs","remoteScan_full_data_FG_SEIS_RDS.sh_FG_SEIS_RDS_full_data","20")
+		cp.set("condor-max-jobs","remoteScan_playground_FG_RDS.sh_FG_RDS_playground","20")
+		cp.set("condor-max-jobs","remoteScan_playground_FG_SEIS_RDS.sh_FG_SEIS_RDS_playground","20")
+		cp.set("condor-max-jobs","remoteScan_time_slides_FG_RDS.sh_FG_RDS_time_slides","20")
+                cp.set("condor-max-jobs","remoteScan_time_slides_FG_SEIS_RDS.sh_FG_SEIS_RDS_time_slides","20")
+		cp.set("condor-max-jobs","remoteDatafind_full_data_Q_RDS.sh_Q_RDS_full_data","10")
+		cp.set("condor-max-jobs","remoteDatafind_full_data_Q_RDS.sh_Q_RDS_playground","10")
+		cp.set("condor-max-jobs","remoteDatafind_full_data_Q_RDS.sh_Q_RDS_time_slides","10")
 		cp.set("condor-max-jobs","ligo_data_find_HT_full_data","3")
 		cp.set("condor-max-jobs","ligo_data_find_Q_HT_full_data","3")
 		cp.set("condor-max-jobs","ligo_data_find_Q_RDS_full_data","3")
-                cp.set("condor-max-jobs","ligo_data_find_HT_playground","3")
-                cp.set("condor-max-jobs","ligo_data_find_Q_HT_playground","3")
-                cp.set("condor-max-jobs","ligo_data_find_Q_RDS_playground","3")
+		cp.set("condor-max-jobs","ligo_data_find_HT_playground","3")
+		cp.set("condor-max-jobs","ligo_data_find_Q_HT_playground","3")
+		cp.set("condor-max-jobs","ligo_data_find_Q_RDS_playground","3")
+		cp.set("condor-max-jobs","ligo_data_find_HT_time_slides","3")
+		cp.set("condor-max-jobs","ligo_data_find_Q_HT_time_slides","3")
+		cp.set("condor-max-jobs","ligo_data_find_Q_RDS_time_slides","3")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_full_data","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_playground","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_sngl_time_slides","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
+		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_time_slides","20")
 
 		# if we have an ini file override the options
-		if config: 
+		if configfile:
 			user_cp = ConfigParser.ConfigParser()
-			user_cp.read(config)
+			user_cp.read(configfile)
 		else:
 			# otherwise see if a file with the standard ini file exists in the directory, the user probably intends to use it
 			try: 
@@ -1708,7 +2056,7 @@ class create_default_config(object):
 				user_cp.read('followup_pipe.ini')
 			except: pass
 		# override the default options
-		if user_cp: self.overwrite_config(user_cp)
+		if user_cp: self.overwrite_config(user_cp,cp)
 
 	def write(self):
 		self.get_cp().write(open(self.ini_file,"w"))
@@ -1753,7 +2101,7 @@ class create_default_config(object):
 		if 'caltech.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return os.environ['HOME'] + '/public_html/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return os.environ['HOME'] + '/WWW/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web directory, returning empty string"
 		return ''
 
@@ -1765,7 +2113,7 @@ class create_default_config(object):
 		if 'ligo-wa.caltech.edu' in host: return "https://ldas-jobs.ligo-wa.caltech.edu/~" +os.environ['USER'] + '/followups/' + self.time_now
 		if 'phys.uwm.edu' in host: return "https://ldas-jobs.phys.uwm.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
 		if 'phy.syr.edu' in host: return "https://sugar-jobs.phy.syr.edu/~" + os.environ['USER'] + '/followups/' + self.time_now
-		if 'aei.uni-hannover.de' in host: return "https://atlas.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/' + self.time_now
+		if 'aei.uni-hannover.de' in host: return "https://atlas3.atlas.aei.uni-hannover.de/~" + os.environ['USER'] + '/LSC/followups/' + self.time_now
 		print sys.stderr, "WARNING: could not find web server, returning empty string"
 		return ''
 
@@ -1792,7 +2140,7 @@ class create_default_config(object):
 		if not out: print >>sys.stderr, "WARNING: could not find %s in your path, unless you have an ini file to overide the path to %s the DAG will fail" % (prog,prog)
 		return out
 
-	def overwrite_config(self,config):
+	def overwrite_config(self,config,cp):
 		for section in config.sections():
 			if not cp.has_section(section): cp.add_section(section)
 			for option in config.options(section):
@@ -1808,38 +2156,67 @@ def getFOMLinks(gpsTime=int(0),ifo=("default")):
 	[['ifo,shift',LINKtoImage,LinktoThumb],['ifo,shift',LinktoImage,LinkToThumb]...]
 	images marked [Eve,Owl,Day] via [p3,p2,p1] in filenames
 	this methd only for S6 and later
+	IFO naming start dates:
+	There were three naming conventions mixed, then p1,p2,p3 and lastly Day,Eve,Owl
+	LHO: 20090724 :: 932428815
+	LLO: 20090708 :: 931046415
+	It appears that the filenames are labeled by local times not
+	utc??? We need to confirm this for this method CVT Fri-Jan-29-2010:201001291523 
 	"""
 	urls={
-		"default":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
+		"DEFAULT":"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
 		"V1":"http://wwwcascina.virgo.infn.it/DetectorOperations/index.htm",
 		"L1":"https://llocds.ligo-la.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
 		"H1":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif",
 		"H2":"http://lhocds.ligo-wa.caltech.edu/scirun/S6/robofom/%s/%s%s_FOM%i%s.gif"
 		}
+	ifoTag=ifo.upper()
+	shiftDuration=8;
+	#Give the IFO and shift start hour as integer
+	shiftStandardTime={'L1':{'day':14,'eve':22,'owl':6},
+			   'H1':{'day':16,'eve':0,'owl':8},
+			   'H2':{'day':16,'eve':0,'owl':8},
+			   'V1':{'day':6,'eve':14,'owl':22}}
+	shiftOrder=['day','eve','owl']
+	shiftLabel={'day':'p1','eve':'p3','owl':'p2'}
 	outputURLs=list()
 	if ((ifo==None) or (gpsTime==None)):
 		sys.stdout.write("getFOMLinks called incorrectly \
 using default opts instead!\n")
-		return [urls['default']]
-	#Create date string
-	Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(gpsTime)))
-	tStamp="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
-	shiftLabels=['p1','p2','p3']
-	shiftTxt={'p3':'Eve',
-		  'p2':'Owl',
-		  'p1':'Day'}
-	fomLabels=[1,2,3]
-	ifoTag=ifo.upper().lstrip().rstrip()
-	if ('H1','H2','L1').__contains__(ifoTag):
-		for sL in shiftLabels:
-			for fL in fomLabels:
-				outputURLs.append(["%s,%s"%(ifoTag,shiftTxt[sL]),
-						   urls[ifoTag]%(tStamp,tStamp,sL,fL,""),
-						   urls[ifoTag]%(tStamp,tStamp,sL,fL,"Thumb")
+		return [urls['DEFAULT']]
+	outputURLs=[]
+	#Just return immediately if V1 encoutered (HACK)
+	if ifo.__contains__("V1"):
+		return([['V1',urls[ifoTag],'']])
+	#
+	if shiftStandardTime.keys().__contains__(ifoTag):
+		#Determine shift times n-1,n,n+1
+		tOffset=3600*shiftDuration
+		for thisTime in \
+		[gpsTime-tOffset,gpsTime,gpsTime+tOffset]:
+			Y,M,D,h,m,s,junk0,junk1,junk2=xlaldate.XLALGPSToUTC(LIGOTimeGPS(int(thisTime)))
+			#Get shift label
+			shiftString=''
+			humanShiftLabel=''
+			for shift,start in shiftStandardTime[ifoTag].iteritems():
+				hours=[x%24 for x in range(start,start+shiftDuration)]
+				if hours.__contains__(int(h)):
+					shiftString=shiftLabel[shift]
+					humanShiftLabel=shift
+			#Create txt string
+			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
+			if ('V1').__contains__(ifoTag):
+				outputURLs.append(['V1',urls[ifoTag],''])
+			else:
+				sL=shiftString
+				for fL in [1,2,3]:
+					outputURLs.append(["%s,%s"%(ifoTag,humanShiftLabel),
+							   urls[ifoTag]%(tString,tString,sL,fL,""),
+							   urls[ifoTag]%(tString,tString,sL,fL,"Thumb")
 						   ])
-	if ('V1').__contains__(ifoTag):
-		outputURLs.append(['V1',urls[ifoTag],''])
-	return outputURLs
+		return outputURLs
+	else:
+		return [urls['DEFAULT']]
 
 #A simple method to convert GPS time to human readable for for
 #checklist
@@ -1914,20 +2291,20 @@ class filenameToURLMapper(object):
 			    if self.pURL.lower().startswith(protocolCheck):
 				    self.pURL="%s"%(self.pURL.replace(protocolCheck,protocolTag))
 				    givenProtocol=protocolCheck
-		    pd=self.pDIR.split(os.path.sep)
+		    pd=self.pDIR.lstrip(os.path.sep).split(os.path.sep)
 		    pu=self.pURL.split(os.path.sep)
+		    self.pURL=publicationURL
 		    pd.reverse()
 		    pu.reverse()
 		    cStringList=list()
 		    cURLList=list()
-		    for i in range(0,len(pu)):
-			    if pd[i]!=pu[i]:
-				    cStringList.append(pd[i])
-				    cURLList.append(pu[i])
+                    #Seek matching path elements
+		    mIndex=[pd[i]==pu[i] for i in range(min(len(pd),len(pu)))].index(False)
+		    cURLList=pu[mIndex:]
+		    cStringList=pd[mIndex:]
 		    cStringList.reverse()
 		    cURLList.reverse()
-		    cURL=""
-		    cString=""
+		    cURL=cString=""
 		    for elem in cURLList:
 			    cURL=cURL+"%s%s"%(os.path.sep,elem)
 		    cURL=cURL+os.path.sep
@@ -1951,6 +2328,10 @@ class filenameToURLMapper(object):
 		    #Strip of common path and create full blown URL
 		    myURL=filename.replace(self.commonString,self.commonURL)
 		    #Add a check to see if given filename is actually URL already!
+		    if filename.strip() == "":
+			    sys.stderr.write("Improper conversion for :%s\n"%filename)
+			    raise Error, "object:filenameToURLMapper given empty string to convert!\n"
+			    
 		    if myURL == filename:
 			    sys.stderr.write("Improper conversion for :%s\n"%filename)
 			    sys.stderr.write("web-url        : %s\n"%self.pURL)

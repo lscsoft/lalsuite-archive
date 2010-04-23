@@ -145,9 +145,6 @@ def parse_args():
     parser.add_option("--output-path", help="root of the HTML output")
     parser.add_option("--enable-output", action="store_true",
         default=False, help="enable plots and HTML output")
-    parser.add_option("--html-for-cbcweb", action="store_true",
-        default=False, help="enable HTML output with the appropriate headers "
-        "for the CBC website")
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
 
@@ -184,7 +181,7 @@ statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
 statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
     = pickle.load(open(opts.relic_injections))
-if statistic != "effective_snr":
+if statistic not in ("effective_snr", "new_snr"):
     raise NotImplemented
 
 log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, \
@@ -1056,10 +1053,6 @@ if opts.enable_output:
     html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
         fnameList, tagList, comment=html_footer)
     InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-    if opts.html_for_cbcweb:
-        html_filename_publish = InspiralUtils.write_html_output(opts,
-            sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=True)
 
 if opts.show_plot:
     pylab.show()

@@ -400,5 +400,7 @@ def vote(seglists, n):
 	>>> z = segmentlist([segment(15, 30)])
 	>>> vote((w, x, y, z), 3)
 	[segment(10, 20)]
+
+	Note:  the current implementation is *slow*.
 	"""
 	return reduce(lambda x, y: x | y, (reduce(lambda a, b: a & b, votes) for votes in iterutils.choices(seglists, n)))

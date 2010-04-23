@@ -95,6 +95,7 @@ def parse_commandline():
     Parse the options given on the command-line.
     """
     parser = optparse.OptionParser(usage = __doc__,version=git_version.verbose_msg)
+
     parser.add_option("-K", "--KW_location", default=None,
                       help="Location of KW trigger folder if you are not using the folder specified in --help.")
     parser.add_option("-c", "--channel_name", action="append", default=[],
@@ -257,7 +258,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
     KWcursor = KWconnection.cursor()
 
     ## create a table for retrieved triggers
-    KWcursor.execute('create table KWtrigs (GPSTime double, KWSignificance double)')
+    KWcursor.execute('create table KWtrigs (GPSTime double, KWSignificance double, frequency int)')
 
     ## determine the KW trigger file we need
     ifo = channel.split("_")[0].upper()
@@ -308,6 +309,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
           trig = line.split()
           t = float(trig[2]) 
           s = float(trig[7])
+          f = int(trig[3])
 
           # check if KW trig is in the given segment and if its significance 
           # is above the minimum specified
@@ -315,7 +317,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
           if t in segs and s > min_thresh:
             # insert into the database
             # micro second for GPS time is accurate enough
-            KWcursor.execute("insert into KWtrigs values (?, ?)", ("%.3f"%t, "%.2f"%s))
+            KWcursor.execute("insert into KWtrigs values (?, ?, ?)", ("%.3f"%t, "%.2f"%s,"%d"%f))
 
     if full_channel_name == "": # means there is no KW trigger
       full_channel_name = channel # better than nothing...

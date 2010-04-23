@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Patrick Brady <patrick.brady@ligo.org> and Larry Price <larry.price@ligo.org> "
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotskypoints"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -33,6 +28,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import date
+from pylal import git_version
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
@@ -530,7 +526,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -584,8 +580,6 @@ def parse_command_line():
   parser.add_option("--write-inj-data", action="store_true", default=False, \
                     help="create a file with data from injections")
   
-  #parser.add_option("--html-for-cbcweb", action="store_true", \
-  #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
                     help="display the plots to screen if an X11 display is available")
 
@@ -1127,7 +1121,7 @@ for coinc in coincTriggers:
     opts.ifo_tag = coinc_type
     opts.gps_start_time =  min(coinc.get_gps_times()[ifo] for ifo in coinc.get_gps_times())
     opts.gps_end_time =  max(coinc.get_gps_times()[ifo] for ifo in coinc.get_gps_times())
-    InspiralUtils.initialise(opts, __prog__, __version__)
+    InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
     html_footer = ""
     text = "Reconstructed sky position"
     fname = InspiralUtils.set_figure_name(opts, "sky_position")
@@ -1158,7 +1152,7 @@ for coinc in coincTriggers:
         '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
 
     html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
-                     [fname], [text], comment=html_footer, cbcweb=False)
+                     [fname], [text], comment=html_footer)
     if not opts.show_plot:
       close()
     #next create the google sky output
@@ -1206,7 +1200,7 @@ for coinc in coincTriggers:
                 + str(total_num_gals) + '\n' 
 
 if opts.enable_output and opts.write_summary_plots:
-  InspiralUtils.initialise(opts, __prog__, __version__)
+  InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
   html_footer = ""
   fnameList = []
   tagList = []
@@ -1388,7 +1382,7 @@ if opts.write_summary_plots:
 #  html_footer += "Mean pointings (narrow) " + str(meanpointings_narrow) + "<br>"
 #  html_footer += "Mean pointings (wide) " + str(meanpointings_wide) + "<br>"
   html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
-                                                fnameList, tagList, comment=html_footer, cbcweb=False)
+                                                fnameList, tagList, comment=html_footer)
 if opts.write_inj_data:
   if opts.output_path:
     write_file(opts.output_path, "plotskypoints_inj_data.dat", inj_data)
@@ -1401,10 +1395,6 @@ if opts.write_inj_data:
 #    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],\
 #                     fnameList, tagList, comment=html_footer)
 #    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-#    if opts.html_for_cbcweb:
-#        html_filename_publish = InspiralUtils.write_html_output(opts, \
-#                                 sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=False)
 
 if opts.show_plot:
     show()

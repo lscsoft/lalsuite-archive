@@ -8,12 +8,6 @@
 # =============================================================================
 #
 
-
-usage = \
-'''
-Prints information about closest missed injections.
-'''
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -36,6 +30,7 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import printutils
@@ -43,8 +38,9 @@ from pylal import db_thinca_rings
 
 __prog__ = "ligolw_cbc_printmissed"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Prints information about closest missed injections."
 
 # =============================================================================
 #
@@ -58,7 +54,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string",
@@ -202,6 +202,8 @@ if opts.verbose and opts.tmp_space:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 cmtable = printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,
@@ -216,7 +218,7 @@ cmdoc = ligolw.Document()
 # setup the LIGOLW tag
 cmdoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-cmproc_id = process.register_to_xmldoc(cmdoc, __prog__, opts.__dict__)
+cmproc_id = process.register_to_xmldoc(cmdoc, __prog__, opts.__dict__, version = git_version.id)
 # connect the table to the document
 cmdoc.childNodes[0].appendChild(cmtable)
 

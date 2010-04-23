@@ -7,11 +7,6 @@
 #
 # ============================================================================
 
-
-usage = """
-Given a ranking stat, generates cumulative histograms of coincident events.
-"""
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -33,7 +28,9 @@ from pylal import ligolw_sqlutils as sqlutils
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __prog__ = "ligolw_cbc_plotcumhist"
-__version__ = git_version.verbose_msg
+
+description = \
+"Given a ranking stat, generates cumulative histograms of coincident events."
 
 # ============================================================================
 #
@@ -45,8 +42,11 @@ def parse_command_line():
     """
     Parser function dedicated
     """
-
-    parser = OptionParser( usage = usage, version = __version__ )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
         help = 
@@ -241,6 +241,8 @@ if opts.verbose:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 #
@@ -383,7 +385,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
     opts.gps_end_time = gps_end_time
     opts.ifo_times = ''.join(sorted(on_instruments))
     opts.ifo_tag = ''
-    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, __version__ )
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
 
     fnameList = []
     tagList = []
@@ -525,6 +527,9 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
 #
 #   Finished cycling over experiments; exit
 #
+connection.close()
+dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
 if opts.verbose:
     print >> sys.stdout, "Finished!"
 sys.exit(0)

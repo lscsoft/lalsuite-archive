@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotthinca"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -27,6 +22,7 @@ import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from numpy import histogram
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
@@ -87,7 +83,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -226,12 +222,6 @@ def parse_command_line():
   parser.add_option("-t","--plot-type",action="store",type="string",\
       default="linear",metavar=" PLOT_TYPE", \
       help="make either linear or log plots" )
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed"\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   (options,args) = parser.parse_args()
 
@@ -286,7 +276,7 @@ if 'bitten_l' in opts.statistic:
      sys.exit(1)
 #####################################################################
 # -- some initialisation
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -755,7 +745,7 @@ if opts.snr_snr or opts.slide_snr:
               legend_text.append('H1H2' + ifo + '(also in ' + add_ifo + ')')
 
 
-      if not opts.slide_snr:
+      if not opts.slide_snr and len(legend_text)>0:
         legend(legend_text,2)
       xlabel(snglStat.replace("_"," ") + ' Hanford', size='x-large')
       ylabel(snglStat.replace("_"," ") + ' '+ ifo, size='x-large')
@@ -1543,9 +1533,6 @@ if opts.parcoord_var or opts.snr_cube:
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 # ============================================================================
 

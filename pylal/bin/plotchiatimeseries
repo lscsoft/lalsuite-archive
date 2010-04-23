@@ -3,10 +3,7 @@
 Time-series plots of coherent CBC statistics and null-statistics.
 
 """
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotchiatimeseries"
-__Id__ = "$Id$"
 __title__ = "Coherent search and null statistics time series plots"
 
 import matplotlib
@@ -72,8 +69,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
     maxIndex = 0
     for row_index,row in enumerate(multiInspiralTable):
       eventID = int(row.event_id)
-      if not str(eventID) in user_tag:
-        continue
+      #if not str(eventID) in user_tag:
+      #  continue
       SNR = float(row.snr)
       if SNR > maxSNR:
         maxSNR = SNR
@@ -107,8 +104,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
     else:
       eff_dist_h1h2 =  "NA"
 
-
-    cohSNR = "%0.2f"%maxSNR
+    maxSNRTmp = sqrt(maxSNR)
+    cohSNR = "%0.2f"%maxSNRTmp
     if ifoH1 == 1 and ifoH2 == 1 \
       and not (float(multiInspiralTable[maxIndex].null_stat_h1h2 ) < 0.0):
       # Fetch H1H2 null-stat if available
@@ -195,7 +192,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
 
-    cohNetSNRSq = cohNetSNR_tuple[0]*cohNetSNR_tuple[0]
+    #cohNetSNRSq = cohNetSNR_tuple[0]*cohNetSNR_tuple[0]
+    cohNetSNRSq = cohNetSNR_tuple[0]
+
     del cohNetSNR_tuple
 
     expectCohH1H2snr = 0
@@ -595,10 +594,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaProcParams,multiInspiralTable,if
 usage = """ %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information and exit")
+parser = OptionParser( usage, version=git_version.verbose_msg )
 
 parser.add_option("-o","--output-path",action="store",type="string",\
     default="", metavar=" PATH",\
@@ -661,11 +657,6 @@ parser.add_option("","--V1-framefile", action="store",type="string", \
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #################################
 # Sanity check of input arguments
@@ -683,7 +674,7 @@ if not opts.chiaXmlFile:
 
 frameDict = {'H1': opts.H1_framefile, 'H2': opts.H2_framefile, 'L1': opts.L1_framefile, 'V1': opts.V1_framefile}
 
-#opts = InspiralUtils.initialise(opts, __prog__, __version__)
+#opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 opts.prefix = opts.ifo_times + "-" + __prog__ + "_" + opts.ifo_tag + "_" + opts.user_tag
 opts.name = __prog__
 opts.version = git_version.verbose_msg.replace('\n','<br>')
@@ -701,4 +692,4 @@ elif len(multiInspiralTable) > 1:
   print >> sys.sderr, "document should not contain more than 1 multi_inspiral table"
   sys.exit(1)
 else:
-  plotchiatimeseries(opts,args,opts.output_path,proc,multiInspiralTable[0],opts.ifo_tag,frameDict,opts.user_tag)
+  plotchiatimeseries(opts,args,opts.output_path,proc,multiInspiralTable[0],opts.ifo_times,frameDict,opts.user_tag)

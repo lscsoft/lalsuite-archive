@@ -91,13 +91,27 @@ def parse_command_line():
 
 class Summaries(object):
 	def __init__(self, Nbins):
+
+		#
+		# setting up required attributes
+		#
+
 		self.Nbins = Nbins
 		self.rings = None
 		self.offset_vectors = None
 		self.ifos = set()
 		self.dbls = set()
 		self.likelihoods = {}
+
+		#
+		# here we define the single detector 2D projections
+		# we will perform and how they should be binned
+		#
+
 		self.sngl_slices = [('snr', 'chisq'), ('snr', 'mtotal'), ('chisq', 'mtotal')]
+		self.atanlog_atan_bins = [('snr', 'mtotal'), ('chisq', 'mtotal')]
+		self.atanlog_atanlog_bins = [('snr', 'chisq')]
+		self.atan_atan_bins = []
 		self.sngl_bins = {}
 		self.sngl_1D_bins = {}
 		self.sngl_1D_count = {}
@@ -105,21 +119,36 @@ class Summaries(object):
 		for col1,col2 in self.sngl_slices:
 			sngls_set.add(col1)
 			sngls_set.add(col2)
+
+		#
+		# store the location of all the triggers
+		#
+
 		self.idx_sngls = {}
 		for id,key in enumerate(list(sngls_set) + ['ifo', 'weight', 'coinc_event_id', 'filename']):
 			self.idx_sngls[key] = id
+
+		#
+		# setup min and max values for use in the bins
+		#
+
 		self.minmax = {}
 		self.minmax['snr'] = (1, 1e4)
 		self.minmax['chisq'] = (1, 1e8)
 		self.minmax['mtotal'] = (25, 1e2)
 
 	def calc_delta_t_inj(self, trigger1_end_time, trigger1_end_time_ns, trigger2_end_time, trigger2_end_time_ns):
+		#
+		# not used yet, only using single detector statistics
+		#
 		try:
 			return abs((trigger1_end_time - trigger2_end_time) + (trigger1_end_time_ns - trigger2_end_time)*1e-9)
 		except: print "calc_delta_t_inj() failed"
 
 	def calc_delta_t(self, trigger1_ifo, trigger1_end_time, trigger1_end_time_ns, trigger2_ifo, trigger2_end_time, trigger2_end_time_ns, time_slide_id):
-		#print >>sys.stderr, "calculating delta_t"
+		#
+		# not used yet, only using single detector statistics
+		#
 		trigger1_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
 		trigger2_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger2_end_time, trigger2_end_time_ns)
 		# find the instruments that were on at trigger 1's end time and
@@ -143,34 +172,54 @@ class Summaries(object):
 			return float(abs(trigger1_true_end_time - trigger2_true_end_time)) % 1
 
 	def setup_binned_ratios(self):
+		#
+		# setting up the binned ratio objects
+		#
 		for ifo in self.ifos:
 			self.sngl_bins[ifo] = {}
 			for key in self.sngl_slices:
-				if key in [('snr', 'chisq')]:
+				if key in self.atanlog_atanlog_bins:
 					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanLogarithmicBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
-				elif key in [('snr', 'mtotal'), ('chisq', 'mtotal')]:
+				elif key in self.atanlog_atan_bins:
 					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanLogarithmicBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
+				elif key in self.atan_atan_bins:
+					self.sngl_bins[ifo][key] = rate.BinnedRatios(rate.NDBins((rate.ATanBins(self.minmax[key[0]][0], self.minmax[key[0]][1], self.Nbins), rate.ATanBins(self.minmax[key[1]][0], self.minmax[key[1]][1], self.Nbins))))
 				else:
 					print >>sys.stderr,"ERROR: binning not implemented for ",key
 					sys.exit(1)
 
 	def add_bkg_sngl(self, values):
+		#
+		# add a background single to its appropriate bins
+		#
 		for key in self.sngl_slices:
 			self.sngl_bins[values[self.idx_sngls['ifo']]][key].incdenominator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
 
 	def add_inj_sngl(self, values):
+		#
+		# add an injection single to its appropriate bins
+		#
 		for key in self.sngl_slices:
 			self.sngl_bins[values[self.idx_sngls['ifo']]][key].incnumerator((values[self.idx_sngls[key[0]]], values[self.idx_sngls[key[1]]]), weight=values[self.idx_sngls['weight']])
 
 	def add_bkg_dbl(self, filename, ifos, values):
+		#
+		# add a background double to its appropriate bins
+		#
 		self.dbls.add(frozenset(ifos))
 		self.bkg_dbls.setdefault(frozenset(ifos), []).append(tuple([filename] + list(values)))
 
 	def add_inj_dbl(self, filename, ifos, values):
+		#
+		# add an injection double to its appropriate bins
+		#
 		self.dbls.add(frozenset(ifos))
 		self.inj_dbls.setdefault(frozenset(ifos), []).append(tuple([filename] + list(values)))
 
 	def filter_binned_ratios(self):
+		#
+		# smooth the binned array objects
+		#
 		for key1 in self.sngl_bins.keys():
 			for key2 in self.sngl_bins[key1].keys():
 				tablename = "".join(key1)+"_"
@@ -184,6 +233,9 @@ class Summaries(object):
 				self.sngl_bins[key1][key2].to_pdf()
 
 	def output_bins(self):
+		#
+		# save the binned array objects to xml
+		#
 		xmldoc = lsctables.ligolw.Document()
 		xmldoc.appendChild(lsctables.ligolw.LIGO_LW())
 		# FIXME should be key2[1] vs key2[0]
@@ -205,6 +257,9 @@ class Summaries(object):
 			utils.write_filename(xmldoc, "likelihood_snr_chisq.xml.gz", gz = True, verbose = True)
 
 	def create_1D_slices(self):
+		#
+		# create the appropriate 1D slices from the 2D projections
+		#
 		for ifo in self.sngl_bins.keys():
 			self.sngl_1D_bins[ifo] = {}
 			self.sngl_1D_count[ifo] = {}
@@ -217,6 +272,9 @@ class Summaries(object):
 						self.sngl_1D_count[ifo][subkey] += 1
 
 	def compute_sngl_likelihood(self, values):
+		#
+		# compute the likelihood for the single detector triggers
+		#
 		likelihood_2D = 1.
 		likelihood_1D = 1.
 		for key in self.sngl_slices:
@@ -226,6 +284,9 @@ class Summaries(object):
 		self.likelihoods[(values[self.idx_sngls['filename']],values[self.idx_sngls['coinc_event_id']])] *= likelihood_2D / likelihood_1D
 
 	def likelihood_map(self, filename, coinc_event_id):
+		#
+		# map the likehoods to the appropriate triggers
+		#
 		return self.likelihoods[(filename, coinc_event_id)]
 
 
@@ -238,6 +299,9 @@ class Summaries(object):
 #
 
 def single_inj(values):
+	#
+	# the SQL query for single detector injection triggers
+	#
 	query = """
 SELECT"""
 	keys = values.items()
@@ -253,7 +317,7 @@ SELECT"""
 	-- FIXME this breaks if more than one inspinj job
 	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr")
 		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance
-		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
+		WHEN "uniform" THEN  sim_inspiral.distance * sim_inspiral.distance
 		ELSE 1.0 END"""
 			continue
 
@@ -293,6 +357,9 @@ WHERE
 	return query
 
 def double_inj():
+	#
+	# not in use, only using single detector statistics
+	#
 	return """
 SELECT
 	coinc_inspiral.coinc_event_id,
@@ -313,7 +380,7 @@ SELECT
 	-- FIXME this breaks if more than one inspinj job
 	CASE (SELECT value FROM process_params WHERE program =="inspinj" AND param =="--d-distr")
 		WHEN "log10" THEN  sim_inspiral.distance * sim_inspiral.distance * sim_inspiral.distance
-		WHEN "linear" THEN  sim_inspiral.distance * sim_inspiral.distance
+		WHEN "uniform" THEN  sim_inspiral.distance * sim_inspiral.distance
 		ELSE 1.0 END
 FROM
 	coinc_inspiral
@@ -350,6 +417,9 @@ WHERE
 """
 
 def single_bkg(values):
+	#
+	# the SQL query for single detector background triggers
+	#
 	query = """
 SELECT"""
 	keys = values.items()
@@ -393,6 +463,9 @@ WHERE
 	return query
 
 def double_bkg():
+	#
+	# not in use, only using single detector statistics
+	#
 	return """
 SELECT
 	coinc_inspiral.coinc_event_id,
@@ -463,6 +536,7 @@ likelihood_bins = Summaries(200)
 #
 # iterate over database files accumulating statistics
 #
+
 
 if options.verbose:
 	print >>sys.stderr, "collecting initial likelihood statistics ..."
