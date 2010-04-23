@@ -48,21 +48,25 @@ def write_build_info():
 	build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
 
 	# determine builder
-	builder_name = gvcsi.check_call_out(('git', 'config', 'user.name'))
-	builder_email = gvcsi.check_call_out(('git', 'config', 'user.email'))
+	retcode, builder_name = gvcsi.call_out(('git', 'config', 'user.name'))
+	if retcode:
+		builder_name = "Unknown User"
+	retcode, builder_email = gvcsi.call_out(('git', 'config', 'user.email'))
+	if retcode:
+		builder_email = ""
 	builder = "%s <%s>" % (builder_name, builder_email)
 
 	sed_cmd = ('sed',
-						 '-e', 's/@ID@/%s/' % vcs_info.id,
-						 '-e', 's/@DATE@/%s/' % vcs_info.date,
-						 '-e', 's/@BRANCH@/%s/' % vcs_info.branch,
-						 '-e', 's/@TAG@/%s/' % vcs_info.tag,
-						 '-e', 's/@AUTHOR@/%s/' % vcs_info.author,
-						 '-e', 's/@COMMITTER@/%s/' % vcs_info.committer,
-						 '-e', 's/@STATUS@/%s/' % vcs_info.status,
-						 '-e', 's/@BUILDER@/%s/' % builder,
-						 '-e', 's/@BUILD_DATE@/%s/' % build_date,
-						 'misc/git_version.py.in')
+		'-e', 's/@ID@/%s/' % vcs_info.id,
+		'-e', 's/@DATE@/%s/' % vcs_info.date,
+		'-e', 's/@BRANCH@/%s/' % vcs_info.branch,
+		'-e', 's/@TAG@/%s/' % vcs_info.tag,
+		'-e', 's/@AUTHOR@/%s/' % vcs_info.author,
+		'-e', 's/@COMMITTER@/%s/' % vcs_info.committer,
+		'-e', 's/@STATUS@/%s/' % vcs_info.status,
+		'-e', 's/@BUILDER@/%s/' % builder,
+		'-e', 's/@BUILD_DATE@/%s/' % build_date,
+		'misc/git_version.py.in')
 
 	# FIXME: subprocess.check_call becomes available in Python 2.5
 	sed_retcode = subprocess.call(sed_cmd,

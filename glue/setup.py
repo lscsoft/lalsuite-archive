@@ -47,8 +47,12 @@ def write_build_info():
   build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
 
   # determine builder
-  builder_name = gvcsi.check_call_out(('git', 'config', 'user.name'))
-  builder_email = gvcsi.check_call_out(('git', 'config', 'user.email'))
+  retcode, builder_name = gvcsi.call_out(('git', 'config', 'user.name'))
+  if retcode:
+    builder_name = "Unknown User"
+  retcode, builder_email = gvcsi.call_out(('git', 'config', 'user.email'))
+  if retcode:
+    builder_email = ""
   builder = "%s <%s>" % (builder_name, builder_email)
 
   sed_cmd = ('sed',
