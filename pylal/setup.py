@@ -1,5 +1,3 @@
-# $Id$
-# 
 # setup for pylal
 
 

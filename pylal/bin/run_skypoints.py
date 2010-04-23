@@ -101,7 +101,8 @@ ligolw.Header += u"""\n\n"""\
 
 #setup the output filenames
 base_name = 'SKYPOINTS' + opts.output_prefix
-grid_fname = base_name + '_grid_GPSTIME.txt.gz'
+post_fname = base_name + '_posterior_GPSTIME.txt.gz'
+prob_fname = base_name + '_probability_GPSTIME.txt.gz'
 outfile = base_name + '_GPSTIME.xml'
 
 ##############################################################################
@@ -187,18 +188,21 @@ for coinc in coincs:
         dDrank = dDr.get_rank(dDrss_fine)
         L = dtrank*dDrank
         prob = P.get_rank(L)
-        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank)])
+        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank),dtrank])
 
         #FIXME: put galaxy catalog stuff here!!!
-     
-  grid_file = get_unique_filename(grid_fname.replace('GPSTIME',str(coinc.time.seconds)))
+  
+  fnames = {}
+  fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
+  fnames['probability'] = get_unique_filename(prob_fname.replace('GPSTIME',str(coinc.time.seconds)))
+
 
   if sp:
     print >>sys.stdout, 'Populating sky localization table...'
     #populate the output tables
     #list of points has been sorted so the best one is at the top
     #FIXME: replace None with a link to the skymap file name!!!
-    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,grid_file,None)
+    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['probability'],None)
   else:
     print >>sys.stdout, 'Unable to localize.'
   if coinc.is_injection:
@@ -209,22 +213,17 @@ for coinc in coincs:
     dtrank_inj = dtr.get_rank(dtrss_inj)
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
-    rank_inj = P.get_rank(dtrank_inj*dDrank_inj)
-    dt_area = 0.0
-    rank_area = 0.0
-    for pt in sp:
-      if pt[1] >= 0.0 and pt[2] >= dtrank_inj:
-        dt_area += fine_area
-      if pt[1] >= rank_inj:
-        rank_area += fine_area
+    rank_inj = dtrank_inj*dDrank_inj
+    dt_area = fine_area*len([pt for pt in sp if pt[4] >= dtrank_inj])
+    rank_area = fine_area*len([pt for pt in sp if pt[2] >= rank_inj])
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
-                                        dtrss_inj,dDrss_inj,grid_file)
+                                        dtrss_inj,dDrss_inj,fnames['probability'])
 
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
   print >>sys.stdout, 'Writing skymap...'
   normfac = sp.normalize(2)
-  sp.write(grid_file,normfac,argstring)
+  sp.write(fnames,normfac,argstring)
   
   print >>sys.stdout, 'Finished processing trigger.'
 

@@ -1,7 +1,5 @@
 #!/usr/bin/python
 __author__ = "Chad Hanna"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "IFOstatus_check"
 
 import os
@@ -20,6 +18,7 @@ from glue import lal
 
 from pylab import *
 
+from pylal import git_version
 from pylal import viz
 from pylal import date
 from pylal import xlal
@@ -27,10 +26,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 usage = """ %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 ## ADD OPTIONS FOR DATA TYPES, OBSERVATORIES ETC..!!!
 #parser.add_option("-D","--dataFind-executable",action="store",type="string",\
@@ -60,11 +56,6 @@ parser.add_option("-O","--enable-output",action="store_true",\
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
-
 
 #################################
 # Sanity check of input arguments
@@ -98,7 +89,7 @@ if utc[5] < 10: second = '0'+str(utc[5])
 else: second = str(utc[5])
 
 
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 fnameList = []
 
 if opts.enable_output is True:

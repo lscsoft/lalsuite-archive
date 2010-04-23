@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -29,8 +27,6 @@ import sys
 import time
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"[11:-2]
 
 #
 # Enums
