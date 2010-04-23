@@ -43,7 +43,7 @@ typedef struct {
 
 	/* these entries hold cache of computed matched power sums */
 	long computed_size;
-	long pps_bins;
+	int pps_bins;
 	float *m_re; /* real part */
 	float *m_im; /* imaginary */
 	float *w;  /* weight */
@@ -54,17 +54,6 @@ typedef struct {
 
 /* Lanczos window actually vanishes */
 #define LOOSE_SEARCH_TOLERANCE 0.0
-
-/* This computes exp(a) for a<=0.22 with 4% precision */
-static float fast_negexp(float a)
-{
-if(a>0.22) {
-	fprintf(stderr, "INTERNAL ERROR: fast_negexp is not correct for argument values >0.22");
-	exit(-1);
-	}
-if(a< -3.7)return(0.0);
-return(1.0/(1.0-a+a*a));
-}
 
 /* Single-bin helper function useful for matched code */
 LALDetector get_detector_struct(char *det);
@@ -627,7 +616,6 @@ int k,m;
 SEGMENT_INFO *si_local1, *si_local2;
 //POLARIZATION *pl;
 double x, beta;
-float alpha;
 int same_halfs=(si1[0].segment==si2[0].segment) && (si1[0].dataset==si2[0].dataset);
 MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
@@ -684,9 +672,6 @@ double gps_idx, gps_idx_next;
 double gps_step=ctx->summing_step;
 double center_frequency=(first_bin+nbins*0.5);
 int group_count=ctx->sidereal_group_count*ctx->time_group_count;
-/* for work with Doppler shifts sidereal day is best */
-//#define SCALER (GROUP_COUNT/(23.0*3600.0+56.0*60.0+4.0))
-float group_scaler=group_count; /* this determines sub-bin resolution in group formation */
 SEGMENT_INFO **groups;
 SEGMENT_INFO *tmp;
 int tmp_count;

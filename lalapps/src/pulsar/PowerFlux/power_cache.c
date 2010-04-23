@@ -729,7 +729,7 @@ pps->collapsed_weight_arrays=0;
 
 void get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
-int i,k,n,m;
+int i,k;
 int bin_shift;
 SEGMENT_INFO *si_local;
 DATASET *d;
@@ -928,7 +928,7 @@ pps->collapsed_weight_arrays=0;
 
 void sse_get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
-int i,k,n,m;
+int i,k;
 int bin_shift;
 SEGMENT_INFO *si_local;
 DATASET *d;
@@ -953,7 +953,7 @@ float weight_pppc=0;
 float weight_ppcc=0;
 float weight_pccc=0;
 float weight_cccc=0;
-__m128 v4power, v4power0, v4power1, v4tm, v4sum, v4sum_sq, v4pp, v4pc, v4cc, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
+__m128 v4power, v4power0, v4power1, v4pp, v4pc, v4cc, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
 float *tmp1, *tmp2;
 
 /*pp=aligned_alloca(pps_bins*sizeof(*pp));

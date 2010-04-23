@@ -546,9 +546,6 @@ double gps_idx, gps_idx_next;
 double gps_step=ctx->summing_step;
 double center_frequency=(first_bin+nbins*0.5);
 int group_count=ctx->sidereal_group_count*ctx->time_group_count;
-/* for work with Doppler shifts sidereal day is best */
-//#define SCALER (GROUP_COUNT/(23.0*3600.0+56.0*60.0+4.0))
-float group_scaler=group_count; /* this determines sub-bin resolution in group formation */
 SEGMENT_INFO **groups;
 SEGMENT_INFO *tmp;
 int tmp_count;
