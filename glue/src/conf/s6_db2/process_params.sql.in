@@ -22,7 +22,7 @@ CREATE TABLE process_params
       creator_db         INTEGER NOT NULL WITH DEFAULT 1,
 
 -- Program name
-      program            VARCHAR(64) NOT NULL,
+      program            VARCHAR(128) NOT NULL,
 
 -- Unique process ID (not unix process ID)
 -------------------- primary key 2 --------------------

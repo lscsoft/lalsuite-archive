@@ -18,17 +18,6 @@ file mkdir $ROOT_DIR
 file mkdir $CONF_DIR $OUTPUT_DIR $ERR_DIR
 
 	
-set CONDOR_FILE {
-universe=standard
-executable=$ANALYSIS_PROGRAM
-input=/dev/null
-output=$ERR_DIR/out.\$(PID)
-error=$ERR_DIR/err.\$(PID)
-arguments=--config=$CONF_DIR/\$(PID)
-log=$DAG_LOG
-queue
-}
-
 proc sample { limits } {
 set a [lindex $limits 0]
 set b [lindex $limits 1]
@@ -39,6 +28,8 @@ set i 0
 set last_i 0
 for { set band $FREQ_START } { $band < $FREQ_END } { set band [expr $band+$FREQ_STEP] } {
 	set firstbin [expr round($band*1800)]
+
+	set DATASET [GET_DATASET $firstbin]
 
 	set max_spindown_count [expr round($MAX_SPINDOWN_COUNT)]
 	for { set spindown_start $FIRST_SPINDOWN } { $spindown_start <= $LAST_SPINDOWN } {} {
