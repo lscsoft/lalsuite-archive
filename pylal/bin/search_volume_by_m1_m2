@@ -199,7 +199,7 @@ class upper_limit(object):
       print >>sys.stderr, "computing volume at FAR " + str(far)
       vAt, vA2t = self.twoD_SearchVolume(instruments, dbin_in=dbin, FAR = far, bootnum=1)
       # we need to compute derivitive of log according to ul paper
-      vAt.array = scipy.log10(vAt.array + 0.001)
+      vAt.array = scipy.log(vAt.array + 0.001)
       vA.append(vAt)
     # the derivitive is calcuated with respect to FAR * t
     FARTS = rate.LogarithmicBins(FARl * livetime, FARh * livetime, nbins)
