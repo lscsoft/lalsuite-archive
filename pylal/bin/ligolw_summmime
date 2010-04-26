@@ -1,7 +1,5 @@
 #!/usr/bin/python
 #
-# $Id$
-#
 # Copyright (C) 2009 Cristina Valeria Torres
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -144,7 +142,7 @@ def extractMedia(xmlTable=None,filename=None,extractTree=False):
 ###########################################################################3
 usage = """ usage: %prog [options] """
 
-parser = optparse.OptionParser(usage,version=git_version.verbose_msg)
+parser = optparse.OptionParser(usage, version=git_version.verbose_msg)
 #All possible options for performing imports and export of media files
 parser.add_option("-f","--xml-file",action="store",type="string",\
                       metavar="XMLFILE",default=None,\

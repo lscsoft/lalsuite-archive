@@ -25,8 +25,6 @@ editor, resulting in a Wikified checklist under MoinMoin version
 control.
 """
 __author__  = "Cristina Valeria Torres <cristina.torres@ligo.org>"
-__date__    = '$Date$'
-__version__ = '$Revision$'
 __prog__    = 'makeCheckListWiki.py'
 
 
@@ -202,9 +200,13 @@ class findFileType(object):
     """
     tmpList=list()
     for sngl in self.coinc.sngls:
-      myMaskIndex="*/%s_RDS_R_L1/*/%s/index.html"%(sngl.ifo,sngl.time)
-      myMaskPNG="*/%s_RDS_R_L1/*/%s/*.png"%(sngl.ifo,sngl.time)
-      myMaskSummary="*/%s_RDS_R_L1/*/%s/*summary.txt"%(sngl.ifo,sngl.time)
+      #Determine file type
+      frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
+      if not sngl.ifo in frametype:
+        frametype = sngl.ifo + "_" + frametype
+      myMaskIndex="*/%s/*/%s/index.html"%(frametype,sngl.time)
+      myMaskPNG="*/%s/*/%s/*.png"%(frametype,sngl.time)
+      myMaskSummary="*/%s/*/%s/*summary.txt"%(frametype,sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMaskIndex))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskSummary))
@@ -215,9 +217,14 @@ class findFileType(object):
     """
     tmpList=list()
     for sngl in self.coinc.sngls:
-      myMaskIndex="*/%s_RDS_R_L1_SEIS*/%s/*.html"%(sngl.ifo,sngl.time)
-      myMaskPNG="*/%s_RDS_R_L1_SEIS*/%s/*.png"%(sngl.ifo,sngl.time)
-      myMaskSummary="*/%s_RDS_R_L1_SEIS*/%s/*summary.txt"%(sngl.ifo,sngl.time)
+      #Determine file type
+      frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
+      if not sngl.ifo in frametype:
+        frametype = sngl.ifo + "_" + frametype
+      frametype = frametype + "_SEIS"
+      myMaskIndex="*/%s*/%s/*.html"%(frametype,sngl.time)
+      myMaskPNG="*/%s*/%s/*.png"%(frametype,sngl.time)
+      myMaskSummary="*/%s*/%s/*summary.txt"%(frametype,sngl.time)
       tmpList.extend(fnmatch.filter(self.fsys,myMaskIndex))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskPNG))
       tmpList.extend(fnmatch.filter(self.fsys,myMaskSummary))      
@@ -1066,6 +1073,8 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   thumbDict=dict()
   for sngl in wikiCoinc.sngls:
     frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'hoft')
+    if not sngl.ifo in frametype:
+      frametype = sngl.ifo + "_" + frametype
     indexDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
                                        "*/%s/*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(wikiFileFinder.get_hoft_frame(),\
@@ -1110,20 +1119,27 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   for sngl in wikiCoinc.sngls_in_coinc():
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
+    frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
+    if not sngl.ifo in frametype:
+      frametype = sngl.ifo + "_" + frametype
+    if sngl.ifo == "V1":
+      chankey = "Em_SE"
+    else:
+      chankey = "SEI"
     indexDict[sngl.ifo]=fnmatch.filter(filesOmega,\
-                                       "*/%s_RDS_*/%s/*index.html"%(sngl.ifo,sngl.time))
+                                       "*/%s_*/%s/*index.html"%(frametype,sngl.time))
     imageDict[sngl.ifo]=fnmatch.filter(filesOmega,\
-                                       "*/%s_RDS_*/%s/*SEI*_512.00_spectrogram_whitened.png"%\
-                                       (sngl.ifo,sngl.time))
+                                       "*/%s_*/%s/*%s*_512.00_spectrogram_whitened.png"%\
+                                       (frametype,sngl.time,chankey))
     thumbDict[sngl.ifo]=fnmatch.filter(filesOmega,\
-                                       "*/%s_RDS_*/%s/*SEI*_512.00_spectrogram_whitened?thumb.png"%\
-                                       (sngl.ifo,sngl.time))
+                                       "*/%s_*/%s/*%s*_512.00_spectrogram_whitened?thumb.png"%\
+                                       (frametype,sngl.time,chankey))
     #Search for corresponding Omega summary.txt file
     zValueDict[sngl.ifo]=list()
     for zFile in fnmatch.filter(filesOmega,\
-                                "*/%s_RDS_*/%s/*summary.txt"%(sngl.ifo,sngl.time)):
+                                "*/%s_*/%s/*summary.txt"%(frametype,sngl.time)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if "SEI" in chan[0]:
+        if chankey in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
       sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
@@ -1132,17 +1148,17 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     indexDictAQ[sngl.ifo]=fnmatch.filter(filesAnalyze,\
                                          "*_%s_%s_*.html"%(sngl.ifo,timeString))
     imageDictAQ[sngl.ifo]=fnmatch.filter(filesAnalyze,\
-                                         "*%s-*_%s_*_SEI*_z_scat-unspecified-gpstime.png"\
-                                         %(sngl.ifo,timeString))
+                                         "*%s-*_%s_*_%s*_z_scat-unspecified-gpstime.png"\
+                                         %(sngl.ifo,timeString,chankey))
     thumbDictAQ[sngl.ifo]=fnmatch.filter(filesAnalyze,\
-                                         "*%s-*_%s_*_SEI*_z_scat-unspecified-gpstime_thumb.png"\
-                                         %(sngl.ifo,timeString))
+                                         "*%s-*_%s_*_%s*_z_scat-unspecified-gpstime_thumb.png"\
+                                         %(sngl.ifo,timeString,chankey))
     #Load of analyzeQscan z file if available
     zValueDictAQ[sngl.ifo]=list()
     for zFile in fnmatch.filter(filesAnalyze,\
                                 "*_%s_%s_*.txt"%(sngl.ifo,timeString)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if "SEI" in chan[0]:
+        if chankey in chan[0]:
           zValueDictAQ[sngl.ifo].append(chan)
     if len(zValueDictAQ[sngl.ifo]) == 0:
       sys.stdout.write("AnalyzeQscan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
@@ -1189,27 +1205,36 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   for sngl in wikiCoinc.sngls_in_coinc():
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
+    frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
+    if not sngl.ifo in frametype:
+      frametype = sngl.ifo + "_" + frametype
+    if sngl.ifo == "V1":
+      chankeyseis = "Em_SE"
+      chankeyenv = "Em_"
+    else:
+      chankeyseis = "SEI"
+      chankeyenv = "PEM"
     for myFile in fnmatch.filter(filesOmega,\
-                                 "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
+                                 "*/%s/*/%s/*html"%(frametype,sngl.time)):
       indexDict[sngl.ifo].append(myFile)
 
     for myFile in fnmatch.filter(filesOmega,\
-                                 "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
-                                 (sngl.ifo,sngl.time)):
-      if "PEM" in myFile.upper() and not "SEI" in myFile.upper():
+                                 "*/%s/*/%s/*_16.00_spectrogram_whitened.png"%\
+                                 (frametype,sngl.time)):
+      if chankeyenv in myFile and not chankeyseis in myFile:
         imageDict[sngl.ifo].append(myFile)
         
     for myFile in fnmatch.filter(filesOmega,\
-                                 "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened?thumb.png"%\
-                                 (sngl.ifo,sngl.time)):
-      if "PEM" in myFile.upper() and not "SEI" in myFile.upper():
+                                 "*/%s/*/%s/*_16.00_spectrogram_whitened?thumb.png"%\
+                                 (frametype,sngl.time)):
+      if chankeyenv in myFile and not chankeyseis in myFile:
         thumbDict[sngl.ifo].append(myFile)
     #Search for corresponding Omega summary.txt file
     zValueDict[sngl.ifo]=list()
     for zFile in fnmatch.filter(filesOmega,\
-                                "*/%s_RDS_*/%s/*summary.txt"%(sngl.ifo,sngl.time)):
+                                "*/%s/*/%s/*summary.txt"%(frametype,sngl.time)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if "PEM" in chan[0] and not "SEI" in chan[0]:
+        if chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
       sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
@@ -1218,13 +1243,13 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*_z_scat-unspecified-gpstime.png"%\
                                  (sngl.ifo,timeString)):
-      if "PEM" in myFile.upper() and not "SEI" in myFile.upper():
+      if chankeyenv in myFile and not chankeyseis in myFile:
         imageDictAQ[sngl.ifo].append(myFile)
         
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*_z_scat-unspecified-gpstime?thumb.png"%\
                                  (sngl.ifo,timeString)):
-      if "PEM" in myFile.upper() and not "SEI" in myFile.upper():
+      if chankeyenv in myFile and not chankeyseis in myFile:
         thumbDictAQ[sngl.ifo].append(myFile)
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*html"%(sngl.ifo,timeString)):
@@ -1233,7 +1258,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for zFile in fnmatch.filter(filesAnalyze,\
                                 "*%s-*_%s_*txt"%(sngl.ifo,timeString)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if "PEM" in chan[0] and not "SEI" in chan[0]:
+        if chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDictAQ[sngl.ifo].append(chan)
     if len(zValueDictAQ[sngl.ifo]) == 0:
       sys.stdout.write("AnalyzeQscan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
@@ -1248,6 +1273,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
       wikiPage.putText("PEM scans for %s not available.\n"%sngl.ifo)
   enoughImage=[len(imageDict[key])>0 for key in imageDict.keys()].count(True) >=1
   enoughIndex=[len(indexDict[key])>0 for key in indexDict.keys()].count(True) >=1
+    
   if enoughImage and enoughIndex:
     wikiPage.insertAnalyzeQscanTable(imageDict,
                                      thumbDict,
@@ -1277,27 +1303,36 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
   filesOmega=wikiFileFinder.get_RDS_R_L1()
   filesAnalyze=wikiFileFinder.get_analyzeQscan_RDS()
   for sngl in wikiCoinc.sngls:
+    frametype,channelName=stfu_pipe.figure_out_type(sngl.time,sngl.ifo,'rds')
+    if not sngl.ifo in frametype:
+      frametype = sngl.ifo + "_" + frametype
+    if sngl.ifo == "V1":
+      chankeyseis = "Em_SE"
+      chankeyenv = "Em_"
+    else:
+      chankeyseis = "SEI"
+      chankeyenv = "PEM"
     indexDict[sngl.ifo],imageDict[sngl.ifo],thumbDict[sngl.ifo],zValueDict[sngl.ifo]=list(),list(),list(),list()
     indexDictAQ[sngl.ifo],imageDictAQ[sngl.ifo],thumbDictAQ[sngl.ifo],zValueDictAQ[sngl.ifo]=list(),list(),list(),list()
     for myFile in fnmatch.filter(filesOmega,\
-                                 "*/%s_RDS_*/%s/*html"%(sngl.ifo,sngl.time)):
+                                 "*/%s/*/%s/*html"%(frametype,sngl.time)):
       indexDict[sngl.ifo].append(myFile)
     for myFile in fnmatch.filter(filesOmega,\
-                                 "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened.png"%\
-                                 (sngl.ifo,sngl.time)):
-      if not "PEM" in myFile.upper() or not "SEI" in myFile.upper():
+                                 "*/%s/*/%s/*_16.00_spectrogram_whitened.png"%\
+                                 (frametype,sngl.time)):
+      if not chankeyenv in myFile or not chankeyseis in myFile:
         imageDict[sngl.ifo].append(myFile)
         
     for myFile in fnmatch.filter(filesOmega,\
-                                 "*/%s_RDS_*/%s/*_16.00_spectrogram_whitened?thumb.png"%\
-                                 (sngl.ifo,sngl.time)):
-      if not "PEM" in myFile.upper() and not "SEI" in myFile.upper():
+                                 "*/%s/*/%s/*_16.00_spectrogram_whitened?thumb.png"%\
+                                 (frametype,sngl.time)):
+      if not chankeyenv in myFile and not chankeyseis in myFile:
         thumbDict[sngl.ifo].append(myFile)
     zValueDict[sngl.ifo]=list()
     for zFile in fnmatch.filter(filesOmega,\
-                                "*/%s_RDS_*/%s/*summary.txt"%(sngl.ifo,sngl.time)):
+                                "*/%s/*/%s/*summary.txt"%(frametype,sngl.time)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if not "PEM" in chan[0] and not "SEI" in chan[0]:
+        if not chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDict[sngl.ifo].append(chan)
     if len(zValueDict[sngl.ifo]) == 0:
       sys.stdout.write("Omega scan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)
@@ -1306,13 +1341,13 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*_z_scat-unspecified-gpstime.png"%\
                                  (sngl.ifo,timeString)):
-      if not "PEM" in myFile.upper() or not "SEI" in myFile.upper():
+      if not chankeyenv in myFile or not chankeyseis in myFile:
         imageDictAQ[sngl.ifo].append(myFile)
         
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*_z_scat-unspecified-gpstime?thumb.png"%\
                                  (sngl.ifo,timeString)):
-      if not "PEM" in myFile.upper() and not "SEI" in myFile.upper():
+      if not chankeyenv in myFile and not chankeyseis in myFile:
         thumbDictAQ[sngl.ifo].append(myFile)
     for myFile in fnmatch.filter(filesAnalyze,\
                                  "*%s-*_%s_*html"%(sngl.ifo,timeString)):
@@ -1321,7 +1356,7 @@ def prepareChecklist(wikiFilename=None,wikiCoinc=None,wikiTree=None,file2URL=Non
     for zFile in fnmatch.filter(filesAnalyze,\
                                 "*%s-*_%s_*txt"%(sngl.ifo,timeString)):
       for chan in wikiFileFinder.__readSummary__(zFile):
-        if not "PEM" in chan[0] and not "SEI" in chan[0]:
+        if not chankeyenv in chan[0] and not chankeyseis in chan[0]:
           zValueDictAQ[sngl.ifo].append(chan)
     if len(zValueDictAQ[sngl.ifo]) == 0:
       sys.stdout.write("AnalyzeQscan summary file not or empty for %s. ...continuing...\n"%sngl.ifo)

@@ -75,7 +75,7 @@ while { 1 }  {
         puts $DAG_FILE "VARS A$i PID=\"$i\""
 
 	set FILE [open "$CONF_DIR/$i" "w"]
-	puts $FILE [subst -nocommands -nobackslashes $POWERFLUX_CONF_FILE]
+	puts $FILE [subst -nobackslashes $POWERFLUX_CONF_FILE]
 	close $FILE
 
 	incr i
@@ -90,20 +90,6 @@ while { 1 }  {
 	}
 close $PARAMS_FILE
 close $DAG_FILE
-
-set CONDOR_FILE {
-universe=standard
-executable=$ANALYSIS_PROGRAM
-input=/dev/null
-output=$ERR_DIR/out.\$(PID)
-error=$ERR_DIR/err.\$(PID)
-arguments=--config=$CONF_DIR/\$(PID)
-log=$LOG_FILE
-notification=Error
-notify_user=volodya@mindspring.com
-want_remote_io=False
-queue
-}
 
 set FILE [open "$ROOT_DIR/condor" "w"]
 puts $FILE [subst -nocommands $CONDOR_FILE]

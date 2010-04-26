@@ -8,10 +8,7 @@ One can either read SIRE or COIRE files, however, COIRE is recommended
 """
 from __future__ import division
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotsnrchi"
-__Id__ = "$Id$"
 __title__ = "Plots of CBC signal discriminators and detection statistics"
 
 import sys
@@ -25,6 +22,7 @@ from types import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from glue import lal
 from glue.ligolw import lsctables
 import pylal
@@ -57,8 +55,8 @@ def plotnewsnrlines(min_chisq, max_chisq, index, chisq_dof):
 ##############################################################################
 def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
 
-  max_val = max(trig_val.max(),slide_val.max(),inj_val.max())
-  min_val = min(trig_val.min(),slide_val.min(),inj_val.min())
+  max_val = max(concatenate((trig_val,slide_val,inj_val)))
+  min_val = min(concatenate((trig_val,slide_val,inj_val)))
   log_max_val = log10(max_val)
   log_min_val = log10(min_val)
   
@@ -77,12 +75,14 @@ def loghistval(trig_val,slide_val,inj_val,comments,nbins=40):
     [injs,log_bins] = numpy.histogram(log_inj_val, log_bins, normed=True, new=True)
   if len(slide_val):
     [slides,log_bins] = numpy.histogram(log_slide_val, log_bins, normed=True, new=True)
-
   logplotbins = log_bins[0:-1] + (log_max_val - log_min_val)/(2.*nbins)
   bins = 10**logplotbins
-  trig_val = 10**log_trig_val
-  inj_val = 10**log_inj_val
-  slide_val = 10**log_slide_val
+  if len(trig_val):
+    trig_val = 10**log_trig_val
+  if len(inj_val):
+    inj_val = 10**log_inj_val
+  if len(slide_val):
+    slide_val = 10**log_slide_val
   leg = []
   if len(inj_val):
     loglog(bins, injs, 'r-+',markersize=9, markerfacecolor='None',\
@@ -188,10 +188,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   ## arguments for data reading
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -222,8 +219,8 @@ def parse_command_line():
       help="scatter plot of snr vs chisq" )
   parser.add_option("-X","--bank-chisq",action="store_true",default=False,\
       help="scatter plot of bank chisq vs snr" )
-  parser.add_option("-Y","--autocorr-chisq",action="store_true",default=False,\
-      help="scatter plot of autocorrelation chisq vs snr")
+  parser.add_option("-Y","--cont-chisq",action="store_true",default=False,\
+      help="scatter plot of autocorrelation chisq vs snr")  # used to be 'continuous chisq'
   parser.add_option("-B","--snr-chisq-contours",action="store_true",default=False,\
       help="plot triggers, injections, lines and contours" )
   parser.add_option("","--effsnr-lines",action="store_true",default=False,\
@@ -239,13 +236,13 @@ def parse_command_line():
   parser.add_option("-k","--hist-effsnr",action="store_true",default=False,\
       help="histogram of effective snr for triggers/injections" )
   parser.add_option("-D","--denominator-constant",action="store",type="float",\
-      default=250.0,metavar=" CONST",\
+      default=250.0,metavar="CONST",\
       help="value for the effective snr magic number")
   parser.add_option("","--chisq-index",action="store",type="float",\
-      default=6.0,metavar=" CONST",\
+      default=6.0,metavar="INDEX",\
       help="chisq index for new snr")
   parser.add_option("-n","--nbins",action="store",type="int",default=40,\
-      metavar=" NBINS", help="number of bins for the histogram plots" )
+      metavar="NBINS", help="number of bins for the histogram plots" )
   parser.add_option("","--masshist-newsnr",action="store_true",default=False,\
       help="cumulative histograms of newsnr split by chirp mass")
   parser.add_option("","--masshist-effsnr",action="store_true",default=False,\
@@ -265,7 +262,7 @@ def parse_command_line():
   
   # output related
   parser.add_option("-Z","--user-tag",action="store",type="string",\
-      default=None,metavar=" FNAME",\
+      default=None,metavar="FNAME",\
       help="a user tag for the output filenames" )
   parser.add_option("-o","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
@@ -277,14 +274,15 @@ def parse_command_line():
       type="int",  metavar="GPSSTARTTIME",\
       help="gps start time (for naming figure and output files")
   parser.add_option("","--gps-end-time",action="store",\
-      type="int",  metavar=" GPSENDTIME",\
+      type="int",  metavar="GPSENDTIME",\
       help="gps end time (for naming figure and output files")
   parser.add_option("", "--ifo-tag", action="store", type="string",\
       default=None,\
-      metavar="IFOTAG", help="sets the selected IFO")
+      metavar="IFOTAG", help="sets the IFO tag for plots")
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
-      default=None,\
-      metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
+      default=None,metavar="IFOTIMES", \
+      help="sieve a cache file according to a particular ifo type, also " \
+      "used to select the correct single-ifo triggers from COIRE files")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   parser.add_option("", "--figure-resolution",action="store",type="int",\
@@ -293,6 +291,7 @@ def parse_command_line():
   parser.add_option("", "--exact-match",action="store_true",
       default=False,  \
       help="the pattern should match exactly if this option is used" )
+
 
   (options,args) = parser.parse_args()
 
@@ -362,7 +361,7 @@ from pylal import viz
 
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 # -- set the proper color code
 colors = InspiralUtils.colors
@@ -391,7 +390,7 @@ if opts.trig_pattern:
     found, missed = trig_cache.checkfilesexist()
     trigFiles = found.pfnlist()
     if not len(trigFiles):
-      print >>sys.stderr, "ERROR: No file in %s matches the trig_pattern '%s'" % (opts.cache_file, opts.trig_pattern)
+      print >>sys.stderr, "WARNING: No file in %s matches the trig_pattern '%s'" % (opts.cache_file, opts.trig_pattern)
       trigFiles = None
     else: 
       comments += InspiralUtils.message(opts, 'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
@@ -412,7 +411,7 @@ if opts.slide_pattern:
     found, missed = slide_cache.checkfilesexist()
     slideFiles = found.pfnlist()
     if not len(slideFiles):
-      print >>sys.stderr, "ERROR: No file in %s matches the slide_pattern '%s'" % (opts.cache_file, opts.slide_pattern)
+      print >>sys.stderr, "WARNING: No file in %s matches the slide_pattern '%s'" % (opts.cache_file, opts.slide_pattern)
       slideFiles = None
     else:
       comments += InspiralUtils.message(opts, 'Reading ' +str(len(slideFiles)) + ' files having the pattern '+opts.slide_pattern)
@@ -432,7 +431,7 @@ if opts.found_pattern:
     found, missed = inj_cache.checkfilesexist()
     injFiles = found.pfnlist()
     if not len(injFiles):
-      print >>sys.stderr, "ERROR: No file in %s matches the found_pattern '%s'" % (opts.cache_file, opts.found_pattern)
+      print >>sys.stderr, "WARNING: No file in %s matches the found_pattern '%s'" % (opts.cache_file, opts.found_pattern)
       injFiles = None
     else: 
       comments += InspiralUtils.message(opts, 'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
@@ -444,13 +443,14 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-
+   
 ###################################
 # Input triggers
 
 snr = array([])
 chisq = array([])
-bankchisq = array([])
+bankrchisq = array([])
+contrchisq = array([])
 rsq = array([])
 nevents = 0
 
@@ -458,8 +458,8 @@ if trigFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
       verbose=opts.verbose)
   if inspTriggers:
-    if opts.ifo_tag:
-      inspTriggers.ifocut(opts.ifo_tag, inplace=True)
+    if opts.ifo_times:
+      inspTriggers.ifocut(opts.ifo_times, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
     nevents = len(inspTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(nevents)+ ' triggers from inspiral files')
@@ -467,15 +467,16 @@ if trigFiles:
     snr = inspTriggers.get_column('snr')
     chisq = inspTriggers.get_column('chisq')
     chisq_dof = 2 * (inspTriggers.get_column('chisq_dof')[0] - 1)
-    bankchisq = inspTriggers.get_column('bank_chisq')
-    bankchisq_dof = 2 * (inspTriggers.get_column('bank_chisq_dof') - 1)
+    bankrchisq = inspTriggers.get_column('reduced_bank_chisq')
+    contrchisq = inspTriggers.get_column('reduced_cont_chisq')     # the new auto chisq is called cont chisq
     rsq = inspTriggers.get_column('rsqveto_duration') + 0.00001
 
 # Time slide triggers
 
 slide_snr = array([])
 slide_chisq = array([])
-slide_bankchisq = array([])
+slide_bankrchisq = array([])
+slide_contrchisq = array([])
 slide_rsq = array([])
 slide_events = 0
 
@@ -483,8 +484,8 @@ if slideFiles:
   slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles, \
       verbose=opts.verbose)
   if slideTriggers:
-    if opts.ifo_tag:
-      slideTriggers.ifocut(opts.ifo_tag, inplace=True)
+    if opts.ifo_times:
+      slideTriggers.ifocut(opts.ifo_times, inplace=True)
     slide_events = len(slideTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(slide_events)+ ' triggers from inspiral files')
@@ -492,8 +493,8 @@ if slideFiles:
     slide_snr = slideTriggers.get_column('snr')
     slide_chisq = slideTriggers.get_column('chisq')
     slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof')[0] - 1)
-    slide_bankchisq = slideTriggers.get_column('bank_chisq')
-    slide_bankchisq_dof = 2 * (slideTriggers.get_column('bank_chisq_dof') - 1)
+    slide_bankrchisq = slideTriggers.get_column('reduced_bank_chisq')
+    slide_contrchisq = slideTriggers.get_column('reduced_cont_chisq')
     slide_rsq = slideTriggers.get_column('rsqveto_duration') + 0.00001
 
 # input injections:
@@ -501,22 +502,23 @@ if slideFiles:
 ninj_events = 0
 inj_snr = array([])
 inj_chisq = array([])
-inj_bankchisq = array([])
+inj_bankrchisq = array([])
+inj_contrchisq = array([])
 inj_rsq = array([])
 
 if injFiles:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
       verbose=opts.verbose)
   if injTriggers:
-    if opts.ifo_tag:
-      injTriggers.ifocut(opts.ifo_tag, inplace=True)
+    if opts.ifo_times:
+      injTriggers.ifocut(opts.ifo_times, inplace=True)
     ninj_events = len(injTriggers)
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
     inj_chisq = injTriggers.get_column('chisq')
     inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof')[0] - 1)
-    inj_bankchisq = injTriggers.get_column('bank_chisq')
-    inj_bankchisq_dof = 2 * (injTriggers.get_column('bank_chisq_dof') - 1)
+    inj_bankrchisq = injTriggers.get_column('reduced_bank_chisq')
+    inj_contrchisq = injTriggers.get_column('reduced_cont_chisq')
     inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
   comments += InspiralUtils.message(opts, \
       'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
@@ -561,16 +563,28 @@ chisq_logrange = arange(log_min_chisq, log_max_chisq, (log_max_chisq - log_min_c
 chisq_range = 10**chisq_logrange
 
 ###################################
-# Determine bank chisq range
-max_bankchisq = max(len(bankchisq) and bankchisq.max(), len(slide_bankchisq) and \
- slide_bankchisq.max(), len(inj_bankchisq) and inj_bankchisq.max())
-min_bankchisq = min(concatenate((bankchisq,slide_bankchisq,inj_bankchisq)))
+# Determine (reduced) bank chisq range
+max_bankrchisq = max(len(bankrchisq) and bankrchisq.max(), len(slide_bankrchisq) and \
+ slide_bankrchisq.max(), len(inj_bankrchisq) and inj_bankrchisq.max())
+min_bankrchisq = min(concatenate((bankrchisq,slide_bankrchisq,inj_bankrchisq)))
 
-log_min_bank = log10(min_bankchisq)
-log_max_bank = 1.1*log10(max_bankchisq)
+log_min_bank = log10(min_bankrchisq)  # NB all below this point only needed for 'contour' calculation
+log_max_bank = 1.1*log10(max_bankrchisq)
 
-bankchisq_logrange = arange(log_min_bank, log_max_bank, (log_max_bank - log_min_bank)/20)
-bankchisq_range = 10**bankchisq_logrange
+bankrchisq_logrange = arange(log_min_bank, log_max_bank, (log_max_bank - log_min_bank)/20)
+bankrchisq_range = 10**bankrchisq_logrange
+
+###################################
+# Determine (reduced) cont chisq range
+max_contrchisq = max(len(contrchisq) and contrchisq.max(), len(slide_contrchisq) and \
+ slide_contrchisq.max(), len(inj_contrchisq) and inj_contrchisq.max())
+min_contrchisq = min(concatenate((contrchisq,slide_contrchisq,inj_contrchisq)))
+
+log_min_cont = log10(min_contrchisq)  # NB all below this point only needed for 'contour' calculation
+log_max_cont = 1.1*log10(max_contrchisq)
+
+contrchisq_logrange = arange(log_min_cont, log_max_cont, (log_max_cont - log_min_cont)/20)
+contrchisq_range = 10**contrchisq_logrange
 
 ###################################
 # Determine rsq range
@@ -699,18 +713,18 @@ if opts.bank_chisq:
   figure(fig_num)
   legendText= []
   if ninj_events:
-    viz.plot_a_v_b(injTriggers,'snr','bank_chisq','loglog','r+')
+    viz.plot_a_v_b(injTriggers,'snr','reduced_bank_chisq','loglog','r+')  # question: does this give correct normalization?
     legendText.append('Injections')
   if slide_events:
-    viz.plot_a_v_b(slideTriggers,'snr','bank_chisq','loglog','kx')
+    viz.plot_a_v_b(slideTriggers,'snr','reduced_bank_chisq','loglog','kx')
     legendText.append('Background')
   if nevents:
-    viz.plot_a_v_b(inspTriggers,'snr','bank_chisq','loglog','b2')
+    viz.plot_a_v_b(inspTriggers,'snr','reduced_bank_chisq','loglog','b2')
     legendText.append('Triggers')
   xlabel(r'$\rho$', size='x-large')
-  ylabel(r'Bank $\chi^2$', size='x-large')
+  ylabel(r'Reduced bank $\chi^2$', size='x-large')
   xlim(min_snr, 1.1*max_snr)
-  ylim(min_bankchisq, 1.1*max_bankchisq)
+  ylim(min_bankrchisq, 1.1*max_bankrchisq)
   legend(legendText)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_bank_chisq")
@@ -723,12 +737,12 @@ if opts.bank_chisq:
 
 ###################################
 # plot of snr vs autocorrel chisq
-if opts.autocorr_chisq:
+if opts.cont_chisq:
   fig_num +=1
   figure(fig_num)
   legendText=[]
   if ninj_events:
-    viz.plot_a_v_b(injTriggers,'snr','reduced_cont_chisq','loglog','r+')
+    viz.plot_a_v_b(injTriggers,'snr','reduced_cont_chisq','loglog','r+')  # question: does this give the right normalization?
     legendText.append('Injections')
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','reduced_cont_chisq','loglog','kx')
@@ -737,12 +751,12 @@ if opts.autocorr_chisq:
     viz.plot_a_v_b(inspTriggers,'snr','reduced_cont_chisq','loglog','b2')
     legendText.append('Triggers')
   xlabel(r'$\rho$', size='x-large')
-  ylabel(r'Cont $\chi^2$', size='x-large')
+  ylabel(r'Reduced autocorrelation $\chi^2$', size='x-large')
   xlim(min_snr, 1.1*max_snr)
-  ylim(min_contchisq, 1.1*max_contchisq)
+  ylim(min_contrchisq, 1.1*max_contrchisq)
   legend(legendText)
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "snr_vs_cont_chisq")
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_auto_chisq")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
@@ -907,9 +921,15 @@ if opts.hist_effsnr:
     fig_num +=1
     figure(fig_num)
     C = opts.denominator_constant
-    stat = inspTriggers.get_effective_snr(fac=C)
-    inj_stat = injTriggers.get_effective_snr(fac=C)
-    slide_stat = slideTriggers.get_effective_snr(fac=C)
+    stat = array([])
+    inj_stat = array([])
+    slide_stat = array([])
+    if trigFiles:
+      stat = inspTriggers.get_effective_snr(fac=C)
+    if injFiles:
+      inj_stat = injTriggers.get_effective_snr(fac=C)
+    if slideFiles:
+      slide_stat = slideTriggers.get_effective_snr(fac=C)
     comments += InspiralUtils.message(opts,\
                     'Statistic is effective snr')
     comments += loghistval(stat,slide_stat,inj_stat,comments,opts.nbins)
@@ -932,9 +952,15 @@ if opts.hist_newsnr:
     fig_num +=1
     figure(fig_num)
     q = opts.chisq_index
-    newsnr = inspTriggers.get_new_snr(index=q)
-    inj_newsnr = injTriggers.get_new_snr(index=q)
-    slide_newsnr = slideTriggers.get_new_snr(index=q)
+    newsnr = array([])
+    inj_newsnr = array([])
+    slide_newsnr = array([])
+    if trigFiles:
+      newsnr = inspTriggers.get_new_snr(index=q)
+    if injFiles:
+      inj_newsnr = injTriggers.get_new_snr(index=q)
+    if slideFiles:
+      slide_newsnr = slideTriggers.get_new_snr(index=q)
     comments += InspiralUtils.message(opts,\
                     'Statistic is newSNR')
     comments += loghistval(newsnr,slide_newsnr,inj_newsnr,comments,opts.nbins)

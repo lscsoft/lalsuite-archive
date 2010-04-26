@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 """
-$Id$
-
 Manager program to run specific parts of the followup on the CCIN2P3 cluster
 """
 
 __author__ = 'Damir Buskulic <buskulic@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
@@ -16,6 +12,7 @@ from os import *
 from optparse import *
 import ConfigParser
 from UserDict import UserDict
+from pylal import git_version
 
 ##############################################################################
 #
@@ -27,19 +24,13 @@ from UserDict import UserDict
 usage = """
 usage: %prog [options]
 """
-parser = OptionParser( usage )
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
 parser.add_option("-o", "--output-file",action="store",type="string",\
     help="name of the tar.gz output file, omit the .tar.gz extension. Leave blank for default")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #########  cleaning result files, remove all image .png files  ############
 #########     (the image files should have been copied in the  ############

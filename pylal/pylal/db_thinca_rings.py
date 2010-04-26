@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2009  Kipp Cannon, Chad Hanna
 #
 # This program is free software; you can redistribute it and/or modify it

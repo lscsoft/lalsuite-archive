@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2006  Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -16,9 +14,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-__Id__ = "$Id$"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "followup_trigger.py"
 
 import os
@@ -36,6 +31,7 @@ from pylal import InspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import SearchSummaryUtils
+from pylal import git_version
 from pylal import grbsummary
 from pylal import viz
 from pylal import tools
@@ -308,12 +304,6 @@ class FollowupTrigger:
                        " file %s. Does this file exist and does it contain"\
                        " a search_summary table?\n" %(coire_file))
       raise 	 
-    except AttributeError: 	 
-      sys.stderr.write("ERROR (AttributeError:) while reading process_params"\
-                       " table from file %s. Is the version of "\
-                       "SearchSummaryUtils.py at least 1.5? Seems you have %s.\n" \
-                       %(coire_file, SearchSummaryUtils.__version__))
-      raise
     except:
       raise "Error while reading process_params table from file: ", coire_file
 
@@ -1082,7 +1072,7 @@ class FollowupTrigger:
     self.number+=1
     page.add("<hr>")
     page.add("Figure(s) and data produced with " + __prog__ + ", version " \
-              + __version__)
+              + git_version.verbose_msg)
         
     htmlfilename = self.opts.prefix + "_followup_"+str(self.number) +\
                          self.opts.suffix+'.html'
@@ -1276,7 +1266,7 @@ class FollowupTrigger:
     ## add the version of this code
     page.add("<hr>")
     page.add("Figure(s) and data produced with " + __prog__ + ", version " \
-              + __version__)
+              + git_version.verbose_msg)
         
     # and write the html file
     htmlfilename = self.opts.prefix + "_followup_"+str(self.number) +\

@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "wscan_background.py"
-__Id__ = "$Id$"
 __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
@@ -17,6 +14,7 @@ from glue import pipeline
 from glue import gpstime
 from glue.ligolw import dbtables
 from pylal import fu_utils
+from pylal import git_version
 from pylal import stfu_pipe
 
 ##############################################################################
@@ -38,10 +36,13 @@ class create_default_config(object):
     cp.add_section("datafind")
 
     cp.add_section("fu-q-rds-datafind")
-    cp.set("fu-q-rds-datafind","search-time-range","1024")
+    for ifo in ["H1","H2","L1"]:
+      cp.set("fu-q-rds-datafind",ifo+"-search-time-range","1024")
+    cp.set("fu-q-rds-datafind","V1-search-time-range","2048")
 
     cp.add_section("fu-q-hoft-datafind")
-    cp.set("fu-q-hoft-datafind","search-time-range","128")
+    for ifo in ["H1","H2","L1","V1"]:
+      cp.set("fu-q-hoft-datafind",ifo+"-search-time-range","128")
 
     cp.add_section("followup-background-qscan-times")
     cp.set("followup-background-qscan-times","H1range","")
@@ -238,10 +239,7 @@ home_base = "/".join(home_dir.split("/")[0:-1])
 usage = """usage: %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
@@ -274,10 +272,6 @@ parser.add_option("","--prepare-scan-ccin2p3", action="store_true",\
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #############################################################################
 

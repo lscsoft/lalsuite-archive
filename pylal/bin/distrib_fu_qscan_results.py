@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 """
-$Id$
-
 Manager program to run specific parts of the followup on the CCIN2P3 cluster
 """
 
 __author__ = 'Romain Gouaty  <gouaty@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules
@@ -32,6 +28,7 @@ sys.path.append('@PYTHONLIBDIR@')
 ##############################################################################
 # import the modules we need from GLUE/LAL/LALAPPS/PYLAL
 
+from pylal import git_version
 from pylal import stfu_pipe
 
 ##############################################################################
@@ -45,7 +42,7 @@ from pylal import stfu_pipe
 usage = """
 usage: %prog [options]
 """
-parser = OptionParser( usage )
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 
 parser.add_option("-v","--version",action="store_true",default=False,\
@@ -69,12 +66,6 @@ parser.add_option("","--qscan-type-list",action="store",type="string",\
 
 nd_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #################################
 # Sanity check of input arguments
@@ -167,7 +158,7 @@ for qscan_type in qscanTypeList:
     continue
   else:
     for qscan in eval(qscan_type.replace('-','_') + "List"):
-      qscan_result_path = result_path + qscan[1]
+      qscan_result_path = result_path + qscan[0].strip('/').split('/')[-1]
       # check if directory exists before trying to move it
       if os.path.exists(qscan_result_path):
         # do not overwrite an existing output directory
@@ -175,10 +166,10 @@ for qscan_type in qscanTypeList:
           print >> sys.stderr, "Directory " + qscan[0] + " already exists, cannot be overwritten with new qscan results"
         else:
           shutil.move(qscan_result_path, qscan[0]) 
-          print "\n Copying file " + qscan_result_path + " to " + qscan[0]
+          #print "\n Copying file " + qscan_result_path + " to " + qscan[0]
       else:
         print >> sys.stderr, "Directory " + qscan_result_path + " could not be found!!"
-        sys.exit(1)
+        #sys.exit(1)
 
 
 # Do some cleaning in the local directory before exiting

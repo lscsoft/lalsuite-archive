@@ -46,7 +46,7 @@ int veto_free=0;
 void assign_detector_veto(void)
 {
 int i,k, m;
-memset(veto_info, 0, 10*sizeof(*veto_info));
+memset(veto_info, 0, 4*sizeof(*veto_info));
 
 fprintf(LOG, "split_ifos: %s\n", args_info.split_ifos_arg ? "yes" : "no");
 if(!args_info.split_ifos_arg) {

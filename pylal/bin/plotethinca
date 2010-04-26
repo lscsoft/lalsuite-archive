@@ -2,15 +2,11 @@
 """
 routine to look at  ethinca parameter
 """
-# $Id$
 
 from __future__ import division
 
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotethinca"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -32,6 +28,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from numpy import histogram, float64
 #from pylal import itertools as pylal_itertools
 
@@ -58,7 +55,7 @@ def parse_command_line():
   """
 
 
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg )
   # options related to input and output
   parser.add_option("-g","--injection-glob",action="append",type="string",\
       default=[], metavar=" GLOB",help="GLOB of injection thinca files to read" )
@@ -213,7 +210,7 @@ def populate_mtotal(sngl_table):
 # -- get command line arguments
 opts, args = parse_command_line()
 InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 # -- set the proper color code
 colors = InspiralUtils.colors
 fnameList = []   # use for the cache file
