@@ -23,28 +23,30 @@ __author__ = "Chad Hanna channa@ligo.caltech.edu"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
-# FIXME lookup this sax thing and import it.
-# A custom DBtable for coinc event, 
-# DO THIS FOR OTHER TABLES
-#dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincTable.tableName}))
-
 def mchirp(m1,m2):
 	return (m1+m2)**(0.6) / (m1*m2)**(0.2)
 
 def check_table(xmldoc, tab, choke=False):
+
+	#
 	# Find out if there is a table and make one if not
+	#
+
 	try:
 		ret_tab = table.get_table(xmldoc, tab.tableName)
 	except ValueError:
 		if choke: raise
 		else: ret_tab = lsctables.New(dbtables.TableByName[table.StripTableName(tab.tableName)])
+		# FIXME, make this xmldoc extraction work?
 		#xmldoc.childNodes[0].appendChild(coinc_event_table)
 	return ret_tab
 
 def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids, nevents):
-	#########################################################
+
+	#
 	# first do coinc_event
-	#########################################################
+	#
+
 	row = cetab.RowType()
 	row.coinc_event_id = cetab.get_next_id()
 	row.nevents = nevents
@@ -54,9 +56,11 @@ def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids,
 	row.coinc_def_id = cdid
 	row.process_id = procid #FIXME do a proper process entry
 	coinc_event_table.append(row)
-	#########################################################
+
+	#
 	# Then do coinc event map
-	#########################################################
+	#
+
 	for ceid in ids:
 		cemrow = cemtab.RowType()
 		cemrow.coinc_event_id = row.coinc_event_id
@@ -65,9 +69,10 @@ def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids,
 		cemrow.event_id = ceid
 		coinc_event_map.append(cemrow)
 	
-	#########################################################
+	#
 	# Then do coinc inspiral
-	#########################################################
+	#
+
 	cirow = citab.RowType()
 	cirow.coinc_event_id = row.coinc_event_id
 	cirow.snr = None #FIXME
@@ -108,13 +113,16 @@ cemtab = None
 cdtab = None
 ptab = None
 
+#
 # This program treats every file as self contained and does not do coincidences across files
+# 
+
 for filename in filenames:
 
 
-	#########################################################
+	#
 	# Open database and extract xmldoc
-	#########################################################
+	#
 
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
@@ -122,12 +130,12 @@ for filename in filenames:
                 print >>sys.stderr, "\tcalculating coincidences in %s with time window %f" % (working_filename, options.coinc_window)
 
 	dbtables.DBTable_set_connection(connection)
-	# pull this out so that we can build tables
+	# pull this XML out so that we can build tables
 	xmldoc = dbtables.get_xml(connection)
 
-	#########################################################
-	# SETUP TABLES 
-	#########################################################
+	#
+	# Setup tables
+	#
 
 	# define custom classes if they don't exist
 	if not cetab: cetab = dbtables.DBTable(sax.xmlreader.AttributesImpl({"Name":lsctables.CoincTable.tableName}))
@@ -148,18 +156,19 @@ for filename in filenames:
 	# sync the ids
 	dbtables.idmap_sync(connection)
 
+	# FIXME get the correct Coinc Def from somewhere in pylal?
 	# setup coinc definer row
 	CoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
 	CoincDef.coinc_def_id = coinc_definer.get_next_id()
 	coinc_definer.append(CoincDef)
 
-	#########################################################
+	#
 	# Create a temporary table to help find doubles and index it
-	#########################################################
+	#
 
 	connection.cursor().execute("""
 CREATE TEMPORARY TABLE sngl AS 
-	SELECT event_id, ifo, mass1, mass2, end_time + end_time_ns*1e-9 AS time
+	SELECT event_id, ifo, mass1, mass2, end_time + end_time_ns*1e-9 AS time, end_time + end_time_ns*1e-9 AS slid_time
 		FROM sngl_inspiral
 """)
 	connection.cursor().execute("""CREATE INDEX tmpindex1 ON sngl (event_id)""")
@@ -176,35 +185,43 @@ CREATE TEMPORARY TABLE sngl AS
 	process_id = proc.process_id
 	
 
+	#
+	# Pull out the seglists and store a copy of the old offsets to use later
+	#
+
 	seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).coalesce()
 	old_offsets = seglists.offsets.copy()
 
-	#########################################################
+	#
 	# Iterate over time slides and form double coincs
-	#########################################################
+	#
+
 	cnt=0
 	if options.verbose: print >> sys.stderr, "\n"
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 	for i, (time_slide_id, time_slide), in enumerate(background_time_slides.items() + zero_lag_time_slides.items()):
 
+		# update the seglists with the proper offsets
 		seglists.offsets.update(time_slide)
+
 		# verbosity
 		if options.verbose: print >> sys.stderr, "processing slides %.0f %%: found %d double coincs\r" % (100.0 * float(i+1) / (len(background_time_slides.items())+len(zero_lag_time_slides.items())), cnt),
 
-		#########################################################
+		#
 		# define a function for the slid time
-		#########################################################
+		#
 
 		def slidtime(ifoA, timeA, ifoB, timeB, slide=time_slide):
 			return abs((slide[ifoA] + timeA) - (slide[ifoB]+timeB))
 
 		connection.create_function("slidtime", 4, slidtime)
 
-		#########################################################
+		#
 		# Iterate over the double coincidences found within the time window
 		# right now this just does exact mass coincidence, but a little
 		# work might get e-thinca working too.
-		#########################################################
+		#
+
         	for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time in connection.cursor().execute("""
 SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time)
 	FROM sngl AS snglA 
@@ -223,9 +240,12 @@ SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.
 		# put the offsets back 
 		seglists.offsets.update(old_offsets)
 
+	#
 	# Now do triples 
 	# FIXME, I cannot figure out the way to implement N-way coincidences "easily", ligolw_thinca has an awesome algorithm, try to reproduce that.
 	# That means this code can be deleted when that day comes
+	#
+
 	for level in range(3,len(instruments)+1):
 		if level > 3: break #FIXME not supported yet
 		if options.verbose: print >>sys.stderr, "\nProcessing triples\n"
