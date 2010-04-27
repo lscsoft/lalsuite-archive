@@ -67,7 +67,7 @@ def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids,
 		cemrow.table_name = lsctables.SnglInspiralTable.tableName
 		cemrow.event_id = ceid
 		coinc_event_map.append(cemrow)
-	
+
 	#
 	# Then do coinc inspiral
 	#
@@ -98,7 +98,7 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 
 	options, filenames = parser.parse_args()
-	
+
 	if options.input_cache is not None:
 		filenames += [lal.CacheEntry(line).path() for filename in options.input_cache for line in file(filename)]
 
@@ -115,7 +115,7 @@ ptab = None
 
 #
 # This program treats every file as self contained and does not do coincidences across files
-# 
+#
 
 for filename in filenames:
 
@@ -172,7 +172,7 @@ for filename in filenames:
 	#
 
 	connection.cursor().execute("""
-CREATE TEMPORARY TABLE sngl AS 
+CREATE TEMPORARY TABLE sngl AS
 	SELECT event_id, ifo, mass1, mass2, end_time + end_time_ns*1e-9 AS time, end_time + end_time_ns*1e-9 AS slid_time
 	FROM sngl_inspiral
 """)
@@ -182,11 +182,10 @@ CREATE TEMPORARY TABLE sngl AS
 	connection.cursor().execute("CREATE INDEX tmpindex4 ON sngl (mass2)")
 
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
-	# FIXME get the instruments properly	
+	# FIXME get the instruments properly
 	instruments = zero_lag_time_slides.items()[0][1].keys()
-	proc = process.append_process(xmldoc, program = sys.argv[0], version = __version__, cvs_repository = None, cvs_entry_time = None, comment = "cbc coinc", is_online = False, jobid = 0, domain = None, ifos = instruments)	
+	proc = process.append_process(xmldoc, program = sys.argv[0], version = __version__, cvs_repository = None, cvs_entry_time = None, comment = "cbc coinc", is_online = False, jobid = 0, domain = None, ifos = instruments)
 	process_id = proc.process_id
-	
 
 	#
 	# Pull out the seglists and store a copy of the old offsets to use later
@@ -231,7 +230,7 @@ CREATE TEMPORARY TABLE sngl AS
 
         	for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time in connection.cursor().execute("""
 SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time)
-FROM sngl AS snglA		
+FROM sngl AS snglA
 JOIN sngl AS snglB ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2)
 	WHERE snglA.ifo != snglB.ifo
 	AND snglA.slid_time  >= (snglB.slid_time - ?) AND snglA.slid_time <= (snglB.slid_time + ?)
@@ -240,14 +239,14 @@ JOIN sngl AS snglB ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2
 
 			# for verbosity
 			cnt+=1
-	
+
 			add_coinc(coinc_event_table, coinc_inspiral_table, coinc_event_map, seglists, time_slide_id, CoincDef.coinc_def_id, process_id, [ifo1, ifo2], [(mass1_1,mass2_1),(mass1_2,mass2_2)], [id1, id2], 2)
 
-		# put the offsets back 
+		# put the offsets back
 		seglists.offsets.update(old_offsets)
 
 		#
-		# Now do triples 
+		# Now do triples
 		# FIXME, I cannot figure out the way to implement N-way coincidences "easily", ligolw_thinca has an awesome algorithm, try to reproduce that.
 		# That means this code can be deleted when that day comes
 		#
@@ -256,7 +255,7 @@ JOIN sngl AS snglB ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2
 			if level > 3: break #FIXME not supported yet
 			connection.cursor().execute("""
 CREATE TEMPORARY TABLE tmpcemap AS
-	SELECT cemA.coinc_event_id AS cid, cemA.event_id AS id1, cemB.event_id AS id2, coinc_event.time_slide_id AS tsid FROM coinc_event_map AS cemA 
+	SELECT cemA.coinc_event_id AS cid, cemA.event_id AS id1, cemB.event_id AS id2, coinc_event.time_slide_id AS tsid FROM coinc_event_map AS cemA
 	JOIN coinc_event_map AS cemB ON cemA.coinc_event_id == cemB.coinc_event_id
 	JOIN coinc_event ON cemA.coinc_event_id == coinc_event.coinc_event_id
 		WHERE cemA.event_id > cemB.event_id
@@ -268,11 +267,11 @@ CREATE TEMPORARY TABLE tmpcemap AS
 			connection.cursor().execute("CREATE INDEX tmpcemapix3 ON tmpcemap (id2)")
 
 			connection.cursor().execute("""
-CREATE TEMPORARY TABLE triple AS 
-	SELECT A.tsid AS tsid, A.cid AS cid1, B.cid AS cid2, C.cid AS cid3, A.id1 AS id1, A.id2 AS id2, B.id2 AS id3, siA.ifo as ifo1, siA.mass1 AS m1_1, 
+CREATE TEMPORARY TABLE triple AS
+	SELECT A.tsid AS tsid, A.cid AS cid1, B.cid AS cid2, C.cid AS cid3, A.id1 AS id1, A.id2 AS id2, B.id2 AS id3, siA.ifo as ifo1, siA.mass1 AS m1_1,
 		siA.mass2 AS m2_1, siB.ifo AS ifo2, siB.mass1 AS m1_2, siB.mass2 AS m2_2, siC.ifo AS ifo3, siC.mass1 AS m1_3, siC.mass2 AS m2_3
-	FROM tmpcemap AS A 
-	JOIN tmpcemap AS B JOIN tmpcemap AS C 
+	FROM tmpcemap AS A
+	JOIN tmpcemap AS B JOIN tmpcemap AS C
 	JOIN sngl AS siA ON siA.event_id == A.id1
 	JOIN sngl AS siB ON siB.event_id == A.id2
 	JOIN sngl AS siC ON siC.event_id == B.id2
@@ -298,7 +297,7 @@ CREATE TEMPORARY TABLE triple AS
 			connection.cursor().execute("DROP INDEX tmpcemapix2")
 			connection.cursor().execute("DROP INDEX tmpcemapix3")
 			connection.cursor().execute("DROP TABLE tmpcemap")
-		
+
 	# DROP INDICES
 	connection.cursor().execute("DROP INDEX tmpindex1")
 	connection.cursor().execute("DROP INDEX tmpindex2")
