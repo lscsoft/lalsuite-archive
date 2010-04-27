@@ -41,16 +41,13 @@ class upper_limit(object):
     self.segments = segments.segmentlistdict()
     self.non_inj_fnames = []
     self.inj_fnames = []
-    #self.der_fit = None
     self.twoDMassBins = None
-    #self.dBin = {}
     self.gw = None
     self.found = {}
     self.missed = {}
     self.wnfunc = None
     self.opts = opts
-    if opts.bootstrap_iterations: self.bootnum = int(opts.bootstrap_iterations)
-    else: self.bootnum = 100
+    self.bootnum = int(opts.bootstrap_iterations)
     self.veto_segments = segments.segmentlistdict()
     self.zero_lag_segments = {}
     self.instruments = []
@@ -86,14 +83,12 @@ class upper_limit(object):
       else: 
         self.get_mass_ranges(connection)
       
-
-      #connection.close()
       dbtables.discard_connection_filename(f, working_filename, verbose = opts.verbose)
       dbtables.DBTable_set_connection(None)      
 
     # remove redundant instruments
     self.instruments = list(set(self.instruments))
-    # FIXME Do these have to be done by instruments?
+    # Subtract the veto segments
     self.segments -= self.veto_segments
 
     # compute far, segments and livetime by instruments
@@ -127,12 +122,13 @@ class upper_limit(object):
 
 
   def set_instruments_to_calculate(self):
+    ret = []
     if not opts.instruments: return self.instruments
     if opts.instruments in self.instruments:
-      return frozenset(lsctables.instrument_set_from_ifos(i[0]))
+      ret.append(opts.instruments)
     else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)  
-      return []
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(opts.instruments),)
+    return ret
 
   def get_mass_ranges(self, connection):
     query = 'SELECT MIN(mass1), MIN(mass2), MAX(mass1), MAX(mass2), MIN(mass1+mass2), MAX(mass1+mass2) FROM sim_inspiral;'
@@ -151,8 +147,6 @@ class upper_limit(object):
     for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
       if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
     return self.instruments
-    # used to set instruments 
-    #return self.instruments    
 
   def get_far_thresholds(self,connection):
     """
@@ -203,9 +197,9 @@ class upper_limit(object):
     vA2 = []
     for far in FARS.centres():
       print >>sys.stderr, "computing volume at FAR " + str(far)
-      vAt, vA2t = self.twoD_SearchVolume(instruments, dbin=dbin, FAR = far, bootnum=1)
+      vAt, vA2t = self.twoD_SearchVolume(instruments, dbin_in=dbin, FAR = far, bootnum=1)
       # we need to compute derivitive of log according to ul paper
-      vAt.array = scipy.log10(vAt.array + 0.001)
+      vAt.array = scipy.log(vAt.array + 0.001)
       vA.append(vAt)
     # the derivitive is calcuated with respect to FAR * t
     FARTS = rate.LogarithmicBins(FARl * livetime, FARh * livetime, nbins)
@@ -233,15 +227,13 @@ class upper_limit(object):
           da.append(vAs[farts[f]].array[m1][m2])
         fit = interpolate.splrep(farts.centres(),da,k=4)
         val = interpolate.splev(FARt,fit,der=1)
-        #print val
-        # FIXME this prevents negative derivitives arising from bad fits
+        # FIXME this prevents negative lambdas arising from bad fits
         if val < 0: val = 0
-        dA.array[m1][m2] = val # minus the derivitave
+        dA.array[m1][m2] = val
     return dA
 
   def get_injections(self, instruments, FAR=None):
     injfnames = self.inj_fnames
-    print instruments
     if not FAR: FAR = self.far[instruments]
     zero_lag_segments = self.zero_lag_segments[instruments]
     verbose = self.opts.verbose
@@ -266,7 +258,6 @@ class upper_limit(object):
       thincasegments = segments.segmentlistdict()
       thincasegments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = opts.live_time_program)
       thincasegments -= self.veto_segments
-      #print thincasegments
       zero_lag_segments  = thincasegments.intersection(instruments) - thincasegments.union(set(thincasegments.keys()) - instruments)
       if zero_lag_segments:
         zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
@@ -379,13 +370,10 @@ WHERE
 
   def _scramble_dist(self, inj, relerr, syserr):
     """
-    function to handle random calibration error.  Individually srambles the distances
-    of injection by an error.
+    function to handle random calibration error.  Individually scrambles the distances
+    of injection by an error assumed to be log normal + a systematic.
     """
-    dist_array = numpy.zeros(len(inj))
-    for i,sim in enumerate(inj):
-      dist_array[i] = sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1))) 
-    return dist_array
+    return numpy.array([sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1))) for sim in inj])
 
   def live_time_array(self, instruments):
     """
@@ -398,7 +386,7 @@ WHERE
     return live_time
     
 
-  def twoD_SearchVolume(self, instruments, dbin=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
+  def twoD_SearchVolume(self, instruments, dbin_in=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
     """ 
     Compute the search volume in the mass/mass plane, bootstrap
     and measure the first and second moment (assumes the underlying 
@@ -410,6 +398,8 @@ WHERE
     the dsys is the DC offset which is the max offset of .074. 
     """
 
+    # This function permits overriding FAR and the number of bootstrap iterations given on the command line
+    # here we check those things and pull out the correct injection set and live time
     if not FAR: FAR = self.far[instruments]
     found, missed = self.get_injections(instruments, FAR)
     twodbin = self.twoDMassBins
@@ -417,12 +407,16 @@ WHERE
     livetime = self.livetime[instruments]
     if not bootnum: bootnum = self.bootnum
 
+    # If we are doing a smoothing function, then normalize it
+    # Note that this was not used 
     if wnfunc: wnfunc /= wnfunc[(wnfunc.shape[0]-1) / 2, (wnfunc.shape[1]-1) / 2]
 
+    # we are building a 3D histogram, m1, m2, and d, here are the limits
     x = twodbin.shape[0]
     y = twodbin.shape[1]
     z = int(self.opts.dist_bins)
 
+    # We actually accomplish this by an array of 2D bins
     rArrays = []
     volArray=rate.BinnedArray(twodbin)
     volArray2=rate.BinnedArray(twodbin)
@@ -441,28 +435,35 @@ WHERE
         sm, sf = self._scramble_pop(missed, found)
         # I make a separate array of distances to speed up this calculation
         f_dist = self._scramble_dist(sf, derr, dsys)
+        m_dist = self._scramble_dist(sm, derr, dsys)
       else: 
         sm, sf = missed, found
         f_dist = numpy.array([l.distance for l in found])
-     
+        m_dist = numpy.array([l.distance for l in missed])
+    
+      # get arrays of m1 and m2 also for convenience, now we are done with sm and sf
+      f_m1 = numpy.array([l.mass1 for l in  sf])
+      f_m2 = numpy.array([l.mass2 for l in  sf])
+      m_m1 = numpy.array([l.mass1 for l in  sm])
+      m_m2 = numpy.array([l.mass2 for l in  sm])
+
       # compute the distance bins
-      if not dbin: 
+      if not dbin_in: 
         dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), z)
-      #else: print dbin.centres()
-      
+      else: dbin = dbin_in
 
       # get rid of all missed injections outside the distance bins
       # to prevent binning errors
-      sm, m_dist = self.cut_distance(sm, dbin)
-      sf, f_dist = self.cut_distance(sf, dbin)
+      m_m1, m_m2, m_dist = self.cut_distance(m_m1, m_m2, m_dist, dbin)
+      f_m1, f_m2, f_dist = self.cut_distance(f_m1, f_m2, f_dist, dbin)
 
-
-      for i, l in enumerate(sf):#found:
+      for i, l in enumerate(f_dist):#found:
         tbin = rArrays[dbin[f_dist[i]]]
-        tbin.incnumerator( (l.mass1, l.mass2) )
-      for i, l in enumerate(sm):#missed:
+        tbin.incnumerator( (f_m1[i], f_m2[i]) )
+
+      for i, l in enumerate(m_dist):#missed:
         tbin = rArrays[dbin[m_dist[i]]]
-        tbin.incdenominator( (l.mass1, l.mass2) )
+        tbin.incdenominator( (m_m1[i], m_m2[i]) )
     
       tmpArray2=rate.BinnedArray(twodbin) #start with a zero array to compute the mean square
       for k in range(z): 
@@ -474,7 +475,7 @@ WHERE
         # logarithmic(d)
         integrand = 4.0 * pi * tbins.ratio() * dbin.centres()[k]**3 * dbin.delta
         volArray.array += integrand
-        tmpArray2.array += integrand #4.0 * pi * tbins.ratio() * dbin.centres()[k]**3 * dbin.delta
+        tmpArray2.array += integrand
         print >>sys.stderr, "bootstrapping:\t%.1f%% and Calculating smoothed volume:\t%.1f%%\r" % ((100.0 * n / bootnum), (100.0 * k / z)),
       tmpArray2.array *= tmpArray2.array
       volArray2.array += tmpArray2.array
@@ -489,15 +490,14 @@ WHERE
     return volArray, volArray2
  
 
-  def cut_distance(self, sims, dbin):
+  def cut_distance(self, m1, m2, d, dbin):
     """
     Exclude sims outside some distance range to avoid errors when binning
     """
     mnd = min(dbin.lower())
     mxd = max(dbin.upper())
-    out =  [sim for sim in sims if mnd <= sim.distance <= mxd]
-    return out, numpy.array([l.distance for l in out])
-
+    indexes = numpy.logical_and(d <= mxd, d >= mnd)
+    return m1[indexes], m2[indexes], d[indexes]
 
 ######################## ACTUAL PROGRAM #######################################
 ###############################################################################
@@ -509,7 +509,7 @@ def parse_command_line():
   parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
-  parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000")
+  parser.add_option("--bootstrap-iterations", default = 10000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000 and is also the default")
   parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of mass bins")
   parser.add_option("--d-err", default = 0.197, metavar = "float", type = "int", help = "random calibration error on distance")
   parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "int", help = "systematic calibration error on distance (should use worst)")
@@ -519,7 +519,7 @@ def parse_command_line():
 
   opts, filenames = parser.parse_args()
 
-  if opts.instruments: opts.instruments = lsctables.instrument_set_from_ifos(opts.instruments)
+  if opts.instruments: opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
   if not filenames: 
     print >>sys.stderr, "must specify at least one database file"
     sys.exit(1)
