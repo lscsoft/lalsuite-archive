@@ -251,6 +251,7 @@ SIGNAL_PARAMS p;
 gsl_function F; 
 int err;
 double result, abserr;
+double freq_cycles, spindown_cycles;
 double T=end_time-start_time;
 
 if(!(fabs(T)>0))return 0.0;
@@ -278,13 +279,30 @@ while(1) {
 
 	if(fabs(result)>10) {
 		p.phase_integration_factor+=result/T;
+		/* make sure it integrates out to 0 phase */
+		p.phase_integration_factor=2.0*M_PI*rint(p.phase_integration_factor*T/(2.0*M_PI))/T;
 		continue;
 		}
 
+	#if 0
+	/* Original formula - this results in precision errors for large spindowns */
+
 	p.extra_phase=result+p.phase_integration_factor*T+
 		2*M_PI*(p.freq*T+0.5*p.spindown*T*T+p.spindown*(start_time-p.ref_time)*T);
+	#else 
 
-/*	if(err)fprintf(stderr, "phase %d result=%g (%g) pif=%g abserr=%g %s\n", segment, result, result/(d->gps[segment]-p.ref_time), p.phase_integration_factor, abserr,  gsl_strerror(err)); */
+	/* Separate out computation of large phase factors so as to avoid precision loss at high spindowns */
+	spindown_cycles=p.spindown*(start_time-p.ref_time+0.5*T)*T;
+	spindown_cycles=spindown_cycles-floor(spindown_cycles);
+
+	freq_cycles=p.freq*T;
+	freq_cycles=freq_cycles-floor(freq_cycles);
+	
+	p.extra_phase=result+2*M_PI*(freq_cycles+spindown_cycles);
+
+	#endif
+
+	//if(err)fprintf(stderr, "phase %f result=%g (%g) pif=%g abserr=%g %s\n", start_time, result, p.extra_phase, p.phase_integration_factor, abserr,  gsl_strerror(err)); 
 	break;
 	}
 return(p.extra_phase);
@@ -854,6 +872,7 @@ if(fake_injection) {
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
 			accumulated_phase+=current_phase;
+			accumulated_phase=accumulated_phase-2.0*M_PI*(floor(accumulated_phase/(2.0*M_PI)));
 			}
 		}
 	gsl_integration_workspace_free(giw);
@@ -2500,7 +2519,7 @@ for(i=0;i<d_free;i++){
 
 	for(j=0;j<d->free;j++) {
 		current_phase=compute_phase(sp, giw, workspace_size, start_time, d->gps[i]);
-		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
+		inject_fake_signal(sp, d, i, accumulated_phase+current_phase);
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
 			accumulated_phase+=current_phase;

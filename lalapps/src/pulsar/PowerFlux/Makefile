@@ -1,9 +1,10 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.37-64
+VERSION=1.4.38-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
+LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llal -lm -lz
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
@@ -25,7 +26,7 @@ PYTHON_OBJS=$(COMMON_OBJS) candidates.o fine_grid.o
 
 OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
-OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.c
+OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.c matched_loosely_coherent_sum.c
 
 FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
 
@@ -398,8 +399,8 @@ upload: powerflux-condor powerflux-mt
 	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
-	#gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-	#gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
 	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
 	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
