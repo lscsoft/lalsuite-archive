@@ -1,0 +1,18 @@
+id = "@ID@"
+date = "@DATE@"
+branch = "@BRANCH@"
+tag = "@TAG@"
+if tag == "None":
+    tag = None
+author = "@AUTHOR@"
+builder = "@BUILDER@"
+committer = "@COMMITTER@"
+status = "@STATUS@"
+version = id
+verbose_msg = """Branch: @BRANCH@
+Tag: @TAG@
+Id: @ID@
+
+Builder: @BUILDER@
+Build date: @BUILD_DATE@
+Repository status: @STATUS@"""

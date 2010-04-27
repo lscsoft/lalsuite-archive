@@ -2,13 +2,15 @@
 
 
 import os
-from misc import determine_git_version
+from misc import generate_vcs_info as gvcsi
 from distutils.core import setup, Extension
 from distutils.command import install
 from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
+import subprocess
 from sys import version_info
+import time
 from numpy.lib.utils import get_include as numpy_get_include
 
 
@@ -34,26 +36,57 @@ def remove_root(path, root):
 		return os.path.normpath(path).replace(os.path.normpath(root), "")
 	return os.path.normpath(path)
 
+def write_build_info():
+	"""
+	Get VCS info from misc/generate_vcs_info.py and add build information.
+	Substitute these into misc/git_version.py.in to produce
+	pylal/git_version.py.
+	"""
+	vcs_info = gvcsi.generate_git_version_info()
+
+	# determine current time and treat it as the build time
+	build_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime())
+
+	# determine builder
+	retcode, builder_name = gvcsi.call_out(('git', 'config', 'user.name'))
+	if retcode:
+		builder_name = "Unknown User"
+	retcode, builder_email = gvcsi.call_out(('git', 'config', 'user.email'))
+	if retcode:
+		builder_email = ""
+	builder = "%s <%s>" % (builder_name, builder_email)
+
+	sed_cmd = ('sed',
+		'-e', 's/@ID@/%s/' % vcs_info.id,
+		'-e', 's/@DATE@/%s/' % vcs_info.date,
+		'-e', 's/@BRANCH@/%s/' % vcs_info.branch,
+		'-e', 's/@TAG@/%s/' % vcs_info.tag,
+		'-e', 's/@AUTHOR@/%s/' % vcs_info.author,
+		'-e', 's/@COMMITTER@/%s/' % vcs_info.committer,
+		'-e', 's/@STATUS@/%s/' % vcs_info.status,
+		'-e', 's/@BUILDER@/%s/' % builder,
+		'-e', 's/@BUILD_DATE@/%s/' % build_date,
+		'misc/git_version.py.in')
+
+	# FIXME: subprocess.check_call becomes available in Python 2.5
+	sed_retcode = subprocess.call(sed_cmd,
+		stdout=open('pylal/git_version.py', 'w'))
+	if sed_retcode:
+		raise gvcsi.GitInvocationError
+
 class pylal_build_py(build_py.build_py):
 	def run(self):
 		# create the git_version module
-		if determine_git_version.in_git_repository():
-			try:
-				log.info("generating pylal/git_version.py")
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
-		elif os.path.exists("pylal/git_version.py"):
-			# We're probably being built from a release tarball; don't overwrite
-			log.info("not in git checkout; using existing pylal/git_version.py")
-		else:
-			log.info("not in git checkout; writing empty pylal/git_version.py")
-			try:
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_empty_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
+		log.info("Generating pylal/git_version.py")
+		try:
+			write_build_info()
+		except gvcsi.GitInvocationError:
+			if os.path.exists("pylal/git_version.py"):
+				# We're probably being built from a release tarball; don't overwrite
+				log.info("Not in git checkout or cannot find git executable; using existing pylal/git_version.py")
+			else:
+				log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
+				sys.exit(1)
 
 		# resume normal build procedure
 		build_py.build_py.run(self)
@@ -122,20 +155,12 @@ class pylal_sdist(sdist.sdist):
 				pass
 
 		# create the git_version module
-		if determine_git_version.in_git_repository():
-			log.info("generating pylal/git_version.py")
-			try:
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
-		else:
-			log.info("not in git checkout; writing empty pylal/git_version.py")
-			try:
-				git_version_fileobj = open("pylal/git_version.py", "w")
-				determine_git_version.write_empty_git_version(git_version_fileobj)
-			finally:
-				git_version_fileobj.close()
+		log.info("generating pylal/git_version.py")
+		try:
+			write_build_info()
+		except gvcsi.GitInvocationError:
+			log.error("Not in git checkout or cannot find git executable and no pylal/git_version.py. Exiting.")
+			sys.exit(1)
 
 		# now run sdist
 		sdist.sdist.run(self)
