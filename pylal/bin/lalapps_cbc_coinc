@@ -90,7 +90,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog does blah blah blah."
+		description = "%prog finds coincidences of inspiral triggers"
 	)
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", help = "Retrieve database files from this LAL cache.  Can be given multiple times.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
@@ -162,6 +162,10 @@ for filename in filenames:
 	CoincDef.coinc_def_id = coinc_definer.get_next_id()
 	coinc_definer.append(CoincDef)
 
+	connection.cursor().execute("CREATE INDEX cemix1 ON coinc_event_map (event_id)")
+	connection.cursor().execute("CREATE INDEX cemix2 ON coinc_event_map (coinc_event_id)")
+
+
 	#
 	# Create a temporary table to help find doubles and index it
 	#
@@ -172,11 +176,9 @@ CREATE TEMPORARY TABLE sngl AS
 		FROM sngl_inspiral
 """)
 	connection.cursor().execute("""CREATE INDEX tmpindex1 ON sngl (event_id)""")
-	connection.cursor().execute("""CREATE INDEX tmpindex2 ON sngl (time)""")
-	connection.cursor().execute("""CREATE INDEX tmpindex3 ON sngl (mass1,mass2)""")
-	connection.cursor().execute("""CREATE INDEX tmpindex4 ON sngl (mass1)""")
-	connection.cursor().execute("""CREATE INDEX tmpindex5 ON sngl (mass2)""")
-	connection.cursor().execute("""CREATE INDEX tmpindex6 ON sngl (ifo)""")
+	connection.cursor().execute("""CREATE INDEX tmpindex2 ON sngl (slid_time)""")
+	connection.cursor().execute("""CREATE INDEX tmpindex3 ON sngl (mass1)""")
+	connection.cursor().execute("""CREATE INDEX tmpindex4 ON sngl (mass2)""")
 
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 	# FIXME get the instruments properly	
@@ -197,6 +199,7 @@ CREATE TEMPORARY TABLE sngl AS
 	#
 
 	cnt=0
+	trips = 0
 	if options.verbose: print >> sys.stderr, "\n"
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 	for i, (time_slide_id, time_slide), in enumerate(background_time_slides.items() + zero_lag_time_slides.items()):
@@ -205,16 +208,24 @@ CREATE TEMPORARY TABLE sngl AS
 		seglists.offsets.update(time_slide)
 
 		# verbosity
-		if options.verbose: print >> sys.stderr, "processing slides %.0f %%: found %d double coincs\r" % (100.0 * float(i+1) / (len(background_time_slides.items())+len(zero_lag_time_slides.items())), cnt),
+		if options.verbose: print >> sys.stderr, "processing slides %.0f %%: found %d double coincs %d triple coincs\r" % (100.0 * float(i+1) / (len(background_time_slides.items())+len(zero_lag_time_slides.items())), cnt, trips),
 
 		#
 		# define a function for the slid time
 		#
 
-		def slidtime(ifoA, timeA, ifoB, timeB, slide=time_slide):
-			return abs((slide[ifoA] + timeA) - (slide[ifoB]+timeB))
+		#def slidtime(ifoA, timeA, ifoB, timeB, slide=time_slide):
+		#	return abs((slide[ifoA] + timeA) - (slide[ifoB]+timeB))
+		#connection.create_function("slidtime", 4, slidtime)
 
-		connection.create_function("slidtime", 4, slidtime)
+		def slidtime(ifoA, timeA, slide=time_slide):
+			return slide[ifoA] + timeA
+
+		connection.create_function("slidtime", 2, slidtime)
+
+		# Update the slide time in the table
+		connection.cursor().execute("UPDATE sngl SET slid_time = slidtime(sngl.ifo, sngl.time)")
+		#connection.cursor().execute("""CREATE INDEX IF NOT EXISTS tmpindex2 ON sngl (slid_time)""")
 
 		#
 		# Iterate over the double coincidences found within the time window
@@ -224,13 +235,13 @@ CREATE TEMPORARY TABLE sngl AS
 
         	for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time in connection.cursor().execute("""
 SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time)
-	FROM sngl AS snglA 
+	FROM sngl AS snglA
 		JOIN sngl AS snglB
 			ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2)
-		WHERE snglA.ifo != snglB.ifo 
-			AND slidtime(snglA.ifo, snglA.time, snglB.ifo, snglB.time) <= ?
+		WHERE snglA.ifo != snglB.ifo
+			AND snglA.slid_time  >= (snglB.slid_time - ?) AND snglA.slid_time <= (snglB.slid_time + ?)
 			AND snglA.event_id > snglB.event_id
-		""", (options.coinc_window,)):
+		""", (options.coinc_window,options.coinc_window)):
 
 			# for verbosity
 			cnt+=1
@@ -240,35 +251,34 @@ SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.
 		# put the offsets back 
 		seglists.offsets.update(old_offsets)
 
-	#
-	# Now do triples 
-	# FIXME, I cannot figure out the way to implement N-way coincidences "easily", ligolw_thinca has an awesome algorithm, try to reproduce that.
-	# That means this code can be deleted when that day comes
-	#
+		#
+		# Now do triples 
+		# FIXME, I cannot figure out the way to implement N-way coincidences "easily", ligolw_thinca has an awesome algorithm, try to reproduce that.
+		# That means this code can be deleted when that day comes
+		#
 
-	for level in range(3,len(instruments)+1):
-		if level > 3: break #FIXME not supported yet
-		if options.verbose: print >>sys.stderr, "\nProcessing triples\n"
-		connection.cursor().execute("CREATE INDEX cemix1 ON coinc_event_map (event_id)")
-		connection.cursor().execute("CREATE INDEX cemix2 ON coinc_event_map (coinc_event_id)")
-		connection.cursor().execute("""
+		for level in range(3,len(instruments)+1):
+			if level > 3: break #FIXME not supported yet
+			#if options.verbose: print >>sys.stderr, "\nProcessing triples\n"
+			#connection.cursor().execute("CREATE INDEX cemix1 ON coinc_event_map (event_id)")
+			#connection.cursor().execute("CREATE INDEX cemix2 ON coinc_event_map (coinc_event_id)")
+			connection.cursor().execute("""
 CREATE TEMPORARY TABLE tmpcemap AS
 	SELECT cemA.coinc_event_id AS cid, cemA.event_id AS id1, cemB.event_id AS id2, coinc_event.time_slide_id AS tsid FROM coinc_event_map AS cemA 
 		JOIN coinc_event_map AS cemB ON cemA.coinc_event_id == cemB.coinc_event_id
 		JOIN coinc_event ON cemA.coinc_event_id == coinc_event.coinc_event_id
-		WHERE cemA.event_id > cemB.event_id""")
-#		AND coinc_event.time_slide_id == ?""")
-#			""", (time_slide_id,))
+		WHERE cemA.event_id > cemB.event_id
+		AND coinc_event.time_slide_id == ?
+			""", (time_slide_id,))
 
-		connection.cursor().execute("CREATE INDEX tmpcemapix1 ON tmpcemap (cid)")
-		connection.cursor().execute("CREATE INDEX tmpcemapix2 ON tmpcemap (id1)")
-		connection.cursor().execute("CREATE INDEX tmpcemapix3 ON tmpcemap (id2)")
-		connection.cursor().execute("CREATE INDEX tmpcemapix4 ON tmpcemap (id1,id2)")
-		connection.cursor().execute("CREATE INDEX tmpcemapix5 ON tmpcemap (tsid)")
-		connection.cursor().execute("CREATE INDEX tmpcemapix6 ON tmpcemap (tsid,id1,id2)")
+			connection.cursor().execute("CREATE INDEX tmpcemapix1 ON tmpcemap (cid)")
+			connection.cursor().execute("CREATE INDEX tmpcemapix2 ON tmpcemap (id1)")
+			connection.cursor().execute("CREATE INDEX tmpcemapix3 ON tmpcemap (id2)")
+			connection.cursor().execute("CREATE INDEX tmpcemapix4 ON tmpcemap (id1,id2)")
+			connection.cursor().execute("CREATE INDEX tmpcemapix5 ON tmpcemap (tsid)")
+			connection.cursor().execute("CREATE INDEX tmpcemapix6 ON tmpcemap (tsid,id1,id2)")
 
-		trips = 0
-		connection.cursor().execute("""
+			connection.cursor().execute("""
 CREATE TEMPORARY TABLE triple AS 
 	SELECT A.tsid AS tsid, A.cid AS cid1, B.cid AS cid2, C.cid AS cid3, A.id1 AS id1, A.id2 AS id2, B.id2 AS id3, siA.ifo as ifo1, siA.mass1 AS m1_1, 
 		siA.mass2 AS m2_1, siB.ifo AS ifo2, siB.mass1 AS m1_2, siB.mass2 AS m2_2, siC.ifo AS ifo3, siC.mass1 AS m1_3, siC.mass2 AS m2_3
@@ -279,33 +289,31 @@ CREATE TEMPORARY TABLE triple AS
 	JOIN sngl AS siC ON siC.event_id == B.id2
 	WHERE A.id1 == B.id1 AND A.id2 == C.id1 AND B.id2 == C.id2
 --	AND A.tsid == B.tsid == C.tsid
-		""")
+			""")
 
-		for tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 in connection.cursor().execute("SELECT tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 FROM triple"):
-			add_coinc(cetab, citab, cemtab, seglists, tsid, CoincDef.coinc_def_id, process_id, [ifo1,ifo2,ifo3], [(m1_1,m2_1),(m1_2,m2_2),(m1_3,m2_3)], [id1,id2,id3], 3)
-			trips += 1
-			print >>sys.stderr, "found %d coincs\r" % (trips,),
+			for tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 in connection.cursor().execute("SELECT tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 FROM triple"):
+				add_coinc(cetab, citab, cemtab, seglists, tsid, CoincDef.coinc_def_id, process_id, [ifo1,ifo2,ifo3], [(m1_1,m2_1),(m1_2,m2_2),(m1_3,m2_3)], [id1,id2,id3], 3)
+				trips += 1
+			#	print >>sys.stderr, "found %d coincs\r" % (trips,),
 
-		connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid3 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_event_map WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_event_map WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_event_map WHERE coinc_event_id IN (SELECT cid3 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_inspiral WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_inspiral WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
-		connection.cursor().execute("DELETE FROM coinc_inspiral WHERE coinc_event_id IN (SELECT cid3 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid3 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_event_map WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_event_map WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_event_map WHERE coinc_event_id IN (SELECT cid3 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_inspiral WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_inspiral WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
+			connection.cursor().execute("DELETE FROM coinc_inspiral WHERE coinc_event_id IN (SELECT cid3 FROM triple)")
 
-		connection.cursor().execute("DROP TABLE triple")
-		connection.cursor().execute("DROP INDEX tmpcemapix1")
-		connection.cursor().execute("DROP INDEX tmpcemapix2")
-		connection.cursor().execute("DROP INDEX tmpcemapix3")
-		connection.cursor().execute("DROP INDEX tmpcemapix4")
-		connection.cursor().execute("DROP INDEX tmpcemapix5")
-		connection.cursor().execute("DROP INDEX tmpcemapix6")
-		connection.cursor().execute("DROP INDEX cemix1")
-		connection.cursor().execute("DROP INDEX cemix2")
-		connection.cursor().execute("DROP TABLE tmpcemap")
+			connection.cursor().execute("DROP TABLE triple")
+			connection.cursor().execute("DROP INDEX tmpcemapix1")
+			connection.cursor().execute("DROP INDEX tmpcemapix2")
+			connection.cursor().execute("DROP INDEX tmpcemapix3")
+			connection.cursor().execute("DROP INDEX tmpcemapix4")
+			connection.cursor().execute("DROP INDEX tmpcemapix5")
+			connection.cursor().execute("DROP INDEX tmpcemapix6")
+			connection.cursor().execute("DROP TABLE tmpcemap")
 
 			
 	# DROP INDICES
@@ -313,6 +321,8 @@ CREATE TEMPORARY TABLE triple AS
 	connection.cursor().execute("DROP INDEX tmpindex2")
 	connection.cursor().execute("DROP INDEX tmpindex3")
 	connection.cursor().execute("DROP INDEX tmpindex4")
+	connection.cursor().execute("DROP INDEX cemix1")
+	connection.cursor().execute("DROP INDEX cemix2")
 	connection.cursor().execute("DROP table sngl")
 	connection.commit()
 #	connection.close()
