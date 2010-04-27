@@ -64,7 +64,6 @@ def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids,
 	for ceid in ids:
 		cemrow = cemtab.RowType()
 		cemrow.coinc_event_id = row.coinc_event_id
-		#FIXME is that right?
 		cemrow.table_name = lsctables.SnglInspiralTable.tableName
 		cemrow.event_id = ceid
 		coinc_event_map.append(cemrow)
@@ -146,6 +145,7 @@ for filename in filenames:
 
 	# Find out if there is a time slide table and barf if not
 	time_slide_table = check_table(xmldoc, lsctables.TimeSlideTable, choke=True)
+
 	# Find out if there are other tables and make them if not
 	coinc_event_table = check_table(xmldoc, lsctables.CoincTable)
 	coinc_event_map = check_table(xmldoc, lsctables.CoincMapTable)
@@ -214,10 +214,6 @@ CREATE TEMPORARY TABLE sngl AS
 		# define a function for the slid time
 		#
 
-		#def slidtime(ifoA, timeA, ifoB, timeB, slide=time_slide):
-		#	return abs((slide[ifoA] + timeA) - (slide[ifoB]+timeB))
-		#connection.create_function("slidtime", 4, slidtime)
-
 		def slidtime(ifoA, timeA, slide=time_slide):
 			return slide[ifoA] + timeA
 
@@ -225,7 +221,6 @@ CREATE TEMPORARY TABLE sngl AS
 
 		# Update the slide time in the table
 		connection.cursor().execute("UPDATE sngl SET slid_time = slidtime(sngl.ifo, sngl.time)")
-		#connection.cursor().execute("""CREATE INDEX IF NOT EXISTS tmpindex2 ON sngl (slid_time)""")
 
 		#
 		# Iterate over the double coincidences found within the time window
@@ -259,9 +254,6 @@ SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.
 
 		for level in range(3,len(instruments)+1):
 			if level > 3: break #FIXME not supported yet
-			#if options.verbose: print >>sys.stderr, "\nProcessing triples\n"
-			#connection.cursor().execute("CREATE INDEX cemix1 ON coinc_event_map (event_id)")
-			#connection.cursor().execute("CREATE INDEX cemix2 ON coinc_event_map (coinc_event_id)")
 			connection.cursor().execute("""
 CREATE TEMPORARY TABLE tmpcemap AS
 	SELECT cemA.coinc_event_id AS cid, cemA.event_id AS id1, cemB.event_id AS id2, coinc_event.time_slide_id AS tsid FROM coinc_event_map AS cemA 
@@ -294,7 +286,6 @@ CREATE TEMPORARY TABLE triple AS
 			for tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 in connection.cursor().execute("SELECT tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 FROM triple"):
 				add_coinc(cetab, citab, cemtab, seglists, tsid, CoincDef.coinc_def_id, process_id, [ifo1,ifo2,ifo3], [(m1_1,m2_1),(m1_2,m2_2),(m1_3,m2_3)], [id1,id2,id3], 3)
 				trips += 1
-			#	print >>sys.stderr, "found %d coincs\r" % (trips,),
 
 			connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid1 FROM triple)")
 			connection.cursor().execute("DELETE FROM coinc_event WHERE coinc_event_id IN (SELECT cid2 FROM triple)")
@@ -325,5 +316,4 @@ CREATE TEMPORARY TABLE triple AS
 	connection.cursor().execute("DROP INDEX cemix2")
 	connection.cursor().execute("DROP table sngl")
 	connection.commit()
-#	connection.close()
 	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
