@@ -14,7 +14,7 @@ import cmath
 
 ########################################
 # the list of available IFOs comes up several times
-ifos = ("G1", "H1", "H2", "L1", "T1", "V1")
+ifos = ("G1", "H1", "H2", "L1", "T1", "V1", "E1", "E2", "E3")
 
 ########################################
 # helper functions

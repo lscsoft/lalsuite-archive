@@ -163,6 +163,12 @@ def parse_command_line():
       help="input files contain triggers from L1" )
   parser.add_option("-U","--v1-triggers",action="store_true",default=False,\
       help="input files contain triggers from V1" )
+  parser.add_option("-W","--e1-triggers",action="store_true",default=False,\
+      help="input files contain triggers from E1" )
+  parser.add_option("-Y","--e2-triggers",action="store_true",default=False,\
+      help="input files contain triggers from E2" )
+  parser.add_option("-J","--e3-triggers",action="store_true",default=False,\
+      help="input files contain triggers from E3" )
   parser.add_option("","--remove-h1h2",action="store_true",default=False,\
       help="remove H1H2 triggers (e.g. when H1 and H2 are slid together)" )
   parser.add_option("-a","--snr-time",action="store_true",default=False,\
@@ -310,7 +316,7 @@ xhigh = 0
 #######################################################
 # determine IFOs and IFO combos in play
 
-ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1", "V1") \
+ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1", "V1", "E1", "E2", "E3") \
             if getattr(opts, "%s_triggers" % ifo.lower())]
 ifo_non_h = [ifo for ifo in ifo_list if ifo[0] != "H"]
 
@@ -868,93 +874,99 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
 
 if opts.snr_snr or opts.slide_snr:
   if len(ifo_non_h) >= 2:
-    figure(figure_number)
-    figure_number += 1
-    hold(True)
-    if opts.slide_snr:
-      for slide in slideTriggers:
-        if len(slide["coinc_trigs"]) > 0:
-          viz.plotcoincval(slide["coinc_trigs"], snglStat, ifo_non_h[0], 
-            ifo_non_h[1], 'kx',opts.plot_type)
-    if opts.snr_snr and  len(coincTriggers) > 0:
-      viz.plotcoincval(coincTriggers, snglStat, ifo_non_h[0], 
-          ifo_non_h[1], 'r+',opts.plot_type)
-      # The color in 'r+' only applies to markerfacecolor, which plotcoincval
-      # removes.  Must set the markeredgecolor on the last dataset in the
-      # current axes.
-      gca().get_lines()[-1].set_markeredgecolor('r')
+    for ifo_a in ifo_non_h:
+      otherIfos = [x for x in ifo_non_h if x != ifo_a and ifo_non_h.index(x) > ifo_non_h.index(ifo_a)]
+      for ifo_b in otherIfos:
+        figure(figure_number)
+        figure_number += 1
+        hold(True)
+        if opts.slide_snr:
+          for slide in slideTriggers:
+            if len(slide["coinc_trigs"]) > 0:
+              viz.plotcoincval(slide["coinc_trigs"], snglStat, ifo_a, 
+                ifo_b, 'kx',opts.plot_type)
+        if opts.snr_snr and  len(coincTriggers) > 0:
+          viz.plotcoincval(coincTriggers, snglStat, ifo_a, 
+              ifo_b, 'r+',opts.plot_type)
+          # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+          # removes.  Must set the markeredgecolor on the last dataset in the
+          # current axes.
+          gca().get_lines()[-1].set_markeredgecolor('r')
 
-    xlabel(snglStat.replace("_"," ") + ' ' + ifo_non_h[0], size='x-large')
-    ylabel(snglStat.replace("_"," ") + ' ' + ifo_non_h[1], size='x-large')
-    title(ifo_non_h[0] + ' vs ' + ifo_non_h[1] + " " + \
-        snglStat.replace("_"," "), size='x-large')
-    grid(True)
-    if opts.min_snr:
-      xlim(xmin=opts.min_snr)
-      ylim(ymin=opts.min_snr)
-    if opts.max_snr:
-      xlim(xmax=opts.max_snr)
-      ylim(ymax=opts.max_snr)
-    else:
-      viz.square_axis()
-    if opts.enable_output is True:
-      text = "Plot of " + ifo_non_h[0] + " vs " +ifo_non_h[1] + \
-          snglStat.replace("_"," ") + " statistic"
-      name = ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "-" + snglStat 
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-      fnameList.append(fname)
-      tagList.append(text)
-    if not opts.show_plot:
-      close()
+        xlabel(snglStat.replace("_"," ") + ' ' + ifo_a, size='x-large')
+        ylabel(snglStat.replace("_"," ") + ' ' + ifo_b, size='x-large')
+        title(ifo_a + ' vs ' + ifo_b + " " + \
+            snglStat.replace("_"," "), size='x-large')
+        grid(True)
+        if opts.min_snr:
+          xlim(xmin=opts.min_snr)
+          ylim(ymin=opts.min_snr)
+        if opts.max_snr:
+          xlim(xmax=opts.max_snr)
+          ylim(ymax=opts.max_snr)
+        else:
+          viz.square_axis()
+        if opts.enable_output is True:
+          text = "Plot of " + ifo_a + " vs " +ifo_b + \
+              snglStat.replace("_"," ") + " statistic"
+          name = ifo_a + "_vs_" + ifo_b + "-" + snglStat 
+          fname = InspiralUtils.set_figure_name(opts, name)
+          fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+          fnameList.append(fname)
+          tagList.append(text)
+        if not opts.show_plot:
+          close()
 
 
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
     if len(ifo_non_h) >= 2:
-      figure(figure_number)
-      figure_number += 1
-      hold(True)
-      if opts.slide_snr:
-        for slide in slideTriggersByMass[i]:
-          if len(slide["coinc_trigs"]) > 0:
-            viz.plotcoincval(slide["coinc_trigs"], snglStat, ifo_non_h[0],
-              ifo_non_h[1], 'kx',opts.plot_type)
-      if opts.snr_snr and len(coincTriggersByMass[i]) > 0:
-        viz.plotcoincval(coincTriggersByMass[i], snglStat, ifo_non_h[0],
-            ifo_non_h[1], 'r+',opts.plot_type)
-        # The color in 'r+' only applies to markerfacecolor, which plotcoincval
-        # removes.  Must set the markeredgecolor on the last dataset in the
-        # current axes.
-        gca().get_lines()[-1].set_markeredgecolor('r')
+      for ifo_a in ifo_non_h:
+        otherIfos = [x for x in ifo_non_h if x != ifo_a and ifo_non_h.index(x) > ifo_non_h.index(ifo_a)]
+        for ifo_b in otherIfos:
+          figure(figure_number)
+          figure_number += 1
+          hold(True)
+          if opts.slide_snr:
+            for slide in slideTriggersByMass[i]:
+              if len(slide["coinc_trigs"]) > 0:
+                viz.plotcoincval(slide["coinc_trigs"], snglStat, ifo_a,
+                  ifo_b, 'kx',opts.plot_type)
+          if opts.snr_snr and len(coincTriggersByMass[i]) > 0:
+            viz.plotcoincval(coincTriggersByMass[i], snglStat, ifo_a,
+                ifo_b, 'r+',opts.plot_type)
+            # The color in 'r+' only applies to markerfacecolor, which plotcoincval
+            # removes.  Must set the markeredgecolor on the last dataset in the
+            # current axes.
+            gca().get_lines()[-1].set_markeredgecolor('r')
 
-      xlabel(snr + ' ' + ifo_non_h[0], size='x-large')
-      ylabel(snr + ' ' + ifo_non_h[1], size='x-large')
-      title(ifo_non_h[0] + ' vs ' + ifo_non_h[1] + " " + \
-          snglStat.replace("_"," ") +'\n' + 'mass range ' + \
-          str(mass_range[i]) + ' to ' + str(mass_range[i+1]), size='x-large')
-      grid(True)
-      if opts.min_snr:
-        xlim(xmin=opts.min_snr)
-        ylim(ymin=opts.min_snr)
-      if opts.max_snr:
-        xlim(xmax=opts.max_snr)
-        ylim(ymax=opts.max_snr)
-      else:
-        viz.square_axis()
-      if opts.enable_output is True:
-        text = "Plot of " + ifo_non_h[0] +" vs " + ifo_non_h[1] +  " " + \
-            snglStat.replace("_"," ") + " statistic" + " for " + \
-            str(mass_range[i]) + "-" + str(mass_range[i+1]) + " mass range"
-        name = ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
-            +snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1])
-        fname = InspiralUtils.set_figure_name(opts, name)
-        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-        fnameList.append(fname)
-        tagList.append(text)
-      if not opts.show_plot:
-        close()
+          xlabel(snr + ' ' + ifo_a, size='x-large')
+          ylabel(snr + ' ' + ifo_b, size='x-large')
+          title(ifo_a + ' vs ' + ifo_b + " " + \
+              snglStat.replace("_"," ") +'\n' + 'mass range ' + \
+              str(mass_range[i]) + ' to ' + str(mass_range[i+1]), size='x-large')
+          grid(True)
+          if opts.min_snr:
+            xlim(xmin=opts.min_snr)
+            ylim(ymin=opts.min_snr)
+          if opts.max_snr:
+            xlim(xmax=opts.max_snr)
+            ylim(ymax=opts.max_snr)
+          else:
+            viz.square_axis()
+          if opts.enable_output is True:
+            text = "Plot of " + ifo_a +" vs " + ifo_b +  " " + \
+                snglStat.replace("_"," ") + " statistic" + " for " + \
+                str(mass_range[i]) + "-" + str(mass_range[i+1]) + " mass range"
+            name = ifo_a +"_vs_" +ifo_b + "-"\
+                +snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1])
+            fname = InspiralUtils.set_figure_name(opts, name)
+            fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+            fnameList.append(fname)
+            tagList.append(text)
+          if not opts.show_plot:
+            close()
   
 
 

@@ -166,7 +166,9 @@ def timeindays(col_data ):
   elif col_data[0] > e14times[0] and col_data[0] < e14times[1]:
     start = e14times[0]
   else:
-    raise ValueError, "events not from a known science run"
+    print>>sys.stderr, "Warning: events not from a known science run"
+    print>>sys.stderr, "Taking time of first event to be start time"
+    start = col_data[0]
 
   col_data = (col_data - start)/(60 * 60 * 24.0)
 

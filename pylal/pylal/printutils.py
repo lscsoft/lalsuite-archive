@@ -190,7 +190,7 @@ def get_dst_start_end(ifo, year):
                 break
     # in Europe, DST begins on the last Sunday of March and ends on the last Sunday of October
     # source: http://www.timeanddate.com/news/time/europe-dst-starts-march-29-2009.html
-    elif ("V" in ifo or "G" in ifo):
+    elif ("V" in ifo or "G" in ifo or "E" in ifo):
         for ii in range(31,0,-1):
             dst_start = datetime.datetime(year, 3, ii, 2, 0, 0)
             if dst_start.strftime('%A') == 'Sunday':
@@ -216,7 +216,7 @@ def get_sitelocaltime_from_gps(ifo, gpstime):
         toffset = datetime.timedelta(hours=-7)
     elif "L" in ifo:
         toffset = datetime.timedelta(hours=-5)
-    elif ("V" in ifo or "G" in ifo):
+    elif ("V" in ifo or "G" in ifo or "E" in ifo):
         toffset = datetime.timedelta(hours=+2)
     # apply the dst time offset to see if daylight savings was on; if not, adjust the toffset
     if not (utctime + toffset >= dst_start and utctime + toffset < dst_end):
@@ -238,6 +238,8 @@ def get_elog_page(ifo, gpstime):
     elif "V" in ifo:
         #FIXME: What's the site address and format for Virgo log book?
         site_address = "https://pub3.ego-gw.it/logbook/"
+    elif "E" in ifo:
+        site_address = "http://www.et-gw.eu/"
     # get local time at the site
     site_localtime = get_sitelocaltime_from_gps(ifo, gpstime)
     # set the address

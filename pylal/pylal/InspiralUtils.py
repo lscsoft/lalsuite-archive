@@ -20,8 +20,8 @@ from glue import markup
 from glue.markup import oneliner as extra_oneliner
 
 # set default color code for inspiral plotting functions
-colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
-symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
+colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m','E1':'k','E2':'r','E3':'b'}
+symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1','E1':'p','E2':'h','E3':'v'}
 
 # set color codes for coincident ifo types
 def get_coinc_ifo_colors( ifo_set ):
@@ -51,6 +51,14 @@ def get_coinc_ifo_colors( ifo_set ):
     return '#FF00FF' # magenta
   elif ifo_set == set(['L1', 'V1']):
     return '#254117' # dark green
+  elif ifo_set == set(['E1', 'E2', 'E3']):
+    return '#153E7E' # dodger blue4
+  elif ifo_set == set(['E1', 'E2']):
+    return '#00FF00' # green
+  elif ifo_set == set(['E1', 'E3']):
+    return '#FF0000' # red
+  elif ifo_set == set(['E2', 'E3']):
+    return '#FF00FF' # magenta
   else: # other coincs just set to black
     return 'k'
 

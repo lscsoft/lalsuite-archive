@@ -25,7 +25,7 @@ import inspiral
 
 ##############################################################################
 # Functions used in setting up the dag:
-def make_external_call(command, show_stdout=False, show_command=False):
+def make_external_call(command, show_stdout=True, show_command=True):
   """
   Run a program on the shell and print informative messages on failure.
   """
@@ -42,7 +42,7 @@ def make_external_call(command, show_stdout=False, show_command=False):
       print >>sys.stderr, "  stdout: %s" % out
       print >>sys.stderr, "  stderr: %s" % err
       print >>sys.stderr, "  command: %s" % command
-      sys.exit(status)
+      sys.exit(proc.returncode)
 
   if show_stdout:
       print out
@@ -566,7 +566,8 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     if tmpltBank: # Template generation needs some extra options that datafind doesn't
       hipeSections.extend(["calibration", "geo-data", "tmpltbank", \
           "tmpltbank-1", "tmpltbank-2", "h1-tmpltbank", "h2-tmpltbank", \
-          "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank"])
+          "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank", "e1-tmpltbank", \
+          "e2-tmpltbank", "e3-tmpltbank"])
   elif vetoCat:
     hipeSections = ["condor", "pipeline", "input", "data", "ligo-data", \
         "tmpltbank", "veto-inspiral", "inspiral", "h1-inspiral", "h2-inspiral", \
@@ -580,9 +581,11 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     hipeSections = ["condor", "pipeline", "input", "calibration", "datafind",\
         "ligo-data", "virgo-data", "geo-data", "data", "tmpltbank", \
         "tmpltbank-1", "tmpltbank-2", "h1-tmpltbank", "h2-tmpltbank", \
-        "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank", "no-veto-inspiral", \
+        "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank", "e1-tmpltbank", \
+        "e2-tmpltbank", "e3-tmpltbank","no-veto-inspiral", \
         "veto-inspiral", "inspiral", "h1-inspiral", "h2-inspiral", \
-        "l1-inspiral", "g1-inspiral", "v1-inspiral", "thinca", "thinca-1", \
+        "l1-inspiral", "g1-inspiral", "v1-inspiral", "e1-inspiral", \
+        "e2-inspiral", "e3-inspiral", "thinca", "thinca-1", \
         "thinca-2", "thinca-slide", "trigbank", "sire",  \
         "sire-inj", "coire", "coire-1", "coire-2", "coire-inj", \
         "cohbank", "trigbank-coherent", "chia", "inspiral-coherent", \
@@ -731,7 +734,6 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   hipeCommand = test_and_add_hipe_arg(hipeCommand,"disable-dag-priorities")
 
   # run lalapps_inspiral_hipe
-  print hipeCommand
   make_external_call(hipeCommand)
 
   # link datafind

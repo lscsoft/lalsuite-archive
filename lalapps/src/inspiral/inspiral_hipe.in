@@ -141,7 +141,6 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
   usertag = the usertag to add to the job names
   inspinjNode = the inspinj node to be added as a parent to inspirals
   """
-  print ifo_to_do
 
   # add the non veto inspiral options
   if cp.has_section('no-veto-inspiral'): 

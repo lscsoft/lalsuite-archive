@@ -256,7 +256,7 @@ if opts.trigbank_glob is not None:
     trigSumm= readFiles(trigbankFiles)
 
 ifo_pattern = ''
-temp_ifo_list = ['H1','H2','L1','G1','V1','T1']
+temp_ifo_list = ['H1','H2','L1','G1','V1','T1','E1','E2','E3']
 for ifo in temp_ifo_list:
   if opts.ifo_times.count(ifo):
     if ifo_pattern:
