@@ -140,6 +140,7 @@ const char *gengetopt_args_info_help[] = {
   "      --sidereal-group-count=INT\n                                separate SFTs in that many groups by frequency \n                                  shift",
   "      --time-group-count=INT    separate SFTs in that many groups by gps time",
   "      --phase-mismatch=DOUBLE   maximal phase mismatch over coherence length to \n                                  assume when using loosely coherent mode  \n                                  (default=`1.570796')",
+  "      --bypass-powersum-cache=INT\n                                bypass partial power sum cache  (default=`0')",
     0
 };
 
@@ -298,6 +299,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->sidereal_group_count_given = 0 ;
   args_info->time_group_count_given = 0 ;
   args_info->phase_mismatch_given = 0 ;
+  args_info->bypass_powersum_cache_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -497,6 +499,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->time_group_count_orig = NULL;
   args_info->phase_mismatch_arg = 1.570796;
   args_info->phase_mismatch_orig = NULL;
+  args_info->bypass_powersum_cache_arg = 0;
+  args_info->bypass_powersum_cache_orig = NULL;
   
 }
 
@@ -614,6 +618,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->sidereal_group_count_help = gengetopt_args_info_help[105] ;
   args_info->time_group_count_help = gengetopt_args_info_help[106] ;
   args_info->phase_mismatch_help = gengetopt_args_info_help[107] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[108] ;
   
 }
 
@@ -865,6 +870,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->sidereal_group_count_orig));
   free_string_field (&(args_info->time_group_count_orig));
   free_string_field (&(args_info->phase_mismatch_orig));
+  free_string_field (&(args_info->bypass_powersum_cache_orig));
   
   
 
@@ -1116,6 +1122,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "time-group-count", args_info->time_group_count_orig, 0);
   if (args_info->phase_mismatch_given)
     write_into_file(outfile, "phase-mismatch", args_info->phase_mismatch_orig, 0);
+  if (args_info->bypass_powersum_cache_given)
+    write_into_file(outfile, "bypass-powersum-cache", args_info->bypass_powersum_cache_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1788,6 +1796,7 @@ cmdline_parser_internal (
         { "sidereal-group-count",	1, NULL, 0 },
         { "time-group-count",	1, NULL, 0 },
         { "phase-mismatch",	1, NULL, 0 },
+        { "bypass-powersum-cache",	1, NULL, 0 },
         { 0,  0, 0, 0 }
       };
 
@@ -3264,6 +3273,20 @@ cmdline_parser_internal (
                 &(local_args_info.phase_mismatch_given), optarg, 0, "1.570796", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "phase-mismatch", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* bypass partial power sum cache.  */
+          else if (strcmp (long_options[option_index].name, "bypass-powersum-cache") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->bypass_powersum_cache_arg), 
+                 &(args_info->bypass_powersum_cache_orig), &(args_info->bypass_powersum_cache_given),
+                &(local_args_info.bypass_powersum_cache_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "bypass-powersum-cache", '-',
                 additional_error))
               goto failure;
           

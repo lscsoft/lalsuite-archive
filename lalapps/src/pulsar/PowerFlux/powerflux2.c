@@ -524,6 +524,7 @@ fprintf(LOG, "phase mismatch: %.8g\n", args_info.phase_mismatch_arg);
 fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_independent" : "spindown_dependent");
 
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
+fprintf(LOG, "cache bypass: %s\n", args_info.bypass_powersum_cache_arg ? "enabled" : "disabled");
 fflush(LOG);
 
 /* we do not use precomputed polarization arrays in powerflux2 
