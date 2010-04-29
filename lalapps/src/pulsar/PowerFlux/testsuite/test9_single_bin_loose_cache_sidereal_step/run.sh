@@ -15,7 +15,7 @@ rm -rf $OUTPUT.bypassed
 mkdir $OUTPUT.bypassed
 
 echo "Running with cache bypassed"
-$PF --num-threads=1 --config=config --bypass-powersum-cache=1 --sidereal-group-count=1 --output $OUTPUT.bypassed >& $OUTPUT.bypassed/err.txt
+$PF --num-threads=1 --config=config --bypass-powersum-cache=1 --sidereal-group-count=1 --time-group-count=1 --output $OUTPUT.bypassed >& $OUTPUT.bypassed/err.txt
 
 echo "Running with cache enabled"
 $PF --num-threads=1 --config=config --output $OUTPUT >& $OUTPUT/err.txt
