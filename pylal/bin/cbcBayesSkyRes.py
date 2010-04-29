@@ -32,6 +32,10 @@ parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help=
 if opts.eventnum is not None and opts.injfile is None:
     print "You specified an event number but no injection file. Ignoring!"
 
+if opts.data is None:
+    print 'You must specify an input data file'
+    exit(1)
+
 def mc2ms(mc,eta):
     root = sqrt(0.25-eta)
     fraction = (0.5+root) / (0.5-root)
@@ -93,22 +97,18 @@ def sky_hist(skypoints,samples):
 	return (skypoints,bins)
 
 def skyhist_cart(skycarts,samples):
-	N=len(skypoints)
+	"""
+	Histogram the list of samples into bins defined by Cartesian vectors in skycarts
+	"""
+	dot=numpy.dot
+	N=len(skycarts)
 	print 'operating on %d sky points'%(N)
 	bins=zeros(N)
-	j=0
 	for sample in samples:
 		sampcart=pol2cart(sample[RAdim],sample[decdim])
-		dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
-		maxdot=0
-		for i in range(0,N):
-			if dots[i]>maxdot:
-				maxdot=dots[i]
-				mindx=i
-		bins[mindx]=bins[mindx]+1
-		j=j+1
-	#	print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
-	return (skypoints,bins)
+		maxdx=max(xrange(0,N),key=lambda i:dot(sampcart,skycarts[i]))
+		bins[maxdx]+=1
+	return (skycarts,bins)
 
 def loadDataFile(filename):
 	print filename
@@ -135,11 +135,11 @@ def loadDataFile(filename):
 			header[i]=header[i].replace('log','')
 		if header[i].lower().find('sin')!=-1:
 			print 'asining %s'%(header[i])
-			flines[:,i]=asin(flines[:,i])
+			flines[:,i]=arcsin(flines[:,i])
 			header[i]=header[i].replace('sin','')
 		if header[i].lower().find('cos')!=-1:
 			print 'acosing %s'%(header[i])
-			flines[:,i]=acos(flines[:,i])
+			flines[:,i]=arccos(flines[:,i])
 			header[i]=header[i].replace('cos','')
 		header[i]=header[i].replace('(','')
 		header[i]=header[i].replace(')','')
@@ -190,6 +190,7 @@ def getinjpar(inj,parnum):
     return None
 
 if injection:
+    injpoint=map(lambda a: getinjpar(injection,a),range(0,9))
     injvals=map(str,map(lambda a: getinjpar(injection,a),range(0,9)))
     out=reduce(lambda a,b:a+'||'+b,injvals)
     print 'Injected values:'
@@ -202,6 +203,11 @@ if(opts.skyres is not None):
 	skycarts=map(lambda s: pol2cart(s[1],s[0]),skypoints)
 	(bins,shist)=skyhist_cart(skycarts,pos)
 	#(bins,hist)=sky_hist(skypoints,pos)
+	# Find the bin of the injection if available
+	if injection:
+		(injbins,injhist)=skyhist_cart(skycarts,array([injpoint]))
+		injbin=injhist.tolist().index(1)
+		print 'Found injection in bin %d with co-ordinates %f,%f\n'%(injbin,skypoints[injbin,0],skypoints[injbin,1])
 	frac=0
 	Nbins=0
 	toppoints=[]
@@ -215,6 +221,9 @@ if(opts.skyres is not None):
 		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+		if injection:
+			if (injbin==maxpos):
+				print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
 	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
 	skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
@@ -228,6 +237,9 @@ if(opts.skyres is not None):
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+		if injection:
+                        if (injbin==maxpos):
+                                print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
@@ -241,6 +253,9 @@ if(opts.skyres is not None):
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+		if injection:
+                        if (injbin==maxpos):
+                                print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
