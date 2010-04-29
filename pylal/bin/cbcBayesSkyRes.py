@@ -139,11 +139,11 @@ def loadDataFile(filename):
 			header[i]=header[i].replace('log','')
 		if header[i].lower().find('sin')!=-1:
 			print 'asining %s'%(header[i])
-			flines[:,i]=asin(flines[:,i])
+			flines[:,i]=arcsin(flines[:,i])
 			header[i]=header[i].replace('sin','')
 		if header[i].lower().find('cos')!=-1:
 			print 'acosing %s'%(header[i])
-			flines[:,i]=acos(flines[:,i])
+			flines[:,i]=arccos(flines[:,i])
 			header[i]=header[i].replace('cos','')
 		header[i]=header[i].replace('(','')
 		header[i]=header[i].replace(')','')
