@@ -1008,8 +1008,8 @@ class CondorDAGNode:
     parent node has run sucessfully.
     @param node: CondorDAGNode to add as a parent.
     """
-    if not isinstance(node, CondorDAGNode):
-      raise CondorDAGNodeError, "Parent must be a Condor DAG node"
+    if not isinstance(node, (CondorDAGNode,CondorDAGManNode) ):
+      raise CondorDAGNodeError, "Parent must be a CondorDAGNode or a CondorDAGManNode"
     self.__parents.append( node )
 
   def get_cmd_line(self):

@@ -514,7 +514,7 @@ for ifo in ifos:
     else:
         seg_name = "DMT-INJECTION_INSPIRAL"
     # query for segments
-    out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(ops.gps_start_time), str(ops.gps_end_time - ops.gps_start_time)])
+    out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(opts.gps_start_time), str(opts.gps_end_time - opts.gps_start_time)])
     out_xml = os.path.join(opts.seg_dir,out_file_name + '.xml')
     if opts.get_segment_list:
     	retcode = subprocess.call(["ligolw_segment_query", "--database", \
@@ -532,7 +532,7 @@ if not opts.analyze_injections:
 	sys.exit(0)
     
 for ifo in ifos:
-        out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(ops.gps_start_time), str(ops.gps_end_time - ops.gps_start_time)])
+        out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(opts.gps_start_time), str(opts.gps_end_time - opts.gps_start_time)])
         out_xml = os.path.join(opts.seg_dir,out_file_name + '.xml')
         indoc = ligolw_utils.load_url(out_xml)
         hwinj_done[ifo] = segmentdb_utils.find_segments(indoc,ifo+":RESULT:1")
