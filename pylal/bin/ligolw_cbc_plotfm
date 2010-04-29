@@ -510,6 +510,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 ymin = min(ymin, min(y))
 
             # Plot missed
+            plotmissed = []
             if 'recovered_' not in xstat and 'recovered_' not in ystat and (param_name is not None and 'recovered_' not in param_name or param_name is None):
                 plotmissed = [ ( get_cmrow_stat(row,xstat), get_cmrow_stat(row,ystat) ) for row in missed_table
                     if (param_name is not None and param_parser.group_by_param_range( get_cmrow_stat(row, param_name) ) == n) or param_name is None ]
