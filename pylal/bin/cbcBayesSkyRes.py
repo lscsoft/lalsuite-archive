@@ -97,21 +97,17 @@ def sky_hist(skypoints,samples):
 	return (skypoints,bins)
 
 def skyhist_cart(skycarts,samples):
+	"""
+	Histogram the list of samples into bins defined by Cartesian vectors in skycarts
+	"""	
+	dot=numpy.dot
 	N=len(skycarts)
 	print 'operating on %d sky points'%(N)
 	bins=zeros(N)
-	j=0
 	for sample in samples:
 		sampcart=pol2cart(sample[RAdim],sample[decdim])
-		dots=map(lambda s: numpy.dot(sampcart,s),skycarts)
-		maxdot=0
-		for i in range(0,N):
-			if dots[i]>maxdot:
-				maxdot=dots[i]
-				mindx=i
-		bins[mindx]=bins[mindx]+1
-		j=j+1
-	#	print 'Done %d/%d iterations, minsep=%f degrees'%(j,len(samples),math.acos(maxdot)*(180.0/3.14159))
+		maxdx=max(xrange(0,N),key=lambda i:dot(sampcart,skycarts[i]))
+		bins[maxdx]+=1
 	return (skycarts,bins)
 
 def loadDataFile(filename):
