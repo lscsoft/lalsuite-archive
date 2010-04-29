@@ -99,7 +99,7 @@ def sky_hist(skypoints,samples):
 def skyhist_cart(skycarts,samples):
 	"""
 	Histogram the list of samples into bins defined by Cartesian vectors in skycarts
-	"""	
+	"""
 	dot=numpy.dot
 	N=len(skycarts)
 	print 'operating on %d sky points'%(N)
