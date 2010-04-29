@@ -227,6 +227,11 @@ if(!args_info.dataset_given && !args_info.detector_given){
 	exit(-1);
 	}
 
+if(!args_info.sky_marks_file_given){
+	fprintf(stderr,"** You must provide a skymarks file (--sky-marks-file)\n");
+	exit(-1);
+	}
+
 gsl_rng_env_setup();
 gsl_set_error_handler_off();
 

@@ -84,6 +84,11 @@ if(!strcasecmp(args_info.averaging_mode_arg, "1") || !strcasecmp(args_info.avera
 /* apply command line overrides */
 if(args_info.cache_granularity_given) {
 	ctx->cache_granularity=args_info.cache_granularity_arg;
+	if(ctx->cache_granularity<1) {
+		fprintf(stderr, "*** ERROR: cache granularity must be positive\n");
+		fprintf(LOG, "*** ERROR: cache granularity must be positive\n");
+		exit(-1);
+		}
 	}
 
 if(args_info.summing_step_given) {
@@ -92,10 +97,20 @@ if(args_info.summing_step_given) {
 
 if(args_info.sidereal_group_count_given) {
 	ctx->sidereal_group_count=args_info.sidereal_group_count_arg;
+	if(ctx->sidereal_group_count<1) {
+		fprintf(stderr, "*** ERROR: sidereal_group_count must be positive\n");
+		fprintf(LOG, "*** ERROR: sidereal_group_count must be positive\n");
+		exit(-1);
+		}
 	}
 
 if(args_info.time_group_count_given) {
 	ctx->time_group_count=args_info.time_group_count_arg;
+	if(ctx->time_group_count<1) {
+		fprintf(stderr, "*** ERROR: time_group_count must be positive\n");
+		fprintf(LOG, "*** ERROR: time_group_count must be positive\n");
+		exit(-1);
+		}
 	}
 
 ctx->inv_cache_granularity=1.0/ctx->cache_granularity;
