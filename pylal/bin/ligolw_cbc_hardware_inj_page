@@ -252,9 +252,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	print >>cachefile, opts.outfile
 	# Check for image directory and create
 	imagedirname = os.path.dirname(opts.outfile)
-        if imagedirname is '':
-          imagedirname='./'
-        imagedirname = imagedirname + '/Images/'
+        imagedirname = os.path.join(imagedirname,'Images')
         if not os.path.isdir(imagedirname):
 		os.mkdir(imagedirname)
 	SNRAvailable=False
@@ -352,9 +350,9 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		pylab.grid(b=True)
 		# save figure
 		#print 'save figure'
-		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
-		pylab.savefig(imagedirname+plotname)
-		pylab.savefig(imagedirname+plotname.replace('.png','_thumb.png'),dpi=40)
+                plotname=str(ifo) + '-' + os.path.splitext('-'.join(os.path.basename(opts.outfile).split('-')[1:]))[0] + '.png'
+		pylab.savefig(os.path.join(imagedirname,plotname))
+		pylab.savefig(os.path.join(imagedirname,plotname.replace('.png','_thumb.png')),dpi=40)
 		print >>cachefile, 'Images/'+plotname
                 print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
 	if(SNRAvailable): print 'Producing SNR plots'
@@ -390,9 +388,9 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
                 	pylab.grid(b=True)
                 	# save figure
 			#print 'save SNR figure'
-                	plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'_snr.png'
-                	pylab.savefig(plotname)
-                        pylab.savefig(imagedirname+plotname.replace('.png','_thumb.png'),dpi=40)
+                	plotname=str(ifo) + '-' + os.path.splitext('SNR_' + '-'.join(os.path.basename(opts.outfile).split('-')[1:]))[0] + '.png'
+                	pylab.savefig(os.path.join(imagedirname,plotname))
+                        pylab.savefig(os.path.join(imagedirname,plotname.replace('.png','_thumb.png')),dpi=40)
 			print >>cachefile, 'Images/'+plotname
 			print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
 	print >>outfile,'</body></html>'
