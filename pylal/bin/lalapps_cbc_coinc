@@ -228,7 +228,7 @@ CREATE TEMPORARY TABLE sngl AS
 		# work might get e-thinca working too.
 		#
 
-        	for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time, snr1, snr2 in connection.cursor().execute("""
+		for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time, snr1, snr2 in connection.cursor().execute("""
 SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time), snglA.snr, snglB.snr
 FROM sngl AS snglA
 JOIN sngl AS snglB ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2)
