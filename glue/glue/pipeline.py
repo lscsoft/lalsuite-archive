@@ -1602,6 +1602,14 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
       except:
         pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>""" % os.environ['LIGO_DATAFIND_SERVER']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
+      except:
+        pass
       print >> sitefile, """\
     <profile namespace="pegasus" key="gridstart">none</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
