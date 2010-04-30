@@ -223,6 +223,7 @@ if(opts.skyres is not None):
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
 		if injection:
 			if (injbin==maxpos):
+				injectionconfidence=frac
 				print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
 	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
@@ -239,7 +240,8 @@ if(opts.skyres is not None):
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
 		if injection:
                         if (injbin==maxpos):
-                                print 'Injection sky point found at confidence %f'%(frac)
+                                injectionconfidence=frac
+				print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
@@ -255,6 +257,7 @@ if(opts.skyres is not None):
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
 		if injection:
                         if (injbin==maxpos):
+				injectionconfidence=frac
                                 print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
@@ -393,6 +396,11 @@ if injection:
     injline=reduce(lambda a,b:a+'<td>'+b,injvals)
     htmlfile.write('<td>'+injline+'<td></tr>')
 htmlfile.write('</table>')
+if injection:
+	if injectionconfidence:
+    		htmlfile.write('<p>Injection found at confidence interval %f in sky location</p>'%(injectionconfidence))
+	else:
+		htmlfile.write('<p>Injection not found in posterior bins in sky location!</p>')
 htmlfile.write('<h5>2D Marginal PDFs</h5><br>')
 htmlfile.write('<table border=1><tr>')
 htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
