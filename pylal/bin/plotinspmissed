@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# $Id$
 #
 # Copyright (C) 2006  Alexander Dietz
 #
@@ -16,10 +15,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-__Id__ = "$Id$"
 __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "plotinspmissed"
 __title__ = "Found and Missed plots for triggers"
 
@@ -35,6 +31,7 @@ from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 import numpy
 
 #######################################################################
@@ -128,10 +125,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
   parser.add_option("-a","--time-dist",action="store_true",default=False,\
       help="plot dist v trig end time" )
   parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
@@ -285,7 +279,7 @@ opts, args = parse_command_line()
 comments = ""
 
 # Initialise: add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 # -- set the proper color code
 colors = InspiralUtils.colors

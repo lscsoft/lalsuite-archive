@@ -82,6 +82,8 @@ def coinc_params_func(events, offsetdict):
 		dA = math.log10(abs(event1.amplitude / event2.amplitude))
 		params["%sdA" % prefix] = (dA,)
 
+		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
+		params["%sdf" % prefix] = (df,)
 	#
 	# done
 	#
@@ -122,7 +124,13 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_L1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
+		"L1_V1_dA": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_H2_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
 	}
 
 	filters = {
@@ -141,7 +149,13 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		"H1_V1_dA": rate.gaussian_window(11),
 		"H2_L1_dA": rate.gaussian_window(11),
 		"H2_V1_dA": rate.gaussian_window(11),
-		"L1_V1_dA": rate.gaussian_window(11)
+		"L1_V1_dA": rate.gaussian_window(11),
+		"H1_H2_df": rate.gaussian_window(11),
+		"H1_L1_df": rate.gaussian_window(11),
+		"H1_V1_df": rate.gaussian_window(11),
+		"H2_L1_df": rate.gaussian_window(11),
+		"H2_V1_df": rate.gaussian_window(11),
+		"L1_V1_df": rate.gaussian_window(11)
 	}
 
 	def __init__(self):

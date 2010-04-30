@@ -25,8 +25,6 @@ editor, resulting in a Wikified checklist under MoinMoin version
 control.
 """
 __author__  = "Cristina Valeria Torres <cristina.torres@ligo.org>"
-__date__    = '$Date$'
-__version__ = '$Revision$'
 __prog__    = 'makeCheckListWiki.py'
 
 

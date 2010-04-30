@@ -39,14 +39,14 @@ typedef struct {
 	double spindown;
 	double inv_coherence_length;
 
-	float e[3];
-	} LOOSELY_COHERENT_PATCH_PRIVATE_DATA;
+	} SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA;
 
 
+/* Lanczos window actually vanishes */
 #define LOOSE_SEARCH_TOLERANCE 0.0
 
 /* This computes exp(a) for a<=0.22 with 4% precision */
-float fast_negexp(float a)
+static float fast_negexp(float a)
 {
 if(a>0.22) {
 	fprintf(stderr, "INTERNAL ERROR: fast_negexp is not correct for argument values >0.22");
@@ -68,12 +68,12 @@ return(1.0/(1.0-a+a*a));
 */
 
 
-double inline exp_kernel(double delta, double gps_delta)
+static double inline exp_kernel(double delta, double gps_delta)
 {
 return(exp(gps_delta*log(sin(delta)/delta)/1800.0));
 }
 
-double inline sinc_kernel(double delta, double gps_delta)
+static double inline sinc_kernel(double delta, double gps_delta)
 {
 double b;
 if(gps_delta<=0)return 1.0;
@@ -81,7 +81,7 @@ b=delta*gps_delta/1800.0;
 return(sin(b)/b);
 }
 
-double inline lanczos_kernel3(double delta, double gps_delta)
+static double inline lanczos_kernel3(double delta, double gps_delta)
 {
 double b;
 if(gps_delta<=0)return 1.0;
@@ -90,7 +90,7 @@ if(b>3.0*M_PI)return 0.0;
 return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/3.0));
 }
 
-double inline lanczos_kernel2(double delta, double gps_delta)
+static double inline lanczos_kernel2(double delta, double gps_delta)
 {
 double b;
 if(gps_delta<=0)return 1.0;
@@ -100,244 +100,6 @@ return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/2.0));
 }
 
 #define loose_kernel lanczos_kernel3
-
-
-void get_uncached_loose_single_bin_partial_power_sum1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
-{
-int i,k,n,m;
-int bin_shift, bin_shift2;
-SEGMENT_INFO *si_local, *si_local2;
-DATASET *d, *d2;
-//POLARIZATION *pl;
-float *im, *re, *im2, *re2, *pp, *pc, *cc;
-float a;
-float weight;
-float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc;
-float x, y;
-float alpha;
-double phase_offset, phase_increment;
-float f0m_c, f0m_s, inc_c, inc_s;
-int same_halfs=(si[0].segment==si[ctx->loose_first_half_count].segment) && (si[0].dataset==si[ctx->loose_first_half_count].dataset);
-
-int pps_bins=pps->nbins;
-
-float weight_pppp=0;
-float weight_pppc=0;
-float weight_ppcc=0;
-float weight_pccc=0;
-float weight_cccc=0;
-
-float threshold;
-
-if(ctx->loose_first_half_count<0) {
-	fprintf(stderr, "**** INTERNAL ERROR: loose_first_half_count=%d is not set.\n", ctx->loose_first_half_count);
-	exit(-1);
-	}
-
-alpha= ctx->loose_coherence_alpha;
-
-/*pp=aligned_alloca(pps_bins*sizeof(*pp));
-pc=aligned_alloca(pps_bins*sizeof(*pc));
-cc=aligned_alloca(pps_bins*sizeof(*cc));
-power=aligned_alloca(pps_bins*sizeof(*power)); */
-
-pp=pps->power_pp;
-pc=pps->power_pc;
-cc=pps->power_cc;
-for(i=0;i<pps_bins;i++) {
-	(*pp)=0.0;
-	(*pc)=0.0;
-	(*cc)=0.0;
-
-	pp++;
-	pc++;
-	cc++;
-	}
-
-pps->weight_arrays_non_zero=0;
-
-for(i=0;i<pps_bins;i++) {
-	pps->weight_pppp[i]=0.0;
-	pps->weight_pppc[i]=0.0;
-	pps->weight_ppcc[i]=0.0;
-	pps->weight_pccc[i]=0.0;
-	pps->weight_cccc[i]=0.0;
-	}
-
-threshold=-logf(LOOSE_SEARCH_TOLERANCE/2.0)/ctx->loose_coherence_alpha;
-
-//fprintf(stderr, "%d\n", count);
-
-n=0;
-for(k=0;k<ctx->loose_first_half_count;k++)
-for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
-	si_local=&(si[k]);
-	si_local2=&(si[m+ctx->loose_first_half_count]);
-
-	/* off diagonal entries are x2 */
-	if(same_halfs && (k==m))x=1.0;
-		else x=2.0;
-
-// 	y=0*sinf((si_local->bin_shift-si_local2->bin_shift)*M_PI*0.5);
-// 	if(fabs(y)<=0.001)y=1.0;
-// 		else y=sinf(y)/y;
-// 	y=-log(fabs(y))/1800.0;
-
-	if(fabs(si_local->gps-si_local2->gps)>threshold)continue;
-
-	x*=fast_negexp(-(alpha)*fabs(si_local->gps-si_local2->gps));
-
-	if(fabs(x)<=LOOSE_SEARCH_TOLERANCE)continue;
-
-	n++;
-
- 	d=&(datasets[si_local->dataset]);
- 	d2=&(datasets[si_local2->dataset]);
-
-
-	//fprintf(stderr, "%d %d %f %f\n", k, m, si_local->gps-si_local2->gps, x);
-
-	f_plus=si_local->f_plus;
-	f_cross=si_local->f_cross;
-
-	f_plus2=si_local2->f_plus;
-	f_cross2=si_local2->f_cross;
-
-	f_pp=f_plus*f_plus2;
-	f_pc=0.5*(f_plus*f_cross2+f_plus2*f_cross);
-	f_cc=f_cross*f_cross2;
-
-	//fprintf(stderr, "pp=%f pc=%f cc=%f\n", f_pp, f_pc, f_cc);	
-
-	weight=x*d->expTMedians[si_local->segment]*d->weight*d2->expTMedians[si_local2->segment]*d2->weight;
-
-	weight_pppp+=weight*f_pp*f_pp;
-	weight_pppc+=weight*f_pp*f_pc;
-	weight_ppcc+=weight*(0.6666667*f_pc*f_pc+0.3333333*f_pp*f_cc); /* 2/3 and 1/3 */
-	weight_pccc+=weight*f_pc*f_cc;
-	weight_cccc+=weight*f_cc*f_cc;
-
-	f_pp*=weight;
-	f_pc*=weight;
-	f_cc*=weight;
-
-	/* contribution from frequency mismatch */
-// 	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
-// 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
-
-	/* This effectively rounds off phase offset to units of pi/900, good enough ! */
-	phase_offset=((int)rint((((first_bin+side_cut) % 1800))*(si_local->gps-si_local2->gps)) % 1800 )*2*M_PI/1800.0;
-
-	phase_offset+=((int)rint(((0.5*(si_local->bin_shift+si_local2->bin_shift)-0.5*(0.5*nbins-side_cut)*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps))) %1800)*2*M_PI/1800.0;
-	//phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
-	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rint(si_local->bin_shift)+rint(si_local2->bin_shift));
-
-	f0m_c=cosf(phase_offset);
-	f0m_s=sinf(-phase_offset);
-
-	phase_increment=(1.0+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
-			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
-
-	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
-
-	inc_c=cosf(phase_increment);
-	inc_s=sinf(-phase_increment);
-
- 	d=&(datasets[si_local->dataset]);
- 	d2=&(datasets[si_local2->dataset]);
-
-	bin_shift=rintf(si_local->bin_shift)-pps->offset;
-	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
-		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
-			bin_shift, si_local->bin_shift);
-		exit(-1);
-		}
-
-	bin_shift2=rintf(si_local2->bin_shift)-pps->offset;
-	if((bin_shift2+side_cut<0) || (bin_shift2>pps_bins+side_cut)) {
-		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
-			bin_shift2, si_local2->bin_shift);
-		exit(-1);
-		}
-
-	re=&(d->re[si_local->segment*nbins+side_cut+bin_shift]);
-	im=&(d->im[si_local->segment*nbins+side_cut+bin_shift]);
-
-	re2=&(d2->re[si_local2->segment*nbins+side_cut+bin_shift2]);
-	im2=&(d2->im[si_local2->segment*nbins+side_cut+bin_shift2]);
-
-	pp=pps->power_pp;
-	pc=pps->power_pc;
-	cc=pps->power_cc;
-
-	for(i=0;i<pps_bins;i++) {
-		x=(*re)*f0m_c-(*im)*f0m_s;
-		y=(*re)*f0m_s+(*im)*f0m_c;
-
-		a=(x*(*re2)+y*(*im2));
-
-		x=f0m_c*inc_c-f0m_s*inc_s;
-		y=f0m_c*inc_s+f0m_s*inc_c;
-
-		f0m_c=x;
-		f0m_s=y;
-
-		(*pp)+=a*f_pp;
-		(*pc)+=a*f_pc;
-		(*cc)+=a*f_cc;
-
-		pp++;
-		pc++;
-		cc++;
-
-		re++;
-		im++;
-
-		re2++;
-		im2++;
-		/**/
-		}
-
-	pp=pps->power_pp;
-	pc=pps->power_pc;
-	cc=pps->power_cc;
-
-	/*
-
-	for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
-		m=d->lines_report->lines_list[n];
-		i=m-side_cut-bin_shift;
-		if(i<0)continue;
-		if(i>=pps_bins)continue;
-
-		a=power[i]*weight;
-
-		pp[i]-=a*f_plus*f_plus;
-		pc[i]-=a*f_plus*f_cross;
-		cc[i]-=a*f_cross*f_cross;
-
-		pps->weight_pppp[i]-=weight*f_plus*f_plus*f_plus*f_plus;
-		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;
-		pps->weight_ppcc[i]-=weight*f_plus*f_plus*f_cross*f_cross;
-		pps->weight_pccc[i]-=weight*f_plus*f_cross*f_cross*f_cross;
-		pps->weight_cccc[i]-=weight*f_cross*f_cross*f_cross*f_cross;		
-
-		pps->weight_arrays_non_zero=1;
-		}
-
-	*/
-	}
-
-//fprintf(stderr, "n=%d out of %d, %f fraction\n", n, count*(count+1)/2, n/(count*(count+1)*0.5));
-
-pps->c_weight_pppp=weight_pppp;
-pps->c_weight_pppc=weight_pppc;
-pps->c_weight_ppcc=weight_ppcc;
-pps->c_weight_pccc=weight_pccc;
-pps->c_weight_cccc=weight_cccc;
-
-pps->collapsed_weight_arrays=0;
-}
 
 void get_uncached_loose_single_bin_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
@@ -351,8 +113,7 @@ float a;
 float weight;
 float f_plus, f_cross, f_plus2, f_cross2, f_pp, f_pc, f_cc;
 float x, y;
-float alpha, beta;
-double phase_offset, phase_increment, gps1, gps2, gps_delta, gps_mid, dist_delta;
+double phase_offset, phase_increment, gps1, gps2, gps_delta, gps_mid;
 float f0m_c, f0m_s, inc_c, inc_s;
 int same_halfs=(si[0].segment==si[ctx->loose_first_half_count].segment) && (si[0].dataset==si[ctx->loose_first_half_count].dataset);
 
@@ -364,8 +125,7 @@ float weight_ppcc=0;
 float weight_pccc=0;
 float weight_cccc=0;
 
-float threshold;
-LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
+SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
 
 if(ctx->loose_first_half_count<0) {
@@ -373,12 +133,10 @@ if(ctx->loose_first_half_count<0) {
 	exit(-1);
 	}
 
-if(priv==NULL || priv->signature!=PATCH_PRIVATE_LOOSELY_COHERENT_SIGNATURE) {
+if(priv==NULL || priv->signature!=PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE) {
 	fprintf(stderr, "**** INTERNAL ERROR: invalid patch structure, priv=%p signature=%ld\n", priv, priv==NULL?-1 : priv->signature);
 	exit(-1); 
 	}
-
-alpha= ctx->loose_coherence_alpha;
 
 /*pp=aligned_alloca(pps_bins*sizeof(*pp));
 pc=aligned_alloca(pps_bins*sizeof(*pc));
@@ -408,8 +166,6 @@ for(i=0;i<pps_bins;i++) {
 	pps->weight_cccc[i]=0.0;
 	}
 
-threshold=-logf(LOOSE_SEARCH_TOLERANCE/2.0)/ctx->loose_coherence_alpha;
-
 //fprintf(stderr, "%d\n", count);
 
 n=0;
@@ -421,21 +177,6 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	/* off diagonal entries are x2 */
 	if(same_halfs && (k==m))x=1.0;
 		else x=2.0;
-
-// 	y=0*sinf((si_local->bin_shift-si_local2->bin_shift)*M_PI*0.5);
-// 	if(fabs(y)<=0.001)y=1.0;
-// 		else y=sinf(y)/y;
-// 	y=-log(fabs(y))/1800.0;
-
-	//if(fabs(si_local->gps-si_local2->gps)>threshold)continue;
-
-	//x*=fast_negexp(-(alpha)*fabs(si_local->gps-si_local2->gps));
-//	beta=fabs(si_local->gps-si_local2->gps)*args_info.phase_mismatch_arg*priv->inv_coherence_length;
-
-// 	if(si_local->gps!=si_local2->gps)
-// 		x*=2.0*sinf(beta*args_info.phase_mismatch_arg)/beta;
-// 		else
-// 		x*=2.0*args_info.phase_mismatch_arg;
 
 	x*=loose_kernel(args_info.phase_mismatch_arg, fabs(si_local->gps-si_local2->gps));
 
@@ -461,8 +202,16 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "pp=%f pc=%f cc=%f\n", f_pp, f_pc, f_cc);	
 
-	weight=x*d->expTMedians[si_local->segment]*d->weight*d2->expTMedians[si_local2->segment]*d2->weight;
-
+	#if 0 
+	/* The weights below (commented and not) are used in completely ad-hoc manner, a proper way to go is to solve the filtering problem in the presence of non-stationary noise */
+	
+	weight=d->expTMedians[si_local->segment]*d->weight;
+	if(weight> d2->expTMedians[si_local2->segment]*d2->weight)weight=d2->expTMedians[si_local2->segment]*d2->weight;
+	weight*=x;
+	#endif 
+	
+	weight=x*sqrt(d->expTMedians[si_local->segment]*d->weight*d2->expTMedians[si_local2->segment]*d2->weight);
+	
 	weight_pppp+=weight*f_pp*f_pp;
 	weight_pppc+=weight*f_pp*f_pc;
 	weight_ppcc+=weight*(0.6666667*f_pc*f_pc+0.3333333*f_pp*f_cc); /* 2/3 and 1/3 */
@@ -473,9 +222,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	f_pc*=weight;
 	f_cc*=weight;
 
+#if 0
+	/* The code below uses Doppler shifts alone (same as injection code in dataset.c), and does not
+	correctly treat multiple detectors, let alone Shapiro delay, etc. */
+	
 	/* contribution from frequency mismatch */
-// 	phase_offset=0.5*(si_local->bin_shift+si_local2->bin_shift)*(si_local->gps-si_local2->gps)*2*M_PI/1800.0;
-// 	phase_offset+=M_PI*(si_local->bin_shift-si_local2->bin_shift-rintf(si_local->bin_shift)+rintf(si_local2->bin_shift));
 
 	/* This effectively rounds off phase offset to units of pi/900, good enough ! */
 	phase_offset=((int)rint((((first_bin+side_cut) % 1800))*(si_local->gps-si_local2->gps)) % 1800 )*2*M_PI/1800.0;
@@ -487,29 +238,20 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	phase_increment=(1.0+0.5*(si_local->diff_bin_shift+si_local2->diff_bin_shift))*(si_local->gps-si_local2->gps)*2*M_PI/1800.0+
 			(si_local->diff_bin_shift-si_local2->diff_bin_shift)*M_PI;
 
-	//fprintf(stderr, "(%f %f)  %.4f %.4f", si_local->bin_shift, si_local2->bin_shift, phase_offset, phase_increment);
+//	fprintf(stderr, "(%f %f)  %.4f %.4f", si_local->bin_shift, si_local2->bin_shift, phase_offset, phase_increment);
 
-#if 1
+#else
+	/* This uses LALBarycenter() timing */
+	
 	/* First compute phase offsets in units of 2*M_PI */
 	gps1=(priv->emission_time[si_local->index].te.gpsSeconds-spindown_start)+1e-9*priv->emission_time[si_local->index].te.gpsNanoSeconds;
 	gps2=(priv->emission_time[si_local2->index].te.gpsSeconds-spindown_start)+1e-9*priv->emission_time[si_local2->index].te.gpsNanoSeconds;
 	gps_delta=(priv->emission_time[si_local->index].te.gpsSeconds-priv->emission_time[si_local2->index].te.gpsSeconds)+1e-9*(priv->emission_time[si_local->index].te.gpsNanoSeconds-priv->emission_time[si_local2->index].te.gpsNanoSeconds);
 	gps_mid=0.5*(gps1+gps2);
 
-// 	dist_delta=(priv->emission_time[si_local->index].rDetector[0]-priv->emission_time[si_local2->index].rDetector[0])*priv->e[0]
-// 		+(priv->emission_time[si_local->index].rDetector[1]-priv->emission_time[si_local2->index].rDetector[1])*priv->e[1]
-// 		+(priv->emission_time[si_local->index].rDetector[2]-priv->emission_time[si_local2->index].rDetector[2])*priv->e[2];
-
 	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid)*gps_delta;
-	/* account for phase drift across a single SFT - this provides a correction on the order of a few percent */
-	//phase_offset=(first_bin+side_cut+priv->freq_shift*1800.0+1800.0*priv->spindown*gps_mid)*(si_local->gps-si_local2->gps+dist_delta)/1800.0;
-	//phase_offset+=0.5*priv->spindown*(priv->emission_time[si_local->index].deltaT+priv->emission_time[si_local2->index].deltaT)*gps_delta;
-	//phase_offset+=priv->spindown*(priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2);
-	//phase_offset+=0.5*(si_local->bin_shift-si_local2->bin_shift-rint(si_local->bin_shift)+rint(si_local2->bin_shift));
-	//phase_offset+=0.5*(si_local->bin_shift-si_local2->bin_shift-rint(si_local->bin_shift)+rint(si_local2->bin_shift));
 
 	phase_increment=gps_delta*priv->inv_coherence_length;
-	//phase_increment=(si_local->gps-si_local2->gps+dist_delta)/1800.0;
 
 	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
 
@@ -518,8 +260,9 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 
 	//fprintf(stderr, "tdot=(%g,%g)\n", priv->emission_time[si_local->index].tDot, priv->emission_time[si_local2->index].tDot); 
 
-	//fprintf(stderr, " (%f %f) %.4f %.4f (%f %f %f %f)\n", gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), dist_delta);
+	//fprintf(stderr, " [%d, %d] (%f %f) %.4f %.4f (%f %f %f %g)\n", k, m, gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), priv->spindown);
 #endif
+
 	f0m_c=cosf(phase_offset);
 	f0m_s=sinf(-phase_offset);
 
@@ -530,14 +273,14 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
  	d2=&(datasets[si_local2->dataset]);
 
 	bin_shift=rintf(si_local->bin_shift)-pps->offset;
-	if((bin_shift+side_cut<0) || (bin_shift>pps_bins+side_cut)) {
+	if((bin_shift+side_cut<0) || (bin_shift+pps_bins>nbins)) {
 		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
 			bin_shift, si_local->bin_shift);
 		exit(-1);
 		}
 
 	bin_shift2=rintf(si_local2->bin_shift)-pps->offset;
-	if((bin_shift2+side_cut<0) || (bin_shift2>pps_bins+side_cut)) {
+	if((bin_shift2+side_cut<0) || (bin_shift2+pps_bins>nbins)) {
 		fprintf(stderr, "*** Attempt to sample outside loaded range bin_shift=%d bin_shift=%lg, aborting\n", 
 			bin_shift2, si_local2->bin_shift);
 		exit(-1);
@@ -611,7 +354,6 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	*/
 	}
 //exit(-1);
-//fprintf(stderr, "n=%d out of %d, %f fraction\n", n, count*(count+1)/2, n/(count*(count+1)*0.5));
 
 pps->c_weight_pppp=weight_pppp;
 pps->c_weight_pppc=weight_pppc;
@@ -623,30 +365,27 @@ pps->collapsed_weight_arrays=0;
 }
 
 
-int is_nonzero_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si1, int count1, SEGMENT_INFO *si2, int count2)
+static int is_nonzero_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si1, int count1, SEGMENT_INFO *si2, int count2)
 {
 int k,m;
 SEGMENT_INFO *si_local1, *si_local2;
 //POLARIZATION *pl;
-float x, beta;
-float alpha;
+double x, beta;
 int same_halfs=(si1[0].segment==si2[0].segment) && (si1[0].dataset==si2[0].dataset);
-float threshold;
-LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
+SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
 if(ctx->loose_first_half_count<0) {
 	fprintf(stderr, "**** INTERNAL ERROR: loose_first_half_count=%d is not set.\n", ctx->loose_first_half_count);
 	exit(-1);
 	}
 
-if(priv==NULL || priv->signature!=PATCH_PRIVATE_LOOSELY_COHERENT_SIGNATURE) {
+if(priv==NULL || priv->signature!=PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE) {
 	fprintf(stderr, "**** INTERNAL ERROR: invalid patch structure, priv=%p signature=%ld\n", priv, priv==NULL?-1 : priv->signature);
 	exit(-1); 
 	}
 
 if(same_halfs)return(1);
 
-threshold=-logf(LOOSE_SEARCH_TOLERANCE/2.0)/ctx->loose_coherence_alpha;
 
 si_local1=si1;
 for(k=0;k<count1;k++) {
@@ -658,11 +397,6 @@ for(k=0;k<count1;k++) {
 		if(same_halfs && (k==m))x=1.0;
 			else x=2.0;
 	
-// 		if(si_local1->gps!=si_local2->gps)
-// 			x*=2.0*sinf(beta*args_info.phase_mismatch_arg)/beta;
-// 			else
-// 			x*=2.0*args_info.phase_mismatch_arg;
-
 		x*=loose_kernel(args_info.phase_mismatch_arg, fabs(si_local1->gps-si_local2->gps));
 		
 		if(fabs(x)<=LOOSE_SEARCH_TOLERANCE) {
@@ -799,7 +533,7 @@ if(!strcasecmp("LLO", det)){
 
 
 /* This function is meant to work with get_uncached_loose_partial_power_sum */
-void accumulate_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
+void accumulate_single_bin_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)
 {
 int segment_count;
 SEGMENT_INFO *si, *si_local;
@@ -812,16 +546,13 @@ double gps_idx, gps_idx_next;
 double gps_step=ctx->summing_step;
 double center_frequency=(first_bin+nbins*0.5);
 int group_count=ctx->sidereal_group_count*ctx->time_group_count;
-/* for work with Doppler shifts sidereal day is best */
-//#define SCALER (GROUP_COUNT/(23.0*3600.0+56.0*60.0+4.0))
-float group_scaler=group_count; /* this determines sub-bin resolution in group formation */
 SEGMENT_INFO **groups;
 SEGMENT_INFO *tmp;
 int tmp_count;
 int max_group_segment_count;
 int *group_segment_count;
 double avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
-LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv;
+SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv;
 LALStatus status={level:0, statusPtr:NULL};
 EarthState earth_state;
 LIGOTimeGPS tGPS;
@@ -846,7 +577,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		}
 
 	priv=do_alloc(1, sizeof(*priv));
-	priv->signature=PATCH_PRIVATE_LOOSELY_COHERENT_SIGNATURE;
+	priv->signature=PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE;
 	priv->emission_time_size=count*segment_count;
 	priv->emission_time=do_alloc(priv->emission_time_size, sizeof(*priv->emission_time));
 	priv->inv_coherence_length=1.0/si->coherence_time;
@@ -977,9 +708,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				si_local=tmp;
 				priv->freq_shift=ps_local->freq_shift;
 				priv->spindown=ps_local->spindown;
-				priv->e[0]=ps_local->e[0];
-				priv->e[1]=ps_local->e[1];
-				priv->e[2]=ps_local->e[2];
+
 				for(j=0;j<tmp_count;j++) {
 		// 			si[j].ra=ps[i].patch_ra;
 		// 			si[j].dec=ps[i].patch_dec;
@@ -1012,10 +741,12 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	priv->emission_time=NULL;
 	free(priv);
 	ctx->patch_private_data=NULL;
+	priv=NULL;
 	}
 
 for(i=0;i<count;i++) {
 	if(ps[i].min_gps<0 || ps[i].min_gps>gps_start)ps[i].min_gps=gps_start;
 	if(ps[i].max_gps<0 || ps[i].max_gps<gps_stop)ps[i].max_gps=gps_stop;
 	}
+if(status.statusPtr)FREESTATUSPTR(&status);
 }

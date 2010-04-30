@@ -1,17 +1,15 @@
 """
 followup Web page classes
 
-$Id$
-
 This
 """
 
 __author__ = 'Chad Hanna <channa@phys.lsu.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 import ConfigParser
 import os,re # added for cacheStructure
+
+from pylal import git_version
 
 ##############################################################################
 # Cachefying class
@@ -246,7 +244,7 @@ class WebPage(Content):
     if type == 'IUL':
       file.write('<%method title>' + self.title + '</%method>\n')
       file.write('<%method headline>' + self.title + '</%method>\n')
-      file.write('<%method cvsid>$Id$</%method>\n')
+      file.write('<%method cvsid>' + git_version.id + '</%method>\n')
       #file.write('<h1>'+self.title+'</h1>\n')
  
   def writeTableOfContents(self,file,type):

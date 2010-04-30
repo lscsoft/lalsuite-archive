@@ -1,11 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "plotinsppop"
-__Id__ = "$Id$"
 __title__ = "Injection Population Plots"
 
 
@@ -19,6 +15,7 @@ from types import *
 import itertools
 from glue import lal, segmentsUtils
 from pylal import SimInspiralUtils, InspiralUtils
+from pylal import git_version
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -50,7 +47,7 @@ plotinsppop --glob-injfile \"../Injection/HL/HL*.xml\" --fig-name s5_test --x-va
    available numeric columns can be histogrammed with '--hist all'.
 
 """
-parser = OptionParser( usage )
+parser = OptionParser(usage, version=git_version.verbose_msg)
 parser.add_option("-C","--cache-file",action="store",type="string",\
     default=None, metavar=" CACHE",\
     help="setting cache-filename" )
@@ -100,7 +97,7 @@ parser.add_option("","--verbose",action="store_true",\
 ######################################################
 (opts,args) = parser.parse_args()
 args  = sys.argv[1:]
-opts = InspiralUtils.initialise( opts, __prog__, __version__)
+opts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg)
 
 colors = InspiralUtils.colors
 fnameList = []

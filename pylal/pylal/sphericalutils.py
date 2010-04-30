@@ -1,0 +1,124 @@
+# Copyright (C) 2010  Nickolas Fotopoulos
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+"""
+Utilities to perform rotations on (polar, azimuthal) angle pairs and find
+the angle between two points.
+"""
+
+from __future__ import division
+
+import numpy as np
+np.seterr(all="raise")
+
+from pylal.xlal.constants import *
+
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+
+
+#
+# Rotation utilities
+#
+
+def rotate_euler(sph_coords, alpha, beta, gamma):
+    """
+    Take an Nx2 array of N (theta, phi) vectors on the unit sphere
+    (that is, (polar, azimuthal) angles in radians) and apply
+    rotations through the Euler angles alpha, beta, and gamma
+    in radians, using the ZXZ convention.
+    """
+    c = np.cos
+    s = np.sin
+
+    # Define rotation matrix
+    R = np.array(
+        [[c(alpha) * c(gamma) - c(beta) * s(alpha) * s(gamma),
+          c(gamma) * s(alpha) + c(alpha) * c(beta) * s(gamma),
+          s(beta) * s(gamma)],
+         [-c(beta) * c(gamma) * s(alpha) - c(alpha) * s(gamma),
+          c(alpha) * c(beta) * c(gamma) - s(alpha) * s(gamma),
+          c(gamma) * s(beta)],
+         [s(alpha) * s(beta), -c(alpha) * s(beta), c(beta)]], dtype=float)
+
+    # Convert to intermediate cartesian representation (N x 3)
+    cart_orig = np.empty(shape=(len(sph_coords), 3), dtype=float)
+    cart_orig[:, 0] = c(sph_coords[:, 1]) # * s(sph_coords[:, 0])
+    cart_orig[:, 1] = s(sph_coords[:, 1]) # * s(sph_coords[:, 0])
+    cart_orig[:, 0:2] *= s(sph_coords[:, 0])[:, None]
+    cart_orig[:, 2] = c(sph_coords[:, 0])
+
+    # Rotate by x_i = R_{ij} * x_j
+    # NB: dot contracts last dim of A with second-to-last dim of B
+    cart_new = np.dot(cart_orig, R)
+
+    # Extract new spherical coordinates
+    sph_new = np.empty(shape=(len(sph_coords), 2), dtype=float)
+    sph_new[:, 0] = np.arccos(cart_new[:, 2])
+    sph_new[:, 1] = np.arctan2(cart_new[:, 1], cart_new[:, 0])
+
+    return sph_new
+
+def new_z_to_euler(new_z):
+    """
+    From the new Z axis expressed in (polar, azimuthal) angles of the
+    initial coordinate system, return the (alpha, beta) Euler angles
+    that rotate the old Z axis (0, 0) to the new Z axis.
+    """
+    return (LAL_PI_2 + new_z[1]) % (2 * LAL_PI), new_z[0]
+
+#
+# Utilities to find the angle between two points
+#
+
+def _abs_diff(c):
+    """
+    For some angular difference c = |a - b| in radians, find the
+    magnitude of the difference, taking into account the wrap-around at 2*pi.
+    """
+    c = abs(c) % (2 * LAL_PI)
+    if c < LAL_PI:
+        return c
+    return 2 * LAL_PI - c
+
+def _haversine(angle):
+    return np.sin(angle / 2)**2
+
+def _archaversine(h):
+    """
+    Compute the inverse of the _haversine function, using clip as protection
+    for the antipodes.
+    """
+    h = np.clip(h, 0., 1.)
+    return 2 * np.arcsin(np.sqrt(h))
+
+def angle_between_points(a, b):
+    """
+    Find the angle in radians between a and b, each expressed in
+    (polar, azimuthal) angles in radians. If a and b are Nx2 arrays
+    of vectors, then return the N pairwise angles between them.
+
+    This formula is the law of _haversines, which is derivable from the
+    spherical law of cosines, but is more numerically stable about a == b.
+    This technique is slightly unstable for antipodal a and b.
+    """
+    s = np.sin
+    dtheta, dphi = (a - b).T
+    h = _haversine(dtheta) + s(a[..., 0]) * s(b[..., 0]) * _haversine(dphi)
+    result = _abs_diff(_archaversine(h))
+    if result.shape == (1,):
+        return result[0]
+    else:
+        return result
+

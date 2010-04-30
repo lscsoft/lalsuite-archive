@@ -334,7 +334,7 @@ def calc_stats():
       KW = KWtrigs.fetchone()
 
     ## store the result
-    deadTime = abs(vetoed_segs) # avoid calculate it again and again 
+    deadTime = abs(vetoed_segs.coalesce()) # avoid calculate it again and again 
     # round to 2 decimal points for float values
     result.append((
     t, # threshold
@@ -382,7 +382,7 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
   injection_times = [t for t in all_injection_times if t in analyzed_segs]
   injection_times.sort()
 
-  cursor.execute("create table injections (GPSTime float, vetoed txt)")
+  cur.execute("create table injections (GPSTime float, vetoed txt)")
   Nvetoed = 0
   for i in injection_times:
     try:
