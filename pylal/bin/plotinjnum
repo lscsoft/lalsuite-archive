@@ -18,6 +18,7 @@ from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 
 ##############################################################################
 def found_missed(opts,foundFiles,missedFiles):
