@@ -220,6 +220,7 @@ detectorvel_inputs.detector=detector;
 detectorvel_inputs.edat=&ephemeris;
 #endif
 fprintf(stderr,"Successfully initialized ephemeris data\n");
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
 void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
@@ -229,11 +230,11 @@ LALStatus status={level:0, statusPtr:NULL};
 LALSource source;
 LALDetAndSource det_and_source={NULL, NULL};
 LALDetAMResponse response;
-LALGPSandAcc gps_and_acc;
+LIGOTimeGPS ligo_gps;
 
-memset(&gps_and_acc, 0, sizeof(gps_and_acc));
-gps_and_acc.gps.gpsSeconds=gps; 
-gps_and_acc.gps.gpsNanoSeconds=0;
+memset(&ligo_gps, 0, sizeof(ligo_gps));
+ligo_gps.gpsSeconds=gps; 
+ligo_gps.gpsNanoSeconds=0;
 
 memset(&source, 0, sizeof(source));
 source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
@@ -244,25 +245,26 @@ source.equatorialCoords.latitude=latitude;
 det_and_source.pDetector=&detector;
 det_and_source.pSource=&source;
 
-LALComputeDetAMResponse(&status, &response, &det_and_source, &gps_and_acc);
+LALComputeDetAMResponse(&status, &response, &det_and_source, &ligo_gps);
 TESTSTATUS(&status);
 
 *cross=response.cross;
 *plus=response.plus;
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
 void get_detector_vel(INT64 gps, float *velocity)
 {
 LALStatus status={level:0, statusPtr:NULL};
 REAL8 det_velocity[3];
-LALGPSandAcc gps_and_acc;
 int i;
+LIGOTimeGPS ligo_gps;
 
-memset(&gps_and_acc, 0, sizeof(gps_and_acc));
-gps_and_acc.gps.gpsSeconds=gps;
-gps_and_acc.gps.gpsNanoSeconds=0;
+memset(&ligo_gps, 0, sizeof(ligo_gps));
 
-LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), detector, &ephemeris);
+ligo_gps.gpsSeconds=gps; 
+ligo_gps.gpsNanoSeconds=0;
+LALDetectorVel(&status, det_velocity, &ligo_gps, detector, &ephemeris);
 TESTSTATUS(&status);
 
 #if 0
@@ -281,6 +283,7 @@ fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 #endif
 
 for(i=0;i<3;i++)velocity[i]=det_velocity[i];
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
 

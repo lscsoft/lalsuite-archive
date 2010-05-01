@@ -192,11 +192,15 @@ def parse_command_line():
             "Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id. Default is coinc_inspiral."
         )
-    parser.add_option( "", "--show-plot", action = "store_true", default = False, \
+    parser.add_option( "", "--show-plot", action = "store_true", default = False,
         help = 
             "Display the plots on the terminal"
         )
-    parser.add_option( "-v", "--verbose", action = "store_true", default = False, \
+    parser.add_option( "", "--dpi", action = "store", type = "int", default = 150,
+        help = 
+            "Set the plots' dpi. Default is 150."
+        )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
             "Be verbose."
         )
@@ -510,6 +514,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 ymin = min(ymin, min(y))
 
             # Plot missed
+            plotmissed = []
             if 'recovered_' not in xstat and 'recovered_' not in ystat and (param_name is not None and 'recovered_' not in param_name or param_name is None):
                 plotmissed = [ ( get_cmrow_stat(row,xstat), get_cmrow_stat(row,ystat) ) for row in missed_table
                     if (param_name is not None and param_parser.group_by_param_range( get_cmrow_stat(row, param_name) ) == n) or param_name is None ]
@@ -690,7 +695,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             if x_is_string:
                 pylab.gca().set_xticks( [xmin]+sorted(tagdictx.values())+[xmax] )
                 pylab.gca().set_xticklabels([n in rev_tagdictx and rev_tagdictx[n].replace('_', '\_') or '' for n in pylab.gca().get_xticks()],
-                    size = 'small', rotation = 'vertical')
+                    size = 'small', rotation = 45)
 
             if opts.logy and not no_data:
                 ymin, ymax = ( ymin * 10**-.5, ymax * 10**.5 )
@@ -715,12 +720,13 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 if param_name is not None:
                     param_tag = '_'.join([ re.sub( r'\W', '', param_tag),
                         `int(param_parser.param_ranges[n][0][1])`,
-                        `int(param_parser.param_ranges[n][1][1])` ])
-                plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
+                        `int(param_parser.param_ranges[n][1][1])`, '' ])
+                plot_description = '%sF%i' % ( param_tag, fig_num )
+                #plot_description = '_'.join([ param_tag, re.sub( r'\W', '', ystat ), 'v', re.sub( r'\W', '', xstat ) ])
                 name = InspiralUtils.set_figure_tag( plot_description, 
                     datatype_plotted = opts.sim_tag, open_box = False)
                 fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
-                fname_thumb = InspiralUtils.savefig_pylal( filename=fname, dpi=200 )
+                fname_thumb = InspiralUtils.savefig_pylal( filename=fname, dpi=opts.dpi )
                 fnameList.append(fname)
                 tagList.append(name)
 
