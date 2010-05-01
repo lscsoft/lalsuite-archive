@@ -66,8 +66,54 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 #####################################################
 interferometers=["H1","H2","L1","V1"]
 defaultsegmentserver="https://segdb.ligo.caltech.edu"
+runEpochs={"L1":{
+  "s6c_current":(949449543,999999999),
+  "s6b":(937800015,941997600),
+  "s6a":(931035296,935798487),
+  "s5":(815155213,875232014)
+  },
+           "H1":{
+  "s6c_current":(949449543,999999999),
+  "s6b":(937800015,941997600),
+  "s6a":(931035296,935798487),
+  "s5":(815155213,875232014)
+  },
+           "H2":{
+  "s6c_current":(949449543,999999999),
+  "s6b":(937800015,941997600),
+  "s6a":(931035296,935798487),
+  "s5":(815155213,875232014)
+  },
+           "V1":{
+  "vsr1":(863557214,875250014),
+  "vsr2":(931035615,947023215)
+  }
+           }
+# method to return the science run start and stop
+def getRunTimes(runName=None,ifo=None):
+  """
+  This method returns the start and stop of a LIGO
+  run given a gpstime.  (start,stop)
+  """
+  if runName == None or ifo == None:
+    return ()
+  return runEpochs[ifo.upper().strip()][runName.lower().strip()]
 
-
+def getRunEpoch(runTime=None, ifo=None):
+  """
+  This method returns the science run epoch name for LIGO,
+  given a gps time.
+  S5,S6...
+  """
+  if runTime == None or ifo == None:
+    return ()
+  outputEpoch=""
+  for myEpoch in runEpochs[ifo.upper().strip()].keys():
+    (start,stop)=runEpochs[ifo.upper().strip()][myEpoch]
+    if (start<=runTime) and (runTime<=stop):
+      outputEpoch=myEpoch
+  return outputEpoch
+  
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -981,7 +1027,10 @@ def getSciSegs(ifo=None,
   segment.segment_def_cdb = segment_definer.creator_db AND \
   segment_definer.name = '%s' AND \
   segment_definer.ifos = '%s' AND \
-  NOT (segment.start_time > %s OR  %s > segment.end_time)"""
+  NOT (segment.start_time > %s OR  %s > segment.end_time) AND \
+  segment_definer.version = (SELECT MAX(x.version) FROM \
+  segment_definer AS x WHERE x.name = segment_definer.name )\
+  """
   #Determine who to query if not specified.
   if serverURL == None:
     serverURL=os.getenv('S6_SEGMENT_SERVER')
@@ -1006,7 +1055,6 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
     return
   engine.close()
-
   queryResult.sort()
   #Take segment information and turn into
   #ScienceData() object
@@ -2218,44 +2266,6 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
 
   return maxIFO
 
-###########################################
-## Class to build our DQ Veto background ##
-###########################################
-class followupDQVbackground:
-  """
-  This class will estimate a probability of random chance for
-  the DQ flags active at a given time inside of a given
-  search epoch.  This class needs to know 
-  the list of flags seen at the trigger time in question, and
-  the trigger time in question. The output of a call to this
-  method is a 2D dict keyed with the flag names and ifos, the data
-  stored is the probability that this flag would be randomly active.
-  The method assumes that the flag is either on or off.  We can
-  compute a binomial probability assuming we have X sample
-  measurement from a binomial distribution.
-  """
-  def __init__(self,dbConnection=None):
-    """
-    The method is initialized with a cursor object to connect
-    to the database otherwise a manual call to
-    connectDB is required to access the DB for queries.
-    """
-    self.serverURL=defaultsegmentserver
-    self.dbConnection=dbConnection
-    self.ifos=interferometers
-    self.resultDict=dict()
-    for ifo in self.ifos:
-      self.resultDict[ifo]=dict()
-    self._tmpSpace_=None
-  #Generate 1000 other Science Times
-  #Only times in science mode
-  #Create Dict of Flags found each IFO each TIME
-  #Calculate Percentage On for all IFO Flag combos
-  #Save as a local pickle
-  #When queried give a list of tuples
-  #as output (IFO,Flag,Percentage)
-  #
-  #End class definition
 
 class followupDQV:
   """
@@ -2277,8 +2287,18 @@ class followupDQV:
     self.__connection__= None
     self.__engine__= None
     self.__haveBackgroundDict__=bool(False)
+    self.__havecategories__=bool(False)
+    #A dict for a dict of GPStimes and list all flags seen
     self.__backgroundDict__=dict()
-    self.__backgroundResults__=list()
+    self.__category__=dict()
+    #Access a dict of dicts for a flag names with % stored
+    self.__backgroundResults__=dict()
+    self.__backgroundPoints__=int(100)
+    self.__columns__=["Ifo","Flag","Ver","Start","Offset",\
+                      "Stop","Offset","Size","DQ Rank",\
+                      "Cat(s)"]
+    #Dict should be a dict of lists
+    self.__backgroundTimesDict__=dict()
     self.ifos=interferometers
     self.ifos.sort()
     self.triggerTime=int(-1)
@@ -2293,37 +2313,6 @@ defaulting to %s"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
     self.resultList=list()
-    self.dqvQuery= """SELECT \
-    segment_definer.ifos, \
-    segment_definer.name, \
-    segment_definer.version, \
-    segment_definer.comment, \
-    segment.start_time, \
-    segment.end_time \
-    FROM segment,segment_definer \
-    WHERE \
-    segment_definer.segment_def_id = segment.segment_def_id \
-    AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
-    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
-    """
-    #This query IS very very slow easily 10x above query!
-    self.dqvQueryTop2Versions= """SELECT \
-    segment_definer.ifos, \
-    segment_definer.name, \
-    segment_definer.version, \
-    segment_definer.comment, \
-    segment.start_time, \
-    segment.end_time \
-    FROM segment,segment_definer \
-    WHERE \
-    segment_definer.segment_def_id = segment.segment_def_id \
-    AND segment_definer.version+2 > (SELECT MAX(x.version) \
-    FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
-    AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
-    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
-    """
     self.dqvQueryLatestVersion= """SELECT \
     segment_definer.ifos, \
     segment_definer.name, \
@@ -2421,7 +2410,17 @@ defaulting to %s"%(self.serverURL))
       return []
     if closeConnection:
       self.__disconnectFromSegmentDB__()      
-    return myOutput
+    #Clean up extra space in query results
+    myFinalOutput=list()
+    for row in myOutput:
+      newRow=list()
+      for col in row:
+        if type(col)==str:
+          newRow.append(col.strip())
+        else:
+          newRow.append(col)
+      myFinalOutput.append(newRow)
+    return myFinalOutput
   #End query
 
 
@@ -2431,15 +2430,6 @@ defaulting to %s"%(self.serverURL))
     behavior
     """
     return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
-
-  def __querySegmentDB__(self,myQuery=None):
-    """
-    A simplifed method to submit a query to the segment database and
-    return the answer to the query raising needed error flags
-    along the way
-    """
-    print "HI"
-  #End __querySegmentDB__()
 
   def __connectToSegmentDB__(self,serverURL=None):
     """
@@ -2453,6 +2443,7 @@ defaulting to %s"%(self.serverURL))
       sys.stderr.write("Error connecting to %s\n"\
                          %(serverURL))
       sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.__connection__=None
       self.resultList=list()
     try:
       self.__engine__=query_engine.LdbdQueryEngine(self.__connection__)
@@ -2460,6 +2451,7 @@ defaulting to %s"%(self.serverURL))
       sys.stderr.write("Error building query engine using %s\n"\
                          %(serverURL))
       sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.__engine__=None
       self.resultList=list()
     return
 
@@ -2468,6 +2460,7 @@ defaulting to %s"%(self.serverURL))
     Private method to close query engine.
     """
     self.__engine__.close()
+    self.__engine__=None
     return
   
   def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,\
@@ -2535,11 +2528,122 @@ defaulting to %s"%(self.serverURL))
     return newDQSeg
   #End method fetchInformation()
 
-  def generateResultList(self):
+  def estimateDQbackground(self):
+    """
+    This method looks at the self.resultlist inside the instance.
+    Using this and 1000 generated time stamp it tabulates a
+    ranking of flag prevelance, binomial probability 'p'
+    """
+    if len(self.resultList) < 1:
+      self.__backgroundResults__=list()
+      self.__backgroundTimesDict__=dict()
+      self.__backgroundDict__=dict()
+      self.__haveBackgroundDict__=bool(False)
+      return
+    #Determine which IFOs from DQ listing
+    uniqIfos=list()
+    for ifo,b,c,d,e,f in self.resultList:
+      if ifo not in uniqIfos:
+        uniqIfos.append(ifo)
+    sciSegments=dict()
+    for ifo in uniqIfos:
+      sciSegments[ifo]=list()
+    #Grab list of SciSeg in the epoch
+    for myIfo in sciSegments.keys():
+      #Find epoch start and stop
+      if myIfo.strip().lower() == "v1":
+        mySegName="ITF_SCIENCEMODE"
+      else:
+        mySegName="DMT-SCIENCE"
+      #Determine times of epoch
+      (epochStart,epochStop)=getRunTimes(getRunEpoch(self.triggerTime,myIfo),myIfo)
+      tmpResults=getSciSegs(myIfo.strip(),\
+                            epochStart,\
+                            epochStop,\
+                            cut=True,\
+                            serverURL=self.serverURL,\
+                            segName=mySegName,\
+                            seglenmin=None,\
+                            segpading=0)
+      sciSegments[myIfo]=[(x.start(),x.end()) for x in tmpResults]
+    #Create Random time list In Science
+    for myIfo in sciSegments.keys():
+      #Background Timepoint
+      mySampleCount=0
+      emergencyStop=int(1.50*self.__backgroundPoints__)
+      while mySampleCount < self.__backgroundPoints__:
+        if mySampleCount>emergencyStop:
+          sys.stderr.write("Aborting creation of DQ background timelist!\n")
+          os.abort()
+        myPoint=numpy.random.uniform(epochStart,epochStop,1)
+        nearestIndex=numpy.searchsorted([x for x,y in sciSegments[myIfo]],\
+                                        int(myPoint),\
+                                        side='left')
+        if nearestIndex > 1:
+          nearestIndex=nearestIndex-1
+          #Index is next segment past time in question
+          (start,end)=sciSegments[myIfo][nearestIndex]
+        else:
+          #Exception is first segment might hold point
+          (start,end)=sciSegments[myIfo][nearestIndex]          
+        if (start<=myPoint) and (myPoint<=end):
+          if myIfo not in self.__backgroundTimesDict__.keys():
+            self.__backgroundTimesDict__[myIfo]=list()
+          self.__backgroundTimesDict__[myIfo].append("%9.0f"%myPoint)
+          mySampleCount=mySampleCount+1
+    #Cycle each IFO, if science time, query DQ flags
+    self.__connectToSegmentDB__()
+    for myIfo,myTimes in self.__backgroundTimesDict__.iteritems():
+      for myTime in myTimes:
+        myQuery=self.dqvQueryLatestVersion%(myTime,myTime)
+        #Insert befor "ORDER BY"
+        myQueryA,myQueryB=myQuery.split("ORDER BY",1)
+        myQuery=myQueryA+\
+                 """ AND segment_definer.ifos = '%s' """%myIfo+\
+                 """ ORDER BY """+myQueryB
+        if myIfo not in self.__backgroundDict__.keys():
+          self.__backgroundDict__[myIfo]=dict()
+        self.__backgroundDict__[myIfo]["%s"%myTime]=self.query(myQuery)
+    self.__disconnectFromSegmentDB__()
+    #Calculate the binomial 'p' value for the flags in the table.
+    if self.resultList < 1:
+          sys.stderr.write("Aborting tabulate of binomial P\n")
+          os.abort()
+    seenFlags=dict()
+    for ifo,name,version,comment,start,stop in self.resultList:
+      if ifo.strip() not in seenFlags.keys():
+        seenFlags[ifo]=list()
+      seenFlags[ifo].append(name)
+    for myIfo,flagList in seenFlags.iteritems():
+      tmpFlags=list()
+      for backgroundTime,backgroundFlags in \
+              self.__backgroundDict__[myIfo.strip()].iteritems():
+        tmpFlags.extend([name for ifo,name,ver,com,start,stop in backgroundFlags])
+      if myIfo not in self.__backgroundResults__.keys():
+        self.__backgroundResults__[myIfo]=dict()
+      for myFlag in seenFlags[myIfo]:
+        self.__backgroundResults__[myIfo][myFlag]=tmpFlags.count(myFlag)/float(self.__backgroundPoints__)
+    self.__haveBackgroundDict__=True
+    #Return background estimating
+    
+                                            
+  def getDQbackgroundList(self):
+    """
+    Simple wrapper to return a list of DQ background information.
+    """
+    return self.__backgroundResults__
+  
+  def getResultList(self):
     """
     Simple calling function to create a list object of the results.
     """
     return self.resultList
+  
+  def generateResultList(self):
+    """
+    Simple calling function to create a list object of the results.
+    """
+    return self.getResultList()
   #End generateResultList
   
   def generateHTMLTable(self,tableType="BOTH"):
@@ -2557,17 +2661,30 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
-    tableString=""
-    tableString+="<table bgcolor=grey border=1px>"
-    tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
-    tableEmptyString="<tr><th>0</th><th>None_Found</th><th>0</th>\
-<th>0</th><th>0</th><th>0</th><th>0</th><th>0</th></tr>"
+    tableString="<table bgcolor=grey border=1px>"
+    titleString="<tr>"
+    tableEmptyString="<tr bgcolor=%s>"%myColor
+    rowString="<tr bgcolor=%s> "
+    for col in self.__columns__:
+      titleString+="<th>%s</th>"%col
+      rowString+="<td>%s</td>"
+      tableEmptyString+="<td>None</td>"
+    titleString+="</tr>\n"
+    tableEmptyString+="</tr>\n"
+    rowString+="</tr>\n"
+    tableString+=titleString
     if len(self.resultList) == 0:
-      tableString=tableString+tableEmptyString
+      tableString+=tableEmptyString
     for ifo,name,version,comment,start,stop in self.resultList:
+      #If we have background information fetch it
+      if self.__haveBackgroundDict__:
+        myBackgroundRank=self.__backgroundResults__[ifo][name]
+      else:
+        myBackgroundRank="None"        
+      if self.__havecategories__:
+        myCategory=self.__category__[ifo][name]
+      else:
+        myCategory="None"
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2586,7 +2703,9 @@ defaulting to %s"%(self.serverURL))
         if name.upper().startswith("UPV"):
           tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
       elif tableType.upper().strip() not in ["VETO","DQ"]:
-        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+        tableString+=rowString%(myColor,ifo,name,version,\
+                                start,offset1,stop,offset2,size,\
+                                myBackgroundRank,myCategory)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
@@ -2600,10 +2719,23 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString="""||<rowbgcolor="%s"> %s || %s || %s || %s || %s || %s || %s || %s ||\n"""
-    titleString="""||<rowbgcolor="%s"> IFO || Flag || Ver || Start || Offset || Stop || Offset || Size ||\n"""%(myColor)
-    emptyRowString="""||<rowbgcolor="%s"> None_Found || 0 || 0 || 0 || 0 || 0 || 0 || 0 ||\n"""
-    tableString=titleString
+    tableString=""
+    titleString=""
+    emptyRowString=""
+    rowString=""
+    for i,col in enumerate(self.__columns__):
+      if i == 0:
+        titleString+="""||<rowbgcolor="%s"> %s """%(myColor,col)
+        rowString+="""||<rowbgcolor="%s"> %s """
+        emptyRowString+="""||<rowbgcolor="%s"> None """%myColor
+      else:
+        titleString+="""|| %s """%col
+        rowString+="""|| %s """
+        emptyRowString+="""|| None """
+    titleString+="""||\n"""
+    rowString+="""||\n"""
+    emptyRowString+="""||\n"""
+    tableString+=titleString
     #Extract only DQ row or only VETO rows
     tmpResultList=list()
     for myRow in self.resultList:
@@ -2618,8 +2750,17 @@ defaulting to %s"%(self.serverURL))
       elif tableType.upper().strip() not in ["VETO","DQ"]:
         tmpResultList.append(myRow)
     if len(tmpResultList) == 0:
-      tableString=tableString+emptyRowString%myColor
+      tableString+=emptyRowString%myColor
     for ifo,name,version,comment,start,stop in tmpResultList:
+      #If we have background information fetch it
+      if self.__haveBackgroundDict__:
+        myBackgroundRank=self.__backgroundResults__[ifo][name]
+      else:
+        myBackgroundRank="None"        
+      if self.__havecategories__:
+        myCategory=self.__category__[ifo][name]
+      else:
+        myCategory="None"
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2631,7 +2772,9 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      tableString+=rowString%(myColor,str(ifo).strip(),name,version,\
+                              start,offset1,stop,offset2,size,\
+                              myBackgroundRank,myCategory)
     tableString+="\n"
     return tableString
 
