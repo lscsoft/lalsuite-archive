@@ -132,3 +132,5 @@ option "cache-granularity" - "granularity of power cache frequency shift resolut
 option "sidereal-group-count" - "separate SFTs in that many groups by frequency shift" int no
 option "time-group-count" - "separate SFTs in that many groups by gps time" int no
 option "phase-mismatch" - "maximal phase mismatch over coherence length to assume when using loosely coherent mode" double default="1.570796" no
+option "bypass-powersum-cache" - "bypass partial power sum cache" int default="0" no
+
