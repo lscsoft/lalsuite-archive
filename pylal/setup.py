@@ -521,6 +521,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_printlc"),
 		os.path.join("bin", "ligolw_cbc_cluster_coincs"),
 		os.path.join("bin", "ligolw_cbc_cfar"),
+		os.path.join("bin", "ligolw_cbc_jitter_skyloc"),
 		os.path.join("bin", "ligolw_cbc_plotslides"),
 		os.path.join("bin", "ligolw_cbc_plotifar"),
 		os.path.join("bin", "ligolw_cbc_plotfm"),
