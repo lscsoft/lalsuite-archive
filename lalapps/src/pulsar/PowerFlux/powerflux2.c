@@ -227,6 +227,11 @@ if(!args_info.dataset_given && !args_info.detector_given){
 	exit(-1);
 	}
 
+if(!args_info.sky_marks_file_given){
+	fprintf(stderr,"** You must provide a skymarks file (--sky-marks-file)\n");
+	exit(-1);
+	}
+
 gsl_rng_env_setup();
 gsl_set_error_handler_off();
 
@@ -360,7 +365,7 @@ if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
 	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
 		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
 		}
-	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/resolution)+2);
+	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+2);
 	proto_super_grid=make_targeted_rect_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
@@ -524,6 +529,7 @@ fprintf(LOG, "phase mismatch: %.8g\n", args_info.phase_mismatch_arg);
 fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_independent" : "spindown_dependent");
 
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
+fprintf(LOG, "cache bypass: %s\n", args_info.bypass_powersum_cache_arg ? "enabled" : "disabled");
 fflush(LOG);
 
 /* we do not use precomputed polarization arrays in powerflux2 

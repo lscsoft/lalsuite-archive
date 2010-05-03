@@ -41,7 +41,7 @@ def check_table(xmldoc, tab, choke=False):
 		#xmldoc.childNodes[0].appendChild(coinc_event_table)
 	return ret_tab
 
-def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids, nevents):
+def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids, time, snr, nevents):
 
 	#
 	# first do coinc_event
@@ -74,7 +74,7 @@ def add_coinc(cetab, citab, cemtab, segs, tsid, cdid, procid, ifos, masses, ids,
 
 	cirow = citab.RowType()
 	cirow.coinc_event_id = row.coinc_event_id
-	cirow.snr = None #FIXME
+	cirow.snr = snr
 	cirow.set_ifos(ifos)
 	cirow.false_alarm_rate = None
 	cirow.combined_far = None
@@ -173,7 +173,7 @@ for filename in filenames:
 
 	connection.cursor().execute("""
 CREATE TEMPORARY TABLE sngl AS
-	SELECT event_id, ifo, mass1, mass2, end_time + end_time_ns*1e-9 AS time, end_time + end_time_ns*1e-9 AS slid_time
+	SELECT event_id, ifo, mass1, mass2, end_time + end_time_ns*1e-9 AS time, end_time + end_time_ns*1e-9 AS slid_time, snr
 	FROM sngl_inspiral
 """)
 	connection.cursor().execute("CREATE INDEX tmpindex1 ON sngl (event_id)")
@@ -228,8 +228,8 @@ CREATE TEMPORARY TABLE sngl AS
 		# work might get e-thinca working too.
 		#
 
-        	for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time in connection.cursor().execute("""
-SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time)
+		for id1, id2, ifo1, ifo2, mass1_1, mass2_1, mass1_2, mass2_2, time, snr1, snr2 in connection.cursor().execute("""
+SELECT snglA.event_id, snglB.event_id, snglA.ifo, snglB.ifo, snglA.mass1, snglA.mass2, snglB.mass1, snglB.mass2, min(snglA.time, snglB.time), snglA.snr, snglB.snr
 FROM sngl AS snglA
 JOIN sngl AS snglB ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2)
 	WHERE snglA.ifo != snglB.ifo
@@ -240,7 +240,7 @@ JOIN sngl AS snglB ON (snglA.mass1 == snglB.mass1 AND snglA.mass2 == snglB.mass2
 			# for verbosity
 			cnt+=1
 
-			add_coinc(coinc_event_table, coinc_inspiral_table, coinc_event_map, seglists, time_slide_id, CoincDef.coinc_def_id, process_id, [ifo1, ifo2], [(mass1_1,mass2_1),(mass1_2,mass2_2)], [id1, id2], 2)
+			add_coinc(coinc_event_table, coinc_inspiral_table, coinc_event_map, seglists, time_slide_id, CoincDef.coinc_def_id, process_id, [ifo1, ifo2], [(mass1_1,mass2_1),(mass1_2,mass2_2)], [id1, id2], time, (snr1**2 + snr2**2)**.5, 2)
 
 		# put the offsets back
 		seglists.offsets.update(old_offsets)
@@ -269,7 +269,8 @@ CREATE TEMPORARY TABLE tmpcemap AS
 			connection.cursor().execute("""
 CREATE TEMPORARY TABLE triple AS
 	SELECT A.tsid AS tsid, A.cid AS cid1, B.cid AS cid2, C.cid AS cid3, A.id1 AS id1, A.id2 AS id2, B.id2 AS id3, siA.ifo as ifo1, siA.mass1 AS m1_1,
-		siA.mass2 AS m2_1, siB.ifo AS ifo2, siB.mass1 AS m1_2, siB.mass2 AS m2_2, siC.ifo AS ifo3, siC.mass1 AS m1_3, siC.mass2 AS m2_3
+		siA.mass2 AS m2_1, siB.ifo AS ifo2, siB.mass1 AS m1_2, siB.mass2 AS m2_2, siC.ifo AS ifo3, siC.mass1 AS m1_3, siC.mass2 AS m2_3,
+		min(siA.time, siB.time, siC.time) AS time, siA.snr AS snr1, siB.snr AS snr2, siC.snr AS snr3
 	FROM tmpcemap AS A
 	JOIN tmpcemap AS B JOIN tmpcemap AS C
 	JOIN sngl AS siA ON siA.event_id == A.id1
@@ -278,8 +279,8 @@ CREATE TEMPORARY TABLE triple AS
 		WHERE A.id1 == B.id1 AND A.id2 == C.id1 AND B.id2 == C.id2
 			""")
 
-			for tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 in connection.cursor().execute("SELECT tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3 FROM triple"):
-				add_coinc(cetab, citab, cemtab, seglists, tsid, CoincDef.coinc_def_id, process_id, [ifo1,ifo2,ifo3], [(m1_1,m2_1),(m1_2,m2_2),(m1_3,m2_3)], [id1,id2,id3], 3)
+			for tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3, time, snr1, snr2, snr3 in connection.cursor().execute("SELECT tsid, cid1, cid2, cid3, id1, id2, id3, ifo1, m1_1, m2_1, ifo2, m1_2, m2_2, ifo3, m1_3, m2_3, time, snr1, snr2, snr3 FROM triple"):
+				add_coinc(cetab, citab, cemtab, seglists, tsid, CoincDef.coinc_def_id, process_id, [ifo1,ifo2,ifo3], [(m1_1,m2_1),(m1_2,m2_2),(m1_3,m2_3)], [id1,id2,id3], time, (snr1**2 + snr2**2 + snr3**2)**.5, 3)
 				trips += 1
 
 			# Delete events that are now triples and clean up
