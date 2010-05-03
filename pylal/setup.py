@@ -527,6 +527,7 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotfm"),
 		os.path.join("bin", "ligolw_cbc_compute_durations"),
 		os.path.join("bin", "ligolw_cbc_repop_coinc"),
+		os.path.join("bin", "ligolw_segments_compat"),
 		os.path.join("bin", "extractCommand"),
 		os.path.join("bin", "OddsPostProc.py"),
 		os.path.join("bin", "make_inspiral_summary_page"),
