@@ -464,6 +464,8 @@ setup(
 		os.path.join("bin", "lalapps_cbc_plotroc"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
+		os.path.join("bin", "lalapps_cbc_coinc"),
+		os.path.join("bin", "lalapps_cbc_dbinjfind"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_farburst"),
 		os.path.join("bin", "lalapps_followup_pipe"),
