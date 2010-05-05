@@ -135,7 +135,7 @@ for filename in filenames:
 
 	# Find out if there is a time slide table and barf if not
 	time_slide_table = check_table(xmldoc, lsctables.TimeSlideTable, choke=True)
-	
+
 	# Find out if there is a sim_inspiral table and barf if not
 	sim_inspiral_table = check_table(xmldoc, lsctables.SimInspiralTable, choke=True)
 
@@ -178,7 +178,7 @@ for filename in filenames:
 	connection.cursor().execute("CREATE INDEX sngltimeix ON sngls (time)")
 	connection.cursor().execute("CREATE INDEX coinctimeix ON sngls (time)")
 
-	if options.verbose: print >>sys.stderr, "Finding sngls in your area...\r", 
+	if options.verbose: print >>sys.stderr, "Finding sngls in your area...\r",
 
 	# FIRST do sngl sim coincs
 	cnt = 0
