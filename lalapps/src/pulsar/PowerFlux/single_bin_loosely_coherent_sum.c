@@ -460,7 +460,7 @@ for(i=0;i<count;i++) {
 sc_key=sc->key;
 for(k=0;k<sc->free;k++) {
 	/* the reason we use exact equality for floating point numbers is because the numbers in cache have been placed there by the same function. */
-	if(key==sc_key[k]) {
+	if(key==sc_key[k] & !args_info.bypass_powersum_cache_arg) {
 		/* we found the box holding our data, double check it is the right one */
 		si_local=si;
 		sc_si_local=sc->si[k];

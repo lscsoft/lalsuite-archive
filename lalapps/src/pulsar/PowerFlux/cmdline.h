@@ -356,6 +356,9 @@ struct gengetopt_args_info
   double phase_mismatch_arg;	/**< @brief maximal phase mismatch over coherence length to assume when using loosely coherent mode (default='1.570796').  */
   char * phase_mismatch_orig;	/**< @brief maximal phase mismatch over coherence length to assume when using loosely coherent mode original value given at command line.  */
   const char *phase_mismatch_help; /**< @brief maximal phase mismatch over coherence length to assume when using loosely coherent mode help description.  */
+  int bypass_powersum_cache_arg;	/**< @brief bypass partial power sum cache (default='0').  */
+  char * bypass_powersum_cache_orig;	/**< @brief bypass partial power sum cache original value given at command line.  */
+  const char *bypass_powersum_cache_help; /**< @brief bypass partial power sum cache help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -464,6 +467,7 @@ struct gengetopt_args_info
   unsigned int sidereal_group_count_given ;	/**< @brief Whether sidereal-group-count was given.  */
   unsigned int time_group_count_given ;	/**< @brief Whether time-group-count was given.  */
   unsigned int phase_mismatch_given ;	/**< @brief Whether phase-mismatch was given.  */
+  unsigned int bypass_powersum_cache_given ;	/**< @brief Whether bypass-powersum-cache was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;
