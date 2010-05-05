@@ -504,7 +504,7 @@ if slideFiles:
     slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof')[0] - 1)
     slide_bank_dof = inspTriggers.get_column('bank_chisq_dof')
     slide_bankrchisq = slideTriggers.get_column('reduced_bank_chisq')
-    slide_cont_dof = inspTriggers.get_column('bank_chisq_dof')
+    slide_cont_dof = inspTriggers.get_column('cont_chisq_dof')
     slide_contrchisq = slideTriggers.get_column('reduced_cont_chisq')
     slide_rsq = slideTriggers.get_column('rsqveto_duration') + 0.00001
 
@@ -533,7 +533,7 @@ if injFiles:
     inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof')[0] - 1)
     inj_bank_dof = inspTriggers.get_column('bank_chisq_dof')
     inj_bankrchisq = injTriggers.get_column('reduced_bank_chisq')
-    inj_cont_dof = inspTriggers.get_column('bank_chisq_dof')
+    inj_cont_dof = inspTriggers.get_column('cont_chisq_dof')
     inj_contrchisq = injTriggers.get_column('reduced_cont_chisq')
     inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
   comments += InspiralUtils.message(opts, \
@@ -561,7 +561,6 @@ if (nevents > 0 and cont_dof[0] < 1) or (slide_events > 0 and slide_cont_dof[0] 
   if opts.cont_chisq :
     print >>sys.stderr, "Error: cannot plot auto chisq if cont chisq dof < 1"
     sys.exit(1)
-
 
 if (nevents == 0) and (ninj_events == 0) and (slide_events == 0):
   ## give up and exit
