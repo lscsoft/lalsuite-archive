@@ -131,16 +131,23 @@ class upper_limit(object):
     return ret
 
   def get_mass_ranges(self, connection):
-    query = 'SELECT MIN(mass1), MIN(mass2), MAX(mass1), MAX(mass2), MIN(mass1+mass2), MAX(mass1+mass2) FROM sim_inspiral;'
-    for v in connection.cursor().execute(query): 
-      if self.minmass: self.minmass = min([v[0], v[1], self.minmass])
-      else: self.minmass = min(v[0], v[1])
-      if self.maxmass: self.maxmass = max([v[2], v[3], self.maxmass])
-      else: self.maxmass = max(v[2], v[3])
-      if self.mintotal: self.mintotal = min([v[4], self.mintotal])
-      else: self.mintotal = v[4]
-      if self.maxtotal: self.maxtotal = max([v[5], self.maxtotal])
-      else: self.maxtotal = v[5]
+    #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
+    minmass1 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+    minmass2 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+    maxmass1 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+    maxmass2 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+    minmtotal = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+    maxmtotal = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+
+    v = (minmass1, minmass2, maxmass1, maxmass2, minmtotal, maxmtotal)
+    if self.minmass: self.minmass = min([v[0], v[1], self.minmass])
+    else: self.minmass = min(v[0], v[1])
+    if self.maxmass: self.maxmass = max([v[2], v[3], self.maxmass])
+    else: self.maxmass = max(v[2], v[3])
+    if self.mintotal: self.mintotal = min([v[4], self.mintotal])
+    else: self.mintotal = v[4]
+    if self.maxtotal: self.maxtotal = max([v[5], self.maxtotal])
+    else: self.maxtotal = v[5]
 
   def get_instruments(self, connection):
     instruments = []
@@ -526,7 +533,8 @@ def parse_command_line():
   return opts, filenames
 
 # FIXME These values should probably be command line arguments or derived from the database
-secs_in_year = 31556926.0
+# Julian year
+secs_in_year = 31557600.0
 
 opts, filenames = parse_command_line()
 
