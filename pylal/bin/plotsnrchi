@@ -470,7 +470,7 @@ if trigFiles:
   if nevents:
     snr = inspTriggers.get_column('snr')
     chisq = inspTriggers.get_column('chisq')
-    chisq_dof = 2 * (inspTriggers.get_column('chisq_dof')[0] - 1)
+    chisq_dof = 2 * (inspTriggers.get_column('chisq_dof') - 1)
     bank_dof = inspTriggers.get_column('bank_chisq_dof')
     bankrchisq = inspTriggers.get_column('reduced_bank_chisq')
     cont_dof = inspTriggers.get_column('cont_chisq_dof')
@@ -501,7 +501,7 @@ if slideFiles:
   if slide_events:
     slide_snr = slideTriggers.get_column('snr')
     slide_chisq = slideTriggers.get_column('chisq')
-    slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof')[0] - 1)
+    slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof') - 1)
     slide_bank_dof = inspTriggers.get_column('bank_chisq_dof')
     slide_bankrchisq = slideTriggers.get_column('reduced_bank_chisq')
     slide_cont_dof = inspTriggers.get_column('cont_chisq_dof')
@@ -530,7 +530,7 @@ if injFiles:
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
     inj_chisq = injTriggers.get_column('chisq')
-    inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof')[0] - 1)
+    inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof') - 1)
     inj_bank_dof = inspTriggers.get_column('bank_chisq_dof')
     inj_bankrchisq = injTriggers.get_column('reduced_bank_chisq')
     inj_cont_dof = inspTriggers.get_column('cont_chisq_dof')
@@ -541,22 +541,22 @@ if injFiles:
 
 # check that the chisq and chisq_dof values exist:
 
-if (nevents > 0 and chisq_dof < 2) or (slide_events > 0 and slide_chisq_dof < 2) \
-	or (ninj_events and inj_chisq_dof < 2):
-  print >>sys.stderr, "Warning: chisq dof is < 2"
+if (nevents > 0 and chisq_dof.min() < 2) or (slide_events > 0 and slide_chisq_dof.min() < 2) \
+	or (ninj_events and inj_chisq_dof.min() < 2):
+  print >>sys.stderr, "Warning: chisq dof is < 2 for some triggers"
   if opts.snr_chisq or opts.snr_chisq_contours or opts.effsnr_lines or opts.newsnr_lines \
 	or opts.hist_snr_chi or opts.hist_newsnr or opts.hist_effsnr or opts.masshist_newsnr \
 	or opts.masshist_effsnr :
     print >>sys.stderr, "Error: cannot plot chisq if chisq dof < 2"
     sys.exit(1)
-if (nevents > 0 and min(bank_dof) < 1) or (slide_events > 0 and min(slide_bank_dof) < 1) \
-	or (ninj_events > 0 and min(inj_bank_dof) < 1):
+if (nevents > 0 and bank_dof.min() < 1) or (slide_events > 0 and slide_bank_dof.min() < 1) \
+	or (ninj_events > 0 and inj_bank_dof.min() < 1):
   print >>sys.stderr, "Warning: bank chisq dof is < 1 for some triggers"
   if opts.bank_chisq :
     print >>sys.stderr, "Error: cannot plot bank veto if bank chisq dof < 1"
     sys.exit(1)
-if (nevents > 0 and cont_dof[0] < 1) or (slide_events > 0 and slide_cont_dof[0] < 1) \
-	or (ninj_events > 0 and inj_cont_dof[0] < 1):
+if (nevents > 0 and cont_dof.min() < 1) or (slide_events > 0 and slide_cont_dof.min() < 1) \
+	or (ninj_events > 0 and inj_cont_dof.min() < 1):
   print >>sys.stderr, "Warning: cont chisq dof is < 1 for some triggers"
   if opts.cont_chisq :
     print >>sys.stderr, "Error: cannot plot auto chisq if cont chisq dof < 1"
@@ -809,16 +809,16 @@ if opts.effsnr_lines:
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
     legendText.append('Injections')
-    plotdof = inj_chisq_dof
+    plotdof = inj_chisq_dof[0]
 # at least one of inj_chisq_dof, slide_chisq_dof, chisq_dof must exist
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
-    plotdof = slide_chisq_dof
+    plotdof = slide_chisq_dof[0]
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
     legendText.append('Triggers')
-    plotdof = chisq_dof
+    plotdof = chisq_dof[0]
   plotconstlines(snr_range, opts.denominator_constant, plotdof)
 
   xlabel(r'$\rho$', size='x-large')
@@ -844,15 +844,15 @@ if opts.newsnr_lines:
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
     legendText.append('Injections')
-    plotdof = inj_chisq_dof
+    plotdof = inj_chisq_dof[0]
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
-    plotdof = slide_chisq_dof
+    plotdof = slide_chisq_dof[0]
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
     legendText.append('Triggers')
-    plotdof = chisq_dof
+    plotdof = chisq_dof[0]
   plotnewsnrlines(min_chisq, max_chisq, opts.chisq_index, plotdof)
 
   xlabel(r'$\rho$', size='x-large')
@@ -880,15 +880,15 @@ if opts.snr_chisq_contours:
       if ninj_events:
         viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
         legendText.append('Injections')
-        plotdof = inj_chisq_dof
+        plotdof = inj_chisq_dof[0]
       if slide_events:
         viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
         legendText.append('Background')
-        plotdof = slide_chisq_dof
+        plotdof = slide_chisq_dof[0]
       if nevents:
         viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
         legendText.append('Triggers')
-        plotdof = chisq_dof
+        plotdof = chisq_dof[0]
       plotconstlines(snr_range, opts.denominator_constant, plotdof)
       contour(snr_range,chisq_range,cont,v)
       xlabel(r'$\rho$', size='x-large')
