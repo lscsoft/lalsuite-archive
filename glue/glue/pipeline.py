@@ -1008,8 +1008,8 @@ class CondorDAGNode:
     parent node has run sucessfully.
     @param node: CondorDAGNode to add as a parent.
     """
-    if not isinstance(node, CondorDAGNode):
-      raise CondorDAGNodeError, "Parent must be a Condor DAG node"
+    if not isinstance(node, (CondorDAGNode,CondorDAGManNode) ):
+      raise CondorDAGNodeError, "Parent must be a CondorDAGNode or a CondorDAGManNode"
     self.__parents.append( node )
 
   def get_cmd_line(self):
@@ -1600,6 +1600,14 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         pass
       try:
         print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>""" % os.environ['LIGO_DATAFIND_SERVER']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
       except:
         pass
       print >> sitefile, """\

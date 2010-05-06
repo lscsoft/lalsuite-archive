@@ -226,7 +226,6 @@ setup(
   scripts = [
     os.path.join('bin','gracedb'),
     os.path.join('bin','LSCdataFind'),
-    os.path.join('bin','LSCdataFindcheck'),
     os.path.join('bin','ligo_data_find'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
@@ -257,6 +256,7 @@ setup(
     os.path.join('bin','lvalert_listen'),
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
+    os.path.join('bin','ligolw_diff'),
     os.path.join('bin','segdb_coalesce'),
     os.path.join('bin', 'ligolw_print_tables') ],
   data_files = [
