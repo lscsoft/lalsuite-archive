@@ -405,20 +405,121 @@ fprintf(LOG, "input complete: %d\n", (int)(input_done_time-start_time));
 fprintf(stderr, "input complete: %d\n", (int)(input_done_time-start_time));
 
 /* For testing - dump out emission time grid for SFT 0 */
-{
+if(0) {
 EmissionTime emission_time;
 int k=0, n=0;
 LIGOTimeGPS tGPS;
 
 TODO("analyze emission time dependence on sky location")
 
-for(i=0;i<main_grid->npoints; i++) {
-	tGPS.gpsSeconds=datasets[n].gps[k]+datasets[n].coherence_time*0.5;
-	tGPS.gpsNanoSeconds=0;
-	get_emission_time(&emission_time, &(datasets[n].earth_state[k]), main_grid->longitude[i], main_grid->latitude[i], 0.0, datasets[n].detector, tGPS);
-	fprintf(DATA_LOG, "emission_time: %.12g %.12g %d %d\n", main_grid->longitude[i], main_grid->latitude[i], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds);
+for(k=0;k<datasets[n].free;k+=10000) {
+	for(i=0;i<main_grid->npoints; i++) {
+		tGPS.gpsSeconds=datasets[n].gps[k]+datasets[n].coherence_time*0.5;
+		tGPS.gpsNanoSeconds=0;
+		get_emission_time(&emission_time, &(datasets[n].earth_state[k]), main_grid->longitude[i], main_grid->latitude[i], 0.0, datasets[n].detector, tGPS);
+		fprintf(DATA_LOG, "emission_time: %d %.12g %.12g %lld %d %d\n", k, main_grid->longitude[i], main_grid->latitude[i], datasets[n].gps[k], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds);
+		}
 	}
 fflush(DATA_LOG);
+}
+/*
+#define SIDEREAL_DAY (23.93447*3600)
+#define SIDEREAL_MONTH (27.32166*24*3600)
+#define JULIAN_YEAR (365.25*24*3600)
+
+typedef struct {
+	double dc;
+
+typedef struct {
+	double dc;
+	double sidereal_day[4];
+	double sidereal_month[4];
+	double sidereal_month2[4];
+	double julian_year[4];
+	} EPICYCLIC_PHASE_COEFFICIENTS;*/
+
+/* For testing - pick a bin and do phase correction */
+{
+double *re;
+double *im;
+double f0=args_info.focus_f0_arg;
+double ra=args_info.focus_ra_arg;
+double dec=args_info.focus_dec_arg;
+double dInv=args_info.focus_dInv_arg;
+double x,y;
+double c,s;
+double dt, te;
+double phase_spindown;
+double phase_barycenter;
+double phase_heterodyne;
+double phase_bin;
+double total_phase;
+double f;
+float f_plus, f_cross;
+float e[GRID_E_COUNT];
+int bin;
+int i,j,k,n;
+EmissionTime emission_time;
+LIGOTimeGPS tGPS;
+
+fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
+	
+spindown=args_info.spindown_start_arg;
+
+re=do_alloc(total_segments(), sizeof(*re));
+im=do_alloc(total_segments(), sizeof(*im));
+
+precompute_am_constants(e, ra, dec);
+
+i=0;
+for(n=0;n<d_free;n++) {
+	for(j=0;j<datasets[n].free;j++) {
+		
+		tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
+		tGPS.gpsNanoSeconds=0;
+		get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+		
+		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
+		
+		f=f0+(emission_time.te.gpsSeconds-spindown_start)*spindown;
+		bin=round(datasets[0].coherence_time*f-first_bin);
+				
+		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
+				
+		phase_spindown=0.5*te*te*spindown;
+		
+		phase_barycenter=f0*te;
+		
+		phase_heterodyne=(f0-(first_bin+bin+0.0)/datasets[0].coherence_time)*(datasets[n].gps[j]-spindown_start);
+
+		phase_bin=0.5*(f0*datasets[0].coherence_time-(first_bin+bin));
+		
+		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter))+0.5*(phase_heterodyne-floor(phase_heterodyne)));
+
+		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter))+phase_bin);
+
+		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter)));
+
+		f_plus=F_plus_coeff(j, e, datasets[n].AM_coeffs_plus);
+		f_cross=F_plus_coeff(j, e, datasets[n].AM_coeffs_cross);
+		
+		x=datasets[n].re[j*datasets[n].nbins+bin];
+		y=datasets[n].im[j*datasets[n].nbins+bin];
+
+
+		c=cos(total_phase);
+		s=sin(total_phase);
+		
+		re[i]=x*c+y*s;
+		im[i]=-y*s+x*c;
+
+		fprintf(DATA_LOG, "stream: %d %d %d %lld %ld %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
+				i, n, j, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
+				x, y, re[i], im[i], phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase);
+		
+		i++;
+		}
+	}
 }
 
 TODO("write main application loop")

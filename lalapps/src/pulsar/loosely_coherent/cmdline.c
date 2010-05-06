@@ -92,6 +92,9 @@ const char *gengetopt_args_info_help[] = {
   "      --focus-ra=DOUBLE         focus computation on a circular area with \n                                  center at this RA",
   "      --focus-dec=DOUBLE        focus computation on a circular area with \n                                  center at this DEC",
   "      --focus-radius=DOUBLE     focus computation on a circular area with this \n                                  radius",
+  "      --focus-f0=DOUBLE         focus computation on this frequency",
+  "      --focus-dInv=DOUBLE       focus computation on objects of this inverse \n                                  distance (in seconds)  (default=`0.0')",
+  "      --focus-f0-delta=DOUBLE   frequency tolerance",
   "      --only-large-cos=DOUBLE   restrict computation to points on the sky with \n                                  cos of angle to band axis larger than a given \n                                  number",
   "\n Group: injection",
   "      --fake-linear             Inject linearly polarized fake signal",
@@ -219,6 +222,9 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->focus_ra_given = 0 ;
   args_info->focus_dec_given = 0 ;
   args_info->focus_radius_given = 0 ;
+  args_info->focus_f0_given = 0 ;
+  args_info->focus_dInv_given = 0 ;
+  args_info->focus_f0_delta_given = 0 ;
   args_info->only_large_cos_given = 0 ;
   args_info->fake_linear_given = 0 ;
   args_info->fake_circular_given = 0 ;
@@ -349,6 +355,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->focus_ra_orig = NULL;
   args_info->focus_dec_orig = NULL;
   args_info->focus_radius_orig = NULL;
+  args_info->focus_f0_orig = NULL;
+  args_info->focus_dInv_arg = 0.0;
+  args_info->focus_dInv_orig = NULL;
+  args_info->focus_f0_delta_orig = NULL;
   args_info->only_large_cos_orig = NULL;
   args_info->fake_ref_time_arg = 0;
   args_info->fake_ref_time_orig = NULL;
@@ -443,21 +453,24 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->focus_ra_help = gengetopt_args_info_help[57] ;
   args_info->focus_dec_help = gengetopt_args_info_help[58] ;
   args_info->focus_radius_help = gengetopt_args_info_help[59] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[60] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[62] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[63] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[64] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[65] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[66] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[67] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[68] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[69] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[70] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[71] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[72] ;
-  args_info->extended_test_help = gengetopt_args_info_help[73] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[74] ;
-  args_info->num_threads_help = gengetopt_args_info_help[75] ;
+  args_info->focus_f0_help = gengetopt_args_info_help[60] ;
+  args_info->focus_dInv_help = gengetopt_args_info_help[61] ;
+  args_info->focus_f0_delta_help = gengetopt_args_info_help[62] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[63] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[65] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[66] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[67] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[68] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[69] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[70] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[71] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[72] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[73] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[74] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[75] ;
+  args_info->extended_test_help = gengetopt_args_info_help[76] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[77] ;
+  args_info->num_threads_help = gengetopt_args_info_help[78] ;
   
 }
 
@@ -663,6 +676,9 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->focus_ra_orig));
   free_string_field (&(args_info->focus_dec_orig));
   free_string_field (&(args_info->focus_radius_orig));
+  free_string_field (&(args_info->focus_f0_orig));
+  free_string_field (&(args_info->focus_dInv_orig));
+  free_string_field (&(args_info->focus_f0_delta_orig));
   free_string_field (&(args_info->only_large_cos_orig));
   free_string_field (&(args_info->fake_ref_time_orig));
   free_string_field (&(args_info->fake_ra_orig));
@@ -833,6 +849,12 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "focus-dec", args_info->focus_dec_orig, 0);
   if (args_info->focus_radius_given)
     write_into_file(outfile, "focus-radius", args_info->focus_radius_orig, 0);
+  if (args_info->focus_f0_given)
+    write_into_file(outfile, "focus-f0", args_info->focus_f0_orig, 0);
+  if (args_info->focus_dInv_given)
+    write_into_file(outfile, "focus-dInv", args_info->focus_dInv_orig, 0);
+  if (args_info->focus_f0_delta_given)
+    write_into_file(outfile, "focus-f0-delta", args_info->focus_f0_delta_orig, 0);
   if (args_info->only_large_cos_given)
     write_into_file(outfile, "only-large-cos", args_info->only_large_cos_orig, 0);
   if (args_info->fake_linear_given)
@@ -1488,6 +1510,9 @@ cmdline_parser_internal (
         { "focus-ra",	1, NULL, 0 },
         { "focus-dec",	1, NULL, 0 },
         { "focus-radius",	1, NULL, 0 },
+        { "focus-f0",	1, NULL, 0 },
+        { "focus-dInv",	1, NULL, 0 },
+        { "focus-f0-delta",	1, NULL, 0 },
         { "only-large-cos",	1, NULL, 0 },
         { "fake-linear",	0, NULL, 0 },
         { "fake-circular",	0, NULL, 0 },
@@ -2315,6 +2340,48 @@ cmdline_parser_internal (
                 &(local_args_info.focus_radius_given), optarg, 0, 0, ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "focus-radius", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* focus computation on this frequency.  */
+          else if (strcmp (long_options[option_index].name, "focus-f0") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->focus_f0_arg), 
+                 &(args_info->focus_f0_orig), &(args_info->focus_f0_given),
+                &(local_args_info.focus_f0_given), optarg, 0, 0, ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "focus-f0", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* focus computation on objects of this inverse distance (in seconds).  */
+          else if (strcmp (long_options[option_index].name, "focus-dInv") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->focus_dInv_arg), 
+                 &(args_info->focus_dInv_orig), &(args_info->focus_dInv_given),
+                &(local_args_info.focus_dInv_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "focus-dInv", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* frequency tolerance.  */
+          else if (strcmp (long_options[option_index].name, "focus-f0-delta") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->focus_f0_delta_arg), 
+                 &(args_info->focus_f0_delta_orig), &(args_info->focus_f0_delta_given),
+                &(local_args_info.focus_f0_delta_given), optarg, 0, 0, ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "focus-f0-delta", '-',
                 additional_error))
               goto failure;
           

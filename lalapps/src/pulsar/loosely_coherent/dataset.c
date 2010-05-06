@@ -171,7 +171,7 @@ doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
 
 /*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
 fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
-get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
+get_AM_response(round(t), 0.0, p->dec, p->ra, 0.0, &f_plus, &f_cross);
 // fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
 *f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
@@ -916,7 +916,7 @@ fprintf(LOG, "dataset %s TMedian : %f\n", d->name, d->TMedian);
 veto_sfts(d);
 
 fprintf(stderr, "Obtaining whole sky AM response for dataset %s\n", d->name);
-get_whole_sky_AM_response(d->gps, d->free, args_info.orientation_arg, &(d->AM_coeffs_plus), &(d->AM_coeffs_cross), &(d->AM_coeffs_size));
+get_whole_sky_AM_response(d->gps, d->coherence_time, d->free, args_info.orientation_arg, &(d->AM_coeffs_plus), &(d->AM_coeffs_cross), &(d->AM_coeffs_size));
 
 if(args_info.extended_test_arg) {
 	TODO("implement extended test of AM coeffs validity")
@@ -1304,8 +1304,8 @@ while(1) {
 		free(buffer);
 		return;
 		}
-	if(d->free>10000) {
-		TODO("remove SFT limit when SFT load code is fast enough")
+	if(d->free>100000) {
+		TODO("remove SFT limit when SFT loading code is fast enough")
 		return;
 		}
 	}

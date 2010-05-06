@@ -219,6 +219,15 @@ struct gengetopt_args_info
   double focus_radius_arg;	/**< @brief focus computation on a circular area with this radius.  */
   char * focus_radius_orig;	/**< @brief focus computation on a circular area with this radius original value given at command line.  */
   const char *focus_radius_help; /**< @brief focus computation on a circular area with this radius help description.  */
+  double focus_f0_arg;	/**< @brief focus computation on this frequency.  */
+  char * focus_f0_orig;	/**< @brief focus computation on this frequency original value given at command line.  */
+  const char *focus_f0_help; /**< @brief focus computation on this frequency help description.  */
+  double focus_dInv_arg;	/**< @brief focus computation on objects of this inverse distance (in seconds) (default='0.0').  */
+  char * focus_dInv_orig;	/**< @brief focus computation on objects of this inverse distance (in seconds) original value given at command line.  */
+  const char *focus_dInv_help; /**< @brief focus computation on objects of this inverse distance (in seconds) help description.  */
+  double focus_f0_delta_arg;	/**< @brief frequency tolerance.  */
+  char * focus_f0_delta_orig;	/**< @brief frequency tolerance original value given at command line.  */
+  const char *focus_f0_delta_help; /**< @brief frequency tolerance help description.  */
   double only_large_cos_arg;	/**< @brief restrict computation to points on the sky with cos of angle to band axis larger than a given number.  */
   char * only_large_cos_orig;	/**< @brief restrict computation to points on the sky with cos of angle to band axis larger than a given number original value given at command line.  */
   const char *only_large_cos_help; /**< @brief restrict computation to points on the sky with cos of angle to band axis larger than a given number help description.  */
@@ -321,6 +330,9 @@ struct gengetopt_args_info
   unsigned int focus_ra_given ;	/**< @brief Whether focus-ra was given.  */
   unsigned int focus_dec_given ;	/**< @brief Whether focus-dec was given.  */
   unsigned int focus_radius_given ;	/**< @brief Whether focus-radius was given.  */
+  unsigned int focus_f0_given ;	/**< @brief Whether focus-f0 was given.  */
+  unsigned int focus_dInv_given ;	/**< @brief Whether focus-dInv was given.  */
+  unsigned int focus_f0_delta_given ;	/**< @brief Whether focus-f0-delta was given.  */
   unsigned int only_large_cos_given ;	/**< @brief Whether only-large-cos was given.  */
   unsigned int fake_linear_given ;	/**< @brief Whether fake-linear was given.  */
   unsigned int fake_circular_given ;	/**< @brief Whether fake-circular was given.  */
