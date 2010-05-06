@@ -1273,8 +1273,12 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findFlags','window'))
 		#IFO arg string
 		myArgString=""
-		for sngl in coincEvent.sngl_inspiral.itervalues():
-			myArgString=myArgString+"%s,"%sngl.ifo
+		if hasattr(coincEvent, "sngl_inspiral"):
+			for sngl in coincEvent.sngl_inspiral.itervalues():
+				myArgString=myArgString+"%s,"%sngl.ifo
+		elif hasattr(coincEvent, "ifos_list"):
+			for ifo in coincEvent.ifos_list:
+				myArgString=myArgString+"%s,"%ifo
 		myArgString=myArgString.rstrip(",")
 		self.add_var_opt("ifo-list",myArgString)
 		
@@ -1318,8 +1322,12 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findFlags','window'))
 		#IFO arg string
 		myArgString=""
-		for sngl in coincEvent.sngl_inspiral.itervalues():
-			myArgString=myArgString+"%s,"%sngl.ifo
+		if hasattr(coincEvent, "sngl_inspiral"):
+			for sngl in coincEvent.sngl_inspiral.itervalues():
+				myArgString=myArgString+"%s,"%sngl.ifo
+		elif hasattr(coincEvent, "ifos_list"):
+			for ifo in coincEvent.ifos_list:
+				myArgString=myArgString+"%s,"%ifo
 		myArgString=myArgString.rstrip(",")
 		self.add_var_opt("ifo-list",myArgString)
 		
