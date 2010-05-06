@@ -1027,7 +1027,7 @@ if opts.masshist_newsnr and slide_events:
   histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
   labels = [r"%.1f - %.1f" % pair for pair in zip(mc_bins.lower(), mc_bins.upper())]
   for i in range(num_bins):
-    counts, edges = histogram(newsnr[mc_indices == i], bins=20, new=True)
+    counts, edges = histogram(cont_newsnr[mc_indices == i], bins=20, new=True)
     cum_counts = counts[::-1].cumsum()[::-1]
     semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
     color=histcolours[i], label=labels[i])
