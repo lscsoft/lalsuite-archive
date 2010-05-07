@@ -585,6 +585,23 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
 #End makeCheckListWikiJob class
 
+#This class is responsible for the followup page
+class makeFollowupPageJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	This actually launches a followup page job
+	"""
+	def __init__(self,opts,cp,dir='',tag_base=''):
+	    """
+	    """
+	    self.__executable = string.strip(cp.get("fu-condor",
+						"lalapps_followup_page").strip())
+	    self.name = os.path.split(self.__executable.rstrip('/'))[1]
+	    self.__universe = "vanilla" 
+	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+	    self.add_condor_cmd('getenv','True')
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
+#End makeFollowupPageJob class
+
 	    
 #The class responsible for running the data quality flag finding job
 class findFlagsJob(pipeline.CondorDAGJob, FUJob):
@@ -1244,6 +1261,23 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 			self.validate()
 		else:
 			self.invalidate()
+
+# Create followup page node
+class makeFollowupPageNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	This runs the followup page
+	"""
+	def __init__(self,dag,job,cp,opts):
+		pipeline.CondorDAGNode.__init__(self,job)
+		#FIXME Specify cache location (sortof hard coded)
+		self.add_var_arg('followup_pipe.cache')
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+		#Add this as child of all known jobs
+		for parentNode in dag.get_nodes():
+			self.add_parent(parentNode)
+		dag.add_node(self)
+		self.validate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
@@ -1929,6 +1963,7 @@ class create_default_config(object):
 		self.set_qscan_executable()
 		cp.set("fu-condor","analyseQscan", self.which("analyseQscan.py"))
 		cp.set("fu-condor","makeCheckListWiki",self.which("makeCheckListWiki.py"))
+		cp.set("fu-condor","lalapps_followup_page",self.which("lalapps_followup_page"))
 		# makechecklistwiki SECTION
 		cp.add_section("makeCheckListWiki")
 		cp.set("makeCheckListWiki","universe","local")
