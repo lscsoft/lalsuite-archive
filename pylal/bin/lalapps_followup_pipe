@@ -758,6 +758,8 @@ dag = stfu_pipe.followUpDAG(options.config_file,cp,options)
 
 trigs = FUTriggers(num=options.number)
 
+fupage_job		= stfu_pipe.makeFollowupPageJob(options, cp, dir='page', tag_base="fupage")
+
 ###############################################################################
 ##### DO FOLLOW UPS ON GPS TIME ONLY ##########################################
 ###############################################################################
@@ -774,7 +776,6 @@ seis_analyse_qscan_job	= stfu_pipe.analyseQscanJob(options, cp, dir=search, tag_
 find_flags_job		= stfu_pipe.findFlagsJob(options,cp, dir=search)
 find_vetos_job		= stfu_pipe.findVetosJob(options,cp, dir=search)
 wikiChecklist_job       = stfu_pipe.makeCheckListWikiJob(options,cp,dir=search)
-fupage_job		= stfu_pipe.makeFollowupPageJob(options, cp, dir=search, tag_base="fupage")
 
 gpsevents = time_only_events(options.gps_times)
 
@@ -806,7 +807,7 @@ for cnt, event in enumerate(gpsevents.events):
 		stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,event.time,ifo)
 
 # child of all nodes thus far
-fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
+#fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
 
 ###############################################################################
 ##### EXTRACT TRIGGER INFORMATION FROM DBs ####################################
@@ -868,8 +869,6 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	effD_ratio_job		= stfu_pipe.effDRatioJob(options,cp, dir=search)
 	mcmc_sngl_job           = stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="sngl")
 	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
-	# followup page jobs 
-	fupage_job		= stfu_pipe.makeFollowupPageJob(options, cp, dir=search, tag_base="fupage")
 
 	if options.do_remoteScans:
 		#setup_proxy_job		= stfu_pipe.setupProxyJob(options,cp, tag_base='Q_RDS', dir=search)
