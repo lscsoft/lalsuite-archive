@@ -211,7 +211,7 @@ class Coinc(object):
 		table = [ifo_row]
 		for row in zip(*img_row): table.append(row)
 		page.sections["seismicqscan"].add_table(table, "Seismic Qscans", "A table with 3 detector seismic qscans", tag="seismicqscan")
-		
+
 	def add_rdsqscan(self, page):
 		job_list = []
 		for ifo, time in self.time.items():
