@@ -511,7 +511,7 @@ for(n=0;n<d_free;n++) {
 		s=sin(total_phase);
 		
 		re[i]=x*c+y*s;
-		im[i]=-y*s+x*c;
+		im[i]=-x*s+y*c;
 
 		fprintf(DATA_LOG, "stream: %d %d %d %lld %ld %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
 				i, n, j, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
