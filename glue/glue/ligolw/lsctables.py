@@ -1234,7 +1234,7 @@ class SnglInspiralTable(table.Table):
 	def get_bank_new_snr(self, index=6.0):
 		import numpy
 		snr = self.get_column('snr')
-		rchisq = self.get_column('bank_reduced_chisq')
+		rchisq = self.get_column('reduced_bank_chisq')
 		nhigh = 2.
 		banknewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(banknewsnr, rchisq < 1, snr)
@@ -1243,7 +1243,7 @@ class SnglInspiralTable(table.Table):
 	def get_cont_new_snr(self, index=6.0):
 		import numpy
 		snr = self.get_column('snr')
-		rchisq = self.get_column('cont_reduced_chisq')
+		rchisq = self.get_column('reduced_cont_chisq')
 		nhigh = 2.
 		contnewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(contnewsnr, rchisq < 1, snr)
