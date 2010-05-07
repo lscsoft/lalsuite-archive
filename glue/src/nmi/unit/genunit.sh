@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # TODO: this ought to look in a lib dir under the glue install
-TEMPLATE_DIR=$LSCSOFT_SRCDIR/lalsuite/glue/test/nmi/unit
+TEMPLATE_DIR=$LSCSOFT_SRCDIR/lalsuite/glue/src/nmi/unit
 
 #source $GLUE_LOCATION/etc/glue-user-env.sh
 source /opt/lscsoft/glue/etc/glue-user-env.sh

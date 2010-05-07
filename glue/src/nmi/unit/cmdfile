@@ -5,7 +5,7 @@ component = $(WORKFLOW_NODENAME)
 component_version = $(GIT_ID)
 run_type = test
 platforms = x86_64_cent_5.3
-notify = $(USER)@syr.edu
+notify = $(USER)
 notify_fail_only = true
 # stream "live" stdout/err from tasks back to the submit node
 stream_user_io = true

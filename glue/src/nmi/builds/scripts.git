@@ -4,5 +4,5 @@ git_root = git://ligo-vcs.phys.uwm.edu/lalsuite.git
 git_tree = master
 git_path = glue/src/nmi/builds
 
-# omit glue/test/nmi/builds/ dir prefix
+# omit glue/src/nmi/builds/ dir prefix
 tar_args = --strip-components=4
