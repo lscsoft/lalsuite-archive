@@ -1,0 +1,7 @@
+method = git
+git_root = /home/pfcouvar/src/lalsuite/.git
+git_tree = master
+git_path = glue/test/nmi/diff
+
+# omit glue/test/nmi/diff/ dir prefix
+tar_args = --strip-components=4
