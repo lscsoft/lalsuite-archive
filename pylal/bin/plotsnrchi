@@ -246,8 +246,6 @@ def parse_command_line():
       metavar="NBINS", help="number of bins for the histogram plots" )
   parser.add_option("","--masshist-newsnr",action="store_true",default=False,\
       help="cumulative histograms of newsnr split by chirp mass")
-  parser.add_option("","--masshist-cont-newsnr",action="store_true",default=False,\
-      help="cumulative histograms of auto newsnr split by chirp mass")
   parser.add_option("","--masshist-effsnr",action="store_true",default=False,\
       help="cumulative histograms of effsnr split by chirp mass")
   parser.add_option("","--massbins",action="store",type="int",default=10,\
@@ -1047,41 +1045,6 @@ if opts.masshist_newsnr and slide_events:
     tagList.append("newSNR_cdf_by_mc")
   if not opts.show_plot:
     close()
-
-###################################
-# cumulative histogram of cont_newSNR split into mass bins
-if opts.masshist_cont_newsnr and slide_events:
-  q = opts.chisq_index
-  num_bins = opts.massbins
-  mc_bins = pylal.rate.LinearBins(0.5, 15.5, num_bins)
-  cont_newsnr = slideTriggers.get_cont_new_snr(index=q)
-  fig_num +=1
-  figure(fig_num)
-  mc_indices = array([mc_bins[trig.mchirp] for trig in slideTriggers])
-  histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
-  labels = [r"%.1f - %.1f" % pair for pair in zip(mc_bins.lower(), mc_bins.upper())]
-  for i in range(num_bins):
-    counts, edges = histogram(newsnr[mc_indices == i], bins=20, new=True)
-    cum_counts = counts[::-1].cumsum()[::-1]
-    semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
-    color=histcolours[i], label=labels[i])
-  if num_bins < 11:
-    legend()
-  maxcount = max(len(cont_newsnr[mc_indices == i]) for i in range(num_bins))
-  ylim(0.8,1.5*maxcount)
-  xlim(3,1.05*max(cont_newsnr))
-  title(opts.ifo_times + ' background auto newsnr distribution split by mchirp', size='x-large')
-  xlabel('auto newSNR', size='x-large')
-  ylabel('cumulative frequency', size='x-large')
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "auto newSNR_cdf_by_mc")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-      dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("auto newSNR_cdf_by_mc")
-  if not opts.show_plot:
-    close()
-
 
 ###################################
 # cumulative histogram of effSNR split into mass bins
