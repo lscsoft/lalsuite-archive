@@ -481,7 +481,7 @@ for(n=0;n<d_free;n++) {
 		
 		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
 		
-		f=f0+(emission_time.te.gpsSeconds-spindown_start)*spindown;
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown;
 		bin=round(datasets[0].coherence_time*f-first_bin);
 				
 		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
@@ -494,10 +494,6 @@ for(n=0;n<d_free;n++) {
 
 		phase_bin=0.5*(f0*datasets[0].coherence_time-(first_bin+bin));
 		
-		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter))+0.5*(phase_heterodyne-floor(phase_heterodyne)));
-
-		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter))+phase_bin);
-
 		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter)));
 
 		f_plus=F_plus_coeff(j, e, datasets[n].AM_coeffs_plus);

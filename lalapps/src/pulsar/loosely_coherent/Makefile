@@ -91,6 +91,9 @@ test3d: loosely_coherent1
 #		 --band-axis=explicit\(0.5,0.3,0.1\)
 
 
+test3e: loosely_coherent1
+	./loosely_coherent1 --config=config.3e
+	head 1626-406.500000/data.log
 
 
 dat2skymap: grid.o rastermagic.o dat2skymap.o png.o

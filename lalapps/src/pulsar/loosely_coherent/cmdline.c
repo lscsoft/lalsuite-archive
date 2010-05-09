@@ -108,6 +108,7 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-spindown=DOUBLE    spindown of fake signal to inject  \n                                  (default=`0.0')",
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
+  "      --fake-dInv=DOUBLE        inverse distance to the source in seconds  \n                                  (default=`0')",
   "      --extended-test=INT       Perform extended self test  (default=`0')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto \n                                  information  (default=`100')",
   "      --num-threads=INT         Use that many threads for computation  \n                                  (default=`-1')",
@@ -237,6 +238,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->fake_spindown_given = 0 ;
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
+  args_info->fake_dInv_given = 0 ;
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->num_threads_given = 0 ;
@@ -377,6 +379,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_strain_arg = 1e-23;
   args_info->fake_strain_orig = NULL;
   args_info->fake_freq_orig = NULL;
+  args_info->fake_dInv_arg = 0;
+  args_info->fake_dInv_orig = NULL;
   args_info->extended_test_arg = 0;
   args_info->extended_test_orig = NULL;
   args_info->max_sft_report_arg = 100;
@@ -468,9 +472,10 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->fake_spindown_help = gengetopt_args_info_help[73] ;
   args_info->fake_strain_help = gengetopt_args_info_help[74] ;
   args_info->fake_freq_help = gengetopt_args_info_help[75] ;
-  args_info->extended_test_help = gengetopt_args_info_help[76] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[77] ;
-  args_info->num_threads_help = gengetopt_args_info_help[78] ;
+  args_info->fake_dInv_help = gengetopt_args_info_help[76] ;
+  args_info->extended_test_help = gengetopt_args_info_help[77] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[78] ;
+  args_info->num_threads_help = gengetopt_args_info_help[79] ;
   
 }
 
@@ -689,6 +694,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->fake_spindown_orig));
   free_string_field (&(args_info->fake_strain_orig));
   free_string_field (&(args_info->fake_freq_orig));
+  free_string_field (&(args_info->fake_dInv_orig));
   free_string_field (&(args_info->extended_test_orig));
   free_string_field (&(args_info->max_sft_report_orig));
   free_string_field (&(args_info->num_threads_orig));
@@ -879,6 +885,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "fake-strain", args_info->fake_strain_orig, 0);
   if (args_info->fake_freq_given)
     write_into_file(outfile, "fake-freq", args_info->fake_freq_orig, 0);
+  if (args_info->fake_dInv_given)
+    write_into_file(outfile, "fake-dInv", args_info->fake_dInv_orig, 0);
   if (args_info->extended_test_given)
     write_into_file(outfile, "extended-test", args_info->extended_test_orig, 0);
   if (args_info->max_sft_report_given)
@@ -1525,6 +1533,7 @@ cmdline_parser_internal (
         { "fake-spindown",	1, NULL, 0 },
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
+        { "fake-dInv",	1, NULL, 0 },
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "num-threads",	1, NULL, 0 },
@@ -2556,6 +2565,20 @@ cmdline_parser_internal (
                 &(local_args_info.fake_freq_given), optarg, 0, 0, ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "fake-freq", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* inverse distance to the source in seconds.  */
+          else if (strcmp (long_options[option_index].name, "fake-dInv") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_dInv_arg), 
+                 &(args_info->fake_dInv_orig), &(args_info->fake_dInv_given),
+                &(local_args_info.fake_dInv_given), optarg, 0, "0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-dInv", '-',
                 additional_error))
               goto failure;
           

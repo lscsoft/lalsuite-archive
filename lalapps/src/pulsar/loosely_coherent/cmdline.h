@@ -260,6 +260,9 @@ struct gengetopt_args_info
   double fake_freq_arg;	/**< @brief frequency of fake signal to inject.  */
   char * fake_freq_orig;	/**< @brief frequency of fake signal to inject original value given at command line.  */
   const char *fake_freq_help; /**< @brief frequency of fake signal to inject help description.  */
+  double fake_dInv_arg;	/**< @brief inverse distance to the source in seconds (default='0').  */
+  char * fake_dInv_orig;	/**< @brief inverse distance to the source in seconds original value given at command line.  */
+  const char *fake_dInv_help; /**< @brief inverse distance to the source in seconds help description.  */
   int extended_test_arg;	/**< @brief Perform extended self test (default='0').  */
   char * extended_test_orig;	/**< @brief Perform extended self test original value given at command line.  */
   const char *extended_test_help; /**< @brief Perform extended self test help description.  */
@@ -345,6 +348,7 @@ struct gengetopt_args_info
   unsigned int fake_spindown_given ;	/**< @brief Whether fake-spindown was given.  */
   unsigned int fake_strain_given ;	/**< @brief Whether fake-strain was given.  */
   unsigned int fake_freq_given ;	/**< @brief Whether fake-freq was given.  */
+  unsigned int fake_dInv_given ;	/**< @brief Whether fake-dInv was given.  */
   unsigned int extended_test_given ;	/**< @brief Whether extended-test was given.  */
   unsigned int max_sft_report_given ;	/**< @brief Whether max-sft-report was given.  */
   unsigned int num_threads_given ;	/**< @brief Whether num-threads was given.  */
