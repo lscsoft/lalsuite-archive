@@ -748,7 +748,7 @@ if options.skip_dq_stats is False:
     if dq_stats_status[ifo]==0:
       print >> output, "[["+dq_stats_url[ifo]+"/histogram_plots"+\
           "/hist_novetoed_padded_clustered_"+ifo+"_cat1234.jpg|"+\
-          "{{"+dq_stats_url[ifo]+"/histogram_plots"+/
+          "{{"+dq_stats_url[ifo]+"/histogram_plots"+\
           "/hist_novetoed_padded_clustered_"+ifo+"_cat1234.jpg||"+\
           "width=200}}]]||",
   print >>output
@@ -857,7 +857,7 @@ if not (options.skip_hveto_ihope) or not (options.skip_hveto_kw):
 #== display hveto ihope data
 if options.skip_hveto_ihope is False:
   hveto_ihope_web_path=web_url+'/hveto_ihope'
-  hveto_ihope_path = hompath+'/'+public_folder+'/hveto_ihope'
+  hveto_ihope_path = homepath+'/'+public_folder+'/hveto_ihope'
   if verbose:  print >>sys.stdout, "Writing hveto_ihope results..."
   print >>output, "HVeto can be run on ihope triggers following the "+\
       "instructions "+\
