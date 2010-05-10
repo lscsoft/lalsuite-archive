@@ -1255,7 +1255,8 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 			self.set_category(job.name.lower())
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
-			self.add_parent(parentNode)
+			if not isinstance(parentNode,makeFollowupPageNode):
+				self.add_parent(parentNode)
 		if not opts.no_makeCheckList:
 			dag.add_node(self)
 			self.validate()
