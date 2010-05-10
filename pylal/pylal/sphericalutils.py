@@ -14,8 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
-Utilities to perform rotations on (polar, azimuthal) angle pairs and find
-the angle between two points.
+Utilities to perform operations on (polar, azimuthal) vectors.
 """
 
 from __future__ import division
@@ -121,4 +120,27 @@ def angle_between_points(a, b):
         return result[0]
     else:
         return result
+
+#
+# Implement the Fisher distribution
+#
+
+def fisher_rvs(mu, sigma, size=None):
+    """
+    Return a random (polar, azimuthal) angle drawn from the Fisher
+    distribution. Assume that the concentration parameter (kappa) is large
+    so that we can use a Rayleigh distribution about the north pole and
+    rotate it to be centered at the (polar, azimuthal) coordinate mu.
+
+    Assume kappa = 1 / sigma**2
+
+    pol PDF: kappa / (2 * np.sinh(kappa) * exp(kappa * cos(theta)) * sin(theta)
+    az PDF: uniform(0, 2*pi)
+
+    """
+    rayleigh_rv = \
+        np.array((np.random.rayleigh(scale=sigma, size=size),
+                  np.random.uniform(low=0, high=2*LAL_PI, size=size))).T
+    a, b = new_z_to_euler(mu)
+    return rotate_euler(rayleigh_rv, a, b, 0)
 
