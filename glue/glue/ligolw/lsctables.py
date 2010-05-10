@@ -1173,6 +1173,8 @@ class SnglInspiralTable(table.Table):
 		return mapping
 
 	def get_column(self,column):
+		if column == 'reduced_chisq':
+			return self.get_reduced_chisq()
 		if column == 'reduced_bank_chisq':
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
@@ -1183,7 +1185,7 @@ class SnglInspiralTable(table.Table):
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
-		if column =='lvS5stat':
+		if column == 'lvS5stat':
 			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
 			return self.get_chirp_dist()
@@ -1193,6 +1195,9 @@ class SnglInspiralTable(table.Table):
 	def get_end(self):
 		return [row.get_end() for row in self]
 
+	def get_reduced_chisq(self):
+		return self.get_column('chisq') / (2*self.get_column('chisq_dof') - 2)
+
 	def get_reduced_bank_chisq(self):
 		return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
 
@@ -1201,22 +1206,48 @@ class SnglInspiralTable(table.Table):
             
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
-		chisq = self.get_column('chisq')
-		chisq_dof = self.get_column('chisq_dof')
-		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+		rchisq = self.get_column('reduced_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_bank_effective_snr(self, fac=250.0):
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_bank_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_cont_effective_snr(self, fac=250.0):
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_cont_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
 
 	def get_new_snr(self, index=6.0):
 		import numpy
-		# the kwarg 'index' is to be assigned to the parameter chisq_index
-		# the parameter nhigh gives the asymptotic behaviour of 
-		# d (ln chisq) / d (ln rho) at large rho for fixed new_snr: 
-		# eg nhigh = 2 means chisq ~ rho^2 at large rho 
+		# kwarg 'index' is assigned to the parameter chisq_index
+		# nhigh gives the asymptotic large  rho behaviour of d (ln chisq) / d (ln rho) 
+		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
-		rchisq = self.get_column('chisq')/(2*self.get_column('chisq_dof') - 2)
+		rchisq = self.get_column('reduced_chisq')
 		nhigh = 2.
 		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
+
+	def get_bank_new_snr(self, index=6.0):
+		import numpy
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_bank_chisq')
+		nhigh = 2.
+		banknewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(banknewsnr, rchisq < 1, snr)
+		return banknewsnr
+
+	def get_cont_new_snr(self, index=6.0):
+		import numpy
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_cont_chisq')
+		nhigh = 2.
+		contnewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(contnewsnr, rchisq < 1, snr)
+		return contnewsnr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')

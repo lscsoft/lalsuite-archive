@@ -30,10 +30,24 @@ def parse_plot_cache_for_all_images(cache, basepath):
 			img = basepath + '/' + l 
 			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
 	if not out:
-		print >>sys.stderr, "couldn't images in requested %s" % (str(cache),)
+		print >>sys.stderr, "couldn't find images in requested %s" % (str(cache),)
 		raise ValueError
 	return out
 	
+def parse_plot_cache_for_html(ca, pat='.*.html'):
+	cafile = ca.url.replace('file://localhost','')
+	basepath = '/' + os.path.split(cafile.rstrip('/').lstrip('/'))[0] 		
+	cache = open(cafile).readlines()
+	out = []
+	#FIXME make faster
+	for l in cache:
+		if re.match('.*.html', l):
+			h = basepath + '/' + l 
+			out.append(h.strip())
+	if not out:
+		print >>sys.stderr, "couldn't find html in requested %s" % (str(cache),)
+		raise ValueError
+	return out
 
 def cache_parser(cachefile):
 	coinc = {}
@@ -57,7 +71,12 @@ class Coinc(object):
 		self.plotsnrchisq_cache = self.parse_cache_by_desc("PLOTSNRCHISQ_PIPE__"+search.upper())
 		self.plotchia_cache = self.parse_cache_by_desc("PLOTCHIATIMESERIES__"+search.upper())
 		self.skymap_cache = self.parse_cache_by_desc("PYLAL_PLOT_INSPIRAL_SKYMAP__"+search.upper())
-
+		self.analyze_qscan_ht_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_HT_"+search.upper())
+		self.analyze_qscan_rds_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_RDS_"+search.upper())
+		self.analyze_qscan_seis_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_SEIS_RDS_"+search.upper())
+		self.flag_cache = self.parse_cache_by_desc("FOLLOWUPQUERYDQ.PY__"+search.upper())
+		self.veto_cache = self.parse_cache_by_desc("FOLLOWUPQUERYVETO.PY__"+search.upper())
+	
 		f = open(coinc)
 		line = f.readlines()
 		d = line[1].split()
@@ -128,12 +147,20 @@ class Coinc(object):
 			if not c: return # get out of here if these jobs were not found
 
 		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
+		page.sections["htqscan"].div("This section gives the h(t) omega scans.  Note the link to the full can and also to an analysis on the significance of the event")
 		img_row = []
 		ifo_row = []
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
+
+			# analyze qscan stuff
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_ht_cache)
+			page.sections["htqscan"].add("<br><a href=%s>LINK TO %s QSCAN ANALYSIS</a></br>" % (cbcwebpage.web_path_to_url(parse_plot_cache_for_html(ca[0])[0]), ifo))
+
+			# link qscan
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
 			page.sections["htqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
+			
 			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.png'
 			img_glob = glob.glob(pat)
 			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.thumb.png'
@@ -154,12 +181,18 @@ class Coinc(object):
 		if not job_list: return # get out of here if these jobs were not found
 
 		page.add_section("seismicqscan", "Seismic Qscan for %s" % (self.coinctime,))
+		page.sections["seismicqscan"].div("This section gives the h(t) omega scans.  Note the link to the full can and also to an analysis on the significance of the event")
 		img_row = []
 		ifo_row = []
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
 			if not c: continue # get out of here if these jobs were not found
+
+			# analyze qscan stuff
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_seis_cache)
+			page.sections["seismicqscan"].add("<br><a href=%s>LINK TO %s QSCAN ANALYSIS</a></br>" % (cbcwebpage.web_path_to_url(parse_plot_cache_for_html(ca[0])[0]), ifo))
+
 			page.sections["seismicqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
 			plots = ['*LSC-DARM_ERR_8.00_spectrogram_whitened.png', '*PEM-LVEA_SEISX_8.00_spectrogram_whitened.png', '*PEM-LVEA_SEISY_8.00_spectrogram_whitened.png','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.png']
 			thumbs = ['*LSC-DARM_ERR_8.00_spectrogram_whitened.thumb.png', '*PEM-LVEA_SEISX_8.00_spectrogram_whitened.thumb.png', '*PEM-LVEA_SEISY_8.00_spectrogram_whitened.thumb.png','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.thumb.png']
@@ -178,7 +211,7 @@ class Coinc(object):
 		table = [ifo_row]
 		for row in zip(*img_row): table.append(row)
 		page.sections["seismicqscan"].add_table(table, "Seismic Qscans", "A table with 3 detector seismic qscans", tag="seismicqscan")
-		
+
 	def add_rdsqscan(self, page):
 		job_list = []
 		for ifo, time in self.time.items():
@@ -188,12 +221,18 @@ class Coinc(object):
 		if not job_list: return # get out of here if these jobs were not found
 
 		page.add_section("rdsqscan", "RDS Qscan for %s" % (self.coinctime,))
+		page.sections["rdsqscan"].div("This section gives the h(t) omega scans.  Note the link to the full can and also to an analysis on the significance of the event")
 		img_row = []
 		ifo_row = []
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.rdsqscan_cache)
 			if not c: continue # get out of here if these jobs were not found
+
+			# analyze qscan stuff
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_rds_cache)
+			page.sections["rdsqscan"].add("<br><a href=%s>LINK TO %s QSCAN ANALYSIS</a></br>" % (cbcwebpage.web_path_to_url(parse_plot_cache_for_html(ca[0])[0]), ifo))
+
 			page.sections["rdsqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
 
 			plots =[\
@@ -396,6 +435,16 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 		page.sections["checklist"].add("<a href=https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/followup_%s>DETECTION CHECKLIST FOR %s</a><br>" % (self.coinctime,self.coinctime))
 		page.sections["checklist"].add('<i>NOTE IF PAGE DOES NOT EXIST CHOOSE "FUCheckListTemplate" FROM THE TEMPLATE SECTION<br>')
 
+	def add_dq(self, page):
+		page.add_section("DQ", "Data Quality for %s" % (self.coinctime,))
+		page.sections["DQ"].div("This section gives vetoes and flags that were on")
+		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.flag_cache)
+		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+		page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags')
+		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.veto_cache)
+		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+		page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes')
+
 ###############################################################################
 ##### MAIN ####################################################################
 ###############################################################################	
@@ -431,6 +480,8 @@ for search, coincs in coinc_info.items():
 		event.add_rdsqscan(page.subpages[key])
 		#section for snr plots etc
 		event.add_plotsnrchisq(page.subpages[key])
+		#dq
+		event.add_dq(page.subpages[key])
 		#section for plotchia
 		event.add_plotchia(page.subpages[key])
 		#section for skymap
