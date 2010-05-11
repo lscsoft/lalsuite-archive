@@ -151,14 +151,13 @@ class Coinc(object):
 			if not c: return # get out of here if these jobs were not found
 
 		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
-		page.sections["htqscan"].div("This section gives the h(t) omega scans.  Note the link to the full can and also to an analysis on the significance of the event")
+		page.sections["htqscan"].div("This section gives the h(t) omega scans and summary plots on the significance of the event")
 		img_col = {}
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
 
 			# analyze qscan stuff
 			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_ht_cache)
-			page.sections["htqscan"].add("<br><a href=%s>LINK TO %s QSCAN ANALYSIS</a></br>" % (cbcwebpage.web_path_to_url(parse_plot_cache_for_html(ca[0])[0]), ifo))
 
 			# link qscan
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
@@ -475,7 +474,7 @@ for search, coincs in coinc_info.items():
 		key = (str(event.coinctime))
 		page.add_subpage(key,"my new page",link_text=key)
 		#section for param table
-		if search != "gps_only": event.write_param_table(page.subpages[key])
+		if search.lower() != "gps_only": event.write_param_table(page.subpages[key])
 		#section for qscans
 		event.add_htqscan(page.subpages[key])
 		#section for seismic qscans
