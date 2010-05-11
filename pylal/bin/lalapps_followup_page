@@ -6,41 +6,35 @@ from glue import cbcwebpage
 from glue import lal
 from glue import segments
 
-#class cache_parser(object):
-#	def __init__(self, cachefile):
+#
+# useful functions
+#
 
-def parse_plot_cache_for_image(cache, basepath, tag):
-	out = None
-	#FIXME make faster
-	for l in cache:
-		if re.match('.*'+tag+'.*', l):
-			img = basepath + '/' + l 
-			out =  (img.strip(), img.replace('.png', '_thumb.png').strip())
-			break
-	if not out:
-		print >>sys.stderr, "couldn't find %s in requested %s" % (tag, str(cache))
-		raise ValueError
-	return out
-
-def parse_plot_cache_for_all_images(cache, basepath):
+def parse_plot_cache_for_some_images(cache, basepath, tag='.*.png', brk=None):
 	out = []
 	#FIXME make faster
-	for l in cache:
-		if re.match('.*.png', l):
-			img = basepath + '/' + l 
+	for l in open(cache).readlines():
+		if re.match(tag, l):
+			img = basepath + '/' + l
 			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
-	if not out:
-		print >>sys.stderr, "couldn't images in requested %s" % (str(cache),)
-		raise ValueError
+			if brk: return out[0]
 	return out
-	
+
+
+def parse_plot_cache_for_image(cache, basepath, tag):
+	return parse_plot_cache_for_some_images(cache, basepath, tag='.*.png', brk=True)
+
+
+def parse_plot_cache_for_all_images(cache, basepath):
+	return parse_plot_cache_for_some_images(cache, basepath)
+
 
 def cache_parser(cachefile):
 	coinc = {}
 	f = open(cachefile)
 	out_cache = []
 	for l in f.readlines():
-		if "COINC_INFO" in l: 
+		if "COINC_INFO" in l:
 			c = l.split()
 			coinc.setdefault(c[1].replace('COINC_INFO_',''),[]).append(c[4].replace('file://localhost',''))
 		else: out_cache.append(lal.CacheEntry(l))
@@ -57,6 +51,11 @@ class Coinc(object):
 		self.plotsnrchisq_cache = self.parse_cache_by_desc("PLOTSNRCHISQ_PIPE__"+search.upper())
 		self.plotchia_cache = self.parse_cache_by_desc("PLOTCHIATIMESERIES__"+search.upper())
 		self.skymap_cache = self.parse_cache_by_desc("PYLAL_PLOT_INSPIRAL_SKYMAP__"+search.upper())
+		self.analyze_qscan_ht_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_HT_"+search.upper())
+		self.analyze_qscan_rds_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_RDS_"+search.upper())
+		self.analyze_qscan_seis_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_SEIS_RDS_"+search.upper())
+		self.flag_cache = self.parse_cache_by_desc("FOLLOWUPQUERYDQ.PY__"+search.upper())
+		self.veto_cache = self.parse_cache_by_desc("FOLLOWUPQUERYVETO.PY__"+search.upper())
 
 		f = open(coinc)
 		line = f.readlines()
@@ -64,7 +63,7 @@ class Coinc(object):
 		self.dir = d[0]
 		self.rank = d[1]
 		self.cfar = d[2]
-		self.coincsnr = d[3]	
+		self.coincsnr = d[3]
 		self.ifos = d[4]
 		self.instruments = d[5]
 		self.coinctime = d[6]
@@ -83,7 +82,7 @@ class Coinc(object):
 			self.chisq[d[1]] = d[4]
 			self.mass1[d[1]] = d[5]
 			self.mass2[d[1]] = d[6]
-	
+
 	def parse_cache_by_desc(self, tag, cache=None):
 		out = []
 		#FIXME make this faster
@@ -94,8 +93,6 @@ class Coinc(object):
 				out.append(l)
 		if not out:
 			print >>sys.stderr, "couldn't find %s in requested cache" % (tag, )
-			#raise ValueError
-			#sys.exit(1)
 		return out
 
 	def parse_cache_by_time_and_ifo(self, time, ifo, cache=None):
@@ -104,19 +101,16 @@ class Coinc(object):
 		if cache is None: cache = self.cache
 		if not cache: return out
 		for l in cache:
-			#print float(time), float(l.segment[0]), str(ifo), str(l.observatory)
 			if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory): out.append(l)
 		if not out:
 			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (float(time), ifo)
-			#raise ValueError
-			#sys.exit(1)
 		return out
-		
+
 	def write_param_table(self, page):
 		page.add_section("param", "Parameter table for %s" % (self.coinctime,))
 		params = [["<b>RANK</b>", "<b>CFAR</b>",  "<b>TIME</b>", "<b>SNR</b>", "<b>MASS</b>","<b>IFOS</b>","<b>INSTRUMENTS</b>"],[self.rank, self.cfar, self.coinctime, self.coincsnr, self.coincmass, self.ifos, self.instruments]]
 		page.sections["param"].add_table(params, title="Coinc Parameter Table", caption="Coinc parameters for the event", tag="coincparamtable")
-		
+
 		params = [["<b>IFO</b>","<b>TIME</b>", "<b>SNR</b>",  "<b>CHISQ</b>", "<b>MASS1</b>", "<b>MASS2</b>"]]
 		for ifo, data in self.time.items():
 			params.append([ifo, self.time[ifo], self.snr[ifo], self.chisq[ifo], self.mass1[ifo], self.mass2[ifo]])
@@ -128,22 +122,22 @@ class Coinc(object):
 			if not c: return # get out of here if these jobs were not found
 
 		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
-		img_row = []
-		ifo_row = []
+		page.sections["htqscan"].div("This section gives the h(t) omega scans and summary plots on the significance of the event")
+		img_col = {}
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
+
+			# analyze qscan stuff
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_ht_cache)
+
+			# link qscan
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
 			page.sections["htqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.png'
-			img_glob = glob.glob(pat)
-			pat = c[0].url.replace('file://localhost','')+'/*1.00_spectrogram_whitened.thumb.png'
-			thumb_glob = glob.glob(pat)
-			ifo_row.append(ifo)
-			if img_glob and thumb_glob:
-				img_row.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
-			else: img_row.append(['h(t) qscan did not work'])
-	
-		page.sections["htqscan"].add_table([ifo_row, img_row], "h(t) Qscans", "A table with 3 detector h(t) qscans", tag="htqscan")
+
+			plots = [('LDAS-STRAIN','*LDAS-STRAIN*1.00_spectrogram_whitened.png','')]
+			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
+
+		self._finish_qscan(page, img_col, "htqscan")
 
 	def add_seismicqscan(self, page):
 		job_list = []
@@ -154,31 +148,26 @@ class Coinc(object):
 		if not job_list: return # get out of here if these jobs were not found
 
 		page.add_section("seismicqscan", "Seismic Qscan for %s" % (self.coinctime,))
-		img_row = []
-		ifo_row = []
+		page.sections["seismicqscan"].div("This section gives the seismic omega scans and plots that summarize the significance.")
+		img_col = {}
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
 			if not c: continue # get out of here if these jobs were not found
-			page.sections["seismicqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			plots = ['*LSC-DARM_ERR_8.00_spectrogram_whitened.png', '*PEM-LVEA_SEISX_8.00_spectrogram_whitened.png', '*PEM-LVEA_SEISY_8.00_spectrogram_whitened.png','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.png']
-			thumbs = ['*LSC-DARM_ERR_8.00_spectrogram_whitened.thumb.png', '*PEM-LVEA_SEISX_8.00_spectrogram_whitened.thumb.png', '*PEM-LVEA_SEISY_8.00_spectrogram_whitened.thumb.png','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.thumb.png']
-			plot_list = []
-			for i,plot in enumerate(plots):
-				thumb = thumbs[i]
-				pat = c[0].url.replace('file://localhost','')+'/' + plot
-				img_glob = glob.glob(pat)
-				pat = c[0].url.replace('file://localhost','')+'/' + thumb
-				thumb_glob = glob.glob(pat)
-				if img_glob and thumb_glob: 
-					plot_list.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
-			img_row.append(plot_list)
-			ifo_row.append(ifo)
 
-		table = [ifo_row]
-		for row in zip(*img_row): table.append(row)
-		page.sections["seismicqscan"].add_table(table, "Seismic Qscans", "A table with 3 detector seismic qscans", tag="seismicqscan")
-		
+			# analyze qscan stuff
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_seis_cache)
+
+			page.sections["seismicqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
+			plots = [('LSC-DARM_ERR', '*LSC-DARM_ERR_8.00_spectrogram_whitened.png',''),\
+				 ('PEM-LVEA_SEISX','*PEM-LVEA_SEISX_8.00_spectrogram_whitened.png',''),\
+                                 ('PEM-LVEA_SEISY','*PEM-LVEA_SEISY_8.00_spectrogram_whitened.png',''),\
+				 ('PEM-LVEA_SEISZ','*PEM-LVEA_SEISZ_8.00_spectrogram_whitened.png','')]
+			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
+
+		self._finish_qscan(page, img_col, "seismicqscan")
+
+
 	def add_rdsqscan(self, page):
 		job_list = []
 		for ifo, time in self.time.items():
@@ -188,139 +177,164 @@ class Coinc(object):
 		if not job_list: return # get out of here if these jobs were not found
 
 		page.add_section("rdsqscan", "RDS Qscan for %s" % (self.coinctime,))
-		img_row = []
-		ifo_row = []
+		page.sections["rdsqscan"].div("This section gives the RDS omega scans with plots that summarize the significance")
+		img_col = {}
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.rdsqscan_cache)
 			if not c: continue # get out of here if these jobs were not found
+
+			# analyze qscan stuff
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_rds_cache)
+
 			page.sections["rdsqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
 
+			# (channel, qscan image glob, UNUSED but could be analyze qscan glob)
 			plots =[\
-			       '*:ASC-BS_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-BS_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ETMX_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ETMX_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ETMY_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ETMY_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ITMX_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ITMX_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ITMY_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-ITMY_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-QPDX_DC_16.00_spectrogram_whitened.png',\
-			       '*:ASC-QPDX_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-QPDY_DC_16.00_spectrogram_whitened.png',\
-			       '*:ASC-QPDY_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-QPDY_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-RM_P_16.00_spectrogram_whitened.png',\
-			       '*:ASC-RM_Y_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS1_QP_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS1_QY_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS2_IP_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS2_IY_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS2_QP_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS2_QY_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS3_IP_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS3_IY_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS4_IP_16.00_spectrogram_whitened.png',\
-			       '*:ASC-WFS4_IY_16.00_spectrogram_whitened.png',\
-			       '*:IOO-MC_F_16.00_spectrogram_whitened.png',\
-			       '*:LSC-AS_I_16.00_spectrogram_whitened.png',\
-			       '*:LSC-AS_Q_0FSR_16.00_spectrogram_whitened.png',\
-			       '*:LSC-AS_Q_16.00_spectrogram_whitened.png',\
-			       '*:LSC-AS_Q_1FSR_16.00_spectrogram_whitened.png',\
-			       '*:LSC-DARM_CTRL_16.00_spectrogram_whitened.png',\
-			       '*:LSC-DARM_ERR_16.00_spectrogram_whitened.png',\
-			       '*:LSC-ETMX_CAL_16.00_spectrogram_whitened.png',\
-			       '*:LSC-ETMX_EXC_DAQ_16.00_spectrogram_whitened.png',\
-			       '*:LSC-ETMY_CAL_16.00_spectrogram_whitened.png',\
-			       '*:LSC-MC_L_16.00_spectrogram_whitened.png',\
-			       '*:LSC-MICH_CTRL_16.00_spectrogram_whitened.png',\
-			       '*:LSC-POB_I_16.00_spectrogram_whitened.png',\
-			       '*:LSC-POB_Q_16.00_spectrogram_whitened.png',\
-			       '*:LSC-REFL_AC_16.00_spectrogram_whitened.png',\
-			       '*:LSC-REFL_DC_16.00_spectrogram_whitened.png',\
-			       '*:LSC-REFL_I_16.00_spectrogram_whitened.png',\
-			       '*:LSC-SPOB_I_16.00_spectrogram_whitened.png',\
-			       '*:PEM-BSC2_ACCX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-BSC3_ACCX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-BSC4_ACCX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-BSC4_MIC_16.00_spectrogram_whitened.png',\
-			       '*:PEM-BSC5_ACCX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-BSC5_MIC_16.00_spectrogram_whitened.png',\
-			       '*:PEM-COIL_MAGX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-COIL_MAGZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EX_MAGX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EX_MAGY_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EX_MAGZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EX_SEISZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EX_V1_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_BAYMIC_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_MAGY_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_MAGZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_SEISX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_SEISY_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_SEISZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-EY_V1_16.00_spectrogram_whitened.png',\
-			       '*:PEM-ISCT1_ACCY_16.00_spectrogram_whitened.png',\
-			       '*:PEM-ISCT4_ACCX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-ISCT4_ACCY_16.00_spectrogram_whitened.png',\
-			       '*:PEM-ISCT4_MIC_16.00_spectrogram_whitened.png',\
-			       '*:PEM-LVEA_MAGX_16.00_spectrogram_whitened.png',\
-			       '*:PEM-LVEA_MAGZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-LVEA_SEISZ_16.00_spectrogram_whitened.png',\
-			       '*:PEM-LVEA_V1_16.00_spectrogram_whitened.png',\
-			       '*:PEM-RADIO_LVEA_16.00_spectrogram_whitened.png',\
-			       '*:PSL-FSS_MIXERM_F_16.00_spectrogram_whitened.png',\
-			       '*:SEI-BS_Z_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMX_RZ_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMX_STS2_X_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMX_Y_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMX_Z_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMY_RX_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMY_RZ_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMY_STS2_Y_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMY_X_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMY_Y_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ETMY_Z_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ITMX_RZ_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ITMX_X_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ITMY_RY_16.00_spectrogram_whitened.png',\
-			       '*:SEI-ITMY_Z_16.00_spectrogram_whitened.png',\
-			       '*:SEI-LVEA_STS2_Y_16.00_spectrogram_whitened.png',\
-			       '*:SEI-LVEA_STS2_Z_16.00_spectrogram_whitened.png',\
-			       '*:SEI-MC1_RX_16.00_spectrogram_whitened.png',\
-			       '*:SEI-MC1_RY_16.00_spectrogram_whitened.png',\
-			       '*:SEI-MC1_Z_16.00_spectrogram_whitened.png',\
-			       '*:SEI-MC2_RX_16.00_spectrogram_whitened.png',\
-			       '*:SEI-MC2_Z_16.00_spectrogram_whitened.png'
+			       ('ASC-BS_P', '*:ASC-BS_P_16.00_spectrogram_whitened.png', ''),\
+			       ('ASC-BS_Y','*:ASC-BS_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ETMX_P','*:ASC-ETMX_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ETMX_Y','*:ASC-ETMX_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ETMY_P','*:ASC-ETMY_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ETMY_Y','*:ASC-ETMY_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ETMY_Y','*:ASC-ITMX_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ITMX_Y','*:ASC-ITMX_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ITMY_P','*:ASC-ITMY_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-ITMY_Y','*:ASC-ITMY_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-QPDX_DC','*:ASC-QPDX_DC_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-QPDX_P','*:ASC-QPDX_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-QPDY_DC','*:ASC-QPDY_DC_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-QPDY_P','*:ASC-QPDY_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-QPDY_Y','*:ASC-QPDY_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-RM_P','*:ASC-RM_P_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-RM_Y','*:ASC-RM_Y_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS1_QP','*:ASC-WFS1_QP_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS1_QY','*:ASC-WFS1_QY_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS2_IP','*:ASC-WFS2_IP_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS2_IY','*:ASC-WFS2_IY_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS2_QP','*:ASC-WFS2_QP_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS2_QY','*:ASC-WFS2_QY_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS3_IP','*:ASC-WFS3_IP_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS3_IY','*:ASC-WFS3_IY_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS4_IP','*:ASC-WFS4_IP_16.00_spectrogram_whitened.png',''),\
+			       ('ASC-WFS4_IY','*:ASC-WFS4_IY_16.00_spectrogram_whitened.png',''),\
+			       ('IOO-MC_F','*:IOO-MC_F_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-AS_I','*:LSC-AS_I_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-AS_Q','*:LSC-AS_Q_0FSR_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-AS_Q','*:LSC-AS_Q_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-AS_Q','*:LSC-AS_Q_1FSR_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-DARM_CTRL','*:LSC-DARM_CTRL_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-DARM_ERR','*:LSC-DARM_ERR_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-ETMX_CAL','*:LSC-ETMX_CAL_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-ETMX_EXC_DAQ','*:LSC-ETMX_EXC_DAQ_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-ETMY_CAL','*:LSC-ETMY_CAL_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-MC_L','*:LSC-MC_L_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-MICH_CTRL','*:LSC-MICH_CTRL_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-POB_I','*:LSC-POB_I_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-POB_Q','*:LSC-POB_Q_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-REFL_AC','*:LSC-REFL_AC_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-REFL_DC','*:LSC-REFL_DC_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-REFL_I','*:LSC-REFL_I_16.00_spectrogram_whitened.png',''),\
+			       ('LSC-SPOB_I','*:LSC-SPOB_I_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-BSC2_ACCX','*:PEM-BSC2_ACCX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-BSC3_ACCX','*:PEM-BSC3_ACCX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-BSC4_ACCX','*:PEM-BSC4_ACCX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-BSC4_MIC','*:PEM-BSC4_MIC_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-BSC5_ACCX','*:PEM-BSC5_ACCX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-BSC5_MIC','*:PEM-BSC5_MIC_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-COIL_MAGX','*:PEM-COIL_MAGX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-COIL_MAGZ','*:PEM-COIL_MAGZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EX_MAGX','*:PEM-EX_MAGX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EX_MAGY','*:PEM-EX_MAGY_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EX_MAGZ','*:PEM-EX_MAGZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EX_SEISZ','*:PEM-EX_SEISZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EX_V1','*:PEM-EX_V1_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_BAYMIC','*:PEM-EY_BAYMIC_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_MAGY','*:PEM-EY_MAGY_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_MAGZ','*:PEM-EY_MAGZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_SEISX','*:PEM-EY_SEISX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_SEISY','*:PEM-EY_SEISY_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_SEISZ','*:PEM-EY_SEISZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-EY_V1','*:PEM-EY_V1_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-ISCT1_ACCY','*:PEM-ISCT1_ACCY_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-ISCT4_ACCX','*:PEM-ISCT4_ACCX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-ISCT4_ACCY','*:PEM-ISCT4_ACCY_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-ISCT4_MIC','*:PEM-ISCT4_MIC_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-LVEA_MAGX','*:PEM-LVEA_MAGX_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-LVEA_MAGZ','*:PEM-LVEA_MAGZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-LVEA_SEISZ','*:PEM-LVEA_SEISZ_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-LVEA_V1','*:PEM-LVEA_V1_16.00_spectrogram_whitened.png',''),\
+			       ('PEM-RADIO_LVEA','*:PEM-RADIO_LVEA_16.00_spectrogram_whitened.png',''),\
+			       ('PSL-FSS_MIXERM_F','*:PSL-FSS_MIXERM_F_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-BS_Z','*:SEI-BS_Z_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMX_RZ','*:SEI-ETMX_RZ_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMX_STS2_X','*:SEI-ETMX_STS2_X_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMX_Y','*:SEI-ETMX_Y_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMX_Z','*:SEI-ETMX_Z_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMY_RX','*:SEI-ETMY_RX_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMY_RZ','*:SEI-ETMY_RZ_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMY_STS2_Y','*:SEI-ETMY_STS2_Y_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMY_X','*:SEI-ETMY_X_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMY_Y','*:SEI-ETMY_Y_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ETMY_Z','*:SEI-ETMY_Z_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ITMX_RZ','*:SEI-ITMX_RZ_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ITMX_X','*:SEI-ITMX_X_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ITMY_RY','*:SEI-ITMY_RY_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-ITMY_Z','*:SEI-ITMY_Z_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-LVEA_STS2_Y','*:SEI-LVEA_STS2_Y_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-LVEA_STS2_Z','*:SEI-LVEA_STS2_Z_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-MC1_RX','*:SEI-MC1_RX_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-MC1_RY','*:SEI-MC1_RY_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-MC1_Z','*:SEI-MC1_Z_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-MC2_RX','*:SEI-MC2_RX_16.00_spectrogram_whitened.png',''),\
+			       ('SEI-MC2_Z','*:SEI-MC2_Z_16.00_spectrogram_whitened.png','')
 			       ]
-			thumbs = [x.strip().replace(".png",".thumb.png") for x in plots]
 
-			plot_list = []
-			for i,plot in enumerate(plots):
-				thumb = thumbs[i]
-				pat = c[0].url.replace('file://localhost','')+'/' + plot
-				img_glob = glob.glob(pat)
-				pat = c[0].url.replace('file://localhost','')+'/' + thumb
-				thumb_glob = glob.glob(pat)
-				if img_glob and thumb_glob: 
-					plot_list.append(cbcwebpage._imagelink(cbcwebpage.web_path_to_url(img_glob[0]), cbcwebpage.web_path_to_url(thumb_glob[0]))())
-			img_row.append(plot_list)
-			ifo_row.append(ifo)
+			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
 
-		table = [ifo_row]
-		for row in zip(*img_row): table.append(row)
-		page.sections["rdsqscan"].add_table(table, \
-						    "RDS Qscans", "A \
-table with 3 detector RDS Channel qscans",tag="rdsqscan") 
+		self._finish_qscan(page, img_col, "rdsqscan")
+
+
+	def _add_qscan_plots(self, page, plots, c, ca, img_col, ifo):
+		# get the analyze qscan cache of images
+		cfile = [l.path() for l in ca if l.path().endswith('.cache')][0]
+		for i,plot in enumerate(plots):
+			img_col.setdefault(plot[0],{})
+			# first the qscans
+			thumb = plot[1].strip().replace(".png",".thumb.png")
+			pat = c[0].url.replace('file://localhost','')+'/' + plot[1]
+			img_glob = glob.glob(pat)
+			pat = c[0].url.replace('file://localhost','')+'/' + thumb
+			thumb_glob = glob.glob(pat)
+			# now for the analyze qscan stuff
+			basename = '/' + os.path.split(cfile)[0].lstrip('/')
+			analyze_images = parse_plot_cache_for_some_images(cfile, basename, '.*%s.*' % (plot[0],))
+			if analyze_images:
+				img_glob.extend([im[0] for im in analyze_images])
+				thumb_glob.extend([im[1] for im in analyze_images])
+			for img, thmb in zip(img_glob, thumb_glob):
+				img = '/' + img.lstrip('/')
+				thmb = '/' + thmb.lstrip('/')
+				img_col[plot[0]].setdefault(ifo,[]).append(cbcwebpage._imagelinkcpy(img, thmb)())
+
+	def _finish_qscan(self, page, img_col, type):
+		for name, plot in img_col.items():
+			#FIXME terrible hack to rely on channel name convention that may or may not exist
+			chan = name[:3]
+			try: page.sections[type].sections[chan]
+			except: page.sections[type].add_section(chan,chan)
+			if plot: page.sections[type].sections[chan].div('<br><hr><b>%s</b>' % (name,))
+			for ifo, row in plot.items():
+				title = '%s %s' % (ifo, name)
+				page.sections[type].sections[chan].add_table([row],title,title + " qscans and plots summarizing significance")
+
 
 	def add_plotsnrchisq(self, page):
 		for ifo, time in self.time.items():
 			# Parse plotting codes nearly useless "cache" file
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
 			if not c: return # get out of here if these jobs were not found
-		
+
 		page.add_section("plotsnrchisq", "SNR, Chisq and template time series for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -329,13 +343,13 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 			# Parse plotting codes nearly useless "cache" file
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
 			cfile = c[0].url.replace('file://localhost','')
-			path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
+			path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
 			clist = open(cfile).readlines()
 			plots = ['snr-','snr_zoom-', 'rsq-', 'rsq_zoom-', 'chisq-', 'chisq_zoom-', 'PSD-', 'fft_of_template_and_asd-', 'template-', 'white_template-']
 			plot_list = []
 			for plot in plots:
 				img, thumb = parse_plot_cache_for_image(clist, path, plot)
-				plot_list.append(cbcwebpage._imagelinkcpy(img,thumb,plot))			
+				plot_list.append(cbcwebpage._imagelinkcpy(img,thumb,plot))
 			img_row.append(plot_list)
 			ifo_row.append(ifo)
 		table.append(ifo_row)
@@ -353,9 +367,9 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 		plot_list = []
 
 		cfile = c[0].url.replace('file://localhost','')
-		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
+		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
 		try: clist = open(cfile).readlines()
-		except:	
+		except:
 			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
 			page.sections["plotchia"].add("<br><b>plot chia job did not finish correctly</b><br>")
 			return
@@ -378,9 +392,9 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 
 		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
 		cfile = c[0].url.replace('file://localhost','')
-		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
+		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
 		try: clist = open(cfile).readlines()
-		except:	
+		except:
 			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
 			page.sections["skymap"].add("<br><b>skymap job did not finish correctly</b><br>")
 			return
@@ -390,21 +404,31 @@ table with 3 detector RDS Channel qscans",tag="rdsqscan")
 		# group by 3s
 		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
 		page.sections["skymap"].add_table(plot_list, "Sky map", "lalapps skymap plot", tag="plotchia")
-	
+
 	def add_checklist(self, page):
 		page.add_section("checklist", "Detection Checklist for %s" % (self.coinctime,))
 		page.sections["checklist"].add("<a href=https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/followup_%s>DETECTION CHECKLIST FOR %s</a><br>" % (self.coinctime,self.coinctime))
 		page.sections["checklist"].add('<i>NOTE IF PAGE DOES NOT EXIST CHOOSE "FUCheckListTemplate" FROM THE TEMPLATE SECTION<br>')
 
+	def add_dq(self, page):
+		page.add_section("DQ", "Data Quality for %s" % (self.coinctime,))
+		page.sections["DQ"].div("This section gives vetoes and flags that were on")
+		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.flag_cache)
+		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+		page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags')
+		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.veto_cache)
+		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+		page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes')
+
 ###############################################################################
 ##### MAIN ####################################################################
-###############################################################################	
-		
+###############################################################################
+
 
 # PARSE THE CACHE
 coinc_info, cache = cache_parser(sys.argv[1])
 
-# LOOP OVER DIFFERENT "SEARCHES" LIKE FULL DATA ETC, 
+# LOOP OVER DIFFERENT "SEARCHES" LIKE FULL DATA ETC,
 for search, coincs in coinc_info.items():
 	events = []
 
@@ -415,14 +439,14 @@ for search, coincs in coinc_info.items():
 
 	# make the page
 	page = cbcwebpage.cbcpage(title="Followup " + search)
-	
+
 	# loop over the followed up events
 	for event in events:
 		print >>sys.stderr, "processing coinc@%s in %s" % (event.coinctime, search)
 		key = (str(event.coinctime))
 		page.add_subpage(key,"my new page",link_text=key)
 		#section for param table
-		event.write_param_table(page.subpages[key])
+		if search.lower() != "gps_only": event.write_param_table(page.subpages[key])
 		#section for qscans
 		event.add_htqscan(page.subpages[key])
 		#section for seismic qscans
@@ -431,12 +455,14 @@ for search, coincs in coinc_info.items():
 		event.add_rdsqscan(page.subpages[key])
 		#section for snr plots etc
 		event.add_plotsnrchisq(page.subpages[key])
+		#dq
+		event.add_dq(page.subpages[key])
 		#section for plotchia
 		event.add_plotchia(page.subpages[key])
 		#section for skymap
 		event.add_skymap(page.subpages[key])
 		#checklist
-		event.add_checklist(page.subpages[key])
+		#event.add_checklist(page.subpages[key])
 	#page.add_external_frame("https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/Test_of_new_Bare_Bones_Checklist_Page","checklist")
 	page.write(search)
 

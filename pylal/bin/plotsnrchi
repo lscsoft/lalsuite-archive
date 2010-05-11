@@ -502,9 +502,9 @@ if slideFiles:
     slide_snr = slideTriggers.get_column('snr')
     slide_chisq = slideTriggers.get_column('chisq')
     slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof') - 1)
-    slide_bank_dof = inspTriggers.get_column('bank_chisq_dof')
+    slide_bank_dof = slideTriggers.get_column('bank_chisq_dof')
     slide_bankrchisq = slideTriggers.get_column('reduced_bank_chisq')
-    slide_cont_dof = inspTriggers.get_column('cont_chisq_dof')
+    slide_cont_dof = slideTriggers.get_column('cont_chisq_dof')
     slide_contrchisq = slideTriggers.get_column('reduced_cont_chisq')
     slide_rsq = slideTriggers.get_column('rsqveto_duration') + 0.00001
 
@@ -531,9 +531,9 @@ if injFiles:
     inj_snr = injTriggers.get_column('snr')
     inj_chisq = injTriggers.get_column('chisq')
     inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof') - 1)
-    inj_bank_dof = inspTriggers.get_column('bank_chisq_dof')
+    inj_bank_dof = injTriggers.get_column('bank_chisq_dof')
     inj_bankrchisq = injTriggers.get_column('reduced_bank_chisq')
-    inj_cont_dof = inspTriggers.get_column('cont_chisq_dof')
+    inj_cont_dof = injTriggers.get_column('cont_chisq_dof')
     inj_contrchisq = injTriggers.get_column('reduced_cont_chisq')
     inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
   comments += InspiralUtils.message(opts, \
