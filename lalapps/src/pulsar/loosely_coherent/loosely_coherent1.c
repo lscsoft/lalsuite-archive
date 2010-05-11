@@ -196,12 +196,6 @@ if(no_am_response){
 	fprintf(LOG,"no_am_response : true\n");
 	fprintf(stderr,"NO_AM_RESPONSE flag passed\n");
 	}
-fprintf(LOG,"firstbin  : %d\n",first_bin);
-fprintf(LOG,"band start: %g Hz\n",first_bin/args_info.coherence_length_arg);
-fprintf(LOG,"nbins     : %d\n",nbins);
-fprintf(LOG,"side_cut  : %d\n",side_cut);
-fprintf(LOG,"useful bins : %d\n",useful_bins);
-fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/args_info.coherence_length_arg);
 fprintf(LOG,"algorithm: %s\n", args_info.algorithm_arg);
 
 if(args_info.dataset_given)fprintf(LOG,"dataset: %s\n",args_info.dataset_arg);
@@ -233,6 +227,12 @@ first_bin=args_info.first_bin_arg-side_cut;
 useful_bins=args_info.nbins_arg;
 nbins=args_info.nbins_arg+2*side_cut;
 
+fprintf(LOG,"firstbin  : %d\n",first_bin);
+fprintf(LOG,"band start: %g Hz\n",first_bin/args_info.coherence_length_arg);
+fprintf(LOG,"nbins     : %d\n",nbins);
+fprintf(LOG,"side_cut  : %d\n",side_cut);
+fprintf(LOG,"useful bins : %d\n",useful_bins);
+fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/args_info.coherence_length_arg);
 
 init_datasets();
 test_datasets();

@@ -77,7 +77,6 @@ const char *gengetopt_args_info_help[] = {
   "      --spindown-count=INT      how many separate spindown values to process  \n                                  (default=`1')",
   "      --fdotdot=DOUBLE          second frequency derivative  (default=`0.0')",
   "      --orientation=DOUBLE      additional orientation phase, specifying 0.7853 \n                                  will turn plus into cross  (default=`0')",
-  "      --nlinear-polarizations=INT\n                                even number of linear polarizations to profile, \n                                  distributed uniformly between 0 and PI/2  \n                                  (default=`4')",
   "      --no-demodulation=INT     do not perform demodulation stage, analyze \n                                  background only  (default=`0')",
   "      --no-decomposition=INT    do not perform noise decomposition stage, \n                                  output simple statistics only  (default=`0')",
   "      --no-candidates=INT       do not perform analysis to identify candidates  \n                                  (default=`0')",
@@ -208,7 +207,6 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->spindown_count_given = 0 ;
   args_info->fdotdot_given = 0 ;
   args_info->orientation_given = 0 ;
-  args_info->nlinear_polarizations_given = 0 ;
   args_info->no_demodulation_given = 0 ;
   args_info->no_decomposition_given = 0 ;
   args_info->no_candidates_given = 0 ;
@@ -330,8 +328,6 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fdotdot_orig = NULL;
   args_info->orientation_arg = 0;
   args_info->orientation_orig = NULL;
-  args_info->nlinear_polarizations_arg = 4;
-  args_info->nlinear_polarizations_orig = NULL;
   args_info->no_demodulation_arg = 0;
   args_info->no_demodulation_orig = NULL;
   args_info->no_decomposition_arg = 0;
@@ -442,40 +438,39 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->spindown_count_help = gengetopt_args_info_help[42] ;
   args_info->fdotdot_help = gengetopt_args_info_help[43] ;
   args_info->orientation_help = gengetopt_args_info_help[44] ;
-  args_info->nlinear_polarizations_help = gengetopt_args_info_help[45] ;
-  args_info->no_demodulation_help = gengetopt_args_info_help[46] ;
-  args_info->no_decomposition_help = gengetopt_args_info_help[47] ;
-  args_info->no_candidates_help = gengetopt_args_info_help[48] ;
-  args_info->no_am_response_help = gengetopt_args_info_help[49] ;
-  args_info->no_secondary_skymaps_help = gengetopt_args_info_help[50] ;
-  args_info->algorithm_help = gengetopt_args_info_help[51] ;
-  args_info->filter_lines_help = gengetopt_args_info_help[52] ;
-  args_info->upper_limit_comp_help = gengetopt_args_info_help[53] ;
-  args_info->lower_limit_comp_help = gengetopt_args_info_help[54] ;
-  args_info->write_dat_help = gengetopt_args_info_help[55] ;
-  args_info->write_png_help = gengetopt_args_info_help[56] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[57] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[58] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[59] ;
-  args_info->focus_f0_help = gengetopt_args_info_help[60] ;
-  args_info->focus_dInv_help = gengetopt_args_info_help[61] ;
-  args_info->focus_f0_delta_help = gengetopt_args_info_help[62] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[63] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[65] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[66] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[67] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[68] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[69] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[70] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[71] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[72] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[73] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[74] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[75] ;
-  args_info->fake_dInv_help = gengetopt_args_info_help[76] ;
-  args_info->extended_test_help = gengetopt_args_info_help[77] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[78] ;
-  args_info->num_threads_help = gengetopt_args_info_help[79] ;
+  args_info->no_demodulation_help = gengetopt_args_info_help[45] ;
+  args_info->no_decomposition_help = gengetopt_args_info_help[46] ;
+  args_info->no_candidates_help = gengetopt_args_info_help[47] ;
+  args_info->no_am_response_help = gengetopt_args_info_help[48] ;
+  args_info->no_secondary_skymaps_help = gengetopt_args_info_help[49] ;
+  args_info->algorithm_help = gengetopt_args_info_help[50] ;
+  args_info->filter_lines_help = gengetopt_args_info_help[51] ;
+  args_info->upper_limit_comp_help = gengetopt_args_info_help[52] ;
+  args_info->lower_limit_comp_help = gengetopt_args_info_help[53] ;
+  args_info->write_dat_help = gengetopt_args_info_help[54] ;
+  args_info->write_png_help = gengetopt_args_info_help[55] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[56] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[57] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[58] ;
+  args_info->focus_f0_help = gengetopt_args_info_help[59] ;
+  args_info->focus_dInv_help = gengetopt_args_info_help[60] ;
+  args_info->focus_f0_delta_help = gengetopt_args_info_help[61] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[62] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[64] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[65] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[66] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[67] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[68] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[69] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[70] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[71] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[72] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[73] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[74] ;
+  args_info->fake_dInv_help = gengetopt_args_info_help[75] ;
+  args_info->extended_test_help = gengetopt_args_info_help[76] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[77] ;
+  args_info->num_threads_help = gengetopt_args_info_help[78] ;
   
 }
 
@@ -661,7 +656,6 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->spindown_count_orig));
   free_string_field (&(args_info->fdotdot_orig));
   free_string_field (&(args_info->orientation_orig));
-  free_string_field (&(args_info->nlinear_polarizations_orig));
   free_string_field (&(args_info->no_demodulation_orig));
   free_string_field (&(args_info->no_decomposition_orig));
   free_string_field (&(args_info->no_candidates_orig));
@@ -825,8 +819,6 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "fdotdot", args_info->fdotdot_orig, 0);
   if (args_info->orientation_given)
     write_into_file(outfile, "orientation", args_info->orientation_orig, 0);
-  if (args_info->nlinear_polarizations_given)
-    write_into_file(outfile, "nlinear-polarizations", args_info->nlinear_polarizations_orig, 0);
   if (args_info->no_demodulation_given)
     write_into_file(outfile, "no-demodulation", args_info->no_demodulation_orig, 0);
   if (args_info->no_decomposition_given)
@@ -1503,7 +1495,6 @@ cmdline_parser_internal (
         { "spindown-count",	1, NULL, 0 },
         { "fdotdot",	1, NULL, 0 },
         { "orientation",	1, NULL, 0 },
-        { "nlinear-polarizations",	1, NULL, 0 },
         { "no-demodulation",	1, NULL, 0 },
         { "no-decomposition",	1, NULL, 0 },
         { "no-candidates",	1, NULL, 0 },
@@ -2139,20 +2130,6 @@ cmdline_parser_internal (
                 &(local_args_info.orientation_given), optarg, 0, "0", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "orientation", '-',
-                additional_error))
-              goto failure;
-          
-          }
-          /* even number of linear polarizations to profile, distributed uniformly between 0 and PI/2.  */
-          else if (strcmp (long_options[option_index].name, "nlinear-polarizations") == 0)
-          {
-          
-          
-            if (update_arg( (void *)&(args_info->nlinear_polarizations_arg), 
-                 &(args_info->nlinear_polarizations_orig), &(args_info->nlinear_polarizations_given),
-                &(local_args_info.nlinear_polarizations_given), optarg, 0, "4", ARG_INT,
-                check_ambiguity, override, 0, 0,
-                "nlinear-polarizations", '-',
                 additional_error))
               goto failure;
           

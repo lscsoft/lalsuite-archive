@@ -174,9 +174,6 @@ struct gengetopt_args_info
   double orientation_arg;	/**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
   char * orientation_orig;	/**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross original value given at command line.  */
   const char *orientation_help; /**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross help description.  */
-  int nlinear_polarizations_arg;	/**< @brief even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 (default='4').  */
-  char * nlinear_polarizations_orig;	/**< @brief even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 original value given at command line.  */
-  const char *nlinear_polarizations_help; /**< @brief even number of linear polarizations to profile, distributed uniformly between 0 and PI/2 help description.  */
   int no_demodulation_arg;	/**< @brief do not perform demodulation stage, analyze background only (default='0').  */
   char * no_demodulation_orig;	/**< @brief do not perform demodulation stage, analyze background only original value given at command line.  */
   const char *no_demodulation_help; /**< @brief do not perform demodulation stage, analyze background only help description.  */
@@ -318,7 +315,6 @@ struct gengetopt_args_info
   unsigned int spindown_count_given ;	/**< @brief Whether spindown-count was given.  */
   unsigned int fdotdot_given ;	/**< @brief Whether fdotdot was given.  */
   unsigned int orientation_given ;	/**< @brief Whether orientation was given.  */
-  unsigned int nlinear_polarizations_given ;	/**< @brief Whether nlinear-polarizations was given.  */
   unsigned int no_demodulation_given ;	/**< @brief Whether no-demodulation was given.  */
   unsigned int no_decomposition_given ;	/**< @brief Whether no-decomposition was given.  */
   unsigned int no_candidates_given ;	/**< @brief Whether no-candidates was given.  */

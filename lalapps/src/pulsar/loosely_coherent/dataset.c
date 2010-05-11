@@ -426,6 +426,7 @@ phase_spindown=0.5*te*te*p->spindown;
 phase_barycenter=p->freq*te;
 
 omega_t=2.0*M_PI*((phase_barycenter-floor(phase_barycenter))+(phase_spindown-floor(phase_spindown)));
+//omega_t=2.0*M_PI*(phase_barycenter+phase_spindown);
 
 return omega_t;
 }
@@ -670,9 +671,11 @@ for(i=bin-window; i<=bin+window; i++) {
 
 	phase=compute_phase_barycenter(&f, d->gps[segment]+d->coherence_time*0.5, p);
 	hr=hann_response(f*d->coherence_time-bin-d->first_bin);
+	
+	//phase+=M_PI*(f*d->coherence_time-bin-d->first_bin);
 	TODO("add computation of bin-dependent phase for hann window")
 	
-	get_AM_response(d->gps[segment]+d->coherence_time*0.5, 0.0, p->dec, p->ra, 0.0, &f_plus, &f_cross);
+	get_AM_response(d->gps[segment], d->coherence_time, p->dec, p->ra, 0.0, &f_plus, &f_cross);
 
 	//fprintf(stderr,"bin=%d strain=%g hr=%f phase=%f f=%f delta=%f\n", bin, p->strain, hr, phase, f, f*d->coherence_time-bin-first_bin);
 
