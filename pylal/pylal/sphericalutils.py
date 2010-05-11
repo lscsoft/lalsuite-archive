@@ -87,9 +87,7 @@ def _abs_diff(c):
     magnitude of the difference, taking into account the wrap-around at 2*pi.
     """
     c = abs(c) % (2 * LAL_PI)
-    if c < LAL_PI:
-        return c
-    return 2 * LAL_PI - c
+    return np.fmin(c, 2 * LAL_PI - c)
 
 def _haversine(angle):
     return np.sin(angle / 2)**2
