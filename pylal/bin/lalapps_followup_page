@@ -14,7 +14,7 @@ def parse_plot_cache_for_image(cache, basepath, tag):
 	#FIXME make faster
 	for l in cache:
 		if re.match('.*'+tag+'.*', l):
-			img = basepath + '/' + l 
+			img = basepath + '/' + l
 			out =  (img.strip(), img.replace('.png', '_thumb.png').strip())
 			break
 	if not out:
@@ -27,7 +27,7 @@ def parse_plot_cache_for_some_images(cache, basepath, tag):
 	#FIXME make faster
 	for l in open(cache).readlines():
 		if tag in l:
-			img = basepath + '/' + l 
+			img = basepath + '/' + l
 			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
 	return out
 
@@ -36,22 +36,22 @@ def parse_plot_cache_for_all_images(cache, basepath):
 	#FIXME make faster
 	for l in cache:
 		if re.match('.*.png', l):
-			img = basepath + '/' + l 
+			img = basepath + '/' + l
 			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
 	if not out:
 		print >>sys.stderr, "couldn't find images in requested %s" % (str(cache),)
 		raise ValueError
 	return out
-	
+
 def parse_plot_cache_for_html(ca, pat='.*.html'):
 	cafile = ca.url.replace('file://localhost','')
-	basepath = '/' + os.path.split(cafile.rstrip('/').lstrip('/'))[0] 		
+	basepath = '/' + os.path.split(cafile.rstrip('/').lstrip('/'))[0]
 	cache = open(cafile).readlines()
 	out = []
 	#FIXME make faster
 	for l in cache:
 		if re.match('.*.html', l):
-			h = basepath + '/' + l 
+			h = basepath + '/' + l
 			out.append(h.strip())
 	if not out:
 		print >>sys.stderr, "couldn't find html in requested %s" % (str(cache),)
@@ -63,7 +63,7 @@ def cache_parser(cachefile):
 	f = open(cachefile)
 	out_cache = []
 	for l in f.readlines():
-		if "COINC_INFO" in l: 
+		if "COINC_INFO" in l:
 			c = l.split()
 			coinc.setdefault(c[1].replace('COINC_INFO_',''),[]).append(c[4].replace('file://localhost',''))
 		else: out_cache.append(lal.CacheEntry(l))
@@ -85,14 +85,14 @@ class Coinc(object):
 		self.analyze_qscan_seis_cache = self.parse_cache_by_desc("ANALYSEQSCAN.PY_FG_SEIS_RDS_"+search.upper())
 		self.flag_cache = self.parse_cache_by_desc("FOLLOWUPQUERYDQ.PY__"+search.upper())
 		self.veto_cache = self.parse_cache_by_desc("FOLLOWUPQUERYVETO.PY__"+search.upper())
-	
+
 		f = open(coinc)
 		line = f.readlines()
 		d = line[1].split()
 		self.dir = d[0]
 		self.rank = d[1]
 		self.cfar = d[2]
-		self.coincsnr = d[3]	
+		self.coincsnr = d[3]
 		self.ifos = d[4]
 		self.instruments = d[5]
 		self.coinctime = d[6]
@@ -111,7 +111,7 @@ class Coinc(object):
 			self.chisq[d[1]] = d[4]
 			self.mass1[d[1]] = d[5]
 			self.mass2[d[1]] = d[6]
-	
+
 	def parse_cache_by_desc(self, tag, cache=None):
 		out = []
 		#FIXME make this faster
@@ -134,12 +134,12 @@ class Coinc(object):
 		if not out:
 			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (float(time), ifo)
 		return out
-		
+
 	def write_param_table(self, page):
 		page.add_section("param", "Parameter table for %s" % (self.coinctime,))
 		params = [["<b>RANK</b>", "<b>CFAR</b>",  "<b>TIME</b>", "<b>SNR</b>", "<b>MASS</b>","<b>IFOS</b>","<b>INSTRUMENTS</b>"],[self.rank, self.cfar, self.coinctime, self.coincsnr, self.coincmass, self.ifos, self.instruments]]
 		page.sections["param"].add_table(params, title="Coinc Parameter Table", caption="Coinc parameters for the event", tag="coincparamtable")
-		
+
 		params = [["<b>IFO</b>","<b>TIME</b>", "<b>SNR</b>",  "<b>CHISQ</b>", "<b>MASS1</b>", "<b>MASS2</b>"]]
 		for ifo, data in self.time.items():
 			params.append([ifo, self.time[ifo], self.snr[ifo], self.chisq[ifo], self.mass1[ifo], self.mass2[ifo]])
@@ -163,7 +163,7 @@ class Coinc(object):
 			# link qscan
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
 			page.sections["htqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			
+
 			plots = [('CO','*CO*1.00_spectrogram_whitened.png','')]
 			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
 
@@ -196,7 +196,7 @@ class Coinc(object):
 			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
 
 		self._finish_qscan(page, img_col, "seismicqscan")
-			
+
 
 	def add_rdsqscan(self, page):
 		job_list = []
@@ -356,14 +356,14 @@ class Coinc(object):
 			if plot: page.sections[type].sections[chan].div('<br><hr><b>%s</b>' % (name,))
 			for ifo, row in plot.items():
 				page.sections[type].sections[chan].add_table([row],ifo,ifo)
-	
+
 
 	def add_plotsnrchisq(self, page):
 		for ifo, time in self.time.items():
 			# Parse plotting codes nearly useless "cache" file
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
 			if not c: return # get out of here if these jobs were not found
-		
+
 		page.add_section("plotsnrchisq", "SNR, Chisq and template time series for %s" % (self.coinctime,))
 		img_row = []
 		ifo_row = []
@@ -372,13 +372,13 @@ class Coinc(object):
 			# Parse plotting codes nearly useless "cache" file
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
 			cfile = c[0].url.replace('file://localhost','')
-			path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
+			path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
 			clist = open(cfile).readlines()
 			plots = ['snr-','snr_zoom-', 'rsq-', 'rsq_zoom-', 'chisq-', 'chisq_zoom-', 'PSD-', 'fft_of_template_and_asd-', 'template-', 'white_template-']
 			plot_list = []
 			for plot in plots:
 				img, thumb = parse_plot_cache_for_image(clist, path, plot)
-				plot_list.append(cbcwebpage._imagelinkcpy(img,thumb,plot))			
+				plot_list.append(cbcwebpage._imagelinkcpy(img,thumb,plot))
 			img_row.append(plot_list)
 			ifo_row.append(ifo)
 		table.append(ifo_row)
@@ -396,9 +396,9 @@ class Coinc(object):
 		plot_list = []
 
 		cfile = c[0].url.replace('file://localhost','')
-		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
+		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
 		try: clist = open(cfile).readlines()
-		except:	
+		except:
 			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
 			page.sections["plotchia"].add("<br><b>plot chia job did not finish correctly</b><br>")
 			return
@@ -421,9 +421,9 @@ class Coinc(object):
 
 		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
 		cfile = c[0].url.replace('file://localhost','')
-		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0] 
+		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
 		try: clist = open(cfile).readlines()
-		except:	
+		except:
 			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
 			page.sections["skymap"].add("<br><b>skymap job did not finish correctly</b><br>")
 			return
@@ -433,7 +433,7 @@ class Coinc(object):
 		# group by 3s
 		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
 		page.sections["skymap"].add_table(plot_list, "Sky map", "lalapps skymap plot", tag="plotchia")
-	
+
 	def add_checklist(self, page):
 		page.add_section("checklist", "Detection Checklist for %s" % (self.coinctime,))
 		page.sections["checklist"].add("<a href=https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/followup_%s>DETECTION CHECKLIST FOR %s</a><br>" % (self.coinctime,self.coinctime))
@@ -451,13 +451,13 @@ class Coinc(object):
 
 ###############################################################################
 ##### MAIN ####################################################################
-###############################################################################	
-		
+###############################################################################
+
 
 # PARSE THE CACHE
 coinc_info, cache = cache_parser(sys.argv[1])
 
-# LOOP OVER DIFFERENT "SEARCHES" LIKE FULL DATA ETC, 
+# LOOP OVER DIFFERENT "SEARCHES" LIKE FULL DATA ETC,
 for search, coincs in coinc_info.items():
 	events = []
 
@@ -468,7 +468,7 @@ for search, coincs in coinc_info.items():
 
 	# make the page
 	page = cbcwebpage.cbcpage(title="Followup " + search)
-	
+
 	# loop over the followed up events
 	for event in events:
 		print >>sys.stderr, "processing coinc@%s in %s" % (event.coinctime, search)
