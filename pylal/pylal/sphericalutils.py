@@ -132,13 +132,14 @@ def fisher_rvs(mu, sigma, size=None):
 
     Assume kappa = 1 / sigma**2
 
-    pol PDF: kappa / (2 * np.sinh(kappa) * exp(kappa * cos(theta)) * sin(theta)
+    pol PDF: kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta)) * np.sin(theta))
     az PDF: uniform(0, 2*pi)
 
     """
     rayleigh_rv = \
         np.array((np.random.rayleigh(scale=sigma, size=size),
-                  np.random.uniform(low=0, high=2*LAL_PI, size=size))).T
+                  np.random.uniform(low=0, high=2*LAL_PI, size=size)))\
+                .reshape((2, size)).T  # guarantee 2D and transpose
     a, b = new_z_to_euler(mu)
     return rotate_euler(rayleigh_rv, a, b, 0)
 
