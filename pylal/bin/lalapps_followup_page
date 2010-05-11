@@ -6,57 +6,28 @@ from glue import cbcwebpage
 from glue import lal
 from glue import segments
 
-#class cache_parser(object):
-#	def __init__(self, cachefile):
+#
+# useful functions
+#
 
-def parse_plot_cache_for_image(cache, basepath, tag):
-	out = None
-	#FIXME make faster
-	for l in cache:
-		if re.match('.*'+tag+'.*', l):
-			img = basepath + '/' + l
-			out =  (img.strip(), img.replace('.png', '_thumb.png').strip())
-			break
-	if not out:
-		print >>sys.stderr, "couldn't find %s in requested %s" % (tag, str(cache))
-		raise ValueError
-	return out
-
-def parse_plot_cache_for_some_images(cache, basepath, tag):
+def parse_plot_cache_for_some_images(cache, basepath, tag='.*.png', brk=None):
 	out = []
 	#FIXME make faster
 	for l in open(cache).readlines():
-		if tag in l:
+		if re.match(tag, l):
 			img = basepath + '/' + l
 			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
+			if brk: return out[0]
 	return out
+
+
+def parse_plot_cache_for_image(cache, basepath, tag):
+	return parse_plot_cache_for_some_images(cache, basepath, tag='.*.png', brk=True)
+
 
 def parse_plot_cache_for_all_images(cache, basepath):
-	out = []
-	#FIXME make faster
-	for l in cache:
-		if re.match('.*.png', l):
-			img = basepath + '/' + l
-			out.append((img.strip(), img.replace('.png', '_thumb.png').strip()))
-	if not out:
-		print >>sys.stderr, "couldn't find images in requested %s" % (str(cache),)
-		raise ValueError
-	return out
+	return parse_plot_cache_for_some_images(cache, basepath)
 
-def parse_plot_cache_for_html(ca, pat='.*.html'):
-	cafile = ca.url.replace('file://localhost','')
-	basepath = '/' + os.path.split(cafile.rstrip('/').lstrip('/'))[0]
-	cache = open(cafile).readlines()
-	out = []
-	#FIXME make faster
-	for l in cache:
-		if re.match('.*.html', l):
-			h = basepath + '/' + l
-			out.append(h.strip())
-	if not out:
-		print >>sys.stderr, "couldn't find html in requested %s" % (str(cache),)
-		raise ValueError
-	return out
 
 def cache_parser(cachefile):
 	coinc = {}
@@ -337,7 +308,7 @@ class Coinc(object):
 			thumb_glob = glob.glob(pat)
 			# now for the analyze qscan stuff
 			basename = '/' + os.path.split(cfile)[0].lstrip('/')
-			analyze_images = parse_plot_cache_for_some_images(cfile, basename, plot[0])
+			analyze_images = parse_plot_cache_for_some_images(cfile, basename, '.*%s.*' % (plot[0],))
 			if analyze_images:
 				img_glob.extend([im[0] for im in analyze_images])
 				thumb_glob.extend([im[1] for im in analyze_images])
