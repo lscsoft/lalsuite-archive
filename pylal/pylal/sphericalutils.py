@@ -143,3 +143,10 @@ def fisher_rvs(mu, sigma, size=None):
     a, b = new_z_to_euler(mu)
     return rotate_euler(rayleigh_rv, a, b, 0)
 
+def fisher_pdf(theta, kappa):
+    """
+    Return the PDF of the opening angle of X with mu where X is Fisher-
+    distributed about mu.
+    """
+    return kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta))\
+        * np.sin(theta)
