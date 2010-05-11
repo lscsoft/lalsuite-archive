@@ -475,7 +475,7 @@ for search, coincs in coinc_info.items():
 		key = (str(event.coinctime))
 		page.add_subpage(key,"my new page",link_text=key)
 		#section for param table
-		event.write_param_table(page.subpages[key])
+		if search != "gps_only": event.write_param_table(page.subpages[key])
 		#section for qscans
 		event.add_htqscan(page.subpages[key])
 		#section for seismic qscans
