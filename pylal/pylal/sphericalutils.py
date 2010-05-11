@@ -123,7 +123,7 @@ def angle_between_points(a, b):
 # Implement the Fisher distribution
 #
 
-def fisher_rvs(mu, sigma, size=None):
+def fisher_rvs(mu, sigma, size=1):
     """
     Return a random (polar, azimuthal) angle drawn from the Fisher
     distribution. Assume that the concentration parameter (kappa) is large
