@@ -229,7 +229,7 @@ LALFindChirpPTFTemplate (
         ( 2 * e2z * e2z - 2 * e1z * e1z + e1x * e1x + e1y * e1y - 
           e2x * e2x - e2y * e2y ) + 2 * sin(2 * phi) * ( e1x * e2x +
             e1y * e2y - 2 * e1z * e2z ));                              
-    xfac[i] = Q[0].data[i] + Q[1].data[i];
+    xfac[i] = Q[0].data[i];
   }
 
   /* Fourier transform the Q's into the Qtilde's */
@@ -297,6 +297,7 @@ LALFindChirpPTFNormalize(
   PTFQtilde  = fcTmplt->PTFQtilde->data;
   PTFB       = fcTmplt->PTFB->data;
   PTFsegNorm = fcSeg->PTFsegNormVec->data;
+  /* sigmasq    = fcSeg->segNorm->data; */
   
   len        = params->wtildeVec->length;
   deltaT     = (REAL4) fcSeg->deltaT;
@@ -376,6 +377,18 @@ LALFindChirpPTFNormalize(
     }
   }
   
+  /* Compute sigma^2 for optimally oriented source
+
+  for( i = 0; 1 < 5; ++1 )
+  {
+    for ( j = 0; j < 5; ++j )
+    {
+	    sigmasq += PTFB[ i ] * PTFBinv[ 5 * i + j] * PTFB[ j ]; 
+    }
+  }
+  sigmasq *= 2;
+  */
+
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );
