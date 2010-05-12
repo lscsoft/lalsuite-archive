@@ -87,7 +87,8 @@ def _abs_diff(c):
     magnitude of the difference, taking into account the wrap-around at 2*pi.
     """
     c = abs(c) % (2 * LAL_PI)
-    return np.fmin(c, 2 * LAL_PI - c)
+    # XXX: numpy 1.3.0 introduces fmin, which is more elegant
+    return np.where(c < LAL_PI, c, 2 * LAL_PI - c)
 
 def _haversine(angle):
     return np.sin(angle / 2)**2
@@ -132,9 +133,9 @@ def fisher_rvs(mu, sigma, size=1):
 
     Assume kappa = 1 / sigma**2
 
-    pol PDF: kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta)) * np.sin(theta))
-    az PDF: uniform(0, 2*pi)
-
+    References:
+      * http://en.wikipedia.org/wiki/Von_Mises–Fisher_distribution
+      * http://arxiv.org/pdf/0902.0737v1 (states the Rayleigh limit)
     """
     rayleigh_rv = \
         np.array((np.random.rayleigh(scale=sigma, size=size),
@@ -145,8 +146,8 @@ def fisher_rvs(mu, sigma, size=1):
 
 def fisher_pdf(theta, kappa):
     """
-    Return the PDF of the opening angle of X with mu where X is Fisher-
-    distributed about mu.
+    Return the PDF of theta, the opening angle of X with mu where X is Fisher-
+    distributed about mu. See fisher_rvs for the definition of mu.
     """
     return kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta))\
         * np.sin(theta)
