@@ -407,7 +407,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	/* Calculate the likelihood for an amplitude-corrected waveform */
 	/* This template is generated in the time domain */
 	REAL8 logL=0.0,chisq=0.0;
-	REAL8 mc,eta,end_time,resp_r,resp_i,real,imag,ci;
+	REAL8 mc,eta,end_time,resp_r,resp_i,real,imag;
 	UINT4 det_i=0,idx=0;
 	UINT4 i=0;
 	DetectorResponse det;
@@ -433,13 +433,15 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 	memcpy(&(PPNparams.epoch),&(inputMCMC->epoch),sizeof(LIGOTimeGPS));
 	PPNparams.mTot=mc2mt(mc,eta);
 	PPNparams.eta=eta;
-	PPNparams.d=XLALMCMCGetParameter(parameter,"distMpc")*MpcInMeters;
+	if (XLALMCMCCheckParameter(parameter,"logdist")) PPNparams.d=exp(XLALMCMCGetParameter(parameter,"logdist"))*MpcInMeters;
+	else PPNparams.d=XLALMCMCGetParameter(parameter,"distMpc")*MpcInMeters;
 	PPNparams.inc=XLALMCMCGetParameter(parameter,"iota");
 	PPNparams.phi=XLALMCMCGetParameter(parameter,"phi");
 	PPNparams.fStartIn=inputMCMC->fLow;
 	PPNparams.fStopIn=0.5/inputMCMC->deltaT;
 	PPNparams.deltaT=inputMCMC->deltaT;
-	ci=cos(PPNparams.inc);
+	PPNparams.ampOrder = inputMCMC->ampOrder;
+
 	/* Call LALGeneratePPNAmpCorInspiral */
 	LALGeneratePPNAmpCorInspiral(&status,&coherent_gw,&PPNparams);
 	if(status.statusCode)
@@ -448,7 +450,7 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 		chisq=DBL_MAX;
 		goto noWaveform;
 	}
-		
+	
 	/* Set the epoch so that the t_c is correct */
 	end_time = XLALMCMCGetParameter(parameter,"time");
 
@@ -530,16 +532,15 @@ REAL8 MCMCLikelihoodMultiCoherentAmpCor(LALMCMCInput *inputMCMC, LALMCMCParamete
 		/* Compute detector amplitude response */
 		det_source.pDetector = (inputMCMC->detector[det_i]); /* select detector */
 		LALComputeDetAMResponse(&status,&det_resp,&det_source,&(inputMCMC->epoch)); /* Compute det_resp */
-		det_resp.plus*=0.5*(1.0+ci*ci);
-		det_resp.cross*=-ci;
-		
-		
-		
+		/* No need to multiply by cos(iota) as GenerateAmpCorPPNInspiral() takes this into account */
 		chisq=0.0;
 		/* Calculate the logL */
 		REAL8 deltaF = inputMCMC->stilde[det_i]->deltaF;
 		UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
-		UINT4 highBin = (UINT4)(PPNparams.fStop *(3./2.) / inputMCMC->stilde[det_i]->deltaF); /* Factor 3/2 for AmpCor 3rd harmonic */
+		UINT4 highBin;
+		REAL8 fMultiplier = (inputMCMC->ampOrder + 2.0)/2.0; /* The frequency of the highest harmonic as determined by ampOrder */
+		highBin = (UINT4)(PPNparams.fStop * fMultiplier / inputMCMC->stilde[det_i]->deltaF);
+		
 		if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1)
 		   highBin=inputMCMC->stilde[det_i]->data->length-1;  /* AmpCor waveforms don't set the highest frequency of the highest harmonic */
 		for(idx=lowBin;idx<=highBin;idx++){

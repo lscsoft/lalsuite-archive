@@ -96,11 +96,13 @@ HrecOnline      V1:h_16384Hz
 	"""
 	L1HoftTypes=(
 		("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
-		("L1_LDAS_C00_L2","L1:LDAS-STRAIN",931035296,999999999)
+		("L1_LDAS_C00_L2","L1:LDAS-STRAIN",931035296,941997600),
+		("L1_LDAS_C02_L2","L1:LDAS-STRAIN",941997600,999999999)
 		)
 	H1HoftTypes=(
 		("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
-		("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,999999999)
+		("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,941997600),
+		("H1_LDAS_C02_L2","H1:LDAS-STRAIN",941997600,999999999)
 		)
 	H2HoftTypes=(
 		("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
@@ -583,6 +585,23 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
 #End makeCheckListWikiJob class
 
+#This class is responsible for the followup page
+class makeFollowupPageJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	This actually launches a followup page job
+	"""
+	def __init__(self,opts,cp,dir='',tag_base=''):
+	    """
+	    """
+	    self.__executable = string.strip(cp.get("fu-condor",
+						"lalapps_followup_page").strip())
+	    self.name = os.path.split(self.__executable.rstrip('/'))[1]
+	    self.__universe = "vanilla" 
+	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+	    self.add_condor_cmd('getenv','True')
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
+#End makeFollowupPageJob class
+
 	    
 #The class responsible for running the data quality flag finding job
 class findFlagsJob(pipeline.CondorDAGJob, FUJob):
@@ -1018,7 +1037,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			cp.set('fu-analyse-qscan',ifo+'-background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
-		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
+		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, str(time).replace('.','_') + "_" + shortName)
 		self.output_cache = lal.CacheEntry(ifo,job.name.upper(),segments.segment(float(time),float(time)),"file://localhost/"+job.outputPath+'/'+self.output_file_name)
 
 		self.setupPlotNode(job)
@@ -1236,12 +1255,30 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 			self.set_category(job.name.lower())
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
-			self.add_parent(parentNode)
+			if not isinstance(parentNode,makeFollowupPageNode):
+				self.add_parent(parentNode)
 		if not opts.no_makeCheckList:
 			dag.add_node(self)
 			self.validate()
 		else:
 			self.invalidate()
+
+# Create followup page node
+class makeFollowupPageNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	This runs the followup page
+	"""
+	def __init__(self,dag,job,cp,opts):
+		pipeline.CondorDAGNode.__init__(self,job)
+		#FIXME Specify cache location (sortof hard coded)
+		self.add_var_arg('followup_pipe.cache')
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+		#Add this as child of all known jobs
+		for parentNode in dag.get_nodes():
+			self.add_parent(parentNode)
+		dag.add_node(self)
+		self.validate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
@@ -1271,13 +1308,20 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
+
+		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
+
 		#IFO arg string
 		myArgString=""
-		for sngl in coincEvent.sngl_inspiral.itervalues():
-			myArgString=myArgString+"%s,"%sngl.ifo
+		if hasattr(coincEvent, "sngl_inspiral"):
+			for sngl in coincEvent.sngl_inspiral.itervalues():
+				myArgString=myArgString+"%s,"%sngl.ifo
+		elif hasattr(coincEvent, "ifos_list"):
+			for ifo in coincEvent.ifos_list:
+				myArgString=myArgString+"%s,"%ifo
 		myArgString=myArgString.rstrip(",")
 		self.add_var_opt("ifo-list",myArgString)
-		
+
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -1311,18 +1355,25 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		#Output filename
 		oFilename="%s-findVetos_%s_%s.wiki"%(coincEvent.instruments,
 						     coincEvent.ifos,
-						     coincEvent.time)		
+						     coincEvent.time)
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
+
+		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
+
 		#IFO arg string
 		myArgString=""
-		for sngl in coincEvent.sngl_inspiral.itervalues():
-			myArgString=myArgString+"%s,"%sngl.ifo
+		if hasattr(coincEvent, "sngl_inspiral"):
+			for sngl in coincEvent.sngl_inspiral.itervalues():
+				myArgString=myArgString+"%s,"%sngl.ifo
+		elif hasattr(coincEvent, "ifos_list"):
+			for ifo in coincEvent.ifos_list:
+				myArgString=myArgString+"%s,"%ifo
 		myArgString=myArgString.rstrip(",")
 		self.add_var_opt("ifo-list",myArgString)
-		
+
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -1919,6 +1970,7 @@ class create_default_config(object):
 		self.set_qscan_executable()
 		cp.set("fu-condor","analyseQscan", self.which("analyseQscan.py"))
 		cp.set("fu-condor","makeCheckListWiki",self.which("makeCheckListWiki.py"))
+		cp.set("fu-condor","lalapps_followup_page",self.which("lalapps_followup_page"))
 		# makechecklistwiki SECTION
 		cp.add_section("makeCheckListWiki")
 		cp.set("makeCheckListWiki","universe","local")

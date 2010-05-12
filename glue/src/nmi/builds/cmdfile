@@ -1,0 +1,23 @@
+# $Id$
+# template metronome submit file for a build of lalsuite
+
+description = build of lalsuite from $(GIT_BRANCH):$(GIT_ID)
+project = cbc
+project_version = $(GIT_BRANCH)
+component = lalsuite
+component_version = $(GIT_ID)
+run_type = build
+platforms = x86_64_cent_5.3
+notify = $(USER)
+notify_fail_only = true
+# stream "live" stdout/err from tasks back to the submit node
+stream_user_io = true
+
+inputs = scripts.git
+
+remote_task = remote_task.sh
+remote_post = remote_post.sh
+
+# we set these attributes so they get propagated to the task script environment
+git_id = $(GIT_ID)
+git_branch = $(GIT_BRANCH)
