@@ -170,7 +170,7 @@ def wiki_table_parse(file):
 			titles.append(line.replace("=",""))
 			if tab: tabs.append(tab)
 			tab = []
-		if '||' in line: tab.append(line.split('||'))
+		if '||' in line: tab.append(line.split('||')[1:])
 	tabs.append(tab)
 	return tabs, titles
 	
@@ -233,12 +233,12 @@ class _table(markup.page):
 	
 		self.table()
 		for row in two_d_data:
-			self.tr
+			self.add('<tr>')
 			tdstr = ""
 			for col in row:
 				tdstr += "<td>%s</td>" % (str(col),)
 			self.add(tdstr)
-			self.tr.close()
+			self.add('</tr>')
 		self.table.close()
 		if self.caption: self.i("%s. %s" %(num, caption))
 		self.add("<br>")
