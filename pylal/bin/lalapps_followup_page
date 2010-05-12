@@ -85,27 +85,12 @@ class Coinc(object):
 			self.mass2[d[1]] = d[6]
 
 	def parse_cache_by_desc(self, tag, cache=None):
-		out = []
-		#FIXME make this faster
 		if cache is None: cache = self.cache
-		if not cache: return out
-		for l in cache:
-			if tag in l.description:
-				out.append(l)
-		if not out:
-			print >>sys.stderr, "couldn't find %s in requested cache" % (tag, )
-		return out
+		return [l for l in cache if tag in l.description]
 
 	def parse_cache_by_time_and_ifo(self, time, ifo, cache=None):
-		out = []
-		#FIXME make this faster
 		if cache is None: cache = self.cache
-		if not cache: return out
-		for l in cache:
-			if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory): out.append(l)
-		if not out:
-			print >>sys.stderr, "couldn't find %f for %s in requested cache" % (float(time), ifo)
-		return out
+		return [l for l in cache if float(time) == float(l.segment[0]) and str(ifo) == str(l.observatory)]
 
 	def write_param_table(self, page):
 		page.add_section("param", "Parameter table for %s" % (self.coinctime,))
@@ -118,75 +103,37 @@ class Coinc(object):
 		page.sections["param"].add_table(params, title="Sngl Parameter Table", caption="Sngl parameters for the event", tag="snglparamtable")
 
 	def add_htqscan(self, page):
-		for ifo, time in self.time.items():
-			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
-			if not c: return # get out of here if these jobs were not found
-
-		page.add_section("htqscan", "h(t) Qscan for %s" % (self.coinctime,))
-		page.sections["htqscan"].div("This section gives the h(t) omega scans and summary plots on the significance of the event")
-		img_col = {}
-		# since qscans are already by default on web space, they are handled differently
-		for ifo, time in self.time.items():
-
-			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_ht_cache)
-			# link qscan
-			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
-			page.sections["htqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
-			plots = qconf.to_plot_tuple()
-			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
-
-		self._finish_qscan(page, img_col, "htqscan")
+		self._add_qscan(page, self.htqscan_cache, self.analyze_qscan_ht_cache, "h(t)")
 
 	def add_seismicqscan(self, page):
-		job_list = []
-		for ifo, time in self.time.items():
-			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
-			if not c: continue
-			else: job_list.append(c)
-		if not job_list: return # get out of here if these jobs were not found
-
-		page.add_section("seismicqscan", "Seismic Qscan for %s" % (self.coinctime,))
-		page.sections["seismicqscan"].div("This section gives the seismic omega scans and plots that summarize the significance.")
-		img_col = {}
-		# since qscans are already by default on web space, they are handled differently
-		for ifo, time in self.time.items():
-			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
-			if not c: continue # get out of here if these jobs were not found
-
-			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_seis_cache)
-			page.sections["seismicqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
-			plots = qconf.to_plot_tuple()
-			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
-
-		self._finish_qscan(page, img_col, "seismicqscan")
-
+		self._add_qscan(page, self.seismicqscan_cache, self.analyze_qscan_seis_cache, "SEISMIC")
 
 	def add_rdsqscan(self, page):
+		self._add_qscan(page, self.rdsqscan_cache, self.analyze_qscan_rds_cache, "RDS")
+
+	def _add_qscan(self, page, thiscache, ancache, name):
 		job_list = []
 		for ifo, time in self.time.items():
-			c = self.parse_cache_by_time_and_ifo(time, ifo, self.rdsqscan_cache)
+			c = self.parse_cache_by_time_and_ifo(time, ifo, thiscache)
 			if not c: continue
 			else: job_list.append(c)
 		if not job_list: return # get out of here if these jobs were not found
 
-		page.add_section("rdsqscan", "RDS Qscan for %s" % (self.coinctime,))
-		page.sections["rdsqscan"].div("This section gives the RDS omega scans with plots that summarize the significance")
+		page.add_section(name, "%s Qscan for %s" % (name, self.coinctime,))
+		page.sections[name].div("This section gives the %s omega scans and plots that summarize the significance." % (name,))
 		img_col = {}
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
-			c = self.parse_cache_by_time_and_ifo(time, ifo, self.rdsqscan_cache)
+			c = self.parse_cache_by_time_and_ifo(time, ifo, thiscache)
 			if not c: continue # get out of here if these jobs were not found
 
-			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_rds_cache)
-			page.sections["rdsqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
+			ca = self.parse_cache_by_time_and_ifo(time, ifo, ancache)
+			page.sections[name].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
 			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
 			plots = qconf.to_plot_tuple()
 			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
 
-		self._finish_qscan(page, img_col, "rdsqscan")
-
+		self._finish_qscan(page, img_col, name)
 
 	def _add_qscan_plots(self, page, plots, c, ca, img_col, ifo):
 		# get the analyze qscan cache of images
