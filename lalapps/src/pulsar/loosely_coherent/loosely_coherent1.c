@@ -11,6 +11,13 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+/* This likely has something to do with CUDA */
+#define restrict
+
+#include <lal/LALDatatypes.h>
+#include <lal/AVFactories.h>
+#include <lal/ComplexFFT.h>
+
 FILE *LOG=NULL, *FILE_LOG=NULL, *DATA_LOG=NULL;
 
 #include "global.h"
@@ -442,11 +449,30 @@ typedef struct {
 {
 double *re;
 double *im;
+COMPLEX16Vector *samples;
+COMPLEX16Vector *fft;
+double first_gps=min_gps();
+int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
+double total_weight;
+
+samples=XLALCreateCOMPLEX16Vector(nsamples);
+if(!samples) {
+	fprintf(stderr, "**** ERROR: could not allocate samples\n");
+	exit(-1);
+	}
+
+fft=XLALCreateCOMPLEX16Vector(nsamples);
+if(!fft) {
+	fprintf(stderr, "**** ERROR: could not allocate fft data\n");
+	exit(-1);
+	}
+
+{
 double f0=args_info.focus_f0_arg;
 double ra=args_info.focus_ra_arg;
 double dec=args_info.focus_dec_arg;
 double dInv=args_info.focus_dInv_arg;
-double x,y;
+double x,y, x2, y2;
 double c,s;
 double dt, te;
 double phase_spindown;
@@ -466,12 +492,15 @@ fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
 	
 spindown=args_info.spindown_start_arg;
 
-re=do_alloc(total_segments(), sizeof(*re));
-im=do_alloc(total_segments(), sizeof(*im));
+total_weight=0.0;
+
+for(i=0;i<nsamples;i++) {
+	samples->data[i].re=0.0;
+	samples->data[i].im=0.0;
+	}
 
 precompute_am_constants(e, ra, dec);
 
-i=0;
 for(n=0;n<d_free;n++) {
 	for(j=0;j<datasets[n].free;j++) {
 		
@@ -506,17 +535,63 @@ for(n=0;n<d_free;n++) {
 		c=cos(total_phase);
 		s=sin(total_phase);
 		
-		re[i]=x*c+y*s;
-		im[i]=-x*s+y*c;
+		i=round(2.0*(datasets[n].gps[j]-first_gps)/args_info.coherence_length_arg);
+// 		samples->data[i].re=x*c+y*s;
+// 		samples->data[i].im=-x*s+y*c;
 
-		fprintf(DATA_LOG, "stream: %d %d %d %lld %ld %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
-				i, n, j, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
-				x, y, re[i], im[i], phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase);
+		x2=x*c+y*s;
+		y2=-x*s+y*c;
+
+		samples->data[i].re=x2*f_plus-y2*f_cross;
+		samples->data[i].im=x2*f_cross+y2*f_plus;
 		
-		i++;
+		total_weight+=f_plus*f_plus+f_cross*f_cross;
+
+		if(args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %lld %d %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
+				i, n, j, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
+				x, y, samples->data[i].re, samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase);
+		
 		}
 	}
 }
+
+{
+COMPLEX16FFTPlan *fft_plan=NULL;
+double norm;
+	
+
+fprintf(stderr, "Creating FFT plan\n");
+fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(nsamples, 1);
+if(!fft_plan) {
+	fprintf(stderr, "**** ERROR: could not create fft plan\n");
+	exit(-1);
+	}
+
+fprintf(stderr, "Running FFT\n");
+XLALCOMPLEX16VectorFFT(fft, samples, fft_plan);
+
+norm=1.0/total_weight;
+norm/=args_info.coherence_length_arg*16384.0;
+norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+norm*=args_info.strain_norm_factor_arg;
+
+for(i=0;i<nsamples;i++) {
+	fft->data[i].re*=norm;
+	fft->data[i].im*=norm;
+	}
+	
+for(i=0;i<nsamples;i++) {
+	fprintf(DATA_LOG, "fft: %d %.12f %.12g %.12g\n", 
+		i, (i*2.0)/(nsamples*args_info.coherence_length_arg), fft->data[i].re, fft->data[i].im);
+	}
+
+XLALDestroyCOMPLEX16FFTPlan(fft_plan);
+}
+
+XLALDestroyCOMPLEX16Vector(samples);
+XLALDestroyCOMPLEX16Vector(fft);
+}
+
 
 TODO("write main application loop")
 

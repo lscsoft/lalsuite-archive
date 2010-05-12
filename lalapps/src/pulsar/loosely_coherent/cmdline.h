@@ -266,6 +266,9 @@ struct gengetopt_args_info
   int max_sft_report_arg;	/**< @brief Maximum count of SFTs to report with veto information (default='100').  */
   char * max_sft_report_orig;	/**< @brief Maximum count of SFTs to report with veto information original value given at command line.  */
   const char *max_sft_report_help; /**< @brief Maximum count of SFTs to report with veto information help description.  */
+  int dump_stream_data_arg;	/**< @brief Output timeseries (default='0').  */
+  char * dump_stream_data_orig;	/**< @brief Output timeseries original value given at command line.  */
+  const char *dump_stream_data_help; /**< @brief Output timeseries help description.  */
   int num_threads_arg;	/**< @brief Use that many threads for computation (default='-1').  */
   char * num_threads_orig;	/**< @brief Use that many threads for computation original value given at command line.  */
   const char *num_threads_help; /**< @brief Use that many threads for computation help description.  */
@@ -347,6 +350,7 @@ struct gengetopt_args_info
   unsigned int fake_dInv_given ;	/**< @brief Whether fake-dInv was given.  */
   unsigned int extended_test_given ;	/**< @brief Whether extended-test was given.  */
   unsigned int max_sft_report_given ;	/**< @brief Whether max-sft-report was given.  */
+  unsigned int dump_stream_data_given ;	/**< @brief Whether dump-stream-data was given.  */
   unsigned int num_threads_given ;	/**< @brief Whether num-threads was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */

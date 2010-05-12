@@ -3,7 +3,7 @@ VERSION=0.0.2-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
-LDFLAGS=$(LALLDFLAGS) -L. -lpng
+LDFLAGS=$(LALLDFLAGS) -L. -lpng -lfftw3 -lfftw3f
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
