@@ -128,13 +128,10 @@ class Coinc(object):
 		# since qscans are already by default on web space, they are handled differently
 		for ifo, time in self.time.items():
 
-			# analyze qscan stuff
 			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_ht_cache)
-
 			# link qscan
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.htqscan_cache)
 			page.sections["htqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-
 			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
 			plots = qconf.to_plot_tuple()
 			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
@@ -157,7 +154,6 @@ class Coinc(object):
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.seismicqscan_cache)
 			if not c: continue # get out of here if these jobs were not found
 
-			# analyze qscan stuff
 			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_seis_cache)
 			page.sections["seismicqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
 			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
@@ -183,11 +179,8 @@ class Coinc(object):
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.rdsqscan_cache)
 			if not c: continue # get out of here if these jobs were not found
 
-			# analyze qscan stuff
 			ca = self.parse_cache_by_time_and_ifo(time, ifo, self.analyze_qscan_rds_cache)
-
 			page.sections["rdsqscan"].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-
 			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
 			plots = qconf.to_plot_tuple()
 			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
