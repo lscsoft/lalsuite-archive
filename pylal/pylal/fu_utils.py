@@ -3083,3 +3083,49 @@ def getDailyStatsURL(time=None):
   outputLink=defaultURL+linkText
   return outputLink
 #End getDailyStatsURL
+
+
+class omega_config_parser(object):
+	def __init__(self, file):
+		self.data = []
+		self.parse = False
+		for l in open(file).readlines():
+			#FIXME imposes that curly braces are on there own line, I don't know if that is required
+			if l.strip() == "{":
+				self.start_parse()
+			if l.strip() == "}":
+				self.end_parse()
+			self.sanitize(l)
+			self.parse_line(self.sanitize(l))
+
+	def sanitize(self,l):
+		return l.replace("'","").replace("[","").replace("]","")
+
+	def start_parse(self):
+		self.dict = {}
+		self.parse = True
+
+	def end_parse(self):
+		self.data.append(copy.deepcopy(self.dict))
+		self.parse = False
+
+	def parse_line(self,l):
+		if not self.parse: return
+		line = l.split()
+		# FIXME could fail if there are nulls
+		self.dict[line[0].rstrip(':')] = line[1:]
+
+	def to_channel_dict(self):
+		dict = {}
+		for d in self.data:
+			dict[d['channelName'][0]] = d
+		return dict
+
+	def _spec_name(self,dict):
+		return '*%s_%.2f_spectrogram_autoscaled.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
+
+	def to_plot_tuple(self):
+		out = []
+		for d in self.data:
+			out.append((d['channelName'][0], self._spec_name(d),''))
+		return out
