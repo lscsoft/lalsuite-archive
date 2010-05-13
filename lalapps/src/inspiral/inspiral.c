@@ -3202,7 +3202,7 @@ int main( int argc, char *argv[] )
   /* write the summ_value table with the standard candle distance */
   if ( ! bankSim )
   {
-    if ( approximant == FindChirpSP )
+    if ( approximant == FindChirpSP || approximant == FindChirpPTF)
     {
       if ( vrbflg ) fprintf( stdout, "  summ_value table...\n" );
       ADD_SUMM_VALUE( "inspiral_effective_distance", "1.4_1.4_8",
