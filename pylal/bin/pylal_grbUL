@@ -292,6 +292,11 @@ def parse_args():
     parser.add_option("--nonuniform-smoothing-L", type="float", metavar="SIZE",
         help="enable a non-uniform smoothing of p(L|D) over L with a kernel "\
         "that varies proportionally to SIZE*(Lmax - L) (default: no smoothing)")
+    parser.set_defaults(onmismatch="raise")
+    parser.add_option("--version-mismatch-ok", action="store_const",
+        const="warn", dest="onmismatch", help="by default, the program "\
+        "will halt if the version id stored in the pickle does not match the "\
+        "running version id; specify this option to reduce to a warning")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -319,16 +324,20 @@ page = InspiralUtils.InspiralPage(opts)
 
 if opts.verbose:
     print "Reading in bin definitions..."
-statistic, mc_bins, mc_ifo_cuts, m2_bins, D_bins, m2_D_by_inj, _ \
+id, statistic, mc_bins, mc_ifo_cuts, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
+git_version.check_match(id, onmismatch=opts.onmismatch)
 if statistic not in ("effective_snr", "new_snr"):
     raise NotImplementedError
 
-_, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
-_, _, offsource_log_L_by_trial_m2, _ = \
+id, _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, _, _, offsource_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_offsource))
-_, _, inj_log_L_by_trial_m2, _ = \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, _, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
+git_version.check_match(id, onmismatch=opts.onmismatch)
 
 # Set everything less than THRESH to THRESH, including missed injections
 if opts.likelihood_threshold is not None:

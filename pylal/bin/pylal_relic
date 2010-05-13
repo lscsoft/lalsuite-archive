@@ -451,8 +451,8 @@ else:
 if opts.write_onsource:
     fname = fname_prefix + "_onsource" + fname_suffix
     # write pickle
-    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat),
-                open(fname, "wb"), -1)
+    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
+                 onsource_loudest_by_cat), open(fname, "wb"), -1)
     # write XML
     ligolw_process.set_process_end_time(process)
     utils.write_filename(onsource_doc, fname_prefix + "_onsource" \
@@ -460,13 +460,13 @@ if opts.write_onsource:
     sys.stdout.write("Loudest on-source coincs written.\n")
 if opts.write_offsource:
     fname = fname_prefix + "_offsource" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats,
+    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
                  offsource_loudest_by_trial_cat), open(fname, "wb"), -1)
     sys.stdout.write("Loudest off-source coincs written.\n")
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins,
-                 m2_D_by_inj, inj_loudest_by_inj_cat),
+    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
+                 m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat),
                 open(fname, "wb"), -1)
     sys.stdout.write("Loudest injection coincs written.\n")
 

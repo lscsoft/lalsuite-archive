@@ -191,6 +191,11 @@ def parse_args():
         "for the CBC website")
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
+    parser.set_defaults(onmismatch="raise")
+    parser.add_option("--version-mismatch-ok", action="store_const",
+        const="warn", dest="onmismatch", help="by default, the program "\
+        "will halt if the version id stored in the pickle does not match the "\
+        "running version id; specify this option to reduce to a warning")
 
     # use defined arguments
     parser.add_option("--statistic", help="The statistic to use (default: effective_snr)",\
@@ -219,25 +224,31 @@ html_footer = ""
 
 if opts.verbose:
     print "Reading in bin definitions and loudest statistics..."
-statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat \
+id, statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat \
     = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat \
     = pickle.load(open(opts.relic_injections))
+git_version.check_match(id, onmismatch=opts.onmismatch)
 if statistic not in ("effective_snr", "new_snr"):
     raise NotImplemented
 
 
-log_pc0_by_cat, log_pch_by_cat_m2, actual_candidate_mask, \
+id, log_pc0_by_cat, log_pch_by_cat_m2, actual_candidate_mask, \
     log_L_by_m2, log_sum_L = \
     pickle.load(open(opts.grblikelihood_onsource))
-offsource_pc0_by_trial_cat, offsource_pch_by_trial_cat_m2, \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, offsource_pc0_by_trial_cat, offsource_pch_by_trial_cat_m2, \
     offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial = \
     pickle.load(open(opts.grblikelihood_offsource))
-inj_log_pc0_by_trial_cat, inj_log_pch_by_trial_cat_m2, \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, inj_log_pc0_by_trial_cat, inj_log_pch_by_trial_cat_m2, \
     inj_log_L_by_trial_m2, inj_log_sum_L_by_trial = \
     pickle.load(open(opts.grblikelihood_injections))
+git_version.check_match(id, onmismatch=opts.onmismatch)
 
 m2_D_bins = rate.NDBins((m2_bins, D_bins))
 num_sims_by_m2_D = rate.BinnedArray(m2_D_bins)
