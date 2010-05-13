@@ -176,6 +176,34 @@ Build date: %s
 Repository status: %s""" \
   % (git_branch, git_tag, git_id, git_builder, build_date, git_status)
 
+  # add a utility function
+  print >>fileobj, """
+import warnings
+
+class VersionMismatchError(ValueError):
+    pass
+
+def check_match(foreign_id, onmismatch=\"raise\"):
+    \"\"\"
+    If foreign_id != id, perform an action specified by the onmismatch
+    kwarg. This can be useful for validating input files.
+
+    onmismatch actions:
+      \"raise\": raise a VersionMismatchError, stating both versions involved
+      \"warn\": emit a warning, stating both versions involved
+    \"\"\"
+    if onmismatch not in (\"raise\", \"warn\"):
+        raise ValueError, onmismatch + \" is an unrecognized value of onmismatch\"
+    if foreign_id == id:
+        return
+    msg = \"Program id (%s) does not match given id (%s).\" % (id, foreign_id)
+    if onmismatch == \"raise\":
+        raise VersionMismatchError, msg
+
+    # in the backtrace, show calling code
+    warnings.warn(msg, UserWarning)
+"""
+
 def write_empty_git_version(fileobj):
   """
   A fallback function that can populate a git_version.py with null values.
