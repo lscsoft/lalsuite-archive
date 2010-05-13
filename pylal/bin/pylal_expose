@@ -205,7 +205,6 @@ for grb_name in list_grb:
                 pickle.load(open(file_inj))
     git_version.check_match(id, onmismatch=opts.onmismatch)
 
-
     # double check the detection statistic
     count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
     stat = count_louder/n_trials
