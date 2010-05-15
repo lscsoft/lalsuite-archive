@@ -542,8 +542,8 @@ print >>output, "== Summary Information =="
 print >>output, "'''Start Time:''' "+date_start+", "+str(gps_start)+". '''End Time:''' "+date_end+", "+str(gps_end)
 print >>output
 if options.skip_science_time is False:
-  print >>output, "Live time statistics:"
-  print >>output, "||IFO||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||"
+  print >>output, "'''Live time statistics:'''"
+  print >>output, '||<tablewidth="100%" style="width: 9%;" rowbgcolor="#ffffcc">IFO||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||'
   for ifo in ifos:
     science_percentage = round((science_time[ifo]/duration*100),2)
     science_days = round((science_time[ifo]/86400),2)
@@ -555,8 +555,8 @@ if options.skip_science_time is False:
         "||"+str(analysable_time[ifo])+" ("+str(analysable_days)+")||"
   print >>output
   if double_coinc is True:
-    print >>output, "Coincidence time statistics:"
-    print >>output, "||IFOs||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||"
+    print >>output, "'''Coincidence time statistics:'''"
+    print >>output, '||<tablewidth="100%" style="width: 9%;" rowbgcolor="#ffffcc">IFOs||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||'
     for double in double_ifos:
       #== calculate double science statistics
       science_percentage = round((double_time[double]/duration*100),2)
@@ -615,7 +615,7 @@ if options.skip_range_plot is False:
     plot_insp_effective_distance\
         (daily_paths,ifos,plot_file,gps_start,gps_end)
 
-  print >>output, "Inspiral Range:"
+  print >>output, "'''Inspiral Range:'''"
   print >>output
   print >>output, '[['+plot_url+'|{{'+plot_url+'||width=500}}]]'
   print >>output
@@ -632,15 +632,34 @@ if options.username != None:
   if verbose:  print >>sys.stdout, "Querying for Scimon DQ flags..."
   print >>output, "== Scimon DQ Flags =="
   print >>output, "{{{"
-  print >>output, '''curl -k -s --user albert.einstein:<password> https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= gps_start && $1 < gps_end) || ( $2 >= gps_start && $2 < gps_end ) || ( $1 < gps_start && $2 > gps_end DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
+  print >>output, '''curl -k -s --user albert.einstein:<password> '''+\
+      '''https://segdb.ligo.caltech.edu/seginsert/listflags.php | '''+\
+      '''ligolw_print -d QQQ -t segment_summary -c start_time -c end_time '''+\
+      '''-c ifos -c scimon_comment -c elog_url  | '''+\
+      '''awk -F 'QQQ' '($1 >= '''+gps_start+''' && $1 < '''+gps_end+''') '''+\
+      '''|| ( $2 >= '''+gps_start+''' && $2 < '''+gps_end+''' ) '''+\
+      '''|| ( $1 < '''+gps_start+''' && $2 > '''+gps_end+''' DDD) '''+\
+      '''{ printf "||%s||%s||%s||%s||%s||[[%s|ilog]]||\\n", '''+\
+      '''$3,$1,$2,$2-$1,$4,$5 }' '''
   print >>output, "}}}"
-  scimonFlagCommand = '''curl -k -s --user '''+options.username+''':'''+password+''' https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= '''+str(gps_start)+''' && $1 < '''+str(gps_end)+''') || ( $2 >= '''+str(gps_start)+''' && $2 < '''+str(gps_end)+''' ) || ( $1 < '''+str(gps_start)+''' && $2 > '''+str(gps_end)+''' DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
+  scimonFlagCommand = '''curl -k -s --user '''+\
+      options.username+''':'''+password+\
+      ''' https://segdb.ligo.caltech.edu/seginsert/listflags.php | '''+\
+      '''ligolw_print -d QQQ -t segment_summary -c start_time -c end_time '''+\
+      '''-c ifos -c scimon_comment -c elog_url  | '''+\
+      '''awk -F 'QQQ' '''+\
+      ''''($1 >= '''+str(gps_start)+''' && $1 < '''+str(gps_end)+''') || '''+\
+      '''( $2 >= '''+str(gps_start)+''' && $2 < '''+str(gps_end)+''' ) || '''+\
+      '''( $1 < '''+str(gps_start)+''' && $2 > '''+str(gps_end)+''' DDD) '''+\
+      '''{ printf "||%s||%s||%s||%s||%s||[[%s|ilog]]||\\n", '''+\
+      '''$3,$1,$2,$2-$1,$4,$5 }' '''
   scimonFlags,status = GetCommandOutput(scimonFlagCommand)
+
   if scimonFlags=="":
     print >>output, "No scimon flags were generated for this period."
   else:
     print >>output, "The following scimon flags were generated this period:"
-    print >>output, "||IFO||Start time||End time||Duration||Notes||Ilog link||"
+    print >>output, '||<rowbgcolor="#ffffcc">IFO||Start time||End time||<style="width: 99%;">Duration||Notes||link||'
     print >>output, scimonFlags
 
   print >>output
@@ -732,9 +751,9 @@ if options.skip_dq_stats is False:
  
   print >>output, "== Veto Flag Statistics =="
   print >>output, "{{{"
-  print >>output, "/archive/home/cavaglia/S6c_daily_week_v2/DQweekrun.sh "+\
-      "--ifo=${IFO} --igps=${GPSSTART} --egps=${GPSEND} "+\
-      "--outputdir=${OUTPUT_DIR}"
+  print >>output, "/archive/home/cavaglia/S6c_daily_week_current/DQweekrun.sh"+\
+      " --ifo=${IFO} --igps=${GPSSTART} --egps=${GPSEND}"+\
+      " --outputdir=${OUTPUT_DIR}"
   print >>output, "}}}"
   print >>output, "The CBC Veto Definer file contains the details of all "+\
       "veto flags and times to be used in the analysis. "+\
@@ -759,7 +778,7 @@ if options.skip_dq_stats is False:
   dq_stats_thresholds = [8,12,20,100]
   dq_stats_types=['Unpadded','Padded']
   dq_stats_tag={'Unpadded':'UNPD','Padded':'PD'}
-  print >>output, "||Threshold||",
+  print >>output, '||<rowbgcolor="#ffffcc">Threshold||',
   for ifo in ifos:
     print >>output, "||"+ifo+"||",
   print >>output
@@ -865,6 +884,7 @@ if options.skip_hveto_ihope is False:
       "100131174312DQandVetoeshveto_ihope_daily|here]]. "+\
       "The results for this week are:\n"
   #== for each ligo IFO, set up space in table
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">'
   for ifo in ifos:
     if ifo in ligo_ifos:
       for hveto_type in hveto_types:
@@ -872,6 +892,7 @@ if options.skip_hveto_ihope is False:
   print >>output
 
   #== for each ligo IFO grep the winning channel and link to page
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">'
   for ifo in ifos: 
     if ifo in ligo_ifos:
       for hveto_type in hveto_types:
@@ -910,7 +931,7 @@ if options.skip_hveto_kw is False:
   #== print entry info
   print >>output, \
       "HVeto is run daily on the Kleine-Welle triggers. The results are:\n"
-  print >>output, "||Date||",
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">Date|',
   for ifo in ifos:
     if ifo in ligo_ifos:
       for hveto_type in hveto_types:
@@ -958,6 +979,12 @@ output.flush()
 # ==========
 print >>output, "== Detailed Results =="
 
+print >>output, '||||||<tablewidth="100%" rowbgcolor="#ffffcc">Omega glitchgram key||'
+print >>output, '||<bgcolor="blue" style="text-align: center; color: white;">  5 <= SNR < 10 '+\
+    '||<bgcolor="green" style="color: white; text-align: center;"> 10 <= SNR < 20 '+\
+    '||<bgcolor="red" style="color: white; text-align: center;"> SNR >= 20||'
+print >>output
+
 print >>output, "=== SiteWeekly ==="
 print >>output, "The !SiteWeekly report from Mike Landry can be found in the archives, [[http://relativity.phys.lsu.edu/pipermail/siteweekly/|here]]."
 print >>output
@@ -989,7 +1016,7 @@ if options.skip_daily is False:
             "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+\
             date[day][0:4]+"/"+date[day][4:6]+"/"+date[day][6:8]+"|V1 Omega]]."
     print >>output
-    print >>output, "|| ||",
+    print >>output, '||<rowbgcolor="#ffffcc">||',
     for ifo in ifos:    
       print >>output, ifo+"||",
     print >>output
@@ -1025,6 +1052,9 @@ if options.skip_daily is False:
             date[day][0:4]+"/"+date[day][4:6]+"/"+date[day][6:8]+\
             "/Plots/V1-GlitchTS.gif||width=345}}]]||"
     print >>output, omega_daily
+    print >>output, "'''Daily Summary:'''"
+    print >>output, "Please enter your daily summary here."
+    print >>output
     print >>output, "[[#top|Back to top]]"
 
 output.flush()
