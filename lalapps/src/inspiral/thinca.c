@@ -1545,16 +1545,15 @@ int main( int argc, char *argv[] )
 
       if (numFileTriggers < 0)
       {
-        fprintf(stderr, "Error reading triggers from file %s",
+        fprintf(stderr, "Error reading triggers from file %s", 
             argv[i]);
         exit( 1 );
       }
-  
+ 
       /* read the summ value table as well. 
        * We do not need to do any sanity check.
        * It has been done in the previous call */
       XLALReadSummValueFile(&summValueList, argv[i]);
-        
        
       /* maximize over a given interval */
       if ( maximizationInterval )
@@ -2286,7 +2285,6 @@ cleanexit:
         search_summvars_table), &status );
   LAL_CALL( LALEndLIGOLwXMLTable( &status, &xmlStream), &status );
 
-  
   /* write the summ_value table */
   if( summValueList)
   {
