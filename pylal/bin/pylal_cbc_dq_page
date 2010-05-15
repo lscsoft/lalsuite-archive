@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import division
 from optparse import OptionParser
 import sys
 import os
@@ -10,10 +11,32 @@ from pylab import *
 import numpy
 
 # =============================================================================
-# Function to query and return science time
+# Function to calculate science time from segdb for period
 # =============================================================================
-#def calc_flag_time(channel,start_time,end_time)
-#  segment_query_command = '''ligolw_segment_query -q -d -a '''+gw_channel[ifo[i]]+''' -s '''+str(GPSstart)+''' -e '''+str(GPSend)+''' -o '''+segment_xml
+def segment_grab(ifo,start_time,end_time,out_dir):
+  gw_channel = {'H1':'H1:DMT-SCIENCE','L1':'L1:DMT-SCIENCE','V1':'V1:ITF_SCIENCEMODE'}
+  segment_data=[None,None,None]
+  segment_txt = out_dir+'''/'''+ifo+'''-science_segments.txt'''
+  segment_query_cmd = '''ligolw_segment_query -q -t '''+\
+      '''https://segdb.ligo.caltech.edu -a '''+gw_channel[ifo]+\
+      ''' -s '''+str(gps_start)+''' -e '''+str(gps_end)+\
+      ''' | ligolw_print -t segment -c start_time -c end_time --delimiter '''+\
+      '''" " > '''+segment_txt
+  segment_status = GetCommandOutput(segment_query_cmd)[1]
+  if segment_status==0:
+    segments = open(segment_txt,'r')
+    for line in segments:
+      segment=line.split()
+      length=float(segment[1])-float(segment[0])
+      segment_data=numpy.vstack((segment_data,[float(segment[0]),float(segment[1]),length])) 
+  else:
+    print >>sys.stdout, "The following ligolw_segment_query command has failed:"
+    print >>sys.stdout
+    print >>sys.stdout, segment_query_cmd
+    print >>sys.stdout
+    exit
+
+  return segment_data
 
 # =============================================================================
 # Function to extract double coincidence segments from single ifo lists
@@ -21,36 +44,39 @@ import numpy
 def double_coinc_parse(seg_list_1,seg_list_2):
   seg_list_coinc = None
   status=0
-  if np.shape(seg_list_1)[0] != 2 or np.shape(seg_list_1)[0] != 2:
+  #== if segment are incorrectly formatted, exit
+  if np.shape(seg_list_1)[1] != 3 or np.shape(seg_list_2)[1] != 3:
     status=1
   if status==0:
-    # find intersecting segments
+    #== find intersecting segments
     segment_2 = 0
-    for segment_1 in range(0,np.shape(seg_list_1)[1]):
-      start_time_1 = seg_list_1[0,segment_1]
-      end_time_1 = seg_list_1[1,segment_1]
-      while segment_2 < np.shape(seg_list_2)[1]:
-        start_time_2 = seg_list_2[0,segment_2]
-        end_time_2 = seg_list_2[1,segment_2]
-        # seg two begins after seg one ends
-        # break the loop, but don't increment segment_2
-        # b/c it may intersect with next segment in seg_list_1
+    for segment_1 in range(0,np.shape(seg_list_1)[0]):
+      if seg_list_1[segment_1][0] == None: continue
+      start_time_1 = seg_list_1[segment_1][0]
+      end_time_1 = seg_list_1[segment_1][1]
+      while segment_2 < np.shape(seg_list_2)[0]:
+        start_time_2 = seg_list_2[segment_2][0]
+        end_time_2 = seg_list_2[segment_2][1]
+        #== if segment two begins after segment one ends, break the loop, but
+        # don't increment the segment 2 counter since it may intersect with
+        # next segment in seg_list_1
         if start_time_2 > end_time_1:
           break
-        # seg two ends before seg one starts
+        #== if segment two ends before seg one starts, move to the next
+        # segment to analyse
         if end_time_2 < start_time_1:
           segment_2 += 1
           continue
-        # at this point we know that there is *some* overlap
-        # find the boundaries of the overlap
+        #== the segments overlap, so find the boundaries of the overlap
         start_time_coinc = max(start_time_1,start_time_2)
         end_time_coinc = min(end_time_1,end_time_2)
-        # append this new segment to the list
+        length = end_time_coinc - start_time_coinc
+        #== append this new segment to the coinc list
         if seg_list_coinc is None:
-          seg_list_coinc = np.array([start_time_coinc,end_time_coinc])
+          seg_list_coinc = np.array([start_time_coinc,end_time_coinc,length])
         else:
-          seg_list_coinc = np.vstack( (seg_list_coinc,[start_time_coinc,end_time_coinc]) )
-        # determine if it's time to break the loop
+          seg_list_coinc = np.vstack( (seg_list_coinc,[start_time_coinc,end_time_coinc,length]) )
+        #== determine if it's time to break the loop
         if end_time_2 > end_time_1:
           break
         else:
@@ -60,32 +86,35 @@ def double_coinc_parse(seg_list_1,seg_list_2):
 # =============================================================================
 # Function to remove triple time from double time segments
 # =============================================================================
-
 def double_coinc_triple_parse(double_list,triple_list):
   seg_list_coinc_parsed = None
   status=0
-  if np.shape(double_list)[0] != 2 or np.shape(triple_list)[0] != 2:
+  #== if segment are incorrectly formatted, exit
+  print np.shape(double_list),np.shape(triple_list)
+  if np.shape(double_list)[1] != 3 or np.shape(triple_list)[1] != 3:
     status=1
   if status==0:
     triple_segment = 0
-    for double_segment in range(0,np.shape(double_list)[1]):
-      double_start_time = double_list[0,double_segment]
-      double_end_time = double_list[1,double_segment]
-      while triple_segment < np.shape(triple_list)[1]:
-        triple_start_time = triple_list[0,triple_segment]
-        triple_end_time = triple_list[1,triple_segment]
-        if triple_start_time > double_end_time:
+    for double_segment in range(0,np.shape(double_list)[0]):
+      double_start_time = float(double_list[double_segment][0])
+      double_end_time = float(double_list[double_segment][1])
+      while triple_segment < np.shape(triple_list)[0]:
+        triple_start_time = float(triple_list[triple_segment][0])
+        triple_end_time = float(triple_list[triple_segment][1])
+        if triple_start_time >= double_end_time:
           break
-        # seg two ends before seg one starts
-        if triple_end_time < double_start_time:
-          segment_2 += 1
+        #== if segment two ends before segment one starts, move to the next
+        # segment
+        if triple_end_time <= double_start_time:
+          triple_segment += 1
           continue
-        if seg_list_coinc_parsed is None:
-          seg_list_coinc_parsed = np.array([double_start_time,triple_start_time])
-        else:
-          seg_list_coinc_parsed = np.vstack( (seg_list_coinc_parsed,[double_start_time,triple_start_time]) )
+        if double_start_time != triple_start_time:
+          if seg_list_coinc_parsed is None:
+            seg_list_coinc_parsed = np.array([double_start_time,triple_start_time,triple_start_time-double_start_time])
+          else:
+            seg_list_coinc_parsed = np.vstack( (seg_list_coinc_parsed,[double_start_time,triple_start_time,triple_start_time-double_start_time]) )
         double_start_time=triple_end_time
-        # determine if it's time to break the loop
+        #== determine if it's time to break the loop
         if triple_end_time > double_end_time:
           break
         else:
@@ -95,48 +124,55 @@ def double_coinc_triple_parse(double_list,triple_list):
 # =============================================================================
 # Function to execute shell command and get output
 # =============================================================================
-def GetCommandOutput(command, show_stdout=False, show_command=False, show_error=False):
-  """
-  Run a command line argument and print informative messages on failure.
-  It returns two outputs: the stdout of the command, and its status.  
-
-    >>> GetCommandOutput('cp * /tmp', False, False, True)
-
-  @param command: the command to try
-  @type command: string
-  @param show_stdout: show the stdout 
-  @type show_stdout: boolean
-  @param show_command: show the command
-  @type show_command: boolean
-  @param show_error: show the error if any
-  @type show_error: boolean
-  @return: the stdout and a status  
-
-
-  """
-  if show_command:
-    print "--- Trying this command :" + command
-
+def GetCommandOutput(command):
+  #== function to execute bash commands and return the stdout and error status
   stdin, out, err = os.popen3(command)
   pid, status = os.wait()
   this_output = out.read()
-  if show_error & status != 0:
-    print >>sys.stderr, "External call failed."
-    print >>sys.stderr, "  status: %d" % status
-    print >>sys.stderr, "  stdout: %s" % this_output
-    print >>sys.stderr, "  stderr: %s" % err.read()
-    print >>sys.stderr, "  command: %s" % command
-    sys.exit(status)
-  if show_stdout:
-    if this_output[0:1]=='\n':
-      print this_output[1:]  #first character is \n
-    else:
-      print this_output
-
   stdin.close()
   out.close()
   err.close()
   return this_output, status
+
+# =============================================================================
+# Function to plot inspiral effective distance
+# =============================================================================
+def plot_insp_effective_distance(daily_paths,ifos,out_file,gps_start,gps_end):
+  ifo_color={'H1':'r','L1':'g','V1':'m'}
+  maxVal=0
+  duration = (gps_end-gps_start)
+  duration_days = (duration/86400)
+  figure()
+  output_dir = os.path.split(out_file)[0]
+  for ifo in ifos:
+    rangePlotFile = output_dir+'/'+ifo+'-inspiral_range.txt'
+    GetCommandOutput('rm -f '+rangePlotFile)
+    for path in daily_paths:
+      range_awk_cmd = '''for line in `ls '''+path+\
+          '''/'''+ifo+'''-INSPIRAL_UNCLUSTERED-*gz`; '''+\
+          '''do ligolw_print -t summ_value -c start_time -c end_time '''+\
+          '''-c name -c value $line | grep inspiral_effective_distance | '''+\
+          '''awk 'NR==1 {print }' | cut -f1,2,4 -d, '''+\
+          '''>> '''+rangePlotFile+'''; done;'''
+      GetCommandOutput(range_awk_cmd)
+    number_of_inspiral_points = \
+        int(GetCommandOutput('wc -l < '+rangePlotFile)[0].replace('\n',''))
+    if number_of_inspiral_points > 0:
+      plotdata=numpy.loadtxt(rangePlotFile,delimiter=',')
+      starttimes=asarray([float(column[0]) for column in plotdata])
+      endtimes=asarray([float(column[1]) for column in plotdata])
+      insprange=asarray([float(column[2]) for column in plotdata])
+      time=((endtimes+starttimes)/2 - gps_start)/86400
+      color_temp=ifo_color[ifo]+'.'
+      plot(time,insprange,color_temp)
+      if max(insprange) > maxVal:
+        maxVal=max(insprange)
+  xlim(0,duration_days)
+  ylim(0,maxVal*1.1)
+  xlabel('Time (days since '+str(gps_start)+')')
+  ylabel('Effective inspiral range (Mpc)')
+  title('Effective inspiral range for period '+str(gps_start)+'-'+str(gps_end))
+  savefig(out_file)
 
 # =============================================================================
 # Main program begins here
@@ -155,6 +191,9 @@ If you are NOT running on CIT, the options
 are set TRUE automatically as the scripts to run these sections require access to ihope_daily on CIT."""
 
 parser = OptionParser(usage=usage)
+
+parser.add_option("--verbose", action="store_true", default=False,\
+    help="verbose output")
 
 parser.add_option("-t","--start-date",action="store",type="string",\
     help="start date in format mm/dd/yyyy")
@@ -175,6 +214,9 @@ parser.add_option("-d","--skip-common-dqflags",action="store_true",\
     default=False,dest="skip_dq_flags",\
     help="skip generation of common DQ flag lists")
 
+parser.add_option("-D","--skip-dq-stats",action="store_true",default=False,\
+    help="skip generation of DQ flag stats (from CBC veto definer file)")
+
 parser.add_option("-c","--common-flag-cat",action="store",type="int",\
     default=4,dest="cat_level",help="category veto level for common DQ flags")
 
@@ -191,81 +233,67 @@ parser.add_option("-r","--skip-daily",action="store_true",\
     default=False,help="skip generation of daily plots")
 
 parser.add_option("-H","--skip-h1",action="store_true",\
-    default=False,dest="skip_h1",help="skip generation of H1 daily plots")
+    default=False,help="skip generation of H1 daily plots")
 
 parser.add_option("-L","--skip-l1",action="store_true",\
-    default=False,dest="skip_l1",help="skip generation of L1 daily plots")
+    default=False,help="skip generation of L1 daily plots")
 
 parser.add_option("-V","--skip-v1",action="store_true",\
-    default=False,dest="skip_v1",help="skip generation of V1 daily plots")
+    default=False,help="skip generation of V1 daily plots")
 
 parser.add_option("-o","--output-file",action="store",type="string",\
-    dest="output_file",help="output file")
-
-parser.add_option("-x","--segment-histogram",action="store_true",\
-    default=False,help="plot histogram of segment length")
+    help="output file")
 
 (options, args) = parser.parse_args()
+
+verbose=False
+if options.verbose:  verbose=True
 
 if options.start_date is None:
         parser.error("Please specify a start date")
 
 if options.username != None:
   password = getpass.getpass()
-if options.output_file == None:
-  output = sys.stdout
-else:
-  output = open(options.output_file,'w')
 
 # ==========
 # Set up name variables from options
 # ==========
-ifo_color=[]
-ifo_opacity=[]
-ifo_color_point=[]
-ifo=[]
-ligo_ifo=[]
-site=[]
-site_name=[]
+
+if verbose:  print >>sys.stdout, "Thanks.\nSetting variables..."
+
+ifo_color={'H1':'r','H2':'b','L1':'g','V1':'m'}
+ifo_opacity={'H1':1.0,'H2':0.9,'L1':0.8,'V1':0.7,'G1':0.6,'T1':0.5}
+ligo_ifos=['H1','H2','L1']
+site={'H1':'-wa','H2':'-wa','L1':'-la','V1':''}
+site_name={'H1':'LHO','H2':'LHO','L1':'LLO','V1':'Virgo','G1':'GEO','T1':'TAMA'}
+
+#== set up ifo list and double and triple coincidence options
+ifos=[]
 double_coinc=False
 triple_coinc=False
 if options.skip_h1 is False:
-  ifo.append('H1')
-  ligo_ifo.append('H1')
-  site.append('-wa')
-  site_name.append('LHO')
-  ifo_color.append('r')
-  ifo_opacity.append(1.0)
-  ifo_color_point.append('r.')
+  ifos.append('H1')
 if options.skip_l1 is False:
-  ifo.append('L1')
-  ligo_ifo.append('L1')
-  site.append('-la')
-  site_name.append('LLO')
-  ifo_color.append('g')
-  ifo_opacity.append(0.8)
-  ifo_color_point.append('g.')
+  ifos.append('L1')
 if options.skip_v1 is False:
-  ifo.append('V1')
-  site.append('')
-  site_name.append('Virgo')
-  ifo_color.append('m')
-  ifo_color.append(0.7)
-  ifo_color_point.append('m.') 
-if len(ifo)>1:
+  ifos.append('V1')
+if len(ifos)>1:
   double_coinc=True
-  double_coinc_ifos=[]
-if len(ifo)>2:
+  double_ifos=[]
+if len(ifos)>2:
   triple_coinc=True
-  triple_coinc_ifos=[]
+  triple_ifos=[]
 
+#== set up double and triple coincidence lists
 if double_coinc is True:
-  for i in range(0,len(ifo)):
-    for j in range(i+1,len(ifo)):
-      double_coinc_ifos.append(ifo[i]+ifo[j])
-      if triple_coinc is True:
-        for k in range(j+1,len(ifo)):
-           triple_coinc_ifos.append(ifo[i]+ifo[j]+ifo[k])
+  for ifo_1 in ifos:
+    for ifo_2 in ifos:
+      if ifos.index(ifo_2)>ifos.index(ifo_1):
+        double_ifos.append(ifo_1+ifo_2)
+        if triple_coinc is True:
+          for ifo_3 in ifos:
+             if ifos.index(ifo_3)>ifos.index(ifo_2):
+               triple_ifos.append(ifo_1+ifo_2+ifo_3)
 
 # ==========
 # Work out location and set location specific changes
@@ -273,280 +301,365 @@ if double_coinc is True:
 hostname = 'hostname -f'
 hostname = GetCommandOutput(hostname)[0]
 hostname = hostname.replace('\n','')
-if hostname == "ldas-pcdev1.ligo.caltech.edu" or hostname == 'ldas-grid.ligo.caltech.edu':
-  webURL = "https://ldas-jobs.ligo.caltech.edu/"
-elif hostname == "ldas-pcdev1.ligo-wa.caltech.edu" or hostname == "ldas-grid.ligo-wa.caltech.edu":
-    webURL = "https://ldas-jobs.ligo-wa.caltech.edu/"
-elif hostname == "ldas-pcdev1.ligo-la.caltech.edu" or hostname == "ldas-grid.ligo-la.caltech.edu":
-    webURL = "https://ldas-jobs.ligo-la.caltech.edu/"
+if hostname == "ldas-pcdev1.ligo.caltech.edu" or \
+hostname == 'ldas-grid.ligo.caltech.edu':
+  web_url = "https://ldas-jobs.ligo.caltech.edu/"
+elif hostname == "ldas-pcdev1.ligo-wa.caltech.edu" or \
+hostname == "ldas-grid.ligo-wa.caltech.edu":
+    web_url = "https://ldas-jobs.ligo-wa.caltech.edu/"
+elif hostname == "ldas-pcdev1.ligo-la.caltech.edu" or \
+hostname == "ldas-grid.ligo-la.caltech.edu":
+    web_url = "https://ldas-jobs.ligo-la.caltech.edu/"
 elif hostname == "atlas1.atlas.aei.uni-hannover.de":
-  webURL = "https://atlas1.atlas.aei.uni-hannover.de/"
+  web_url = "https://atlas1.atlas.aei.uni-hannover.de/"
 elif hostname == "atlas2.atlas.aei.uni-hannover.de":
-        webURL = "https://atlas2.atlas.aei.uni-hannover.de/"
+        web_url = "https://atlas2.atlas.aei.uni-hannover.de/"
 elif hostname == "atlas3.atlas.aei.uni-hannover.de":
-        webURL = "https://atlas3.atlas.aei.uni-hannover.de/"
+        web_url = "https://atlas3.atlas.aei.uni-hannover.de/"
 elif hostname == "atlas4.atlas.aei.uni-hannover.de":
-        webURL = "https://atlas4.atlas.aei.uni-hannover.de/"
+        web_url = "https://atlas4.atlas.aei.uni-hannover.de/"
 elif hostname == "sugar.phy.syr.edu":
-  webURL = "https://sugar-jobs.phy.syr.edu/"
+  web_url = "https://sugar-jobs.phy.syr.edu/"
 elif hostname == "coma2.local":
-  webURL = "https://coma2.astro.cf.ac.uk/"
+  web_url = "https://coma2.astro.cf.ac.uk/"
 elif hostname == "hydra.phys.uwm.edu":
-  webURL = "https://ldas-jobs.phys.uwm.edu/"
+  web_url = "https://ldas-jobs.phys.uwm.edu/"
+else:
+  raise Exception, "You are running from an unsupported location, please log\
+in to one of the LDG clusters and try again."
 
 if hostname[0:5] == "atlas":
-  publicFolder = "WWW/LSC"
+  public_folder = "WWW/LSC"
 else:
-  publicFolder = "public_html"
+  public_folder = "public_html"
 
-if hostname != "ldas-pcdev1.ligo.caltech.edu" and hostname != 'ldas-grid.ligo.caltech.edu':
+#== if not run on a CIT machine, skip anything requiring ihope_daily
+if hostname != "ldas-pcdev1.ligo.caltech.edu" and \
+hostname != 'ldas-grid.ligo.caltech.edu':
   options.skip_dq_flags = True
   options.skip_hveto_ihope = True
   options.skip_range_plot = True
+  options.skip_dq_stats = True
+
 # ==========
 # Calculate time info
 # ==========
-numDays=options.number_days
-numWeeks = int(round(numDays/7))
+if verbose:
+  print >>sys.stdout, \
+      "Working out times and date for "+str(options.number_days)+\
+      " days from "+options.start_date+"..."
 
-GPSday = [0]*(numDays+1)
-GPSstart=GPSday[0] = int(GetCommandOutput('''tconvert '''+ str(options.start_date))[0])
-DateStart=str(GetCommandOutput('''tconvert '''+str(GPSday[0]))[0])
-DateStart=DateStart.replace("\n","")
-#DateStartFormatted=GetCommandOutput('''tconvert ''' + str(GPSday[0]) + ''' -f %A", "%B""%e" "%Y''')
+number_of_days=options.number_days
 
-for i in range(1,len(GPSday)):
-  GPSday[i]=GPSday[i-1]+86400
-GPSend=GPSday[-1]
-GPSlength=GPSend-GPSstart
-DateEnd=str(GetCommandOutput('''tconvert '''+str(GPSend))[0])
-DateEnd=DateEnd.replace("\n","")
+if number_of_days % 7 == 0:
+  number_of_weeks = int(number_of_days/7)
+else:
+  number_of_weeks = int(number_of_days/7)+1
+
+#== set up gps times for each day, including dedicated start and finish
+gps_days = [0]*(number_of_days)
+gps_start = gps_days[0] = int(GetCommandOutput('''tconvert '''+ str(options.start_date))[0])
+for i in range(1,len(gps_days)):
+  gps_days[i]=gps_days[i-1]+86400
+gps_end=gps_days[-1]+86400
+duration=gps_end-gps_start
+
+date_start=str(GetCommandOutput('tconvert '+str(gps_start))[0])
+date_start=date_start.replace("\n","")
+date_end=str(GetCommandOutput('tconvert '+str(gps_end))[0])
+date_end=date_end.replace("\n","")
 
 # ==========
 # Calculate date info
 # ==========
-ihopePathStart=str('''/archive/home/cbc/ihope_daily/''')
+ihope_path='/archive/home/cbc/ihope_daily'
 
-ihopePath = ['']*numDays
-date = ['']*numDays
-day = ['']*numDays
-month = ['']*numDays
-year = ['']*numDays
+ihope_daily_path = {}
+date = {}
+day_of_week = {}
+date_us_format = {}
 
-dayOfWeek = ['']*numDays
-dateFormatted = ['']*numDays
+for day in gps_days:
+  date[day] = str(GetCommandOutput('tconvert '+str(day)+' -f %Y%m%d')[0])
+  date[day]=date[day].replace("\n","")
 
-for i in range(0,numDays):
-  date[i] = str(GetCommandOutput('''tconvert '''+str(GPSday[i])+''' -f %Y%m%d''')[0])
-  dayOfWeek[i] = str(GetCommandOutput('''tconvert '''+str(GPSday[i])+''' -f %a''')[0])
-  date[i]=date[i].replace("\n","")
-  day[i]=date[i][6:8]
-  month[i]=date[i][4:6]
-  year[i]=date[i][0:4]
-  dateFormatted[i]=month[i]+"/"+day[i]
-  dayOfWeek[i]=dayOfWeek[i].replace("\n","")
-  ihopePath[i] = ihopePathStart+str(date[i][0:6]+'''/'''+date[i]+'''/''')
+  day_of_week[day] = str(GetCommandOutput('tconvert '+str(day)+' -f %a')[0])
+  day_of_week[day]=day_of_week[day].replace("\n","")
+
+  date_us_format[day]=date[day][4:6]+'/'+date[day][6:8]
+  ihope_daily_path[day] = ihope_path+'/'+date[day][0:6]+'/'+date[day]
+
+
+#== generate saturdays list for weekly tools
+saturdays=[]
+if day_of_week[gps_start] != 'Sat':
+  #== find first Saturday
+  for day in gps_days:
+    if day_of_week[day]=='Sat':
+      saturdays.append(day-604800)
+      break
+  #== find all the rest
+for day in gps_days:
+  if day_of_week[day]=='Sat':
+    saturdays.append(day)
 
 # ==========
 # Create DQ folder for week
 # ==========
+#== find user's homepath
 homepath = str(GetCommandOutput('echo $HOME')[0])
 homepath = homepath.replace('\n','')
+#== generate folder for week output
+dq_folder='cbc_dq_week_'+date[gps_start]
+dq_path=homepath+'/'+public_folder+'/'+dq_folder
+if verbose:  print >>sys.stdout, "Generating output folder:\n"+dq_path
+mkdir_status=GetCommandOutput('''mkdir -p '''+dq_path)
+#== find user's username
 user = str(GetCommandOutput('echo $USER')[0])
 user = user.replace('\n','')
-dqFolder='cbc_dq_week_'+date[0]
-dqPath=homepath+'/'+publicFolder+'/'+dqFolder
-mkdirStatus=GetCommandOutput('''mkdir -p '''+dqPath)
-webURL=webURL+'~'+user
-webPath=webURL+'/'+dqFolder
+#== set up web-readable path for linked output
+web_url=web_url+'~'+user
+web_path=web_url+'/'+dq_folder
+
+if options.output_file == None:
+  options.output_file = dq_path+'/cbc_dq_page.txt'
+output = open(options.output_file,'w')
+
+if options.output_file.find(public_folder)!=-1:
+  output_file = options.output_file.split(public_folder)[-1]
+  options.output_file = web_url+output_file
+
+if verbose:
+  print >>sys.stdout, "Opening output file: "
+  print >>sys.stdout
+  print >>sys.stdout, options.output_file
+  print >>sys.stdout
 
 # ==========
 # Calculate science time
 # ==========
-gw_channel = {'H1':'H1:DMT-SCIENCE:1','L1':'L1:DMT-SCIENCE:1','V1':'V1:ITF-SCIENCEMODE:1'}
-science_time = [0]*len(ifo)
-analysable_time = [0]*len(ifo)
-temp_segment_data=[0]*2
-segment_data=[0]*len(ifo)
 if options.skip_science_time is False:
-  for i in range(0,len(ifo)):
-    segment_xml = dqPath+'''/'''+ifo[i]+'''-science_segments.xml'''
-    segment_query_command = '''ligolw_segment_query -q -t https://segdb.ligo.caltech.edu -a '''+gw_channel[ifo[i]]+''' -s '''+str(GPSstart)+''' -e '''+str(GPSend)+''' -o '''+segment_xml
-    segment_status = GetCommandOutput(segment_query_command)[1]
-    if segment_status==0:
-      temp_segment_list = dqPath+'''/'''+ifo[i]+'''-temp_segment.txt'''
-      cat_segments_command = '''ligolw_print '''+segment_xml+''' --table segment --column start_time --column end_time --delimiter " " > '''+temp_segment_list
-      GetCommandOutput(cat_segments_command)
-      number_segments_command = "wc -l < "+temp_segment_list
-      number_segments = GetCommandOutput(number_segments_command)[0]
-      number_segments = number_segments.replace('\n','')
-      number_segments = int(number_segments)
-      if number_segments!=0:
-        segment_length=[0]*number_segments
-        segment_data_temp = numpy.loadtxt(temp_segment_list,delimiter=' ')
-        temp_segment_data[0] = ([int(column[0]) for column in segment_data_temp])
-        temp_segment_data[1] = ([int(column[1]) for column in segment_data_temp])
-      else:
-        temp_segment_data[0] = [0]
-        temp_segment_data[1] = [0]
-      segment_data[i]=np.array(temp_segment_data)
-      for j in range(0,number_segments):
-        segment_length[j] = segment_data[i][1,j]-segment_data[i][0,j]
-        science_time[i]+=segment_length[j]
-        if segment_length[j] > 2048:
-          analysable_time[i]+=segment_length[j]
-      if options.segment_histogram is True:
-        hist(segment_length,bins=100,histtype='bar',log=True,facecolor=ifo_color[i])
-    else:
-      raise Exception, "ligolw_segment_query has failed."
-  if segment_status==0 and options.segment_histogram is True:
-    save_name = dqPath+'/segment_histogram.png'
-    print >>output, "Saving "+save_name
-    savefig(save_name)
+  if verbose:
+    print >>sys.stdout, \
+        "Querying segment databse, and calculating duty cycle..."
+  
+  segment_data={}
+  science_time={}
+  analysable_time={}
+  for ifo in ifos:
+    science_time[ifo] = 0
+    analysable_time[ifo] = 0
+    #== generate segment list for each ifo
+    segment_data[ifo] = segment_grab(ifo,gps_start,gps_end,dq_path)
+    if segment_data[ifo] != None:
+      for segment_length in segment_data[ifo][:,2]:
+        if segment_length == None:  continue
+        #== calculate science time for each ifo
+        science_time[ifo]+=segment_length
+        if segment_length > 2048:
+          #== calculate CBC analysable time for each ifo
+          analysable_time[ifo]+=segment_length
 
+  #== parse single-IFO segments to construct double/triple time segments
   if double_coinc is True:
-    double_coinc_data=[0]*len(double_coinc_ifos)
-    double_coinc_science_time=[0]*len(double_coinc_ifos)
-    double_coinc_analysable_time=[0]*len(double_coinc_ifos)
-    for i in range(0,len(double_coinc_ifos)):
-      ifo_1=double_coinc_ifos[i][0:2]
-      ifo_2=double_coinc_ifos[i][2:4]
-      ifo_index_1 = ifo.index(ifo_1)
-      ifo_index_2 = ifo.index(ifo_2)
-      double_coinc_data[i] = double_coinc_parse(segment_data[ifo_index_1],segment_data[ifo_index_2])[0]
-      if double_coinc_data[i] != None:
-        double_coinc_segment_length=double_coinc_data[i][:,1]-double_coinc_data[i][:,0]
-        double_coinc_science_time[i]=double_coinc_segment_length.sum()
-        for segment in double_coinc_segment_length:
-          if segment >= 2048:
-            double_coinc_analysable_time[i]+=segment
-      else:
-        double_coinc_segment_length=0
-        double_coinc_science_time[i]=0
+    if verbose:  print >>sys.stdout, "  Calculating double coincident time..."
+    double_coinc_data={}
+    double_time={}
+    double_analysable_time={}
+    #== for each double-IFO pair, work out indices in ifo lists and parse
+    # segment data lists for coincident segments
+    for double in double_ifos:
+      double_time[double] = 0
+      double_analysable_time[double] = 0
+      ifo_1 = double[0:2]
+      ifo_2 = double[2:4]
+
+      double_coinc_data[double] = \
+          double_coinc_parse(segment_data[ifo_1],segment_data[ifo_2])[0]
+      if double_coinc_data[double] != None:
+        for segment_length in double_coinc_data[double][:,2]:
+          if segment_length == None:  continue
+          double_time[double]+=segment_length
+          if segment_length >= 2048:
+            double_analysable_time[double]+=segment_length
+
+    #== generate triple-IFO segments from double-IFO segments
     if triple_coinc is True:
-      triple_coinc_data=[0]*len(triple_coinc_ifos)
-      triple_coinc_science_time=[0]*len(triple_coinc_ifos)
-      triple_coinc_analysable_time=[0]*len(triple_coinc_ifos)
-      for i in range(0,len(triple_coinc_ifos)):
-        ifo_1=triple_coinc_ifos[i][0:2]
-        ifo_2=triple_coinc_ifos[i][2:4]
-        ifo_3=triple_coinc_ifos[i][4:6]
-        ifo_index_1 = ifo.index(ifo_1)
-        ifo_index_2 = ifo.index(ifo_2)
-        ifo_index_3 = ifo.index(ifo_3)
-        triple_coinc_data[i] = double_coinc_parse(double_coinc_parse(segment_data[ifo_index_1],segment_data[ifo_index_2])[0],segment_data[ifo_index_3])[0]
+      if verbose:  print >>sys.stdout, "  Calculating triple coincident time..."
+      triple_coinc_data = {}
+      triple_time = {}
+      triple_analysable_time = {}
+      for triple in triple_ifos:
+        triple_time[triple] = 0
+        triple_analysable_time[triple] = 0
+
+        ifo_1=triple[0:2]
+        ifo_2=triple[2:4]
+        ifo_3=triple[4:6]
+
+        triple_coinc_data[triple] = \
+            double_coinc_parse(double_coinc_parse(segment_data[ifo_1],\
+                                                  segment_data[ifo_2])[0],\
+                                                  segment_data[ifo_3])[0]
         if triple_coinc is True:
-          triple_coinc_segment_length=triple_coinc_data[i][:,1]-triple_coinc_data[i][:,0]
-          triple_coinc_science_time[i]=triple_coinc_segment_length.sum()
-          for segment in triple_coinc_segment_length:
-            if segment >= 2048:
-             triple_coinc_analysable_time[i]+=segment
-        else:
-          triple_coinc_segment_length=0
-          triple_coinc_science_time[i]=0
-    for i in range(0,len(double_coinc_ifos)):
-      if triple_coinc is True:
-        for j in range(0,len(triple_coinc_ifos)):
-          double_coinc_data[i] = double_coinc_triple_parse(double_coinc_data[i],triple_coinc_data[j])[0]
-        double_coinc_segment_length=double_coinc_data[i][:,1]-double_coinc_data[i][:,0]
-        double_coinc_science_time[i]=double_coinc_segment_length.sum()
-        for segment in double_coinc_segment_length:
-          if segment >= 2048:
-            double_coinc_analysable_time[i]+=segment
+          for segment_length in triple_coinc_segment_length[triple][:,2]:
+            if segment_length == None:  continue
+            triple_time[triple]+=segment_length
+            if segment_length >= 2048:
+             triple_analysable_time[triple]+=segment_length
+
+    #== remove triple-IFO segments from double-IFO segments
+      if verbose:
+        print >>sys.stdout, "  Removing triple time from double time..."
+      double_time = {}
+      double_analysable_time = {}
+      for double in double_ifos:
+        double_time[double] = 0
+        double_analysable_time[double] = 0
+        for triple in triple_ifos:
+          double_coinc_data[double] = double_coinc_triple_parse(\
+              double_coinc_data[double],triple_coinc_data[triple])[0]
+          for segment_length in double_coinc_data[double][:,2]:
+            if segment_length == None:  continue
+            double_time[double]+=segment_length
+            if segment_length >= 2048:
+              double_analysable_time[double]+=segment_length
 
 # ==========
 # HEADER
 # ==========
-print >>output, "= S6C Data Quality Checks for "+str(GPSstart)+" - "+str(GPSend)+" ="
+if verbose:  print >>sys.stdout, "Writing header..."
+print >>output, "= S6C Data Quality Checks for "+str(gps_start)+" - "+str(gps_end)+" ="
 print >>output 
 print >>output, "<<TableOfContents(3)>>"
 
+output.flush()
+# ==========
+# SUMMARY
+# ==========
+if verbose:  print >>sys.stdout, "Writing summary information..."
+print >>output, "== Summary Information =="
+print >>output, "'''Start Time:''' "+date_start+", "+str(gps_start)+". '''End Time:''' "+date_end+", "+str(gps_end)
+print >>output
+if options.skip_science_time is False:
+  print >>output, "'''Live time statistics:'''"
+  print >>output, '||<tablewidth="100%" style="width: 9%;" rowbgcolor="#ffffcc">IFO||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||'
+  for ifo in ifos:
+    science_percentage = round((science_time[ifo]/duration*100),2)
+    science_days = round((science_time[ifo]/86400),2)
+    analysable_percentage = round((analysable_time[ifo]/duration*100),2)
+    analysable_days = round((analysable_time[ifo]/86400),2)
+    print >>output, "||"+ifo+"||"+str(science_percentage)+\
+        "||"+str(science_time[ifo])+" ("+str(science_days)+")|| "+\
+        "||"+str(analysable_percentage)+\
+        "||"+str(analysable_time[ifo])+" ("+str(analysable_days)+")||"
+  print >>output
+  if double_coinc is True:
+    print >>output, "'''Coincidence time statistics:'''"
+    print >>output, '||<tablewidth="100%" style="width: 9%;" rowbgcolor="#ffffcc">IFOs||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||'
+    for double in double_ifos:
+      #== calculate double science statistics
+      science_percentage = round((double_time[double]/duration*100),2)
+      science_days = round((double_time[double]/86400),2)
+      analysable_percentage = \
+          round((double_analysable_time[double]/float(duration)*100),2)
+      analysable_days = round((double_analysable_time[double]/86400),2)
+
+      print >>output, "||!"+double+"||"+str(science_percentage)+\
+          "||"+str(double_time[double])+\
+          " ("+str(science_days)+")|| ||"+str(analysable_percentage)+\
+          "||"+str(double_analysable_time[double])+\
+          " ("+str(analysable_days)+")||"
+
+  if triple_coinc is True:
+    for triple in triple_ifos:
+      #== calculate triple science statistics
+      science_percentage = round((triple_time[triple]/duration*100),2)
+      science_days = round((triple_time[triple]/86400),2)
+      analysable_percentage = \
+          round((triple_analysable_time[triple]/duration*100),2)
+      analysable_days = round((triple_analysable_time[triple]/86400),2)
+
+      print >>output, "||!"+triple+"||"+str(science_percentage)+\
+          "||"+str(triple_time[triple])+\
+          " ("+str(science_days)+")|| ||"+str(analysable_percentage)+\
+          "||"+str(triple_analysable_time[triple])+\
+          " ("+str(analysable_days)+")||"
+
+output.flush()
 # ==========
 # Generate plot of inspiral range for week
 # ==========
 if options.skip_range_plot is False:
-  maxVal=0
-  figure(figsize=[10,6])
-  for j in range(0,len(ifo)):
-    rangePlotFile = dqPath+'/'+ifo[j]+'-inspiral_range.txt'
-    GetCommandOutput('rm -f '+rangePlotFile)
-    GetCommandOutput('touch '+rangePlotFile)
-    for i in range(0,numDays):
-      rangeFilesCommand = '''for line in `ls /archive/home/cbc/ihope_daily/'''+year[i]+month[i]+'''/'''+year[i]+month[i]+day[i]+'''/'''+ifo[j]+'''-INSPIRAL_UNCLUSTERED-*gz`; do ligolw_print -t summ_value -c start_time -c end_time -c name -c value $line | grep inspiral_effective_distance | awk 'NR==1 {print }' | cut -f1,2,4 -d, >> '''+rangePlotFile+'''; done;'''
-      GetCommandOutput(rangeFilesCommand)
-    number_of_inspiral_points = int(GetCommandOutput('wc -l < '+rangePlotFile)[0].replace('\n',''))
-    if number_of_inspiral_points > 0:
-      plotdata=numpy.loadtxt(rangePlotFile,delimiter=',')
-      starttimes=asarray([float(column[0]) for column in plotdata])
-      endtimes=asarray([float(column[1]) for column in plotdata])
-      insprange=asarray([float(column[2]) for column in plotdata])
-      time=((endtimes+starttimes)/2 - GPSstart)/86400
-      plot(time,insprange,ifo_color_point[j])
-      if max(insprange) > maxVal:
-        maxVal=max(insprange)
-  xlim(0,numDays)
-  ylim(0,maxVal*1.1)
-  xlabel('Time (days since '+DateStart+')')
-  ylabel('Effective inspiral range (Mpc)')
-  title('Effective inspiral range for period '+str(GPSstart)+'-'+str(GPSend))
-  save_name = dqPath+'/inspiral_range.png'
-  savefig(save_name)
+  if verbose:  print >>sys.stdout, "Generating inspiral range plot..."
+  #== set range plot paths
+  plot_name = ''
+  for ifo in ifos:  plot_name+=ifo
+  plot_name+='-inspiral_range_'+str(gps_start)+'-'+str(duration)+'.png'
+  plot_url = web_path+'/'+plot_name
+  plot_file = dq_path+'/'+plot_name
+  #== generate range plot
+  make_plot=1
+  if os.path.exists(plot_file):
+    if verbose:
+      plot_ans = \
+          raw_input("  Plot \n    "+plot_file+"\n  already exists! Do you wish to remake it (y/n)? ")
+      if plot_ans.lower() == ('y' or 'yes'):
+        make_plot=1
+      else:
+        make_plot=0
+        print >>sys.stdout, "  Plot generation skipped."
+  if make_plot == 1:
+    daily_paths=[]
+    for day in gps_days:  daily_paths.append(ihope_daily_path[day])
+    plot_insp_effective_distance\
+        (daily_paths,ifos,plot_file,gps_start,gps_end)
 
-# ==========
-# SUMMARY
-# ==========
-print >>output, "== Summary Information =="
-print >>output, "\'\'\'Start Time:\'\'\' "+DateStart+", "+str(GPSstart)+". \'\'\'End Time:\'\'\' "+DateEnd+", "+str(GPSend)
-print >>output
-if options.skip_science_time is False:
-  print >>output, "Live time statistics:"
-  print >>output, "||IFO||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||"
-  for i in range(0,len(ifo)):
-    science_percentage = round(float(float(science_time[i])/float(GPSlength)*100),2)
-    science_days = round(float(float(science_time[i])/86400),2)
-    analysable_percentage = round(float(float(analysable_time[i])/float(GPSlength)*100),2)
-    analysable_days = round(float(float(analysable_time[i])/86400),2)
-    print >>output, "||"+ifo[i]+"||"+str(science_percentage)+"||"+str(science_time[i])+" ("+str(science_days)+")|| ||"+str(analysable_percentage)+"||"+str(analysable_time[i])+" ("+str(analysable_days)+")||"
+  print >>output, "'''Inspiral Range:'''"
   print >>output
-  if double_coinc is True:
-    print >>output, "Coincidence time statistics:"
-    print >>output, "||IFOs||Science time %||Science time in seconds (days)|| ||Analysable time %||Analysable time in seconds (days)||"
-    for i in range(0,len(double_coinc_ifos)):
-      science_percentage = round(float(float(double_coinc_science_time[i])/float(GPSlength)*100),2)
-      science_days = round(float(float(double_coinc_science_time[i])/86400),2)
-      analysable_percentage = round(float(float(double_coinc_analysable_time[i])/float(GPSlength)*100),2)
-      analysable_days = round(float(float(double_coinc_analysable_time[i])/86400),2)
-      print >>output, "||!"+double_coinc_ifos[i]+"||"+str(science_percentage)+"||"+str(double_coinc_science_time[i])+" ("+str(science_days)+")|| ||"+str(analysable_percentage)+"||"+str(double_coinc_analysable_time[i])+" ("+str(analysable_days)+")||"
-  if triple_coinc is True:
-    for i in range(0,len(triple_coinc_ifos)):
-      science_percentage = round(float(float(triple_coinc_science_time[i])/float(GPSlength)*100),2)
-      science_days = round(float(float(triple_coinc_science_time[i])/86400),2)
-      analysable_percentage = round(float(float(triple_coinc_analysable_time[i])/float(GPSlength)*100),2)
-      analysable_days = round(float(float(triple_coinc_analysable_time[i])/86400),2)
-      print >>output, "||!"+triple_coinc_ifos[i]+"||"+str(science_percentage)+"||"+str(triple_coinc_science_time[i])+" ("+str(science_days)+")|| ||"+str(analysable_percentage)+"||"+str(triple_coinc_analysable_time[i])+" ("+str(analysable_days)+")||"
-
-if options.skip_range_plot is False:
-  print >>output, "Inspiral Range:"
+  print >>output, '[['+plot_url+'|{{'+plot_url+'||width=500}}]]'
   print >>output
-  print >>output, '[['+webPath+'/inspiral_range.png|{{'+webPath+'/inspiral_range.png||width=500}}]]'
-  print >>output
+  if verbose and make_plot==1:
+    print >>sys.stdout, "  Inspiral range plot written to"
+    print >>sys.stdout, "    "+plot_url
 print >>output, "[[#top|Back to top]]"
+
+output.flush()
 # ==========
 # Scimon DQ flags
 # ==========
-
 if options.username != None:
+  if verbose:  print >>sys.stdout, "Querying for Scimon DQ flags..."
   print >>output, "== Scimon DQ Flags =="
   print >>output, "{{{"
-  print >>output, '''curl -k -s --user albert.einstein:<password> https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= GPSstart && $1 < GPSend) || ( $2 >= GPSstart && $2 < GPSend ) || ( $1 < GPSstart && $2 > GPSend DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
+  print >>output, '''curl -k -s --user albert.einstein:<password> '''+\
+      '''https://segdb.ligo.caltech.edu/seginsert/listflags.php | '''+\
+      '''ligolw_print -d QQQ -t segment_summary -c start_time -c end_time '''+\
+      '''-c ifos -c scimon_comment -c elog_url  | '''+\
+      '''awk -F 'QQQ' '($1 >= '''+gps_start+''' && $1 < '''+gps_end+''') '''+\
+      '''|| ( $2 >= '''+gps_start+''' && $2 < '''+gps_end+''' ) '''+\
+      '''|| ( $1 < '''+gps_start+''' && $2 > '''+gps_end+''' DDD) '''+\
+      '''{ printf "||%s||%s||%s||%s||%s||[[%s|ilog]]||\\n", '''+\
+      '''$3,$1,$2,$2-$1,$4,$5 }' '''
   print >>output, "}}}"
-  scimonFlagCommand = '''curl -k -s --user '''+options.username+''':'''+password+''' https://segdb.ligo.caltech.edu/seginsert/listflags.php | ligolw_print -d QQQ -t segment_summary -c start_time -c end_time -c ifos -c scimon_comment -c elog_url  | awk -F 'QQQ' '($1 >= '''+str(GPSstart)+''' && $1 < '''+str(GPSend)+''') || ( $2 >= '''+str(GPSstart)+''' && $2 < '''+str(GPSend)+''' ) || ( $1 < '''+str(GPSstart)+''' && $2 > '''+str(GPSend)+''' DDD) { printf "||%s||%s||%s||%s||%s||[[%s|elog]]||\\n", $3,$1,$2,$2-$1,$4,$5 }' '''
+  scimonFlagCommand = '''curl -k -s --user '''+\
+      options.username+''':'''+password+\
+      ''' https://segdb.ligo.caltech.edu/seginsert/listflags.php | '''+\
+      '''ligolw_print -d QQQ -t segment_summary -c start_time -c end_time '''+\
+      '''-c ifos -c scimon_comment -c elog_url  | '''+\
+      '''awk -F 'QQQ' '''+\
+      ''''($1 >= '''+str(gps_start)+''' && $1 < '''+str(gps_end)+''') || '''+\
+      '''( $2 >= '''+str(gps_start)+''' && $2 < '''+str(gps_end)+''' ) || '''+\
+      '''( $1 < '''+str(gps_start)+''' && $2 > '''+str(gps_end)+''' DDD) '''+\
+      '''{ printf "||%s||%s||%s||%s||%s||[[%s|ilog]]||\\n", '''+\
+      '''$3,$1,$2,$2-$1,$4,$5 }' '''
   scimonFlags,status = GetCommandOutput(scimonFlagCommand)
+
   if scimonFlags=="":
     print >>output, "No scimon flags were generated for this period."
   else:
     print >>output, "The following scimon flags were generated this period:"
-    print >>output, "||IFO||Start time||End time||Duration||Notes||Ilog link||"
+    print >>output, '||<rowbgcolor="#ffffcc">IFO||Start time||End time||<style="width: 99%;">Duration||Notes||link||'
     print >>output, scimonFlags
 
   print >>output
@@ -555,265 +668,402 @@ if options.username != None:
 # ==========
 # Common DQ Flags
 # ==========
-
 if options.skip_dq_flags is False:
-  commonDQtag = 'common_dq_flag'
-  commonDQpath = dqPath+'/'+commonDQtag+'/'
-  mkdirCommand = 'mkdir -p '+commonDQpath
-  mkdirStatus = GetCommandOutput(mkdirCommand)[1]
-  commonDQwebPath = webPath+'/'+commonDQtag+'/'
-  commonDQfilename = ['']*len(ifo)
-  commonDQfile=['']*len(ifo)
-  commonDQcommand=['lalapps_flag_triggers ']*len(ifo)
-  commonDQflags = ['']*len(ifo)
-  skippedDays=['']*len(ifo)
-  for i in range(0,len(ifo)):
-    commonDQfilename[i] = commonDQtag+'_'+str(ifo[i])+'-'+str(GPSstart)+'-'+str(GPSlength)+'.txt'
-    commonDQfile[i]=commonDQpath+commonDQfilename[i]
-    f = open(commonDQfile[i],'w')
-    commonDQcommand[i]+=ifo[i]+''' '''+str(options.cat_level)+''' '''+str(options.snr_threshold)+''' '''
-    for j in range(0,len(ihopePath)):
-      lsCheck = 'ls '+ihopePath[j]+'H1-'+str(options.cat_level)+'-INSPIRAL_16SEC_CLUSTERED.csv'
-      status = GetCommandOutput(lsCheck)[1]
-      if status == 0:
-        commonDQcommand[i]+=ihopePath[j]+''' '''
+  if verbose:
+    print >>sys.stdout, \
+        "Generating lists of common DQ flags (from lalapps_flag_triggers)..."
+  common_dq_tag = 'common_dq_flag'
+  common_dq_path = dq_path+'/'+common_dq_tag
+  mkdir_cmd = 'mkdir -p '+common_dq_path
+  mkdir_status = GetCommandOutput(mkdir_cmd)[1]
+  common_dq_web_path = web_path+'/'+common_dq_tag
+  common_dq_filename = {}
+  common_dq_file={}
+  common_dq_cmd={}
+  common_dq_flags = {}
+  skipped_days = {}
+  for ifo in ifos:
+    skipped_days[ifo] = ''
+    common_dq_filename[ifo] = ifo+'-'+common_dq_tag+'_'+\
+        str(gps_start)+'-'+str(duration)+'.txt'
+    common_dq_file[ifo]=common_dq_path+'/'+common_dq_filename[ifo]
+    f = open(common_dq_file[ifo],'w')
+    common_dq_cmd[ifo] = 'lalapps_flag_triggers '+ifo+\
+        ' '+str(options.cat_level)+' '+str(options.snr_threshold)+' '
+    for day in gps_days:
+      ls_cmd = 'ls '+ihope_daily_path[day]+'/'+\
+          'H1-'+str(options.cat_level)+'-INSPIRAL_16SEC_CLUSTERED.csv'
+      ls_status = GetCommandOutput(ls_cmd)[1]
+      if ls_status == 0:
+        common_dq_cmd[ifo]+=ihope_daily_path[day]+' '
       else:
-        skippedDays[i]+=''' '''+date[j]+''' '''
-    commonDQflags[i],status=GetCommandOutput(commonDQcommand[i])
+        skipped_days[ifo]+=' '+date[day]+' '
+    common_dq_flags[ifo],status=GetCommandOutput(common_dq_cmd[ifo])
     if status==0:
-      f.write(commonDQflags[i])
+      f.write(common_dq_flags[ifo])
     else:
-      f.write("Command:\n "+commonDQcommand[i])
+      f.write("Command:\n "+common_dq_cmd[ifo])
       f.write("\nfailed, please rerun.")
     f.close()
   print >>output, "== Common DQ Flags =="
   print >>output, "{{{"
-  print >>output, "lalapps_flag_triggers $IFO $SNR_THRESHOLD $DAILY_DIRECTORIES" 
+  print >>output, \
+      "lalapps_flag_triggers ${IFO} ${SNR_THRESHOLD} ${DAILY_DIRECTORIES}" 
   print >>output, "}}}"
-  for i in range(0,len(ifo)):
-    print >>output, "===== "+ifo[i]+" ====="
+  for ifo in ifos:
+    print >>output, "===== "+ifo+" ====="
     print >>output
-    print >>output, "The output of the above command for "+ifo[i]+" with Category "+str(options.cat_level)+" vetoes applied, and an SNR threshold of "+str(options.snr_threshold)+" can be found [["+commonDQwebPath+commonDQfilename[i]+"|here]]."
-    if skippedDays[i] != '':
-      print >>output, "The following days were not analysed due to a lack of data:"
-      print >>output, "  "+skippedDays[i]
+    print >>output, "A list of common data quality flags for "+ifo+\
+        " after category "+str(options.cat_level)+\
+        " vetoes applied, on triggers with SNR > "+str(options.snr_threshold)+\
+        " can be found [["+common_dq_web_path+'/'+common_dq_filename[ifo]+"|here]]."
+    if skipped_days[ifo] != '':
+      print >>output, \
+          "The following days were not analysed due to a lack of data:"
+      print >>output, "  "+skipped_days[ifo]
+  print >>output
+  print >>output, "[[#top|Back to top]]"
+
+output.flush()
+# ==========
+# DQ stats
+# ==========
+if options.skip_dq_stats is False:
+  if verbose:  print >>sys.stdout, "Generating DQ flag statistics..."
+  dq_stats_tag = 'cbc_dq_stats'
+  dq_stats_path = dq_path+'/'+dq_stats_tag
+  mkdir_cmd = 'mkdir -p '+dq_stats_path
+  GetCommandOutput(mkdir_cmd)
+  dq_stats_web_path = web_path+'/'+dq_stats_tag
+  dq_stats_script = '/archive/home/cavaglia/S6c_daily_week_current/DQweekrun.sh'
+  dq_stats_status = {}
+  for ifo in ifos:
+    if verbose:  print >>sys.stdout, "  Generating "+ifo+" statistics..."
+    dq_stats_args = ' --ifo='+ifo+\
+        ' --igps='+str(gps_start)+' --egps='+str(gps_end)+\
+        ' --outputdir='+dq_stats_path
+    dq_stats_status[ifo] = GetCommandOutput(dq_stats_script+dq_stats_args)[1]
+   
+  dq_stats_url={}
+  for ifo in ifos:
+    dq_stats_url[ifo] = (dq_stats_web_path+'/S6c_'+str(gps_start)+\
+        '-'+str(gps_end)+'-'+ifo)
+ 
+  print >>output, "== Veto Flag Statistics =="
+  print >>output, "{{{"
+  print >>output, "/archive/home/cavaglia/S6c_daily_week_current/DQweekrun.sh"+\
+      " --ifo=${IFO} --igps=${GPSSTART} --egps=${GPSEND}"+\
+      " --outputdir=${OUTPUT_DIR}"
+  print >>output, "}}}"
+  print >>output, "The CBC Veto Definer file contains the details of all "+\
+      "veto flags and times to be used in the analysis. "+\
+      "The contents of the veto definer file have been analysed for both raw vetoes and vetoes including the required padding. This analysis is summarised in the following histograms:"
+  print >>output, "||",
+  for ifo in ifos:
+    if dq_stats_status[ifo]==0:  print >>output, ifo+"||",
+  print >>output
+  print >>output, "||",
+  for ifo in ifos:
+    if dq_stats_status[ifo]==0:
+      print >> output, "[["+dq_stats_url[ifo]+"/histogram_plots"+\
+          "/hist_novetoed_padded_clustered_"+ifo+"_cat1234.jpg|"+\
+          "{{"+dq_stats_url[ifo]+"/histogram_plots"+\
+          "/hist_novetoed_padded_clustered_"+ifo+"_cat1234.jpg||"+\
+          "width=200}}]]||",
+  print >>output
+
+  print >>output, "The statistics of flag use percentage, "+\
+      "and dead time can be found in the following links:"
+
+  dq_stats_thresholds = [8,12,20,100]
+  dq_stats_types=['Unpadded','Padded']
+  dq_stats_tag={'Unpadded':'UNPD','Padded':'PD'}
+  print >>output, '||<rowbgcolor="#ffffcc">Threshold||',
+  for ifo in ifos:
+    print >>output, "||"+ifo+"||",
+  print >>output
+  print >>output, "|| ||",
+  for ifo in ifos:
+    for dq_stats_type in dq_stats_types:
+      print >>output, dq_stats_type+"||",
+  print >>output
+  for threshold in dq_stats_thresholds:
+    print >>output, "||"+str(threshold)+"||",
+    for ifo in ifos:
+      if dq_stats_status[ifo]==0:
+        for dq_stats_type in dq_stats_types:
+          print >>output, "[["+dq_stats_url[ifo]+\
+              "/DQ_tables/DQflagsinfo_"+dq_stats_tag[dq_stats_type]+"_"+\
+              ifo+"-"+str(threshold)+".html|link]]||",
+      else:
+        print >>output, "run error"
+    print >>output
+
   print >>output
   print >>output, "[[#top|Back to top]]"
 
 # ==========
 # UPV
 # ==========
-
-if dayOfWeek[0] != "Sat":
-  UPVstart = [0]*(numWeeks+2)
-  UPVstartDate = ['']*(len(UPVstart))
-  for i in range(0,numDays):
-    if dayOfWeek[i] == "Sat":
-      UPVstart[int(i/7)] = GPSday[i]-604800
-      UPVstartDate[int(i/7)] = str(GetCommandOutput('''tconvert '''+str(UPVstart[int(i/7)])+''' -f %Y%m%d''')[0])
-      UPVstartDate[int(i/7)] = UPVstartDate[int(i/7)].replace('\n','')
-      UPVstart[int(i/7)+1] = GPSday[i]
-      UPVstartDate[int(i/7)+1] = str(GetCommandOutput('''tconvert '''+str(UPVstart[int(i/7)+1])+''' -f %Y%m%d''')[0])
-      UPVstartDate[int(i/7)+1] = UPVstartDate[int(i/7)+1].replace('\n','')
-  UPVstart[-1] = UPVstart[-2]+604800
-  UPVlink = ['']*(len(ifo)*(numWeeks+1))
-else:
-  UPVstart = [0]*(numWeeks+1)
-  UPVstartDate = [0]*(len(UPVstart))
-  for i in range(0,numDays):
-    if dayOfWeek[i] == "Sat":
-      UPVstart[int(i/7)] = GPSday[i]
-      UPVstartDate[int(i/7)] = str(GetCommandOutput('''tconvert '''+str(UPVstart[int(i/7)])+''' -f %Y%m%d''')[0])
-      UPVstartDate[int(i/7)] = UPVstartDate[int(i/7)].replace('\n','')
-  UPVstart[-1]=UPVstart[-2]+604800
-  UPVlink = ['']*(len(ifo)*(numWeeks))
-
 print >>output, "== Used Percentage Veto =="
-print >>output, "The UPV studies run weekly starting on Saturdays. The results for this period can be found at the following locations:",
+print >>output, "The UPV studies run weekly starting on Saturdays. "+\
+    "The results for this period can be found at the following locations:",
 
-for i in range(0,len(UPVstart)-1):
-  for j in range(0,len(ifo)):
-    if ifo[j]=="H1" or ifo[j]=="L1":
-      UPVlink[len(ifo)*i+j]="https://ldas-jobs.ligo"+site[j]+\
-          ".caltech.edu/~detchar/S6/UPV/weekly/"+ifo[j]+\
-          "_DARMERR_"+str(UPVstart[i])+"_"\
-          +str(UPVstart[i+1])+"_WEEKLY_webpage/"
-    elif ifo[j]=="V1":
-      UPVlink[len(ifo)*i+j]="https://ldas-jobs.ligo"+site[j]+\
+if verbose:  print >>sys.stdout, "Writing UPV links..."
+for saturday in saturdays:
+  upv_start = saturday
+  upv_stop = saturday+604800
+  upv_start_date = str(GetCommandOutput('tconvert '+str(upv_start)+\
+      ' -f %Y%m%d')[0])
+  upv_start_date = upv_start_date.replace('\n','')
+
+  for ifo in ifos:
+    if ifo in ligo_ifos:
+      upv_link = "https://ldas-jobs.ligo"+site[ifo]+\
+          ".caltech.edu/~detchar/S6/UPV/weekly/"+ifo+\
+          "_DARMERR_"+str(upv_start)+"_"\
+          +str(upv_stop)+"_WEEKLY_webpage/"
+    elif ifo == 'V1':
+      upv_link = "https://ldas-jobs.ligo"+site[ifo]+\
           ".caltech.edu/~detchar/S6/UPV/weekly/V1_PR_B1_ACP_"\
-          +str(UPVstart[i])+"_"+str(UPVstart[i+1])+"_webpage/"
-    print >>output, "[["+UPVlink[len(ifo)*i+j]+"|"+ifo[j]+" "+UPVstartDate[i]+"]], ",
-print >>output, "and all other information on UPV can be found, [[https://ldas-jobs.ligo.caltech.edu/~detchar/S6/UPV/calendar/main.html|here]]."
+          +str(upv_start)+"_"+str(upv_stop)+"_webpage/"
+        
+    print >>output, "[["+upv_link+"|"+ifo+" "+upv_start_date+"]], ",
+print >>output, "and all other information on UPV can be found, "+\
+    "[[https://ldas-jobs.ligo.caltech.edu/~detchar/S6/UPV/calendar/main.html|"+\
+    "here]]."
 print >>output
 print >>output, "[[#top|Back to top]]"
 
+output.flush()
 # ==========
 # Glitch Shifts
 # ==========
-
-if len(ligo_ifo)>0:
-  numWeeks = int(round(numDays/7))
+if (set(ifos)&set(ligo_ifos))!=set([]):
+  if verbose:  print >>sys.stdout, "Writing Glitch Shift links..."
   print >>output, "== Glitch Shifts =="
-  if numWeeks > 1:
-    print >>output, "The glitch shifts for these "+str(numWeeks)+" weeks can be found here:",
+  if len(saturdays) > 1:
+    print >>output, "The glitch shifts for these "+str(len(saturdays))+" \
+weeks can be found here:",
   else:
     print >>output, "The glitch shifts for this period can be found here:",
-  if dayOfWeek[0] != "Sat":
-    glitchDate=['']*(numWeeks+1)
-    for i in range(0,numDays):
-      if dayOfWeek[i] == "Sat":
-        glitchDate[int(i/7)] = str(GetCommandOutput('''tconvert '''+str(GPSday[i])+'''-604800 -f %Y%m%d''')[0])
-        glitchDate[int(i/7)]=glitchDate[int(i/7)].replace("\n","")
-        glitchDate[int(i/7)+1] = date[i]
-    for i in range(0,len(glitchDate)):
-      for j in range(0,len(ligo_ifo)):
-        glitchLink="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchWeek-"+ligo_ifo[j]+"-"+glitchDate[i]
-        print >>output, " [["+glitchLink+"|"+site_name[j]+" "+glitchDate[i]+"]], ",
-    print >>output, "and all other glitch information can be found on the Glitch Studies page, [[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies|here]]."
-  else:
-    glitchLink=['']*len(ligo_ifo)*numWeeks
-    for i in range(0,numWeeks):
-      glitchDate = str(GetCommandOutput('''tconvert '''+str(GPSday[i*7])+''' -f %Y%m%d''')[0])
-      glitchDate=glitchDate.replace("\n","")
-      for j in range(0,len(ligo_ifo)):
-        glitchLink[i]="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchWeek"+ligo_ifo[j]+"-"+glitchDate
-        print >>output, " [["+glitchLink[i]+"|"+site_name[j]+" "+glitchDate+"]], ",
-        print >>output, "and all other glitch information can be found on the Glitch Studies page, [[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/DetChar/GlitchStudies|here]]."
+  for saturday in saturdays:
+    glitch_date = str(GetCommandOutput(\
+        '''tconvert '''+str(saturday)+''' -f %Y%m%d''')[0])
+    glitch_date = glitch_date.replace("\n","")
+    for ifo in ifos:
+      if ifo in ligo_ifos:
+        glitch_link="https://www.lsc-group.phys.uwm.edu/twiki/bin/view/"+\
+          "DetChar/GlitchWeek-"+ifo+"-"+glitch_date
+        print >>output, " [["+glitch_link+"|"+site_name[ifo]+" "+glitch_date+"]], ",
+  print >>output, "and all other glitch information can be found on the \
+      Glitch Studies page, "+\
+      "[[https://www.lsc-group.phys.uwm.edu/twiki/bin/view/"+\
+      "DetChar/GlitchStudies|here]]."
 
 print >>output
 print >>output, "[[#top|Back to top]]"
 
+output.flush()
 # ==========
 # HVeto
 # ==========
-
-hvetoGPSday=[0]*numDays
-hvetoURL=['']*2*len(ligo_ifo)
-hvetoIhopeURL=['']*2*len(ligo_ifo)
-winner=['']*2*len(ligo_ifo)
-hvetoIhopeWinner=['']*2*len(ligo_ifo)
-hvetoIhopeURLstart=webURL+'''/hveto_ihope/'''
-
-if options.skip_hveto_ihope is False or options.skip_hveto_kw is False:
+#== print entry info
+if not (options.skip_hveto_ihope) or not (options.skip_hveto_kw):
   print >>output, "== HVeto =="
+  hveto_types=['INST','PEM']
 
+#== display hveto ihope data
 if options.skip_hveto_ihope is False:
-  print >>output, "HVeto can be run on ihope triggers following the instructions [[https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/100131174312DQandVetoeshveto_ihope_daily|here]]. The results for this week are:\n"
-  for i in range(0,len(ligo_ifo)):
-    hvetoIhopeURL[len(ligo_ifo)*i] = hvetoIhopeURLstart+ligo_ifo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
-    hvetoIhopeURL[len(ligo_ifo)*i+1] = hvetoIhopeURLstart+ligo_ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/'''
-    if hostname == "ldas-pcdev1.ligo.caltech.edu" or hostname == 'ldas-grid.ligo.caltech.edu':
-      hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ligo_ifo[i]+'''-HVETO_iHope_INST-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-      command_output, status = GetCommandOutput(hvetoWinnerGrep)
-      if status == 0:
-        if command_output == "":
-          hvetoIhopeWinner[len(ligo_ifo)*i]='hveto error'
-        else:
-          hvetoIhopeWinner[len(ligo_ifo)*i]=str(command_output)
-          hvetoIhopeWinner[len(ligo_ifo)*i]=hvetoIhopeWinner[len(ligo_ifo)*i].replace("\n","")
-      else:
-        hvetoIhopeWinner[len(ligo_ifo)*i]='hveto error'
-      hvetoWinnerGrep = '''cat '''+homepath+'''/'''+publicFolder+'''/hveto_ihope/'''+ifo[i]+'''-HVETO_iHope_PEM-'''+str(GPSstart)+'''-'''+str(GPSlength)+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-      command_output,status = GetCommandOutput(hvetoWinnerGrep)
-      if status==0:
-        if command_output == "":
-          hvetoIhopeWinner[len(ligo_ifo)*i+1]='hveto error'
-        else:
-          hvetoIhopeWinner[len(ligo_ifo)*i+1]=str(command_output)
-          hvetoIhopeWinner[len(ligo_ifo)*i+1]=hvetoIhopeWinner[len(ligo_ifo)*i+1].replace("\n","")
-      else:
-        hvetoIhopeWinner[len(ligo_ifo)*i+1]='hveto error'
-    else:
-      hvetoIhopeWinner[len(ligo_ifo*i)]=hvetoIhopeWinner[len(ligo_ifo)*i+1]='copy winner from link'
-  print >>output, "||Date||",
-  for det in ligo_ifo:
-    print >>output, det+" INST winner||"+det+" PEM winner||",
+  hveto_ihope_web_path=web_url+'/hveto_ihope'
+  hveto_ihope_path = homepath+'/'+public_folder+'/hveto_ihope'
+  if verbose:  print >>sys.stdout, "Writing hveto_ihope results..."
+  print >>output, "HVeto can be run on ihope triggers following the "+\
+      "instructions "+\
+      "[[https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/S6Plan/"+\
+      "100131174312DQandVetoeshveto_ihope_daily|here]]. "+\
+      "The results for this week are:\n"
+  #== for each ligo IFO, set up space in table
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">'
+  for ifo in ifos:
+    if ifo in ligo_ifos:
+      for hveto_type in hveto_types:
+        print >>output, ifo+" "+hveto_type+" winner||",
   print >>output
-  print >>output, "||Full period||",
-  for k in range(0,len(hvetoIhopeWinner)):
-    print >>output, "[["+hvetoIhopeURL[k]+"|"+hvetoIhopeWinner[k]+"]]||",
-  print >>output
-  if hostname[-16:-1] != "ligo.caltech.ed":
-    print >>output, 'Achtung: This run was not performed on CIT, so the winning channels have not been linked automatically, please copy them from the results pages in the table. Please also check the links for the correct path. Delete this message when complete.'
-    print >>output
-if options.skip_hveto_kw is False:
-  hvetoKWpath = dqPath+'/hveto_summaries' 
-  mkdirCommand = 'mkdir -p '+hvetoKWpath
-  mkdirStatus=GetCommandOutput(mkdirCommand)[1]
-  winnerGrep='''cat '''+hvetoKWpath+'''/summary_stats.txt | awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
 
-  print >>output, "HVeto is run daily on the Kleine-Welle triggers. The results are:\n"
-  print >>output, "||Date||",
-  for det in ligo_ifo:
-    print >>output, det+" INST winner|| "+det+" PEM winner||",
+  #== for each ligo IFO grep the winning channel and link to page
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">'
+  for ifo in ifos: 
+    if ifo in ligo_ifos:
+      for hveto_type in hveto_types:
+        hveto_url = hveto_ihope_web_path+'/'+ifo+'-HVETO_iHope_'+hveto_type+\
+            '-'+str(gps_start)+'-'+str(duration)
+        hveto_winner_grep_cmd = '''cat '''+hveto_ihope_path+\
+            '''/'''+ifo+'''-HVETO_iHope_'''+hveto_type+'''-'''+str(gps_start)+\
+            '''-'''+str(duration)+'''/summary_stats.txt | '''+\
+            '''awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
+        grep_output, grep_status = GetCommandOutput(hveto_winner_grep_cmd)
+
+        if grep_status == 0:
+          if grep_output == "":
+            hveto_winner='hveto error'
+          else:
+            hveto_winner=str(grep_output).replace("\n","")
+        else:
+          hveto_winner='hveto error'
+        #== display results in table
+        print >>output, "[["+hveto_url+"|"+hveto_winner+"]]||",
   print >>output
-  for i in range(0,numDays):
-    hvetoGPSday[i]=GPSday[i]-15  
-    for j in range(0,len(ligo_ifo)):
-      hvetoURL[len(ligo_ifo)*j] = '''https://ldas-jobs.ligo'''+site[j]+'''.caltech.edu/~jrsmith/hveto/s6b/'''+ligo_ifo[j]+'''-HVETO_KW_INST-'''+str(hvetoGPSday[i])+'''-86400/'''
-      hvetoURL[len(ligo_ifo)*j+1] = '''https://ldas-jobs.ligo'''+site[j]+'''.caltech.edu/~jrsmith/hveto/s6b/'''+ligo_ifo[j]+'''-HVETO_KW_PEM-'''+str(hvetoGPSday[i])+'''-86400/'''
-      hvetoSummaryCopy = '''gsiscp ldas-grid.ligo'''+site[j]+'''.caltech.edu:/archive/home/jrsmith/public_html/hveto/s6b/'''+ligo_ifo[j]+'''-HVETO_KW_INST-'''+str(hvetoGPSday[i])+'''-86400/summary_stats.txt '''+hvetoKWpath
-      copystatus = GetCommandOutput(hvetoSummaryCopy)[1]
-      if copystatus==0:  
-        command_output,status = GetCommandOutput(winnerGrep)
-        winner[len(ligo_ifo)*j]=str(command_output)
-        winner[len(ligo_ifo)*j]=winner[len(ligo_ifo)*j].replace("\n","")
-      else:
-        winner[len(ligo_ifo)*j]='hveto error'
-      hvetoSummaryCopy = '''gsiscp ldas-grid.ligo'''+site[j]+'''.caltech.edu:/archive/home/jrsmith/public_html/hveto/s6b/'''+ligo_ifo[j]+'''-HVETO_KW_PEM-'''+str(hvetoGPSday[i])+'''-86400/summary_stats.txt '''+hvetoKWpath
-      copystatus=GetCommandOutput(hvetoSummaryCopy)[1]
-      if copystatus==0:
-        command_output,status = GetCommandOutput(winnerGrep)
-        winner[len(ligo_ifo)*j+1]=str(command_output)
-        winner[len(ligo_ifo)*j+1]=winner[len(ligo_ifo)*j+1].replace("\n","")
-      else:
-        winner[len(ligo_ifo)*j+1]='hveto error'
-    print >>output, "||"+dateFormatted[i]+"||",
-    for k in range(0,len(winner)):
-      print >>output, "[["+hvetoURL[k]+"|"+winner[k]+"]]||",
+
+output.flush()
+#== display hveto KW data
+if options.skip_hveto_kw is False:
+  if verbose:  print >>sys.stdout, "Writing hveto (KW) results..."
+
+  #== generate temporary path for hveto data to cp into
+  hveto_kw_path = dq_path+'/hveto_summaries_tmp' 
+  mkdir_cmd = 'mkdir -p '+hveto_kw_path
+  mkdir_status=GetCommandOutput(mkdir_cmd)[1]
+
+  hveto_winner_grep_cmd='''cat '''+hveto_kw_path+'''/summary_stats.txt | \
+      awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
+
+  #== print entry info
+  print >>output, \
+      "HVeto is run daily on the Kleine-Welle triggers. The results are:\n"
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">Date|',
+  for ifo in ifos:
+    if ifo in ligo_ifos:
+      for hveto_type in hveto_types:
+        print >>output, ifo+" "+hveto_type+" winner||",
+  print >>output
+
+  #for each ligo IFO, cp daily summary and grep winning channel
+  for day in gps_days:
+    hveto_gps = day-15  
+    print >>output, "||"+date_us_format[day]+"||",
+    for ifo in ifos:
+      if ifo in ligo_ifos:
+        for hveto_type in hveto_types:
+          #== set up url string
+          hveto_url = '''https://ldas-jobs.ligo'''+site[ifo]+\
+              '''.caltech.edu/~jrsmith/hveto/s6b/'''+ifo+'''-HVETO_KW_'''+\
+              hveto_type+'''-'''+str(hveto_gps)+'''-86400/'''
+          #== cp hveto summary.txt
+          hveto_sum_cp_cmd = '''gsiscp ldas-grid.ligo'''+site[ifo]+\
+              '''.caltech.edu:/archive/home/jrsmith/public_html/hveto/s6b/'''+\
+              ifo+'''-HVETO_KW_'''+hveto_type+'''-'''+str(hveto_gps)+\
+              '''-86400/summary_stats.txt '''+hveto_kw_path
+          cp_status = GetCommandOutput(hveto_sum_cp_cmd)[1]
+          #== grep winning channel name
+          if cp_status==0:
+            grep_output,grep_status = GetCommandOutput(hveto_winner_grep_cmd)
+            if grep_status==0:
+              hveto_winner = str(grep_output).replace("\n","")
+            else:
+              hveto_winner = 'hveto error'
+          else:
+            hveto_winner = 'hveto error'
+          #== display results in table
+          print >>output, "[["+hveto_url+"|"+hveto_winner+"]]||",
     print >>output
-  cleanUpCommand='rm -r '+hvetoKWpath
-  status = GetCommandOutput(cleanUpCommand)[1]
+
+  #== clean up temporary hveto summaries folder
+  clean_cmd='rm -r '+hveto_kw_path
+  status = GetCommandOutput(clean_cmd)[1]
   print >>output, "[[#top|Back to top]]"
+
+output.flush()
 # ==========
 # Detailed Results
 # ==========
-
 print >>output, "== Detailed Results =="
 
-print >>output, "=== !SiteWeekly ==="
+print >>output, '||||||<tablewidth="100%" rowbgcolor="#ffffcc">Omega glitchgram key||'
+print >>output, '||<bgcolor="blue" style="text-align: center; color: white;">  5 <= SNR < 10 '+\
+    '||<bgcolor="green" style="color: white; text-align: center;"> 10 <= SNR < 20 '+\
+    '||<bgcolor="red" style="color: white; text-align: center;"> SNR >= 20||'
+print >>output
+
+print >>output, "=== SiteWeekly ==="
 print >>output, "The !SiteWeekly report from Mike Landry can be found in the archives, [[http://relativity.phys.lsu.edu/pipermail/siteweekly/|here]]."
 print >>output
 print >>output, "[[#top|Back to top]]"
+
 # ==========
 # Daily Results
 # ==========
-
 if options.skip_daily is False:
-  for i in range(0,numDays):
-    print >>output, "=== "+dateFormatted[i]+" ==="
+  if verbose:  print >>sys.stdout, "Writing daily information..."
+  for day in gps_days:
+    day_after=day+86400
+    print >>output, "=== "+date_us_format[day]+" ==="
     print >>output, "'''Links: '''",
-    print >>output, "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"|Daily ihope]], ",
-    if len(ligo_ifo) != 0:
-      for j in range(0,len(ligo_ifo)):
-        print >>output, "[[http://ilog.ligo"+site[j]+".caltech.edu/ilog/pub/ilog.cgi?group=detector&date_to_view="+month[i]+"/"+day[i]+"/"+year[i]+"|"+site_name[j]+" ilog]], ",
-        print >>output, "[[https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/report/Omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+".html|"+ifo[j]+" Omega]], ",
-    if options.skip_v1 is False:
-      print >>output, "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"|V1 Omega]]."
+    print >>output, \
+        "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+\
+        date[day][0:6]+"/"+date[day]+"|Daily ihope]], ",
+    for ifo in ifos:
+      if ifo in ligo_ifos:
+        print >>output, "[[http://ilog.ligo"+site[ifo]+\
+            ".caltech.edu/ilog/pub/ilog.cgi?group=ifo&date_to_view="+\
+            date[day][4:6]+"/"+date[day][6:8]+"/"+date[day][0:4]+\
+            "|"+site_name[ifo]+" ilog]], ",
+        print >>output, "[[https://ldas-jobs.ligo"+site[ifo]+\
+            ".caltech.edu/~detchar/S6/glitch/report/Omega-"+str(day)+\
+            "-"+str(day_after)+".html|"+ifo+" Omega]], ",
+      elif ifo == "V1":
+        print >>output, \
+            "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+\
+            date[day][0:4]+"/"+date[day][4:6]+"/"+date[day][6:8]+"|V1 Omega]]."
     print >>output
-    print >>output, "|| ||",
-    for det in ifo:    
-      print >>output, det+"||",
+    print >>output, '||<rowbgcolor="#ffffcc">||',
+    for ifo in ifos:    
+      print >>output, ifo+"||",
     print >>output
-    print >>output, "|| SNR vs. time <<BR>> (100ms / CAT4) ||",
-    for j in range(0,len(ifo)):
-      print >>output, "[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"/"+ifo[j]+"_4_100MILLISEC_CLUSTERED_snr_vs_time.png|{{https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+year[i]+month[i]+"/"+year[i]+month[i]+day[i]+"/"+ifo[j]+"_4_100MILLISEC_CLUSTERED_snr_vs_time.png||width=300}}]]||",
-    print >>output
-    print >>output, "|| Omega ||",
-    for j in range(0,len(ifo)):
-      if ifo[j] == "H1" or ifo[j] =="L1":
-        print >>output, "[[https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/figures/"+str(GPSday[i])+"_"+str(GPSday[i+1])+"/S6-"+ifo[j]+"-omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+"-GlitchTS.gif|{{https://ldas-jobs.ligo"+site[j]+".caltech.edu/~detchar/S6/glitch/figures/"+str(GPSday[i])+"_"+str(GPSday[i+1])+"/S6-"+ifo[j]+"-omega-"+str(GPSday[i])+"-"+str(GPSday[i+1])+"-GlitchTS.gif||width=300}}]]||",
-      elif ifo[j] == "V1":
-        print >>output, "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"/Plots/V1-GlitchTS.gif|{{http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+year[i]+"/"+month[i]+"/"+day[i]+"/Plots/V1-GlitchTS.gif||width=300}}]]||",
+    snr_vs_time = "|| SNR vs. time <<BR>> (100ms / CAT4) ||"
+    for ifo in ifos:
+      snr_vs_time += \
+          "<)>[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+\
+          date[day][0:6]+"/"+date[day]+"/"+ifo+\
+          "_4_100MILLISEC_CLUSTERED_snr_vs_time.png|"+\
+          "{{https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+\
+          date[day][0:6]+"/"+date[day]+"/"+ifo+\
+          "_4_100MILLISEC_CLUSTERED_snr_vs_time.png||width=300}}]]"+\
+          "&nbsp;&nbsp;||"
+    print >>output, snr_vs_time
+    omega_daily = "|| Omega ||"
+    for ifo in ifos:
+      if ifo in ligo_ifos:
+        omega_daily += "<)>[[https://ldas-jobs.ligo"+site[ifo]+\
+            ".caltech.edu/~detchar/S6/glitch/figures/"+\
+            str(day)+"_"+str(day_after)+\
+            "/S6-"+ifo+"-omega-"+str(day)+"-"+str(day_after)+"-GlitchTS.gif|"+\
+            "{{https://ldas-jobs.ligo"+site[ifo]+\
+            ".caltech.edu/~detchar/S6/glitch/figures/"+\
+            str(day)+"_"+str(day_after)+\
+            "/S6-"+ifo+"-omega-"+str(day)+"-"+str(day_after)+\
+            "-GlitchTS.gif||width=345}}]]||"
+      elif ifo == "V1":
+        omega_daily += "<)>"+\
+            "[[http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+\
+            date[day][0:4]+"/"+date[day][4:6]+"/"+date[day][6:8]+\
+            "/Plots/V1-GlitchTS.gif|{{"+\
+            "http://wwwcascina.virgo.infn.it/DataAnalysis/Burst/wonline/V1/"+\
+            date[day][0:4]+"/"+date[day][4:6]+"/"+date[day][6:8]+\
+            "/Plots/V1-GlitchTS.gif||width=345}}]]||"
+    print >>output, omega_daily
+    print >>output, "'''Daily Summary:'''"
+    print >>output, "Please enter your daily summary here."
     print >>output
     print >>output, "[[#top|Back to top]]"
+
+output.flush()
+
+print >>sys.stdout
+print >>sys.stdout, \
+    "Done! CBC Data Quality page (in CBC wiki format) written to:"
+print >>sys.stdout
+print >>sys.stdout, options.output_file
+print >>sys.stdout
+
+output.close() 

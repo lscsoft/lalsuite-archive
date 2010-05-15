@@ -758,6 +758,8 @@ dag = stfu_pipe.followUpDAG(options.config_file,cp,options)
 
 trigs = FUTriggers(num=options.number)
 
+fupage_job		= stfu_pipe.makeFollowupPageJob(options, cp, dir='page', tag_base="fupage")
+
 ###############################################################################
 ##### DO FOLLOW UPS ON GPS TIME ONLY ##########################################
 ###############################################################################
@@ -981,8 +983,10 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			stfu_pipe.analyseQscanNode(dag,rds_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
 			stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
 
+#Followup page node is child of all nodes
+fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
 #Checklist generation node is child of all nodes
-wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
+if not options.gps_times: wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
 #### ALL FINNISH ####		
 default_cp.write()
 dag.write_all()
