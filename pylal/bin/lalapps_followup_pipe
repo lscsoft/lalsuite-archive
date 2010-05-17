@@ -728,6 +728,10 @@ def parse_command_line():
 	parser.add_option("","--no-makeCheckList", action="store_true",\
 	default=False,help="disable the checklist generation")
 
+	parser.add_option("","--force-fupage",action="store_true",\
+	default=False,help="force the followup page to be generated "\
+	"even if option gps_time is not specified.")
+
 	parser.add_option("","--do-remoteScans", action="store_true",\
 	default=False,help="enable the remote scans through condor flocking." \
 	" This option should be deprecated as soon as the condor flocking is" \
@@ -984,7 +988,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			stfu_pipe.analyseQscanNode(dag,seis_analyse_qscan_job,cp,options,sngl_inspiral.time,ifo)
 
 #Followup page node is child of all nodes
-fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
+if options.gps_times or options.force_fupage: fupage_node = stfu_pipe.makeFollowupPageNode(dag, fupage_job, cp, options)
 #Checklist generation node is child of all nodes
 if not options.gps_times: wikiChecklist_node = stfu_pipe.makeCheckListWikiNode(dag,wikiChecklist_job,cp,options)
 #### ALL FINNISH ####		
