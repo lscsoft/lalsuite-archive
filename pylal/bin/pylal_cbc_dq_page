@@ -455,7 +455,7 @@ if options.skip_science_time is False:
     analysable_time[ifo] = 0
     #== generate segment list for each ifo
     segment_data[ifo] = segment_grab(ifo,gps_start,gps_end,dq_path)
-    if segment_data[ifo] != None:
+    if segment_data[ifo][0][-1] != None:
       for segment_length in segment_data[ifo][:,2]:
         if segment_length == None:  continue
         #== calculate science time for each ifo
@@ -749,7 +749,7 @@ if options.skip_dq_stats is False:
         ' --igps='+str(gps_start)+' --egps='+str(gps_end)+\
         ' --outputdir='+dq_stats_path
     dq_stats_status[ifo] = GetCommandOutput(dq_stats_script+dq_stats_args)[1]
-   
+    print dq_stats_script+dq_stats_args 
   dq_stats_url={}
   for ifo in ifos:
     dq_stats_url[ifo] = (dq_stats_web_path+'/S6c_'+str(gps_start)+\
