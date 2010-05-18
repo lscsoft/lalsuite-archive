@@ -2246,6 +2246,9 @@ int main( int argc, char *argv[] )
           case AmpCorPPN:
             LAL_CALL( LALFindChirpACTDTemplate( &status, fcFilterInput->fcTmplt,
                   bankCurrent, fcTmpltParams ), &status );
+            LAL_CALL( LALFindChirpACTDNormalize( &status,
+                  fcFilterInput->fcTmplt, fcTmpltParams,
+                  fcDataParams ), &status );
             break;
 
           default:
@@ -2450,9 +2453,9 @@ int main( int argc, char *argv[] )
                 break;
 
               case AmpCorPPN:
-                LAL_CALL( LALFindChirpACTDNormalize( &status, 
+                /*LAL_CALL( LALFindChirpACTDNormalize( &status, 
                       fcFilterInput->fcTmplt, fcTmpltParams,
-                      fcDataParams ), &status );
+                      fcDataParams ), &status );*/
                 LAL_CALL( LALFindChirpACTDFilterSegment( &status, 
                       &eventList, fcFilterInput, fcFilterParams ), &status );
                 break;
