@@ -14,8 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
-Utilities to perform rotations on (polar, azimuthal) angle pairs and find
-the angle between two points.
+Utilities to perform operations on (polar, azimuthal) vectors.
 """
 
 from __future__ import division
@@ -88,9 +87,8 @@ def _abs_diff(c):
     magnitude of the difference, taking into account the wrap-around at 2*pi.
     """
     c = abs(c) % (2 * LAL_PI)
-    if c < LAL_PI:
-        return c
-    return 2 * LAL_PI - c
+    # XXX: numpy 1.3.0 introduces fmin, which is more elegant
+    return np.where(c < LAL_PI, c, 2 * LAL_PI - c)
 
 def _haversine(angle):
     return np.sin(angle / 2)**2
@@ -122,3 +120,34 @@ def angle_between_points(a, b):
     else:
         return result
 
+#
+# Implement the Fisher distribution
+#
+
+def fisher_rvs(mu, sigma, size=1):
+    """
+    Return a random (polar, azimuthal) angle drawn from the Fisher
+    distribution. Assume that the concentration parameter (kappa) is large
+    so that we can use a Rayleigh distribution about the north pole and
+    rotate it to be centered at the (polar, azimuthal) coordinate mu.
+
+    Assume kappa = 1 / sigma**2
+
+    References:
+      * http://en.wikipedia.org/wiki/Von_Mises–Fisher_distribution
+      * http://arxiv.org/pdf/0902.0737v1 (states the Rayleigh limit)
+    """
+    rayleigh_rv = \
+        np.array((np.random.rayleigh(scale=sigma, size=size),
+                  np.random.uniform(low=0, high=2*LAL_PI, size=size)))\
+                .reshape((2, size)).T  # guarantee 2D and transpose
+    a, b = new_z_to_euler(mu)
+    return rotate_euler(rayleigh_rv, a, b, 0)
+
+def fisher_pdf(theta, kappa):
+    """
+    Return the PDF of theta, the opening angle of X with mu where X is Fisher-
+    distributed about mu. See fisher_rvs for the definition of mu.
+    """
+    return kappa / (2 * np.sinh(kappa)) * np.exp(kappa * np.cos(theta))\
+        * np.sin(theta)
