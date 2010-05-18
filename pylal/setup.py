@@ -406,6 +406,7 @@ setup(
 		os.path.join("bin", "followupQueryVeto.py"),
 		os.path.join("bin", "followupRatioTest.py"),
 		os.path.join("bin", "followupGetDataAsAscii.py"),		
+		os.path.join("bin", "followupGenerateDQBackground.py"),
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),

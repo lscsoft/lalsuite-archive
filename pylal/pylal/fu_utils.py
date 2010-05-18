@@ -30,7 +30,6 @@ import gzip
 from scipy import interpolate
 import math
 import fnmatch
-
 from optparse import *
 from types import *
 import matplotlib
@@ -113,7 +112,11 @@ def getRunEpoch(runTime=None, ifo=None):
     if (start<=runTime) and (runTime<=stop):
       outputEpoch=myEpoch
   return outputEpoch
-  
+
+#Double defined home_dir funct from stfu_pipe
+def home_dir():
+	return os.path.split(os.environ['HOME'])[0]
+
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
   """
@@ -2272,20 +2275,31 @@ class followupDQV:
   This class is intended to provide a mechanism to access DQ segment
   information and veto segment information put into the segment
   database.  This class will replace the previously defined class of
-  followupdqdb.
+  followupdqdb.  This class also provides access to the needed code
+  to create a local background of DQ statistics for improved
+  background studies.
   Contact: Cristina Valeria Torres
   """
-  def __init__(self,LDBDServerURL=None,quiet=bool(False)):
+  def __init__(self,LDBDServerURL=None,quiet=bool(False),pickle=None):
     """
     This class setups of for connecting to a LDBD server specified at
     command line to do segment queries as part of the follow up
     pipeline.  If the user does not specify the LDBD server to use the
     method will use the environment variable S6_SEGMENT_SERVER to
     determine who to query.  The LDBD URL should be in the following form
-    ldbd://myserver.domain.name:808080
+    ldbd://myserver.domain.name:808080. You can specify the path to a
+    background DQ pickle if the path is valid the class opens it
+    otherwise it queries the segment DB and builds the pickle.
+    Warning! recreating the DQ background is VERY slow.
     """
     self.__connection__= None
     self.__engine__= None
+    if pickle==None:
+      self.__backgroundPickle__=self.figure_out_pickle(None)
+    else:
+      self.__backgroundPickle=pickle
+    if self.__backgroundPickle__.__contains__("~"):
+      self.__backgroundPickle__=os.path.expanduser(self.__backgroundPickle__)
     self.__haveBackgroundDict__=bool(False)
     self.__havecategories__=bool(False)
     #A dict for a dict of GPStimes and list all flags seen
@@ -2293,10 +2307,9 @@ class followupDQV:
     self.__category__=dict()
     #Access a dict of dicts for a flag names with % stored
     self.__backgroundResults__=dict()
-    self.__backgroundPoints__=int(100)
+    self.__backgroundPoints__=int(1000)
     self.__columns__=["Ifo","Flag","Ver","Start","Offset",\
-                      "Stop","Offset","Size","DQ Rank",\
-                      "Cat(s)"]
+                      "Stop","Offset","Size","DQ Rank","Cat(s)"]
     #Dict should be a dict of lists
     self.__backgroundTimesDict__=dict()
     self.ifos=interferometers
@@ -2309,7 +2322,7 @@ class followupDQV:
       if envServer!=None:
         self.serverURL=envServer
       sys.stderr.write("Warning no LDBD Server URL specified \
-defaulting to %s"%(self.serverURL))
+defaulting to %s\n"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
     self.resultList=list()
@@ -2389,6 +2402,43 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
+  def figure_out_pickle(self,ifoEpochList=None):
+    fileMask="followup_background_%s.pickle"
+    installPath=home_dir()+"/ctorres/followupbackgrounds/dq/"
+    if ifoEpochList==None:
+      return fileMask%"default"
+    else:
+      ifoEpochList.sort()
+      tmpString=""
+      for A,B in ifoEpochList:
+        tmpString+="%s:%s_"%(A,B)
+      tmpString.rstrip("_")
+    return installPath+fileMask%(tmpString)
+  #End figure_out_pickle
+
+  def resetBackgroundPoints(self,pointCount=None):
+    """
+    Used to manipulate the number of points to create background with.
+    """
+    if pointCount==None:
+      return
+    else:
+      self.__backgroundPoints__=int(pointCount)
+    return
+
+  def resetPicklePointer(self,filename=None):
+    """
+    If you called the class definition with the wrong pickle path.
+    You can reset it with this method.
+    """
+    if filename==None:
+      os.stdout.write("Path information to background pickle unchanged.\n")
+    elif filename.__contains__("~"):
+      self.__backgroundPickle__=os.path.expanduser(filename)
+    else:
+      self.__backgroundPickle__=filename
+  #End resetPicklePointer
+  
   def query(self,queryString=None):
     """
     Simple wrapper method to do query and return result
@@ -2422,7 +2472,6 @@ defaulting to %s"%(self.serverURL))
       myFinalOutput.append(newRow)
     return myFinalOutput
   #End query
-
 
   def fetchInformation(self,triggerTime=None,window=300):
     """
@@ -2528,35 +2577,51 @@ defaulting to %s"%(self.serverURL))
     return newDQSeg
   #End method fetchInformation()
 
-  def estimateDQbackground(self):
+  def createDQbackground(self,ifoEpochList=list(),pickleLocale=None):
     """
-    This method looks at the self.resultlist inside the instance.
-    Using this and 1000 generated time stamp it tabulates a
-    ranking of flag prevelance, binomial probability 'p'
+    Two inputs a list of tuples (ifo,epochname) for each instrument.
+    Also a place to save the potential pickle to for quick access
+    later.
     """
-    if len(self.resultList) < 1:
-      self.__backgroundResults__=list()
-      self.__backgroundTimesDict__=dict()
-      self.__backgroundDict__=dict()
-      self.__haveBackgroundDict__=bool(False)
-      return
-    #Determine which IFOs from DQ listing
-    uniqIfos=list()
-    for ifo,b,c,d,e,f in self.resultList:
-      if ifo not in uniqIfos:
-        uniqIfos.append(ifo)
+    if type(ifoEpochList) != type(list()):
+      raise Exception, \
+            "Invalid input argument ifoEpochList,%s type(%s)"\
+            %(ifoEpochList,type(ifoEpochList))
+    #Make sure epoch exists for reach ifo
+    for ifo,epoch in ifoEpochList:
+      if ifo not in runEpochs.keys():
+        raise Exception, "Bad ifo specified, %s"%ifo
+      if epoch not in runEpochs[ifo].keys():
+        raise Exception, "Bad ifo epoch specified, %s:%s"%(ifo,epoch)
+    #If pickle location given try to load that pickle first.
+    backgroundPickle=False
+    if pickleLocale!=None:
+      if os.path.isfile(pickleLocale):
+        try:
+          self.__backgroundDict__=cPickle.load(file(pickleLocale,'r'))
+          backgroundPickle=True
+          for (ifo,epoch) in ifoEpochList:
+            if (ifo.upper().strip(),epoch.upper().strip()) \
+                   not in self.__backgroundDict__["ifoepoch"]:
+              raise Exception,\
+                    "Invalid ifo and epoch information in \
+generated background %s"%self.__backgroundDict__["ifoepoch"]
+          return
+        except:
+          backgroundPickle=False
+          sys.stderr.write("Error importing the pickle file!\n")
+          sys.stderr.write("Creating the background again!\n")
+          os.path.rename(pickleLocale,pickleLocale+".corrupt")
+    #Setup for large volumne of queries
+    #Determine random background times for each IFO
     sciSegments=dict()
-    for ifo in uniqIfos:
-      sciSegments[ifo]=list()
-    #Grab list of SciSeg in the epoch
-    for myIfo in sciSegments.keys():
+    for myIfo,myEpoch in ifoEpochList:
       #Find epoch start and stop
       if myIfo.strip().lower() == "v1":
         mySegName="ITF_SCIENCEMODE"
       else:
         mySegName="DMT-SCIENCE"
-      #Determine times of epoch
-      (epochStart,epochStop)=getRunTimes(getRunEpoch(self.triggerTime,myIfo),myIfo)
+      (epochStart,epochStop)=getRunTimes(myEpoch,myIfo)
       tmpResults=getSciSegs(myIfo.strip(),\
                             epochStart,\
                             epochStop,\
@@ -2566,7 +2631,9 @@ defaulting to %s"%(self.serverURL))
                             seglenmin=None,\
                             segpading=0)
       sciSegments[myIfo]=[(x.start(),x.end()) for x in tmpResults]
-    #Create Random time list In Science
+      if len(sciSegments[myIfo])<1:
+        sys.stderr.write("Warning:No segments found for %s %s\n"%(myIfo,myEpoch))
+    #Create list of random times in segments of sciSegments[ifo]
     for myIfo in sciSegments.keys():
       #Background Timepoint
       mySampleCount=0
@@ -2591,7 +2658,7 @@ defaulting to %s"%(self.serverURL))
             self.__backgroundTimesDict__[myIfo]=list()
           self.__backgroundTimesDict__[myIfo].append("%9.0f"%myPoint)
           mySampleCount=mySampleCount+1
-    #Cycle each IFO, if science time, query DQ flags
+    #Take each list of ifo times and look up the DQ flags
     self.__connectToSegmentDB__()
     for myIfo,myTimes in self.__backgroundTimesDict__.iteritems():
       for myTime in myTimes:
@@ -2605,6 +2672,43 @@ defaulting to %s"%(self.serverURL))
           self.__backgroundDict__[myIfo]=dict()
         self.__backgroundDict__[myIfo]["%s"%myTime]=self.query(myQuery)
     self.__disconnectFromSegmentDB__()
+    #Integrate epoch listing into dict()
+    self.__backgroundDict__["ifoepoch"]=[(myIfo.strip().upper(),
+                                          myEpoch.strip().upper()) \
+                                         for myIfo,myEpoch in ifoEpochList]
+    #Save the created DQ background to a pickle, skip saving on error!
+    try:
+      cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
+    except:
+      os.stdout.write("Problem saving pickle of DQ information.")
+      os.stdout.write("Trying to place pickle in your home directory.")
+      try:
+        cPickle.dump(self.__backgroundDict__,
+                     file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+      except:
+        os.stdout.write("Really ignoring pickle generation now!\n")
+  #End createDQbackground
+
+  def estimateDQbackground(self):
+    """
+    This method looks at the self.resultlist inside the instance.
+    Using this and 1000 generated time stamp it tabulates a
+    ranking of flag prevelance, binomial probability 'p'
+    """
+    if len(self.resultList) < 1:
+      self.__backgroundResults__=list()
+      self.__backgroundTimesDict__=dict()
+      self.__backgroundDict__=dict()
+      self.__haveBackgroundDict__=bool(False)
+      return
+    #Create DQ background, specify pickle locale to try and load first
+    #Determine which IFOs from DQ listing
+    uniqIfos=list()
+    for ifo,b,c,d,e,f in self.resultList:
+      if ifo not in uniqIfos:
+        uniqIfos.append(ifo)
+    ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in uniqIfos]
+    self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
     #Calculate the binomial 'p' value for the flags in the table.
     if self.resultList < 1:
           sys.stderr.write("Aborting tabulate of binomial P\n")

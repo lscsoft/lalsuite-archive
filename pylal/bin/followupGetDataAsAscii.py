@@ -1,9 +1,29 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
-# This is a simple script that will fetch data and return it as a date
-# vector, in a text file.
-# The header will contain #s to set of the meta data
+# Copyright (C) 2009 Cristina Valeria Torres
 #
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+__author__ = "Cristina Valeria Torres <cristina.torres@ligo.org>"
+__prog__   = 'followupGetDataAsAscii.py'
+"""
+This script lets you specify a channel and gps markers, from this a
+ascii file is generated and written to disk.  This is a simple tool
+to allow novice persons to analyse data without understanding the
+complete LIGO data handling infrastructure.
+"""
 from StringIO import StringIO
 from commands import getstatusoutput
 from glue import lal
@@ -122,6 +142,7 @@ fp=open(myFilename,'w')
 myMetaDataDict=dataVector.metadata.todict()
 for myKey,myVal in myMetaDataDict.iteritems():
     fp.write("#%s:%s\n"%(myKey,myVal))
+fp.write("#t0:%s\n"%(myStartTime))
 #
 # Write out data
 #
