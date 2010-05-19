@@ -68,8 +68,8 @@ class RemoteCache(object):
 
 	def retrieve_file(self, remotepath, localpath):
 		#if self.verbose: print>>sys.stderr, "\tretrieving %s:%s...\n" % (self.host, remotepath)
-		if remotepath.endswith(".gz"): opts = "-q"
-		else: opts = "-zq"
+		if remotepath.endswith(".gz"): opts = "-q --copy-links"
+		else: opts = "-zq --copy-links"
 		ret = subprocess.call(["rsync", opts, "--rsh=gsissh", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)])
 		if ret: 
 			print >>sys.stderr, "retrieve failed with %d" % (ret,)

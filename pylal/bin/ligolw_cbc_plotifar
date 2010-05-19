@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 
 # ============================================================================
@@ -338,8 +338,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     background = sqlutils.Summaries()
 
     # we'll also use the Summaries class to store uncombined and combined fars
-    if opts.plot_uncombined:
-        ufar_summaries = sqlutils.Summaries()
+    # note: ufar_summaries is always used, regardless of whether or not uncombined-fars are plotted
+    ufar_summaries = sqlutils.Summaries()
     if opts.plot_combined:
         cfar_summaries = sqlutils.Summaries()
 
@@ -400,12 +400,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         """])
     for esid, ifos, param_group, ufar, cfar in connection.cursor().execute(sqlquery, (eid, plot_datatype) ):
         ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
-        if opts.plot_uncombined:
-            ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
-            # since the ufar_summaries class doesn't know about zero-lag esids,
-            # we must remove the zero-lag stats from it's bkg_stats list by hand
-            if esid in background.zero_lag_ids[eid]:
-                ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
+        ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
+        # since the ufar_summaries class doesn't know about zero-lag esids,
+        # we must remove the zero-lag stats from it's bkg_stats list by hand
+        if esid in background.zero_lag_ids[eid]:
+            ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
         if opts.plot_combined:
             if opts.group_by_ifos:
                 ifo_group = ifos
@@ -962,13 +961,15 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
 
     del background
     del ufar_summaries
-    del cfar_summaries
+    if opts.plot_uncombined:
+        del uncombined_cumnum
+        del uncomb_zero_cumnum
+    if opts.plot_combined:
+        del cfar_summaries
+        del combined_cumnum
+        del comb_zero_cumnum
     del max_bkg_fars
     del min_bkg_ufar
-    del uncombined_cumnum
-    del combined_cumnum
-    del comb_zero_cumnum
-    del uncomb_zero_cumnum
 
 
 #
