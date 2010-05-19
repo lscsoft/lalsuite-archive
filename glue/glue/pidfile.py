@@ -5,19 +5,17 @@ Copyright (C) 2010 by Peter F. Couvares, Syracuse University
 mailto: pfcouvar@syr.edu
 """
 
-# TODO: s/print/logger/
-
 import os
 import sys
 import errno
 import fcntl
 import time
 
-from glue import git_version
+# from glue import git_version
 
-__author__ = 'Peter Couvares <pfcouvar@syr.edu>'
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
+# __author__ = 'Peter Couvares <pfcouvar@syr.edu>'
+# __version__ = "git id %s" % git_version.id
+#__date__ = git_version.date
 
 
 # inspired by http://stackoverflow.com/questions/1005972
@@ -57,8 +55,9 @@ def get_lock(lockfile):
     # we got the file lock, so check the pid therein
     pidfile.seek(0)
     pidfile_pid = pidfile.readline().strip()
-    if pid_exists(int(pidfile_pid)):
-        raise RuntimeError, ("pidfile %s contains the pid (%s) of a running "
+    
+    if pidfile_pid.isdigit() and pid_exists(int(pidfile_pid)):
+        raise RuntimeError, ("pidfile %s contains pid (%s) of a running "
                              "process" % (lockfile, pidfile_pid))
     else:
         print ("pidfile %s contains stale pid %s; writing new lock" %
@@ -68,3 +67,21 @@ def get_lock(lockfile):
     pidfile.truncate(0)
     pidfile.write("%d\n" % os.getpid())
     pidfile.close()
+
+    # should be entirely unecessary, but paranoia always served me well
+    confirm_lock(lockfile)
+    return True
+
+
+def confirm_lock(lockfile):
+    """
+    Confirm that the given lockfile contains our pid.
+    Should be entirely unecessary, but paranoia always served me well.
+    """
+    pidfile = open(lockfile, "r")
+    pidfile_pid = pidfile.readline().strip()
+    pidfile.close()
+    if int(pidfile_pid) != os.getpid():
+        raise RuntimeError, ("pidfile %s contains pid %s; expected pid %s!" %
+                             (lockfile, os.getpid(), pidfile_pid))
+    return True
