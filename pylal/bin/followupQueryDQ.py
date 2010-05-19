@@ -103,9 +103,17 @@ if len(opts.window.split(',')) == 2:
 x=followupDQV(server)
 x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,ifoList=ifos)
 if estimateBackground:
-    if backgroundLocation != "":
-        #Go to and load up the background to save time
-        sys.stderr.write("Static background functionality not ready yet!\n")
+    if backgroundLocation == "automatic":
+        backgroundLocation=x.figure_out_pickle("automatic")
+        x.resetPicklePointer(backgroundLocation)
+    elif backgroundLocation != "":
+        #Check background file exists!
+        if not os.path.isfile(backgroundLocation):
+            sys.stderr.write("%s does not exist!\n"%(backgroundLocation))
+            sys.stderr.write("Generate one with followupGenerateDQBackground.py.\n")
+            sys.stderr.write("Skipping background use...\n")
+        else:
+            x.resetPicklePointer(backgroundLocation)
     x.estimateDQbackground()
 result=""
 if outputType.upper().strip() == "LIST":

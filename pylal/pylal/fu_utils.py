@@ -18,6 +18,7 @@ except ImportError:
 from subprocess import *
 import copy
 import re
+from StringIO import StringIO
 import exceptions
 import glob
 import fileinput
@@ -2295,10 +2296,9 @@ class followupDQV:
     self.__connection__= None
     self.__engine__= None
     if pickle==None:
-      self.__backgroundPickle__=self.figure_out_pickle(None)
+      self.__backgroundPickle__=None
     else:
       self.__backgroundPickle=pickle
-    if self.__backgroundPickle__.__contains__("~"):
       self.__backgroundPickle__=os.path.expanduser(self.__backgroundPickle__)
     self.__haveBackgroundDict__=bool(False)
     self.__havecategories__=bool(False)
@@ -2343,6 +2343,7 @@ defaulting to %s\n"%(self.serverURL))
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
     """
   #End __init__()
+
 
   def __merge__(self,inputList=None):
     """
@@ -2406,13 +2407,19 @@ defaulting to %s\n"%(self.serverURL))
     fileMask="followup_background_%s.pickle"
     installPath=home_dir()+"/ctorres/followupbackgrounds/dq/"
     if ifoEpochList==None:
-      return fileMask%"default"
-    else:
-      ifoEpochList.sort()
-      tmpString=""
-      for A,B in ifoEpochList:
-        tmpString+="%s:%s_"%(A,B)
-      tmpString.rstrip("_")
+      return None
+    elif type(ifoEpochList) == type(str()):
+      if ifoEpochList=="automatic":
+        ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) \
+                      for x in self.ifos]
+      else:
+        sys.stderr.write("Given input of %s can't parse it!\n"%ifoEpochList)
+        return None
+    ifoEpochList.sort()
+    tmpString=""
+    for A,B in ifoEpochList:
+      tmpString+="%s:%s_"%(A,B)
+    tmpString.rstrip("_")
     return installPath+fileMask%(tmpString)
   #End figure_out_pickle
 
@@ -2523,12 +2530,14 @@ defaulting to %s\n"%(self.serverURL))
     version or higher.
     """
     if ifoList=="DEFAULT":
-      ifoList=self.ifos
+      ifoList=interferometers
     if (ifoList == None) or \
        (len(ifoList) < 1):
       sys.stderr.write("Ifolist passed is malformed! : %s\n"%ifoList)
       return
-    if sum([x.upper() in self.ifos for x in ifoList]) < 1:
+    #Set the internal class variable self.ifos
+    self.ifos=ifoList
+    if sum([x.upper() in interferometers for x in ifoList]) < 1:
       sys.stderr.write("Valid ifos not specified for DQ lookups. %s\n"%ifoList)
       return
     triggerTime=float(triggerTime)
@@ -2596,6 +2605,8 @@ defaulting to %s\n"%(self.serverURL))
     #If pickle location given try to load that pickle first.
     backgroundPickle=False
     if pickleLocale!=None:
+      #If pickle file exists read it if not make sure we can
+      #generate it properly otherwise skip creating background
       if os.path.isfile(pickleLocale):
         try:
           self.__backgroundDict__=cPickle.load(file(pickleLocale,'r'))
@@ -2606,12 +2617,21 @@ defaulting to %s\n"%(self.serverURL))
               raise Exception,\
                     "Invalid ifo and epoch information in \
 generated background %s"%self.__backgroundDict__["ifoepoch"]
-          return
         except:
           backgroundPickle=False
           sys.stderr.write("Error importing the pickle file!\n")
-          sys.stderr.write("Creating the background again!\n")
-          os.path.rename(pickleLocale,pickleLocale+".corrupt")
+          if os.access(os.path.split(pickleLocal)[0],os.W_OK):
+            os.path.rename(pickleLocale,pickleLocale+".corrupt")
+        return
+    else:
+      #Assume an automatic pickle creation
+      autoPath=self.figure_out_pickle("automatic")
+      (dirname,filename)=os.path.split(autoPath)
+      if not os.access(dirname,os.W_OK):
+        sys.stderr.write("Warning: Insufficient disk \
+permissions to create DQ background pickle file:%s.\n"%(autoPath))
+        backgroundPickle=False
+        return
     #Setup for large volumne of queries
     #Determine random background times for each IFO
     sciSegments=dict()
@@ -2782,7 +2802,7 @@ generated background %s"%self.__backgroundDict__["ifoepoch"]
     for ifo,name,version,comment,start,stop in self.resultList:
       #If we have background information fetch it
       if self.__haveBackgroundDict__:
-        myBackgroundRank=self.__backgroundResults__[ifo][name]
+        myBackgroundRank=str("%3.1f"%(100.0*self.__backgroundResults__[ifo][name])).rjust(5)
       else:
         myBackgroundRank="None"        
       if self.__havecategories__:
@@ -2858,7 +2878,7 @@ generated background %s"%self.__backgroundDict__["ifoepoch"]
     for ifo,name,version,comment,start,stop in tmpResultList:
       #If we have background information fetch it
       if self.__haveBackgroundDict__:
-        myBackgroundRank=self.__backgroundResults__[ifo][name]
+        myBackgroundRank=str("%3.1f"%(100.0*self.__backgroundResults__[ifo][name])).rjust(5)
       else:
         myBackgroundRank="None"        
       if self.__havecategories__:
@@ -3233,3 +3253,192 @@ class omega_config_parser(object):
 		for d in self.data:
 			out.append((d['channelName'][0], self._spec_name(d),''))
 		return out
+
+####################################################################
+# Class to discover and get data for reconstructing the FOMs 
+####################################################################
+class getFOMdata:
+  """
+  This class will be a conglomerate of methods to rebuild custom
+  version of the top N control room plots for H1 and L1.
+  Eventually we try to integrate V1 also.
+  """
+  def __init__(self):
+    """
+    This object does not need any input arguments.
+    """
+    self.gpsTime=None
+    self.ifoList=interferometers
+    self.preWindow=10*3600
+    self.postWindow=2*3600
+    self.dataDict=None
+    self.haveData=False
+    self.channelDict={"range":{
+      "H1":{"frametype":"SenseMonitor_H1_M",
+            "channels":"H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"},
+      "H2":{"frametype":"SenseMonitor_H2_M",
+            "channels":"H2:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"},
+      "L1":{"frametype":"SenseMonitor_L1_M",
+            "channels":"L1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"}
+      },
+                      "L1 STS 0.03-0.1Hz":{
+      "L1":{"frametype":"STS_Blrms_M",
+            "channels":["L1:DMT-BRMS_SEI_ETMX_STS2_X_0p03-0p1Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p03-0p1Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p03-0p1Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p03-0p1Hz.rms"]}
+      },
+                      "L1 STS 0.1-0.35Hz":{
+      "L1":{"frametype":"STS_Blrms_M",
+            "channels":["L1:DMT-BRMS_SEI_ETMX_STS2_X_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMX_STS2_X_0p1-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p1-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p1-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p1-0p35Hz.rms"]}
+      },
+                      "L1 Gurlap 3-10Hz":{
+      "L1":{"frametype":"STS_Blrms_M",
+            "channels":["L0:DMT-BRMS_PEM_EX_SEISX_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_EY_SEISY_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_LVEA_SEISX_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_LVEA_SEISY_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_EX_SEISZ_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_EY_SEISZ_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_LVEA_SEISZ_3_10Hz.rms"]}
+      }
+                      }
+    self.graphList=self.channelDict.keys()
+    
+  def __getTimeSeries__(self,
+                        frameType=None,
+                        observatory=None,
+                        channel=None,
+                        start=None,
+                        stop=None):
+    """
+    A method to simplify life to query ligo_data_find then open
+    a frame time series object and hand that object back.  This method
+    is meant to be internal to this class.
+    """
+    if (frameType==None) or \
+           (channel==None) or \
+           (start==None) or \
+           (stop==None) or \
+           (observatory == None):
+      return None
+    if len(observatory > 1):
+      observatory=observatory[0].upper()
+    #Just in case time stamps are backwards!
+    if start<stop:
+      tmp=start
+      start=stop
+      stop=tmp
+    #Query for the data
+    myEmptyCommand="""ligo_data_find --gaps --type=%s --observatory=%s \
+--gps-start-time=%s --gps-end-time=%s --url-type=%s \
+--lal-cache --no-proxy"""
+    myCommand=myEmptyCommand%(frameType,\
+                              observatory,\
+                              start,\
+                              stop,\
+                              "file")
+    (errorCode,cmdOutput)=getstatusoutput(myFullCommand)
+    if errorCode != 0:
+      stderr.write("Error querying for data location!\n")
+      stderr.write("%s\n%s"%(errorCode,cmdOutput))
+      return None
+    cacheInRam=StringIO(cmdOutput)
+    dataStream=frutils.FrameCache(lal.Cache.fromfile(cacheInRam))
+    cacheInRam.close()
+    dataVector=dataStream.fetch(channel,
+                                start,
+                                stop)
+    return dataVector
+                                  
+  def setWindows(self,preWindow=None,postWindow=None):
+    """
+    Set a leading window in seconds and a following window in
+    seconds for easy in graph centering.  Use integer seconds!
+    """
+    if preWindow!=None:
+      self.preWindow=preWindow
+    if postWindow!=None:
+      self.postWindow=postWindow
+      
+  def setGPS(self,trigger=None):
+    """
+    Specify as a string (integer) a gps time of interest.
+    """
+    if setGPS==None:
+      raise Exception, "None variable specified as trigger time."
+    self.gpsTime=str(int(trigger))
+
+  def setGraphs(self,graphList=None):
+      """
+      Set the name of the graphs to create. To see the available
+      name look at self.channelDict.keys()
+      """
+      if  graphList==None:
+        raise Exception, "None variable specified at graphs to plot."
+      for myKey in graphList:
+        if myKey not in self.channelDict.keys():
+          raise Exception, "Invalid graph key specified."
+      self.graphList=graphList
+
+  def setIfos(self,myList=None):
+    """
+    Specify a list object with ifo names ie:
+    ["L1",...,"H1"]
+    """
+    if myList==None:
+      raise Exception, "None variable passed to method setIfos."
+    for myIfo in myList:
+      if not myIfo.strip().upper() in interferometers:
+        raise Exception, "Invalid IFO specified, got %s\n"%myIfo
+    self.ifoList=myList
+
+    def getGraphList():
+      """
+      Method returns a list of keys to the know graphs to make.
+      """
+      return self.channelDict.keys()
+    
+    def getData():
+      """
+      Argue-less method that returns the data associated with
+      the ifos and time in question.
+      """
+      if self.haveData:
+        return self.dataDict
+      else:
+        self.queryGraphData()
+        return self.dataDict
+
+    def deleteGraphData():
+      """
+      Simple method to explicity kill the variable.
+      """
+      del self.dataDict
+      self.dataDict=dict()
+      
+    def queryGraphData():
+      """
+      Method that does the appropriate data finding and
+      reads the frame data into memory.
+      """
+      for graphName,graphDictObj in self.channelDict.iteritems():
+        self.dataDict[graphName]=dict()
+      for ifo,obsObj in graphDictObj.iteritems():
+        if ifo in self.ifoList:
+          #Cycle across observatory and all channels
+          for myChannel in obsObj["channels"]:
+            myStart=self.gpsTime-self.preWindow
+            myStop =self.gpsTime+self.postWindow
+            self.dataDict[graphName][myChannel]=self.__getTimeSeries__(obsObj["frametype"],
+                                                                       ifo,
+                                                                       myChannel,
+                                                                       myStart,
+                                                                       myStop)
