@@ -66,6 +66,15 @@ def get_day_boundaries(time):
   end_gps = start_gps + 86400
   return str(start_gps),str(end_gps)
 
+def figure_out_site(ifo):
+
+	siteDico = {"H1":"LHO","H2":"LHO","L1":"LLO","V1":"Virgo"}
+	if ifo in siteDico:
+		return siteDico[ifo]
+	else:
+		print >> sys.stderr, "ifo " + ifo + "is not defined in siteDico dictionary"
+		sys.exit(1)
+
 def figure_out_type(time, ifo=None, data_type='hoft'):
 	"""
 Run boundaries (from CBC analyses):
@@ -791,7 +800,7 @@ The omega scan command line is
 
 		if variety == "bg":
 			self.add_var_arg('scan')
-			preString = "omega/" + science_run(time).upper() + "/background"
+			preString = "omega/" + science_run(time).upper() + "/background/" + figure_out_site(ifo)
 		else:
 			self.add_var_arg('scan -r')
 			preString = "omega/" + science_run(time).upper() + "/foreground"
@@ -926,7 +935,7 @@ class fuRemoteQscanNode(pipeline.CondorDAGNode,FUNode):
 		self.scan_ifo = ifo
 
 		if variety == "bg":
-			preString = "omega/" + science_run(time).upper() + "/background"
+			preString = "omega/" + science_run(time).upper() + "/background/" + figure_out_site(ifo)
 		else:
 			preString = "omega/" + science_run(time).upper() + "/foreground"
 		config = cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip()
