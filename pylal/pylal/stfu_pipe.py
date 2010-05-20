@@ -66,6 +66,7 @@ def get_day_boundaries(time):
   end_gps = start_gps + 86400
   return str(start_gps),str(end_gps)
 
+
 def figure_out_type(time, ifo=None, data_type='hoft'):
 	"""
 Run boundaries (from CBC analyses):
