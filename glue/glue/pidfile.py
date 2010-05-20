@@ -18,11 +18,12 @@ import time
 #__date__ = git_version.date
 
 
-# inspired by http://stackoverflow.com/questions/1005972
+# inspired by Larz Wirzenius <http://stackoverflow.com/questions/1005972>
 def pid_exists(pid):
     """ Returns true if the given pid exists, false otherwise. """
     try:
         # signal 0 is harmless and can be safely used to probe pid existence
+        # faster and more unix-portable than looking in /proc
         os.kill(pid, 0)
     except OSError, e:
         # "permission denied" proves existence; otherwise, no such pid
@@ -50,7 +51,7 @@ def get_lock(lockfile):
     try:
         fcntl.flock(pidfile.fileno(), fcntl.LOCK_EX|fcntl.LOCK_NB)
     except IOError,e:
-        raise RuntimeError, "failed to lock %s: %s" % (pidfile_path, e)
+        raise RuntimeError, "failed to lock %s: %s" % (lockfile, e)
 
     # we got the file lock, so check the pid therein
     pidfile.seek(0)
