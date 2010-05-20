@@ -3246,7 +3246,7 @@ class omega_config_parser(object):
 		return dict
 
 	def _spec_name(self,dict):
-		return '*%s_%.2f_spectrogram_autoscaled.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
+		return '*%s_%.2f_spectrogram_whitened.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
 
 	def to_plot_tuple(self):
 		out = []
