@@ -305,7 +305,7 @@ class SkyPoints(list):
     """
     self.nsort(1)
     prob_grid = '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
-    post_grid = '# normfac = ' + str(post_dat['normfac') + '\n'
+    post_grid = '# normfac = ' + str(post_dat['normfac']) + '\n'
     post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
     post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
@@ -346,7 +346,7 @@ class CoincData(object):
     self.mass2 = {}
     
     self.time = None
-    self.far = -1
+    self.FAR = -1
     
     #this stuff is only needed for injections
     self.is_injection = False

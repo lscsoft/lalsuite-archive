@@ -227,7 +227,7 @@ for coinc in coincs:
   post_dat['normfac'] = sp.normalize(2)
   post_dat['snr'] = combsnr
   post_dat['FAR'] = coinc.FAR
-  sp.write(fnames,normfac,argstring)
+  sp.write(fnames,post_dat,argstring)
   
   print >>sys.stdout, 'Finished processing trigger.'
 
