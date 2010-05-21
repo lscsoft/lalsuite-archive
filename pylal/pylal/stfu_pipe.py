@@ -2194,7 +2194,7 @@ class create_default_config(object):
                 #FIXME add more hosts as you need them
 		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
 			remote_ifos = "V1"
-			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground"
+			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground,ligo_data_find_Q_RDS_gps_only,wpipeline_FG_RDS_gps_only,wpipeline_FG_SEIS_RDS_gps_only,ligo_data_find_Q_RDS_time_slides,wpipeline_FG_RDS_time_slides,wpipeline_FG_SEIS_RDS_time_slides"
 			return remote_ifos, remote_jobs
 		return '', ''
 
