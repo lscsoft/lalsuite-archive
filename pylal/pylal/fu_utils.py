@@ -3239,7 +3239,7 @@ class omega_config_parser(object):
 		if not self.parse: return
 		line = l.split()
 		# FIXME could fail if there are nulls
-		self.dict[line[0].rstrip(':')] = line[1:]
+		if len(line) > 1: self.dict[line[0].rstrip(':')] = line[1:]
 
 	def to_channel_dict(self):
 		dict = {}
@@ -3248,7 +3248,7 @@ class omega_config_parser(object):
 		return dict
 
 	def _spec_name(self,dict):
-		return '*%s_%.2f_spectrogram_autoscaled.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
+		return '*%s_%.2f_spectrogram_whitened.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
 
 	def to_plot_tuple(self):
 		out = []
