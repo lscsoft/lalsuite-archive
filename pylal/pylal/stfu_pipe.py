@@ -66,6 +66,7 @@ def get_day_boundaries(time):
   end_gps = start_gps + 86400
   return str(start_gps),str(end_gps)
 
+
 def figure_out_type(time, ifo=None, data_type='hoft'):
 	"""
 Run boundaries (from CBC analyses):
@@ -788,13 +789,15 @@ The omega scan command line is
 
 		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
-
+		preString="omega/"+ifo+"/%s/"+science_run(time).upper()+""
 		if variety == "bg":
 			self.add_var_arg('scan')
-			preString = "omega/" + science_run(time).upper() + "/background"
+			preString = preString%("background")
+			oldPreString="omega/" + science_run(time).upper() + "/background"
 		else:
 			self.add_var_arg('scan -r')
-			preString = "omega/" + science_run(time).upper() + "/foreground"
+			preString = preString%("foreground")
+			oldPreString="omega/" + science_run(time).upper() + "/foreground"
 		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
 		if cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() != config:
 			cp.set('fu-'+variety+'-'+type+'-qscan',ifo+'config',config)
@@ -1292,7 +1295,9 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		  "options":{"window":"60,15",
 			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
-			     "output-file":"dqResults.wiki"}
+			     "output-file":"dqResults.wiki",
+			     "estimate-background":"",
+			     "background-location":"automatic"}
 		  }
 	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
@@ -1308,6 +1313,10 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
+		if cp.has_option('findFlags','estimate-background'):
+			self.add_var_opt("estimate-background",cp.get('findFlags','estimate-background'))
+		if cp.has_option('findFlags','background-location'):			
+			self.add_var_opt("background-location",cp.get('findFlags','background-location'))
 
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
@@ -1344,7 +1353,9 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		  "options":{"window":"60,15",
 			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
-			     "output-file":"vetoResults.wiki"}
+			     "output-file":"vetoResults.wiki",
+			     "estimate-background":"",
+			     "background-location":"automatic"}
 		  }
 	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
@@ -1357,9 +1368,13 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 						     coincEvent.ifos,
 						     coincEvent.time)
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
-		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
-		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
-		self.add_var_opt("window",cp.get('findFlags','window'))
+		self.add_var_opt("segment-url",cp.get('findVetoes','segment-url'))
+		self.add_var_opt("output-format",cp.get('findVetoes','output-format'))
+		self.add_var_opt("window",cp.get('findVetoes','window'))
+		if cp.has_option('findVetoes','estimate-background'):
+			self.add_var_opt("estimate-background",cp.get('findVetoes','estimate-background'))
+		if cp.has_option('findFlags','background-location'):			
+			self.add_var_opt("background-location",cp.get('findVetoes','background-location'))
 
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
@@ -2097,6 +2112,11 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_time_slides","20")
 
+		# Following comments relate to default options
+		# Generate by FUNode.__conditionalLoadDefaults__ method
+		#findFlagsNode
+		#findVetosNode
+		
 		# if we have an ini file override the options
 		if configfile:
 			user_cp = ConfigParser.ConfigParser()
@@ -2255,6 +2275,17 @@ using default opts instead!\n")
 				if hours.__contains__(int(h)):
 					shiftString=shiftLabel[shift]
 					humanShiftLabel=shift
+			#Need to back up one day in some cases
+			#when the shift of interest started -1 day
+			#before trigger time
+			if (0 in hours) and (hours[0]<h):
+				D=D-1;
+			if D<1:
+				D=1
+				M=M-1
+			if M<1:
+				M=1
+				Y=Y-1
 			#Create txt string
 			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 			if ('V1').__contains__(ifoTag):
