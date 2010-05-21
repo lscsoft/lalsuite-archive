@@ -123,7 +123,9 @@ if opts.verbose:
 #Meant as FOM_GPS_GRAPHNAME.png
 filemask="FOM_%s_%s.png"
 xRes=1600.0
+xRes=1024
 yRes=1200.0
+yRes=768
 myDPI=80.0
 units={"h":float(3600.0),
        "s":float(1.0),
@@ -158,6 +160,7 @@ for thisGraph in myGraphs:
                     %(myLabel,len(timeVector),len(myData)))
             pylab.plot(timeVector,myData,label="%s"%myLabel)
     pylab.legend()
+    pylab.grid(True)
     pylab.savefig(filemask%(opts.gps_time,thisGraph.replace(" ","-")))
     pylab.close()
 #
