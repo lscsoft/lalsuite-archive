@@ -195,10 +195,6 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	name = background_name
 	# FIXME:  hard-coded list of allowed instruments = BAD BAD BAD
 	instruments = set(name.split("_")) & set(("G1", "H1", "H2", "L1", "T1", "V1"))
-	if "V1" in instruments:
-		# FIXME:  remove this when math range/domain errors for
-		# empty data fixed
-		continue
 	if name.endswith("_snr2_chi2"):
 		outname = "%s.png" % name
 		if options.verbose:
