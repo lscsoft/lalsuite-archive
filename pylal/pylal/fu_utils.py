@@ -29,6 +29,7 @@ import numpy
 import cPickle
 import gzip
 from scipy import interpolate
+from commands import getstatusoutput
 import math
 import fnmatch
 from optparse import *
@@ -46,6 +47,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw import dbtables
 from pylal import CoincInspiralUtils
+from pylal import frutils
 from glue import iterutils
 from glue import pipeline
 from glue.lal import *
@@ -3269,17 +3271,15 @@ class getFOMdata:
     """
     self.gpsTime=None
     self.ifoList=interferometers
-    self.preWindow=10*3600
-    self.postWindow=2*3600
-    self.dataDict=None
+    self.preWindow=int(10*3600)
+    self.postWindow=int(2*3600)
+    self.dataDict=dict()
     self.haveData=False
-    self.channelDict={"range":{
+    self.channelDict={"Inspiral Range":{
       "H1":{"frametype":"SenseMonitor_H1_M",
-            "channels":"H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"},
-      "H2":{"frametype":"SenseMonitor_H2_M",
-            "channels":"H2:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"},
+            "channels":["H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"]},
       "L1":{"frametype":"SenseMonitor_L1_M",
-            "channels":"L1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"}
+            "channels":["L1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"]}
       },
                       "L1 STS 0.03-0.1Hz":{
       "L1":{"frametype":"STS_Blrms_M",
@@ -3294,13 +3294,13 @@ class getFOMdata:
                         "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p1-0p2Hz.rms",
                         "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p1-0p2Hz.rms",
                         "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p1-0p2Hz.rms",
-                        "L1:DMT-BRMS_SEI_ETMX_STS2_X_0p1-0p35Hz.rms",
-                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p1-0p35Hz.rms",
-                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p1-0p35Hz.rms",
-                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p1-0p35Hz.rms"]}
+                        "L1:DMT-BRMS_SEI_ETMX_STS2_X_0p2-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p2-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p2-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p2-0p35Hz.rms"]}
       },
                       "L1 Gurlap 3-10Hz":{
-      "L1":{"frametype":"STS_Blrms_M",
+      "L1":{"frametype":"Seis_Blrms_M",
             "channels":["L0:DMT-BRMS_PEM_EX_SEISX_3_10Hz.rms",
                         "L0:DMT-BRMS_PEM_EY_SEISY_3_10Hz.rms",
                         "L0:DMT-BRMS_PEM_LVEA_SEISX_3_10Hz.rms",
@@ -3308,8 +3308,37 @@ class getFOMdata:
                         "L0:DMT-BRMS_PEM_EX_SEISZ_3_10Hz.rms",
                         "L0:DMT-BRMS_PEM_EY_SEISZ_3_10Hz.rms",
                         "L0:DMT-BRMS_PEM_LVEA_SEISZ_3_10Hz.rms"]}
+      },
+                      "H1 0.03-0.3Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_VAULT_SEISZ_0.03-0.1Hz.rms",
+                        "H0:DMT-BRMS_PEM_EX_SEISZ_0.1_0.3Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_0.1_0.3Hz.rms"]}
+      },
+                      "H1 3-10Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_EX_SEISZ_3_10Hz.rms",
+                        "H0:DMT-BRMS_PEM_LVEA_SEISZ_3_10Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_3_10Hz.rms",
+                        "H0:DMT-BRMS_PEM_VAULT_SEISZ_3_10Hz.rms"]}
+      },
+                      "H1 1-3Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_EX_SEISZ_1_3Hz.rms",
+                        "H0:DMT-BRMS_PEM_LVEA_SEISZ_1_3Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_1_3Hz.rms",
+                        "H0:DMT-BRMS_PEM_VAULT_SEISZ_1_3Hz.rms"]}
+      },
+                      "H1 10-30Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_EX_SEISZ_10_30Hz.rms",
+                        "H0:DMT-BRMS_PEM_LVEA_SEISZ_10_30Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_10_30Hz.rms"]}
       }
                       }
+                      
+                      
+                    
     self.graphList=self.channelDict.keys()
     
   def __getTimeSeries__(self,
@@ -3329,10 +3358,12 @@ class getFOMdata:
            (stop==None) or \
            (observatory == None):
       return None
-    if len(observatory > 1):
+    if len(observatory) > 1:
       observatory=observatory[0].upper()
+    else:
+      raise Exception, "Unexpected ifo option encountered, %s"%(observatory)
     #Just in case time stamps are backwards!
-    if start<stop:
+    if start>stop:
       tmp=start
       start=stop
       stop=tmp
@@ -3345,10 +3376,8 @@ class getFOMdata:
                               start,\
                               stop,\
                               "file")
-    (errorCode,cmdOutput)=getstatusoutput(myFullCommand)
+    (errorCode,cmdOutput)=getstatusoutput(myCommand)
     if errorCode != 0:
-      stderr.write("Error querying for data location!\n")
-      stderr.write("%s\n%s"%(errorCode,cmdOutput))
       return None
     cacheInRam=StringIO(cmdOutput)
     dataStream=frutils.FrameCache(lal.Cache.fromfile(cacheInRam))
@@ -3364,15 +3393,15 @@ class getFOMdata:
     seconds for easy in graph centering.  Use integer seconds!
     """
     if preWindow!=None:
-      self.preWindow=preWindow
+      self.preWindow=int(float(preWindow))
     if postWindow!=None:
-      self.postWindow=postWindow
+      self.postWindow=int(float(postWindow))
       
   def setGPS(self,trigger=None):
     """
     Specify as a string (integer) a gps time of interest.
     """
-    if setGPS==None:
+    if trigger==None:
       raise Exception, "None variable specified as trigger time."
     self.gpsTime=str(int(trigger))
 
@@ -3400,45 +3429,50 @@ class getFOMdata:
         raise Exception, "Invalid IFO specified, got %s\n"%myIfo
     self.ifoList=myList
 
-    def getGraphList():
-      """
-      Method returns a list of keys to the know graphs to make.
-      """
-      return self.channelDict.keys()
+  def getGraphList(self):
+    """
+    Method returns a list of keys to the know graphs to make.
+    """
+    return self.channelDict.keys()
     
-    def getData():
-      """
-      Argue-less method that returns the data associated with
-      the ifos and time in question.
-      """
-      if self.haveData:
-        return self.dataDict
-      else:
-        self.queryGraphData()
-        return self.dataDict
+  def getData(self):
+    """
+    Argue-less method that returns the data associated with
+    the ifos and time in question.
+    """
+    if self.haveData:
+      return self.dataDict
+    else:
+      self.queryGraphData()
+      return self.dataDict
 
-    def deleteGraphData():
-      """
-      Simple method to explicity kill the variable.
-      """
-      del self.dataDict
-      self.dataDict=dict()
+  def deleteGraphData(self):
+    """
+    Simple method to explicity kill the variable.
+    """
+    del self.dataDict
+    self.dataDict=dict()
       
-    def queryGraphData():
-      """
-      Method that does the appropriate data finding and
-      reads the frame data into memory.
-      """
-      for graphName,graphDictObj in self.channelDict.iteritems():
-        self.dataDict[graphName]=dict()
-      for ifo,obsObj in graphDictObj.iteritems():
-        if ifo in self.ifoList:
-          #Cycle across observatory and all channels
-          for myChannel in obsObj["channels"]:
-            myStart=self.gpsTime-self.preWindow
-            myStop =self.gpsTime+self.postWindow
-            self.dataDict[graphName][myChannel]=self.__getTimeSeries__(obsObj["frametype"],
-                                                                       ifo,
-                                                                       myChannel,
+  def queryGraphData(self):
+    """
+    Method that does the appropriate data finding and
+    reads the frame data into memory.
+    """
+    for myGraphName in self.channelDict.keys():
+      self.dataDict[myGraphName]=dict()
+      for graphIFO in self.channelDict[myGraphName].keys():
+        graphFrameType=self.channelDict[myGraphName][graphIFO]["frametype"]
+        for channel in self.channelDict[myGraphName][graphIFO]["channels"]:
+            myStart=int(float(self.gpsTime)) - self.preWindow
+            myStop =int(float(self.gpsTime)) + self.postWindow
+            self.dataDict[myGraphName][channel]=self.__getTimeSeries__(graphFrameType,
+                                                                       graphIFO,
+                                                                       channel,
                                                                        myStart,
                                                                        myStop)
+            if self.dataDict[myGraphName][channel]==None:
+              sys.stderr.write("Error getting data!\n")
+              sys.stderr.write("Channel    :%s\n"%channel)
+              sys.stderr.write("Frame Type :%s\n"%graphFrameType)
+              sys.stderr.write("GPS Start  :%s\n"%myStart)
+              sys.stderr.write("GPS Stop   :%s\n"%myStop)
