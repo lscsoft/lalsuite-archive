@@ -70,19 +70,19 @@ interferometers=["H1","H2","L1","V1"]
 defaultsegmentserver="https://segdb.ligo.caltech.edu"
 runEpochs={"L1":{
   "s6c_current":(949449543,999999999),
-  "s6b":(937800015,941997600),
+  "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "H1":{
   "s6c_current":(949449543,999999999),
-  "s6b":(937800015,941997600),
+  "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "H2":{
   "s6c_current":(949449543,999999999),
-  "s6b":(937800015,941997600),
+  "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
@@ -2488,7 +2488,6 @@ defaulting to %s\n"%(self.serverURL))
     behavior
     """
     return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
-
   def __connectToSegmentDB__(self,serverURL=None):
     """
     Private method to execute connection to segment DB
@@ -2592,8 +2591,7 @@ defaulting to %s\n"%(self.serverURL))
     """
     Two inputs a list of tuples (ifo,epochname) for each instrument.
     Also a place to save the potential pickle to for quick access
-    later.
-    """
+    later.    """
     if type(ifoEpochList) != type(list()):
       raise Exception, \
             "Invalid input argument ifoEpochList,%s type(%s)"\
@@ -2613,17 +2611,19 @@ defaulting to %s\n"%(self.serverURL))
         try:
           self.__backgroundDict__=cPickle.load(file(pickleLocale,'r'))
           backgroundPickle=True
-          for (ifo,epoch) in ifoEpochList:
+        except:
+          backgroundPickle=False
+          sys.stderr.write("Error importing the pickle file! %s\n"\
+                           %(pickleLocale))
+          return
+        for (ifo,epoch) in ifoEpochList:
             if (ifo.upper().strip(),epoch.upper().strip()) \
                    not in self.__backgroundDict__["ifoepoch"]:
               raise Exception,\
                     "Invalid ifo and epoch information in \
-generated background %s"%self.__backgroundDict__["ifoepoch"]
-        except:
-          backgroundPickle=False
-          sys.stderr.write("Error importing the pickle file!\n")
-          if os.access(os.path.split(pickleLocal)[0],os.W_OK):
-            os.path.rename(pickleLocale,pickleLocale+".corrupt")
+generated background expected %s got %s"%(\
+                      self.__backgroundDict__["ifoepoch"],
+                      ifoEpochList)
         return
     else:
       #Assume an automatic pickle creation
@@ -2729,26 +2729,34 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     for ifo,b,c,d,e,f in self.resultList:
       if ifo not in uniqIfos:
         uniqIfos.append(ifo)
-    ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in uniqIfos]
+    ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in self.ifos]
     self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
     #Calculate the binomial 'p' value for the flags in the table.
     if self.resultList < 1:
-          sys.stderr.write("Aborting tabulate of binomial P\n")
+          sys.stderr.write("Aborting tabulation of binomial P\n")
           os.abort()
     seenFlags=dict()
     for ifo,name,version,comment,start,stop in self.resultList:
       if ifo.strip() not in seenFlags.keys():
         seenFlags[ifo]=list()
       seenFlags[ifo].append(name)
-    for myIfo,flagList in seenFlags.iteritems():
+    for myIfo in seenFlags.keys():
       tmpFlags=list()
-      for backgroundTime,backgroundFlags in \
-              self.__backgroundDict__[myIfo.strip()].iteritems():
-        tmpFlags.extend([name for ifo,name,ver,com,start,stop in backgroundFlags])
-      if myIfo not in self.__backgroundResults__.keys():
-        self.__backgroundResults__[myIfo]=dict()
-      for myFlag in seenFlags[myIfo]:
-        self.__backgroundResults__[myIfo][myFlag]=tmpFlags.count(myFlag)/float(self.__backgroundPoints__)
+      #Handles flags seen but not present in pickle structure
+      if myIfo.strip() not in self.__backgroundDict__.keys():
+        if myIfo not in self.__backgroundResults__.keys():
+          self.__backgroundResults__[myIfo]=dict()
+        for outsideFlag in seenFlags[myIfo]:
+          self.__backgroundResults__[myIfo][outsideFlag]=float(-0.0)
+      else:
+        #Handles all flags seen compared to background pickle
+        for backgroundTime,backgroundFlags in \
+                self.__backgroundDict__[myIfo.strip()].iteritems():
+          tmpFlags.extend([name for ifo,name,ver,com,start,stop in backgroundFlags])
+        if myIfo not in self.__backgroundResults__.keys():
+          self.__backgroundResults__[myIfo]=dict()
+        for myFlag in seenFlags[myIfo]:
+          self.__backgroundResults__[myIfo][myFlag]=tmpFlags.count(myFlag)/float(self.__backgroundPoints__)
     self.__haveBackgroundDict__=True
     #Return background estimating
     
@@ -2824,10 +2832,14 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,ifo,name,version,\
+                                  start,offset1,stop,offset2,\
+                                  size,myBackgroundRank,myCategory)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,ifo,name,version,\
+                                  start,offset1,stop,offset2,\
+                                  size,myBackgroundRank,myCategory)
       elif tableType.upper().strip() not in ["VETO","DQ"]:
         tableString+=rowString%(myColor,ifo,name,version,\
                                 start,offset1,stop,offset2,size,\
@@ -2876,7 +2888,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
       elif tableType.upper().strip() not in ["VETO","DQ"]:
         tmpResultList.append(myRow)
     if len(tmpResultList) == 0:
-      tableString+=emptyRowString%myColor
+      tableString+=emptyRowString
     for ifo,name,version,comment,start,stop in tmpResultList:
       #If we have background information fetch it
       if self.__haveBackgroundDict__:
