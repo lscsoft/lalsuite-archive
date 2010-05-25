@@ -73,7 +73,7 @@ LALFindChirpPTFFilterSegment (
   UINT4                 numPoints;
   UINT4                 deltaEventIndex;
   UINT4                 ignoreIndex;
-  REAL4                 deltaT, deltaF, fFinal, fmin, length;
+  REAL4                 deltaT, deltaF, fFinal, f_min, length;
   REAL4                 N, r, s, x, y;
   REAL8                 u1[5], u2[5], v1[5], v2[5];
   REAL8                 max_eigen, c, alpha, beta;
@@ -81,7 +81,7 @@ LALFindChirpPTFFilterSegment (
                         v1u1_minus_v2u2;
   REAL4                *Binv        = NULL;
   REAL4                *PTFP        = NULL;
-  COMPLEX8             *snr         = NULL;
+  REAL8                *rho         = NULL;
   COMPLEX8             *q           = NULL;
   COMPLEX8             *PTFQtilde   = NULL;
   COMPLEX8             *qtilde      = NULL;
@@ -90,7 +90,7 @@ LALFindChirpPTFFilterSegment (
   COMPLEX8             *inputData   = NULL;
   COMPLEX8             *tmpltSignal = NULL;
   COMPLEX8Vector        qVec;
-  FindChirpBankVetoData clusterInput;
+  /* FindChirpBankVetoData clusterInput; */
   
   INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
   ATTATCHSTATUSPTR( status );
@@ -194,7 +194,7 @@ LALFindChirpPTFFilterSegment (
   numPoints    = params->PTFqVec->vectorLength;
   N            = (REAL4) numPoints;
   /* workspace vectors */
-  snr          = params->PTFsnrVec->data;
+  rho          = params->PTFsnrVec->data;
   q            = params->qVec->data;
   qtilde       = params->qtildeVec->data;
   PTFq         = params->PTFqVec->data;
@@ -213,9 +213,9 @@ LALFindChirpPTFFilterSegment (
   deltaT       = (REAL4) params->deltaT;
   deltaF       = 1.0 / ( deltaT * N );
   fFinal       = (REAL4) input->fcTmplt->tmplt.fFinal;
-  fmin         = (REAL4) input->fcTmplt->tmplt.fLower;
+  f_min        = (REAL4) input->fcTmplt->tmplt.fLower;
   kmax         = fFinal / deltaF < numPoints/2 ? fFinal / deltaF : numPoints/2;
-  kmin         = fmin / deltaF > 1.0 ? fmin/ deltaF : 1;
+  kmin         = f_min / deltaF > 1.0 ? f_min/ deltaF : 1;
 
   /*
    *
@@ -342,7 +342,8 @@ LALFindChirpPTFFilterSegment (
     v1u1_minus_v2u2 = v1_dot_u1 - v2_dot_u2;
     max_eigen = 0.5 * ( v1_dot_u1 + v2_dot_u2 + sqrt( v1u1_minus_v2u2 * 
           v1u1_minus_v2u2 + 4 * v1_dot_u2 * v2_dot_u1 ));
-    snr[j].re = q[j].re = (REAL4) (2.0 * sqrt(max_eigen) / N); /* snr */
+     q[j].re = (REAL4) (2.0 * sqrt(max_eigen) / N); /* snr */
+     rho[j] = sqrt ( v1[0] * v1[0] + v2[0] * v2[0] ); 
     
     /* evaluate extrinsic parameters for every coalescence time */
     c = ( max_eigen - v1_dot_u1 ) / v1_dot_u2 ;
@@ -383,7 +384,7 @@ LALFindChirpPTFFilterSegment (
 
     for ( j = 0; j < numPoints; ++j )
     {
-      params->rhosqVec->data->data[j] =  snr[j].re * snr[j].re;
+      params->rhosqVec->data->data[j] =  q[j].re * q[j].re;
       
     }
   }
@@ -409,7 +410,7 @@ LALFindChirpPTFFilterSegment (
   /* cluster events searches the qVec for events */
   /* params->qVec = params->PTFsnrVec; */
   input->fcTmplt->norm = 1.0;
-
+ 
   if ( params->cVec )
   {
     memcpy( params->cVec->name, input->segment->data->name,
@@ -420,7 +421,7 @@ LALFindChirpPTFFilterSegment (
 
     for ( j = 0; j < numPoints; ++j )
     {
-      params->cVec->data->data[j].re = snr[j].re;
+      params->cVec->data->data[j].re = q[j].re;
       params->cVec->data->data[j].im = 0.0 ;
     }
   }
