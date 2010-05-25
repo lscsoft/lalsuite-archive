@@ -1982,7 +1982,7 @@ int main( int argc, char *argv[] )
     }
     else
     {
-      if ( approximant == FindChirpSP )
+      if ( approximant == FindChirpSP || approximant == FindChirpPTF )
       {
         /* compute the standard candle */
         REAL4 cannonDist = 1.0; /* Mpc */
