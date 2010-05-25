@@ -93,7 +93,6 @@ LALFindChirpTemplateInit (
 /* </lalVerbatim> */
 {
   UINT4                         k;
-  FindChirpTmpltParams         *PTFoutputPtr;
   FindChirpTmpltParams         *outputPtr;
   REAL4                        *xfac = NULL;
   const REAL4                   exponent = -1.0/3.0;
