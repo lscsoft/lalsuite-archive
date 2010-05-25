@@ -521,7 +521,7 @@ LALFindChirpFilterInit (
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
       }
 
-      outputPtr->PTFsnrVec = XLALCreateCOMPLEX8Vector( params->numPoints );
+      outputPtr->PTFsnrVec = XLALCreateREAL8Vector( params->numPoints );
       if ( ! outputPtr->PTFsnrVec )
       {
         ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
@@ -1073,7 +1073,7 @@ LALFindChirpFilterFinalize (
   }
   if ( outputPtr->PTFsnrVec )
   {
-    XLALDestroyCOMPLEX8Vector( outputPtr->PTFsnrVec );
+    XLALDestroyREAL8Vector( outputPtr->PTFsnrVec );
   }
   if ( outputPtr->PTFPVec )
   {
