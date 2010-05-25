@@ -621,10 +621,31 @@ XLALFindChirpPTFWaveform(
          isnan( LNhaty ) || isnan( LNhatz ) || isnan( e1x ) ||
          isnan( e1y ) || isnan( e1z ) )
     {
-      fprintf(stderr,"cycle %d\n",i);
-      XLALPrintError( "XLAL Error: NaN in PTF dynamical variables\n" );
-      errcode = XLAL_EFAILED;
+      /* check if we are close to the MECO */
+      N_steps = dE_dOm_n_1 / ( dE_dOm_n_2 -  dE_dOm_n_1);
+
+      if ( N_steps > 5.0 )
+      {
+        fprintf(stderr,"cycle %d\n",i);
+        XLALPrintError( "XLAL Error: NaN in PTF dynamical variables\n" );
+        errcode = XLAL_EFAILED;
+      }
       break;
+    }
+
+    /*  Store the last two values of dE/domega so as to be able to estimate   */
+    /* how far from the MECO condition we are in case the code is failing */
+    if ( i <= 1 )
+    {
+      dE_dOm_n_1 = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
+          0, 0, m1, m2, chi1, 0, orbital_energy_coeffs);
+      dE_dOm_n_2 = dE_dOm_n_1 * 1.01;
+    }
+    else if ( i > 1 )
+    {
+      dE_dOm_n_2 = dE_dOm_n_1;
+      dE_dOm_n_1 = stpn_orbital_energy( omega, pn_params.LNhat_dot_S1,
+          0, 0, m1, m2, chi1, 0, orbital_energy_coeffs);
     }
 
     /* terminate if domega_dt is no longer positive as this means that */
