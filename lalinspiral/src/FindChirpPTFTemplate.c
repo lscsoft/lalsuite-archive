@@ -229,6 +229,7 @@ LALFindChirpPTFTemplate (
         ( 2 * e2z * e2z - 2 * e1z * e1z + e1x * e1x + e1y * e1y - 
           e2x * e2x - e2y * e2y ) + 2 * sin(2 * phi) * ( e1x * e2x +
             e1y * e2y - 2 * e1z * e2z ));                              
+    /* Template component corresponding to optimally oriented source */
     xfac[i] = Q[0].data[i];
   }
 
@@ -241,10 +242,9 @@ LALFindChirpPTFTemplate (
   CHECKSTATUSPTR( status );
  
   /* template dependent normalization */
-  fcTmplt->tmpltNorm  = 2 * sqrtoftwo * InspTmplt->mu;
-  fcTmplt->tmpltNorm *= 2 * LAL_MRSUN_SI / ( cannonDist * 1.0e6 * LAL_PC_SI );
+  fcTmplt->tmpltNorm  = 2 * InspTmplt->mu;
+  fcTmplt->tmpltNorm *= LAL_MRSUN_SI / ( cannonDist * 1.0e6 * LAL_PC_SI );
   fcTmplt->tmpltNorm *= params->dynRange;
-  fcTmplt->tmpltNorm *= fcTmplt->tmpltNorm;
   
   /*
    *
@@ -285,7 +285,7 @@ LALFindChirpPTFNormalize(
 /* </lalVerbatim> */
 {
   UINT4         i, j, k, kmin, len, kmax;
-  REAL4         fmin, deltaT, deltaF, fFinal, xfac, segNormSum;
+  REAL4         f_min, deltaT, deltaF, fFinal, segNormSum;
   REAL4        *det         = NULL;
   REAL4        *PTFB        = NULL; 
   REAL4        *PTFsegNorm  = NULL;
@@ -302,8 +302,8 @@ LALFindChirpPTFNormalize(
   len        = params->wtildeVec->length;
   deltaT     = (REAL4) fcSeg->deltaT;
   deltaF     = 1.0 / ( deltaT * 2 * ( (REAL4)len - 1) );
-  fmin       = (REAL4) fcTmplt->tmplt.fLower;
-  kmin       = fmin / deltaF > 1 ?  fmin / deltaF : 1;
+  f_min      = (REAL4) fcTmplt->tmplt.fLower;
+  kmin       = f_min / deltaF > 1 ?  f_min / deltaF : 1;
   fFinal     = (REAL4) fcTmplt->tmplt.fFinal;
   kmax       = fFinal / deltaF < (len - 1) ? fFinal / deltaF : (len - 1);
   
