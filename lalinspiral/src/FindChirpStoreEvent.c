@@ -178,15 +178,32 @@ LALFindChirpStoreEvent (
     thisEvent->chisq     = 0;
     thisEvent->chisq_dof = 0;
   }
-  thisEvent->sigmasq = norm * input->segment->segNorm->data[kmax] *
-    input->segment->segNorm->data[kmax] * input->fcTmplt->tmpltNorm;
+  if ( params->approximant == FindChirpPTF ) 
+  { 
+    thisEvent->sigmasq = 4 * deltaT * input->segment->segNorm->data[kmax] * 
+                         input->fcTmplt->tmpltNorm / numPoints;
+    thisEvent->snr = sqrt( thisEvent->snr );
 
-  thisEvent->snr *= norm;
-  thisEvent->snr = sqrt( thisEvent->snr );
+    thisEvent->eff_distance = 2 * input->segment->segNorm->data[kmax] * 
+           input->fcTmplt->tmpltNorm / params->PTFsnrVec->data[eventStartIdx];
 
-  /* Effective distance is: D_eff = sigma / rho  */
+    /* Effective distance is: D_eff = sigma / rho  */
 
-  thisEvent->eff_distance = sqrt( thisEvent->sigmasq ) / thisEvent->snr;
+    thisEvent->eff_distance = sqrt( thisEvent->sigmasq ) / thisEvent->snr;
+  }
+  else
+  {
+    thisEvent->sigmasq = norm * input->segment->segNorm->data[kmax] *
+	    input->segment->segNorm->data[kmax] * input->fcTmplt->tmpltNorm;
+
+    thisEvent->snr *= norm;
+    thisEvent->snr = sqrt( thisEvent->snr );
+
+    /* Effective distance is: D_eff = sigma / rho  */
+
+    thisEvent->eff_distance = sqrt( thisEvent->sigmasq ) / thisEvent->snr;
+  }
+
 
   /* compute the time since the snr crossing */
   thisEvent->event_duration = (REAL8) timeIndex - (REAL8) eventStartIdx;
