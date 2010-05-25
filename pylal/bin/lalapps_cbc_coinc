@@ -200,7 +200,6 @@ CREATE TEMPORARY TABLE sngl AS
 
 	cnt=0
 	trips = 0
-	if options.verbose: print >> sys.stderr, "\n"
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 	for i, (time_slide_id, time_slide), in enumerate(background_time_slides.items() + zero_lag_time_slides.items()):
 
@@ -299,6 +298,7 @@ CREATE TEMPORARY TABLE triple AS
 			connection.cursor().execute("DROP INDEX tmpcemapix3")
 			connection.cursor().execute("DROP TABLE tmpcemap")
 
+	if options.verbose: print >>sys.stderr, "\n"
 	# DROP INDICES
 	connection.cursor().execute("DROP INDEX tmpindex1")
 	connection.cursor().execute("DROP INDEX tmpindex2")

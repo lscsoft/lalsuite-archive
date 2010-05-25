@@ -106,7 +106,12 @@ def skyhist_cart(skycarts,samples):
 	bins=zeros(N)
 	for sample in samples:
 		sampcart=pol2cart(sample[RAdim],sample[decdim])
-		maxdx=max(xrange(0,N),key=lambda i:dot(sampcart,skycarts[i]))
+		maxdot=0
+		for i in range(0,N):
+			thisdot=dot(sampcart,skycarts[i])
+			if thisdot>maxdot:
+				maxdot=thisdot
+				maxdx=i
 		bins[maxdx]+=1
 	return (skycarts,bins)
 
@@ -121,6 +126,9 @@ def loadDataFile(filename):
 	for line in infile:
 		sline=line.split()
 		proceed=True
+		if len(sline)<1:
+			print 'Ignoring empty line in input file: %s'%(sline)
+			proceed=False
 		for s in sline:
 			if dec.search(s) is not None:
 				print 'Warning! Ignoring non-numeric data after the header: %s'%(sline)

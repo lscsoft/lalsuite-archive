@@ -66,6 +66,7 @@ def get_day_boundaries(time):
   end_gps = start_gps + 86400
   return str(start_gps),str(end_gps)
 
+
 def figure_out_type(time, ifo=None, data_type='hoft'):
 	"""
 Run boundaries (from CBC analyses):
@@ -96,11 +97,13 @@ HrecOnline      V1:h_16384Hz
 	"""
 	L1HoftTypes=(
 		("L1_RDS_C03_L2","L1:LSC-STRAIN",815155213,875232014),
-		("L1_LDAS_C00_L2","L1:LDAS-STRAIN",931035296,999999999)
+		("L1_LDAS_C00_L2","L1:LDAS-STRAIN",931035296,941997600),
+		("L1_LDAS_C02_L2","L1:LDAS-STRAIN",941997600,999999999)
 		)
 	H1HoftTypes=(
 		("H1_RDS_C03_L2","H1:LSC-STRAIN",815155213,875232014),
-		("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,999999999)
+		("H1_LDAS_C00_L2","H1:LDAS-STRAIN",931035296,941997600),
+		("H1_LDAS_C02_L2","H1:LDAS-STRAIN",941997600,999999999)
 		)
 	H2HoftTypes=(
 		("H2_RDS_C03_L2","H2:LSC-STRAIN",815155213,875232014),
@@ -156,7 +159,7 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
@@ -583,6 +586,23 @@ class makeCheckListWikiJob(pipeline.CondorDAGJob,FUJob):
 	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
 #End makeCheckListWikiJob class
 
+#This class is responsible for the followup page
+class makeFollowupPageJob(pipeline.CondorDAGJob,FUJob):
+	"""
+	This actually launches a followup page job
+	"""
+	def __init__(self,opts,cp,dir='',tag_base=''):
+	    """
+	    """
+	    self.__executable = string.strip(cp.get("fu-condor",
+						"lalapps_followup_page").strip())
+	    self.name = os.path.split(self.__executable.rstrip('/'))[1]
+	    self.__universe = "vanilla" 
+	    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+	    self.add_condor_cmd('getenv','True')
+	    self.setupJob(name=self.name,dir=dir,cp=cp,tag_base='_all')
+#End makeFollowupPageJob class
+
 	    
 #The class responsible for running the data quality flag finding job
 class findFlagsJob(pipeline.CondorDAGJob, FUJob):
@@ -769,13 +789,15 @@ The omega scan command line is
 
 		self.scan_type = variety.upper() + "_" + type.replace("seismic","seis").upper()
 		self.scan_ifo = ifo
-
+		preString="omega/"+ifo+"/%s/"+science_run(time).upper()+""
 		if variety == "bg":
 			self.add_var_arg('scan')
-			preString = "omega/" + science_run(time).upper() + "/background"
+			preString = preString%("background")
+			oldPreString="omega/" + science_run(time).upper() + "/background"
 		else:
 			self.add_var_arg('scan -r')
-			preString = "omega/" + science_run(time).upper() + "/foreground"
+			preString = preString%("foreground")
+			oldPreString="omega/" + science_run(time).upper() + "/foreground"
 		config = self.fix_config_for_science_run( cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip(), time )
 		if cp.get('fu-'+variety+'-'+type+'-qscan', ifo+'config').strip() != config:
 			cp.set('fu-'+variety+'-'+type+'-qscan',ifo+'config',config)
@@ -1018,7 +1040,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,FUNode):
 			cp.set('fu-analyse-qscan',ifo+'-background-cache',backgroundCache)
 		self.add_var_opt('qscan-cache-background',backgroundCache)
 
-		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, repr(time).replace('.','_') + "_" + shortName)
+		self.output_file_name = "%s-analyseQscan_%s_%s-unspecified-gpstime.cache" % ( ifo, ifo, str(time).replace('.','_') + "_" + shortName)
 		self.output_cache = lal.CacheEntry(ifo,job.name.upper(),segments.segment(float(time),float(time)),"file://localhost/"+job.outputPath+'/'+self.output_file_name)
 
 		self.setupPlotNode(job)
@@ -1236,12 +1258,30 @@ class makeCheckListWikiNode(pipeline.CondorDAGNode,FUNode):
 			self.set_category(job.name.lower())
 		#Add this as child of all known jobs
 		for parentNode in dag.get_nodes():
-			self.add_parent(parentNode)
+			if not isinstance(parentNode,makeFollowupPageNode):
+				self.add_parent(parentNode)
 		if not opts.no_makeCheckList:
 			dag.add_node(self)
 			self.validate()
 		else:
 			self.invalidate()
+
+# Create followup page node
+class makeFollowupPageNode(pipeline.CondorDAGNode,FUNode):
+	"""
+	This runs the followup page
+	"""
+	def __init__(self,dag,job,cp,opts):
+		pipeline.CondorDAGNode.__init__(self,job)
+		#FIXME Specify cache location (sortof hard coded)
+		self.add_var_arg('followup_pipe.cache')
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+		#Add this as child of all known jobs
+		for parentNode in dag.get_nodes():
+			self.add_parent(parentNode)
+		dag.add_node(self)
+		self.validate()
 
 # FIND FLAGS NODE 
 class findFlagsNode(pipeline.CondorDAGNode,FUNode):
@@ -1255,7 +1295,9 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		  "options":{"window":"60,15",
 			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
-			     "output-file":"dqResults.wiki"}
+			     "output-file":"dqResults.wiki",
+			     "estimate-background":"",
+			     "background-location":"automatic"}
 		  }
 	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
@@ -1271,13 +1313,24 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
 		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
 		self.add_var_opt("window",cp.get('findFlags','window'))
+		if cp.has_option('findFlags','estimate-background'):
+			self.add_var_opt("estimate-background",cp.get('findFlags','estimate-background'))
+		if cp.has_option('findFlags','background-location'):			
+			self.add_var_opt("background-location",cp.get('findFlags','background-location'))
+
+		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
+
 		#IFO arg string
 		myArgString=""
-		for sngl in coincEvent.sngl_inspiral.itervalues():
-			myArgString=myArgString+"%s,"%sngl.ifo
+		if hasattr(coincEvent, "sngl_inspiral"):
+			for sngl in coincEvent.sngl_inspiral.itervalues():
+				myArgString=myArgString+"%s,"%sngl.ifo
+		elif hasattr(coincEvent, "ifos_list"):
+			for ifo in coincEvent.ifos_list:
+				myArgString=myArgString+"%s,"%ifo
 		myArgString=myArgString.rstrip(",")
 		self.add_var_opt("ifo-list",myArgString)
-		
+
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
@@ -1300,7 +1353,9 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		  "options":{"window":"60,15",
 			     "segment-url":"https://segdb.ligo.caltech.edu",
 			     "output-format":"moinmoin",
-			     "output-file":"vetoResults.wiki"}
+			     "output-file":"vetoResults.wiki",
+			     "estimate-background":"",
+			     "background-location":"automatic"}
 		  }
 	def __init__(self, dag, job, cp, opts, coincEvent=None):
 		"""
@@ -1311,18 +1366,29 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		#Output filename
 		oFilename="%s-findVetos_%s_%s.wiki"%(coincEvent.instruments,
 						     coincEvent.ifos,
-						     coincEvent.time)		
+						     coincEvent.time)
 		self.add_var_opt("output-file",job.outputPath+'/DataProducts/'+oFilename)
-		self.add_var_opt("segment-url",cp.get('findFlags','segment-url'))
-		self.add_var_opt("output-format",cp.get('findFlags','output-format'))
-		self.add_var_opt("window",cp.get('findFlags','window'))
+		self.add_var_opt("segment-url",cp.get('findVetoes','segment-url'))
+		self.add_var_opt("output-format",cp.get('findVetoes','output-format'))
+		self.add_var_opt("window",cp.get('findVetoes','window'))
+		if cp.has_option('findVetoes','estimate-background'):
+			self.add_var_opt("estimate-background",cp.get('findVetoes','estimate-background'))
+		if cp.has_option('findFlags','background-location'):			
+			self.add_var_opt("background-location",cp.get('findVetoes','background-location'))
+
+		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
+
 		#IFO arg string
 		myArgString=""
-		for sngl in coincEvent.sngl_inspiral.itervalues():
-			myArgString=myArgString+"%s,"%sngl.ifo
+		if hasattr(coincEvent, "sngl_inspiral"):
+			for sngl in coincEvent.sngl_inspiral.itervalues():
+				myArgString=myArgString+"%s,"%sngl.ifo
+		elif hasattr(coincEvent, "ifos_list"):
+			for ifo in coincEvent.ifos_list:
+				myArgString=myArgString+"%s,"%ifo
 		myArgString=myArgString.rstrip(",")
 		self.add_var_opt("ifo-list",myArgString)
-		
+
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 		if not opts.no_findVetoes:
@@ -1919,6 +1985,7 @@ class create_default_config(object):
 		self.set_qscan_executable()
 		cp.set("fu-condor","analyseQscan", self.which("analyseQscan.py"))
 		cp.set("fu-condor","makeCheckListWiki",self.which("makeCheckListWiki.py"))
+		cp.set("fu-condor","lalapps_followup_page",self.which("lalapps_followup_page"))
 		# makechecklistwiki SECTION
 		cp.add_section("makeCheckListWiki")
 		cp.set("makeCheckListWiki","universe","local")
@@ -2045,6 +2112,11 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_time_slides","20")
 
+		# Following comments relate to default options
+		# Generate by FUNode.__conditionalLoadDefaults__ method
+		#findFlagsNode
+		#findVetosNode
+		
 		# if we have an ini file override the options
 		if configfile:
 			user_cp = ConfigParser.ConfigParser()
@@ -2122,7 +2194,7 @@ class create_default_config(object):
                 #FIXME add more hosts as you need them
 		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
 			remote_ifos = "V1"
-			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground"
+			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground,ligo_data_find_Q_RDS_gps_only,wpipeline_FG_RDS_gps_only,wpipeline_FG_SEIS_RDS_gps_only,ligo_data_find_Q_RDS_time_slides,wpipeline_FG_RDS_time_slides,wpipeline_FG_SEIS_RDS_time_slides"
 			return remote_ifos, remote_jobs
 		return '', ''
 
@@ -2203,6 +2275,17 @@ using default opts instead!\n")
 				if hours.__contains__(int(h)):
 					shiftString=shiftLabel[shift]
 					humanShiftLabel=shift
+			#Need to back up one day in some cases
+			#when the shift of interest started -1 day
+			#before trigger time
+			if (0 in hours) and (hours[0]<h):
+				D=D-1;
+			if D<1:
+				D=1
+				M=M-1
+			if M<1:
+				M=1
+				Y=Y-1
 			#Create txt string
 			tString="%s%s%s"%(str(Y).zfill(4),str(M).zfill(2),str(D).zfill(2))
 			if ('V1').__contains__(ifoTag):
