@@ -518,7 +518,7 @@ tagFindChirpFilterParams
   COMPLEX8Vector              **qtildeVecACTD;
   COMPLEX8VectorSequence       *PTFqVec;
   COMPLEX8VectorSequence       *PTFqtildeVec;
-  COMPLEX8Vector               *PTFsnrVec;
+  REAL8Vector                 *PTFsnrVec;
   REAL4VectorSequence          *PTFPVec;
   ComplexFFTPlan               *invPlan;
   REAL4TimeSeries              *rhosqVec;
