@@ -472,7 +472,7 @@ LALCreateFindChirpSegmentVector (
     )
 /* </lalVerbatim> */
 {
-  UINT4                         i,l/*,k*/;
+  UINT4                         i;
   FindChirpSegmentVector       *vectorPtr;
   FindChirpSegment             *segPtr;
 
