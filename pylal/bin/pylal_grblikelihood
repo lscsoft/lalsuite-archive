@@ -362,6 +362,11 @@ def parse_args():
         help="enable a reweighting of injections from a uniform distribution "\
         "in D to a uniform distribution in D^3.")
     parser.add_option("--user-tag", help="a tag with which to label outputs")
+    parser.set_defaults(onmismatch="raise")
+    parser.add_option("--version-mismatch-ok", action="store_const",
+        const="warn", dest="onmismatch", help="by default, the program "\
+        "will halt if the version id stored in the pickle does not match the "\
+        "running version id; specify this option to reduce to a warning")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -384,12 +389,15 @@ opts, args = parse_args()
 
 if opts.verbose:
     print "Reading in bin definitions and loudest statistics..."
-statistic, mc_bins, onsource_loudest_by_mc \
+id, statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, offsource_loudest_by_trial_mc \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
     = pickle.load(open(opts.relic_injections))
+git_version.check_match(id, onmismatch=opts.onmismatch)
 if statistic not in ("effective_snr", "new_snr"):
     raise NotImplementedError
 
@@ -453,8 +461,9 @@ onsource_outname = __prog__ + "_onsource"
 if opts.user_tag is not None:
     onsource_outname += "_" + opts.user_tag
 onsource_outname += ".pickle"
-pickle.dump((log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask,
-    log_L_by_m2, log_sum_L), open(onsource_outname, "wb"), -1)
+pickle.dump((git_version.id, log_pc0_by_mc, log_pch_by_mc_m2,
+             actual_candidate_mask, log_L_by_m2, log_sum_L),
+            open(onsource_outname, "wb"), -1)
 
 ################################################################################
 # Compute off-source likelihoods
@@ -482,9 +491,9 @@ offsource_log_sum_L_by_trial = \
 
 # write the off-source likelihoods to disk
 offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
-pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
-    offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial),
-    open(offsource_outname, "wb"), -1)
+pickle.dump((git_version.id, offsource_pc0_by_trial_mc,
+             offsource_pch_by_trial_mc_m2, offsource_log_L_by_trial_m2,
+             offsource_log_sum_L_by_trial), open(offsource_outname, "wb"), -1)
 
 ################################################################################
 # Compute injection likelihoods
@@ -514,7 +523,7 @@ inj_log_sum_L_by_trial = \
 
 # write the injection likelihoods to disk
 inj_outname = onsource_outname.replace("_onsource", "_injections", 1)
-pickle.dump((inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2,
-             inj_log_L_by_trial_m2, inj_log_sum_L_by_trial),
-            open(inj_outname, "wb"), -1)
+pickle.dump((git_version.id, inj_log_pc0_by_trial_mc,
+             inj_log_pch_by_trial_mc_m2, inj_log_L_by_trial_m2,
+             inj_log_sum_L_by_trial), open(inj_outname, "wb"), -1)
 

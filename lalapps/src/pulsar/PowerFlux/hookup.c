@@ -273,7 +273,7 @@ fprintf(stderr,"powerflux: det_velocity=(%g,%g,%g)\n",
 	det_velocity[1],
 	det_velocity[2]
 	);
-fprintf(stderr,"gps=%d (nano=%d)\n",gps_and_acc.gps.gpsSeconds, gps_and_acc.gps.gpsNanoSeconds);
+fprintf(stderr,"gps=%d (nano=%d)\n",ligo_gps.gpsSeconds, ligo_gps.gpsNanoSeconds);
 fprintf(stderr,"detector=%s\n", detector.frDetector.name);
 fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 	ephemeris.nentriesE,
