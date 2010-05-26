@@ -2441,7 +2441,7 @@ defaulting to %s\n"%(self.serverURL))
     You can reset it with this method.
     """
     if filename==None:
-      os.stdout.write("Path information to background pickle unchanged.\n")
+      sys.stdout.write("Path information to background pickle unchanged.\n")
     elif filename.__contains__("~"):
       self.__backgroundPickle__=os.path.expanduser(filename)
     else:
@@ -2543,7 +2543,7 @@ defaulting to %s\n"%(self.serverURL))
       return
     triggerTime=float(triggerTime)
     if triggerTime==int(-1):
-      os.stdout.write("Specify trigger time please.\n")
+      sys.stdout.write("Specify trigger time please.\n")
       return
     else:
       self.triggerTime = float(triggerTime)
@@ -2702,13 +2702,13 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     try:
       cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
     except:
-      os.stdout.write("Problem saving pickle of DQ information.")
-      os.stdout.write("Trying to place pickle in your home directory.")
+      sys.stdout.write("Problem saving pickle of DQ information.")
+      sys.stdout.write("Trying to place pickle in your home directory.")
       try:
         cPickle.dump(self.__backgroundDict__,
                      file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
       except:
-        os.stdout.write("Really ignoring pickle generation now!\n")
+        sys.stdout.write("Really ignoring pickle generation now!\n")
   #End createDQbackground
 
   def estimateDQbackground(self):
