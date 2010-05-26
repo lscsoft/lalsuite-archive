@@ -2699,16 +2699,18 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
                                           myEpoch.strip().upper()) \
                                          for myIfo,myEpoch in ifoEpochList]
     #Save the created DQ background to a pickle, skip saving on error!
-    try:
-      cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
-    except:
-      sys.stdout.write("Problem saving pickle of DQ information.")
-      sys.stdout.write("Trying to place pickle in your home directory.")
+    #That is assuming we didn't get our data from a pickle already!
+    if not backgroundPickle:
       try:
-        cPickle.dump(self.__backgroundDict__,
-                     file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
       except:
-        sys.stdout.write("Really ignoring pickle generation now!\n")
+        sys.stdout.write("Problem saving pickle of DQ information.")
+        sys.stdout.write("Trying to place pickle in your home directory.")
+        try:
+          cPickle.dump(self.__backgroundDict__,
+                       file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        except:
+          sys.stdout.write("Really ignoring pickle generation now!\n")
   #End createDQbackground
 
   def estimateDQbackground(self):
