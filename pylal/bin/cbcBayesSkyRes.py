@@ -164,7 +164,7 @@ meanStr=map(str,means)
 out=reduce(lambda a,b:a+'||'+b,meanStr)
 print 'Means:'
 print '||'+out+'||'
-
+injectionconfidence=0
 RAdim=paramnames.index('RA')
 decdim=paramnames.index('dec')
 
@@ -405,7 +405,7 @@ if injection:
     htmlfile.write('<td>'+injline+'<td></tr>')
 htmlfile.write('</table>')
 if injection:
-	if injectionconfidence:
+	if injectionconfidence!=0:
     		htmlfile.write('<p>Injection found at confidence interval %f in sky location</p>'%(injectionconfidence))
 	else:
 		htmlfile.write('<p>Injection not found in posterior bins in sky location!</p>')
