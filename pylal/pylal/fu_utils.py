@@ -99,8 +99,20 @@ def getRunTimes(runName=None,ifo=None):
   """
   if runName == None or ifo == None:
     return ()
-  return runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  (a,b)=runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  return (a,b)
 
+def getRunTimesAsLIGOSegment(runName=None,ifo=None):
+  """
+  This method returns the start and stop of a LIGO
+  run given a gpstime.  (start,stop)
+  """
+  try:
+    (a,b)=getRunTimes(runName,ifo)
+  except:
+    return ()
+  return segments.segment(a,b)
+  
 def getRunEpoch(runTime=None, ifo=None):
   """
   This method returns the science run epoch name for LIGO,
@@ -115,6 +127,21 @@ def getRunEpoch(runTime=None, ifo=None):
     if (start<=runTime) and (runTime<=stop):
       outputEpoch=myEpoch
   return outputEpoch
+
+def getKnownIfoEpochs(ifoName=None):
+  """
+  Simple method if given an ifo string gives a list
+  of know epochs for that ifo.
+  """
+  if ifoName==None:
+    return []
+  return runEpochs[ifoName].keys()
+
+def getKnownIfos():
+  """
+  This method dumps the names as a list of know ifos.
+  """
+  return interferometers
 
 #Double defined home_dir funct from stfu_pipe
 def home_dir():
