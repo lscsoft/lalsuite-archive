@@ -108,16 +108,24 @@ for database in databases:
 			abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
 			snglA.snr,
 			snglB.snr,
-			snglA.chisq,
-			snglB.chisq,
+			snglA.chisq/snglA.chisq_dof,
+			snglB.chisq/snglB.chisq_dof,
 			calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
 			calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
 			snglA.rsqveto_duration,
 			snglB.rsqveto_duration,
-			snglA.bank_chisq,
-			snglB.bank_chisq,
-			snglA.cont_chisq,
-			snglB.cont_chisq,
+			CASE snglA.bank_chisq_dof
+				WHEN 0.0 THEN 1.0
+				ELSE snglA.bank_chisq/snglA.bank_chisq_dof END,
+			CASE snglB.bank_chisq_dof
+				WHEN 0.0 THEN 1.0
+				ELSE snglB.bank_chisq/snglB.bank_chisq_dof END,
+			CASE snglA.bank_chisq_dof
+				WHEN 0.0 THEN 1.0
+				ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
+			CASE snglB.cont_chisq_dof
+				WHEN 0.0 THEN 1.0
+				ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
 			coinc_inspiral.snr,
 			CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
 				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
@@ -207,16 +215,24 @@ for database in databases:
 		abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
 		snglA.snr,
 		snglB.snr,
-		snglA.chisq,
-		snglB.chisq,
+		snglA.chisq/snglA.chisq_dof,
+		snglB.chisq/snglB.chisq_dof,
 		calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
 		calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
 		snglA.rsqveto_duration,
 		snglB.rsqveto_duration,
-		snglA.bank_chisq,
-		snglB.bank_chisq,
-		snglA.cont_chisq,
-		snglB.cont_chisq,
+		CASE snglA.bank_chisq_dof
+			WHEN 0.0 THEN 1.0
+			ELSE snglA.bank_chisq/snglA.bank_chisq_dof END,
+		CASE snglB.bank_chisq_dof
+			WHEN 0.0 THEN 1.0
+			ELSE snglB.bank_chisq/snglB.bank_chisq_dof END,
+		CASE snglA.bank_chisq_dof
+			WHEN 0.0 THEN 1.0
+			ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
+		CASE snglB.cont_chisq_dof
+			WHEN 0.0 THEN 1.0
+			ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
 		coinc_inspiral.snr,
 		EXISTS (
 			SELECT
@@ -297,7 +313,7 @@ if len(injections) != 0:
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq a_cont_chisq b_cont_chisq coinc_inspiral_snr \n")
+		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq_red b_bank_chisq_red a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
 		return f
 	
 	for i in range(Nrounds):
@@ -306,8 +322,6 @@ if len(injections) != 0:
 		f_testing_info=open(''.join(ifos) + '_set' + str(i) + '_' + str(testr) + '_info.pat', 'w')
 		set_inj = list(injections)
 		set_inj_info = list(injections_info)
-		print len(set_inj)
-		print len(set_inj_info)
 		set_slide = list(timeslides)
 		set_slide_info = list(timeslides_info)
 		# get 10% of the timeslides and injections, which you will run through the forest that you've trained on the other 90%
@@ -316,8 +330,6 @@ if len(injections) != 0:
 		set_i_inj_info= set_inj_info[i*Ninj/Nrounds : (i+1)*Ninj/Nrounds]
 		set_i_slide = set_slide[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
 		set_i_slide_info = set_slide_info[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
-		print len(set_i_inj)
-		print len(set_i_inj_info)
 		for row in set_i_inj:
 			f_testing.write("%s\n" % " ".join(map(str,row)))
 		for row in set_i_inj_info:
@@ -335,7 +347,7 @@ if len(injections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq a_cont_chisq b_cont_chisq coinc_inspiral_snr \n")
+	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq_red b_bank_chisq_red a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')
