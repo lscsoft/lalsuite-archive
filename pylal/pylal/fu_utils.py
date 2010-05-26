@@ -2733,6 +2733,15 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         uniqIfos.append(ifo)
     ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in self.ifos]
     self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
+    for x in self.ifos:
+      if x not in self.__backgroundPickle__.keys():
+        sys.stderr.write("Could not either open or save DQ \
+background in %s.\n"%(self.__backgroundPickle__))
+        self.__backgroundResults__=list()
+        self.__backgroundTimesDict__=dict()
+        self.__backgroundDict__=dict()
+        self.__haveBackgroundDict__=bool(False)
+        return
     #Calculate the binomial 'p' value for the flags in the table.
     if self.resultList < 1:
           sys.stderr.write("Aborting tabulation of binomial P\n")
