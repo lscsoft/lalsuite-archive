@@ -77,10 +77,7 @@ parser.add_option("-v","--verbose",action="store_true",\
 dqService=followupDQV()
 if opts.show_ifo_epoch:
     for myIfo in getKnownIfos():
-        validEpochs=""
-        for myEpochs in getKnownIfos():
-            validEpochs+="%s,"%myEpochs
-        validEpochs=validEpochs.rstrip(",")
+        validEpochs=getKnownIfoEpochs(myIfo)
         sys.stdout.write("%s has valid epochs %s\n"%(myIfo,validEpochs))
     sys.exit(0)
 if opts.available_backgrounds:
@@ -178,7 +175,7 @@ for myPair in epochInfo.split(","):
         sys.stderr.write(" %s not valid ifo.\n"%myIfo)
         sys.stderr.write("Valid ifos are %s\n"%getKnownIfos())
         sys.exit(-1)
-    if myEpoch not in getKnownIfos():
+    if myEpoch not in getKnownIfoEpochs(myIfo):
         sys.stderr.write("%s not valid epoch for %s ifo.\n"%(myEpoch,myIfo))
         sys.stderr.write("valid epochs for %s ifo are %s\n."%\
                          (myIfo,getKnownIfos()))
