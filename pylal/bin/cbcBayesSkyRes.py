@@ -414,7 +414,7 @@ htmlfile.write('<table border=1><tr>')
 htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
-htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
+htmlfile.write('</tr><tr><td width=30%><img width=100% src="Diota.png"</td>')
 if opts.skyres is not None:
         htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
 else:
