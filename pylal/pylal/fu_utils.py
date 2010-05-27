@@ -2637,9 +2637,11 @@ defaulting to %s\n"%(self.serverURL))
       if os.path.isfile(pickleLocale):
         try:
           self.__backgroundDict__=cPickle.load(file(pickleLocale,'r'))
+          self.__haveBackgroundDict__=True
           backgroundPickle=True
         except:
           backgroundPickle=False
+          self.__haveBackgroundDict__=False
           sys.stderr.write("Error importing the pickle file! %s\n"\
                            %(pickleLocale))
           return
@@ -2660,6 +2662,7 @@ generated background expected %s got %s"%(\
         sys.stderr.write("Warning: Insufficient disk \
 permissions to create DQ background pickle file:%s.\n"%(autoPath))
         backgroundPickle=False
+        self.__haveBackgroundDict=False
         return
     #Setup for large volumne of queries
     #Determine random background times for each IFO
@@ -2725,6 +2728,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     self.__backgroundDict__["ifoepoch"]=[(myIfo.strip().upper(),
                                           myEpoch.strip().upper()) \
                                          for myIfo,myEpoch in ifoEpochList]
+    self.__haveBackgroundDict__=True
     #Save the created DQ background to a pickle, skip saving on error!
     #That is assuming we didn't get our data from a pickle already!
     if not backgroundPickle:
@@ -2760,15 +2764,14 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         uniqIfos.append(ifo)
     ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in self.ifos]
     self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
-    for x in self.ifos:
-      if x not in self.__backgroundPickle__.keys():
-        sys.stderr.write("Could not either open or save DQ \
-background in %s.\n"%(self.__backgroundPickle__))
-        self.__backgroundResults__=list()
-        self.__backgroundTimesDict__=dict()
-        self.__backgroundDict__=dict()
-        self.__haveBackgroundDict__=bool(False)
-        return
+    if not self.__haveBackgroundDict__:
+      sys.stderr.write("Could not either open or save DQ \
+background in %s no background data available!\n"%(self.__backgroundPickle__))
+      self.__backgroundResults__=list()
+      self.__backgroundTimesDict__=dict()
+      self.__backgroundDict__=dict()
+      self.__haveBackgroundDict__=bool(False)
+      return
     #Calculate the binomial 'p' value for the flags in the table.
     if self.resultList < 1:
           sys.stderr.write("Aborting tabulation of binomial P\n")
