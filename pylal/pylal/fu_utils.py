@@ -99,8 +99,20 @@ def getRunTimes(runName=None,ifo=None):
   """
   if runName == None or ifo == None:
     return ()
-  return runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  (a,b)=runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  return (a,b)
 
+def getRunTimesAsLIGOSegment(runName=None,ifo=None):
+  """
+  This method returns the start and stop of a LIGO
+  run given a gpstime.  (start,stop)
+  """
+  try:
+    (a,b)=getRunTimes(runName,ifo)
+  except:
+    return ()
+  return segments.segment(a,b)
+  
 def getRunEpoch(runTime=None, ifo=None):
   """
   This method returns the science run epoch name for LIGO,
@@ -115,6 +127,21 @@ def getRunEpoch(runTime=None, ifo=None):
     if (start<=runTime) and (runTime<=stop):
       outputEpoch=myEpoch
   return outputEpoch
+
+def getKnownIfoEpochs(ifoName=None):
+  """
+  Simple method if given an ifo string gives a list
+  of know epochs for that ifo.
+  """
+  if ifoName==None:
+    return []
+  return runEpochs[ifoName].keys()
+
+def getKnownIfos():
+  """
+  This method dumps the names as a list of know ifos.
+  """
+  return interferometers
 
 #Double defined home_dir funct from stfu_pipe
 def home_dir():
@@ -2441,7 +2468,7 @@ defaulting to %s\n"%(self.serverURL))
     You can reset it with this method.
     """
     if filename==None:
-      os.stdout.write("Path information to background pickle unchanged.\n")
+      sys.stdout.write("Path information to background pickle unchanged.\n")
     elif filename.__contains__("~"):
       self.__backgroundPickle__=os.path.expanduser(filename)
     else:
@@ -2543,7 +2570,7 @@ defaulting to %s\n"%(self.serverURL))
       return
     triggerTime=float(triggerTime)
     if triggerTime==int(-1):
-      os.stdout.write("Specify trigger time please.\n")
+      sys.stdout.write("Specify trigger time please.\n")
       return
     else:
       self.triggerTime = float(triggerTime)
@@ -2699,16 +2726,18 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
                                           myEpoch.strip().upper()) \
                                          for myIfo,myEpoch in ifoEpochList]
     #Save the created DQ background to a pickle, skip saving on error!
-    try:
-      cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
-    except:
-      os.stdout.write("Problem saving pickle of DQ information.")
-      os.stdout.write("Trying to place pickle in your home directory.")
+    #That is assuming we didn't get our data from a pickle already!
+    if not backgroundPickle:
       try:
-        cPickle.dump(self.__backgroundDict__,
-                     file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
       except:
-        os.stdout.write("Really ignoring pickle generation now!\n")
+        sys.stdout.write("Problem saving pickle of DQ information.")
+        sys.stdout.write("Trying to place pickle in your home directory.")
+        try:
+          cPickle.dump(self.__backgroundDict__,
+                       file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        except:
+          sys.stdout.write("Really ignoring pickle generation now!\n")
   #End createDQbackground
 
   def estimateDQbackground(self):
@@ -2731,6 +2760,15 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         uniqIfos.append(ifo)
     ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in self.ifos]
     self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
+    for x in self.ifos:
+      if x not in self.__backgroundPickle__.keys():
+        sys.stderr.write("Could not either open or save DQ \
+background in %s.\n"%(self.__backgroundPickle__))
+        self.__backgroundResults__=list()
+        self.__backgroundTimesDict__=dict()
+        self.__backgroundDict__=dict()
+        self.__haveBackgroundDict__=bool(False)
+        return
     #Calculate the binomial 'p' value for the flags in the table.
     if self.resultList < 1:
           sys.stderr.write("Aborting tabulation of binomial P\n")
