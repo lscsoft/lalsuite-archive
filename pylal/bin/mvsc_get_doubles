@@ -313,7 +313,7 @@ for key in injections.keys():
 		injtmp = list(injections[key][row])
 		injtmp[-2] = injtmp[-2]*float(len(injections[key]))/normalization[key]
 		allinjections.append(injtmp)
-		allinjections_info.append(injections_info[key])
+		allinjections_info.append(list(injections_info[key][row]))
 
 random.seed(1)
 random.shuffle(allinjections)
