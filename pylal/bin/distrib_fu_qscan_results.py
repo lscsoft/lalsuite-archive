@@ -45,9 +45,6 @@ usage: %prog [options]
 parser = OptionParser(usage, version=git_version.verbose_msg)
 
 
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information and exit")
-
 parser.add_option("-i","--qscan-input-file",action="store",type="string",\
     help="input file containing the qscan results. It must be a tar.gz file")
 
