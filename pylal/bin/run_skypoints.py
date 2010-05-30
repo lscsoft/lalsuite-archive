@@ -12,7 +12,7 @@ import glob
 import cPickle
 from optparse import *
 from math import sqrt
-from numpy import zeros
+from numpy import zeros, ceil
 from pylal import skylocutils
 from glue.ligolw import ligolw, lsctables
 
@@ -43,8 +43,8 @@ def parse_command_line():
       default=None, metavar=" GRID",help="pickled sky grids (generated with make_skypoints_grids.py)")
   parser.add_option("-R","--ranks",action="store",type="string",\
       default=None, metavar=" RANKS",help="pickled ranking object (generated with make_skypoints_rankings.py)")
-  #parser.add_option("-u","--galaxy-priors-dir",action="store",type="string",\
-  #    default=None, metavar=" PRIDIR", help="path to a directory containg pickles for using galaxy catalog priors (generated with make_skypoints_galaxy_priors.py)")
+  parser.add_option("-u","--galaxy-priors-dir",action="store",type="string",\
+      default=None, metavar=" PRIDIR", help="path to a directory containg pickles for using galaxy catalog priors (generated with make_skypoints_galaxy_priors.py)")
   parser.add_option("-o","--output-prefix",action="store",type="string",default='',\
                     help="appends ouput-prefix to output file names")
   parser.add_option("-z","--input-type",action="store",default="coinctable",\
@@ -103,6 +103,7 @@ ligolw.Header += u"""\n\n"""\
 base_name = 'SKYPOINTS' + opts.output_prefix
 post_fname = base_name + '_posterior_GPSTIME.txt.gz'
 prob_fname = base_name + '_probability_GPSTIME.txt.gz'
+gal_fname = base_name + '_posterior_galaxy_prior_GPSTIME.txt.gz'
 outfile = base_name + '_GPSTIME.xml'
 
 ##############################################################################
@@ -172,6 +173,15 @@ for coinc in coincs:
   else:
   #otherwise just multiply by unity
     dtsnrfac = 1.0
+  
+  #open up the necessary pickle with info on the galaxy prior
+  if opts.galaxy_priors_dir:
+    mineffD = ceil(min(coinc.eff_distances.values()))
+    if mineffD > 100.: 
+      mineffD = 100.
+    f = open(opts.galaxy_priors_dir+'/'+str(mineffD)+'Mpc.pkl','r')
+    gal_prior = cPickle.load(f)
+    f.close()
 
   print >>sys.stdout, 'Processing trigger at '+str(coinc.time)
   #main loop over the coarse grid
@@ -189,14 +199,23 @@ for coinc in coincs:
         dDrank = dDr.get_rank(dDrss_fine)
         L = dtrank*dDrank
         prob = P.get_rank(L)
-        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank),dtrank])
+        pval = 0.0
+        if opts.galaxy_priors_dir:
+          try:
+            pval = gal_prior[fine_pt]
+          except KeyError:
+            pass
+        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank),dtrank,pval*L])
 
         #FIXME: put galaxy catalog stuff here!!!
   
   fnames = {}
   fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
   fnames['probability'] = get_unique_filename(prob_fname.replace('GPSTIME',str(coinc.time.seconds)))
-
+  if opts.galaxy_priors_dir:
+    fnames['galaxy'] = get_unique_filename(gal_fname.replace('GPSTIME',str(coinc.time.seconds)))
+  else:
+    fnames['galaxy'] = None
 
   if sp:
     print >>sys.stdout, 'Populating sky localization table...'
@@ -215,9 +234,21 @@ for coinc in coincs:
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
     rank_inj = dtrank_inj*dDrank_inj
+    if  opts.galaxy_priors_dir:
+      try:
+        pval_inj = gal_prior[inj_pt]
+      except:
+        pval_inj = 0.0
+      gal_area = fine_area*len([pt for pt in sp if pt[5] >= rank_inj*pval_inj])
+      area['gal'] = gal_area
+    else:
+      area['gal'] = None
     dt_area = fine_area*len([pt for pt in sp if pt[4] >= dtrank_inj])
     rank_area = fine_area*len([pt for pt in sp if pt[2] >= rank_inj])
-    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,dt_area,rank_area,\
+    area = {}
+    area['dt'] = dt_area
+    area['rank'] = rank_area
+    skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,area,\
                                         dtrss_inj,dDrss_inj,fnames['probability'])
 
   #check for name collisions and then write the grid

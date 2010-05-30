@@ -309,23 +309,41 @@ class SkyPoints(list):
     post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
     post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    if fname['galaxy']:
+      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
+      gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+      gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
     for pt in self:
         prob_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
         post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
     if comment:
       prob_grid += '# ' + comment + '\n'
       post_grid += '# ' + comment + '\n'
+    if fname['galaxy']:
+      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
+      gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+      gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+      self.nsort(5)
+      for pt in self:
+        gal_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[5]) + '\n'
     if gz:
       fprob = gzip.open(fname['probability'], 'w')
       fpost = gzip.open(fname['posterior'], 'w')
+      if fname['galaxy']:
+        fgal = gzip.open(fname['galaxy'], 'w')
     else:
       fprob = open(fname['probability'], 'w')
       fpost = open(fname['posterior'], 'w')
+      if fname['galaxy']:
+        fgal = open(fname['galaxy'], 'w')
 
     fprob.write(prob_grid)
     fpost.write(post_grid)
     fprob.close() 
     fpost.close()
+    if fname['galaxy']:
+      fgal.write(gal_grid)
+      fgal.close()
 
 class CoincData(object):
   """
@@ -563,6 +581,7 @@ class SkyLocInjTable(tab.Table):
     "dec": "real_4",
     "dt_area": "real_4",
     "rank_area": "real_4",
+    "gal_area": "real_4",
     "delta_t_rss": "real_8",
     "delta_D_rss": "real_8",
     "rank": "real_8",
@@ -659,7 +678,7 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area,\
+def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area\
                             dtrss_inj,dDrss_inj,grid_fname):
   """
   record injection data in a skylocinjtable
@@ -687,8 +706,12 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area,\
     row.v1_snr = None
   row.ra = coinc.longitude_inj
   row.dec = coinc.latitude_inj
-  row.dt_area = dt_area
-  row.rank_area = rank_area
+  row.dt_area = area['dt']
+  row.rank_area = area['rank']
+  if area['gal']:
+    row.gal_area = area['gal']
+  else:
+    row.gal_area = None
   row.delta_t_rss = dtrss_inj
   row.delta_D_rss = dDrss_inj
   try:
