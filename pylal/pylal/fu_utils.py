@@ -2324,6 +2324,7 @@ class followupDQV:
     """
     self.__connection__= None
     self.__engine__= None
+    self.__installPath__=home_dir()+"/ctorres/followupbackgrounds/dq/"
     if pickle==None:
       self.__backgroundPickle__=None
     else:
@@ -2432,9 +2433,16 @@ defaulting to %s\n"%(self.serverURL))
     return outputList
   #End __merge__() method
 
+  def getInstallPath(self):
+    """
+    Returns a string pointing to the local install location of where
+    the DQ background pickles should be found.
+    """
+    return self.__installPath__
+    
   def figure_out_pickle(self,ifoEpochList=None):
     fileMask="followup_background_%s.pickle"
-    installPath=home_dir()+"/ctorres/followupbackgrounds/dq/"
+    installPath=self.__installPath__
     if ifoEpochList==None:
       return None
     elif type(ifoEpochList) == type(str()):
