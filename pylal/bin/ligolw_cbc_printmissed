@@ -151,8 +151,9 @@ def parse_command_line():
             )
     parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
         help =
-            "Specify the simulation type to print info about, e.g., 'BNSINJ'. " +
-            "If not specified, will group all injections together."
+            "Specify the simulation type to plot, e.g., 'BNSLININJ'. To plot multiple injection types together " +
+            "separate tags by a '+', e.g., 'BNSLOGINJA+BNSLOGINJB'. " +
+            "If not specified, will group all injections together (equivalent to specifying 'ALLINJ')."
             )
     parser.add_option( "", "--limit", action = "store", type = "int", default = 10,
         help =

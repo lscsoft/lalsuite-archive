@@ -139,7 +139,7 @@ else:
       'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt']:
       # if the XML file contains a http pointer to the ligolw DTD at CIT then
       # return a local copy to avoid any network problems
-      return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"],
+      return 'file://localhost' + os.path.join( os.environ["GLUE_PREFIX"],
         'etc/ligolw_dtd.txt' )
     else:
       # otherwise just use the uri in the file

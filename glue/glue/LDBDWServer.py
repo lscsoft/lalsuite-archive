@@ -103,7 +103,7 @@ def dtd_uri_callback(uri):
   if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
     # if the XML file contants a http pointer to the ligolw DTD at CIT then
     # return a local copy to avoid any network problems
-    return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"],
+    return 'file://localhost' + os.path.join( os.environ["GLUE_PREFIX"],
       'etc/ligolw_dtd.txt' )
   else:
     # otherwise just use the uri in the file
@@ -112,12 +112,12 @@ def dtd_uri_callback(uri):
 
 # use a local copy of the DTD, if one is available
 try:
-    GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+    GLUE_PREFIX = os.environ["GLUE_PREFIX"]
     xmlparser.eoCB = dtd_uri_callback
     logger.info("Using local DTD in " + 
-      'file://localhost' + os.path.join( GLUE_LOCATION, 'etc') )
+      'file://localhost' + os.path.join( GLUE_PREFIX, 'etc') )
 except KeyError:
-    logger.warning('GLUE_LOCATION not set, unable to use local DTD') 
+    logger.warning('GLUE_PREFIX not set, unable to use local DTD') 
 
 # initialize dictionaries for the dmt processes and segments definers
 dmt_proc_dict = {}
