@@ -295,17 +295,23 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
     
     # if sim-tag specified add the sim-tag to the filter
     if sim_tag != 'ALLINJ':
-        # create a map between sim_proc_id and sim-tag
+        # create a map between sim_proc_id and sim-tag and a function to parse it
         sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
-        # check that sim_tag is in the the map
-        sim_tag = sqlutils.validate_option(sim_tag, lower = False).upper()
-        if sim_tag not in sim_map.tag_id_map.keys():
-            raise ValueError, "sim-tag %s not found in database" % sim_tag
-        # create the filter
         connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
-        sim_filter = ''.join(['get_sim_tag(experiment_summary.sim_proc_id) == "', sim_tag, '"' ])
-        # add to in_this_filter
-        in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
+        # parse the sim_tag for multiple sims; then cycle over and add to the filter
+        sim_filter = ''
+        sim_list = sim_tag.split('+')
+        for sim_tag in sim_list:
+            # check that sim_tag is in the the map
+            sim_tag = sqlutils.validate_option(sim_tag, lower = False).upper()
+            if sim_tag not in sim_map.tag_id_map.keys():
+                raise ValueError, "sim-tag %s not found in database" % sim_tag
+            # create the filter
+            sim_filter = '\n\t\tOR '.join([ sim_filter, ''.join(['get_sim_tag(experiment_summary.sim_proc_id) == "', sim_tag, '"' ]) ])
+
+        # strip the leading OR and add to in_this_filter
+        sim_filter = re.sub(r'OR ', '', sim_filter, 1)
+        in_this_filter = ''.join([ in_this_filter, '\n\tAND (', sim_filter, '\n\t)' ])
 
     # remove the leading AND
     in_this_filter = re.sub(r'\n\tAND', '', in_this_filter, 1)
@@ -351,14 +357,6 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, ranking_stat)
     
     #
-    #   Set recovery table filters
-    #
-    in_this_filter = create_filter(connection, recovery_table, param_name = param_name, param_ranges = param_ranges,
-        exclude_coincs = exclude_coincs, include_only_coincs = include_only_coincs, sim_tag = sim_tag,
-        verbose = verbose)
-    
-    
-    #
     #   Initialize ranking. Statistics for ranking are collected from non-injections
     #   in the recovery table.
     #
@@ -375,18 +373,26 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
             AND
                 experiment_summary.datatype == "''', comparison_datatype, '"'])
     
+    # add to the rank filter any other desired filters; note that sim-tag is forced to ALLINJ if not comparing
+    # to simulation datatype
+    in_this_filter = create_filter(connection, recovery_table, param_name = param_name, param_ranges = param_ranges,
+        exclude_coincs = exclude_coincs, include_only_coincs = include_only_coincs,
+        sim_tag = comparison_datatype == 'simulation' and sim_tag or 'ALLINJ',
+        verbose = False)
     if in_this_filter != '':
         rank_filter = '\n\tAND '.join([ in_this_filter, rank_filter ])
 
     rank_filter = '\n\t'.join([ sqlutils.join_experiment_tables_to_coinc_table(recovery_table), 'WHERE', rank_filter ])
     
-    # remove sim tag from filter if comparison is not to simulation datatype
-    if comparison_datatype != 'simulation':
-        rank_filter = re.sub('AND get_sim_tag(experiment_summary.sim_proc_id) == "'+comparison_datatype+'"', '', rank_filter)
-
     ranker.populate_stats_list(connection, limit = None, filter = rank_filter)
     connection.create_function( 'rank', 1, ranker.get_rank )
     
+    #
+    #   Set recovery table filters
+    #
+    in_this_filter = create_filter(connection, recovery_table, param_name = param_name, param_ranges = param_ranges,
+        exclude_coincs = exclude_coincs, include_only_coincs = include_only_coincs, sim_tag = sim_tag,
+        verbose = verbose)
     
     # Now apply the filter to the sim_rec_map table: this will delete all sim/rec maps where the simulation id is
     # mapped to a recovered event that falls outside the filter, even if that particular sim/rec map is in the
