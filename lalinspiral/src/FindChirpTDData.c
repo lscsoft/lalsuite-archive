@@ -106,6 +106,7 @@ LALFindChirpTDData (
     case AmpCorPPN:
       /* store the input approximant */
       approx = params->approximant;
+      fprintf(stdout,"vaffanculo\n"); 
       break;
 
     default:
@@ -124,21 +125,40 @@ LALFindChirpTDData (
   LALFindChirpSPData ( status->statusPtr, fcSegVec, dataSegVec, params );
   CHECKSTATUSPTR( status );
   params->approximant = approx;
+  fprintf(stderr,"approx=%d\n",(INT4) approx); 
 
-  for ( i = 0; i < fcSegVec->length; ++i )
+  if ( params->approximant == FindChirpPTF )
   {
-    FindChirpSegment *fcSeg = fcSegVec->data + i;
+	  for ( i = 0; i < fcSegVec->length; ++i )
+	  {
+		  FindChirpSegment *fcSeg = fcSegVec->data + i;
 
-    /* store the waveform approximant in the data segment */
-    fcSeg->approximant = params->approximant;
+		  /* store the waveform approximant in the data segment */
+		  fcSeg->approximant = params->approximant;
 
-    /* zero the tmpltPower and segNorm vectors as they are incorrect */
-    memset( fcSeg->tmpltPowerVec->data, 0,
-        fcSeg->tmpltPowerVec->length * sizeof(REAL4) );
-    memset( fcSeg->segNorm->data, 0,
-        fcSeg->segNorm->length * sizeof(REAL4) );
+		  /* zero the tmpltPower but keep segNorm vector for candle distance */
+		  memset( fcSeg->tmpltPowerVec->data, 0,
+				  fcSeg->tmpltPowerVec->length * sizeof(REAL4) );
+
+	  }
+	  fprintf(stderr,"segnorm=%e\n",fcSegVec->data->segNorm->data[fcSegVec->data->segNorm->length-1]);
   }
+  else
+  {
+	  for ( i = 0; i < fcSegVec->length; ++i )
+	  {
+		  FindChirpSegment *fcSeg = fcSegVec->data + i;
 
+		  /* store the waveform approximant in the data segment */
+		  fcSeg->approximant = params->approximant;
+
+		  /* zero the tmpltPower and segNorm vectors as they are incorrect */
+		  memset( fcSeg->tmpltPowerVec->data, 0,
+				  fcSeg->tmpltPowerVec->length * sizeof(REAL4) );
+		  memset( fcSeg->segNorm->data, 0,
+				  fcSeg->segNorm->length * sizeof(REAL4) );
+	  }
+  }
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );
