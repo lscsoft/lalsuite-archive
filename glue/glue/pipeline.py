@@ -1317,9 +1317,6 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
     input_file_dict = {}
     output_file_dict = {}
 
-    # pattern to match files endig in ,xml or .xml.gz
-    xml_pat = re.compile(r'.*\.xml(\.gz$|$)')
-
     # creating dictionary for input- and output-files
     for node in self.__nodes:
 
@@ -1518,7 +1515,7 @@ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="3.0" count="1" in
         for f in node.get_input_files():
           # FIXME need a better way of dealing with the cache subdirectory
           f = os.path.basename(f)
-          if xml_pat.match(f) and f in inout_filelist:
+          if f in inout_filelist:
             print >>dagfile, """\
      <uses file="%s" link="inout" register="false" transfer="true"/>\
 """ % f
