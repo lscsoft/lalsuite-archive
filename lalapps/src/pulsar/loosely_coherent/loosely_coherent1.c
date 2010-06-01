@@ -11,6 +11,13 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+/* This likely has something to do with CUDA */
+#define restrict
+
+#include <lal/LALDatatypes.h>
+#include <lal/AVFactories.h>
+#include <lal/ComplexFFT.h>
+
 FILE *LOG=NULL, *FILE_LOG=NULL, *DATA_LOG=NULL;
 
 #include "global.h"
@@ -196,12 +203,6 @@ if(no_am_response){
 	fprintf(LOG,"no_am_response : true\n");
 	fprintf(stderr,"NO_AM_RESPONSE flag passed\n");
 	}
-fprintf(LOG,"firstbin  : %d\n",first_bin);
-fprintf(LOG,"band start: %g Hz\n",first_bin/args_info.coherence_length_arg);
-fprintf(LOG,"nbins     : %d\n",nbins);
-fprintf(LOG,"side_cut  : %d\n",side_cut);
-fprintf(LOG,"useful bins : %d\n",useful_bins);
-fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/args_info.coherence_length_arg);
 fprintf(LOG,"algorithm: %s\n", args_info.algorithm_arg);
 
 if(args_info.dataset_given)fprintf(LOG,"dataset: %s\n",args_info.dataset_arg);
@@ -233,6 +234,12 @@ first_bin=args_info.first_bin_arg-side_cut;
 useful_bins=args_info.nbins_arg;
 nbins=args_info.nbins_arg+2*side_cut;
 
+fprintf(LOG,"firstbin  : %d\n",first_bin);
+fprintf(LOG,"band start: %g Hz\n",first_bin/args_info.coherence_length_arg);
+fprintf(LOG,"nbins     : %d\n",nbins);
+fprintf(LOG,"side_cut  : %d\n",side_cut);
+fprintf(LOG,"useful bins : %d\n",useful_bins);
+fprintf(LOG,"useful band start: %g Hz\n",(first_bin+side_cut)/args_info.coherence_length_arg);
 
 init_datasets();
 test_datasets();
@@ -405,21 +412,186 @@ fprintf(LOG, "input complete: %d\n", (int)(input_done_time-start_time));
 fprintf(stderr, "input complete: %d\n", (int)(input_done_time-start_time));
 
 /* For testing - dump out emission time grid for SFT 0 */
-{
+if(0) {
 EmissionTime emission_time;
 int k=0, n=0;
 LIGOTimeGPS tGPS;
 
 TODO("analyze emission time dependence on sky location")
 
-for(i=0;i<main_grid->npoints; i++) {
-	tGPS.gpsSeconds=datasets[n].gps[k]+datasets[n].coherence_time*0.5;
-	tGPS.gpsNanoSeconds=0;
-	get_emission_time(&emission_time, &(datasets[n].earth_state[k]), main_grid->longitude[i], main_grid->latitude[i], 0.0, datasets[n].detector, tGPS);
-	fprintf(DATA_LOG, "emission_time: %.12g %.12g %d %d\n", main_grid->longitude[i], main_grid->latitude[i], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds);
+for(k=0;k<datasets[n].free;k+=10000) {
+	for(i=0;i<main_grid->npoints; i++) {
+		tGPS.gpsSeconds=datasets[n].gps[k]+datasets[n].coherence_time*0.5;
+		tGPS.gpsNanoSeconds=0;
+		get_emission_time(&emission_time, &(datasets[n].earth_state[k]), main_grid->longitude[i], main_grid->latitude[i], 0.0, datasets[n].detector, tGPS);
+		fprintf(DATA_LOG, "emission_time: %d %.12g %.12g %lld %d %d\n", k, main_grid->longitude[i], main_grid->latitude[i], datasets[n].gps[k], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds);
+		}
 	}
 fflush(DATA_LOG);
 }
+/*
+#define SIDEREAL_DAY (23.93447*3600)
+#define SIDEREAL_MONTH (27.32166*24*3600)
+#define JULIAN_YEAR (365.25*24*3600)
+
+typedef struct {
+	double dc;
+
+typedef struct {
+	double dc;
+	double sidereal_day[4];
+	double sidereal_month[4];
+	double sidereal_month2[4];
+	double julian_year[4];
+	} EPICYCLIC_PHASE_COEFFICIENTS;*/
+
+/* For testing - pick a bin and do phase correction */
+{
+double *re;
+double *im;
+COMPLEX16Vector *samples;
+COMPLEX16Vector *fft;
+double first_gps=min_gps();
+int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
+double total_weight;
+
+samples=XLALCreateCOMPLEX16Vector(nsamples);
+if(!samples) {
+	fprintf(stderr, "**** ERROR: could not allocate samples\n");
+	exit(-1);
+	}
+
+fft=XLALCreateCOMPLEX16Vector(nsamples);
+if(!fft) {
+	fprintf(stderr, "**** ERROR: could not allocate fft data\n");
+	exit(-1);
+	}
+
+{
+double f0=args_info.focus_f0_arg;
+double ra=args_info.focus_ra_arg;
+double dec=args_info.focus_dec_arg;
+double dInv=args_info.focus_dInv_arg;
+double x,y, x2, y2;
+double c,s;
+double dt, te;
+double phase_spindown;
+double phase_barycenter;
+double phase_heterodyne;
+double phase_bin;
+double total_phase;
+double f;
+float f_plus, f_cross;
+float e[GRID_E_COUNT];
+int bin;
+int i,j,k,n;
+EmissionTime emission_time;
+LIGOTimeGPS tGPS;
+
+fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
+	
+spindown=args_info.spindown_start_arg;
+
+total_weight=0.0;
+
+for(i=0;i<nsamples;i++) {
+	samples->data[i].re=0.0;
+	samples->data[i].im=0.0;
+	}
+
+precompute_am_constants(e, ra, dec);
+
+for(n=0;n<d_free;n++) {
+	for(j=0;j<datasets[n].free;j++) {
+		
+		tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
+		tGPS.gpsNanoSeconds=0;
+		get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+		
+		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
+		
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown;
+		bin=round(datasets[0].coherence_time*f-first_bin);
+				
+		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
+				
+		phase_spindown=0.5*te*te*spindown;
+		
+		phase_barycenter=f0*te;
+		
+		phase_heterodyne=(f0-(first_bin+bin+0.0)/datasets[0].coherence_time)*(datasets[n].gps[j]-spindown_start);
+
+		phase_bin=0.5*(f0*datasets[0].coherence_time-(first_bin+bin));
+		
+		total_phase=2.0*M_PI*((phase_spindown -floor(phase_spindown))+(phase_barycenter-floor(phase_barycenter)));
+
+		f_plus=F_plus_coeff(j, e, datasets[n].AM_coeffs_plus);
+		f_cross=F_plus_coeff(j, e, datasets[n].AM_coeffs_cross);
+		
+		x=datasets[n].re[j*datasets[n].nbins+bin];
+		y=datasets[n].im[j*datasets[n].nbins+bin];
+
+
+		c=cos(total_phase);
+		s=sin(total_phase);
+		
+		i=round(2.0*(datasets[n].gps[j]-first_gps)/args_info.coherence_length_arg);
+// 		samples->data[i].re=x*c+y*s;
+// 		samples->data[i].im=-x*s+y*c;
+
+		x2=x*c+y*s;
+		y2=-x*s+y*c;
+
+		samples->data[i].re=x2*f_plus-y2*f_cross;
+		samples->data[i].im=x2*f_cross+y2*f_plus;
+		
+		total_weight+=f_plus*f_plus+f_cross*f_cross;
+
+		if(args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %lld %d %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
+				i, n, j, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
+				x, y, samples->data[i].re, samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase);
+		
+		}
+	}
+}
+
+{
+COMPLEX16FFTPlan *fft_plan=NULL;
+double norm;
+	
+
+fprintf(stderr, "Creating FFT plan\n");
+fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(nsamples, 1);
+if(!fft_plan) {
+	fprintf(stderr, "**** ERROR: could not create fft plan\n");
+	exit(-1);
+	}
+
+fprintf(stderr, "Running FFT\n");
+XLALCOMPLEX16VectorFFT(fft, samples, fft_plan);
+
+norm=1.0/total_weight;
+norm/=args_info.coherence_length_arg*16384.0;
+norm*=2.0*sqrt(2.0); /* note - I do not understand where this extra factor of 2 comes from .. second fft ?? */
+norm*=args_info.strain_norm_factor_arg;
+
+for(i=0;i<nsamples;i++) {
+	fft->data[i].re*=norm;
+	fft->data[i].im*=norm;
+	}
+	
+for(i=0;i<nsamples;i++) {
+	fprintf(DATA_LOG, "fft: %d %.12f %.12g %.12g\n", 
+		i, (i*2.0)/(nsamples*args_info.coherence_length_arg), fft->data[i].re, fft->data[i].im);
+	}
+
+XLALDestroyCOMPLEX16FFTPlan(fft_plan);
+}
+
+XLALDestroyCOMPLEX16Vector(samples);
+XLALDestroyCOMPLEX16Vector(fft);
+}
+
 
 TODO("write main application loop")
 

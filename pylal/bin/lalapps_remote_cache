@@ -41,7 +41,8 @@ class RemoteCache(object):
 			self.make_cache()
 			self.get_files()
 		else: 
-			self.local_cache = self.remote_cache_parsed
+			self.make_local_dirs()
+			self.make_cache()
 
 	def parse_mtab(self):
 		for l in open('/etc/mtab'):
@@ -61,15 +62,15 @@ class RemoteCache(object):
 	def get_cache(self):
 		if self.is_local():
 			if self.verbose: print>>sys.stderr, "\tCache file %s appears to be local...\n" % (self.url,)
-			self.remote_cache_file_copy = self.cache
+			self.retrieve_file(self.cache, self.remote_cache_file_copy)
 		else:
 			if self.verbose: print>>sys.stderr, "\tretrieving %s...\n" % (self.url)
 			self.retrieve_file(self.cache, self.remote_cache_file_copy)
 
 	def retrieve_file(self, remotepath, localpath):
 		#if self.verbose: print>>sys.stderr, "\tretrieving %s:%s...\n" % (self.host, remotepath)
-		if remotepath.endswith(".gz"): opts = "-q --copy-links"
-		else: opts = "-zq --copy-links"
+		if remotepath.endswith(".gz"): opts = "-qL"
+		else: opts = "-zqL"
 		ret = subprocess.call(["rsync", opts, "--rsh=gsissh", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)])
 		if ret: 
 			print >>sys.stderr, "retrieve failed with %d" % (ret,)

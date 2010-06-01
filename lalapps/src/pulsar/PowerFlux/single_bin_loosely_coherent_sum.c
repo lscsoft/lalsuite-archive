@@ -639,12 +639,6 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		si_local++;
 		}
 
-	//group_count=ceil(max_shift-min_shift);
-	if(group_count>200) {
-		fprintf(stderr, "Warning group count too large: %d\n", group_count);
-		group_count=200;
-		}
-
 	group_segment_count=do_alloc(group_count, sizeof(*group_segment_count));
 	groups=do_alloc(group_count, sizeof(*groups));
 
