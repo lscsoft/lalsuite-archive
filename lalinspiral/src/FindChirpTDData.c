@@ -106,7 +106,6 @@ LALFindChirpTDData (
     case AmpCorPPN:
       /* store the input approximant */
       approx = params->approximant;
-      fprintf(stdout,"vaffanculo\n"); 
       break;
 
     default:
@@ -125,7 +124,6 @@ LALFindChirpTDData (
   LALFindChirpSPData ( status->statusPtr, fcSegVec, dataSegVec, params );
   CHECKSTATUSPTR( status );
   params->approximant = approx;
-  fprintf(stderr,"approx=%d\n",(INT4) approx); 
 
   if ( params->approximant == FindChirpPTF )
   {
@@ -141,7 +139,6 @@ LALFindChirpTDData (
 				  fcSeg->tmpltPowerVec->length * sizeof(REAL4) );
 
 	  }
-	  fprintf(stderr,"segnorm=%e\n",fcSegVec->data->segNorm->data[fcSegVec->data->segNorm->length-1]);
   }
   else
   {
