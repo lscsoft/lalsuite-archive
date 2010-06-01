@@ -460,7 +460,7 @@ for(i=0;i<count;i++) {
 sc_key=sc->key;
 for(k=0;k<sc->free;k++) {
 	/* the reason we use exact equality for floating point numbers is because the numbers in cache have been placed there by the same function. */
-	if(key==sc_key[k] & !args_info.bypass_powersum_cache_arg) {
+	if(key==sc_key[k] && !args_info.bypass_powersum_cache_arg) {
 		/* we found the box holding our data, double check it is the right one */
 		si_local=si;
 		sc_si_local=sc->si[k];
@@ -601,6 +601,10 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			baryinput.alpha=ps[i].ra;
 			baryinput.delta=ps[i].dec;
 			baryinput.dInv=0; /* TODO: pass this from command line */
+
+			/* Fixup - LAL library issues an error if RA exceeds 2*pi in absolute value which can get triggered at the right edge, since PowerFlux uses RA from 0 to 2*pi */
+			if(baryinput.alpha>M_PI)baryinput.alpha-=2*M_PI;
+			
 
 			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
 			TESTSTATUS(&status);
