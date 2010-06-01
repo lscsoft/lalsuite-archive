@@ -515,6 +515,7 @@ LALFindChirpInjectSignals (
                                  thisEvent ,
                                        ifo ,
                                   dynRange  );
+      CHECKSTATUSPTR( status );
 
     }
 
