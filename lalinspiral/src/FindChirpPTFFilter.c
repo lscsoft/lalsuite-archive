@@ -275,7 +275,7 @@ LALFindChirpPTFFilterSegment (
    */
 
   /* clear the snr output vector and workspace*/
-  memset( params->PTFsnrVec->data, 0, numPoints * sizeof(COMPLEX8) );
+  memset( params->PTFsnrVec->data, 0, numPoints * sizeof(REAL8) );
   memset( params->qVec->data, 0, numPoints * sizeof(COMPLEX8) );
   memset( params->PTFPVec->data, 0, 5 * numPoints * sizeof(REAL4) );
   memset( params->PTFqVec->data, 0, 5 * numPoints * sizeof(COMPLEX8) );
