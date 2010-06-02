@@ -134,7 +134,7 @@ for database in databases:
 					CASE snglB.bank_chisq_dof
 						WHEN 0.0 THEN 1.0
 						ELSE snglB.bank_chisq/snglB.bank_chisq_dof END,
-					CASE snglA.bank_chisq_dof
+					CASE snglA.cont_chisq_dof
 						WHEN 0.0 THEN 1.0
 						ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
 					CASE snglB.cont_chisq_dof
@@ -244,7 +244,7 @@ for database in databases:
 		CASE snglB.bank_chisq_dof
 			WHEN 0.0 THEN 1.0
 			ELSE snglB.bank_chisq/snglB.bank_chisq_dof END,
-		CASE snglA.bank_chisq_dof
+		CASE snglA.cont_chisq_dof
 			WHEN 0.0 THEN 1.0
 			ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
 		CASE snglB.cont_chisq_dof
