@@ -18,6 +18,7 @@ except ImportError:
 from subprocess import *
 import copy
 import re
+from StringIO import StringIO
 import exceptions
 import glob
 import fileinput
@@ -28,9 +29,9 @@ import numpy
 import cPickle
 import gzip
 from scipy import interpolate
+from commands import getstatusoutput
 import math
 import fnmatch
-
 from optparse import *
 from types import *
 import matplotlib
@@ -46,6 +47,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw import dbtables
 from pylal import CoincInspiralUtils
+from pylal import frutils
 from glue import iterutils
 from glue import pipeline
 from glue.lal import *
@@ -60,6 +62,90 @@ from xml import sax
 from pylal import db_thinca_rings
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+#####################################################
+## Misc Constants used by multiple classes/methods ##
+#####################################################
+interferometers=["H1","H2","L1","V1"]
+defaultsegmentserver="https://segdb.ligo.caltech.edu"
+runEpochs={"L1":{
+  "s6c_current":(949449543,999999999),
+  "s6b":(937800015,947260815),
+  "s6a":(931035296,935798487),
+  "s5":(815155213,875232014)
+  },
+           "H1":{
+  "s6c_current":(949449543,999999999),
+  "s6b":(937800015,947260815),
+  "s6a":(931035296,935798487),
+  "s5":(815155213,875232014)
+  },
+           "H2":{
+  "s6c_current":(949449543,999999999),
+  "s6b":(937800015,947260815),
+  "s6a":(931035296,935798487),
+  "s5":(815155213,875232014)
+  },
+           "V1":{
+  "vsr1":(863557214,875250014),
+  "vsr2":(931035615,947023215)
+  }
+           }
+# method to return the science run start and stop
+def getRunTimes(runName=None,ifo=None):
+  """
+  This method returns the start and stop of a LIGO
+  run given a gpstime.  (start,stop)
+  """
+  if runName == None or ifo == None:
+    return ()
+  (a,b)=runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  return (a,b)
+
+def getRunTimesAsLIGOSegment(runName=None,ifo=None):
+  """
+  This method returns the start and stop of a LIGO
+  run given a gpstime.  (start,stop)
+  """
+  try:
+    (a,b)=getRunTimes(runName,ifo)
+  except:
+    return ()
+  return segments.segment(a,b)
+  
+def getRunEpoch(runTime=None, ifo=None):
+  """
+  This method returns the science run epoch name for LIGO,
+  given a gps time.
+  S5,S6...
+  """
+  if runTime == None or ifo == None:
+    return ()
+  outputEpoch=""
+  for myEpoch in runEpochs[ifo.upper().strip()].keys():
+    (start,stop)=runEpochs[ifo.upper().strip()][myEpoch]
+    if (start<=runTime) and (runTime<=stop):
+      outputEpoch=myEpoch
+  return outputEpoch
+
+def getKnownIfoEpochs(ifoName=None):
+  """
+  Simple method if given an ifo string gives a list
+  of know epochs for that ifo.
+  """
+  if ifoName==None:
+    return []
+  return runEpochs[ifoName].keys()
+
+def getKnownIfos():
+  """
+  This method dumps the names as a list of know ifos.
+  """
+  return interferometers
+
+#Double defined home_dir funct from stfu_pipe
+def home_dir():
+	return os.path.split(os.environ['HOME'])[0]
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -974,12 +1060,15 @@ def getSciSegs(ifo=None,
   segment.segment_def_cdb = segment_definer.creator_db AND \
   segment_definer.name = '%s' AND \
   segment_definer.ifos = '%s' AND \
-  NOT (segment.start_time > %s OR  %s > segment.end_time)"""
+  NOT (segment.start_time > %s OR  %s > segment.end_time) AND \
+  segment_definer.version = (SELECT MAX(x.version) FROM \
+  segment_definer AS x WHERE x.name = segment_definer.name )\
+  """
   #Determine who to query if not specified.
   if serverURL == None:
     serverURL=os.getenv('S6_SEGMENT_SERVER')
     if serverURL == None:
-      serverURL="https://segdb.ligo.caltech.edu"
+      serverURL=defaultsegmentserver
   try:
     connection=None
     connection=segmentdb_utils.setup_database(serverURL)
@@ -999,7 +1088,6 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
     return
   engine.close()
-
   queryResult.sort()
   #Take segment information and turn into
   #ScienceData() object
@@ -2211,68 +2299,63 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
 
   return maxIFO
 
+
 class followupDQV:
   """
   This class is intended to provide a mechanism to access DQ segment
   information and veto segment information put into the segment
   database.  This class will replace the previously defined class of
-  followupdqdb.
+  followupdqdb.  This class also provides access to the needed code
+  to create a local background of DQ statistics for improved
+  background studies.
   Contact: Cristina Valeria Torres
   """
-  def __init__(self,LDBDServerURL=None,quiet=bool(False)):
+  def __init__(self,LDBDServerURL=None,quiet=bool(False),pickle=None):
     """
     This class setups of for connecting to a LDBD server specified at
     command line to do segment queries as part of the follow up
     pipeline.  If the user does not specify the LDBD server to use the
     method will use the environment variable S6_SEGMENT_SERVER to
     determine who to query.  The LDBD URL should be in the following form
-    ldbd://myserver.domain.name:808080
+    ldbd://myserver.domain.name:808080. You can specify the path to a
+    background DQ pickle if the path is valid the class opens it
+    otherwise it queries the segment DB and builds the pickle.
+    Warning! recreating the DQ background is VERY slow.
     """
-    self.ifos=["H1","H2","L1","V1"]
+    self.__connection__= None
+    self.__engine__= None
+    self.__installPath__=home_dir()+"/ctorres/followupbackgrounds/dq/"
+    if pickle==None:
+      self.__backgroundPickle__=None
+    else:
+      self.__backgroundPickle=pickle
+      self.__backgroundPickle__=os.path.expanduser(self.__backgroundPickle__)
+    self.__haveBackgroundDict__=bool(False)
+    self.__havecategories__=bool(False)
+    #A dict for a dict of GPStimes and list all flags seen
+    self.__backgroundDict__=dict()
+    self.__category__=dict()
+    #Access a dict of dicts for a flag names with % stored
+    self.__backgroundResults__=dict()
+    self.__backgroundPoints__=int(1000)
+    self.__columns__=["Ifo","Flag","Ver","Start","Offset",\
+                      "Stop","Offset","Size","DQ Rank","Cat(s)"]
+    #Dict should be a dict of lists
+    self.__backgroundTimesDict__=dict()
+    self.ifos=interferometers
     self.ifos.sort()
     self.triggerTime=int(-1)
-    self.serverURL="https://segdb.ligo.caltech.edu"
+    self.serverURL=defaultsegmentserver
     if LDBDServerURL==None:
       envServer=None
       envServer=os.getenv('S6_SEGMENT_SERVER')
       if envServer!=None:
         self.serverURL=envServer
       sys.stderr.write("Warning no LDBD Server URL specified \
-defaulting to %s"%(self.serverURL))
+defaulting to %s\n"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
     self.resultList=list()
-    self.dqvQuery= """SELECT \
-    segment_definer.ifos, \
-    segment_definer.name, \
-    segment_definer.version, \
-    segment_definer.comment, \
-    segment.start_time, \
-    segment.end_time \
-    FROM segment,segment_definer \
-    WHERE \
-    segment_definer.segment_def_id = segment.segment_def_id \
-    AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
-    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
-    """
-    #This query IS very very slow easily 10x above query!
-    self.dqvQueryTop2Versions= """SELECT \
-    segment_definer.ifos, \
-    segment_definer.name, \
-    segment_definer.version, \
-    segment_definer.comment, \
-    segment.start_time, \
-    segment.end_time \
-    FROM segment,segment_definer \
-    WHERE \
-    segment_definer.segment_def_id = segment.segment_def_id \
-    AND segment_definer.version+2 > (SELECT MAX(x.version) \
-    FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
-    AND segment.segment_def_cdb = segment_definer.creator_db \
-    AND NOT (segment.start_time > %s OR %s > segment.end_time) \
-    ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
-    """
     self.dqvQueryLatestVersion= """SELECT \
     segment_definer.ifos, \
     segment_definer.name, \
@@ -2290,6 +2373,7 @@ defaulting to %s"%(self.serverURL))
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
     """
   #End __init__()
+
 
   def __merge__(self,inputList=None):
     """
@@ -2349,13 +2433,128 @@ defaulting to %s"%(self.serverURL))
     return outputList
   #End __merge__() method
 
+  def getInstallPath(self):
+    """
+    Returns a string pointing to the local install location of where
+    the DQ background pickles should be found.
+    """
+    return self.__installPath__
+    
+  def figure_out_pickle(self,ifoEpochList=None):
+    fileMask="followup_background_%s.pickle"
+    installPath=self.__installPath__
+    if ifoEpochList==None:
+      return None
+    elif type(ifoEpochList) == type(str()):
+      if ifoEpochList=="automatic":
+        ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) \
+                      for x in self.ifos]
+      else:
+        sys.stderr.write("Given input of %s can't parse it!\n"%ifoEpochList)
+        return None
+    ifoEpochList.sort()
+    tmpString=""
+    for A,B in ifoEpochList:
+      tmpString+="%s:%s_"%(A,B)
+    tmpString.rstrip("_")
+    return installPath+fileMask%(tmpString)
+  #End figure_out_pickle
+
+  def resetBackgroundPoints(self,pointCount=None):
+    """
+    Used to manipulate the number of points to create background with.
+    """
+    if pointCount==None:
+      return
+    else:
+      self.__backgroundPoints__=int(pointCount)
+    return
+
+  def resetPicklePointer(self,filename=None):
+    """
+    If you called the class definition with the wrong pickle path.
+    You can reset it with this method.
+    """
+    if filename==None:
+      sys.stdout.write("Path information to background pickle unchanged.\n")
+    elif filename.__contains__("~"):
+      self.__backgroundPickle__=os.path.expanduser(filename)
+    else:
+      self.__backgroundPickle__=filename
+  #End resetPicklePointer
+  
+  def query(self,queryString=None):
+    """
+    Simple wrapper method to do query and return result
+    """
+    closeConnection=False
+    if queryString == None:
+      return []
+    if (self.__engine__ == None) or \
+           (self.__connection__ == None):
+      self.__connectToSegmentDB__()
+      closeConnection=True
+    try:
+      myOutput=self.__engine__.query(queryString)
+    except Exception, errMsg:
+      sys.stderr.write("Query failed %s \n"%(self.serverURL))
+      sys.stdout.write("Error fetching query results.\n")
+      sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
+      sys.stderr.write("Query Tried: \n %s \n"%(queryString))
+      return []
+    if closeConnection:
+      self.__disconnectFromSegmentDB__()      
+    #Clean up extra space in query results
+    myFinalOutput=list()
+    for row in myOutput:
+      newRow=list()
+      for col in row:
+        if type(col)==str:
+          newRow.append(col.strip())
+        else:
+          newRow.append(col)
+      myFinalOutput.append(newRow)
+    return myFinalOutput
+  #End query
+
   def fetchInformation(self,triggerTime=None,window=300):
     """
     Wrapper for fetchInformationDualWindow that mimics original
     behavior
     """
     return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
+  def __connectToSegmentDB__(self,serverURL=None):
+    """
+    Private method to execute connection to segment DB
+    """
+    if serverURL==None:
+      serverURL=self.serverURL
+    try:
+      self.__connection__=segmentdb_utils.setup_database(serverURL)
+    except Exception, errMsg:
+      sys.stderr.write("Error connecting to %s\n"\
+                         %(serverURL))
+      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.__connection__=None
+      self.resultList=list()
+    try:
+      self.__engine__=query_engine.LdbdQueryEngine(self.__connection__)
+    except Exception, errMsg:
+      sys.stderr.write("Error building query engine using %s\n"\
+                         %(serverURL))
+      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.__engine__=None
+      self.resultList=list()
+    return
 
+  def __disconnectFromSegmentDB__(self):
+    """
+    Private method to close query engine.
+    """
+    self.__engine__.close()
+    self.__engine__=None
+    return
+  
   def fetchInformationDualWindow(self,triggerTime=None,frontWindow=300,\
                                  backWindow=150,ifoList='DEFAULT'):
     """
@@ -2367,46 +2566,28 @@ defaulting to %s"%(self.serverURL))
     version or higher.
     """
     if ifoList=="DEFAULT":
-      ifoList=self.ifos
+      ifoList=interferometers
     if (ifoList == None) or \
        (len(ifoList) < 1):
       sys.stderr.write("Ifolist passed is malformed! : %s\n"%ifoList)
       return
-    if sum([x.upper() in self.ifos for x in ifoList]) < 1:
+    #Set the internal class variable self.ifos
+    self.ifos=ifoList
+    if sum([x.upper() in interferometers for x in ifoList]) < 1:
       sys.stderr.write("Valid ifos not specified for DQ lookups. %s\n"%ifoList)
       return
     triggerTime=float(triggerTime)
     if triggerTime==int(-1):
-      os.stdout.write("Specify trigger time please.\n")
+      sys.stdout.write("Specify trigger time please.\n")
       return
     else:
       self.triggerTime = float(triggerTime)
-      try:
-        connection=None
-        serverURL=self.serverURL
-        connection=segmentdb_utils.setup_database(serverURL)
-      except Exception, errMsg:
-        sys.stderr.write("Error connection to %s\n"\
-                         %(serverURL))
-        sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
-        self.resultList=list()
-        return
-    try:
-      gpsEnd=int(triggerTime)+int(backWindow)
-      gpsStart=int(triggerTime)-int(frontWindow)
-      sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
-      engine=query_engine.LdbdQueryEngine(connection)
-      queryResult=engine.query(sqlString)
-      self.resultList=queryResult
-      if len(queryResult) < 1:
-        sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
-    except Exception, errMsg:
-      sys.stderr.write("Query failed %s \n"%(serverURL))
-      sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
-      sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
-      sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
-      return
-    engine.close()
+    gpsEnd=int(triggerTime)+int(backWindow)
+    gpsStart=int(triggerTime)-int(frontWindow)
+    sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
+    self.resultList=self.query(sqlString)
+    if len(self.resultList) < 1:
+      sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
     #Coalesce the segments for each DQ flag
     #Reparse the information
     newDQSeg=list()
@@ -2441,11 +2622,211 @@ defaulting to %s"%(self.serverURL))
     return newDQSeg
   #End method fetchInformation()
 
-  def generateResultList(self):
+  def createDQbackground(self,ifoEpochList=list(),pickleLocale=None):
+    """
+    Two inputs a list of tuples (ifo,epochname) for each instrument.
+    Also a place to save the potential pickle to for quick access
+    later.    """
+    if type(ifoEpochList) != type(list()):
+      raise Exception, \
+            "Invalid input argument ifoEpochList,%s type(%s)"\
+            %(ifoEpochList,type(ifoEpochList))
+    #Make sure epoch exists for reach ifo
+    for ifo,epoch in ifoEpochList:
+      if ifo not in runEpochs.keys():
+        raise Exception, "Bad ifo specified, %s"%ifo
+      if epoch not in runEpochs[ifo].keys():
+        raise Exception, "Bad ifo epoch specified, %s:%s"%(ifo,epoch)
+    #If pickle location given try to load that pickle first.
+    backgroundPickle=False
+    if pickleLocale!=None:
+      #If pickle file exists read it if not make sure we can
+      #generate it properly otherwise skip creating background
+      if os.path.isfile(pickleLocale):
+        try:
+          self.__backgroundDict__=cPickle.load(file(pickleLocale,'r'))
+          self.__haveBackgroundDict__=True
+          backgroundPickle=True
+        except:
+          backgroundPickle=False
+          self.__haveBackgroundDict__=False
+          sys.stderr.write("Error importing the pickle file! %s\n"\
+                           %(pickleLocale))
+          return
+        for (ifo,epoch) in ifoEpochList:
+            if (ifo.upper().strip(),epoch.upper().strip()) \
+                   not in self.__backgroundDict__["ifoepoch"]:
+              raise Exception,\
+                    "Invalid ifo and epoch information in \
+generated background expected %s got %s"%(\
+                      self.__backgroundDict__["ifoepoch"],
+                      ifoEpochList)
+        return
+    else:
+      #Assume an automatic pickle creation
+      autoPath=self.figure_out_pickle("automatic")
+      (dirname,filename)=os.path.split(autoPath)
+      if not os.access(dirname,os.W_OK):
+        sys.stderr.write("Warning: Insufficient disk \
+permissions to create DQ background pickle file:%s.\n"%(autoPath))
+        backgroundPickle=False
+        self.__haveBackgroundDict=False
+        return
+    #Setup for large volumne of queries
+    #Determine random background times for each IFO
+    sciSegments=dict()
+    for myIfo,myEpoch in ifoEpochList:
+      #Find epoch start and stop
+      if myIfo.strip().lower() == "v1":
+        mySegName="ITF_SCIENCEMODE"
+      else:
+        mySegName="DMT-SCIENCE"
+      (epochStart,epochStop)=getRunTimes(myEpoch,myIfo)
+      tmpResults=getSciSegs(myIfo.strip(),\
+                            epochStart,\
+                            epochStop,\
+                            cut=True,\
+                            serverURL=self.serverURL,\
+                            segName=mySegName,\
+                            seglenmin=None,\
+                            segpading=0)
+      sciSegments[myIfo]=[(x.start(),x.end()) for x in tmpResults]
+      if len(sciSegments[myIfo])<1:
+        sys.stderr.write("Warning:No segments found for %s %s\n"%(myIfo,myEpoch))
+    #Create list of random times in segments of sciSegments[ifo]
+    for myIfo in sciSegments.keys():
+      #Background Timepoint
+      mySampleCount=0
+      emergencyStop=int(1.50*self.__backgroundPoints__)
+      while mySampleCount < self.__backgroundPoints__:
+        if mySampleCount>emergencyStop:
+          sys.stderr.write("Aborting creation of DQ background timelist!\n")
+          os.abort()
+        myPoint=numpy.random.uniform(epochStart,epochStop,1)
+        nearestIndex=numpy.searchsorted([x for x,y in sciSegments[myIfo]],\
+                                        int(myPoint),\
+                                        side='left')
+        if nearestIndex > 1:
+          nearestIndex=nearestIndex-1
+          #Index is next segment past time in question
+          (start,end)=sciSegments[myIfo][nearestIndex]
+        else:
+          #Exception is first segment might hold point
+          (start,end)=sciSegments[myIfo][nearestIndex]          
+        if (start<=myPoint) and (myPoint<=end):
+          if myIfo not in self.__backgroundTimesDict__.keys():
+            self.__backgroundTimesDict__[myIfo]=list()
+          self.__backgroundTimesDict__[myIfo].append("%9.0f"%myPoint)
+          mySampleCount=mySampleCount+1
+    #Take each list of ifo times and look up the DQ flags
+    self.__connectToSegmentDB__()
+    for myIfo,myTimes in self.__backgroundTimesDict__.iteritems():
+      for myTime in myTimes:
+        myQuery=self.dqvQueryLatestVersion%(myTime,myTime)
+        #Insert befor "ORDER BY"
+        myQueryA,myQueryB=myQuery.split("ORDER BY",1)
+        myQuery=myQueryA+\
+                 """ AND segment_definer.ifos = '%s' """%myIfo+\
+                 """ ORDER BY """+myQueryB
+        if myIfo not in self.__backgroundDict__.keys():
+          self.__backgroundDict__[myIfo]=dict()
+        self.__backgroundDict__[myIfo]["%s"%myTime]=self.query(myQuery)
+    self.__disconnectFromSegmentDB__()
+    #Integrate epoch listing into dict()
+    self.__backgroundDict__["ifoepoch"]=[(myIfo.strip().upper(),
+                                          myEpoch.strip().upper()) \
+                                         for myIfo,myEpoch in ifoEpochList]
+    self.__haveBackgroundDict__=True
+    #Save the created DQ background to a pickle, skip saving on error!
+    #That is assuming we didn't get our data from a pickle already!
+    if not backgroundPickle:
+      try:
+        cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
+      except:
+        sys.stdout.write("Problem saving pickle of DQ information.")
+        sys.stdout.write("Trying to place pickle in your home directory.")
+        try:
+          cPickle.dump(self.__backgroundDict__,
+                       file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        except:
+          sys.stdout.write("Really ignoring pickle generation now!\n")
+  #End createDQbackground
+
+  def estimateDQbackground(self):
+    """
+    This method looks at the self.resultlist inside the instance.
+    Using this and 1000 generated time stamp it tabulates a
+    ranking of flag prevelance, binomial probability 'p'
+    """
+    if len(self.resultList) < 1:
+      self.__backgroundResults__=list()
+      self.__backgroundTimesDict__=dict()
+      self.__backgroundDict__=dict()
+      self.__haveBackgroundDict__=bool(False)
+      return
+    #Create DQ background, specify pickle locale to try and load first
+    #Determine which IFOs from DQ listing
+    uniqIfos=list()
+    for ifo,b,c,d,e,f in self.resultList:
+      if ifo not in uniqIfos:
+        uniqIfos.append(ifo)
+    ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in self.ifos]
+    self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
+    if not self.__haveBackgroundDict__:
+      sys.stderr.write("Could not either open or save DQ \
+background in %s no background data available!\n"%(self.__backgroundPickle__))
+      self.__backgroundResults__=list()
+      self.__backgroundTimesDict__=dict()
+      self.__backgroundDict__=dict()
+      self.__haveBackgroundDict__=bool(False)
+      return
+    #Calculate the binomial 'p' value for the flags in the table.
+    if self.resultList < 1:
+          sys.stderr.write("Aborting tabulation of binomial P\n")
+          os.abort()
+    seenFlags=dict()
+    for ifo,name,version,comment,start,stop in self.resultList:
+      if ifo.strip() not in seenFlags.keys():
+        seenFlags[ifo]=list()
+      seenFlags[ifo].append(name)
+    for myIfo in seenFlags.keys():
+      tmpFlags=list()
+      #Handles flags seen but not present in pickle structure
+      if myIfo.strip() not in self.__backgroundDict__.keys():
+        if myIfo not in self.__backgroundResults__.keys():
+          self.__backgroundResults__[myIfo]=dict()
+        for outsideFlag in seenFlags[myIfo]:
+          self.__backgroundResults__[myIfo][outsideFlag]=float(-0.0)
+      else:
+        #Handles all flags seen compared to background pickle
+        for backgroundTime,backgroundFlags in \
+                self.__backgroundDict__[myIfo.strip()].iteritems():
+          tmpFlags.extend([name for ifo,name,ver,com,start,stop in backgroundFlags])
+        if myIfo not in self.__backgroundResults__.keys():
+          self.__backgroundResults__[myIfo]=dict()
+        for myFlag in seenFlags[myIfo]:
+          self.__backgroundResults__[myIfo][myFlag]=tmpFlags.count(myFlag)/float(self.__backgroundPoints__)
+    self.__haveBackgroundDict__=True
+    #Return background estimating
+    
+                                            
+  def getDQbackgroundList(self):
+    """
+    Simple wrapper to return a list of DQ background information.
+    """
+    return self.__backgroundResults__
+  
+  def getResultList(self):
     """
     Simple calling function to create a list object of the results.
     """
     return self.resultList
+  
+  def generateResultList(self):
+    """
+    Simple calling function to create a list object of the results.
+    """
+    return self.getResultList()
   #End generateResultList
   
   def generateHTMLTable(self,tableType="BOTH"):
@@ -2463,17 +2844,30 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
-<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
-    tableString=""
-    tableString+="<table bgcolor=grey border=1px>"
-    tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
-<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
-    tableEmptyString="<tr><th>0</th><th>None_Found</th><th>0</th>\
-<th>0</th><th>0</th><th>0</th><th>0</th><th>0</th></tr>"
+    tableString="<table bgcolor=grey border=1px>"
+    titleString="<tr>"
+    tableEmptyString="<tr bgcolor=%s>"%myColor
+    rowString="<tr bgcolor=%s> "
+    for col in self.__columns__:
+      titleString+="<th>%s</th>"%col
+      rowString+="<td>%s</td>"
+      tableEmptyString+="<td>None</td>"
+    titleString+="</tr>\n"
+    tableEmptyString+="</tr>\n"
+    rowString+="</tr>\n"
+    tableString+=titleString
     if len(self.resultList) == 0:
-      tableString=tableString+tableEmptyString
+      tableString+=tableEmptyString
     for ifo,name,version,comment,start,stop in self.resultList:
+      #If we have background information fetch it
+      if self.__haveBackgroundDict__:
+        myBackgroundRank=str("%3.1f"%(100.0*self.__backgroundResults__[ifo][name])).rjust(5)
+      else:
+        myBackgroundRank="None"        
+      if self.__havecategories__:
+        myCategory=self.__category__[ifo][name]
+      else:
+        myCategory="None"
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2487,12 +2881,18 @@ defaulting to %s"%(self.serverURL))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,ifo,name,version,\
+                                  start,offset1,stop,offset2,\
+                                  size,myBackgroundRank,myCategory)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,ifo,name,version,\
+                                  start,offset1,stop,offset2,\
+                                  size,myBackgroundRank,myCategory)
       elif tableType.upper().strip() not in ["VETO","DQ"]:
-        tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+        tableString+=rowString%(myColor,ifo,name,version,\
+                                start,offset1,stop,offset2,size,\
+                                myBackgroundRank,myCategory)
     tableString+="</table>"
     return tableString
   #End method generateHTMLTable()
@@ -2506,10 +2906,23 @@ defaulting to %s"%(self.serverURL))
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
-    rowString="""||<rowbgcolor="%s"> %s || %s || %s || %s || %s || %s || %s || %s ||\n"""
-    titleString="""||<rowbgcolor="%s"> IFO || Flag || Ver || Start || Offset || Stop || Offset || Size ||\n"""%(myColor)
-    emptyRowString="""||<rowbgcolor="%s"> None_Found || 0 || 0 || 0 || 0 || 0 || 0 || 0 ||\n"""
-    tableString=titleString
+    tableString=""
+    titleString=""
+    emptyRowString=""
+    rowString=""
+    for i,col in enumerate(self.__columns__):
+      if i == 0:
+        titleString+="""||<rowbgcolor="%s"> %s """%(myColor,col)
+        rowString+="""||<rowbgcolor="%s"> %s """
+        emptyRowString+="""||<rowbgcolor="%s"> None """%myColor
+      else:
+        titleString+="""|| %s """%col
+        rowString+="""|| %s """
+        emptyRowString+="""|| None """
+    titleString+="""||\n"""
+    rowString+="""||\n"""
+    emptyRowString+="""||\n"""
+    tableString+=titleString
     #Extract only DQ row or only VETO rows
     tmpResultList=list()
     for myRow in self.resultList:
@@ -2524,8 +2937,17 @@ defaulting to %s"%(self.serverURL))
       elif tableType.upper().strip() not in ["VETO","DQ"]:
         tmpResultList.append(myRow)
     if len(tmpResultList) == 0:
-      tableString=tableString+emptyRowString%myColor
+      tableString+=emptyRowString
     for ifo,name,version,comment,start,stop in tmpResultList:
+      #If we have background information fetch it
+      if self.__haveBackgroundDict__:
+        myBackgroundRank=str("%3.1f"%(100.0*self.__backgroundResults__[ifo][name])).rjust(5)
+      else:
+        myBackgroundRank="None"        
+      if self.__havecategories__:
+        myCategory=self.__category__[ifo][name]
+      else:
+        myCategory="None"
       offset1=start-self.triggerTime
       offset2=stop-self.triggerTime
       size=int(stop-start)
@@ -2537,7 +2959,9 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
-      tableString+=rowString%(myColor,str(ifo).strip(),name,version,start,offset1,stop,offset2,size)
+      tableString+=rowString%(myColor,str(ifo).strip(),name,version,\
+                              start,offset1,stop,offset2,size,\
+                              myBackgroundRank,myCategory)
     tableString+="\n"
     return tableString
 
@@ -2876,7 +3300,7 @@ class omega_config_parser(object):
 		if not self.parse: return
 		line = l.split()
 		# FIXME could fail if there are nulls
-		self.dict[line[0].rstrip(':')] = line[1:]
+		if len(line) > 1: self.dict[line[0].rstrip(':')] = line[1:]
 
 	def to_channel_dict(self):
 		dict = {}
@@ -2885,10 +3309,231 @@ class omega_config_parser(object):
 		return dict
 
 	def _spec_name(self,dict):
-		return '*%s_%.2f_spectrogram_autoscaled.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
+		return '*%s_%.2f_spectrogram_whitened.png' % (dict['channelName'][0], float(dict['plotTimeRanges'][0]))
 
 	def to_plot_tuple(self):
 		out = []
 		for d in self.data:
 			out.append((d['channelName'][0], self._spec_name(d),''))
 		return out
+
+####################################################################
+# Class to discover and get data for reconstructing the FOMs 
+####################################################################
+class getFOMdata:
+  """
+  This class will be a conglomerate of methods to rebuild custom
+  version of the top N control room plots for H1 and L1.
+  Eventually we try to integrate V1 also.
+  """
+  def __init__(self):
+    """
+    This object does not need any input arguments.
+    """
+    self.gpsTime=None
+    self.ifoList=interferometers
+    self.preWindow=int(10*3600)
+    self.postWindow=int(2*3600)
+    self.dataDict=dict()
+    self.haveData=False
+    self.channelDict={"Inspiral Range":{
+      "H1":{"frametype":"SenseMonitor_H1_M",
+            "channels":["H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"]},
+      "L1":{"frametype":"SenseMonitor_L1_M",
+            "channels":["L1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"]}
+      },
+                      "L1 STS 0.03-0.1Hz":{
+      "L1":{"frametype":"STS_Blrms_M",
+            "channels":["L1:DMT-BRMS_SEI_ETMX_STS2_X_0p03-0p1Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p03-0p1Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p03-0p1Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p03-0p1Hz.rms"]}
+      },
+                      "L1 STS 0.1-0.35Hz":{
+      "L1":{"frametype":"STS_Blrms_M",
+            "channels":["L1:DMT-BRMS_SEI_ETMX_STS2_X_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p1-0p2Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMX_STS2_X_0p2-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_ETMY_STS2_Y_0p2-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_X_0p2-0p35Hz.rms",
+                        "L1:DMT-BRMS_SEI_LVEA_STS2_Y_0p2-0p35Hz.rms"]}
+      },
+                      "L1 Gurlap 3-10Hz":{
+      "L1":{"frametype":"Seis_Blrms_M",
+            "channels":["L0:DMT-BRMS_PEM_EX_SEISX_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_EY_SEISY_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_LVEA_SEISX_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_LVEA_SEISY_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_EX_SEISZ_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_EY_SEISZ_3_10Hz.rms",
+                        "L0:DMT-BRMS_PEM_LVEA_SEISZ_3_10Hz.rms"]}
+      },
+                      "H1 0.03-0.3Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_VAULT_SEISZ_0.03-0.1Hz.rms",
+                        "H0:DMT-BRMS_PEM_EX_SEISZ_0.1_0.3Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_0.1_0.3Hz.rms"]}
+      },
+                      "H1 3-10Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_EX_SEISZ_3_10Hz.rms",
+                        "H0:DMT-BRMS_PEM_LVEA_SEISZ_3_10Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_3_10Hz.rms",
+                        "H0:DMT-BRMS_PEM_VAULT_SEISZ_3_10Hz.rms"]}
+      },
+                      "H1 1-3Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_EX_SEISZ_1_3Hz.rms",
+                        "H0:DMT-BRMS_PEM_LVEA_SEISZ_1_3Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_1_3Hz.rms",
+                        "H0:DMT-BRMS_PEM_VAULT_SEISZ_1_3Hz.rms"]}
+      },
+                      "H1 10-30Hz":{
+      "H1":{"frametype":"Seis_Blrms_M",
+            "channels":["H0:DMT-BRMS_PEM_EX_SEISZ_10_30Hz.rms",
+                        "H0:DMT-BRMS_PEM_LVEA_SEISZ_10_30Hz.rms",
+                        "H0:DMT-BRMS_PEM_EY_SEISZ_10_30Hz.rms"]}
+      }
+                      }
+                      
+                      
+                    
+    self.graphList=self.channelDict.keys()
+    
+  def __getTimeSeries__(self,
+                        frameType=None,
+                        observatory=None,
+                        channel=None,
+                        start=None,
+                        stop=None):
+    """
+    A method to simplify life to query ligo_data_find then open
+    a frame time series object and hand that object back.  This method
+    is meant to be internal to this class.
+    """
+    if (frameType==None) or \
+           (channel==None) or \
+           (start==None) or \
+           (stop==None) or \
+           (observatory == None):
+      return None
+    if len(observatory) > 1:
+      observatory=observatory[0].upper()
+    else:
+      raise Exception, "Unexpected ifo option encountered, %s"%(observatory)
+    #Just in case time stamps are backwards!
+    if start>stop:
+      tmp=start
+      start=stop
+      stop=tmp
+    #Query for the data
+    myEmptyCommand="""ligo_data_find --gaps --type=%s --observatory=%s \
+--gps-start-time=%s --gps-end-time=%s --url-type=%s \
+--lal-cache --no-proxy"""
+    myCommand=myEmptyCommand%(frameType,\
+                              observatory,\
+                              start,\
+                              stop,\
+                              "file")
+    (errorCode,cmdOutput)=getstatusoutput(myCommand)
+    if errorCode != 0:
+      return None
+    cacheInRam=StringIO(cmdOutput)
+    dataStream=frutils.FrameCache(lal.Cache.fromfile(cacheInRam))
+    cacheInRam.close()
+    dataVector=dataStream.fetch(channel,
+                                start,
+                                stop)
+    return dataVector
+                                  
+  def setWindows(self,preWindow=None,postWindow=None):
+    """
+    Set a leading window in seconds and a following window in
+    seconds for easy in graph centering.  Use integer seconds!
+    """
+    if preWindow!=None:
+      self.preWindow=int(float(preWindow))
+    if postWindow!=None:
+      self.postWindow=int(float(postWindow))
+      
+  def setGPS(self,trigger=None):
+    """
+    Specify as a string (integer) a gps time of interest.
+    """
+    if trigger==None:
+      raise Exception, "None variable specified as trigger time."
+    self.gpsTime=str(int(trigger))
+
+  def setGraphs(self,graphList=None):
+      """
+      Set the name of the graphs to create. To see the available
+      name look at self.channelDict.keys()
+      """
+      if  graphList==None:
+        raise Exception, "None variable specified at graphs to plot."
+      for myKey in graphList:
+        if myKey not in self.channelDict.keys():
+          raise Exception, "Invalid graph key specified."
+      self.graphList=graphList
+
+  def setIfos(self,myList=None):
+    """
+    Specify a list object with ifo names ie:
+    ["L1",...,"H1"]
+    """
+    if myList==None:
+      raise Exception, "None variable passed to method setIfos."
+    for myIfo in myList:
+      if not myIfo.strip().upper() in interferometers:
+        raise Exception, "Invalid IFO specified, got %s\n"%myIfo
+    self.ifoList=myList
+
+  def getGraphList(self):
+    """
+    Method returns a list of keys to the know graphs to make.
+    """
+    return self.channelDict.keys()
+    
+  def getData(self):
+    """
+    Argue-less method that returns the data associated with
+    the ifos and time in question.
+    """
+    if self.haveData:
+      return self.dataDict
+    else:
+      self.queryGraphData()
+      return self.dataDict
+
+  def deleteGraphData(self):
+    """
+    Simple method to explicity kill the variable.
+    """
+    del self.dataDict
+    self.dataDict=dict()
+      
+  def queryGraphData(self):
+    """
+    Method that does the appropriate data finding and
+    reads the frame data into memory.
+    """
+    for myGraphName in self.channelDict.keys():
+      self.dataDict[myGraphName]=dict()
+      for graphIFO in self.channelDict[myGraphName].keys():
+        graphFrameType=self.channelDict[myGraphName][graphIFO]["frametype"]
+        for channel in self.channelDict[myGraphName][graphIFO]["channels"]:
+            myStart=int(float(self.gpsTime)) - self.preWindow
+            myStop =int(float(self.gpsTime)) + self.postWindow
+            self.dataDict[myGraphName][channel]=self.__getTimeSeries__(graphFrameType,
+                                                                       graphIFO,
+                                                                       channel,
+                                                                       myStart,
+                                                                       myStop)
+            if self.dataDict[myGraphName][channel]==None:
+              sys.stderr.write("Error getting data!\n")
+              sys.stderr.write("Channel    :%s\n"%channel)
+              sys.stderr.write("Frame Type :%s\n"%graphFrameType)
+              sys.stderr.write("GPS Start  :%s\n"%myStart)
+              sys.stderr.write("GPS Stop   :%s\n"%myStop)

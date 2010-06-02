@@ -106,7 +106,12 @@ def skyhist_cart(skycarts,samples):
 	bins=zeros(N)
 	for sample in samples:
 		sampcart=pol2cart(sample[RAdim],sample[decdim])
-		maxdx=max(xrange(0,N),key=lambda i:dot(sampcart,skycarts[i]))
+		maxdot=0
+		for i in range(0,N):
+			thisdot=dot(sampcart,skycarts[i])
+			if thisdot>maxdot:
+				maxdot=thisdot
+				maxdx=i
 		bins[maxdx]+=1
 	return (skycarts,bins)
 
@@ -121,6 +126,9 @@ def loadDataFile(filename):
 	for line in infile:
 		sline=line.split()
 		proceed=True
+		if len(sline)<1:
+			print 'Ignoring empty line in input file: %s'%(sline)
+			proceed=False
 		for s in sline:
 			if dec.search(s) is not None:
 				print 'Warning! Ignoring non-numeric data after the header: %s'%(sline)
@@ -156,7 +164,7 @@ meanStr=map(str,means)
 out=reduce(lambda a,b:a+'||'+b,meanStr)
 print 'Means:'
 print '||'+out+'||'
-
+injectionconfidence=0
 RAdim=paramnames.index('RA')
 decdim=paramnames.index('dec')
 
@@ -397,7 +405,7 @@ if injection:
     htmlfile.write('<td>'+injline+'<td></tr>')
 htmlfile.write('</table>')
 if injection:
-	if injectionconfidence:
+	if injectionconfidence!=0:
     		htmlfile.write('<p>Injection found at confidence interval %f in sky location</p>'%(injectionconfidence))
 	else:
 		htmlfile.write('<p>Injection not found in posterior bins in sky location!</p>')
@@ -406,7 +414,7 @@ htmlfile.write('<table border=1><tr>')
 htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
-htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
+htmlfile.write('</tr><tr><td width=30%><img width=100% src="Diota.png"</td>')
 if opts.skyres is not None:
         htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
 else:

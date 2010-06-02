@@ -158,7 +158,7 @@ class Coinc(object):
 				img_col[plot[0]].setdefault(ifo,[]).append(cbcwebpage._imagelinkcpy(img, thmb)())
 
 	def _finish_qscan(self, page, img_col, type):
-		for name, plot in img_col.items():
+		for name, plot in sorted(img_col.items()):
 			#FIXME terrible hack to make nice sections
 			if plot:
 				chan = name[:6]
@@ -258,12 +258,12 @@ class Coinc(object):
 		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
 		#FIXME HACK, may stop working
 		for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
-		page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags')
+		page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags: Yellow denotes before, red during and green after')
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.veto_cache)
 		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
 		#FIXME HACK, may stop working
 		for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
-		page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes')
+		page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes: Yellow denotes before, red during and green after')
 
 ###############################################################################
 ##### MAIN ####################################################################

@@ -38,7 +38,7 @@
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
 #include <lal/TrigScanEThincaCommon.h>
-#include <lal/Ring.h>
+#include <lal/RingUtils.h>
 
 
 #define MODULE_NAME "pylal.xlal.tools"

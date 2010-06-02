@@ -299,13 +299,16 @@ class SkyPoints(list):
       self[i][n] /= normfac
     return normfac
 
-  def write(self,fname,normfac,comment=None,debug=False,gz=True):
+  def write(self,fname,post_dat,comment=None,debug=False,gz=True):
     """
     write the grid to a text file
     """
     self.nsort(1)
     prob_grid = '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
-    post_grid = '# normfac = ' + str(normfac) + '\n' + '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    post_grid = '# normfac = ' + str(post_dat['normfac']) + '\n'
+    post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
+    post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+    post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
     for pt in self:
         prob_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
         post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
@@ -343,6 +346,7 @@ class CoincData(object):
     self.mass2 = {}
     
     self.time = None
+    self.FAR = -1
     
     #this stuff is only needed for injections
     self.is_injection = False

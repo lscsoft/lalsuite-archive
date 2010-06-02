@@ -163,11 +163,12 @@ for coinc in coincs:
   sp = skylocutils.SkyPoints()
   
   #compute combined snr if snr dependent thresholds are specified
+  rhosquared = 0.0
+  for ifo in coinc.ifo_list:
+    rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
+  combsnr = sqrt(rhosquared)
   if snr_threshold:
-    rhosquared = 0.0
-    for ifo in coinc.ifo_list:
-      rhosquared += coinc.snr[ifo]*coinc.snr[ifo]
-    dtsnrfac = sqrt(rhosquared)/10.0
+    dtsnrfac = combsnr/10.0
   else:
   #otherwise just multiply by unity
     dtsnrfac = 1.0
@@ -222,8 +223,11 @@ for coinc in coincs:
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
   print >>sys.stdout, 'Writing skymap...'
-  normfac = sp.normalize(2)
-  sp.write(fnames,normfac,argstring)
+  post_dat = {}
+  post_dat['normfac'] = sp.normalize(2)
+  post_dat['snr'] = combsnr
+  post_dat['FAR'] = coinc.FAR
+  sp.write(fnames,post_dat,argstring)
   
   print >>sys.stdout, 'Finished processing trigger.'
 
