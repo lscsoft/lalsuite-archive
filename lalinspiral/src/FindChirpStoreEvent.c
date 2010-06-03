@@ -184,12 +184,9 @@ LALFindChirpStoreEvent (
                          input->fcTmplt->tmpltNorm / numPoints;
     thisEvent->snr = sqrt( thisEvent->snr );
 
+    /* Effective distance is: D_eff = sigma / rho  */
     thisEvent->eff_distance = 2 * input->segment->segNorm->data[kmax] * 
            input->fcTmplt->tmpltNorm / params->PTFsnrVec->data[eventStartIdx];
-
-    /* Effective distance is: D_eff = sigma / rho  */
-
-    thisEvent->eff_distance = sqrt( thisEvent->sigmasq ) / thisEvent->snr;
   }
   else
   {
