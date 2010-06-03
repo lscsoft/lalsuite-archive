@@ -27,6 +27,7 @@ import glob
 import math
 import sha
 import os
+import subprocess
 import sys
 import ConfigParser
 import optparse
@@ -188,7 +189,7 @@ class hipe_run(object):
  
     ## Determine arguments to inspiral_hipe
     self._hipe_args = ["--output-segs", "--log-path=%s" % log_path,
-      "--config-file=%s", "--write-script", "--noop-inspinj"]
+      "--write-script", "--noop-inspinj"]
     
     # decide what stages to run
     self.determine_stages(only_run, dont_run)
@@ -284,13 +285,15 @@ class hipe_run(object):
     self._cp.write(cp_file)
     cp_file.close()
 
-    arguments = " ".join(self._hipe_args)
-    arguments += " " + " ".join(["--" + stage for stage in self._stages])
-    
+    self._hipe_args.append("--config-file=%s" % ini_file_name)
+
     # run inspiral_hipe
-    inspiralutils.make_external_call("../../lalapps_inspiral_hipe %s" % (arguments % ini_file_name),
-      show_stdout=False, show_command=self._verbose)
-    
+    cmd = [cp.get("condor", "inspiral_hipe")] + self._hipe_args \
+           + ["--" + stage for stage in self._stages]
+    subprocess.call(cmd, stdout=subprocess.PIPE)
+    if self._verbose:
+        print " ".join(cmd)
+
     # create link to datafind directory's cache directory
     if self._stages != ["datafind"]:
       if os.path.isdir("cache") and not os.path.islink("cache"):
