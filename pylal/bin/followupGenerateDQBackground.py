@@ -30,7 +30,10 @@ import optparse
 import sys
 import os
 from pylal import git_version
-from pylal.fu_utils import followupDQV,runEpochs
+from pylal.fu_utils import followupDQV,\
+     getKnownIfos,\
+     getKnownIfoEpochs,\
+     getRunTimesAsLIGOSegment
 
 sys.path.append('@PYTHONLIBDIR@')
 
@@ -59,6 +62,11 @@ parser.add_option("-s","--show-ifo-epoch",action="store_true",\
 dump out all know IFO names and named search epochs.  These are \
 defined in fu_utils module."\
                   )
+parser.add_option("-a","--available-backgrounds",action="store_true",\
+                  default=False,\
+                  help="Specify this flag to query the default \
+location of background pickles to see which are available on \
+this system.")
 parser.add_option("-v","--verbose",action="store_true",\
                   default=False,\
                   help="Turns on verbose status updates to stdout."\
@@ -68,14 +76,93 @@ parser.add_option("-v","--verbose",action="store_true",\
 #Create a DQ querying object
 dqService=followupDQV()
 if opts.show_ifo_epoch:
-    for myIfo in runEpochs.keys():
-        validEpochs=""
-        for myEpochs in runEpochs[myIfo].keys():
-            validEpochs+="%s,"%myEpochs
-        validEpochs=validEpochs.rstrip(",")
+    for myIfo in getKnownIfos():
+        validEpochs=getKnownIfoEpochs(myIfo)
         sys.stdout.write("%s has valid epochs %s\n"%(myIfo,validEpochs))
     sys.exit(0)
+if opts.available_backgrounds:
+    sys.stdout.write("These are all possible combinations of ifo and \
+epoch. Be Warned! Some combinations may be nonsense.\n")
+    #Determine all background combinations
+    allIfos=getKnownIfos()
+    #Ifo doubles
+    sys.stdout.write("Doubles\n")
+    doubleList=list()
+    for j in allIfos:
+        for k in allIfos:
+            pair=[j,k]
+            pair.sort()
+            (a,b)=pair
+            if ((a,b) not in doubleList) and (a!=b):
+                doubleList.append((a,b))
+    for a,b in doubleList:
+        epochsA=getKnownIfoEpochs(a)
+        epochsB=getKnownIfoEpochs(b)
+        for epochA in epochsA:
+            for epochB in epochsB:
+                segmentA=getRunTimesAsLIGOSegment(epochA,a)
+                segmentB=getRunTimesAsLIGOSegment(epochB,b)
+                if segmentA.intersects(segmentB):
+                    epochCombo=[(a,epochA),(b,epochB)]
+                    expectedPickle=dqService.figure_out_pickle(epochCombo)
+                    #Check to see if pickle is there
+                    if os.path.isfile(expectedPickle) and \
+                       not os.access(expectedPickle,os.R_OK):
+                        sys.stderr.write(
+                            "%s:%s,%s:%s found without \
+read permissions!\n"%(a,epochA,b,epochB))
+                    elif not os.path.isfile(expectedPickle):
+                        sys.stdout.write(
+                            "%s:%s,%s:%s background file \
+is not found!\n"%(a,epochA,b,epochB))
+                    else:
+                        sys.stdout.write(
+                            "%s:%s,%s:%s found at %s\n"\
+                            %(a,epochA,b,epochB,expectedPickle))
+    #Ifo triples
+    sys.stdout.write("Triples.\n")
+    tripleList=list()
+    for j in allIfos:
+        for k in allIfos:
+            for z in allIfos:
+                pair=[j,k,z]
+                pair.sort()
+                (a,b,c)=pair
+                if ((a,b,c) not in tripleList) and (a!=b) and (b!=c) and (a!=c):
+                    tripleList.append((a,b,c))
+    for a,b,c in tripleList:
+        epochsA=getKnownIfoEpochs(a)
+        epochsB=getKnownIfoEpochs(b)
+        epochsC=getKnownIfoEpochs(c)
+        for epochA in epochsA:
+            for epochB in epochsB:
+                for epochC in epochsC:
+                    segmentA=getRunTimesAsLIGOSegment(epochA,a)
+                    segmentB=getRunTimesAsLIGOSegment(epochB,b)
+                    segmentC=getRunTimesAsLIGOSegment(epochC,c)
+                    if segmentA.intersects(segmentB) and \
+                       segmentB.intersects(segmentC) and \
+                       segmentC.intersects(segmentA):
+                        epochCombo=[(a,epochA),(b,epochB),(c,epochC)]
+                        expectedPickle=dqService.figure_out_pickle(epochCombo)
+                        #Check to see if pickle is there
+                        if os.path.isfile(expectedPickle) and \
+                           not os.access(expectedPickle,os.R_OK):
+                            sys.stderr.write(
+                                "%s:%s,%s:%s,%s:%s found without \
+read permissions!\n"%(a,epochA,b,epochB,c,epochC))
+                        elif not os.path.isfile(expectedPickle):
+                            sys.stdout.write(
+                                "%s:%s,%s:%s,%s:%s background file \
+is not found!\n"%(a,epochA,b,epochB,c,epochC))
+                        else:
+                            sys.stdout.write(
+                                "%s:%s,%s:%s,%s:%s found at %s\n"\
+                                %(a,epochA,b,epochB,c,epochC,expectedPickle))
+    sys.exit(0)
+#
 #Check the form of the ifo epoch option
+#
 epochInfo=opts.ifo_epoch_list.upper().strip()
 ifoEpochList=list()
 for myPair in epochInfo.split(","):
@@ -84,14 +171,14 @@ for myPair in epochInfo.split(","):
     myEpoch=myEpoch.lower()
     if opts.verbose:
         sys.stdout.write("Checking %s %s\n"%(myIfo,myEpoch))
-    if myIfo not in runEpochs.keys():
+    if myIfo not in getKnownIfos():
         sys.stderr.write(" %s not valid ifo.\n"%myIfo)
-        sys.stderr.write("Valid ifos are %s\n"%runEpochs.keys())
+        sys.stderr.write("Valid ifos are %s\n"%getKnownIfos())
         sys.exit(-1)
-    if myEpoch not in runEpochs[myIfo].keys():
+    if myEpoch not in getKnownIfoEpochs(myIfo):
         sys.stderr.write("%s not valid epoch for %s ifo.\n"%(myEpoch,myIfo))
         sys.stderr.write("valid epochs for %s ifo are %s\n."%\
-                         (myIfo,runEpochs[myIfo].keys()))
+                         (myIfo,getKnownIfos()))
         sys.exit(-1)
     ifoEpochList.append((myIfo,myEpoch))
 #Check for proper permissions etc to the output location etc

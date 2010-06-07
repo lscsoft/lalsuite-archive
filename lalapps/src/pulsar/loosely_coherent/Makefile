@@ -3,7 +3,7 @@ VERSION=0.0.2-64
 LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
-LDFLAGS=$(LALLDFLAGS) -L. -lpng
+LDFLAGS=$(LALLDFLAGS) -L. -lpng -lfftw3 -lfftw3f
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
@@ -35,7 +35,6 @@ FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
 # 200 hz
 #BAND=360000
 # 400 Hz
-BAND=1600
 # 352 hz
 #BAND=633600
 # 650 Hz
@@ -45,12 +44,23 @@ BAND=1600
 
 #DATASET=/home/volodya/LIGO/S4/Injections/sfts/108.dst
 DATASET=$(HOME)/LIGO/SFT-DATA/S5/H1_395_415.dst
+BAND=1600
 #DATASET=random.dst
 RA=0.4687356
 DEC=-1.257051
 
 RA=3.14
 DEC=0
+
+# DATASET=$(HOME)/LIGO/SFT-DATA/Gaussian/H1_400_410.dst
+# BAND=1626
+# #DATASET=random.dst
+# RA=1.0
+# DEC=0.1
+# F0=406.527
+# F1=-1.35e-10
+# REFTIME=850000000
+
 
 #
 # Do not build anything by default
@@ -67,16 +77,23 @@ test3c: loosely_coherent1
 		--filter-lines=1 \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lalsuite/lalpulsar/test//earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lalsuite/lalpulsar/test//sun05-09.dat  \
-		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.0001 \
+		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.0001 --focus-f0=400.01 --focus-f0-delta=0.001 \
 		--dump-data=input.dat \
 		--write-dat=NONE \
 		--write-png=.*$$ 
+
+test3d: loosely_coherent1
+	./loosely_coherent1 --config=config.3d
+	head 1626-406.500000/data.log
 #
 #		--fake-linear --fake-ra=3.141593 --fake-dec=0.006233 --fake-freq=199.85 --fake-strain=1e-20 \
 #		--fake-spindown=1e-9\
 #		 --band-axis=explicit\(0.5,0.3,0.1\)
 
 
+test3e: loosely_coherent1
+	./loosely_coherent1 --config=config.3e
+	head 1626-406.500000/data.log
 
 
 dat2skymap: grid.o rastermagic.o dat2skymap.o png.o

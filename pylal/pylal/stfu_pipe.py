@@ -159,8 +159,8 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2a/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2b/background/background_937800015_947260815.cache",935798415,999999999,"V1")
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
 
 	foundCache = ""
@@ -2194,7 +2194,7 @@ class create_default_config(object):
                 #FIXME add more hosts as you need them
 		if 'ligo.caltech.edu' or 'ligo-la.caltech.edu' or 'ligo-wa.caltech.edu' or 'phys.uwm.edu' or 'aei.uni-hannover.de' or 'phy.syr.edu' in host:
 			remote_ifos = "V1"
-			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground"
+			remote_jobs = "ligo_data_find_Q_RDS_full_data,wpipeline_FG_RDS_full_data,wpipeline_FG_SEIS_RDS_full_data,ligo_data_find_Q_RDS_playground,wpipeline_FG_RDS_playground,wpipeline_FG_SEIS_RDS_playground,ligo_data_find_Q_RDS_gps_only,wpipeline_FG_RDS_gps_only,wpipeline_FG_SEIS_RDS_gps_only,ligo_data_find_Q_RDS_time_slides,wpipeline_FG_RDS_time_slides,wpipeline_FG_SEIS_RDS_time_slides"
 			return remote_ifos, remote_jobs
 		return '', ''
 

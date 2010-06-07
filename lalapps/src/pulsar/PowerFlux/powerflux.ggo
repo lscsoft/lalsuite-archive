@@ -29,6 +29,7 @@ option "input-format"   - "format of input files (GEO, SFT, Power)" string defau
 option "dump-data"	- "file to output loaded SFT data into, for testing" string no
 option "dump-sftv2"	- "directory to output loaded data, together with dataset description" string no
 option "output" 	o "output directory" string no
+option "flat-output"	- "output directory to contain all files, with no subdirectories (for globus condor)" string no
 
 option "ephemeris-path" - "path to detresponse program from lalapps" string no
 option "earth-ephemeris" - "Earth ephemeris file, overrides ephemeris-path argument" string no
