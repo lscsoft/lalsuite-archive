@@ -186,7 +186,7 @@ def info(item, text):
   logfile.write(msg+'\n')
   logfile.close()
 
-  print text
+  print msg
 
 # -----------------------------------------------------
 def send_mail(subject, msg, email_addresses = None, extra_addresses = None):
