@@ -33,13 +33,13 @@ cp = None
 
 template_trigger_hipe = "./lalapps_trigger_hipe"\
   " --number-buffer-left 8 --number-buffer-right 8"\
-  " --verbose --skip-datafind --skip-dataquality "\
+  " --verbose --skip-datafind "\
   " --injection-config injectionsWI.ini" \
   " --user-tag onoff"
 
 template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --number-buffer-left 8 --number-buffer-right 8" \
-  " --verbose --skip-datafind --skip-dataquality "\
+  " --verbose --skip-datafind "\
   " --user-tag inj --skip-onsource --skip-offsource"\
   " --overwrite-dir"
 
