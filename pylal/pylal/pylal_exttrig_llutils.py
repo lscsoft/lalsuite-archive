@@ -623,7 +623,6 @@ def generate_summary(publish_path, publish_url):
     
     if status_onoff==5:
     
-      print grb.name, grb.openbox 
       #Add link to sanity pages
       htmlfile = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity.html' % (grb.name, grb.name)
       htmlfile_inj = publish_url+'/GRB%s/pylal_exttrig_llsummary_%s-sanity_inj.html' % (grb.name, grb.name)
