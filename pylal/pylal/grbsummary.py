@@ -178,7 +178,7 @@ def get_exttrig_trials(on_segs, off_segs, veto_files):
     if abs(off_segs) % trial_len != 0:
         raise ValueError, "The provided file's analysis segment is not "\
             "divisible by the fold time."
-    extent = off_segs.extent()
+    extent = (off_segs | on_segs).extent()
 
     # generate bins for trials
     num_trials = int(abs(extent)) // trial_len
