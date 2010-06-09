@@ -82,6 +82,19 @@ return r;
 
 char s[20000];
 
+#define SIDEREAL_DAY (23.93447*3600)
+#define SIDEREAL_MONTH (27.32166*24*3600)
+#define JULIAN_YEAR (365.25*24*3600)
+
+typedef struct {
+	double dc;
+	double sidereal_day[4];
+	double sidereal_month[4];
+	double sidereal_month2[4];
+	double julian_year[4];
+	} EPICYCLIC_PHASE_COEFFICIENTS;
+
+
 int main(int argc, char *argv[]) 
 {
 time_t start_time, input_done_time, end_time;
@@ -293,7 +306,7 @@ if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	exit(-1);
 	}
 
-
+fprintf(stderr, "Main sky grid has %d points.\n", main_grid->npoints);
 
 if(args_info.sky_marks_file_given) {
 	FILE *f;
@@ -429,31 +442,34 @@ for(k=0;k<datasets[n].free;k+=10000) {
 	}
 fflush(DATA_LOG);
 }
-/*
-#define SIDEREAL_DAY (23.93447*3600)
-#define SIDEREAL_MONTH (27.32166*24*3600)
-#define JULIAN_YEAR (365.25*24*3600)
-
-typedef struct {
-	double dc;
-
-typedef struct {
-	double dc;
-	double sidereal_day[4];
-	double sidereal_month[4];
-	double sidereal_month2[4];
-	double julian_year[4];
-	} EPICYCLIC_PHASE_COEFFICIENTS;*/
 
 /* For testing - pick a bin and do phase correction */
 {
 double *re;
 double *im;
+double *power, *cross, *power_aux;
+int *index;
 COMPLEX16Vector *samples;
 COMPLEX16Vector *fft;
+COMPLEX16FFTPlan *fft_plan=NULL;
 double first_gps=min_gps();
 int nsamples=1+ceil(2.0*(max_gps()-min_gps())/args_info.coherence_length_arg);
 double total_weight;
+double f0=args_info.focus_f0_arg;
+//double ra=args_info.focus_ra_arg;
+//double dec=args_info.focus_dec_arg;
+double dInv=args_info.focus_dInv_arg;
+int point;
+int half_window=0;
+int wing_step=round(nsamples*args_info.coherence_length_arg/SIDEREAL_DAY);
+int day_samples=round(SIDEREAL_DAY/args_info.coherence_length_arg);
+int fstep, nfsteps=2;
+
+/* round of nsamples to contain integer number of sideral days */
+
+nsamples=day_samples*floor(nsamples/day_samples);
+
+fprintf(stderr, "nsamples=%d day_samples=%d wing_step=%d half_window=%d\n", nsamples, day_samples, wing_step, half_window);
 
 samples=XLALCreateCOMPLEX16Vector(nsamples);
 if(!samples) {
@@ -467,11 +483,26 @@ if(!fft) {
 	exit(-1);
 	}
 
+fprintf(stderr, "Creating FFT plan\n");
+fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(nsamples, 1);
+if(!fft_plan) {
+	fprintf(stderr, "**** ERROR: could not create fft plan\n");
+	exit(-1);
+	}
+	
+power=do_alloc(nsamples, sizeof(*power));
+cross=do_alloc(nsamples, sizeof(*cross));
+power_aux=do_alloc(nsamples, sizeof(*power_aux));
+index=do_alloc(nsamples, sizeof(*index));
+
+for(fstep=0;fstep<nfsteps; fstep++) {
+for(point=0;point< main_grid->npoints;point++) {
+double ra=main_grid->longitude[point];
+double dec=main_grid->latitude[point];
+
+if(point % 10==0)fprintf(stderr, "point=%d out of %d\n", point, main_grid->npoints);
+
 {
-double f0=args_info.focus_f0_arg;
-double ra=args_info.focus_ra_arg;
-double dec=args_info.focus_dec_arg;
-double dInv=args_info.focus_dInv_arg;
 double x,y, x2, y2;
 double c,s;
 double dt, te;
@@ -488,7 +519,7 @@ int i,j,k,n;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
 
-fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
+//fprintf(stderr,"f0=%g bin=%d\n", f0, bin);
 	
 spindown=args_info.spindown_start_arg;
 
@@ -507,17 +538,22 @@ for(n=0;n<d_free;n++) {
 		tGPS.gpsSeconds=datasets[n].gps[j]+datasets[n].coherence_time*0.5;
 		tGPS.gpsNanoSeconds=0;
 		get_emission_time(&emission_time, &(datasets[n].earth_state[j]), ra, dec, dInv, datasets[n].detector, tGPS);
+
+		i=round(2.0*(datasets[n].gps[j]-first_gps)/args_info.coherence_length_arg);
+/*		i=round(2.0*((emission_time.te.gpsSeconds-first_gps)+1e-9*emission_time.te.gpsNanoSeconds)/args_info.coherence_length_arg);*/
+		if(i<0)continue;
+		if(i>=nsamples)continue;
 		
 		dt=(emission_time.te.gpsSeconds-datasets[n].gps[j]-datasets[n].coherence_time*0.5)+1e-9*emission_time.te.gpsNanoSeconds;
 		
-		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown;
+		f=f0+((emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds)*spindown+2.0*fstep/(nfsteps*nsamples*datasets[0].coherence_time);
 		bin=round(datasets[0].coherence_time*f-first_bin);
 				
 		te=(emission_time.te.gpsSeconds-spindown_start)+1e-9*emission_time.te.gpsNanoSeconds;
 				
 		phase_spindown=0.5*te*te*spindown;
 		
-		phase_barycenter=f0*te;
+		phase_barycenter=(f0+2.0*fstep/(nfsteps*nsamples*datasets[0].coherence_time))*te;
 		
 		phase_heterodyne=(f0-(first_bin+bin+0.0)/datasets[0].coherence_time)*(datasets[n].gps[j]-spindown_start);
 
@@ -535,39 +571,31 @@ for(n=0;n<d_free;n++) {
 		c=cos(total_phase);
 		s=sin(total_phase);
 		
-		i=round(2.0*(datasets[n].gps[j]-first_gps)/args_info.coherence_length_arg);
 // 		samples->data[i].re=x*c+y*s;
 // 		samples->data[i].im=-x*s+y*c;
 
 		x2=x*c+y*s;
 		y2=-x*s+y*c;
 
-		samples->data[i].re=x2*f_plus-y2*f_cross;
-		samples->data[i].im=x2*f_cross+y2*f_plus;
+		samples->data[i].re=x2*(f_plus+f_cross)-y2*(f_plus-f_cross);
+		samples->data[i].im=x2*(f_plus+f_cross)+y2*(f_plus-f_cross);
 		
 		total_weight+=f_plus*f_plus+f_cross*f_cross;
 
-		if(args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %lld %d %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
-				i, n, j, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
+		if(args_info.dump_stream_data_arg)fprintf(DATA_LOG, "stream: %d %d %d %d %lld %d %d %.12g %.12g %.12g %.12g %f %f %f %f %d %f %f %f\n",
+				i, n, j, fstep, datasets[n].gps[j], emission_time.te.gpsSeconds, emission_time.te.gpsNanoSeconds,
 				x, y, samples->data[i].re, samples->data[i].im, phase_spindown, phase_barycenter, phase_heterodyne, f, bin, f_plus, f_cross, total_phase);
 		
 		}
 	}
 }
-
+//exit(-1);
 {
-COMPLEX16FFTPlan *fft_plan=NULL;
-double norm;
-	
+double norm, a, b, c, x, y, x1, y1;
+double sum;
+int i,j,k,m;
 
-fprintf(stderr, "Creating FFT plan\n");
-fft_plan=XLALCreateForwardCOMPLEX16FFTPlan(nsamples, 1);
-if(!fft_plan) {
-	fprintf(stderr, "**** ERROR: could not create fft plan\n");
-	exit(-1);
-	}
-
-fprintf(stderr, "Running FFT\n");
+//fprintf(stderr, "Running FFT\n");
 XLALCOMPLEX16VectorFFT(fft, samples, fft_plan);
 
 norm=1.0/total_weight;
@@ -580,16 +608,64 @@ for(i=0;i<nsamples;i++) {
 	fft->data[i].im*=norm;
 	}
 	
+sum=0.0;
 for(i=0;i<nsamples;i++) {
-	fprintf(DATA_LOG, "fft: %d %.12f %.12g %.12g\n", 
-		i, (i*2.0)/(nsamples*args_info.coherence_length_arg), fft->data[i].re, fft->data[i].im);
+	a=0.0;
+	b=0.0;
+	c=0.0;
+	for(j=i-half_window; j<=i+half_window;j++) {
+		k=j;
+		if(k<0)k+=nsamples;
+		if(k>=nsamples)k-=nsamples;
+		x=fft->data[k].re;
+		y=fft->data[k].im;
+		a+=x*x+y*y;
+
+		k=j+wing_step;
+		if(k<0)k+=nsamples;
+		if(k>=nsamples)k-=nsamples;
+		x1=fft->data[k].re;
+		y1=fft->data[k].im;
+		c+=(x1*x1+y1*y1);
+		b+=(x1*x+y1*y);
+
+		k=j-wing_step;
+		if(k<0)k+=nsamples;
+		if(k>=nsamples)k-=nsamples;
+		x1=fft->data[k].re;
+		y1=fft->data[k].im;
+		c+=(x1*x1+y1*y1);
+		b+=(x1*x+y1*y);
+		}
+	power[i]=a;
+	cross[i]=b;
+	power_aux[i]=c;
+
+	sum+=a+c;
+	}
+	
+sum/=nsamples;
+
+if(args_info.dump_fft_data_arg) {
+	for(i=0;i<nsamples;i++) {
+		fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12g %.12g\n", 
+			i, fstep, (i*2.0)/(nsamples*args_info.coherence_length_arg), ra, dec, fft->data[i].re, fft->data[i].im);
+		}
 	}
 
-XLALDestroyCOMPLEX16FFTPlan(fft_plan);
+for(i=0;i<nsamples;i++) {
+	if(power[i]+power_aux[i]>3*sum)
+	fprintf(DATA_LOG, "fft: %d %d %.12f %.12f %.12f %.12f %.12g %.12g %.12g %.12g %.12g\n", 
+		point, fstep, (i*2>nsamples ? i-nsamples : i)+fstep*1.0/nfsteps, ((i*2>nsamples ? i-nsamples : i)*1.0 +fstep*1.0/nfsteps)/(nsamples*args_info.coherence_length_arg), ra, dec, power[i], cross[i], power_aux[i], fft->data[i].re, fft->data[i].im);
+	}
+
+}
+}
 }
 
 XLALDestroyCOMPLEX16Vector(samples);
 XLALDestroyCOMPLEX16Vector(fft);
+XLALDestroyCOMPLEX16FFTPlan(fft_plan);
 }
 
 
