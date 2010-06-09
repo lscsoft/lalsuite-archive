@@ -3326,7 +3326,7 @@ class getFOMdata:
   version of the top N control room plots for H1 and L1.
   Eventually we try to integrate V1 also.
   """
-  def __init__(self):
+  def __init__(self,verbose=False):
     """
     This object does not need any input arguments.
     """
@@ -3336,6 +3336,7 @@ class getFOMdata:
     self.postWindow=int(2*3600)
     self.dataDict=dict()
     self.haveData=False
+    self.__verbose__=verbose
     self.channelDict={"Inspiral Range":{
       "H1":{"frametype":"SenseMonitor_H1_M",
             "channels":["H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"]},
@@ -3397,11 +3398,15 @@ class getFOMdata:
                         "H0:DMT-BRMS_PEM_EY_SEISZ_10_30Hz.rms"]}
       }
                       }
-                      
-                      
-                    
     self.graphList=self.channelDict.keys()
-    
+
+  def getGraphKeys(self):
+    """
+    Simple method which returns a list of know graphs
+    that can be generated.
+    """
+    return self.graphList
+  
   def __getTimeSeries__(self,
                         frameType=None,
                         observatory=None,
@@ -3437,15 +3442,25 @@ class getFOMdata:
                               start,\
                               stop,\
                               "file")
+    if self.__verbose__:
+      sys.stdout.write("Executing data query:%s\n"%myCommand)
     (errorCode,cmdOutput)=getstatusoutput(myCommand)
+    if self.__verbose__:
+      sys.stdout.write("Query Completed!\n")
     if errorCode != 0:
+      if self.__verbose__:
+        sys.stderr.write("Error seen! : Code %s: Message %s\n"%(errorCode,cmdOutput))
       return None
+    if self.__verbose__:
+      sys.stdout.write("Reading in trend data.\n")
     cacheInRam=StringIO(cmdOutput)
     dataStream=frutils.FrameCache(lal.Cache.fromfile(cacheInRam))
     cacheInRam.close()
     dataVector=dataStream.fetch(channel,
                                 start,
                                 stop)
+    if self.__verbose__:
+      sys.stdout.write("Done reading in trend data.\n")
     return dataVector
                                   
   def setWindows(self,preWindow=None,postWindow=None):
