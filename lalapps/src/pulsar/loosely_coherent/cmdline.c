@@ -111,6 +111,7 @@ const char *gengetopt_args_info_help[] = {
   "      --extended-test=INT       Perform extended self test  (default=`0')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto \n                                  information  (default=`100')",
   "      --dump-stream-data=INT    Output timeseries  (default=`0')",
+  "      --dump-fft-data=INT       Output fft  (default=`0')",
   "      --num-threads=INT         Use that many threads for computation  \n                                  (default=`-1')",
     0
 };
@@ -241,6 +242,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->dump_stream_data_given = 0 ;
+  args_info->dump_fft_data_given = 0 ;
   args_info->num_threads_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
@@ -385,6 +387,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->max_sft_report_orig = NULL;
   args_info->dump_stream_data_arg = 0;
   args_info->dump_stream_data_orig = NULL;
+  args_info->dump_fft_data_arg = 0;
+  args_info->dump_fft_data_orig = NULL;
   args_info->num_threads_arg = -1;
   args_info->num_threads_orig = NULL;
   
@@ -475,7 +479,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->extended_test_help = gengetopt_args_info_help[76] ;
   args_info->max_sft_report_help = gengetopt_args_info_help[77] ;
   args_info->dump_stream_data_help = gengetopt_args_info_help[78] ;
-  args_info->num_threads_help = gengetopt_args_info_help[79] ;
+  args_info->dump_fft_data_help = gengetopt_args_info_help[79] ;
+  args_info->num_threads_help = gengetopt_args_info_help[80] ;
   
 }
 
@@ -697,6 +702,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->extended_test_orig));
   free_string_field (&(args_info->max_sft_report_orig));
   free_string_field (&(args_info->dump_stream_data_orig));
+  free_string_field (&(args_info->dump_fft_data_orig));
   free_string_field (&(args_info->num_threads_orig));
   
   
@@ -891,6 +897,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "max-sft-report", args_info->max_sft_report_orig, 0);
   if (args_info->dump_stream_data_given)
     write_into_file(outfile, "dump-stream-data", args_info->dump_stream_data_orig, 0);
+  if (args_info->dump_fft_data_given)
+    write_into_file(outfile, "dump-fft-data", args_info->dump_fft_data_orig, 0);
   if (args_info->num_threads_given)
     write_into_file(outfile, "num-threads", args_info->num_threads_orig, 0);
   
@@ -1536,6 +1544,7 @@ cmdline_parser_internal (
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "dump-stream-data",	1, NULL, 0 },
+        { "dump-fft-data",	1, NULL, 0 },
         { "num-threads",	1, NULL, 0 },
         { 0,  0, 0, 0 }
       };
@@ -2607,6 +2616,20 @@ cmdline_parser_internal (
                 &(local_args_info.dump_stream_data_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "dump-stream-data", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Output fft.  */
+          else if (strcmp (long_options[option_index].name, "dump-fft-data") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->dump_fft_data_arg), 
+                 &(args_info->dump_fft_data_orig), &(args_info->dump_fft_data_given),
+                &(local_args_info.dump_fft_data_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "dump-fft-data", '-',
                 additional_error))
               goto failure;
           
