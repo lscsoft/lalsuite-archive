@@ -4,7 +4,7 @@
 # order to insulate that task's lalapps code from the production glue
 # environment we use for ligolw_print here
 
-source /opt/lscsoft/glue/etc/glue-user-env.sh
+. /opt/lscsoft/glue/etc/glue-user-env.sh
 
 # exit immediately if any command exits with a non-zero status.
 set -e

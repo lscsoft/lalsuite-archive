@@ -4,7 +4,7 @@
 TEMPLATE_DIR=$LSCSOFT_SRCDIR/lalsuite/glue/src/nmi/unit
 
 #source $GLUE_LOCATION/etc/glue-user-env.sh
-source /opt/lscsoft/glue/etc/glue-user-env.sh
+#source /opt/lscsoft/glue/etc/glue-user-env.sh
 
 TMPDIR=${TMPDIR:-/tmp}
 
@@ -48,7 +48,8 @@ echo _NMI_GIT_BRANCH=$_NMI_GIT_BRANCH > /dev/null
 export _NMI_GIT_ID _NMI_GIT_BRANCH
 
 # extract process (executable) from the reference XML file
-export _NMI_LAL_EXE=lalapps_$(ligolw_print -t process -c program $_NMI_XML_FILE)
+NAME=$(. /opt/lscsoft/glue/etc/glue-user-env.sh; ligolw_print -t process -c program $_NMI_XML_FILE)
+export _NMI_LAL_EXE=lalapps_$NAME
 
 # extract shorter workflow node name from XML filename (Miron would disapprove)
 # TODO: can/should this be extracted more reliably from the metadata inside?
