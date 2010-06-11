@@ -15,6 +15,7 @@
 # wrap this whole script in a block combining stdout & stderr to ease debugging
 {
 # TODO: these should be replaced with proper Metronome prereqs
+export PKG_CONFIG_PATH=/usr/lib64/pkgconfig
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/lscsoft/libframe/lib64/pkgconfig
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/lscsoft/libmetaio/lib64/pkgconfig
 
