@@ -8,14 +8,15 @@ set -e
 # treat unset variables as an error when performing parameter expansion.
 set -u
 
-if [[ $# -lt 2 ]]; then
-    echo usage: $0 git_id git_branch_name
+if [[ $# -lt 3 ]]; then
+    echo usage: $0 git_id git_branch_name git_url
     exit 1
 fi
 
 # env vars of the form _NMI_* can be used in the Metronome submit files
 export _NMI_GIT_ID=$1
 export _NMI_GIT_BRANCH=$2
+export _NMI_GIT_URL=$3
 
 # create a temp dir for the submit files
 SUBMIT_DIR=$TMPDIR/$USER/$(basename $0).${_NMI_GIT_ID}.$$.$(date +%s)
