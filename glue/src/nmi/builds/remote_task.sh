@@ -62,7 +62,6 @@ git checkout -f $NMI_git_id
 
 # temporary debugging line
 echo "condor_config_val LIB =" $(condor_config_val LIB)
-echo "git branch =" $(git branch | perl -e 'while(<>){/^\*/ && s/\* // && print}')
 
 ./00boot
 ./configure --prefix=$LSCSOFT_ROOTDIR --enable-lalxml
