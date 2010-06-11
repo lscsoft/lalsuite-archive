@@ -70,19 +70,19 @@ interferometers=["H1","H2","L1","V1"]
 defaultsegmentserver="https://segdb.ligo.caltech.edu"
 runEpochs={"L1":{
   "s6c_current":(949449543,999999999),
-  "s6b":(937800015,941997600),
+  "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "H1":{
   "s6c_current":(949449543,999999999),
-  "s6b":(937800015,941997600),
+  "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "H2":{
   "s6c_current":(949449543,999999999),
-  "s6b":(937800015,941997600),
+  "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
@@ -99,8 +99,20 @@ def getRunTimes(runName=None,ifo=None):
   """
   if runName == None or ifo == None:
     return ()
-  return runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  (a,b)=runEpochs[ifo.upper().strip()][runName.lower().strip()]
+  return (a,b)
 
+def getRunTimesAsLIGOSegment(runName=None,ifo=None):
+  """
+  This method returns the start and stop of a LIGO
+  run given a gpstime.  (start,stop)
+  """
+  try:
+    (a,b)=getRunTimes(runName,ifo)
+  except:
+    return ()
+  return segments.segment(a,b)
+  
 def getRunEpoch(runTime=None, ifo=None):
   """
   This method returns the science run epoch name for LIGO,
@@ -115,6 +127,21 @@ def getRunEpoch(runTime=None, ifo=None):
     if (start<=runTime) and (runTime<=stop):
       outputEpoch=myEpoch
   return outputEpoch
+
+def getKnownIfoEpochs(ifoName=None):
+  """
+  Simple method if given an ifo string gives a list
+  of know epochs for that ifo.
+  """
+  if ifoName==None:
+    return []
+  return runEpochs[ifoName].keys()
+
+def getKnownIfos():
+  """
+  This method dumps the names as a list of know ifos.
+  """
+  return interferometers
 
 #Double defined home_dir funct from stfu_pipe
 def home_dir():
@@ -2297,6 +2324,7 @@ class followupDQV:
     """
     self.__connection__= None
     self.__engine__= None
+    self.__installPath__=home_dir()+"/ctorres/followupbackgrounds/dq/"
     if pickle==None:
       self.__backgroundPickle__=None
     else:
@@ -2405,9 +2433,16 @@ defaulting to %s\n"%(self.serverURL))
     return outputList
   #End __merge__() method
 
+  def getInstallPath(self):
+    """
+    Returns a string pointing to the local install location of where
+    the DQ background pickles should be found.
+    """
+    return self.__installPath__
+    
   def figure_out_pickle(self,ifoEpochList=None):
     fileMask="followup_background_%s.pickle"
-    installPath=home_dir()+"/ctorres/followupbackgrounds/dq/"
+    installPath=self.__installPath__
     if ifoEpochList==None:
       return None
     elif type(ifoEpochList) == type(str()):
@@ -2441,7 +2476,7 @@ defaulting to %s\n"%(self.serverURL))
     You can reset it with this method.
     """
     if filename==None:
-      os.stdout.write("Path information to background pickle unchanged.\n")
+      sys.stdout.write("Path information to background pickle unchanged.\n")
     elif filename.__contains__("~"):
       self.__backgroundPickle__=os.path.expanduser(filename)
     else:
@@ -2488,7 +2523,6 @@ defaulting to %s\n"%(self.serverURL))
     behavior
     """
     return self.fetchInformationDualWindow(triggerTime,window,window,ifoList='DEFAULT')
-
   def __connectToSegmentDB__(self,serverURL=None):
     """
     Private method to execute connection to segment DB
@@ -2544,7 +2578,7 @@ defaulting to %s\n"%(self.serverURL))
       return
     triggerTime=float(triggerTime)
     if triggerTime==int(-1):
-      os.stdout.write("Specify trigger time please.\n")
+      sys.stdout.write("Specify trigger time please.\n")
       return
     else:
       self.triggerTime = float(triggerTime)
@@ -2592,8 +2626,7 @@ defaulting to %s\n"%(self.serverURL))
     """
     Two inputs a list of tuples (ifo,epochname) for each instrument.
     Also a place to save the potential pickle to for quick access
-    later.
-    """
+    later.    """
     if type(ifoEpochList) != type(list()):
       raise Exception, \
             "Invalid input argument ifoEpochList,%s type(%s)"\
@@ -2612,18 +2645,22 @@ defaulting to %s\n"%(self.serverURL))
       if os.path.isfile(pickleLocale):
         try:
           self.__backgroundDict__=cPickle.load(file(pickleLocale,'r'))
+          self.__haveBackgroundDict__=True
           backgroundPickle=True
-          for (ifo,epoch) in ifoEpochList:
+        except:
+          backgroundPickle=False
+          self.__haveBackgroundDict__=False
+          sys.stderr.write("Error importing the pickle file! %s\n"\
+                           %(pickleLocale))
+          return
+        for (ifo,epoch) in ifoEpochList:
             if (ifo.upper().strip(),epoch.upper().strip()) \
                    not in self.__backgroundDict__["ifoepoch"]:
               raise Exception,\
                     "Invalid ifo and epoch information in \
-generated background %s"%self.__backgroundDict__["ifoepoch"]
-        except:
-          backgroundPickle=False
-          sys.stderr.write("Error importing the pickle file!\n")
-          if os.access(os.path.split(pickleLocal)[0],os.W_OK):
-            os.path.rename(pickleLocale,pickleLocale+".corrupt")
+generated background expected %s got %s"%(\
+                      self.__backgroundDict__["ifoepoch"],
+                      ifoEpochList)
         return
     else:
       #Assume an automatic pickle creation
@@ -2633,6 +2670,7 @@ generated background %s"%self.__backgroundDict__["ifoepoch"]
         sys.stderr.write("Warning: Insufficient disk \
 permissions to create DQ background pickle file:%s.\n"%(autoPath))
         backgroundPickle=False
+        self.__haveBackgroundDict=False
         return
     #Setup for large volumne of queries
     #Determine random background times for each IFO
@@ -2698,17 +2736,20 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     self.__backgroundDict__["ifoepoch"]=[(myIfo.strip().upper(),
                                           myEpoch.strip().upper()) \
                                          for myIfo,myEpoch in ifoEpochList]
+    self.__haveBackgroundDict__=True
     #Save the created DQ background to a pickle, skip saving on error!
-    try:
-      cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
-    except:
-      os.stdout.write("Problem saving pickle of DQ information.")
-      os.stdout.write("Trying to place pickle in your home directory.")
+    #That is assuming we didn't get our data from a pickle already!
+    if not backgroundPickle:
       try:
-        cPickle.dump(self.__backgroundDict__,
-                     file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        cPickle.dump(self.__backgroundDict__,file(pickleLocale,'w'))
       except:
-        os.stdout.write("Really ignoring pickle generation now!\n")
+        sys.stdout.write("Problem saving pickle of DQ information.")
+        sys.stdout.write("Trying to place pickle in your home directory.")
+        try:
+          cPickle.dump(self.__backgroundDict__,
+                       file(home_dir()+"/"+os.path.basename(pickleLocale),'w'))
+        except:
+          sys.stdout.write("Really ignoring pickle generation now!\n")
   #End createDQbackground
 
   def estimateDQbackground(self):
@@ -2729,26 +2770,42 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     for ifo,b,c,d,e,f in self.resultList:
       if ifo not in uniqIfos:
         uniqIfos.append(ifo)
-    ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in uniqIfos]
+    ifoEpochList=[(x,getRunEpoch(self.triggerTime,x)) for x in self.ifos]
     self.createDQbackground(ifoEpochList,self.__backgroundPickle__)
+    if not self.__haveBackgroundDict__:
+      sys.stderr.write("Could not either open or save DQ \
+background in %s no background data available!\n"%(self.__backgroundPickle__))
+      self.__backgroundResults__=list()
+      self.__backgroundTimesDict__=dict()
+      self.__backgroundDict__=dict()
+      self.__haveBackgroundDict__=bool(False)
+      return
     #Calculate the binomial 'p' value for the flags in the table.
     if self.resultList < 1:
-          sys.stderr.write("Aborting tabulate of binomial P\n")
+          sys.stderr.write("Aborting tabulation of binomial P\n")
           os.abort()
     seenFlags=dict()
     for ifo,name,version,comment,start,stop in self.resultList:
       if ifo.strip() not in seenFlags.keys():
         seenFlags[ifo]=list()
       seenFlags[ifo].append(name)
-    for myIfo,flagList in seenFlags.iteritems():
+    for myIfo in seenFlags.keys():
       tmpFlags=list()
-      for backgroundTime,backgroundFlags in \
-              self.__backgroundDict__[myIfo.strip()].iteritems():
-        tmpFlags.extend([name for ifo,name,ver,com,start,stop in backgroundFlags])
-      if myIfo not in self.__backgroundResults__.keys():
-        self.__backgroundResults__[myIfo]=dict()
-      for myFlag in seenFlags[myIfo]:
-        self.__backgroundResults__[myIfo][myFlag]=tmpFlags.count(myFlag)/float(self.__backgroundPoints__)
+      #Handles flags seen but not present in pickle structure
+      if myIfo.strip() not in self.__backgroundDict__.keys():
+        if myIfo not in self.__backgroundResults__.keys():
+          self.__backgroundResults__[myIfo]=dict()
+        for outsideFlag in seenFlags[myIfo]:
+          self.__backgroundResults__[myIfo][outsideFlag]=float(-0.0)
+      else:
+        #Handles all flags seen compared to background pickle
+        for backgroundTime,backgroundFlags in \
+                self.__backgroundDict__[myIfo.strip()].iteritems():
+          tmpFlags.extend([name for ifo,name,ver,com,start,stop in backgroundFlags])
+        if myIfo not in self.__backgroundResults__.keys():
+          self.__backgroundResults__[myIfo]=dict()
+        for myFlag in seenFlags[myIfo]:
+          self.__backgroundResults__[myIfo][myFlag]=tmpFlags.count(myFlag)/float(self.__backgroundPoints__)
     self.__haveBackgroundDict__=True
     #Return background estimating
     
@@ -2824,10 +2881,14 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
         myColor="skyblue"
       if tableType.upper().strip() == "DQ":
         if not name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,ifo,name,version,\
+                                  start,offset1,stop,offset2,\
+                                  size,myBackgroundRank,myCategory)
       elif tableType.upper().strip() == "VETO":
         if name.upper().startswith("UPV"):
-          tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+          tableString+=rowString%(myColor,ifo,name,version,\
+                                  start,offset1,stop,offset2,\
+                                  size,myBackgroundRank,myCategory)
       elif tableType.upper().strip() not in ["VETO","DQ"]:
         tableString+=rowString%(myColor,ifo,name,version,\
                                 start,offset1,stop,offset2,size,\
@@ -2876,7 +2937,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
       elif tableType.upper().strip() not in ["VETO","DQ"]:
         tmpResultList.append(myRow)
     if len(tmpResultList) == 0:
-      tableString+=emptyRowString%myColor
+      tableString+=emptyRowString
     for ifo,name,version,comment,start,stop in tmpResultList:
       #If we have background information fetch it
       if self.__haveBackgroundDict__:

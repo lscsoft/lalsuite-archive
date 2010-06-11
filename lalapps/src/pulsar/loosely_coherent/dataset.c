@@ -65,6 +65,9 @@ extern double spindown_start;
 extern int fake_injection;
 extern double spindown;
 
+extern EphemerisData ephemeris;
+
+
 char s[20000];
 
 DATASET * datasets=NULL;
@@ -140,7 +143,8 @@ typedef struct {
 
 	double freq;
 	double spindown;
-
+	double dInv; /* Inverse distance to source in seconds */
+	
 	double ra;
 	double dec;
 	double iota;
@@ -156,9 +160,11 @@ typedef struct {
 
 	float e[26];
 	int bin;
+
+	char * detector;
 	} SIGNAL_PARAMS;
 
-static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
+static void compute_signal_doppler(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
 double doppler, omega_t, c_omega_t, s_omega_t;
 double hann;
@@ -171,7 +177,7 @@ doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
 
 /*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
 fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
-get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
+get_AM_response(round(t), 0.0, p->dec, p->ra, 0.0, &f_plus, &f_cross);
 // fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
 *f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
@@ -210,6 +216,84 @@ s_omega_t=sin(omega_t);
 // fprintf(stderr, "f=%.4f (%.3f) re=%.2f im=%.2f omega_t=%.2f t=%.1f (%f) doppler=%g\n", (*f), (*f)*1800.0-p->bin*1.0, *re, *im, omega_t, t-p->ref_time, t, doppler);
 
 }
+
+static void compute_signal_barycenter(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
+{
+double doppler, omega_t, c_omega_t, s_omega_t;
+double hann;
+float det_vel[3]={NAN, NAN, NAN};
+float f_plus, f_cross;
+EmissionTime emission_time;
+LIGOTimeGPS tGPS;
+EarthState earth_state;
+double te, phase_spindown, phase_barycenter, phase_bin;
+LALStatus status={level:0, statusPtr:NULL};
+
+tGPS.gpsSeconds=floor(t);
+tGPS.gpsNanoSeconds=(t-floor(t))*1e9;
+
+LALBarycenterEarth(&status, &(earth_state), &tGPS, &ephemeris);
+TESTSTATUS(&status);
+
+get_emission_time(&emission_time, &(earth_state), p->ra, p->dec, p->dInv, p->detector, tGPS);
+
+/*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
+fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
+get_AM_response(round(t), 0.0, p->dec, p->ra, 0.0, &f_plus, &f_cross);
+// fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
+
+get_detector_vel(round(t), det_vel);
+
+doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+
+*f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
+
+//*f=p->freq*(1.0+doppler);
+
+te=(emission_time.te.gpsSeconds-p->ref_time)+1e-9*emission_time.te.gpsNanoSeconds;
+		
+phase_spindown=0.5*te*te*p->spindown;
+
+phase_barycenter=p->freq*te;
+
+/* Need to subtract phase accumulated by the frequency bin we are looking at */
+phase_bin=-(p->bin/p->coherence_time)*(t-p->segment_start);
+
+omega_t=2.0*M_PI*((phase_barycenter-floor(phase_barycenter))+(phase_spindown-floor(phase_spindown))+(phase_bin-floor(phase_bin)));
+hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
+
+c_omega_t=cos(omega_t);
+s_omega_t=sin(omega_t);
+
+/* 
+	cos(a)*cos(-b)=0.5*(cos(a-b)+cos(a+b))
+	sin(a)*cos(-b)=0.5*(sin(a-b)+sin(a+b))
+	cos(a)*sin(-b)=0.5*(sin(a-b)-sin(a+b))
+	sin(a)*sin(-b)=0.5*(cos(a-b)-cos(a+b))
+
+	|f-w|<<1
+	cos(ft)*exp(-iwt)~= 0.5*(cos((f-w)t)+i*sin((f-w)t))
+	sin(ft)*exp(-iwt)~= 0.5*(sin((f-w)t)-i*cos((f-w)t))
+*/
+
+// fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p->a_plus, p->a_cross, p->cos_e, p->sin_e);
+
+/* Note: we do not have an extra factor of 0.5 because of normalization convention used, 
+  there is an extra factor of 2.0 to compensate for Hann windowing */
+*re=hann*(f_plus*(p->a_plus*c_omega_t*p->cos_e-p->a_cross*s_omega_t*p->sin_e)+
+	f_cross*(p->a_plus*c_omega_t*p->sin_e+p->a_cross*s_omega_t*p->cos_e));
+
+*im=hann*(f_plus*(p->a_plus*s_omega_t*p->cos_e+p->a_cross*c_omega_t*p->sin_e)+
+	f_cross*(p->a_plus*s_omega_t*p->sin_e-p->a_cross*c_omega_t*p->cos_e));
+
+//fprintf(stderr, "response=%g a_plus=%g a_cross=%g \n", response, p->a_plus, p->a_cross);
+
+// fprintf(stderr, "f=%.4f (%.3f) re=%.2f im=%.2f omega_t=%.2f t=%.1f (%f) doppler=%g\n", (*f), (*f)*1800.0-p->bin*1.0, *re, *im, omega_t, t-p->ref_time, t, doppler);
+
+}
+
+#define compute_signal compute_signal_barycenter
+//#define compute_signal compute_signal_doppler
 
 static double signal_re(double t, void *params)
 {
@@ -302,7 +386,52 @@ while(1) {
 return(p.extra_phase);
 }
 
-static void test_inject_fake_signal(void)
+static double compute_phase_barycenter(double *f, double t, SIGNAL_PARAMS *p)
+{
+double doppler, omega_t, c_omega_t, s_omega_t;
+double hann;
+float det_vel[3]={NAN, NAN, NAN};
+float f_plus, f_cross;
+EmissionTime emission_time;
+LIGOTimeGPS tGPS;
+EarthState earth_state;
+double te, phase_spindown, phase_barycenter, phase_bin;
+LALStatus status={level:0, statusPtr:NULL};
+
+tGPS.gpsSeconds=floor(t);
+tGPS.gpsNanoSeconds=(t-floor(t))*1e9;
+
+LALBarycenterEarth(&status, &(earth_state), &tGPS, &ephemeris);
+TESTSTATUS(&status);
+
+get_emission_time(&emission_time, &(earth_state), p->ra, p->dec, p->dInv, p->detector, tGPS);
+
+/*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
+fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
+get_AM_response(round(t), 0.0, p->dec, p->ra, 0.0, &f_plus, &f_cross);
+// fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
+
+get_detector_vel(round(t), det_vel);
+
+doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+
+*f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
+
+//*f=p->freq*(1.0+doppler);
+
+te=(emission_time.te.gpsSeconds-p->ref_time)+1e-9*emission_time.te.gpsNanoSeconds;
+		
+phase_spindown=0.5*te*te*p->spindown;
+
+phase_barycenter=p->freq*te;
+
+omega_t=2.0*M_PI*((phase_barycenter-floor(phase_barycenter))+(phase_spindown-floor(phase_spindown)));
+//omega_t=2.0*M_PI*(phase_barycenter+phase_spindown);
+
+return omega_t;
+}
+
+static void test_inject_fake_signal_doppler(void)
 {
 SIGNAL_PARAMS p;
 double cos_i;
@@ -319,6 +448,8 @@ p.ref_time=793154935;
 p.segment_start=793161245;
 p.coherence_time=1800.0;
 p.extra_phase=0;
+p.dInv=0; 
+p.detector="LHO";
 
 cos_i=cos(1.23);
 
@@ -365,6 +496,55 @@ if(status) {
 	}
 }
 
+static void test_inject_fake_signal_barycenter(void)
+{
+SIGNAL_PARAMS p;
+double cos_i;
+double re, im, f, re2, im2, f2;
+int status=0;
+
+p.bin=0;
+
+p.ra=2.56;
+p.dec=1.43;
+p.freq=500.12;
+p.spindown=1.23e-9;
+p.ref_time=793154935;
+p.segment_start=793161245;
+p.coherence_time=1800.0;
+p.extra_phase=0;
+p.dInv=0;
+p.detector="LHO";
+
+cos_i=cos(1.23);
+
+p.a_plus=(1+cos_i*cos_i)*0.5;
+p.a_cross=cos_i;
+
+p.cos_e=cos(2.0*(1.23));
+p.sin_e=sin(2.0*(1.23));
+precompute_am_constants(p.e, p.ra, p.dec);
+
+get_detector("LHO");
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
+
+if(fabs(re-9.59669e-06)>1e-10 ||
+   fabs(im-1.83957e-05)>1e-10 ||
+   fabs(f-500.101774)>1e-5) status|=1;
+
+
+if(status) {
+	fprintf(stderr, "compute_signal_test: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test: failed %d\n", status);
+	//exit(-1);
+	}
+}
+
+#define test_inject_fake_signal test_inject_fake_signal_barycenter
+
 static void precompute_signal_params(SIGNAL_PARAMS *p)
 {
 double cos_i;
@@ -393,6 +573,7 @@ p->strain=args_info.fake_strain_arg;
 p->iota=args_info.fake_iota_arg;
 p->psi=args_info.fake_psi_arg;
 p->phi=args_info.fake_phi_arg;
+p->dInv=args_info.fake_dInv_arg;
 
 precompute_signal_params(p);
 //fprintf(stderr, "frequency=%f spindown=%g ra=%f dec=%f\n", p.freq, p.spindown, p.ra, p.dec);
@@ -401,7 +582,7 @@ precompute_signal_params(p);
 // fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p.a_plus, p.a_cross, p.cos_e, p.sin_e);
 }
 
-static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment, double accumulated_phase)
+static void inject_fake_signal_doppler(SIGNAL_PARAMS *p, DATASET *d, int segment, double accumulated_phase)
 {
 double result, abserr;
 size_t neval;
@@ -416,13 +597,18 @@ p->bin=0;
 
 p->segment_start=d->gps[segment];
 p->coherence_time=d->coherence_time;
+p->detector=d->detector;
 
+if(segment % 100==0)fprintf(stderr, "%d\n", segment);
 
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), p);
 
+if(2*window+1>nbins) {
+	window=(nbins-1)/2;
+	}
 
 bin=round(f*d->coherence_time-d->first_bin);
-if((bin+window>nbins) || (bin<window))fprintf(stderr, "Injected signal outside loaded band: bin=%d, segment=%d\n", bin, segment);
+if((bin+window>nbins) || (bin<window))WARN_ONCE(("Injected signal outside loaded band: bin=%d, segment=%d\n", bin, segment));
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
 
@@ -449,6 +635,80 @@ for(i=bin-window; i<=bin+window; i++) {
 	}
 
 }
+
+static void inject_fake_signal_barycenter(SIGNAL_PARAMS *p, DATASET *d, int segment, double accumulated_phase)
+{
+double result, abserr;
+size_t neval;
+int err;
+int window=5, bin;
+int i;
+double f, phase, hr, c, s;
+float f_plus, f_cross;
+
+p->bin=0;
+
+p->segment_start=d->gps[segment];
+p->coherence_time=d->coherence_time;
+p->detector=d->detector;
+
+phase=compute_phase_barycenter(&f, d->gps[segment]+d->coherence_time*0.5, p);
+
+if(2*window+1>nbins) {
+	window=(nbins-1)/2;
+	}
+
+bin=round(f*d->coherence_time-d->first_bin);
+if((bin+window>nbins) || (bin<window))WARN_ONCE(("Injected signal outside loaded band: bin=%d, segment=%d\n", bin, segment));
+if(bin+window>nbins)bin=nbins-window;
+if(bin<window)bin=window;
+
+p->extra_phase=accumulated_phase;
+
+
+for(i=bin-window; i<=bin+window; i++) {
+	p->bin=i+d->first_bin;
+
+	phase=compute_phase_barycenter(&f, d->gps[segment]+d->coherence_time*0.5, p);
+	hr=hann_response(f*d->coherence_time-bin-d->first_bin);
+	
+	//phase+=M_PI*(f*d->coherence_time-bin-d->first_bin);
+	TODO("add computation of bin-dependent phase for hann window")
+	
+	get_AM_response(d->gps[segment], d->coherence_time, p->dec, p->ra, 0.0, &f_plus, &f_cross);
+
+	//fprintf(stderr,"bin=%d strain=%g hr=%f phase=%f f=%f delta=%f\n", bin, p->strain, hr, phase, f, f*d->coherence_time-bin-first_bin);
+
+// 	*re=hann*(f_plus*(p->a_plus*c_omega_t*p->cos_e-p->a_cross*s_omega_t*p->sin_e)+
+// 		f_cross*(p->a_plus*c_omega_t*p->sin_e+p->a_cross*s_omega_t*p->cos_e));
+// 
+// 	*im=hann*(f_plus*(p->a_plus*s_omega_t*p->cos_e+p->a_cross*c_omega_t*p->sin_e)+
+// 		f_cross*(p->a_plus*s_omega_t*p->sin_e-p->a_cross*c_omega_t*p->cos_e));
+
+	sincos(phase, &s, &c);
+
+// 	d->re[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
+// 		(f_plus*(p->a_plus*c*p->cos_e-p->a_cross*s*p->sin_e)+
+// 		f_cross*(p->a_plus*c*p->sin_e+p->a_cross*s*p->cos_e));
+// 
+// 
+// 	d->im[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
+// 		(f_plus*(p->a_plus*s*p->cos_e+p->a_cross*c*p->sin_e)+
+// 		f_cross*(p->a_plus*s*p->sin_e-p->a_cross*c*p->cos_e));
+
+	d->re[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
+		(f_plus*(p->a_plus*c*p->cos_e-p->a_cross*s*p->sin_e)+
+		f_cross*(p->a_plus*c*p->sin_e+p->a_cross*s*p->cos_e));
+
+
+	d->im[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
+		(f_plus*(p->a_plus*s*p->cos_e+p->a_cross*c*p->sin_e)+
+		f_cross*(p->a_plus*s*p->sin_e-p->a_cross*c*p->cos_e));
+	}
+
+}
+
+#define inject_fake_signal inject_fake_signal_barycenter
 
 static void init_dataset(DATASET *d)
 {
@@ -616,8 +876,6 @@ fprintf(stderr,"dataset %s band axis DEC (degrees): %f\n", d->name, band_axis_de
 fprintf(LOG,"dataset %s band axis RA (degrees) : %f\n", d->name, band_axis_ra*180.0/M_PI);
 fprintf(LOG,"dataset %s band axis DEC (degrees): %f\n", d->name, band_axis_dec*180.0/M_PI);
 }
-
-extern EphemerisData ephemeris;
 
 void compute_earth_state(DATASET *d)
 {
@@ -861,7 +1119,7 @@ if(fake_injection) {
 	start_time=sp.ref_time;
 	accumulated_phase=0;
 	for(i=0;i<d->free;i++) {
-		current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
+		//current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
 		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
@@ -916,7 +1174,7 @@ fprintf(LOG, "dataset %s TMedian : %f\n", d->name, d->TMedian);
 veto_sfts(d);
 
 fprintf(stderr, "Obtaining whole sky AM response for dataset %s\n", d->name);
-get_whole_sky_AM_response(d->gps, d->free, args_info.orientation_arg, &(d->AM_coeffs_plus), &(d->AM_coeffs_cross), &(d->AM_coeffs_size));
+get_whole_sky_AM_response(d->gps, d->coherence_time, d->free, args_info.orientation_arg, &(d->AM_coeffs_plus), &(d->AM_coeffs_cross), &(d->AM_coeffs_size));
 
 if(args_info.extended_test_arg) {
 	TODO("implement extended test of AM coeffs validity")
@@ -1304,8 +1562,8 @@ while(1) {
 		free(buffer);
 		return;
 		}
-	if(d->free>10000) {
-		TODO("remove SFT limit when SFT load code is fast enough")
+	if(d->free>100000) {
+		TODO("remove SFT limit when SFT loading code is fast enough")
 		return;
 		}
 	}
@@ -1864,6 +2122,9 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	locate_arg(line, length, 11, &ai, &aj);
 	sscanf(&(line[ai]), "%lg", &sp.phi);
 
+	sp.dInv=0.0;
+	TODO("provide ability to pass dInv from within dataset")
+	
 	fprintf(stderr, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
@@ -1897,7 +2158,7 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 		if(gps_start>0 && d->gps[i]<gps_start)continue;
 		if(gps_stop>0 && d->gps[i]>=gps_stop)continue;
 
-		current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
+		//current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
 		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
@@ -2483,7 +2744,7 @@ for(i=0;i<d_free;i++){
 	accumulated_phase=0;
 
 	for(j=0;j<d->free;j++) {
-		current_phase=compute_phase(sp, giw, workspace_size, start_time, d->gps[i]);
+		//current_phase=compute_phase(sp, giw, workspace_size, start_time, d->gps[i]);
 		inject_fake_signal(sp, d, i, accumulated_phase+current_phase);
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];

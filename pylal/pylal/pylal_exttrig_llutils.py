@@ -419,7 +419,7 @@ def update_durations(monitor_list):
   for line in file(circular_file):
     parts = line.split()
     grb_name = parts[2]
-    duration = float(parts[12])
+    duration = float(parts[13])
 
     # store the duration. A value of zero means it is unknown
     if duration>0:

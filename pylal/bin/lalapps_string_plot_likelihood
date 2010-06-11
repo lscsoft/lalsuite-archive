@@ -78,6 +78,7 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
+	parser.add_option("-f", "--format", metavar = "extension", default = "png", help = "Set the image output format by setting the filename extension.  Default = \"png\".")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -121,7 +122,8 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 	axes.set_ylim([min(background_ycoords[0], injections_ycoords[0]), max(background_ycoords[-1], injections_ycoords[-1])])
 	#cbar = fig.add_axes((.75,.15,.1,.75))
 	#colorbar.Colorbar(cbar, cset)
-	axes.set_title(key)
+	instrument = key.split("-")[0]
+	axes.set_title(r"%s Event Density in $\rho^{2}$--$\chi^{2}$ Plane" % instrument)
 	axes.set_ylabel(r"$\chi^{2} / \mathrm{DOF}$")
 	axes.set_xlabel(r"$\rho^{2}$")
 	return fig
@@ -130,7 +132,7 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 def dA_plot(key, background_coords, background_data, injections_coords, injections_data):
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
-	axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
@@ -139,7 +141,7 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
-	axes.set_title(key)
+	axes.set_title(r"%s--%s Amplitude Ratio Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
 	axes.set_xlabel(r"$\log_{10} \left|A_{\mathrm{%s}} / A_{\mathrm{%s}}\right|$" % (instrument1, instrument2))
 	return fig
@@ -148,7 +150,7 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 def dt_plot(key, background_coords, background_data, injections_coords, injections_data):
 	fig = figure.Figure(figsize=(4, 4 / golden_ratio))
 	FigureCanvas(fig)
-	axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+	axes = fig.add_axes((.14, .15, .98 - .14, .90 - .15))
 
 	if numpy.any(background_data):
 		axes.semilogy(background_coords, background_data, "k-", label = "Background")
@@ -157,7 +159,7 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	axes.legend(loc = "upper left")
 
 	instrument1, instrument2 = key.split("-")[:2]
-	axes.set_title(key)
+	axes.set_title(r"%s--%s Arrival Time Difference Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
 	axes.set_xlabel(r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % (instrument1, instrument2))
 	return fig
@@ -196,7 +198,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	# FIXME:  hard-coded list of allowed instruments = BAD BAD BAD
 	instruments = set(name.split("_")) & set(("G1", "H1", "H2", "L1", "T1", "V1"))
 	if name.endswith("_snr2_chi2"):
-		outname = "%s.png" % name
+		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
 		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [10, 1e6], [.01, 1e4])
@@ -207,7 +209,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 			print >>sys.stderr, "writing %s ..." % outname
 		fig.savefig(outname)
 	elif name.endswith("_dt"):
-		outname = "%s.png" % name
+		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
 		dt = .010 + inject.light_travel_time(*instruments) / 2
@@ -219,7 +221,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 			print >>sys.stderr, "writing %s ..." % outname
 		fig.savefig(outname)
 	elif name.endswith("_dA"):
-		outname = "%s.png" % name
+		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))

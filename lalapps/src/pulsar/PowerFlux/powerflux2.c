@@ -236,7 +236,11 @@ gsl_rng_env_setup();
 gsl_set_error_handler_off();
 
 /* create output directories if not present */
-if(args_info.output_given){
+if(args_info.flat_output_given){
+	output_dir=do_alloc(strlen(args_info.flat_output_arg)+30, sizeof(*output_dir));
+	sprintf(output_dir, "%s", args_info.flat_output_arg);
+	} else
+if(args_info.output_given) {
 	mkdir(args_info.output_arg, 0777);
 	output_dir=do_alloc(strlen(args_info.output_arg)+30, sizeof(*output_dir));
 	sprintf(output_dir, "%s/%d-%f/", args_info.output_arg, args_info.first_bin_arg,args_info.first_bin_arg/1800.0);
