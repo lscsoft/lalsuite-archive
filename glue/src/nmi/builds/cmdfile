@@ -21,3 +21,4 @@ remote_post = remote_post.sh
 # we set these attributes so they get propagated to the task script environment
 git_id = $(GIT_ID)
 git_branch = $(GIT_BRANCH)
+git_url = $(GIT_URL)
