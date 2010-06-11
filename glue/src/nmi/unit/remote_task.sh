@@ -32,7 +32,7 @@ find $BASE_DIR/opt \( -name \*-user-env.sh -or -name lscsoftrc \) -print0 | \
 # lal, glue, etc. cannot be, and thus have runtime dependencies
 # requiring env setup (boo)
 set +u
-for f in $BASE_DIR/opt/etc/*-user-env.sh; do
+for f in $BASE_DIR/opt/lscsoft/etc/*-user-env.sh; do
     . $f
 done
 set -u
