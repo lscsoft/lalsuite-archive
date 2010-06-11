@@ -72,7 +72,10 @@ python ./setup.py install --prefix=$LSCSOFT_ROOTDIR
 cd -
 
 cd pylal
+# we have to disable error-on-unbound-var before sourcing lal-user-env.sh (or else it fails)
+set +u
 . $LSCSOFT_ROOTDIR/etc/lal-user-env.sh
+set -u
 python ./setup.py build
 python ./setup.py install --prefix=$LSCSOFT_ROOTDIR
 cd -
