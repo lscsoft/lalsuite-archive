@@ -7,6 +7,21 @@ import os, sys
 DEFAULT_SERVICE_URL = "https://archie.phys.uwm.edu/gracedb/cli"
 
 #-----------------------------------------------------------------
+# Util routines
+
+def error(*message):
+    message = "".join(message) + "\n"
+    sys.stderr.write("ERROR: " + message)
+
+def warning(*message):
+    message = "".join(message) + "\n"
+    sys.stderr.write("WARNING: " + message)
+
+def output(*message):
+    message = "".join(message) + "\n"
+    sys.stdout.write(message)
+
+#-----------------------------------------------------------------
 # HTTP/S Proxy classses
 # Taken from: http://code.activestate.com/recipes/456195/
 
@@ -82,6 +97,7 @@ typeCodeMap = {
         "X"        : "X",
         "CWB"      : "CWB",
         "MBTAOnline": "MBTA",
+        "Injection": "HWINJ",
 }
 validTypes = typeCodeMap.keys()
 
@@ -156,14 +172,14 @@ def checkProxy(fname):
             cert.get_ext('proxyCertInfo')
         except LookupError:
             # Really, there shouldn't be an undefined extension.
-            print "Warning: You seem to be using a pre-RFC proxy."
-            print "Try doing grid-proxy-init -rfc"
+            warning("Warning: You seem to be using a pre-RFC proxy.\n"
+                    "Try doing grid-proxy-init -rfc")
     except ImportError:
-        print "Warning: Cannot load M2Crypto.  Not able to check proxy"
-        print "   If you are getting errors, perhaps you are not using"
-        print '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?'
-        print "To enable proxy checking, install m2crypto (CentOS, RedHat),"
-        print "python-m2crypto (Debian) or py25-m2crypto (MacPorts)"
+        warning("Warning: Cannot load M2Crypto.  Not able to check proxy\n"
+                "   If you are getting errors, perhaps you are not using\n"
+                '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?\n'
+                "To enable proxy checking, install m2crypto (CentOS, RedHat),\n"
+                "python-m2crypto (Debian) or py25-m2crypto (MacPorts)")
 
 def findUserCredentials(warnOnOldProxy=1):
 
@@ -171,13 +187,13 @@ def findUserCredentials(warnOnOldProxy=1):
     certFile = os.environ.get('X509_USER_CERT')
     keyFile = os.environ.get('X509_USER_KEY')
 
+    if certFile and keyFile:
+        return certFile, keyFile
+
     if proxyFile:
         if warnOnOldProxy:
             checkProxy(proxyFile)
         return proxyFile, proxyFile
-
-    if certFile and keyFile:
-        return certFile, keyFile
 
     # Try default proxy
     proxyFile = os.path.join('/tmp', "x509up_u%d" % os.getuid())
@@ -189,7 +205,7 @@ def findUserCredentials(warnOnOldProxy=1):
     # Try default cert/key
     homeDir = os.environ.get('HOME')
     certFile = os.path.join(homeDir, '.globus', 'usercert.pem')
-    keyFile = os.path.join(homeDir, '.globus', 'keycert.pem')
+    keyFile = os.path.join(homeDir, '.globus', 'userkey.pem')
 
     if os.path.exists(certFile) and os.path.exists(keyFile):
         return certFile, keyFile
@@ -222,20 +238,33 @@ class Client:
     def send(self, method, httpmethod="POST", **kw):
         try:
             kw['cli'] = 'true'
+            kw['cli_version'] = "1"
             kw = urllib.urlencode(kw)
             headers = {'connection' : 'keep-alive'}
             url = "%s/%s" % (self.url, method)
             self.conn.request(httpmethod, url, kw, headers)
-            return self.conn.getresponse().read()
+            response = self.conn.getresponse()
+            rv = response.read()
         except Exception, e:
-            return "ERROR: " + str(e)
+            return { 'error':  "client send exception: " + str(e) }
+        # XXX Bad!  Should be JSON conversion
+        try:
+            return eval(rv)
+        except Exception, e:
+            if "Authorization Required" in rv:
+                return { 'error': 'Credentials not accepted' }
+            return {'error': "while parsing:%s\nclient send exception: %s" % (rv, str(e))}
 
-    def upload(self, method, fields, files):
+    def upload(self, method, fields, files, alert=False):
         # Do an tiny GET request to get SSL primed.
         # Large initial SSL/POST requests will choke the server.
-        self.send('ping', 'GET', ack='priming')
+        r = self.send('ping', 'POST', ack='priming')
+        if 'error' in r and r['error']:
+            return r
         try:
             fields += [('cli', 'true')]
+            fields += [('cli_version', "1")]
+            fields += [('alert', str(alert))]
             content_type, body = encode_multipart_formdata(fields, files)
             headers = {
                 'content-type': content_type,
@@ -245,15 +274,20 @@ class Client:
             url = "%s/%s" % (self.url, method)
             self.conn.request("POST", url, body, headers)
             response = self.conn.getresponse()
-            return response.read()
+            rv = response.read()
         except Exception, e:
-            return "ERROR: " + str(e)
+            return { "error" : "client upload exception: " + str(e) }
+        # XXX should be JSON conversion
+        try:
+            return eval(rv)
+        except Exception, e:
+            return {'error': "while parsing:%s\nclient upload exception: %s" % (rv, str(e))}
 
 #-----------------------------------------------------------------
 # Main 
 
 
-if __name__ == "__main__":
+def main():
     usage ="""%%prog [options] GROUP TYPE EVENTFILE
    where GROUP is one of %(groups)s
          TYPE is one of %(types)s
@@ -273,9 +307,27 @@ if __name__ == "__main__":
          COMMENT  is text that will be entered into the event's log
    Enter a comment into the log for a candidate event
 
-Environment Variables (can all be overridden by options):
-    GRACEDB_SERVICE_URL
-    HTTP_PROXY              
+%%prog [options] label GRACEID LABEL
+    Label event with GRACEDID with LABEL.  LABEL must already exist.
+
+%%prog [options] search SEARCH PARAMS
+    Search paramaters are a list of requirements to be satisfied.  They
+    may be GPS times, GPS time ranges, graceids and ranges, group(s),
+    analysis type(s), labels, etc.  Note that text is case insensitive
+    Example: %%prog search G0100..G0200 mbta LUMIN_GO
+
+Environment Variables:
+    GRACEDB_SERVICE_URL   (can be overridden by --service-url)
+    HTTP_PROXY            (can be overridden by --proxy)
+    X509_USER_PROXY
+    X509_USER_CERT
+    X509_USER_KEY
+
+Credentials are looked for in this order:
+    (1) $(X509_USER_CERT) / $(X509_USER_KEY)
+    (2) $(X509_USER_PROXY)
+    (3) Default location of grid proxy ( /tmp/x509up_u$(UID) )
+    (4) $(HOME)/.globus/usercert.pem / $(HOME)/.globus/userkey.pem
 
 Note that comments can only be 200 characters long.
 Longer strings will be truncated.""" % {
@@ -291,6 +343,11 @@ Longer strings will be truncated.""" % {
                   help="GraCEDb Service URL", metavar="URL")
     op.add_option("-f", "--filename", dest="filename",
                   help="If data is read from stdin, use this as the filename.", metavar="NAME")
+
+    op.add_option("-a", "--alert", dest="alert",
+                  help="Send an LV alert (not meaningful for search, implied for create)",
+                  action="store_true", default=False
+                 )
 
     options, args = op.parse_args()
 
@@ -317,7 +374,7 @@ Longer strings will be truncated.""" % {
         op.error("not enough arguments")
     elif args[0] == 'ping':
         msg = " ".join(args[1:]) or "PING"
-        print client.send('ping', ack=msg)
+        response = client.send('ping', ack=msg)
     elif args[0] == 'upload':
         if len(args) < 3:
             op.error("not enough arguments for upload")
@@ -333,13 +390,27 @@ Longer strings will be truncated.""" % {
             files = [ ('upload', filename, sys.stdin.read()) ]
         else:
             files = [ ('upload', filename, open(filename,'r').read()) ]
-        print client.upload('upload', fields, files)
+        response = client.upload('upload', fields, files, alert=options.alert)
     elif args[0] == 'log':
         if len(args) < 3:
             op.error("not enough arguments for log")
         graceid = args[1]
         message = " ".join(args[2:])
-        print client.send('log', graceid=graceid, message=message)
+        response = client.send('log', graceid=graceid, message=message, alert=options.alert)
+    elif args[0] == 'tag':
+        if len(args) != 3:
+            op.error("wrong number of arguments for tag")
+        graceid = args[1]
+        tag = args[2]
+        response = client.send('tag', graceid=graceid, tag=tag)
+    elif args[0] == 'label':
+        if len(args) != 3:
+            op.error("wrong number of arguments for label")
+        graceid = args[1]
+        label = args[2]
+        response = client.send('label', graceid=graceid, label=label, alert=options.alert)
+    elif args[0] == 'search':
+        response = client.send('search', query=" ".join(args[1:]))
     elif len(args) == 3:
         group = args[0]
         type = args[1]
@@ -348,7 +419,7 @@ Longer strings will be truncated.""" % {
         if type in typeCodeMap:
             type = typeCodeMap[type]
         else:
-            print "Type must be one of: ", ", ".join(typeCodeMap.keys())
+            error("Type must be one of: ", ", ".join(typeCodeMap.keys()))
             sys.exit(1)
 
         fields = [
@@ -363,15 +434,30 @@ Longer strings will be truncated.""" % {
 
         response = client.upload("create", fields, files)
 
-        if response:
-            if response.startswith('ERROR'):
-                print response
-                sys.exit(1)
-            else:
-                print "UID: ", response
-                sys.exit(0)
-        else:
-            print "There was a problem.  Did you do grid-proxy-init -rfc?"
+        if not response:
+            error("There was a problem.  Did you do grid-proxy-init -rfc?")
             sys.exit(1)
     else:
         op.error("")
+        sys.exit(1)
+
+    # Output the response.
+
+    exitCode = 0
+    if ('error' in response) and response['error']:
+        error(response['error'])
+        exitCode = 1
+    if ('warning' in response) and response['warning']:
+        warning(response['warning'])
+    if ('output' in response) and response['output']:
+        output(response['output'])
+
+    return exitCode
+
+if __name__ == "__main__":
+    try:
+        code = main()
+    except Exception, e:
+        error(str(e))
+        sys.exit(1)
+    sys.exit(code)

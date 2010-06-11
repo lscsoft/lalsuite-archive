@@ -44,7 +44,8 @@
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
 #include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
+#include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/Units.h>
 #include <lal/Date.h>
@@ -54,15 +55,14 @@
 #include <lal/GenerateInspRing.h>
 #include <lal/FindChirp.h>
 #include <lal/GenerateRing.h>
-#include <lal/Ring.h>
+#include <lal/RingUtils.h>
 #include <lal/LALNoiseModels.h>
 #include <lal/RealFFT.h>
 #include <lal/FrequencySeries.h>
 #include <lal/TimeSeries.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/VectorOps.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <LALAppsVCSInfo.h>
 
 RCSID( "$Id$" );
 #define CVS_ID_STRING "$Id$"
@@ -242,14 +242,14 @@ static REAL4TimeSeries *injectWaveform(
   CoherentGW                 waveform, *wfm;
   ActuationParameters        actData = actuationParams[ifoNumber];
   UINT4 i,k;
-  int injectSignalType = imr_inject; 
+  int injectSignalType = LALRINGDOWN_IMR_INJECT;
   const LALUnit strainPerCount = {0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
   FILE  *fp = NULL;
   char  fileName[FILENAME_MAX];
 
   /* set up the channel to which we add the injection */
   XLALReturnIFO( ifo, ifoNumber );
-  snprintf( name, LALNameLength * sizeof(CHAR), "%s:INJECT", ifo );
+  snprintf( name, LALNameLength, "%s:INJECT", ifo );
   chan = XLALCreateREAL4TimeSeries( name, &epoch, 0, 1./sampleRate, 
       &lalADCCountUnit, sampleRate * duration );
   if ( ! chan )
@@ -512,27 +512,15 @@ int main( int argc, char *argv[] )
   proctable.processTable = (ProcessTable *) 
     calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
 
   /* clear the waveform field */
   memset( waveform, 0, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR) );
-  snprintf( waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR),
-      "SpinTaylorthreePN");
+  snprintf( waveform, LIGOMETA_WAVEFORM_MAX, "SpinTaylorthreePN");
 
   /*
    *
@@ -634,10 +622,8 @@ int main( int argc, char *argv[] )
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "blind hardware injection generation routine\n" 
-            "Stephen Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n" );
-        fprintf( stdout, lalappsGitID );
+            "Stephen Fairhurst\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 
@@ -740,7 +726,7 @@ int main( int argc, char *argv[] )
       inj = XLALRandomInspiralMasses( inj, randParams, mDist,
           minNSMass, maxNSMass, minNSMass, maxNSMass, minTotalMass, maxTotalMass );
       inj = XLALRandomInspiralSpins( inj, randParams, minNSSpin,
-          maxNSSpin, minNSSpin, maxNSSpin, -1.0, 1.0, 0.0, 0.1 );
+          maxNSSpin, minNSSpin, maxNSSpin, -1.0, 1.0, 0.0, 0.1, 0);
       desiredSnr = bnsSnrMean + bnsSnrStd * normalDev->data[0]; 
     }
     else if ( massPar < (BNSfrac + BBHfrac) )
@@ -749,7 +735,7 @@ int main( int argc, char *argv[] )
       inj = XLALRandomInspiralMasses( inj, randParams, mDist,
           minBHMass, maxBHMass, minBHMass, maxBHMass, minTotalMass, maxTotalMass );
       inj = XLALRandomInspiralSpins( inj, randParams, minBHSpin,
-          maxBHSpin, minBHSpin, maxBHSpin , -1.0, 1.0, 0.0, 0.1);
+          maxBHSpin, minBHSpin, maxBHSpin , -1.0, 1.0, 0.0, 0.1, 0);
       desiredSnr = snrMean + snrStd * normalDev->data[0]; 
     }
     else
@@ -758,7 +744,7 @@ int main( int argc, char *argv[] )
       inj = XLALRandomInspiralMasses( inj, randParams, mDist,
           minNSMass, maxNSMass, minBHMass, maxBHMass, minTotalMass, maxTotalMass );
       inj = XLALRandomInspiralSpins( inj, randParams, minNSSpin,
-          maxNSSpin, minBHSpin, maxBHSpin , -1.0, 1.0, 0.0, 0.1);
+          maxNSSpin, minBHSpin, maxBHSpin , -1.0, 1.0, 0.0, 0.1, 0);
       desiredSnr = snrMean + snrStd * normalDev->data[0]; 
     }
     XLALDestroyVector( normalDev );
@@ -770,7 +756,7 @@ int main( int argc, char *argv[] )
     inj = XLALRandomInspiralOrientation( inj, randParams, iDist, 0);
 
     /* set the source and waveform fields */
-    snprintf( inj->source, LIGOMETA_SOURCE_MAX * sizeof(CHAR), "???" );
+    snprintf( inj->source, LIGOMETA_SOURCE_MAX, "???" );
     memcpy( inj->waveform, waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR));
 
     /* populate the site specific information */

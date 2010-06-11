@@ -1,10 +1,7 @@
 #!/usr/bin/python
 
 __author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="inspiral_search_summary"
-__Id__ = "$Id$"
 
 #loading standard modules
 from optparse import *
@@ -18,6 +15,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from glue.ligolw import ligolw
 from scipy import *
 import numpy
@@ -327,7 +325,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg)
   
   parser.add_option("","--slides-glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB time slides files to read" )
@@ -452,14 +450,6 @@ def parse_command_line():
       default=50, metavar="FIGURERESOLUTION", \
       help="resolution of the thumbnails (50 by default)" )
 
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
-
-
   (opts,args) = parser.parse_args()
 
   return opts, sys.argv[1:]
@@ -516,7 +506,7 @@ if not (opts.input_cache_file or opts.slides_glob):
   
 # Initializing the html output
 InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 fnameList = []
 tagList = []
 fig_num = 0
@@ -1147,7 +1137,7 @@ if opts.enable_output is True:
   page.hr()
   page.add(nobgcoincSumm)
   page.hr()
-  text = writeProcessParams( opts.name, opts.version,  args)
+  text = writeProcessParams( opts.name, git_version.verbose_msg,  args)
   page.add(text)
   html_file.write(page(False))
   html_file.close()

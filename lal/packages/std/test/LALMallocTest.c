@@ -80,6 +80,9 @@ char caughtMessage[1024];
 jmp_buf jump;
 FILE *mystderr;
 
+#if defined(NDEBUG) || defined(LAL_NDEBUG)
+/* debugging is turned off */
+#else
 /* replacement for LALRaise */
 static int TestRaise( int sig, const char *fmt, ... )
 {
@@ -90,6 +93,7 @@ static int TestRaise( int sig, const char *fmt, ... )
   longjmp( jump, sig );
   return -1;
 }
+#endif
 
 #define STR( a ) #a
 #define XSTR( a ) STR( a )
@@ -129,7 +133,7 @@ while ( 0 )
 #define die( msg ) ( fputs( "Error: " #msg "\n", mystderr ), exit( 1 ), 1 )
 
 
-int lalDebugLevel = LALMEMDBG;
+extern int lalDebugLevel;
 
 /* make these global so they don't get clobbered by longjmp */
 size_t   i;
@@ -141,6 +145,9 @@ size_t  *r;
 size_t  *s;
 size_t **v;
 
+#if defined(NDEBUG) || defined(LAL_NDEBUG)
+/* debugging is turned off */
+#else
 /* do a bunch of allocations/deallocations that are OK */
 static int testOK( void )
 {
@@ -333,6 +340,7 @@ static int stressTestRealloc( void )
   lalDebugLevel = keep;
   return 0;
 }
+#endif
 
 
 int main( void )
@@ -340,6 +348,8 @@ int main( void )
 #if defined(NDEBUG) || defined(LAL_NDEBUG) /* debugging is turned off */
   return 77; /* don't do any testing */
 #else
+  lalDebugLevel = LALMEMDBG;
+
   /* get rid of annoying messages from elsewhere */
   setvbuf( mystderr = stdout, NULL, _IONBF, 0 );
   freopen( "/dev/null", "w", stderr );

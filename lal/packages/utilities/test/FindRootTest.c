@@ -87,7 +87,7 @@ NRCSID (MAIN, "$Id$");
 extern char *optarg;
 extern int   optind;
 
-int lalDebugLevel = 0;
+extern int lalDebugLevel;
 int verbose    = 0;
 
 static void
@@ -99,8 +99,12 @@ ParseOptions (int argc, char *argv[]);
 static void
 TestStatus (LALStatus *status, const char *expectedCodes, int exitCode);
 
+#if defined(NDEBUG) || defined(LAL_NDEBUG)
+/* debugging is turned off */
+#else
 static void
 ClearStatus (LALStatus *status);
+#endif
 
 /*
  *
@@ -143,6 +147,7 @@ main (int argc, char *argv[])
   REAL8          yy0;
   REAL8          droot;
 
+  lalDebugLevel = 0;
 
   /*
    *
@@ -439,6 +444,9 @@ TestStatus (LALStatus *status, const char *ignored, int exitcode)
 }
 
 
+#if defined(NDEBUG) || defined(LAL_NDEBUG)
+/* debugging is turned off */
+#else
 /*
  *
  * ClearStatus ()
@@ -447,7 +455,7 @@ TestStatus (LALStatus *status, const char *ignored, int exitcode)
  * linked list of statuses.
  *
  */
-void
+static void
 ClearStatus (LALStatus *status)
 {
   if (status->statusPtr)
@@ -456,7 +464,7 @@ ClearStatus (LALStatus *status)
     DETATCHSTATUSPTR (status);
   }
 }
-
+#endif
 
 /*
  * Usage ()

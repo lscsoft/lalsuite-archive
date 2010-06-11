@@ -1,4 +1,6 @@
-dnl lalapps.m4
+# lalapps.m4 - lalapps specific autoconf macros
+#
+# serial 5
 
 AC_DEFUN([LALAPPS_WITH_EXTRA_CPPFLAGS],
 [AC_ARG_WITH(
@@ -68,7 +70,7 @@ AC_DEFUN([LALAPPS_ENABLE_GCC_FLAGS],
 
 AC_DEFUN([DO_ENABLE_LALAPPS_GCC_FLAGS],
 [
-  lalapps_gcc_flags="-g3 -O4 -pedantic -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Waggregate-return -fno-common -Wnested-externs -Wno-format-zero-length"
+  lalapps_gcc_flags="-g3 -O4 -pedantic -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -fno-common -Wnested-externs -Wno-format-zero-length"
 ])
 
 AC_DEFUN([LALAPPS_WITH_CC],
@@ -92,6 +94,24 @@ AC_DEFUN([LALAPPS_ENABLE_CONDOR],
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-condor) ;;
     esac
   ], [ condor=false ] )
+])
+
+AC_DEFUN([LALAPPS_ENABLE_STATIC_BINARIES],
+[AC_ARG_ENABLE(
+  [static_binaries],
+  AC_HELP_STRING([--enable-static-binaries],[build static binaries [default=no]]),
+  [ case "${enableval}" in
+      yes) static_binaries=true;;
+      no)  static_binaries=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-static-binaries) ;;
+    esac
+  ], [ static_binaries=false ] )
+if test "$condor" = "true"; then
+  static_binaries=false
+fi
+if test "$boinc" = "true"; then
+  static_binaries=false
+fi
 ])
 
 AC_DEFUN([LALAPPS_ENABLE_FRAME],
@@ -118,38 +138,28 @@ AC_DEFUN([LALAPPS_ENABLE_METAIO],
   ], [ metaio=true ] )
 ])
 
-AC_DEFUN([LALAPPS_ENABLE_XML],
-[AC_ARG_ENABLE(
-  [xml],
-  AC_HELP_STRING([--enable-xml],[compile code for XML I/O [default=no]]),
-  [ case "${enableval}" in
-      yes) xml=true;;
-      no)  xml=false ;;
-      *) AC_MSG_ERROR(bad value ${enableval} for --enable-xml) ;;
-    esac
-  ], [ xml=false ] )
-])
-
 AC_DEFUN([LALAPPS_ENABLE_CFITSIO],
 [AC_ARG_ENABLE(
   [cfitsio],
-  AC_HELP_STRING([--enable-cfitsio],[compile code that requires cfitsio library [default=yes]]),
+  AC_HELP_STRING([--enable-cfitsio],[compile code that requires cfitsio library [default=no]]),
   [ case "${enableval}" in
       yes) cfitsio=true;;
       no) cfitsio=false;;
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-cfitsio) ;;
     esac
-  ], [ cfitsio=true ] )
+  ], [ cfitsio=false ] )
 ])
 
-AC_DEFUN([LALAPPS_DISABLE_FRAME],
-[echo "**************************************************************"
- echo "*                                                            *"
- echo "* Frame support will be DISABLED:                            *"
- echo "* LALApps is being configured with --disable-frame settings. *"
- echo "*                                                            *"
- echo "**************************************************************"
- frame=false
+AC_DEFUN([LALAPPS_ENABLE_PSS],
+[AC_ARG_ENABLE(
+  [pss],
+  AC_HELP_STRING([--enable-pss],[compile code that requires pss library [default=no]]),
+  [ case "${enableval}" in
+      yes) pss=true;;
+      no) pss=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-pss) ;;
+    esac
+  ], [pss=false])
 ])
 
 AC_DEFUN([LALAPPS_CHECK_QTHREAD],
@@ -188,18 +198,3 @@ fi
 ,
 AC_MSG_RESULT([no]),
 AC_MSG_RESULT([unknown]) ) ] )
-
-AC_DEFUN([LALAPPS_ENABLE_NIGHTLY],
-[AC_ARG_ENABLE(
-  [nightly],
-  AC_HELP_STRING([--enable-nightly],[nightly build [default=no]]),
-  [ case "${enableval}" in
-      yes) NIGHTLY_VERSION=`date +"%Y%m%d"`
-           VERSION="${VERSION}.${NIGHTLY_VERSION}" ;;
-      no)  NIGHTLY_VERSION="";;
-      *)   NIGHTLY_VERSION="${enableval}"
-           VERSION="${VERSION}.${NIGHTLY_VERSION}" ;;
-    esac ],
-  [ NIGHTLY_VERSION="" ] )
-  AC_SUBST(NIGHTLY_VERSION)
-])

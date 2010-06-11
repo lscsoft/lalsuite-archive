@@ -101,7 +101,7 @@ int main( int argc, char *argv[]){
   
   EphemerisData   *edat = NULL;
 
-  INT4   mObsCoh, j;
+  INT4   mObsCoh;
   REAL8  numberCount2, numberCount1;
   REAL8  nth1, nth2, erfcInv;
   /*   REAl8  meanAM, sigmaAM, varAM, mean, sigma; */
@@ -133,6 +133,8 @@ int main( int argc, char *argv[]){
 
   /* vector of weights */
   REAL8Vector *weight;
+
+  int rc;
 
   /*  set up the default parameters  */
   lalDebugLevel = 0;
@@ -220,7 +222,7 @@ int main( int argc, char *argv[]){
   fprintf( fpLog, "## Log file for HoughValidateAM \n\n");
   fprintf( fpLog, "# User Input:\n");
   fprintf( fpLog, "#-------------------------------------------\n");
-  fprintf( fpLog, logstr);
+  fprintf( fpLog, "%s", logstr);
   LALFree(logstr);
 
   /* append an ident-string defining the exact CVS-version of the code used */
@@ -231,7 +233,7 @@ int main( int argc, char *argv[]){
     fclose (fpLog);
     
     sprintf (command, "ident %s | sort -u >> %s", argv[0], fnamelog);
-    system (command);	/* we don't check this. If it fails, we assume that */
+    rc = system (command);	/* we don't check this. If it fails, we assume that */
     			/* one of the system-commands was not available, and */
     			/* therefore the CVS-versions will not be logged */
 
@@ -417,6 +419,7 @@ int main( int argc, char *argv[]){
   mean2 = mean1; /* this is due to normalization of weights */
   /* find sum of weights squared */
   sumsq = 0.0;
+  INT4 j;
   for (j=0; j<mObsCoh; j++) {
     REAL8 tempW;
     tempW = weight->data[j];
@@ -555,7 +558,7 @@ int main( int argc, char *argv[]){
 	  /* now calculate the number count for the template */
 	  for (j=0; j < mObsCoh; j++)  
 	    {
-	      INT4 index;
+	      INT4 ind;
 	      REAL8 tempW;
 	      /* REAL8 realThrAM; */
 	      
@@ -582,11 +585,11 @@ int main( int argc, char *argv[]){
 	   
 	      LAL_CALL( ComputeFoft(&status, &foft, &pulsarTemplate1, &timeDiffV, &velV, timeBase), &status);
 	      
-	      index = floor( foft.data[j]*timeBase - sftFminBin + 0.5); 
+	      ind = floor( foft.data[j]*timeBase - sftFminBin + 0.5); 
 	      
 	      tempW = weight->data[j];
-	      numberCount1 += pg1.data[index]; 
-	      numberCount2 += tempW * pg1.data[index];
+	      numberCount1 += pg1.data[ind]; 
+	      numberCount2 += tempW * pg1.data[ind];
 	      
 	      /* 	      realThrAM = thresholdAM * normalizeThr; */
 	      

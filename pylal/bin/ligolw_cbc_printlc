@@ -8,13 +8,6 @@
 # =============================================================================
 #
 
-
-usage = \
-'''
-Prints the largest triggers in either foreground or background along with
-relevant statistics and parameters to stdout.
-'''
-
 from optparse import OptionParser
 try:
     import sqlite3
@@ -24,6 +17,7 @@ except ImportError:
 import sys
 import os
 import bisect
+import math
 
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -34,13 +28,17 @@ from glue.ligolw.utils import print_tables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
+from glue import git_version
 
 from pylal import ligolw_sqlutils as sqlutils
+from pylal import printutils
 
 __prog__ = "ligolw_cbc_printlc"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__date__ = "$Date$" 
-__version__ = "$Revision$"
+
+description = \
+"Prints the largest triggers in either foreground or background along with " + \
+"relevant statistics and parameters to a specified file or to stdout."
 
 # =============================================================================
 #
@@ -54,7 +52,11 @@ def parse_command_line():
     Parse the command line, return options and check for consistency among the
     options.
     """
-    parser = OptionParser( version = "", usage = usage )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
 
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string",
@@ -87,6 +89,12 @@ def parse_command_line():
             "Will extract a full xml file from the database containing only the " +
             "triggers that are printed. Requries --tmp-space. "
             )
+    parser.add_option("-d", "--extract-to-database", action = "store", type = "string",
+        default = None, metavar = "filename",
+        help =
+            "Will extract a SQLite database from the input database containing only the " +
+            "triggers that are printed. Requries --tmp-space. "
+            )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
             "Print the SQLite query that is used to stdout." 
@@ -100,12 +108,15 @@ def parse_command_line():
             "triggers that fall within the parameter ranges. " 
             )
     parser.add_option( "", "--param-ranges", action = "store", default = None,
-        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; !VAL3; etc.",
         help = 
             "Requires --param-name. Specify the parameter ranges " +
             "to select triggers in. A '(' or ')' implies an open " +
             "boundary, a '[' or ']' a closed boundary. To specify " +
-            "multiple ranges, separate each range by a ';'. If " +
+            "multiple ranges, separate each range by a ';'. To " +
+            "specify a single value, just type that value with no " +
+            "parentheses or brackets. To specify not equal to a single " +
+            "value, put a '!' before the value. If " +
             "multiple ranges are specified, the triggers picked for " +
             "ranking will come from the union of the ranges."
             )
@@ -140,6 +151,12 @@ def parse_command_line():
             "Opposite of --exclude-coincs: only rank the specified coinc types. "
             )
     # following are options specific to this program
+    parser.add_option("-c", "--columns", action = "store", type = "string", default = None,
+        help =
+            "If output-format is set to html or wiki, will only print the given columns. " +
+            "To specify multiple columns, separate column names with a comma."
+            "Default is to print the columns listed in pylal/printutils.get_columns_to_print."
+            )
     parser.add_option("", "--datatype", action = "store", type = "string", default = None,
         metavar = "slide, all_data, playground, exclude_play, OR simulation",
         help =
@@ -158,7 +175,6 @@ def parse_command_line():
             "minimum stat value." 
             )
     parser.add_option( "", "--limit", action = "store", type = "int", default = 10,
-        metavar = "INT or None",
         help =
             "Specify how many triggers to print. Default is 10. "
             )
@@ -169,14 +185,30 @@ def parse_command_line():
             "s (seconds), min (minutes), hr (hours), days (days), or yr (years). " +
             "(Setting to s is the equivalent of a no-op.)"
             )
+    parser.add_option( "", "--sim-tag", action = "store", type = "string", default = 'ALLINJ',
+        help =
+            "If the --datatype is simulation, limits the selection to the specified " +
+            "simulation name, e.g., 'BNSINJ'. If not specified, will group all injections together."
+            )
+    parser.add_option("-H", "--daily-ihope-pages-location", action = "store",
+        default = "https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily",
+        help =
+            "Web address of the daily ihope pages. " +
+            "Default is https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily"
+            )
+    parser.add_option("-S", "--get-sngl-info", action = "store_true", default = False,
+        help =
+            "Retrieve single event information along with coincident info. All sngl_inspiral columns " +
+            "will be prefixed with 'sngl_'. A single end_time_utc column will also be included. "
+            )
 
     (options, args) = parser.parse_args()
 
     # check for required options and for self-consistency
     if not options.input:
         raise ValueError, "No input specified."
-    if options.extract_to_xml and not options.tmp_space:
-        raise ValueError, "extract-to-xml requires tmp-space"
+    if (options.extract_to_xml or options.extract_to_database) and not options.tmp_space:
+        raise ValueError, "extract-to-xml and extract-to-database require tmp-space"
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
@@ -190,60 +222,12 @@ def parse_command_line():
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
         options.convert_durations.strip().lower() == "hr" or options.convert_durations.strip().lower() == "days" or
         options.convert_durations.strip().lower() == "yr"):
-        raise ValueError, "--convert-duration must be either s, min, hr, d, or yr"
+        raise ValueError, "--convert-duration must be either s, min, hr, days, or yr"
 
 
     return options, sys.argv[1:]
 
 
-# =============================================================================
-#
-#                       Function Definitions
-#
-# =============================================================================
-
-class rank_stats:
-    """
-    Class to return a rank for stats.
-    """
-    def __init__(self, table, ranking_stat, rank_by):
-        """
-        @table: table containing the stats to rank
-        @ranking_stat: stat in table that wish to rank
-        @rank_by: should be either "ASC" or "DESC"
-        """
-        self.stats = []
-        self.table = table
-        self.ranking_stat = ranking_stat
-        self.rank_by = rank_by
-
-    def populate_stats_list(self, connection, limit, filter = ''):
-        """
-        Gets top stats from database for later ranking
-        @connection: connection to a sqlite database
-        @limit: number of stats to get
-        @filter: apply a filter (i.e., a SQLite WHERE clause). 
-            Note: If the filter uses colums from tables other than
-            self.table, must include the join conditions as well
-        @verbose: if verbose, will print the sqlquery used 
-        """
-        sqlquery = ''.join(["""
-            SELECT
-                """, self.ranking_stat, """
-            FROM
-                """, self.table,
-            filter, """
-            ORDER BY """, self.ranking_stat, ' ', self.rank_by, """
-            LIMIT """, str(limit) ])
-        self.stats = [stat[0] for stat in connection.cursor().execute(sqlquery).fetchall()]
-        self.stats.sort()
-
-    def get_rank( self, this_stat ):
-        if self.rank_by == "ASC":
-            return bisect.bisect_left(self.stats, this_stat) + 1
-        else:
-            return len(self.stats) - bisect.bisect_right(self.stats, this_stat) + 1
-            
 # =============================================================================
 #
 #                                     Main
@@ -259,10 +243,12 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 # Get ranking stat and append coinc_inspiral table name
@@ -282,7 +268,9 @@ else:
 #
 
 # Set datatype
-in_this_filter = ''.join([ 'experiment_summary.datatype == "', opts.datatype.strip().lower(), '"' ])
+datatype = opts.datatype.strip().lower()
+
+in_this_filter = ''.join([ 'experiment_summary.datatype == "', datatype, '"' ])
 
 # Get param and param-ranges if specified
 if opts.param_name:
@@ -311,6 +299,20 @@ if opts.include_only_coincs:
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
+# if datatype is simulation and sim-tag specified add the sim-tag to the filter
+if datatype == 'simulation' and opts.sim_tag != 'ALLINJ':
+    # create a map between sim_proc_id and sim-tag
+    sim_map = sqlutils.sim_tag_proc_id_mapper( connection )
+    # check that opts.sim_tag is in the the map
+    opts.sim_tag = sqlutils.validate_option(opts.sim_tag, lower = False).upper()
+    if opts.sim_tag not in sim_map.tag_id_map.keys():
+        raise ValueError, "sim-tag %s not found in database" % opts.sim_tag
+    # create the filter
+    connection.create_function( 'get_sim_tag', 1, sim_map.get_sim_tag )
+    sim_filter = ''.join(['get_sim_tag(experiment_summary.sim_proc_id) == "', opts.sim_tag.strip().upper(), '"' ])
+    # add to in_this_filter
+    in_this_filter = ''.join([ in_this_filter, '\n\tAND ', sim_filter ])
+
 # join the needed tables to in_this_filter
 where_in_this_filter = ''.join([ sqlutils.join_experiment_tables_to_coinc_inspiral(), "\n    WHERE\n\t", in_this_filter ])
 
@@ -332,8 +334,8 @@ connection.create_function( 'convert_duration', 1, convert_duration )
 # done in this way because the RANK and DENSE_RANK SQL functions are not supported by
 # SQLite.
 if opts.verbose:
-    print >> sys.stdout, "Getting statistics for ranking..."
-ranker = rank_stats('coinc_inspiral', ranking_stat, rank_by)
+    print >> sys.stderr, "Getting statistics for ranking..."
+ranker = sqlutils.rank_stats('coinc_inspiral', ranking_stat, rank_by)
 ranker.populate_stats_list(connection, opts.limit, filter = where_in_this_filter)
 connection.create_function( 'rank', 1, ranker.get_rank )
 
@@ -345,11 +347,12 @@ connection.create_function( 'rank', 1, ranker.get_rank )
 # Get list of column names from coinc_inspiral table
 coinc_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'coinc_inspiral' )
 # generate list of column names for the summary table
-column_names = [ 'rank_using_' + ranking_stat.split('.')[-1] ]
+column_names = []
 column_names.extend(coinc_inspiral_cols)
 # add instruments on, duration, mini_followups
-durname = ''.join([ opts.datatype.strip().lower(), u'_duration_', opts.convert_durations.strip().lower() ])
-column_names.extend([u'instruments_on', durname, u'mini_followup' ])
+rankname = 'rank__Px_using_' + ranking_stat.split('.')[-1] + '_xP_'
+durname = ''.join([ datatype, u'_duration__Px_', opts.convert_durations.strip().lower(), '_xP_' ])
+column_names.extend([rankname, durname, u'instruments_on', u'mini_followup', 'ifos__Px_click_for_elog_xP_', 'end_time_utc__Px_click_for_daily_ihope_xP_' ])
 
 #
 # define the table
@@ -369,6 +372,9 @@ class LoudestEventsTable(table.Table):
         # if custom columns exist in the database, just set them to lstrings
         else:
             validcolumns[col_name] = "lstring"
+    # add FAP columns
+    validcolumns['fap'] = "real_8"
+    validcolumns['fap_1yr'] = "real_8"
 
 class LoudestEvents(object):
     __slots__ = LoudestEventsTable.validcolumns.keys()
@@ -388,7 +394,7 @@ lcdoc = ligolw.Document()
 # setup the LIGOLW tag
 lcdoc.appendChild(ligolw.LIGO_LW())
 # add this program's metadata
-lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+lcproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__, version = git_version.id)
 # add the table
 lctable = lsctables.New(LoudestEventsTable)
 # connect the table to the document
@@ -401,11 +407,10 @@ lcdoc.childNodes[0].appendChild(lctable)
 
 sqlquery = ''.join([ """
     SELECT
-        rank(""", ranking_stat, """),
         coinc_inspiral.*,
+        rank(""", ranking_stat, """),
         experiment.instruments,
-        convert_duration(experiment_summary.duration),
-        NULL AS mini_followup
+        convert_duration(experiment_summary.duration)
     FROM
         coinc_inspiral
     """, where_in_this_filter, """
@@ -414,30 +419,158 @@ sqlquery = ''.join([ """
         """, ranking_stat, ' ',  rank_by ])
 
 if opts.verbose:
-    print >> sys.stdout, "Getting coincs..."
-    print >> sys.stdout, "SQLite query used is:"
-    print >> sys.stdout, sqlquery
+    print >> sys.stderr, "Getting coincs..."
+    print >> sys.stderr, "SQLite query used is:"
+    print >> sys.stderr, sqlquery
 
 for values in connection.cursor().execute( sqlquery ):
     lcrow = LoudestEvents()
-    [ setattr(lcrow, column, data) for column, data in zip(column_names, values) ]
+    [ setattr(lcrow, column, values[ii]) for ii, column in enumerate(coinc_inspiral_cols) ]
+    # set on_instruments, duration, elog, daily_ihope
+    setattr(lcrow, rankname, values[-3])
+    lcrow.instruments_on = values[-2]
+    setattr(lcrow, durname, values[-1])
+    lcrow.mini_followup = None
+    if 'ifos' in coinc_inspiral_cols and 'end_time' in coinc_inspiral_cols:
+        elog_pages = [(ifo, printutils.get_elog_page(ifo, lcrow.end_time)) for ifo in lsctables.instrument_set_from_ifos(lcrow.ifos)]
+        lcrow.ifos__Px_click_for_elog_xP_ = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
+    else:
+        lcrow.ifos__Px_click_for_elog_xP_ = None
+    if 'end_time' in coinc_inspiral_cols:
+        end_time_utc = printutils.format_end_time_in_utc( lcrow.end_time ) 
+        daily_ihope_address = printutils.get_daily_ihope_page(lcrow.end_time, pages_location = opts.daily_ihope_pages_location)
+        lcrow.end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
+    else:
+        lcrow.end_time_utc__Px_click_for_daily_ihope_xP_ = None
+    # calculate and add faps
+    if lcrow.combined_far is not None:
+        t_in_s = float(values[-1]) / sqlutils.convert_duration(1, opts.convert_durations.strip().lower())
+        lcrow.fap = 1 - math.exp(-sqlutils.convert_duration(t_in_s, 'yr') * lcrow.combined_far)
+        lcrow.fap_1yr = 1 - math.exp(-lcrow.combined_far)
+    else:
+        lcrow.fap = None
+        lcrow.fap_1yr = None
+    # add the row
     lctable.append(lcrow)
 
+#
+#   Add sngl_inspiral info if desired
+#
+if opts.get_sngl_info:
+    
+    if opts.verbose:
+        print >> sys.stderr, "Getting SnglInspiral info..."
+
+    # index the lctable
+    lcindex = dict([ [row.coinc_event_id, row] for row in lctable ])
+
+    # get sngl_inspiral columns
+    sngl_inspiral_cols = sqlutils.get_column_names_from_table( connection, 'sngl_inspiral' )
+
+    # create an object to store the info
+    import copy
+    class MergedTable(table.Table):
+        tableName = "loudest_events:table"
+        validcolumns = copy.deepcopy(lctable.validcolumns)
+        for sngl_col in sngl_inspiral_cols:
+            validcolumns['sngl_'+sngl_col] = sqlutils.get_col_type('sngl_inspiral', sngl_col)
+        validcolumns['sngl_end_time_utc__Px_click_for_daily_ihope_xP_'] = 'lstring'
+        validcolumns['sngl_ifo__Px_click_for_elog_xP_'] = 'lstring'
+
+    class Merged(object):
+        __slots__ = MergedTable.validcolumns.keys()
+        def get_pyvalue(self):
+            return printutils.generic_get_pyvalue()
+
+    # connect the row to the table
+    MergedTable.RowType = Merged
+
+    #
+    # create a document
+    #
+    mdoc = ligolw.Document()
+    # setup the LIGOLW tag
+    mdoc.appendChild(ligolw.LIGO_LW())
+    # add this program's metadata
+    mproc_id = process.register_to_xmldoc(lcdoc, __prog__, opts.__dict__)
+    # add the table
+    mtable = lsctables.New(MergedTable)
+    # connect the table to the document
+    mdoc.childNodes[0].appendChild(mtable)
+
+    sqlquery = "CREATE TEMP TABLE select_ceids (coinc_event_id)"
+    connection.cursor().execute(sqlquery)
+    sqlquery = "INSERT INTO select_ceids (coinc_event_id) VALUES (?)"
+    connection.cursor().executemany(sqlquery, [(row.coinc_event_id,) for row in lctable])
+    
+    sqlquery = """
+        SELECT
+            select_ceids.coinc_event_id,
+            sngl_inspiral.*
+        FROM
+            sngl_inspiral
+        JOIN
+            select_ceids, coinc_event_map
+        ON
+            select_ceids.coinc_event_id == coinc_event_map.coinc_event_id AND
+            coinc_event_map.table_name == "sngl_inspiral" AND
+            coinc_event_map.event_id == sngl_inspiral.event_id
+        """
+    if opts.verbose:
+        print >> sys.stderr, "SQLite Query Used is:"
+        print >> sys.stderr, sqlquery
+    for data in connection.cursor().execute(sqlquery).fetchall():
+        mrow = Merged()
+        data = list(data)
+        mrow.coinc_event_id = data.pop(0)
+        # set sngl info
+        for sngl_col, value in zip(sngl_inspiral_cols, data):
+            setattr(mrow, 'sngl_'+sngl_col, value)
+        # set coinc info
+        [setattr(mrow, col, getattr(lcindex[mrow.coinc_event_id], col))
+            for col in lcindex[mrow.coinc_event_id].__slots__ if col != 'coinc_event_id']
+        # set sngl end time utc
+        end_time_utc = printutils.format_end_time_in_utc( mrow.sngl_end_time ) 
+        daily_ihope_address = printutils.get_daily_ihope_page(mrow.end_time, pages_location = opts.daily_ihope_pages_location)
+        mrow.sngl_end_time_utc__Px_click_for_daily_ihope_xP_ = printutils.create_hyperlink( daily_ihope_address, end_time_utc ) 
+        # set elog page
+        mrow.sngl_ifo__Px_click_for_elog_xP_ = printutils.create_hyperlink( printutils.get_elog_page(mrow.sngl_ifo, mrow.end_time), mrow.sngl_ifo )
+        # add the row
+        mtable.append(mrow)
+
+    # set lctable to the mtable
+    lcdoc = mdoc
+    lcproc_id = mproc_id
+    lctable = mtable
 
 #
 #   Print the summary data
 #
 
 if opts.verbose and not opts.output:
-    print >> sys.stdout, "\nResults are:\n"
+    print >> sys.stderr, "\nResults are:\n"
 
 if opts.output_format != "xml":
+    tableList = ['loudest_events']
+    columnList, row_span_columns, rspan_break_columns = printutils.get_columns_to_print(lcdoc, tableList[0], with_sngl = opts.get_sngl_info)
+    # remove the mini_followup column since it'll be empty
+    columnList.remove('mini_followup')
+    if opts.columns is not None:
+        # overwrite columnList with specified columns
+        columnList = [col.strip() for col in opts.columns.split(',')]
+        # check for rank, duration
+        for ii, column in enumerate(columnList):
+            if column == 'rank':
+                columnList[ii] = rankname
+            if column == 'duration':
+                columnList[ii] = durname
     # set output
     if opts.output is not None:
         opts.output = open(opts.output, 'w')
     # print the loudest_events table in the specified format
-    print_tables.print_tables(lcdoc, opts.output, opts.output_format, tableList = ['loudest_events'],
-        round_floats = True, decimal_places = 2, title = None)
+    print_tables.print_tables(lcdoc, opts.output, opts.output_format, tableList = tableList,
+        columnList = columnList, round_floats = True, decimal_places = 2, title = None,
+        row_span_columns = row_span_columns, rspan_break_columns = rspan_break_columns)
     if opts.output is not None:
         opts.output.close()
 else:
@@ -445,13 +578,18 @@ else:
 
 
 #
-#   If extract-to-xml, generate the full xml
+#   If extract-to-xml or extract-to-database, prepare for extraction
 #
 
-if opts.extract_to_xml:
+if opts.extract_to_xml or opts.extract_to_database:
+    # double check that a temporary database is being used
+    if opts.input == working_filename:
+        raise ValueError, "Cannot extract without a temporary database; check that tmp-space is specified in arguments."
+    if opts.extract_to_database == opts.input:
+        raise ValueError, "Extracted database and input database cannot be the same name. Rename the extracted database."
     if opts.verbose:
-        print >> sys.stdout, "\nPreparing temp. database for xml extraction..."
-        print >> sys.stdout, "Deleting unwanted triggers from coinc_inspiral table..."
+        print >> sys.stderr, "\nPreparing temp. database for xml/database extraction..."
+        print >> sys.stderr, "Deleting unwanted triggers from coinc_inspiral table..."
     # use the coinc_event_ids to figure out what to keep
     save_ids = [''.join(['"', row.coinc_event_id, '"']) for row in lctable]
     # delete all other ids from the coinc_inspiral table
@@ -466,129 +604,36 @@ if opts.extract_to_xml:
     connection.cursor().execute(sqlquery)
 
     # clean up the other tables that point to the deleted ids
-    sqlutils.clean_inspiral_tables(connection, verbose = opts.verbose)
+    sqlutils.clean_using_coinc_table( connection, 'coinc_inspiral', verbose = opts.verbose,
+        clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+        clean_coinc_event_map = True, clean_mapped_tables = True )
 
     # also remove experiments that don't have loud events in them
-    if opts.verbose:
-        print >> sys.stdout, "Removing experiments that no longer have events in them..."
+    sqlutils.clean_experiment_tables( connection, verbose = opts.verbose )
 
-    sqlscript = """
-        DELETE FROM
-            experiment
-        WHERE
-            experiment_id NOT IN (
-                SELECT DISTINCT
-                    experiment_summary.experiment_id
-                FROM
-                    experiment_summary, experiment_map
-                WHERE
-                    experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                );
-        DELETE FROM
-            experiment_summary
-        WHERE
-            experiment_id NOT IN (
-                SELECT
-                    experiment_id
-                FROM
-                    experiment
-                );
-        DELETE FROM
-            time_slide
-        WHERE
-            time_slide_id NOT IN (
-                SELECT DISTINCT
-                    time_slide_id
-                FROM
-                    experiment_summary
-                );
-        """
-    connection.cursor().executescript(sqlscript)
-
-    # remove additional meta-data from other tables who's process_ids are not in
-    # the experiment or coinc. tables
-    if opts.verbose:
-        print >> sys.stdout, "Removing unneeded metadata..."
-
-    sqlscript = """
-        -- create a temp. table of process_ids to keep
-        CREATE TEMP TABLE save_proc_ids AS
-            SELECT DISTINCT
-                process_id AS process_id
-            FROM
-                coinc_event;
-        INSERT INTO save_proc_ids (process_id)
-            SELECT DISTINCT
-                process_id
-            FROM
-                sngl_inspiral;
-        INSERT INTO save_proc_ids (process_id)
-            SELECT DISTINCT
-                process_id
-            FROM
-                time_slide;
-        INSERT INTO save_proc_ids (process_id)
-            SELECT DISTINCT
-                sim_proc_id
-            FROM
-                experiment_summary
-            WHERE
-                sim_proc_id IS NOT NULL;
-        CREATE INDEX proc_index ON save_proc_ids (process_id);
-        """
-    # now step through all tables with process_ids and remove rows who's ids 
-    # aren't in save_proc_ids
-    for table in ['process','process_params','search_summary','search_summvars','summ_value']:
-        sqlquery = ''.join([ sqlscript, 
-            """
-            DELETE FROM
-            """, table, """
-            WHERE
-                process_id NOT IN (
-                    SELECT
-                        process_id
-                    FROM
-                        save_proc_ids
-                    )
-            """ ])
-        try:
-            connection.cursor().execute(sqlquery)
-        except:
-            continue
-
-    # now remove any veto segments that don't apply by first getting all the
-    # end times in the sngl_inspiral table
-    if opts.verbose:
-        print >> sys.stdout, "Removing veto-segments that don't apply..."
-        print >> sys.stdout, "\tgetting event end_times..."
-
-    sqlquery = "SELECT DISTINCT end_time FROM sngl_inspiral"
-    in_this_filter = [''.join([ "(start_time <= ", str(end_time[0]), " AND end_time > ", str(end_time[0]), ")"]) for end_time in connection.cursor().execute(sqlquery)]
-
-    # now remove segments that don't intersect with the event_end_times
-    if opts.verbose:
-        print >> sys.stdout, "\tdeleting segments that don't intersect..."
-
-    sqlquery = """
-        DELETE FROM
-            segment"""
-    if in_this_filter != []:
-        sqlquery = ''.join([ sqlquery, """
-        WHERE NOT
-            """, ' OR '.join(in_this_filter) ])
-    connection.cursor().execute(sqlquery)
+    # clean the metadata
+    key_table = "sngl_inspiral"
+    key_column = "end_time"
+    sqlutils.clean_metadata_using_end_time(connection, key_table, key_column, verbose = opts.verbose)
 
     # extract to the xml file
-    extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+    if opts.extract_to_xml:
+        extract(connection, opts.extract_to_xml, verbose = opts.verbose, xsl_file = "ligolw.xsl")
+
 
 # close connection and exit
-connection.close()
-# discard the working_filename; if a temporary database was not
-# created in tmp_space (opts.tmp_space), this will do nothing. If a temporary database
-# was created, however, this will delete it. (see dbtables.py for more info)
-dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+if opts.extract_to_database:
+    # vacuum the extracted database
+    if opts.verbose:
+        print >> sys.stderr, "Vacuuming..."
+    connection.cursor().execute("VACUUM")
+    connection.close()
+    dbtables.put_connection_filename(opts.extract_to_database, working_filename, verbose = opts.verbose)
+else:
+    connection.close()
+    dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
 if opts.verbose and opts.tmp_space:
-    print >> sys.stdout, "Finshed!"
+    print >> sys.stderr, "Finished!"
 
 sys.exit(0)

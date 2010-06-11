@@ -2,14 +2,10 @@
 """
 Something
 
-$Id$
-
 This program plots the background distribution of qscan auxialiary channels
 """
 
 __author__ = 'Romain Gouaty <romain@phys.lsu.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 __prog__ = 'analyseQscan'
 
 ##############################################################################
@@ -43,9 +39,13 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue import lal
+from glue import segments
+from pylal import git_version
 from pylal import webUtils
 from pylal import InspiralUtils
-from pylal.fu_utils import *
+from pylal import stfu_pipe
+
 
 ##############################################################################
 # function to check the length of the summary files (for debugging)
@@ -76,24 +76,27 @@ def getQscanTable(opts,type):
 
   summary = readSummaryFiles()
 
-  if eval("opts.qscan_cache_" + type):
-    qscanList = getPathFromCache(eval("opts.qscan_cache_" + type),type)
+  if "FG" in type: type_string = "foreground"
+  elif "BG" in type: type_string = "background"
+
+  if eval("opts.qscan_cache_" + type_string):
+    qscanList = stfu_pipe.getParamsFromCache(eval("opts.qscan_cache_" + type_string),type)
   else:
     try:
-      inputPath = eval("opts." + type + "_input_path")
+      inputPath = eval("opts." + type_string + "_input_path")
       qscanList = parseDirectoryList(inputPath)
     except:
-      print >> sys.stderr, "cannot get input path for " + type
+      print >> sys.stderr, "cannot get input path for " + type_string
       print >> sys.stderr, "specify at least one of the following options:"
-      print >> sys.stderr, "--qscan-cache, --" + type + "-input-path"
+      print >> sys.stderr, "--qscan-cache, --" + type_string + "-input-path"
       sys.exit(1)
 
   table = summary.parseQscanList(qscanList)
 
   # perform a sanity check
   if not (len(table['channel_name']) == len(table['qscan_dir'])):
-    print >> sys.stderr, "the length of channel_name does not match the length of qscan_dir in the " + type + " table"
-    print >> sys.stderr, "check for data corruption in the qscan summary files in the " + type + " table"
+    print >> sys.stderr, "the length of channel_name does not match the length of qscan_dir in the " + type_string + " table"
+    print >> sys.stderr, "check for data corruption in the qscan summary files in the " + type_string + " table"
     sys.exit(1)
 
   return table
@@ -155,7 +158,7 @@ class readSummaryFiles:
   def getAuxChannels(self,inputList):
     intermediateTable = {'type':[],'ifo':[],'qscan_time':[],'qscan_dir':[],'channel_name':[],'peak_time':[],'peak_frequency':[],'peak_q':[],'peak_significance':[],'peak_amplitude':[]}
     try:
-      doc = utils.load_filename(inputList[0] + "/summary.xml")
+      doc = utils.load_filename(inputList[0] + "/summary.xml",verbose=True,gz=False,xmldoc=None,contenthandler=None)
       qscanTable = table.get_table(doc, "qscan:summary:table")
     except:
       print >> sys.stderr, "failed to read" + inputList[0] + "/summary.xml"
@@ -169,6 +172,25 @@ class readSummaryFiles:
       intermediateTable['type'].append(inputList[2])
       intermediateTable['ifo'].append(inputList[3])
     return intermediateTable
+
+def listFromFile(fileName):
+  listInstance = []
+  try:
+    file = open(fileName,"r")
+  except:
+    print >> sys.stderr, "could not open file " + fileName
+    return listInstance
+  list_in_file = file.readlines()
+  file.close()
+  if not len(list_in_file):
+    print >> sys.stderr, "No lines found in file " + fileName
+    print >> sys.stderr, "Is the first line blank ?"
+    return listInstance
+  for line in list_in_file:
+    if not line[0] == '#':
+      listInstance.append(string.strip(line))
+    else: pass
+  return listInstance
 
 ##############################################################################
 # functions to compute and plot histograms
@@ -352,6 +374,7 @@ def selectSignificance(table,chan,opts):
 
 
 def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None,list22=None,list31=None,list32=None):
+
   p1 = None
   p2 = None
   p3 = None
@@ -469,10 +492,7 @@ def plotHistogram(chan,opts,distribution,histoList,binList,percentiles=None,cand
 usage = """usage: %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("","--gps-string",action="store",type="string",\
     metavar=" GPS",help="provide GPS time of the trigger to be investigated."\
@@ -491,6 +511,10 @@ parser.add_option("","--user-tag", action="store",type="string", \
 parser.add_option("","--type", action="store", type="string", \
     default=None, metavar=" QSCAN TYPE", help="gives the type of qscan"\
     + " to be analyzed")
+
+parser.add_option("","--short-type", action="store", type="string", \
+    default=None, metavar=" Optional argument. Gives the type of qscan to be"\
+    + " used in background cache file. Only needed if it differs from --type")
 
 parser.add_option("-C", "--qscan-cache-foreground",action="store",type="string",default=None, metavar=" FILE",help="qscan cache file for foreground (generated by followup_pipe)")
 
@@ -565,10 +589,6 @@ parser.add_option("-c", "--create-param-list",action="store_true",\
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-if opts.version:
-  print "$ Id: makeQscanBackground.py,v 1.0 2007/08/02 18:46:00 romain Exp $"
-  sys.exit(0)
-
 ####################### SANITY CHECKS #####################################
 
 
@@ -577,7 +597,7 @@ if opts.version:
 # initialize some variables
 figNumber = 0
 currentDir = os.path.abspath('.')
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 fnameList = []
 
 # Get the list of qscan channels to be analyzed (should become optional later...). The script needs to be improved to follow this behavior: if the text file is not specified in the configuration file, then all the channels found in the summary files should be analyzed...
@@ -595,9 +615,9 @@ if opts.check_length:
 
 # Read the qscan summary files and hold the information in memory
 if opts.generate_qscan_xml:
-  backgroundTable = getQscanTable(opts,"background")
+  backgroundTable = getQscanTable(opts,"WPIPELINE_BG")
   if not opts.process_background_only:
-    foregroundTable = getQscanTable(opts,"foreground")
+    foregroundTable = getQscanTable(opts,"WPIPELINE_FG")
 
 
 # analyse candidate qscan (loop over all the channels which have triggered at the time of the candidate)
@@ -619,7 +639,7 @@ if not opts.process_background_only:
       time_string = None
 
     if opts.qscan_cache_foreground:
-      candidates_path = getPathFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
+      candidates_path = stfu_pipe.getParamsFromCache(opts.qscan_cache_foreground,type,ifo,time_string)
     else:
       print >> sys.stderr, "Please specify the option --qscan-cache= FILE"
       sys.exit(1)
@@ -643,8 +663,12 @@ if not opts.process_background_only:
 
     # extract the information about the background for this specific type and ifo
     if candidate[2] or candidate[3]:
+      if opts.short_type:
+        backgroundType = opts.short_type
+      else:
+        backgroundType = candidate[2]
       backgroundSummary = readSummaryFiles()
-      backgroundSubTable = backgroundSummary.extractFromTable(backgroundTable,candidate[2].replace('foreground','background'),candidate[3],None)
+      backgroundSubTable = backgroundSummary.extractFromTable(backgroundTable,backgroundType.replace('FG','BG'),candidate[3],None)
     else:
       backgroundSubTable = backgroundTable
 
@@ -665,6 +689,9 @@ if not opts.process_background_only:
       webpage.table[0].row[0].cell[0].text("Channel")
       webpage.table[0].row[0].cell[1].text("z significance")
       webpage.table[0].row[0].cell[2].text("dt (peak-time - central time)")
+
+    #initialize string containing list of channels with Z value
+    listZvalues = ""
 
     row_number = 0
     for i,channel in enumerate(candidateTable['channel_name']):
@@ -727,6 +754,13 @@ if not opts.process_background_only:
         dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,dtpercentiles,dtCandidate,dt_candidate_rank)
         fnameList.append(dtFigure)
 
+      #append the list of channels with Z values
+      if zCandidate > 0:
+        if opts.plot_z_distribution:
+          listZvalues += channel + " %.3f %.3f \n" %(zCandidate,z_candidate_rank)
+        else:
+          listZvalues += channel + " %.3f \n" % zCandidate
+
       #append the html page
       row_number = row_number + 1
       if opts.enable_output:
@@ -745,6 +779,16 @@ if not opts.process_background_only:
           webpage.table[0].row[row_number].cell[2].link("Images/" + os.path.basename(dtFigure),"Delta t distribution")
 
     if opts.enable_output:
+
+      #save file containing list of channels
+      txtChannels = file(html_filename.replace(".html",".txt"),"w")
+      if opts.plot_z_distribution:
+        txtChannels.write("#channel Z rank\n")
+      else:
+        txtChannels.write("#channel Z\n")
+      txtChannels.write(listZvalues)
+      txtChannels.close()
+
       webpage.cleanWrite('IUL')
       InspiralUtils.write_cache_output(opts,html_filename,fnameList)
 

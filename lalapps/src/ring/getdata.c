@@ -117,7 +117,7 @@ REAL4TimeSeries * get_zero_data(
     series->sampleUnits = lalADCCountUnit;
   
   for ( j = 0; j < series->data->length; ++j )
-    series->data->data[j] *= 0;
+    series->data->data[j] = 0;
 
   return series;
 }
@@ -125,7 +125,7 @@ REAL4TimeSeries * get_zero_data(
 
 
 /* read frame data */
-REAL4TimeSeries * get_frame_data(
+REAL4TimeSeries * ring_get_frame_data(
     const char  *cacheName,
     const char  *channelName,
     LIGOTimeGPS *epoch,
@@ -169,8 +169,7 @@ REAL4TimeSeries * get_frame_data_dbl_convert(
     LIGOTimeGPS *epoch,
     REAL8        duration,
     int          strainData,
-    REAL8        dblHighPassFreq,
-    REAL8        dblScale
+    REAL8        dblHighPassFreq
     )
 {
   REAL4TimeSeries *series;

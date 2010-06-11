@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Patrick Brady <patrick.brady@ligo.org> and Larry Price <larry.price@ligo.org> "
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotskypoints"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -38,6 +33,7 @@ from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import llwapp
 from pylal import date
+from pylal import git_version
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
@@ -66,7 +62,7 @@ class SkyPoints(object):
   """
   def __init__(self, coinc,detector_locations,detector_responses,coarse_res,\
                fine_res,wide_threshold,narrow_threshold,ref_freq=0.0,\
-               injection=False, coinctable=None):
+               only_timing = False, injection=False, coinctable=None):
     """
     coinc: a coincInspiralTable containing coincident triggers
     injection: boolean to determine whether or not to collect injection
@@ -92,6 +88,11 @@ class SkyPoints(object):
     self.leftover_region = []
     self.num_sky_blobs = 0
 
+    #flag added to account for situations when we're unable to locate the thing on the sky
+    self.unable_to_locate = False
+
+    self.only_timing = only_timing
+    
     if coinc:
 
       self.time = min(coinc.get_gps_times()[ifo] for ifo in\
@@ -130,6 +131,7 @@ class SkyPoints(object):
     elif coinctable:
 
       xmldoc = utils.load_filename(coinctable)
+
       if tab.get_table(xmldoc,lsctables.CoincTable.tableName)[0].nevents != 3:
         print >>sys.stdout, "Need a three detector coincidence."
         sys.exit(0) 
@@ -139,10 +141,6 @@ class SkyPoints(object):
       self.time = min(row.end_time for row in snglinsptab)
       self.snr = dict((row.ifo, row.snr) for row in snglinsptab)
       self.gps = dict((row.ifo, row.get_end()) for row in snglinsptab)
-      self.gps["V1"] = LIGOTimeGPS(self.gps["V1"].seconds,self.gps["V1"].nanoseconds*1.0e7)
-      self.gps["L1"] = LIGOTimeGPS(self.gps["L1"].seconds,self.gps["L1"].nanoseconds*1.0e6)
-      self.gps["H1"] = LIGOTimeGPS(self.gps["H1"].seconds,self.gps["H1"].nanoseconds*1.0e6)
-      print self.gps
       self.effective_distances = dict((row.ifo,row.eff_distance) for row in\
                                       snglinsptab)
       ifos = ('H1', 'L1', 'V1')
@@ -310,8 +308,10 @@ class SkyPoints(object):
     compute L, the 'likelihood-like' quantity for a given point
     currently normalizes delta t to 1ms (harcoded)
     """
-    #return self.get_delta_t_rms(longitude,latitude)
-    return self.get_delta_t_rms(longitude,latitude)*1000 + self.get_delta_D_rms(longitude,latitude)
+    if self.only_timing:
+      return self.get_delta_t_rms(longitude,latitude)
+    else:
+      return self.get_delta_t_rms(longitude,latitude)*1000 + self.get_delta_D_rms(longitude,latitude)
     
   def gridsky(self,coarse_res,fine_res,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon):
     """
@@ -472,20 +472,25 @@ class SkyPoints(object):
     coarse_L = []
     if plot_name:
       figure()
-
+    
+    if opts.snr_threshold:
+      scaled_comb_snr = numpy.sqrt(sum([rho*rho for rho in self.snr.values()]))/10
     
     for point in coarse_grid:
       longitude = point[1]
       latitude = point[0]
-      
-      pt_L = self.get_L(longitude,latitude)
+      if opts.snr_threshold:
+        pt_L = self.get_L(longitude,latitude)*scaled_comb_snr
+      else:
+        pt_L = self.get_L(longitude,latitude)
+
       coarse_L.append([(point[0],point[1]),pt_L])
     
-    Lmin_coarse = min([pt[1] for pt in coarse_L])
+    Lmin_coarse = self.wide_threshold #min([pt[1] for pt in coarse_L])
     coarse_hotspots = []
     coarse_clusters = []
     for pt in coarse_L:
-      if pt[1] <= 3*Lmin_coarse:
+      if pt[1] <= 2*Lmin_coarse:
         coarse_hotspots.append(pt[0])
       else:
         self.leftover_region.append(pt)
@@ -542,7 +547,11 @@ class SkyPoints(object):
         longitude = point[1]
         latitude = point[0]
         
-        pt_L = self.get_L(longitude,latitude)
+        if opts.snr_threshold:
+          pt_L = self.get_L(longitude,latitude)*scaled_comb_snr
+	else:
+          pt_L = self.get_L(longitude,latitude)
+
         fine_L.append([(point[0],point[1]),pt_L,cluster_count])
         
       cluster_count += 1
@@ -553,42 +562,43 @@ class SkyPoints(object):
     #sorting the grid according to L means we can terminate the following
     #loop as soon as a single pt has an L > wide_threshold
     #while making it easy to get the most likely point
-    fine_L.sort(self._Lcmp)
-    print "best spot ", fine_L[0]
-    self.longitude = fine_L[0][0][1]
-    self.latitude = fine_L[0][0][0]
+    try:
+      fine_L.sort(self._Lcmp)
+      #print fine_L
+      #print "best spot ", fine_L[0]
+      self.longitude = fine_L[0][0][1]
+      self.latitude = fine_L[0][0][0]
     
-    for pt in fine_L:
-      if self.injection:
-        if pt[1] <= self.L_inj:
-          self.sky_area_inj += pi*self.fine_res*self.fine_res
-      if self.narrow_threshold <= pt[1] <= self.wide_threshold:
-        self.wide_region.append(pt)
-        if plot_name:
-          plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'yx')
-      elif self.narrow_threshold > pt[1]:
-        self.narrow_region.append(pt)
-        if plot_name:
-          plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
-      else:
-        self.leftover_region.append(pt)
-   #   else:
-   #     continue
+      for pt in fine_L:
+        if self.injection:
+          if pt[1] <= self.L_inj:
+            self.sky_area_inj += pi*self.fine_res*self.fine_res
+        if self.narrow_threshold <= pt[1] <= self.wide_threshold:
+          self.wide_region.append(pt)
+          if plot_name:
+            plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'yx')
+        elif self.narrow_threshold > pt[1]:
+          self.narrow_region.append(pt)
+          if plot_name:
+            plot(asarray([pt[0][1]]),asarray([pt[0][0]]),'rx')
+        else:
+          self.leftover_region.append(pt)
+      if plot_name:
+        plot(asarray([fine_L[0][0][1]]),asarray([fine_L[0][0][0]]), 'ms')
+        if self.injection:
+          plot(asarray([self.longitude_inj]),\
+               asarray([self.latitude_inj]),self.inj_color+'*')
 
-    if plot_name:
-      plot(asarray([fine_L[0][0][1]]),asarray([fine_L[0][0][0]]), 'ms')
-      if self.injection:
-        plot(asarray([self.longitude_inj]),\
-             asarray([self.latitude_inj]),self.inj_color+'*')
-
-      axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
-      xlabel("Right Ascension (radians)")
-      ylabel("Declination (radians)")
-      title("Skymap for Trigger at "+str(self.time))
-      savefig(plot_name)
+        axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
+        xlabel("Right Ascension (radians)")
+        ylabel("Declination (radians)")
+        title("Skymap for Trigger at "+str(self.time))
+        savefig(plot_name)
   
-      if not opts.show_plot:
-        close()
+        if not opts.show_plot:
+          close()
+    except IndexError:
+      self.unable_to_locate = True
       
   def get_narrow_region(self):
     """
@@ -948,7 +958,8 @@ def get_galaxies_in_region(skypoints,catalog,boundaries):
 def do_skypoints(coinc,coinctable=None):
 
   skymap = SkyPoints(coinc, detector_locations, detector_responses,  opts.coarse_resolution, opts.fine_resolution,\
-                     opts.L_wide_threshold, opts.L_narrow_threshold,opts.reference_frequency,opts.injection, coinctable)
+                     opts.L_wide_threshold, opts.L_narrow_threshold,opts.reference_frequency,\
+                     opts.timing_only,opts.injection, coinctable)
   if skymap.no_coincs:
     return
   else:
@@ -960,8 +971,9 @@ def do_skypoints(coinc,coinctable=None):
     else:
       plot_name = ''
 
-    print plot_name
     skymap.compute_skypoints(plot_name)
+    if skymap.unable_to_locate:
+      return
     print "lon = ", skymap.longitude
     print "lat = ",skymap.latitude
 
@@ -1027,7 +1039,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
@@ -1076,8 +1088,6 @@ def parse_command_line():
   parser.add_option("--write-inj-data", action="store_true", default=False, \
                     help="create a file with data from injections")
   
-  #parser.add_option("--html-for-cbcweb", action="store_true", \
-  #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
                     help="display the plots to screen if an X11 display is available")
 
@@ -1095,6 +1105,10 @@ def parse_command_line():
                     help="name of the (gzipped) text file to store grids and L values")  
   parser.add_option("-z","--coinc-table",action="store_true",default=False,\
                     help="specify that input uses coinc tables")
+  parser.add_option("-y","--timing-only",action="store_true",default=False,\
+                    help="only use timing information for sky localization")
+  parser.add_option("-H", "--snr-threshold", action="store_true",default=False,\
+                    help="use SNR dependent threshold")
   (options,args) = parser.parse_args()
 
   if options.enable_google_sky_output and (options.google_map_key is None):
@@ -1183,6 +1197,8 @@ if opts.output:
   base = os.path.split(opts.output)[1][:-4]
   path = os.path.split(opts.output)[0]
   bname = os.path.join(path,base)
+else:
+  bname = ''
 if opts.online_input:
   bname = general_dir + '/SKYPOINTS_ONLINE_' + uid
   output_files = []

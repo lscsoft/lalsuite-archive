@@ -1,19 +1,27 @@
-## Process this file with automake to produce Makefile.in
-EXTRA_DIST = lalapps.m4 lalappslibtool.m4 pkg.m4
+EXTRA_DIST = \
+	compile \
+	config.guess \
+	config.sub \
+	depcomp \
+	install-sh \
+	lalapps.m4 \
+	lalsuite_build.m4 \
+	lalsuite_c99.m4 \
+	libtool.m4 \
+	ltmain.sh \
+	ltoptions.m4 \
+	ltsugar.m4 \
+	ltversion.m4 \
+	lt~obsolete.m4 \
+	missing \
+	mkinstalldirs \
+	pkg.m4 \
+	py-compile \
+	vcsID.common
+
 sysconf_DATA = lalapps-user-env.sh lalapps-user-env.csh
 BUILT_SOURCES = lalapps-user-env.sh lalapps-user-env.csh
 CLEANFILES = lalapps-user-env.sh lalapps-user-env.csh
-MAINTAINERCLEANFILES = __lalappsGitID.h lalappsGitID.h
-
-noinst_HEADERS = lalappsGitID.h
-lalappsGitID.h: gitID
-
-.PHONY: gitID
-gitID:
-	if test -f $(top_srcdir)/misc/generateGitID.sh; then \
-	$(SHELL) $(top_srcdir)/misc/generateGitID.sh $(top_srcdir) lalapps; \
-	fi
-
 
 if HAVE_PYTHON
 lalapps-user-env.sh: Makefile

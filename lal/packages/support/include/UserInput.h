@@ -17,19 +17,17 @@
  *  MA  02111-1307  USA
  */
 
-/** \defgroup UserInput
+/** \defgroup UserInput User-input handling
  * \ingroup support
  * \author Reinhard Prix
  * \date $Date$
  * \brief Module for general parsing of user-input from config-file and/or command-line.
  *
- * More documentation on how to use this module will appear here soon!!
  */
 
 /** \file
  * \ingroup UserInput
  * \author Reinhard Prix
- * \date $Date$
  * \brief Header file defining the API for the UserInput modules.
  */
 
@@ -37,8 +35,9 @@
 #define _USERINPUT_H
 
 #include <lal/ConfigFile.h>
-#include <lal/SFTutils.h>
+#if 0
 #include <lal/LIGOMetadataTables.h>
+#endif
 
 #ifdef  __cplusplus   /* C++ protection. */
 extern "C" {
@@ -184,7 +183,9 @@ void LALUserVarCheckRequired (LALStatus *);
 INT4 LALUserVarWasSet (const void *cvar);
 void LALGetDebugLevel (LALStatus *, int argc, char *argv[], CHAR optchar);
 void LALUserVarGetLog (LALStatus *, CHAR **logstr,  UserVarLogFormat format);
+#if 0
 void LALUserVarGetProcParamsTable (LALStatus *status, ProcessParamsTable **out, CHAR *progname);
+#endif
 
 #ifdef  __cplusplus
 }

@@ -51,10 +51,8 @@
 #include <lal/DetectorSite.h>
 #include <lal/DetResponse.h>
 #include <lal/TimeDelay.h>
-#include <lal/lalGitID.h>
 #include <lal/LALErrno.h>
-#include <lalappsGitID.h>
-
+#include <LALAppsVCSInfo.h>
 
 NRCSID( SPININJC, "$Id$");
 RCSID( "$Id$" );
@@ -192,12 +190,11 @@ void LALParserInspiralInjection(LALStatus *status,
                                 InspiralInjectionParameters *);
 
 
-void LALCheckInspiralInjectionParameters(LALStatus *status, 
-                                         InspiralInjectionParameters params);
+void XLALCheckInspiralInjectionParameters(InspiralInjectionParameters params);
 
 
 
-ProcessParamsTable *next_process_param( const char *name, const char *type,
+static ProcessParamsTable *next_process_param( const char *name, const char *type,
     const char *fmt, ... )
 {
   ProcessParamsTable *pp;
@@ -221,7 +218,6 @@ ProcessParamsTable *next_process_param( const char *name, const char *type,
 extern int vrbflg;
 LIGOLwXMLStream       xmlfp;
 CHAR                  fname[256];
-LALGPSandAcc          gpsAndAcc;
 RandomParams *randParams = NULL;
 
 
@@ -235,7 +231,6 @@ int main( int argc, char *argv[] )
   InspiralInjectionParameters         paramsIn;     
   MetadataTable                       injections;
   SimInspiralTable                    *this_inj = NULL;
-  LALGPSCompareResult                 compareGPS;
 
     /* set up inital debugging values */
   lal_errhandler = LAL_ERR_EXIT;
@@ -255,9 +250,8 @@ int main( int argc, char *argv[] )
    * loop over duration of desired output times
    *
    */
-  compareGPS = LALGPS_EARLIER;
 
-  while ( compareGPS == LALGPS_EARLIER )
+  while ( XLALGPSCmp(&(paramsIn.gpsStartTime), &(paramsIn.gpsEndTime)) < 0 )
   {
 
     /* rho, z and lGal are the galactocentric galactic axial coordinates */
@@ -290,10 +284,6 @@ int main( int argc, char *argv[] )
 
     /* increment the injection time */
     XLALGPSAdd( &(paramsIn.gpsStartTime), paramsIn.meanTimeStep );
-
-    LAL_CALL( LALCompareGPS( &status, &compareGPS, &(paramsIn.gpsStartTime), 
-                             &(paramsIn.gpsEndTime) ), &status );
-
 
     this_inj->f_lower  = paramsIn.fLower;
     memcpy (this_inj->waveform, paramsIn.waveform, sizeof(CHAR) * LIGOMETA_WAVEFORM_MAX);  
@@ -524,20 +514,16 @@ void LALSetSiteParameters(LALStatus *status,
 {
   SkyPosition           skyPos;
   LALSource             source;
-  LALPlaceAndGPS        placeAndGPS;
-  DetTimeAndASource     detTimeAndSource;
   LALDetAndSource       detAndSource;
   REAL4 cosiota, splus, scross;
   LALDetector           lho = lalCachedDetectors[LALDetectorIndexLHODIFF];
   LALDetector           llo = lalCachedDetectors[LALDetectorIndexLLODIFF];
   LALDetAMResponse      resp;
-  REAL8                 time_diff_ns;
+  REAL8                 time_diff;
   
   /* set up params for the site end times and detector response */
   memset( &skyPos, 0, sizeof(SkyPosition) );
   memset( &source, 0, sizeof(LALSource) );
-  memset( &placeAndGPS, 0, sizeof(LALPlaceAndGPS) );
-  memset( &detTimeAndSource, 0, sizeof(DetTimeAndASource) );
   memset( &detAndSource, 0, sizeof(LALDetAndSource) );
   
   skyPos.longitude = this_inj->longitude;
@@ -546,17 +532,9 @@ void LALSetSiteParameters(LALStatus *status,
   
   source.equatorialCoords = skyPos;
   source.orientation      = this_inj->polarization;
-  
-  placeAndGPS.p_gps = &(this_inj->geocent_end_time);
-  
-  detTimeAndSource.p_det_and_time = &placeAndGPS;
-  detTimeAndSource.p_source = &skyPos;
-  
+
   detAndSource.pSource = &source;
-  
-  gpsAndAcc.accuracy = LALLEAPSEC_STRICT;
-  gpsAndAcc.gps = this_inj->geocent_end_time;
-  
+
   /*
    * compute site end times
    * (copied from SnglInspiralUtils.c)
@@ -566,16 +544,12 @@ void LALSetSiteParameters(LALStatus *status,
   this_inj->h_end_time = this_inj->l_end_time = this_inj->geocent_end_time;
   
   /* lho */
-  placeAndGPS.p_detector = &lho;
-  LAL_CALL( LALTimeDelayFromEarthCenter( status, &time_diff_ns,
-                                         &detTimeAndSource ), status );
-  XLALGPSAdd( &(this_inj->h_end_time), time_diff_ns );
+  time_diff = XLALTimeDelayFromEarthCenter( lho.location, this_inj->longitude, this_inj->latitude, &(this_inj->geocent_end_time) );
+  XLALGPSAdd( &(this_inj->h_end_time), time_diff );
 
   /* llo */
-  placeAndGPS.p_detector = &llo;
-  LAL_CALL( LALTimeDelayFromEarthCenter( status,  &time_diff_ns,
-                                         &detTimeAndSource ), status);
-  XLALGPSAdd( &(this_inj->l_end_time), time_diff_ns );
+  time_diff = XLALTimeDelayFromEarthCenter( llo.location, this_inj->longitude, this_inj->latitude, &(this_inj->geocent_end_time) );
+  XLALGPSAdd( &(this_inj->l_end_time), time_diff );
 
   /* temporarily, populate the fields for the */
   /* GEO, TAMA and VIRGO times                */
@@ -601,7 +575,7 @@ void LALSetSiteParameters(LALStatus *status,
   
   detAndSource.pDetector = &lho;
   LAL_CALL( LALComputeDetAMResponse( status, &resp, &detAndSource,
-                                     &gpsAndAcc ), status );
+                                     &this_inj->geocent_end_time ), status );
   
 
   /* compute the effective distance for LHO */
@@ -612,7 +586,7 @@ void LALSetSiteParameters(LALStatus *status,
   /* compute the response of the LLO detector */
   detAndSource.pDetector = &llo;
   LAL_CALL( LALComputeDetAMResponse( status, &resp, &detAndSource,
-                                     &gpsAndAcc ), status);
+                                     &this_inj->geocent_end_time ), status);
 
   
   /* compute the effective distance for LLO */
@@ -674,19 +648,8 @@ void LALParserInspiralInjection(LALStatus *status,
     calloc( 1, sizeof(ProcessTable) );
 
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
@@ -722,8 +685,7 @@ void LALParserInspiralInjection(LALStatus *status,
   params->mdistr                      = SPININJ_totalMass;
   params->ddistr                      = SPININJ_logDistance;
   params->userTag                     = NULL;
-  snprintf( params->waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR),
-               "EOBtwoPN");  
+  snprintf( params->waveform, LIGOMETA_WAVEFORM_MAX, "EOBtwoPN");  
   snprintf( fname, sizeof(fname), "HL-INJECTIONS_%d-%d-%d.xml", 
                params->randSeed, params->gpsStartTime.gpsSeconds, 
                params->gpsEndTime.gpsSeconds - params->gpsStartTime.gpsSeconds );
@@ -906,8 +868,7 @@ void LALParserInspiralInjection(LALStatus *status,
           next_process_param( "inclination-max", "float", "%le", params->inclination.max );
       } 
       else if ( strcmp(argv[i] , "--waveform") == 0 ){
-        snprintf( params->waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR), "%s",
-                     argv[++i]);
+        snprintf( params->waveform, LIGOMETA_WAVEFORM_MAX, "%s", argv[++i]);
         this_proc_param = this_proc_param->next =
           next_process_param( "waveform", "string",
                               "%s",argv[i] );        
@@ -968,7 +929,7 @@ void LALParserInspiralInjection(LALStatus *status,
   }
 
   /* Let us check now the validity of the arguments */
-  LAL_CALL( LALCheckInspiralInjectionParameters(status,  *params), status);
+  XLALCheckInspiralInjectionParameters(*params);
 
 
   
@@ -1020,12 +981,8 @@ void LALParserInspiralInjection(LALStatus *status,
 }
 
 
-void LALCheckInspiralInjectionParameters(LALStatus *status, 
-                                         InspiralInjectionParameters params)
+void XLALCheckInspiralInjectionParameters(InspiralInjectionParameters params)
 { 
-  LALGPSCompareResult        compareGPS;
-
-  
   if ( params.fLower <= 5 || params.fLower >=1000)
     {
       fprintf( stderr, "invalid argument to --%s:\n"
@@ -1053,8 +1010,6 @@ void LALCheckInspiralInjectionParameters(LALStatus *status,
       exit( 1 );
     }
   /* check that the start time is before the end time */
-  LAL_CALL( LALCompareGPS( status, &compareGPS, &(params.gpsStartTime), &(params.gpsEndTime)) ,
-            status );
   if ( params.gpsEndTime.gpsSeconds > 999999999 )
     {
       fprintf( stderr, "invalid argument to --%s:\n"

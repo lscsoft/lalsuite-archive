@@ -1,16 +1,33 @@
-## Process this file with automake to produce Makefile.in
-EXTRA_DIST = doc.mk dvi.mk include.mk main.tex.in \
-             lal.m4 lallibtool.m4 pkg.m4
+EXTRA_DIST = \
+	ax_pthread.m4 \
+	config.guess \
+	config.sub \
+	depcomp \
+	doc.mk \
+	dvi.mk \
+	include.mk \
+	install-sh \
+	lal.m4 \
+	lalsuite_build.m4 \
+	lalsuite_c99.m4 \
+	lalsuite_gccflags.m4 \
+	libtool.m4 \
+	ltmain.sh \
+	ltoptions.m4 \
+	ltsugar.m4 \
+	ltversion.m4 \
+	lt~obsolete.m4 \
+	main.tex.in \
+	missing \
+	mkinstalldirs \
+	pkg.m4
 
 CLEANFILES = lal-user-env.sh lal-user-env.csh
-MAINTAINERCLEANFILES = __lalGitID.h lalGitID.h
 
 sysconf_DATA = lal-user-env.sh lal-user-env.csh
 BUILT_SOURCES = lal-user-env.sh lal-user-env.csh
 
-pkginclude_HEADERS = lalGitID.h
 all-local: include-link
-lalGitID.h: gitID
 
 lal-user-env.sh: Makefile
 	@echo "creating $@" ;\
@@ -49,12 +66,5 @@ lal-user-env.csh: Makefile
 	echo "else" >>$@ ;\
 	echo "	setenv PKG_CONFIG_PATH \"$(libdir)/pkgconfig\"" >>$@ ;\
 	echo "endif" >>$@
-
-.PHONY : gitID
-gitID:
-	@if test -f $(top_srcdir)/misc/generateGitID.sh; then \
-	echo "creating lalGitID.h"; \
-	$(SHELL) $(top_srcdir)/misc/generateGitID.sh $(top_srcdir) lal; \
-	fi
 
 @INCLUDEMKFILE@

@@ -105,9 +105,8 @@ int main(int argc, char *argv[]){
 
   static LALStatus       status;  /* LALStatus pointer */ 
   
-  INT4 j, k, nBins, iIFO, iSFT, numsft; 
+  INT4 k, nBins, iIFO, iSFT, numsft; 
   INT4 numifo;
-  REAL8 deltaF;
   FILE *fpOut=NULL;
 
   REAL8 ShAvg;
@@ -203,18 +202,19 @@ int main(int argc, char *argv[]){
     fprintf( fpLog, "## LOG FILE FOR SFT PSD COMPUTATION\n\n");
     fprintf( fpLog, "# User Input:\n");
     fprintf( fpLog, "#-------------------------------------------\n");
-    fprintf( fpLog, logstr);
+    fprintf( fpLog, "%s", logstr);
     LALFree(logstr);
     
     /* append an ident-string defining the exact CVS-version of the code used */
     {
       CHAR command[1024] = "";
+      int rc;
       fprintf (fpLog, "\n\n# CVS-versions of executable:\n");
       fprintf (fpLog, "# -----------------------------------------\n");
       fclose (fpLog);
       
       sprintf (command, "ident %s | sort -u >> %s", argv[0], fnameLog);
-      system (command);	/* we don't check this. If it fails, we assume that */
+      rc = system (command);	/* we don't check this. If it fails, we assume that */
     			/* one of the system-commands was not available, and */
     			/* therefore the CVS-versions will not be logged */
       

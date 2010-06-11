@@ -22,6 +22,7 @@ from glue.ligolw import table
 from glue import segmentsUtils
 
 from pylal import db_thinca_rings
+from pylal import git_version
 from pylal import llwapp
 from pylal import rate
 from pylal import SimInspiralUtils
@@ -249,7 +250,7 @@ class upper_limit(object):
       connection = sqlite3.connect(working_filename)
       connection.create_function("injection_was_made", 2, injection_was_made)
 
-      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName)._row_from_cols
+      make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
 
       for values in connection.cursor().execute("""
 SELECT
@@ -475,7 +476,7 @@ WHERE
 
 
 def parse_command_line():
-  parser = OptionParser(version = "%prog CVS $Id$", usage = "%prog [options] [file ...]", description = "%prog computes mass/mass upperlimit")
+  parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] [file ...]", description = "%prog computes mass/mass upperlimit")
   parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")

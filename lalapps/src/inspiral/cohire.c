@@ -25,15 +25,13 @@
 #include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataUtils.h>
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/Segments.h>
 #include <lal/SegmentsIO.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
 #include <lalapps.h>
 #include <processtable.h>
-
+#include <LALAppsVCSInfo.h>
 
 RCSID("$Id$");
 
@@ -91,6 +89,7 @@ static void print_usage(char *program)
       "\n"\
       "Cuts and Vetos:\n"\
       " [--ifo-cut]       ifo         only keep triggers from specified ifo\n"\
+      " [--coinc-cut]         ifos     only keep triggers from IFOS\n"\
       " [--snr-threshold] snr_star    discard all triggers with snr less than snr_star\n"\
       " [--rsq-threshold] rsq_thresh  discard all triggers whose rsqveto_duration\n"\
       "                               exceeds rsq_thresh\n"\
@@ -107,7 +106,9 @@ static void print_usage(char *program)
       " [--sort-triggers]             time sort the inspiral triggers\n"\
       " [--cluster-time]   clust_time cluster triggers with clust_time ms window\n"\
       " [--cluster-algorithm] clust   use trigger clustering algorithm clust\n"\
-      "                               [ snrsq_over_chisq | snr ]\n"\
+      "                               [ cohsnr | effCohSnr | nullstat | snrByNullstat\n"\
+      "                               | autoCorrCohSqByNullstat | crossCorrCohSqByNullstat\n"\
+      "                               | autoCorrNullSqByNullstat| crossCorrNullSqByNullstat ]\n"\
       "\n"\
       "Injection analysis:\n"\
       " [--injection-file]   inj_file read injection parameters from inj_file\n"\
@@ -116,7 +117,7 @@ static void print_usage(char *program)
 }
 
 /* function to read the next line of data from the input file list */
-char *get_next_line( char *line, size_t size, FILE *fp )
+static char *get_next_line( char *line, size_t size, FILE *fp )
 {
   char *s;
   do
@@ -127,6 +128,7 @@ char *get_next_line( char *line, size_t size, FILE *fp )
 
 int sortTriggers = 0;
 LALPlaygroundDataMask dataType;
+extern int vrbflg;
 
 int main( int argc, char *argv[] )
 {
@@ -134,9 +136,9 @@ int main( int argc, char *argv[] )
   LALStatus status = blank_status;
 
   /*  program option variables */
-  extern int vrbflg;
   CHAR *userTag = NULL;
   CHAR comment[LIGOMETA_COMMENT_MAX];
+  char *ifos = NULL;
   char *ifoName = NULL;
   char *inputGlob = NULL;
   char *inputFileName = NULL;
@@ -186,6 +188,7 @@ int main( int argc, char *argv[] )
   int                   numEventsBelowRsqThresh = 0;
   int                   numEventsSurvivingVeto = 0;
   int                   numClusteredEvents = 0;
+  int                   numEventsInIfos = 0;
 
   int                   numSimEvents = 0;
   int                   numSimInData = 0;
@@ -202,9 +205,6 @@ int main( int argc, char *argv[] )
 
   /*CHECK:*/
   MetadataTable                 savedEvents;
-  MultiInspiralTable    *tempTable = NULL;
-  LIGOLwXMLStream       results;
-  CHAR   xmlname[FILENAME_MAX];
 
   /*
    *
@@ -221,19 +221,8 @@ int main( int argc, char *argv[] )
   proctable.processTable = (ProcessTable *) 
     calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -276,6 +265,7 @@ int main( int argc, char *argv[] )
       {"cluster-algorithm",       required_argument,      0,              'C'},
       {"cluster-time",            required_argument,      0,              't'},
       {"ifo-cut",                 required_argument,      0,              'd'},
+      {"coinc-cut",               required_argument,      0,              'D'},
       {"veto-file",               required_argument,      0,              'v'},
       {"injection-file",          required_argument,      0,              'I'},
       {"injection-window",        required_argument,      0,              'T'},
@@ -289,7 +279,7 @@ int main( int argc, char *argv[] )
     size_t optarg_len;
 
     c = getopt_long_only ( argc, argv, 
-        "c:d:g:hi:j:k:m:o:r:s:t:v:zC:DH:I:R:ST:VZ:", 
+        "c:d:D:g:hi:j:k:m:o:r:s:t:v:zC:DH:I:R:ST:VZ:", 
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -354,9 +344,8 @@ int main( int argc, char *argv[] )
 
       case 'V':
         fprintf( stdout, "Single Inspiral Reader and Injection Analysis\n"
-            "Patrick Brady, Duncan Brown and Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n" );
-        fprintf( stdout, lalappsGitID );
+            "Patrick Brady, Duncan Brown and Steve Fairhurst\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 
@@ -485,24 +474,44 @@ int main( int argc, char *argv[] )
       case 'C':
         /* choose the clustering algorithm */
         {        
-          if ( ! strcmp( "snr_and_chisq", optarg ) )
+          if ( ! strcmp( "nullstat", optarg) )
           {
-            clusterchoice = snr_and_chisq;
+            clusterchoice = nullstat;
           }
-          else if ( ! strcmp( "snrsq_over_chisq", optarg) )
+          else if ( ! strcmp( "cohsnr", optarg) )
           {
-            clusterchoice = snrsq_over_chisq;
+            clusterchoice = cohsnr;
           }
-          else if ( ! strcmp( "snr", optarg) )
+          else if ( ! strcmp( "effCohSnr", optarg) )
           {
-            clusterchoice = snr;
-          }        
+            clusterchoice = effCohSnr;
+          }       
+          else if ( ! strcmp( "snrByNullstat", optarg) )
+          {
+            clusterchoice = snrByNullstat;
+          } 
+          else if ( ! strcmp( "autoCorrCohSqByNullstat", optarg) )
+          {
+            clusterchoice = autoCorrCohSqByNullstat;
+          }
+          else if ( ! strcmp( "crossCorrCohSqByNullstat", optarg) )
+          {
+            clusterchoice = autoCorrCohSqByNullstat;
+          }
+          else if ( ! strcmp( "autoCorrNullSqByNullstat", optarg) )
+          {
+            clusterchoice = autoCorrCohSqByNullstat;
+          }
+          else if ( ! strcmp( "crossCorrNullSqByNullstat", optarg) )
+          {
+            clusterchoice = crossCorrCohSqByNullstat;
+          }
           else
           {
             fprintf( stderr, "invalid argument to  --%s:\n"
                 "unknown clustering specified:\n "
-                "%s (must be one of: snr_and_chisq, \n"
-                "   snrsq_over_chisq or snr)\n",
+                "%s (must be one of: cohsnr, effCohSnr, nullstat, snrByNullstat, autoCorrCohSqByNullstat, \n"
+                "crossCorrCohSqByNullstat, autoCorrNullSqByNullstat, or crossCorrNullSqByNullstat)\n",
                 long_options[option_index].name, optarg);
             exit( 1 );
           }
@@ -517,11 +526,11 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "custer window must be > 0: "
-              "(%lld specified)\n",
+              "(%" LAL_INT8_FORMAT " specified)\n",
               long_options[option_index].name, cluster_dt );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%lld", cluster_dt );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT8_FORMAT, cluster_dt );
         /* convert cluster time from ms to ns */
         cluster_dt *= 1000000LL;
         break;
@@ -549,6 +558,14 @@ int main( int argc, char *argv[] )
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
 
+      case 'D':
+        /* keep only coincs found in ifos */
+        optarg_len = strlen( optarg ) + 1;
+        ifos = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( ifos, optarg, optarg_len );
+        ADD_PROCESS_PARAM( "string", "%s", optarg );
+        break;
+
       case 'T':
         /* injection coincidence time is specified on command line in ms */
         injectWindowNS = (INT8) atoi( optarg );
@@ -556,11 +573,11 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "injection coincidence window must be >= 0: "
-              "(%lld specified)\n",
+              "(%" LAL_INT8_FORMAT " specified)\n",
               long_options[option_index].name, injectWindowNS );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%lld", injectWindowNS );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT8_FORMAT, injectWindowNS );
         /* convert inject time from ms to ns */
         injectWindowNS *= 1000000LL;
         break;
@@ -782,10 +799,6 @@ int main( int argc, char *argv[] )
           &thisFileTrigger, &searchSummList, &inputFiles, inFileNameList[j] );
       numEvents += numFileTriggers;
       
-
-      /*CHECK: END */
-      
-      
     if (numFileTriggers < 0)
       {
         fprintf(stderr, "Error reading triggers from file %s\n",
@@ -809,7 +822,15 @@ int main( int argc, char *argv[] )
      *  keep only relevant triggers
      *
      */
-    
+   
+    if( ifos )
+    {
+      numFileTriggers = XLALMultiInspiralIfosCut( &inspiralFileList, ifos );
+      if ( vrbflg ) fprintf( stdout,
+          "Kept %d coincs from %s instruments\n", numFileTriggers, ifos );
+      numEventsInIfos += numFileTriggers;
+    }
+ 
     /* Do playground_only or exclude_play cut */
     if ( dataType != all_data )
     {

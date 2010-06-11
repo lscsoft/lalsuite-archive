@@ -124,7 +124,9 @@ def parse_command_line():
 	parser.add_option("--output-prefix", metavar = "string", help = "Set the prefix string for output filenames (required). Output filenames are constructed automatically, and are of the form \"PREFIX_blah_blah_blah.xml.gz\". Hint: can include a path.")
 	parser.add_option("--veto-segments", metavar = "filename", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", metavar = "string", help = "Set the name of the veto segments to use from the XML document.")
+	parser.add_option("--statistic", metavar = "string", help = "Choose which detection statistic to use, effective_snr or new_snr.") 
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
+	parser.add_option("--chisq-index", metavar = "float", type = "float", default = 6.0, help = "Set the new snr chisq index (default = 6.0).")
 	parser.add_option("--lars-id", metavar = "string", type = "string", default = None, help = "Set the lars_id for this experiment in the experiment table (optional).")
 	parser.add_option("--search", metavar = "string", type = "string", default = None, help = "Set the search, e.g., 'low_mass', for this experiment in the experiment table (optional).")
 	parser.add_option("--experiment-start-time", type="int", help = "Start time, in gps seconds, of the experiment being performed. This is NOT the start time of the thinca-files being used. Required.")
@@ -331,8 +333,12 @@ def set_process_params(xmldoc, process, options):
 		params.append((u"--veto-segments", u"lstring", options.veto_segments))
 	if options.veto_segments_name:
 		params.append((u"--veto-segments-name", u"lstring", options.veto_segments_name))
+	if options.statistic:
+		params.append((u"--statistic", u"lstring", options.statistic))
 	if options.effective_snr_factor:
 		params.append((u"--effective-snr-factor", u"lstring", options.effective_snr_factor))
+	if options.chisq_index:
+		params.append((u"--chisq-index", u"lstring", options.chisq_index))
 	if options.output_prefix:
 		params.append((u"--output-prefix", u"lstring", options.output_prefix))
 
@@ -924,7 +930,7 @@ def get_playground_segments(all_data_segments):
 #
 
 
-def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, verbose = False):
+def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, chisq_index = 6.0, verbose = False):
 	if verbose:
 		print >>sys.stderr, "constructing coincs ...",
 
@@ -1073,7 +1079,13 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		coinc_inspiral.set_ifos(str(event.ifo) for event in events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
-		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
+		if options.statistic == "new_snr":
+			coinc_inspiral.snr = math.sqrt(sum(event.get_new_snr(index = chisq_index)**2 for event in events))
+		elif options.statistic == "effective_snr":
+			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
+		else:
+			print >>sys.stderr, "Error: no recognized statistic given in --statistic (should be new_snr or effective_snr)"
+			sys.exit(1)
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 
@@ -1503,7 +1515,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# if needed
 
 		if not found_instruments.issubset(on_instruments):
-			continue
+			on_instruments = on_instruments | found_instruments 
 		
 		# check if on_instruments matches instruments listed in experiment table
 		# for this coinc
@@ -1611,7 +1623,7 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		# write the experiment_tables 
 		generate_experiment_tables(xmldoc, search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, comments = None, simulation = options.simulation, verbose = options.verbose)
 
-		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
+		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, chisq_index = options.chisq_index, verbose = options.verbose)
 
 		depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 

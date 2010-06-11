@@ -1,3 +1,7 @@
+if LALPULSAR
+LALPULSARDIRS = pulsar
+endif
+
 SUBDIRS = \
 	lalapps \
 	calibration \
@@ -7,9 +11,7 @@ SUBDIRS = \
 	ring \
 	string \
 	power \
-	pulsar \
+	$(LALPULSARDIRS) \
 	inspiral \
-	zmsearch \
-	detresponse \
 	tracksearch \
 	online

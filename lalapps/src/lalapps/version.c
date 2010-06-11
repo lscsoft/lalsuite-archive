@@ -19,55 +19,129 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <lalapps.h>
-#include <lal/LALStdlib.h>
-#include <lal/LALVersion.h>
+#include <getopt.h>
 
-const char *rcsid = "$Id$";
+#include <lal/LALMalloc.h>
+
+#include <lalapps.h>
+#include <LALAppsVCSInfo.h>
+
+/* program information */
+RCSID(LALAPPS_VCS_IDENT_ID);
+#define PROGRAM_NAME "lalapps_version"
+
+/* verbose flag */
 extern int vrbflg;
 
-int main( void )
-{
-  LALStatus status = blank_status;
-  char msg[16384];
+/* function prototypes */
+static void parse_options(int argc, char **argv);
+static void print_usage(FILE *ptr, const char *program_name);
 
-  vrbflg = 1;
-  set_debug_level( "LALMSGLVL3" ); 
+/*
+ * main program entry point
+ */
+
+int main(int argc, char **argv)
+{
+  /* setup error handler */
+  set_debug_level( "LALMSGLVL3" );
   lal_errhandler = LAL_ERR_EXIT;
 
-  /* print version of this program */
-  fprintf( stdout, "LALApps Version:     %s\n", LALAPPS_VERSION );
-  fprintf( stdout, "CVS Tag:             %s\n", LALAPPS_CVS_TAG );
-  fprintf( stdout, "Configure Date:      %s\n", LALAPPS_CONFIGURE_DATE );
-  fprintf( stdout, "Configure Arguments: %s\n", LALAPPS_CONFIGURE_ARGS );
-  fprintf( stdout, "(RCS %s)\n\n", rcsid );
+  /* parse command line options */
+  parse_options(argc, argv);
 
-  LAL_CALL( LALVersion( &status, msg, sizeof( msg ), vrbflg ), &status );
-  puts( msg );
+  /* print version information */
+  XLALOutputVersionString(stderr, vrbflg);
 
-  /* check consistency of lal version */
-  if ( strcmp( LAL_VERSION, lalVersion ) ||
-       strcmp( LAL_CONFIGURE_ARGS, lalConfigureArgs ) ||
-       strcmp( LAL_CONFIGURE_DATE, lalConfigureDate ) )
-  {
-    fputs( "LAL Version Mismatch!\n\n", stderr );
-    fputs( "Header Version:      ",     stderr );
-    fputs( LAL_VERSION,                 stderr );
-    fputs( "\nConfigure Date:      ",   stderr );
-    fputs( LAL_CONFIGURE_DATE,          stderr );
-    fputs( "\nConfigure Arguments: ",   stderr );
-    fputs( LAL_CONFIGURE_ARGS,          stderr );
-    fputs( "\n\n",                      stderr );
-    fputs( "Library Version:     ",     stderr );
-    fputs( lalVersion,                  stderr );
-    fputs( "\nConfigure Date:      ",   stderr );
-    fputs( lalConfigureDate,            stderr );
-    fputs( "\nConfigure Arguments: ",   stderr );
-    fputs( lalConfigureArgs,            stderr );
-    fputs( "\n",                        stderr );
-    return 1;
-  }
-
+  /* clean up and exit */
   LALCheckMemoryLeaks();
   return 0;
+}
+
+/*
+ * local helper functions
+ */
+
+/* parse command line options */
+static void parse_options(int argc, char **argv)
+{
+  /* counters */
+  int c;
+
+  /* getopt arguments */
+  struct option long_options[] =
+  {
+    /* options that set a flag */
+    {"verbose", no_argument, &vrbflg, 1},
+    {"help", no_argument, 0, 'h'},
+    {0, 0, 0, 0}
+  };
+
+  /* initialise vrbflg */
+  vrbflg = 0;
+
+  /* parse the arguments */
+  while(1)
+  {
+    /* getopt_long stores option here */
+    int option_index = 0;
+
+    /* parse options */
+    c = getopt_long_only(argc, argv, "h", long_options, &option_index);
+
+    /* detect the end of the options */
+    if (c == -1)
+      break;
+
+    switch(c)
+    {
+      case 0:
+        /* if this option sets a flag, do nothing else for now */
+        if (long_options[option_index].flag != 0)
+          break;
+        else
+        {
+          fprintf(stderr, "Error parsing option %s with argument %s\n",
+              long_options[option_index].name, optarg);
+          exit(1);
+        }
+        break;
+
+      case 'h':
+        /* print help message, and exit */
+        print_usage(stderr, PROGRAM_NAME);
+        exit(0);
+        break;
+
+      case '?':
+        print_usage(stderr, PROGRAM_NAME);
+        exit(1);
+        break;
+
+      default:
+        fprintf(stderr, "Unknown error while parsing arguments\n");
+        print_usage(stderr, PROGRAM_NAME);
+        exit(1);
+        break;
+    }
+  }
+
+  /* check for extraneous command line arguments */
+  if (optind < argc)
+  {
+    fprintf(stderr, "Extraneous command line arguments:\n");
+    while(optind < argc)
+      fprintf(stderr, "\t%s\n", argv[optind++]);
+    exit(1);
+  }
+}
+
+/* function to display program usage information */
+static void print_usage(FILE *ptr, const char *program_name)
+{
+  /* print usage information */
+  fprintf(ptr,
+      "Usage: %s [options]\n"
+      " --help display this messgage and exit\n"
+      " --verbose display verbose version information\n", program_name);
 }

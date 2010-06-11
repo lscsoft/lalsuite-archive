@@ -174,7 +174,6 @@ int main( int argc, char *argv[] )
   double pdf_norm;
 
   GalacticInspiralParamStruc galacticPar;
-  LALGPSCompareResult        compareGPS;
 
   /* xml output data */
   CHAR                  fname[256];
@@ -541,10 +540,6 @@ int main( int argc, char *argv[] )
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
   }
 
-  /* check that the start time is before the end time */
-  LAL_CALL( LALCompareGPS( &status, &compareGPS, &gpsStartTime, &gpsEndTime ),
-      &status );
-
 
   /*
    *
@@ -553,7 +548,7 @@ int main( int argc, char *argv[] )
    */
 
 
-  while ( compareGPS == LALGPS_EARLIER )
+  while ( XLALGPSCmp( &gpsStartTime, &gpsEndTime ) < 0 )
   {
     /* uniformly distributed masses */
     LAL_CALL( LALUniformDeviate( &status, &u, randParams ), &status );
@@ -627,15 +622,12 @@ int main( int argc, char *argv[] )
           this_inj, &galacticPar, randParams ), &status );
 
     /* set the source and waveform fields */
-    snprintf( this_inj->source, LIGOMETA_SOURCE_MAX * sizeof(CHAR), "MW" );
-    snprintf( this_inj->waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR), 
+    snprintf( this_inj->source, LIGOMETA_SOURCE_MAX, "MW" );
+    snprintf( this_inj->waveform, LIGOMETA_WAVEFORM_MAX, 
         "GeneratePPNtwoPN" );
 
     /* increment the injection time */
     XLALGPSAdd( &gpsStartTime, meanTimeStep );
-    LAL_CALL( LALCompareGPS( &status, &compareGPS, &gpsStartTime, 
-          &gpsEndTime ), &status );
-
   } /* end loop over injection times */
 
   /* destroy random parameters */

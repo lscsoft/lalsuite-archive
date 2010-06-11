@@ -32,6 +32,7 @@ methods that work against the SQL database.
 """
 
 
+import itertools
 import os
 import re
 import shutil
@@ -39,16 +40,12 @@ import signal
 import sys
 import tempfile
 from xml.sax.xmlreader import AttributesImpl
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
-from warnings import warn
+import warnings
 
 
 from glue import git_version
 from glue import segments
+from glue.ligolw import ilwd
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -104,6 +101,13 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		os.close(fd)
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
+		# mkstemp() ignores umask, creates all files accessible
+		# only by owner;  we should respect umask.  note that
+		# umask() sets it, too, so we have to set it back after we
+		# know what it is
+		umsk = os.umask(0777)
+		os.umask(umsk)
+		os.chmod(filename, 0666 & ~umsk)
 		return filename
 
 	def truncate(filename, verbose = False):
@@ -122,12 +126,22 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	def cpy(srcname, dstname, verbose = False):
 		if verbose:
 			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname)
-		shutil.copy(srcname, dstname)
+		shutil.copy2(srcname, dstname)
+		try:
+			# try to preserve permission bits.  according to
+			# the documentation, copy() and copy2() are
+			# supposed preserve them but don't.  maybe they
+			# don't preserve them if the destination file
+			# already exists?
+			shutil.copystat(srcname, dstname)
+		except Exception, e:
+			if verbose:
+				print >>sys.stderr, "warning: ignoring failure to copy permission bits from '%s' to '%s': %s" % (filename, target, str(e))
 
 	database_exists = os.access(filename, os.F_OK)
 
 	if tmp_path is not None:
-		target = mktmp(tmp_path, verbose)
+		target = mktmp(tmp_path, verbose = verbose)
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
@@ -140,24 +154,25 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 				i = 1
 				while True:
 					try:
-						cpy(filename, target, verbose)
+						cpy(filename, target, verbose = verbose)
 					except IOError, e:
 						import errno
 						import time
-						if e.errno == errno.ENOSPC:
-							if i < 5:
-								if verbose:
-									print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
-								time.sleep(10)
-								i += 1
-								continue
-							else:
-								if verbose:
-									print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file" % i
-								os.remove(target)
-								target = filename
-						else:
+						if e.errno != errno.ENOSPC:
+							# anything other
+							# than out-of-space
+							# is a real error
 							raise e
+						if i < 5:
+							if verbose:
+								print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
+							time.sleep(10)
+							i += 1
+							continue
+						if verbose:
+							print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file '%s'" % (i, filename)
+						os.remove(target)
+						target = filename
 					break
 	else:
 		target = filename
@@ -169,6 +184,20 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	del cpy
 
 	return target
+
+def set_temp_store_directory( connection, temp_store_directory, verbose = False ):
+	"""
+	Sets the temp_store_directory parameter in sqlite.
+	"""
+	try:
+		import sqlite3
+	except ImportError:
+		# pre 2.5.x
+		from pysqlite2 import dbapi2 as sqlite3
+
+	if verbose:
+		print >> sys.stderr, "setting the temp_store_directory to %s ..." % temp_store_directory
+	connection.cursor().execute('PRAGMA temp_store_directory = "%s"' % temp_store_directory)
 
 
 class IOTrappedSignal(Exception):
@@ -275,6 +304,18 @@ def idmap_reset(connection):
 	connection.cursor().execute("DELETE FROM _idmap_")
 
 
+def idmap_sync(connection):
+	"""
+	Iterate over the tables in the database, ensure that there exists a
+	custom DBTable class for each, and synchronize that table's ID
+	generator to the ID values in the database.
+	"""
+	xmldoc = get_xml(connection)
+	for tbl in xmldoc.getElementsByTagName(DBTable.tagName):
+		tbl.sync_next_id()
+	xmldoc.unlink()
+
+
 def idmap_get_new(connection, old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
@@ -292,10 +333,10 @@ def idmap_get_new(connection, old, tbl):
 	new = cursor.fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
-		return new[0]
+		return ilwd.get_ilwdchar(new[0])
 	# this ID was not found in _idmap_ table, assign a new ID and
 	# record it
-	new = unicode(tbl.get_next_id())
+	new = tbl.get_next_id()
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
 
@@ -307,19 +348,19 @@ def idmap_get_max_id(connection, id_class):
 
 	Example:
 
-	>>> id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
-	>>> print id
+	>>> event_id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> print event_id
 	sngl_inspiral:event_id:0
-	>>> max = get_max_id(connection, type(id))
-	>>> print max
+	>>> max_id = get_max_id(connection, type(event_id))
+	>>> print max_id
 	sngl_inspiral:event_id:1054
 	"""
 	cursor = connection.cursor()
 	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
-	max = cursor.fetchone()[0]
-	if max is None:
+	maxid = cursor.fetchone()[0]
+	if maxid is None:
 		return None
-	return id_class(max)
+	return id_class(maxid)
 
 
 #
@@ -519,7 +560,7 @@ class DBTable(table.Table):
 		if "connection" in kwargs:
 			self.connection = kwargs.pop("connection")
 		else:
-			warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
+			warnings.warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
 			self.connection = self.connection
 
 		# pre-allocate a cursor for internal queries
@@ -619,7 +660,9 @@ class DBTable(table.Table):
 		queries into Python objects.
 		"""
 		row = self.RowType()
-		for c, v in zip(self.dbcolumnnames, values):
+		for c, t, v in zip(self.dbcolumnnames, self.dbcolumntypes, values):
+			if t in ligolwtypes.IDTypes:
+				v = ilwd.get_ilwdchar(v)
 			setattr(row, c, v)
 		return row
 	# backwards compatibility
@@ -658,23 +701,6 @@ class DBTable(table.Table):
 #
 
 
-class ProcessTable(DBTable):
-	# FIXME:  remove this class
-	tableName = lsctables.ProcessTable.tableName
-	validcolumns = lsctables.ProcessTable.validcolumns
-	constraints = lsctables.ProcessTable.constraints
-	next_id = lsctables.ProcessTable.next_id
-	RowType = lsctables.ProcessTable.RowType
-	how_to_index = lsctables.ProcessTable.how_to_index
-
-	def get_ids_by_program(self, program):
-		"""
-		Return a set of the process IDs from rows whose program
-		string equals the given program.
-		"""
-		return set(id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,)))
-
-
 class ProcessParamsTable(DBTable):
 	tableName = lsctables.ProcessParamsTable.tableName
 	validcolumns = lsctables.ProcessParamsTable.validcolumns
@@ -697,29 +723,12 @@ class TimeSlideTable(DBTable):
 	RowType = lsctables.TimeSlideTable.RowType
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
-	def __len__(self):
-		raise NotImplementedError
-
-	def __getitem__(*args):
-		raise NotImplementedError
-
-	def get_offset_dict(self, id):
-		offsets = dict(self.cursor.execute("SELECT instrument, offset FROM time_slide WHERE time_slide_id == ?", (id,)))
-		if not offsets:
-			raise KeyError, id
-		return offsets
-
 	def as_dict(self):
 		"""
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		d = {}
-		for id, instrument, offset in self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide"):
-			if id not in d:
-				d[id] = {}
-			d[id][instrument] = offset
-		return d
+		return dict((ilwd.get_ilwdchar(id), dict((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None):
 		"""
@@ -753,9 +762,6 @@ class TimeSlideTable(DBTable):
 
 		# return new ID
 		return id
-
-	def iterkeys(self):
-		raise NotImplementedError
 
 
 #
@@ -805,7 +811,6 @@ def build_indexes(connection, verbose = False):
 
 
 TableByName = {
-	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable
 }

@@ -168,6 +168,8 @@ int main(int argc, char *argv[]){
   FILE  *fpLog = NULL;
   CHAR   *logstr=NULL; 
 
+  int rc;
+
   /* user input variables */
   BOOLEAN uvar_help;
   INT4 uvar_blocksRngMed, uvar_nh0, uvar_nMCloop, uvar_AllSkyFlag;
@@ -280,7 +282,7 @@ int main(int argc, char *argv[]){
   fprintf( fpLog, "## Log file for MCInjectHoughS2\n\n");
   fprintf( fpLog, "# User Input:\n");
   fprintf( fpLog, "#-------------------------------------------\n");
-  fprintf( fpLog, logstr);
+  fprintf( fpLog, "%s", logstr);
   LALFree(logstr);
 
   /* copy contents of harmonics file into logfile */
@@ -289,7 +291,7 @@ int main(int argc, char *argv[]){
   {
     CHAR command[1024] = "";
     sprintf(command, "cat %s >> %s", uvar_harmonicsfile, fnamelog);
-    system(command);
+    rc = system(command);
   }
 
   /* append an ident-string defining the exact CVS-version of the code used */
@@ -301,7 +303,7 @@ int main(int argc, char *argv[]){
     fclose (fpLog);
     
     sprintf (command, "ident %s | sort -u >> %s", argv[0], fnamelog);
-    system (command);	/* we don't check this. If it fails, we assume that */
+    rc = system(command);	/* we don't check this. If it fails, we assume that */
     			/* one of the system-commands was not available, and */
     			/* therefore the CVS-versions will not be logged */
 
@@ -467,7 +469,7 @@ int main(int argc, char *argv[]){
     static SFTConstraints constraints;
 
     CHAR *tempDir;
-    REAL8 doppWings, fmin, fmax;
+    REAL8 doppWings, f_min, f_max;
     INT4 length;
 
     /* set detector constraint */
@@ -502,12 +504,12 @@ int main(int argc, char *argv[]){
 
     /* add wings for Doppler modulation and running median block size*/
     doppWings = (uvar_f0 + uvar_fSearchBand) * VTOT;    
-    fmin = uvar_f0 - doppWings - (uvar_blocksRngMed + nfSizeCylinder) * deltaF;
-    fmax = uvar_f0 + uvar_fSearchBand + doppWings + (uvar_blocksRngMed + nfSizeCylinder) * deltaF;
+    f_min = uvar_f0 - doppWings - (uvar_blocksRngMed + nfSizeCylinder) * deltaF;
+    f_max = uvar_f0 + uvar_fSearchBand + doppWings + (uvar_blocksRngMed + nfSizeCylinder) * deltaF;
 
     /* read sfts */
     /* read sft files making sure to add extra bins for running median */
-    LAL_CALL( LALLoadSFTs ( &status, &inputSFTs, catalog, fmin, fmax), &status);
+    LAL_CALL( LALLoadSFTs ( &status, &inputSFTs, catalog, f_min, f_max), &status);
 
 
     /* calculation of weights comes here */
@@ -771,7 +773,7 @@ int main(int argc, char *argv[]){
     
     for(h0loop=0; h0loop <uvar_nh0; ++h0loop){
       
-      INT4  j, i, index, itemplate; 
+      INT4  j, i, ind, itemplate; 
       COMPLEX8 *noise1SFT;
       COMPLEX8 *signal1SFT;
       COMPLEX8 *sumSFT;
@@ -810,12 +812,12 @@ int main(int argc, char *argv[]){
                      &periPSD.psd, &periPSD.periodogram, &uvar_blocksRngMed),  &status ); */	
 	LAL_CALL( LALSelectPeakColorNoise(&status,&pg1,&threshold,&periPSD), &status); 	
 
-	index = floor( foft.data[j]*timeBase -sftFminBin+0.5); 
-	numberCount+=pg1.data[index]; /* adds 0 or 1 to the counter*/
+	ind = floor( foft.data[j]*timeBase -sftFminBin+0.5); 
+	numberCount+=pg1.data[ind]; /* adds 0 or 1 to the counter*/
 
         for (itemplate=0; itemplate<nTemplates; ++itemplate) {
-	  index = floor( foftV[itemplate].data[j]*timeBase -sftFminBin+0.5); 
-          numberCountV[itemplate]+=pg1.data[index];
+	  ind = floor( foftV[itemplate].data[j]*timeBase -sftFminBin+0.5); 
+          numberCountV[itemplate]+=pg1.data[ind];
         }
       }
       

@@ -46,9 +46,6 @@
 #include <lal/LALHough.h>
 #include <lal/LogPrintf.h>
 
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
-
 #include <lalapps.h>
 
 /* local includes */
@@ -144,7 +141,7 @@ int main(int argc,char *argv[]);
 
 void initUserVars (LALStatus *status, UserInput_t *uvar );
 void InitPFS ( LALStatus *, ConfigVariables *cfg, const UserInput_t *uvar );
-void InitEphemeris (LALStatus *, EphemerisData *edat, const CHAR *ephemDir, const CHAR *ephemYear, LIGOTimeGPS epoch);
+void InitEphemeris (LALStatus *, EphemerisData *edat, const CHAR *ephemDir, const CHAR *ephemYear);
 
 /*---------- empty initializers ---------- */
 
@@ -162,6 +159,7 @@ int main(int argc,char *argv[])
   REAL8 rho2;	/* SNR^2 */
 
   UserInput_t uvar = empty_UserInput;
+  CHAR *VCSInfoString;          /**< LAL + LALapps Git version string */
 
   lalDebugLevel = 0;
   vrbflg = 1;	/* verbose error-messages */
@@ -179,10 +177,15 @@ int main(int argc,char *argv[])
   if (uvar.help)	/* if help was requested, we're done here */
     exit (0);
 
+
+  if ( (VCSInfoString = XLALGetVersionString(0)) == NULL ) {
+    XLALPrintError("XLALGetVersionString(0) failed.\n");
+    exit(1);
+  }
+
   if ( uvar.version ) {
-    printf ( "%s\n", lalGitID );
-    printf ( "%s\n", lalappsGitID );
-    return 0;
+    printf ("%s\n", VCSInfoString );
+    exit(0);
   }
 
   /* Initialize code-setup */
@@ -210,7 +213,6 @@ int main(int argc,char *argv[])
     {
       FILE *fpFstat = NULL;
       CHAR *logstr = NULL;
-      CHAR *id1, *id2;
 
       if ( (fpFstat = fopen (uvar.outputFstat, "wb")) == NULL)
 	{
@@ -223,10 +225,8 @@ int main(int argc,char *argv[])
 
       fprintf(fpFstat, "%%%% cmdline: %s\n", logstr );
       LALFree ( logstr );
-      id1 = XLALClearLinebreaks ( lalGitID );
-      id2 = XLALClearLinebreaks ( lalappsGitID );
-      fprintf ( fpFstat, "%%%% %s\n%%%%%s\n", id1, id2 );
-      LALFree ( id1 ); LALFree ( id2 );
+
+      fprintf ( fpFstat, "%s\n", VCSInfoString );
 
       /* append 'dataSummary' */
       fprintf (fpFstat, "%s", GV.dataSummary );
@@ -252,6 +252,7 @@ int main(int argc,char *argv[])
   /* Free config-Variables and userInput stuff */
   LAL_CALL (LALDestroyUserVars (&status), &status);
   LALFree ( GV.dataSummary );
+  XLALFree ( VCSInfoString );
 
   /* did we forget anything ? */
   LALCheckMemoryLeaks();
@@ -304,7 +305,7 @@ initUserVars (LALStatus *status, UserInput_t *uvar )
   LALregREALUserStruct(status,	Delta,		'd', UVAR_REQUIRED, "Sky position delta (equatorial coordinates) in radians");
   LALregREALUserStruct(status,	Freq,		'F', UVAR_REQUIRED, "GW signal frequency (only used for noise-estimation in SFTs)");
 
-  LALregSTRINGUserStruct(status,DataFiles, 	'D', UVAR_OPTIONAL, "File-pattern specifying (multi-IFO) input SFT-files");
+  LALregSTRINGUserStruct(status,DataFiles, 	'D', UVAR_REQUIRED, "File-pattern specifying (multi-IFO) input SFT-files");
   LALregSTRINGUserStruct(status,IFO, 		'I', UVAR_OPTIONAL, "Detector-constraint: 'G1', 'L1', 'H1', 'H2' ...(useful for single-IFO v1-SFTs only!)");
   LALregSTRINGUserStruct(status,ephemDir, 	'E', UVAR_OPTIONAL, "Directory where Ephemeris files are located");
   LALregSTRINGUserStruct(status,ephemYear, 	'y', UVAR_OPTIONAL, "Year (or range of years) of ephemeris files to be used");
@@ -330,8 +331,7 @@ void
 InitEphemeris (LALStatus * status,
 	       EphemerisData *edat,	/**< [out] the ephemeris-data */
 	       const CHAR *ephemDir,	/**< directory containing ephems */
-	       const CHAR *ephemYear,	/**< which years do we need? */
-	       LIGOTimeGPS epoch	/**< epoch of observation */
+	       const CHAR *ephemYear	/**< which years do we need? */
 	       )
 {
 #define FNAME_LENGTH 1024
@@ -532,7 +532,7 @@ InitPFS ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
       ephemDir = uvar->ephemDir;
     else
       ephemDir = NULL;
-    TRY( InitEphemeris (status->statusPtr, edat, ephemDir, uvar->ephemYear, startTime ), status);
+    TRY( InitEphemeris (status->statusPtr, edat, ephemDir, uvar->ephemYear ), status);
   }
 
   /* ----- obtain the (multi-IFO) 'detector-state series' for all SFTs ----- */

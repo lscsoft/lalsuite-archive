@@ -41,7 +41,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import array
 from glue.ligolw import utils
-
+from glue import git_version
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id

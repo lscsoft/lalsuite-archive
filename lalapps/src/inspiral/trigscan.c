@@ -39,14 +39,12 @@
 #include <lal/LALStdlib.h>
 #include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/LIGOMetadataUtils.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lal/LALTrigScanCluster.h>
 #include <lalapps.h>
 #include <processtable.h>
-
-#include <lal/LALTrigScanCluster.h>
+#include <LALAppsVCSInfo.h>
 
 RCSID("$Id$");
 
@@ -74,6 +72,8 @@ snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--%s", \
     long_options[option_index].name ); \
 snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "%s", pptype ); \
 snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
+
+extern int vrbflg;
 
 /*
  *
@@ -109,8 +109,6 @@ static void print_usage(char *program)
 
 int main( int argc, char *argv[] )
 {
-  extern int vrbflg;
-
   static LALStatus      status;
 
   INT4  startTime = -1;
@@ -143,7 +141,7 @@ int main( int argc, char *argv[] )
   MetadataTable         inspiralTable;
   ProcessParamsTable   *this_proc_param = NULL;
   LIGOLwXMLStream       xmlStream;
-  UINT4                 outCompress = 0;
+  INT4                  outCompress = 0;
 
   long int              gpstime;
 
@@ -194,19 +192,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = processParamsTable.processParamsTable = 
     (ProcessParamsTable *) calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -304,10 +291,8 @@ int main( int argc, char *argv[] )
         /* print version information and exit */
         fprintf( stdout, "TrigScan Cluster \n" 
             "Larne Pekowsky\n"
-            "Based on trigbank and inspiral by Patrick Brady, Duncan Brown and Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n");
-        fprintf( stdout, lalappsGitID );
+            "Based on trigbank and inspiral by Patrick Brady, Duncan Brown and Steve Fairhurst\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 
@@ -338,7 +323,7 @@ int main( int argc, char *argv[] )
         }
         startTime = (INT4) gpstime;
         startTimeGPS.gpsSeconds = startTime;
-        ADD_PROCESS_PARAM( "int", "%ld", startTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startTime );
         break;
 
       case 'r':
@@ -364,7 +349,7 @@ int main( int argc, char *argv[] )
         }
         endTime = (INT4) gpstime;
         endTimeGPS.gpsSeconds = endTime;
-        ADD_PROCESS_PARAM( "int", "%ld", endTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, endTime );
         break;
 
       case '*':

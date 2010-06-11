@@ -211,7 +211,7 @@ extern char *optarg;
 extern int   optind;
 
 /* int lalDebugLevel = LALMSGLVL3; */
-int lalDebugLevel  = LALNDEBUG;
+extern int lalDebugLevel;
 BOOLEAN optVerbose = CCOARSEGRAINFREQUENCYSERIESTESTC_FALSE;
 UINT4 optInLength    = 0;
 UINT4 optOutLength   = 0;
@@ -295,6 +295,8 @@ main( int argc, char *argv[] )
    RealFFTPlan            *fftPlan;
 
    RandomParams           *randomParams;
+
+   lalDebugLevel  = LALNDEBUG;
 
    ParseOptions( argc, argv );
 
@@ -573,6 +575,8 @@ main( int argc, char *argv[] )
        = CCOARSEGRAINFREQUENCYSERIESTESTC_DELTAF0;
 
    } /* if ( ! lalNoDebug ) */
+#else
+   cPtr = NULL;
 #endif /* LAL_NDEBUG */
 
    LALCDestroyVector(&status, &(goodOutput.data));

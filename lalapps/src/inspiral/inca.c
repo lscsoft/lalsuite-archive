@@ -39,12 +39,12 @@
 #include <lal/LALStdlib.h>
 #include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
-#include <lal/LIGOMetadataUtils.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
 #include <lalapps.h>
 #include <processtable.h>
+
+#include <LALAppsVCSInfo.h>
 
 RCSID("$Id$");
 
@@ -128,11 +128,12 @@ RCSID("$Id$");
   snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "%s", pptype ); \
   snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 
+extern int vrbflg;
+
 int main( int argc, char *argv[] )
 {
   static LALStatus      status;
 
-  extern int vrbflg;
   static INT4  writeUniqTrigs = 0;
   static INT4  usePlayground = 1;
   static INT4  allData = 0;
@@ -148,7 +149,7 @@ int main( int argc, char *argv[] )
   CHAR  fileName[FILENAME_MAX];
   CHAR *trigBankFile = NULL;
   CHAR *xmlFileName;
-  UINT4 outCompress = 0;
+  INT4  outCompress = 0;
 
   LIGOTimeGPS slideData = {0,0};
   INT8  slideDataNS = 0;
@@ -252,19 +253,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = processParamsTable.processParamsTable = 
     (ProcessParamsTable *) calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -464,7 +454,7 @@ int main( int argc, char *argv[] )
           exit( 1 );
         }
         startCoincidence = (INT4) gpstime;
-        ADD_PROCESS_PARAM( "int", "%ld", startCoincidence );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startCoincidence );
         break;
 
       case 'r':
@@ -489,7 +479,7 @@ int main( int argc, char *argv[] )
           exit( 1 );
         }
         endCoincidence = (INT4) gpstime;
-        ADD_PROCESS_PARAM( "int", "%ld", endCoincidence );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, endCoincidence );
         break;
 
       case 's':
@@ -589,10 +579,8 @@ int main( int argc, char *argv[] )
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "Inspiral Coincidence and Triggered Bank Generator\n" 
-            "Patrick Brady, Duncan Brown and Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n" );
-        fprintf( stdout, lalappsGitID );
+            "Patrick Brady, Duncan Brown and Steve Fairhurst\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 
@@ -1309,7 +1297,7 @@ int main( int argc, char *argv[] )
 
     ta = XLALGPSToINT8NS( &(currentTrigger[0]->end_time) );
 
-    LAL_CALL( LALINT8NanoSecIsPlayground( &status, &isPlay, &ta ), &status );
+    isPlay = XLALINT8NanoSecIsPlayground( ta );
 
     if ( vrbflg )
     {

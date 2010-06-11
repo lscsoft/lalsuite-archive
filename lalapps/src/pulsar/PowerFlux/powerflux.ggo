@@ -29,6 +29,7 @@ option "input-format"   - "format of input files (GEO, SFT, Power)" string defau
 option "dump-data"	- "file to output loaded SFT data into, for testing" string no
 option "dump-sftv2"	- "directory to output loaded data, together with dataset description" string no
 option "output" 	o "output directory" string no
+option "flat-output"	- "output directory to contain all files, with no subdirectories (for globus condor)" string no
 
 option "ephemeris-path" - "path to detresponse program from lalapps" string no
 option "earth-ephemeris" - "Earth ephemeris file, overrides ephemeris-path argument" string no
@@ -37,7 +38,7 @@ option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
 option "side-cut"    	- "number of bins to cut from each side due to corruption from doppler shifts" int no
-option "expected-timebase"    	- "expected timebase in months" int default="6" no
+option "expected-timebase"    	- "expected timebase in months" double default="6" no
 option "hist-bins"      - "number of bins to use when producing histograms" int default="200" no
 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
@@ -113,11 +114,12 @@ option "niota" - "Number of iota values to use in alignment grid" int default="3
 option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
 option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
+option "split-ifos" - "Split interferometers in separate chunks" int default="1" no
 option "weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight" double default="0.04" no
 option "per-dataset-weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight in each dataset" double default="0.04" no
 option "power-max-median-factor" - "This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights" double default="0.1" no
 option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed to in-place standard deviation)" int default="1" no
-option "summing-step" - "integration step size, in seconds" int default="864000" no
+option "summing-step" - "integration step size, in seconds" double no
 option "max-first-shift" - "larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function" int default="10" no
 option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, sorted" string default="linear" no
 
@@ -128,4 +130,8 @@ option "fine-grid-skymarks" - "use sky marks from the fine grid, this uses const
 option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear statistics" int default="20" no
 option "tail-veto" - "do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum" int default="10" no
 option "cache-granularity" - "granularity of power cache frequency shift resolution, in fractions of a frequency bin" int default="-1" no
+option "sidereal-group-count" - "separate SFTs in that many groups by frequency shift" int no
+option "time-group-count" - "separate SFTs in that many groups by gps time" int no
+option "phase-mismatch" - "maximal phase mismatch over coherence length to assume when using loosely coherent mode" double default="1.570796" no
+option "bypass-powersum-cache" - "bypass partial power sum cache" int default="0" no
 

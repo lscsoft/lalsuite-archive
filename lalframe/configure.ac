@@ -1,6 +1,6 @@
-AC_INIT([lalframe],[1.0],[lal-discuss@gravity.phys.uwm.edu])
-AM_CONFIG_HEADER([include/config.h])
-AC_CONFIG_SRCDIR([include/config.h.in])
+AC_INIT([lalframe],[1.0.0.2],[lal-discuss@gravity.phys.uwm.edu])
+AM_CONFIG_HEADER([include/config.h src/LALFrameConfig.h])
+AC_CONFIG_SRCDIR([src/LALFrameIO.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
 AC_CONFIG_FILES([ \
@@ -40,12 +40,23 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 # default install path
 AC_PREFIX_DEFAULT([/opt/lscsoft/lalframe])
 
+# nightly build
+LALSUITE_ENABLE_NIGHTLY
+
+# put version/configure info in config header
+lalframe_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
+AC_DEFINE_UNQUOTED([LALFRAME_VERSION],["$VERSION"],[LALFrame Version])
+AC_DEFINE_UNQUOTED([LALFRAME_CONFIGURE_ARGS],["$ac_configure_args"],
+                   [LALFrame Configure Arguments])
+AC_DEFINE_UNQUOTED([LALFRAME_CONFIGURE_DATE],["$lalframe_configure_date"],
+                   [LALFrame Configure Date])
+
 # enable strict gcc flags
-LAL_ENABLE_GCC_FLAGS
+LALSUITE_ENABLE_GCC_FLAGS
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])
-m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LAL_AC_PROG_CC_C99])
+m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
 
 # use silent build rules if available
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
@@ -55,6 +66,7 @@ AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 LT_INIT
+AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
 AC_CHECK_PROGS([M4],[gm4 m4],[m4])
 
 # check for supported mac os x version
@@ -71,7 +83,7 @@ if test "x$build_vendor" = "xapple"; then
       ;;
     10.4*|10.5*|10.6*)
       # supported version
-    ;;
+      ;;
     *)
       AC_MSG_WARN([Unknown Mac OS X version])
       ;;
@@ -89,30 +101,20 @@ AC_DEFINE([HAVE_GETHOSTNAME_PROTOTYPE],[1],
           [AC_MSG_RESULT]([no]))
 
 # check for required libraries
-AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([cannot find the math library])])
+AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
 
 # check for frame library
 PKG_CHECK_MODULES([LIBFRAME],[libframe],[true],[false])
 CPPFLAGS="$CPPFLAGS $LIBFRAME_CFLAGS"
 LIBS="$LIBS $LIBFRAME_LIBS"
-AC_CHECK_LIB([Frame],[FrLibIni],,[AC_MSG_ERROR(cannot find frame library)])
+AC_CHECK_LIB([Frame],[FrLibIni],,[AC_MSG_ERROR([could not find the frame library])])
 
-# check for lal
-PKG_CHECK_MODULES([LAL],[lal >= 6.4],[true],[false])
-CPPFLAGS="$CPPFLAGS $LAL_CFLAGS"
-LIBS="$LIBS $LAL_LIBS"
+# check for frame library headers
+AC_CHECK_HEADERS([FrameL.h],,[AC_MSG_ERROR([could not find the FrameL.h header])])
 
-# check for lalsupport, needed for test suite
-PKG_CHECK_MODULES([LALSUPPORT],[lalsupport],[true],[false])
-
-# check libraries if not a top-level build
-if test "$LALSUITE_BUILD" = "true" ; then
-  test -n "$LALSUPPORT_LIBS" && lalsupport="true"
-else
-  AC_CHECK_LIB([lal],[main],,[AC_MSG_ERROR(cannot find lal library)])
-  AC_CHECK_LIB([lalsupport],[LALOpenDataFile],[lalsupport=true],[lalsupport=false])
-fi
-AM_CONDITIONAL([LALSUPPORT],[test x$lalsupport = xtrue])
+# check for lal libraries and headers
+LALSUITE_CHECK_LIB([LAL],[6.4.1.2],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.4.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
@@ -132,12 +134,12 @@ AC_OUTPUT
 echo "
 ================================================================
 
-        LAL Frame has now been successfully configured
+        LALFrame has now been successfully configured
         and will be installed under the directory:
 
           ${prefix}
 
-        Now run 'make' to build LAL Frame
-        and run 'make install' to install LAL Frame
+        Now run 'make' to build LALFrame
+        and run 'make install' to install LALFrame
 
 ================================================================="

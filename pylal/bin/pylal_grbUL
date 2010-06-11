@@ -166,9 +166,6 @@ def parse_args():
     parser.add_option("--output-path", help="root of the HTML output")
     parser.add_option("--enable-output", action="store_true",
         default=False, help="enable plots and HTML output")
-    parser.add_option("--html-for-cbcweb", action="store_true",
-        default=False, help="enable HTML output with the appropriate headers "
-        "for the CBC website")
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
 
@@ -189,6 +186,11 @@ def parse_args():
     parser.add_option("--nonuniform-smoothing-D", type="float", metavar="SIZE",
         help="enable a non-uniform smoothing of p(L|D) over D with a kernel "\
         "that varies proportionally to sqrt(SIZE)*D (default: no smoothing)")
+    parser.set_defaults(onmismatch="raise")
+    parser.add_option("--version-mismatch-ok", action="store_const",
+        const="warn", dest="onmismatch", help="by default, the program "\
+        "will halt if the version id stored in the pickle does not match the "\
+        "running version id; specify this option to reduce to a warning")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -213,14 +215,17 @@ page = InspiralUtils.InspiralPage(opts)
 
 if opts.verbose:
     print "Reading in bin definitions..."
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
+id, statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
-if statistic != "effective_snr":
-    raise NotImplemented
+git_version.check_match(id, onmismatch=opts.onmismatch)
+if statistic not in ("effective_snr", "new_snr"):
+    raise NotImplementedError
 
-_, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
-_, _, inj_log_L_by_trial_m2, _ = \
+id, _, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
+git_version.check_match(id, onmismatch=opts.onmismatch)
+id, _, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
+git_version.check_match(id, onmismatch=opts.onmismatch)
 
 # Set everything less than THRESH to THRESH, including missed injections
 if opts.likelihood_threshold is not None:

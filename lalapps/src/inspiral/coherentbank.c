@@ -39,12 +39,11 @@
 #include <lal/LALStdlib.h>
 #include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
-#include <lal/LIGOMetadataUtils.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
 #include <lalapps.h>
 #include <processtable.h>
+#include <LALAppsVCSInfo.h>
 
 RCSID("$Id$");
 
@@ -121,7 +120,6 @@ int main( int argc, char *argv[] )
   LIGOTimeGPS endTimeGPS = {0,0};
   INT8        startTimeNS = 0;
   INT8        endTimeNS = 0;
-  INT8        tmpCoincEndTime = 0;
   CHAR  ifos[LIGOMETA_IFOS_MAX];
 
   CHAR  comment[LIGOMETA_COMMENT_MAX];
@@ -134,9 +132,6 @@ int main( int argc, char *argv[] )
   SnglInspiralTable    *newEventList = NULL;
 
   CoincInspiralTable   *coincHead = NULL;
-  CoincInspiralTable   *coincEventList = NULL;
-  CoincInspiralTable   *thisFullCoinc = NULL;
-  CoincInspiralTable   *prevFullCoinc = NULL;
   CoincInspiralTable   *thisCoinc = NULL;
 
   SearchSummvarsTable  *inputFiles = NULL;
@@ -148,11 +143,10 @@ int main( int argc, char *argv[] )
   MetadataTable         proctable;
   MetadataTable         processParamsTable;
   MetadataTable         searchsumm;
-  MetadataTable         searchSummvarsTable;
   MetadataTable         inspiralTable;
   ProcessParamsTable   *this_proc_param = NULL;
   LIGOLwXMLStream       xmlStream;
-  UINT4                 outCompress = 0;
+  INT4                  outCompress = 0;
 
 
   /* getopt arguments */
@@ -192,19 +186,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = processParamsTable.processParamsTable = 
     (ProcessParamsTable *) calloc( 1, sizeof(ProcessParamsTable) );
 
@@ -256,7 +239,7 @@ int main( int argc, char *argv[] )
 
       case 'i':
         /* set ifos */
-        strncpy( ifos, optarg, LIGOMETA_IFOS_MAX * sizeof(CHAR) );
+        strncpy( ifos, optarg, LIGOMETA_IFOS_MAX );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
 
@@ -283,7 +266,7 @@ int main( int argc, char *argv[] )
         }
         startTime = (INT4) gpstime;
         startTimeGPS.gpsSeconds = startTime;
-        ADD_PROCESS_PARAM( "int", "%ld", startTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startTime );
         break;
 
       case 't':
@@ -309,7 +292,7 @@ int main( int argc, char *argv[] )
         }
         endTime = (INT4) gpstime;
         endTimeGPS.gpsSeconds = endTime;
-        ADD_PROCESS_PARAM( "int", "%ld", endTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, endTime );
         break;
 
       case 'x':
@@ -382,11 +365,11 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "custer window must be > 0: "
-              "(%ld specified)\n",
+              "(%" LAL_INT8_FORMAT " specified)\n",
               long_options[option_index].name, cluster_dt );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%ld", cluster_dt );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT8_FORMAT, cluster_dt );
         /* convert cluster time from ms to ns */
         cluster_dt *= 1000000LL;
         break;
@@ -429,10 +412,8 @@ int main( int argc, char *argv[] )
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "Coherent Bank Generator\n" 
-            "Steve Fairhurst and Shawn Seader\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n" );
-        fprintf( stdout, lalappsGitID );
+            "Steve Fairhurst and Shawn Seader\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 

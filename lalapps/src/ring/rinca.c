@@ -38,13 +38,13 @@
 #include <lal/Date.h>
 #include <lal/TimeDelay.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
-#include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOLwXMLRingdownRead.h>
+#include <lal/LIGOMetadataRingdownUtils.h>
 #include <lalapps.h>
 #include <processtable.h>
 #include <lal/SegmentsIO.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+
+#include <LALAppsVCSInfo.h>
 
 RCSID("$Id$");
 
@@ -79,8 +79,10 @@ int haveTrig[LAL_NUM_IFO];
 int checkTimes = 0;
 int multiIfoCoinc = 0;
 int distCut = 0;
+int h1h2Consistency = 0;
 int doVeto = 0;
 int completeCoincs = 0;
+extern int vrbflg;
 
 /*
  * 
@@ -89,73 +91,79 @@ int completeCoincs = 0;
  */
 static void print_usage(char *program)
 {
-  fprintf(stderr,
-      "Usage:  %s [options] [LIGOLW XML input files]\n" \
-      "The following options are recognized.  Options not surrounded in [] are\n" \
-      "required.\n" \
-      "  [--help]                      display this message\n"\
-      "  [--verbose]                   print progress information\n"\
-      "  [--version]                   print version information and exit\n"\
-      "  [--debug-level]   level       set the LAL debug level to LEVEL\n"\
-      "  [--user-tag]      usertag     set the process_params usertag\n"\
-      "  [--ifo-tag]       ifotag      set the ifo-tag - for file naming\n"\
-      "  [--comment]       string      set the process table comment to STRING\n"\
-      "\n"\
-      "   --gps-start-time start_time  GPS second of data start time\n"\
-      "   --gps-end-time   end_time    GPS second of data end time\n"\
-      "  [--check-times]               Check that all times were analyzed\n"\
-      "  [--multi-ifo-coinc]           Look for triple/quadruple ifo coincidence\n"\
-      "  [--maximization-interval] max_dt set length of maximization interval in ms\n"\
-      "\n"\
-      "  [--h1-slide]      h1_slide    Slide H1 data by multiples of h1_slide\n"\
-      "  [--h2-slide]      h2_slide    Slide H2 data by multiples of h2_slide\n"\
-      "  [--l1-slide]      l1_slide    Slide L1 data by multiples of l1_slide\n"\
-      "  [--num-slides]    num_slides  The number of time slides to perform\n"\
-      "\n"\
-      "  [--h1-triggers]               input triggers from H1\n"\
-      "  [--h2-triggers]               input triggers from H2\n"\
-      "  [--l1-triggers]               input triggers from L1\n"\
-      "\n"\
-      "   --parameter-test     test    set parameters with which to test coincidence:\n"\
-      "                                (f_and_Q, ds_sq, ds_sq_fQt)\n"\
-      "  [--h1-time-accuracy]  h1_dt   specify the timing accuracy of H1 in ms\n"\
-      "  [--h2-time-accuracy]  h2_dt   specify the timing accuracy of H2 in ms\n"\
-      "  [--l1-time-accuracy]  l1_dt   specify the timing accuracy of L1 in ms\n"\
-      "\n"\
-      "  [--h1-freq-accuracy]  h1_df   specify the freq accuracy of H1\n"\
-      "  [--h2-freq-accuracy]  h2_df   specify the freq accuracy of H2\n"\
-      "  [--l1-freq-accuracy]  l1_df   specify the freq accuracy of L1\n"\
-      "\n"\
-      "  [--h1-quality-accuracy] h1_dq  specify the quality accuracy of H1\n"\
-      "  [--h2-quality-accuracy] h2_dq  specify the quality accuracy of H2\n"\
-      "  [--l1-quality-accuracy] l1_dq  specify the quality accuracy of L1\n"\
-      "\n"\
-      "  [--h1-distance-accuracy] h1_ddeff   specify the effective distance accuracy of H1\n"\
-      "  [--h2-distance-accuracy] h2_ddeff   specify the effective distance accuracy of H2\n"\
-      "  [--l1-distance-accuracy] l1_ddeff   specify the effective distance accuracy of L1\n"\
-      "\n"\
-      "  [--h1-ds_sq-accuracy]  ds_sq     specify the ds squared accuracy\n"\
-      "  [--h2-ds_sq-accuracy]  ds_sq     specify the ds squared accuracy\n"\
-      "  [--l1-ds_sq-accuracy]  ds_sq     specify the ds squared accuracy\n"\
-      "\n"\
-      "   --data-type        data_type specify the data type, must be one of\n"\
-      "                                (playground_only|exclude_play|all_data)\n"\
-      "\n"\
-      "   --complete-coincs               write out triggers from all non-vetoed ifos\n"
-      "  [--do-veto]         do_veto   veto cetain segments\n"\
-      "  [--h1-veto-file]    h1_veto_file   specify h1 triggers to be vetoed\n"\
-      "  [--h2-veto-file]    h2_veto_file   specify h2 triggers to be vetoed\n"\
-      "  [--l1-veto-file]    l1_veto_file   specify l1 triggers to be vetoed\n"\
-      "[LIGOLW XML input files] list of the input trigger files.\n"\
-      "\n", program);
+  fprintf(stderr,   "Usage:  %s [options] [LIGOLW XML input files]\n" ,  program                );
+  fprintf(stderr,   "The following options are recognized.  Options not surrounded in [] are\n" );
+  fprintf(stderr,   "required.\n"                                                               );
+
+  fprintf(stderr,     "  [--help]                      display this message\n"                                 );
+  fprintf(stderr,     "  [--verbose]                   print progress information\n"                           );
+  fprintf(stderr,     "  [--version]                   print version information and exit\n"                   );
+  fprintf(stderr,     "  [--debug-level]   level       set the LAL debug level to LEVEL\n"                     );
+  fprintf(stderr,     "  [--user-tag]      usertag     set the process_params usertag\n"                       );
+  fprintf(stderr,     "  [--ifo-tag]       ifotag      set the ifo-tag - for file naming\n"                    );
+  fprintf(stderr,     "  [--comment]       string      set the process table comment to STRING\n"              );
+  fprintf(stderr,     "  [--write-compress]            write a compressed xml file\n"                          );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "   --gps-start-time    start_time    GPS second of data start time\n"                   );
+  fprintf(stderr,     "   --gps-end-time      end_time      GPS second of data end time\n"                     );
+  fprintf(stderr,     "  [--check-times]                    Check that all times were analyzed\n"              );
+  fprintf(stderr,     "  [--multi-ifo-coinc]                Look for triple/quadruple ifo coincidence\n"       );
+  fprintf(stderr,     "  [--maximization-interval]  max_dt  set length of maximization interval in ms\n"       );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-slide]      h1_slide    Slide H1 data by multiples of h1_slide\n"               );
+  fprintf(stderr,     "  [--h2-slide]      h2_slide    Slide H2 data by multiples of h2_slide\n"               );
+  fprintf(stderr,     "  [--l1-slide]      l1_slide    Slide L1 data by multiples of l1_slide\n"               );
+  fprintf(stderr,     "  [--num-slides]    num_slides  The number of time slides to perform\n"                 );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-triggers]               input triggers from H1\n"                               );
+  fprintf(stderr,     "  [--h2-triggers]               input triggers from H2\n"                               );
+  fprintf(stderr,     "  [--l1-triggers]               input triggers from L1\n"                               );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "   --parameter-test     test    set parameters with which to test coincidence:\n"       );
+  fprintf(stderr,     "                                (f_and_Q, ds_sq, ds_sq_fQt)\n"                          );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-time-accuracy]  h1_dt   specify the timing accuracy of H1 in ms\n"              );
+  fprintf(stderr,     "  [--h2-time-accuracy]  h2_dt   specify the timing accuracy of H2 in ms\n"              );
+  fprintf(stderr,     "  [--l1-time-accuracy]  l1_dt   specify the timing accuracy of L1 in ms\n"              );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-freq-accuracy]  h1_df   specify the freq accuracy of H1\n"                      );
+  fprintf(stderr,     "  [--h2-freq-accuracy]  h2_df   specify the freq accuracy of H2\n"                      );
+  fprintf(stderr,     "  [--l1-freq-accuracy]  l1_df   specify the freq accuracy of L1\n"                      );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-quality-accuracy]  h1_dq  specify the quality accuracy of H1\n"                 );
+  fprintf(stderr,     "  [--h2-quality-accuracy]  h2_dq  specify the quality accuracy of H2\n"                 );
+  fprintf(stderr,     "  [--l1-quality-accuracy]  l1_dq  specify the quality accuracy of L1\n"                 );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-distance-accuracy]  h1_ddeff   specify the effective distance accuracy of H1\n" );
+  fprintf(stderr,     "  [--h2-distance-accuracy]  h2_ddeff   specify the effective distance accuracy of H2\n" );
+  fprintf(stderr,     "  [--l1-distance-accuracy]  l1_ddeff   specify the effective distance accuracy of L1\n" );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-ds_sq-accuracy]  ds_sq     specify the ds squared accuracy\n"                   );
+  fprintf(stderr,     "  [--h2-ds_sq-accuracy]  ds_sq     specify the ds squared accuracy\n"                   );
+  fprintf(stderr,     "  [--l1-ds_sq-accuracy]  ds_sq     specify the ds squared accuracy\n"                   );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "   --data-type      data_type    specify the data type, must be one of\n"               );
+  fprintf(stderr,     "                                 (playground_only|exclude_play|all_data)\n"             );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--h1-h2-consistency]            perform H1-H2 consistency cut\n"                     );
+  fprintf(stderr,     "  [--h1-snr-cut]         snr       reject h1 triggers below this snr when\n"            );
+  fprintf(stderr,     "                                   there are no h2 triggers present\n"                  );
+  fprintf(stderr,     "                                   needed when --h1-h2-consistency is given\n"          );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [--complete-coincs]                write out triggers from all non-vetoed ifos\n"     );
+  fprintf(stderr,     "  [--do-veto]         do_veto        veto cetain segments\n"                            );
+  fprintf(stderr,     "  [--h1-veto-file]    h1_veto_file   specify h1 triggers to be vetoed\n"                );
+  fprintf(stderr,     "  [--h2-veto-file]    h2_veto_file   specify h2 triggers to be vetoed\n"                );
+  fprintf(stderr,     "  [--l1-veto-file]    l1_veto_file   specify l1 triggers to be vetoed\n"                );
+  fprintf(stderr,     "\n"                                                                                     );
+  fprintf(stderr,     "  [LIGOLW XML input files]           list of the input trigger files.\n"                );
+  fprintf(stderr,     "\n"                                                                                     );
 }
 
 
 int main( int argc, char *argv[] )
 {
   static LALStatus      status;
-
-  extern int vrbflg;
 
   LALPlaygroundDataMask dataType = unspecified_data_type;
   INT4  startCoincidence = -1;
@@ -193,6 +201,7 @@ int main( int argc, char *argv[] )
   UINT4  numTriples = 0;
   UINT4  numTrigs[LAL_NUM_IFO];
   UINT4  N = 0;
+  INT4 outCompress = 0;
   UINT4  slideH1H2Together = 0;
 
   LALDetector          aDet;
@@ -228,6 +237,8 @@ int main( int argc, char *argv[] )
   INT4                  i;
   INT8                  maximizationInterval = 0;
 
+  REAL4                 h1snrCut = 0;
+
   const CHAR                   ifoList[LAL_NUM_IFO][LIGOMETA_IFO_MAX] = 
                                    {"G1", "H1", "H2", "L1", "T1", "V1"};
   const CHAR                  *ifoArg[LAL_NUM_IFO] = 
@@ -245,14 +256,16 @@ int main( int argc, char *argv[] )
     {"check-times",         no_argument,   &checkTimes,               1 },
     {"multi-ifo-coinc",     no_argument,   &multiIfoCoinc,            1 },
     {"h1-h2-distance-cut",  no_argument,   &distCut,                  1 },
+    {"h1-h2-consistency",   no_argument,   &h1h2Consistency,          1 },
     {"do-veto",             no_argument,   &doVeto,                   1 },
     {"complete-coincs",     no_argument,   &completeCoincs,           1 },
+    {"write-compress",      no_argument,   &outCompress,              1 },
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
     {"l1-slide",            required_argument, 0,                    'e'},
     {"num-slides",          required_argument, 0,                    'T'},
-    {"h1-time-accuracy",    required_argument, 0,                    'B'}, 
-    {"h2-time-accuracy",    required_argument, 0,                    'C'}, 
+    {"h1-time-accuracy",    required_argument, 0,                    'B'},
+    {"h2-time-accuracy",    required_argument, 0,                    'C'},
     {"l1-time-accuracy",    required_argument, 0,                    'D'},
     {"h1-freq-accuracy",    required_argument, 0,                    'H'},
     {"h2-freq-accuracy",    required_argument, 0,                    'I'},
@@ -279,6 +292,7 @@ int main( int argc, char *argv[] )
     {"debug-level",         required_argument, 0,                    'z'},
     {"version",             no_argument,       0,                    'V'},
     {"high-mass",           required_argument, 0,                    '&'},
+    {"h1-snr-cut",          required_argument, 0,                    '*'},
     {"h1-veto-file",        required_argument, 0,                    '('},
     {"h2-veto-file",        required_argument, 0,                    ')'},
     {"l1-veto-file",        required_argument, 0,                    '}'},
@@ -300,16 +314,10 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION, "$Revi" "sion$"))
-  {
-    XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME,
-        CVS_REVISION, CVS_SOURCE, CVS_DATE, 0);
-  }
-  else
-  {
-    XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME,
-        lalappsGitCommitID, lalappsGitGitStatus, lalappsGitCommitDate, 0);
-  }
+
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME,
+      LALAPPS_VCS_IDENT_ID, LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
+
   this_proc_param = processParamsTable.processParamsTable = 
     (ProcessParamsTable *) calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -372,15 +380,15 @@ int main( int argc, char *argv[] )
         /* set the parameter test */
         if ( ! strcmp( "f_and_Q", optarg ) )
           {
-            accuracyParams.test = f_and_Q;
+            accuracyParams.test = LALRINGDOWN_F_AND_Q;
           }
         else if ( ! strcmp( "ds_sq", optarg ) )
         {
-          accuracyParams.test = ds_sq;
+          accuracyParams.test = LALRINGDOWN_DS_SQ;
         }
         else if ( ! strcmp( "ds_sq_fQt", optarg ) )
         {
-          accuracyParams.test = ds_sq_fQt;
+          accuracyParams.test = LALRINGDOWN_DS_SQ_FQT;
         }
         else
           {
@@ -392,25 +400,25 @@ int main( int argc, char *argv[] )
             }
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
-            
+        
       case 'B':
         /* time accuracy H1, argument is in milliseconds */
         accuracyParams.ifoAccuracy[LAL_IFO_H1].dt = atof(optarg) * LAL_INT8_C(1000000);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
-        
+
       case 'C':
         /* time accuracy H2, argument is in milliseconds */
         accuracyParams.ifoAccuracy[LAL_IFO_H2].dt = atof(optarg) * LAL_INT8_C(1000000);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
-        
+
       case 'D':
         /* time accuracy L1, argument is in milliseconds */
         accuracyParams.ifoAccuracy[LAL_IFO_L1].dt = atof(optarg) * LAL_INT8_C(1000000);
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
-
+    
       case 'E':
         /* ds^2 accuracy H1*/
         accuracyParams.ifoAccuracy[LAL_IFO_H1].ds_sq = atof(optarg);
@@ -518,7 +526,7 @@ int main( int argc, char *argv[] )
               long_options[option_index].name, numSlides );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%ld", numSlides );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, numSlides );
         break;
 
       case 'n':
@@ -561,7 +569,7 @@ int main( int argc, char *argv[] )
           exit( 1 );
         }
         startCoincidence = (INT4) gpstime;
-        ADD_PROCESS_PARAM( "int", "%ld", startCoincidence );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startCoincidence );
         break;
 
       case 't':
@@ -586,7 +594,7 @@ int main( int argc, char *argv[] )
           exit( 1 );
         }
         endCoincidence = (INT4) gpstime;
-        ADD_PROCESS_PARAM( "int", "%ld", endCoincidence );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, endCoincidence );
         break;
 
       case 'x':
@@ -670,10 +678,8 @@ int main( int argc, char *argv[] )
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "RINgdown Coincidence Analysis\n" 
-            "Lisa Goggin based on thinca.c by Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n" );
-        fprintf(stdout, lalappsGitID);
+            "Lisa Goggin based on thinca.c by Steve Fairhurst\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 
@@ -689,11 +695,17 @@ int main( int argc, char *argv[] )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "maximization interval must be positive:\n "
-              "(%ld ms specified)\n",
+              "(%" LAL_INT8_FORMAT " ms specified)\n",
               long_options[option_index].name, maximizationInterval );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%lld",  maximizationInterval );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT8_FORMAT,  maximizationInterval );
+        break;
+
+      case '*':
+        /* snr cut */
+        h1snrCut = atof(optarg);
+        ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
       case '(':
@@ -754,7 +766,7 @@ int main( int argc, char *argv[] )
   endCoinc.gpsSeconds = endCoincidence;
 
   /* Parameter Test */
-  if ( accuracyParams.test == unknown_test )
+  if ( accuracyParams.test == LALRINGDOWN_UNKNOWN_TEST )
     {
       fprintf( stderr, "Error: --parameter-test must be specified\n" );
       exit( 1 );
@@ -774,7 +786,7 @@ int main( int argc, char *argv[] )
     if ( haveTrig[ifoNumber] )
     {
       /* write ifo name in ifoName list */
-      snprintf( ifoName[numIFO], LIGOMETA_IFO_MAX, ifoList[ifoNumber] );
+      snprintf( ifoName[numIFO], LIGOMETA_IFO_MAX, "%s", ifoList[ifoNumber] );
       numIFO++;
 
       /* store the argument in the process_params table */
@@ -788,9 +800,10 @@ int main( int argc, char *argv[] )
       snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
 
       /* check that a non-zero timing accuracy was specified */
-      if ( ! accuracyParams.ifoAccuracy[ifoNumber].dt )
+      if ( (accuracyParams.test == LALRINGDOWN_F_AND_Q || accuracyParams.test == LALRINGDOWN_DS_SQ)
+           && ! accuracyParams.ifoAccuracy[ifoNumber].dt )
       {
-        fprintf( stderr, "Error: --dt must be specified for %s\n", 
+        fprintf( stderr, "Error: --dt must be specified for %s\n",
             ifoName[ifoNumber]);
         exit(1);
       }
@@ -898,6 +911,17 @@ if ( vrbflg)
         "%s", comment );
   }
 
+  if ( outCompress )
+  {
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+      calloc( 1, sizeof(ProcessParamsTable) );
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
+        "%s", PROGRAM_NAME );
+    snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--write-compress" );
+    snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+    snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
+  }
+
 
   /* store the check-times in the process_params table */
   if ( checkTimes )
@@ -910,6 +934,26 @@ if ( vrbflg)
     snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
     snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
   }
+
+  /* store the h1h2 consistency option */ 
+  if ( h1h2Consistency )
+  {
+    if ( !( h1snrCut > 0 ) )
+    {
+      fprintf( stderr,"The --h1-snr-cut option must be specified and \n"
+               "greater than zero when --h1-h2-consistency is given\n" );
+      exit( 1 );
+    }
+     
+    this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+      calloc( 1, sizeof(ProcessParamsTable) );
+    snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, 
+        "%s", PROGRAM_NAME );
+   snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, 
+        "--h1-h2-consistency" );
+   snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+   snprintf( this_proc_param->value, LIGOMETA_TYPE_MAX, " " );
+ }
 
   /* store the veto option */ 
   if ( doVeto )
@@ -979,7 +1023,7 @@ if ( vrbflg)
       {
         if (vrbflg)
         {
-          fprintf( stdout, "Clustering triggers for over %ld ms window\n",
+          fprintf( stdout, "Clustering triggers for over %" LAL_INT8_FORMAT " ms window\n",
               maximizationInterval);
         }
         XLALMaxSnglRingdownOverIntervals( &ringdownFileList,
@@ -1020,7 +1064,7 @@ if ( vrbflg)
    
    /*    we initialise the veto segment list needed either by the h1h2 
         consistency check or the veto option itself. */
-   if ( doVeto )
+   if ( h1h2Consistency || doVeto )
    {
      for ( ifoNumber = 0; ifoNumber< LAL_NUM_IFO; ifoNumber++)
      {
@@ -1279,6 +1323,31 @@ if ( vrbflg)
            &status );
     }
 
+    /* perform the h1h2-consistency check */
+    if ( h1h2Consistency && haveTrig[LAL_IFO_H1] && haveTrig[LAL_IFO_H2] )
+    {
+      if(vrbflg) 
+      {
+        if (vetoFileName[LAL_IFO_H1] && vetoFileName[LAL_IFO_H2])
+        {
+          fprintf(stdout, 
+              "Using h1-h2-consistency with veto segment list %s and %s\n", 
+              vetoFileName[LAL_IFO_H1], vetoFileName[LAL_IFO_H2]);
+        }
+        else
+        { 
+          fprintf(stdout, 
+              "Using h1-h2-consistency without veto segment list. NOT RECOMMENDED\n");
+        }
+      }
+      LAL_CALL( LALRingdownH1H2Consistency(&status,  &coincRingdownList,
+           h1snrCut, &vetoSegs[LAL_IFO_H1], &vetoSegs[LAL_IFO_H2]), &status);
+      if ( vrbflg ) fprintf( stdout, 
+          "%d remaining coincident triggers after h1-h2-consisteny .\n", 
+          XLALCountCoincInspiral((CoincInspiralTable*)coincRingdownList));
+   }
+
+
     /* no time-slide */
     if ( !slideNum )
     {
@@ -1317,10 +1386,11 @@ if ( vrbflg)
         /* keep only the requested coincs */
         if( slideH1H2Together )
         {
+          char slide_ifos[] = "H1H2";
           if ( vrbflg ) fprintf( stdout,
               "Throwing out slide coincs found only as H1H2 doubles.\n" );
           numCoincInSlide = XLALCoincRingdownIfosDiscard(
-              &coincRingdownList, "H1H2" );
+              &coincRingdownList, slide_ifos );
           if ( vrbflg ) fprintf( stdout,
               "Kept %d non-H1H2 coincs in slide.\n", numCoincInSlide );
         }
@@ -1433,7 +1503,7 @@ cleanexit:
 
   if ( vrbflg ) fprintf( stdout, "writing output file... " );
 
-  if ( userTag && ifoTag)
+  if ( userTag && ifoTag && !outCompress)
   {
     snprintf( fileName, FILENAME_MAX, "%s-RINCA_%s_%s-%d-%d.xml", 
         ifos, ifoTag, userTag, startCoincidence, 
@@ -1442,19 +1512,49 @@ cleanexit:
         ifos, ifoTag, userTag, startCoincidence, 
         endCoincidence - startCoincidence );
   }
-  else if ( ifoTag )
+  else if  ( !userTag && ifoTag && !outCompress ) 
   {
     snprintf( fileName, FILENAME_MAX, "%s-RINCA_%s-%d-%d.xml", ifos,
         ifoTag, startCoincidence, endCoincidence - startCoincidence );
     snprintf( fileSlide, FILENAME_MAX, "%s-RINCA_SLIDE_%s-%d-%d.xml", ifos,
         ifoTag, startCoincidence, endCoincidence - startCoincidence );
   }
-  else if ( userTag )
+  else if ( userTag && !ifoTag && !outCompress )
   {
     snprintf( fileName, FILENAME_MAX, "%s-RINCA_%s-%d-%d.xml", 
         ifos, userTag, startCoincidence, endCoincidence - startCoincidence );
     snprintf( fileSlide, FILENAME_MAX, "%s-RINCA_SLIDE_%s-%d-%d.xml", 
         ifos, userTag, startCoincidence, endCoincidence - startCoincidence );
+  }
+  else if ( userTag && ifoTag && outCompress)
+  {
+    snprintf( fileName, FILENAME_MAX, "%s-RINCA_%s_%s-%d-%d.xml.gz",   
+        ifos, ifoTag, userTag, startCoincidence,
+        endCoincidence - startCoincidence );
+    snprintf( fileSlide, FILENAME_MAX, "%s-RINCA_SLIDE_%s_%s-%d-%d.xml.gz",   
+        ifos, ifoTag, userTag, startCoincidence,
+        endCoincidence - startCoincidence );
+  }
+  else if  ( !userTag && ifoTag && outCompress ) 
+  {
+    snprintf( fileName, FILENAME_MAX, "%s-RINCA_%s-%d-%d.xml.gz", ifos,
+        ifoTag, startCoincidence, endCoincidence - startCoincidence );
+    snprintf( fileSlide, FILENAME_MAX, "%s-RINCA_SLIDE_%s-%d-%d.xml.gz", ifos,
+        ifoTag, startCoincidence, endCoincidence - startCoincidence );
+  }
+  else if ( userTag && !ifoTag && outCompress )
+  {
+    snprintf( fileName, FILENAME_MAX, "%s-RINCA_%s-%d-%d.xml.gz",
+        ifos, userTag, startCoincidence, endCoincidence - startCoincidence );
+    snprintf( fileSlide, FILENAME_MAX, "%s-RINCA_SLIDE_%s-%d-%d.xml.gz",
+        ifos, userTag, startCoincidence, endCoincidence - startCoincidence );
+  }
+  else if ( !userTag && !ifoTag && outCompress )
+  {
+    snprintf( fileName, FILENAME_MAX, "%s-RINCA-%d-%d.xml.gz",
+        ifos, startCoincidence, endCoincidence - startCoincidence );
+    snprintf( fileSlide, FILENAME_MAX, "%s-RINCA_SLIDE-%d-%d.xml.gz",
+        ifos, startCoincidence, endCoincidence - startCoincidence );
   }
   else
   {
@@ -1479,7 +1579,7 @@ cleanexit:
   }
   /* write process table */
 
-  snprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, ifos );
+  snprintf( proctable.processTable->ifos, LIGOMETA_IFOS_MAX, "%s", ifos );
 
   XLALGPSTimeNow(&(proctable.processTable->end_time));
   LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, process_table ), 
@@ -1496,7 +1596,7 @@ cleanexit:
   LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlStream ), &status );
 
   /* write search_summary table */
-  snprintf( searchsumm.searchSummaryTable->ifos, LIGOMETA_IFOS_MAX, ifos );
+  snprintf( searchsumm.searchSummaryTable->ifos, LIGOMETA_IFOS_MAX, "%s", ifos );
 
   LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream, 
         search_summary_table ), &status );

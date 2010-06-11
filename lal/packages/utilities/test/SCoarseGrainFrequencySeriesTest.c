@@ -180,7 +180,7 @@ extern char *optarg;
 extern int   optind;
 
 /* int lalDebugLevel = LALMSGLVL3; */
-int lalDebugLevel  = LALNDEBUG;
+extern int lalDebugLevel;
 BOOLEAN optVerbose = SCOARSEGRAINFREQUENCYSERIESTESTC_FALSE;
 UINT4 optInLength    = 0;
 UINT4 optOutLength   = 0;
@@ -240,6 +240,8 @@ main( int argc, char *argv[] )
    CHARVector             *unitString;
 
    FrequencySamplingParams     params;
+
+   lalDebugLevel  = LALNDEBUG;
 
    ParseOptions( argc, argv );
 
@@ -523,6 +525,8 @@ main( int argc, char *argv[] )
        = SCOARSEGRAINFREQUENCYSERIESTESTC_DELTAF0;
 
    } /* if ( ! lalNoDebug ) */
+#else
+   sPtr = NULL;
 #endif /* LAL_NDEBUG */
 
    LALSDestroyVector(&status, &(goodOutput.data));

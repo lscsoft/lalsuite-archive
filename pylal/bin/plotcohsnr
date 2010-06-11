@@ -17,14 +17,8 @@ or with a glob option
 """
 
 
-
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotcohsnr"
-__Id__ = "$Id$"
 __title__ = "Coherent Inspiral Plots"
-
-# $Source$
 
 import sys
 import os
@@ -40,6 +34,7 @@ from glue.ligolw import lsctables
 from glue import segments
 from glue import segmentsUtils
 from pylal import InspiralUtils
+from pylal import git_version
 
 
 #################################################################
@@ -65,10 +60,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg )
 
   # histogram related or SNR related
   parser.add_option("-e","--null-snr",action="store_true",default=False,
@@ -153,13 +145,6 @@ def parse_command_line():
     help="sieve a cache file according to a particular ifo type")
   parser.add_option("-M","--missed-inj",action="store",type="string",\
       default=None, metavar=" FILE",help="missed injection file")
-  parser.add_option("", "--html-for-cbcweb",action="store",\
-      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
-      "output in a format that can be directly published on the cbc webpage "\
-      "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
-      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
-
 
   (options,args) = parser.parse_args()
 
@@ -182,7 +167,7 @@ opts, args = parse_command_line()
 InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -395,8 +380,6 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList,
       tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-  if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()

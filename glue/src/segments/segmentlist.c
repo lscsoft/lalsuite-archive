@@ -455,7 +455,7 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 static PyObject *intersects_segment(PyObject *self, PyObject *other)
 {
 	int i = bisect_left(self, other, -1, -1);
-	PyObject *a, *b;
+	PyObject *a = NULL, *b = NULL;
 	int result;
 
 	if(i < 0)
@@ -684,6 +684,12 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 		return coalesce(self, NULL);
 	}
 
+	/* don't iterate over the same object twice */
+	if(other == self) {
+		Py_INCREF(self);
+		return self;
+	}
+
 	i = 0;
 	other = PyObject_GetIter(other);
 	if(!other)
@@ -867,6 +873,13 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 	if(n < 0)
 		return NULL;
 	if(n < 1) {
+		Py_INCREF(self);
+		return self;
+	}
+
+	/* don't iterate over the same object twice */
+	if(other == self) {
+		PySequence_DelSlice(self, 0, n);
 		Py_INCREF(self);
 		return self;
 	}
@@ -1312,9 +1325,9 @@ static struct PyMethodDef methods[] = {
 	{"intersects", intersects, METH_O, "Returns True if the intersection of self and the segmentlist other is not the null set, otherwise returns False.  The algorithm is O(n), but faster than explicit calculation of the intersection, i.e. by testing len(self & other).  Requires both lists to be coalesced."},
 	{"intersects_segment", intersects_segment, METH_O, "Returns True if the intersection of self and the segment other is not the null set, otherwise returns False.  The algorithm is O(log n).  Requires the list to be coalesced."},
 	{"coalesce", coalesce, METH_NOARGS, "Sort the elements of a list into ascending order, and merge continuous segments into single segments.  This operation is O(n log n)."},
-	{"protract", protract, METH_O, "For each segment in the list, move both the start and the end a distance x away from the other.  Coalesce the result."},
-	{"contract", contract, METH_O, "For each segment in the list, move both the start and the end a distance x towards the other.  Coalesce the result."},
-	{"shift", shift, METH_O, "Shift the segmentlist by adding x to the upper and lower bounds of all segments.  The algorithm is O(n) and does not require the list to be coalesced."},
+	{"protract", protract, METH_O, "Execute the .protract() method on each segment in the list and coalesce the result.  Segmentlist is modified in place."},
+	{"contract", contract, METH_O, "Execute the .contract() method on each segment in the list and coalesce the result.  Segmentlist is modified in place."},
+	{"shift", shift, METH_O, "Execute the .shift() method on each segment in the list.  The algorithm is O(n) and does not require the list to be coalesced nor does it coalesce the list.  Segmentlist is modified in place."},
 	{NULL,}
 };
 

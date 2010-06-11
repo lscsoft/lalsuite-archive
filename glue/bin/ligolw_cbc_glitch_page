@@ -102,11 +102,38 @@ def parse_command_line():
 
 
 
+def sigfigs(num):
+    if num == 0.0:
+        return num
+
+    if num < 10:
+        div = 1.0
+
+        while num < 10:
+            num *= 10.0
+            div *= 10.0
+
+        return '%.1f' % (int(num) / div)
+
+    mul = 1
+
+    while num > 100:
+        num /= 10.0
+        mul *= 10
+
+    return str(int(num) * mul)
+
+
 def generate_html(outf, triggers, colors):
     # echo "<p><tt><a href=\"${xmlfile}\">${xmlfile}</a></tt>" >> ${htmlfile}
     print >>outf, '<p>'
     print >>outf, '<table border=1>'
-    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>&chi;<sup>2</sup></th><th>&Omega; scan</th><th>DQ flags</th></tr>'
+    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th>',
+    print >>outf, "<th>M<sub>chirp</sub></th>",
+    print >>outf, "<th>&chi;<sup>2</sup></th>",
+    print >>outf, "<th>Reduced bank &chi;<sup>2</sup></th>",
+    print >>outf, "<th>Reduced cont. &chi;<sup>2</sup></th>",
+    print >>outf, "<th>&Omega; scan</th><th>DQ flags</th></tr>"
 
     for count, trig in enumerate(triggers):
         print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
@@ -117,9 +144,12 @@ def generate_html(outf, triggers, colors):
         print >>outf, '    <td>%s</td>' % (end_time_utc)
 
         for res in trig[1:-1]:
+            if str(res).find('.') > 0:
+                res = sigfigs(float(res))
+
             print >>outf, '    <td>%s</td>' % res
         
-        print >>outf, '    <td><a href="omega/%s/index.html">&Omega; scan</a></td>' % (trig[1])
+        print >>outf, '    <td><a href="omega/%s.%s/index.html">&Omega; scan</a></td>' % (trig[1], trig[2])
 
         print >>outf, '    <td>'
         for name, value in trig[-1].items():
@@ -152,7 +182,7 @@ def setup_files(dir_name, db_name, gps_start_time, gps_end_time):
         target     = dbtables.get_connection_filename(temp_db, None, True, False)
         connection = ligolw_sqlite.setup(target)
 
-        ligolw_sqlite.insert(connection, xml_files)
+        ligolw_sqlite.insert_from_urls(connection, xml_files)
 
     return temp_db, connection
     
@@ -218,7 +248,11 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
              sngl_inspiral.end_time_ns,
              sngl_inspiral.snr, 
              sngl_inspiral.eff_distance,
-             sngl_inspiral.chisq
+             sngl_inspiral.chisq,
+             sngl_inspiral.mass1,
+             sngl_inspiral.mass2,
+             sngl_inspiral.bank_chisq / (2.0 * sngl_inspiral.bank_chisq_dof),
+             sngl_inspiral.cont_chisq / sngl_inspiral.cont_chisq_dof
       FROM sngl_inspiral 
       WHERE (cast(sngl_inspiral.end_time as char) || " -- " || cast(sngl_inspiral.snr as char)) IN
              (SELECT cast(end_time as char) || " -- " || cast(MAX(snr) as char)
@@ -235,7 +269,7 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
     ret = []
     i   = 0
 
-    for ifo, end_time, end_time_ns, snr, eff_dist, chisq in rows:
+    for ifo, end_time, end_time_ns, snr, eff_dist, chisq, mass1, mass2, bank_chisq, cont_chisq in rows:
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
@@ -269,7 +303,9 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
             ifo_status        = ifo_status[:-1]
             flags[ifo_status] = True
 
-        ret.append((ifo, end_time, end_time_ns, snr, eff_dist, chisq, flags))
+        mchirp = pow(mass1 * mass2, 3.0/5.0) / pow(mass1 + mass2, 4.0/5.0)
+
+        ret.append((ifo, end_time, end_time_ns, snr, eff_dist, mchirp, chisq, bank_chisq, cont_chisq, flags))
 
 
         i += 1
@@ -346,15 +382,24 @@ if __name__ == '__main__':
 
     # Do the omega scans if requested
     if omega_ok:
-        for ifo, end_time, end_time_ns, snr, eff_dist, chisq, flags in (known_trigs + unknown_trigs):
+        for trig in (known_trigs + unknown_trigs):
+            ifo         = trig[0]
+            end_time    = trig[1]
+            end_time_ns = trig[2]
+
             # The frames may live in a directory with subdirectories by time.  If the given directory
             # contains a '%d' populate it with the first 4 digits of the time.
             full_path = options.omega_frame_dir
 
             if full_path.find('%d') != -1:
-                full_path = full_path % (end_time / 100000)
+                full_path = full_path.replace('%d', str(end_time / 100000))
 
-            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
+            if full_path.find('%s') != -1:
+                full_path = full_path.replace('%s', ifo[0])
+
+            conf = options.omega_conf.replace('%s',ifo[0])
+
+            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d.%d  %d.%d < /dev/null &>/dev/null &" % ( conf, full_path, options.omega_out_dir, end_time, end_time_ns, end_time, end_time_ns ))
 
 
     # Convert to html, prepend to the file.

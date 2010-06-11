@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 """
-$Id$
-
 Manager program to run specific parts of the followup on the CCIN2P3 cluster
 """
 
 __author__ = 'Damir Buskulic <buskulic@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
@@ -22,6 +18,7 @@ import urlparse
 import urllib
 from UserDict import UserDict
 #sys.path.append('/archive/home/buskulic/opt/s5_1yr_followup_20080131/lalapps/lib/python2.4/site-packages/lalapps')
+from pylal import git_version
 
 ##############################################################################
 #
@@ -33,10 +30,8 @@ from UserDict import UserDict
 usage = """
 usage: %prog [options]
 """
-parser = OptionParser( usage )
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
 parser.add_option("-o", "--output-directory",action="store",type="string",\
     help="output result directory")
 parser.add_option("-T", "--times-file-scan",action="store",type="string",\
@@ -54,10 +49,6 @@ parser.add_option("-l", "--configuration-file-scanlite-seismic",action="store",t
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
 
 #########  READING TIMES FILE AND LAUNCHING BATCH QSCANS SCRIPTS  ############
 
@@ -80,22 +71,22 @@ else:
    outputDir = opts.output_directory
 
 if not opts.configuration_file_scan:
-   depConfigScan = 'CONFIG/foreground-qscan_config.txt'
+   depConfigScan = 'CONFIG/fg-rds-qscan_config.txt'
 else:
    depConfigScan = opts.configuration_file_scan
 
 if not opts.configuration_file_scan_seismic:
-   depConfigSeismicScan = 'CONFIG/foreground-seismic-qscan_config.txt'
+   depConfigSeismicScan = 'CONFIG/fg-seismic-qscan_config.txt'
 else:
    depConfigSeismicScan = opts.configuration_file_scan_seismic
 
 if not opts.configuration_file_scanlite:
-   depConfigScanLite = 'CONFIG/background-qscan_config.txt'
+   depConfigScanLite = 'CONFIG/bg-rds-qscan_config.txt'
 else:
    depConfigScanLite = opts.configuration_file_scanlite
 
 if not opts.configuration_file_scanlite_seismic:
-   depConfigSeismicScanLite = 'CONFIG/background-seismic-qscan_config.txt'
+   depConfigSeismicScanLite = 'CONFIG/bg-seismic-qscan_config.txt'
 else:
    depConfigSeismicScanLite = opts.configuration_file_scanlite_seismic
 
@@ -114,12 +105,12 @@ if os.path.exists(depIfoDir+'/TIMES/qscan_times.txt'):
    for qscanTimeRaw in qscanLines:
       qscanTime = qscanTimeRaw.rstrip('\n')
       print 'Launching foreground qscan for time '+qscanTime
-      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigScan+' '+outputDir+'/results_foreground-qscan @foreground@'
+      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigScan+' '+outputDir+'/results_fg-rds-qscan/'+str(float(qscanTime))+' @foreground@'
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
       os.system(qscanCommand)
-      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigSeismicScan+' '+outputDir+'/results_foreground-seismic-qscan @foreground-seismic@'
+      qscanCommand = './SCRIPTS/qsub_wscan.sh '+qscanTime+' '+depConfigSeismicScan+' '+outputDir+'/results_fg-seismic-qscan/'+str(float(qscanTime))+' @foreground-seismic@'
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
@@ -133,12 +124,12 @@ if os.path.exists(depIfoDir+'/TIMES/background_qscan_times.txt'):
    for qscanTimeRaw in qscanLines:
       qscanTime = qscanTimeRaw.rstrip('\n')
       print 'Launching background qscan (qscanlite) for time '+qscanTime
-      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigScanLite+' '+outputDir+'/results_background-qscan'
+      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigScanLite+' '+outputDir+'/results_bg-rds-qscan/'+str(float(qscanTime))
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')
       os.system(qscanCommand)
-      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigSeismicScanLite+' '+outputDir+'/results_background-seismic-qscan'
+      qscanCommand = './SCRIPTS/qsub_wscanlite.sh '+qscanTime+' '+depConfigSeismicScanLite+' '+outputDir+'/results_bg-seismic-qscan/'+str(float(qscanTime))
       print '      command : '+qscanCommand
       outCommands.write('command for time '+qscanTime+'\n')
       outCommands.write(qscanCommand+'\n\n')

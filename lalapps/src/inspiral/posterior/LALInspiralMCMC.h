@@ -75,7 +75,7 @@ NRCSID( LALINSPIRALMCMCH, "$Id: LALInspiralMCMC.h,v 1.79 2007/02/19 15:52:17 tho
 #define LALINSPIRALH_MSGEORDER        "unknown order specified"
 #define LALINSPIRALH_MSGEAPPROXIMANT  "Invalid model"
 #define MAXDET 5			/* Maximum number of data streams/detectors to accept */
-/** ---------------------------------------------------------------------  
+/* ---------------------------------------------------------------------  
 </lalErrTable> */
 
 
@@ -276,6 +276,7 @@ tagLALMCMCInput
   SimInspiralTable			*injectionTable;
   REAL8FFTPlan *fwdplan;
   REAL8FFTPlan *revplan;
+  REAL4FFTPlan *likelihoodPlan;
   REAL8Window *window; /* Window for FFTing the data */
   LIGOTimeGPS epoch;
   REAL4   fLow;
@@ -285,7 +286,8 @@ tagLALMCMCInput
   UINT4   numPoints; /* numPoints */
   UINT4   stride;   /* ovrlap */
   Approximant approximant; /* Approximant to use for this model */
-
+  INT4	  ampOrder; /* Amplitude order to use with Higher Harmonic waveforms */
+	                /* Setting = 0 means Newtonian amplitude */
   MCMCmode mode;
   MCMCLikelihoodFunction *funcLikelihood; /* engine for likelihood */
   MCMCInitFunction       *funcInit;       /* engine for init function */
@@ -336,8 +338,8 @@ tagLALMCMCInput
   UINT4 burninMaxNumber;  /* maximum number of trials */
 
 	/* Parameter for nested sampling */
-	UINT4 Nlive;
-	LALMCMCParameter **Live;
+  UINT4 Nlive;
+  LALMCMCParameter **Live;
 
 }  LALMCMCInput;
 /* </lalVerbatim>  */
@@ -465,6 +467,12 @@ void XLALMCMCRotateSky(
 	LALMCMCInput *inputMCMC,
 	LALMCMCParameter *parameter
 	);
+
+void XLALMCMCJumpSingle(
+  LALMCMCInput *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+);
 
 int XLALMCMC1PNMasseta(LALMCMCInput *inputMCMC, LALMCMCParameter *parameter);
 

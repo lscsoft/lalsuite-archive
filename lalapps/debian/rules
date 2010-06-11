@@ -19,8 +19,12 @@ PREFIX = /opt/lscsoft/lalapps
 FRAMEPREFIX = /opt/lscsoft/libframe
 METAIOPREFIX = /opt/lscsoft/libmetaio
 LALPREFIX = /opt/lscsoft/lal
+LALFRAMEPREFIX = /opt/lscsoft/lalframe
+LALMETAIOPREFIX = /opt/lscsoft/lalmetaio
+LALBURSTPREFIX = /opt/lscsoft/lalburst
+LALINSPIRALPREFIX = /opt/lscsoft/lalinspiral
+LALPULSARPREFIX = /opt/lscsoft/lalpulsar
 LALSTOCHPREFIX = /opt/lscsoft/lalstochastic
-LALFRAME = /opt/lscsoft/lalframe
 LALXMLPREFIX = /opt/lscsoft/lalxml
 
 CFLAGS = -Wall -g
@@ -31,16 +35,13 @@ else
 	CFLAGS += -O2
 endif
 
-configure:
-	sh ./00boot
-
 config.status: configure
 	dh_testdir
 
 #	LDFLAGS="-Wl,-z,defs" \
 # moved to install
 #	CFLAGS="$(CFLAGS)" \
-	#	PKG_CONFIG_PATH=$(FRAMEPREFIX)/lib/pkgconfig:$(METAIOPREFIX)/lib/pkgconfig:$(LALPREFIX)/lib/pkgconfig:$(LALSTOCHPREFIX)/lib/pkgconfig:$(LALFRAMEPREFIX)/lib/pkgconfig:$(LALXMLPREFIX)/lib/pkgconfig \
+#	PKG_CONFIG_PATH=$(FRAMEPREFIX)/lib/pkgconfig:$(METAIOPREFIX)/lib/pkgconfig:$(LALPREFIX)/lib/pkgconfig:$(LALFRAMEPREFIX)/lib/pkgconfig:$(LALMETAIOPREFIX)/lib/pkgconfig:$(LALBURSTPREFIX)/lib/pkgconfig:$(LALINSPIRALPREFIX)/lib/pkgconfig:$(LALPULSARPREFIX)/lib/pkgconfig:$(LALSTOCHPREFIX)/lib/pkgconfig:$(LALXMLPREFIX)/lib/pkgconfig \
 #	./configure --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
 #	    --prefix=$(PREFIX) \
 #	    --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info \
@@ -54,7 +55,7 @@ build-stamp:  config.status
 	dh_testdir
 
 # moved to install
-#	$(MAKE)
+#	$(MAKE) V=1
 
 	touch $@
 
@@ -63,7 +64,6 @@ clean:
 	dh_testroot
 	rm -f build-stamp 
 
-	-$(MAKE) cvs-clean
 	-$(MAKE) distclean
 	dh_clean 
 
@@ -75,9 +75,9 @@ install: build
 
 	set -e; \
 	for v in 2.4 2.5; do                                                         \
-	PYTHON="python$$v"                                                    \
+	PYTHON="/usr/bin/python$$v"                                                    \
 	CFLAGS="$(CFLAGS)"                                                    \
-	PKG_CONFIG_PATH=$(FRAMEPREFIX)/lib/pkgconfig:$(METAIOPREFIX)/lib/pkgconfig:$(LALPREFIX)/lib/pkgconfig:$(LALSTOCHPREFIX)/lib/pkgconfig:$(LALFRAMEPREFIX)/lib/pkgconfig:$(LALXMLPREFIX)/lib/pkgconfig \
+	PKG_CONFIG_PATH=$(FRAMEPREFIX)/lib/pkgconfig:$(METAIOPREFIX)/lib/pkgconfig:$(LALPREFIX)/lib/pkgconfig:$(LALFRAMEPREFIX)/lib/pkgconfig:$(LALMETAIOPREFIX)/lib/pkgconfig:$(LALBURSTPREFIX)/lib/pkgconfig:$(LALINSPIRALPREFIX)/lib/pkgconfig:$(LALPULSARPREFIX)/lib/pkgconfig:$(LALSTOCHPREFIX)/lib/pkgconfig:$(LALXMLPREFIX)/lib/pkgconfig \
 	./configure --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
 	    --prefix=$(PREFIX)                                                \
 	    --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info   \
@@ -85,11 +85,11 @@ install: build
 	    --enable-frame --enable-metaio                                    \
 	    --disable-debug                                                   \
 	    --disable-gcc-flags ;                                                    \
-	PYTHON="python$$v"                                                    \
-	$(MAKE) ;                                                                    \
-	PYTHON="python$$v"                                                    \
+	PYTHON="/usr/bin/python$$v"                                                    \
+	$(MAKE) V=1 ;                                                                    \
+	PYTHON="/usr/bin/python$$v"                                                    \
 	$(MAKE) DESTDIR=$(CURDIR)/debian/lalapps install ;                           \
-	PYTHON="python$$v"                                                    \
+	PYTHON="/usr/bin/python$$v"                                                    \
 	$(MAKE) clean ;                                                              \
 	done
 	set -e; \
@@ -110,7 +110,7 @@ install: build
 binary-common: build install
 	dh_testdir
 	dh_testroot
-	dh_installchangelogs ChangeLog
+	dh_installchangelogs
 	dh_installdocs
 	dh_installexamples
 #	dh_install

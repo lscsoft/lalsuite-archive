@@ -17,7 +17,7 @@
  *  MA  02111-1307  USA
  */
 
-/** \defgroup CFSv3
+/** \defgroup CFSv3 F-statistic (v3)
  * \ingroup pulsar
  * \author Reinhard Prix
  * \brief Module for FFT-based F-statistic calculation
@@ -50,7 +50,12 @@ extern "C" {
 /* empty init-structs for the types defined in here */
 
 /*---------- exported prototypes [API] ----------*/
-COMPLEX8TimeSeries *XLALSFTVectorToCOMPLEX8TimeSeries ( SFTVector *sfts );
+
+COMPLEX8TimeSeries *XLALSFTVectorToCOMPLEX8TimeSeries ( SFTVector *sfts,      /**< input SFT vector, gets modified! */
+							const LIGOTimeGPS *start_in,    /**< input start time */
+							const LIGOTimeGPS *end_in       /**< input end time */
+							);
+
 SFTtype *XLALSFTVectorToLFT ( const SFTVector *sfts, REAL8 upsampling );
 
 

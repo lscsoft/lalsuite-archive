@@ -366,7 +366,7 @@ int write_timeseries(int iSFT);
 int cleanup(LALStatus *);
 int freemem(LALStatus *);
 int window_data(void);
-int correct_phase(LALStatus *);
+int correct_phase(void);
 void syserror(const char *fmt, ...);
 void error(const char *fmt, ...);
 void compute_one_SSB(LALStatus* status, LIGOTimeGPS *ssbout, LIGOTimeGPS *gpsin);
@@ -625,7 +625,7 @@ int main(int argc,char *argv[]) {
 
 #if 1
       /* correct phase */
-      correct_phase(&status);
+      correct_phase();
 #endif
       
       /* if you want noise added in the FREQ domain only, read from files and add in */
@@ -812,26 +812,21 @@ int correct_phase(LALStatus* status, int iSFT) {
  * Yousuke 24 Mar 2004.
  *
  */
-int correct_phase(LALStatus* status) {
+int correct_phase(void) {
 
   UINT4 i;
   REAL8 cosx,sinx;
   COMPLEX8 fvec1;
-  LALTimeInterval deltaGPS;
   LIGOTimeGPS gps1,gps2;
-  REAL8 deltaT;
+  REAL8 x;
 
   gps1=timeSeries->epoch;
   gps2=cwDetector.heterodyneEpoch;
 
-  LALDeltaGPS(status,&deltaGPS,&gps1,&gps2);
+  x = XLALGPSDiff(&gps1,&gps2) * LAL_TWOPI*timeSeries->f0; 
 
-  LALIntervalToFloat(status,&deltaT,&deltaGPS);
-
-  deltaT *= LAL_TWOPI*timeSeries->f0; 
-
-  cosx=cos(deltaT);
-  sinx=sin(deltaT);
+  cosx=cos(x);
+  sinx=sin(x);
   for (i = 0; i < fvec->length; ++i){
     fvec1=fvec->data[i];
     fvec->data[i].re=fvec1.re*cosx-fvec1.im*sinx;
@@ -1161,7 +1156,6 @@ int write_modulated_amplitudes_file(LALStatus* status){
   LALSource         source;
   LALDetAndSource   detectorandsource;
   LIGOTimeGPS       gps;
-  LALGPSandAcc      gpsandacc;
   const char *filename="AmplMod.dat";
   int i;
 
@@ -1180,9 +1174,8 @@ int write_modulated_amplitudes_file(LALStatus* status){
   
     gps.gpsSeconds=timestamps[i].gpsSeconds;
     gps.gpsNanoSeconds=timestamps[i].gpsNanoSeconds;
-    gpsandacc.gps=gps;
 
-    LALComputeDetAMResponse(status, &amresp, &detectorandsource, &gpsandacc);
+    LALComputeDetAMResponse(status, &amresp, &detectorandsource, &gps);
     fprintf(fp,"%f  %f\n",amresp.plus,amresp.cross);
     
   }
@@ -1197,7 +1190,7 @@ int write_modulated_amplitudes_file(LALStatus* status){
 
 int make_filelist(void) {
 
-  UINT4 fileno=0;
+  UINT4 filenum=0;
   char command[256];
   glob_t globbuf;
 
@@ -1208,11 +1201,11 @@ int make_filelist(void) {
   glob(command, GLOB_ERR, NULL, &globbuf);
 
   /* read file names -- MUST NOT FORGET TO PUT ERROR CHECKING IN HERE !!!! */
-  while (fileno< globbuf.gl_pathc) 
+  while (filenum< globbuf.gl_pathc) 
     {
-      strcpy(filelist[fileno],globbuf.gl_pathv[fileno]);
-      fileno++;
-      if (fileno > MAXFILES)
+      strcpy(filelist[filenum],globbuf.gl_pathv[filenum]);
+      filenum++;
+      if (filenum > MAXFILES)
 	{
 	  error("Too many files in directory! Exiting... \n");
 	  return 1;
@@ -1333,12 +1326,12 @@ INT4 myRound(REAL8 x)
 {
   REAL8 sign=1.0;
   REAL8 roundedValue=0.0;
-  REAL8 remainder=0.0;
+  REAL8 rmdr=0.0;
 
   if(x<0) sign=-1.0;
   roundedValue= floor(sign*x);
-  remainder=sign*x-roundedValue;
-  if(remainder>=0.5) 
+  rmdr=sign*x-roundedValue;
+  if(rmdr>=0.5) 
     roundedValue=roundedValue+1.0;
   roundedValue=sign*roundedValue;
 
@@ -1522,6 +1515,7 @@ int parseR4(FILE *fp, const char* vname, REAL4 *data){
   char junk[1024], junk2[1024];
   char command[1024];
   int r;
+  int rc;
   
   memset(junk, '\0', 1024);
   memset(junk2,'\0', 1024);
@@ -1534,7 +1528,7 @@ int parseR4(FILE *fp, const char* vname, REAL4 *data){
 	  "with white space in between. TEXT is NOT optional!\n",
 	  vname, inDataFilename);
     sprintf(command, "cat %s 1>&2\n", inDataFilename);
-    system(command);
+    rc = system(command);
     return 1;
   }
       return 0;
@@ -1544,6 +1538,7 @@ int parseR8(FILE *fp, const char* vname, REAL8 *data){
   char junk[1024], junk2[1024];
   char command[1024];
   int r;
+  int rc;
   
   memset(junk, '\0', 1024);
   memset(junk2,'\0', 1024);
@@ -1556,7 +1551,7 @@ int parseR8(FILE *fp, const char* vname, REAL8 *data){
 	  "with white space in between. TEXT is NOT optional!\n",
 	  vname, inDataFilename);
     sprintf(command, "cat %s 1>&2\n", inDataFilename);
-    system(command);
+    rc = system(command);
     return 1;
   }
       return 0;
@@ -1565,6 +1560,7 @@ int parseI4(FILE *fp, const char* vname, INT4 *data){
   char junk[1024], junk2[1024];
   char command[1024];
   int r;
+  int rc;
   
   memset(junk, '\0', 1024);
   memset(junk2,'\0', 1024);
@@ -1577,7 +1573,7 @@ int parseI4(FILE *fp, const char* vname, INT4 *data){
 	  "with white space in between. TEXT is NOT optional!\n",
 	  vname, inDataFilename);
     sprintf(command, "cat %s 1>&2\n", inDataFilename);
-    system(command);
+    rc = system(command);
     return 1;
   }
       return 0;

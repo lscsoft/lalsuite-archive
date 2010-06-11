@@ -25,23 +25,21 @@
 */
 
 
-#include "SPINspiral.h"
+#include <SPINspiral.h>
 
 double Ms,Mpc,G,c,Mpcs,pi,tpi,mtpi;
 
-
-
 /**
- * \mainpage documentation
+ * \file
+ * \brief Contains main routines for SPINspiral
+ *
  * SPINspiral is a parameter-estimation code designed to extract the physical parameters of compact-binary coalescences (CBCs) from observed gravitational-wave signals.
  *
- * More information about SPINspiral can be found on its web page: 
+ * More information about SPINspiral can be found on its web page:
  * <a href="http://www.astro.northwestern.edu/~sluys/index.php?title=SPINspiral">http://www.astro.northwestern.edu/~sluys/index.php?title=SPINspiral</a>.
  *
  * The pages in this documentation provide information on the SPINspiral code.
  *
- * \file SPINspiral_main.c
- * \brief Contains main routine
  */
 
 
@@ -50,7 +48,7 @@ double Ms,Mpc,G,c,Mpcs,pi,tpi,mtpi;
 int main(int argc, char* argv[])
 {
   printf("\n\n   Starting SPINspiral...\n");
-  printf("   Compiled from source code version $Id: SPINspiral_main.c 222 2009-09-19 13:40:12Z vivien $ \n");
+  printf("   Compiled from source code version $Id: SPINspiral_main.c 227 2009-10-28 09:04:49Z vivien $ \n");
   
   clock_t time0 = clock();
   int ifonr=0,i=0,injectionWF=0,mcmcWF=0;
@@ -68,7 +66,7 @@ int main(int argc, char* argv[])
     run.mcmcParUse[i] = 0;
     run.injParUse[i]  = 0;
   }
-  sprintf(run.executable,argv[0]);
+  sprintf(run.executable, "%s", argv[0]);
   run.lowFrequencyCut = 0.0;
   run.injXMLfilename = NULL;
   run.injXMLnr = -1;
@@ -84,11 +82,11 @@ int main(int argc, char* argv[])
   readMCMCinputfile(&run);                 //Read the input data on how to do MCMC 
   setSeed(&run.MCMCseed);                  //Set MCMCseed if 0, otherwise keep the current value
   readInjectionInputfile(&run);            //Read the input data on whether and how to do a software injection
-	if(run.injXMLfilename != NULL && run.injXMLnr >= 0) readInjectionXML(&run);	 //Read injection XML file if specified:
+  if(run.injXMLfilename != NULL && run.injXMLnr >= 0) readInjectionXML(&run);    //Read injection XML file if specified:
   readParameterInputfile(&run);            //Read the input data on how to handle MCMC parameters
   readSystemInputfile(&run);               //Read system-dependent data, e.g. path to data files
   
-	
+  
   
   //Set up the data for the IFOs in an IFO database you may want to use (H1,L1 + VIRGO by default)
   run.maxIFOdbaseSize = 4;  //The maximum number of IFOs to read the properties in for from the data input file (SPINspiral.input.data or equivalent)

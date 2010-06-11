@@ -227,11 +227,20 @@ if(!args_info.dataset_given && !args_info.detector_given){
 	exit(-1);
 	}
 
+if(!args_info.sky_marks_file_given){
+	fprintf(stderr,"** You must provide a skymarks file (--sky-marks-file)\n");
+	exit(-1);
+	}
+
 gsl_rng_env_setup();
 gsl_set_error_handler_off();
 
 /* create output directories if not present */
-if(args_info.output_given){
+if(args_info.flat_output_given){
+	output_dir=do_alloc(strlen(args_info.flat_output_arg)+30, sizeof(*output_dir));
+	sprintf(output_dir, "%s", args_info.flat_output_arg);
+	} else
+if(args_info.output_given) {
 	mkdir(args_info.output_arg, 0777);
 	output_dir=do_alloc(strlen(args_info.output_arg)+30, sizeof(*output_dir));
 	sprintf(output_dir, "%s/%d-%f/", args_info.output_arg, args_info.first_bin_arg,args_info.first_bin_arg/1800.0);
@@ -356,6 +365,13 @@ if(!strcasecmp("plain_rectangular", args_info.sky_grid_arg)){
 	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
 	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
 	} else
+if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
+	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
+		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
+		}
+	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+2);
+	proto_super_grid=make_targeted_rect_supergrid(patch_grid, args_info.fine_factor_arg);
+	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
 	patch_grid=make_arcsin_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
 	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
@@ -429,7 +445,7 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=260+ceil(M_PI/resolution)/6.0+ceil((1800.0)*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=260+ceil((args_info.first_bin_arg+args_info.nbins_arg)*M_PI/9000.0)/6.0+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
 	/* round it up to a multiple of 450 */
 /*	side_cut=450*ceil(side_cut/450.0);*/
 	}
@@ -505,7 +521,7 @@ fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
 fprintf(LOG,"niota: %d\n", args_info.niota_arg);
 fprintf(LOG,"npsi: %d\n", args_info.npsi_arg);
 fprintf(LOG,"nfshift: %d\n", args_info.nfshift_arg);
-fprintf(LOG,"summing step: %d\n", args_info.summing_step_arg);
+fprintf(LOG,"summing step: %f\n", args_info.summing_step_arg);
 fprintf(LOG,"max_first_shift: %d\n", args_info.max_first_shift_arg);
 fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
@@ -513,9 +529,11 @@ fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes (unused)" : "no" );
 fprintf(LOG, "weight cutoff fraction: %g\n", args_info.weight_cutoff_fraction_arg);
 fprintf(LOG, "per dataset weight cutoff fraction: %g\n", args_info.per_dataset_weight_cutoff_fraction_arg);
 fprintf(LOG, "noise level: %s\n", args_info.tmedian_noise_level_arg ? "TMedian" : "in_place_sd");
+fprintf(LOG, "phase mismatch: %.8g\n", args_info.phase_mismatch_arg);
 fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_independent" : "spindown_dependent");
 
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
+fprintf(LOG, "cache bypass: %s\n", args_info.bypass_powersum_cache_arg ? "enabled" : "disabled");
 fflush(LOG);
 
 /* we do not use precomputed polarization arrays in powerflux2 
@@ -837,6 +855,13 @@ super_grid=reduced_supergrid(proto_super_grid);
 fine_grid=super_grid->super_grid;
 
 print_grid_statistics(LOG, "", fine_grid);
+
+if(super_grid->super_grid->npoints<1) {
+	fprintf(stderr, "****ERROR: no points marked for processing\n");
+	fprintf(LOG, "****ERROR: no points marked for processing\n");
+	exit(-1);
+	}
+
 precompute_values(fine_grid);
 precompute_values(patch_grid);
 verify_dataset_whole_sky_AM_response();
@@ -851,6 +876,24 @@ fflush(LOG);
 
 power_cache_selftest();
 power_sum_stats_selftest();
+
+/* Check that expected timebase was sufficient */
+
+if((fabs(max_gps()-spindown_start)>args_info.expected_timebase_arg*24.0*3600.0*31.0 )) {
+	fprintf(stderr, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg*1.0);
+	fprintf(LOG, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
+	exit(-1);
+	}
+if((fabs(spindown_start-args_info.spindown_start_time_arg)>args_info.expected_timebase_arg*24*3600*31 )||
+	(fabs(args_info.spindown_start_time_arg-min_gps())>args_info.expected_timebase_arg*24*3600*31)) {
+	fprintf(stderr, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(spindown_start-min_gps())/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
+	fprintf(LOG, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(spindown_start-min_gps())/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
+	exit(-1);
+	}
 
 /* MAIN LOOP stage */
 time(&stage_time);

@@ -11,6 +11,7 @@ import getpass
 import ConfigParser
 from subprocess import Popen, PIPE
 from optparse import *
+from M2Crypto.SSL import Context
 
 # pubsub import must come first because it overloads part of the
 # StanzaProcessor class
@@ -85,6 +86,9 @@ usage = """\
   would result in ./mycounter being executed and the output printed to
   screen whenever a message was received via the lvalert_test node. 
 
+  Alternatively, instead of the name of an executable, you could
+  indicate either "stdout" or "-" (withouth quotes) and the alert
+  payload will be written to standard output.
 """
 
 #################################################################
@@ -162,8 +166,12 @@ class LVAlertHandler(object):
         n=self.get_node(stanza)
         if e:
             if n in self.actions:
-                p = Popen([self.actions[n]], stdin=PIPE, stdout=PIPE)
-                print p.communicate(e)[0]
+                action = self.actions[n]
+                if action == 'stdout' or action == '-':
+                    sys.stdout.write(str(e))
+                else:
+                    p = Popen([self.actions[n]], stdin=PIPE, stdout=PIPE)
+                    print p.communicate(e)[0]
                 sys.stdout.flush()
             else:
                 print "Payload received at %s" % (datetime.datetime.now().ctime())
@@ -195,7 +203,10 @@ class MyClient(Client):
             jid=JID(jid.node, jid.domain, "listener")
 
         # we require a TLS connection
-        t=TLSSettings(require=True,verify_peer=False)
+        #  Specify sslv3 to get around Sun Java SSL bug handling session ticket
+        #  https://rt.phys.uwm.edu/Ticket/Display.html?id=1825
+        #  http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6728126
+        t=TLSSettings(require=True,verify_peer=False, ctx=Context('sslv3'))
 
         # setup client with provided connection information
         # and identity data
@@ -231,7 +242,10 @@ if opts.config_file:
     cp=ConfigParser.ConfigParser()
     cp.read(opts.config_file)
     for node in cp.sections():
-        actions[node]=cp.get(node,'executible')
+        try:
+            actions[node] = cp.get(node,'executible')
+        except ConfigParser.NoOptionError:
+            actions[node] = cp.get(node,'executable')
 
 # set up the stream
 myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)

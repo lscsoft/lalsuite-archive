@@ -48,13 +48,10 @@
 
 #include <lal/FlatPulsarMetric.h>
 
-#include <lalapps.h>
 #include <lal/ComputeFstat.h>
 #include <lal/LogPrintf.h>
 
-
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lalapps.h>
 
 RCSID ("$Id$");
 
@@ -208,6 +205,8 @@ typedef struct
   INT4 unitsType;	/**< which units to use for 't' and 'rX/c': SI vs natural */
 
   INT4 projection;     /**< project metric onto surface */
+
+  BOOLEAN version;	/**< output version-info */
 } UserVariables_t;
 
 
@@ -229,7 +228,7 @@ void getMultiPhaseDerivs (LALStatus *, MultiPhaseDerivs **derivs,
 			  PhaseType_t type,
 			  const DopplerPoint *offsetUnits );
 
-void InitEphemeris (LALStatus *, EphemerisData *edat, const CHAR *ephemDir, const CHAR *ephemYear, LIGOTimeGPS epoch, BOOLEAN isLISA);
+void InitEphemeris (LALStatus *, EphemerisData *edat, const CHAR *ephemDir, const CHAR *ephemYear, BOOLEAN isLISA);
 
 int computeFstatMetric ( gsl_matrix *gF_ij, gsl_matrix *gFav_ij,
 			 gsl_matrix *m1_ij, gsl_matrix *m2_ij, gsl_matrix *m3_ij,
@@ -270,9 +269,7 @@ main(int argc, char *argv[])
   FILE *fpMetric = 0;
   PhaseType_t phaseType;
   MetricType_t startMetricType, stopMetricType, metricType;
-  CHAR dummy[512];
-  sprintf (dummy, "%s", lalGitID );
-  sprintf (dummy, "%s", lalappsGitID );
+  CHAR *VCSInfoString;
 
   lalDebugLevel = 0;
   vrbflg = 1;	/* verbose error-messages */
@@ -293,6 +290,17 @@ main(int argc, char *argv[])
 
   if (uvar.help) 	/* help requested: we're done */
     exit (0);
+
+  if ( (VCSInfoString = XLALGetVersionString(0)) == NULL ) {
+    XLALPrintError("XLALGetVersionString(0) failed.\n");
+    exit(1);
+  }
+
+  if ( uvar.version )
+    {
+      printf ("%s\n", VCSInfoString );
+      exit(0);
+    }
 
   if ( uvar.outputMetric )
     if ( (fpMetric = fopen ( uvar.outputMetric, "wb" )) == NULL )
@@ -414,7 +422,8 @@ main(int argc, char *argv[])
 
 	  if ( fpMetric )
 	    {
-	      const CHAR *gprefix, *mprefix;
+	      const CHAR *gprefix = NULL;
+	      const CHAR *mprefix = NULL;
 	      if ( metricType == METRIC_PHASE ) {
 		gprefix = "gPh_ij = \\\n"; mprefix = "mPh = ";
 	      } else if ( metricType == METRIC_ORBITAL ) {
@@ -423,7 +432,7 @@ main(int argc, char *argv[])
 		gprefix = "gPtole_ij = \\\n"; mprefix = "mPtole = ";
 	      }
 
-              fprintf ( fpMetric, gprefix ); XLALfprintfGSLmatrix ( fpMetric, METRIC_FORMAT, g_ij );
+              fprintf ( fpMetric, "%s", gprefix ); XLALfprintfGSLmatrix ( fpMetric, METRIC_FORMAT, g_ij );
               fprintf ( fpMetric, "\n%s %.16g;\n\n", mprefix, mm );
 
 	    } /* if fpMetric */
@@ -495,7 +504,7 @@ main(int argc, char *argv[])
 		const CHAR *gprefix = "gFlat_ij = \\\n";
 		const CHAR *mprefix = "mFlat = ";
 
-		fprintf ( fpMetric, gprefix); XLALfprintfGSLmatrix ( fpMetric, METRIC_FORMAT, gFlat_ij );
+		fprintf ( fpMetric, "%s", gprefix); XLALfprintfGSLmatrix ( fpMetric, METRIC_FORMAT, gFlat_ij );
 		fprintf ( fpMetric, "\n%s %.16g;\n\n", mprefix, mm );
 	      } /* if fpMetric */
 
@@ -526,6 +535,8 @@ main(int argc, char *argv[])
   gsl_matrix_free ( m1_ij );
   gsl_matrix_free ( m2_ij );
   gsl_matrix_free ( m3_ij );
+
+  XLALFree ( VCSInfoString );
 
   LAL_CALL (FreeMem(&status, &config), &status);
 
@@ -970,6 +981,8 @@ initUserVars (LALStatus *status, UserVariables_t *uvar)
   LALregINTUserStruct(status,  	unitsType,	 0,  UVAR_OPTIONAL,	"Which units to use for metric components: 0=SI, 1=natural (order-1)");
   LALregINTUserStruct(status,   projection,      0,  UVAR_OPTIONAL,     "Coordinate of metric projection: 0=none, 1=f, 2=Alpha, 3=Delta, 4=f1dot");
 
+  LALregBOOLUserStruct(status,	version,        'V', UVAR_SPECIAL,      "Output code version");
+
   DETATCHSTATUSPTR (status);
   RETURN (status);
 
@@ -1011,7 +1024,7 @@ InitCode (LALStatus *status, ConfigVariables *cfg, const UserVariables_t *uvar)
     if ( uvar->IFOs->data[0][0] == 'Z' )
       isLISA = TRUE;
 
-    TRY( InitEphemeris (status->statusPtr, cfg->edat, ephemDir, uvar->ephemYear, cfg->startTime, isLISA ), status);
+    TRY( InitEphemeris (status->statusPtr, cfg->edat, ephemDir, uvar->ephemYear, isLISA ), status);
   }
 
   /* ----- which units to use? 'natural' or SI ----- */
@@ -1594,7 +1607,6 @@ InitEphemeris (LALStatus * status,
 	       EphemerisData *edat,	/**< [out] the ephemeris-data */
 	       const CHAR *ephemDir,	/**< directory containing ephems */
 	       const CHAR *ephemYear,	/**< which years do we need? */
-	       LIGOTimeGPS epoch,	/**< epoch of observation */
 	       BOOLEAN isLISA		/**< hack this function for LISA ephemeris */
 	       )
 {

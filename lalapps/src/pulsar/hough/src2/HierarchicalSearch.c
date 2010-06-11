@@ -102,7 +102,7 @@
 
    - Get timings and optimize the pipeline parameters
 
-   - Checkpointing for running on Einstein@Home
+   - Checkpointing for running on Einstein\@Home
 
    - Incorporate stack slide as an alternative to Hough in the semi-coherent stages
 
@@ -110,9 +110,8 @@
 
  */
 
-
-
-#include"HierarchicalSearch.h"
+#include "OptimizedCFS/ComputeFstatREAL4.h"
+#include "HierarchicalSearch.h"
 
 
 /* This need to go here after HierarchicalSearch.h is included;
@@ -124,23 +123,41 @@ RCSID( "$Id$");
 #define TRUE (1==1)
 #define FALSE (1==0)
 
-/* Hooks for Einstein@Home / BOINC
+/* Hooks for Einstein\@Home / BOINC
    These are defined to do nothing special in the standalone case
    and will be set in boinc_extras.h if EAH_BOINC is set
  */
 #ifdef EAH_BOINC
-#include "hs_boinc_extras.h"
-#else
+#include "EinsteinAtHome/hs_boinc_extras.h"
+#else /* EAH_BOINC */
+/* checkpointing */
 #define HS_CHECKPOINTING 0 /* no checkpointing in the non-BOINC case (yet) */
 #define GET_CHECKPOINT(toplist,total,count,outputname,cptname) *total=0;
 #define INSERT_INTO_HOUGHFSTAT_TOPLIST insert_into_houghFStat_toplist
 #define SHOW_PROGRESS(rac,dec,tpl_count,tpl_total,freq,fband)
 #define SET_CHECKPOINT
-#define REARRANGE_SFT_DATA
-#define MAIN  main
-#define FOPEN fopen
-#define COMPUTEFSTATFREQBAND ComputeFStatFreqBand
+/* BOINC */
+#define MAIN main
+#endif /* EAH_BOINC */
+
+/* These might have been set differently in hs_boinc_extras.h or ComputeFStatREAL4.h */
+#ifndef COMPUTEFSTATHOUGHMAP
 #define COMPUTEFSTATHOUGHMAP ComputeFstatHoughMap
+#endif
+#ifndef COMPUTEFSTATFREQBAND
+#define COMPUTEFSTATFREQBAND ComputeFStatFreqBand
+#endif
+#ifndef GPUREADY_DEFAULT
+#define GPUREADY_DEFAULT 0
+#endif
+#ifndef REARRANGE_SFT_DATA
+#define REARRANGE_SFT_DATA
+#endif
+#ifndef INITIALIZE_COPROCESSOR_DEVICE
+#define INITIALIZE_COPROCESSOR_DEVICE
+#endif
+#ifndef UNINITIALIZE_COPROCESSOR_DEVICE
+#define UNINITIALIZE_COPROCESSOR_DEVICE
 #endif
 
 extern int lalDebugLevel;
@@ -220,13 +237,11 @@ void GetSemiCohToplist(LALStatus *status, toplist_t *list, SemiCohCandidateList 
 
 void ComputeNumExtraBins(LALStatus *status, SemiCoherentParams *par, REAL8 fdot, REAL8 f0, REAL8 deltaF);
 
-void DumpLUT2file(LALStatus *status, HOUGHptfLUT *lut, HOUGHPatchGrid *patch, CHAR *basename, INT4 index);
+void DumpLUT2file(LALStatus *status, HOUGHptfLUT *lut, HOUGHPatchGrid *patch, CHAR *basename, INT4 ind);
 
 void GetXiInSingleStack (LALStatus         *status,
-			 REAL8Vector       *out,
 			 HOUGHSizePar      *size,
 			 HOUGHDemodPar     *par);
-
 
 /* default values for input variables */
 #define EARTHEPHEMERIS 		"earth05-09.dat"
@@ -325,7 +340,7 @@ int MAIN( int argc, char *argv[]) {
   static HOUGHPeakGramVector pgV;
   static SemiCoherentParams semiCohPar;
   static SemiCohCandidateList semiCohCandList;
-  REAL8 alphaPeak, sumWeightSquare, meanN, sigmaN;
+  REAL8 alphaPeak, sumWeightSquare, meanN=0, sigmaN=0;
 
   /* fstat candidate structure */
   toplist_t *semiCohToplist=NULL;
@@ -412,8 +427,13 @@ int MAIN( int argc, char *argv[]) {
   CHAR *uvar_DataFiles1 = NULL;
   CHAR *uvar_skyGridFile=NULL;
   INT4 uvar_numSkyPartitions = 0;
+  BOOLEAN uvar_version = 0;
   INT4 uvar_partitionIndex = 0;
 
+#ifndef GPUREADY_DEFAULT
+#define GPUREADY_DEFAULT 0
+#endif
+  BOOLEAN uvar_GPUready = GPUREADY_DEFAULT;
   global_status = &status;
 
 
@@ -451,7 +471,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "useWeights",   0,  UVAR_OPTIONAL, "Weight each stack using noise and AM?", &uvar_useWeights ), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "followUp",     0,  UVAR_OPTIONAL, "Follow up stage?", &uvar_followUp), &status);  
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "DataFiles1",   0,  UVAR_REQUIRED, "1st SFT file pattern", &uvar_DataFiles1), &status);
-  LAL_CALL( LALRegisterSTRINGUserVar( &status, "skyRegion",    0,  UVAR_OPTIONAL, "sky-region polygon (or 'allsky')", &uvar_skyRegion), &status);
+  LAL_CALL( LALRegisterSTRINGUserVar( &status, "skyRegion",    0,  UVAR_OPTIONAL, "Sky-region by polygon of form '(ra1,dec1),(ra2,dec2),(ra3,dec3),...' or 'allsky'", &uvar_skyRegion), &status);
   LAL_CALL( LALRegisterINTUserVar(    &status, "numSkyPartitions",0,UVAR_OPTIONAL, "Number of (equi-)partitions to split skygrid into", &uvar_numSkyPartitions), &status);
   LAL_CALL( LALRegisterINTUserVar(    &status, "partitionIndex",0,UVAR_OPTIONAL, "Index [0,numSkyPartitions-1] of sky-partition to generate", &uvar_partitionIndex), &status);
 
@@ -497,13 +517,30 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar(    &status, "sftUpsampling",0, UVAR_DEVELOPER, "Upsampling factor for fast LALDemod",  &uvar_sftUpsampling), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "useToplist1",  0, UVAR_DEVELOPER, "Use toplist for 1st stage candidates?", &uvar_useToplist1 ), &status);
   LAL_CALL( LALRegisterREALUserVar (  &status, "df1dotRes",    0,  UVAR_DEVELOPER,"Resolution in residual fdot values (default=df1dot/nf1dotRes)", &uvar_df1dotRes), &status);
+  LAL_CALL( LALRegisterBOOLUserVar(   &status, "GPUready",     0, UVAR_OPTIONAL,  "Use single-precision 'GPU-ready' core routines", &uvar_GPUready), &status);
+  LAL_CALL ( LALRegisterBOOLUserVar(  &status, "version",     'V', UVAR_SPECIAL,  "Output version information", &uvar_version), &status);
 
   /* read all command line variables */
   LAL_CALL( LALUserVarReadAllInput(&status, argc, argv), &status);
 
   /* exit if help was required */
   if (uvar_help)
-    return(0); 
+    return(0);
+
+
+  /* assemble version string */
+  CHAR *VCSInfoString;
+  if ( (VCSInfoString = XLALGetVersionString(0)) == NULL ) {
+    XLALPrintError("XLALGetVersionString(0) failed.\n");
+    return( HIERARCHICALSEARCH_EBAD );
+  }
+  LogPrintfVerbatim( LOG_DEBUG, "Code-version: %s", VCSInfoString );
+
+  if ( uvar_version )
+    {
+      printf ("%s\n", VCSInfoString );
+      return (0);
+    }
 
   /* set log-level */
 #ifdef EAH_LOGLEVEL
@@ -536,7 +573,7 @@ int MAIN( int argc, char *argv[]) {
 
   /* probability of peak selection */
   alphaPeak = (1+uvar_peakThrF)*exp(-uvar_peakThrF);
-  
+
   /* create toplist -- semiCohToplist has the same structure 
      as a fstat candidate, so treat it as a fstat candidate */
   create_houghFStat_toplist(&semiCohToplist, uvar_nCand1);
@@ -556,31 +593,22 @@ int MAIN( int argc, char *argv[]) {
 
       /* get the log string */
       LAL_CALL( LALUserVarGetLog(&status, &logstr, UVAR_LOGFMT_CFGFILE), &status);  
-      
+
       fprintf( fpLog, "## Log file for HierarchicalSearch.c\n\n");
       fprintf( fpLog, "# User Input:\n");
       fprintf( fpLog, "#-------------------------------------------\n");
-      fprintf( fpLog, logstr);
+      fprintf( fpLog, "%s", logstr);
       LALFree(logstr);
-      
-      /*get the cvs tags */
-      {
-	CHAR command[1024] = "";
-	fprintf (fpLog, "\n\n# CVS-versions of executable:\n");
-	fprintf (fpLog, "# -----------------------------------------\n");
-	fclose (fpLog);
-	
-	sprintf (command, "ident %s | sort -u >> %s", argv[0], fnamelog);
-	system (command);	/* we don't check this. If it fails, we assume that */
-	/* one of the system-commands was not available, and */
-	/* therefore the CVS-versions will not be logged */
-	
-	LALFree(fnamelog); 
-	
-      } /* end of cvs tags block */
-      
+
+      /* add code version ID */
+      fprintf ( fpLog, "%s", VCSInfoString );
+
+      fclose (fpLog);
+
+      LALFree(fnamelog);
+
     } /* end of logging */
-  
+
 
   /*--------- Some initializations ----------*/
 
@@ -925,6 +953,8 @@ int MAIN( int argc, char *argv[]) {
 
   LogPrintf(LOG_DEBUG, "Total skypoints = %d. Progress: ", thisScan.numSkyGridPoints);
 
+  INITIALIZE_COPROCESSOR_DEVICE
+
 #ifdef OUTPUT_TIMING
     clock0 = time(NULL);
 #endif 
@@ -934,7 +964,7 @@ int MAIN( int argc, char *argv[]) {
     {
       UINT4 ifdot;  /* counter for spindown values */
       SkyPosition skypos;
-
+      ComputeFBufferREAL4V cfvBuffer;
 
       /* if (skyGridCounter == 25965) { */
 
@@ -1044,10 +1074,11 @@ int MAIN( int argc, char *argv[]) {
 	  } 
 	} /* loop over stacks */
 
-	REARRANGE_SFT_DATA;
+	REARRANGE_SFT_DATA
 
       } /* fstat memory allocation block */
       
+      cfvBuffer = empty_ComputeFBufferREAL4V;
       
 	/* loop over fdot values
 	   -- spindown range and resolutionhas been set earlier */
@@ -1063,21 +1094,42 @@ int MAIN( int argc, char *argv[]) {
 	  
 	  /* calculate the Fstatistic for each stack*/
 	  LogPrintf(LOG_DETAIL, "Starting Fstat calculation for each stack...");
-	  for ( k = 0; k < nStacks; k++) {
-	    
-	    /* set spindown value for Fstat calculation */
-	    thisPoint.fkdot[1] = usefulParams.spinRange_midTime.fkdot[1] + ifdot * df1dot;
-	    thisPoint.fkdot[0] = fstatVector.data[k].f0;
-	    /* thisPoint.fkdot[0] = usefulParams.spinRange_midTime.fkdot[0]; */
-	    
-	    /* this is the most costly function. We here allow for using an architecture-specific optimized
-	       function from e.g. a local file instead of the standard ComputeFStatFreqBand() from LAL */
-	    LAL_CALL( COMPUTEFSTATFREQBAND ( &status, fstatVector.data + k, &thisPoint, 
-					     stackMultiSFT.data[k], stackMultiNoiseWeights.data[k], 
-					     stackMultiDetStates.data[k], &CFparams), &status);
-	  }
-	  LogPrintfVerbatim(LOG_DETAIL, "done\n");
-	  
+          if ( !uvar_GPUready )
+            {
+              for ( k = 0; k < nStacks; k++)
+                {
+                  /* set spindown value for Fstat calculation */
+                  thisPoint.fkdot[1] = usefulParams.spinRange_midTime.fkdot[1] + ifdot * df1dot;
+                  thisPoint.fkdot[0] = fstatVector.data[k].f0;
+                  /* thisPoint.fkdot[0] = usefulParams.spinRange_midTime.fkdot[0]; */
+
+                  /* this is the most costly function. We here allow for using an architecture-specific optimized
+                     function from e.g. a local file instead of the standard ComputeFStatFreqBand() from LAL */
+                  LAL_CALL( COMPUTEFSTATFREQBAND ( &status, fstatVector.data + k, &thisPoint, 
+                                                   stackMultiSFT.data[k], stackMultiNoiseWeights.data[k], 
+                                                   stackMultiDetStates.data[k], &CFparams), &status);
+                } /* for k < nStacks */
+            }
+          else	/* run "GPU-ready" REAL4 version aiming at maximum parallelism for GPU optimization */
+            {
+              /* set spindown value for Fstat calculation */
+              thisPoint.fkdot[1] = usefulParams.spinRange_midTime.fkdot[1] + ifdot * df1dot;
+              thisPoint.fkdot[0] = fstatVector.data[0].f0;
+              /* thisPoint.fkdot[0] = usefulParams.spinRange_midTime.fkdot[0]; */
+
+              /* this is the most costly function. We here allow for using an architecture-specific optimized
+               * function from e.g. a local file instead of the standard ComputeFStatFreqBand() from LAL */
+              if ( XLALComputeFStatFreqBandVector ( &fstatVector, &thisPoint, &stackMultiSFT, &stackMultiNoiseWeights,
+                                                    &stackMultiDetStates, CFparams.Dterms, &cfvBuffer) != XLAL_SUCCESS )
+                {
+                  LogPrintf (LOG_CRITICAL, "main(): XLALComputeFStatFreqBandVector() failed with errno = %d\n", xlalErrno );
+                  return XLAL_EFUNC;
+                }
+
+            } /* if GPUready */
+
+          LogPrintfVerbatim(LOG_DETAIL, "done\n");
+
 	  /* print fstat vector if required -- mostly for debugging */
 	  if ( uvar_printFstat1 )
 	    {
@@ -1155,6 +1207,7 @@ int MAIN( int argc, char *argv[]) {
 	  
 	} /* end loop over coarse grid fdot values */
 
+      XLALEmptyComputeFBufferREAL4V ( &cfvBuffer );
 
       /* continue forward till the end if uvar_skyPointIndex is set
 	 ---This probably doesn't make sense when checkpointing is turned on */
@@ -1192,6 +1245,7 @@ int MAIN( int argc, char *argv[]) {
   }
 #endif
   
+  UNINITIALIZE_COPROCESSOR_DEVICE
 
   LogPrintfVerbatim ( LOG_DEBUG, " done.\n");
 
@@ -1231,7 +1285,9 @@ int MAIN( int argc, char *argv[]) {
     {
       LALFree(fnameSemiCohCand);
     }
-  
+
+  if ( VCSInfoString ) XLALFree ( VCSInfoString );
+
   if ( uvar_printFstat1 )
     {
       fclose(fpFstat1);
@@ -1520,7 +1576,7 @@ void SetUpSFTs( LALStatus *status,
 /** \brief Function for calculating Hough Maps and candidates 
     \param pgV is a HOUGHPeakGramVector obtained after thresholding Fstatistic vectors
     \param params is a pointer to HoughParams -- parameters for calculating Hough maps
-    \out houghCand Candidates from thresholding Hough number counts
+    \param out Candidates from thresholding Hough number counts
 
     This function takes a peakgram as input. This peakgram was constructed
     by setting a threshold on a sequence of Fstatistic vectors.  The function 
@@ -2062,7 +2118,7 @@ void ComputeFstatHoughMap(LALStatus *status,
 /** \brief Function for selecting frequency bins from a set of Fstatistic vectors
     \param FstatVect : sequence of Fstatistic vectors
     \param thr is a REAL8 threshold for selecting frequency bins
-    \return pgV : a vector of peakgrams 
+    \param pgV a vector of peakgrams 
 
     Input is a vector of Fstatistic vectors.  It allocates memory 
     for the peakgrams based on the frequency span of the Fstatistic vectors
@@ -2308,7 +2364,7 @@ void DumpLUT2file(LALStatus       *status,
 		  HOUGHptfLUT     *lut,
 		  HOUGHPatchGrid  *patch,
 		  CHAR            *basename,
-		  INT4            index)
+		  INT4            ind)
 {
 
   FILE  *fp=NULL;
@@ -2328,7 +2384,7 @@ void DumpLUT2file(LALStatus       *status,
 
   strcpy(  filename, basename);
   strcat(  filename, ".lut");
-  sprintf( filenumber, ".%06d",index); 
+  sprintf( filenumber, ".%06d",ind); 
   strcat(  filename, filenumber);
 
   fp=fopen(filename,"w");  
@@ -3406,7 +3462,6 @@ void ComputeNumExtraBins(LALStatus            *status,
 
 
 void GetXiInSingleStack (LALStatus         *status,
-			 REAL8Vector       *out,
 			 HOUGHSizePar      *size,
 			 HOUGHDemodPar     *par)  /* demodulation parameters */
 { /* </lalVerbatim> */
@@ -3416,7 +3471,6 @@ void GetXiInSingleStack (LALStatus         *status,
   REAL8   f0;  /* frequency corresponding to f0Bin */
   INT8    f0Bin;
   REAL8   deltaF;  /*  df=1/TCOH  */
-  REAL8   delta;
   REAL8   vFactor, xFactor;
   REAL8   xiX, xiY, xiZ;
   REAL8   modXi,invModXi;
@@ -3431,7 +3485,6 @@ void GetXiInSingleStack (LALStatus         *status,
   ATTATCHSTATUSPTR (status); 
 
   /*   Make sure the arguments are not NULL: */ 
-  ASSERT (out, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL);
   ASSERT (par, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL);
   ASSERT (size, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL);
   
@@ -3503,4 +3556,3 @@ void GetXiInSingleStack (LALStatus         *status,
   /* normal exit */
   RETURN (status);
 }
-

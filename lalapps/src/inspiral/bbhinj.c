@@ -185,7 +185,6 @@ int main( int argc, char *argv[] )
 #endif
 
 /*  GalacticInspiralParamStruc galacticPar; */
-  LALGPSCompareResult        compareGPS;
 
   /* xml output data */
   CHAR                  fname[256];
@@ -512,8 +511,7 @@ int main( int argc, char *argv[] )
         break;
 
       case 'w':
-        snprintf( waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR), "%s",
-            optarg);
+        snprintf( waveform, LIGOMETA_WAVEFORM_MAX, "%s", optarg);
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name, "string",
               "%s", optarg);
@@ -563,8 +561,7 @@ int main( int argc, char *argv[] )
   if ( !*waveform )
   {
     /* use EOBtwoPN as the default waveform */
-    snprintf( waveform, LIGOMETA_WAVEFORM_MAX * sizeof(CHAR),
-        "EOBtwoPN");
+    snprintf( waveform, LIGOMETA_WAVEFORM_MAX, "EOBtwoPN");
   }
 
   if ( !fLower )
@@ -615,10 +612,6 @@ int main( int argc, char *argv[] )
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
   }
 
-  /* check that the start time is before the end time */
-  LAL_CALL( LALCompareGPS( &status, &compareGPS, &gpsStartTime, &gpsEndTime ),
-      &status );
-
 
   /*
    *
@@ -627,7 +620,7 @@ int main( int argc, char *argv[] )
    */
 
 
-  while ( compareGPS == LALGPS_EARLIER )
+  while ( XLALGPSCmp( &gpsStartTime, &gpsEndTime ) < 0 )
   {
 
     /* rho, z and lGal are the galactocentric galactic axial coordinates */
@@ -786,7 +779,7 @@ int main( int argc, char *argv[] )
 
 
     /* set the source and waveform fields */
-    snprintf( this_inj->source, LIGOMETA_SOURCE_MAX * sizeof(CHAR), "???" );
+    snprintf( this_inj->source, LIGOMETA_SOURCE_MAX, "???" );
     memcpy( this_inj->waveform, waveform, LIGOMETA_WAVEFORM_MAX *
         sizeof(CHAR));
 
@@ -805,8 +798,6 @@ int main( int argc, char *argv[] )
     
     /* increment the injection time */
     XLALGPSAdd( &gpsStartTime, meanTimeStep );
-    LAL_CALL( LALCompareGPS( &status, &compareGPS, &gpsStartTime, 
-          &gpsEndTime ), &status );
 
     /* finally populate the flower */
     if (fLower > 0)         

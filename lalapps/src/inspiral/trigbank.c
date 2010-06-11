@@ -39,12 +39,11 @@
 #include <lal/LALStdlib.h>
 #include <lal/Date.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
-#include <lal/LIGOMetadataUtils.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
 #include <lalapps.h>
 #include <processtable.h>
+#include <LALAppsVCSInfo.h>
 
 RCSID("$Id$");
 
@@ -74,6 +73,7 @@ snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "%s", pptype ); \
 snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 
 int checkTimes = 0;
+extern int vrbflg;
 
 /*
  *
@@ -114,7 +114,6 @@ int main( int argc, char *argv[] )
 {
   static LALStatus      status;
 
-  extern int vrbflg;
   LALPlaygroundDataMask  dataType = unspecified_data_type;
   SnglInspiralParameterTest  test = unspecified_test;
 
@@ -148,7 +147,7 @@ int main( int argc, char *argv[] )
   MetadataTable         inspiralTable;
   ProcessParamsTable   *this_proc_param = NULL;
   LIGOLwXMLStream       xmlStream;
-  UINT4                 outCompress = 0;
+  INT4                  outCompress = 0;
 
   INT4                  i;
 
@@ -188,19 +187,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = processParamsTable.processParamsTable = 
     (ProcessParamsTable *) calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -246,13 +234,13 @@ int main( int argc, char *argv[] )
 
       case 'a':
         /* name of input ifo*/
-        strncpy( inputIFO, optarg, LIGOMETA_IFO_MAX * sizeof(CHAR) );
+        strncpy( inputIFO, optarg, LIGOMETA_IFO_MAX );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
 
       case 'b':
         /* name of output ifo */
-        strncpy( outputIFO, optarg, LIGOMETA_IFO_MAX * sizeof(CHAR) );
+        strncpy( outputIFO, optarg, LIGOMETA_IFO_MAX );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
         break;
 
@@ -338,7 +326,7 @@ int main( int argc, char *argv[] )
         }
         startTime = (INT4) gpstime;
         startTimeGPS.gpsSeconds = startTime;
-        ADD_PROCESS_PARAM( "int", "%ld", startTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startTime );
         break;
 
       case 'r':
@@ -364,7 +352,7 @@ int main( int argc, char *argv[] )
         }
         endTime = (INT4) gpstime;
         endTimeGPS.gpsSeconds = endTime;
-        ADD_PROCESS_PARAM( "int", "%ld", endTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, endTime );
         break;
 
       case 's':
@@ -419,10 +407,8 @@ int main( int argc, char *argv[] )
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "Inspiral Triggered Bank Generator\n" 
-            "Patrick Brady, Duncan Brown and Steve Fairhurst\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n");
-        fprintf( stdout, lalappsGitID );
+            "Patrick Brady, Duncan Brown and Steve Fairhurst\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 

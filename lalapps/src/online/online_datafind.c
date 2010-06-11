@@ -30,7 +30,6 @@
 #include <lal/LALDatatypes.h>
 #include <lal/Aggregation.h>
 #include <lal/XLALError.h>
-#include <lal/LIGOMetadataTables.h>
 #include <lal/FrameCache.h>
 #include <lal/FrameStream.h>
 #include <lal/PrintFTSeries.h>
@@ -68,6 +67,7 @@ static void parse_options(INT4 argc, CHAR *argv[])
       /* options that set a flag */
       {"verbose", no_argument, &vrbflg, 1},
       /* options that don't set a flag */
+      {"version", no_argument, 0, 'v'},
       {"help", no_argument, 0, 'a'},
       {"debug-level", required_argument, 0, 'b'},
       {"ifo", required_argument, 0, 'c'},
@@ -88,7 +88,7 @@ static void parse_options(INT4 argc, CHAR *argv[])
     size_t optarg_len;
 
     /* parse options */
-    c = getopt_long_only(argc, argv, "ab:c:d:e:f:g:h:i:j:k:l", \
+    c = getopt_long_only(argc, argv, "vab:c:d:e:f:g:h:i:j:k:l", \
         long_options, &option_index);
 
     if (c == -1)
@@ -113,10 +113,18 @@ static void parse_options(INT4 argc, CHAR *argv[])
         }
         break;
 
+      case 'v':
+        /* version */
+        fprintf(stderr, "lalapps_online_datafind:\n");
+        XLALOutputVersionString(stderr,0);
+        exit(0);
+        break;
+
       case 'a':
         /* help */
         fprintf(stderr, "Usage: lalapps_online_datafind [options]\n");
         fprintf(stderr, " --help                 print this message\n");
+        fprintf(stderr, " --version              display version information\n");
         fprintf(stderr, " --verbose              run in verbose mode\n");
         fprintf(stderr, " --debug-level N        set lalDebugLevel\n");
         fprintf(stderr, " --ifo IFO              set IFO\n");
@@ -299,7 +307,7 @@ INT4 main(INT4 argc, CHAR *argv[])
   if (ifo == NULL)
   {
     /* allocate memory for ifo */
-    ifo = (CHAR *)calloc(LIGOMETA_IFO_MAX, sizeof(CHAR));
+    ifo = (CHAR *)calloc(LAL_AGGREGATION_IFO_MAX, sizeof(CHAR));
 
     /* get ifo from frame_type */
     strncpy(ifo, frame_type, 2);

@@ -10,19 +10,35 @@
 #include <lal/Units.h>
 #include <lal/LALInspiral.h>
 
+/* GSL includes */
+#include <gsl/gsl_complex.h>
+#include <gsl/gsl_complex_math.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_blas.h>
+
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
 
 
+/* static functions used by the python wrappers */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints, complex double *expPsi);
 static double chirp_time (double m1, double m2, double fLower, int order);
 static double chirp_time_between_f1_and_f2(double m1, double m2, double fLower, double fUpper, int order);
 static double schwarz_isco(double m1, double m2);
 static double bkl_isco(double m1, double m2);
 static double light_ring(double m1, double m2);
+static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static double imr_merger(double m1, double m2, double chi);
+static double imr_ring(double m1, double m2, double chi);
+static double imr_fcut(double m1, double m2, double chi);
+static double compute_chi(double m1, double m2, double spin1, double spin2);
 
-
+/* doc string for help() */
 const char SPADocstring[] =
 "This module wraps SPA inspiral waveform generation and some useful functions "
 "related to them.\n\n"
@@ -67,23 +83,47 @@ const char SPADocstring[] =
 "pylab.hold(0)\n"
 "pylab.show()\n";
 
+/* FIXME someday do better error handling? */
+/* static PyObject* SPAWaveformError;      */
 
-/* static PyObject* SPAWaveformError; */
-
+/* Function to return the final frequency of spa waveforms */
 static PyObject *PyFFinal(PyObject *self, PyObject *args)
 	{
 	double mass1, mass2;
 	const char *s = NULL;
 	if(!PyArg_ParseTuple(args, "dd|s", &mass1, &mass2, &s)) return NULL;
 	/* Default is schwarz isco */
-	if ( !strcmp(s, "schwarz_isco") || !s) return Py_BuildValue("d", schwarz_isco(mass1,mass2));
-	if ( !strcmp(s, "bkl_isco") ) return Py_BuildValue("d", bkl_isco(mass1,mass2));
-	if ( !strcmp(s, "light_ring") ) return Py_BuildValue("d", light_ring(mass1,mass2));
+	if ( !s || !strcmp(s, "schwarz_isco") ) return Py_BuildValue("d", schwarz_isco(mass1,mass2));
+	if ( s && !strcmp(s, "bkl_isco") ) return Py_BuildValue("d", bkl_isco(mass1,mass2));
+	if ( s && !strcmp(s, "light_ring") ) return Py_BuildValue("d", light_ring(mass1,mass2));
 	PyErr_SetString(PyExc_ValueError, "Unrecognized ending frequency, must be schwarz_isco | bkl_isco | light_ring");
 	return NULL;
 	}
 
-static PyObject *PySPAWaveform(PyObject *self, PyObject *args) 
+/* Function to return the characteristic frequencies of IMR waveforms */
+static PyObject *PyIMRFFinal(PyObject *self, PyObject *args)
+	{
+	double mass1, mass2, chi;
+	const char *s = NULL;
+	if(!PyArg_ParseTuple(args, "ddd|s", &mass1, &mass2, &chi, &s)) return NULL;
+	/* Default is schwarz isco */
+	if ( s && !strcmp(s, "merger") ) return Py_BuildValue("d",imr_merger(mass1,mass2,chi));
+	if (!s || !strcmp(s, "fcut") ) return Py_BuildValue("d", imr_fcut(mass1,mass2,chi));
+	if ( s && !strcmp(s, "ringdown") ) return Py_BuildValue("d", imr_ring(mass1,mass2,chi));
+	PyErr_SetString(PyExc_ValueError, "Unrecognized ending frequency, must be merger | ringdown | fcut");
+	return NULL;
+	}
+
+/* Function to compute the "chi" parameter (mass weighted combined spin) */
+static PyObject *PyComputeChi(PyObject *self, PyObject *args)
+	{
+	double mass1, mass2, spin1, spin2;
+	if(!PyArg_ParseTuple(args, "dddd", &mass1, &mass2, &spin1, &spin2)) return NULL;
+	return Py_BuildValue("d",compute_chi(mass1, mass2, spin1, spin2));
+	}
+
+/* Function to compute the frequency domain SPA waveform */
+static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	PyObject *arg9, *py_spa_array;
@@ -92,35 +132,169 @@ static PyObject *PySPAWaveform(PyObject *self, PyObject *args)
 	npy_intp *dims = NULL;
 	complex double *data = NULL;
 	/* FIXME properly handle references */
-
 	if(!PyArg_ParseTuple(args, "ddiddddO", &mass1, &mass2, &order, &deltaF, &deltaT, &fLower, &fFinal, &arg9)) return NULL;
-
 	/* this gets a contiguous memory numpy array */
         py_spa_array = PyArray_FROM_OTF(arg9, NPY_CDOUBLE, NPY_IN_ARRAY);
 	if (py_spa_array == NULL) return NULL;
-
 	/* Actually call the SPA waveform C function */
 	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
-
 	dims = PyArray_DIMS(py_spa_array);
 	data = PyArray_DATA(py_spa_array);
-	
 	SPAWaveform(mass1, mass2, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
-
 	Py_DECREF(py_spa_array);
         Py_INCREF(Py_None);
         return Py_None;
 	}
 
-static PyObject *PyChirpTime(PyObject *self, PyObject *args) 
+/* Function to compute the frequency domain IMR waveform */
+static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	{
+	/* Generate a SPA (frequency domain) waveform at a given PN order */
+	PyObject *arg9, *py_spa_array;
+	double mass1, mass2, deltaF, fLower;
+	npy_intp *dims = NULL;
+	complex double *data = NULL;
+	/*FIXME get rid of this hack to handle optional spin arguments */
+	double spin1 = -100.0;
+	double spin2 = -100.0;
+	/* FIXME properly handle references */
+	if (!PyArg_ParseTuple(args, "ddddO|dd", &mass1, &mass2, &deltaF, &fLower, &arg9, &spin1, &spin2)) return NULL;
+	/* Check for no spin case */
+	if (spin1 == -100.0 && spin2 == -100.0) spin1 = spin2 = 0.0;
+	/* this gets a contiguous memory numpy array */
+        py_spa_array = PyArray_FROM_OTF(arg9, NPY_CDOUBLE, NPY_IN_ARRAY);
+	if (py_spa_array == NULL) return NULL;
+	/* Actually call the SPA waveform C function */
+	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
+	dims = PyArray_DIMS(py_spa_array);
+	data = PyArray_DATA(py_spa_array);
+	/* depending on the number of arguments given call a different function */
+	if (spin1 != -100.0 && spin2 == -100.0) IMRSPAWaveformFromChi(mass1, mass2, spin1, deltaF, fLower, dims[0], data);
+	else IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
+	Py_DECREF(py_spa_array);
+        Py_INCREF(Py_None);
+        return Py_None;
+	}
 
+/* Function to wrap GSLs SVD */
+static PyObject *PySVD(PyObject *self, PyObject *args, PyObject *keywds)
+        {
+
+        /*
+	 * input A (m x n matrix)
+	 * output U,S,V
+	 */
+
+	/* input array */
+	PyObject *a, *A;
+
+	/* output data  */
+	PyObject *U, *V, *S, *out;
+
+	/* views of output data */
+	gsl_matrix_view gU, gV;
+	gsl_vector_view gS;
+
+	/* array sizes */
+	npy_intp *Adims = NULL;
+	npy_intp Vdims[] = {0.0, 0.0};
+	npy_intp Sdims[] = {0.0};
+
+	/* native C-datatype representation of numpy array data */
+	double *cA = NULL;
+	double *cU = NULL;
+	double *cV = NULL;
+	double *cS = NULL;
+
+	/* workspace data */
+	gsl_vector *gW;
+	gsl_matrix *gX;
+
+	/* list of available keywords */
+	char *kwlist[] = {"array","inplace","mod",NULL};
+
+	/* keyword argument vars */
+	int *modGolubReinsch = 0;
+	int *inplace = 0;
+
+	/*
+	 * end declarations
+	 */
+
+	/* Read in input array, represent in a,A,cA,Adims */
+	if(!PyArg_ParseTupleAndKeywords(args, keywds, "O|ii", kwlist, &a, &inplace, &modGolubReinsch)) return NULL;
+
+	A = PyArray_FROM_OTF(a, NPY_DOUBLE, NPY_IN_ARRAY);
+	Adims = PyArray_DIMS(A);
+	cA = PyArray_DATA(A);
+
+	/* Don't support M < N */
+	if ( Adims[0] < Adims[1] ) return NULL;
+
+	/* allocate new ouput matrices */
+	if ( inplace )
+	{
+	    U = A;
+	    cU = cA;
+	}
+	else
+	{
+	    U = PyArray_SimpleNew(2, Adims, NPY_DOUBLE);
+	    cU = PyArray_DATA(U);
+	    memcpy( cU, cA, Adims[0]*Adims[1]*sizeof(double) );
+	}
+
+	Vdims[0] = Vdims[1] = Adims[1];
+	V = PyArray_SimpleNew(2, Vdims, NPY_DOUBLE);
+	cV = PyArray_DATA(V);
+
+	Sdims[0] = Adims[1];
+	S = PyArray_SimpleNew(1, Sdims, NPY_DOUBLE);
+	cS = PyArray_DATA(S);
+
+	/* Allocate workspace gsl matrix */
+	gW = gsl_vector_calloc(Adims[1]);
+
+	/* Get gsl matrix views of the numpy array data */
+	/* U will be overwritten */
+	gU = gsl_matrix_view_array(cU, Adims[0], Adims[1]);
+	gS = gsl_vector_view_array(cS, Sdims[0]);
+	gV = gsl_matrix_view_array(cV, Vdims[0], Vdims[1]);
+
+	/* PERFORM THE SVD! */
+	if ( modGolubReinsch )
+	{
+	    gX = gsl_matrix_calloc(Adims[1],Adims[1]);
+	    gsl_linalg_SV_decomp_mod (&(gU.matrix),gX, &(gV.matrix), &(gS.vector), gW);
+	    gsl_matrix_free(gX);
+	}
+	else
+	{
+	    gsl_linalg_SV_decomp (&(gU.matrix), &(gV.matrix), &(gS.vector), gW);
+	}
+	gsl_vector_free(gW);
+
+	/* take the transpose to be consistent with scipys svd */
+	gsl_matrix_transpose(&(gV.matrix));
+	out = Py_BuildValue("OOO", U, S, V);
+
+	/* FIXME HELP I don't know what to do about references... */
+	/*Py_DECREF(A); */
+	/*Py_DECREF(V); */
+	/*Py_DECREF(S); */
+        /*Py_INCREF(Py_None); */
+
+	return out;
+	}
+
+/* Function to compute chirp time */
+static PyObject *PyChirpTime(PyObject *self, PyObject *args)
+	{
 	/* Generate a SPA (frequency domain) waveform at a given PN order */
 	double mass1, mass2, fLower, fFinal, time;
 	int order;
 	fFinal = 0;
 	/* FIXME properly handle references */
-
 	if (!PyArg_ParseTuple(args, "ddid|d", &mass1, &mass2, &order, &fLower, &fFinal)) return NULL;
 	if (fFinal)
 		time = chirp_time_between_f1_and_f2(mass1, mass2, fLower, fFinal, order);
@@ -129,26 +303,92 @@ static PyObject *PyChirpTime(PyObject *self, PyObject *args)
 	return Py_BuildValue("d", time);
 	}
 
-
+/* Structure defining the functions of this module and doc strings etc... */
 static struct PyMethodDef methods[] = {
-	{"waveform", PySPAWaveform, METH_VARARGS, 
-         "This function produces a frequency domain waveform at a "
-         "specified mass1, mass2 and PN order.\n\n"
-         "spawaveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
-        },
-	{"chirptime", PyChirpTime, METH_VARARGS, 
-         "This function calculates the SPA chirptime at a specified mass1, mass2 " 
+	{"waveform", PySPAWaveform, METH_VARARGS,
+	 "This function produces a frequency domain waveform at a "
+	 "specified mass1, mass2 and PN order.\n\n"
+	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray)\n\n"
+	},
+	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
+	 "This function produces a frequency domain IMR waveform at a "
+	 "specified mass1, mass2 by calling \n\n"
+	 "imrwaveform(m1, m2, deltaF, fLower, signalArray)\n\n"
+	 "This function is overlouded to produce a frequency domain IMR waveform at a "
+	 "specified mass1, mass2, chi by calling \n\n"
+	 "imrwaveform(m1, m2, deltaF, fLower, signalArray, chi)\n\n"
+	 "This function is overlouded to produce a frequency domain IMR waveform at a "
+	 "specified mass1, mass2, z component spin1, z component spin2 by calling \n\n"
+	 "imrwaveform(m1, m2, deltaF, fLower, signalArray, spin1, spin2)\n\n"
+	},
+	{"chirptime", PyChirpTime, METH_VARARGS,
+	 "This function calculates the SPA chirptime at a specified mass1, mass2 "
 	 "and PN order between two frequencies.  If the second frequency is omitted "
 	 "it is assumed to be infinite.\n\n"
-         "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
-        },
-	{"ffinal", PyFFinal, METH_VARARGS, 
-         "This function calculates the Schwarzschild ISCO frequency specified by " 
-	 "mass1 and mass2.\n\n"  
-         "schwarzisco(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
-        },
-	{NULL, NULL, 0, NULL}	
+	 "chirptime(m1, m2, order, fLower, [fFinal])\n\n"
+	},
+	{"ffinal", PyFFinal, METH_VARARGS,
+	 "This function calculates the ending frequency specified by "
+	 "mass1 and mass2.\n\n"
+	 "ffinal(m1, m2, ['schwarz_isco'|'bkl_isco'|'light_ring'])\n\n"
+	},
+	{"imrffinal", PyIMRFFinal, METH_VARARGS,
+	 "This function calculates the ending frequency specified by "
+	 "mass1 and mass2 and chi for the imr waveforms. The default is "
+	 "to return the cutoff frequency unless you specify merger or ringdown\n\n"
+	 "ffinal(m1, m2, chi, ['merger'|'ringdown'])\n\n"
+	},
+	{"computechi", PyComputeChi, METH_VARARGS,
+	 "This function calculates the mass weighted spin parameter chi\n\n"
+	 "computechi(m1, m2, spin1, spin2)\n\n"
+	},
+	{"svd", (PyCFunction) PySVD, METH_KEYWORDS,
+	 "This function calculates the singular value decomposition of a matrix\n"
+	 "via the GSL implementation of the Golub-Reinsch algorithm.  The default\n"
+	 "GSL function used is\n"
+	 "gsl_linalg_SV_decomp (gsl_matrix * A, gsl_matrix * V, gsl_vector * S, gsl_vector * work)\n\n"
+	 "USAGE:\n\tU, S, V = svd(A,mod=False,inplace=False)\n\n"
+	 "A is an MxN numpy array, V is an Nx1 numpy array and V is an MxM numpy array.\n"
+	 "The case M<N is not supported by GSL and this wrapping does not add support for this.\n"
+	 "If mod=True, then the modified Golub-Reinsch algorithm is used (implemented in GSL\n"
+	 "as gsl_linalg_SV_decomp_mod). This algorithm uses slightly more memory but is expected\n"
+	 "to out-perform the standard Golub-Reinsch the limit M>>N.\n"
+	 "If the inplace=True, the input array A is overwritten by U, instead of the default\n"
+	 "behavior which is to allocate new space for U and preserve A.  Both variables continue\n"
+	 "to exist but point to the same data! USE THIS OPTION WITH CARE!\n\n"
+	 "EXAMPLE:\n\tfrom pylal import spawaveform\n"
+	 "\timport numpy\n"
+	 "\tA = numpy.random.randn(4,3)\n"
+	 "\tprint A\n"
+	 "\tU,S,V = spawaveform.svd(A)\n"
+	 "\tB = U * S\n"
+	 "\tAprime = numpy.dot(B,numpy.transpose(V))\n"
+	 "\tprint Aprime\n\n"
+	},
+	{NULL, NULL, 0, NULL}
 	};
+
+/* The init function for this module */
+void initspawaveform(void)
+	{
+	(void) Py_InitModule3("pylal.spawaveform", methods, SPADocstring);
+	import_array();
+	/* FIXME someday handle errors
+	 * SVMError = PyErr_NewException("spawaveform.SPAWaveformError", NULL, NULL);
+	 * Py_INCREF(SPAWaveformError);
+	 * PyModule_AddObject(m, "SPAWaveformError", SPAWaveformError);
+         */
+	}
+
+/*****************************************************************************/
+/* The remainder of this code defines the static functions that the python   */
+/* functions will use to compute various quantities.  They are not exposed   */
+/* outside of this file directly but can be called from python via           */
+/* the documentation described when doing help() on this module.             */
+/* A lot of this code is in lal in some form or must be moved to lal.  Here  */
+/* the functin prototypes have been vastly simplified (use of native c types */
+/* and double precision)                                                     */
+/*****************************************************************************/
 
 /* FIXME make this function exist in LAL and have the LAL SPA waveform generator call it? */
 static int SPAWaveform (double mass1, double mass2, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints,  complex double *expPsi)
@@ -272,7 +512,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 			expPsi[k] = value;
 			}
 		/* put in the first order amplitude factor */
-		expPsi[k] *= pow (k, -7.0 / 6.0);
+		expPsi[k] *= pow(k, -7.0 / 6.0) * tNorm;
 		}
 	return 0;
 	}
@@ -360,14 +600,227 @@ static double bkl_isco(double m1, double m2)
 	return (0.8 * q * q * q - 2.6 * q * q + 2.8 * q + 1.0 ) * schwarz_isco(m1,m2);
 	}
 	
-/* The init function for this module */
-void initspawaveform(void) 
-	{
-	(void) Py_InitModule3("pylal.spawaveform", methods, SPADocstring);
-	import_array();
-	/* FIXME someday handle errors
-	 * SVMError = PyErr_NewException("spawaveform.SPAWaveformError", NULL, NULL);
-	 * Py_INCREF(SPAWaveformError);
-	 * PyModule_AddObject(m, "SPAWaveformError", SPAWaveformError);
-         */
+static double compute_chi(double m1, double m2, double spin1, double spin2) {
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double delta = sqrt(1.-4.*eta);
+	/* spin parameter used for the search */
+	double chi = 0.5*(spin1*(1.+delta) + spin2*(1.-delta));
+	return chi;
 	}
+
+static double imr_merger(double m1, double m2, double chi) {
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+	double fMerg =  1. - 4.4547*pow(1.-chi,0.217) + 3.521*pow(1.-chi,0.26) +
+		6.4365e-01*eta + 8.2696e-01*eta*chi + -2.7063e-01*eta*pow(chi,2.) +
+		-5.8218e-02*pow(eta,2.) + -3.9346e+00*pow(eta,2.)*chi +
+		-7.0916e+00*pow(eta,3.);
+    
+	fMerg /= piM;
+	return fMerg;
+	}
+
+static double imr_ring(double m1, double m2, double chi){
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+	double fRing = (1. - 0.63*pow(1.-chi,0.3))/2. +
+		1.4690e-01*eta + -1.2281e-01*eta*chi + -2.6091e-02*eta*pow(chi,2.) +
+		-2.4900e-02*pow(eta,2.) + 1.7013e-01*pow(eta,2.)*chi +
+		2.3252e+00*pow(eta,3.);
+	fRing /= piM;
+	return fRing;
+	}
+
+static double imr_fcut(double m1, double m2, double chi) {
+	double totalMass = m1+m2;
+	double eta = m1*m2/pow(totalMass,2.);
+	double piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+	double fCut = 3.2361e-01 + 4.8935e-02*chi + 1.3463e-02*pow(chi,2.) +
+		-1.3313e-01*eta + -8.1719e-02*eta*chi + 1.4512e-01*eta*pow(chi,2.) +
+		-2.7140e-01*pow(eta,2.) + 1.2788e-01*pow(eta,2.)*chi +
+		4.9220e+00*pow(eta,3.);
+	fCut /= piM;
+	return fCut;
+	}
+
+/* FIXME a hack fit to unwrap the imr waveforms and provide a time correction*/
+static double _imrdur(double m1, double m2, double chi)
+	{
+	/* FIT done to + 1500 M */
+	double c1 = 1.39 - 0.88 * chi;
+	double c2 = -4.6 - 1.2 * pow(chi + 0.7, 3);
+	double c3 = 400.0 + 500.0 * pow(chi + 1.0, 3);
+	double eta = m1*m2 / (m1+m2) / (m1+m2);
+	double out = c1 * exp(c2 * eta + c3 * pow(eta,6)) * ((m1+m2) / 50.0 ) - (1500 - fabs(chi) * 200) * (m1+m2) * LAL_MTSUN_SI;
+	return out;
+	}
+
+int IMRSPAWaveform(double mass1, double mass2, double spin1, double spin2, double deltaF, double fLower, int numPoints,  complex double *hOfF) {
+	double chi = compute_chi(mass1, mass2, spin1, spin2);
+	return IMRSPAWaveformFromChi(mass1, mass2, chi, deltaF, fLower, numPoints, hOfF);
+	}
+
+/****************************************************************************/
+/* Ajith's code *************************************************************/
+/* FIXME make white space style similar	*************************************/
+/****************************************************************************/
+int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF) {
+
+    double totalMass, piM, eta;
+    double psi0, psi1, psi2, psi3, psi4, psi5, psi6, psi7, psi8, fMerg, fRing, fCut, sigma;
+    double f, shft, amp0, ampEff, psiEff, fNorm;
+    double v, alpha2, alpha3, w1, vMerg, epsilon_1, epsilon_2, w2, vRing;
+    double startPhase = 0., startTime, distance, Lorentzian;
+    int k, kmin, kmax;
+
+    /* calculate the total mass, symmetric mass ratio and asymmetric       */
+    /* mass ratio                                                          */
+    totalMass = mass1+mass2;
+    eta = mass1*mass2/pow(totalMass,2.);
+    piM = totalMass*LAL_PI*LAL_MTSUN_SI;
+    
+    /***********************************************************************/
+    /*              compute the phenomenological parameters                */
+    /***********************************************************************/
+
+    psi0 = 3./(128.*eta);
+
+    psi2 = 3715./756. +
+            -9.2091e+02*eta + 4.9213e+02*eta*chi + 1.3503e+02*eta*pow(chi,2.) +
+            6.7419e+03*pow(eta,2.) + -1.0534e+03*pow(eta,2.)*chi +
+            -1.3397e+04*pow(eta,3.);
+
+    psi3 = -16.*LAL_PI + 113.*chi/3. +
+            1.7022e+04*eta + -9.5659e+03*eta*chi + -2.1821e+03*eta*pow(chi,2.) +
+            -1.2137e+05*pow(eta,2.) + 2.0752e+04*pow(eta,2.)*chi +
+            2.3859e+05*pow(eta,3.);
+
+    psi4 = 15293365./508032. - 405.*pow(chi,2.)/8. +
+            -1.2544e+05*eta + 7.5066e+04*eta*chi + 1.3382e+04*eta*pow(chi,2.) +
+            8.7354e+05*pow(eta,2.) + -1.6573e+05*pow(eta,2.)*chi +
+            -1.6936e+06*pow(eta,3.);
+
+    psi6 = -8.8977e+05*eta + 6.3102e+05*eta*chi + 5.0676e+04*eta*pow(chi,2.) +
+            5.9808e+06*pow(eta,2.) + -1.4148e+06*pow(eta,2.)*chi +
+            -1.1280e+07*pow(eta,3.);
+
+    psi7 = 8.6960e+05*eta + -6.7098e+05*eta*chi + -3.0082e+04*eta*pow(chi,2.) +
+            -5.8379e+06*pow(eta,2.) + 1.5145e+06*pow(eta,2.)*chi +
+            1.0891e+07*pow(eta,3.);
+
+    psi8 = -3.6600e+05*eta + 3.0670e+05*eta*chi + 6.3176e+02*eta*pow(chi,2.) +
+            2.4265e+06*pow(eta,2.) + -7.2180e+05*pow(eta,2.)*chi + 
+            -4.5524e+06*pow(eta,3.);
+
+    fMerg =  1. - 4.4547*pow(1.-chi,0.217) + 3.521*pow(1.-chi,0.26) +
+            6.4365e-01*eta + 8.2696e-01*eta*chi + -2.7063e-01*eta*pow(chi,2.) +
+            -5.8218e-02*pow(eta,2.) + -3.9346e+00*pow(eta,2.)*chi +
+            -7.0916e+00*pow(eta,3.);
+
+    fRing = (1. - 0.63*pow(1.-chi,0.3))/2. +
+            1.4690e-01*eta + -1.2281e-01*eta*chi + -2.6091e-02*eta*pow(chi,2.) +
+            -2.4900e-02*pow(eta,2.) + 1.7013e-01*pow(eta,2.)*chi +
+            2.3252e+00*pow(eta,3.);
+
+    sigma = (1. - 0.63*pow(1.-chi,0.3))*pow(1.-chi,0.45)/4. +
+            -4.0979e-01*eta + -3.5226e-02*eta*chi + 1.0082e-01*eta*pow(chi,2.) +
+            1.8286e+00*pow(eta,2.) + -2.0169e-02*pow(eta,2.)*chi +
+            -2.8698e+00*pow(eta,3.);
+
+    fCut = 3.2361e-01 + 4.8935e-02*chi + 1.3463e-02*pow(chi,2.) +
+            -1.3313e-01*eta + -8.1719e-02*eta*chi + 1.4512e-01*eta*pow(chi,2.) +
+            -2.7140e-01*pow(eta,2.) + 1.2788e-01*pow(eta,2.)*chi +
+            4.9220e+00*pow(eta,3.);
+
+    psi1    = 0.;
+    psi5    = 0.;
+
+    /* appropriately scale with mass */
+    fCut  /= piM;
+    fMerg /= piM;
+    fRing /= piM;
+    sigma /= piM;
+
+	kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
+	kmax = fCut / deltaF < numPoints / 2 ? fCut / deltaF : numPoints / 2;
+
+    /*********************************************************************/
+    /*      set other parameters required for the waveform generation    */
+    /*********************************************************************/
+    startTime = -50.*totalMass*LAL_MTSUN_SI;
+    shft = 2.*LAL_PI *startTime;
+    distance = 1e6*LAL_PC_SI;  /*1 Mpc in meters */
+        
+    /* Now compute the amplitude.  NOTE the distance is assumed to          */
+    /* be in meters. This is, in principle, inconsistent with the LAL       */
+    /* documentation (inspiral package). But this seems to be the           */
+    /* convention employed in the injection codes                           */
+    
+    amp0 = pow(LAL_MTSUN_SI*totalMass, 5./6.)*pow(fMerg,-7./6.)/pow(LAL_PI,2./3.);
+    amp0 *= pow(5.*eta/24., 1./2.)/(distance/LAL_C_SI);
+
+    /* PN correctiosn to the frequency domain amplitude of the (2,2) mode   */
+    alpha2   = -323./224. + 451.*eta/168.;
+    alpha3   = (27./8. - 11.*eta/6.)*chi;
+
+    /* spin-dependant corrections to the merger amplitude                   */
+    epsilon_1 =  1.4547*chi - 1.8897;
+    epsilon_2 = -1.8153*chi + 1.6557;
+
+    /* normalisation constant of the inspiral amplitude                     */
+    vMerg = pow(LAL_PI*totalMass*LAL_MTSUN_SI*fMerg, 1./3.);
+    vRing = pow(LAL_PI*totalMass*LAL_MTSUN_SI*fRing, 1./3.);
+
+    w1 = 1. + alpha2*pow(vMerg,2.) + alpha3*pow(vMerg,3.);
+    w1 = w1/(1. + epsilon_1*vMerg + epsilon_2*vMerg*vMerg);
+    w2 = w1*(LAL_PI*sigma/2.)*pow(fRing/fMerg, -2./3.)*(1. + epsilon_1*vRing
+            + epsilon_2*vRing*vRing);
+
+    /* zero output */
+    memset (hOfF, 0, numPoints * sizeof (complex double));
+    ampEff = 0.;
+    psiEff = 0.;
+
+    /************************************************************************/
+    /*          now generate the waveform at all frequency bins             */
+    /************************************************************************/
+    for (k = kmin; k < kmax; k++) {
+
+        /* fourier frequency corresponding to this bin                      */
+      	f = k * deltaF;
+        fNorm = f/fMerg;
+
+        /* PN expansion parameter                                           */
+        v = pow(LAL_PI*totalMass*LAL_MTSUN_SI*f, 1./3.);
+
+    	/* compute the amplitude                                            */
+        if (f <= fMerg) {
+            ampEff = pow(fNorm, -7./6.)*(1. + alpha2*pow(v,2.) + alpha3*pow(v,3.));
+        }
+        else if ((f > fMerg) & (f <= fRing)) {
+            ampEff = w1*pow(fNorm, -2./3.)*(1. + epsilon_1*v + epsilon_2*v*v);
+        }
+        else if (f > fRing) {
+            Lorentzian =  sigma / (2.*LAL_PI * (pow(f-fRing, 2.) + sigma*sigma/4.0));
+            ampEff = w2*Lorentzian;
+        }
+
+        /* now compute the phase                                             */
+        psiEff =  shft*f + startPhase
+                    + 3./(128.*eta*pow(v,5.))*(1 + psi2*pow(v, 2.)
+                    + psi3*pow(v, 3.) + psi4*pow(v, 4.)
+                    + psi5*pow(v, 5.) + psi6*pow(v, 6.)
+                    + psi7*pow(v, 7.) + psi8*pow(v, 8.));
+
+        /* generate the waveform                                             */
+        hOfF[k] = amp0*ampEff * (cos(psiEff) - I * sin(psiEff)); 
+
+    }
+
+    return 0;
+
+}
+

@@ -42,7 +42,7 @@
 #include <lal/PrintVector.h>
 
 /* Frame headers */
-#include <FrameL.h>
+#include <lal/LALFrameL.h>
 
 /* Define the parameters to make the window */
 #define WINSTART 4096
@@ -117,6 +117,8 @@ struct headertag {
 COMPLEX8Vector *fvec = NULL;
 RealFFTPlan *pfwd = NULL;
 
+static char butterworth_string[] = "Butterworth High Pass";
+
 /* Need prototype: this is POSIX not ANSI, sigh */
 #include <config.h>
 #include <unistd.h>
@@ -126,12 +128,24 @@ int gethostname(char *name, int len);
 
 /* This is an error handler that prints a bit of extra info */
 #ifdef __GNUC__
-void pout(char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
+void pout(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 #else
-void pout(char *fmt, ...)  ;
+void pout(const char *fmt, ...)  ;
 #endif
 
-void pout(char *fmt, ...){
+/* Function prototypes */
+FILE* tryopen(char *name, const char *mode);
+int getenvval(const char *valuename);
+int deltatime(const char *instrument, int gpstime, int *valid);
+void checkone(int gpstime,const char *instrument);
+void checktimingcorrections(void);
+void shifter(float *data, int length, int shift);
+void sighandler(int sig);
+
+
+
+/* Function definitions */
+void pout(const char *fmt, ...){
   va_list ap;
   char hostsname[256];
   pid_t processid;
@@ -160,7 +174,7 @@ void pout(char *fmt, ...){
    cluster because automount may fail or time out.  This allows a
    number of tries with a bit of rest in between.
 */
-FILE* tryopen(char *name, char *mode){
+FILE* tryopen(char *name, const char *mode){
   int count=0;
   FILE *fp;
   
@@ -286,7 +300,7 @@ int deltatime(const char *instrument, int gpstime, int *valid){
   }
 
 /* check a number of bounary values of the timing correction */
-void checktimingcorrections(){
+void checktimingcorrections(void){
   
 
   /* L1 checks */
@@ -349,7 +363,7 @@ void shifter(float *data, int length, int shift){
   
   /* allocate memory */
   if (!(temp=(float *)LALMalloc(sizeof(float)*length))){
-    pout("Unable to allocate %d bytes of memory in shifter\n",
+    pout("Unable to allocate %lu bytes of memory in shifter\n",
 	 sizeof(float)*length);
     exit(1);
   }
@@ -420,7 +434,7 @@ int main(int argc,char *argv[]){
   LIGOTimeGPS epoch;
   INT4 jobnum;
   INT4 starts[MAXSTART],nstarts=0,count=0;
-  INT4 i,len2=0;
+  UINT4 i,len2=0;
   char chname[256]; 
   INT4 tbase=INT_MAX,firstbin;
   PassBandParamStruc filterpar;
@@ -460,7 +474,6 @@ int main(int argc,char *argv[]){
   /* check the shifter code */
   {
     float fun[30];
-    int i;
     
     for (i=0; i<30; i++)
       fun[i]=(float) i;
@@ -546,7 +559,7 @@ int main(int argc,char *argv[]){
     window[i]=WINFUN(i);
   
   /* set filtering parameters */
-  filterpar.name = "Butterworth High Pass";
+  filterpar.name = butterworth_string;
   filterpar.nMax  = 5;
 #if HIGHFREQ
   filterpar.f2 = 300.0;
@@ -648,11 +661,12 @@ int main(int argc,char *argv[]){
       /* if we haven't printed ls of the files, do so now (but just once!)*/
       if (!lsffl){
 	char command[256];
+        int rc;
 	if (saveerrno)
 	  pout("System error when reading Frame data: %s\n", strerror(saveerrno));
 	pout("Following is output of ls -l on Frame file list:\n");
 	sprintf(command, "cat %s | xargs ls -l 1>&2", framelist);
-	system(command);
+	rc = system(command);
 	lsffl=1;
       }
 
@@ -666,9 +680,10 @@ int main(int argc,char *argv[]){
 
       if (!verifyframes){
 	char command[256];
+        int rc;
 	pout("Using FrCheck to validate frame data:\n");
 	sprintf(command, "cat %s | xargs --maxlines=1 /home/ballen/projects/LIGO/src/v6r06/Linux-i686/FrCheck -d 1 -i 1>&2", framelist);
-	system(command);
+	rc = system(command);
 	verifyframes=1;
       }
       continue;
@@ -700,7 +715,6 @@ int main(int argc,char *argv[]){
     {
       /* We found all needed data -- output an SFT! */
       FILE *fpsft;
-      unsigned int i;
       int k;  
       
 #if PRINT50

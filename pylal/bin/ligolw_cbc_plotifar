@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 
 # ============================================================================
@@ -6,13 +6,6 @@
 #                               Preamble
 #
 # ============================================================================
-
-
-__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__prog__ = "ligolw_cbc_plotifar"
-__Id__ = "$Id$"
 
 from optparse import OptionParser
 try:
@@ -27,6 +20,7 @@ import bisect
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 import glue.iterutils
+from glue import git_version
 
 from pylal import InspiralUtils
 
@@ -37,8 +31,12 @@ import matplotlib.mlab as mlab
 
 from pylal import ligolw_sqlutils as sqlutils
 
-usage =  """
-"""
+__prog__ = "ligolw_cbc_plotifar"
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+
+description = \
+"Creates IFAR plots."
+
 # ============================================================================
 # def poly_between; needed if using older version of matplotlib
 def poly_between(x, ylower, yupper):
@@ -72,8 +70,11 @@ def parse_command_line():
     """
     Parser function dedicated
     """
-
-    parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+    parser = OptionParser(
+        version = git_version.verbose_msg,
+        usage   = "%prog [options]",
+        description = description
+        )
     # following are related to file input and output naming
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
         help = 
@@ -236,6 +237,8 @@ if opts.verbose:
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 #
@@ -335,8 +338,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     background = sqlutils.Summaries()
 
     # we'll also use the Summaries class to store uncombined and combined fars
-    if opts.plot_uncombined:
-        ufar_summaries = sqlutils.Summaries()
+    # note: ufar_summaries is always used, regardless of whether or not uncombined-fars are plotted
+    ufar_summaries = sqlutils.Summaries()
     if opts.plot_combined:
         cfar_summaries = sqlutils.Summaries()
 
@@ -397,12 +400,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         """])
     for esid, ifos, param_group, ufar, cfar in connection.cursor().execute(sqlquery, (eid, plot_datatype) ):
         ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
-        if opts.plot_uncombined:
-            ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
-            # since the ufar_summaries class doesn't know about zero-lag esids,
-            # we must remove the zero-lag stats from it's bkg_stats list by hand
-            if esid in background.zero_lag_ids[eid]:
-                ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
+        ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
+        # since the ufar_summaries class doesn't know about zero-lag esids,
+        # we must remove the zero-lag stats from it's bkg_stats list by hand
+        if esid in background.zero_lag_ids[eid]:
+            ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
         if opts.plot_combined:
             if opts.group_by_ifos:
                 ifo_group = ifos
@@ -517,7 +519,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     opts.ifo_tag = ''
 
     # set InspiralUtils options for file and plot naming
-    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, __version__ )
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
     # set the proper color code and symbols
     figure_number = 0 # used for the figure label (showplot)
     fnameList = [] # used for the html cache file
@@ -634,8 +636,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if category in uncomb_zero_cumnum:
                     xval = 1. / min_bkg_ufar[ zero_esid ]
                     yval = uncomb_zero_cumnum[ category ]
-                    text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', 
-                        color = 'k', label='_nolegend_' )
+                    text( xval, yval, '$\longrightarrow$', ha = 'left', va = 'center', 
+                        color = 'k', fontsize = 20, label='_nolegend_' )
                 # reset xmin, xmax, ymin
                 if xmin > 1./ufars[0]:
                     xmin = 1./ufars[0]
@@ -684,7 +686,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             if ymax == 0.: ymax = 1000.
             # Re-set xmin and ymax to be slightly smaller/larger
             xmin = xmin * 0.8
-            xmax = xmax * 1.4
+            xmax = 10**.5 * xmax
             ymax = ymax * 1.2
             # if plot limits specified on command line, override values to whatever was specified
             # and check for consistency
@@ -871,8 +873,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 if category in comb_zero_cumnum:
                     xval = 1. / ( min_bkg_ufar[ zero_esid ] * len(max_bkg_fars[zero_esid].values()) )
                     yval = comb_zero_cumnum[ category ]
-                    text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', 
-                        color = 'k', label='_nolegend_' )
+                    text( xval, yval, '$\longrightarrow$', ha = 'left', va = 'center', 
+                        color = 'k', fontsize = 20, label='_nolegend_' )
                 # reset xmin, xmax, ymin
                 if xmin > 1./cfars[0]:
                     xmin = 1./cfars[0]
@@ -893,7 +895,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             if ymax == 0.: ymax = 1000.
             # Re-set xmin and ymax to be slightly smaller/larger
             xmin = xmin * 0.8
-            xmax = xmax * 1.4
+            xmax = 10**.5 * xmax
             ymax = ymax * 1.2
             # if plot limits specified on command line, override values to whatever was specified
             # and check for consistency
@@ -959,18 +961,22 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
 
     del background
     del ufar_summaries
-    del cfar_summaries
+    if opts.plot_uncombined:
+        del uncombined_cumnum
+        del uncomb_zero_cumnum
+    if opts.plot_combined:
+        del cfar_summaries
+        del combined_cumnum
+        del comb_zero_cumnum
     del max_bkg_fars
     del min_bkg_ufar
-    del uncombined_cumnum
-    del combined_cumnum
-    del comb_zero_cumnum
-    del uncomb_zero_cumnum
 
 
 #
 #   Finished cycling over experiments; exit
 #
+connection.close()
+dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 if opts.verbose:
     print >> sys.stdout, "Finished!"
 sys.exit(0)

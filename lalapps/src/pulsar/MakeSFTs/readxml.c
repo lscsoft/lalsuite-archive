@@ -158,26 +158,25 @@ int testbyteorder()
 }
 
 /* This will work as long as doubles are 8 bytes */
-
 static void convertendianness(double *val) {
-    unsigned char cval[8];
-    
+    double outval;
+    unsigned char *cval = (unsigned char*)&outval;
+
     cval[0] = ((unsigned char *)val)[7];
     cval[1] = ((unsigned char *)val)[6];
     cval[2] = ((unsigned char *)val)[5];
     cval[3] = ((unsigned char *)val)[4];
-    cval[4] = ((unsigned char *)val)[3];    
+    cval[4] = ((unsigned char *)val)[3];
     cval[5] = ((unsigned char *)val)[2];
     cval[6] = ((unsigned char *)val)[1];
     cval[7] = ((unsigned char *)val)[0];
-    
-    *val = *((double *)cval);
-}
 
+    *val = outval;
+}
 
 static TimeSeries *dotimeseries(ezxml_t series,char *xmlname) {
     ezxml_t param, array, dim, stream;
-    const char *name, *timeoffset, *cadence, *length, *records, *type, *encoding, *binaryfile;
+    const char *name=NULL, *timeoffset=NULL, *cadence=NULL, *length=NULL, *records=NULL, *type=NULL, *encoding=NULL, *binaryfile=NULL;
 
     TimeSeries *timeseries;
     double *buffer;
@@ -186,6 +185,8 @@ static TimeSeries *dotimeseries(ezxml_t series,char *xmlname) {
     FILE *binfile;
 
     int i,j;
+
+    size_t num;
         
     name = ezxml_attr(series,"Name");
     
@@ -261,7 +262,7 @@ static TimeSeries *dotimeseries(ezxml_t series,char *xmlname) {
     
     free(pathbinfile);
     
-    fread(buffer,sizeof(double),timeseries->Length * timeseries->Records,binfile);
+    num = fread(buffer,sizeof(double),timeseries->Length * timeseries->Records,binfile);
 
     /* Do the encoding switch if necessary */
 
@@ -339,7 +340,7 @@ void freeLISASources(LISASource *lisasource) {
 
 LISASource *getLISASources(char *filename) {
     ezxml_t tree, section, source, param, series;
-    const char *type, *name, *elat, *elon, *pol;
+    const char *type=NULL, *name=NULL, *elat=NULL, *elon=NULL, *pol=NULL;
 
     LISASource *first = 0, *current = 0;
     /* TimeSeries *timeseries; */ /* unused */

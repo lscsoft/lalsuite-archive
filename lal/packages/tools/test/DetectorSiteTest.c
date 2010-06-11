@@ -90,7 +90,7 @@ LALCreateDetector()
 extern char *optarg;
 extern int   optind;
 
-int lalDebugLevel = LALMSGLVL1;
+extern int lalDebugLevel;
 int verbose    = 0;
 
 static void
@@ -101,9 +101,6 @@ ParseOptions (int argc, char *argv[]);
 
 static void
 TestStatus (LALStatus *status, const char *expectedCodes, int exitCode);
-
-static void
-ClearStatus (LALStatus *status);
 
 NRCSID( DETECTORSITETESTC, "$Id$" );
 
@@ -323,6 +320,8 @@ int main( int argc, char *argv[] )
 
   LALDetector          cachedDetector;
 
+  lalDebugLevel = LALMSGLVL1;
+
   ParseOptions( argc, argv );
 
   printf("Checking LHO...\n");
@@ -457,26 +456,6 @@ TestStatus (LALStatus *status, const char *ignored, int exitcode)
   fprintf (stderr, "\nExiting to system with code %d\n", exitcode);
   exit (exitcode);
 }
-
-
-/*
- *
- * ClearStatus ()
- *
- * Recursively applies DETATCHSTATUSPTR() to status structure to destroy
- * linked list of statuses.
- *
- */
-void
-ClearStatus (LALStatus *status)
-{
-  if (status->statusPtr)
-  {
-    ClearStatus      (status->statusPtr);
-    DETATCHSTATUSPTR (status);
-  }
-}
-
 
 /*
  * Usage ()

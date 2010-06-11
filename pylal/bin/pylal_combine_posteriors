@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Drew Keppel <dgkeppel@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import sys
 import os
@@ -16,6 +13,8 @@ import random
 from types import *
 
 from scipy.signal import cspline1d, cspline1d_eval
+
+from pylal import git_version
 
 #############################################################################
 # function to read posterior
@@ -51,7 +50,7 @@ posteriors from lalapps_compute_posterior computed with uniform priors.
 Example:
 
 """
-parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
+parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
 parser.add_option("-p","--add-posterior",action="append",type="string",\
     default=None,metavar=" \"FILE,TAG\"",\

@@ -103,13 +103,15 @@ def parse_args():
     parser.add_option("--output-path", help="root of the HTML output")
     parser.add_option("--enable-output", action="store_true",
         default=False, help="enable plots and HTML output")
-    parser.add_option("--html-for-cbcweb", action="store_true",
-        default=False, help="enable HTML output with the appropriate headers "
-        "for the CBC website")
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
        
     # odds and ends
+    parser.set_defaults(onmismatch="raise")
+    parser.add_option("--version-mismatch-ok", action="store_const",
+        const="warn", dest="onmismatch", help="by default, the program "\
+        "will halt if the version id stored in the pickle does not match the "\
+        "running version id; specify this option to reduce to a warning")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to stdout")
 
@@ -179,17 +181,20 @@ for grb_name in list_grb:
                "/pylal_grblikelihood_injections_GRB%s_OPENBOX.pickle"%grb_name
  
     # read the data from the files
-    dummy, dummy, dummy, onsource_L_by_m2, log_sum_L =\
+    id, dummy, dummy, dummy, onsource_L_by_m2, log_sum_L =\
            pickle.load(open(file_on))
+    git_version.check_match(id, onmismatch=opts.onmismatch)
     
-    dummy, dummy, offsource_L_by_trial_m2, off_log_sum_L_by_trial =\
+    id, dummy, dummy, offsource_L_by_trial_m2, off_log_sum_L_by_trial =\
            pickle.load(open(file_off))
+    git_version.check_match(id, onmismatch=opts.onmismatch)
     n_trials = offsource_L_by_trial_m2.shape[0]
 
     # read injection data only in the case of testing (i.e. not-box-opening)
     if opts.analyze!='box':
-        dummy, dummy, injections_L_by_trial_m2, inj_log_sum_L_by_trial =\
+        id, dummy, dummy, injections_L_by_trial_m2, inj_log_sum_L_by_trial =\
                pickle.load(open(file_inj))
+        git_version.check_match(id, onmismatch=opts.onmismatch)
     else:
         inj_log_sum_L_by_trial = [0]
         injections_L_by_trial_m2 = []

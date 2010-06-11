@@ -41,8 +41,6 @@ int ConvertXYtoRTperi(XYLocation *XYloc, RTPLocation *RTPloc)
 {
 
   /* this routine takes a location in XY space and converts it to a location in RT space */   
-  LALStatus status = empty_status;
-  LALTimeInterval interval;
   REAL8 alpha;
   REAL8 Torb;
   REAL8 Tlight;
@@ -82,13 +80,13 @@ int ConvertXYtoRTperi(XYLocation *XYloc, RTPLocation *RTPloc)
   /*printf("deltaT is %f\n",deltaT);*/
   
   if (alpha>=0.0) {
-    LALFloatToInterval(&status,&interval,&deltaT);
-    LALDecrementGPS(&status,&tperi,&tstartSSB,&interval);
+    tperi = tstartSSB;
+    XLALGPSAdd(&tperi, -deltaT);
   }
   else if (alpha<0.0) {
     deltaT=(-1.0)*deltaT;
-    LALFloatToInterval(&status,&interval,&deltaT);
-    LALIncrementGPS(&status,&tperi,&tstartSSB,&interval);
+    tperi = tstartSSB;
+    XLALGPSAdd(&tperi, deltaT);
   }
   else {
     printf("error with alpha is parameter conversion\n");
@@ -116,7 +114,6 @@ int ConvertRTperitoXY(RTPLocation *RTPloc, XYLocation *XYloc, REAL8 *alpha)
   /* this routine takes a point in RT space and converts it to XY space */
   LALStatus status = empty_status;
   DFindRootIn input;
-  LALTimeInterval deltaT;
   REAL8 deltaTorb;
   REAL8 alphatemp;
   REAL8 Xtemp;
@@ -140,8 +137,7 @@ int ConvertRTperitoXY(RTPLocation *RTPloc, XYLocation *XYloc, REAL8 *alpha)
   argp=RTPloc->argp;
 
   /* calculate difference between the times using LAL functions */
-  LALDeltaGPS(&status,&deltaT,&tstartSSB,&tperi);
-  LALIntervalToFloat(&status,&deltaTorb,&deltaT);
+  deltaTorb = XLALGPSDiff(&tstartSSB,&tperi);
 
   /* begin root finding procedure */
   input.function = OrbPhaseFunc;
@@ -173,13 +169,13 @@ int ConvertRTperitoXY(RTPLocation *RTPloc, XYLocation *XYloc, REAL8 *alpha)
 
 /*******************************************************************************/
 
-static void OrbPhaseFunc(LALStatus *status, REAL8 *y, REAL8 alpha, void *y0)
+static void OrbPhaseFunc(LALStatus *status, REAL8 *y, REAL8 alpha, void *y_0)
 {
   INITSTATUS(status, "OrbPhaseFunc", "Function OrbPhaseFunc()");
-  ASSERT(y0,status, 1, "Null pointer");
+  ASSERT(y_0,status, 1, "Null pointer");
   /* this is the transendental function we need to solve to find the true initial phase */
   /* note that it also includes a retarded time delay */
-  *y = *(REAL8 *)y0*(-1.0) + alpha*(period_GLOBAL/LAL_TWOPI)+sma_GLOBAL*sin(alpha);
+  *y = *(REAL8 *)y_0*(-1.0) + alpha*(period_GLOBAL/LAL_TWOPI)+sma_GLOBAL*sin(alpha);
   RETURN(status);
 }
 

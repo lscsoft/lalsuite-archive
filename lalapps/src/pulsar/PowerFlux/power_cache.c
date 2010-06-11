@@ -60,6 +60,7 @@ for(k=0;k<d_free;k++) {
 		r[*count].f_plus=NAN;
 		r[*count].f_cross=NAN;
 		r[*count].bin_shift=NAN;
+		r[*count].diff_bin_shift=NAN;
 		
 		(*count)++;
 		}
@@ -728,7 +729,7 @@ pps->collapsed_weight_arrays=0;
 
 void get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
-int i,k,n,m;
+int i,k;
 int bin_shift;
 SEGMENT_INFO *si_local;
 DATASET *d;
@@ -927,7 +928,7 @@ pps->collapsed_weight_arrays=0;
 
 void sse_get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps)
 {
-int i,k,n,m;
+int i,k;
 int bin_shift;
 SEGMENT_INFO *si_local;
 DATASET *d;
@@ -945,14 +946,14 @@ float sum, sum_sq;
 float pps_bins_inv=1.0/pps_bins;
 //float pmax_factor=args_info.power_max_median_factor_arg;
 
-float filter[8];
+float *filter;
 
 float weight_pppp=0;
 float weight_pppc=0;
 float weight_ppcc=0;
 float weight_pccc=0;
 float weight_cccc=0;
-__m128 v4power, v4power0, v4power1, v4tm, v4sum, v4sum_sq, v4pp, v4pc, v4cc, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
+__m128 v4power, v4power0, v4power1, v4pp, v4pc, v4cc, v4a, v4b, v4a1, v4b1, v4filt0, v4filt1;
 float *tmp1, *tmp2;
 
 /*pp=aligned_alloca(pps_bins*sizeof(*pp));
@@ -962,6 +963,7 @@ power=aligned_alloca(pps_bins*sizeof(*power));
 
 tmp1=aligned_alloca(8*sizeof(*tmp1));
 tmp2=aligned_alloca(8*sizeof(*tmp2));
+filter=aligned_alloca(8*sizeof(*filter));
 
 pp=pps->power_pp;
 pc=pps->power_pc;
@@ -1171,26 +1173,6 @@ pps->c_weight_cccc=weight_cccc;
 pps->collapsed_weight_arrays=0;
 }
 
-#define SIMPLE_CACHE_ID 1
-
-typedef struct {
-	long id;
-
-	/* statistics */
-	long hits;
-	long misses;
-	long overwrites;
-	long large_shifts;
-	int max_size;
-
-	/* cache contents */
-	int segment_count;
-	int size;
-	int free;
-	int *key;
-	SEGMENT_INFO **si;
-	PARTIAL_POWER_SUM_F **pps;
-	} SIMPLE_CACHE;
 
 void free_simple_cache(SUMMING_CONTEXT *ctx)
 {
@@ -1314,11 +1296,10 @@ for(i=0;i<count;i++) {
 	//fprintf(stderr, "%0.1f ", a);
 	}
 //fprintf(stderr, "k=%d key=%d %f\n", k, key, a);
-
 sc_key=sc->key;
 for(k=0;k<sc->free;k++) {
 	/* the reason we use exact equality for floating point numbers is because the numbers in cache have been placed there by the same function. */
-	if(key==sc_key[k]) {
+	if(key==sc_key[k] && !args_info.bypass_powersum_cache_arg) {
 		/* we found the box holding our data, double check it is the right one */
 		si_local=si;
 		sc_si_local=sc->si[k];

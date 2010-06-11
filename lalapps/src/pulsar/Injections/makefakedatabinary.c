@@ -343,7 +343,7 @@ int write_timefile(int iSFT);
 int cleanup(LALStatus *);
 int freemem(LALStatus *);
 int window_data(void);
-int correct_phase(LALStatus *);
+int correct_phase(void);
 int compute_power(void);
 int SetupSigGenParams(void);
 static void TimeToFloat(REAL8 *, LIGOTimeGPS *);
@@ -634,57 +634,6 @@ int compute_SSBtimes(LALStatus* status) {
 }
 
 
-
-#if 0
-/*applies correct heterodyning from one SFT to the next*/
-int correct_phase(LALStatus* status, int iSFT) {
-
-  int i;
-  REAL8 cosx,sinx,x;
-  COMPLEX8 fvec1;
-
-  x=2.0*LAL_PI*f_min*Tsft*iSFT;
-  cosx=cos(x);
-  sinx=sin(x);
-  for (i = 0; i < fvec->length; ++i){
-    fvec1=fvec->data[i];
-    fvec->data[i].re=fvec1.re*cosx+fvec1.im*sinx;
-    fvec->data[i].im=fvec1.im*cosx-fvec1.re*sinx;
-  }
-  
-  return 0;
-}
-#endif
-
-int correct_phase(LALStatus* status) {
-
-  UINT4 i;
-  REAL8 cosx,sinx;
-  COMPLEX8 fvec1;
-  LALTimeInterval deltaGPS;
-  LIGOTimeGPS gps1,gps2;
-  REAL8 deltaT;
-
-  gps1=timeSeries->epoch;
-  gps2=cwDetector.heterodyneEpoch;
-
-  LALDeltaGPS(status,&deltaGPS,&gps1,&gps2);
-
-  LALIntervalToFloat(status,&deltaT,&deltaGPS);
-
-  deltaT *= LAL_TWOPI*timeSeries->f0; 
-
-  cosx=cos(deltaT);
-  sinx=sin(deltaT);
-  for (i = 0; i < fvec->length; ++i){
-    fvec1=fvec->data[i];
-    fvec->data[i].re=fvec1.re*cosx-fvec1.im*sinx;
-    fvec->data[i].im=fvec1.im*cosx+fvec1.re*sinx;
-  }
-  
-  return 0;
-}
-
 /* windows the data*/
 int window_data(void){
 
@@ -952,7 +901,6 @@ int write_modulated_amplitudes_file(LALStatus* status){
   LALDetAMResponse  amresp;
   LALSource         source;
   LALDetAndSource   detectorandsource;
-  LALGPSandAcc       gps;
   const char *filename="AmplMod.dat";
   int i;
 
@@ -969,11 +917,7 @@ int write_modulated_amplitudes_file(LALStatus* status){
   detectorandsource.pSource=&source;
 
   for (i=0;i<=nTsft;i++){
-  
-    gps.gps.gpsSeconds=timestamps[i].gpsSeconds;
-    gps.gps.gpsNanoSeconds=timestamps[i].gpsNanoSeconds;
-
-    LALComputeDetAMResponse(status, &amresp, &detectorandsource, &gps);
+    LALComputeDetAMResponse(status, &amresp, &detectorandsource, &timestamps[i]);
     fprintf(fp,"%f  %f\n",amresp.plus,amresp.cross);
     
   }
@@ -986,7 +930,7 @@ int write_modulated_amplitudes_file(LALStatus* status){
 
 int make_filelist(void) {
 
-  unsigned int fileno=0;
+  unsigned int filenum=0;
   char command[256];
   glob_t globbuf;
 
@@ -997,11 +941,11 @@ int make_filelist(void) {
   glob(command, GLOB_ERR, NULL, &globbuf);
 
   /* read file names -- MUST NOT FORGET TO PUT ERROR CHECKING IN HERE !!!! */
-  while (fileno< globbuf.gl_pathc) 
+  while (filenum< globbuf.gl_pathc) 
     {
-      strcpy(filelist[fileno],globbuf.gl_pathv[fileno]);
-      fileno++;
-      if (fileno > MAXFILES)
+      strcpy(filelist[filenum],globbuf.gl_pathv[filenum]);
+      filenum++;
+      if (filenum > MAXFILES)
 	{
 	  fprintf(stderr,"Too many files in directory! Exiting... \n");
 	  return 1;
@@ -1246,6 +1190,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
   int r,i,msp;
   UINT4 imin, nsamples;  
   FILE *fp;
+  int rc;
   
   /* scan through the list of arguments on the command line 
      and get the input data filename*/
@@ -1349,7 +1294,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	  char command[1024];
     fprintf(stderr,"Unable to assign A plus from %s\n",filename);
    sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
 
     return 1;   
   }
@@ -1361,7 +1306,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
     if (r==1) fprintf(stderr,"Have A cross=%f\n", genTayParams.aCross);
     if (r==0) fprintf(stderr,"Last item read was %s\n", dmp);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     return 1;   
   }
   /*psi REAL4*/
@@ -1370,7 +1315,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign psi from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }
@@ -1380,7 +1325,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign phi0 from %s\n",filename);
    sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
 
     return 1;   
   }
@@ -1412,7 +1357,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign orbital radius from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }
@@ -1422,7 +1367,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign orbital angular velocity from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }
@@ -1433,7 +1378,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign orbital initial phase from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }
@@ -1444,7 +1389,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign orbital initial phase from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }
@@ -1455,7 +1400,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign orbital initial phase from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }
@@ -1466,7 +1411,7 @@ int read_file(LALStatus* status, int argc,char *argv[]) {
 	          char command[1024];
     fprintf(stderr,"Unable to assign orbital initial phase from %s\n",filename);
     sprintf(command, "cat %s 1>&2\n", filename);
-    system(command);
+    rc = system(command);
     
     return 1;   
   }

@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2006  Duncan A. Brown
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -29,6 +27,7 @@ import sys
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from pylal import git_version
 from pylal import llwapp
 from pylal import SnglInspiralUtils
 from pylal import snglcluster
@@ -37,8 +36,6 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 
 #
@@ -76,8 +73,8 @@ def get_tables(doc):
 
 def append_process(doc, **kwargs):
   process = llwapp.append_process(
-    doc, program = "ligolw_sicluster", version = __version__, 
-    cvs_repository = "lscsoft", cvs_entry_time = __date__, 
+    doc, program = "ligolw_sicluster", version = git_version.verbose_msg,
+    cvs_repository = "lscsoft", cvs_entry_time = git_version.date,
     comment = kwargs["comment"])
 
   ligolw_process.append_process_params(doc, process, 

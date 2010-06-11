@@ -32,30 +32,6 @@ extern FILE *LOG;
 
 #include "fc.c"
 
-void compute_alignment_coeffs1(ALIGNMENT_COEFFS *ac)
-{
-double a, a_plus_sq, a_cross_sq, cpsi, spsi;
-a=cos(ac->iota);
-a=a*a;
-
-a_plus_sq=(1+a)*0.5;
-a_plus_sq=a_plus_sq*a_plus_sq;
-a_cross_sq=a;
-
-cpsi=cos(2*ac->psi);
-spsi=sin(2*ac->psi);
-
-ac->pp=(cpsi*cpsi*a_plus_sq+spsi*spsi*a_cross_sq);
-ac->pc=2*cpsi*spsi*(a_plus_sq-a_cross_sq);
-ac->cc=(spsi*spsi*a_plus_sq+cpsi*cpsi*a_cross_sq);
-
-ac->pppp=ac->pp*ac->pp;
-ac->pppc=2*ac->pp*ac->pc;
-ac->ppcc=2*ac->pp*ac->cc+ac->pc*ac->pc;
-ac->pccc=2*ac->pc*ac->cc;
-ac->cccc=ac->cc*ac->cc;
-}
-
 /* this is identical to the one above, but follows the formula in polarization.pdf */
 
 void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac)
@@ -283,7 +259,7 @@ quick_sort_floats1(data, j);
 quick_sort_floats1(&(data[j]), count-j);
 }
 
-/* an optimized implementation of quick sort */
+/* manually sort arrays of up to 3 floats */
 static inline void manual_sort_floats(float *data, int count)
 {
 float a,b,c;
@@ -319,8 +295,8 @@ if(count==3) {
 	data[2]=c;
 	return;
 	}
-if(count==4) {
-	}
+fprintf(stderr, "*** ERROR: manual_sort_floats cannot sort array this large %p %d\n", data, count);
+exit(-1);
 return;
 }
 
@@ -461,10 +437,12 @@ for(k=0;k<4;k++) {
 int is_sorted(float *data, int count)
 {
 int i;
-float a;
+float a,b;
 a=data[0];
 for(i=1;i<count;i++) {
-	if(a>data[i])return 0;
+	b=data[i];
+	if(a>b)return 0;
+	a=b;
 	}
 return 1;
 }
@@ -684,7 +662,7 @@ int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx, snr;
+float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -877,7 +855,7 @@ int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL, *weight_tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx, snr;
+float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -1093,7 +1071,7 @@ int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx, snr;
+float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -1685,6 +1663,19 @@ verify_limits();
 if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 	if(!strcasecmp(args_info.averaging_mode_arg, "matched")) {
 		/* Matched filter correctly reconstructs power in the bin */
+		upper_limit_comp=1.0; 
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "single_bin_loose")) {
+		/* 0.85 is a ratio between amplitude of 
+		   half-bin centered signal and bin centered signal
+		   *amplitude*
+
+		   */
+		/* Usual worst case single-bin correction for loss of power when not bin centered. */
+		upper_limit_comp=1.0/0.85; 
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
+		/* Matched filter  correctly reconstructs power in the bin */
 		upper_limit_comp=1.0; 
 		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){

@@ -28,17 +28,13 @@
 LSC Table definitions.  These must be kept synchronized with the official
 definitions in the LDAS CVS repository at
 http://www.ldas-sw.ligo.caltech.edu/cgi-bin/cvsweb.cgi/ldas/dbms/db2/sql.
-Maintainership of the table definitions is left as an excercise to
+Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
 
 from xml import sax
-try:
-	set
-except NameError:
-	# Python < 2.4
-	from sets import Set as set
+
 try:
 	any
 	all
@@ -48,13 +44,13 @@ except NameError:
 
 
 from glue import git_version
+from glue import iterutils
 from glue import segments
 from glue.lal import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import types as ligolwtypes
 from glue.ligolw import ilwd
-
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -70,7 +66,7 @@ __date__ = git_version.date
 #
 
 
-def New(Type, columns = None):
+def New(Type, columns = None, **kwargs):
 	"""
 	Convenience function for constructing pre-defined LSC tables.  The
 	optional columns argument is a list of the names of the columns the
@@ -83,7 +79,7 @@ def New(Type, columns = None):
 	>>> tbl = New(ProcessTable)
 	>>> tbl.write()
 	"""
-	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
+	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}), **kwargs)
 	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
 	if columns is not None:
 		for key in columns:
@@ -877,6 +873,8 @@ class SnglBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"chisq": "real_8",
+		"chisq_dof": "real_8",
 		"tfvolume": "real_4",
 		"hrss": "real_4",
 		"time_lag": "real_4",
@@ -1019,6 +1017,7 @@ class MultiBurstTable(table.Table):
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"confidence": "real_4",
+		"false_alarm_rate": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1174,15 +1173,19 @@ class SnglInspiralTable(table.Table):
 		return mapping
 
 	def get_column(self,column):
+		if column == 'reduced_chisq':
+			return self.get_reduced_chisq()
 		if column == 'reduced_bank_chisq':
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
+		if column == 'new_snr':
+			return self.get_new_snr()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
-		if column =='lvS5stat':
+		if column == 'lvS5stat':
 			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
 			return self.get_chirp_dist()
@@ -1192,17 +1195,59 @@ class SnglInspiralTable(table.Table):
 	def get_end(self):
 		return [row.get_end() for row in self]
 
+	def get_reduced_chisq(self):
+		return self.get_column('chisq') / (2*self.get_column('chisq_dof') - 2)
+
 	def get_reduced_bank_chisq(self):
 		return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-
+            
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
-		chisq = self.get_column('chisq')
-		chisq_dof = self.get_column('chisq_dof')
-		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+		rchisq = self.get_column('reduced_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_bank_effective_snr(self, fac=250.0):
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_bank_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_cont_effective_snr(self, fac=250.0):
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_cont_chisq')
+		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
+
+	def get_new_snr(self, index=6.0):
+		import numpy
+		# kwarg 'index' is assigned to the parameter chisq_index
+		# nhigh gives the asymptotic large  rho behaviour of d (ln chisq) / d (ln rho) 
+		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_chisq')
+		nhigh = 2.
+		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(newsnr, rchisq < 1, snr)
+		return newsnr
+
+	def get_bank_new_snr(self, index=6.0):
+		import numpy
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_bank_chisq')
+		nhigh = 2.
+		banknewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(banknewsnr, rchisq < 1, snr)
+		return banknewsnr
+
+	def get_cont_new_snr(self, index=6.0):
+		import numpy
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_cont_chisq')
+		nhigh = 2.
+		contnewsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(contnewsnr, rchisq < 1, snr)
+		return contnewsnr
 
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
@@ -1215,12 +1260,19 @@ class SnglInspiralTable(table.Table):
 	def get_lvS5stat(self):
 		return self.get_column('beta')
 
-	def ifocut(self,ifo):
-		ifoTrigs = table.new_from_template(self)
-		for row in self:
-			if row.ifo == ifo:
-				ifoTrigs.append(row)
-		return ifoTrigs
+	def ifocut(self, ifo, inplace=False):
+		"""
+		Return a SnglInspiralTable with rows from self having IFO equal
+		to the given ifo. If inplace, modify self directly, else create
+		a new table and fill it.
+		"""
+		if inplace:
+			iterutils.inplace_filter(lambda row: row.ifo == ifo, self)
+			return self
+		else:
+			ifoTrigs = table.new_from_template(self)
+			ifoTrigs.extend([row for row in self if row.ifo == ifo])
+			return ifoTrigs
 
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
@@ -1291,6 +1343,14 @@ class SnglInspiral(object):
 
 	def get_effective_snr(self,fac=250.0):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+	
+	def get_new_snr(self,index=6.0):
+		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
 
 	def get_far(self):
 		return self.alpha
@@ -1428,8 +1488,7 @@ class SnglRingdownTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#next_id = SnglRingdownID(0)
+	next_id = SnglRingdownID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
@@ -1467,11 +1526,7 @@ class CoincRingdownTable(table.Table):
 		"snr": "real_8",
 		"false_alarm_rate": "real_8"
 	}
-	# FIXME:  like some other tables here, this table should have the
-	# constraint that the coinc_event_id column is a primary key.  this
-	# breaks ID reassignment in ligolw_sqlite, so until that is fixed
-	# the constraint is being replaced with an index.
-	#constraints = "PRIMARY KEY (coinc_event_id)"
+	constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
 		"cr_cei_index": ("coinc_event_id",)
 	}
@@ -1521,50 +1576,77 @@ class MultiInspiralTable(table.Table):
 		"impulse_time": "int_4s",
 		"impulse_time_ns": "int_4s",
 		"amplitude": "real_4",
-		"ifo1_eff_distance": "real_4",
-		"ifo2_eff_distance": "real_4",
-		"eff_distance": "real_4",
+		"distance": "real_4",
+		"eff_dist_h1": "real_4",
+		"eff_dist_h2": "real_4",
+		"eff_dist_l": "real_4",
+		"eff_dist_g": "real_4",
+		"eff_dist_t": "real_4",
+		"eff_dist_v": "real_4",
+		"eff_dist_h1h2": "real_4",
 		"coa_phase": "real_4",
 		"mass1": "real_4",
 		"mass2": "real_4",
 		"mchirp": "real_4",
 		"eta": "real_4",
+		"chi": "real_4",
+		"kappa": "real_4",
 		"tau0": "real_4",
 		"tau2": "real_4",
 		"tau3": "real_4",
 		"tau4": "real_4",
 		"tau5": "real_4",
 		"ttotal": "real_4",
-		"ifo1_snr": "real_4",
-		"ifo2_snr": "real_4",
 		"snr": "real_4",
+                "snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
-		"sigmasq": "real_4",
-		"ligo_axis_ra": "real_4",
-		"ligo_axis_dec": "real_4",
+		"sigmasq_h1": "real_8",
+		"sigmasq_h2": "real_8",
+		"sigmasq_l": "real_8",
+		"sigmasq_g": "real_8",
+		"sigmasq_t": "real_8",
+		"sigmasq_v": "real_8",
+		"chisq_h1": "real_4",
+		"chisq_h2": "real_4",
+		"chisq_l": "real_4",
+		"chisq_g": "real_4",
+		"chisq_t": "real_4",
+		"chisq_v": "real_4",
+		"ra": "real_4",
+		"dec": "real_4",
 		"ligo_angle": "real_4",
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "ilwd:char",
 		"null_statistic": "real_4",
+		"null_stat_h1h2": "real_4",
+		"null_stat_degen": "real_4",
+		"event_id": "ilwd:char",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
 		"h2quad_re": "real_4",
 		"h2quad_im": "real_4",
 		"l1quad_re": "real_4",
 		"l1quad_im": "real_4",
-		"v1quad_re": "real_4",
-		"v1quad_im": "real_4",
 		"g1quad_re": "real_4",
 		"g1quad_im": "real_4",
 		"t1quad_re": "real_4",
-		"t1quad_im": "real_4"
+		"t1quad_im": "real_4",
+		"v1quad_re": "real_4",
+		"v1quad_im": "real_4",
+                "coh_snr_h1h2": "real_4",
+		"cohSnrSqLocal": "real_4",
+		"autoCorrCohSq": "real_4",
+		"crossCorrCohSq": "real_4",
+		"autoCorrNullSq": "real_4",
+		"crossCorrNullSq": "real_4",
+		"ampMetricEigenVal1": "real_8",
+		"ampMetricEigenVal2": "real_8"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1763,14 +1845,26 @@ class SimInspiralTable(table.Table):
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+
+	def set_time_geocent(self, gps):
+		self.geocent_end_time, self.geocent_end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.longitude, self.latitude
+
 	def get_end(self, site = None):
 		if site is None:
-			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return self.get_time_geocent()
 		else:
 			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
 	def get_eff_dist(self, instrument):
 		return getattr(self, "eff_dist_%s" % instrument[0].lower())
+
+	def get_chirp_dist(self,instrument,ref_mass = 1.40):
+		return self.get_eff_dist(instrument) * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -1824,6 +1918,9 @@ class SimBurst(object):
 
 	def set_time_geocent(self, gps):
 		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
+
+	def get_ra_dec(self):
+		return self.ra, self.dec
 
 
 SimBurstTable.RowType = SimBurst
@@ -2326,26 +2423,6 @@ class TimeSlideTable(table.Table):
 	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
-	# FIXME:  this method is now only used by snglcoinc.py in pylal,
-	# and that use should be replaced with a call to this class'
-	# .as_dict() method.  A change request is pending for snglcoinc.py,
-	# so it's hard to make other modifications at the moment.  remember
-	# to take care of this later.
-	def get_offset_dict(self, id):
-		"""
-		Return a dictionary of instrument/offset pairs as described
-		by the rows having the given ID.
-		"""
-		d = {}
-		for row in self:
-			if row.time_slide_id == id:
-				if row.instrument in d:
-					raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
-				d[row.instrument] = row.offset
-		if not d:
-			raise KeyError, id
-		return d
-
 	def as_dict(self):
 		"""
 		Return a ditionary mapping time slide IDs to offset
@@ -2426,7 +2503,7 @@ class CoincDefTable(table.Table):
 		"cd_ssct_index": ("search", "search_coinc_type")
 	}
 
-	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = u""):
+	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = None):
 		"""
 		Return the coinc_def_id for the row in the table whose
 		search string and search_coinc_type integer have the values
@@ -2436,13 +2513,12 @@ class CoincDefTable(table.Table):
 		KeyError is raised when a matching row is not found.  The
 		optional description parameter can be used to set the
 		description string assigned to the new row if one is
-		created, otherwise the new row is left with an empty
-		description.
+		created, otherwise the new row is left with no description.
 		"""
 		# look for the ID
 		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
 		if len(rows) > 1:
-			raise ValueError, "search/search coinc type = %s/%d is not unique" % (search, search_coinc_type)
+			raise ValueError, "(search, search coincidence type) = (\"%s\", %d) is not unique" % (search, search_coinc_type)
 		if len(rows) > 0:
 			return rows[0].coinc_def_id
 

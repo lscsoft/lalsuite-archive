@@ -44,7 +44,7 @@ def dtd_uri_callback(uri):
   if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
     # if the XML file contants a http pointer to the ligolw DTD at CIT then
     # return a local copy to avoid any network problems
-    return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"],
+    return 'file://localhost' + os.path.join( os.environ["GLUE_PREFIX"],
       'etc/ligolw_dtd.txt' )
   else:
     # otherwise just use the uri in the file
@@ -74,12 +74,12 @@ def initialize(configuration,log):
 
   # use a local copy of the DTD, if one is available
   try:
-    GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+    GLUE_PREFIX = os.environ["GLUE_PREFIX"]
     xmlparser.eoCB = dtd_uri_callback
     logger.info("Using local DTD in " + 
-      'file://localhost' + os.path.join( GLUE_LOCATION, 'etc') )
+      'file://localhost' + os.path.join( GLUE_PREFIX, 'etc') )
   except KeyError:
-    logger.warning('GLUE_LOCATION not set, unable to use local DTD') 
+    logger.warning('GLUE_PREFIX not set, unable to use local DTD') 
 
   # open a connection to the rls server
   rls_server = configuration['rls']
@@ -196,11 +196,10 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       if methodString in ldbd_com:
         pass
       else:
-        msg = "\nOnly authorized users can %s\n" % methodString
-        msg += "To %s, authorized users please explicitly append port number 30020 to " % methodString
-        msg += "your --server agument at command line" 
-        logmsg = "ldbd server on port %d DO NOT support %s" % (port, methodString)
-        logger.error(logmsg) 
+        msg = '\nTo %s, authorized user please switch to the Apache driven ldbd server through ' % methodString
+        msg += '\nsecure connection by specifying procotol "https" in your --segment-url argument'
+        msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu"'
+        logger.error(msg) 
         self.__reply__(1,msg)
         raise ServerHandlerException, msg 
       # list allowed sql commands when methodString is QUERY
@@ -325,304 +324,25 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     return (code,result)
 
   def insert(self, arg):
-    """
-    Insert some LIGO_LW xml data in the metadata database
+    msg = '\nTo INSERT, authorized user please switch to the Apache driven ldbd server through '
+    msg += '\nsecure connection by specifying procotol "https" in your --segment-url argument'
+    msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu"'
+    logger.error(msg)
+    return (1, msg)
 
-    @param arg: a text string containing an SQL query to be executed
-
-    @return: None
-    """
-    global logger
-    global xmlparser, dbobj
-
-    logger.debug("Method insert called")
-
-    # assume failure
-    code = 1
-
-    try:
-      # capture the remote users DN for insertion into the database
-      cred = self.request.get_delegated_credential()
-      remote_dn = cred.inquire_cred()[1].display()
-
-      # create a ligo metadata object
-      lwtparser = ldbd.LIGOLwParser()
-      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
-
-      # parse the input string into a metadata object
-      ligomd.parse(arg[0])
-
-      # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
-
-      # insert the metadata into the database
-      result = str(ligomd.insert())
-
-      logger.info("Method insert: %s rows affected by insert" % result)
-      code = 0
-    except Exception, e:
-      result = ("Error inserting metadata into database: %s" % e)
-      logger.error(result)
-
-    try:
-      del ligomd
-      del lwtparser
-    except Exception, e:
-      logger.error(
-        "Error deleting metadata object in method insert: %s" % e)
-
-    return (code,result)
 
   def insertmap(self, arg):
-    """
-    Insert some LIGO_LW xml data in the metadata database with an LFN to
-    PFN mapping inserted into the RLS database.
-
-    @param arg: a text string containing an SQL query to be executed
-
-    @return: None
-    """
-    msg = "server is not initialized for RLS connections"
+    msg = '\nTo INSERTMAP, authorized user please switch to the Apache driven ldbd server through '
+    msg += '\nsecure connection by specifying procotol "https" in your --segment-url argument'
+    msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu"'
     logger.error(msg)
     return (1, msg)
 
   def insertdmt(self, arg):
-    """
-    Insert LIGO_LW xml data from the DMT in the metadata database. For
-    DMT inserts, we need to check for existing process_id and
-    segment_definer_id rows and change the contents of the table to be
-    inserted accordingly. We must also update the end_time of any 
-    existing entries in the process table.
+    msg = '\nTo INSERTDMT, authorized user please switch to the Apache driven ldbd server through '
+    msg += '\nsecure connection by specifying procotol "https" in your --segment-url argument'
+    msg += '\nFor example, "--segment-url https://segdb.ligo.caltech.edu"'
+    logger.error(msg)
+    return (1, msg)
 
-    @param arg: a text string containing an SQL query to be executed
-
-    @return: None
-    """
-    global logger
-    global xmlparser, dbobj
-    global dmt_proc_dict, dmt_seg_def_dict, creator_db
-    proc_key = {}
-    known_proc = {}
-    seg_def_key = {}
-
-    logger.debug( "Method dmtinsert called." )
-    logger.debug( "Known processes %s, " % str(dmt_proc_dict) )
-    logger.debug( "Known segment_definers %s" % str(dmt_seg_def_dict) )
-
-    # assume failure
-    code = 1
-
-    try:
-      # capture the remote users DN for insertion into the database
-      cred = self.request.get_delegated_credential()
-      remote_dn = cred.inquire_cred()[1].display().strip()
-
-      # create a ligo metadata object
-      lwtparser = ldbd.LIGOLwParser()
-      ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
-
-      # parse the input string into a metadata object
-      logger.debug("parsing xml data")
-      ligomd.parse(arg[0])
-
-      # store the users dn in the process table
-      ligomd.set_dn(remote_dn)
-
-      # determine the local creator_db number
-      if creator_db is None:
-        sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
-        sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
-        ligomd.curs.execute(sql)
-        creator_db = ligomd.curs.fetchone()[0]
-
-      # determine the locations of columns we need in the process table
-      process_cols = ligomd.table['process']['orderedcol']
-      node_col = process_cols.index('node')
-      prog_col = process_cols.index('program')
-      upid_col = process_cols.index('unix_procid')
-      start_col = process_cols.index('start_time')
-      end_col = process_cols.index('end_time')
-      pid_col = process_cols.index('process_id')
-
-      # determine and remove known entries from the process table
-      rmv_idx = []
-      for row_idx,row in enumerate(ligomd.table['process']['stream']):
-        uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
-        try:
-          proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
-          known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
-          rmv_idx.append(row_idx)
-        except KeyError:
-          # we know nothing about this process, so query the database
-          sql = "SELECT BLOB(process_id) FROM process WHERE "
-          sql += "creator_db = " + str(creator_db) + " AND "
-          sql += "node = '" + row[node_col] + "' AND "
-          sql += "program = '" + row[prog_col] + "' AND "
-          sql += "unix_procid = " + str(row[upid_col]) + " AND "
-          sql += "start_time = " + str(row[start_col])
-          ligomd.curs.execute(sql)
-          db_proc_ids = ligomd.curs.fetchall()
-          if len(db_proc_ids) == 0:
-            # this is a new process with no existing entry
-            dmt_proc_dict[uniq_proc] = row[pid_col]
-          elif len(db_proc_ids) == 1:
-            # the process_id exists in the database so use that insted
-            dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
-            proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
-            known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
-            rmv_idx.append(row_idx)
-          else:
-            # multiple entries for this process, needs human assistance
-            raise ServerHandlerException, "multiple entries for dmt process"
-
-      # delete the duplicate processs rows and clear the table if necessary
-      newstream = []
-      for row_idx,row in enumerate(ligomd.table['process']['stream']):
-        try:
-          rmv_idx.index(row_idx)
-        except ValueError:
-          newstream.append(row)
-      ligomd.table['process']['stream'] = newstream
-      if len(ligomd.table['process']['stream']) == 0:
-        del ligomd.table['process']
-
-      # turn the known process_id binary for this insert into ascii
-      for pid in known_proc.keys():
-        pid_str = "x'"
-        for ch in pid:
-          pid_str += "%02x" % ord(ch)
-        pid_str += "'"
-        known_proc[pid] = (pid_str, known_proc[pid])
-
-      # determine the locations of columns we need in the segment_definer table
-      seg_def_cols = ligomd.table['segment_definer']['orderedcol']
-      ifos_col = seg_def_cols.index('ifos')
-      name_col = seg_def_cols.index('name')
-      vers_col = seg_def_cols.index('version')
-      sdid_col = seg_def_cols.index('segment_def_id')
-
-      # determine and remove known entries in the segment_definer table
-      rmv_idx = []
-      for row_idx,row in enumerate(ligomd.table['segment_definer']['stream']):
-        uniq_def = (row[ifos_col],row[name_col],row[vers_col])
-        try:
-          seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
-          rmv_idx.append(row_idx)
-        except KeyError:
-          # we know nothing about this segment_definer, so query the database
-          sql = "SELECT BLOB(segment_def_id) FROM segment_definer WHERE "
-          sql += "creator_db = " + str(creator_db) + " AND "
-          sql += "ifos = '" + row[ifos_col] + "' AND "
-          sql += "name = '" + row[name_col] + "' AND "
-          sql += "version = " + str(row[vers_col])
-          ligomd.curs.execute(sql)
-          db_seg_def_id = ligomd.curs.fetchall()
-          if len(db_seg_def_id) == 0:
-            # this is a new segment_defintion with no existing entry
-            dmt_seg_def_dict[uniq_def] = row[sdid_col]
-          else:
-            dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
-            seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
-            rmv_idx.append(row_idx)
-
-      # delete the necessary rows. if the table is empty, delete it
-      newstream = []
-      for row_idx,row in enumerate(ligomd.table['segment_definer']['stream']):
-        try:
-          rmv_idx.index(row_idx)
-        except ValueError:
-          newstream.append(row)
-      ligomd.table['segment_definer']['stream'] = newstream
-      if len(ligomd.table['segment_definer']['stream']) == 0:
-        del ligomd.table['segment_definer']
-
-      # now update the values in the xml with the values we know about
-      for tabname in ligomd.table.keys():
-        table = ligomd.table[tabname]
-        if tabname == 'process':
-          # we do nothing to the process table
-          pass
-        elif tabname == 'segment' or tabname == 'segment_summary':
-          # we need to update the process_id and the segment_def_id columns
-          pid_col = table['orderedcol'].index('process_id')
-          sdid_col = table['orderedcol'].index('segment_def_id')
-          row_idx = 0
-          for row in table['stream']:
-            try:
-              repl_pid = proc_key[str(row[pid_col])]
-            except KeyError:
-              repl_pid = row[pid_col]
-            try:
-              repl_sdid = seg_def_key[str(row[sdid_col])]
-            except KeyError:
-              repl_sdid = row[sdid_col]
-            row = list(row)
-            row[pid_col] = repl_pid
-            row[sdid_col] = repl_sdid
-            table['stream'][row_idx] = tuple(row)
-            row_idx += 1
-        else:
-          # we just need to update the process_id column
-          pid_col = table['orderedcol'].index('process_id')
-          row_idx = 0
-          for row in table['stream']:
-            try:
-              repl_pid = proc_key[str(row[pid_col])]
-              row = list(row)
-              row[pid_col] = repl_pid
-              table['stream'][row_idx] = tuple(row)
-            except KeyError:
-              pass
-            row_idx += 1
-
-      # insert the metadata into the database
-      logger.debug("inserting xml data")
-      result = str(ligomd.insert())
-      logger.debug("insertion complete")
-
-      # update the end time of known processes in the process table
-      for pid in known_proc.keys():
-        # first check to see if we are backfilling missing segments
-        sql = "SELECT end_time,domain FROM process "
-        sql += " WHERE process_id = " + known_proc[pid][0]
-        ligomd.curs.execute(sql)
-        last_end_time = ligomd.curs.fetchone()
-
-        # check the dn in the row we are about to update matches the users dn
-        dn = last_end_time[1].strip()
-        if remote_dn != dn:
-          msg = "%s does not have permission to update row entries" % remote_dn
-          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
-          raise ServerHandlerException, msg
-        else:
-          logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
-
-        if int(known_proc[pid][1]) <= int(last_end_time[0]):
-          logger.debug("Backfilling missing segments for process_id " +
-            known_proc[pid][0] + " not updating end_time")
-        else:
-          # if we are not backfilling, update the end_time of the process
-          sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
-          sql += " WHERE process_id = " + known_proc[pid][0]
-          sql += " AND end_time < " + str(known_proc[pid][1])
-          ligomd.curs.execute(sql)
-      ligomd.dbcon.commit()
-
-      logger.info("Method insert: %s rows affected by insert" % result)
-      code = 0
-    except Exception, e:
-      result = ("Error inserting metadata into database: %s" % e)
-      logger.error(result)
-
-    try:
-      del ligomd
-      del lwtparser
-      del known_proc
-      del seg_def_key
-      del proc_key
-    except Exception, e:
-      logger.error(
-        "Error deleting metadata object in method insertdmt: %s" % e)
-
-    return (code,result)
 

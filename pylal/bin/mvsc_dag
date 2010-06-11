@@ -12,6 +12,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import git_version
 from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import ligolw_cafe
@@ -61,27 +62,20 @@ class mvsc_get_doubles_node(pipeline.CondorDAGNode):
   """
   """
 # add default values
-  def __init__(self, job, dag, instruments, databases, number=10, trainingstr='training', testingstr='testing', zerolagstr='zerolag', p_node=[]):
+  def __init__(self, job, dag, instruments, databases, number=10, factor=50.0, trainingstr='training', testingstr='testing', zerolagstr='zerolag', p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     #FIXME add tmp file space
     self.add_macro("macroid", dag.id)
-#    self.add_var_opt("injections", injections)
-#    self.add_var_opt("fulldata", fulldata)
-#    self.add_var_opt("number", number)
     self.number = number
     self.add_var_opt("instruments", instruments)
-#    self.add_var_opt("trainingstr", trainingstr)
-#    self.add_var_opt("testingstr", testingstr)
-#    self.add_var_opt("zerolagstr", zerolagstr)
     for database in databases:
       self.add_file_arg(database)
     ifos=instruments.strip().split(',')
     ifos.sort()
     self.out_file_group = {}
     for i in range(number):
-      self.out_file_group[i] = ((''.join(ifos) + '_set' + str(i) + '_' + str(trainingstr) + '.pat'), (''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '.pat'), self.add_output_file(''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '_info.pat'))
+      self.out_file_group[i] = ((''.join(ifos) + '_set' + str(i) + '_' + str(trainingstr) + '.pat'), (''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '.pat'), (''.join(ifos) + '_set' + str(i) + '_' + str(testingstr) + '_info.pat'))
     self.zerolag_file = [''.join(ifos) + '_' + str(zerolagstr) + '.pat']
-    #print self.out_file_group
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -112,11 +106,9 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.add_macro("macroid", dag.id)
     self.add_input_file(trainingfile)
     self.trainingfile = self.get_input_files()[0]
-    #print self.trainingfile
     self.trainedforest = self.trainingfile.replace('_training.pat','.spr')
-    #print self.trainedforest
 #FIXME to make this changable by the user
-    self.add_file_arg("-a 1 -n 100 -l 4 -s 4 - c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
+    self.add_file_arg("-a 4 -n 500 -l 4 -s 4 -c 6 -g 1 -i -d 1 -f %s %s" % (self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
     for p in p_node:
       self.add_parent(p)
@@ -151,7 +143,7 @@ class use_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = self.file_to_rank.replace('.pat','.dat')
-    self.add_file_arg("-a 1 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+    self.add_file_arg("-A -a 4 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     self.add_output_file(self.ranked_file)
 # I need to figure out how to parse these options
     for p in p_node:
@@ -179,15 +171,11 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, files='*.dat', infofiles='*_info.pat', databases='*.sqlite', p_node=[]):
+  def __init__(self, job, dag, databases, p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     #FIXME add tmp file space
     self.add_macro("macroid", dag.id)
-# uhh these are still globs! FIXME
-    self.add_var_opt("files", files)
-    self.add_var_opt("infofiles", infofiles)
-    self.add_var_opt("databases", databases)
-# do I need to put the databases as output files? 
+    [self.add_var_arg(database) for database in databases]
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
@@ -198,7 +186,7 @@ class mvsc_update_sql_node(pipeline.CondorDAGNode):
 ## MAIN #######################################################################
 ###############################################################################
 
-parser = OptionParser(version = "%prog  $Revision$", usage = "%prog [options] [databases]")
+parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] [databases]")
 parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 parser.add_option("--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
 parser.add_option("--log-path", help = "set dagman log path")
@@ -208,10 +196,8 @@ print databases
 
 all_ifos = opts.all_instruments.strip().split(',')
 ifo_combinations = list(iterutils.choices(all_ifos,2))
-#print ifo_combinations
 for comb in ifo_combinations:
   comb=','.join(comb)
-  #print comb
   
 
 ### SET UP THE DAG
@@ -243,27 +229,24 @@ zl_rank_node = {}
 update_job = mvsc_update_sql_job(cp)
 update_node = {}
 
+update_files=[]
 #Assemble the DAG
 for comb in ifo_combinations:
   comb = ','.join(comb)
   get_node[comb] = mvsc_get_doubles_node(get_job, dag, comb, databases)
   for i in range(get_node[comb].number):
+    update_files.append(get_node[comb].out_file_group[i][2])
     file_for_this_set = get_node[comb].out_file_group[i]
-#    print file_for_this_set[0]
     train_node[i] = train_forest_node(train_job, dag, file_for_this_set[0], p_node=[get_node[comb]])
     try: rank_node[comb]
     except: rank_node[comb] = {}
-
     rank_node[comb][i] = use_forest_node(rank_job, dag, train_node[i].trainedforest, file_for_this_set[1], p_node=[train_node[i]])
-  #print get_node[comb].get_output_files()
+    update_files.append(rank_node[comb][i].ranked_file)
   zl_rank_node[comb] = use_forest_node(zl_rank_job, dag, train_node[0].trainedforest, get_node[comb].zerolag_file[0], p_node=[get_node[comb],train_node[0]])
-print rank_node
-print rank_node.values()
 finished_rank_nodes=[]
 for key in rank_node:
   finished_rank_nodes.extend(rank_node[key].values())
-print len(finished_rank_nodes)
-update_node['all'] = mvsc_update_sql_node(update_job, dag, p_node=finished_rank_nodes+zl_rank_node.values())
+update_node['all'] = mvsc_update_sql_node(update_job, dag, databases+update_files, p_node=finished_rank_nodes+zl_rank_node.values())
 
 
 dag.write_sub_files()

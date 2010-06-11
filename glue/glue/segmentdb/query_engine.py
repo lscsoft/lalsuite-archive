@@ -92,7 +92,7 @@ class LdbdQueryEngine(QueryEngine):
 	def __init__(self, client):
 		def dtd_uri_callback(uri):
 			if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
-				return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"], 'etc/ligolw_dtd.txt' )
+				return 'file://localhost' + os.path.join( os.environ["GLUE_PREFIX"], 'etc/ligolw_dtd.txt' )
 			else:
 				return uri
 
@@ -108,11 +108,11 @@ class LdbdQueryEngine(QueryEngine):
 		
 		# This is a kludge around bug 2317
                 try:
-		  self.client.__disconnect__()
-		  self.client.__connect__(self.client.host, self.client.port, self.client.identity)
+                   self.client.__disconnect__()
+		   self.client.__connect__(self.client.host, self.client.port, self.client.identity)
                 except:
-                  pass
-
+                   pass
+ 
 		self.ligomd.parse(xml)
 		res = self.ligomd.table
 		self.rows = self.ligomd.table[res.keys()[0]]['stream']

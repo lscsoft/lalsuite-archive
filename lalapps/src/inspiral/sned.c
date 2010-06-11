@@ -41,8 +41,6 @@
 #include <time.h>
 #include <math.h>
 
-#include <FrameL.h>
-
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
@@ -66,7 +64,7 @@
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/Date.h>
 #include <lal/Units.h>
 #include <lal/FindChirp.h>
@@ -82,8 +80,9 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/TimeSeries.h>
 #include <lal/VectorOps.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lal/LALFrameL.h>
+
+#include <LALAppsVCSInfo.h>
 
 RCSID( "$Id$" );
 
@@ -268,19 +267,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -390,10 +378,8 @@ int main( int argc, char *argv[] )
         /* print version information and exit */
         fprintf( stdout,
             "spin-normalize the effective distance for spinning injections\n"
-            "Drew Keppel and Gareth Jones\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n" );
-        fprintf( stdout, lalappsGitID );
+            "Drew Keppel and Gareth Jones\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 
@@ -1149,9 +1135,9 @@ int main( int argc, char *argv[] )
           H1FoundSngl = L1FoundSngl->next = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
         }
         /* H1 entry */
-        snprintf( H1FoundSngl->ifo, LIGOMETA_IFO_MAX * sizeof(CHAR), "H1" );
-        snprintf( H1FoundSngl->channel, LIGOMETA_CHANNEL_MAX * sizeof(CHAR), "LSC-STRAIN" );
-        snprintf( H1FoundSngl->search, LIGOMETA_SEARCH_MAX * sizeof(CHAR), "sned" );
+        snprintf( H1FoundSngl->ifo, LIGOMETA_IFO_MAX, "H1" );
+        snprintf( H1FoundSngl->channel, LIGOMETA_CHANNEL_MAX, "LSC-STRAIN" );
+        snprintf( H1FoundSngl->search, LIGOMETA_SEARCH_MAX, "sned" );
         H1FoundSngl->eff_distance = thisInjection->eff_dist_h; 
         H1FoundSngl->end_time = thisInjection->h_end_time;
         H1FoundSngl->mass1 = thisInjection->mass1;
@@ -1168,7 +1154,7 @@ int main( int argc, char *argv[] )
         L1FoundSngl = H1FoundSngl->next = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
         memcpy( L1FoundSngl, H1FoundSngl, sizeof(SnglInspiralTable) );
         L1FoundSngl->next = NULL;
-        snprintf( L1FoundSngl->ifo, LIGOMETA_IFO_MAX * sizeof(CHAR), "L1" );
+        snprintf( L1FoundSngl->ifo, LIGOMETA_IFO_MAX, "L1" );
         L1FoundSngl->eff_distance = thisInjection->eff_dist_l; 
         L1FoundSngl->end_time = thisInjection->l_end_time;
       }
@@ -1316,7 +1302,7 @@ int main( int argc, char *argv[] )
   {
     /* open the output xml file */
     memset( &xmlStream, 0, sizeof(LIGOLwXMLStream) );
-    snprintf( fname, sizeof(fname), outputFile );
+    snprintf( fname, sizeof(fname), "%s", outputFile );
     LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlStream, fname ), &status );
 
     /* write out the process and process params tables */

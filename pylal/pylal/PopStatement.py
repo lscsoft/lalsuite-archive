@@ -16,10 +16,10 @@
 #
 from __future__ import division
 
+import itertools
 import os
 import sys
 import random
-itertools = __import__("itertools")
 
 import numpy as np
 from scipy import stats
@@ -455,7 +455,7 @@ class PopStatement(object):
                         self.float_to_latex(self.p_one_sided, "%5.2g"),
                         self.float_to_latex(self.p_two_sided, "%5.2g"))
         if self.type=="box":
-            plot_title = r"$ $"
+            plot_title = ""
         plot = plotutils.QQPlot(r"self quantile", "combined quantile", \
                                 plot_title)
         plot.add_bg(self.off_list, linewidth = 3, label="\"Off source\"")

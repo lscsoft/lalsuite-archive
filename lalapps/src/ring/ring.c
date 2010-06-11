@@ -24,11 +24,11 @@
 
 #include <lal/LALStdlib.h>
 #include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/AVFactories.h>
 #include <lal/Date.h>
 #include <lal/RealFFT.h>
-#include <lal/Ring.h>
+#include <lal/RingUtils.h>
 #include <lal/FrameStream.h>
 
 #include "lalapps.h"
@@ -268,12 +268,12 @@ static REAL4TimeSeries *ring_get_data( struct ring_params *params )
       channel = get_frame_data_dbl_convert( params->dataCache, params->channel,
           &params->frameDataStartTime, params->frameDataDuration, 
           params->strainData,
-          params->geoHighpassFrequency, params->geoScale );
+          params->geoHighpassFrequency);
       stripPad = 1;
     }
     else
     {
-      channel = get_frame_data( params->dataCache, params->channel,
+      channel = ring_get_frame_data( params->dataCache, params->channel,
           &params->frameDataStartTime, params->frameDataDuration, 
           params->strainData );
       stripPad = 1;
@@ -283,7 +283,7 @@ static REAL4TimeSeries *ring_get_data( struct ring_params *params )
     
     /* inject ring signals */
     if ( params->injectFile ) 
-      inject_signal( channel, params->injectType, params->injectFile,
+      ring_inject_signal( channel, params->injectType, params->injectFile,
           params->calibCache, 1.0, params->channel ); 
     if ( params->writeRawData )
        write_REAL4TimeSeries( channel );  
@@ -343,16 +343,15 @@ static REAL4FrequencySeries *ring_get_invspec(
   if ( params->getSpectrum )
   {
     /* compute raw average spectrum; store spectrum in invspec for now */
-    invspec = compute_average_spectrum( channel, params->segmentDuration,
+    invspec = compute_average_spectrum( channel, params->spectrumType,params->segmentDuration,
         params->strideDuration, fwdplan, params->whiteSpectrum );
+    if ( params->writeSpectrum ) /* write raw spectrum */
+      write_REAL4FrequencySeries( invspec );
 
     /* invert spectrum */
     invert_spectrum( invspec, params->sampleRate, params->strideDuration,
         params->truncateDuration, params->lowCutoffFrequency, fwdplan,
         revplan );
-    if ( params->writeSpectrum ) /* write raw spectrum */
-            write_REAL4FrequencySeries( invspec );
-    
 
     /* calibrate spectrum if necessary */
     if ( response )

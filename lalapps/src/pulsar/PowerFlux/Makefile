@@ -1,9 +1,10 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.35-64
+VERSION=1.4.39-64
 LALROOT=./../../../../
-LALROOT=/opt/lscsoft/lal/
+LALROOT=/home/vdergach/opt/
+LALROOT=/opt/lalsuite/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llal -lm -lz
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -L/opt/zlib/lib -L/opt/png/lib -llalsupport -llalpulsar -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
@@ -19,13 +20,13 @@ CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 CC=gcc $(CFLAGS)
 
 COMMON_OBJS=cmdline.o rastermagic.o hookup.o lines.o grid.o \
-	png.o polarization.o intervals.o statistics.o dataset.o 
+	png.o polarization.o intervals.o statistics.o dataset.o
 
 PYTHON_OBJS=$(COMMON_OBJS) candidates.o fine_grid.o
 
 OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
-OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o
+OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o skymarks.o powerflux2.o summing_context.o  single_bin_loosely_coherent_sum.c matched_loosely_coherent_sum.c
 
 FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
 
@@ -393,16 +394,16 @@ clean:
 	rm -f core *.bck *.o
 
 upload: powerflux-condor powerflux-mt
-	globus-scp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
-	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
+	gsiscp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
 upload.a: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
-	#globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
-	#globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
-	#globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
-	globus-scp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
-	globus-scp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	gsiscp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt2.$(VERSION)
+	gsiscp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
@@ -410,22 +411,22 @@ upload.g: powerflux-condor powerflux-mt
 	scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
 	
 upload.h: powerflux-condor powerflux-mt
-	globus-scp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
+	gsiscp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
 upload.l: powerflux-condor powerflux-mt
-	globus-scp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
+	gsiscp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 
 upload.c: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
-	globus-scp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
-	globus-scp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
-	globus-scp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
-	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+	gsiscp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C powerflux-condor2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
+	gsiscp -C powerflux-mt2 ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt2.$(VERSION)
+	gsiscp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
 
 upload.m: powerflux-condor powerflux-mt
-	globus-scp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)
-	globus-scp -C powerflux-mt vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-mt.$(VERSION)
-	globus-scp -C $(FILES) vdergach@morgane.aei.mpg.de:PowerFlux/
+	gsiscp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-mt vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-mt.$(VERSION)
+	gsiscp -C $(FILES) vdergach@morgane.aei.mpg.de:PowerFlux/
 	

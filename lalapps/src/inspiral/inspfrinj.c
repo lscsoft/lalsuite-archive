@@ -41,8 +41,6 @@
 #include <time.h>
 #include <math.h>
 
-#include <FrameL.h>
-
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
@@ -63,13 +61,14 @@
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/Date.h>
 #include <lal/Units.h>
 #include <lal/FindChirpSP.h>
 #include <lal/Inject.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
+#include <lal/LALFrameL.h>
+
+#include <LALAppsVCSInfo.h>
 
 RCSID( "$Id$" );
 
@@ -149,7 +148,7 @@ int    writeRawData     = 0;            /* write the raw data to frame  */
 int    writeInjOnly     = 0;            /* write the inj data to frame  */
 int    writeRawPlusInj  = 0;            /* write raw plus inj to frame  */
 int    writeReal8Frame  = 0;            /* write frames as real 8       */
-UINT4  outCompress = 0;
+int    outCompress = 0;
 /* other command line args */
 CHAR comment[LIGOMETA_COMMENT_MAX];     /* process param comment        */
 
@@ -213,19 +212,8 @@ int main( int argc, char *argv[] )
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *) calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable, 
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
@@ -309,7 +297,7 @@ int main( int argc, char *argv[] )
     /* store the input sample rate */
     this_search_summvar = searchsummvars.searchSummvarsTable = 
       (SearchSummvarsTable *) LALCalloc( 1, sizeof(SearchSummvarsTable) );
-    snprintf( this_search_summvar->name, LIGOMETA_NAME_MAX * sizeof(CHAR),
+    snprintf( this_search_summvar->name, LIGOMETA_NAME_MAX,
         "raw data sample rate" );
     this_search_summvar->value = inputDeltaT = chan.deltaT;
 
@@ -426,7 +414,7 @@ int main( int argc, char *argv[] )
       inj.deltaT = 1.0/ sampleRate;
       inj.epoch = gpsStartTime;
       inj.sampleUnits = lalADCCountUnit;
-      snprintf( inj.name, LIGOMETA_CHANNEL_MAX * sizeof(CHAR), "%s:STRAIN", 
+      snprintf( inj.name, LIGOMETA_CHANNEL_MAX, "%s:STRAIN", 
           ifo );
       searchsumm.searchSummaryTable->in_start_time = gpsStartTime;
       searchsumm.searchSummaryTable->in_end_time = gpsEndTime;
@@ -528,7 +516,7 @@ int main( int argc, char *argv[] )
 
 
       /* inject the signals, preserving the channel name (Tev mangles it) */
-      snprintf( tmpChName, LALNameLength * sizeof(CHAR), "%s", inj.name );
+      snprintf( tmpChName, LALNameLength, "%s", inj.name );
 
       /* if injectOverhead option, then set inj.name to "ZENITH".  
        * This causes no detector site to be found in the injection code so
@@ -536,12 +524,12 @@ int main( int argc, char *argv[] )
        * function of F+ = 1; Fx = 0) */
       if ( injectOverhead )
       {
-        snprintf( inj.name, LALNameLength * sizeof(CHAR), "ZENITH" );
+        snprintf( inj.name, LALNameLength, "ZENITH" );
       }
 
       LAL_CALL( LALFindChirpInjectSignals( &status, &inj, injections, 
             &injResp ), &status );
-      snprintf( inj.name,  LALNameLength * sizeof(CHAR), "%s", tmpChName );
+      snprintf( inj.name,  LALNameLength, "%s", tmpChName );
 
       if ( vrbflg ) fprintf( stdout, "injected %d signals from %s into %s\n", 
           numInjections, injectionFile, inj.name );
@@ -670,21 +658,18 @@ int main( int argc, char *argv[] )
       if( !outfileName[0] )
       {
         /* output name not specified, set to IFO-INSPFRINJ-EPOCH-LENGTH.gwf */
-        snprintf( outfileName, FILENAME_MAX * sizeof(CHAR), 
-            "%s-INSPFRINJ", ifo );
+        snprintf( outfileName, FILENAME_MAX, "%s-INSPFRINJ", ifo );
       }
 
       if( userTag )
       {
-        snprintf( fname, FILENAME_MAX * sizeof(CHAR), 
-            "%s_%s-%d-%d.gwf", outfileName, userTag, output.epoch.gpsSeconds, 
-            frameLength );
+        snprintf( fname, FILENAME_MAX, "%s_%s-%d-%d.gwf", outfileName,
+            userTag, output.epoch.gpsSeconds, frameLength );
       }
       else
       {
-        snprintf( fname, FILENAME_MAX * sizeof(CHAR), 
-            "%s-%d-%d.gwf", outfileName, output.epoch.gpsSeconds, 
-            frameLength );
+        snprintf( fname, FILENAME_MAX, "%s-%d-%d.gwf", outfileName,
+            output.epoch.gpsSeconds, frameLength );
       }
 
       if ( vrbflg ) fprintf( stdout, "writing frame data to %s... ", fname );
@@ -718,26 +703,26 @@ int main( int argc, char *argv[] )
   memset( &results, 0, sizeof(LIGOLwXMLStream) );
   if( userTag && outCompress )
   {
-    snprintf( fname, FILENAME_MAX * sizeof(CHAR), 
-        "%s_%s-%d-%d.xml.gz", outfileName, userTag, gpsStartTime.gpsSeconds, 
+    snprintf( fname, FILENAME_MAX, "%s_%s-%d-%d.xml.gz", outfileName,
+        userTag, gpsStartTime.gpsSeconds, 
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
   }
   else if( userTag && !outCompress )
   {
-    snprintf( fname, FILENAME_MAX * sizeof(CHAR),
-        "%s_%s-%d-%d.xml", outfileName, userTag, gpsStartTime.gpsSeconds,
+    snprintf( fname, FILENAME_MAX, "%s_%s-%d-%d.xml", outfileName,
+        userTag, gpsStartTime.gpsSeconds,
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
   }
   else if( !userTag && outCompress )
   {
-    snprintf( fname, FILENAME_MAX * sizeof(CHAR),
-        "%s-%d-%d.xml.gz", outfileName, gpsStartTime.gpsSeconds,
+    snprintf( fname, FILENAME_MAX, "%s-%d-%d.xml.gz", outfileName,
+        gpsStartTime.gpsSeconds,
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
   }
   else
   {
-    snprintf( fname, FILENAME_MAX * sizeof(CHAR), 
-        "%s-%d-%d.xml", outfileName, gpsStartTime.gpsSeconds, 
+    snprintf( fname, FILENAME_MAX, "%s-%d-%d.xml", outfileName,
+        gpsStartTime.gpsSeconds, 
         gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds );
 
   }
@@ -963,7 +948,6 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   };
   int c;
   ProcessParamsTable *this_proc_param = procparams.processParamsTable;
-  LALStatus             status = blank_status;
 
 
   /*
@@ -1150,8 +1134,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
 
       case 'f':
         /* set output file name */
-        if ( snprintf( outfileName, FILENAME_MAX * sizeof(CHAR), 
-              "%s", optarg ) < 0 )
+        if ( snprintf( outfileName, FILENAME_MAX, "%s", optarg ) < 0 )
         {
           fprintf( stderr, "invalid argument to --%s\n"
               "outfile name %s too long: string truncated\n",
@@ -1347,10 +1330,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "LIGO/LSC Inspiral Injection Program\n" 
-            "Steve Fairhurst <sfairhur@gravity.phys.uwm.edu>\n"
-            "CVS Version: " CVS_ID_STRING "\n"
-            "CVS Tag: " CVS_NAME_STRING "\n" );
-        fprintf( stdout, lalappsGitID );
+            "Steve Fairhurst <sfairhur@gravity.phys.uwm.edu>\n");
+        XLALOutputVersionString(stderr, 0);
         exit( 0 );
         break;
 

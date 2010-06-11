@@ -10,6 +10,7 @@ typedef struct {
 
 	/* bin shift to apply, this is in units of 1/coherence_time - as opposed to power sums */
 	double bin_shift;
+	double diff_bin_shift; /* linear component, drift from one frequency bin to another */
 
 	/* fields below are filled in when locating segments */
 
@@ -22,6 +23,7 @@ typedef struct {
 	/* segment coordinates */
 	int dataset;
 	int segment;
+	int index; /* arbitrary index for use by power_sum accumulation code, typically for referencing private data */
 	} SEGMENT_INFO;
 
 #define REAL double
@@ -52,8 +54,31 @@ void sse_get_uncached_single_bin_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *s
 
 void get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 void sse_get_uncached_matched_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
+
 void accumulate_power_sum_cached1(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 
 void power_cache_selftest(void);
+
+#define SIMPLE_CACHE_ID 1
+
+typedef struct {
+	long id;
+
+	/* statistics */
+	long hits;
+	long misses;
+	long overwrites;
+	long large_shifts;
+	int max_size;
+
+	/* cache contents */
+	int segment_count;
+	int size;
+	int free;
+	int *key;
+	SEGMENT_INFO **si;
+	PARTIAL_POWER_SUM_F **pps;
+	} SIMPLE_CACHE;
+
 
 #endif

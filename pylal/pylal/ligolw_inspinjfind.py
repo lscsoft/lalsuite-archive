@@ -89,9 +89,6 @@ lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
 #
 
 
-#FIXME This is in ligolw_thinca already
-#InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
-
 InspiralSICoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 1, description = u"sim_inspiral<-->sngl_inspiral coincidences")
 InspiralSCNearCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 2, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 
@@ -299,18 +296,31 @@ def append_process(xmldoc, match_algorithm, comment):
 # =============================================================================
 #
 
-def InspiralSnglCompare(sim, inspiral):
-        """
-	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
-        """
-	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
+class CompareFunctions:
+	"""
+	Class to store different compare functions. Any extra args needed by the called
+	functions are created when the function is initialized.
+	"""
+	def __init__( self, twindow = 9.0 ):
+		"""
+		Any extra variables needed by the compare functions.
+
+		@twindow: the default time window, in seconds, to use for InspiralSnglCompare and NearCoincCompare
+		"""
+		self.twindow = LIGOTimeGPS( int(twindow), (twindow % 1)*1e9 )
+
+	def InspiralSnglCompare(self, sim, inspiral):
+		"""
+		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
+		"""
+		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
 
 
-def NearCoincCompare(sim, inspiral):
-	"""
-	Return False if the peak time of the sim is within 9 seconds of the inspiral event.
-	"""
-	return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = LIGOTimeGPS(9))
+	def NearCoincCompare(self, sim, inspiral):
+		"""
+		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
+		"""
+		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
 
 
 #
@@ -432,7 +442,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	N = len(contents.siminspiraltable)
 
 	#
-	# Find sim_burst <--> sngl_inspiral coincidences.
+	# Find sim_inspiral <--> sngl_inspiral coincidences.
 	#
 
 	if verbose:

@@ -99,8 +99,8 @@ NRCSID( LALRUNNINGMEDIANTESTC, "$Id$" );
 #define LALRUNNINGMEDIANTESTC_MSGEERR "Subroutine returned wrong or no error"
 /***************************** </lalErrTable> */
 
-/* Declare and set the default lalDebugLevel */
-int lalDebugLevel = 0; /* LALMEMINFO */
+/* Declare lalDebugLevel */
+extern int lalDebugLevel;
 
 /* global program name */
 char*argv0;
@@ -383,6 +383,8 @@ int main( int argc, char **argv )
   UINT4 i;
   BOOLEAN verbose = 0;
 
+  lalDebugLevel = 0; /* LALMEMINFO */
+
   /* set global program name */
   argv0 = argv[0];
 
@@ -501,6 +503,9 @@ int main( int argc, char **argv )
   }
 
         } /* if ( ! lalNoDebug ) */
+#else
+    medians4 = NULL;
+    medians8 = NULL;
 #endif /* LAL_NDEBUG */
 
 

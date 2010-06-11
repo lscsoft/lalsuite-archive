@@ -179,11 +179,11 @@ int SetGlobalVariables(CLargs CLA,GlobVar *GV,binarysource sourceparams)
   GV->mismatch=CLA.mismatch;
   GV->mismatchedflag=CLA.mismatchedflag;
   GV->exactflag=CLA.exactflag;
-  sprintf(GV->ifo,CLA.ifo);
-  sprintf(GV->ephemdir,CLA.ephemdir);
-  sprintf(GV->yr,CLA.yr);
-  sprintf(GV->meshdir,CLA.meshdir);
-  sprintf(GV->source,CLA.source);
+  sprintf(GV->ifo,"%s",CLA.ifo);
+  sprintf(GV->ephemdir,"%s",CLA.ephemdir);
+  sprintf(GV->yr,"%s",CLA.yr);
+  sprintf(GV->meshdir,"%s",CLA.meshdir);
+  sprintf(GV->source,"%s",CLA.source);
 
   /* allocate memory for the number of bands */
   if (sourceparams.freq.f_err[0]!=0.0) {
@@ -230,7 +230,7 @@ int ReadDataParams(char *datadir, GlobVar *GV)
   /* the main point of this function is to extract the observation span */
   /* and observation start time at the detector site */
 
-  INT4 fileno=0;
+  INT4 filenum=0;
   FILE *fp;
   size_t errorcode;
   char **filelist;
@@ -260,11 +260,11 @@ int ReadDataParams(char *datadir, GlobVar *GV)
   for (i=0;i<globbuf.gl_pathc;i++) filelist[i]=(char *)LALMalloc(256*sizeof(char));
   
   /* read all file names into memory */
-  while ((UINT4)fileno < globbuf.gl_pathc) 
+  while ((UINT4)filenum < globbuf.gl_pathc) 
     {
-      strcpy(filelist[fileno],globbuf.gl_pathv[fileno]);
-      fileno++;
-      if (fileno > MAXSFTS)
+      strcpy(filelist[filenum],globbuf.gl_pathv[filenum]);
+      filenum++;
+      if (filenum > MAXSFTS)
 	{
 	  fprintf(stderr,"\nToo many files in directory! Exiting... \n");
 	  exit(1);
@@ -272,7 +272,7 @@ int ReadDataParams(char *datadir, GlobVar *GV)
     }
   globfree(&globbuf);
 
-  nfiles=fileno;
+  nfiles=filenum;
   
   /* open the first file to read header information */
   if (!(fp=fopen(filelist[0],"rb"))) {
@@ -292,7 +292,7 @@ int ReadDataParams(char *datadir, GlobVar *GV)
   if (header.tbase<=0.0)
     {
       fprintf(stderr,"Timebase %f from data file %s non-positive!\n",
-	      header.tbase,filelist[fileno]);
+	      header.tbase,filelist[filenum]);
       return 3;
     }
 
@@ -313,7 +313,7 @@ int ReadDataParams(char *datadir, GlobVar *GV)
   errorcode=fread((void*)&header,sizeof(header),1,fp);
   if (errorcode!=1) 
     {
-      fprintf(stderr,"No header in data file %s\n",filelist[fileno]);
+      fprintf(stderr,"No header in data file %s\n",filelist[filenum]);
       return 1;
     }
 
@@ -881,14 +881,10 @@ int CheckRTBoundary(REAL8 *sma_temp,LIGOTimeGPS *tp_temp,RTparameterspace *RTspa
 
   /* this routine simply checks wether a point in RT space lies within the space boundaries */
 
-  INT4 result;
-
   if (*sma_temp<(RTspace->sma_MIN)) return 0;
   if (*sma_temp>(RTspace->sma_MAX)) return 0;
-  LALCompareGPS(&status,&result,tp_temp,&(RTspace->tperi_MIN));
-  if (result==-1) return 0;
-  LALCompareGPS(&status,&result,tp_temp,&(RTspace->tperi_MAX));
-  if (result==1) return 0;
+  if (XLALGPSCmp(tp_temp,&(RTspace->tperi_MIN)) < 0) return 0;
+  if (XLALGPSCmp(tp_temp,&(RTspace->tperi_MAX)) > 0) return 0;
 
   return 1;
 
@@ -969,7 +965,7 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
     
     /* change the length of the RTmesh array */
     LALDResizeVector(&status,&(RTmesh->sma),RTmesh->length);
-    LALRealloc(RTmesh->tperi,RTmesh->length*sizeof(LIGOTimeGPS));
+    XLALRealloc(RTmesh->tperi,RTmesh->length*sizeof(LIGOTimeGPS));
   }
   
   /* else if we are doing a mimatched template */
@@ -998,7 +994,7 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
     
     /* change the length of the RTmesh array */
     LALDResizeVector(&status,&(RTmesh->sma),RTmesh->length);
-    LALRealloc(RTmesh->tperi,RTmesh->length*sizeof(LIGOTimeGPS));
+    XLALRealloc(RTmesh->tperi,RTmesh->length*sizeof(LIGOTimeGPS));
     
     fprintf(stderr,"WARNING : a randomly mismatched signal has been put in the original parameter space.\n");
   
@@ -1020,7 +1016,7 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
     
     /* change the length of the RTmesh array */
     LALDResizeVector(&status,&(RTmesh->sma),RTmesh->length);
-    LALRealloc(RTmesh->tperi,RTmesh->length*sizeof(LIGOTimeGPS));
+    XLALRealloc(RTmesh->tperi,RTmesh->length*sizeof(LIGOTimeGPS));
     
     fprintf(stderr,"WARNING : none of the points lie in the original parameter space.\n");
     fprintf(stderr,"          This could be a single filter target but futher investigation\n");
@@ -1081,7 +1077,7 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
   BMFheader.metric_XY=XYMetric->element->data[1];
   BMFheader.metric_YY=XYMetric->element->data[3];
   sprintf(BMFheader.version,"v1");
-  sprintf(BMFheader.det,GV->ifo);
+  sprintf(BMFheader.det,"%s",GV->ifo);
   BMFheader.RA=GV->RA;
   BMFheader.dec=GV->dec;
 
@@ -1148,11 +1144,11 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
       switch (c) {
       case 'S':
 	temp=optarg;
-	sprintf(CLA->sourcefile,temp);
+	sprintf(CLA->sourcefile,"%s",temp);
 	break;
       case 's':
 	temp=optarg;
-	sprintf(CLA->source,temp);
+	sprintf(CLA->source,"%s",temp);
 	break;
       case 'T':
 	CLA->tstart.gpsSeconds=atoi(optarg);
@@ -1163,7 +1159,7 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
 	break;
       case 'D':
 	temp=optarg;
-	sprintf(CLA->datadir,temp);
+	sprintf(CLA->datadir,"%s",temp);
 	CLA->datadirflag=1;
 	break;
       case 'm':
@@ -1174,19 +1170,19 @@ int ConvertMesh(GlobVar GV,REAL4VectorSequence **XYmesh,RTMesh *RTmesh,RTparamet
 	break;
       case 'E':
 	temp=optarg;
-	sprintf(CLA->ephemdir,temp);
+	sprintf(CLA->ephemdir,"%s",temp);
 	break;
       case 'y':
 	temp=optarg;
-	sprintf(CLA->yr,temp);
+	sprintf(CLA->yr,"%s",temp);
 	break;
       case 'I':
 	temp=optarg;
-	sprintf(CLA->ifo,temp);
+	sprintf(CLA->ifo,"%s",temp);
 	break;
       case 'o':
 	temp=optarg;
-	sprintf(CLA->meshdir,temp);
+	sprintf(CLA->meshdir,"%s",temp);
 	break;
       case 'X':
 	CLA->mismatchedflag=1;

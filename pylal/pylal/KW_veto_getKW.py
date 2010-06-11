@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#
 # Copyright (C) 2009  Tomoki Isogai
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -82,6 +83,7 @@ except ImportError:
 from glue.segments import segment, segmentlist
 from glue import segmentsUtils
 
+from pylal import git_version
 from pylal import KW_veto_utils as utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
@@ -92,7 +94,7 @@ def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage = __doc__,version=__version__)
+    parser = optparse.OptionParser(usage = __doc__,version=git_version.verbose_msg)
 
     parser.add_option("-K", "--KW_location", default=None,
                       help="Location of KW trigger folder if you are not using the folder specified in --help.")
@@ -150,12 +152,12 @@ def parse_commandline():
        
     # check order_by is valid and avoid SQL injection attack
     if opts.order_by not in ("GPSTime asc","GPSTime desc","KWSignificance asc","KWSignificance desc"):
-      parser.error("Error: %s is not valid. See -help for the supported order."%opes.order_by)
+      parser.error("Error: %s is not valid. See -help for the supported order."%opts.order_by)
  
     # show parameters
     if opts.verbose:
       print >> sys.stderr, "running KW_veto_getKW.py..."
-      print >> sys.stderr, "version: %s"%__version__
+      print >> sys.stderr, git_version.verbose_msg
       print >> sys.stderr, ""
       print >> sys.stderr, "******************* PARAMETERS ********************"
       print >> sys.stderr, "KW trigger directory:"
@@ -256,7 +258,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
     KWcursor = KWconnection.cursor()
 
     ## create a table for retrieved triggers
-    KWcursor.execute('create table KWtrigs (GPSTime double, KWSignificance double)')
+    KWcursor.execute('create table KWtrigs (GPSTime double, KWSignificance double, frequency int)')
 
     ## determine the KW trigger file we need
     ifo = channel.split("_")[0].upper()
@@ -307,6 +309,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
           trig = line.split()
           t = float(trig[2]) 
           s = float(trig[7])
+          f = int(trig[3])
 
           # check if KW trig is in the given segment and if its significance 
           # is above the minimum specified
@@ -314,7 +317,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
           if t in segs and s > min_thresh:
             # insert into the database
             # micro second for GPS time is accurate enough
-            KWcursor.execute("insert into KWtrigs values (?, ?)", ("%.3f"%t, "%.2f"%s))
+            KWcursor.execute("insert into KWtrigs values (?, ?, ?)", ("%.3f"%t, "%.2f"%s,"%d"%f))
 
     if full_channel_name == "": # means there is no KW trigger
       full_channel_name = channel # better than nothing...

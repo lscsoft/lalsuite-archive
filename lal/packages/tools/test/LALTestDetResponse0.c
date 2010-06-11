@@ -175,7 +175,7 @@ static int print_passed_maybe(void);
 
 static BOOLEAN detresponse_ok_p(LALStatus * status,
                                 LALDetAndSource * det_and_src,
-                                LALGPSandAcc * gps_and_acc,
+                                LIGOTimeGPS *gps,
                                 LALDetAMResponse * expected_resp,
                                 REAL4 tolerance);
 
@@ -688,7 +688,7 @@ void  print_source_maybe(const LALSource * source);
 void  setup_global_sources(void);
 void  crab_pulsar_test(LALStatus * status);
 
-void find_zero_gmst(LALStatus * status);
+void find_zero_gmst(void);
 
 typedef enum
   {
@@ -830,8 +830,6 @@ int main(int argc, char *argv[])
   LALDetector       detector;
   LIGOTimeGPS       gps;
   struct tm         utcDate;
-  LALLeapSecAccuracy accuracy = LALLEAPSEC_STRICT;
-  LALGPSandAcc      gps_and_acc;
   LALDetAndSource   det_and_pulsar;
   LALDetAMResponse  am_response;
   LALDetAMResponse  expected_resp;
@@ -842,8 +840,6 @@ int main(int argc, char *argv[])
   REAL4                     mean;
   /* REAL4Vector               diffVector; */
   LALTimeIntervalAndNSample time_info;
-
-  LALTimeInterval           interval;
 
   INT4  k;
   INT4  i, j, count;
@@ -891,7 +887,7 @@ int main(int argc, char *argv[])
   /* and the answer is:  GPS = 13675020:943750000 */
   if (lalDebugLevel == 69)
     {
-      find_zero_gmst(&status);
+      find_zero_gmst();
       goto conclusion;
     }
 
@@ -1134,8 +1130,6 @@ int main(int argc, char *argv[])
    * error.)  */
   gps.gpsSeconds     =     61094;
   gps.gpsNanoSeconds = 640000000;
-  gps_and_acc.gps = gps;
-  gps_and_acc.accuracy = accuracy;
 
   /* Set up a source at (RA=0, Dec=0, orientation=0, at time GMST1=0) */
   (void)laldr_strlcpy(pulsar.name, "TEST PULSAR 1", LALNameLength);
@@ -1155,7 +1149,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar = 0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1168,7 +1162,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar =  0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1181,7 +1175,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar =  0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1194,7 +1188,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar =  0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1230,7 +1224,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar = 0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1243,7 +1237,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar = 0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1256,7 +1250,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar = 0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1269,7 +1263,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar = 0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1305,7 +1299,7 @@ int main(int argc, char *argv[])
   utcDate.tm_min = 20;
   utcDate.tm_hour = 8;
   utcDate.tm_mday = 17;
-  utcDate.tm_mon  = LALMONTH_MAY;
+  utcDate.tm_mon  = 4;	/* may */
   utcDate.tm_year = 1994 - 1900;
   utcDate.tm_isdst = 1;
   mktime(&utcDate);
@@ -1316,9 +1310,6 @@ int main(int argc, char *argv[])
 
   if (verbose_p)
     printf("GMST1 = % 14.9e rad.\n", tmpgmst);
-
-  gps_and_acc.gps = gps;
-  gps_and_acc.accuracy = accuracy;
 
   expected_resp.plus = 0.5;
   expected_resp.cross = 0.;
@@ -1334,7 +1325,7 @@ int main(int argc, char *argv[])
   }
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp, tolerance),
+                                           &gps, &expected_resp, tolerance),
                           __LINE__);
 
   print_small_separator_maybe();
@@ -1353,7 +1344,7 @@ int main(int argc, char *argv[])
   utcDate.tm_min = 20;
   utcDate.tm_hour = 8;
   utcDate.tm_mday = 17;
-  utcDate.tm_mon  = LALMONTH_MAY;
+  utcDate.tm_mon  = 4;	/* may */
   utcDate.tm_year = 1994 - 1900;
   utcDate.tm_isdst = 1;
   mktime(&utcDate);
@@ -1369,7 +1360,7 @@ int main(int argc, char *argv[])
   expected_resp.scalar = 0.;
 
   handle_detresponse_test(detresponse_ok_p(&status, &det_and_pulsar,
-                                           &gps_and_acc, &expected_resp,
+                                           &gps, &expected_resp,
                                            tolerance),
                           __LINE__);
 
@@ -1466,7 +1457,6 @@ int main(int argc, char *argv[])
   time_info.deltaT               = 60;
   /* time_info.nSample              = 17*24*60; */
   time_info.nSample              = 24*60;
-  time_info.accuracy             = LALLEAPSEC_STRICT;
 
   LALComputeDetAMResponseSeries(&status,
                                 &am_response_series,
@@ -1628,20 +1618,12 @@ int main(int argc, char *argv[])
 
       printf("Done opening files.\n");
 
-      gps.gpsSeconds     = time_info.epoch.gpsSeconds;
-      gps.gpsNanoSeconds = time_info.epoch.gpsNanoSeconds;
-      LALFloatToInterval(&status, &interval, &(time_info.deltaT));
-
-      printf("Time info set.\n");
-
       /* Set a GPS time that's close to 0h GMST1. Found this by trial and
        * error:
        * GPS = 13675020:943728537; gmst1 =   2.68743469376486e-10
        * Later, need to use a Science Run time period. */
-      gps_and_acc.gps.gpsSeconds     =  13675020;
-      gps_and_acc.gps.gpsNanoSeconds = 943728537;
-      interval.seconds               =       600;
-      interval.nanoSeconds           =         0;
+      gps.gpsSeconds     =  13675020;
+      gps.gpsNanoSeconds = 943728537;
 
       printf("N sample = %d\n", time_info.nSample);
 
@@ -1649,7 +1631,7 @@ int main(int argc, char *argv[])
 
       for (k = 0; k < (int)time_info.nSample; ++k)
         {
-          gmst1 = XLALGreenwichMeanSiderealTime(&gps_and_acc.gps);
+          gmst1 = XLALGreenwichMeanSiderealTime(&gps);
 
           if (verbose_level & 16)
             printf("GRAR: k = %6d; gmst1 = % 20.14e\n", k, gmst1);
@@ -1672,7 +1654,7 @@ int main(int argc, char *argv[])
                   if (k == 0 && j == 0 && i == -declim)
                     printf("FOO: gmst1 = % 20.14e\n", gmst1);
                   LALComputeDetAMResponse(&status, &am_response,
-                                          &det_and_pulsar, &gps_and_acc);
+                                          &det_and_pulsar, &gps);
 
                   plus[cnt]  = am_response.plus;
                   cross[cnt] = am_response.cross;
@@ -1682,12 +1664,12 @@ int main(int argc, char *argv[])
                   if (i == 0 && j == 0)
                     {
                       fprintf(file_plus_at_0_0, "%4d % 14.9e %9d % 14.9e\n",
-                              k, gmst1, gps_and_acc.gps.gpsSeconds, plus[cnt]);
+                              k, gmst1, gps.gpsSeconds, plus[cnt]);
                       fprintf(file_cross_at_0_0, "%4d % 14.9e %9d % 14.9e\n",
-                              k, gmst1, gps_and_acc.gps.gpsSeconds,
+                              k, gmst1, gps.gpsSeconds,
                               cross[cnt]);
                       fprintf(file_sum_sq, "%4d % 14.9e %9d % 14.9e\n",
-                              k, gmst1, gps_and_acc.gps.gpsSeconds,
+                              k, gmst1, gps.gpsSeconds,
                               sqsum[cnt]);
                     }
 
@@ -1745,8 +1727,7 @@ int main(int argc, char *argv[])
             }
 
           /* increment observation time */
-          LALIncrementGPS(&status, &(gps_and_acc.gps), &(gps_and_acc.gps),
-                          &interval);
+          XLALGPSAdd(&gps, 600.0);
         }
       printf("\n");
 
@@ -2148,7 +2129,7 @@ static BOOLEAN almost_equal_real4_relative_p(REAL4 computed, REAL4 expected,
 
 static BOOLEAN detresponse_ok_p(LALStatus * status,
                                 LALDetAndSource * det_and_src,
-                                LALGPSandAcc * gps_and_acc,
+                                LIGOTimeGPS * gps,
                                 LALDetAMResponse * expected_resp,
                                 REAL4 tolerance)
 
@@ -2160,7 +2141,7 @@ static BOOLEAN detresponse_ok_p(LALStatus * status,
   BOOLEAN result;
   REAL4   computed_circ_resp, expected_circ_resp;
 
-  LALComputeDetAMResponse(status, &computed_resp, det_and_src, gps_and_acc);
+  LALComputeDetAMResponse(status, &computed_resp, det_and_src, gps);
 
   expected_circ_resp = sqrt((expected_resp->plus) * (expected_resp->plus)
                             + (expected_resp->cross) * (expected_resp->cross));
@@ -2686,9 +2667,9 @@ char *laldr_strlcpy(char *dst, const char *src, size_t len)
   char *retval = strncpy(dst, src, len);
   if (verbose_level & 8)
     {
-      printf("sizeof(dst) = %lu\n", sizeof(dst));
-      printf("strlen(src) = %lu\n", strlen(src));
-      printf("TESTDR_MIN(len, strlen(src)+1) = %lu\n",
+      printf("sizeof(dst) = %zu\n", sizeof(dst));
+      printf("strlen(src) = %zu\n", strlen(src));
+      printf("TESTDR_MIN(len, strlen(src)+1) = %zu\n",
              TESTDR_MIN(len, strlen(src)+1));
     }
   dst[TESTDR_MIN(len, strlen(src) + 1) - 1] = '\0';
@@ -2701,7 +2682,7 @@ char *laldr_strlcpy(char *dst, const char *src, size_t len)
 void fudge_factor_test(LALStatus *status)
 {
   /* compute the response using a local horizon coordinate system */
-  LALGPSandAcc      gps_and_acc;
+  LIGOTimeGPS       gps;
   LALSource         pulsar;
   LALDetAndSource   det_and_pulsar = { (LALDetector *)NULL,
                                        (LALSource *)NULL} ;
@@ -2728,10 +2709,9 @@ void fudge_factor_test(LALStatus *status)
   rms_diff_cros_file = xfopen("ff_rms_diff_cros_vs_fudge.txt", "w");
 
   /* compute LAL response at pole... */
-  gps_and_acc.gps.gpsSeconds     =  13675020;
-  gps_and_acc.gps.gpsNanoSeconds = 943728537;
-  gps_and_acc.accuracy           = LALLEAPSEC_STRICT;
-  gmst1 = XLALGreenwichMeanSiderealTime(&gps_and_acc.gps);
+  gps.gpsSeconds     =  13675020;
+  gps.gpsNanoSeconds = 943728537;
+  gmst1 = XLALGreenwichMeanSiderealTime(&gps);
 
   if (verbose_level & 4)
     printf("gmst1 = % 20.14e\n", gmst1);
@@ -2758,7 +2738,7 @@ void fudge_factor_test(LALStatus *status)
             asin((REAL8)i/(REAL8)declim);
 
           LALComputeDetAMResponse(status, &am_response,
-                                  &det_and_pulsar, &gps_and_acc);
+                                  &det_and_pulsar, &gps);
 
           plus[cnt]  = am_response.plus;
           cross[cnt] = am_response.cross;
@@ -2911,21 +2891,15 @@ void setup_global_sources(void)
 } /* END: setup_global_sources */
 
 
-void find_zero_gmst(LALStatus * status)
+void find_zero_gmst(void)
 {
   REAL8             gmst1;
   LIGOTimeGPS       gps;
-  LALGPSandAcc      gps_and_acc;
-  LALTimeInterval   interval;
   INT4              k;
 
   gmst1 = 0.;
   gps.gpsSeconds     =  13675020;
   gps.gpsNanoSeconds = 943728500;
-  gps_and_acc.gps = gps;
-  gps_and_acc.accuracy = LALLEAPSEC_STRICT;
-  interval.seconds = 0;
-  interval.nanoSeconds =   1;
 
   printf("2*Pi = % 22.14e\n", 2. * LAL_PI);
 
@@ -2933,15 +2907,14 @@ void find_zero_gmst(LALStatus * status)
     {
       /*  to avoid printing out all the LAL INFO messages */
       lalDebugLevel = 0;
-      gmst1 = XLALGreenwichMeanSiderealTime(&gps_and_acc.gps);
+      gmst1 = XLALGreenwichMeanSiderealTime(&gps);
 
       printf("k = %9d; GPS = %d:%d;\t\tgmst1 = % 22.14e; gmst1-2*Pi = % 20.14e\n",
-             k, gps_and_acc.gps.gpsSeconds, gps_and_acc.gps.gpsNanoSeconds,
+             k, gps.gpsSeconds, gps.gpsNanoSeconds,
              gmst1, (gmst1-2.*(double)LAL_PI));
 
       /* increment observation time */
-      LALIncrementGPS(status, &(gps_and_acc.gps), &(gps_and_acc.gps),
-                      &interval);
+      XLALGPSAdd(&gps, 1e-9);
     }
   printf("AUF WIEDERSEHEN!\n");
 }
@@ -3005,7 +2978,6 @@ void crab_pulsar_test(LALStatus * status)
   time_info.epoch.gpsNanoSeconds =         0;
   time_info.deltaT               =       864;
   time_info.nSample              =       100;
-  time_info.accuracy             = LALLEAPSEC_STRICT;
 
   LALComputeDetAMResponseSeries(status, &am_response_series,
                                 &det_and_pulsar,

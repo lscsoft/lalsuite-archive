@@ -1,11 +1,11 @@
-source("params.R")
-
 require("lattice")
 require("RMySQL")
 
 p<-function(...) {
 	return(paste(..., sep=""))
 	}
+
+source("params.R")
 
 cosdist<-function(ra1, dec1, ra2, dec2) (sin(dec1)*sin(dec2)+cos(dec1)*cos(dec2)*cos(ra1-ra2))
 dist<-function(ra1, dec1, ra2, dec2) {
@@ -67,7 +67,7 @@ estimated_fstat_timebase<-function(h0, ra, dec, iota, psi, M.H1, M.L1,  twoFcuto
 	return(timebase)
 	}
 
-con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
+con<-dbConnect(dbDriver("MySQL"), host=MYSQL_HOST, user=MYSQL_USER, password="", dbname=MYSQL_DB)
 
 # override standard dbQuery as it has issues
 dbGetQuery<-function(con, query) {
@@ -91,7 +91,7 @@ dbGetQueryCoinc<-function(con, query) {
 	res<-dbSendQuery(con, query)
 	L<-list()
 	while(!dbHasCompleted(res)) {
-		a<-fetch(res, 20000)
+		a<-fetch(res, 25000)
 
 		coincidences<-a
 
@@ -269,8 +269,8 @@ ExtraStats<-data.frame(Idx=0, Comment="", SNR.H1L1=coincidences$snr,
 		fdot=coincidences$spindown,
 		ra=coincidences$ra,
 		dec=coincidences$dec,
-		fdist=pmax(abs(coincidences$frequency-coincidences$frequency_H1), abs(coincidences$frequency-coincidences$frequency_H1), na.rm=TRUE),
-		sdist=pmax(abs(coincidences$spindown-coincidences$spindown_H1), abs(coincidences$spindown-coincidences$spindown_H1), na.rm=TRUE),
+		fdist=pmax(abs(coincidences$frequency-coincidences$frequency_H1), abs(coincidences$frequency-coincidences$frequency_L1), na.rm=TRUE),
+		sdist=pmax(abs(coincidences$spindown-coincidences$spindown_H1), abs(coincidences$spindown-coincidences$spindown_L1), na.rm=TRUE),
 		dist=pmax(ecliptic_dist(coincidences$ra, coincidences$dec, coincidences$ra_H1, coincidences$dec_H1), ecliptic_dist(coincidences$ra, coincidences$dec, coincidences$ra_L1, coincidences$dec_L1), na.rm=TRUE),
 		line.f0=0,
 		line.comment="",

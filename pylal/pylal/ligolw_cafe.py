@@ -31,12 +31,6 @@ LIGO Light-Weight XML coincidence analysis front end.
 
 from math import log10
 import sys
-# Python 2.3 compatibility
-try:
-	set
-except NameError:
-	from sets import Set as set
-
 
 from glue import segments
 from glue.lal import CacheEntry
@@ -329,7 +323,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False):
 
 	epoch = min([min(seg[0] for seg in seglist) for seglist in seglists.values() if seglist] or [None])
 	segmentlistdict_normalize(seglists, epoch)
-	seglists = llwapp.get_coincident_segmentlistdict(seglists, ligolw_tisi.time_slide_component_vectors(offset_vectors, 2))
+	seglists = llwapp.get_coincident_segmentlistdict(seglists, [offset_vector for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, 2) if set(offset_vector.keys()).issubset(set(seglists.keys()))])
 	segmentlistdict_unnormalize(seglists, epoch)
 
 	#

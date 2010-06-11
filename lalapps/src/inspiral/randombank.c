@@ -57,9 +57,8 @@
 #include <lal/Date.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALInspiralBank.h>
-#include <lal/lalGitID.h>
-#include <lalappsGitID.h>
 #include "inspiral.h"
+#include <LALAppsVCSInfo.h>
 
 RCSID( "$Id$" );
 #define CVS_ID_STRING "$Id$"
@@ -92,7 +91,7 @@ INT4  randomSeed        = 0;            /* value of sim rand seed       */
 
 /* output parameters */
 CHAR  *userTag          = NULL;
-UINT4                 outCompress = 0;
+INT4                 outCompress = 0;
 
 int main ( int argc, char *argv[] )
 {
@@ -133,19 +132,8 @@ int main ( int argc, char *argv[] )
   proctable.processTable = (ProcessTable *)
     calloc( 1, sizeof(ProcessTable) );
   XLALGPSTimeNow(&(proctable.processTable->start_time));
-  if (strcmp(CVS_REVISION,"$Revi" "sion$"))
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable,
-                                        PROGRAM_NAME, CVS_REVISION,
-                                        CVS_SOURCE, CVS_DATE ), &status );
-    }
-  else
-    {
-      LAL_CALL( populate_process_table( &status, proctable.processTable,
-                                        PROGRAM_NAME, lalappsGitCommitID,
-                                        lalappsGitGitStatus,
-                                        lalappsGitCommitDate ), &status );
-    }
+  XLALPopulateProcessTable(proctable.processTable, PROGRAM_NAME, LALAPPS_VCS_IDENT_ID,
+      LALAPPS_VCS_IDENT_STATUS, LALAPPS_VCS_IDENT_DATE, 0);
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *)
     calloc( 1, sizeof(ProcessParamsTable) );
 
@@ -166,7 +154,7 @@ int main ( int argc, char *argv[] )
   this_search_summvar = searchsummvars.searchSummvarsTable =
     (SearchSummvarsTable *) LALCalloc( 1, sizeof(SearchSummvarsTable) );
   snprintf( this_search_summvar->name,
-      LIGOMETA_NAME_MAX * sizeof(CHAR), "template bank simulation seed" );
+      LIGOMETA_NAME_MAX, "template bank simulation seed" );
 
   if ( randSeedType == urandom )
   {
@@ -200,7 +188,7 @@ int main ( int argc, char *argv[] )
   }
 
   this_search_summvar->value = randomSeed;
-  snprintf( this_search_summvar->string, LIGOMETA_STRING_MAX * sizeof(CHAR),
+  snprintf( this_search_summvar->string, LIGOMETA_STRING_MAX,
       "%d", randomSeed );
   if ( vrbflg ) fprintf( stdout, "%d\n", randomSeed );
 
@@ -273,11 +261,9 @@ int main ( int argc, char *argv[] )
     thisTmplt->f_final = newTmplt.fFinal;
     thisTmplt->eta = newTmplt.eta;
     thisTmplt->beta = newTmplt.beta;
-    snprintf( thisTmplt->ifo, LIGOMETA_IFO_MAX * sizeof(CHAR), "P1" );
-    snprintf( thisTmplt->search, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
-        "randombank" );
-    snprintf( thisTmplt->channel, LIGOMETA_CHANNEL_MAX * sizeof(CHAR),
-        "SIM-BANK" );
+    snprintf( thisTmplt->ifo, LIGOMETA_IFO_MAX, "P1" );
+    snprintf( thisTmplt->search, LIGOMETA_SEARCH_MAX, "randombank" );
+    snprintf( thisTmplt->channel, LIGOMETA_CHANNEL_MAX, "SIM-BANK" );
   }
 
 

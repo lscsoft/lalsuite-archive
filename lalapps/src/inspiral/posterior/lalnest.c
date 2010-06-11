@@ -13,7 +13,7 @@
 #include <lal/Units.h>
 #include "LALInspiralMCMC.h"
 #include "LALInspiralMCMCUser.h"
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/Random.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/LALDetectors.h>
@@ -28,20 +28,58 @@
 #include <lal/ResampleTimeSeries.h>
 #include <lal/TimeSeries.h>
 #include <lal/VectorOps.h>
+#include <LALAppsVCSInfo.h>
+#include <lalapps.h>
 
 #include "nest_calc.h"
+
+RCSID(LALAPPS_VCS_IDENT_ID);
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
 #define DEBUG 0
-#define USAGE "lalnest [-o outfile] -v (verbose) --GPSstart datastart --length duration --srate sample rate -i [FrameCache|NoiseModel] -I IFO\n \
-{NoiseModel can be LALLIGO, LAL2kLIGO, LALGEO, LALVirgo, LALAdLIGO, LALEGO to generate design curve noise instead of real noise} \n \
-[... -i FC -I IFO for as many data sources as desired] --seed i [integer, default use date] --dataseed i [for fake data]\n \
---pad padding (1s) --Nsegs number of segments --deta width of eta window --dt time window (0.01)\n\
---XMLfile inputXML --Nruns N [1] --inj injectionXML -F (fake injection) \n \
---event trigNum (0) --end_time GPStime --Mmin m --Mmax M --NINJA for ninja data [--approximant (e.g. TaylorF2|TaylorT2)]\n \
---timeslide --studentt (use student-t likelihood function)\n \
-[--RA fixed right ascension degrees --dec fixed declination degrees] --GRB (use GRB prior) --skyloc (use trigger masses) [--decohere offset]\n"
+#define USAGE "lalapps_inspnest ARGUMENTS [OPTIONS]\n \
+Necessary ARGUMENTS:\n \
+-o outfile\t:\tOutput samples to outfile\n \
+--length duration\t:\tUse duration seconds of data to compute PSD\n \
+--Nsegs INT\t:\tNumber of data segments for PSd estimation\n \
+-I IFO\t:\tSpecify interferometer, one of H1, H1, L1, V1, or G1\n \
+-C STRING\t:\tSpecify reading data from frame channel STRING\n \
+-i cachefile\t:\tRead data from LIGO cache file cachefile.\n \
+\tif cachefile is LALLIGO, LAL2kLIGO, LALGEO, LALVirgo, LALAdLIGO or LALEGO\n \
+\tfake noise will be generated using the approprate noise curve.\n \
+\tUse more [... -i FC -I IFO -C Channel] for as many data sources as desired\n \
+\n\n\tYou must specify one of the following trigger types\n \
+[--XMLfile PATH\t:\tRead SnglInspiralTable from PATH]\n \
+[--inj PATH\t:\tRead SimInspiralTable from PATH and perform injection (Use [-F] to fake injection)]\n \
+[--end_time GPSTIME\t:\tSpecify end time prior centred at GPSTIME]\n \
+ \n\n \
+Optional OPTIONS:\n \
+[--Nlive INT (1000)\t:\tNumber of live points in nested sampler]\n \
+[--Nmcmc INT (100)\t:\tNumber of MCMC points in chain for each sample]\n \
+[--Nruns INT (1)\t:\tRun INT parallel samplings of the shrinking distribution\n \
+[--seed INT\t:\tSpecify nested sampling random seed, default will use date]\n \
+[--dataseed INT\t:\t Seed for faking data]\n \
+[-v, --verbose\t:\tProduce statistics while running]\n \
+[--GPSstart datastart\t:\tStart PSD estimation from time datastart, will guess if not specified]\n \
+[--srate rate (4096)\t:\tDownsample data to rate Hz]\n \
+[--pad padding (1s)\t:\tPadding for PSD Tukey window\n \
+[--event INT (0)\t:\tUse event INT from Sim or Sngl InspiralTable]\n \
+[--Mmin FLOAT, --Mmax FLOAT\t:\tSpecify min and max prior chirp masses\n \
+[--Dmin FLOAT (1), --Dmax FLOAT (100)\t:\tSpecify min and max prior distances in Mpc\n \
+[--approximant STRING (TaylorF2)\t:\tUse a different approximant where STRING is (TaylorF2|TaylorT2|TaylorT3|TaylorT4|AmpCorPPN|IMRPhenomFA|IMRPhenomFB|EOBNR|SpinTaylor)]\n \
+[--ampOrder INT\t:\tAmplitude order to use, requires --approximant AmpCorPPN]\n \
+[--timeslide\t:\tTimeslide data]\n[--studentt\t:\tuse student-t likelihood function]\n \
+[--RA FLOAT --dec FLOAT\t:\tSpecify fixed RA and dec to use]\n \
+[ --GRB\t:\tuse GRB prior ]\n[--skyloc\t:\tuse trigger masses]\n[--decohere offset\t:\tOffset injection in each IFO]\n \
+[--distMax FLOAT (100)\t:\tMaximum distance to use]\n \
+[--deta FLOAT\t:\twidth of eta window]\n \
+[--dt FLOAT (0.01)\t:\ttime window (0.01s)]\n \
+[--injSNR FLOAT\t:\tScale injection to have network SNR of FLOAT]\n \
+[--SNRfac FLOAT\t:\tScale injection SNR by a factor FLOAT]\n \
+[--version\t:\tPrint version information and exit]\n \
+[--help\t:\tPrint this message]\n"
+
 
 extern CHAR outfile[FILENAME_MAX];
 extern double etawindow;
@@ -73,6 +111,8 @@ REAL8 manual_mass_low=2.0;
 REAL8 manual_mass_high=35.0;
 REAL8 manual_RA=-4200.0;
 REAL8 manual_dec=-4200.0;
+REAL8 manual_dist_max=100.0;
+REAL8 manual_dist_min=1.0;
 int Nmcmc = 100;
 double injSNR=-1.0;
 extern INT4 seed;
@@ -89,6 +129,9 @@ REAL8 SNRfac=1.0;
 int HighMassFlag=0;
 int decohereflag=0;
 REAL8 offset=0.0;
+extern const LALUnit strainPerCount;
+INT4 ampOrder=0;
+
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 
@@ -163,10 +206,34 @@ void initialise(int argc, char *argv[]){
 		{"channel",required_argument,0,'C'},
 		{"highmass",no_argument,0,15},
 		{"decohere",required_argument,0,16},
+		{"ampOrder",required_argument,0,17},
+		{"Dmin",required_argument,0,18},
+		{"Dmax",required_argument,0,19},
+		{"version",no_argument,0,'V'},
+		{"help",no_argument,0,'h'},
 		{0,0,0,0}};
 	
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
-	while((i=getopt_long(argc,argv,"i:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFvb",long_options,&i))!=-1){ switch(i) {
+	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb",long_options,&i))!=-1){ switch(i) {
+		case 'h':
+			fprintf(stdout,USAGE);
+			exit(0);
+			break;
+		case 'V':
+			fprintf(stdout,"LIGO/LSC Bayesian parameter estimation and evidence calculation code\nfor CBC signals, using nested sampling algorithm.\nJohn Veitch <john.veitch@ligo.org>\n");
+			XLALOutputVersionString(stderr,0);
+			exit(0);
+			break;
+		case 18:
+			manual_dist_min=atof(optarg);
+			break;
+		case 19:
+			manual_dist_max=atof(optarg);
+			break;
+		case 17:
+			ampOrder=atoi(optarg);
+			if(ampOrder>5) {fprintf(stderr,"ERROR: The maximum amplitude order is 5, please set --ampOrder 5 or less\n"); exit(1);}
+			break;
 		case 14:
 			SNRfac=atof(optarg);
 			break;
@@ -215,9 +282,11 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 'm':
 			manual_mass_low=atof(optarg);
+			printf("setting m_low=%e\n",manual_mass_low);
 			break;
 		case 'g':
 			manual_mass_high=atof(optarg);
+			printf("setting m_high=%e\n",manual_mass_high);
 			break;
 		case 't':
 			timewindow=atof(optarg);
@@ -261,11 +330,14 @@ void initialise(int argc, char *argv[]){
 			Nlive=atoi(optarg);
 			break;
 		case 'I':
-			if(nifo==0) {IFOnames=malloc(sizeof(char *)); ChannelNames=malloc(sizeof(char *));}
-			else	{IFOnames=realloc(IFOnames,(nifo+1)*sizeof(CHAR *)); ChannelNames=realloc(ChannelNames,(nChannel+1)*sizeof(char *));}
+			if(nifo==0) {IFOnames=malloc(sizeof(char **)); ChannelNames=malloc(sizeof(char **));}
+			else	{IFOnames=realloc(IFOnames,(nifo+1)*sizeof(CHAR **)); ChannelNames=realloc(ChannelNames,(nChannel+1)*sizeof(char **));}
 			IFOnames[nifo]=malloc(strlen(optarg)+1);
+            printf("strlen(optarg)=%zu, optarg=%s\n",strlen(optarg),optarg);
 			ChannelNames[nifo]=malloc(MAXSTR+1);
-			strcpy(IFOnames[nifo++],optarg);
+			/*strcpy(IFOnames[nifo],optarg);*/
+            sprintf(IFOnames[nifo],"%s",optarg);
+            nifo=nifo+1;
 			break;
 		case 'o':
 			strcpy(outfile,optarg);
@@ -333,7 +405,6 @@ int main( int argc, char *argv[])
 	INT4 segnum=0;
 	RandomParams *randparam=NULL;
 	RandomParams *datarandparam=NULL;
-	InspiralTemplate insptemplate;
 	REAL4 TSoffset;
 	LIGOTimeGPS realstart,segmentStart;
 	REAL8 networkSNR=0.0;
@@ -380,33 +451,35 @@ int main( int argc, char *argv[])
 	char strainname[20]="LSC-STRAIN";
 	if(NINJA) sprintf(strainname,"STRAIN"); /* Different strain channel name for NINJA */
 	
+	/* Make a copy of the detectors list */
+	LALDetector *localCachedDetectors=calloc(LAL_NUM_DETECTORS,sizeof(LALDetector));
+	for(i=0;i<LAL_NUM_DETECTORS;i++) memcpy(&(localCachedDetectors[i]),&lalCachedDetectors[i],sizeof(LALDetector));
+
 	/* Set up Detector structures */
 	for(i=0;i<nIFO;i++){
 		if(!strcmp(IFOnames[i],"H1")) {
-			inputMCMC.detector[i]=&lalCachedDetectors[LALDetectorIndexLHODIFF];
+			inputMCMC.detector[i]=&localCachedDetectors[LALDetectorIndexLHODIFF];
 			if(nChannel>0) sprintf(ChannelNames[i],"%s",UserChannelNames[i]);
 			else sprintf((ChannelNames[i]),"H1:%s",strainname);
 			continue;}
 		if(!strcmp(IFOnames[i],"H2")) {
-			inputMCMC.detector[i]=&lalCachedDetectors[LALDetectorIndexLHODIFF];
+			inputMCMC.detector[i]=&localCachedDetectors[LALDetectorIndexLHODIFF];
 			if (nChannel>0) sprintf(ChannelNames[i],"%s",UserChannelNames[i]);
 			else sprintf((ChannelNames[i]),"H2:%s",strainname);
 			continue;}
 		if(!strcmp(IFOnames[i],"LLO")||!strcmp(IFOnames[i],"L1")) {
-			inputMCMC.detector[i]=&lalCachedDetectors[LALDetectorIndexLLODIFF];
+			inputMCMC.detector[i]=&localCachedDetectors[LALDetectorIndexLLODIFF];
 			if (nChannel>0) sprintf(ChannelNames[i],"%s",UserChannelNames[i]);
 			else sprintf((ChannelNames[i]),"L1:%s",strainname);
 			continue;}
 		if(!strcmp(IFOnames[i],"V1")||!strcmp(IFOnames[i],"VIRGO")) {
-			inputMCMC.detector[i]=&lalCachedDetectors[LALDetectorIndexVIRGODIFF];
+			inputMCMC.detector[i]=&localCachedDetectors[LALDetectorIndexVIRGODIFF];
 			if(!NINJA) sprintf((ChannelNames[i]),"V1:h_16384Hz");
-			else {
-				if (nChannel>0) sprintf(ChannelNames[i],"%s",UserChannelNames[i]);
-				else sprintf((ChannelNames[i]),"V1:STRAIN");
-			}
+			else sprintf((ChannelNames[i]),"V1:STRAIN");
+			if (nChannel>0) sprintf(ChannelNames[i],"%s",UserChannelNames[i]);
 			continue;}
 		if(!strcmp(IFOnames[i],"GEO")||!strcmp(IFOnames[i],"G1")) {
-			inputMCMC.detector[i]=&lalCachedDetectors[LALDetectorIndexGEO600DIFF];
+			inputMCMC.detector[i]=&localCachedDetectors[LALDetectorIndexGEO600DIFF];
 			if (nChannel>0) sprintf(ChannelNames[i],"%s",UserChannelNames[i]);
 			else sprintf((ChannelNames[i]),"G1:DER_DATA_H");
 			continue;}
@@ -418,7 +491,6 @@ int main( int argc, char *argv[])
 	
 	/* Prepare for injections */
 	UINT4 Ninj=0;
-	CoherentGW InjectGW;
 	PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
@@ -430,40 +502,41 @@ int main( int argc, char *argv[])
 		if(injTable->f_lower>0.0) inputMCMC.fLow = injTable->f_lower;
 		else {injTable->f_lower = inputMCMC.fLow;
 		fprintf(stderr,"Warning, injection does not specify f_lower, using default %lf\n",inputMCMC.fLow);}
-		InjParams.deltaT=1.0/SampleRate;
-		InjParams.fStartIn=(REAL4)inputMCMC.fLow;
-		memset(&InjectGW,0,sizeof(CoherentGW));
+//		InjParams.deltaT=1.0/SampleRate;
+//		InjParams.fStartIn=(REAL4)inputMCMC.fLow;
+//		memset(&InjectGW,0,sizeof(CoherentGW));
 		fprintf(stderr,"Injected event %i:\tMass1: %lf\tMass2: %lf\n\tDistance: %lf Mpc\teta: %lf\n",event,injTable->mass1,injTable->mass2,injTable->distance,injTable->eta);
 		/*		memcpy(&(InjParams.epoch),&(injTable->geocent_end_time),sizeof(LIGOTimeGPS)); */
-		Approximant injapprox;
-		fprintf(stderr,"INJ: end time = %lf\n",injTable->geocent_end_time.gpsSeconds + injTable->geocent_end_time.gpsNanoSeconds*1.e-9);
-		LALGetApproximantFromString(&status,injTable->waveform,&injapprox);
-		if(injapprox!=GeneratePPN) {fprintf(stderr,"WARNING!!!!! Not using GeneratePPN approximant may result in offset of the end time!\n");}
-		LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
-		if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!!!\n"); REPORTSTATUS(&status); }
+//		Approximant injapprox;
+//		fprintf(stderr,"INJ: end time = %lf\n",injTable->geocent_end_time.gpsSeconds + injTable->geocent_end_time.gpsNanoSeconds*1.e-9);
+//		LALGetApproximantFromString(&status,injTable->waveform,&injapprox);
+//		if(injapprox!=GeneratePPN) {fprintf(stderr,"WARNING!!!!! Not using GeneratePPN approximant may result in offset of the end time!\n");}
+//		LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
+//		if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!!!\n"); REPORTSTATUS(&status); }
 		/****************************************************************************************************/
 		/********** THIS IS ONLY NECESSARY WHILE THE LALGenerateInspiral and LALInspiralParameterCalc *******/
 		/********** GIVE DIFFERENT CHIRP TIMES !                                                      *******/
 		
-		insptemplate.totalMass=InjParams.mTot;
-		insptemplate.eta = InjParams.eta;
-		insptemplate.approximant = TaylorF2;
-		insptemplate.order = LAL_PNORDER_TWO;
-		insptemplate.fLower = inputMCMC.fLow;
-		insptemplate.massChoice = totalMassAndEta;
-		LALInspiralParameterCalc(&status,&insptemplate);
-		/*		InjParams.tc = insptemplate.tC;*/
+//		insptemplate.totalMass=InjParams.mTot;
+//		insptemplate.eta = InjParams.eta;
+//		insptemplate.approximant = TaylorF2;
+//		insptemplate.order = LAL_PNORDER_TWO;
+//		insptemplate.fLower = inputMCMC.fLow;
+//		insptemplate.massChoice = totalMassAndEta;
+//		LALInspiralParameterCalc(&status,&insptemplate);
+		/*InjParams.tc = insptemplate.tC;*/
+//		fprintf(stderr,"GenerateInspiral chirp time=%lf, ParameterCalc chirp time = %lf\n",InjParams.tc,insptemplate.tC);
 		/*****************************************************************************************************/
 		
-		injstart = injTable->geocent_end_time;
-		XLALGPSAdd(&injstart, -InjParams.tc); /* makes injstart the time at fLow */
+//		injstart = injTable->geocent_end_time;
+//		XLALGPSAdd(&injstart, -InjParams.tc); /* makes injstart the time at fLow */
 		/*		fprintf(stderr,"start time = %lf\n",injstart.gpsSeconds + injstart.gpsNanoSeconds*1.e-9); */
-		fprintf(stderr,"INJ: Injected wave chirp time: %lf s\n",InjParams.tc);
-		if(InjectGW.h) memcpy(&(InjectGW.h->epoch),&injstart,sizeof(LIGOTimeGPS));
-		if(InjectGW.a) memcpy(&(InjectGW.a->epoch),&injstart,sizeof(LIGOTimeGPS));
-		if(InjectGW.f) memcpy(&(InjectGW.f->epoch),&injstart,sizeof(LIGOTimeGPS));
-		if(InjectGW.phi) memcpy(&(InjectGW.phi->epoch),&injstart,sizeof(LIGOTimeGPS));
-		if(InjectGW.shift) memcpy(&(InjectGW.shift->epoch),&injstart,sizeof(LIGOTimeGPS));
+//		fprintf(stderr,"INJ: Injected wave chirp time: %lf s\n",InjParams.tc);
+//		if(InjectGW.h) memcpy(&(InjectGW.h->epoch),&injstart,sizeof(LIGOTimeGPS));
+//		if(InjectGW.a) memcpy(&(InjectGW.a->epoch),&injstart,sizeof(LIGOTimeGPS));
+//		if(InjectGW.f) memcpy(&(InjectGW.f->epoch),&injstart,sizeof(LIGOTimeGPS));
+//		if(InjectGW.phi) memcpy(&(InjectGW.phi->epoch),&injstart,sizeof(LIGOTimeGPS));
+//		if(InjectGW.shift) memcpy(&(InjectGW.shift->epoch),&injstart,sizeof(LIGOTimeGPS));
 	}
 	
 	/* Get the end time of the trigger or injection */
@@ -517,7 +590,7 @@ int main( int argc, char *argv[])
 			if(!strcmp(CacheFileNames[i],"LALVirgo")) {PSD = &LALVIRGOPsd; scalefactor=1.0;}
 			if(!strcmp(CacheFileNames[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
 			if(!strcmp(CacheFileNames[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
-			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 10E-49;}
+			if(!strcmp(CacheFileNames[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;}
 			if(!strcmp(CacheFileNames[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
 			if(PSD==NULL) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",CacheFileNames[i]); exit(-1);}
 			inputMCMC.invspec[i]=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("inverse spectrum",&datastart,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
@@ -586,12 +659,21 @@ int main( int argc, char *argv[])
 			/* Chop out the data segment and store it in the input structure */
 			inputMCMC.segment[i]=(REAL8TimeSeries *)XLALCutREAL8TimeSeries(RawData,TrigSegStart,seglen);
 			
+			memcpy(&(inputMCMC.invspec[i]->epoch),&(inputMCMC.segment[i]->epoch),sizeof(LIGOTimeGPS));
+	
 			if(DEBUG) fprintf(stderr,"Data segment %d in %s from %f to %f, including padding\n",i,IFOnames[i],((float)TrigSegStart)/((float)SampleRate),((float)(TrigSegStart+seglen))/((float)SampleRate) );
 			
 			inputMCMC.stilde[i] = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&(inputMCMC.segment[i]->epoch),0.0,inputMCMC.deltaF,&lalDimensionlessUnit,seglen/2 +1);
 			
 			XLALDestroyREAL8TimeSeries(RawData);
-			
+
+			/* Window and FFT the data */
+			XLALDDVectorMultiply(inputMCMC.segment[i]->data,inputMCMC.segment[i]->data,windowplan->data);
+			check=XLALREAL8TimeFreqFFT(inputMCMC.stilde[i],inputMCMC.segment[i],fwdplan); /* XLALREAL8TimeFreqFFT multiplies by deltaT */
+			for(j=0;j<inputMCMC.stilde[i]->data->length;j++) {
+				inputMCMC.stilde[i]->data->data[j].re/=sqrt(windowplan->sumofsquares / windowplan->data->length);
+				inputMCMC.stilde[i]->data->data[j].im/=sqrt(windowplan->sumofsquares / windowplan->data->length);
+			}
 		} /* End if(!FakeFlag) */
 		
 		/* Perform injection in time domain */
@@ -607,8 +689,33 @@ int main( int argc, char *argv[])
 				XLALGPSAdd(&segmentStart,((REAL8) i+1)*offset);
 				fprintf(stdout,"Offset injection by %lf s\n",((REAL8) i+1)*offset);
 			}
-			REAL4TimeSeries *injWave=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries("injection",&(segmentStart),0.0,inputMCMC.deltaT,&lalDimensionlessUnit,(size_t)seglen);
-			LALSimulateCoherentGW(&status,injWave,&InjectGW,&det);
+			/* Create a buffer long enough to hold the signal */
+			UINT4 bufferlength = (UINT4)(100.0/inputMCMC.deltaT);
+			if(bufferlength<seglen) bufferlength=seglen;
+			LIGOTimeGPS bufferstart;
+			memcpy(&bufferstart,&segmentStart,sizeof(LIGOTimeGPS));
+			XLALGPSAdd(&bufferstart,((REAL8)seglen*inputMCMC.deltaT));
+			XLALGPSAdd(&bufferstart,-((REAL8)bufferlength*inputMCMC.deltaT));
+			
+			REAL4TimeSeries *injWave=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(IFOnames[i],&(bufferstart),0.0,inputMCMC.deltaT,&lalADCCountUnit,(size_t)bufferlength);
+			
+			for (j=0;j<injWave->data->length;j++) injWave->data->data[j]=0.0;
+//			LALSimulateCoherentGW(&status,injWave,&InjectGW,&det);
+			COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&bufferstart,0.0,inputMCMC.deltaF,(const LALUnit *)&strainPerCount,seglen);
+			for(j=0;j<resp->data->length;j++) {resp->data->data[j].re=(REAL4)1.0; resp->data->data[j].im=0.0;}
+			SimInspiralTable this_injection;
+			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+			this_injection.next=NULL;
+			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
+			XLALDestroyCOMPLEX8FrequencySeries(resp);
+			printf("Finished InjectSignals\n");
+			fprintf(stderr,"Cutting injection buffer from %d to %d\n",bufferlength,seglen);
+			
+                	TrigSegStart=(INT4)((segmentStart.gpsSeconds-injWave->epoch.gpsSeconds)*SampleRate);
+			TrigSegStart+=(INT4)((segmentStart.gpsNanoSeconds - injWave->epoch.gpsNanoSeconds)*1e-9*SampleRate);
+			
+			injWave=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injWave,TrigSegStart,seglen);
+			fprintf(stderr,"Cut buffer start time=%lf, segment start time=%lf\n",injWave->epoch.gpsSeconds+1e-9*injWave->epoch.gpsNanoSeconds,inputMCMC.stilde[i]->epoch.gpsSeconds + 1.0e-9*inputMCMC.stilde[i]->epoch.gpsNanoSeconds);
 			REPORTSTATUS(&status);
 			if(decohereflag) {
 				memcpy(&segmentStart,&realSegStart,sizeof(realSegStart));
@@ -623,11 +730,12 @@ int main( int argc, char *argv[])
 			REAL4 WinNorm = sqrt(windowplan->sumofsquares/windowplan->data->length);
 			for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=SNRfac*windowplan->data->data[j]/WinNorm;
 			XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
+			
 			REPORTSTATUS(&status);
 			if(estimatenoise){
 				for(j=(UINT4) (inputMCMC.fLow/inputMCMC.invspec[i]->deltaF),SNR=0.0;j<seglen/2;j++){
 					SNR+=((REAL8)injF->data->data[j].re)*((REAL8)injF->data->data[j].re)*inputMCMC.invspec[i]->data->data[j];
-				SNR+=((REAL8)injF->data->data[j].im)*((REAL8)injF->data->data[j].im)*inputMCMC.invspec[i]->data->data[j];}
+					SNR+=((REAL8)injF->data->data[j].im)*((REAL8)injF->data->data[j].im)*inputMCMC.invspec[i]->data->data[j];}
 				SNR*=4.0*inputMCMC.invspec[i]->deltaF; /* Get units correct - factor of 4 for 1-sided */
 			}
 			LALDestroyREAL4FFTPlan(&status,&inj_plan);
@@ -637,7 +745,7 @@ int main( int argc, char *argv[])
 			
 			/* Actually inject the waveform */
 			if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
-			else for(j=0;j<injF->data->length;j++) {
+			for(j=0;j<injF->data->length;j++) {
 				inputMCMC.stilde[i]->data->data[j].re+=(REAL8)injF->data->data[j].re;
 				inputMCMC.stilde[i]->data->data[j].im+=(REAL8)injF->data->data[j].im;
 			}
@@ -658,16 +766,6 @@ int main( int argc, char *argv[])
 			else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
 		}
 		
-		if(!FakeFlag){
-			/* Window and FFT the data */
-			XLALDDVectorMultiply(inputMCMC.segment[i]->data,inputMCMC.segment[i]->data,windowplan->data);
-			check=XLALREAL8TimeFreqFFT(inputMCMC.stilde[i],inputMCMC.segment[i],fwdplan); /* XLALREAL8TimeFreqFFT multiplies by deltaT */
-			for(j=0;j<inputMCMC.stilde[i]->data->length;j++) {
-				inputMCMC.stilde[i]->data->data[j].re/=sqrt(windowplan->sumofsquares / windowplan->data->length);
-				inputMCMC.stilde[i]->data->data[j].im/=sqrt(windowplan->sumofsquares / windowplan->data->length);
-			}
-		}
-		
 	} /* End loop over IFOs */
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 	XLALDestroyRandomParams(datarandparam);
@@ -678,10 +776,10 @@ int main( int argc, char *argv[])
 			sprintf(filename,"indata_%s.dat",IFOnames[j]);
 			FILE *outinit=fopen(filename,"w");
 			for(i=0;i<inputMCMC.stilde[j]->data->length;i++) fprintf(outinit,"%e %e %e %e\n",
-																	 inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
-																	 inputMCMC.stilde[j]->data->data[i].re,
-																	 inputMCMC.stilde[j]->data->data[i].im,
-																	 1./inputMCMC.invspec[j]->data->data[i]);
+						 inputMCMC.stilde[j]->f0 + i*inputMCMC.stilde[0]->deltaF,
+						 inputMCMC.stilde[j]->data->data[i].re,
+				 		 inputMCMC.stilde[j]->data->data[i].im,
+						 1./inputMCMC.invspec[j]->data->data[i]);
 			fclose(outinit);
 		}
 	}
@@ -700,14 +798,25 @@ int main( int argc, char *argv[])
 	LALCreateRandomParams(&status,&(inputMCMC.randParams),seed);
 	
 	/* Set up the approximant to use in the likelihood function */
-	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomA";
+	CHAR TT2[]="TaylorT2"; CHAR TT3[]="TaylorT3"; CHAR TT4[]="TaylorT4"; CHAR TF2[]="TaylorF2"; CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN"; CHAR ST[]="SpinTaylor";
+	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
 	else if(!strcmp(approx,TT2)) inputMCMC.approximant=TaylorT2;
 	else if(!strcmp(approx,TT3)) inputMCMC.approximant=TaylorT3;
-	else if(!strcmp(approx,BBH)) inputMCMC.approximant=IMRPhenomA;
+    	else if(!strcmp(approx,TT4)) inputMCMC.approximant=TaylorT4;
+	else if(!strcmp(approx,BBH)) inputMCMC.approximant=IMRPhenomFA;
+    	else if(!strcmp(approx,BBHSpin1)) inputMCMC.approximant=IMRPhenomFB;
+    	else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
+	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
+	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
+    	/*else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;*/
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 	
+	if(inputMCMC.approximant!=AmpCorPPN && ampOrder!=0){
+		fprintf(stderr,"Warning, setting amp order %i but not using AmpCorPPN. Amplitude corrected waveforms will NOT be generated!\n",ampOrder);
+	}
+	inputMCMC.ampOrder=ampOrder;
 	/* Set the initialisation and likelihood functions */
 	if(SkyPatch) {inputMCMC.funcInit = NestInitSkyPatch; goto doneinit;}
 	if(SkyLocFlag) {inputMCMC.funcInit = NestInitSkyLoc; goto doneinit;}
@@ -719,6 +828,7 @@ int main( int argc, char *argv[])
 doneinit:
 	if(studentt) inputMCMC.funcLikelihood = MCMCSTLikelihoodMultiCoherentF;
 	else inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF;
+	if(inputMCMC.approximant==AmpCorPPN) inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentAmpCor;
 	
 	inputMCMC.funcPrior = NestPrior;
 	if(GRBflag) {inputMCMC.funcPrior = GRBPrior;
@@ -762,7 +872,7 @@ void NestInitGRB(LALMCMCParameter *parameter, void *iT){
 	REAL8 mcmin,mcmax,m1min,m1max,m2min,m2max;
 	REAL8 deltaLong=0.01;
 	REAL8 deltaLat=0.01;
-	REAL8 trueLong,trueLat;
+	REAL8 trueLong=0.0,trueLat=0.0;
 	
 	parameter->param = NULL;
 	parameter->dimension = 0;
@@ -850,6 +960,7 @@ void NestInitSkyPatch(LALMCMCParameter *parameter, void *iT)
 	double mcmin,mcmax;
 	double deltaLong=0.001;
 	double deltaLat=0.001;
+	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	fprintf(stderr,"Using longitude = %f, latitude = %f\n",manual_RA,manual_dec);
@@ -877,12 +988,11 @@ void NestInitManual(LALMCMCParameter *parameter, void *iT)
 {
 	double etamin=0.03;
 	double mcmin,mcmax;
+	iT=NULL;
 	parameter->param=NULL;
 	parameter->dimension = 0;
 	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
 	mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
-	double dmax = HighMassFlag?500.0:100.0;
-	double dmin=1.0;
 	double lmmin=log(mcmin);
 	double lmmax=log(mcmax);
 	XLALMCMCAddParam(parameter,"logM",lmmin+(lmmax-lmmin)*gsl_rng_uniform(RNG),lmmin,lmmax,0);
@@ -891,7 +1001,8 @@ void NestInitManual(LALMCMCParameter *parameter, void *iT)
 	XLALMCMCAddParam(parameter,"eta",etamin+gsl_rng_uniform(RNG)*(0.25-etamin),etamin,0.25,0);
 	XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
 	XLALMCMCAddParam(parameter,"phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
-	XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax, 0);
+/*	XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax, 0);*/
+	XLALMCMCAddParam(parameter,"logdist",log(1.0)+gsl_rng_uniform(RNG)*(log(100.0)-log(1.0)),log(1.0),log(100.0),0);
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
 	XLALMCMCAddParam(parameter,"psi",0.5*LAL_PI*gsl_rng_uniform(RNG),0,LAL_PI/2.0,0);
@@ -902,6 +1013,7 @@ void NestInitManual(LALMCMCParameter *parameter, void *iT)
 void NestInitNINJAManual(LALMCMCParameter *parameter, void *iT){
 	REAL8 trg_time,mcmin,mcmax;
 	REAL4 localetawin;
+	iT=NULL;
 	parameter->param = NULL;
 	parameter->dimension = 0;
 	trg_time = manual_end_time;
@@ -948,7 +1060,7 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	etamin=0.01;
 	double etamax = 0.25;
 	mc=m2mc(injTable->mass1,injTable->mass2);
-	mcmin=m2mc(1.0,1.0);
+	mcmin=m2mc(manual_mass_low/2.0,manual_mass_low/2.0);
 	
 	mcmax=m2mc(manual_mass_high/2.0,manual_mass_high/2.0);
 	
@@ -963,7 +1075,8 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*localetawin+etamin , etamin, etamax, 0);
 	XLALMCMCAddParam(parameter, "time",		(gsl_rng_uniform(RNG)-0.5)*timewindow + trg_time ,trg_time-0.5*timewindow,trg_time+0.5*timewindow,0);
 	XLALMCMCAddParam(parameter, "phi",		LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
-	XLALMCMCAddParam(parameter, "distMpc", 99.0*gsl_rng_uniform(RNG)+1.0, 1.0, 100.0, 0);
+	/*XLALMCMCAddParam(parameter, "distMpc", 99.0*gsl_rng_uniform(RNG)+1.0, 1.0, 100.0, 0);*/
+	XLALMCMCAddParam(parameter,"logdist",log(manual_dist_min)+gsl_rng_uniform(RNG)*(log(manual_dist_max)-log(manual_dist_min)),log(manual_dist_min),log(manual_dist_max),0);
 	
 	XLALMCMCAddParam(parameter,"long",LAL_TWOPI*gsl_rng_uniform(RNG),0,LAL_TWOPI,1);
 	XLALMCMCAddParam(parameter,"lat",LAL_PI*(gsl_rng_uniform(RNG)-0.5),-LAL_PI/2.0,LAL_PI/2.0,0);
@@ -974,4 +1087,5 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	
 	
 	return;
+
 }
