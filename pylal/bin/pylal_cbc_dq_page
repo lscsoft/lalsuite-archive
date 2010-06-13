@@ -1007,7 +1007,7 @@ for saturday in saturdays:
   fridays.append(saturday+6*86400)
 site_weekly_date = {}
 for friday in fridays:
-  date_tmp = GetCommandOutput('tconvert '+friday+' -f %e\ %b\ %Y')[0].\
+  date_tmp = GetCommandOutput('tconvert '+str(friday)+' -f %e\ %b\ %Y')[0].\
       replace('\n','')
   site_weekly_date.append(date_tmp.split(' '))
 
