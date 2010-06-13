@@ -50,6 +50,7 @@ import sys
 import os
 import optparse
 import glob
+import math
 
 try:
     import sqlite3
@@ -254,8 +255,8 @@ def plot_channel():
     ## histogram: GW Triggers Number vs SNR
     # whole SNR range
     # set bottom to 0.1 because it's log scale and cannot plot 0
-    n, all_bins, patches = hist(GW_SNR ,bins=100, bottom=0.1,\
-                                   facecolor='b', log=True)
+    n, all_bins, patches = hist([math.log(t,10) for t in GW_SNR] ,bins=100, 
+                             bottom=0.1,facecolor='b', log=True)
     xlabel('SNR')
     ylabel('Number of GW Triggers')
     title('GW Triggers, All SNR Range')
@@ -270,10 +271,24 @@ def plot_channel():
       # this is the same as sum(,()) but builtin sum is overwritten by numpy...
       non_coincGW = reduce(lambda x,y: x+y, cursor.execute("select SNR from GWtrigs where non_coinc(ID)").fetchall(), ())
       # set bottom to 0.1 because it's log scale and cannot plot 0
-      n2,bins2,patches2=hist(non_coincGW, bins=all_bins, bottom=0.1,\
+      n2,bins2,patches2=hist([math.log(t,10) for t in non_coincGW], bins=all_bins, bottom=0.1,\
                              facecolor='r', log=True)
       legend((patches[0],patches2[0]),("Before Veto","After Veto"),\
               loc='upper right')
+
+    # format x axis tick label
+    from matplotlib.ticker import FormatStrFormatter, MultipleLocator, FixedLocator
+    hmin, hmax = gca().xaxis.get_view_interval()
+    hmin = int(math.floor(hmin))
+    if hmin == 0:
+      hmin == 1
+    hmax = int(math.ceil(hmax))
+    tickLoc = []
+    for b in range(hmin,hmax+1):
+      tickLoc += [math.log(10**b * i,10) for i in range(1,10)]
+    gca().xaxis.set_major_locator(MultipleLocator(1))
+    gca().xaxis.set_major_formatter(FormatStrFormatter(r'$\mathdefault{10^{%d}}$'))
+    gca().xaxis.set_minor_locator(FixedLocator(tickLoc))
         
     savefig("%s-triggers_hist.png"%prefix,dpi=200)
     savefig("%s-triggers_hist-thumbnail.png"%prefix,dpi=60)
@@ -281,14 +296,13 @@ def plot_channel():
     
     ## histogram for low SNR range
     # plot the lowest 50% trigger
-    num = int(len(GW_SNR) / 2) + 1 # so that no 0
+    num = int(len(GW_SNR) / 2) or 1 # so that no 0
     low_GW = sorted(GW_SNR)[:num]
     # 1 bin for 1 SNR
     max_bin = int(max(low_GW))+1
     min_bin = int(min(low_GW))
-    low_bins = range(min_bin,max_bin)
     # set bottom to 0.1 because it's log scale and cannot plot 0
-    n, bins, patches = hist(low_GW, bins = low_bins, bottom=0.1, facecolor='b', log=True)
+    n, low_bins, patches = hist(low_GW, bins = 50, bottom=0.1, facecolor='b', log=True)
     xlabel('SNR')
     ylabel('Number of GW Triggers')
     title("GW Triggers, Low SNR Range")
@@ -311,8 +325,20 @@ def plot_channel():
     if candidate != None: # means candidate channel
         # set bottom to 0.1 because it's log scale and cannot plot 0
         # 100 bins
-        hist(coincGW_SNR, bins=all_bins, bottom=0.1,\
+        hist([math.log(t,10) for t in coincGW_SNR], bins=all_bins, bottom=0.1,\
              facecolor='b', log=True)
+        hmin, hmax = gca().xaxis.get_view_interval()
+        hmin = int(math.floor(hmin))
+        if hmin == 0:
+          hmin == 1
+        hmax = int(math.ceil(hmax))
+        tickLoc = []
+        for b in range(hmin,hmax+1):
+          tickLoc += [math.log(10**b * i,10) for i in range(1,10)]
+        gca().xaxis.set_major_locator(MultipleLocator(1))
+        gca().xaxis.set_major_formatter(FormatStrFormatter(r'$\mathdefault{10^{%d}}$'))
+        gca().xaxis.set_minor_locator(FixedLocator(tickLoc))
+
         xlabel('SNR')
         ylabel('Number of Vetoed GW Triggers')
         title("Vetoed GW Triggers by " + params['channel'] + ", All SNR Range")
@@ -347,7 +373,7 @@ def plot_channel():
           sigRatio = max(coincGW)[0]/kw[1]
           distData.append((freq,sigRatio))
         distData = zip(*distData)
-        plot(distData[0],distData[1],'ro',markersize=5)
+        loglog(distData[0],distData[1],'ro',markersize=5)
         xlabel('Frequency (Hz)')
         ylabel('GW / AUX Significance')
         grid()
