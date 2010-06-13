@@ -1009,12 +1009,14 @@ site_weekly_date = []
 for friday in fridays:
   date_tmp = GetCommandOutput('tconvert '+str(friday)+' -f %e\ %b\ %Y')[0].\
       replace('\n','')
+  if date_tmp[0]==' ':  date_tmp=date_tmp[1:] 
   site_weekly_date.append(date_tmp.split(' '))
 
 site_weekly_url = 'http://relativity.phys.lsu.edu/pipermail/siteweekly/'
 for site_weekly in site_weekly_date:
+  print site_weekly
   site_weekly_html = GetCommandOutput('curl '+site_weekly_url+'/'+\
-      site_weekly[2]+'-'+site_weekly[1]+' | grep "'+site_weekly[0]+' '+site_weekly[1]+' '+site_weekly[2]+'" | cut -d\" -f2')
+      site_weekly[2]+'-'+site_weekly[1]+' | grep "'+site_weekly[0]+' '+site_weekly[1]+' '+site_weekly[2]+'" | cut -d\" -f2')[0]
   print >>output, " [["+site_weekly_url+site_weekly[2]+'-'+site_weekly[1]+'/'+site_weekly_html+"|"+site_weekly[0]+" "+site_weekly[1]+" "+site_weekly[2]+"]],",
 
 print >>output, " and all other reports can be found in the archives, [[http://relativity.phys.lsu.edu/pipermail/siteweekly/|here]]."
