@@ -362,7 +362,7 @@ if(!strcasecmp("sin_theta", args_info.sky_grid_arg)){
 	proto_super_grid=make_sin_theta_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("plain_rectangular", args_info.sky_grid_arg)){
-	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
+	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)+1), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
 	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
