@@ -34,6 +34,34 @@ __date__ = git_version.date
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
+# 
+# Convenience functions
+#
+
+# Approximate fit to phenom A amplitude errors
+def phenom_err(m,eta):
+  return  1.0  + 0.1 + ((m/60.)**2 - (m/68.)**3 + (m/100.)**4)*(0.08/eta**1.0)
+
+# Approximate fit to EOBNR amplitude errors
+def eob_err(m,eta):
+  x = (0.25-eta)
+  s = .008
+  ep = x/s * numpy.exp(-x**2 / 2.0 / s)
+  return  (1. + 0.18  + (m / 130.0)**(6.0) + ep / 1428.0 * (1.0 + 2.0*(m / 40.)**3))
+
+def waveform_err(m,eta,approx):
+  # The errors are fractional errors of old / new.  I'll return the reciprocal
+  # so that we can simply multiply the value of distance by what this
+  # function returns
+  if approx == 'EOBNRpseudoFourPN': return 1.0 / eob_err(m,eta)
+  if approx == 'IMRPhenomAtwoPN': return 1.0 / phenom_err(m,eta)
+  # Anything else does not get a correction
+  return 1.0
+
+def correct_distance(sim):
+  for s in sim:
+    s.distance *= waveform_err(s.mass1 + s.mass2, s.eta, s.waveform)
+
 class upper_limit(object):
 
   def __init__(self, flist, opts):
@@ -318,6 +346,9 @@ WHERE
       dbtables.DBTable_set_connection(None)
 
     print >>sys.stderr, "\nFound = %d Missed = %d" % (len(found), len(missed))
+    # correct distances
+    correct_distance(found)
+    correct_distance(missed)
     return found, missed
 
 
