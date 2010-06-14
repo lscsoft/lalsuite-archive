@@ -703,7 +703,7 @@ if options.skip_dq_flags is False:
         common_dq_cmd[ifo]+=ihope_daily_path[day]+' '
       else:
         skipped_days[ifo]+=' '+date[day]+' '
-    print common_dq_cmd[ifo]
+    #print common_dq_cmd[ifo]
     common_dq_flags[ifo],status=GetCommandOutput(common_dq_cmd[ifo])
     if status==0:
       f.write(common_dq_flags[ifo])
@@ -749,7 +749,7 @@ if options.skip_dq_stats is False:
         ' --igps='+str(gps_start)+' --egps='+str(gps_end)+\
         ' --outputdir='+dq_stats_path
     dq_stats_status[ifo] = GetCommandOutput(dq_stats_script+dq_stats_args)[1]
-    print dq_stats_script+dq_stats_args 
+    #print dq_stats_script+dq_stats_args 
   dq_stats_url={}
   for ifo in ifos:
     dq_stats_url[ifo] = (dq_stats_web_path+'/S6c_'+str(gps_start)+\
