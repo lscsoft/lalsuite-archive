@@ -406,12 +406,19 @@ WHERE
     found = [inj[i] for i in ix if i >=len(m) ]
     return missed, found
 
-  def _scramble_dist(self, inj, relerr, syserr):
+  def _scramble_dist_separate(self, inj, relerr, syserr):
     """
     function to handle random calibration error.  Individually scrambles the distances
     of injection by an error assumed to be log normal + a systematic.
     """
     return numpy.array([sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1))) for sim in inj])
+
+  def _scramble_dist_together(self, inj, relerr, syserr):
+    """
+    function to handle random calibration error. Scrambles all the distances
+    of injections by an error.  Assumes relerr should be applied as log normal.
+    """
+    return numpy.array([sim.distance * (1.0-syserr) * float( scipy.exp(relerr) ) for sim in inj])
 
   def live_time_array(self, instruments):
     """
@@ -424,7 +431,7 @@ WHERE
     return live_time
     
 
-  def twoD_SearchVolume(self, instruments, dbin_in=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
+  def twoD_SearchVolume(self, instruments, dbin_in=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074, seed=1):
     """ 
     Compute the search volume in the mass/mass plane, bootstrap
     and measure the first and second moment (assumes the underlying 
@@ -435,6 +442,9 @@ WHERE
      will be H1L1 and have a lower error of .17
     the dsys is the DC offset which is the max offset of .074. 
     """
+
+    # seed the random number generator
+    scipy.random.seed(seed)
 
     # This function permits overriding FAR and the number of bootstrap iterations given on the command line
     # here we check those things and pull out the correct injection set and live time
@@ -464,6 +474,8 @@ WHERE
 
     # Bootstrap to account for errors
     for n in range(bootnum):
+      # get new calibration error for this iteration
+      relerr = * derr * scipy.random.standard_normal(1))
       #initialize by setting these to zero
       for k in range(z):
         rArrays[k].numerator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
@@ -472,8 +484,8 @@ WHERE
       if bootnum > 1: 
         sm, sf = self._scramble_pop(missed, found)
         # I make a separate array of distances to speed up this calculation
-        f_dist = self._scramble_dist(sf, derr, dsys)
-        m_dist = self._scramble_dist(sm, derr, dsys)
+        f_dist = self._scramble_dist_together(sf, relerr, dsys)
+        m_dist = self._scramble_dist_together(sm, relerr, dsys)
       else: 
         sm, sf = missed, found
         f_dist = numpy.array([l.distance for l in found])
