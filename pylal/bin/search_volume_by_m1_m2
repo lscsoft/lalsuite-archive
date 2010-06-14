@@ -475,7 +475,7 @@ WHERE
     # Bootstrap to account for errors
     for n in range(bootnum):
       # get new calibration error for this iteration
-      relerr = derr * scipy.random.standard_normal(1))
+      relerr = derr * scipy.random.standard_normal(1)
       #initialize by setting these to zero
       for k in range(z):
         rArrays[k].numerator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
