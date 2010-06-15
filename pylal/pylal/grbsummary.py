@@ -16,6 +16,54 @@ from pylal import llwapp
 from pylal import rate
 
 ##############################################################################
+# Detector threshold function
+##############################################################################
+
+def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=None):
+    """
+    Return a dictionary of sensitivity thresholds for each detector, based on
+    a minimum threshold of min_threshold in the most sensitive one, for a source
+    at position (RA,dec) specified in radians at time gps_time.
+    Specifying a dictionary of sensitivities allows one to weight also by the
+    relative SNR of a reference system in each detector to handle different noise
+    curves.
+    """
+    
+    # Recurse if multiple RA, dec and GPS times are specified
+    if type(gps_time)!=float or type(RA)!=float or type(dec)!=float:
+	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
+	return map(lambda (a,b,c): detector_threshold(min_threshold,ifos,a,b,c,sensitivities), zip(RA,dec,gps_time))
+
+    from pylal import xlal
+    from pylal.xlal import inject
+    from pylal.xlal.tools import cached_detector
+    from pylal import antenna    
+
+    # Sensitivies specifies relative SNRs of a reference signal (BNS)
+    if sensitivities is None:
+	sensitivities={}
+	for det in ifos:
+		sensitivies[det]=1.0
+    else:
+	assert len(ifos)==len(sensitivites)
+	# Normalise sensitivities
+	minsens=min(sensitivities.values())
+        for det in ifos:
+		sensitivities[det]/=minsens
+
+    resps={}
+    threshs={}
+    # Make a dictionary of average responses
+    for det in ifos:
+	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[2]
+    
+    worst_resp=min(resps.values())
+    # Assuming that lowest threshold is in worst detector, return thresholds
+    for det in ifos:
+	threshs[det]=min_threshold*(resps[det]/worst_resp)*sensitivities[det]
+    return threshs
+    
+##############################################################################
 # Convenience functions
 ##############################################################################
 sensitivity_dict = {"H1": 1, "L1": 2, "H2": 3, "V1": 4, "G1": 5}
