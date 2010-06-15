@@ -32,7 +32,7 @@ def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=No
     # Recurse if multiple RA, dec and GPS times are specified
     if type(gps_time)!=float or type(RA)!=float or type(dec)!=float:
 	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
-	return map(lambda (a,b,c): detector_threshold(min_threshold,ifos,a,b,c,sensitivities), zip(RA,dec,gps_time))
+	return map(lambda (a,b,c): detector_thresholds(min_threshold,ifos,a,b,c,sensitivities), zip(RA,dec,gps_time))
 
     from pylal import antenna    
 
