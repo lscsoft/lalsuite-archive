@@ -34,9 +34,6 @@ def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=No
 	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
 	return map(lambda (a,b,c): detector_threshold(min_threshold,ifos,a,b,c,sensitivities), zip(RA,dec,gps_time))
 
-    from pylal import xlal
-    from pylal.xlal import inject
-    from pylal.xlal.tools import cached_detector
     from pylal import antenna    
 
     # Sensitivies specifies relative SNRs of a reference signal (BNS)
