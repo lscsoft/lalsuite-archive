@@ -19,7 +19,7 @@ from pylal import rate
 # Detector threshold function
 ##############################################################################
 
-def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=None):
+def detector_thresholds(ifos, RA, dec, gps_time, sensitivities=None, min_threshold=4.5, max_threshold=7.5):
     """
     Return a dictionary of sensitivity thresholds for each detector, based on
     a minimum threshold of min_threshold in the least sensitive one, for a source
@@ -28,11 +28,13 @@ def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=No
     relative SNR of a reference system in each detector to handle different noise
     curves.
     """
+    # Convert type if necessary
+    if type(gps_time)==int: gps_time=float(gps_time)
     
     # Recurse if multiple RA, dec and GPS times are specified
     if type(gps_time)!=float or type(RA)!=float or type(dec)!=float:
 	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
-	return map(lambda (a,b,c): detector_thresholds(min_threshold,ifos,a,b,c,sensitivities), zip(RA,dec,gps_time))
+	return map(lambda (a,b,c): detector_thresholds(ifos,a,b,c,sensitivities,min_threshold=min_threshold,max_threshold=max_threshold), zip(RA,dec,gps_time))
 
     from pylal import antenna    
 
@@ -40,9 +42,9 @@ def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=No
     if sensitivities is None:
 	sensitivities={}
 	for det in ifos:
-		sensitivies[det]=1.0
+		sensitivities[det]=1.0
     else:
-	assert len(ifos)==len(sensitivites)
+	assert len(ifos)==len(sensitivities)
 	# Normalise sensitivities
 	minsens=min(sensitivities.values())
         for det in ifos:
@@ -52,12 +54,13 @@ def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=No
     threshs={}
     # Make a dictionary of average responses
     for det in ifos:
-	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[2]
+	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[2]*sensitivities[det]
     
     worst_resp=min(resps.values())
     # Assuming that lowest threshold is in worst detector, return thresholds
     for det in ifos:
-	threshs[det]=min_threshold*(resps[det]/worst_resp)*sensitivities[det]
+	threshs[det]=min_threshold*(resps[det]/worst_resp)
+    	if threshs[det]>max_threshold: threshs[det]=max_threshold
     return threshs
     
 ##############################################################################
