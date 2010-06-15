@@ -22,7 +22,7 @@ from pylal import rate
 def detector_thresholds(min_threshold, ifos, RA, dec, gps_time, sensitivities=None):
     """
     Return a dictionary of sensitivity thresholds for each detector, based on
-    a minimum threshold of min_threshold in the most sensitive one, for a source
+    a minimum threshold of min_threshold in the least sensitive one, for a source
     at position (RA,dec) specified in radians at time gps_time.
     Specifying a dictionary of sensitivities allows one to weight also by the
     relative SNR of a reference system in each detector to handle different noise
