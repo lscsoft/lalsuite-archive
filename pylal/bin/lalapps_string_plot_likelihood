@@ -197,10 +197,6 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	name = background_name
 	# FIXME:  hard-coded list of allowed instruments = BAD BAD BAD
 	instruments = set(name.split("_")) & set(("G1", "H1", "H2", "L1", "T1", "V1"))
-	if "V1" in instruments:
-		# FIXME:  remove this when math range/domain errors for
-		# empty data fixed
-		continue
 	if name.endswith("_snr2_chi2"):
 		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
@@ -216,7 +212,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
-		dt = .008 + inject.light_travel_time(*instruments) / 2
+		dt = .010 + inject.light_travel_time(*instruments) / 2
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-dt, +dt))
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-dt, +dt))
 		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-dt, +dt))
