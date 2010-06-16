@@ -459,10 +459,11 @@ page = InspiralUtils.InspiralPage(modify_opts(opts, grb, 'OPENBOX'))
 #
 # read the input-data
 #
-statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat \
+id1,  statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat \
     = pickle.load(open(opts.onsource_pickle))
-statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
+id2, statistic, mc_bins, mc_ifo_cats, offsource_loudest_by_trial_cat \
     = pickle.load(open(opts.offsource_pickle))
+assert id1==id2, 'Pickle IDs not identical! '
 
 # some dummy hack, fix, feature, whatever
 cats = [cat[0] for cat in mc_ifo_cats.centres()]
