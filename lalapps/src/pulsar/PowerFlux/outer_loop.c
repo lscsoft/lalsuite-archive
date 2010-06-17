@@ -739,17 +739,18 @@ time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++) {
-/*	if(pi % 100 == 0) {
-		time(&end_time);
-		if(end_time<start_time)end_time=start_time;
-		fprintf(stderr, "%d (%f patches/sec)\n", pi, pi/(1.0*(end_time-start_time+1.0)));
-		ctx->print_cache_stats(ctx);
-		//fprintf(stderr, "%d\n", pi);
-		}*/
 	submit_job(outer_loop_cruncher, (void *)((long)pi));
 	}
 k=0;
 while(do_single_job(-1)) {
+	#if 0
+	time(&end_time);
+	if(end_time<start_time)end_time=start_time;
+	fprintf(stderr, "%d (%f patches/sec)\n", k, k/(1.0*(end_time-start_time+1.0)));
+	summing_contexts[0]->print_cache_stats(summing_contexts[0]);
+	fprintf(stderr, "%d\n", pi);
+	#endif
+
 	if(k % 10 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
 	k++;
 	}

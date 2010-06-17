@@ -62,6 +62,14 @@ def time_at_instrument(sim, instrument):
 	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
 
 
+def on_instruments(sim, seglists):
+	"""
+	Return a set of the names of the instruments that were on at the
+	time of the injection.
+	"""
+	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument) in seglist)
+
+
 def injection_was_made(sim, seglists, instruments):
 	"""
 	Return True if the "time" of the injection at each of the named
@@ -241,6 +249,24 @@ def string_amplitude_in_instrument(sim, instrument):
 #                             Efficiency Contours
 #
 # =============================================================================
+#
+
+
+#
+# typical width of a string cusp signal's autocorrelation function when the
+# signal is normalized to the interferometer noise (whitened).  this is
+# used to provide a window around each injection for the purpose of
+# identifying burst events that match the injection.  this number is
+# O(1/f_{bucket}).
+#
+
+
+stringcusp_autocorrelation_width = .016	# seconds
+
+
+#
+# used to find burst events near injections for the purpose of producing a
+# short list of coinc events for use in more costly comparisons
 #
 
 

@@ -703,7 +703,7 @@ if options.skip_dq_flags is False:
         common_dq_cmd[ifo]+=ihope_daily_path[day]+' '
       else:
         skipped_days[ifo]+=' '+date[day]+' '
-    print common_dq_cmd[ifo]
+    #print common_dq_cmd[ifo]
     common_dq_flags[ifo],status=GetCommandOutput(common_dq_cmd[ifo])
     if status==0:
       f.write(common_dq_flags[ifo])
@@ -731,30 +731,47 @@ if options.skip_dq_flags is False:
   print >>output, "[[#top|Back to top]]"
 
 output.flush()
+
 # ==========
 # DQ stats
 # ==========
 if options.skip_dq_stats is False:
-  if options.verbose:  print >>sys.stdout, "Generating DQ flag statistics..."
+  if options.verbose:
+    print >>sys.stdout, "Generating DQ flag statistics..."
+    print >>sys.stdout, "  The required analysis will be submitted to a "+\
+        "background shell,"
+    print >>sys.stdout, "  and so the links will not immediately be filled..."
+
+  #== set up stats directory
   dq_stats_tag = 'cbc_dq_stats'
   dq_stats_path = dq_path+'/'+dq_stats_tag
   mkdir_cmd = 'mkdir -p '+dq_stats_path
   GetCommandOutput(mkdir_cmd)
   dq_stats_web_path = web_path+'/'+dq_stats_tag
+  #== stats exe
   dq_stats_script = '/archive/home/cavaglia/S6c_daily_week_current/DQweekrun.sh'
   dq_stats_status = {}
+
+  #== submit each job under nohup to allow the page script to continue  
   for ifo in ifos:
-    if options.verbose:  print >>sys.stdout, "  Generating "+ifo+" statistics..."
+    dq_stats_nohup = dq_stats_path+"/"+ifo+"-dq_stats_nohup.out"
+    if options.verbose:
+      print >>sys.stdout, "  Generating "+ifo+" statistics..."
+      print >>sys.stdout, "  See"
+      print >>sys.stdout, "    "+dq_stats_nohup
+      print >>sys.stdout, "  for status"
     dq_stats_args = ' --ifo='+ifo+\
         ' --igps='+str(gps_start)+' --egps='+str(gps_end)+\
         ' --outputdir='+dq_stats_path
-    dq_stats_status[ifo] = GetCommandOutput(dq_stats_script+dq_stats_args)[1]
-    print dq_stats_script+dq_stats_args 
+    dq_stats_status[ifo] = os.system('nohup '+dq_stats_script+dq_stats_args+\
+        ' > '+dq_stats_nohup+' &')
+
+  #== set up link urls
   dq_stats_url={}
   for ifo in ifos:
     dq_stats_url[ifo] = (dq_stats_web_path+'/S6c_'+str(gps_start)+\
         '-'+str(gps_end)+'-'+ifo)
- 
+  #== write output
   print >>output, "== Veto Flag Statistics =="
   print >>output, "{{{"
   print >>output, "/archive/home/cavaglia/S6c_daily_week_current/DQweekrun.sh"+\
@@ -763,7 +780,9 @@ if options.skip_dq_stats is False:
   print >>output, "}}}"
   print >>output, "The CBC Veto Definer file contains the details of all "+\
       "veto flags and times to be used in the analysis. "+\
-      "The contents of the veto definer file have been analysed for both raw vetoes and vetoes including the required padding. This analysis is summarised in the following histograms:"
+      "The contents of the veto definer file have been analysed for both raw "+\
+      "vetoes and vetoes including the required padding. "+\
+      "This analysis is summarised in the following histograms:"
   print >>output, "||",
   for ifo in ifos:
     if dq_stats_status[ifo]==0:  print >>output, ifo+"||",
@@ -1005,16 +1024,17 @@ print >>output, "The !SiteWeekly reports for this period can be found here:",
 fridays=[]
 for saturday in saturdays:
   fridays.append(saturday+6*86400)
-site_weekly_date = {}
+site_weekly_date = []
 for friday in fridays:
-  date_tmp = GetCommandOutput('tconvert '+friday+' -f %e\ %b\ %Y')[0].\
+  date_tmp = GetCommandOutput('tconvert '+str(friday)+' -f %e\ %b\ %Y')[0].\
       replace('\n','')
+  if date_tmp[0]==' ':  date_tmp=date_tmp[1:] 
   site_weekly_date.append(date_tmp.split(' '))
 
 site_weekly_url = 'http://relativity.phys.lsu.edu/pipermail/siteweekly/'
 for site_weekly in site_weekly_date:
   site_weekly_html = GetCommandOutput('curl '+site_weekly_url+'/'+\
-      site_weekly[2]+'-'+site_weekly[1]+' | grep "'+site_weekly[0]+' '+site_weekly[1]+' '+site_weekly[2]+'" | cut -d\" -f2')
+      site_weekly[2]+'-'+site_weekly[1]+' | grep "'+site_weekly[0]+' '+site_weekly[1]+' '+site_weekly[2]+'" | cut -d\" -f2')[0]
   print >>output, " [["+site_weekly_url+site_weekly[2]+'-'+site_weekly[1]+'/'+site_weekly_html+"|"+site_weekly[0]+" "+site_weekly[1]+" "+site_weekly[2]+"]],",
 
 print >>output, " and all other reports can be found in the archives, [[http://relativity.phys.lsu.edu/pipermail/siteweekly/|here]]."
