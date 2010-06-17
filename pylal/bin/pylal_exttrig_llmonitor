@@ -583,7 +583,8 @@ for grb in monitor_list:
 
     # check if the postprocessing analyses should be rerun
     if opts.rerun:
-      check_rerun(grb, dag, cp, opts.force_rerun)
+      if not opts.grb or grb.name==opts.grb:
+        check_rerun(grb, dag, cp, opts.force_rerun)
 
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:
