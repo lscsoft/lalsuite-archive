@@ -7,6 +7,8 @@ import time
 import subprocess
 import optparse
 import ConfigParser
+import warnings
+warnings.simplefilter('ignore',DeprecationWarning)
 
 import matplotlib
 matplotlib.use('Agg')
