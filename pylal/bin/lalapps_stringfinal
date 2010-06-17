@@ -346,7 +346,7 @@ WHERE
 
 
 def create_recovered_likelihood_view(connection, bb_coinc_def_id):
-	# Create a temporary virtual table containing two columns:  the
+	# Create a temporary table containing two columns:  the
 	# simulation_id of an injection, and the highest likelihood ratio
 	# at which that injection was recovered by a coincidence of type
 	# bb_coinc_def_id.
