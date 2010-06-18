@@ -48,7 +48,7 @@ def directional_horizon(ifos, RA, dec, gps_time, horizons=None):
     resps={}
     # Make a dictionary of average responses
     for det in ifos:
-	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[3]*sensitivities[det]
+	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[3]*horizons[det]
     
     return resps
 
@@ -61,7 +61,7 @@ def detector_thresholds(horizons,min_threshold,max_threshold=7.5):
     detector will have its threshold adjusted upward to a maximum of max_threshold.
     """
     assert min_threshold < max_threshold
-
+    threshs={}
     worst_horizon=min(horizons.values())
     best_horizon=max(horizons.values())
     # Assuming that lowest threshold is in worst detector, return thresholds
