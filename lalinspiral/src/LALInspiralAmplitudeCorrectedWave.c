@@ -99,9 +99,9 @@ LALInspiralAmplitudeCorrectedWaveEngine(
    LALStatus        *status,
    REAL4Vector      *signalvec1,
    REAL4Vector      *signalvec2,
-   REAL4Vector      *a,
+/*   REAL4Vector      *a,
    REAL4Vector      *ff,
-   REAL8Vector      *phi,
+   REAL8Vector      *phi,*/
    INT4             *countback,
    InspiralTemplate *params
    );
@@ -132,7 +132,9 @@ LALInspiralAmplitudeCorrectedWave(
 
    /*Call the engine function*/
    LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, 
-              signalvec, NULL, NULL, NULL, NULL, &count, params);
+              signalvec, NULL, &count, params);
+   /*LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, 
+              signalvec, NULL, NULL, NULL, NULL, &count, params);*/
    CHECKSTATUSPTR(status);
 
 
@@ -169,7 +171,9 @@ LALInspiralAmplitudeCorrectedWaveTemplates(
    memset(signalvec2->data, 0, signalvec2->length * sizeof(REAL4));
 
    /* Call the engine function */
-   LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, signalvec1, signalvec2, NULL, NULL, NULL, &count, params);
+   LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, 
+              signalvec1, signalvec2, &count, params);
+   /*LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, signalvec1, signalvec2, NULL, NULL, NULL, &count, params);*/
    CHECKSTATUSPTR(status);
 
    DETATCHSTATUSPTR(status);
@@ -199,11 +203,11 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
   REAL4Vector a;           /* pointers to generated amplitude  data */
   REAL4Vector ff;          /* pointers to generated  frequency data */
   REAL8Vector phi;         /* generated phase data */
-
+/*
   CreateVectorSequenceIn in;
 
   CHAR message[256];
-
+*/
   InspiralInit paramsInit;
 
   INITSTATUS(status,"LALInspiralAmplitudeCorrectedWaveForInjection",
@@ -249,7 +253,16 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
 
   count = 0;
 
+
+  /* TO DO FIX OR REMOVE THIS FUNCTION!!! */
+  /* The lines below have been added so that the code will compile */
+  count = ppnParams->deltaT;
+  i = 0;
+  phiC = 0;
+  p = 0;
+
   /* Call the engine function */
+  /*
   LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, NULL, NULL, &a, &ff, &phi, &count, params);
   BEGINFAIL( status )
   {
@@ -270,16 +283,18 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
 	       p/(REAL8)LAL_TWOPI );
     XLALPrintError(message);
     LALWarning(status, message);
-  }
-
+  } 
+*/
       /*wrap the phase vector*/
-      phiC =  phi.data[count-1] ;
+/*
+    phiC =  phi.data[count-1] ;
       for (i = 0; i < count; i++)
 	{
 	  phi.data[i] =  phi.data[i] - phiC + ppnParams->phi;
 	}
-
+*/
       /* Allocate the waveform structures. */
+/*
       if ( ( waveform->a = (REAL4TimeVectorSeries *)
 	     LALCalloc(1, sizeof(REAL4TimeVectorSeries) ) ) == NULL ) {
 	ABORT( status, LALINSPIRALH_EMEM,
@@ -332,8 +347,9 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
       snprintf( waveform->a->name, LALNameLength,   "T1 inspiral amplitude" );
       snprintf( waveform->f->name, LALNameLength,   "T1 inspiral frequency" );
       snprintf( waveform->phi->name, LALNameLength, "T1 inspiral phase" );
-
+*/
       /* --- fill some output ---*/
+/*
       ppnParams->tc     = (REAL8)(count-1) / params->tSampling ;
       ppnParams->length = count;
       ppnParams->dfdt   = ((REAL4)(waveform->f->data->data[count-1]
@@ -344,7 +360,7 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
       ppnParams->termDescription = GENERATEPPNINSPIRALH_MSGEFSTOP;
 
       ppnParams->fStart   = ppnParams->fStartIn;
-
+*/
   /* --- free memory --- */
   LALFree(ff.data);
   LALFree(a.data);
@@ -366,15 +382,15 @@ LALInspiralAmplitudeCorrectedWaveEngine(
 		LALStatus        *status,
 		REAL4Vector      *signalvec1,
 		REAL4Vector      *signalvec2,
-		REAL4Vector      *a,
+/*		REAL4Vector      *a,
 		REAL4Vector      *ff,
-		REAL8Vector      *phi,
+		REAL8Vector      *phi, */
 		INT4             *countback,
 		InspiralTemplate *params)
 {
-  PPNParamStruc ppnParams;
+  PPNParamStruc ppnParams; 
   CoherentGW 	waveform;
-  INT4 i, count;
+  INT4 i=0, count=0;
   REAL8 dt;
   REAL8 mTot = 0;
   REAL8 unitHz = 0;
@@ -384,8 +400,8 @@ LALInspiralAmplitudeCorrectedWaveEngine(
   /* For f+ and fx */
   LALDetector  det;
   InterferometerNumber ifoNumber = LAL_IFO_H1;
-  REAL8 fPlus, fCross, tdelay, gmst;
-  LIGOTimeGPS  time;
+  REAL8 fPlus, fCross, gmst;
+  LIGOTimeGPS  Time;
   
   INITSTATUS(status, "LALInspiralAmplitudeCorrectedWaveEngine", 
                       LALINSPIRALAMPLITUDECORRECTEDWAVEENGINEC);
@@ -451,11 +467,11 @@ LALInspiralAmplitudeCorrectedWaveEngine(
  
   /* Time we computed fplus and fcross */
   ifoNumber = LAL_IFO_H1;
-  time.gpsSeconds = 841000000;
-  time.gpsNanoSeconds = 000000000;
+  Time.gpsSeconds = 841000000;
+  Time.gpsNanoSeconds = 000000000;
 
   XLALReturnDetector(&det, ifoNumber);
-  gmst = XLALGreenwichMeanSiderealTime( &time );
+  gmst = XLALGreenwichMeanSiderealTime( &Time );
   XLALComputeDetAMResponse( &fPlus, &fCross, det.response,
                              ppnParams.position.longitude,
                              ppnParams.position.latitude,

@@ -118,8 +118,8 @@ int MakeDataACTD(
     REAL4 mass1,
     REAL4 mass2,
     REAL4 srate,
-    REAL4 fmin,
-    REAL4 fmax,
+    REAL4 fmini,
+    REAL4 fmaxi,
     INT4 amp,
     REAL8 scale
     );

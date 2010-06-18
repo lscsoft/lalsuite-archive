@@ -180,7 +180,7 @@ LALAddVectors
 #include <lal/Random.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/GeneratePPNInspiral.h>
-#include <SkyCoordinates.h>
+#include <lal/SkyCoordinates.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpTD.h>
 #include <lal/FindChirpACTD.h>
@@ -749,7 +749,7 @@ void LALRandomInspiralSignal
 void LALRandomInspiralSignalTimeDomain 
 (
  LALStatus              *status, 
- REAL4Vector            *signal,
+ REAL4Vector            *signalTD,
  RandomInspiralSignalIn *randIn
  )
 {
@@ -777,7 +777,7 @@ void LALRandomInspiralSignalTimeDomain
                       LALRANDOMINSPIRALSIGNALC);
   ATTATCHSTATUSPTR(status);
 
-  ASSERT (signal->data, status, 
+  ASSERT (signalTD->data, status, 
           LALNOISEMODELSH_ENULL, LALNOISEMODELSH_MSGENULL);
   ASSERT (randIn->psd.data,  status, 
           LALNOISEMODELSH_ENULL, LALNOISEMODELSH_MSGENULL);
@@ -800,8 +800,8 @@ void LALRandomInspiralSignalTimeDomain
     case 0:
     default:
 
-      tLength = signal->length;
-      fLength = signal->length / 2 + 1;
+      tLength = signalTD->length;
+      fLength = signalTD->length / 2 + 1;
       dt = 1.0 / randIn->param.tSampling;
       df = randIn->param.tSampling / (REAL8)(tLength) / 2.;
 
@@ -1120,7 +1120,7 @@ void LALRandomInspiralSignalTimeDomain
      randIn->param.approximant == PadeF1
      )
     { 
-      REAL4Vector *buff = XLALCreateREAL4Vector( signal->length );
+      REAL4Vector *buff = XLALCreateREAL4Vector( signalTD->length );
       if( !buff )
       {
         ABORTXLAL( status->statusPtr );
@@ -1129,16 +1129,16 @@ void LALRandomInspiralSignalTimeDomain
       LALInspiralWave(status->statusPtr, buff, &randIn->param);
       CHECKSTATUSPTR(status);
 
-      revPlan = XLALCreateReverseREAL4FFTPlan( signal->length, 0 );   
+      revPlan = XLALCreateReverseREAL4FFTPlan( signalTD->length, 0 );   
       if( !revPlan )
       {
         ABORTXLAL( status->statusPtr );
       }
 
-      XLALREAL4VectorFFT( signal, buff, revPlan );
-      for( j=0; j < (INT4)signal->length; ++j)
+      XLALREAL4VectorFFT( signalTD, buff, revPlan );
+      for( j=0; j < (INT4)signalTD->length; ++j)
       {
-        signal->data[j] /= signal->length;
+        signalTD->data[j] /= signalTD->length;
       }
 
       XLALDestroyREAL4FFTPlan( revPlan );
@@ -1159,20 +1159,20 @@ void LALRandomInspiralSignalTimeDomain
       {
         randIn->param.fFinal=0; 
         GenerateTimeDomainWaveformForInjection( status->statusPtr,
-                                                  signal, &randIn->param);
+                                                  signalTD, &randIn->param);
           CHECKSTATUSPTR(status);
         }
         else
         {
           /* force to compute fFinal is it really necessary  ? */ 
           randIn->param.fFinal=0; 
-          LALInspiralWave(status->statusPtr, signal, &randIn->param);
+          LALInspiralWave(status->statusPtr, signalTD, &randIn->param);
           CHECKSTATUSPTR(status);
         }         
         /* Taper signal */
         if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
         {
-          XLALInspiralWaveTaper( signal, randIn->taperSignal );
+          XLALInspiralWaveTaper( signalTD, randIn->taperSignal );
         }
       } 
 
@@ -1180,17 +1180,17 @@ void LALRandomInspiralSignalTimeDomain
       /*
       maxTemp  = 0;
       iMax     = 0;
-      for( indice = 0 ; indice< signal->length; indice++ )
+      for( indice = 0 ; indice< signalTD->length; indice++ )
       {
-        if (fabs(signal->data[indice]) > maxTemp)
+        if (fabs(signalTD->data[indice]) > maxTemp)
         {
           iMax = indice;
-          maxTemp = fabs(signal->data[indice]);
+          maxTemp = fabs(signalTD->data[indice]);
         }
       }
       randIn->coalescenceTime = iMax;
       normin.fCutoff = randIn->param.fFinal;
-      LALInspiralWaveNormaliseLSO(status->statusPtr, signal, &norm, &normin);
+      LALInspiralWaveNormaliseLSO(status->statusPtr, signalTD, &norm, &normin);
       CHECKSTATUSPTR(status);
       */
 
@@ -1411,7 +1411,7 @@ void GenerateTimeDomainWaveformForInjection (
     {
         REAL8 t, p, s, a1, a2, phi, phi0, shift;
         REAL8 fp, fc, hp, hc;
-        UINT4 kk;
+        INT4 kk;
 
         t = cos(param->sourceTheta);
         p = 2. * param->sourcePhi;

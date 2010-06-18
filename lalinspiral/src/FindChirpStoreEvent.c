@@ -74,7 +74,7 @@ LALFindChirpStoreEvent (
   INT4                       timeIndex;
   REAL4                      deltaT;
   UINT4			     numPoints;
-  REAL4Vector              **qVecACTD = NULL;
+/*  REAL4Vector              **qVecACTD = NULL;*/
  
   INITSTATUS( status, "LALFindChirpStoreEvent", FINDCHIRPSTOREEVENTC );
   ATTATCHSTATUSPTR( status );

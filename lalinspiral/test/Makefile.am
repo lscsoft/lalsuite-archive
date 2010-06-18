@@ -11,6 +11,7 @@ check_PROGRAMS = \
 	FindChirpBCVSpinTest \
 	FindChirpBankVetoTest \
 	FindChirpTDTest \
+	FindChirpACTDTest \
 	GenerateInspiralWaveform \
 	GeneratePPNAmpCorInspiralTest \
 	GeneratePPNInspiralTest \
@@ -28,13 +29,13 @@ check_PROGRAMS = \
 	RandomInspiralSignalTest
 TESTS = $(check_PROGRAMS)
 FindChirpTDTest_SOURCES = FindChirpTDTest.c FindChirpTDTest.h
+FindChirpACTDTest_SOURCES = FindChirpACTDTest.h FindChirpTDTest.h
 endif
 
 # non-building test
 # BCVSpinTemplates
 # ChirpSpace
 # FilterTest
-# FindChirpACTDTest
 # FindChirpBCVTest
 # FindChirpSPTest
 # FindChirpTmpltTest
