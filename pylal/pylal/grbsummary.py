@@ -29,13 +29,8 @@ def directional_horizon(ifos, RA, dec, gps_time, horizons=None):
     """
     # Convert type if necessary
     if type(gps_time)==int: gps_time=float(gps_time)
-    
-#    # Recurse if multiple RA, dec and GPS times are specified
-#    if type(gps_time)!=float or type(RA)!=float or type(dec)!=float:
-#	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
-#	return map(lambda (a,b,c): detector_thresholds(ifos,a,b,c,sensitivities,min_threshold=min_threshold,max_threshold=max_threshold), zip(RA,dec,gps_time))
 
-    from pylal import antenna    
+    from pylal import antenna
 
     # Sensitivies specifies relative SNRs of a reference signal (BNS)
     if horizons is None:
@@ -69,7 +64,7 @@ def detector_thresholds(horizons,min_threshold,max_threshold=7.5):
 	if horizons[det]<best_horizon:
 		threshs[det]=min_threshold
 	else:
-		threshs[det]=min_threshold*(horizons[det]/worst_horizon)	
+		threshs[det]=min_threshold*(horizons[det]/worst_horizon)
 	if threshs[det]>max_threshold: threshs[det]=max_threshold
     return threshs
     
