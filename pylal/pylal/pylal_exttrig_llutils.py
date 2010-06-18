@@ -123,9 +123,15 @@ def system_call(item, command, divert_output_to_log = True):
   
   # and the output (and error) of the command as well
   if divert_output_to_log:
-    subprocess.call(command+' >>%s 2>>%s '%(l,l), shell=True)
+    command_actual = command+' >>%s 2>>%s '%(l,l)
   else:
-    subprocess.call(command +' 2>>%s '%l, shell=True)
+    command_actual = command +' 2>>%s '%l
+   
+  # perform the command
+  out, err = internal_call(command_actual)
+
+  if err is not None:
+    info(item, "ERROR: " +err)
 
 # -----------------------------------------------------
 def get_time():
