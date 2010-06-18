@@ -19,48 +19,58 @@ from pylal import rate
 # Detector threshold function
 ##############################################################################
 
-def detector_thresholds(ifos, RA, dec, gps_time, sensitivities=None, min_threshold=4.5, max_threshold=7.5):
+def directional_horizon(ifos, RA, dec, gps_time, horizons=None):
     """
-    Return a dictionary of sensitivity thresholds for each detector, based on
-    a minimum threshold of min_threshold in the least sensitive one, for a source
-    at position (RA,dec) specified in radians at time gps_time.
-    Specifying a dictionary of sensitivities allows one to weight also by the
-    relative SNR of a reference system in each detector to handle different noise
-    curves.
+    Return a dictionary of sensitivity numbers for each detector, based on
+    a known sky location and an optional input dictionary of inspiral horizon
+    distances for a reference source of the user's choice.
+    If the horizons dictionary is specified, the returned values are interpreted
+    as inspiral horizons in that direction.
     """
     # Convert type if necessary
     if type(gps_time)==int: gps_time=float(gps_time)
     
-    # Recurse if multiple RA, dec and GPS times are specified
-    if type(gps_time)!=float or type(RA)!=float or type(dec)!=float:
-	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
-	return map(lambda (a,b,c): detector_thresholds(ifos,a,b,c,sensitivities,min_threshold=min_threshold,max_threshold=max_threshold), zip(RA,dec,gps_time))
+#    # Recurse if multiple RA, dec and GPS times are specified
+#    if type(gps_time)!=float or type(RA)!=float or type(dec)!=float:
+#	assert len(gps_time)==len(RA),len(gps_time)==len(dec)
+#	return map(lambda (a,b,c): detector_thresholds(ifos,a,b,c,sensitivities,min_threshold=min_threshold,max_threshold=max_threshold), zip(RA,dec,gps_time))
 
     from pylal import antenna    
 
     # Sensitivies specifies relative SNRs of a reference signal (BNS)
-    if sensitivities is None:
-	sensitivities={}
+    if horizons is None:
+	horizons={}
 	for det in ifos:
-		sensitivities[det]=1.0
+		horizons[det]=1.0
     else:
-	assert len(ifos)==len(sensitivities)
-	# Normalise sensitivities
-	minsens=min(sensitivities.values())
-        for det in ifos:
-		sensitivities[det]/=minsens
+	assert len(ifos)==len(horizons)
 
     resps={}
-    threshs={}
     # Make a dictionary of average responses
     for det in ifos:
-	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[2]*sensitivities[det]
+	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[3]*sensitivities[det]
     
-    worst_resp=min(resps.values())
+    return resps
+
+def detector_thresholds(horizons,min_threshold,max_threshold=7.5):
+    """
+    Return a set of detector thresholds adjusted for a particular
+    set of inspiral horizon distances (calculated with directional_horizon).
+    The min_threshold specified the minimum threshold which will be set
+    for all detectors less sensitive than the best one. The most sensitive
+    detector will have its threshold adjusted upward to a maximum of max_threshold.
+    """
+    assert min_threshold < max_threshold
+
+    worst_horizon=min(horizons.values())
+    best_horizon=max(horizons.values())
     # Assuming that lowest threshold is in worst detector, return thresholds
-    for det in ifos:
-	threshs[det]=min_threshold*(resps[det]/worst_resp)
-    	if threshs[det]>max_threshold: threshs[det]=max_threshold
+    for det in horizons.keys():
+	if horizons[det]<best_horizon:
+		threshs[det]=min_threshold
+	else:
+		threshs[det]=min_threshold*(horizons[det]/worst_horizon)	
+	if threshs[det]>max_threshold: threshs[det]=max_threshold
     return threshs
     
 ##############################################################################
