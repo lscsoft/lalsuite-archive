@@ -124,6 +124,7 @@ class DB_summary(object):
 		xmldoc = dbtables.get_xml(connection)
 		self.file_name = filename
 		self.sim_file_name = None
+		self.verbose = verbose
 
 		cursor = connection.cursor()
 
@@ -371,12 +372,8 @@ class FUTriggers(object):
 		self.background_candidates = []
 
 	def add_contents(self, contents, stat='combined_far'):
-		if contents.sim_inspiral_table and not contents.experiment_summary_table:
-			#For now we only return summary information on non injections
-			return
-
-		if contents.experiment_summary_table:
-		# if experiment_summary table exists, check for the datatype of the triggers and discard any simulation triggers.
+		for (l, v, n) in [(self.candidates, (0,0,0,self.num), 'non playground'),(self.playground_candidates, (1,0,0,self.num), 'playground'),(self.background_candidates, (0,1,0,self.num), 'time slides')]:
+			if contents.verbose: print >>sys.stderr, "querying %s" % (n,)
 			for i,row in enumerate(contents.connection.cursor().execute("""
 SELECT
 	coinc_inspiral.coinc_event_id,
@@ -386,232 +383,28 @@ SELECT
 	coinc_inspiral.mass,
 	coinc_inspiral.mchirp,
 	coinc_inspiral.ifos,
-	coinc_event.instruments
+	coinc_event.instruments,
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) AS is_play,
+	EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AS is_slide,
+	experiment_summary.datatype = "simulation" AS is_sim
 FROM
 	coinc_inspiral
 	JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-WHERE
-	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
-	AND NOT EXISTS(
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-		AND
-			time_slide.offset != 0
+JOIN 
+	experiment_map ON (
+		experiment_map.coinc_event_id == coinc_event.coinc_event_id 
 	)
-	AND NOT EXISTS(
-		SELECT
-			*
-		FROM
-			experiment_summary
-		JOIN
-			experiment_map
-		ON
-			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-		WHERE
-			experiment_map.coinc_event_id == coinc_event.coinc_event_id
-		AND
-			experiment_summary.datatype == "simulation"
+JOIN experiment_summary ON (
+		experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id 
 	)
+WHERE is_play = ? AND is_slide = ? AND is_sim = ?
 ORDER BY
 	combined_far
 LIMIT ?
-		""", (self.num,) )):
-				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-				self.playground_candidates.append(Coinc(row, contents))
-
-			for i, row in enumerate(contents.connection.cursor().execute("""
-SELECT
-	coinc_inspiral.coinc_event_id,
-	coinc_inspiral.combined_far,
-	coinc_inspiral.snr,
-	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
-	coinc_inspiral.mass,
-	coinc_inspiral.mchirp,
-	coinc_inspiral.ifos,
-	coinc_event.instruments
-FROM
-	coinc_inspiral
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-	)
-WHERE
-	NOT EXISTS(
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
-	)
-	AND NOT EXISTS(
-		SELECT
-			*
-		FROM
-			experiment_summary
-		JOIN
-			experiment_map
-		ON
-			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-		WHERE
-			experiment_map.coinc_event_id == coinc_event.coinc_event_id
-		AND
-			experiment_summary.datatype == "simulation"
-	)
-ORDER BY
-	combined_far
-LIMIT ?
-		""", (self.num,) )):
-				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-				self.candidates.append(Coinc(row, contents))
-
-			for i, row in enumerate(contents.connection.cursor().execute("""
-SELECT
-	coinc_inspiral.coinc_event_id,
-	coinc_inspiral.combined_far,
-	coinc_inspiral.snr,
-	coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
-	coinc_inspiral.mass,
-	coinc_inspiral.mchirp,
-	coinc_inspiral.ifos,
-	coinc_event.instruments
-FROM
-	coinc_inspiral
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-	)
-WHERE
-	EXISTS(
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
-	)
-	AND NOT EXISTS(
-		SELECT
-			*
-		FROM
-			experiment_summary
-		JOIN
-			experiment_map
-		ON
-			experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-		WHERE
-			experiment_map.coinc_event_id == coinc_event.coinc_event_id
-		AND
-			experiment_summary.datatype == "simulation"
-	)
-ORDER BY
-	combined_far
-LIMIT ?
-		""", (self.num,) )):
-				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-				self.background_candidates.append(Coinc(row, contents))
-
-		else:
-		# if experiment_summary table does not exist, it is assumed that there are no software injection.
-			for i,row in enumerate(contents.connection.cursor().execute("""
-SELECT
-	coinc_inspiral.coinc_event_id,
-        coinc_inspiral.combined_far,
-        coinc_inspiral.snr,
-        coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
-        coinc_inspiral.mass,
-        coinc_inspiral.mchirp,
-        coinc_inspiral.ifos,
-        coinc_event.instruments
-FROM
-        coinc_inspiral
-        JOIN coinc_event ON (
-                coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-        )
-WHERE
-        is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
-        AND NOT EXISTS(
-                SELECT
-                        *
-                FROM
-                        time_slide
-                WHERE
-                        time_slide.time_slide_id == coinc_event.time_slide_id
-                AND
-                        time_slide.offset != 0
-        )
-ORDER BY
-        combined_far
-LIMIT ?
-		""", (self.num,) )):
-				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-				self.playground_candidates.append(Coinc(row, contents))
-
-			for i, row in enumerate(contents.connection.cursor().execute("""
-SELECT
-	coinc_inspiral.coinc_event_id,
-        coinc_inspiral.combined_far,
-        coinc_inspiral.snr,
-        coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
-        coinc_inspiral.mass,
-        coinc_inspiral.mchirp,
-        coinc_inspiral.ifos,
-        coinc_event.instruments
-FROM
-        coinc_inspiral
-        JOIN coinc_event ON (
-                coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-        )
-WHERE
-        NOT EXISTS(
-                SELECT
-                        *
-                FROM
-                        time_slide
-                WHERE
-                        time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
-        )
-ORDER BY
-        combined_far
-LIMIT ?
-		""", (self.num,) )):
-				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-				self.candidates.append(Coinc(row, contents))
-
-			for i, row in enumerate(contents.connection.cursor().execute("""
-SELECT
-	coinc_inspiral.coinc_event_id,
-        coinc_inspiral.combined_far,
-        coinc_inspiral.snr,
-        coinc_inspiral.end_time + coinc_inspiral.end_time_ns * 1.0e-9,
-        coinc_inspiral.mass,
-        coinc_inspiral.mchirp,
-        coinc_inspiral.ifos,
-        coinc_event.instruments
-FROM
-        coinc_inspiral
-        JOIN coinc_event ON (
-                coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-        )
-WHERE
-        EXISTS(
-                SELECT
-                        *
-                FROM
-                        time_slide
-                WHERE
-                        time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0
-        )
-ORDER BY
-        combined_far
-LIMIT ?
-		""", (self.num,) )):
-				#print sys.stderr, "...processing coinc %d / %d\r" %(i+1, self.num),
-				self.background_candidates.append(Coinc(row, contents))
+		""",v)):
+				l.append(Coinc(row, contents))
 
 	def topN(self):
 		if len(self.candidates) < self.num: self.num = len(self.candidates)

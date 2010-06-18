@@ -254,7 +254,7 @@ def update_database(opts):
       # extract the useful information
       words = line.split()
       grb_name = words[2]
-      grb_duration = float(words[12])
+      grb_duration = float(words[13])
 
       # skip if this GRB already had been processed
       if grb_name in grbs_processed:
@@ -268,7 +268,7 @@ def update_database(opts):
       # we found a new GRB!!
       grb_ra = float(words[3])
       grb_dec = float(words[4])
-      grb_time = words[10]
+      grb_time = words[11]
       grb_date = grb_name[:6]
       grb_gps_time = peu.get_gps_from_asc(grb_date, grb_time)
       counter += 1 

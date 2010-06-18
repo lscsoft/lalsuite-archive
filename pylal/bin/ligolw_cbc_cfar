@@ -22,6 +22,7 @@ from pylal import ligolw_sqlutils as sqlutils
 from glue import git_version
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
+from glue.ligolw import lsctables
 
 __prog__ = "ligolw_cbc_cfar"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -30,6 +31,19 @@ description = \
 "Calculates false alarm rates (FAR) in units of yr^(-1) and stores to " + \
 "specified output_column. Writes results out to a new database. "
 
+# =============================================================================
+#
+#                                   Function Definitions
+#
+# =============================================================================
+
+def get_ifo_multiplicity( ifos ):
+    """
+    Returns the number of coincident ifos in an 'ifos' string.
+
+    @ifos: a string of comma-separated ifos
+    """
+    return len( lsctables.instrument_set_from_ifos( ifos ) )
 
 # =============================================================================
 #
@@ -165,6 +179,12 @@ def parse_command_line():
         help = 
             "Turning on will cause triggers to be grouped by coincident ifos when " +
             "calculating FARs."
+            )
+    parser.add_option( "-M", "--group-by-multiplicity", action = "store_true", default = False, 
+        help = 
+            "Turning on will cause triggers to be grouped by the number of coincident ifos when " +
+            "calculating FARs. For example, doubles will be grouped with doubles, triples with triples, etc. " +
+            "Note: if both --group-by-ifos and --group-by-multiplicity on, group-by-ifos takes precedence."
             )
     parser.add_option( "-T", "--time-units", action = "store", default = 'yr',
         metavar = "s, min, hr, days, OR yr",
@@ -347,6 +367,10 @@ background.calc_bkg_durs()
 if opts.group_by_ifos:
     ifo_grouping_table = 'coinc_inspiral'
     ifo_grouping = '.'.join([ ifo_grouping_table, 'ifos' ])
+elif opts.group_by_multiplicity:
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = ''.join(['get_ifo_multiplicity(', ifo_grouping_table, '.ifos)'])
+    connection.create_function('get_ifo_multiplicity', 1, get_ifo_multiplicity)
 else:
     ifo_grouping_table = None
     ifo_grouping = '"ALL_IFOS"'
