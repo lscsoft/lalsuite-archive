@@ -1454,26 +1454,32 @@ class GRB(object):
       self.convert_segxml_to_segtxt(segxmlfile, segtxtfile)
 
   # -----------------------------------------------------
-  def update_veto_lists(self, timeoffset):
+  def update_veto_lists(self, timeoffset, veto_definer = None):
 
     definer_file = cp.get('data','veto_definer')
     starttime = self.time-timeoffset
     endtime = self.time+timeoffset
 
-    if self.veto_definer == os.path.basename(definer_file):
-      # Same veto definer file; nothing to do
-      return
+    #if self.veto_definer == os.path.basename(definer_file):
+    #  # Same veto definer file; nothing to do
+    #  return
 
-    # check for the files first
-    files_ready = True
-    for ifo in ifo_list:
-      name = '%s/%s-VETOTIME_CAT2_grb%s.txt'%(self.main_dir, ifo, self.name)
-      if not check_file(name):
-        files_ready = False
+    if not veto_definer:
+      # check for the files first
+      files_ready = True
+      for ifo in ifo_list:
+        name = '%s/%s-VETOTIME_CAT2_grb%s.txt'%(self.main_dir, ifo, self.name)
+        if not check_file(name):
+          files_ready = False
 
-    if files_ready:
-      # All files exist, nothing to do
-      return
+      if files_ready:
+        # All files exist, nothing to do
+        return
+    else:
+      definer_file = veto_definer
+    
+    # veto-definer files do not exist or this is a rerun with a specific definition 
+    # of this file
 
     cmd = "%s/bin/ligolw_segments_from_cats --database --veto-file=%s --separate-categories "\
           "--gps-start-time %d  --gps-end-time %d --output-dir=%s"\
@@ -1494,6 +1500,11 @@ class GRB(object):
            ( self.name,definer_file))
        thispath = self.main_dir +'/GRB'+self.name
        self.cleanup(thispath)
+
+    # download the original VD file for later review issues
+    filename = os.path.basename(definer_file)
+    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
+    system_call(self.name, cmd)
 
     # remember the veto definer file used
     self.veto_definer = os.path.basename(definer_file)

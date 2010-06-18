@@ -333,7 +333,7 @@ def start_ligolw(grb, dag):
 
 
 # ----------------------------------------------------
-def start_post(grb, dag, cp):
+def start_post(grb, dag, cp, veto_definer = None):
   """
   Execute the postprocessing stage for the onoff DAG
   @param grb: the GRB dictionary with all information
@@ -342,7 +342,7 @@ def start_post(grb, dag, cp):
   """
 
   # check the veto definer file to see changes
-  grb.update_veto_lists(int(cp.get('analysis','min_diff')))
+  grb.update_veto_lists(int(cp.get('analysis','min_diff')),veto_definer)
 
   # prepare the html output path
   publishing_path = cp.get('paths','publishing_path')
@@ -367,7 +367,7 @@ def start_post(grb, dag, cp):
   dag.set_status(3)
 
 # ----------------------------------------------------
-def start_post_inj(grb, dag, cp):
+def start_post_inj(grb, dag, cp, veto_definer = None):
   """
   Execute the postprocessing stage for the inj DAG
   @param grb: the GRB dictionary with all information
@@ -376,7 +376,7 @@ def start_post_inj(grb, dag, cp):
   """
 
   # check the veto definer file to see changes
-  grb.update_veto_lists(int(cp.get('analysis','min_diff')))
+  grb.update_veto_lists(int(cp.get('analysis','min_diff')),veto_definer)
 
   # prepare the html output path; might be in onoff DAG, but just a precaution
   publishing_path = cp.get('paths','publishing_path')
@@ -439,7 +439,17 @@ def analysis_finalized(grb, dag):
 
 
 # -----------------------------------------------------
-def check_rerun(grb, dag, cp, force = False):
+def check_rerun(grb, dag, cp, force = False, veto_definer = None):
+  """
+  Function to check if this the postprocessing DAG of this GRB
+  should be rerun, and with what special options (force, veto_definer)
+  @param grb: instance of the GRB
+  @param dag: instance of the DAG
+  @param cp: config parser object
+  @param force: Force to rerun the postprocessing even if it is the 
+                same version of pylal (e.g. for testing etc)
+  @param veto_definer: Name of the veto-definer file to be used for the rerun
+  """
 
   # execute this function only for finished DAGs
   # or for DAGs with errors
@@ -459,9 +469,9 @@ def check_rerun(grb, dag, cp, force = False):
     return
 
   if type=='onoff':
-    start_post(grb, dag, cp)
+    start_post(grb, dag, cp, veto_definer)
   elif type=='inj':
-     start_post_inj(grb, dag, cp)
+     start_post_inj(grb, dag, cp, veto_definer)
   else:
     raise ValueError, "Type '%s' unknown. There might be a serious bug somewhere..."
 
@@ -501,7 +511,8 @@ def parse_args():
         help="If this flag is set, do a rerun of the postprocessing for onoff and lik stages.")
     parser.add_option( "--force-rerun",default=False, action="store_true",\
         help="If this flag is set, it forced a rerun even if the tag agrees (for testing of new code etc.).")
-
+    parser.add_option( "--update-veto-definer",default=None, action="store",\
+        help="Specifies a particular veto-definer file to be used for the rerun.")
   
     # verbosity arguments
     parser.add_option("--info", action="store_true", default=False, \
@@ -586,7 +597,7 @@ for grb in monitor_list:
     # check if the postprocessing analyses should be rerun
     if opts.rerun:
       if not opts.grb or grb.name==opts.grb:
-        check_rerun(grb, dag, cp, opts.force_rerun)
+        check_rerun(grb, dag, cp, opts.force_rerun, veto_definer = opts.update_veto_definer)
 
     # skip this DAG if it is finished (5) or has not started yet
     if dag.get_status()==0 or dag.get_status()==5:
