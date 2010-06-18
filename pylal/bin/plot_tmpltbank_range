@@ -45,8 +45,8 @@ class InspiralRangeFromSummValue(object):
 	def ns_by_time_ifo(self, ifo):
 		try:
 			#FIXME THIS IS TERRIBLE
-			time = self.start[ifo][('1.40', '1.40')]
-			distance = self.distance[ifo][('1.40', '1.40')]
+			time = self.start[ifo][('25.00', '25.00')]
+			distance = self.distance[ifo][('25.00', '25.00')]
 			return time, distance
 		except:
 			return [], []
@@ -107,23 +107,24 @@ print >>sys.stderr, "\n"
 ifodata = IFOdata()
 pylab.figure(figsize=(15,5))
 start = []
+print range.start
 for ifo in range.start.keys():
 	time, dist = range.ns_by_time_ifo(ifo)
 	if len(time) > 0: start.append(min(time))
 start = min(start)
 
 outtab=open('%s_%s_%s.txt' % (opts.base, os.path.basename(sys.argv[0]), "-".join(opts.pattern).replace(".*","")), "w")
-outtab.write("||DETECTOR||NS RANGE||STD. DEV.||\n")
+outtab.write("||DETECTOR||(25,25) BH RANGE||STD. DEV.||\n")
 for ifo in range.start.keys():
 	pylab.subplot(131)
 	time, dist = range.ns_by_time_ifo(ifo)
 	outtab.write("||%s||%.2f||%.2f||\n" % (ifo,numpy.mean(dist), numpy.std(dist)))
 	pylab.plot((numpy.array(time)-start) / 86400.0, dist, color=ifodata.color(ifo),marker=ifodata.line(ifo))
 	pylab.xlabel("Time (days) relative to %d" % start)
-	pylab.ylabel("NS range (Mpc)")
+	pylab.ylabel("(25,25) BH range (Mpc)")
 	pylab.subplot(132)
 	pylab.hist(dist, bins=range.get_bins(), alpha=0.35, ec=ifodata.color(ifo), fc=ifodata.color(ifo), ls='solid', linewidth=2.0)#, color=ifodata.color(ifo))
-	pylab.xlabel("NS range (Mpc)")
+	pylab.xlabel("(25,25) BH range (Mpc)")
 	pylab.ylabel("Number")
 	pylab.subplot(133)
 	mass, mean, std = range.mean_std_by_mass_ifo(ifo)
