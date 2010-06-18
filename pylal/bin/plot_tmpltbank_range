@@ -109,7 +109,7 @@ pylab.figure(figsize=(15,5))
 start = []
 for ifo in range.start.keys():
 	time, dist = range.ns_by_time_ifo(ifo)
-	start.append(min(time))
+	if len(time) > 0: start.append(min(time))
 start = min(start)
 
 outtab=open('%s_%s_%s.txt' % (opts.base, os.path.basename(sys.argv[0]), "-".join(opts.pattern).replace(".*","")), "w")
