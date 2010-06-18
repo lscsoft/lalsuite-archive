@@ -3,6 +3,7 @@
 #include <string.h>
 /* We need this define to get NAN values */
 #define __USE_ISOC99
+#define __USE_GNU
 #include <math.h>
 #include <gsl/gsl_cblas.h>
 
@@ -67,17 +68,18 @@ return(1.0/(1.0-a+a*a));
 	This function is meant to work with accumulate_loose_power_sums_sidereal_step
 */
 
+#define INV_1800 0.00055555555555555555555
 
 static double inline exp_kernel(double delta, double gps_delta)
 {
-return(exp(gps_delta*log(sin(delta)/delta)/1800.0));
+return(exp(gps_delta*log(sin(delta)/delta)*INV_1800));
 }
 
 static double inline sinc_kernel(double delta, double gps_delta)
 {
 double b;
 if(gps_delta<=0)return 1.0;
-b=delta*gps_delta/1800.0;
+b=delta*gps_delta*INV_1800;
 return(sin(b)/b);
 }
 
@@ -85,7 +87,7 @@ static double inline lanczos_kernel3(double delta, double gps_delta)
 {
 double b;
 if(gps_delta<=0)return 1.0;
-b=delta*gps_delta/1800.0;
+b=delta*gps_delta*INV_1800;
 if(b>3.0*M_PI)return 0.0;
 return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/3.0));
 }
@@ -94,7 +96,7 @@ static double inline lanczos_kernel2(double delta, double gps_delta)
 {
 double b;
 if(gps_delta<=0)return 1.0;
-b=delta*gps_delta/1800.0;
+b=delta*gps_delta*INV_1800;
 if(b>2.0*M_PI)return 0.0;
 return(sinc_kernel(delta, gps_delta)*sinc_kernel(delta, gps_delta/2.0));
 }
@@ -263,11 +265,8 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	//fprintf(stderr, " [%d, %d] (%f %f) %.4f %.4f (%f %f %f %g)\n", k, m, gps_mid, gps_delta, phase_offset, phase_increment, priv->emission_time[si_local->index].deltaT, priv->emission_time[si_local2->index].deltaT, (priv->emission_time[si_local->index].deltaT*gps1-priv->emission_time[si_local2->index].deltaT*gps2), priv->spindown);
 #endif
 
-	f0m_c=cosf(phase_offset);
-	f0m_s=sinf(-phase_offset);
-
-	inc_c=cosf(phase_increment);
-	inc_s=sinf(-phase_increment);
+	sincosf(-phase_offset, &f0m_s, &f0m_c);
+	sincosf(-phase_increment, &inc_s, &inc_c);
 
  	d=&(datasets[si_local->dataset]);
  	d2=&(datasets[si_local2->dataset]);
@@ -364,13 +363,12 @@ pps->c_weight_cccc=weight_cccc;
 pps->collapsed_weight_arrays=0;
 }
 
-
 static int is_nonzero_loose_partial_power_sum(SUMMING_CONTEXT *ctx, SEGMENT_INFO *si1, int count1, SEGMENT_INFO *si2, int count2)
 {
 int k,m;
 SEGMENT_INFO *si_local1, *si_local2;
 //POLARIZATION *pl;
-double x, beta;
+double x;
 int same_halfs=(si1[0].segment==si2[0].segment) && (si1[0].dataset==si2[0].dataset);
 SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv=(SINGLE_BIN_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *)ctx->patch_private_data;
 
@@ -391,8 +389,6 @@ si_local1=si1;
 for(k=0;k<count1;k++) {
 	si_local2=si2;
 	for(m=0;m<count2;m++) {
-
-		beta=fabs(si_local1->gps-si_local2->gps)*args_info.phase_mismatch_arg*priv->inv_coherence_length;
 
 		if(same_halfs && (k==m))x=1.0;
 			else x=2.0;
@@ -711,6 +707,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		// 			si[j].ra=ps[i].patch_ra;
 		// 			si[j].dec=ps[i].patch_dec;
 		// 			memcpy(si[j].e, ps[i].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
+
+					si_local->index= (j<ctx->loose_first_half_count ? groups[k][j].index : groups[m][j-ctx->loose_first_half_count].index)+segment_count*i;
 		
 					si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(si_local->gps+si_local->coherence_time*0.5-spindown_start))+
 						(center_frequency+ps_local->freq_shift)*args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
