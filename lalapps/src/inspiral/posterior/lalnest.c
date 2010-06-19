@@ -47,6 +47,7 @@
 extern CHAR outfile[FILENAME_MAX];
 extern double etawindow;
 extern double timewindow;
+extern int multinest_seg;
 CHAR **CacheFileNames = NULL;
 CHAR **ChannelNames = NULL;
 CHAR **IFOnames = NULL;
@@ -166,6 +167,8 @@ void initialise(int argc, char *argv[]){
 		{"channel",required_argument,0,'C'},
 		{"highmass",no_argument,0,15},
 		{"decohere",required_argument,0,16},
+                {"multinest_seg",no_argument,0,'s'},
+
 		{0,0,0,0}};
 	
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -278,6 +281,9 @@ void initialise(int argc, char *argv[]){
 		case 'o':
 			strcpy(outfile,optarg);
 			break;
+		case 's':
+			multinest_seg=atoi(optarg);
+                        break;
 		case 'G':
 			GPS=atof(optarg);
 			XLALGPSSetREAL8(&datastart,GPS);

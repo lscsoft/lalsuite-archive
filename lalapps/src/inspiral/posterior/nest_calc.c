@@ -10,6 +10,7 @@ gsl_matrix *cov_mat;
 
 CHAR outfile[FILENAME_MAX];
 double etawindow;
+int multinest_seg = 0;
 
 INT4 seed;
 

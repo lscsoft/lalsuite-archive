@@ -35,6 +35,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
 #include "LALInspiralMCMC.h"
+#include "MultiNest_calc.h"
 
 #include <lal/Date.h>
 #include <lal/Random.h>
@@ -383,18 +384,7 @@ int CubeToCommonPriorParams(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   timeMax = param->core->maxVal;
   double time = flatPrior(Cube[i], timeMin, timeMax);
   XLALMCMCSetParameter(parameter, "time", time);
-  Cube[i] = time;
-  i++;
-  
-  // eta
-  param = NULL;
-  double etaMax, etaMin;
-  param = XLALMCMCGetParam(parameter, "eta");
-  etaMin = param->core->minVal;
-  etaMax = param->core->maxVal;
-  double eta = flatPrior(Cube[i], etaMin, etaMax);
-  XLALMCMCSetParameter(parameter, "eta", eta);
-  Cube[i] = eta;
+  Cube[i] = time - inputMCMC->stilde[0]->epoch.gpsSeconds + 1e-9*inputMCMC->stilde[0]->epoch.gpsNanoSeconds;
   i++;
 }
 
@@ -611,34 +601,48 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   REAL8 minCompMass = 1.0;
   REAL8 maxCompMass = 34.0;
 #define MAX_MTOT 35.0
-  
-  CubeToCommonPriorParams(Cube, inputMCMC, parameter);
-  
-  double eta = Cube[6];
-  int i = 7;
+
+  int i = 0;
   LALMCMCParam* param = NULL;
-  
+
   // chirp mass
+  if( Cube[i] < (multinest_seg - 1) * 0.25 || Cube[i] > multinest_seg * 0.25 ) return 0;
   double mcMin, mcMax;
   if(XLALMCMCCheckParameter(parameter,"logM"))
   {
-  	param = XLALMCMCGetParam(parameter, "logM");
-	mcMin = exp(param->core->minVal);
-	mcMax = exp(param->core->maxVal);
+        param = XLALMCMCGetParam(parameter, "logM");
+        mcMin = exp(param->core->minVal);
+        mcMax = exp(param->core->maxVal);
   }
   else
   {
-  	param = XLALMCMCGetParam(parameter, "mchirp");
-	mcMin = param->core->minVal;
-	mcMax = param->core->maxVal;
+        param = XLALMCMCGetParam(parameter, "mchirp");
+        mcMin = param->core->minVal;
+        mcMax = param->core->maxVal;
   }
   double mc = powerPrior(-5.0/6.0, Cube[i], mcMin, mcMax);
   if(XLALMCMCCheckParameter(parameter,"logM"))
-  	XLALMCMCSetParameter(parameter, "logM", log(mc));
+        XLALMCMCSetParameter(parameter, "logM", log(mc));
   else
-  	XLALMCMCSetParameter(parameter, "mchirp", mc);
+        XLALMCMCSetParameter(parameter, "mchirp", mc);
   Cube[i] = mc;
   i++;
+
+
+  // eta
+  param = NULL;
+  double etaMax, etaMin;
+  param = XLALMCMCGetParam(parameter, "eta");
+  etaMin = param->core->minVal;
+  etaMax = param->core->maxVal;
+  double eta = flatPrior(Cube[i], etaMin, etaMax);
+  XLALMCMCSetParameter(parameter, "eta", eta);
+  Cube[i] = eta;
+  i++;
+
+  
+  CubeToCommonPriorParams(&Cube[2], inputMCMC, parameter);
+  i = 8;
   
   // luminosity distance in Mpc
   param = NULL;
