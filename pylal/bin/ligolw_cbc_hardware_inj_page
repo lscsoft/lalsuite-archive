@@ -94,7 +94,7 @@ def get_expected_snr(filenames,ifo,time):
 #	print tabs
 	tabs=filter(lambda x: x.ifo==ifo,tabs)
 #	print ifo
-	if tabs is not None: print tabs
+#	if tabs is not None: print tabs
 	if len(tabs)==0: return None
 	return tabs[0].value
 
@@ -377,7 +377,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected[ifo],analysed[ifo],found[ifo],expSNR))
 			print >>sys.stdout, '%s %f %f %d %d %d' % (str(inj.get_end()),inj.mchirp,chirp_dist(inj,ifo),injected[ifo],analysed[ifo],found[ifo])
 		print >>outfile,'</tr>'
-	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td>'
+	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
 	for ifo in ifos:
 		print >>outfile,'<td>%i / %i / %i</td>'%(totalfound[ifo],totalanalysed[ifo],totalinj[ifo])
 	print >>outfile,'</tr>'
@@ -452,7 +452,6 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			for (filt,symb,injtype) in zip((lessTwenty,moreTwenty),('x','o'),('<20 Msun','>20 Msun')):
 				results = filter(filt,statelist[ifo])
 				if results is not None:
-					print results
 					found = filter(lambda tup: tup[2] and tup[4] and tup[5] is not None,results)
 					missed=filter(lambda tup: tup[2] and tup[4]!=1 and tup[3] and tup[5] is not None,results)
 					foundx=map(lambda i: int(i[0]),found)
@@ -644,15 +643,7 @@ if opts.cache_file is not None:
 # =============================================================================
 # Read in the injections
 injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.source_xml])
-def injsortfilter(a,b):
-	if a.get_end<b.get_end:
-		return -1
-	if a.get_end==b.get_end:
-		return 0
-	else:
-		return 1
-
-injections.sort(injsortfilter)
+injections.sort(key=lambda a:a.get_end())
 
 # =============================================================================
 # Write the output pages
