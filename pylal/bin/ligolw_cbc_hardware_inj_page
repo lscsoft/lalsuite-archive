@@ -388,9 +388,10 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	tabfile=open(opts.outfile.replace('.html','_table.html'),'a')
 	print >>tabfile,'</body></html>'
 	tabfile.close()
-        if db_connection:
-           db_connection.close()
-           dbtable.discard_connection_filename(opts.pipedown_db,db_working_filename)
+        if opts.pipedown_db:
+		if db_connection:
+           		db_connection.close()
+           		dbtable.discard_connection_filename(opts.pipedown_db,db_working_filename)
 	# Generate plot for injections
 	import matplotlib
 	matplotlib.use('Agg')
