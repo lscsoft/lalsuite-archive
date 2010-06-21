@@ -92,7 +92,7 @@ def update_ids(xmldoc, connection, verbose = False):
 	dbtables.idmap_reset(connection)
 
 
-def insert(connection, urls, preserve_ids = False, verbose = False):
+def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 	"""
 	Iterate over a sequence of URLs and parse and insert each one into
 	the database the dbtables.DBTable class is currently connected to.
@@ -133,8 +133,7 @@ def insert_from_xmldoc(connection, xmldoc, preserve_ids = False, verbose = False
 		# disable ID remapping
 		dbtables.DBTable.append = dbtables.DBTable._append
 
-	table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
-	for tbl in table_elems:
+	for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
 		dbtab = dbtables.DBTable(tbl.attributes, connection=connection)
 		for elem in tbl.childNodes:
 			if isinstance(elem, dbtables.table.TableStream):

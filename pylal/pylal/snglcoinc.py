@@ -313,6 +313,14 @@ class CoincTables(object):
 		Takes a process ID, a time slide ID, and a list of events,
 		and adds the events as a new coincidence to the coinc_event
 		and coinc_map tables.
+
+		Subclasses that wish to override this method should first
+		chain to this method to construct and initialize the
+		coinc_event and coinc_event_map rows.  When subclassing
+		this method, if the time shifts that were applied to the
+		events in constructing the coincidence are required to
+		compute additional metadata, they can be retrieved from
+		self.time_slide_index using the time_slide_id.
 		"""
 		# so we can iterate over it more than once incase we've
 		# been given a generator expression.
@@ -424,7 +432,13 @@ class EventList(list):
 	unless you know what you're doing.
 	"""
 	def __init__(self, instrument):
+		# the offset that should be added to the times of events in
+		# this list when comparing to the times of other events.
+		# used to implement time-shifted coincidence tests
 		self.offset = lsctables.LIGOTimeGPS(0)
+
+		# the name of the instrument from which the events in this
+		# list have been taken
 		self.instrument = instrument
 
 	def make_index(self):
@@ -438,18 +452,6 @@ class EventList(list):
 		"""
 		pass
 
-	def _add_offset(self, delta):
-		"""
-		Add an amount to the time of each event.  This method is
-		used internally by the set_offset() method, and is provided
-		to simplify the construction of search-specific subclasses.
-		Typically, the _add_offset() method will be overridden with
-		a search-specific implementation, while the set_offset()
-		method is not modified (which does some additional book
-		keeping, such as updating the offset attribute).
-		"""
-		raise NotImplementedError
-
 	def set_offset(self, offset):
 		"""
 		Set an offset on the times of all events in the list.
@@ -460,29 +462,38 @@ class EventList(list):
 		# LIGOTimeGPS objects are exact, so by recording the offset
 		# as a LIGOTimeGPS it should be possible to return the
 		# events to exactly their original times before exiting.
-		offset = lsctables.LIGOTimeGPS(offset)
+		self.offset = lsctables.LIGOTimeGPS(offset)
 
-		# check for no-op
-		if offset != self.offset:
-			# apply the delta
-			self._add_offset(offset - self.offset)
-
-			# record the new offset
-			self.offset = offset
-
-	def get_coincs(self, event_a, light_travel_time, threshold, comparefunc):
+	def get_coincs(self, event_a, offset_a, light_travel_time, threshold, comparefunc):
 		"""
 		Return a list of the events from this list that are
 		coincident with event_a.
+
+		offset_a is the time shift to be added to the time of
+		event_a before comparing to the times of events in this
+		list.  The offset attribute of will contain the time shift
+		to be added to the times of the events in this list before
+		comparing to event_a.  That is, the times of arrival of the
+		events in this list should have (self.offset - offset_a)
+		added to them before comparing to the time of arrival of
+		event_a.  Or, equivalently, the time of arrival of event_a
+		should have (offset_a - self.offset) added to it before
+		comparing to the times of arrival of the events in this
+		list.  This must be done to support the construction of
+		time shifted coincidences.
+
+		Because it is frequently needed by implementations of this
+		method, the distance in light seconds between the two
+		instruments is provided as the light_travel_time parameter.
 
 		The threshold argument will be the thresholds appropriate
 		for "instrument_a, instrument_b", in that order, where
 		instrument_a is the instrument for event_a, and
 		instrument_b is the instrument for the events in this
-		EventList.  Because it is frequently needed by
-		implementations of this method, the distance in light
-		seconds between the two instruments is provided as the
-		light_travel_time parameter.
+		EventList.
+
+		comparefunc is the function to use to compare events in
+		this list to event_a.
 		"""
 		raise NotImplementedError
 
@@ -511,6 +522,9 @@ class EventListDict(dict):
 		"""
 		for event in event_table:
 			if (process_ids is None) or (event.process_id in process_ids):
+				# FIXME:  only works when the isntrument
+				# name is in the "ifo" column.  true for
+				# inspirals, bursts and ringdowns
 				if event.ifo not in self:
 					self[event.ifo] = EventListType(event.ifo)
 				self[event.ifo].append(event)
@@ -564,17 +578,19 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	The signature of the comparison function should be
 
-	>>> comparefunc(event1, event2, light_travel_time, threshold_data)
+	>>> comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
 
 	where event1 and event2 are two objects drawn from the event lists
-	(from different instruments), light_travel_time is the distance
-	between the instruments in light seconds, and threshold_data is the
-	value contained in the thresholds dictionary for the pair of
-	instruments from which event1 and event2 have been drawn.  The
-	return value should be 0 (False) if the events are coincident, and
-	non-zero otherwise (the behaviour of the comparison function is
-	like a subtraction operator, returning 0 when the two events are
-	"the same").
+	(from different instruments), offset1 and offset2 are the time
+	shifts that should be added to the arrival times of event1 and
+	event2 respectively, light_travel_time is the distance between the
+	instruments in light seconds, and threshold_data is the value
+	contained in the thresholds dictionary for the pair of instruments
+	from which event1 and event2 have been drawn.  The return value
+	should be 0 (False) if the events are coincident, and non-zero
+	otherwise (the behaviour of the comparison function is like a
+	subtraction operator, returning 0 when the two events are "the
+	same").
 
 	The thresholds dictionary should look like
 
@@ -628,7 +644,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 		# iterate over events from the other list that are
 		# coincident with the event.
 
-		for eventb in eventlistb.get_coincs(eventa, light_travel_time, thresholds, comparefunc):
+		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
 			yield (eventa, eventb)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
