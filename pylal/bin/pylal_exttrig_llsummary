@@ -45,7 +45,7 @@ ifo_list = ['H1','L1','V1']
 
 # the html template. File html_template.html
 html_template ="""
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td><td>T<sub>90</sub></td><td>IFOS</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td><td>macrot90</td><td>macroifos</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td><td>T<sub>90</sub></td><td>IFOS</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td><td>macrot90</td><td>macroifos</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>L1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodetl1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>
 summary of this GRB <a href="http://grblog.org/grblog.php?view=burst&GRB=macrogrbname">here</a><br>
 google sky kml-file <a href="macrokml">here</a><br>
 segments availability <a href="macrosegplot">here</a><br>
@@ -678,7 +678,7 @@ write_file(opts.output_path, kml_filename, kml)
 html = create_html(grb, opts)
 
 # populate the antenna factor table
-for ifo in ['H1','H2','L1','G1','V1']:
+for ifo in ['H1','L1','V1']:
   
   # compute the antenna factor for this time and position on the sky
   f_plus, f_cross, f_ave, f_q = antenna.response( grb.time, grb.ra, grb.de,\
