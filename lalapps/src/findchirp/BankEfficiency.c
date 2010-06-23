@@ -50,7 +50,7 @@ main (INT4 argc, CHAR **argv )
   UserParametersIn       userParam;
 
   /* --- signal related --- */
-  REAL4Vector            signal;
+  REAL4Vector            signalvec;
   RandomInspiralSignalIn randIn;
 
   /* --- template bank related --- */
@@ -182,7 +182,7 @@ main (INT4 argc, CHAR **argv )
   if (userParam.template == BCV)
   {
     INT4 n;
-    n = signal.length;
+    n = signalvec.length;
     bankefficiencyBCV.FilterBCV1.length = n;
     bankefficiencyBCV.FilterBCV2.length = n;
     bankefficiencyBCV.FilterBCV1.data = (REAL4*)LALCalloc(1, sizeof(REAL4) * n);
@@ -195,7 +195,7 @@ main (INT4 argc, CHAR **argv )
 
     memset( &ampCorInitParams, 0, sizeof( ampCorInitParams ) );
     ampCorInitParams.approximant    = AmpCorPPN;
-    ampCorInitParams.numPoints      = signal.length;
+    ampCorInitParams.numPoints      = signalvec.length;
     ampCorInitParams.numSegments    = 1;
     ampCorInitParams.numChisqBins   = 8;
     ampCorInitParams.createRhosqVec = 1;
@@ -227,9 +227,9 @@ main (INT4 argc, CHAR **argv )
                                      1.0 / ( REAL4 )( randIn.param.tSampling );
 
     ampCorDataSegVec->data->spec->deltaF = (REAL4)( randIn.param.tSampling 
-                                           / signal.length ); 
+                                           / signalvec.length ); 
     ampCorFreqSegVec->data->data->deltaF = (REAL4)( randIn.param.tSampling 
-                                           / signal.length ); 
+                                           / signalvec.length ); 
 
     ampCorTmpltParams->deltaT = 1.0 / ( REAL4 )( randIn.param.tSampling );
     ampCorTmpltParams->fLow = randIn.param.fLower; 
@@ -352,7 +352,7 @@ main (INT4 argc, CHAR **argv )
       if( randIn.type != 1 )
       {
         INT4  diff = ampCorDataSegVec->data->chan->data->length 
-                     - signal.length;
+                     - signalvec.length;
         for( i=(INT4)ampCorDataSegVec->data->chan->data->length-1; i>-1; --i )
         {
           if( i > diff )

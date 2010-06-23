@@ -406,7 +406,7 @@ void BankEfficiencyBankPrintXML(
 
 void BankEfficiencyGenerateInputData(
   LALStatus              *status,
-  REAL4Vector            *signal,
+  REAL4Vector            *signalvec,
   RandomInspiralSignalIn *randIn,
   UserParametersIn        userParam);
 
@@ -459,7 +459,7 @@ void BankEfficiencyCreateVectorFreqPower(
  * */
 void BankEfficiencyGenerateWaveform(
   LALStatus              *status,
-  REAL4Vector            *signal,
+  REAL4Vector            *signalvec,
   RandomInspiralSignalIn *params);
 
 
