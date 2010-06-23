@@ -92,8 +92,8 @@ def get_column_list(tableName, with_sngl = False):
     columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
     row_span_columns = rspan_break_columns = []
   elif tableName == 'selected_found_injections':
-    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2']
-    row_span_columns = rspan_break_columns = []
+    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','recovered_ifos','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_mchirp']
+    row_span_columns = rspan_break_columns = ['injected_decisive_distance', 'injected_end_time', 'injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs','injected_mass1', 'injected_mass2', 'injected_mchirp']
   return columnList, row_span_columns, rspan_break_columns
 
 usage = """%prog [options]
