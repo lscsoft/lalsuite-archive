@@ -799,7 +799,7 @@ class FollowupTrigger:
     return page
   
   # --------------------------------------------
-  def create_table_coinc(self, coinc,snglInspirals=None):
+  def create_table_coinc(self, coinc,snglInspirals=None,page=None):
     """
     Creates the first table containing basic properties
     of the coincidence which is followed up.
@@ -807,8 +807,9 @@ class FollowupTrigger:
     """
     
     ## create the web-page and add a table
-    page = markup.page()
-    page.h1("Followup trigger #"+str(self.number))
+    if not page:
+      page = markup.page()
+      page.h1("Followup trigger #"+str(self.number))
     page.add('<table border="2">')
 
     page.add('<caption><b>Coincidence Information</b></caption>')
@@ -1128,7 +1129,7 @@ class FollowupTrigger:
     
   # -----------------------------------------------------
   def from_found(self, found, ifo = None, more_infos = False, \
-                 injection_id = None):
+                 injection_id = None,coinc = None, sngls = None):
     """
     Creates a followup page from a found injection.
     @param sngl: the found injection to be followed up
@@ -1139,11 +1140,12 @@ class FollowupTrigger:
     """
 
     return self.from_injection(found, ifo = ifo, more_infos = more_infos, \
-                               injection_id = injection_id )
+                               injection_id = injection_id,coinc=coinc, \
+                               sngls = sngls )
     
   # -----------------------------------------------------
   def from_injection(self, injection, ifo = None, more_infos = True, \
-                     injection_id = None):
+                     injection_id = None,coinc = None, sngls = None):
     """
     Creates a followup page from an injection.
     @param injection: the injection to be followed up
@@ -1161,6 +1163,9 @@ class FollowupTrigger:
 
     # prepare the page
     page =  self.create_table_inj(injection)
+
+    if coinc and sngls:
+      page =  self.create_table_coinc(coinc,snglInspirals= sngls,page=page)
 
     self.flag_followup = more_infos
     
