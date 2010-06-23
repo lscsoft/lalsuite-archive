@@ -981,6 +981,7 @@ void BankEfficiencyPrintResults(
   BankEfficiencySimulation simulation)
 {
 /*  FILE *fs; */
+  (void)simulation;
   fprintf(stdout,
   "%8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %d\n",
       result.mass1_trigger, result.mass2_trigger,
@@ -2376,7 +2377,7 @@ void BankEfficiencyGenerateInputData(
   if (randnStartPad==1)
   {
     randIn->param.nStartPad = XLALUniformDeviate( randParams ) 
-                                * signal->length / 2 ;
+                                * signalvec->length / 2 ;
   }
 
   trial = 0 ;
@@ -2492,12 +2493,12 @@ void BankEfficiencyGenerateInputData(
 
         if( userParam.template == AmpCorPPN )
         {
-          LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+          LALRandomInspiralSignalTimeDomain(status->statusPtr, signalvec, randIn);
           CHECKSTATUSPTR(status); 
         }
         else
         {
-          LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+          LALRandomInspiralSignal(status->statusPtr, signalvec, randIn);
           CHECKSTATUSPTR(status); 
         }
         randIn->param.massChoice = temp;
@@ -2541,12 +2542,12 @@ void BankEfficiencyGenerateInputData(
       /*Here, we  randomize the masses*/  
       if( userParam.template == AmpCorPPN )
       {
-        LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+        LALRandomInspiralSignalTimeDomain(status->statusPtr, signalvec, randIn);
         CHECKSTATUSPTR(status); 
       }
       else
       {
-        LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+        LALRandomInspiralSignal(status->statusPtr, signalvec, randIn);
         CHECKSTATUSPTR(status); 
       }
     }
@@ -2564,12 +2565,12 @@ void BankEfficiencyGenerateInputData(
     randIn->param.massChoice = m1Andm2;
     if( userParam.template == AmpCorPPN )
     {
-      LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+      LALRandomInspiralSignalTimeDomain(status->statusPtr, signalvec, randIn);
       CHECKSTATUSPTR(status); 
     }
     else
     {
-      LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+      LALRandomInspiralSignal(status->statusPtr, signalvec, randIn);
       CHECKSTATUSPTR(status); 
     }
   }    
@@ -2766,7 +2767,6 @@ void BankEfficiencyBankPrintXML(
   CHAR  ifoName[3][LIGOMETA_IFO_MAX];
   MetadataTable         processParamsTable;
   ProcessParamsTable   *this_proc_param = NULL;
-  SnglInspiralTable    *tmpTable = templateBank->snglInspiralTable;
 
 
   strncpy( ifoName[0], "no", LIGOMETA_IFO_MAX * sizeof(CHAR) );
