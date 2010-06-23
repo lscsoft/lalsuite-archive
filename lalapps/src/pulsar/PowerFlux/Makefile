@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.39-64
+VERSION=1.4.41-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -410,8 +410,9 @@ upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-mt gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-mt.$(VERSION)
 	scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
 	
-upload.h: powerflux-condor powerflux-mt
+upload.h: powerflux-condor powerflux-mt powerflux-condor2 powerflux-mt2
 	gsiscp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
+	gsiscp -C powerflux-condor2 ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor2.$(VERSION)
 	gsiscp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
 upload.l: powerflux-condor powerflux-mt
