@@ -29,7 +29,7 @@ check_PROGRAMS = \
 	RandomInspiralSignalTest
 TESTS = $(check_PROGRAMS)
 FindChirpTDTest_SOURCES = FindChirpTDTest.c FindChirpTDTest.h
-FindChirpACTDTest_SOURCES = FindChirpACTDTest.h FindChirpTDTest.h
+FindChirpACTDTest_SOURCES = FindChirpACTDTest.c FindChirpACTD.h FindChirpTDTest.h
 endif
 
 # non-building test
