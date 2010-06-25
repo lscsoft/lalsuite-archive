@@ -131,6 +131,7 @@ static char *get_next_line( char *line, size_t size, FILE *fp )
 
 int sortTriggers = 0;
 LALPlaygroundDataMask dataType;
+extern int vrbflg;
 
 int main( int argc, char *argv[] )
 {
@@ -138,7 +139,6 @@ int main( int argc, char *argv[] )
   LALStatus status = blank_status;
 
   /*  program option variables */
-  extern int vrbflg;
   CHAR *userTag = NULL;
   CHAR comment[LIGOMETA_COMMENT_MAX];
   char *ifos = NULL;
@@ -209,9 +209,6 @@ int main( int argc, char *argv[] )
   LIGOLwXMLStream       xmlStream;
   MetadataTable         outputTable;
   MetadataTable         savedEvents;
-  MultiInspiralTable   *tempTable = NULL;
-  LIGOLwXMLStream       results;
-  CHAR                  xmlname[FILENAME_MAX];
 
   /*
    *
@@ -1052,7 +1049,6 @@ int main( int argc, char *argv[] )
 
   if ( extractSlide )
   {
-    MultiInspiralTable *slideTrig = NULL;
     slideEvent = XLALMultiInspiralSlideCut( &inspiralEventList, extractSlide );
     /* free events from other slides */
     while ( inspiralEventList )
@@ -1087,7 +1083,7 @@ int main( int argc, char *argv[] )
     { 
       int slide = 0;
       int numClusteredSlide = 0;
-      MultiInspiralTable *slideEvent = NULL;
+      MultiInspiralTable *tmp_slideEvent = NULL;
       MultiInspiralTable *slideClust = NULL;
       
       if ( vrbflg ) fprintf( stdout, "splitting events by slide\n" );
@@ -1096,7 +1092,7 @@ int main( int argc, char *argv[] )
       {
         if ( vrbflg ) fprintf( stdout, "slide number %d; ", slide );
         /* extract the slide */
-        slideEvent = XLALMultiInspiralSlideCut( &inspiralEventList, slide );
+        tmp_slideEvent = XLALMultiInspiralSlideCut( &inspiralEventList, slide );
         /* run clustering */
         numClusteredSlide = XLALClusterMultiInspiralTable( &slideEvent, 
           cluster_dt, clusterchoice);
@@ -1106,15 +1102,15 @@ int main( int argc, char *argv[] )
         numClusteredEvents += numClusteredSlide;
 
         /* add clustered triggers */
-        if( slideEvent )
+        if( tmp_slideEvent )
         {
           if( slideClust )
           {
-            thisEvent = thisEvent->next = slideEvent;
+            thisEvent = thisEvent->next = tmp_slideEvent;
           }
           else
           {
-            slideClust = thisEvent = slideEvent;
+            slideClust = thisEvent = tmp_slideEvent;
           }
           /* scroll to end of list */
           for( ; thisEvent->next; thisEvent = thisEvent->next);

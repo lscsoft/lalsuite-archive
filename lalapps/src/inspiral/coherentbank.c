@@ -130,7 +130,6 @@ int main( int argc, char *argv[] )
   LIGOTimeGPS endTimeGPS = {0,0};
   INT8        startTimeNS = 0;
   INT8        endTimeNS = 0;
-  INT8        tmpCoincEndTime = 0;
   CHAR  ifos[LIGOMETA_IFOS_MAX];
 
   CHAR  comment[LIGOMETA_COMMENT_MAX];
@@ -143,9 +142,6 @@ int main( int argc, char *argv[] )
   SnglInspiralTable    *newEventList = NULL;
 
   CoincInspiralTable   *coincHead = NULL;
-  CoincInspiralTable   *coincEventList = NULL;
-  CoincInspiralTable   *thisFullCoinc = NULL;
-  CoincInspiralTable   *prevFullCoinc = NULL;
   CoincInspiralTable   *thisCoinc = NULL;
 
   SearchSummvarsTable  *inputFiles = NULL;
@@ -157,11 +153,10 @@ int main( int argc, char *argv[] )
   MetadataTable         proctable;
   MetadataTable         processParamsTable;
   MetadataTable         searchsumm;
-  MetadataTable         searchSummvarsTable;
   MetadataTable         inspiralTable;
   ProcessParamsTable   *this_proc_param = NULL;
   LIGOLwXMLStream       xmlStream;
-  UINT4                 outCompress = 0;
+  INT4                  outCompress = 0;
 
 
   /* getopt arguments */
@@ -283,7 +278,7 @@ int main( int argc, char *argv[] )
         }
         startTime = (INT4) gpstime;
         startTimeGPS.gpsSeconds = startTime;
-        ADD_PROCESS_PARAM( "int", "%ld", startTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, startTime );
         break;
 
       case 't':
@@ -309,7 +304,7 @@ int main( int argc, char *argv[] )
         }
         endTime = (INT4) gpstime;
         endTimeGPS.gpsSeconds = endTime;
-        ADD_PROCESS_PARAM( "int", "%ld", endTime );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT4_FORMAT, endTime );
         break;
 
       case 'x':
@@ -435,11 +430,11 @@ int main( int argc, char *argv[] )
         {
           fprintf( stdout, "invalid argument to --%s:\n"
               "custer window must be > 0: "
-              "(%ld specified)\n",
+              "(%" LAL_INT8_FORMAT " specified)\n",
               long_options[option_index].name, cluster_dt );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%ld", cluster_dt );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT8_FORMAT, cluster_dt );
         /* convert cluster time from ms to ns */
         cluster_dt *= 1000000LL;
         break;
@@ -672,7 +667,7 @@ int main( int argc, char *argv[] )
       if ( vrbflg ) fprintf( stdout, "GPS start time of this coinc-segment is %d\n",
                    startTime);
 
-      numCoincSegCutTrigs = XLALCoincSegCutSnglInspiral( startTime, inspiralEventList);
+      numCoincSegCutTrigs = XLALCoincSegCutSnglInspiral( startTime, &inspiralEventList);
 
       if ( vrbflg ) fprintf( stdout,
                              "Sorting triggers within requested interval\n" );
@@ -1044,10 +1039,10 @@ int XLALCoincSegCutSnglInspiral(
   *inspiralList = NULL;
 
   while ( thisEvent ) {
-    fprintf(stdout, "This event's END TIME NS is %Ld\n",thisEvent->end_time.gpsNanoSeconds);
-    fprintf(stdout, "This event's id is %Ld\n",thisEvent->event_id->id);
+    fprintf(stdout, "This event's END TIME NS is %" LAL_INT4_FORMAT "\n",thisEvent->end_time.gpsNanoSeconds);
+    fprintf(stdout, "This event's id is %" LAL_UINT8_FORMAT "\n",thisEvent->event_id->id);
     timeCheck = floor(thisEvent->event_id->id/timeExtract);
-    fprintf(stdout, "This event's gps-start time is %Ld\n",
+    fprintf(stdout, "This event's gps-start time is %" LAL_INT4_FORMAT "\n",
             timeCheck);
 
     /* find events in the same coinc-segment */
@@ -1076,7 +1071,7 @@ int XLALCoincSegCutSnglInspiral(
     }
   }
  
-  fprintf(stdout, "This last time-check is %Ld\n", timeCheck); 
+  fprintf(stdout, "This last time-check is %" LAL_INT4_FORMAT "\n", timeCheck); 
   /* store the last event */
   //if ( ! (*inspiralList) )
    // {
@@ -1094,13 +1089,11 @@ int XLALClusterInEventID(
     )
 /* </lalVerbatim> */
 {
-  SnglInspiralTable    **thisTmpEvent=NULL;
   SnglInspiralTable     *thisEvent=NULL;
   SnglInspiralTable     *prevEvent=NULL;
   SnglInspiralTable     *nextEvent=NULL;
 
   int                    numSnglClust = 0;
-  UINT8                  eventId = 0;
 
   if ( !inspiralList )
   {
@@ -1127,9 +1120,9 @@ int XLALClusterInEventID(
       REAL4 thisStat = XLALSnglInspiralStat( thisEvent, clusterchoice );
       REAL4 nextStat = XLALSnglInspiralStat( nextEvent, clusterchoice );
       
-      fprintf(stdout, "Next event's id is %Ld\n",nextEvent->event_id->id);
+      fprintf(stdout, "Next event's id is %" LAL_UINT8_FORMAT "\n",nextEvent->event_id->id);
       fprintf(stdout, "Next-statistic is %e\n",nextStat);
-      fprintf(stdout, "Next IFO is %e\n",nextEvent->ifo);
+      fprintf(stdout, "Next IFO is %s\n",nextEvent->ifo);
       
       
       if ( nextStat > thisStat ) {

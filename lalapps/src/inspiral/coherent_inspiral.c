@@ -48,7 +48,6 @@
 #include <time.h>
 #include <math.h>
 
-#include <FrameL.h>
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
@@ -64,9 +63,9 @@
 #include <lal/LALConstants.h>
 #include <lal/FrameStream.h>
 #include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
 #include <lal/LIGOLwXML.h>
-#include <lal/LIGOLwXMLRead.h>
+#include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/Date.h>
 #include <lal/Units.h>
 #include <lal/FindChirp.h>
@@ -81,6 +80,7 @@
 #include <lal/LALStatusMacros.h>
 #include <lal/SkyCoordinates.h>
 #include <lal/DopplerScan.h>
+#include <lal/LALFrameL.h>
 
 #include <LALAppsVCSInfo.h>
 
@@ -165,21 +165,20 @@ INT4 V1file = 0;
 /* input time-slide parameters */
 REAL8  slideStep[LAL_NUM_IFO]     = {0.0,0.0,0.0,0.0,0.0,0.0};
 int    bankDuration     = 0;
-CHAR   cohbankFileName[FILENAME_MAX]; /* name of input template bank */
 CHAR   chiaFileName[FILENAME_MAX]; /* name of chia trigbank for follow-up studies */
-/* CHAR  *cohbankFileName = NULL; name of input template bank  */
-UINT4  cohSNROut            = 0;    /* default is not to write frame */
-UINT4  cohH1H2SNROut      = 0;    /* default is not to write frame */
-UINT4  nullStatOut       = 0;    /* default is not to write frame */
-UINT4  nullStatH1H2Out       = 0;    /* default is not to write frame */
-UINT4  eventsOut            = 0;    /* default is not to write events */
+CHAR  *cohbankFileName = NULL; /* name of input template bank */
+INT4  cohSNROut            = 0;    /* default is not to write frame */
+INT4  cohH1H2SNROut      = 0;    /* default is not to write frame */
+INT4  nullStatOut       = 0;    /* default is not to write frame */
+INT4  nullStatH1H2Out       = 0;    /* default is not to write frame */
+INT4  eventsOut            = 0;    /* default is not to write events */
 REAL4  cohSNRThresh         = -1;
 REAL4  cohSegLength     = 0.0625; /* This should match value (sec) used in inspiral.c */
 REAL4  nullStatRegul        = 0.1;
-UINT4  maximizeOverChirp    = 0;    /* default is no clustering */
+INT4  maximizeOverChirp    = 0;    /* default is no clustering */
 INT4   verbose              = 0;
 CHAR   outputPath[FILENAME_MAX];
-UINT4  outCompress = 0;
+INT4  outCompress = 0;
 INT8  gpsStartTimeNS   = 0;         /* input data GPS start time ns */
 LIGOTimeGPS gpsStartTime;           /* input data GPS start time    */
 INT8  gpsEndTimeNS     = 0;         /* input data GPS end time ns   */
@@ -190,10 +189,10 @@ CoincInspiralStatistic coincStat = no_stat;
 double raStep = 1.0;
 double decStep = 1.0;
 REAL4  eff_snr_denom_fac = 50.0;
-UINT4  estimParams = 0;
-UINT4  followup = 0;
-UINT4  incohInj = 0;
-UINT4  exttrig = 0;
+INT4  estimParams = 0;
+INT4  followup = 0;
+INT4  incohInj = 0;
+INT4  exttrig = 0;
 int  gpsStartTimeTemp   = 0;         /* input data GPS start time ns */
 int  gpsEndTimeTemp   = 0;         /* input data GPS start time ns */
 INT8   outTimeNS        = 0;            /* search summ out time    */
@@ -249,7 +248,6 @@ int main( int argc, char *argv[] )
   UINT4  numSegments      = 1; 
   UINT4  numBeamPoints    = 0; /* number of sky position templates */
   UINT8  eventID          = 0;
-  REAL8  cohSeriesLength;
 
   REAL8  m1               = 0.0;
   REAL8  m2               = 0.0;
@@ -264,7 +262,7 @@ int main( int argc, char *argv[] )
   CoincInspiralStatParams    bittenLParams;
 
   /* counters and other variables */
-  UINT4   j,k,l, cohtrigs, cohtriglimit;
+  UINT4   j,k,l;
   UINT4   kmax = 0;
   UINT4  numDetectors     = 0;
   REAL8  tempTime[4]      = {0.0,0.0,0.0,0.0};
@@ -282,15 +280,6 @@ int main( int argc, char *argv[] )
   REAL8 deltaT= 0.0;
   REAL4 distNorm = 0.0;
   REAL4 templateNorm = 0.0;
-  REAL8 c0= 0.0;
-  REAL8 c2= 0.0;
-  REAL4 c3= 0.0;
-  REAL8 c4= 0.0;
-  REAL4 x1= 0.0;
-  REAL4 x2= 0.0;
-  REAL4 x3= 0.0;
-  REAL4 x4= 0.0;
-  REAL4 x8= 0.0;
   LIGOTimeGPS startCoinc = {0,0};
   LIGOTimeGPS endCoinc = {0,0};
   INT8 ringStartNS = 0;
@@ -338,6 +327,9 @@ int main( int argc, char *argv[] )
   searchsumm.searchSummaryTable = (SearchSummaryTable *)
     calloc( 1, sizeof(SearchSummaryTable) );
   searchsummvars.searchSummvarsTable = NULL;
+
+  /* initialise summvalue */
+  summvalue.summValueTable = NULL;
 
   arg_parse_check( argc, argv, procparams );
   if (vrbflg)  fprintf(stdout, "called parse options..\n");
@@ -1066,7 +1058,8 @@ int main( int argc, char *argv[] )
 	  }
         }
         /* Now that the time series are commensurate, do the filtering... */
-        XLALCoherentInspiralFilterSegment (&status, &thisEvent, cohInspFilterInput, cohInspFilterParams, thisScan.skyGrid, chisq, chisq_dof, eff_snr_denom_fac,nullStatRegul);
+        SkyGrid *grid = (SkyGrid*)thisScan.skyGrid;
+        XLALCoherentInspiralFilterSegment (&status, &thisEvent, cohInspFilterInput, cohInspFilterParams, grid, chisq, chisq_dof, eff_snr_denom_fac,nullStatRegul);
  
         /* Save event id in multi_inspiral table */
         thisEventTemp =thisEvent;
@@ -1150,12 +1143,10 @@ int main( int argc, char *argv[] )
                   {
                     while( thisEvent )
                       {
-                        MultiInspiralTable *tempEvent = thisEvent;
                         tempTable->next = (MultiInspiralTable *) LALCalloc( 1, sizeof(MultiInspiralTable) );
                         tempTable = tempTable->next;
                         memcpy(tempTable, thisEvent, sizeof(MultiInspiralTable) );
                         thisEvent = thisEvent->next;
-                        
                         LALFree( tempEvent );
                         tempEvent = NULL;
                       }
@@ -1566,7 +1557,10 @@ int main( int argc, char *argv[] )
   XLALFree(scanInit.skyRegionString);
   thisScan.state = STATE_FINISHED;
   LAL_CALL ( FreeDopplerSkyScan(&status, &thisScan), &status);
-  
+
+  if (cohbankFileName)
+    free(cohbankFileName);
+
   free( proctable.processTable ); 
   while( procparams.processParamsTable )
     {
@@ -1745,7 +1739,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
      {"estimate-params",          no_argument,       &estimParams,       1 },
      {"followup",                 no_argument,       &followup,          1 },
      {"incoherent-inj",           no_argument,       &incohInj,          1 },
-     {"eff-snr-denom-fac",        no_argument,       &eff_snr_denom_fac,'E'},
+     {"eff-snr-denom-fac",        required_argument, 0,                 'E'},
      {"exttrig",                  no_argument,       &exttrig,           1 },
      {"output-path",              required_argument, 0,                 'P'},
      {"H1-framefile",             required_argument, 0,                 'A'},
@@ -1924,10 +1918,9 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
 
          case 'u':
            /* create storage for the bank filename */
-           /*optarg_len = strlen( optarg ) + 1;
-           bankFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-           memcpy( bankFileName, optarg, optarg_len );*/
-           strcpy(cohbankFileName, optarg);
+           optarg_len = strlen( optarg ) + 1;
+           cohbankFileName = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+           memcpy(cohbankFileName, optarg, optarg_len );
            char tempName[256];
            char *duration =NULL;
            strcpy(tempName, cohbankFileName);
