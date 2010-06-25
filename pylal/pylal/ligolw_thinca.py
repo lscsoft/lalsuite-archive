@@ -139,7 +139,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_thinca"
 
 
-def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = None, effective_snr_factor = None, vetoes_name = None, trigger_program = None, effective_snr = None, coinc_end_time_segment = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -157,6 +157,8 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--trigger-program", u"lstring", trigger_program)]
 	if effective_snr is not None:
 		params += [(u"--effective-snr", u"lstring", effective_snr)]
+	if coinc_end_time_segments is not None:
+		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -247,7 +249,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			coinc_inspiral.snr = None
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
-		coinc_inspiral.set_end(events[0].get_end() + self.time_slide_index[time_slide_id][events[0].ifo])
+		coinc_inspiral.set_end(coinc_inspiral_end_time(events, self.time_slide_index[time_slide_id]))
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
 
@@ -272,6 +274,21 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		return coinc
+
+#
+# Custom function to compute the coinc_inspiral.end_time
+#
+
+def coinc_inspiral_end_time(events, offset_vector):
+	"""
+	A custom function to compute the end_time of a coinc_inspiral trigger
+	@events: a tuple of sngl_inspiral triggers making up a single
+	coinc_inspiral trigger
+	@offset_vector: a dictionary of offsets to apply to different
+	detectors keyed by detector name
+	"""
+	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
+	return events[0].get_end() + offset_vector[events[0].ifo]
 
 
 #
@@ -384,6 +401,22 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
 #
 # =============================================================================
 #
+#                              Compare Functions
+#
+# =============================================================================
+#
+
+
+def default_ntuple_comparefunc(events, offset_vector):
+	"""
+	Default ntuple test function.  Accept all ntuples.
+	"""
+	return False
+
+
+#
+# =============================================================================
+#
 #                                 Library API
 #
 # =============================================================================
@@ -416,10 +449,11 @@ def ligolw_thinca(
 	coinc_definer_row,
 	event_comparefunc,
 	thresholds,
-	ntuple_comparefunc = lambda events, offset_vector: False,
+	ntuple_comparefunc = default_ntuple_comparefunc,
 	effective_snr_factor = 250.0,
 	veto_segments = None,
 	trigger_program = u"inspiral",
+	coinc_end_time_segment = None,
 	verbose = False
 ):
 	#
