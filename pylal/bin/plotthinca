@@ -95,7 +95,8 @@ def parse_command_line():
       help="GLOB off-source thinca files to read" )
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
-      help="discard triggers in segments from FNAME (segwizard format)")
+      help="discard triggers in segments from these comma-seperated files"\
+                    " (segwizard format).")
   parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
       help="enable the generation of the html and cache documents")
@@ -406,8 +407,9 @@ if coincfiles:
   
   # perform the veto
   if opts.veto_file:
-    seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
-    inspTriggers = inspTriggers.veto(seglist)
+    for veto_file in opts.veto_file.split(','):
+      seglist = segmentsUtils.fromsegwizard(open(veto_file, "r"))
+      inspTriggers = inspTriggers.veto(seglist)
   
   # construct the coincs
   coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
@@ -475,8 +477,9 @@ if offsourcefiles:
     seglist = segmentsUtils.fromsegwizard(open(opts.offsource_veto_file, "r"))
     inspTriggers = inspTriggers.veto(seglist)
   elif opts.veto_file:
-    seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
-    inspTriggers = inspTriggers.veto(seglist)
+    for veto_file in opts.veto_file.split(','):
+      seglist = segmentsUtils.fromsegwizard(open(veto_file, "r"))
+      inspTriggers = inspTriggers.veto(seglist)
 
   # now create
   for segnr in range(-offSourceSegLeft, offSourceSegRight):
@@ -531,9 +534,10 @@ if slidefiles:
 #  inspSlide = []
   
   # perform the veto
-  if opts.veto_file:
-    seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
-    inspSlide = inspSlide.veto(seglist)
+  if opts.veto_file:      
+    for veto_file in opts.veto_file.split(','):    
+      seglist = segmentsUtils.fromsegwizard(open(veto_file, "r"))
+      inspSlide = inspSlide.veto(seglist)
       
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
