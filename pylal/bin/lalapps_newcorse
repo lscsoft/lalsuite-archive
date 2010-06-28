@@ -37,7 +37,7 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
-
+import copy
 
 from glue import segments
 from glue.ligolw import lsctables
@@ -48,6 +48,7 @@ from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal import llwapp
 from glue import lal
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
@@ -80,8 +81,7 @@ def parse_command_line():
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
 	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"combined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-	parser.add_option("-n", "--extrapolation-num", action = "store", type = "int", default = 0, metavar = "num", help = "number of time-slide points to use in FAR extrapolation" )
-	parser.add_option("-N", "--num-mass-bins", action = "store", type = "int", default = 0, metavar = "num", help = "number of mass bins being combined" )
+	parser.add_option("-n", "--extrapolation-num", action = "store", type = "int", metavar = "num", help = "Set the number of background points to use in FAR extrapolation" )
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -106,13 +106,20 @@ def parse_command_line():
 	else:
 		options.false_alarm_rate_column = "false_alarm_rate"
 
-	if options.extrapolation_num and options.rank_by in ("snr", "uncombined-ifar"):
-		if options.categories in ("none",):
-			raise ValueError, "extrapolation for --categories=%s not implemented"%(options.categories)
-		if options.rank_by in ("uncombined-ifar") and not options.num_mass_bins:
-			raise ValueError, "extrapolation for --rank-by=%s requires --num-mass-bins be set to the number of mass bins used in uncombined-ifar calculation"%(options.rank_by)
-	else:
-		raise ValueError, "extrapolation not implemented for --rank-by %s"%(options.rank_by)
+	if options.extrapolation_num is not None:
+		if options.extrapolation_num <= 0:
+			raise ValueError, "if specifying --extrapolation-num it must be > 0: %d given" % (extrapolation_num,)
+		if options.rank_by in ("snr", "uncombined-ifar"):
+			if options.categories in ("none",):
+				raise ValueError, "extrapolation for --categories=%s not implemented"%(options.categories)
+		else:
+			raise ValueError, "extrapolation not implemented for --rank-by %s"%(options.rank_by)
+
+	#
+	# save a copy of options before mucking with mass bins
+	#
+
+	unaltered_options = copy.deepcopy(options)
 
 	#
 	# parse mass bins
@@ -144,7 +151,7 @@ def parse_command_line():
 	# done
 	#
 
-	return options, (filenames or [None])
+	return options, (filenames or [None]), unaltered_options
 
 
 #
@@ -306,6 +313,8 @@ class Summaries(object):
 		self.participating_instruments = {}
 		self.extrapolate = False
 		self.extrapolation_coeffs = {}
+		self.prev_num_mass_bins = None
+		self.prev_newcorse_time = None
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -386,25 +395,27 @@ class Summaries(object):
 			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(category)
 			raise e
 
+	def get_previous_newcorse_info(self, connection):
+		# this should only return at most one thing because of max(), but if it returns nothing it is a no-op
+		for procid, starttime in connection.cursor().execute('SELECT process.process_id, start_time FROM process WHERE process.program == "lalapps_newcorse" and start_time == (SELECT max(start_time) FROM process WHERE process.program == "lalapps_newcorse")'):
+			if self.prev_newcorse_time is None: self.prev_newcorse_time = starttime
+			if self.prev_newcorse_time != starttime:
+				raise ValueError("found file that has wrong newcorse process time, exiting")
+			for bins, in connection.cursor().execute('SELECT value from process_params WHERE process_id == ? AND param = "--mass-bins"', (procid,)):
+				if self.prev_num_mass_bins is None: self.prev_num_mass_bins = bins
+				if self.prev_num_mass_bins != bins:
+					raise ValueError("previous mass bins do not agree between files, exiting")
+			
+	def get_prev_num_mass_bins(self):
+		out = 0
+		if self.prev_num_mass_bins is not None: out = len(self.prev_num_mass_bins.split(',')) - 1
+		if out < 0: out = 0
+		return out
 
 def add_process(connection, opts, comment=u""):
-	
 	xmldoc = dbtables.get_xml(connection)
 	process = llwapp.append_process(xmldoc, program = u"lalapps_newcorse", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
-	params = []
-	for k,v in opts.items():
-		if v is None: continue 
-		if v is True: params.append((unicode(k), u"lstring", u""))
-		else: params.append((unicode(k), u"lstring", unicode(v)))
-
-	#if opts.input_cache:
-	#	params.append((u"--input-cache", u"lstring", " --input-cache ".join(opts.input_cache)))
-	#if opts.live_time_program:
-	#	params.append((u"--live-time-program", u"lstring", opts.live_time_program))
-	#if opts.input_cache:
-	#	params.append((u"--live-time-program", u"lstring", opts.live_time_program))
-	#FIXME FINISH!
-
+	params = ligolw_process.process_params_from_dict(opts.__dict__)
 	ligolw_process.append_process_params(xmldoc, process, params)
 	xmldoc.unlink()
 
@@ -423,7 +434,7 @@ def add_process(connection, opts, comment=u""):
 #
 
 
-options, filenames = parse_command_line()
+options, filenames, unaltered_options = parse_command_line()
 
 
 #
@@ -454,10 +465,10 @@ for n, filename in enumerate(filenames):
 	connection = sqlite3.connect(working_filename)
 	
 	#
-	# First add process information to it
+	# First pull out process info, then add some to it
 	#
-	
-	add_process(connection, options)
+	background.get_previous_newcorse_info(connection)
+	add_process(connection, unaltered_options)
 
 	#
 	# if the database contains a sim_inspiral table then it is assumed
@@ -525,12 +536,11 @@ WHERE
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
-
 background.index()
-if options.extrapolation_num:
+if options.extrapolation_num is not None:
 	if options.verbose:
 		print >>sys.stderr, "\tcalculating FAR extrapolation coefficients ..."
-	background.rate_extrapolation(options.extrapolation_num, options.num_mass_bins)
+	background.rate_extrapolation(options.extrapolation_num, background.get_prev_num_mass_bins())
 
 #
 # iterate over database files assigning false-alarm rates to coincs
