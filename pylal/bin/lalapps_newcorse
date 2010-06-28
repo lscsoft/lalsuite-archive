@@ -392,15 +392,23 @@ def add_process(connection, opts, comment=u""):
 	xmldoc = dbtables.get_xml(connection)
 	process = llwapp.append_process(xmldoc, program = u"lalapps_newcorse", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 	params = []
-	if opts.input_cache:
-		params.append((u"--input-cache", u"lstring", " --input-cache ".join(opts.input_cache)))
-	if opts.live_time_program:
-		params.append((u"--live-time-program", u"lstring", opts.live_time_program))
-	if opts.input_cache:
-		params.append((u"--live-time-program", u"lstring", opts.live_time_program))
+	for k,v in opts.items():
+		if v is None: continue 
+		if v is True: params.append((unicode(k), u"lstring", u""))
+		else: params.append((unicode(k), u"lstring", unicode(v)))
+
+	#if opts.input_cache:
+	#	params.append((u"--input-cache", u"lstring", " --input-cache ".join(opts.input_cache)))
+	#if opts.live_time_program:
+	#	params.append((u"--live-time-program", u"lstring", opts.live_time_program))
+	#if opts.input_cache:
+	#	params.append((u"--live-time-program", u"lstring", opts.live_time_program))
 	#FIXME FINISH!
+
 	ligolw_process.append_process_params(xmldoc, process, params)
 	xmldoc.unlink()
+
+
 #
 # =============================================================================
 #
@@ -444,6 +452,12 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
+	
+	#
+	# First add process information to it
+	#
+	
+	add_process(connection, options)
 
 	#
 	# if the database contains a sim_inspiral table then it is assumed
