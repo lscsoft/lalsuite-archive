@@ -489,12 +489,13 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   REAL8 maxCompMass = 100.0;
   
   CubeToCommonPriorParams(Cube, inputMCMC, parameter);
-  
-  double eta = Cube[6];
-  int i = 7;
+
+  int i = 6;
   LALMCMCParam* param = NULL;
   
+  multinest_seg = 2;
   // chirp mass
+  if( Cube[i] < (multinest_seg - 1) * 0.25 - 0.025 || Cube[i] > multinest_seg * 0.25 + 0.025 ) return 0;
   double mcMin, mcMax;
   if(XLALMCMCCheckParameter(parameter,"logM"))
   {
@@ -515,6 +516,19 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   	XLALMCMCSetParameter(parameter, "mchirp", mc);
   Cube[i] = mc;
   i++;
+
+
+  // eta
+  param = NULL;
+  double etaMax, etaMin;
+  param = XLALMCMCGetParam(parameter, "eta");
+  etaMin = param->core->minVal;
+  etaMax = param->core->maxVal;
+  double eta = flatPrior(Cube[i], etaMin, etaMax);
+  XLALMCMCSetParameter(parameter, "eta", eta);
+  Cube[i] = eta;
+  i++;
+
   
   // luminosity distance in Mpc
   param = NULL;
@@ -602,11 +616,14 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   REAL8 maxCompMass = 34.0;
 #define MAX_MTOT 35.0
 
-  int i = 0;
+  CubeToCommonPriorParams(Cube, inputMCMC, parameter);
+
+  int i = 6;
   LALMCMCParam* param = NULL;
 
+  multinest_seg = 2;
   // chirp mass
-  if( Cube[i] < (multinest_seg - 1) * 0.25 || Cube[i] > multinest_seg * 0.25 ) return 0;
+  if( Cube[i] < (multinest_seg - 1) * 0.25 - 0.025 || Cube[i] > multinest_seg * 0.25 + 0.025 ) return 0;
   double mcMin, mcMax;
   if(XLALMCMCCheckParameter(parameter,"logM"))
   {
@@ -640,9 +657,6 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
   Cube[i] = eta;
   i++;
 
-  
-  CubeToCommonPriorParams(&Cube[2], inputMCMC, parameter);
-  i = 8;
   
   // luminosity distance in Mpc
   param = NULL;

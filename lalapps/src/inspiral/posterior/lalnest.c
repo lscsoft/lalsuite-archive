@@ -47,7 +47,7 @@
 extern CHAR outfile[FILENAME_MAX];
 extern double etawindow;
 extern double timewindow;
-extern int multinest_seg;
+extern UINT4 multinest_seg;
 CHAR **CacheFileNames = NULL;
 CHAR **ChannelNames = NULL;
 CHAR **IFOnames = NULL;
@@ -167,12 +167,11 @@ void initialise(int argc, char *argv[]){
 		{"channel",required_argument,0,'C'},
 		{"highmass",no_argument,0,15},
 		{"decohere",required_argument,0,16},
-                {"multinest_seg",no_argument,0,'s'},
-
+                {"mnseg",no_argument,0,'s'},
 		{0,0,0,0}};
 	
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
-	while((i=getopt_long(argc,argv,"i:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFvb",long_options,&i))!=-1){ switch(i) {
+	while((i=getopt_long(argc,argv,"i:D:G:T:R:g:m:z:P:C:S:I:N:s:t:X:O:a:M:o:j:e:Z:A:E:nlFvb",long_options,&i))!=-1){ switch(i) {
 		case 14:
 			SNRfac=atof(optarg);
 			break;
@@ -268,6 +267,9 @@ void initialise(int argc, char *argv[]){
 		case 'N':
 			Nlive=atoi(optarg);
 			break;
+                case 's':
+                        //multinest_seg=atoi(optarg);
+                        break;
 		case 'I':
 			if(nifo==0) {IFOnames=malloc(sizeof(char **)); ChannelNames=malloc(sizeof(char **));}
 			else	{IFOnames=realloc(IFOnames,(nifo+1)*sizeof(CHAR **)); ChannelNames=realloc(ChannelNames,(nChannel+1)*sizeof(char **));}
@@ -281,9 +283,6 @@ void initialise(int argc, char *argv[]){
 		case 'o':
 			strcpy(outfile,optarg);
 			break;
-		case 's':
-			multinest_seg=atoi(optarg);
-                        break;
 		case 'G':
 			GPS=atof(optarg);
 			XLALGPSSetREAL8(&datastart,GPS);

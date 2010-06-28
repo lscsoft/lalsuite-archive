@@ -36,11 +36,11 @@ void LogLike(double *Cube, int *ndim, int *npars, double *lnew)
 
 void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 {
-	if( multinest_seg < 1 || multinest_seg > 4 )
+	/*if( multinest_seg < 1 || multinest_seg > 4 )
 	{
 		fprintf(stdout,"multinest_seg can not be less then 1 or greater than 4\n");
 		abort();
-	}
+	}*/
 
 	UINT4 i=0;
 	UINT4 j;
@@ -95,7 +95,7 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 	
 	// call MultiNest
 	
-	int mmodal = 0;
+	int mmodal = 1;
 	int ceff = 0;
 	int nlive = Nlive;
 	double efr = 0.8;
@@ -103,12 +103,12 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 	int ndims = MCMCinput->dim;
 	int nPar = 11;
 	int nClsPar = 2;
-	int updInt = 200;
+	int updInt = 500;
 	double Ztol = -1.e90;
 	int maxModes = 100;
 	int pWrap[ndims];
 	for( int i = 0; i < ndims; i++ ) pWrap[i] = 0;
-	pWrap[3] = pWrap[5] = 1;
+	pWrap[1] = pWrap[3] = 1;
 	char root[100];
 	for( int i = 0; i < 100; i++ ) root[i] = outfile[i];
 	int seed = -1;

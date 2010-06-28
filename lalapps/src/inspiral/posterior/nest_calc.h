@@ -16,6 +16,7 @@
 extern gsl_matrix *cov_mat;
 
 extern CHAR outfile[FILENAME_MAX];
+extern UINT4 multinest_seg;
 extern double etawindow;
 
 double logadd(double a,double b);
