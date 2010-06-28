@@ -1301,7 +1301,7 @@ for cat in cats:
   ############# END MUSIC STUFF (A LOOP OVER DOUBLES) #########################
 
   #to compute combined far 
-  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [update_node[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=1);
+  lalappsNewcorseNodeCombined[cat] = lalapps_newcorse_node(lalappsNewcorseJobCombined, dag, segNode[cat].name, " ".join(db[cat]), [update_node[cat]], mass_bins=None, categories=cp.get("newcorse2","categories"), rank=cp.get("newcorse2","rank-by"), ext_num=2);
 
   # lalapps_cbc_plotsummary plots
   farPlotNode[cat] = far_plot_node(farPlotJob, dag, " ".join(db[cat]), [lalappsNewcorseNodeCombined[cat]], base=base_name);
