@@ -432,7 +432,7 @@ def add_process(connection, opts, process, comment=u""):
 
 #
 # Get the process table rolling, the XMLDoc here is a dummy.
-# newcorse_process will be inserted into the DB correctly in add_process
+# newcorse_process will be inserted into the DB correctly in add_process()
 #
 
 xmldoc=ligolw.Document()
