@@ -38,8 +38,10 @@ except ImportError:
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
 import copy
+import time
 
 from glue import segments
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
@@ -405,16 +407,15 @@ class Summaries(object):
 				if self.prev_num_mass_bins is None: self.prev_num_mass_bins = bins
 				if self.prev_num_mass_bins != bins:
 					raise ValueError("previous mass bins do not agree between files, exiting")
-			
+
 	def get_prev_num_mass_bins(self):
 		out = 0
 		if self.prev_num_mass_bins is not None: out = len(self.prev_num_mass_bins.split(',')) - 1
 		if out < 0: out = 0
 		return out
 
-def add_process(connection, opts, comment=u""):
+def add_process(connection, opts, process, comment=u""):
 	xmldoc = dbtables.get_xml(connection)
-	process = llwapp.append_process(xmldoc, program = u"lalapps_newcorse", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 	params = ligolw_process.process_params_from_dict(opts.__dict__)
 	ligolw_process.append_process_params(xmldoc, process, params)
 	xmldoc.unlink()
@@ -430,6 +431,16 @@ def add_process(connection, opts, comment=u""):
 
 
 #
+# Get the process table rolling, the XMLDoc here is a dummy.
+# newcorse_process will be inserted into the DB correctly in add_process
+#
+
+xmldoc=ligolw.Document()
+xmldoc.appendChild(ligolw.LIGO_LW())
+newcorse_process = llwapp.append_process(xmldoc, program = u"lalapps_newcorse", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = u"")
+
+
+#
 # command line
 #
 
@@ -440,7 +451,6 @@ options, filenames, unaltered_options = parse_command_line()
 #
 # initialize book-keeping
 #
-
 
 background = Summaries(options.categories, options.rank_by, mass_bins = options.mass_bins)
 
@@ -463,12 +473,12 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	
+
 	#
 	# First pull out process info, then add some to it
 	#
 	background.get_previous_newcorse_info(connection)
-	add_process(connection, unaltered_options)
+	add_process(connection, unaltered_options, newcorse_process)
 
 	#
 	# if the database contains a sim_inspiral table then it is assumed
