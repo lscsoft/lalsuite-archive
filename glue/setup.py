@@ -28,7 +28,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.31"
+ver = "1.32"
 
 def remove_root(path,root):
   if root:
