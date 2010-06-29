@@ -168,7 +168,7 @@ class upper_limit(object):
     minmtotal = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
     maxmtotal = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
     # just for the random seed :)
-    mintime = int(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "gps-start-time"').fetchone()[0])
+    mintime = int(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--gps-start-time"').fetchone()[0])
     if self.seed: self.seed = min(self.seed, mintime)
     else: self.seed = mintime
 
