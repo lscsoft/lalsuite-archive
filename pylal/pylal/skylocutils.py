@@ -11,12 +11,15 @@ import os
 import operator
 import gzip 
 from math import sqrt, sin, cos, modf
-from numpy import pi, linspace, interp, sum as npsum, exp
+from numpy import pi, linspace, interp, sum as npsum, exp, asarray
+from bisect import bisect
 
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
 from pylal.xlal import tools, inject
+from pylal.xlal.constants import LAL_PI_2
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS 
+from pylal.sphericalutils import angle_between_points
 
 import glue.iterutils
 from glue.ligolw import utils, table as tab, lsctables
@@ -249,6 +252,100 @@ def iqr(data):
   useful for determing widths of bins in histograms or bandwidths in kdes
   """
   return (percentile(75.,data) - percentile(25.,data))
+
+#borrowed this from nick's ligolw_cbc_jitter_skyloc
+#if/when it makes its way to sphericalutils use that instead
+def lonlat2polaz(lon, lat):
+  """
+  Convert (longitude, latitude) in radians to (polar, azimuthal) angles
+  in radians.
+  """
+  return LAL_PI_2 - lat, lon
+
+def sbin(bins,pt,res=0.4):
+  """
+  bin points on the sky
+  returns the index of the point in bin that is closest to pt
+  """
+  #there's probably a better way to do this, but it works
+  #the assumption is that bins is generated from gridsky
+  ds = pi*res/180.0
+  #first pare down possibilities
+  xindex = bisect(bins,pt)
+  xminus = xindex - 1
+  newbins = []
+  while 1:
+    #the 3 in the denominator should be a 4, but this allows for a little slop
+    #that helps you get closer in ra in the next step
+    if xindex < len(bins)-1 \
+        and (bins[xindex][0]-pt[0])*(bins[xindex][0]-pt[0]) <= ds*ds/4.0:
+      newbins.append((bins[xindex][1],bins[xindex][0]))
+      xindex += 1
+    else:
+      break
+  while 1:
+    if (bins[xminus][0]-pt[0])*(bins[xminus][0]-pt[0]) <= ds*ds/4.0:
+      newbins.append((bins[xminus][1],bins[xminus][0]))
+      xminus -= 1
+    else:
+      break
+  if len(newbins) == 1:
+    return bins.index((newbins[0][1],newbins[0][0]))
+  #now break out the full spherical distance formula
+  newbins.sort()
+  rpt = (pt[1],pt[0])
+  yindex = bisect(newbins,rpt)
+  finalbins = {}
+  #if it's the last index then work backwards from the bottom
+  if yindex > len(newbins)-1:
+    print yindex
+    print len(newbins)-1
+    mindist = angle_between_points(asarray(rpt),asarray(newbins[len(newbins)-1]))
+    finalbins[newbins[len(newbins)-1]] = mindist
+    i = 2
+    while 1:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[len(newbins)-i]))
+      if angdist <= mindist:
+        finalbins[newbins[len(newbins)-i]] = angdist
+        i += 1
+      else:
+        break
+  #make sure to cover the top, too
+    i = 0
+    while 1:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[i]))
+      if angdist <= mindist:
+        finalbins[newbins[i]] = angdist
+        i += 1
+      else:
+        break
+  else:
+    mindist = angle_between_points(asarray(rpt),asarray(newbins[yindex]))
+    finalbins[newbins[yindex]] = mindist
+    i = 1
+    while yindex + i < len(newbins) -1:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[yindex+i]))
+      if angdist <= mindist:
+        finalbins[newbins[yindex+i]] = angdist
+        i += 1
+      else:
+        break
+    i = 1
+    while yindex - i >= 0:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[yindex-i]))
+      if angdist <= mindist:
+        finalbins[newbins[yindex-i]] = angdist
+        i += 1
+      else:
+        break
+  mindist = min(finalbins.values())
+  for key in finalbins.keys():
+    if finalbins[key] == mindist:
+      sky_bin = key
+
+  return bins.index((sky_bin[1],sky_bin[0]))
+
+
 
 ##############################################################################
 #
