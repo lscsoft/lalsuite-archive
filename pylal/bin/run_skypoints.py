@@ -180,7 +180,7 @@ for coinc in coincs:
     mineffD = ceil(min(coinc.eff_distances.values()))
     if mineffD > 100.: 
       mineffD = 100
-    f = open(opts.galaxy_priors_dir+'/'+str(int(mineffD))+'Mpc.pkl','r')
+    f = open(opts.galaxy_priors_dir+'/galaxy_prior_'+str(int(mineffD))+'Mpc.pkl','r')
     gal_prior = cPickle.load(f)
     f.close()
 
