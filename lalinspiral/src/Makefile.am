@@ -169,6 +169,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralWaveOverlap.c \
 	LALInspiralWaveTaper.c \
 	LALInverse3.c \
+        LALNewtonianMultipole.c \
 	LALMatrixTransform.c \
 	LALPhenomWaveform.c \
 	LALPSpinInspiralRD.c \
