@@ -757,7 +757,7 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area\
+def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
                             dtrss_inj,dDrss_inj,grid_fname):
   """
   record injection data in a skylocinjtable
