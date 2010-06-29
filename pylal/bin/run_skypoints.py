@@ -134,6 +134,7 @@ def get_unique_filename(name):
 gridfile = open(opts.grids,'r')
 griddata = cPickle.load(gridfile)
 grid = griddata['grids']
+fbins = griddata['skybins']
 coarse_res = griddata['coarse_res']
 fine_res = griddata['fine_res']
 gridfile.close()
@@ -207,8 +208,6 @@ for coinc in coincs:
             pass
         sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank),dtrank,pval*L])
 
-        #FIXME: put galaxy catalog stuff here!!!
-  
   fnames = {}
   fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
   fnames['probability'] = get_unique_filename(prob_fname.replace('GPSTIME',str(coinc.time.seconds)))
@@ -236,7 +235,8 @@ for coinc in coincs:
     rank_inj = dtrank_inj*dDrank_inj
     if  opts.galaxy_priors_dir:
       try:
-        pval_inj = gal_prior[inj_pt]
+        galbin = sbin(fbins,inj_pt,fine_res)
+        pval_inj = gal_prior[galbin]
       except:
         pval_inj = 0.0
       gal_area = fine_area*len([pt for pt in sp if pt[5] >= rank_inj*pval_inj])

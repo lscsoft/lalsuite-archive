@@ -632,15 +632,6 @@ class SkyLocTable(tab.Table):
     "dt70": "real_4",
     "dt80": "real_4",
     "dt90": "real_4",
-    "P10": "real_4",
-    "P20": "real_4",
-    "P30": "real_4",
-    "P40": "real_4",
-    "P50": "real_4",
-    "P60": "real_4",
-    "P70": "real_4",
-    "P80": "real_4",
-    "P90": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -757,15 +748,6 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
   row.dt20 = area(grid,20.,A,2)
   row.dt10 = area(grid,10.,A,2)
   grid.nsort(1)
-  row.P90 = area(grid,90.,A,1)
-  row.P80 = area(grid,80.,A,1)
-  row.P70 = area(grid,70.,A,1)
-  row.P60 = area(grid,60.,A,1)
-  row.P50 = area(grid,50.,A,1)
-  row.P40 = area(grid,40.,A,1)
-  row.P30 = area(grid,30.,A,1)
-  row.P20 = area(grid,20.,A,1)
-  row.P10 = area(grid,10.,A,1)
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
