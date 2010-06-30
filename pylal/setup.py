@@ -476,6 +476,7 @@ setup(
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
+		os.path.join("bin", "lalapps_cbc_search_volume_by_m1_m2"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_plot_tisi"),
 		os.path.join("bin", "lalapps_power_plot_binj"),
