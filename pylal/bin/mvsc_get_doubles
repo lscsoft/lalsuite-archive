@@ -128,13 +128,7 @@ for database in databases:
 					calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
 					snglA.rsqveto_duration,
 					snglB.rsqveto_duration,
-					CASE snglA.bank_chisq_dof
-						WHEN 0.0 THEN 1.0
-						ELSE snglA.bank_chisq/snglA.bank_chisq_dof END,
-					CASE snglB.bank_chisq_dof
-						WHEN 0.0 THEN 1.0
-						ELSE snglB.bank_chisq/snglB.bank_chisq_dof END,
-					CASE snglA.bank_chisq_dof
+					CASE snglA.cont_chisq_dof
 						WHEN 0.0 THEN 1.0
 						ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
 					CASE snglB.cont_chisq_dof
@@ -238,13 +232,7 @@ for database in databases:
 		calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
 		snglA.rsqveto_duration,
 		snglB.rsqveto_duration,
-		CASE snglA.bank_chisq_dof
-			WHEN 0.0 THEN 1.0
-			ELSE snglA.bank_chisq/snglA.bank_chisq_dof END,
-		CASE snglB.bank_chisq_dof
-			WHEN 0.0 THEN 1.0
-			ELSE snglB.bank_chisq/snglB.bank_chisq_dof END,
-		CASE snglA.bank_chisq_dof
+		CASE snglA.cont_chisq_dof
 			WHEN 0.0 THEN 1.0
 			ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
 		CASE snglB.cont_chisq_dof
@@ -345,7 +333,7 @@ if len(allinjections) != 0:
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq_red b_bank_chisq_red a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
+		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
 		return f
 	
 	for i in range(Nrounds):
@@ -382,7 +370,7 @@ if len(allinjections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq_red b_bank_chisq_red a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
+	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')

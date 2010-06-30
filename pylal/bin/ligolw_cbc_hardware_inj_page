@@ -30,6 +30,7 @@ from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import utils as ligolw_utils
 from glue.segmentdb import segmentdb_utils
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 # =============================================================================
 
@@ -93,9 +94,78 @@ def get_expected_snr(filenames,ifo,time):
 #	print tabs
 	tabs=filter(lambda x: x.ifo==ifo,tabs)
 #	print ifo
-	if tabs is not None: print tabs
+#	if tabs is not None: print tabs
 	if len(tabs)==0: return None
 	return tabs[0].value
+
+# =============================================================================
+
+def open_pipedown_database(database_filename,tmp_space):
+    """
+    Open the connection to the pipedown database
+    """
+    from glue.ligolw import dbtables
+    try:
+        import sqlite3
+    except ImportError:
+        # Pre-2.5
+        from pysqlite2 import dbapi2 as sqlite3
+    working_filename=dbtables.get_connection_filename(
+        database_filename,tmp_path=tmp_space)
+    connection = sqlite3.connect(working_filename)
+    if tmp_space:
+        dbtables.set_temp_store_directory(connection,tmp_space)
+    dbtables.DBTable_set_connection(connection)
+    return (connection,working_filename)
+
+# =============================================================================
+def get_veto_times(connection,ifo):
+    sqlquery = """SELECT
+       segment.start_time,
+       segment.end_time
+   FROM
+       segment
+   JOIN
+       segment_definer ON segment_definer.segment_def_id == segment.segment_def_id
+   WHERE segment_definer.ifos == ?"""
+
+    veto_segs = segments.segmentlist([segments.segment(LIGOTimeGPS(start,0),LIGOTimeGPS(end,0)) for (start,end) in connection.cursor().execute(sqlquery, (ifo,))])
+    return veto_segs
+
+# =============================================================================
+
+def check_ifo_result_pipedowndb(ifo,time,database_connection,successful_inj,veto_segs):
+    """
+    Return indicator of status for this injection, query pipedown DB file
+    """
+    if(successful_inj.has_key(ifo)) and (successful_inj[ifo] is not None):
+        if time in successful_inj[ifo]:
+            injected=1
+        else: injected=0
+    else: injected=0
+    if(injected==0): return (0,0,0)
+    
+    # Check that time was analysed
+    if (time in veto_segs): analysed=0
+    else: analysed=1
+    # Check for triggers
+    sql_query="SELECT sngl_inspiral.end_time FROM sngl_inspiral \
+               JOIN experiment_summary, experiment_map, coinc_event_map \
+               ON (experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id AND \
+           experiment_summary.coinc_event_id == coinc_event_map.coinc_event_id AND \
+           coinc_event_map.event_id == sngl_inspiral.event_id ) \
+           WHERE \
+           experiment_summary.datatype == \"all_data\" AND \
+           sngl_inspiral.ifo == \""+ifo+"\" AND \
+           sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 >= "+str(time-0.1)+" AND \
+           sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 <= "+str(time+0.1)
+    
+    triggers=database_connection.cursor().execute(sql_query)
+    if(triggers and len(triggers)>0):
+        found=1
+    else:
+        found=0
+    return (injected,analysed,found)
 
 # =============================================================================
 def check_ifo_result(ifo,time,filenames,successful_inj):
@@ -268,6 +338,13 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		totalfound[ifo]=0
 		totalanalysed[ifo]=0
 		statelist[ifo]=[]
+        # Check for database
+        if(opts.pipedown_db is not None):
+            (db_connection,db_working_filename)=open_pipedown_database(opts.pipedown_db,opts.tmp_space)
+            vetos={}
+            for ifo in ifos:
+                vetos[ifo]=get_veto_times(connection,ifo)
+
 	# Write table contents
 	for inj in injections:
 		injected={}
@@ -278,7 +355,10 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			continue
 #		print 'processing '+str(inj.get_end("H"))
 		for ifo in ifos:
-			(injected[ifo],analysed[ifo],found[ifo])=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
+                    if opts.pipedown_db is not None:
+                        (injected[ifo],analysed[ifo],found[ifo])=check_ifo_result_pipedowndb(ifo,inj.get_end(ifo[0]),db_connection,hwinj_done,vetos[ifo])
+                    else:
+                        (injected[ifo],analysed[ifo],found[ifo])=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
 		if opts.coinc==True:
 			if sum(injected.values())<2:
 				print >>sys.stderr,'Injection %d not coincident in 2 or more detectors' % (inj.geocent_end_time)
@@ -297,7 +377,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected[ifo],analysed[ifo],found[ifo],expSNR))
 			print >>sys.stdout, '%s %f %f %d %d %d' % (str(inj.get_end()),inj.mchirp,chirp_dist(inj,ifo),injected[ifo],analysed[ifo],found[ifo])
 		print >>outfile,'</tr>'
-	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td>'
+	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
 	for ifo in ifos:
 		print >>outfile,'<td>%i / %i / %i</td>'%(totalfound[ifo],totalanalysed[ifo],totalinj[ifo])
 	print >>outfile,'</tr>'
@@ -308,7 +388,10 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	tabfile=open(opts.outfile.replace('.html','_table.html'),'a')
 	print >>tabfile,'</body></html>'
 	tabfile.close()
-
+        if opts.pipedown_db:
+		if db_connection:
+			db_connection.close()
+			dbtable.discard_connection_filename(opts.pipedown_db,db_working_filename)
 	# Generate plot for injections
 	import matplotlib
 	matplotlib.use('Agg')
@@ -369,7 +452,6 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			for (filt,symb,injtype) in zip((lessTwenty,moreTwenty),('x','o'),('<20 Msun','>20 Msun')):
 				results = filter(filt,statelist[ifo])
 				if results is not None:
-					print results
 					found = filter(lambda tup: tup[2] and tup[4] and tup[5] is not None,results)
 					missed=filter(lambda tup: tup[2] and tup[4]!=1 and tup[3] and tup[5] is not None,results)
 					foundx=map(lambda i: int(i[0]),found)
@@ -450,6 +532,12 @@ parser.add_option("-s", "--segment-db", metavar = "segment_url", \
 parser.add_option("-d","--trig-dir", action="store",\
     type="string",default=None, help="Directory contianing trigger files",metavar="TRIG_DIR")
 
+parser.add_option("-P","--pipedown-db",action="store",\
+    type="string",default=None,help="Pipedown sqlite database file",metavar="DB_FILE")
+
+parser.add_option("-p","--tmp-space",action="store",\
+    type="string",default="./",help="Temp space for database file",metavar="TMP_SPACE")
+
 parser.add_option("-c","--cache-file",action="store",\
         type="string",default=None,help="Cache file containing trigger files (optional)",metavar="CACHE_FILE")
 
@@ -463,11 +551,12 @@ opts,args  = parser.parse_args()
 if opts.outfile is None and opts.analyze_injections:
     parser.error("Please specify an output file using the -o option")
 
-if opts.trig_dir is None and opts.cache_file is None and opts.analyze_injections:
-    parser.error("Must specify --trig-dir or --cache-file")
+if opts.trig_dir is None and opts.cache_file is None and opts.pipedown_db is None and opts.analyze_injections:
+    parser.error("Must specify --trig-dir or --cache-file or --pipedown-db")
 
-if opts.trig_dir is not None and opts.cache_file is not None:
-    parser.error("Can only specify one of --cache-file or --trig-dir")
+if ((opts.trig_dir is not None and (opts.cache_file is not None or opts.pipedown_db is not None)) \
+  or (opts.pipedown_db is not None and opts.cache_file is not None) ):
+    parser.error("Can only specify one of --cache-file or --trig-dir or --pipedown-db")
 
 # =============================================================================
 # Build list of IFOs - only H1, L1 and V1 supported at present
@@ -554,15 +643,7 @@ if opts.cache_file is not None:
 # =============================================================================
 # Read in the injections
 injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.source_xml])
-def injsortfilter(a,b):
-	if a.get_end<b.get_end:
-		return -1
-	if a.get_end==b.get_end:
-		return 0
-	else:
-		return 1
-
-injections.sort(injsortfilter)
+injections.sort(key=lambda a:a.get_end())
 
 # =============================================================================
 # Write the output pages

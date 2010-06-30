@@ -57,7 +57,7 @@ def organize_slides(coincTable,coincEvent,timeSlide):
     coinc.append(timeSlideDict[slideID])
   return coincTable
 
-def organize_found_injs(summTable,sims):
+def organize_found_injs(summTable,sims,new_coincs,coinc_map,sngls):
 # This function associates a sim inspiral to a "selected found injection"
   injList = []
   i = 0
@@ -67,6 +67,19 @@ def organize_found_injs(summTable,sims):
     for sim in sims:
       if sim.simulation_id == event.simulation_id:
         injList[i].append(sim)
+        coinc_id = event.coinc_event_id
+    snglEventIds = []
+    for map in coinc_map:
+      if coinc_id == map.coinc_event_id:
+        snglEventIds.append(map.event_id)
+    for coinc in new_coincs:
+      if coinc_id == coinc.coinc_event_id:
+        injList[i].append(coinc)  
+    snglList = []
+    for sngl in sngls:
+       if sngl.event_id in snglEventIds:
+         snglList.append(sngl)
+    injList[i].append(snglList)
     i += 1
   return injList
 
@@ -79,8 +92,8 @@ def get_column_list(tableName, with_sngl = False):
     columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
     row_span_columns = rspan_break_columns = []
   elif tableName == 'selected_found_injections':
-    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2']
-    row_span_columns = rspan_break_columns = []
+    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','recovered_ifos','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_mchirp']
+    row_span_columns = rspan_break_columns = ['injected_decisive_distance', 'injected_end_time', 'injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs','injected_mass1', 'injected_mass2', 'injected_mchirp']
   return columnList, row_span_columns, rspan_break_columns
 
 usage = """%prog [options]
@@ -178,7 +191,10 @@ elif FUPtype == 'SFI':
                    gz = opts.input_xml_summary.endswith("gz"))
   summTable = table.get_table(xmlSummary,opts.table_name + ":table")
   sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
-  simTable = organize_found_injs(summTable,sims)
+  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
   
 # Run the followups on each of the coincs. coinc[0] is the coinc itself
 # coinc[1] is a list of its sngls (created by organize_coincs)
@@ -202,7 +218,7 @@ elif FUPtype == 'LE':
 elif FUPtype == 'SFI':
   for event in simTable:
     if numF < opts.max_followups:
-      page.append( followup.from_injection( event[1],more_infos=True))
+      page.append( followup.from_found( event[1],more_infos=True,coinc = event[2],sngls = event[3]))
       numF += 1
 
 # If opts.html_table is used we read in the table add the followup to the

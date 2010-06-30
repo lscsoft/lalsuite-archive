@@ -687,6 +687,15 @@ for(i=bin-window; i<=bin+window; i++) {
 
 	sincos(phase, &s, &c);
 
+// 	d->re[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
+// 		(f_plus*(p->a_plus*c*p->cos_e-p->a_cross*s*p->sin_e)+
+// 		f_cross*(p->a_plus*c*p->sin_e+p->a_cross*s*p->cos_e));
+// 
+// 
+// 	d->im[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
+// 		(f_plus*(p->a_plus*s*p->cos_e+p->a_cross*c*p->sin_e)+
+// 		f_cross*(p->a_plus*s*p->sin_e-p->a_cross*c*p->cos_e));
+
 	d->re[segment*d->nbins+i]+=(p->strain*hr*16384.0/args_info.strain_norm_factor_arg)*
 		(f_plus*(p->a_plus*c*p->cos_e-p->a_cross*s*p->sin_e)+
 		f_cross*(p->a_plus*c*p->sin_e+p->a_cross*s*p->cos_e));

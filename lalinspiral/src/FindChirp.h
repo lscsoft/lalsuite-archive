@@ -967,7 +967,8 @@ LALFindChirpClusterEvents (
     FindChirpFilterInput       *input,
     FindChirpFilterParams      *params,
     FindChirpBankVetoData      *bankVetoData,
-    UINT4                       subBankIndex
+    UINT4                       subBankIndex,
+    int                         writeCData
     );
 
 #if 0

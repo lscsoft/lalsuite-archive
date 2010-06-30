@@ -569,9 +569,13 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
           "l1-tmpltbank", "v1-tmpltbank", "g1-tmpltbank"])
   elif vetoCat:
     hipeSections = ["condor", "pipeline", "input", "data", "ligo-data", \
-        "tmpltbank", "inspiral", "thinca", "thinca-2", "datafind", "virgo-data", \
+        "tmpltbank", "veto-inspiral", "inspiral", "h1-inspiral", "h2-inspiral", \
+        "l1-inspiral", "g1-inspiral", "v1-inspiral", \
+        "thinca", "thinca-2", "datafind", "virgo-data", \
         "thinca-slide", "coire", "coire-1", "coire-2","coire-inj", "sire", \
-        "sire-inj", "condor-max-jobs", "calibration"]
+        "sire-inj", "condor-max-jobs", "calibration", \
+        "cohbank", "trigbank-coherent", "chia", "inspiral-coherent", \
+        "cohinspbank", "chia-inj", "cohire", "cohire-inj"]
   else:
     hipeSections = ["condor", "pipeline", "input", "calibration", "datafind",\
         "ligo-data", "virgo-data", "geo-data", "data", "tmpltbank", \
@@ -581,8 +585,8 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
         "l1-inspiral", "g1-inspiral", "v1-inspiral", "thinca", "thinca-1", \
         "thinca-2", "thinca-slide", "trigbank", "sire",  \
         "sire-inj", "coire", "coire-1", "coire-2", "coire-inj", \
-        "cohbank", "trigbank-coherent", "chia", "inspiral-coherent", "condor-max-jobs"]
-
+        "cohbank", "trigbank-coherent", "chia", "inspiral-coherent", \
+        "cohinspbank", "chia-inj", "cohire", "cohire-inj", "condor-max-jobs"]
   for seg in hipecp.sections():
     if not seg in hipeSections: hipecp.remove_section(seg)
 
@@ -712,7 +716,9 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     else:
       hipe_args = ["second-coinc", "coire-second-coinc", 
         "summary-coinc-triggers", "sire-second-coinc", 
-        "summary-single-ifo-triggers","write-script"]
+        "summary-single-ifo-triggers","write-script",
+        "coherent-bank","coherent-inspiral","cohire",
+        "summary-coherent-inspiral-triggers"]
     for hipe_arg in hipe_args:
       hipeCommand = test_and_add_hipe_arg(hipeCommand,hipe_arg)
   else:
@@ -757,10 +763,6 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   # collapse the short running jobs in the veto sub-dags
   if vetoCat:
     hipeNode.set_cluster_jobs('horizontal')
-
-  # sweep up the .input files hipe generates
-  hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_cache(
-    'hipe_input_files.%s.cache' % usertag,'*%s-*input' % usertag)))
 
   # tell pegasus where ihope wants us to run the jobs
   hipeJob.set_pegasus_exec_dir(os.path.join(

@@ -61,7 +61,8 @@ LALFindChirpClusterEvents (
     FindChirpFilterInput       *input,
     FindChirpFilterParams      *params,
     FindChirpBankVetoData      *bankVetoData,
-    UINT4                       subBankIndex
+    UINT4                       subBankIndex,
+    int                         writeCData
     )
 /* </lalVerbatim> */
 {
@@ -322,6 +323,11 @@ LALFindChirpClusterEvents (
             thisEvent->cont_chisq_dof = ccDOF;
             thisEvent->cont_chisq = ccChisq;
 
+            if ( writeCData && !thisEvent->event_id )  {
+                thisEvent->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn) );
+                thisEvent->event_id->id = bankVetoData->fcInputArray[subBankIndex]->fcTmplt->tmplt.event_id->id;
+            }
+
             /* store the start of the crossing */
             eventStartIdx = j;
 
@@ -369,6 +375,12 @@ LALFindChirpClusterEvents (
     thisEvent->bank_chisq = bvChisq;
     thisEvent->cont_chisq_dof = ccDOF;
     thisEvent->cont_chisq = ccChisq;
+
+    if ( writeCData && !thisEvent->event_id )  {
+       thisEvent->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn) );
+
+       thisEvent->event_id->id = bankVetoData->fcInputArray[subBankIndex]->fcTmplt->tmplt.event_id->id;
+    }
 
     CHECKSTATUSPTR( status );
   }
