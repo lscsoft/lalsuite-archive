@@ -271,23 +271,23 @@ def parse_args():
     parser.add_option( "--buffer-seg", action="store", type="string",
         default=None,
         help="segwizard-formatted file containing buffer segment")
-    parser.add_option("--G1-veto-file", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
+    parser.add_option("--g1-veto-file", default="",
+        help="segwizard-formatted segment files that "
         "contain segments to veto in G1")
-    parser.add_option("--H1-veto-file", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
+    parser.add_option("--h1-veto-file", default="",
+        help="segwizard-formatted segment files that "
         "contain segments to veto in H1")
-    parser.add_option("--H2-veto-file", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
+    parser.add_option("--h2-veto-file", default="",
+        help="segwizard-formatted segment files that "
         "contain segments to veto in H2")
-    parser.add_option("--L1-veto-file", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
+    parser.add_option("--l1-veto-file", default="",
+        help="segwizard-formatted segment files that "
         "contain segments to veto in L1")
-    parser.add_option("--T1-veto-file", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
+    parser.add_option("--t1-veto-file", default="",
+        help="segwizard-formatted segment files that "
         "contain segments to veto in T1")
-    parser.add_option("--V1-veto-file", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
+    parser.add_option("--v1-veto-file", default="",
+        help="segwizard-formatted segment files that "
         "contain segments to veto in V1")
     parser.add_option( "--onsource-seg", action="store", type="string",
         default=None,
@@ -313,17 +313,12 @@ def parse_args():
     # odds and ends
     parser.add_option("--statistic", default="snr",
         help="choice of statistic used in making plots, valid arguments are: "
-        "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr")
+        "snr,effective_snr and new_snr")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
-    parser.add_option( "--grbname", action="store", type="string",
-        default=None,
-        help="GRB name (YYMMDD only)")
     parser.add_option("--ifos", action="callback", type="string",
         callback=comma_delimited,
-        help="comma-separated list of IFOs")
-    parser.add_option("--inifile", default="",
-        help="offsource ini file containing info on slides")
+        help="comma-separated list of IFOs in lower case")
 
 
 
@@ -388,32 +383,30 @@ nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
 total_num_slides = 2 * nominal_num_slides
 extent_off = off_segs.extent()
 extent_buffer = buffer_segs.extent()
-slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides+1)
-print len(slide_bins)
 
 #veto mask prerequisites
 trial_len =  abs(on_segs)
 num_trials = abs(off_segs) // trial_len
 num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
+##veto segments for IFOs
 ifo_list = opts.ifos
-grbname = opts.grbname
 veto_segs = {}
 for ifo in ifo_list:
-  veto_segs[ifo] = segmentsUtils.fromsegwizard(open('%s-VETOTIME_CAT2_grb%s.txt' % (ifo,grbname)))
+  veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
 
-#get slide amounts 
+#get slide amounts(values of slide amount must be an integer!!)
 slide_amount = {}
-ifo_list_2 = ['h1','h2','l1','v1']
-offsource_ini_file = open(opts.inifile)
-lines = offsource_ini_file.readlines()
-for line in lines:
-  for ifo in ifo_list_2:
-    if line.startswith('%s-slide = '%ifo):
-      slide_amount[ifo.capitalize()] = int(line[11]) // trial_len
+slide_table = table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName)
+for row in slide_table:
+  for ifo in ifo_list:
+    if row.param == "--%s-slide" % ifo:
+      slide_amount[ifo] = int(float(row.value)) // trial_len
 
+#make trial, chirpmass and slide bins
 trial_bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
+slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides+1)
 
 #build veto masks to left and right and then merge them
 veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
@@ -545,8 +538,8 @@ else:
 if opts.write_onsource:
     fname = fname_prefix + "_onsource" + fname_suffix
     # write pickle
-    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
-                 onsource_loudest_by_cat), open(fname, "wb"), -1)
+    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat),
+                open(fname, "wb"), -1)
     # write XML
     ligolw_process.set_process_end_time(process)
     utils.write_filename(onsource_doc, fname_prefix + "_onsource" \
@@ -554,13 +547,13 @@ if opts.write_onsource:
     sys.stdout.write("Loudest on-source coincs written.\n")
 if opts.write_offsource:
     fname = fname_prefix + "_offsource" + fname_suffix
-    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
+    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats,
                  offsource_loudest_by_trial_cat), open(fname, "wb"), -1)
     sys.stdout.write("Loudest off-source coincs written.\n")
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
-    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
-                 m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat),
+    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins,
+                 m2_D_by_inj, inj_loudest_by_inj_cat),
                 open(fname, "wb"), -1)
     sys.stdout.write("Loudest injection coincs written.\n")
 
