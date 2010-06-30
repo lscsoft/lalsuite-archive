@@ -101,9 +101,9 @@ ligolw.Header += u"""\n\n"""\
 
 #setup the output filenames
 base_name = 'SKYPOINTS' + opts.output_prefix
-post_fname = base_name + '_posterior_GPSTIME.txt.gz'
-prob_fname = base_name + '_probability_GPSTIME.txt.gz'
-gal_fname = base_name + '_posterior_galaxy_prior_GPSTIME.txt.gz'
+post_fname = base_name + '_posterior_GPSTIME.txt'
+prob_fname = base_name + '_probability_GPSTIME.txt'
+gal_fname = base_name + '_posterior_galaxy_prior_GPSTIME.txt'
 outfile = base_name + '_GPSTIME.xml'
 
 ##############################################################################
@@ -145,7 +145,6 @@ rankings = cPickle.load(rankfile)
 rankfile.close()
 dtr = rankings['dt']
 dDr = rankings['dD']
-P = rankings['P']
 Pdt = rankings['Pdt']
 ref_freq = rankings['ref_freq']
 snr_threshold = rankings['snr_threshold']
@@ -199,18 +198,16 @@ for coinc in coincs:
         dDrss_fine = skylocutils.get_delta_D_rss(fine_pt,coinc)
         dDrank = dDr.get_rank(dDrss_fine)
         L = dtrank*dDrank
-        prob = P.get_rank(L)
         pval = 0.0
         if opts.galaxy_priors_dir:
           try:
             pval = gal_prior[fine_pt]
           except KeyError:
             pass
-        sp.append([fine_pt,prob,L,Pdt.get_rank(dtrank),dtrank,pval*L])
+        sp.append([fine_pt,L,Pdt.get_rank(dtrank),dtrank,pval*L])
 
   fnames = {}
   fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
-  fnames['probability'] = get_unique_filename(prob_fname.replace('GPSTIME',str(coinc.time.seconds)))
   if opts.galaxy_priors_dir:
     fnames['galaxy'] = get_unique_filename(gal_fname.replace('GPSTIME',str(coinc.time.seconds)))
   else:
@@ -221,7 +218,7 @@ for coinc in coincs:
     #populate the output tables
     #list of points has been sorted so the best one is at the top
     #FIXME: replace None with a link to the skymap file name!!!
-    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['probability'],None)
+    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['posterior'],None)
   else:
     print >>sys.stdout, 'Unable to localize.'
   if coinc.is_injection:
@@ -233,23 +230,23 @@ for coinc in coincs:
     dDrss_inj = skylocutils.get_delta_D_rss(inj_pt,coinc)
     dDrank_inj = dDr.get_rank(dDrss_inj)
     rank_inj = dtrank_inj*dDrank_inj
+    area = {}
     if  opts.galaxy_priors_dir:
       try:
-        galbin = sbin(fbins,inj_pt,fine_res)
+        galbin = fbins[sbin(fbins,inj_pt,fine_res)]
         pval_inj = gal_prior[galbin]
-      except:
+      except KeyError:
         pval_inj = 0.0
-      gal_area = fine_area*len([pt for pt in sp if pt[5] >= rank_inj*pval_inj])
+      gal_area = fine_area*len([pt for pt in sp if pt[4] >= rank_inj*pval_inj])
       area['gal'] = gal_area
     else:
       area['gal'] = None
-    dt_area = fine_area*len([pt for pt in sp if pt[4] >= dtrank_inj])
-    rank_area = fine_area*len([pt for pt in sp if pt[2] >= rank_inj])
-    area = {}
+    dt_area = fine_area*len([pt for pt in sp if pt[3] >= dtrank_inj])
+    rank_area = fine_area*len([pt for pt in sp if pt[1] >= rank_inj])
     area['dt'] = dt_area
     area['rank'] = rank_area
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,area,\
-                                        dtrss_inj,dDrss_inj,fnames['probability'])
+                                        dtrss_inj,dDrss_inj,fnames['posterior'])
 
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event

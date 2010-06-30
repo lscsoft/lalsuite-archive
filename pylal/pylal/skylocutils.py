@@ -396,12 +396,11 @@ class SkyPoints(list):
       self[i][n] /= normfac
     return normfac
 
-  def write(self,fname,post_dat,comment=None,debug=False,gz=True):
+  def write(self,fname,post_dat,comment=None,debug=False,gz=False):
     """
     write the grid to a text file
     """
     self.nsort(1)
-    prob_grid = '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
     post_grid = '# normfac = ' + str(post_dat['normfac']) + '\n'
     post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
@@ -411,32 +410,26 @@ class SkyPoints(list):
       gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
       gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
     for pt in self:
-        prob_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
         post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
     if comment:
-      prob_grid += '# ' + comment + '\n'
       post_grid += '# ' + comment + '\n'
     if fname['galaxy']:
       gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
       gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
       gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
-      self.nsort(5)
+      self.nsort(4)
       for pt in self:
-        gal_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[5]) + '\n'
+        gal_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[4]) + '\n'
     if gz:
-      fprob = gzip.open(fname['probability'], 'w')
-      fpost = gzip.open(fname['posterior'], 'w')
+      fpost = gzip.open(fname['posterior']+'.gz', 'w')
       if fname['galaxy']:
-        fgal = gzip.open(fname['galaxy'], 'w')
+        fgal = gzip.open(fname['galaxy']+'.gz', 'w')
     else:
-      fprob = open(fname['probability'], 'w')
       fpost = open(fname['posterior'], 'w')
       if fname['galaxy']:
         fgal = open(fname['galaxy'], 'w')
 
-    fprob.write(prob_grid)
     fpost.write(post_grid)
-    fprob.close() 
     fpost.close()
     if fname['galaxy']:
       fgal.write(gal_grid)
