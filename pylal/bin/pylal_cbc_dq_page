@@ -912,7 +912,7 @@ if options.skip_hveto_ihope is False:
       "100131174312DQandVetoeshveto_ihope_daily|here]]. "+\
       "The results for this week are:\n"
   #== for each ligo IFO, set up space in table
-  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">'
+  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">',
   for ifo in ifos:
     if ifo in ligo_ifos:
       for hveto_type in hveto_types:
@@ -920,7 +920,7 @@ if options.skip_hveto_ihope is False:
   print >>output
 
   #== for each ligo IFO grep the winning channel and link to page
-  print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">'
+  print >>output, '||',
   for ifo in ifos: 
     if ifo in ligo_ifos:
       for hveto_type in hveto_types:
