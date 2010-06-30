@@ -233,8 +233,8 @@ for coinc in coincs:
     area = {}
     if  opts.galaxy_priors_dir:
       try:
-        galbin = fbins[sbin(fbins,inj_pt,fine_res)]
-        pval_inj = gal_prior[galbin]
+        galpt = fbins[sbin(fbins,inj_pt,fine_res)]
+        pval_inj = gal_prior[galpt]
       except KeyError:
         pval_inj = 0.0
       gal_area = fine_area*len([pt for pt in sp if pt[4] >= rank_inj*pval_inj])
