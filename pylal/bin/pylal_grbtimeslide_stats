@@ -179,26 +179,26 @@ parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
 
     # output
 parser.add_option("--user-tag", default="",
-    help="identifying string for these data")
+    help="identifying string for the analysed data")
 
     # segments
-parser.add_option("--G1-veto-file", default="",
-    help="comma-separated list of segwizard-formatted segment files that "
+parser.add_option("--g1-veto-file", default="",
+    help="segwizard-formatted segment files that "
     "contain segments to veto in G1")
-parser.add_option("--H1-veto-file", default="",
-    help="comma-separated list of segwizard-formatted segment files that "
+parser.add_option("--h1-veto-file", default="",
+    help="segwizard-formatted segment files that "
     "contain segments to veto in H1")
-parser.add_option("--H2-veto-file", default="",
-    help="comma-separated list of segwizard-formatted segment files that "
+parser.add_option("--h2-veto-file", default="",
+    help="segwizard-formatted segment files that "
     "contain segments to veto in H2")
-parser.add_option("--L1-veto-file", default="",
-    help="comma-separated list of segwizard-formatted segment files that "
+parser.add_option("--l1-veto-file", default="",
+    help="segwizard-formatted segment files that "
     "contain segments to veto in L1")
-parser.add_option("--T1-veto-file", default="",
-    help="comma-separated list of segwizard-formatted segment files that "
+parser.add_option("--t1-veto-file", default="",
+    help="segwizard-formatted segment files that "
     "contain segments to veto in T1")
-parser.add_option("--V1-veto-file", default="",
-    help="comma-separated list of segwizard-formatted segment files that "
+parser.add_option("--v1-veto-file", default="",
+    help="segwizard-formatted segment files that "
     "contain segments to veto in V1")
 
 parser.add_option( "--onsource-seg", action="store", type="string",
@@ -210,14 +210,9 @@ parser.add_option( "--buffer-seg", action="store", type="string",
 parser.add_option( "--offsource-seg", action="store", type="string",
     default=None,
     help="segwizard-formatted file containing offsource segments")
-parser.add_option( "--grbname", action="store", type="string",
-    default=None,
-    help="GRB name (YYMMDD only)")
 parser.add_option("--ifos", action="callback", type="string",
     callback=comma_delimited,
-    help="comma-separated list of IFOs")
-parser.add_option("--inifile", default="",
-    help="offsource ini file containing info on slides")
+    help="comma-separated list of IFOs in lower case")
 
 
 
@@ -268,20 +263,17 @@ num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 ##veto segments for IFOs
 ifo_list = opts.ifos
-grbname = opts.grbname
 veto_segs = {}
 for ifo in ifo_list:
-  veto_segs[ifo] = segmentsUtils.fromsegwizard(open('%s-VETOTIME_CAT2_grb%s.txt' % (ifo,grbname)))
+  veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
 
 #get slide amounts 
 slide_amount = {}
-ifo_list_2 = ['h1','h2','l1','v1']
-offsource_ini_file = open(opts.inifile)
-lines = offsource_ini_file.readlines()
-for line in lines:
-  for ifo in ifo_list_2:
-    if line.startswith('%s-slide = '%ifo):
-      slide_amount[ifo.capitalize()] = int(line[11]) // trial_len
+slide_table = table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName)
+for row in slide_table:
+  for ifo in ifo_list:
+    if row.param == "--%s-slide" % ifo:
+      slide_amount[ifo] = int(float(row.value)) // trial_len
 ##############################################################################
 # make mchirp bins
 mc_bins = rate.IrregularBins(opts.mc_boundaries)
@@ -356,10 +348,10 @@ info_text += InspiralUtils.message(opts, "Number of %d second "\
     "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides+1)))
 
 #loudest coincs display
-info_text += InspiralUtils.message(opts, "Loudest background coincidences with new_snr > 8")
+info_text += InspiralUtils.message(opts, "Loudest background coincidences with new_snr > 8.5")
 info_text += "<br>"
 for coinc in coincTable:
-  if coinc.stat > 8:
+  if coinc.stat > 8.5:
     for trig in coinc:
       info_text += InspiralUtils.message(opts, "Coincidence Event ID: %s" % coinc.event_id)
       info_text += InspiralUtils.message(opts, "Coincidence New SNR: %s" % coinc.stat)
