@@ -38,6 +38,8 @@ __date__ = git_version.date
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
 ###############################################################################
+
+# THIS SHOULD MOST CERTAINLY NEVER BE USED :)
 def web_path_to_url(path):
 	host = socket.getfqdn()
 	pl = path.rstrip('/').split('/')
@@ -174,16 +176,36 @@ def wiki_table_parse(file):
 	tabs.append(tab)
 	return tabs, titles
 	
-###############################################################################
-##### CBC WEB PAGE CLASSES ####################################################
-###############################################################################
-
 # PROBABLY DOES NOT EVER NEED TO BE USED DIRECTLY, BUT IS USED IN cbcpage
 class _subpage_id(object):
 	def __init__(self, id, link_text, closed_flag=0):
 		self.id = id
 		self.link_text = link_text
 		self.closed_flag = closed_flag
+
+###############################################################################
+##### CBC WEB PAGE CLASSES ####################################################
+###############################################################################
+
+class _link(markup.page):
+	def __init__(self, href="", text=""):
+		markup.page.__init__(self, mode="strict_html")
+		self.a(href=href)
+		self.add(text)
+		self.a.close()
+	def get_content(self):
+		return self.content
+
+class _text(markup.page):
+	def __init__(self, txt="", bold=False, italic=False):
+		markup.page.__init__(self, mode="strict_html")
+		if bold: self.b()
+		if italic: self.i()
+		self.add(txt)
+		if bold: self.b.close()
+		if italic: self.i.close()
+	def get_content(self):
+		return self.content
 
 class _imagelink(markup.page):
 	def __init__(self, imageurl, thumburl, tag="img", width=240):
@@ -266,6 +288,7 @@ class _section(markup.page):
 		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
 		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1)
 		self.section_ids.append([len(self.sections.values()), tag])
+		return self.sections[tag]
 
 	def get_content(self):
 		self.section_ids.sort()
@@ -281,8 +304,17 @@ class _section(markup.page):
 		tabnum = "%s %s.%s.%s" %  ("Table", self.pagenum, self.secnum, str(self.tables))
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=tabnum)
 		self.content.extend(table.get_content())
+		return self
 
+	def add_link(self, **kwargs):
+		link = _link(**kwargs)
+		self.content.extend(link.get_content())
+		return self
 
+	def add_text(self, **kwargs):
+		text = _text(**kwargs)
+		self.content.extend(text.get_content())
+		return self
 
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
@@ -329,6 +361,7 @@ class cbcpage(markup.page):
 		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
 		self.subpages[tag].add('<table align=right><tr><td align=right onclick="javascript:toggleAllOpen();"><b>Toggle Open</b></td></tr></table>')
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
+		return self.subpages[tag]
 
 	def close_subpage(self,id=None):
 		#SECTIONS WILL AUTOMATICALLY BE CLOSED IN WRITE METHOD IF NOT DONE EXPLICITELY
@@ -400,9 +433,20 @@ class cbcpage(markup.page):
 		secnum = len(self.sections.values()) + 1
 		self.section_ids.append([secnum, tag])
 		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level)
+		return self.sections[tag]
 
 	def add_table(self, two_d_data, title="", caption="", tag="table"):
 		self.tables += 1
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=str(self.pagenum) + " Table "+str(self.tables))
 		self.content.extend(table.get_content())
+		return self
 
+	def add_link(self, **kwargs):
+		link = _link(**kwargs)
+		self.content.extend(link.get_content())
+		return self
+
+	def add_text(self, **kwargs):
+		text = _text(**kwargs)
+		self.content.extend(text.get_content())
+		return self
