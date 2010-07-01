@@ -150,11 +150,12 @@ lines = dagFile.readlines()
 for line in lines:
   if "SUBDAG" in line:
     strs = line.split()
+    fname = ''
     if "DIR" in strs:
       fname = strs[-1] + "/"
     for string in strs:
       if ".dag" in string:
-        filenames.append(string)
+        filenames.append(fname + string)
   if "pegasus-plan" in line:
     strs = line.split()
     for string in strs:
