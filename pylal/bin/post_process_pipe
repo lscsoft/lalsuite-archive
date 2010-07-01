@@ -1341,4 +1341,13 @@ dag.write_cache()
 print "\n\n\tYour output web pages will be:\n\n"
 for node in  summaryPageNode.values(): print "\t\t\t%s\n" %(node.geturl(),)
 print "\n\n\tNow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
-open("hm_post.log", "w").write("COMMAND:\n\n%s\n\nENVIRONMENT:\n\n%s\n\nCODE VERSIONS:\n\n%s" % (" ".join(sys.argv), "\n".join(["%s=%s" % (k,v) for k,v in os.environ.items()]), versions(cp))).close()
+lf = open("hm_post_command.log", "w")
+lf.write(" ".join(sys.argv))
+lf.close()
+lf = open("hm_post_environment.log", "w")
+lf.write("\n".join(["%s=%s" % (k,v) for k,v in os.environ.items()]))
+lf.close()
+lf = open("hm_post_version.log", "w")
+lf.write(versions(cp))
+lf.close()
+
