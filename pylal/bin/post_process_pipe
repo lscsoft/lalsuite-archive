@@ -1073,6 +1073,15 @@ class default_config(object):
     except:
       pass
 
+def versions(cp):
+  def r(s):
+    return "".join([s for i in range(80)])
+  out = ""
+  for k,v in cp.items("condor"):
+    version = subprocess.Popen([v,"--version"], stdout=subprocess.PIPE)
+    out += "%s\n# %s\n%s\n%s\n%s\n%s\n\n\n" % ( r("#"), v, r("#"), r("_"), version.stdout.read().strip(), r("_") )
+  return out
+
 def help():
   print >> sys.stderr, """
 THERE ARE THREE WAYS TO RUN THIS PROGRAM
@@ -1332,4 +1341,4 @@ dag.write_cache()
 print "\n\n\tYour output web pages will be:\n\n"
 for node in  summaryPageNode.values(): print "\t\t\t%s\n" %(node.geturl(),)
 print "\n\n\tNow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
-open("hm_post.log", "w").write(" ".join(sys.argv))
+open("hm_post.log", "w").write("COMMAND:\n\n%s\n\nENVIRONMENT:\n\n%s\n\nCODE VERSIONS:\n\n%s" % (" ".join(sys.argv), "\n".join(["%s=%s" % (k,v) for k,v in os.environ.items()]), versions(cp))).close()
