@@ -12,6 +12,11 @@ from optparse import *
 import glob
 import sys
 
+from pylal import git_version
+__author__ = "Kari Hodg <khodge@ligo.caltech.edu>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
 usage="""
 put the MVSC rank back into the SQL tables, after it's been turned into a likelihood, we put it in the likelihood column of the coinc_inspiral table
 use it like:
@@ -22,7 +27,7 @@ or a combination of the two
 
 time1=time()
 
-parser=OptionParser(usage=usage, version="kari on 08/24/09")
+parser=OptionParser(usage=usage, version=git_version.verbose_msg)
 parser.add_option("", "--files", default="*.dat", help="glob of .dat files that are output by SprOutputWriterApp, these should contain the MVSC rank in the last column")
 parser.add_option("", "--infofiles", default="*_info.pat", help="glob of .pat files that are output by mvsc_get_doubles.py, these should contain the coinc_id (first column) for and sqlite database (second column) containing the trigger")
 (opts,databases)=parser.parse_args()
