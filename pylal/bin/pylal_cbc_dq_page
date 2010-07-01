@@ -693,7 +693,7 @@ if options.skip_dq_flags is False:
     common_dq_file[ifo]=common_dq_path+'/'+common_dq_filename[ifo]
     f = open(common_dq_file[ifo],'w')
     common_dq_cmd[ifo] = 'lalapps_flag_triggers '+ifo
-    #common_dq_cmd[ifo] += ' '+str(options.cat_level)
+    common_dq_cmd[ifo] += ' '+str(options.cat_level)
     common_dq_cmd[ifo] += ' '+str(options.snr_threshold)+' '
     for day in gps_days:
       ls_cmd = 'ls '+ihope_daily_path[day]+'/'+\
@@ -714,7 +714,8 @@ if options.skip_dq_flags is False:
   print >>output, "== Common DQ Flags =="
   print >>output, "{{{"
   print >>output, \
-      "lalapps_flag_triggers ${IFO} ${SNR_THRESHOLD} ${DAILY_DIRECTORIES}" 
+      "lalapps_flag_triggers ${IFO} ${CAT_LEVEL} "+\
+                            "${SNR_THRESHOLD} ${DAILY_DIRECTORIES}" 
   print >>output, "}}}"
   for ifo in ifos:
     print >>output, "===== "+ifo+" ====="
