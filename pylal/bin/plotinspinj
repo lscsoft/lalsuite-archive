@@ -585,7 +585,7 @@ if opts.hist_eta:
 # plot of timing error vs time
 if opts.plot_time:
   fname, text, plot_num = plot_parameter_accuracy(opts, plot_num, injSets, \
-    'end_time', 'days', opts.time_axis, plot_type = 'linear' )
+    'end_time', 'seconds', opts.time_axis, plot_type = 'linear' )
   fnameList.append(fname)
   tagList.append(text)
 
