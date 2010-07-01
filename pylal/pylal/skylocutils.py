@@ -11,12 +11,15 @@ import os
 import operator
 import gzip 
 from math import sqrt, sin, cos, modf
-from numpy import pi, linspace, interp, sum as npsum, exp
+from numpy import pi, linspace, interp, sum as npsum, exp, asarray
+from bisect import bisect
 
 from pylal import date
 from pylal import CoincInspiralUtils, SnglInspiralUtils, SimInspiralUtils
 from pylal.xlal import tools, inject
+from pylal.xlal.constants import LAL_PI_2
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS 
+from pylal.sphericalutils import angle_between_points
 
 import glue.iterutils
 from glue.ligolw import utils, table as tab, lsctables
@@ -250,6 +253,100 @@ def iqr(data):
   """
   return (percentile(75.,data) - percentile(25.,data))
 
+#borrowed this from nick's ligolw_cbc_jitter_skyloc
+#if/when it makes its way to sphericalutils use that instead
+def lonlat2polaz(lon, lat):
+  """
+  Convert (longitude, latitude) in radians to (polar, azimuthal) angles
+  in radians.
+  """
+  return LAL_PI_2 - lat, lon
+
+def sbin(bins,pt,res=0.4):
+  """
+  bin points on the sky
+  returns the index of the point in bin that is closest to pt
+  """
+  #there's probably a better way to do this, but it works
+  #the assumption is that bins is generated from gridsky
+  ds = pi*res/180.0
+  #first pare down possibilities
+  xindex = bisect(bins,pt)
+  xminus = xindex - 1
+  newbins = []
+  while 1:
+    #the 3 in the denominator should be a 4, but this allows for a little slop
+    #that helps you get closer in ra in the next step
+    if xindex < len(bins)-1 \
+        and (bins[xindex][0]-pt[0])*(bins[xindex][0]-pt[0]) <= ds*ds/4.0:
+      newbins.append((bins[xindex][1],bins[xindex][0]))
+      xindex += 1
+    else:
+      break
+  while 1:
+    if (bins[xminus][0]-pt[0])*(bins[xminus][0]-pt[0]) <= ds*ds/4.0:
+      newbins.append((bins[xminus][1],bins[xminus][0]))
+      xminus -= 1
+    else:
+      break
+  if len(newbins) == 1:
+    return bins.index((newbins[0][1],newbins[0][0]))
+  #now break out the full spherical distance formula
+  newbins.sort()
+  rpt = (pt[1],pt[0])
+  yindex = bisect(newbins,rpt)
+  finalbins = {}
+  #if it's the last index then work backwards from the bottom
+  if yindex > len(newbins)-1:
+    print yindex
+    print len(newbins)-1
+    mindist = angle_between_points(asarray(rpt),asarray(newbins[len(newbins)-1]))
+    finalbins[newbins[len(newbins)-1]] = mindist
+    i = 2
+    while 1:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[len(newbins)-i]))
+      if angdist <= mindist:
+        finalbins[newbins[len(newbins)-i]] = angdist
+        i += 1
+      else:
+        break
+  #make sure to cover the top, too
+    i = 0
+    while 1:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[i]))
+      if angdist <= mindist:
+        finalbins[newbins[i]] = angdist
+        i += 1
+      else:
+        break
+  else:
+    mindist = angle_between_points(asarray(rpt),asarray(newbins[yindex]))
+    finalbins[newbins[yindex]] = mindist
+    i = 1
+    while yindex + i < len(newbins) -1:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[yindex+i]))
+      if angdist <= mindist:
+        finalbins[newbins[yindex+i]] = angdist
+        i += 1
+      else:
+        break
+    i = 1
+    while yindex - i >= 0:
+      angdist = angle_between_points(asarray(rpt),asarray(newbins[yindex-i]))
+      if angdist <= mindist:
+        finalbins[newbins[yindex-i]] = angdist
+        i += 1
+      else:
+        break
+  mindist = min(finalbins.values())
+  for key in finalbins.keys():
+    if finalbins[key] == mindist:
+      sky_bin = key
+
+  return bins.index((sky_bin[1],sky_bin[0]))
+
+
+
 ##############################################################################
 #
 #          class definitions
@@ -299,33 +396,44 @@ class SkyPoints(list):
       self[i][n] /= normfac
     return normfac
 
-  def write(self,fname,post_dat,comment=None,debug=False,gz=True):
+  def write(self,fname,post_dat,comment=None,debug=False,gz=False):
     """
     write the grid to a text file
     """
     self.nsort(1)
-    prob_grid = '#  ra' + '\t' + 'dec' + '\t' + 'probability' + '\n'
     post_grid = '# normfac = ' + str(post_dat['normfac']) + '\n'
     post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
     post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    if fname['galaxy']:
+      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
+      gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+      gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
     for pt in self:
-        prob_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
         post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
     if comment:
-      prob_grid += '# ' + comment + '\n'
       post_grid += '# ' + comment + '\n'
+    if fname['galaxy']:
+      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
+      gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+      gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+      self.nsort(4)
+      for pt in self:
+        gal_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[4]) + '\n'
     if gz:
-      fprob = gzip.open(fname['probability'], 'w')
-      fpost = gzip.open(fname['posterior'], 'w')
+      fpost = gzip.open(fname['posterior']+'.gz', 'w')
+      if fname['galaxy']:
+        fgal = gzip.open(fname['galaxy']+'.gz', 'w')
     else:
-      fprob = open(fname['probability'], 'w')
       fpost = open(fname['posterior'], 'w')
+      if fname['galaxy']:
+        fgal = open(fname['galaxy'], 'w')
 
-    fprob.write(prob_grid)
     fpost.write(post_grid)
-    fprob.close() 
     fpost.close()
+    if fname['galaxy']:
+      fgal.write(gal_grid)
+      fgal.close()
 
 class CoincData(object):
   """
@@ -517,15 +625,6 @@ class SkyLocTable(tab.Table):
     "dt70": "real_4",
     "dt80": "real_4",
     "dt90": "real_4",
-    "P10": "real_4",
-    "P20": "real_4",
-    "P30": "real_4",
-    "P40": "real_4",
-    "P50": "real_4",
-    "P60": "real_4",
-    "P70": "real_4",
-    "P80": "real_4",
-    "P90": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
     "grid": "lstring"
@@ -563,6 +662,7 @@ class SkyLocInjTable(tab.Table):
     "dec": "real_4",
     "dt_area": "real_4",
     "rank_area": "real_4",
+    "gal_area": "real_4",
     "delta_t_rss": "real_8",
     "delta_D_rss": "real_8",
     "rank": "real_8",
@@ -641,15 +741,6 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
   row.dt20 = area(grid,20.,A,2)
   row.dt10 = area(grid,10.,A,2)
   grid.nsort(1)
-  row.P90 = area(grid,90.,A,1)
-  row.P80 = area(grid,80.,A,1)
-  row.P70 = area(grid,70.,A,1)
-  row.P60 = area(grid,60.,A,1)
-  row.P50 = area(grid,50.,A,1)
-  row.P40 = area(grid,40.,A,1)
-  row.P30 = area(grid,30.,A,1)
-  row.P20 = area(grid,20.,A,1)
-  row.P10 = area(grid,10.,A,1)
   row.min_eff_distance = min(effD for effD in coinc.eff_distances.values())
   if skymap_fname:
     row.skymap = os.path.basename(str(skymap_fname))
@@ -659,7 +750,7 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
 
   skyloctable.append(row)
   
-def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area,\
+def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
                             dtrss_inj,dDrss_inj,grid_fname):
   """
   record injection data in a skylocinjtable
@@ -687,8 +778,12 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,rank,dt_area,rank_area,\
     row.v1_snr = None
   row.ra = coinc.longitude_inj
   row.dec = coinc.latitude_inj
-  row.dt_area = dt_area
-  row.rank_area = rank_area
+  row.dt_area = area['dt']
+  row.rank_area = area['rank']
+  if area['gal']:
+    row.gal_area = area['gal']
+  else:
+    row.gal_area = None
   row.delta_t_rss = dtrss_inj
   row.delta_D_rss = dDrss_inj
   try:
