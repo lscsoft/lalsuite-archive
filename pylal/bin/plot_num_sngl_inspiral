@@ -30,7 +30,7 @@ class IFOdata(object):
 
 def parse_command_line():
 	parser = OptionParser(
-	version = "%prog",
+	version = git_version.verbose_msg,
 		description = "Plot number of rows in a single inspiral table from many files"
         )
         parser.add_option("-p", "--pattern", metavar = "pat", action="append", default = [], help = "Set the pattern for parsing the cache file for patterns to find sngl inspiral tables")
