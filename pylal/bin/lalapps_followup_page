@@ -129,7 +129,11 @@ class Coinc(object):
 
 			ca = self.parse_cache_by_time_and_ifo(time, ifo, ancache)
 			page.sections[name].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			qconf = fu_utils.omega_config_parser('%s/configuration.txt' % (c[0].path(),))
+			confile = '%s/configuration.txt' % (c[0].path(),)
+			try: qconf = fu_utils.omega_config_parser(confile)
+			except ValueError: 
+				print >>sys.stderr, "File %s could not be parsed" % ( confile, )
+				continue
 			plots = qconf.to_plot_tuple()
 			self._add_qscan_plots(page, plots, c, ca, img_col, ifo)
 
@@ -185,11 +189,11 @@ class Coinc(object):
 			c = self.parse_cache_by_time_and_ifo(time, ifo, self.plotsnrchisq_cache)
 			cfile = c[0].url.replace('file://localhost','')
 			path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
-			clist = open(cfile).readlines()
+			#clist = open(cfile).readlines()
 			plots = ['snr-','snr_zoom-', 'rsq-', 'rsq_zoom-', 'chisq-', 'chisq_zoom-', 'PSD-', 'fft_of_template_and_asd-', 'template-', 'white_template-']
 			plot_list = []
 			for plot in plots:
-				img, thumb = parse_plot_cache_for_image(clist, path, plot)
+				img, thumb = parse_plot_cache_for_image(cfile, path, plot)
 				plot_list.append(cbcwebpage._imagelinkcpy(img,thumb,plot))
 			img_row.append(plot_list)
 			ifo_row.append(ifo)
@@ -209,13 +213,13 @@ class Coinc(object):
 
 		cfile = c[0].url.replace('file://localhost','')
 		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
-		try: clist = open(cfile).readlines()
-		except:
-			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
-			page.sections["plotchia"].add("<br><b>plot chia job did not finish correctly</b><br>")
-			return
+		#try: clist = open(cfile).readlines()
+		#except:
+		#	print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
+		#	page.sections["plotchia"].add("<br><b>plot chia job did not finish correctly</b><br>")
+		#	return
 
-		for num, plot in enumerate(parse_plot_cache_for_all_images(clist, path)):
+		for num, plot in enumerate(parse_plot_cache_for_all_images(cfile, path)):
 			plot_list.append(cbcwebpage._imagelinkcpy(plot[0],plot[1],"chia"+str(num)))
 		# group by 3s
 		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
@@ -234,13 +238,13 @@ class Coinc(object):
 		c = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.skymap_cache)
 		cfile = c[0].url.replace('file://localhost','')
 		path = '/' + os.path.split(cfile.rstrip('/').lstrip('/'))[0]
-		try: clist = open(cfile).readlines()
-		except:
-			print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
-			page.sections["skymap"].add("<br><b>skymap job did not finish correctly</b><br>")
-			return
+		#try: clist = open(cfile).readlines()
+		#except:
+		#	print >>sys.stderr, "couldn't find cachefile %s" % (cfile,)
+		#	page.sections["skymap"].add("<br><b>skymap job did not finish correctly</b><br>")
+		#	return
 
-		for num, plot in enumerate(parse_plot_cache_for_all_images(clist, path)):
+		for num, plot in enumerate(parse_plot_cache_for_all_images(cfile, path)):
 			plot_list.append(cbcwebpage._imagelinkcpy(plot[0],plot[1],"skymap"+str(num)))
 		# group by 3s
 		plot_list = [plot_list[i*3:i*3+3] for i in range(int(math.ceil(len(plot_list) / 3.)))]
@@ -255,6 +259,7 @@ class Coinc(object):
 		page.add_section("DQ", "Data Quality for %s" % (self.coinctime,))
 		page.sections["DQ"].div("This section gives vetoes and flags that were on")
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.flag_cache)
+		if not ca: return # get out of here
 		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
 		#FIXME HACK, may stop working
 		for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
