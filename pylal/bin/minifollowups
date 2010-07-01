@@ -166,7 +166,11 @@ if not os.path.isdir('Images'):
 # Sieve the ihope cache file
 cache = lal.Cache.fromfile( open( opts.cache_file ) )
 temp_cache = cache.sieve (description = opts.cache_string )
-followup = followup_trigger.FollowupTrigger( temp_cache, opts, False )
+if opts.time_slides:
+  followup = followup_trigger.FollowupTrigger( temp_cache, opts, \
+      use_injections = False, do_slides = True )
+else:
+  followup = followup_trigger.FollowupTrigger( temp_cache, opts, False )
 
 # Read in the xml file
 xmldoc = utils.load_filename( opts.input_xml,
