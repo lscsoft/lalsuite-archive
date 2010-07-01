@@ -91,9 +91,9 @@ function toggleAllOpen() {
 	fname.close()
 	return filename
 
-def script_dict():
+def script_dict(fname):
 	script = {}
-	tog = create_toggle()
+	tog = os.path.split(create_toggle(fname))[1]
 	script[tog] = 'javascript'
 	script['http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
 	return (script, [tog])
@@ -115,7 +115,7 @@ def copy_ihope_style(stylefile="cbcwebpage.css", base_dir="."):
 		sys.exit(1)
 	shutil.copy(out, base_dir)
 	
-	return base_dir + '/' + os.path.split(out.rstrip('/'))[1]
+	return os.path.split(out.rstrip('/'))[1]
 
 def which(prog):
 	which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
@@ -322,8 +322,8 @@ class cbcpage(markup.page):
 	def __init__(self, title="cbc web page", path='./', css=None, script=None, pagenum=1, verbose=False):
 		"""
 		"""
-		if not css: css = copy_ihope_style()
-		scdict = script_dict()
+		if not css: css = copy_ihope_style(base_dir=path)
+		scdict = script_dict(fname='%s/%s' % (path,"toggle.js"))
 		if not script: script = scdict[0]
 		self.front = ""
 		scriptfiles = scdict[1]
@@ -358,7 +358,7 @@ class cbcpage(markup.page):
 		if not link_text: link_text=str(subpage_num)
 
 		# tuple including number so it can be sorted later
-		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
+		self.subpages[tag] = cbcpage(title=title,path=self.path,css=self._style,script=self._script,pagenum=subpage_num)
 		self.subpages[tag].add('<table align=right><tr><td align=right onclick="javascript:toggleAllOpen();"><b>Toggle Open</b></td></tr></table>')
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
 		return self.subpages[tag]
