@@ -306,10 +306,12 @@ cp.set("input", "gps-end-time", str(opts.gps_end_time) )
 opts.do_dag_categories = not cp.has_option(
               "hipe-arguments","disable-dag-categories")
 
-# Add local dir to pipeline
+# Tell matplotlib to put its cache files in the the local dir
+cp.set("pipeline", "matplotlibdir", opts.node_local_dir )
 
+# Add local dir to pipeline
 if opts.run_pipedown:
-  cp.set("pipeline","node-tmp-dir",opts.node_local_dir)
+  cp.set("pipeline", "node-tmp-dir", opts.node_local_dir)
 
 ##############################################################################
 # create a directory called executables and copy them over
