@@ -276,70 +276,6 @@ omega=2.0*M_PI*p->freq*doppler-p->phase_integration_factor;
 return(omega);
 }
 
-static void test_inject_fake_signal(void)
-{
-SIGNAL_PARAMS p;
-double cos_i;
-double re, im, f, re2, im2, f2;
-int status=0;
-
-p.bin=0;
-
-p.ra=2.56;
-p.dec=1.43;
-p.freq=500.12;
-p.spindown=1.23e-9;
-p.ref_time=793154935;
-p.segment_start=793161245;
-p.coherence_time=1800.0;
-p.extra_phase=0;
-p.dInv=0;
-p.detector="LHO";
-
-cos_i=cos(1.23);
-
-p.a_plus=(1+cos_i*cos_i)*0.5;
-p.a_cross=cos_i;
-
-p.cos_e=cos(2.0*(1.23));
-p.sin_e=sin(2.0*(1.23));
-precompute_am_constants(p.e, p.ra, p.dec);
-
-get_detector("LHO");
-
-compute_signal(&re, &im, &f, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
-fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
-
-if(fabs(re-9.59669e-06)>1e-10 ||
-   fabs(im-1.83957e-05)>1e-10 ||
-   fabs(f-500.101774)>1e-5) status|=1;
-
-p.cos_e=1.0;
-p.sin_e=0.0;
-
-compute_signal(&re, &im, &f, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test2: %g %g %f\n", re, im, f);
-fprintf(LOG, "compute_signal_test2: %g %g %f\n", re, im, f);
-
-p.cos_e=1.0;
-p.sin_e=0.0;
-p.extra_phase=M_PI*0.5;
-
-compute_signal(&re2, &im2, &f2, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
-fprintf(LOG, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
-
-if(fabs(f2-f)>1e-5 ||
-   fabs(re-im2)>1e-11 ||
-   fabs(im+re2)>1e-11) status|=2;
-
-if(status) {
-	fprintf(stderr, "compute_signal_test: failed %d\n", status);
-	fprintf(LOG, "compute_signal_test: failed %d\n", status);
-	//exit(-1);
-	}
-}
 
 static void precompute_signal_params(SIGNAL_PARAMS *p)
 {
@@ -375,6 +311,69 @@ p->phase_modulation_freq=args_info.fake_modulation_freq_arg;
 p->phase_modulation_phase=args_info.fake_modulation_phase_arg;
 
 precompute_signal_params(p);
+}
+
+static void test_inject_fake_signal(void)
+{
+SIGNAL_PARAMS p;
+double cos_i;
+double re, im, f, re2, im2, f2;
+int status=0;
+
+memset(&p, 0, sizeof(p));
+
+p.bin=0;
+
+p.ra=2.56;
+p.dec=1.43;
+p.freq=500.12;
+p.spindown=1.23e-9;
+p.ref_time=793154935;
+p.segment_start=793161245;
+p.coherence_time=1800.0;
+p.extra_phase=0;
+p.iota=1.23;
+p.psi=0.45;
+p.phi=0.123;
+p.dInv=0;
+p.detector="LHO";
+
+precompute_signal_params(&p);
+
+get_detector("LHO");
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
+
+if(fabs(re-1.67031e-05)>1e-10 ||
+   fabs(im+2.54064e-05)>1e-10 ||
+   fabs(f-500.101774)>1e-5) status|=1;
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test2: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test2: %g %g %f\n", re, im, f);
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+p.phi+=M_PI*0.5;
+
+compute_signal(&re2, &im2, &f2, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
+fprintf(LOG, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
+
+if(fabs(f2-f)>1e-5 ||
+   fabs(re-im2)>1e-11 ||
+   fabs(im+re2)>1e-11) status|=2;
+
+if(status) {
+	fprintf(stderr, "compute_signal_test: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test: failed %d\n", status);
+	//exit(-1);
+	}
 }
 
 static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment)
