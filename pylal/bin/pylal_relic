@@ -400,8 +400,11 @@ slide_amount = {}
 slide_table = table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName)
 for row in slide_table:
   for ifo in ifo_list:
-    if row.param == "--%s-slide" % ifo:
-      slide_amount[ifo] = int(float(row.value)) // trial_len
+    if nominal_num_slides > 0:
+      if row.param == "--%s-slide" % ifo:
+        slide_amount[ifo] = int(float(row.value)) // trial_len
+    else:
+      slide_amount[ifo] = 0
 
 #make trial, chirpmass and slide bins
 trial_bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
@@ -422,6 +425,8 @@ for slide in range(-nominal_num_slides, nominal_num_slides+1):
   trial_veto_mask_2d[slide] = trial_mask_2d
 
 trial_veto_mask = trial_veto_mask_2d.flatten()
+trial_veto_mask_inj = numpy.zeros(num_trials, dtype=numpy.bool8)
+trial_veto_mask_inj = trial_veto_mask_2d[0]
 ################################################################################
 # choose other binnings: mchirp, m2, D, and (mchirp_ind and IFO combo)
 
@@ -516,7 +521,7 @@ if opts.write_injections:
     inj_loudest_by_inj_cat = numpy.array(inj_loudest_by_inj_cat)
 
     # throw out vetoed injection trials
-    inj_mask = trial_veto_mask[[trial_bins[sim.get_end()] for sim in sims]]
+    inj_mask = trial_veto_mask_inj[[trial_bins[sim.get_end()] for sim in sims]]
     sims = [sim for sim, keep in zip(sims, inj_mask) if not keep]
     inj_loudest_by_inj_cat = inj_loudest_by_inj_cat[~inj_mask, ...]
 
