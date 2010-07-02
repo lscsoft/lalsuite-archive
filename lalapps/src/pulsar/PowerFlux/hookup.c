@@ -194,6 +194,25 @@ if(!strcasecmp("LHO", det)){
 	} else 
 if(!strcasecmp("LLO", det)){
 	detector=lalCachedDetectors[LALDetectorIndexLLODIFF];
+	} else
+if(!strcasecmp("VIRGO", det)){
+	detector=lalCachedDetectors[LALDetectorIndexVIRGODIFF];
+	} else {
+	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
+	exit(-1);
+	}
+}
+
+LALDetector get_detector_struct(char *det) 
+{
+if(!strcasecmp("LHO", det)){
+	return lalCachedDetectors[LALDetectorIndexLHODIFF];
+	} else 
+if(!strcasecmp("LLO", det)){
+	return lalCachedDetectors[LALDetectorIndexLLODIFF];
+	} else
+if(!strcasecmp("VIRGO", det)){
+	return lalCachedDetectors[LALDetectorIndexVIRGODIFF];
 	} else {
 	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
 	exit(-1);
@@ -283,6 +302,25 @@ fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 #endif
 
 for(i=0;i<3;i++)velocity[i]=det_velocity[i];
+if(status.statusPtr)FREESTATUSPTR(&status);
+}
+
+void get_emission_time(EmissionTime *emission_time, EarthState *earth_state, double ra, double dec, double dInv, char *detector, LIGOTimeGPS tGPS)
+{
+BarycenterInput baryinput;
+LALStatus status={level:0, statusPtr:NULL};
+
+baryinput.tgps=tGPS;
+baryinput.site=get_detector_struct(detector);
+baryinput.site.location[0]=baryinput.site.location[0]/LAL_C_SI;
+baryinput.site.location[1]=baryinput.site.location[1]/LAL_C_SI;
+baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
+baryinput.alpha=ra;
+baryinput.delta=dec;
+baryinput.dInv=dInv;
+
+LALBarycenter(&status, emission_time, &baryinput, earth_state);
+TESTSTATUS(&status);
 if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
