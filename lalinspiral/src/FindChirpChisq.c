@@ -276,6 +276,7 @@ LALFindChirpChisqVeto (
     case TaylorT3:
     case TaylorF2:
     case GeneratePPN:
+    case AmpCorPPN:
     case PadeT1:
     case EOB:
     case EOBNR:

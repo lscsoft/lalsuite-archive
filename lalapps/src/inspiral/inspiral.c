@@ -178,6 +178,7 @@ REAL4 strainHighPassFreq = -1;          /* h(t) high pass frequency     */
 INT4  strainHighPassOrder = -1;         /* h(t) high pass filter order  */
 REAL4 strainHighPassAtten = -1;         /* h(t) high pass attenuation   */
 enum { undefined, real_4, real_8 } calData = undefined; /* cal data type*/
+UINT4 skipAutoChisq = 0;                /* Do autochisq by default      */
 
 /* data conditioning parameters */
 LIGOTimeGPS slideData   = {0,0};        /* slide data for time shifting */
@@ -2524,16 +2525,19 @@ int main( int argc, char *argv[] )
         } /* end of loop over templates in subbank */
 
         /* If doing bank veto compute CC Matrix */
-        if (ccFlag && (subBankCurrent->subBankSize >= 1) && analyseTag)
+        if ( !skipAutoChisq )
         {
+          if (ccFlag && (subBankCurrent->subBankSize >= 1) && analyseTag)
+          {
 	  
-          if (vrbflg) fprintf(stderr, "doing ccmat\n");
-          XLALBankVetoCCMat( &bankVetoData, 
-			     fcDataParams->ampVec,
-			     subBankCurrent->subBankSize, 
-			     dynRange, fLow, spec.deltaF,chan.deltaT);
+            if (vrbflg) fprintf(stderr, "doing ccmat\n");
+            XLALBankVetoCCMat( &bankVetoData, 
+			      fcDataParams->ampVec,
+			      subBankCurrent->subBankSize, 
+			      dynRange, fLow, spec.deltaF,chan.deltaT);
 
-	  ccFlag = 0;
+	    ccFlag = 0;
+          }
         }
         /* now look through the filter outputs of the subbank for events */
         for ( bankCurrent = subBankCurrent->bankHead, subBankIndex = 0;
@@ -3438,6 +3442,7 @@ fprintf( a, "  --rsq-veto-coeff COEFF       set the r^2 veto coefficient to COEF
 fprintf( a, "  --rsq-veto-pow POW           set the r^2 veto power to POW\n");\
 fprintf( a, "\n");\
 fprintf( a, "  --bank-veto-subbank-size N   set the number of tmplts in a subbank to N\n");\
+fprintf( a, "  --disable-autochisq             skip the autochisq test. \n");\
 fprintf( a, "  --autochisq-length N         set the DOF of the autochisq to N in (1,1000)\n");\
 fprintf( a, "  --autochisq-stride N         set the stride of the autochisq to N in (1,1000)\n");\
 fprintf( a, "  --autochisq-two-sided        do a two-sided auto chisq test instead of one-sided.\n");\
@@ -3604,6 +3609,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"rsq-veto-coeff",          required_argument, 0,                '['},
     {"rsq-veto-pow",            required_argument, 0,                ']'},
     {"bank-veto-subbank-size",  required_argument, 0,                ','},
+    {"disable-autochisq",       no_argument,       0,                ':'},
     {"autochisq-length",        required_argument, 0,                 0 },
     {"autochisq-stride",        required_argument, 0,                 0 },
     {"autochisq-two-sided",     no_argument,       &autochisqTwo    ,'}'},
@@ -4923,6 +4929,11 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           subBankSize = (UINT4) subBankSizeArg;
         }
         break;
+
+      case ':':
+        skipAutoChisq = 1;
+        break;
+
       case '}':
         bandPassTmplt = 1;
         ADD_PROCESS_PARAM( "int", "%s", " " );
