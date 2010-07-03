@@ -879,14 +879,14 @@ power_sum_stats_selftest();
 
 /* Check that expected timebase was sufficient */
 
-if((fabs(max_gps()-spindown_start)>args_info.expected_timebase_arg*24.0*3600.0*31.0 )) {
+if((fabs(max_gps()-spindown_start)>args_info.expected_timebase_arg*24.0*3600.0*31.0)) {
 	fprintf(stderr, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
 		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg*1.0);
 	fprintf(LOG, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
 		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
 	exit(-1);
 	}
-if((fabs(spindown_start-min_gps())>args_info.expected_timebase_arg*24*3600*31 )) {
+if((fabs(spindown_start-min_gps())>args_info.expected_timebase_arg*24*3600*31)) {
 	fprintf(stderr, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
 		(spindown_start-min_gps())/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
 	fprintf(LOG, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
