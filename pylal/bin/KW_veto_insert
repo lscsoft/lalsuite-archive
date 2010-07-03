@@ -281,6 +281,12 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 
+del lsctables.SegmentTable.validcolumns['start_time_ns']
+del lsctables.SegmentTable.validcolumns['end_time_ns']
+del lsctables.ProcessTable.validcolumns['domain']
+del lsctables.ProcessTable.validcolumns['jobid']
+del lsctables.ProcessTable.validcolumns['is_online']
+
 # prepare xml file
 doc = ligolw.Document()
 doc.appendChild(ligolw.LIGO_LW())

@@ -929,6 +929,36 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
+
+# Hack: to use for ImagePlots with non-uniform bins
+def fake_nonuniform_bins(orig_data, bins):
+    """Copy rows in 2D-array orig_data to simulate non-uniform bins
+    with many bins.
+
+    Symbolically, [a,b,c] -> [a,a,a,b,b,b,b,b,b,b,c,c].
+    """
+    def mcd(x, y):  # Maximum Common Divisor, Euclides-like algorithm
+        for i in range(6):  # no more than 6 iterations, please
+            if y > x:
+                x, y = y, x  # so x > y
+            if x % y < 1e-3 * x:
+                return y  # if y divides x "sufficiently", we're done
+            x = x % y
+        return x  # hopefully we won't get here
+    sizes = bins.upper() - bins.lower()  # bin sizes
+    # worst residual of approximating  size ~ integer * the smallest size
+    worst = numpy.argmax(sizes % min(sizes))
+    ds = mcd(min(sizes), sizes[worst])  # delta_size, smallest size for new bins
+    data = orig_data.copy()
+    pos = 0
+    for i in range(orig_data.shape[0]):
+        # copy original row i as many times as delta_size fits in this bin size
+        copy_row = [orig_data[i,:] for  x in range(int(sizes[i]/ds))]
+        data = numpy.insert(data, [pos]*int(sizes[i]/ds), copy_row, axis=0)
+        pos += 1 + len(copy_row)  # take into account the extra rows we added
+    return data
+
+
 ## p(c|h) from max L mchirp bins vs (m2, D) image
 text = "p(observation|h(m2, D)) after 90% MC errors"
 
@@ -939,7 +969,9 @@ MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) \
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(" + observation + r"\,|\,h(m_2, D)) "
     r"\textrm{ w/ 90\% MC error}$")
-plot.add_content(pLh_by_m2_D.T - num_sigmas * MC_sigma.T, m2_bins, D_bins)
+plot.add_content(fake_nonuniform_bins(pLh_by_m2_D, m2_bins).T - \
+                     num_sigmas * fake_nonuniform_bins(MC_sigma, m2_bins).T,
+                 m2_bins, D_bins)
 plot.finalize()
 
 # XXX: Hack around an apparent matplotlib API backwards-incompatibility
@@ -964,7 +996,7 @@ text = "p(observation|h(m2, D)) before MC errors"
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(" + observation + r"\,|\,h(m_2, D))$")
-plot.add_content(pLh_by_m2_D.T, m2_bins, D_bins)
+plot.add_content(fake_nonuniform_bins(pLh_by_m2_D, m2_bins).T, m2_bins, D_bins)
 plot.finalize()
 
 # XXX: Hack around an apparent matplotlib API backwards-incompatibility
@@ -1045,7 +1077,8 @@ text = "Injection count"
 
 plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$",
     r"Injections made")
-plot.add_content(num_sims_by_m2_D.T, m2_bins, D_bins)
+plot.add_content(fake_nonuniform_bins(num_sims_by_m2_D, m2_bins).T,
+                 m2_bins, D_bins)
 plot.finalize()
 
 if opts.enable_output:

@@ -47,7 +47,7 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
 
     # Maybe the user just wants one file...
     if os.path.isfile(dirname):
-        if re.match('.*-[0-9]*-[0-9]*\.xml', dirname):
+        if re.match('.*-[0-9]*-[0-9]*\.xml$', dirname):
             return [dirname]
         else:
             return ret
@@ -60,7 +60,7 @@ def get_all_files_in_range(dirname, starttime, endtime, pad=64):
             dirtime = int(filename[-4:])
             if dirtime >= first_four_start and dirtime <= first_four_end:
                 ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
-        elif re.match('.*-[0-9]*-[0-9]*\.xml', filename):
+        elif re.match('.*-[0-9]*-[0-9]*\.xml$', filename):
             file_time = int(filename.split('-')[-2])
             if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))

@@ -234,7 +234,7 @@ def find_coincidence(master_cur, KWcur, GWcur):
          self.IDs.append(ID)
    
     ## initialize tables to put data in
-    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, frequency int, CoincidenceGWTrigID text)")
+    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, frequency double, CoincidenceGWTrigID text)")
     master_cur.execute("create table GWtrigs (ID integer primary key, GPSTime double, SNR double, coincidence int)")
 
     ## get KW triggers
