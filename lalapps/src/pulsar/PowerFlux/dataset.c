@@ -313,10 +313,9 @@ p->phase_modulation_phase=args_info.fake_modulation_phase_arg;
 precompute_signal_params(p);
 }
 
-static void test_inject_fake_signal(void)
+static void test_inject_fake_signal05(void)
 {
 SIGNAL_PARAMS p;
-double cos_i;
 double re, im, f, re2, im2, f2;
 int status=0;
 
@@ -329,7 +328,7 @@ p.dec=1.43;
 p.freq=500.12;
 p.spindown=1.23e-9;
 p.ref_time=793154935;
-p.segment_start=793161245;
+p.segment_start=793161250-900.0;
 p.coherence_time=1800.0;
 p.extra_phase=0;
 p.iota=1.23;
@@ -343,36 +342,104 @@ precompute_signal_params(&p);
 get_detector("LHO");
 
 compute_signal(&re, &im, &f, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
-fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
+compute_signal(&re2, &im2, &f2, 793161250.0+43*3600.0+123, &p);
+fprintf(stderr, "compute_signal_test05a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+fprintf(LOG, "compute_signal_test05a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
 
-if(fabs(re-1.67031e-05)>1e-10 ||
-   fabs(im+2.54064e-05)>1e-10 ||
-   fabs(f-500.101774)>1e-5) status|=1;
+if(fabs(re*re2+im*im2+0.0140269)>1e-5 ||
+   fabs(f-500.101774)>1e-5 ||
+   fabs(f2-500.101466)>1e-5
+	) status|=1;
+
+fprintf(stderr, "compute_signal_test05b: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test05b: %g %g %f\n", re, im, f);
 
 p.cos_e=1.0;
 p.sin_e=0.0;
 
 compute_signal(&re, &im, &f, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test2: %g %g %f\n", re, im, f);
-fprintf(LOG, "compute_signal_test2: %g %g %f\n", re, im, f);
+fprintf(stderr, "compute_signal_test05b: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test05b: %g %g %f\n", re, im, f);
 
 p.cos_e=1.0;
 p.sin_e=0.0;
 p.phi+=M_PI*0.5;
 
 compute_signal(&re2, &im2, &f2, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
-fprintf(LOG, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
+fprintf(stderr, "compute_signal_test05c: %g %g %f\n", re2, im2, f2);
+fprintf(LOG, "compute_signal_test05c: %g %g %f\n", re2, im2, f2);
 
 if(fabs(f2-f)>1e-5 ||
    fabs(re-im2)>1e-11 ||
    fabs(im+re2)>1e-11) status|=2;
 
 if(status) {
-	fprintf(stderr, "compute_signal_test: failed %d\n", status);
-	fprintf(LOG, "compute_signal_test: failed %d\n", status);
-	//exit(-1);
+	fprintf(stderr, "compute_signal_test05: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test05: failed %d\n", status);
+	exit(-1);
+	}
+}
+
+static void test_inject_fake_signal09(void)
+{
+SIGNAL_PARAMS p;
+double re, im, f, re2, im2, f2;
+int status=0;
+
+memset(&p, 0, sizeof(p));
+
+p.bin=0;
+
+p.ra=2.56;
+p.dec=1.43;
+p.freq=500.12;
+p.spindown=1.23e-9;
+p.ref_time=910000000.0-12345.0;
+p.segment_start=910000000.0-900.0;
+p.coherence_time=1800.0;
+p.extra_phase=0;
+p.iota=1.23;
+p.psi=0.45;
+p.phi=0.123;
+p.dInv=0;
+p.detector="LHO";
+
+precompute_signal_params(&p);
+
+get_detector("LHO");
+
+compute_signal(&re, &im, &f, 930000000.0, &p);
+compute_signal(&re2, &im2, &f2, 930000000.0+43*3600.0+123, &p);
+fprintf(stderr, "compute_signal_test09a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+fprintf(LOG, "compute_signal_test09a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+
+if(fabs(re*re2+im*im2-0.0470977)>1e-5 ||
+   fabs(f-500.140589)>1e-5 ||
+   fabs(f2-500.141517)>1e-5) status|=1;
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+
+compute_signal(&re, &im, &f, 930000000.0, &p);
+fprintf(stderr, "compute_signal_test09b: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test09b: %g %g %f\n", re, im, f);
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+p.phi+=M_PI*0.5;
+
+compute_signal(&re2, &im2, &f2, 930000000.0, &p);
+fprintf(stderr, "compute_signal_test09c: %g %g %f\n", re2, im2, f2);
+fprintf(LOG, "compute_signal_test09c: %g %g %f\n", re2, im2, f2);
+
+if(fabs(f2-f)>1e-5 ||
+   fabs(re-im2)>1e-11 ||
+   fabs(im+re2)>1e-11) status|=2;
+
+if(status) {
+	fprintf(stderr, "compute_signal_test09: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test09: failed %d\n", status);
+	exit(-1);
 	}
 }
 
@@ -2769,11 +2836,12 @@ if(!pass)exit(-1);
 
 void test_datasets(void)
 {
-test_inject_fake_signal();
 test_compute_median();
+test_inject_fake_signal09();
 
 if(args_info.extended_test_arg) {
 	fake_dataset_test();
+	test_inject_fake_signal05();
 	}
 }
 
