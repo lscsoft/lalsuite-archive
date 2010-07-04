@@ -114,7 +114,7 @@ def create_mchirp_plot(statistic, mc_bins, ifos,\
   mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 
   plot = plotutils.NumberVsBinBarPlot(\
-    r"$\rho_\mathrm{eff}$",
+    ppstat,
     "$" + mc_latex + "$", "Loudest statistics by template bank mchirp %s"%ifos)
   plot.add_content(mc_bins, onsource_loudest_by_mc)
   plot.finalize(orientation="horizontal")
@@ -123,8 +123,8 @@ def create_mchirp_plot(statistic, mc_bins, ifos,\
   for mc, snr, pc0 in \
           zip(mc_bins.centres(), onsource_loudest_by_mc, p0_by_mc):
 
-    plot.ax.text(snr + 0.2, mc, r"$\mathrm{FAP} = %.3f;\; \rho_\mathrm{eff,comb}=%.2f$" \
-                   % (pc0, snr), verticalalignment="center")
+    plot.ax.text(snr + 0.2, mc, r"$\mathrm{FAP} = %.3f;\;$ comb %s$=%.2f$" \
+                   % (pc0, ppstat, snr), verticalalignment="center")
 
   if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -236,6 +236,16 @@ git_version.check_match(id, onmismatch=opts.onmismatch)
 if statistic not in ("effective_snr", "new_snr"):
     raise NotImplemented
 
+# pretty-print name for the statistic (ppstat)
+if statistic == "effective_snr":
+    ppstat = r"$\rho_\mathrm{eff}$"
+    pphtmlstat = "<em>&rho;</em><sub>eff</sub>"
+elif statistic == "new_snr":
+    ppstat = r"$\rho_\mathrm{new}$"
+    pphtmlstat = "<em>&rho;</em><sub>new</sub>"
+else:
+    ppstat = statistic
+    pphtmlstat = statistic
 
 id, log_pc0_by_cat, log_pch_by_cat_m2, actual_candidate_mask, \
     log_L_by_m2, log_sum_L = \
@@ -371,8 +381,8 @@ cat_dict = {}
 ifo_list = ['H1','L1','V1']
 ifos_list = ['H1L1V1','H1L1','H1V1','L1V1']
 columns = ["ifos","mc_bin", "event_id"] \
-          + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifo_list] \
-          + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
+          + ["%s<sub>%s</sub>" % (pphtmlstat, ifo) for ifo in ifo_list] \
+          + ["combined %s" % pphtmlstat, "mchirp",
              "FAP"]
 output_list = []
 rows = []
@@ -600,8 +610,8 @@ for ifos in ifo_set:
 ## L_sum vs rho
 text = "ln sum L vs max rho"
 
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
-    r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$")
+plot = plotutils.SimplePlot("max %s" % ppstat, r"$\ln (\Sigma L)$",
+    r"$\max \ln (\Sigma L)$ vs max %s" % ppstat)
 
 # loop over all different categories
 for mc_ind, ifos in cat_keys:
@@ -611,9 +621,9 @@ for mc_ind, ifos in cat_keys:
     mchirp_upp = mc_bins.upper()[mc_ind]
     ifos_str = "".join(sorted(ifos))
      
-    plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
-                                r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$ %.2f-%.2f %s"%\
-                                (mchirp_low, mchirp_upp, ifos_str))
+    plot = plotutils.SimplePlot("max %s" % ppstat, r"$\ln (\Sigma L)$",
+                                r"$\max \ln (\Sigma L)$ vs max %s %.2f-%.2f %s"%\
+                                (ppstat, mchirp_low, mchirp_upp, ifos_str))
 
     # injections
     x_data = inj_loudest_by_inj_cat[:,cat_index]
@@ -645,8 +655,8 @@ for mc_ind, ifos in cat_keys:
     plot.ax.axis("tight")
     page.add_plot(plot.fig, "log_sum_L_vs_rho_max_%d"%cat_index)
 
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
-    r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$")
+plot = plotutils.SimplePlot("max %s" % ppstat, r"$\ln (\Sigma L)$",
+    r"$\max \ln (\Sigma L)$ vs max %s" % ppstat)
 
 # injections
 x_data = inj_loudest_by_inj_cat.max(axis=1)
@@ -681,8 +691,8 @@ page.add_plot(plot.fig, "log_sum_L_vs_rho_max")
 ## IFAR vs rho
 text = "IFAR vs max rho"
 
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"IFAR",
-    r"max IFAR vs max eff SNR")
+plot = plotutils.SimplePlot("max %s" % ppstat, r"IFAR",
+    r"max IFAR vs max %s" % ppstat)
 
 # injections
 x_data = inj_loudest_by_inj_cat.max(axis=1)
@@ -758,7 +768,7 @@ plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
     r"$\textrm{ROC curve (uniform priors)}$")
 plot.add_content(offsource_loudest_by_trial_cat.max(axis=1),
     inj_loudest_by_inj_cat.max(axis=1),
-    color="r", linestyle="-", label="eff. SNR")
+    color="r", linestyle="-", label=ppstat)
 plot.add_content(off_ifar, inj_ifar,
     color="g", linestyle="-", label="IFAR")
 plot.add_content(offsource_log_sum_L_by_trial,
@@ -788,7 +798,7 @@ plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
     r"$\textrm{ROC curve (}D^3\textrm{ weighting)}$")
 plot.add_content(offsource_loudest_by_trial_cat.max(axis=1),
     inj_loudest_by_inj_cat.max(axis=1), weight_by_inj,
-    color="r", linestyle="-", label="eff. SNR")
+    color="r", linestyle="-", label=ppstat)
 plot.add_content(1 / offsource_fap_by_trial, 1 / inj_fap_by_trial,
     weight_by_inj,
     color="g", linestyle="-", label="IFAR")
@@ -821,7 +831,7 @@ for ifos in ifo_set:
     ifos_str = "".join(sorted(ifos)) 
     indices = [mc_ifo_cats[cat] for cat in cat_keys if cat[1]==ifos]
     
-    plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
+    plot = plotutils.SimplePlot(ppstat, "",
                             r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$ %s"%ifos_str)
 
     # add unextrapolated p(c|0) to the right of the extrapolation points
@@ -861,8 +871,8 @@ for ifos in ifo_set:
 
 
     
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$")
+plot = plotutils.SimplePlot(ppstat, "",
+    r"$\ln P(" + c_in_E + r"\,|\,0)$ vs %s" % ppstat)
 
 # add unextrapolated p(c|0) to the right of the extrapolation points
 extrap_trials_by_inj_cat = \
