@@ -47,7 +47,7 @@ from pylal import rate
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu> and Valeriu Predoi <valeriu.predoi@astro.cf.ac.uk>"
 
 #
 # get loudest coincs from each category
