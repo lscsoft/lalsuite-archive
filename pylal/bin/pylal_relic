@@ -426,7 +426,10 @@ for slide in range(-nominal_num_slides, nominal_num_slides+1):
 
 trial_veto_mask = trial_veto_mask_2d.flatten()
 trial_veto_mask_inj = numpy.zeros(num_trials, dtype=numpy.bool8)
-trial_veto_mask_inj = trial_veto_mask_2d[0]
+if nominal_num_slides > 0:
+  trial_veto_mask_inj = trial_veto_mask_2d[0]
+else:
+  trial_veto_mask_inj = trial_veto_mask
 ################################################################################
 # choose other binnings: mchirp, m2, D, and (mchirp_ind and IFO combo)
 
