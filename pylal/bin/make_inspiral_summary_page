@@ -16,10 +16,11 @@ def versions(page,cfile,id,title):
 	cp = ConfigParser.ConfigParser()
 	cp.read(cfile)
 	page.add_section(id,title)
-	page.sections[id].add(cfile)
-	page.sections[id].pre()
-	page.sections[id].add("".join(open(cfile).readlines()))
-	page.sections[id].pre.close()
+	page.sections[id].add_section("ini","ini file")
+	page.sections[id].sections["ini"].add(cfile)
+	page.sections[id].sections["ini"].pre()
+	page.sections[id].sections["ini"].add("".join(open(cfile).readlines()))
+	page.sections[id].sections["ini"].pre.close()
 
 	def r(s):
 		return "".join([s for i in range(80)])
