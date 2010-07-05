@@ -20,6 +20,7 @@
 #include "power_cache.h"
 #include "summing_context.h"
 #include "power_sums.h"
+#include "hookup.h"
 #include "cmdline.h"
 
 extern DATASET *datasets;
@@ -513,20 +514,6 @@ sse_accumulate_partial_power_sum_F(pps, sc->pps[k]);
 }
 
 extern EphemerisData ephemeris;
-
-LALDetector get_detector_struct(char *det) 
-{
-if(!strcasecmp("LHO", det)){
-	return lalCachedDetectors[LALDetectorIndexLHODIFF];
-	} else 
-if(!strcasecmp("LLO", det)){
-	return lalCachedDetectors[LALDetectorIndexLLODIFF];
-	} else {
-	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
-	exit(-1);
-	}
-}
-
 
 /* This function is meant to work with get_uncached_loose_partial_power_sum */
 void accumulate_single_bin_loose_power_sums_sidereal_step(SUMMING_CONTEXT *ctx, POWER_SUM *ps, int count, double gps_start, double gps_stop, int veto_mask)

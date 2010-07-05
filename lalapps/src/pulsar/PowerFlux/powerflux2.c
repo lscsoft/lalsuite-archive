@@ -369,7 +369,7 @@ if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
 	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
 		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
 		}
-	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+2);
+	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+1);
 	proto_super_grid=make_targeted_rect_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
@@ -568,7 +568,7 @@ if(args_info.dataset_given) {
 	fprintf(stderr, "Loading data from dataset %s\n", args_info.dataset_arg);
 	load_dataset_from_file(args_info.dataset_arg);
 	nsegments=total_segments();
-	if(nsegments==vetoed_segments()) {
+	if(nsegments==vetoed_segments() && !args_info.no_demodulation_arg && !args_info.no_decomposition_arg) {
 		fprintf(LOG, "All SFTs vetoed, aborting!\n");
 		fprintf(stderr, "All SFTs vetoed, aborting!\n");
 		exit(-1);
@@ -786,8 +786,8 @@ dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 /* COMP3 stage */
 
 if(args_info.no_decomposition_arg){
-	fprintf(stderr,"Exiting as requested (--no-decomposition=1\n");
-	fprintf(LOG,"Exiting as requested (--no-decomposition=1\n");
+	fprintf(stderr,"Exiting as requested (--no-decomposition=1)\n");
+	fprintf(LOG,"Exiting as requested (--no-decomposition=1)\n");
 	wrap_up();
 	exit(0);
 	}
@@ -796,8 +796,8 @@ if(args_info.no_decomposition_arg){
 
 
 if(args_info.no_demodulation_arg){
-	fprintf(stderr,"Exiting as requested (--no-demodulation=1\n");
-	fprintf(LOG,"Exiting as requested (--no-demodulation=1\n");
+	fprintf(stderr,"Exiting as requested (--no-demodulation=1)\n");
+	fprintf(LOG,"Exiting as requested (--no-demodulation=1)\n");
 	wrap_up();
 	exit(0);	
 	}
@@ -879,15 +879,14 @@ power_sum_stats_selftest();
 
 /* Check that expected timebase was sufficient */
 
-if((fabs(max_gps()-spindown_start)>args_info.expected_timebase_arg*24.0*3600.0*31.0 )) {
+if((fabs(max_gps()-spindown_start)>args_info.expected_timebase_arg*24.0*3600.0*31.0)) {
 	fprintf(stderr, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
 		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg*1.0);
 	fprintf(LOG, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
 		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
 	exit(-1);
 	}
-if((fabs(spindown_start-args_info.spindown_start_time_arg)>args_info.expected_timebase_arg*24*3600*31 )||
-	(fabs(args_info.spindown_start_time_arg-min_gps())>args_info.expected_timebase_arg*24*3600*31)) {
+if((fabs(spindown_start-min_gps())>args_info.expected_timebase_arg*24*3600*31)) {
 	fprintf(stderr, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
 		(spindown_start-min_gps())/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
 	fprintf(LOG, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
