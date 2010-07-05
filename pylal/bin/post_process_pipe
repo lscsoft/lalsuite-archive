@@ -1341,7 +1341,7 @@ dag.write_cache()
 print "\n\n\tYour output web pages will be:\n\n"
 for node in  summaryPageNode.values(): print "\t\t\t%s\n" %(node.geturl(),)
 print "\n\n\tNow run:\n\t\t\t\t condor_submit_dag hm_post.dag\n\n\tGOOD LUCK!"
-lf = open("hm_post_command.log", "w")
+lf = open("hm_post.log", "w")
 lf.write(" ".join(sys.argv))
 lf.close()
 lf = open("hm_post_environment.log", "w")
