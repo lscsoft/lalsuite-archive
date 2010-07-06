@@ -69,10 +69,10 @@ scisegs={}
 # Query the database for all the IFOS
 for ifo in ['H1','H2','L1','V1']:
 	if getattr(opts,ifo):
-		if ifo=='V1': 
+		if ifo=='V1':
 			segname='INJECTION_INSPIRAL'
 			scisegname='ITF_SCIENCEMODE'
-		else: 
+		else:
 			segname='DMT-INJECTION_INSPIRAL'
 			scisegname='DMT-SCIENCE'
 		segments[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
