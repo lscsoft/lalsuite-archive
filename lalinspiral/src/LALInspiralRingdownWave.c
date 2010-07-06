@@ -230,10 +230,10 @@ INT4 XLALInspiralHybridRingdownWave (
   }
 
   /* Call gsl LU decomposition to solve the linear system */
-  XLAL_CALLGSL( gslStatus = gsl_linalg_LU_decomp(coef, p, &s) );
+  gslStatus = gsl_linalg_LU_decomp(coef, p, &s);
   if ( gslStatus == GSL_SUCCESS )
   {
-    XLAL_CALLGSL( gslStatus = gsl_linalg_LU_solve(coef, p, hderivs, x) );
+    gslStatus = gsl_linalg_LU_solve(coef, p, hderivs, x);
   }
 
   if ( gslStatus != GSL_SUCCESS )
@@ -460,14 +460,14 @@ INT4 XLALGenerateHybridWaveDerivatives (
   double *x, *y;
   double ry, dy, dy2;
   UINT4 rt;
-  int *tlist;
+  UINT4 *tlist;
   gsl_interp_accel *acc;
   gsl_spline *spline;
 
   /* Sampling rate from input */
   dt = 1.0 / params -> tSampling;
 
-  tlist = (int *) LALMalloc(4 * sizeof(int));
+  tlist = (UINT4 *) LALMalloc(4 * sizeof(UINT4));
   rt = (matchrange->data[1] - matchrange->data[0]) / 3;
   tlist[0] = matchrange->data[0];
   tlist[1] = tlist[0] + rt;
@@ -489,9 +489,12 @@ INT4 XLALGenerateHybridWaveDerivatives (
 
   for (j = 0; j < wave->length; ++j)
   {
-	x[j] = j*dt;
+	x[j] = j;
 	y[j] = wave->data[j];
   }
+
+  printf( "%u %u %u %u \n", tlist[0], tlist[1], tlist[2], tlist[3] );
+  printf( "%e %e %e %e \n", y[tlist[0]], y[tlist[1]], y[tlist[2]], y[tlist[3]] );
 
   XLAL_CALLGSL( acc = (gsl_interp_accel*) gsl_interp_accel_alloc() );
   XLAL_CALLGSL( spline = (gsl_spline*) gsl_spline_alloc(gsl_interp_cspline, wave->length) );
@@ -518,11 +521,11 @@ INT4 XLALGenerateHybridWaveDerivatives (
   /* Getting first and second order time derivatives from gsl interpolations */
   for (j = 0; j < 4; ++j)
   {
-    XLAL_CALLGSL(gslStatus = gsl_spline_eval_e( spline, tlist[j], acc, &ry ) );
+    gslStatus = gsl_spline_eval_e( spline, (double)tlist[j], acc, &ry );
     if ( gslStatus == GSL_SUCCESS )
     {
-      XLAL_CALLGSL(gslStatus = gsl_spline_eval_deriv_e(spline, tlist[j], acc, &dy ) );
-      XLAL_CALLGSL(gslStatus = gsl_spline_eval_deriv2_e(spline, tlist[j], acc, &dy2 ) );
+      gslStatus = gsl_spline_eval_deriv_e(spline, (double)tlist[j], acc, &dy );
+      gslStatus = gsl_spline_eval_deriv2_e(spline, (double)tlist[j], acc, &dy2 );
     }
     if (gslStatus != GSL_SUCCESS )
     {
@@ -660,11 +663,11 @@ INT4 XLALGenerateQNMFreq(
   REAL8 totalMass, finalMass, finalSpin;
   /* Fitting coefficients for QNM frequencies from PRD73, 064030 */
   REAL4 BCWre[8][3] = { {1.5251, -1.1568,  0.1292}, {1.3673, -1.0260,  0.1628}, { 1.3223, -1.0257,  0.1860}, 
-			{ 1.3223, -1.0257,  0.1860},{ 1.3223, -1.0257,  0.1860},{ 1.3223, -1.0257,  0.1860}, 
-			{ 1.3223, -1.0257,  0.1860},{ 1.3223, -1.0257,  0.1860} };
+			{ 1.25, -1.0257,  0.1860},{ 1.2, -1.0257,  0.1860},{ 1.15, -1.0257,  0.1860}, 
+			{ 1.1, -1.0257,  0.1860},{ 1.05, -1.0257,  0.1860} };
   REAL4 BCWim[8][3] = { {0.7000,  1.4187, -0.4990}, {0.1000,  0.5436, -0.4731}, {-0.1000,  0.4206, -0.4256},
-			{-0.1000,  0.4206, -0.4256},{-0.1000,  0.4206, -0.4256},{-0.1000,  0.4206, -0.4256}, 
-			{-0.1000,  0.4206, -0.4256}, {-0.1000,  0.4206, -0.4256} };
+			{-0.1000,  0.4206, -0.4156},{-0.1000,  0.4206, -0.4056},{-0.1000,  0.4206, -0.3956}, 
+			{-0.1000,  0.4206, -0.3856}, {-0.1000,  0.4206, -0.3756} };
 
   /* l and m are unused in this function */
   UNUSED(l);
@@ -736,7 +739,6 @@ INT4 XLALInspiralHybridAttachRingdownWave (
       INT4 l, m;
       REAL4Vector		*rdwave1;
       REAL4Vector		*rdwave2;
-      REAL4Vector		*inspwave;
       REAL4Vector		*rinspwave;
       REAL4Vector		*dinspwave;
       REAL4Vector		*ddinspwave;
@@ -793,7 +795,6 @@ INT4 XLALInspiralHybridAttachRingdownWave (
 
       rdwave1 = XLALCreateREAL4Vector( Nrdwave );
       rdwave2 = XLALCreateREAL4Vector( Nrdwave );
-      inspwave = XLALCreateREAL4Vector( matchrange->data[1] - matchrange->data[0] + 7 );
       rinspwave = XLALCreateREAL4Vector( 4 );
       dinspwave = XLALCreateREAL4Vector( 4 );
       ddinspwave = XLALCreateREAL4Vector( 4 );
@@ -801,13 +802,12 @@ INT4 XLALInspiralHybridAttachRingdownWave (
       inspwaves2 = XLALCreateREAL4VectorSequence( 3, 4 );
 
       /* Check memory was allocated */
-      if ( !rdwave1 || !rdwave2 || !inspwave || !rinspwave || !dinspwave 
+      if ( !rdwave1 || !rdwave2 || !rinspwave || !dinspwave 
 	   || !ddinspwave || !inspwaves1 || !inspwaves2 )
       {
         XLALDestroyCOMPLEX8Vector( modefreqs );
         if (rdwave1)    XLALDestroyREAL4Vector( rdwave1 );
         if (rdwave2)    XLALDestroyREAL4Vector( rdwave2 );
-        if (inspwave)   XLALDestroyREAL4Vector( inspwave );
         if (rinspwave)  XLALDestroyREAL4Vector( rinspwave );
         if (dinspwave)  XLALDestroyREAL4Vector( dinspwave );
         if (ddinspwave) XLALDestroyREAL4Vector( ddinspwave );
@@ -817,20 +817,14 @@ INT4 XLALInspiralHybridAttachRingdownWave (
       }
 
       /* Generate derivatives of the last part of inspiral waves */
-      /* Take the last part of signal1 */
-      for (j = matchrange->data[0]-5; j < matchrange->data[1]+2; j++)
-      {
-	    inspwave->data[j] = signal1->data[j];
-      }
       /* Get derivatives of signal1 */
-      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, inspwave, 
+      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, signal1, 
 									matchrange, params );
       if ( errcode != XLAL_SUCCESS )
       {
         XLALDestroyCOMPLEX8Vector( modefreqs );
         XLALDestroyREAL4Vector( rdwave1 );
         XLALDestroyREAL4Vector( rdwave2 );
-        XLALDestroyREAL4Vector( inspwave );
         XLALDestroyREAL4Vector( rinspwave );
         XLALDestroyREAL4Vector( dinspwave );
         XLALDestroyREAL4Vector( ddinspwave );
@@ -845,20 +839,14 @@ INT4 XLALInspiralHybridAttachRingdownWave (
 	    inspwaves1->data[j + 8] = ddinspwave->data[j];
       }
 
-      /* Take the last part of signal2 */
-      for (j = matchrange->data[0]-5; j < matchrange->data[1]+2; j++)
-      {
-	    inspwave->data[j] = signal2->data[j];
-      }
       /* Get derivatives of signal2 */
-      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, inspwave, 
+      errcode = XLALGenerateHybridWaveDerivatives( rinspwave, dinspwave, ddinspwave, signal2, 
 									matchrange, params );
       if ( errcode != XLAL_SUCCESS )
       {
         XLALDestroyCOMPLEX8Vector( modefreqs );
         XLALDestroyREAL4Vector( rdwave1 );
         XLALDestroyREAL4Vector( rdwave2 );
-        XLALDestroyREAL4Vector( inspwave );
         XLALDestroyREAL4Vector( rinspwave );
         XLALDestroyREAL4Vector( dinspwave );
         XLALDestroyREAL4Vector( ddinspwave );
@@ -882,7 +870,6 @@ INT4 XLALInspiralHybridAttachRingdownWave (
         XLALDestroyCOMPLEX8Vector( modefreqs );
         XLALDestroyREAL4Vector( rdwave1 );
         XLALDestroyREAL4Vector( rdwave2 );
-        XLALDestroyREAL4Vector( inspwave );
         XLALDestroyREAL4Vector( rinspwave );
         XLALDestroyREAL4Vector( dinspwave );
         XLALDestroyREAL4Vector( ddinspwave );
@@ -901,7 +888,6 @@ INT4 XLALInspiralHybridAttachRingdownWave (
       XLALDestroyCOMPLEX8Vector( modefreqs );
       XLALDestroyREAL4Vector( rdwave1 );
       XLALDestroyREAL4Vector( rdwave2 );
-      XLALDestroyREAL4Vector( inspwave );
       XLALDestroyREAL4Vector( rinspwave );
       XLALDestroyREAL4Vector( dinspwave );
       XLALDestroyREAL4Vector( ddinspwave );

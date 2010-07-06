@@ -1755,7 +1755,7 @@ XLALCalculateNewtonianMultipole(
                             REAL8 x,
                             UINT4  l,
                             INT4  m,
-                            InspiralTemplate *params
+                            InspiralDerivativesIn *ak
                             );
 
 int
