@@ -1671,6 +1671,16 @@ LALInspiralITStructureHelp(void);
 
 /* --- TEST PROTOTYPES --- */
 
+INT4 XLALInspiralHybridRingdownWave (
+	REAL4Vector			*rdwave1,
+	REAL4Vector			*rdwave2,
+	InspiralTemplate		*params,
+	REAL4VectorSequence		*inspwave1,
+	REAL4VectorSequence		*inspwave2,
+	COMPLEX8Vector			*modefreqs,
+	UINT4Vector			*matchrange
+	);
+
 INT4 XLALInspiralRingdownWave (
 	REAL4Vector			*rdwave1,
 	REAL4Vector			*rdwave2,
@@ -1679,6 +1689,14 @@ INT4 XLALInspiralRingdownWave (
 	REAL4VectorSequence		*inspwave2,
 	COMPLEX8Vector			*modefreqs,
 	UINT4				nmodes
+	);
+INT4 XLALGenerateHybridWaveDerivatives (
+	REAL4Vector		*rwave,
+	REAL4Vector		*dwave,
+	REAL4Vector		*ddwave,
+	REAL4Vector		*wave,
+	UINT4Vector		*matchrange,
+	InspiralTemplate	*params
 	);
 
 INT4 XLALGenerateWaveDerivatives (
@@ -1701,6 +1719,12 @@ INT4 XLALFinalMassSpin(
 	REAL8			*finalSpin,
 	InspiralTemplate	*params
 	);
+
+INT4 XLALInspiralHybridAttachRingdownWave (
+        REAL4Vector 	 *signalvec1,
+        REAL4Vector  	 *signalvec2,
+	UINT4Vector	 *matchrange,
+        InspiralTemplate *params);
 
 INT4 XLALInspiralAttachRingdownWave (
         REAL4Vector 	 *Omega,
