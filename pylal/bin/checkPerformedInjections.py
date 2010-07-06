@@ -65,17 +65,25 @@ segdb_client=segmentdb_utils.setup_database(opts.segment_db)
 segdb_engine=segmentdb.query_engine.LdbdQueryEngine(segdb_client)
 
 segments={}
+scisegs={}
 # Query the database for all the IFOS
 for ifo in ['H1','H2','L1','V1']:
 	if getattr(opts,ifo):
-		if ifo=='V1': segname='INJECTION_INSPIRAL'
-		else: segname='DMT-INJECTION_INSPIRAL'
+		if ifo=='V1': 
+			segname='INJECTION_INSPIRAL'
+			scisegname='ITF_SCIENCEMODE'
+		else: 
+			segname='DMT-INJECTION_INSPIRAL'
+			scisegname='DMT-SCIENCE'
 		segments[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
 				starttime, endtime, ifo, segname)[0]
+		scisegs[ifo]=segmentdb_utils.build_segment_list(segdb_engine,\
+				starttime,endtime,ifo,scisegname)[0]
+		
 # Create SimInspiralTable for output
 outtable=lsctables.New(lsctables.SimInspiralTable)
 # Append the successful injections to the new table
-successful=filter(lambda a:checkInjection(segments,a), injections)
+successful=filter(lambda a:checkInjection(segments,a) and checkInjection(scisegs,a), injections)
 for inj in successful: outtable.append(inj)
 
 # Create output document
