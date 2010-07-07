@@ -47,7 +47,7 @@ from pylal import rate
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu> and Valeriu Predoi <valeriu.predoi@astro.cf.ac.uk>"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
 #
 # get loudest coincs from each category
@@ -184,8 +184,8 @@ def get_loudest_stats_by_trial_cat_slide(offsource_doc, coinc_stat,
 
     # slide bins
     nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-    total_num_slides = 2 * nominal_num_slides
-    slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides+1)
+    total_num_slides = 2 * nominal_num_slides + 1 or 1
+    slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides)
 
 
     # define bins and keys
@@ -380,7 +380,10 @@ on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
                                       coltype=int)
 
 nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-total_num_slides = 2 * nominal_num_slides
+if nominal_num_slides > 0: #timeslides and zerolag
+  total_num_slides = 2 * nominal_num_slides + 1
+else:
+  total_num_slides = 1 #just zerolag
 extent_off = off_segs.extent()
 extent_buffer = buffer_segs.extent()
 
@@ -409,12 +412,12 @@ for row in slide_table:
 #make trial, chirpmass and slide bins
 trial_bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
-slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides+1)
+slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides)
 
 #build veto masks to left and right and then merge them
 veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
 veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], extent_off[1], trial_len, veto_segs)
-trial_veto_mask_2d = numpy.zeros((total_num_slides+1, num_trials), dtype=numpy.bool8)
+trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
 buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
 
 for slide in range(-nominal_num_slides, nominal_num_slides+1):
@@ -482,7 +485,7 @@ if opts.write_offsource or opts.write_injections:
   offsource_loudest_by_trial_cat_slide = get_loudest_stats_by_trial_cat_slide(offsource_doc,
       coinc_stat, trial_bins, slide_bins, mc_bins, mc_ifo_cats)
   offsource_loudest_by_trial_cat_unvetoed = \
-      offsource_loudest_by_trial_cat_slide.reshape((total_num_slides+1)*len(trial_bins), len(mc_bins))
+      offsource_loudest_by_trial_cat_slide.reshape(total_num_slides*len(trial_bins), len(mc_bins))
   offsource_loudest_by_trial_cat = \
       offsource_loudest_by_trial_cat_unvetoed[~trial_veto_mask,:]
 ################################################################################
