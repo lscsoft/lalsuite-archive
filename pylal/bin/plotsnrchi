@@ -1044,8 +1044,8 @@ if opts.hist_newsnr:
 if opts.masshist_newsnr and slide_events:
   q = opts.chisq_index
   num_bins = opts.massbins
-  chirpmass = slideTriggers.get_column('mchirp')
-  mc_bins = pylal.rate.LinearBins(0.99*chirpmass.min(), 1.01*chirpmass.max(), num_bins)
+  chirpmasses = slideTriggers.get_column('mchirp')
+  mc_bins = pylal.rate.LinearBins(0.99*chirpmasses.min(), 1.01*chirpmasses.max(), num_bins)
   newsnr = slideTriggers.get_new_snr(index=q)
   fig_num +=1
   figure(fig_num)
@@ -1080,8 +1080,8 @@ if opts.masshist_newsnr and slide_events:
 if opts.masshist_effsnr and slide_events:
   C = opts.denominator_constant
   num_bins = opts.massbins
-  chirpmass = slideTriggers.get_column('mchirp')
-  mc_bins = pylal.rate.LinearBins(0.99*chirpmass.min(), 1.01*chirpmass.max(), num_bins)
+  chirpmasses = slideTriggers.get_column('mchirp')
+  mc_bins = pylal.rate.LinearBins(0.99*chirpmasses.min(), 1.01*chirpmasses.max(), num_bins)
   effsnr = slideTriggers.get_effective_snr(fac=C)
   fig_num +=1
   figure(fig_num)
@@ -1096,7 +1096,7 @@ if opts.masshist_effsnr and slide_events:
        color=histcolours[i], label=labels[i])
   if num_bins < 11:
     legend()
-  maxcount = max(len(newsnr[mc_indices == i]) for i in range(num_bins))
+  maxcount = max(len(effsnr[mc_indices == i]) for i in range(num_bins))
   ylim(0.8,1.5*maxcount)
   xlim(3,1.05*max(effsnr))
   title(opts.ifo_times + ' background effsnr distribution split by mchirp', size='x-large')
