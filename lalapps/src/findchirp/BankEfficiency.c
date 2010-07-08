@@ -223,6 +223,12 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL( LALFindChirpDataInit( &status, &ampCorDataParams, 
              &ampCorInitParams ), &status);
 
+    if( !userParam.ACTDconstraint )
+      ampCorFilterInput->fcTmplt->tmplt.ACTDconstraint = 0;
+    if( userParam.ACTDdominant )
+      ampCorFilterInput->fcTmplt->tmplt.ACTDdominant = 1;
+
+
     ampCorDataSegVec->data->chan->deltaT = 
                                      1.0 / ( REAL4 )( randIn.param.tSampling );
 
@@ -3030,6 +3036,8 @@ void BankEfficiencyInitUserParametersIn(
   userParam->inputPSD            = NULL;
   userParam->ambiguity           = 0;
   userParam->fastParam1          = 50;
+  userParam->ACTDconstraint      = 1;
+  userParam->ACTDdominant        = 0;
   sprintf(userParam->tag,"");
 }
 
@@ -3504,6 +3512,12 @@ void BankEfficiencyParseParameters(
     }
     else if (!strcmp(argv[i],"--print-prototype")) {
       userParam->printPrototype = 1;
+    }
+    else if (!strcmp(argv[i],"--skip-ACTD-constraint")) {
+      userParam->ACTDconstraint = 0;
+    }
+    else if (!strcmp(argv[i],"--ACTD-dominant")) {
+      userParam->ACTDdominant = 1;
     }
     else if (!strcmp(argv[i], "--signal-taper")) {
       BankEfficiencyParseGetString(argv, &i);
@@ -3985,6 +3999,8 @@ void BankEfficiencyHelp(void)
   fprintf(stderr, "\t[--fast-simulation]\t\t perform fast simulation [None, EMatch,Heuristic1]\n");
   fprintf(stderr, "\t[--fast-param1]\t\t set maximum number of matches to compute without finding a greater match (Heuristic1 method)\n");
   fprintf(stderr, "\t--signal-taper\t\t time domain only - start|end|startend, for no tapering do not use this option\n");
+  fprintf(stderr, "\t--skip-ACTD-constraint\t\t turn off constraint used in AmpCorPPN filtering\n");
+  fprintf(stderr, "\t--ACTD-dominant\t\t Use only dominant harmonic in AmpCorPPN filtering\n");
   exit(1);
 }
 
