@@ -3513,10 +3513,10 @@ void BankEfficiencyParseParameters(
     else if (!strcmp(argv[i],"--print-prototype")) {
       userParam->printPrototype = 1;
     }
-    else if (!strcmp(argv[i],"--skip-ACTD-constraint")) {
+    else if (!strcmp(argv[i],"--skip-actd-constraint")) {
       userParam->ACTDconstraint = 0;
     }
-    else if (!strcmp(argv[i],"--ACTD-dominant")) {
+    else if (!strcmp(argv[i],"--actd-dominant")) {
       userParam->ACTDdominant = 1;
     }
     else if (!strcmp(argv[i], "--signal-taper")) {
@@ -3999,8 +3999,8 @@ void BankEfficiencyHelp(void)
   fprintf(stderr, "\t[--fast-simulation]\t\t perform fast simulation [None, EMatch,Heuristic1]\n");
   fprintf(stderr, "\t[--fast-param1]\t\t set maximum number of matches to compute without finding a greater match (Heuristic1 method)\n");
   fprintf(stderr, "\t--signal-taper\t\t time domain only - start|end|startend, for no tapering do not use this option\n");
-  fprintf(stderr, "\t--skip-ACTD-constraint\t\t turn off constraint used in AmpCorPPN filtering\n");
-  fprintf(stderr, "\t--ACTD-dominant\t\t Use only dominant harmonic in AmpCorPPN filtering\n");
+  fprintf(stderr, "\t--skip-actd-constraint\t\t turn off constraint used in AmpCorPPN filtering\n");
+  fprintf(stderr, "\t--actd-dominant\t\t Use only dominant harmonic in AmpCorPPN filtering\n");
   exit(1);
 }
 
