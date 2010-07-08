@@ -153,6 +153,9 @@ struct gengetopt_args_info
   double doppler_multiplier_arg;	/**< @brief a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) (default='1.0').  */
   char * doppler_multiplier_orig;	/**< @brief a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) original value given at command line.  */
   const char *doppler_multiplier_help; /**< @brief a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) help description.  */
+  double dInv_arg;	/**< @brief inverse distance to expected source in seconds (default='0.0').  */
+  char * dInv_orig;	/**< @brief inverse distance to expected source in seconds original value given at command line.  */
+  const char *dInv_help; /**< @brief inverse distance to expected source in seconds help description.  */
   double spindown_start_time_arg;	/**< @brief specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
   char * spindown_start_time_orig;	/**< @brief specify spindown start time in GPS sec. Assumed to be the first SFT segment by default original value given at command line.  */
   const char *spindown_start_time_help; /**< @brief specify spindown start time in GPS sec. Assumed to be the first SFT segment by default help description.  */
@@ -413,6 +416,7 @@ struct gengetopt_args_info
   unsigned int hist_bins_given ;	/**< @brief Whether hist-bins was given.  */
   unsigned int detector_given ;	/**< @brief Whether detector was given.  */
   unsigned int doppler_multiplier_given ;	/**< @brief Whether doppler-multiplier was given.  */
+  unsigned int dInv_given ;	/**< @brief Whether dInv was given.  */
   unsigned int spindown_start_time_given ;	/**< @brief Whether spindown-start-time was given.  */
   unsigned int frequency_offset_given ;	/**< @brief Whether frequency-offset was given.  */
   unsigned int spindown_start_given ;	/**< @brief Whether spindown-start was given.  */
