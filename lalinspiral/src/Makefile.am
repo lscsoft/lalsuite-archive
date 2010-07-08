@@ -102,6 +102,7 @@ liblalinspiral_la_SOURCES = \
 	LALEtaTau02.c \
 	LALEtaTau04.c \
 	LALEvaluateInspiralChisqTest.c \
+	LALFactorizedFlux.c \
 	LALHexagonVertices.c \
 	LALInsidePolygon.c \
 	LALInspiralAmplitude.c \

@@ -465,6 +465,7 @@ typedef enum {
    Eccentricity,
    EOBNR,
    EOBNR_PP,
+   EOBNR_PF,
    IMRPhenomA,
    IMRPhenomB,
    IMRPhenomFA,
@@ -1765,6 +1766,24 @@ XLALScalarSphericalHarmonic(
                          INT4  m,
                          REAL8 theta,
                          REAL8 phi);
+
+REAL8 
+XLALInspiralFactorizedFlux(
+                      REAL8Vector           *values,
+                      REAL8Vector           *dvalues,
+                      InspiralDerivativesIn *ak,
+                      const INT4             lMax
+                     );
+
+INT4 
+XLALGetFactorizedWaveform( 
+                      COMPLEX16             *hlm,
+                      REAL8Vector           *values,
+                      REAL8Vector           *dvalues,
+                      InspiralDerivativesIn *ak,
+                      const INT4            l,
+                      const INT4            m
+                     );
 
 /*---------------------------------------------------------------- */
 
