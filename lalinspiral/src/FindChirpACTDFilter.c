@@ -288,7 +288,8 @@ LALFindChirpACTDFilterSegment (
       }
 
       /* inverse fft to get q */
-      if ( XLALREAL4ReverseFFT( q[i], qtilde[i], params->invPlanACTD ) == XLAL_FAILURE )
+      if ( XLALREAL4ReverseFFT( q[i], qtilde[i], params->invPlanACTD ) == 
+                                                                XLAL_FAILURE )
       {
         ABORTXLAL( status );
       }
@@ -318,9 +319,9 @@ LALFindChirpACTDFilterSegment (
 	normFacSq = normFac * normFac;
 
 	/* normalised snr threhold */
-/*
+  /*
 	modqsqThresh = params->rhosqThresh / norm;
-*/
+  */
 
   /* if full snrsq vector is required, store the snrsq */
   if ( params->rhosqVec )
@@ -342,60 +343,48 @@ LALFindChirpACTDFilterSegment (
 
       params->rhosqVec->data->data[j] = rhoSq * normFacSq ;
 
-      /* Go through the transformation matrix */
-      memset( qForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
-      for ( i = 0; i < NACTDTILDEVECS; i++ )
+      if( input->fcTmplt->tmplt.ACTDconstraint == 1 )
       {
-        for ( k = 0; k < NACTDTILDEVECS; k++ )
+        /* Go through the transformation matrix */
+        memset( qForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
+        for ( i = 0; i < NACTDTILDEVECS; i++ )
         {
-          if ( ( i % NACTDVECS - input->fcTmplt->startVecACTD < matrixDim / 2 )
-           && ( k % NACTDVECS - input->fcTmplt->startVecACTD < matrixDim / 2 ) )
+          for ( k = 0; k < NACTDTILDEVECS; k++ )
           {
-            UINT4 idx1, idx2, nVec;
+            if ( ( i % NACTDVECS - input->fcTmplt->startVecACTD 
+                  < matrixDim / 2 )
+              && ( k % NACTDVECS - input->fcTmplt->startVecACTD 
+                  < matrixDim / 2 ) )
+            {
+              UINT4 idx1, idx2, nVec;
 
-            nVec = matrixDim / 2;
-            idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS - input->fcTmplt->startVecACTD;
-            idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS - input->fcTmplt->startVecACTD;
-            qForConstraint->data[i] += gsl_matrix_get( 
-              input->fcTmplt->ACTDconmatrix, idx1, idx2 ) * q[k]->data[j];
+              nVec = matrixDim / 2;
+              idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS 
+                      - input->fcTmplt->startVecACTD;
+              idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS 
+                      - input->fcTmplt->startVecACTD;
+              qForConstraint->data[i] += gsl_matrix_get( 
+                input->fcTmplt->ACTDconmatrix, idx1, idx2 ) * q[k]->data[j];
+            }
           }
         }
-      }
-      if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
-                + qForConstraint->data[3] * qForConstraint->data[3])
-                / (qForConstraint->data[1] * qForConstraint->data[1]
-                + qForConstraint->data[4] * qForConstraint->data[4]))
-                > input->fcTmplt->ACTDconstraint->data[0] )
-      {
-/*
-        fprintf( stderr, "\nEe by gum, we passed the constraint 1.\n" );
-        fprintf( stderr, "value = %e, constraint = %e, rhoSq = %e\n", 
-               sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
-                + qForConstraint->data[3] * qForConstraint->data[3])
-                / (qForConstraint->data[1] * qForConstraint->data[1]
-                + qForConstraint->data[4] * qForConstraint->data[4])),
-                input->fcTmplt->ACTDconstraint->data[0], rhoSq * normFacSq);
-*/
-        params->rhosqVec->data->data[j] = 0.0 ;
-         
-      }
+        if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
+                  + qForConstraint->data[3] * qForConstraint->data[3])
+                 / (qForConstraint->data[1] * qForConstraint->data[1]
+                  + qForConstraint->data[4] * qForConstraint->data[4]))
+                  > input->fcTmplt->ACTDconstraint->data[0] )
+        {
+          params->rhosqVec->data->data[j] = 0.0 ;
+        }
 
-      if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
-                + qForConstraint->data[5] * qForConstraint->data[5])
-                / (qForConstraint->data[1] * qForConstraint->data[1]
-                + qForConstraint->data[4] * qForConstraint->data[4]))
-                > input->fcTmplt->ACTDconstraint->data[2] )
-      {
-/*
-        fprintf( stderr, "\nEe by gum, we passed the constraint 3.\n" );
-        fprintf( stderr, "value = %e, constraint = %e, rhoSq = %e\n",
-               sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
-                + qForConstraint->data[5] * qForConstraint->data[5])
-                / (qForConstraint->data[1] * qForConstraint->data[1]
-                + qForConstraint->data[4] * qForConstraint->data[4])),
-                input->fcTmplt->ACTDconstraint->data[2], rhoSq * normFacSq);
-*/
-        params->rhosqVec->data->data[j] = 0.0 ;
+        if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
+                  + qForConstraint->data[5] * qForConstraint->data[5])
+                 / (qForConstraint->data[1] * qForConstraint->data[1]
+                  + qForConstraint->data[4] * qForConstraint->data[4]))
+                  > input->fcTmplt->ACTDconstraint->data[2] )
+        {
+          params->rhosqVec->data->data[j] = 0.0 ;
+        }
       }
     }
   }

@@ -563,6 +563,10 @@ tagInspiralTemplate
 
   REAL8 eccentricity;
 
+/* Parameters for ACTD */
+  INT4 ACTDdominant;
+  INT4 ACTDconstraint;
+
 /* Paramters which are computed using LALInspiralParameterCalc */
 
   REAL8 chirpMass;

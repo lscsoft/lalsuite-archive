@@ -73,7 +73,9 @@ static void print_usage()
   fprintf( stderr, " --seed SEED                   : Seed for Noise generator\n");
   fprintf( stderr, " --dynrange-exponent DYNRANGE  : set the dynamic range exponent\n");
   fprintf( stderr, " --flatpsd                     : Use flat psd \n");
-  fprintf( stderr, " --dominant                    : Inject only domintnat harmonic \n");
+  fprintf( stderr, " --dominant                    : Inject only dominant harmonic \n");
+  fprintf( stderr, " --dominant-filter             : Filter with only dominant harmonic \n");
+  fprintf( stderr, " --no-constraint               : Turn off the constraint\n");
   fprintf( stderr, " --h-plus                      : inject only h+\n");
   fprintf( stderr, " --enable-output               : Print output files \n");
   fprintf( stderr, " --tmplt-masses M1 M2          : Specify template masses \n");
@@ -142,6 +144,8 @@ int main( int argc, char **argv )
   REAL4 rho = 0.0;
   INT4 flatpsd = 0;
   INT4 dominant = 0;
+  INT4 dominantFilter = 0;
+  INT4 constraint = 1;
   INT4 h_plus = 0;
 
   REAL4 invRootData;
@@ -235,11 +239,23 @@ int main( int argc, char **argv )
       arg++;
       flatpsd = 1;
     }
-    /* Use dominant template */
+    /* Use dominant signal */
     else if ( !strcmp( argv[arg], "--dominant" ) )
     {
       arg++;
       dominant = 1;
+    }
+    /* Use dominant template */
+    else if ( !strcmp( argv[arg], "--dominant-filter" ) )
+    {
+      arg++;
+      dominantFilter = 1;
+    }
+    /* Turn off the constraint */
+    else if ( !strcmp( argv[arg], "--no-constraint" ) )
+    {
+      arg++;
+      constraint = 0;
     }
     /* Print output files */
     else if ( !strcmp( argv[arg], "--h-plus" ) )
@@ -448,6 +464,12 @@ int main( int argc, char **argv )
   Start( &dataSegVec, &filterInput, &filterParams, &fcSegVec, &initParams );
   fprintf( stderr, "      Done!\n" );
 
+  if( dominantFilter )
+    filterInput->fcTmplt->tmplt.ACTDdominant = 1;
+  if( !constraint )
+  {
+    filterInput->fcTmplt->tmplt.ACTDconstraint = 0;
+  }
 
   /* set filter parameters, e.g., thresholds for events */
   filterParams->deltaT         = 1.0 / srate;

@@ -68,7 +68,7 @@ LALFindChirpACTDTemplate(
 {
   UINT4          i, j;
   UINT4          istart = 0;
-  UINT4           istop = NACTDVECS;
+  UINT4          istop = NACTDVECS;
   UINT4          shift;
   UINT4          numPoints;
   REAL4Vector    ACTDVecs[NACTDVECS];
@@ -242,7 +242,7 @@ LALFindChirpACTDTemplate(
   /* legacy - length is the length of the vectors rather than vector Length */
   
   /* This will make all 0 if eta = 0.25 and 2nd harmonic not in band! */
-  if( ppnParams.eta_real8 > 0.24999999 )
+  if( ppnParams.eta_real8 > 0.24999999 || fcTmplt->tmplt.ACTDdominant )
   {
     istart = 1;
     istop  = 2;
@@ -311,6 +311,8 @@ LALFindChirpACTDTemplate(
   tmplt->approximant = params->approximant;
   tmplt->tC = ppnParams.tc;
   tmplt->fFinal = ppnParams.fStop;
+  tmplt->ACTDdominant = fcTmplt->tmplt.ACTDdominant;
+  tmplt->ACTDconstraint = fcTmplt->tmplt.ACTDconstraint;
 
   fcTmplt->tmpltNorm = params->dynRange / ( cannonDist * 1.0e6 * LAL_PC_SI );
   fcTmplt->tmpltNorm *= fcTmplt->tmpltNorm;
@@ -607,52 +609,48 @@ LALFindChirpACTDNormalize(
     }
   }
 
- 
-
-
- /* Calculate maximum overlap of cross terms */
-  memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
-  XLALFindChirpACTDConstraint( fcTmplt->tmplt.eta, 
-                               fcTmplt->tmplt.totalMass,
-                               fcTmplt->ACTDconstraint  ); 
-  /* h1 and h2 */
-  XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[1], 
+  /* CALCULATE THE CONSTRAINT */
+  if( fcTmplt->tmplt.ACTDconstraint )
+  {
+    /* Calculate maximum overlap of cross terms */
+    memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
+    XLALFindChirpACTDConstraint( fcTmplt->tmplt.eta, 
+                                 fcTmplt->tmplt.totalMass,
+                                 fcTmplt->ACTDconstraint  ); 
+    /* h1 and h2 */
+    XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[1], 
             &ACTDtilde[4], wtilde, tmpltParams->fLow, deltaT, &min12, &max12 );
-  /* h1 and h3 */
-  XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[2], 
+    /* h1 and h3 */
+    XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[2], 
             &ACTDtilde[5], wtilde, tmpltParams->fLow, deltaT, &min13, &max13 );
-  /* h2 and h3 */
-  XLALFindChirpACTDMiniMax( &ACTDtilde[1], &ACTDtilde[4], &ACTDtilde[2], 
+    /* h2 and h3 */
+    XLALFindChirpACTDMiniMax( &ACTDtilde[1], &ACTDtilde[4], &ACTDtilde[2], 
             &ACTDtilde[5], wtilde, tmpltParams->fLow, deltaT, &min23, &max23 );
 
-  cons1 = sqrt(fcTmplt->ACTDconstraint->data[0]) 
+    cons1 = sqrt(fcTmplt->ACTDconstraint->data[0]) 
           + max12 * sqrt(fcTmplt->ACTDconstraint->data[1])
           + max13 * sqrt(fcTmplt->ACTDconstraint->data[2]);
 
-  cons2 = sqrt(fcTmplt->ACTDconstraint->data[1]) 
+    cons2 = sqrt(fcTmplt->ACTDconstraint->data[1]) 
           + max23 * sqrt(fcTmplt->ACTDconstraint->data[2])
           + max12 * sqrt(fcTmplt->ACTDconstraint->data[0]);
 
-  cons3 = sqrt(fcTmplt->ACTDconstraint->data[2]) 
+    cons3 = sqrt(fcTmplt->ACTDconstraint->data[2]) 
           + max13 * sqrt(fcTmplt->ACTDconstraint->data[0])
           + max23 * sqrt(fcTmplt->ACTDconstraint->data[1]);
 
-  if ( cons2 == 0.0 )
-  {
-    XLALPrintError( "Second harmonic out of band! Case not yet catered for.\n" );
-    ABORT( status, FINDCHIRPH_EMASS, FINDCHIRPH_MSGEMASS );
+    if ( cons2 == 0.0 )
+    {
+      XLALPrintError( "Second harmonic out of band! Not yet catered for.\n" );
+      ABORT( status, FINDCHIRPH_EMASS, FINDCHIRPH_MSGEMASS );
+    }
+
+    /* Now repopulate the vector with the appropriate values */
+    fcTmplt->ACTDconstraint->data[0] = cons1 / cons2;
+    fcTmplt->ACTDconstraint->data[1] = 1.0;
+    fcTmplt->ACTDconstraint->data[2] = cons3 / cons2;
   }
 
-  /* Now repopulate the vector with the appropriate values */
-  fcTmplt->ACTDconstraint->data[0] = cons1 / cons2;
-  fcTmplt->ACTDconstraint->data[1] = 1.0;
-  fcTmplt->ACTDconstraint->data[2] = cons3 / cons2;
-/*
-  fprintf( stderr, "\nConstraints: %e, %e, %e\n", 
-              fcTmplt->ACTDconstraint->data[0],
-              fcTmplt->ACTDconstraint->data[1], 
-              fcTmplt->ACTDconstraint->data[2] );
-*/
   /* Fill the inner product matrix */
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
