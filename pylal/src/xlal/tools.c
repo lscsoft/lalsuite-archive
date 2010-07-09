@@ -36,6 +36,7 @@
 #include <datatypes/snglinspiraltable.h>
 #include <datatypes/snglringdowntable.h>
 #include <lal/LIGOMetadataUtils.h>
+#include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
 #include <lal/TrigScanEThincaCommon.h>
 #include <lal/RingUtils.h>
