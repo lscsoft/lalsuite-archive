@@ -58,6 +58,8 @@ def parse_commandline():
                       help="Directory with result files from KW_veto_calc. Required.")
     parser.add_option("-m","--min_coinc_num", default=0, type="int",
                       help="Minimum number of coincident KW triggers to be a veto candidate. (Default: 0)")
+    parser.add_option("-u", "--unsafe_channels",action="append",default=[],
+                      help="Code treat channels specified as unsafe. Can be provided multiple times to specify more than one channel.")
     parser.add_option("-o","--out_dir", default=".",
                       help="Output directory. (Default: current directory)")
     parser.add_option("-l", "--scratch_dir", default=".",
@@ -74,6 +76,7 @@ def parse_commandline():
       print >> sys.stderr, "Error: --result_dir is a required parameter"
       sys.exit(1)
     
+    opts.unsafe_channels = map(lambda x:x.upper().replace("-","_"),opts.unsafe_channels)
         
     ######################### show parameters ##################################
     if opts.verbose:
@@ -124,8 +127,10 @@ def report_page():
     table = ["""
     <big><b>Veto Candidate Channels</b></big><br>
     Channels with the used percentage > %d%% and the number of coincident KW triggers >= %d are on this table. <br>
-    Some channels (gravitational channel etc.) are already excluded since they are not safe. <br>
-    Channels that didn't pass the safety test are highlighted.<br>
+    Some channels (GW channel etc.) are already excluded since they are not safe. <br>
+    Channels that didn't pass the safety probability test are highlighted in yellow.<br>
+    Channels that are in the a priori unsafe channel list (see the ini file) are highlighted in red. <br>
+    Channels highlighted in red or yellow are considered to be unsafe and won't be inserted into the segdb. <br>
     (A list of all the analyzed channels follows below the table.)
     <br><br>
     <table border="1">
@@ -156,7 +161,12 @@ def report_page():
 
       # exclude channels that we know they are not safe
       if candidate(data,chan):
-        color = safety[3] == "Unsafe" and "yellow" or "white"
+        if unsafe.search(chan):
+          color = "red"
+        elif safety[3] == "Unsafe":
+          color ="yellow"
+        else:
+          color = "white"
         table.append("""
                 <tr bgcolor="%s">
                 <td><a href="channel_pages/%s-report_page.html">%s</a></td>
@@ -293,6 +303,10 @@ opts = parse_commandline()
 # make a list of the result files from KW_veto_calc
 files_list = KW_veto_utils.get_result_files(opts.result_dir,opts.verbose)
     
+# get unsafe channel list
+unsafe_channels = "|".join(opts.unsafe_channels)
+unsafe = re.compile(unsafe_channels,re.I) # re.I so that it's case insensitive
+
 ## figure out which channel gets over a critical used percentage
 channel_info = {}
 veto_segs = {}

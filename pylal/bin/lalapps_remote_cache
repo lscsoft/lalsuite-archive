@@ -11,13 +11,14 @@ __date__ = git_version.date
 
 
 class RemoteCache(object):
-	def __init__(self, url, verbose=False, regex=None, copy=False, ignore_local=False, base=''):
+	def __init__(self, url, verbose=False, regex=None, copy=False, ignore_local=False, allow_missing=False, base=''):
 		self.copy = copy
 		self.ignore_local = ignore_local
 		self.verbose=verbose
 		self.base = base
 		self.regex=regex
 		self.url = url
+		self.allow_missing = allow_missing
 		self.host, self.cache = self.url.split(":")
 		if not self.base: self.base = self.host
 		self.dir_dict = {}
@@ -41,7 +42,8 @@ class RemoteCache(object):
 			self.make_cache()
 			self.get_files()
 		else: 
-			self.local_cache = self.remote_cache_parsed
+			self.make_local_dirs()
+			self.make_cache()
 
 	def parse_mtab(self):
 		for l in open('/etc/mtab'):
@@ -61,15 +63,15 @@ class RemoteCache(object):
 	def get_cache(self):
 		if self.is_local():
 			if self.verbose: print>>sys.stderr, "\tCache file %s appears to be local...\n" % (self.url,)
-			self.remote_cache_file_copy = self.cache
+			self.retrieve_file(self.cache, self.remote_cache_file_copy)
 		else:
 			if self.verbose: print>>sys.stderr, "\tretrieving %s...\n" % (self.url)
 			self.retrieve_file(self.cache, self.remote_cache_file_copy)
 
 	def retrieve_file(self, remotepath, localpath):
 		#if self.verbose: print>>sys.stderr, "\tretrieving %s:%s...\n" % (self.host, remotepath)
-		if remotepath.endswith(".gz"): opts = "-q"
-		else: opts = "-zq"
+		if remotepath.endswith(".gz"): opts = "-qL"
+		else: opts = "-zqL"
 		ret = subprocess.call(["rsync", opts, "--rsh=gsissh", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)])
 		if ret: 
 			print >>sys.stderr, "retrieve failed with %d" % (ret,)
@@ -131,7 +133,8 @@ class RemoteCache(object):
 					ret = subprocess.call(cmd)
 					if ret: 
 						print >>sys.stderr, "mount failed with %d" % (ret,)
-						sys.exit(1)
+						if self.allow_missing: print >>sys.stderr, "ignoring..."
+						else: sys.exit(1)
 	
 
 def parse_command_line():
@@ -157,6 +160,7 @@ Host *
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-f", "--force-copy", action = "store_true", help = "force copying files instead of sshfs (this could be slow and reuquire GBs of free space)")
 	parser.add_option("-i", "--ignore-local", action = "store_true", help = "force copying or linking files even if they are on the local file system")
+	parser.add_option("-m", "--allow-missing", action = "store_true", help = "allow missing remote files when doing --force-copy")
 
 	options, urls = parser.parse_args()
 	if not options.force_copy and subprocess.call(["which", "sshfs"]):
@@ -173,7 +177,7 @@ mount = ["#!/bin/bash"]
 unmount = ["#!/bin/bash"]
 
 for i, cache in enumerate(opts.cache):
-	R = RemoteCache(cache, verbose = opts.verbose, regex = opts.regex, copy = opts.force_copy, ignore_local = opts.ignore_local)
+	R = RemoteCache(cache, verbose = opts.verbose, regex = opts.regex, copy = opts.force_copy, ignore_local = opts.ignore_local, allow_missing=opts.allow_missing)
 	outcache.extend(R.local_cache)
 	mount.extend(R.mount)
 	unmount.extend(R.unmount)

@@ -2,15 +2,11 @@
 """
 routine to look at  ethinca parameter
 """
-# $Id$
 
 from __future__ import division
 
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotethinca"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -32,6 +28,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
+from pylal import git_version
 from numpy import histogram, float64
 #from pylal import itertools as pylal_itertools
 
@@ -58,7 +55,7 @@ def parse_command_line():
   """
 
 
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg )
   # options related to input and output
   parser.add_option("-g","--injection-glob",action="append",type="string",\
       default=[], metavar=" GLOB",help="GLOB of injection thinca files to read" )
@@ -213,7 +210,7 @@ def populate_mtotal(sngl_table):
 # -- get command line arguments
 opts, args = parse_command_line()
 InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 # -- set the proper color code
 colors = InspiralUtils.colors
 fnameList = []   # use for the cache file
@@ -342,8 +339,9 @@ if filelists:
 
     # perform the veto
     if opts.veto_file is not None:
-      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-      inspTriggers = inspTriggers.veto(seglist)
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        inspTriggers = inspTriggers.veto(seglist)
   
     # reconstruct the coincs
     newCoincs = CoincInspiralUtils.coincInspiralTable(inspTriggers, statistic)
@@ -382,8 +380,9 @@ if slidefilelists:
 
     # perform the veto
     if opts.veto_file is not None:
-      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-      slideTriggers = slideTriggers.veto(seglist)
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        slideTriggers = slideTriggers.veto(seglist)
 
     slide_num = range(1 , opts.num_slides + 1)
     slide_num.extend(range(-opts.num_slides, 0))
@@ -422,8 +421,9 @@ if offsourcefilelists:
 
     # perform the veto
     if opts.veto_file is not None:
-      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-      offsourceTriggers = offsourceTriggers.veto(seglist)
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        offsourceTriggers = offsourceTriggers.veto(seglist)
 
     # make coincs
     newOffsource = CoincInspiralUtils.coincInspiralTable(offsourceTriggers, statistic)
@@ -671,7 +671,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     for coincs, ethincaVals, symbol in \
         zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
       xVals = [x.stat for x in coincs]
-      label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
+      label='injections: ' + str(len(xVals))+' coincidences'
       if opts.log_x:
         try:
           semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
@@ -687,7 +687,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for slides, ethincaSlideVals, symbolSlide in \
           zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
         xSlideVals = [x.stat for x in slides]
-        label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
+        label='slides: ' + str(len(xSlideVals))+' coincidences'
         if opts.log_x:
           try:
             semilogx(xSlideVals, ethincaSlideVals, symbolSlide,

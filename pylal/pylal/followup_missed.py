@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2006  Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -16,10 +14,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-__Id__ = "$Id$"
 __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "followup_missed.py"
 __title__ = "Followup missed injections"
 
@@ -33,6 +28,7 @@ from pylal import InspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import SearchSummaryUtils
+from pylal import git_version
 from glue import lal
 from glue import markup
 from glue import pipeline
@@ -155,11 +151,6 @@ class FollowupMissed:
       sys.stderr.write("ERROR (IOError) while reading process_params table from file %s. "\
                        "Does this file exist and does it contain a search_summary table?\n" %(coire_file))
       raise 	 
-    except AttributeError: 	 
-      sys.stderr.write("ERROR (AttributeError:) while reading process_params table from file %s. "\
-                       "Is the version of SearchSummaryUtils.py at least 1.5? Seems you have %s.\n" \
-                       %(coire_file, SearchSummaryUtils.__version__))
-      raise
     except:
       raise "Error while reading process_params table from file: ", coire_file
 
@@ -798,7 +789,8 @@ class FollowupMissed:
                            alt=fname, border="2"), title=fname, href=[ fname ])
           
     # add version information
-    page.add('<hr>Page created with %s Version %s'%(__prog__, __version__))
+    page.add('<hr>Page created with %s Version %s' % \
+        (__prog__, git_version.verbose_msg))
     
     # and write the html file
     htmlfilename = self.opts.prefix + "_"+selectIFO+"_followup_"+str(self.number) +\

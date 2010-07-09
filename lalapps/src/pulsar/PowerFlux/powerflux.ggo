@@ -29,6 +29,7 @@ option "input-format"   - "format of input files (GEO, SFT, Power)" string defau
 option "dump-data"	- "file to output loaded SFT data into, for testing" string no
 option "dump-sftv2"	- "directory to output loaded data, together with dataset description" string no
 option "output" 	o "output directory" string no
+option "flat-output"	- "output directory to contain all files, with no subdirectories (for globus condor)" string no
 
 option "ephemeris-path" - "path to detresponse program from lalapps" string no
 option "earth-ephemeris" - "Earth ephemeris file, overrides ephemeris-path argument" string no
@@ -37,7 +38,7 @@ option "sun-ephemeris" 	- "Sun ephemeris file, overrides ephemeris-path argument
 option "first-bin"   	f "first frequency bin in the band to be analyzed" int no
 option "nbins"   	n "number of frequency bins to analyze" int default="501" no
 option "side-cut"    	- "number of bins to cut from each side due to corruption from doppler shifts" int no
-option "expected-timebase"    	- "expected timebase in months" int default="6" no
+option "expected-timebase"    	- "expected timebase in months" double default="6" no
 option "hist-bins"      - "number of bins to use when producing histograms" int default="200" no
 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
@@ -93,6 +94,10 @@ option "fake-phi"	- "phase of fake signal to inject" double default="0.0" no
 option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0" no
 option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
+option "fake-dInv"	- "inverse distance to source of fake signal in seconds" double default="0.0" no
+option "fake-modulation-depth" - "depth of sinusoidal phase modulation in radians" double default="0.0" no
+option "fake-modulation-freq" - "frequency of sinusoidal phase modulation" double default="0.0" no
+option "fake-modulation-phase" - "phase of sinusoidal phase modulation" double default="0.0" no
 
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
 option "max-candidates"	- "Do not optimize more than this number of candidates" int default="-1" no
@@ -132,3 +137,5 @@ option "cache-granularity" - "granularity of power cache frequency shift resolut
 option "sidereal-group-count" - "separate SFTs in that many groups by frequency shift" int no
 option "time-group-count" - "separate SFTs in that many groups by gps time" int no
 option "phase-mismatch" - "maximal phase mismatch over coherence length to assume when using loosely coherent mode" double default="1.570796" no
+option "bypass-powersum-cache" - "bypass partial power sum cache" int default="0" no
+

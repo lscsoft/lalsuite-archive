@@ -304,6 +304,18 @@ def idmap_reset(connection):
 	connection.cursor().execute("DELETE FROM _idmap_")
 
 
+def idmap_sync(connection):
+	"""
+	Iterate over the tables in the database, ensure that there exists a
+	custom DBTable class for each, and synchronize that table's ID
+	generator to the ID values in the database.
+	"""
+	xmldoc = get_xml(connection)
+	for tbl in xmldoc.getElementsByTagName(DBTable.tagName):
+		tbl.sync_next_id()
+	xmldoc.unlink()
+
+
 def idmap_get_new(connection, old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
@@ -336,19 +348,19 @@ def idmap_get_max_id(connection, id_class):
 
 	Example:
 
-	>>> id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
-	>>> print id
+	>>> event_id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> print event_id
 	sngl_inspiral:event_id:0
-	>>> max = get_max_id(connection, type(id))
-	>>> print max
+	>>> max_id = get_max_id(connection, type(event_id))
+	>>> print max_id
 	sngl_inspiral:event_id:1054
 	"""
 	cursor = connection.cursor()
 	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
-	max = cursor.fetchone()[0]
-	if max is None:
+	maxid = cursor.fetchone()[0]
+	if maxid is None:
 		return None
-	return id_class(max)
+	return id_class(maxid)
 
 
 #

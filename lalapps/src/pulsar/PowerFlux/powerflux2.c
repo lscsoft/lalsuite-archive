@@ -227,11 +227,20 @@ if(!args_info.dataset_given && !args_info.detector_given){
 	exit(-1);
 	}
 
+if(!args_info.sky_marks_file_given){
+	fprintf(stderr,"** You must provide a skymarks file (--sky-marks-file)\n");
+	exit(-1);
+	}
+
 gsl_rng_env_setup();
 gsl_set_error_handler_off();
 
 /* create output directories if not present */
-if(args_info.output_given){
+if(args_info.flat_output_given){
+	output_dir=do_alloc(strlen(args_info.flat_output_arg)+30, sizeof(*output_dir));
+	sprintf(output_dir, "%s", args_info.flat_output_arg);
+	} else
+if(args_info.output_given) {
 	mkdir(args_info.output_arg, 0777);
 	output_dir=do_alloc(strlen(args_info.output_arg)+30, sizeof(*output_dir));
 	sprintf(output_dir, "%s/%d-%f/", args_info.output_arg, args_info.first_bin_arg,args_info.first_bin_arg/1800.0);
@@ -353,14 +362,14 @@ if(!strcasecmp("sin_theta", args_info.sky_grid_arg)){
 	proto_super_grid=make_sin_theta_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("plain_rectangular", args_info.sky_grid_arg)){
-	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
+	patch_grid=make_rect_grid(ceil(2.0*M_PI/(resolution*args_info.fine_factor_arg)+1), ceil(M_PI/(resolution*args_info.fine_factor_arg)));
 	proto_super_grid=make_rect_supergrid(patch_grid, args_info.fine_factor_arg, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("targeted_rectangular", args_info.sky_grid_arg)){
 	if(!(args_info.focus_ra_given && args_info.focus_dec_given && args_info.focus_radius_given)) {
 		fprintf(stderr, "*** ERROR: focus* options are required for targeted rectangular grid\n"); 
 		}
-	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/resolution)+2);
+	patch_grid=make_targeted_rect_grid(args_info.focus_ra_arg, args_info.focus_dec_arg, args_info.focus_radius_arg, ceil(2*args_info.focus_radius_arg/(resolution*args_info.fine_factor_arg))+1);
 	proto_super_grid=make_targeted_rect_supergrid(patch_grid, args_info.fine_factor_arg);
 	} else
 if(!strcasecmp("arcsin", args_info.sky_grid_arg)){
@@ -512,7 +521,7 @@ fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
 fprintf(LOG,"niota: %d\n", args_info.niota_arg);
 fprintf(LOG,"npsi: %d\n", args_info.npsi_arg);
 fprintf(LOG,"nfshift: %d\n", args_info.nfshift_arg);
-fprintf(LOG,"summing step: %d\n", args_info.summing_step_arg);
+fprintf(LOG,"summing step: %f\n", args_info.summing_step_arg);
 fprintf(LOG,"max_first_shift: %d\n", args_info.max_first_shift_arg);
 fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
@@ -524,6 +533,7 @@ fprintf(LOG, "phase mismatch: %.8g\n", args_info.phase_mismatch_arg);
 fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_independent" : "spindown_dependent");
 
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
+fprintf(LOG, "cache bypass: %s\n", args_info.bypass_powersum_cache_arg ? "enabled" : "disabled");
 fflush(LOG);
 
 /* we do not use precomputed polarization arrays in powerflux2 
@@ -558,7 +568,7 @@ if(args_info.dataset_given) {
 	fprintf(stderr, "Loading data from dataset %s\n", args_info.dataset_arg);
 	load_dataset_from_file(args_info.dataset_arg);
 	nsegments=total_segments();
-	if(nsegments==vetoed_segments()) {
+	if(nsegments==vetoed_segments() && !args_info.no_demodulation_arg && !args_info.no_decomposition_arg) {
 		fprintf(LOG, "All SFTs vetoed, aborting!\n");
 		fprintf(stderr, "All SFTs vetoed, aborting!\n");
 		exit(-1);
@@ -776,8 +786,8 @@ dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 /* COMP3 stage */
 
 if(args_info.no_decomposition_arg){
-	fprintf(stderr,"Exiting as requested (--no-decomposition=1\n");
-	fprintf(LOG,"Exiting as requested (--no-decomposition=1\n");
+	fprintf(stderr,"Exiting as requested (--no-decomposition=1)\n");
+	fprintf(LOG,"Exiting as requested (--no-decomposition=1)\n");
 	wrap_up();
 	exit(0);
 	}
@@ -786,8 +796,8 @@ if(args_info.no_decomposition_arg){
 
 
 if(args_info.no_demodulation_arg){
-	fprintf(stderr,"Exiting as requested (--no-demodulation=1\n");
-	fprintf(LOG,"Exiting as requested (--no-demodulation=1\n");
+	fprintf(stderr,"Exiting as requested (--no-demodulation=1)\n");
+	fprintf(LOG,"Exiting as requested (--no-demodulation=1)\n");
 	wrap_up();
 	exit(0);	
 	}
@@ -866,6 +876,23 @@ fflush(LOG);
 
 power_cache_selftest();
 power_sum_stats_selftest();
+
+/* Check that expected timebase was sufficient */
+
+if((fabs(max_gps()-spindown_start)>args_info.expected_timebase_arg*24.0*3600.0*31.0)) {
+	fprintf(stderr, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg*1.0);
+	fprintf(LOG, "**** ERROR: loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(max_gps()-spindown_start)/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
+	exit(-1);
+	}
+if((fabs(spindown_start-min_gps())>args_info.expected_timebase_arg*24*3600*31)) {
+	fprintf(stderr, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(spindown_start-min_gps())/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
+	fprintf(LOG, "**** ERROR(2): loaded timebase is larger than expected %f(loaded) vs %f(--expected-timebase)\n", 
+		(spindown_start-min_gps())/(24.0*3600.0*31.0), args_info.expected_timebase_arg);
+	exit(-1);
+	}
 
 /* MAIN LOOP stage */
 time(&stage_time);

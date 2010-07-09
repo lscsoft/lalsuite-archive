@@ -22,6 +22,10 @@
 
 #include "global.h"
 
+#include <lal/DetectorSite.h>
+#include <lal/LALBarycenter.h>
+#include <lal/LALDetectors.h>
+
 void init_hookup(void);
 int clear_name_dat(char *name);
 int clear_name_png(char *name);
@@ -36,6 +40,8 @@ void dump_floats(char *name, float *x, long count, long step);
 void dump_doubles(char *name, double *x, long count, long step);
 
 void init_ephemeris(void);
+void get_detector(char *det);
+LALDetector get_detector_struct(char *det);
 void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
 	float *plus, float *cross);
 void get_detector_vel(INT64 gps, float *velocity);
@@ -43,5 +49,6 @@ void get_detector_vel(INT64 gps, float *velocity);
 void get_whole_sky_AM_response(INT64 *gps, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size);
 /* Accepts one set of coefficients for a fixed polarization */
 void verify_whole_sky_AM_response(INT64 *gps, long count, float orientation,  SKY_GRID *grid, float *coeffs_plus, char *name);
+void get_emission_time(EmissionTime *emission_time, EarthState *earth_state, double ra, double dec, double dInv, char *detector, LIGOTimeGPS tGPS);
 
 #endif

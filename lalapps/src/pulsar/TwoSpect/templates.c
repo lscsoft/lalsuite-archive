@@ -20,12 +20,14 @@
 #include <math.h>
 
 #include <gsl/gsl_sf_trig.h>
+#include <gsl/gsl_roots.h>
 
 #include <lal/LALConstants.h>
 #include <lal/LALMalloc.h>
 #include <lal/Window.h>
 
 #include "templates.h"
+#include "cdfwchisq.h"
 
 //////////////////////////////////////////////////////////////
 // Allocate memory for farStruct struct  -- done
@@ -54,17 +56,17 @@ void free_farStruct(farStruct *farstruct)
 
 //////////////////////////////////////////////////////////////
 // Estimate the FAR of the R statistic from the weights
-//void estimateFAR(farStruct *out, REAL4Vector *weights, topbinsStruct *topbinsstruct, REAL4 thresh, REAL4Vector *ffplanenoise)
-void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, REAL8 thresh, REAL8Vector *ffplanenoise)
+void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, REAL8 thresh, REAL8Vector *ffplanenoise, REAL8Vector *fbinaveratios)
 {
    
    INT4 ii, jj;
+   INT4 numofweights = 0;
+   for (ii=0; ii<(INT4)templatestruct->templatedata->length; ii++) if (templatestruct->templatedata->data[ii]!=0.0) numofweights++;
    
-   REAL8 sumofsqweights = 0;
-   for (ii=0; ii<(INT4)templatestruct->templatedata->length; ii++) sumofsqweights += (templatestruct->templatedata->data[ii]*templatestruct->templatedata->data[ii]);
+   REAL8 sumofsqweights = 0.0;
+   for (ii=0; ii<numofweights; ii++) sumofsqweights += (templatestruct->templatedata->data[ii]*templatestruct->templatedata->data[ii]);
    REAL8 sumofsqweightsinv = 1.0/sumofsqweights;
    
-   //INT4 trials = (INT4)roundf(100000*0.01/thresh);    //Number of trials to determine FAR value
    REAL8Vector *Rs = XLALCreateREAL8Vector((UINT4)trials);
    
    //RandomParams *param = XLALCreateRandomParams(0);
@@ -76,9 +78,9 @@ void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, RE
    for (ii=0; ii<trials; ii++) {
       //Create noise value and R value
       REAL8 R = 0.0;
-      for (jj=0; jj<(INT4)templatestruct->firstfftfrequenciesofpixels->length; jj++) {
-         REAL8 noise = expRandNum(ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ], rng);
-         R += (noise - ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])*templatestruct->templatedata->data[jj];
+      for (jj=0; jj<numofweights; jj++) {
+         REAL8 noise = expRandNum(ffplanenoise->data[ templatestruct->secondfftfrequencies->data[jj] ]*fbinaveratios->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ], rng);
+         R += (noise - ffplanenoise->data[ templatestruct->secondfftfrequencies->data[jj] ]*fbinaveratios->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])*templatestruct->templatedata->data[jj];
       }
       Rs->data[ii] = R*sumofsqweightsinv;
    }
@@ -87,6 +89,7 @@ void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, RE
    
    //Do an insertion sort. At best this is O(thresh*trials), at worst this is O(thresh*trials*trials).
    if (out->topRvalues == NULL) out->topRvalues = XLALCreateREAL8Vector((UINT4)roundf(thresh*trials)+1);
+   else for (ii=0; ii<(INT4)out->topRvalues->length; ii++) out->topRvalues->data[ii] = 0.0;
    out->topRvalues->data[0] = Rs->data[0];
    for (ii=1; ii<(INT4)out->topRvalues->length; ii++) {
       INT4 insertionpoint = ii;
@@ -94,6 +97,7 @@ void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, RE
       
       for (jj=out->topRvalues->length-1; jj>insertionpoint; jj--) out->topRvalues->data[jj] = out->topRvalues->data[jj-1];
       out->topRvalues->data[insertionpoint] = Rs->data[ii];
+      //fprintf(stderr,"Inserted %g at position %d\n",Rs->data[ii],insertionpoint);
    }
    for (ii=out->topRvalues->length; ii<trials; ii++) {
       if (Rs->data[ii] > out->topRvalues->data[out->topRvalues->length - 1]) {
@@ -102,6 +106,7 @@ void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, RE
          
          for (jj=out->topRvalues->length-1; jj>insertionpoint; jj--) out->topRvalues->data[jj] = out->topRvalues->data[jj-1];
          out->topRvalues->data[insertionpoint] = Rs->data[ii];
+         //fprintf(stderr,"Inserted %g at position %d\n",Rs->data[ii],insertionpoint);
       }
    }
    
@@ -117,86 +122,195 @@ void estimateFAR(farStruct *out, templateStruct *templatestruct, INT4 trials, RE
 
 
 
-//////////////////////////////////////////////////////////////
-// Analytically calculate the probability of a true signal
-REAL8 probR(templateStruct *templatestruct, REAL8Vector *ffplanenoise, REAL8 R)
+void numericFAR(farStruct *out, templateStruct *templatestruct, REAL8 thresh, REAL8Vector *ffplanenoise, REAL8Vector *fbinaveratios)
 {
    
-   INT4 ii, jj;
+   INT4 ii;
+   
+   INT4 numweights = 0;
+   for (ii=0; ii<(INT4)templatestruct->templatedata->length; ii++) if (templatestruct->templatedata->data[ii]!=0) numweights++;
+   
+   REAL8 sumwsq = 0.0;
+   for (ii=0; ii<numweights; ii++) sumwsq += templatestruct->templatedata->data[ii]*templatestruct->templatedata->data[ii];
+   
+   INT4 errcode = 0;
+   
+   //Set up solver
+   const gsl_root_fdfsolver_type *T = gsl_root_fdfsolver_newton;
+   gsl_root_fdfsolver *s = gsl_root_fdfsolver_alloc(T);
+   gsl_function_fdf FDF;
+   
+   //Include the various parameters in the struct required by GSL
+   struct gsl_probR_pars params = {templatestruct, ffplanenoise, fbinaveratios, thresh, errcode};
+   
+   //Assign GSL function the necessary parts
+   FDF.f = &gsl_probR;
+   FDF.df = &gsl_dprobRdR;
+   FDF.fdf = &gsl_probRandDprobRdR;
+   FDF.params = &params;
+   
+   //Start off with an initial guess
+   REAL8 rootguess = 10.0;
+   REAL8 initialroot = rootguess;
+   //fprintf(stderr,"R = %g, Prob diff to target = %g, slope = %g\n",rootguess,gsl_probR(rootguess,&params),gsl_dprobRdR(rootguess,&params));
+   
+   //Set the solver at the beginning
+   gsl_root_fdfsolver_set(s, &FDF, initialroot);
+   
+   //And now find the root
+   ii = 0;
+   INT4 max_iter = 100;
+   INT4 status = GSL_CONTINUE;
+   REAL8 root;
+   while (status==GSL_CONTINUE && ii<max_iter) {
+      ii++;
+      status = gsl_root_fdfsolver_iterate(s);
+      root = rootguess;
+      rootguess = gsl_root_fdfsolver_root(s);
+      //fprintf(stderr,"R = %g, Prob = %g, slope = %g\n",rootguess,gsl_probR(rootguess,&params),gsl_dprobRdR(rootguess,&params));
+      status = gsl_root_test_delta(rootguess, root, 0.0, 0.001);
+      
+   }
+   
+   out->far = rootguess;
+   out->distMean = 0.0;
+   out->distSigma = 1.0; //Fake the value of sigma
+   out->farerrcode = errcode;
+   
+   //Cleanup
+   gsl_root_fdfsolver_free(s);
+   
+}
+REAL8 gsl_probR(REAL8 R, void *param)
+{
+   
+   struct gsl_probR_pars *pars = (struct gsl_probR_pars*)param;
+   
+   REAL8 prob = probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, R, &pars->errcode);
+   
+   //REAL8 returnval = prob - pars->threshold;
+   REAL8 returnval = prob - log10(pars->threshold);
+   
+   return returnval;
+   
+}
+REAL8 gsl_dprobRdR(REAL8 R, void *param)
+{
+   
+   struct gsl_probR_pars *pars = (struct gsl_probR_pars*)param;
+   
+   REAL8 dR = 0.001;
+   REAL8 slope = 0.0;
+   
+   //Explicit computation of slope
+   REAL8 prob1 = probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, (1.0+dR)*R, &pars->errcode);
+   REAL8 prob2 = probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, (1.0-dR)*R, &pars->errcode);
+   slope = (prob1-prob2)/(2.0*dR*R);
+   while (slope>-10.0*LAL_REAL4_MIN) {
+      dR *= 2.0;
+      prob1 = probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, (1.0+dR)*R, &pars->errcode);
+      prob2 = probR(pars->templatestruct, pars->ffplanenoise, pars->fbinaveratios, (1.0-dR)*R, &pars->errcode);
+      slope = (prob1-prob2)/(2.0*dR*R);
+   }
+   
+   return slope;
+   
+}
+void gsl_probRandDprobRdR(REAL8 R, void *param, REAL8 *probabilityR, REAL8 *dprobRdR)
+{
+   
+   struct gsl_probR_pars *pars = (struct gsl_probR_pars*)param;
+   
+   *probabilityR = gsl_probR(R, pars);
+   
+   *dprobRdR = gsl_dprobRdR(R, pars);
+   
+}
+
+
+//////////////////////////////////////////////////////////////
+// Analytically calculate the probability of a true signal output is log10(prob)
+REAL8 probR(templateStruct *templatestruct, REAL8Vector *ffplanenoise, REAL8Vector *fbinaveratios, REAL8 R, INT4 *errcode)
+{
+   
+   INT4 ii;
    REAL8 prob = 0.0;
    REAL8 sumwsq = 0.0;
-   for (ii=0; ii<(INT4)templatestruct->templatedata->length; ii++) sumwsq += templatestruct->templatedata->data[ii]*templatestruct->templatedata->data[ii];
-   
-   REAL8 fact1, fact2, sumval, prodval, shiftamt;
+   INT4 numweights = 0;
    for (ii=0; ii<(INT4)templatestruct->templatedata->length; ii++) {
-      fact1 = fact2 = sumval = shiftamt = 0.0;
-      prodval = 0.0;
-      
-      INT4 prodfactorposneg = 1;
-      if (ii==0) {
-         for (jj=1; jj<(INT4)templatestruct->templatedata->length; jj++) {
-            if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])>0.0) {
-               prodval += log(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]);
-               //prodfactorposneg *= 1;
-            } else if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])<0.0) {
-               prodval += log(-(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]));
-               prodfactorposneg *= -1;
-            }
-         }
-      } else if (ii==(INT4)templatestruct->templatedata->length-1) {
-         for (jj=0; jj<(INT4)templatestruct->templatedata->length-1; jj++) {
-            if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])>0.0) {
-               prodval += log(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]);
-               //prodfactorposneg *= 1;
-            } else if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])<0.0) {
-               prodval += log(-(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]));
-               prodfactorposneg *= -1;
-            }
-         }
-      } else {
-         for (jj=0; jj<ii; jj++) {
-            if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])>0.0) {
-               prodval += log(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]);
-               //prodfactorposneg *= 1;
-            } else if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])<0.0) {
-               prodval += log(-(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]));
-               prodfactorposneg *= -1;
-            }
-         }
-         for (jj=ii+1; jj<(INT4)templatestruct->templatedata->length; jj++) {
-            if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])>0.0) {
-               prodval += log(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]);
-               //prodfactorposneg *= 1;
-            } else if ((templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ])<0.0) {
-               prodval += log(-(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ] - templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ]));
-               prodfactorposneg *= -1;
-            }
-         }
-      }
-      
-      prodval = prodfactorposneg*exp(prodval);
-      
-      if (ii==0) {
-         for (jj=1; jj<(INT4)templatestruct->templatedata->length; jj++) sumval += templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ];
-      } else if (ii==(INT4)templatestruct->templatedata->length-1) {
-         for (jj=0; jj<(INT4)templatestruct->templatedata->length-1; jj++) sumval += templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ];
-      } else {
-         for (jj=0; jj<ii; jj++) sumval += templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ];
-         for (jj=ii+1; jj<(INT4)templatestruct->templatedata->length; jj++) sumval += templatestruct->templatedata->data[jj]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[jj] ];
-      }
-      
-      sumval += shiftamt;
-      
-      fact1 = (-R*sumwsq-sumval)/(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ]);
-      fact2 = ((REAL8)templatestruct->templatedata->length-1.0)*log(templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ]);
-      
-      prob += exp(fact1+fact2)/prodval;
+      if (templatestruct->templatedata->data[ii]!=0.0) numweights++;
+      sumwsq += templatestruct->templatedata->data[ii]*templatestruct->templatedata->data[ii];
    }
-   prob /= LAL_E;
    
-   prob = log10(prob);
+   REAL8Vector *newweights = XLALCreateREAL8Vector((UINT4)numweights);
+   REAL8Vector *noncentrality = XLALCreateREAL8Vector((UINT4)numweights);
+   INT4Vector *dofs = XLALCreateINT4Vector((UINT4)numweights);
+   INT4Vector *sorting = XLALCreateINT4Vector((UINT4)numweights);
+   REAL8 Rpr = R;
+   for (ii=0; ii<(INT4)newweights->length; ii++) {
+      newweights->data[ii] = 0.5*templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->secondfftfrequencies->data[ii] ]*fbinaveratios->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ]/sumwsq;
+      noncentrality->data[ii] = 0.0;
+      dofs->data[ii] = 2;
+      Rpr += templatestruct->templatedata->data[ii]*ffplanenoise->data[ templatestruct->secondfftfrequencies->data[ii] ]*fbinaveratios->data[ templatestruct->firstfftfrequenciesofpixels->data[ii] ]/sumwsq;
+   }
    
-   return prob;
+   //INT4 errcode;
+   qfvars vars;
+   vars.weights = newweights;
+   vars.noncentrality = noncentrality;
+   vars.dofs = dofs;
+   vars.sorting = sorting;
+   vars.lim = 10000;
+   vars.c = Rpr;
+   REAL8 accuracy = 1.0e-5;
+   
+   //cdfwchisq(algorithm variables, sigma, accuracy, error code)
+   prob = 1.0 - cdfwchisq(&vars, 0.0, accuracy, errcode); 
+   
+   //Large R values can cause a problem when computing the probability. We run out of accuracy quickly even using double precision
+   //Potential fix: compute log10(prob) for smaller values of R, for when slope is linear between log10 probabilities
+   //Use slope to extend the computation and then compute the exponential of the found log10 probability.
+   REAL8 c1, c2, logprob1, logprob2, probslope, logprobest;
+   INT4 estimatedTheProb = 0;
+   if (prob<=1.0e-4) {
+      estimatedTheProb = 1;
+      
+      c1 = 0.9*vars.c;
+      vars.c = c1;
+      REAL8 tempprob = 1.0-cdfwchisq(&vars, 0.0, accuracy, errcode);
+      while (tempprob<1.0e-4) {
+         c1 *= 0.9;
+         vars.c = c1;
+         tempprob = 1.0-cdfwchisq(&vars, 0.0, accuracy, errcode);
+      }
+      logprob1 = log10(tempprob);
+      
+      c2 = 0.9*c1;
+      vars.c = c2;
+      logprob2 = log10(1.0-cdfwchisq(&vars, 0.0, accuracy, errcode));
+      while ((logprob2-logprob1)<=2.0*1.0e-4) {
+         c2 *= 0.9;
+         vars.c = c2;
+         logprob2 = log10(1.0-cdfwchisq(&vars, 0.0, accuracy, errcode));
+      }
+      
+      //Calculating slope
+      probslope = (logprob1-logprob2)/(c1-c2);
+      
+      //Find the log10(prob) of the original Rpr value
+      logprobest = logprob1 - probslope*(c1-Rpr);
+      
+   }
+   
+   //Cleanup
+   XLALDestroyREAL8Vector(newweights);
+   XLALDestroyREAL8Vector(noncentrality);
+   XLALDestroyINT4Vector(dofs);
+   XLALDestroyINT4Vector(sorting);
+   
+   //return prob;
+   if (estimatedTheProb==1) return logprobest;
+   else return log10(prob);
    
 }
 
@@ -211,10 +325,12 @@ templateStruct * new_templateStruct(INT4 length)
    templatestruct->templatedata = XLALCreateREAL8Vector((UINT4)length);
    templatestruct->pixellocations = XLALCreateINT4Vector((UINT4)length);
    templatestruct->firstfftfrequenciesofpixels = XLALCreateINT4Vector((UINT4)length);
+   templatestruct->secondfftfrequencies = XLALCreateINT4Vector((UINT4)length);
    for (ii=0; ii<length; ii++) {
       templatestruct->templatedata->data[ii] = 0.0;
       templatestruct->pixellocations->data[ii] = 0;
       templatestruct->firstfftfrequenciesofpixels->data[ii] = 0;
+      templatestruct->secondfftfrequencies->data[ii] = 0;
    }
    
    return templatestruct;
@@ -228,6 +344,7 @@ void free_templateStruct(templateStruct *nameoftemplate)
    XLALDestroyREAL8Vector(nameoftemplate->templatedata);
    XLALDestroyINT4Vector(nameoftemplate->pixellocations);
    XLALDestroyINT4Vector(nameoftemplate->firstfftfrequenciesofpixels);
+   XLALDestroyINT4Vector(nameoftemplate->secondfftfrequencies);
    
    XLALFree((templateStruct*)nameoftemplate);
    
@@ -325,48 +442,48 @@ void makeTemplateGaussians(templateStruct *out, candidate *in, inputParamsStruct
    
    //Create template
    REAL8 sum = 0.0;
-   REAL8Vector *fulltemplate = XLALCreateREAL8Vector(sigmas->length*fpr->length);
+   REAL8 dataval;
    for (ii=0; ii<(INT4)sigmas->length; ii++) {
       REAL8 s = sigmas->data[ii];
       REAL8 scale1 = 1.0/(1.0+exp(-phi_actual->data[ii+fnumstart]*phi_actual->data[ii+fnumstart]*0.5/(s*s)));
       for (jj=0; jj<(INT4)fpr->length; jj++) {
          
          if (jj==0 || jj==1) {
-            //fulltemplate->data[ii*fpr->length + jj] = scale->data[ii] * scale1 * 4.0 * LAL_TWOPI * s * s * N * N;
-            fulltemplate->data[ii*fpr->length + jj] = 0.0;
+            dataval = 0.0;
          } else if (fabs(cos(in->period*LAL_TWOPI*fpr->data[jj])-1.0)<1e-5) {
-            fulltemplate->data[ii*fpr->length + jj] = scale->data[ii+fnumstart] * scale1 * 2.0 * LAL_TWOPI * s * s * exp(-s * s * LAL_TWOPI * LAL_TWOPI * fpr->data[jj] * fpr->data[jj]) * (cos(phi_actual->data[ii+fnumstart] * LAL_TWOPI * fpr->data[jj]) + 1.0) * N * N;
+            dataval = scale->data[ii+fnumstart] * scale1 * 2.0 * LAL_TWOPI * s * s * exp(-s * s * LAL_TWOPI * LAL_TWOPI * fpr->data[jj] * fpr->data[jj]) * (cos(phi_actual->data[ii+fnumstart] * LAL_TWOPI * fpr->data[jj]) + 1.0) * N * N;
          } else {
-            fulltemplate->data[ii*fpr->length + jj] = scale->data[ii+fnumstart] * scale1 * 2.0 * LAL_TWOPI * s * s * exp(-s * s * LAL_TWOPI * LAL_TWOPI * fpr->data[jj] * fpr->data[jj]) * (cos(N * in->period * LAL_TWOPI * fpr->data[jj]) - 1.0) * (cos(phi_actual->data[ii+fnumstart] * LAL_TWOPI * fpr->data[jj]) + 1.0) / (cos(in->period * LAL_TWOPI * fpr->data[jj]) - 1.0);
+            dataval = scale->data[ii+fnumstart] * scale1 * 2.0 * LAL_TWOPI * s * s * exp(-s * s * LAL_TWOPI * LAL_TWOPI * fpr->data[jj] * fpr->data[jj]) * (cos(N * in->period * LAL_TWOPI * fpr->data[jj]) - 1.0) * (cos(phi_actual->data[ii+fnumstart] * LAL_TWOPI * fpr->data[jj]) + 1.0) / (cos(in->period * LAL_TWOPI * fpr->data[jj]) - 1.0);
          }
          
          //Set any bin below 1e-12 to 0.0 and the DC bins (jj=0 and jj=1) to 0.0
-         if (fulltemplate->data[ii*fpr->length + jj] <= 1e-12 || jj==0 || jj==1) fulltemplate->data[ii*fpr->length + jj] = 0.0;
+         //if (fulltemplate->data[ii*fpr->length + jj] <= 1e-12 || jj==0 || jj==1) fulltemplate->data[ii*fpr->length + jj] = 0.0;
+         if (dataval <= 1e-12) dataval = 0.0;
          
          //Sum up the weights in total
-         sum += fulltemplate->data[ii*fpr->length + jj];
+         sum += dataval;
          
          //Compare with weakest top bins and if larger, launch a search to find insertion spot
-         if (fulltemplate->data[ii*fpr->length + jj] > out->templatedata->data[out->templatedata->length-1]) {
+         if (jj>1 && dataval > out->templatedata->data[out->templatedata->length-1]) {
             INT4 insertionpoint = (INT4)out->templatedata->length-1;
-            while (insertionpoint > 0 && fulltemplate->data[ii*fpr->length + jj] > out->templatedata->data[insertionpoint-1]) insertionpoint--;
-            
-            //fprintf(stderr,"Replacing %g with %g at %d\n",out->templatedata->data[insertionpoint],fulltemplate->data[ii*fpr->length + jj],insertionpoint);
+            while (insertionpoint > 0 && dataval > out->templatedata->data[insertionpoint-1]) insertionpoint--;
             
             for (kk=out->templatedata->length-1; kk>insertionpoint; kk--) {
                out->templatedata->data[kk] = out->templatedata->data[kk-1];
                out->pixellocations->data[kk] = out->pixellocations->data[kk-1];
                out->firstfftfrequenciesofpixels->data[kk] = out->firstfftfrequenciesofpixels->data[kk-1];
+               out->secondfftfrequencies->data[kk] = out->secondfftfrequencies->data[kk-1];
             }
-            out->templatedata->data[insertionpoint] = fulltemplate->data[ii*fpr->length + jj];
+            out->templatedata->data[insertionpoint] = dataval;
             out->pixellocations->data[insertionpoint] = (ii+fnumstart)*fpr->length + jj;
             out->firstfftfrequenciesofpixels->data[insertionpoint] = ii+fnumstart;
+            out->secondfftfrequencies->data[insertionpoint] = jj;
          }
       }
    }
    
    //Normalize
-   for (ii=0; ii<(INT4)out->templatedata->length; ii++) out->templatedata->data[ii] /= sum;
+   for (ii=0; ii<(INT4)out->templatedata->length; ii++) if (out->templatedata->data[ii]!=0.0) out->templatedata->data[ii] /= sum;
    
    //Destroy variables
    XLALDestroyREAL8Vector(phi_actual);
@@ -374,7 +491,6 @@ void makeTemplateGaussians(templateStruct *out, candidate *in, inputParamsStruct
    XLALDestroyREAL8Vector(sigmas);
    XLALDestroyREAL8Vector(allsigmas);
    XLALDestroyREAL8Vector(wvals);
-   XLALDestroyREAL8Vector(fulltemplate);
    XLALDestroyREAL8Vector(fpr);
 
 }
@@ -382,7 +498,6 @@ void makeTemplateGaussians(templateStruct *out, candidate *in, inputParamsStruct
 
 //////////////////////////////////////////////////////////////
 // Make an template based on FFT of sinc squared functions  -- done
-//void makeTemplate(ffdataStruct *out, candidate *in, REAL4FFTPlan *plan)
 void makeTemplate(templateStruct *out, candidate *in, inputParamsStruct *params, REAL8FFTPlan *plan)
 {
    
@@ -420,7 +535,6 @@ void makeTemplate(templateStruct *out, candidate *in, inputParamsStruct *params,
    REAL8Vector *psd = XLALCreateREAL8Vector((UINT4)floor(x->length*0.5)+1);
    REAL8 sum = 0.0;
    INT4 doSecondFFT;
-   //REAL4Vector *fulltemplate = XLALCreateREAL4Vector((UINT4)(numffts*numfbins));
    //First loop over frequencies
    for (ii=0; ii<numfbins; ii++) {
       //Set doSecondFFT check flag to 0. Value becomes 1 if at least one element in frequency row is non-zero
@@ -447,14 +561,11 @@ void makeTemplate(templateStruct *out, candidate *in, inputParamsStruct *params,
       //Order of vector is by second frequency then first frequency
       //Ignore the DC and 1st frequency bins
       if (doSecondFFT==1) {
-         for (jj=2; jj<(INT4)psd->length; jj++) {
-            
+         for (jj=0; jj<(INT4)psd->length; jj++) {
             REAL8 correctedValue = psd->data[jj]*winFactor/x->length*0.5*params->Tcoh;
-            
             sum += correctedValue;
             
-            //If value is largest than smallest logged bin, then launch a simple search to find the place to insert it
-            if (correctedValue > out->templatedata->data[out->templatedata->length-1]) {
+            if (jj>1 && correctedValue > out->templatedata->data[out->templatedata->length-1]) {
                INT4 insertionpoint = (INT4)out->templatedata->length-1;
                while (insertionpoint > 0 && correctedValue > out->templatedata->data[insertionpoint-1]) insertionpoint--;
                
@@ -462,10 +573,12 @@ void makeTemplate(templateStruct *out, candidate *in, inputParamsStruct *params,
                   out->templatedata->data[kk] = out->templatedata->data[kk-1];
                   out->pixellocations->data[kk] = out->pixellocations->data[kk-1];
                   out->firstfftfrequenciesofpixels->data[kk] = out->firstfftfrequenciesofpixels->data[kk-1];
+                  out->secondfftfrequencies->data[kk] = out->secondfftfrequencies->data[kk-1];
                }
                out->templatedata->data[insertionpoint] = correctedValue;
                out->pixellocations->data[insertionpoint] = ii*psd->length + jj;
                out->firstfftfrequenciesofpixels->data[insertionpoint] = ii;
+               out->secondfftfrequencies->data[insertionpoint] = jj;
             }
          }
       }
@@ -473,8 +586,9 @@ void makeTemplate(templateStruct *out, candidate *in, inputParamsStruct *params,
    }
    
    //Normalize
-   for (ii=0; ii<(INT4)out->templatedata->length; ii++) out->templatedata->data[ii] /= sum;
+   for (ii=0; ii<(INT4)out->templatedata->length; ii++) if (out->templatedata->data[ii]!=0.0) out->templatedata->data[ii] /= sum;
    
+   //Destroy
    XLALDestroyREAL8Vector(psd1);
    XLALDestroyINT4Vector(freqbins);
    XLALDestroyREAL8Vector(x);
@@ -493,8 +607,9 @@ REAL8 sincxoverxsqminusone(REAL8 x)
    
    REAL8 val;
    
-   if (x==1.0 || x==-1.0) val = -0.5;
-   else val = gsl_sf_sinc(x)/(x*x-1);
+   //if (x==1.0 || x==-1.0) val = -0.5;
+   if (fabs(x*x-1.0)<1.0e-5) val = -0.5;
+   else val = gsl_sf_sinc(x)/(x*x-1.0);
    
    return val;
    

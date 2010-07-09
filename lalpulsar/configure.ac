@@ -1,4 +1,4 @@
-AC_INIT([lalpulsar],[1.0],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalpulsar],[1.0.0.2],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([src/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -14,7 +14,6 @@ AC_CONFIG_FILES([ \
   src/Makefile \
   test/Makefile
 ])
-AC_CONFIG_FILES([src/git_version],[chmod +x src/git_version])
 AM_INIT_AUTOMAKE([foreign])
 
 AC_CANONICAL_HOST
@@ -41,6 +40,9 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 # default install path
 AC_PREFIX_DEFAULT([/opt/lscsoft/lalpulsar])
 
+# nightly build
+LALSUITE_ENABLE_NIGHTLY
+
 # put version/configure info in config header
 lalpulsar_configure_date=`date +"%Y-%m-%dT%H:%M:%S%z"`
 AC_DEFINE_UNQUOTED([LALPULSAR_VERSION],["$VERSION"],[LALPulsar Version])
@@ -50,10 +52,10 @@ AC_DEFINE_UNQUOTED([LALPULSAR_CONFIGURE_DATE],["$lalpulsar_configure_date"],
                    [LALPulsar Configure Date])
 
 # boinc
-LAL_ENABLE_BOINC
+LALSUITE_ENABLE_BOINC
 
 # enable strict gcc flags
-LAL_ENABLE_GCC_FLAGS
+LALSUITE_ENABLE_GCC_FLAGS
 
 # check for c compiler
 m4_pattern_allow([AC_PROG_CC_C99])
@@ -116,16 +118,16 @@ if test "${boinc}" = "true" ; then
   AC_LANG_PUSH([C++])
 fi
 
-# check for lal
-LALSUITE_CHECK_LIB([LAL],[lal],[6.3.2.2],[LALVersion],[lal/LALStdio.h])
+# check for lal libraries and headers
+LALSUITE_CHECK_LIB([LAL],[6.4.1.2],[LALVersion],[lal/LALStdio.h])
 
 # check that lal has been buil with boinc support, for boinc build
 if test "${boinc}" = "true" ; then
-  LAL_CHECK_BOINC
+  LALSUITE_CHECK_BOINC
 fi
 
 # check for lalsupport, needed for test suite
-LALSUITE_CHECK_LIB([LALSUPPORT],[lalsupport],[6.3.2.2],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.4.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # back to c mode
 if test "${boinc}" = "true" ; then
@@ -150,12 +152,12 @@ AC_OUTPUT
 echo "
 ================================================================
 
-        LAL Pulsar has now been successfully configured
+        LALPulsar has now been successfully configured
         and will be installed under the directory:
 
           ${prefix}
 
-        Now run 'make' to build LAL Pulsar
-        and run 'make install' to install LAL Pulsar
+        Now run 'make' to build LALPulsar
+        and run 'make install' to install LALPulsar
 
 ================================================================="

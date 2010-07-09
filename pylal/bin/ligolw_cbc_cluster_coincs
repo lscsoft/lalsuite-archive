@@ -21,6 +21,7 @@ from pylal import ligolw_sqlutils as sqlutils
 
 from glue import git_version
 from glue.ligolw import dbtables
+from glue.ligolw import lsctables
 from glue.ligolw.utils import process
 
 __prog__ = "ligolw_cbc_cluster_coincs"
@@ -153,6 +154,17 @@ def parse_command_line():
             "minimum (MIN) stat value. Use MIN if clustering on stats in " +
             "which smaller is better (e.g., chisq, far). Otherwise, use MAX. "
             )
+    parser.add_option( "-G", "--group-by-ifos", action = "store_true", default = False, 
+        help = 
+            "Turning on will cause triggers to be grouped by coincident ifos when " +
+            "clustering."
+            )
+    parser.add_option( "-M", "--group-by-multiplicity", action = "store_true", default = False, 
+        help = 
+            "Turning on will cause triggers to be grouped by the number of coincident ifos when " +
+            "clustering. For example, doubles will be grouped with doubles, triples with triples, etc. " +
+            "Note: if both --group-by-ifos and --group-by-multiplicity on, group-by-ifos takes precedence."
+            )
 
     (options, args) = parser.parse_args()
 
@@ -188,6 +200,14 @@ def parse_command_line():
 def end_time_in_ns( end_time, end_time_ns ):
     return end_time*1e9 + end_time_ns
 
+def get_ifo_multiplicity( ifos ):
+    """
+    Returns the number of coincident ifos in an 'ifos' string.
+
+    @ifos: a string of comma-separated ifos
+    """
+    return len( lsctables.instrument_set_from_ifos( ifos ) )
+
 
 # =============================================================================
 #
@@ -205,6 +225,8 @@ opts, args = parse_command_line()
 filename = opts.input
 if not os.path.isfile( filename ):
     raise ValueError, "The input file, %s, cannot be found." % filename
+
+sqlite3.enable_callback_tracebacks(opts.debug)
 
 # Setup working databases and connections
 if opts.verbose: 
@@ -265,7 +287,7 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 # 
 
 # Get cluster stat
-ranking_stat = '.'.join([ 'coinc_inspiral', opts.ranking_stat ])
+ranking_stat = '.'.join([ 'coinc_inspiral', sqlutils.validate_option(opts.ranking_stat) ])
 
 # determine how to rank
 if opts.rank_by.strip().upper() == "MAX":
@@ -284,6 +306,18 @@ if opts.param_name:
 else:
     param_grouping = '0'
     param_col = ''
+
+# get desired ifo grouping
+if opts.group_by_ifos:
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = '.'.join([ ifo_grouping_table, 'ifos' ])
+elif opts.group_by_multiplicity:
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = ''.join(['get_ifo_multiplicity(', ifo_grouping_table, '.ifos)'])
+    connection.create_function('get_ifo_multiplicity', 1, get_ifo_multiplicity)
+else:
+    ifo_grouping_table = None
+    ifo_grouping = '"ALL_IFOS"'
 
 # sqlitize end_time calc
 connection.create_function("end_time_in_ns", 2, end_time_in_ns)
@@ -318,7 +352,7 @@ sqlscript = ''.join(["""
         SELECT 
             experiment_map.experiment_summ_id AS esid,
             experiment_map.coinc_event_id AS ceid,
-            coinc_inspiral.ifos AS ifos,
+            """, ifo_grouping, """ AS ifos,
             end_time_in_ns( coinc_inspiral.end_time, coinc_inspiral.end_time_ns ) AS end_time,
             """,
             param_grouping, """ AS param_grouping, 

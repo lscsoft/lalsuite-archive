@@ -304,6 +304,7 @@ def getinjpar(inj,parnum):
     return None
 
 if injection:
+    injpoint=map(lambda a: getinjpar(injection,a),range(0,9))
     injvals=map(str,map(lambda a: getinjpar(injection,a),range(0,9)))
     out=reduce(lambda a,b:a+'||'+b,injvals)
     print 'Injected values:'
@@ -313,6 +314,7 @@ if(Bflag==1):
     BayesFactor = logZ
     print 'log B = '+str(BayesFactor)
 
+injectionconfidence=None
 skyreses=[]
 if(opts.skyres is not None):
 	from pylal import skylocutils
@@ -334,7 +336,10 @@ if(opts.skyres is not None):
 		frac=frac+(float(maxbin)/float(len(pos)))
 		Nbins=Nbins+1
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
-		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
+                if injection:
+                        if (injbin==maxpos):
+                                injectionconfidence=frac
+                                print 'Injection sky point found at confidence %f'%(frac)
 	print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
 	skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
 	while(frac<0.9):
@@ -347,6 +352,10 @@ if(opts.skyres is not None):
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+                if injection:
+                        if (injbin==maxpos):
+                                injectionconfidence=frac
+                                print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
@@ -360,6 +369,10 @@ if(opts.skyres is not None):
                 frac=frac+(float(maxbin)/float(len(pos)))
                 Nbins=Nbins+1
 		toppoints.append((skypoints[maxpos,0],skypoints[maxpos,1],maxbin))
+                if injection:
+                        if (injbin==maxpos):
+                                injectionconfidence=frac
+                                print 'Injection sky point found at confidence %f'%(frac)
 		#print 'Nbins=%d, thisnum=%d, idx=%d, total=%d, cumul=%f\n'%(Nbins,maxbin,maxpos,len(pos),frac)
         print '%f confidence region: %f square degrees' % (frac,Nbins*float(opts.skyres)*float(opts.skyres))
         skyreses.append((frac,Nbins*float(opts.skyres)*float(opts.skyres)))
@@ -398,7 +411,7 @@ def plot2Dkernel(xdat,ydat,Nx,Ny):
 
 plot2Dkernel(pos[:,0],pos[:,1],100,100)
 if injection and getinjpar(injection,0)<max(pos[:,0]) and getinjpar(injection,0)>min(pos[:,0]) and getinjpar(injection,1)>min(pos[:,1]) and getinjpar(injection,1)<max(pos[:,1]):
-        plot(getinjpar(injection,0),getinjpar(injection,1),'go',scalex=False,scaley=False)
+        plot([getinjpar(injection,0)],[getinjpar(injection,1)],'go',scalex=False,scaley=False)
 xlabel('chirp mass (Msun)')
 ylabel('eta')
 grid()
@@ -408,7 +421,8 @@ if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
     myfig.clear()
     plot2Dkernel(pos[:,5],pos[:,6],100,100)
     if injection and getinjpar(injection,5)<max(pos[:,5]) and getinjpar(injection,5)>min(pos[:,5]) and getinjpar(injection,6)>min(pos[:,6]) and getinjpar(injection,6)<max(pos[:,6]):
-        plot(getinjpar(injection,5),getinjpar(injection,6),'go',scalex=False,scaley=False)	
+        print 'getinjpar(5),getinjpar(6) = %f,%f\n'%(getinjpar(injection,5),getinjpar(injection,6))
+	plot([getinjpar(injection,5)],[getinjpar(injection,6)],'go',scalex=False,scaley=False)	
     xlabel('RA')
     ylabel('dec')
     grid()
@@ -416,7 +430,7 @@ if size(unique(pos[:,5]))>1 and size(unique(pos[:,6]))>1:
 
 myfig.clear()
 plot2Dkernel(pos[:,7],pos[:,8],100,100)
-if injection and getinjpar(injection,7)<max(pos[:,7]) and getinjpar(injection,7)>min(pos[:,7]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]): plot(getinjpar(injection,7),getinjpar(injection,8),'go',scalex=False,scaley=False)
+if injection and getinjpar(injection,7)<max(pos[:,7]) and getinjpar(injection,7)>min(pos[:,7]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]): plot([getinjpar(injection,7)],[getinjpar(injection,8)],'go',scalex=False,scaley=False)
 xlabel('psi')
 ylabel('iota')
 grid()
@@ -426,7 +440,7 @@ myfig.clear()
 (m1,m2)=mc2ms(pos[:,0],pos[:,1])
 plot2Dkernel(m1,m2,100,100)
 if injection and injection.mass1>min(m1) and injection.mass1 < max(m1) and injection.mass2>min(m2) and injection.mass2<max(m2):
-    plot(injection.mass1,injection.mass2,'go',scalex=False,scaley=False)
+    plot([injection.mass1],[injection.mass2],'go',scalex=False,scaley=False)
 xlabel('mass 1')
 ylabel('mass 2')
 grid()
@@ -435,7 +449,7 @@ myfig.clear()
 
 plot2Dkernel(m1,pos[:,4],100,100)
 if injection and injection.mass1<max(m1) and injection.mass1>min(m1) and getinjpar(injection,4)<max(pos[:,4]) and getinjpar(injection,4)>min(pos[:,4]):
-    plot(injection.mass1,injection.distance,'go',scalex=False,scaley=False)
+    plot([injection.mass1],[injection.distance],'go',scalex=False,scaley=False)
 xlabel('m1')
 ylabel('Distance (Mpc)')
 grid()
@@ -450,7 +464,7 @@ myfig.clear()
 
 plot2Dkernel(pos[:,4],pos[:,8],100,100)
 if injection and getinjpar(injection,4)>min(pos[:,4]) and getinjpar(injection,4)<max(pos[:,4]) and getinjpar(injection,8)<max(pos[:,8]) and getinjpar(injection,8)>min(pos[:,8]):
-    plot(getinjpar(injection,4),getinjpar(injection,8),'go',scalex=False,scaley=False)
+    plot([getinjpar(injection,4)],[getinjpar(injection,8)],'go',scalex=False,scaley=False)
 xlabel('distance')
 ylabel('iota')
 grid()
@@ -465,7 +479,7 @@ for i in range(0,Nd-1):
         if (size(unique(pos[:,i]))<2 or size(unique(pos[:,j]))<2):   continue
         plot2Dkernel(pos[:,i],pos[:,j],50,50)
         if injection and reduce (lambda a,b: a and b, map(lambda idx: getinjpar(injection,idx)>min(pos[:,idx]) and getinjpar(injection,idx)<max(pos[:,idx]),[i,j])) :
-            plot(getinjpar(injection,i),getinjpar(injection,j),'go',scalex=False,scaley=False)
+            plot([getinjpar(injection,i)],[getinjpar(injection,j)],'go',scalex=False,scaley=False)
         xlabel(paramnames[i])
         ylabel(paramnames[j])
         grid()
@@ -497,24 +511,33 @@ if injection:
     injline=reduce(lambda a,b:a+'<td>'+b,injvals)
     htmlfile.write('<td>'+injline+'<td></tr>')
 htmlfile.write('</table>')
+if injection:
+        if injectionconfidence:
+                htmlfile.write('<p>Injection found at confidence interval %f in sky location</p>'%(injectionconfidence))
+        else:
+                htmlfile.write('<p>Injection not found in posterior bins in sky location!</p>')
 htmlfile.write('<h5>2D Marginal PDFs</h5><br>')
 htmlfile.write('<table border=1><tr>')
 htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
 htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
 htmlfile.write('</tr><tr><td width=30%><img width=100% src="2D/Mchirp (Msun)-geocenter time ISCO_2Dkernel.png"</td>')
-htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
-htmlfile.write('<td width=30%><img width=100% src="m2dist.png"></td>')
+if opts.skyres is not None:
+	htmlfile.write('<td width=30%><img width=100% src="skymap.png"></td>')
+else:
+	htmlfile.write('<td width=30%><img width=100% src="psiiota.png"></td>')
+htmlfile.write('<td width=30%><img width=100% src="Diota.png"></td>')
 htmlfile.write('</table>')
 htmlfile.write('<br><a href="2D/">All 2D Marginal PDFs</a><hr><h5>1D marginal posterior PDFs</h5><br>')
 
 for i in [0,1,2,3,4,5,6,7,8]:
     myfig=figure(figsize=(4,3.5),dpi=80)
     hist(pos[:,i],50,normed='true')
-    gkde=stats.gaussian_kde(pos[:,i])
-    ind=linspace(min(pos[:,i]),max(pos[:,i]),101)
-    kdepdf=gkde.evaluate(ind)
-    plot(ind,kdepdf,label='density estimate')
+    if size(unique(pos[:,i]))>1:
+	gkde=stats.gaussian_kde(pos[:,i])
+    	ind=linspace(min(pos[:,i]),max(pos[:,i]),101)
+    	kdepdf=gkde.evaluate(ind)
+    	plot(ind,kdepdf,label='density estimate')
     if injection and min(pos[:,i])<getinjpar(injection,i) and max(pos[:,i])>getinjpar(injection,i):   
         plot([getinjpar(injection,i),getinjpar(injection,i)],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
         print 'i=%i, %f' % (i,getinjpar(injection,i))

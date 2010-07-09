@@ -1,6 +1,7 @@
 #!/usr/bin/python
 #
 # Copyright (C) 2008  Kipp Cannon
+#               2010  Drew Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -149,50 +150,64 @@ def parse_command_line():
 #
 
 
-def extrapolation_coeffs(rank_by, N, reputations, t):
-	#
-	# calculate the FAR extrapolation coefficients
-	#
+class ExtrapolationCoeffs(object):
+	def __init__(self, rank_by, N, reputations, t):
+		#
+		# calculate the FAR extrapolation coefficients
+		#
 
-	#
-	# get just the loudest N in reputations
-	#
+		self.rank_by = rank_by
 
-	if len(reputations) < 2:
-		print >>sys.stderr,"Warning: found a category with less than 2 background triggers, cannot perform extrapolation for this category"
-		return (0, (0, 0))
+		#
+		# get just the loudest N in reputations
+		#
 
-	x = reputations[-N:]
+		if len(reputations) < N and len(reputations) >= 2:
+			print >>sys.stderr,"Warning: found a category with less than N=%i background triggers, using the number available: %i"%(N,len(reputations))
+		elif len(reputations) < 2:
+			print >>sys.stderr,"Warning: found a category with less than 2 background triggers, cannot perform extrapolation for this category"
+			self.npoints = 0
+			self.A = 0
+			self.B = 0
+			return
 
-	if rank_by == "snr":
-		y = range(1, len(x) + 1, 1)
-		y.reverse()
+		x = reputations[-N:]
 
-		Y0 = 0.
-		X0 = 0.
+		if rank_by == "snr":
+			y = range(1, len(x) + 1, 1)
+			y.reverse()
 
-		for idx in range(len(x)):
-			sigmasq = y[0]**2. / y[idx]
-			Y0 += numpy.log(1. * y[idx] / y[0]) / sigmasq
-			X0 += (x[idx]**2. - x[0]**2.) / sigmasq
+			Y0 = 0.
+			X0 = 0.
 
-		B = Y0 / X0
-		A = y[0] * numpy.exp(-B * x[0]**2.)
-		return (len(x), (A, B))
+			for idx in range(len(x)):
+				sigmasq = 1. / y[idx]
+				Y0 += numpy.log(1. * y[idx] / y[0]) * (x[idx]**2. - x[0]**2.) / sigmasq
+				X0 += (x[idx]**2. - x[0]**2.)**2. / sigmasq
 
-	elif rank_by == "uncombined-ifar":
-		A = float(len(x)) * x[0] / t
-		return (len(x), (A, 0))
+			self.npoints = len(x)
+			self.B = Y0 / X0
+			self.A = y[0] * numpy.exp(-self.B * x[0]**2.)
 
-def extrapolate_reputation(rank_by, coeffs, reputation, t):
-	#
-	# calculate the FAN from the reputation and the extrapolation coefficients
-	#
+		elif rank_by == "uncombined-ifar":
+			self.npoints = len(x)
+			self.A = float(self.npoints) * x[0] / t
+			self.B = 0
 
-	if rank_by == "snr":
-		return coeffs[0] * numpy.exp(coeffs[1] * reputation**2.)
-	if rank_by == "uncombined-ifar":
-		return coeffs[0] * t / reputation
+		else:
+			raise ValueError, rank_by
+
+
+	def extrapolate_reputation(self, reputation, t):
+		#
+		# calculate the FAN from the reputation and the extrapolation coefficients
+		#
+
+		if self.rank_by == "snr":
+			return self.A * numpy.exp(self.B * reputation**2.)
+		if self.rank_by == "uncombined-ifar":
+			return self.A * t / reputation
+		raise ValueError, rank_by
 
 
 #
@@ -254,8 +269,6 @@ class Summaries(object):
 		self.cached_livetime = {}
 		self.extrapolate = False
 		self.extrapolation_coeffs = {}
-		self.categories = []
-		self.times = []
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 		if veto_segments_name is not None:
@@ -277,10 +290,6 @@ class Summaries(object):
 
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
-		if self.category_func(on_instruments, participating_instruments, mchirp, mtotal) not in self.categories:
-			self.categories.append(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
-		if self.time_func(on_instruments) not in self.times:
-			self.times.append(self.time_func(on_instruments))
 
 	def index(self):
 		for reputations in self.reputations.values():
@@ -292,10 +301,9 @@ class Summaries(object):
 		#
 
 		self.extrapolate = True
-		for category in self.categories:
+		for category, reputations in self.reputations.items():
 			t = self.cached_livetime.setdefault(self.category_to_time(category), 0.0)
-			reputations = self.reputations.setdefault(category, [])
-			self.extrapolation_coeffs[category] = extrapolation_coeffs(self.rank_by, N, reputations, t)
+			self.extrapolation_coeffs[category] = ExtrapolationCoeffs(self.rank_by, N, reputations, t)
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		#
@@ -323,10 +331,10 @@ class Summaries(object):
 		# extrapolate the event count if needed
 		#
 
-		if self.extrapolate:
-			extrapolation_coeffs = self.extrapolation_coeffs.setdefault(category, (0, (0, 0)))
-			if n < extrapolation_coeffs[0]:
-				n = extrapolate_reputation(self.rank_by, extrapolation_coeffs[1], self.reputation_func(snr, uncombined_ifar, likelihood), t)
+		if self.extrapolate and category in self.extrapolation_coeffs:
+			extrapolation_coeffs = self.extrapolation_coeffs[category]
+			if n < extrapolation_coeffs.npoints:
+				n = extrapolation_coeffs.extrapolate_reputation(self.reputation_func(snr, uncombined_ifar, likelihood), t)
 
 		#
 		# return the rate of events above the given reputation
@@ -335,7 +343,7 @@ class Summaries(object):
 		try:
 			return n / t
 		except ZeroDivisionError, e:
-			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
+			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(category)
 			raise e
 
 

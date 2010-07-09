@@ -34,8 +34,7 @@ import threading
 
 from glue import iterutils
 try:
-	any
-	all
+	any, all
 except NameError:
 	# Python <2.5
 	from glue.iterutils import any, all
@@ -269,7 +268,6 @@ class CoincParamsDistributions(object):
 			binnedarray.array /= numpy.sum(binnedarray.array)
 			threads.append(threading.Thread(target = rate.to_moving_mean_density, args = (binnedarray, filters.get(name, default_filter))))
 			threads[-1].start()
-			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
 		for thread in threads:
 			thread.join()
 		return self

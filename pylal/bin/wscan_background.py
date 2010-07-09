@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "wscan_background.py"
-__Id__ = "$Id$"
 __title__ = "Generate bakground of omega scans"
 
 ##############################################################################
@@ -17,6 +14,7 @@ from glue import pipeline
 from glue import gpstime
 from glue.ligolw import dbtables
 from pylal import fu_utils
+from pylal import git_version
 from pylal import stfu_pipe
 
 ##############################################################################
@@ -38,10 +36,13 @@ class create_default_config(object):
     cp.add_section("datafind")
 
     cp.add_section("fu-q-rds-datafind")
-    cp.set("fu-q-rds-datafind","search-time-range","1024")
+    for ifo in ["H1","H2","L1"]:
+      cp.set("fu-q-rds-datafind",ifo+"-search-time-range","1024")
+    cp.set("fu-q-rds-datafind","V1-search-time-range","2048")
 
     cp.add_section("fu-q-hoft-datafind")
-    cp.set("fu-q-hoft-datafind","search-time-range","128")
+    for ifo in ["H1","H2","L1","V1"]:
+      cp.set("fu-q-hoft-datafind",ifo+"-search-time-range","128")
 
     cp.add_section("followup-background-qscan-times")
     cp.set("followup-background-qscan-times","H1range","")
@@ -188,7 +189,7 @@ class setupLogFileNode(pipeline.CondorDAGNode,stfu_pipe.FUNode):
 ##############################################################################
 
 class prepareLyonRemoteScans(object):
-  def __init__(self,cp,ifo):
+  def __init__(self,cp,ifo,timeref):
     depIfoIniConfig = ifo+'config'
     self.depIfoDir = ifo+'_qscans_config'
     depQscanList = ['bg-rds-qscan', 'bg-seismic-qscan']
@@ -211,7 +212,7 @@ class prepareLyonRemoteScans(object):
     # Copy the qscan configuration files
     for depQscan in depQscanList:
       if cp.has_option("fu-"+depQscan, depIfoIniConfig):
-        qscanConfig = string.strip(cp.get("fu-"+depQscan, depIfoIniConfig))
+        qscanConfig = self.fix_config_for_science_run( cp.get("fu-"+depQscan, depIfoIniConfig).strip(), timeref )
         if qscanConfig!='':
           print 'copy '+qscanConfig+' -----> '+self.depIfoDir+'/CONFIG/'+depQscan+'_config.txt'
           shutil.copy(qscanConfig,self.depIfoDir+'/CONFIG/'+depQscan+'_config.txt')
@@ -227,6 +228,12 @@ class prepareLyonRemoteScans(object):
     shutil.copy(scriptPath+'/virgo_qscan_in2p3.py',self.depIfoDir)
     os.chmod(self.depIfoDir+'/virgo_qscan_in2p3.py',0755)
 
+  def fix_config_for_science_run(self, config, time):
+    run = stfu_pipe.science_run(time)
+    config_path = os.path.split(config)
+    out = "/".join([config_path[0], config_path[1].replace('s5',run).replace('s6',run)])
+    return out
+
 ##############################################################################
 #MAIN PROGRAM
 ##############################################################################
@@ -238,10 +245,7 @@ home_base = "/".join(home_dir.split("/")[0:-1])
 usage = """usage: %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("-f","--config-file",action="store",type="string",\
     default="",help="configuration file is optional")
@@ -275,10 +279,6 @@ parser.add_option("","--prepare-scan-ccin2p3", action="store_true",\
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
-
 #############################################################################
 
 default_cp = create_default_config(home_base)
@@ -311,11 +311,6 @@ time_now = "_".join([str(i) for i in time.gmtime()[0:6]])
 #Initialize dag
 dag = stfu_pipe.followUpDAG(time_now + "-" + range_string + ".ini",cp,opts)
 
-#Prepare files for remote scans at Lyon CC...
-if opts.prepare_scan_ccin2p3:
-  for ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(","):
-    CCRemoteScans = prepareLyonRemoteScans(cp,ifo)
-
 # CONDOR JOB CLASSES
 htdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_HT',dir='')
 rdsdataJob	= stfu_pipe.fuDataFindJob(cp,tag_base='Q_RDS',dir='')
@@ -331,6 +326,13 @@ for ifo in ifos_list:
     # FIX ME: input argument segFile is not needed any more
     segFile = {}
     times, timeListFile = fu_utils.getQscanBackgroundTimes(cp,opts,ifo,segFile)
+
+    #Prepare files for remote scans at Lyon CC...
+    if opts.prepare_scan_ccin2p3 and ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(","):
+        if times:
+          CCRemoteScans = prepareLyonRemoteScans(cp,ifo,times[0])
+        else:
+          CCRemoteScans = None
 
     for qtime in times:
       # SETUP DATAFIND JOBS FOR BACKGROUND QSCANS (REGULAR DATA SET)
@@ -358,7 +360,7 @@ for ifo in ifos_list:
 
     # WRITE TIMES FOR REMOTE (DEPORTED)CALCULATIONS
     if opts.prepare_scan_ccin2p3:
-      if ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(",") and timeListFile:
+      if ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(",") and timeListFile and CCRemoteScans:
         shutil.copy(timeListFile,CCRemoteScans.depIfoDir+'/TIMES/background_qscan_times.txt')
 
 end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
@@ -366,7 +368,8 @@ end_node = setupLogFileNode(dag,setupLogJob,cp,range_string,'terminate')
 #### ALL FINNISH ####
 
 # Prepare for moving the deported qscan directory (tar-gzip)
-if opts.prepare_scan_ccin2p3:
+if opts.prepare_scan_ccin2p3 and CCRemoteScans:
+
   tar = tarfile.open(CCRemoteScans.depIfoDir+'.tar.gz','w:gz')
   tar.add(CCRemoteScans.depIfoDir)
   tar.close()

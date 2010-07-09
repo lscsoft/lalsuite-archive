@@ -23,11 +23,14 @@ import sys
 import os
 import subprocess
 
+
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from glue import segments
 from glue import segmentsUtils
+from glue.ligolw import utils as ligolw_utils
 from glue.segmentdb import segmentdb_utils
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 # =============================================================================
 
@@ -91,9 +94,78 @@ def get_expected_snr(filenames,ifo,time):
 #	print tabs
 	tabs=filter(lambda x: x.ifo==ifo,tabs)
 #	print ifo
-	if tabs is not None: print tabs
+#	if tabs is not None: print tabs
 	if len(tabs)==0: return None
 	return tabs[0].value
+
+# =============================================================================
+
+def open_pipedown_database(database_filename,tmp_space):
+    """
+    Open the connection to the pipedown database
+    """
+    from glue.ligolw import dbtables
+    try:
+        import sqlite3
+    except ImportError:
+        # Pre-2.5
+        from pysqlite2 import dbapi2 as sqlite3
+    working_filename=dbtables.get_connection_filename(
+        database_filename,tmp_path=tmp_space)
+    connection = sqlite3.connect(working_filename)
+    if tmp_space:
+        dbtables.set_temp_store_directory(connection,tmp_space)
+    dbtables.DBTable_set_connection(connection)
+    return (connection,working_filename)
+
+# =============================================================================
+def get_veto_times(connection,ifo):
+    sqlquery = """SELECT
+       segment.start_time,
+       segment.end_time
+   FROM
+       segment
+   JOIN
+       segment_definer ON segment_definer.segment_def_id == segment.segment_def_id
+   WHERE segment_definer.ifos == ?"""
+
+    veto_segs = segments.segmentlist([segments.segment(LIGOTimeGPS(start,0),LIGOTimeGPS(end,0)) for (start,end) in connection.cursor().execute(sqlquery, (ifo,))])
+    return veto_segs
+
+# =============================================================================
+
+def check_ifo_result_pipedowndb(ifo,time,database_connection,successful_inj,veto_segs):
+    """
+    Return indicator of status for this injection, query pipedown DB file
+    """
+    if(successful_inj.has_key(ifo)) and (successful_inj[ifo] is not None):
+        if time in successful_inj[ifo]:
+            injected=1
+        else: injected=0
+    else: injected=0
+    if(injected==0): return (0,0,0)
+    
+    # Check that time was analysed
+    if (time in veto_segs): analysed=0
+    else: analysed=1
+    # Check for triggers
+    sql_query="SELECT sngl_inspiral.end_time FROM sngl_inspiral \
+               JOIN experiment_summary, experiment_map, coinc_event_map \
+               ON (experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id AND \
+           experiment_summary.coinc_event_id == coinc_event_map.coinc_event_id AND \
+           coinc_event_map.event_id == sngl_inspiral.event_id ) \
+           WHERE \
+           experiment_summary.datatype == \"all_data\" AND \
+           sngl_inspiral.ifo == \""+ifo+"\" AND \
+           sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 >= "+str(time-0.1)+" AND \
+           sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 <= "+str(time+0.1)
+    
+    triggers=database_connection.cursor().execute(sql_query)
+    if(triggers and len(triggers)>0):
+        found=1
+    else:
+        found=0
+    return (injected,analysed,found)
 
 # =============================================================================
 def check_ifo_result(ifo,time,filenames,successful_inj):
@@ -116,9 +188,9 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 		triggers =  SnglInspiralUtils.ReadSnglInspiralFromFiles(xml_files)
 		if triggers:
 			inj_time = segments.segment(time - 0.1, time + 0.1)
-                	triggers = triggers.vetoed(inj_time)
+			triggers = triggers.vetoed(inj_time)
 			triggers=triggers.ifocut(ifo)
-        	if triggers and len(triggers): found=1
+		if triggers and len(triggers): found=1
 		else: found=0
 	return (injected,analysed,found)
 
@@ -128,9 +200,9 @@ def get_ifo_result_string(key):
 	"""
 	(injected,analysed,found)=key
 	if not injected: return "<td bgcolor=#ddffdd>Not performed</td>"
- 	if not analysed: return "<td bgcolor=#ff9900>Not analysed</td>"
+	if not analysed: return "<td bgcolor=#ff9900>Not analysed</td>"
 	if not found: return "<td bgcolor=#ff2222>Missed</td>"
-	else: return "<td bgcolor=#22ff22>Found</td>"	
+	else: return "<td bgcolor=#22ff22>Found</td>"
 
 def chirp_dist(inj,ifo):
 	return inj.get_eff_dist(ifo[0])*(2.8*.25**(3.0/5.0)/inj.mchirp)**(5.0/6.0)
@@ -247,13 +319,11 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	cachefile=open(opts.outfile.replace('.html','.cache'),'w')
 	print >>outfile, '<html><head><title>Hardware injection summary: '+str(opts.gps_start_time)+' - '+str(opts.gps_end_time)+\
 			'</title></head><body><table border=1><tr bgcolor="#9999ff"><th>GPS end time</th><th>Mass 1</th><th>Mass 2</th><th>mChirp</th><th>Distance (Mpc)</th><th>H1 eff. dist</th><th>L1 eff. dist</th><th>V1 eff. dist</th><th>Chirp Dist H</th><th>Chirp Dist L</th><th>Chirp Dist V</th>'
-	print >>cachefile, opts.outfile
+	print >>cachefile, os.path.basename(opts.outfile)
 	# Check for image directory and create
 	imagedirname = os.path.dirname(opts.outfile)
-        if imagedirname is '':
-          imagedirname='./'
-        imagedirname = imagedirname + '/Images/'
-        if not os.path.isdir(imagedirname):
+	imagedirname = os.path.join(imagedirname,'Images')
+	if not os.path.isdir(imagedirname):
 		os.mkdir(imagedirname)
 	SNRAvailable=False
 	totalinj={}
@@ -262,12 +332,19 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	statelist={}
 	# Write table header
 	for ifo in ifos:
-                nay=[]
+		nay=[]
 		print >>outfile, '<th>'+ifo+'</th>'
 		totalinj[ifo]=0
 		totalfound[ifo]=0
 		totalanalysed[ifo]=0
 		statelist[ifo]=[]
+        # Check for database
+        if(opts.pipedown_db is not None):
+            (db_connection,db_working_filename)=open_pipedown_database(opts.pipedown_db,opts.tmp_space)
+            vetos={}
+            for ifo in ifos:
+                vetos[ifo]=get_veto_times(connection,ifo)
+
 	# Write table contents
 	for inj in injections:
 		injected={}
@@ -278,7 +355,10 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			continue
 #		print 'processing '+str(inj.get_end("H"))
 		for ifo in ifos:
-			(injected[ifo],analysed[ifo],found[ifo])=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
+                    if opts.pipedown_db is not None:
+                        (injected[ifo],analysed[ifo],found[ifo])=check_ifo_result_pipedowndb(ifo,inj.get_end(ifo[0]),db_connection,hwinj_done,vetos[ifo])
+                    else:
+                        (injected[ifo],analysed[ifo],found[ifo])=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
 		if opts.coinc==True:
 			if sum(injected.values())<2:
 				print >>sys.stderr,'Injection %d not coincident in 2 or more detectors' % (inj.geocent_end_time)
@@ -297,7 +377,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			statelist[ifo].append((inj.get_end(ifo[0]),inj,injected[ifo],analysed[ifo],found[ifo],expSNR))
 			print >>sys.stdout, '%s %f %f %d %d %d' % (str(inj.get_end()),inj.mchirp,chirp_dist(inj,ifo),injected[ifo],analysed[ifo],found[ifo])
 		print >>outfile,'</tr>'
-	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td>'
+	print >>outfile,'<tr><td bgcolor=#9999ff colspan=4>Recovered /Analysed / Injected</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
 	for ifo in ifos:
 		print >>outfile,'<td>%i / %i / %i</td>'%(totalfound[ifo],totalanalysed[ifo],totalinj[ifo])
 	print >>outfile,'</tr>'
@@ -308,7 +388,10 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 	tabfile=open(opts.outfile.replace('.html','_table.html'),'a')
 	print >>tabfile,'</body></html>'
 	tabfile.close()
-
+        if opts.pipedown_db:
+		if db_connection:
+			db_connection.close()
+			dbtable.discard_connection_filename(opts.pipedown_db,db_working_filename)
 	# Generate plot for injections
 	import matplotlib
 	matplotlib.use('Agg')
@@ -350,26 +433,25 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		pylab.grid(b=True)
 		# save figure
 		#print 'save figure'
-		plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'.png'
-		pylab.savefig(imagedirname+plotname)
-		pylab.savefig(imagedirname+plotname.replace('.png','_thumb.png'),dpi=40)
+                plotname=str(ifo) + '-' + os.path.splitext('-'.join(os.path.basename(opts.outfile).split('-')[1:]))[0] + '.png'
+		pylab.savefig(os.path.join(imagedirname,plotname))
+		pylab.savefig(os.path.join(imagedirname,plotname.replace('.png','_thumb.png')),dpi=40)
 		print >>cachefile, 'Images/'+plotname
-                print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
+		print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
 	if(SNRAvailable): print 'Producing SNR plots'
 	else: print 'SNR information unavailable'
 	if SNRAvailable:
-	 	for ifo in ifos:
-                	foundx=[]
-                	foundy=[]
-                	missedx=[]
-                	missedy=[]
-                	thisplot=pylab.figure()
+		for ifo in ifos:
+			foundx=[]
+			foundy=[]
+			missedx=[]
+			missedy=[]
+			thisplot=pylab.figure()
 			lessTwenty=lambda x: x[1].mass1 + x[1].mass2 <20
 			moreTwenty=lambda x: x[1].mass1 + x[1].mass2 >20
 			for (filt,symb,injtype) in zip((lessTwenty,moreTwenty),('x','o'),('<20 Msun','>20 Msun')):
 				results = filter(filt,statelist[ifo])
 				if results is not None:
-					print results
 					found = filter(lambda tup: tup[2] and tup[4] and tup[5] is not None,results)
 					missed=filter(lambda tup: tup[2] and tup[4]!=1 and tup[3] and tup[5] is not None,results)
 					foundx=map(lambda i: int(i[0]),found)
@@ -380,17 +462,17 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 				thisplot.hold()
 				pylab.plot(missedx,missedy,'r'+symb,label='Missed '+injtype)
 			thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
-                	#thisplot.gca().set_ybound(0,100)
-                	pylab.title(ifo+' Hardware injections '+ str(opts.gps_start_time) +' - '+ str(opts.gps_end_time))
-                	pylab.xlabel('GPS time')
-                	pylab.ylabel('Expected SNR')
-                	pylab.legend()
-                	pylab.grid(b=True)
-                	# save figure
+			#thisplot.gca().set_ybound(0,100)
+			pylab.title(ifo+' Hardware injections '+ str(opts.gps_start_time) +' - '+ str(opts.gps_end_time))
+			pylab.xlabel('GPS time')
+			pylab.ylabel('Expected SNR')
+			pylab.legend()
+			pylab.grid(b=True)
+			# save figure
 			#print 'save SNR figure'
-                	plotname=os.path.splitext(opts.outfile)[0]+'_'+str(ifo)+'_snr.png'
-                	pylab.savefig(plotname)
-                        pylab.savefig(imagedirname+plotname.replace('.png','_thumb.png'),dpi=40)
+			plotname=str(ifo) + '-' + os.path.splitext('SNR_' + '-'.join(os.path.basename(opts.outfile).split('-')[1:]))[0] + '.png'
+			pylab.savefig(os.path.join(imagedirname,plotname))
+			pylab.savefig(os.path.join(imagedirname,plotname.replace('.png','_thumb.png')),dpi=40)
 			print >>cachefile, 'Images/'+plotname
 			print >>outfile,'<img src="Images/'+plotname.split(os.path.sep)[-1]+'">'
 	print >>outfile,'</body></html>'
@@ -423,7 +505,9 @@ parser.add_option("-S","--segment-dir",action="store",type="string",dest="seg_di
 parser.add_option("-i","--h1-injections",action="store_true",\
     default=False, help="look at H1 injections")
 
-parser.add_option("-p","--part",action="store",default=0,help="0: Run the whole script\n1: Get the segment lists from the DB and quit\n2:Read the segment lists from disk and don't poll the DB",type="int",metavar="PART")
+parser.add_option("-g","--get-segment-list",action="store_true",default=False,help="Get the segment lists from the database")
+
+parser.add_option("-a","--analyze-injections",action="store_true",default=False,help="Perform analysis of the hardware injections using segment lists")
 
 parser.add_option("-l","--l1-injections",action="store_true",\
     default=False, help="look at L1 injections")
@@ -448,6 +532,12 @@ parser.add_option("-s", "--segment-db", metavar = "segment_url", \
 parser.add_option("-d","--trig-dir", action="store",\
     type="string",default=None, help="Directory contianing trigger files",metavar="TRIG_DIR")
 
+parser.add_option("-P","--pipedown-db",action="store",\
+    type="string",default=None,help="Pipedown sqlite database file",metavar="DB_FILE")
+
+parser.add_option("-p","--tmp-space",action="store",\
+    type="string",default="./",help="Temp space for database file",metavar="TMP_SPACE")
+
 parser.add_option("-c","--cache-file",action="store",\
         type="string",default=None,help="Cache file containing trigger files (optional)",metavar="CACHE_FILE")
 
@@ -455,17 +545,18 @@ parser.add_option("-C","--cache-pattern",action="store",\
         type="string",default='*',help="Pattern to match files in cache",metavar="PATTERN")
 
 parser.add_option("-n","--coinc",action="store_true",\
-	default=False,help="Operate only on HW injections in >2 IFOs")
+        default=False,help="Operate only on HW injections in >2 IFOs")
 
 opts,args  = parser.parse_args()
-if opts.outfile is None and opts.part!=1:
-        parser.error("Please specify an output file using the -o option")
+if opts.outfile is None and opts.analyze_injections:
+    parser.error("Please specify an output file using the -o option")
 
-if opts.trig_dir is None and opts.cache_file is None and opts.part!=1:
-    parser.error("Must specify --trig-dir or --cache-file")
+if opts.trig_dir is None and opts.cache_file is None and opts.pipedown_db is None and opts.analyze_injections:
+    parser.error("Must specify --trig-dir or --cache-file or --pipedown-db")
 
-if opts.trig_dir is not None and opts.cache_file is not None:
-    parser.error("Can only specify one of --cache-file or --trig-dir")
+if ((opts.trig_dir is not None and (opts.cache_file is not None or opts.pipedown_db is not None)) \
+  or (opts.pipedown_db is not None and opts.cache_file is not None) ):
+    parser.error("Can only specify one of --cache-file or --trig-dir or --pipedown-db")
 
 # =============================================================================
 # Build list of IFOs - only H1, L1 and V1 supported at present
@@ -482,8 +573,8 @@ if opts.v1_injections:
 
 if opts.coinc==True:
     if len(ifos)<2:
-	print "ERROR: Must specify >1 interferometer in coinc mode"
-	sys.exit(1)
+        print "ERROR: Must specify >1 interferometer in coinc mode"
+        sys.exit(1)
 
 # The following IFOs are not supported at present
 #if opts.g1_injections:
@@ -510,34 +601,28 @@ for ifo in ifos:
     else:
         seg_name = "DMT-INJECTION_INSPIRAL"
     # query for segments
-    out_xml = opts.seg_dir+"/"+"-".join([ifo,"inj_times.xml"])
-    out_txt = opts.seg_dir+"/"+"-".join([ifo,"inj_times.txt"])
-    if opts.part!=2:
-    	retcode = subprocess.call(["ligolw_segment_query", "--database", \
-        	"--query-segments", "--gps-start-time", str(opts.gps_start_time), \
-        	"--gps-end-time", str(opts.gps_end_time), \
-        	"--output-file", out_xml, \
-        	"--include-segments", ":".join([ifo,seg_name]), \
-        	"--segment-url", opts.segment_db] )
-    	if retcode != 0:
-        	print >>sys.stderr, "Segment call failed."
-        	sys.exit(1)
+    out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(opts.gps_start_time), str(opts.gps_end_time - opts.gps_start_time)])
+    out_xml = os.path.join(opts.seg_dir,out_file_name + '.xml')
+    if opts.get_segment_list:
+        retcode = subprocess.call(["ligolw_segment_query", "--database", \
+                "--query-segments", "--gps-start-time", str(opts.gps_start_time), \
+                "--gps-end-time", str(opts.gps_end_time), \
+                "--output-file", out_xml, \
+                "--include-segments", ":".join([ifo,seg_name]), \
+                "--segment-url", opts.segment_db] )
+        if retcode != 0:
+                print >>sys.stderr, "Segment call failed."
+                sys.exit(1)
 
-if opts.part==1:
-	print "Ran database query"
-	sys.exit(0)
+if not opts.analyze_injections:
+        print "Ran database query"
+        sys.exit(0)
     
 for ifo in ifos:
- 	out_xml = opts.seg_dir+"/"+"-".join([ifo,"inj_times.xml"])
-   	out_txt = opts.seg_dir+"/"+"-".join([ifo,"inj_times.txt"])
-    	x = subprocess.Popen(["ligolw_print", "-t", "segment", "-c", "start_time",
-        	"-c", "end_time", "-d" " ", out_xml], stdout=subprocess.PIPE)
-    	retcode = x.wait()
-    	if retcode != 0:
-        	print >>sys.stderr, "Segment call failed. Check files exist"
-        	sys.exit(1)
-
-    	hwinj_done[ifo] = segmentsUtils.fromsegwizard(x.stdout.readlines())
+        out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(opts.gps_start_time), str(opts.gps_end_time - opts.gps_start_time)])
+        out_xml = os.path.join(opts.seg_dir,out_file_name + '.xml')
+        indoc = ligolw_utils.load_url(out_xml)
+        hwinj_done[ifo] = segmentdb_utils.find_segments(indoc,ifo+":RESULT:1")
 
 # ==============================================================================
 # Read in the list of triggers
@@ -546,8 +631,8 @@ if opts.trig_dir is not None:
     filenames = segmentdb_utils.get_all_files_in_range(opts.trig_dir, opts.gps_start_time, opts.gps_end_time)
     
     if opts.range_dir is not None:
-	    print 'Scanning %s for files' % (opts.range_dir)
-	    rangefilenames = segmentdb_utils.get_all_files_in_range(opts.range_dir, opts.gps_start_time, opts.gps_end_time)
+        print 'Scanning %s for files' % (opts.range_dir)
+        rangefilenames = segmentdb_utils.get_all_files_in_range(opts.range_dir, opts.gps_start_time, opts.gps_end_time)
 
 if opts.cache_file is not None:
     from glue import lal
@@ -558,19 +643,11 @@ if opts.cache_file is not None:
 # =============================================================================
 # Read in the injections
 injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.source_xml])
-def injsortfilter(a,b):
-	if a.get_end<b.get_end:
-		return -1
-	if a.get_end==b.get_end:
-		return 0
-	else:
-		return 1
-
-injections.sort(injsortfilter)
+injections.sort(key=lambda a:a.get_end())
 
 # =============================================================================
 # Write the output pages
 
 if(opts.long_page): write_page_long(opts,injections,ifos,filenames,hwinj_done)
-else:	write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames)
+else:write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames)
 

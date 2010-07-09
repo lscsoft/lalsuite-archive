@@ -67,8 +67,9 @@ def calc_ethinca(rowA,rowB):
 	rowB = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName).row_from_cols(rowB)
 	return xlaltools.XLALCalculateEThincaParameter(rowA,rowB)
 
-injections = []
-injections_info = []
+injections = {}
+injections_info = {}
+normalization = {}
 zerolag = []
 zerolag_info = []
 timeslides = []
@@ -97,54 +98,74 @@ for database in databases:
 		connection.create_function("calc_delta_t_inj", 4, calc_delta_t_inj)
 		connection.create_function("calc_effective_snr", 3, calc_effective_snr)
 		
-		#FIXME: look up coinc_definer_id from cefinition in pylal
-		for values in connection.cursor().execute("""
-		SELECT
-			coinc_inspiral.coinc_event_id,
-			snglA.*,
-			snglB.*,
-			calc_delta_t_inj(snglA.end_time, snglA.end_time_ns, snglB.end_time, snglB.end_time_ns),
-			abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
-			abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
-			snglA.snr,
-			snglB.snr,
-			snglA.chisq,
-			snglB.chisq,
-			calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
-			calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
-			snglA.rsqveto_duration,
-			snglB.rsqveto_duration,
-			snglA.bank_chisq,
-			snglB.bank_chisq,
-			coinc_inspiral.snr,
-			CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
-				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
-				WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
-				ELSE 1.0 END
-		FROM
-			coinc_inspiral 
-			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
-			JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
-			JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
-			JOIN sngl_inspiral AS snglB ON (snglB.event_id == mapB.event_id)
-			JOIN coinc_event_map AS mapC ON (mapC.event_id == coinc_inspiral.coinc_event_id)
-			JOIN coinc_event_map AS mapD ON (mapD.coinc_event_id == mapC.coinc_event_id)
-			JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapD.event_id)
-			JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
-			JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == mapA.coinc_event_id)
-			JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
-		WHERE
-			coinc_definer.search == 'inspiral'
-			AND coinc_definer.search_coinc_type == 2
-			AND mapA.table_name == 'sngl_inspiral'
-			AND mapB.table_name == 'sngl_inspiral'
-			AND mapC.table_name == 'coinc_event'
-			AND mapD.table_name == 'sim_inspiral'
-			AND snglA.ifo == ?
-			AND snglB.ifo == ?
-			""", (tuple(ifos)) ):
-				injections.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (1,))
-				injections_info.append([values[0], database])
+# get the names of each injection run, so that we can normalize the weights given to the triggers
+		for injset in connection.cursor().execute("""
+			SELECT
+				value
+			FROM
+				process_params
+			WHERE
+				program = 'inspinj'
+				AND param == '--userTag'
+			"""): 
+				injset = str(injset[0])
+				normalization[injset]=0
+				injections[injset]=[]
+				injections_info[injset]=[]
+				for values in connection.cursor().execute("""
+				SELECT
+					coinc_inspiral.coinc_event_id,
+					snglA.*,
+					snglB.*,
+					calc_delta_t_inj(snglA.end_time, snglA.end_time_ns, snglB.end_time, snglB.end_time_ns),
+					abs(2*(snglA.mchirp - snglB.mchirp)/(snglA.mchirp+snglB.mchirp)),
+					abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
+					snglA.snr,
+					snglB.snr,
+					snglA.chisq/(2*snglA.chisq_dof-2),
+					snglB.chisq/(2*snglB.chisq_dof-2),
+					calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
+					calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
+					snglA.rsqveto_duration,
+					snglB.rsqveto_duration,
+					CASE snglA.cont_chisq_dof
+						WHEN 0.0 THEN 1.0
+						ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
+					CASE snglB.cont_chisq_dof
+						WHEN 0.0 THEN 1.0
+						ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
+					coinc_inspiral.snr,
+					CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
+						WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
+						WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
+						ELSE 1.0 END
+				FROM
+					coinc_inspiral 
+					JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
+					JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == coinc_inspiral.coinc_event_id)
+					JOIN sngl_inspiral AS snglA ON (snglA.event_id == mapA.event_id)
+					JOIN sngl_inspiral AS snglB ON (snglB.event_id == mapB.event_id)
+					JOIN coinc_event_map AS mapC ON (mapC.event_id == coinc_inspiral.coinc_event_id)
+					JOIN coinc_event_map AS mapD ON (mapD.coinc_event_id == mapC.coinc_event_id)
+					JOIN sim_inspiral ON (sim_inspiral.simulation_id == mapD.event_id)
+					JOIN coinc_event AS sim_coinc_event ON (sim_coinc_event.coinc_event_id == mapD.coinc_event_id)
+					JOIN coinc_event AS insp_coinc_event ON (insp_coinc_event.coinc_event_id == mapA.coinc_event_id)
+					JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
+					JOIN process_params ON (process_params.process_id == sim_inspiral.process_id)
+				WHERE
+					coinc_definer.search == 'inspiral'
+					AND coinc_definer.search_coinc_type == 2
+					AND mapA.table_name == 'sngl_inspiral'
+					AND mapB.table_name == 'sngl_inspiral'
+					AND mapC.table_name == 'coinc_event'
+					AND mapD.table_name == 'sim_inspiral'
+					AND snglA.ifo == ?
+					AND snglB.ifo == ?
+					AND process_params.program == 'inspinj' AND process_params.param == '--userTag' AND process_params.value == ?
+					""", (ifos[0],ifos[1],injset,) ):
+						normalization[injset]=normalization[injset]+values[-1]
+						injections[injset].append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1]),) + values[2*num_sngl_cols+1:] + (1,))
+						injections_info[injset].append([values[0], database])
 		dbtables.put_connection_filename(database, working_filename, verbose = True)
 
 	rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
@@ -205,14 +226,18 @@ for database in databases:
 		abs(2*(snglA.eta - snglB.eta)/(snglA.eta+snglB.eta)),
 		snglA.snr,
 		snglB.snr,
-		snglA.chisq,
-		snglB.chisq,
+		snglA.chisq/(2*snglA.chisq_dof-2),
+		snglB.chisq/(2*snglB.chisq_dof-2),
 		calc_effective_snr(snglA.snr, snglA.chisq, snglA.chisq_dof),
 		calc_effective_snr(snglB.snr, snglB.chisq, snglB.chisq_dof),
 		snglA.rsqveto_duration,
 		snglB.rsqveto_duration,
-		snglA.bank_chisq,
-		snglB.bank_chisq,
+		CASE snglA.cont_chisq_dof
+			WHEN 0.0 THEN 1.0
+			ELSE snglA.cont_chisq/snglA.cont_chisq_dof END,
+		CASE snglB.cont_chisq_dof
+			WHEN 0.0 THEN 1.0
+			ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
 		coinc_inspiral.snr,
 		EXISTS (
 			SELECT
@@ -264,10 +289,24 @@ for database in databases:
 
 	dbtables.put_connection_filename(database, working_filename, verbose = True)
 
+# now we will normalize the weighting column by multiplying it by the number of found injections in the injection set, and dividing by the sum of the efficiency factors for all found injections in the injection set, then we can put all injections into the same list
+allinjections=[]
+allinjections_info=[]
+
+for key in injections.keys():
+	print "injection set", key
+	print "sum of all efficiency factors for injection set", normalization[key]
+	print "number of triggers in injection set", len(injections[key])
+	for row in range(len(injections[key])):
+		injtmp = list(injections[key][row])
+		injtmp[-2] = injtmp[-2]*float(len(injections[key]))/normalization[key]
+		allinjections.append(injtmp)
+		allinjections_info.append(list(injections_info[key][row]))
+
 random.seed(1)
-random.shuffle(injections)
+random.shuffle(allinjections)
 random.seed(1)
-random.shuffle(injections_info)
+random.shuffle(allinjections_info)
 random.seed(2)
 random.shuffle(timeslides)
 random.seed(2)
@@ -279,35 +318,35 @@ random.shuffle(timeslides_info)
 # then we'd run the remaining 10% through the trained forest to get their MVSC rank
 # in this case, we'd do this 10 times, ensuring that every timeslide and injection gets ranked 
 Nrounds = opts.number
-Ninj = len(injections)
+Ninj = len(allinjections)
 Nslide = len(timeslides)
+print Ninj
 
 trstr = opts.trainingstr
 testr = opts.testingstr
 zlstr = opts.zerolagstr
 
 
-if len(injections) != 0:	
-	Nparams = len(injections[0]) - 2
+if len(allinjections) != 0:	
+	Nparams = len(allinjections[0]) - 2
 
 	def open_file_write_headers(filetype, set_num, ifos, Nparams=Nparams):
 		f = open(''.join(ifos) + '_set' + str(set_num) + '_' + str(filetype) +	'.pat', 'w')
 		f.write(str(Nparams) + '\n')
-		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq coinc_inspiral_snr \n")
+		f.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
 		return f
 	
 	for i in range(Nrounds):
 		f_training = open_file_write_headers(trstr, i, ifos)
 		f_testing = open_file_write_headers(testr, i, ifos)
 		f_testing_info=open(''.join(ifos) + '_set' + str(i) + '_' + str(testr) + '_info.pat', 'w')
-		set_inj = list(injections)
-		set_inj_info = list(injections_info)
+		set_inj = list(allinjections)
+		set_inj_info = list(allinjections_info)
 		print len(set_inj)
 		print len(set_inj_info)
 		set_slide = list(timeslides)
 		set_slide_info = list(timeslides_info)
 		# get 10% of the timeslides and injections, which you will run through the forest that you've trained on the other 90%
-		# FIX me: shuffle my list
 		set_i_inj= set_inj[i*Ninj/Nrounds : (i+1)*Ninj/Nrounds]
 		set_i_inj_info= set_inj_info[i*Ninj/Nrounds : (i+1)*Ninj/Nrounds]
 		set_i_slide = set_slide[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds]
@@ -331,7 +370,7 @@ if len(injections) != 0:
 			f_training.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag=open(''.join(ifos) + '_' + str(zlstr) + '.pat','w')
 	f_zerolag.write(str(Nparams) + '\n')
-	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq b_chisq a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_bank_chisq b_bank_chisq coinc_inspiral_snr \n")
+	f_zerolag.write("ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr \n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
 	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')

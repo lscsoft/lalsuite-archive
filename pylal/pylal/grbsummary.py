@@ -1,7 +1,7 @@
 from __future__ import division
 
+import itertools
 import sys
-itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 import numpy
 
@@ -15,6 +15,59 @@ from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
 from pylal import rate
 
+##############################################################################
+# Detector threshold function
+##############################################################################
+
+def directional_horizon(ifos, RA, dec, gps_time, horizons=None):
+    """
+    Return a dictionary of sensitivity numbers for each detector, based on
+    a known sky location and an optional input dictionary of inspiral horizon
+    distances for a reference source of the user's choice.
+    If the horizons dictionary is specified, the returned values are interpreted
+    as inspiral horizons in that direction.
+    """
+    # Convert type if necessary
+    if type(gps_time)==int: gps_time=float(gps_time)
+
+    from pylal import antenna
+
+    # Sensitivies specifies relative SNRs of a reference signal (BNS)
+    if horizons is None:
+	horizons={}
+	for det in ifos:
+		horizons[det]=1.0
+    else:
+	assert len(ifos)==len(horizons)
+
+    resps={}
+    # Make a dictionary of average responses
+    for det in ifos:
+	resps[det]=antenna.response(gps_time,RA,dec,0,0,'radians',det)[3]*horizons[det]
+    
+    return resps
+
+def detector_thresholds(horizons,min_threshold,max_threshold=7.5):
+    """
+    Return a set of detector thresholds adjusted for a particular
+    set of inspiral horizon distances (calculated with directional_horizon).
+    The min_threshold specified the minimum threshold which will be set
+    for all detectors less sensitive than the best one. The most sensitive
+    detector will have its threshold adjusted upward to a maximum of max_threshold.
+    """
+    assert min_threshold < max_threshold
+    threshs={}
+    worst_horizon=min(horizons.values())
+    best_horizon=max(horizons.values())
+    # Assuming that lowest threshold is in worst detector, return thresholds
+    for det in horizons.keys():
+	if horizons[det]<best_horizon:
+		threshs[det]=min_threshold
+	else:
+		threshs[det]=min_threshold*(horizons[det]/worst_horizon)
+	if threshs[det]>max_threshold: threshs[det]=max_threshold
+    return threshs
+    
 ##############################################################################
 # Convenience functions
 ##############################################################################

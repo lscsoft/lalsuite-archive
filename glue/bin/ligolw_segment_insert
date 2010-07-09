@@ -139,7 +139,7 @@ else:
       'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt']:
       # if the XML file contains a http pointer to the ligolw DTD at CIT then
       # return a local copy to avoid any network problems
-      return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"],
+      return 'file://localhost' + os.path.join( os.environ["GLUE_PREFIX"],
         'etc/ligolw_dtd.txt' )
     else:
       # otherwise just use the uri in the file
@@ -175,16 +175,16 @@ else:
 
   #-----------------Check version and type existence-------------------------
   if options.insert:
-    sql = "SELECT max(segment_definer.version), count(segment_definer.segment_def_id), " 
-    sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
-    sql += "ifos = '%s' AND " % options.ifos
-    sql += "name = '%s' " % options.name
+    sql = "SELECT max(version) FROM segment_definer  " 
+    sql += "WHERE ifos = '%s' " % options.ifos
+    sql += "AND name = '%s' " % options.name
   if options.append:
-    sql = "SELECT count(segment_definer.segment_def_id), " 
-    sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
-    sql += "ifos = '%s' AND " % options.ifos
-    sql += "name = '%s' AND " % options.name
-    sql += "version = %d " % int(options.version)
+    sql = "SELECT max(segment_summary.end_time) FROM segment_definer, segment_summary "
+    sql += "WHERE segment_summary.segment_def_id = segment_definer.segment_def_id "
+    sql += "AND segment_summary.segment_def_cdb=segment_definer.creator_db " 
+    sql += "AND segment_definer.ifos = '%s' " % options.ifos
+    sql += "AND segment_definer.name = '%s' " % options.name
+    sql += "AND segment_definer.version = %d " % int(options.version)
   typexml = myClient.query(sql)
   
   del myClient
@@ -197,49 +197,59 @@ else:
   type_md.parse(typexml)
 
   if options.insert: 
-    max_version = type_md.table['segment_definer']['stream'][0][0]
-    type_count = type_md.table['segment_definer']['stream'][0][1]
-    max_end_sum = type_md.table['segment_definer']['stream'][0][2]
+    try:
+       max_version = type_md.table['segment_definer']['stream'][0][0]
+    except IndexError: 
+       max_version = 0 # if inserting new flag/version, set max_version to 0
+    if (int(options.version) == (max_version + 1)):
+       max_end_sum = 0
+    else:
+       msg = """\nERROR: Wrong Version. Max existing version of %s:%s is: %s. 
+Please correct your version number.""" % (options.ifos,options.name,max_version)
+       print msg
+       sys.exit(1)
+
   if options.append:
-    type_count = type_md.table['segment_definer']['stream'][0][0]
-    max_end_sum = type_md.table['segment_definer']['stream'][0][1]
-   
-  # if inserting a new segment type, max_version is set to 0
-  try:
-    if max_version is None:
-      max_version = 0
-  except:
-    pass
-
-  # if type doesn't exist, set type_count to 0
-  if type_count is None:
-    type_count = 0
-
-  if max_end_sum is None:
-    max_end_sum = 0
+     try:
+        max_end_sum = type_md.table['segment_definer']['stream'][0][0]
+     except IndexError:
+        print "\nERROR: segment type %s:%s:%s doesn't exist" % (options.ifos,options.name,options.version) 
+        sys.exit(1)
+ 
+ 
   #-----------------Check summary-file---------------------------------
   # get and check the summary intervals to be inserted
   fh = open(options.summary_file, 'r')
   line_no = 1
   for line in fh.readlines():
     sum_line = line.strip().split(" ")
+    if len(sum_line) != 2:
+       print "\nERROR: invalid format in your --summary-file row number: %d " % line_no
+       print "Invalid interval is %s" % str(sum_line)
+       sys.exit(1)
     current_time = str(gpstime.GpsSecondsFromPyUTC(time.time()))
 
+    # make sure gps time is 9 digits
+    if (len(sum_line[0])!=9 or len(sum_line[1])!=9):
+       print "\nERROR: gps time must be 9 digits"
+       print "Invalid interval in your --summary-file row number: %d " % line_no
+       print "Invalid interval is %s" % str(sum_line)
+       sys.exit(1)
     # make sure interval start time is less than and not equal to end time
-    if (sum_line[0] >= sum_line[1]):
-       print "ERROR: validity interval start_time cannot be greater than the end_time"
+    elif (int(sum_line[0]) >= int(sum_line[1])):
+       print "\nERROR: start_time MUST be less than the end_time"
        print "Invalid interval in your --summary-file row number: %d " % line_no
        print "Invalid interval is %s" % str(sum_line)
        sys.exit(1)
     # make sure interval start time is greater than the max end time in the database
-    elif (sum_line[0] < max_end_sum):
-       print "ERROR: validity interval start_time cannot be less than the max existing validity end_time"
+    elif (int(sum_line[0]) < max_end_sum):
+       print "\nERROR: summary start_time MUST be greater than the max summary end_time %d in the database" % max_end_sum
        print "Invalid interval in your --summary-file row number: %d" % line_no
        print "Invalid interval is %s" % str(sum_line)
        sys.exit(1)
     # make sure interval end time is less than current time
-    elif  (sum_line[1] > current_time):
-       print "ERROR: validity interval end_time cannot be greater than the current time"
+    elif  (int(sum_line[1]) > int(current_time)):
+       print "\nERROR: summary end_time cannot be greater than the current time"
        print "Invalid interval in your --summary-file row number: %d " % line_no
        print "Invalid interval is %s" % str(sum_line)
        sys.exit(1)
@@ -247,8 +257,8 @@ else:
     else:
       this_sum = segments.segment(int(sum_line[0]),int(sum_line[1]))
       intervals.append(this_sum)
-      max_end_sum = sum_line[1]
       line_no += 1
+  intervals.coalesce()
 
   #-----------------Check segment-file---------------------------------
   # get and check the active segments to be inserted
@@ -256,17 +266,26 @@ else:
   line_no = 1
   for line in fh.readlines():
     seg_line = line.strip().split(" ")
-    this_seg = segments.segment(int(seg_line[0]),int(seg_line[1])) 
+    if len(seg_line) != 2:
+       print "\nERROR: invalid format in your --segment-file row number: %d " % line_no
+       print "Invalid segment is %s" % str(seg_line)
+       sys.exit(1)
+    # make sure gps time is 9 digits
+    if (len(seg_line[0]) != 9 or len(seg_line[1])!=9): 
+       print "\nERROR: gps time must be 9 digits"
+       print "Invalid segment in your --segment-file row number: %d" % line_no
+       print "Invalid segment is %s" % str(seg_line)
+       sys.exit(1)
     # make sure segment start_time is less than end_time:
-    if seg_line[0]>=seg_line[1]:
-      print "ERROR: segment start_time cannot be greater than the end_time"
+    if int(seg_line[0])>=int(seg_line[1]):
+      print "\nERROR: segment start_time MUST be less than the end_time"
       print "Invalid segment in your --segment-file row number: %d" % line_no
       print "Invalid segment is %s" % str(seg_line)
       sys.exit(1)
-    # make sure segment falls within validity intervals specified in the
-    # --summary-file
+    # make sure segment falls in the summary  intervals specified in the --summary-file
+    this_seg = segments.segment(int(seg_line[0]),int(seg_line[1])) 
     if this_seg not in intervals:
-      print "ERROR: segment cannot fall outside of the validity intervals specified in your --summary-file"
+      print "\nERROR: segment cannot fall outside of the summary intervals specified in your --summary-file"
       print "Invalid segment in your --segment-file row number: %d" % line_no
       print "Invalid segment is %s" % str(seg_line)
       sys.exit(1)
@@ -296,16 +315,6 @@ else:
     segment_definer.version = int(options.version)
     segment_definer.comment = options.explain
     seg_def_table.append(segment_definer)
-
-
-    # check if version number is valid
-    if int(options.version) != int(max_version + 1):
-      msg = """ERROR: Wrong Version. Max existing version of %s %s is: %s. 
-Please correct your version number.""" % (options.ifos,options.name,max_version)
-      print msg
-      sys.exit(1) 
-    else:
-      pass
 
     #---------------- create local segment table ------------#
     segment_table = lsctables.New(lsctables.SegmentTable, columns = [
@@ -358,14 +367,6 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
   #                            Process APPEND
   #######################################################################################
   if options.append:
-    # check if segment type exists in the database
-    if type_count == 0:
-      print "Error: The segment type you are appending to doesn't exist" 
-      sys.exit(1) 
-    else:
-      pass
-
-
     #-----------------------------------------------------------# 
     # query the database to get the segment_def_id and creator_db 
     # of this given segment type

@@ -129,9 +129,6 @@ float min_shift, max_shift, a;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
 int group_count=ctx->sidereal_group_count;
-/* for work with Doppler shifts sidereal day is best */
-//#define SCALER (GROUP_COUNT/(23.0*3600.0+56.0*60.0+4.0))
-float group_scaler=group_count; /* this determines sub-bin resolution in group formation */
 SEGMENT_INFO **groups;
 int *group_segment_count;
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
@@ -156,15 +153,9 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	min_shift=1000000; /* we should never load this many bins */
 	max_shift=-1000000;
 	for(j=0;j<segment_count;j++) {
-// 		si_local->ra=ps[0].patch_ra;
-// 		si_local->dec=ps[0].patch_dec;
-// 		memcpy(si_local->e, ps[0].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
 
 		d=&(datasets[si_local->dataset]);
 		pl=&(d->polarizations[0]);
-
-// 		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, pl->AM_coeffs);
-// 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, pl->conjugate->AM_coeffs);
 
 		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_plus);
 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_cross);
@@ -179,7 +170,6 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		si_local++;
 		}
 
-	//group_count=ceil(max_shift-min_shift);
 	if(group_count>200) {
 		fprintf(stderr, "Warning group count too large: %d\n", group_count);
 		group_count=200;
@@ -228,11 +218,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		for(i=0;i<count;i++) {
 			/* fill in segment info appropriate to this template */
 			si_local=groups[k];
-			for(j=0;j<group_segment_count[k];j++) {
-	// 			si[j].ra=ps[i].patch_ra;
-	// 			si[j].dec=ps[i].patch_dec;
-	// 			memcpy(si[j].e, ps[i].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
-	
+			for(j=0;j<group_segment_count[k];j++) {	
 				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
@@ -240,7 +226,6 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				si_local++;
 				}
 	
-			//accumulate_single_bin_power_sum_cached1(groups[k], group_segment_count[k], ps_local->pps);
 			ctx->accumulate_power_sum_cached(ctx, groups[k], group_segment_count[k], ps_local->pps);
 			ps_local++;
 			}
@@ -272,9 +257,6 @@ float min_shift, max_shift, a;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
 int group_count=24;
-/* for work with Doppler shifts sidereal day is best */
-//#define SCALER (GROUP_COUNT/(23.0*3600.0+56.0*60.0+4.0))
-float group_scaler=group_count; /* this determines sub-bin resolution in group formation */
 SEGMENT_INFO **groups;
 int *group_segment_count;
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
@@ -299,15 +281,9 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 	min_shift=1000000; /* we should never load this many bins */
 	max_shift=-1000000;
 	for(j=0;j<segment_count;j++) {
-// 		si_local->ra=ps[0].patch_ra;
-// 		si_local->dec=ps[0].patch_dec;
-// 		memcpy(si_local->e, ps[0].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
 
 		d=&(datasets[si_local->dataset]);
 		pl=&(d->polarizations[0]);
-
-// 		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, pl->AM_coeffs);
-// 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, pl->conjugate->AM_coeffs);
 
 		si_local->f_plus=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_plus);
 		si_local->f_cross=F_plus_coeff(si_local->segment,  patch_e, d->AM_coeffs_cross);
@@ -322,50 +298,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		si_local++;
 		}
 
-	if(0) {
-	//group_count=ceil(max_shift-min_shift);
-	if(group_count>200) {
-		fprintf(stderr, "Warning group count too large: %d\n", group_count);
-		group_count=200;
-		}
-
-	group_segment_count=do_alloc(group_count, sizeof(*group_segment_count));
-	groups=do_alloc(group_count, sizeof(*groups));
-
-	for(k=0;k<group_count;k++) {
-		group_segment_count[k]=0;
-		groups[k]=do_alloc(segment_count, sizeof(SEGMENT_INFO));
-		}
-
-	/* group segments into bunches with similar shifts - mostly by sidereal time
-           this way there is larger correllation of frequency shifts during summing and better use of power cache */
-	si_local=si;
-	for(j=0;j<segment_count;j++) {
-		a=(center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
-						+patch_e[1]*si_local->detector_velocity[1]
-						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start));
-		//a*=0.25;
-		k=floorf((a-floorf(a))*group_count);
-		if(k<0)k=0;
-		if(k>=group_count)k=group_count-1;
-
-		memcpy(&(groups[k][group_segment_count[k]]), si_local, sizeof(SEGMENT_INFO));
-		group_segment_count[k]++;
-		
-		si_local++;
-		}
-
-// 	for(k=0;k<GROUP_COUNT;k++) {
-// 		fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
-// 		}
-
-	}
 	/* loop over groups */
 
-	//for(k=0;k<group_count;k++) {
- 		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
-	//	if(group_segment_count[k]<1)continue;
 	ctx->reset_cache(ctx, segment_count, count);
 	
 		/* loop over templates */
@@ -374,9 +308,6 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			/* fill in segment info appropriate to this template */
 			si_local=si;
 			for(j=0;j<segment_count;j++) {
-	// 			si[j].ra=ps[i].patch_ra;
-	// 			si[j].dec=ps[i].patch_dec;
-	// 			memcpy(si[j].e, ps[i].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
 	
 				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
@@ -385,16 +316,9 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				si_local++;
 				}
 	
-			//accumulate_single_bin_power_sum_cached1(groups[k], group_segment_count[k], ps_local->pps);
 			ctx->accumulate_power_sum_cached(ctx, si, segment_count, ps_local->pps);
 			ps_local++;
 			}
-		//}
-/*	for(k=0;k<group_count;k++) {
-		free(groups[k]);
-		}*/
-/*	free(groups);
-	free(group_segment_count);*/
 	free(si);
 	}
 

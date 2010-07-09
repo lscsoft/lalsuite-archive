@@ -22,6 +22,7 @@ from pylal import ligolw_sqlutils as sqlutils
 from glue import git_version
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
+from glue.ligolw import lsctables
 
 __prog__ = "ligolw_cbc_cfar"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -30,6 +31,19 @@ description = \
 "Calculates false alarm rates (FAR) in units of yr^(-1) and stores to " + \
 "specified output_column. Writes results out to a new database. "
 
+# =============================================================================
+#
+#                                   Function Definitions
+#
+# =============================================================================
+
+def get_ifo_multiplicity( ifos ):
+    """
+    Returns the number of coincident ifos in an 'ifos' string.
+
+    @ifos: a string of comma-separated ifos
+    """
+    return len( lsctables.instrument_set_from_ifos( ifos ) )
 
 # =============================================================================
 #
@@ -141,7 +155,10 @@ def parse_command_line():
     parser.add_option( "-s", "--ranking-stat", action = "store", type = "string", default = None,
         help =
             "Required. The stat to use to rank triggers for calculating " +
-            "the false alarm rate. Can be any column in the coinc_inspiral table." 
+            "the false alarm rate. If you just type a variable name, e.g., 'combined_far', the " +
+            "the default action is to look in the coinc_inspiral table. " +
+            "To specify another table, add the table name followed by a '.', e.g., " +
+            "'coinc_event.likelihood'. Any table with a coinc_event_id can be used. "
             )
     parser.add_option( "-b", "--rank-by", action = "store", type = "string", default = None, 
         metavar = "MAX or MIN",
@@ -152,13 +169,22 @@ def parse_command_line():
             )
     parser.add_option( "-c", "--output-column", action = "store", type = "string", default = None, 
         help = 
-            "Required. Column in the coinc_inspiral table to store output to. " +
-            "If it doesn't exist, it will be created. Column name must be all lower-case."
+            "Required. Column in the to store output to. If it doesn't exist, " +
+            "it will be created. Column name must be all lower-case. " +
+            "As with --ranking-stat, default action is to save to a column in the coinc_inspiral table. " +
+            "To save to another table, add the table name followed by a '.', e.g., 'coinc_event.test_far'. " +
+            "Any table with a coinc_event_id may be used."
             )
     parser.add_option( "-G", "--group-by-ifos", action = "store_true", default = False, 
         help = 
             "Turning on will cause triggers to be grouped by coincident ifos when " +
             "calculating FARs."
+            )
+    parser.add_option( "-M", "--group-by-multiplicity", action = "store_true", default = False, 
+        help = 
+            "Turning on will cause triggers to be grouped by the number of coincident ifos when " +
+            "calculating FARs. For example, doubles will be grouped with doubles, triples with triples, etc. " +
+            "Note: if both --group-by-ifos and --group-by-multiplicity on, group-by-ifos takes precedence."
             )
     parser.add_option( "-T", "--time-units", action = "store", default = 'yr',
         metavar = "s, min, hr, days, OR yr",
@@ -241,9 +267,11 @@ if opts.param_name:
     param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name, 
       opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.get_param_name()
+    param_table = param_name.split('.')[0]
     param_filters = param_parser.get_param_filters()
 else:
     param_filters = None
+    param_table = None
 
 # Get exclude_coincs list if specified
 if opts.exclude_coincs:
@@ -271,11 +299,23 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 # 
 
 # validate ranking stats
-ranking_stat = sqlutils.validate_option( opts.ranking_stat )
+if len( opts.ranking_stat.split('.')) == 2:
+    ranking_table, ranking_stat = opts.ranking_stat.split('.')
+    ranking_table = sqlutils.validate_option( ranking_table )
+    ranking_stat = sqlutils.validate_option( ranking_stat )
+else:
+    ranking_table = 'coinc_inspiral'
+    ranking_stat = sqlutils.validate_option( opts.ranking_stat )
 rank_by = sqlutils.validate_option( opts.rank_by, lower = False ).upper()
 
 # create column to store output to if it doesn't already exist
-output_table, output_column = sqlutils.create_column( connection, 'coinc_inspiral', opts.output_column )
+if len(opts.output_column.split('.')) == 2:
+    output_table, output_column = opts.output_column.split('.')
+else:
+    output_table = 'coinc_inspiral'
+    output_column = opts.output_column
+
+output_table, output_column = sqlutils.create_column( connection, output_table, output_column )
 
 # sqlitize desired conversion function
 
@@ -325,11 +365,25 @@ background.calc_bkg_durs()
 
 # get desired ifo grouping
 if opts.group_by_ifos:
-  ifo_grouping = 'coinc_inspiral.ifos'
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = '.'.join([ ifo_grouping_table, 'ifos' ])
+elif opts.group_by_multiplicity:
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = ''.join(['get_ifo_multiplicity(', ifo_grouping_table, '.ifos)'])
+    connection.create_function('get_ifo_multiplicity', 1, get_ifo_multiplicity)
 else:
-  ifo_grouping = '"ALL_IFOS"'
+    ifo_grouping_table = None
+    ifo_grouping = '"ALL_IFOS"'
 
 # get all the triggers
+if ranking_table != 'coinc_inspiral':
+    add_join = ''.join([ """
+    JOIN
+        """, ranking_table, """ ON
+        experiment_map.coinc_event_id == """, ranking_table, '.coinc_event_id' ])
+else:
+    add_join = ''
+
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
@@ -338,14 +392,14 @@ sqlquery = ''.join([ """
         ifo_grouping, """,
         """,
         param_grouping, """,
-        coinc_inspiral.""", ranking_stat,"""
+        """, ranking_table, '.', ranking_stat,"""
     FROM 
         coinc_inspiral
     JOIN 
         experiment_summary, experiment_map ON (
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
             AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
-    """])
+    """, add_join ])
 
 if opts.debug:
     import time
@@ -374,9 +428,18 @@ else:
 if opts.verbose:
     print >> sys.stderr, "Calculating FAR..."
 # calculate the uncombined far for each trigger and store in coinc_inspiral table
+add_from = ''
+add_join = ''
+all_tables = [table for table in [ranking_table, param_table, ifo_grouping_table] if table is not None and table != output_table]
+
+for needed_table in set(all_tables):
+    add_from = ', '.join([ add_from, needed_table ])
+    add_join = ''.join([ add_join, """
+                AND experiment_map.coinc_event_id == """, needed_table, '.coinc_event_id' ])
+
 sqlquery = ''.join(["""
     UPDATE
-        coinc_inspiral
+        """, output_table, """
     SET
         """, output_column, """ = (
             SELECT
@@ -385,13 +448,14 @@ sqlquery = ''.join(["""
                     experiment_summary.experiment_summ_id,
                     """, ifo_grouping, """,
                     """, param_grouping, """,
-                    coinc_inspiral.""", ranking_stat, """
+                    """, ranking_table, '.', ranking_stat, """
                     ) 
             FROM 
-                experiment_summary, experiment_map
+                experiment_summary, experiment_map""", add_from, """
             WHERE
                 experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
+                AND experiment_map.coinc_event_id == """, output_table, """.coinc_event_id""",
+                add_join, ')'])
 if opts.debug:
     print >> sys.stderr, sqlquery
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]

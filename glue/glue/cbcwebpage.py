@@ -38,6 +38,8 @@ __date__ = git_version.date
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
 ###############################################################################
+
+# THIS SHOULD MOST CERTAINLY NEVER BE USED :)
 def web_path_to_url(path):
 	host = socket.getfqdn()
 	pl = path.rstrip('/').split('/')
@@ -89,9 +91,9 @@ function toggleAllOpen() {
 	fname.close()
 	return filename
 
-def script_dict():
+def script_dict(fname):
 	script = {}
-	tog = create_toggle()
+	tog = os.path.split(create_toggle(fname))[1]
 	script[tog] = 'javascript'
 	script['http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
 	return (script, [tog])
@@ -113,7 +115,7 @@ def copy_ihope_style(stylefile="cbcwebpage.css", base_dir="."):
 		sys.exit(1)
 	shutil.copy(out, base_dir)
 	
-	return base_dir + '/' + os.path.split(out.rstrip('/'))[1]
+	return os.path.split(out.rstrip('/'))[1]
 
 def which(prog):
 	which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
@@ -170,20 +172,40 @@ def wiki_table_parse(file):
 			titles.append(line.replace("=",""))
 			if tab: tabs.append(tab)
 			tab = []
-		if '||' in line: tab.append(line.split('||'))
+		if '||' in line: tab.append(line.split('||')[1:])
 	tabs.append(tab)
 	return tabs, titles
 	
-###############################################################################
-##### CBC WEB PAGE CLASSES ####################################################
-###############################################################################
-
 # PROBABLY DOES NOT EVER NEED TO BE USED DIRECTLY, BUT IS USED IN cbcpage
 class _subpage_id(object):
 	def __init__(self, id, link_text, closed_flag=0):
 		self.id = id
 		self.link_text = link_text
 		self.closed_flag = closed_flag
+
+###############################################################################
+##### CBC WEB PAGE CLASSES ####################################################
+###############################################################################
+
+class _link(markup.page):
+	def __init__(self, href="", text=""):
+		markup.page.__init__(self, mode="strict_html")
+		self.a(href=href)
+		self.add(text)
+		self.a.close()
+	def get_content(self):
+		return self.content
+
+class _text(markup.page):
+	def __init__(self, txt="", bold=False, italic=False):
+		markup.page.__init__(self, mode="strict_html")
+		if bold: self.b()
+		if italic: self.i()
+		self.add(txt)
+		if bold: self.b.close()
+		if italic: self.i.close()
+	def get_content(self):
+		return self.content
 
 class _imagelink(markup.page):
 	def __init__(self, imageurl, thumburl, tag="img", width=240):
@@ -233,12 +255,12 @@ class _table(markup.page):
 	
 		self.table()
 		for row in two_d_data:
-			self.tr
+			self.add('<tr>')
 			tdstr = ""
 			for col in row:
 				tdstr += "<td>%s</td>" % (str(col),)
 			self.add(tdstr)
-			self.tr.close()
+			self.add('</tr>')
 		self.table.close()
 		if self.caption: self.i("%s. %s" %(num, caption))
 		self.add("<br>")
@@ -266,6 +288,7 @@ class _section(markup.page):
 		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
 		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1)
 		self.section_ids.append([len(self.sections.values()), tag])
+		return self.sections[tag]
 
 	def get_content(self):
 		self.section_ids.sort()
@@ -281,8 +304,17 @@ class _section(markup.page):
 		tabnum = "%s %s.%s.%s" %  ("Table", self.pagenum, self.secnum, str(self.tables))
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=tabnum)
 		self.content.extend(table.get_content())
+		return self
 
+	def add_link(self, **kwargs):
+		link = _link(**kwargs)
+		self.content.extend(link.get_content())
+		return self
 
+	def add_text(self, **kwargs):
+		text = _text(**kwargs)
+		self.content.extend(text.get_content())
+		return self
 
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
@@ -290,8 +322,8 @@ class cbcpage(markup.page):
 	def __init__(self, title="cbc web page", path='./', css=None, script=None, pagenum=1, verbose=False):
 		"""
 		"""
-		if not css: css = copy_ihope_style()
-		scdict = script_dict()
+		if not css: css = copy_ihope_style(base_dir=path)
+		scdict = script_dict(fname='%s/%s' % (path,"toggle.js"))
 		if not script: script = scdict[0]
 		self.front = ""
 		scriptfiles = scdict[1]
@@ -326,9 +358,10 @@ class cbcpage(markup.page):
 		if not link_text: link_text=str(subpage_num)
 
 		# tuple including number so it can be sorted later
-		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
+		self.subpages[tag] = cbcpage(title=title,path=self.path,css=self._style,script=self._script,pagenum=subpage_num)
 		self.subpages[tag].add('<table align=right><tr><td align=right onclick="javascript:toggleAllOpen();"><b>Toggle Open</b></td></tr></table>')
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
+		return self.subpages[tag]
 
 	def close_subpage(self,id=None):
 		#SECTIONS WILL AUTOMATICALLY BE CLOSED IN WRITE METHOD IF NOT DONE EXPLICITELY
@@ -400,9 +433,20 @@ class cbcpage(markup.page):
 		secnum = len(self.sections.values()) + 1
 		self.section_ids.append([secnum, tag])
 		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level)
+		return self.sections[tag]
 
 	def add_table(self, two_d_data, title="", caption="", tag="table"):
 		self.tables += 1
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=str(self.pagenum) + " Table "+str(self.tables))
 		self.content.extend(table.get_content())
+		return self
 
+	def add_link(self, **kwargs):
+		link = _link(**kwargs)
+		self.content.extend(link.get_content())
+		return self
+
+	def add_text(self, **kwargs):
+		text = _text(**kwargs)
+		self.content.extend(text.get_content())
+		return self
