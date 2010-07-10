@@ -43,6 +43,9 @@ parser.add_option("--verbose", action="store_true", default=False,\
 parser.add_option("-c", "--channels", action="store", type="string",\
     help="relevant channel (or part therein), or comma separated list of channels (or parts therein) for search")
 
+parser.add_option("-e", "--exclude-channels", action="store", type="string",\
+    help="exclude these channels (or parts therein), comma separated")
+
 parser.add_option("-t", "--types", action="store", type="string",\
     help="specfic data type (or part therein), "+\
         "or comma separated list of data types (or parts therein) to search")
@@ -60,6 +63,9 @@ parser.add_option("--short", action="store_true", default=False,\
     help="include only the most common data types in search "+\
         "(recommended for most users), default: %default")
 
+parser.add_option("--match", action="store_true", default=False,\
+    help="return only full matches to --channels option, default: %default")
+
 (options, args) = parser.parse_args()
 
 #== set up input options
@@ -75,6 +81,10 @@ if options.channels is not None:
 else:
   channels = None
 
+if options.exclude_channels is not None:
+  ex_channels = options.exclude_channels.split(',')
+else:
+  ex_channels = None
 
 home_path = str(GetCommandOutput('echo ${HOME}')[0]).replace('\n','')
 
@@ -163,14 +173,8 @@ if options.ifos is None:
   if channels is not None:
     for channel in channels:
       channel_ifo = channel[0:2]
-      if channel_ifo in accepted_ifos and channel_ifo[0:1] not in options.ifos:
-        options.ifos.append(channel_ifo[0:1])
-
-  if options.types is not None:
-    for type in options.types:
-      type_ifo = type[0:2]
-      if type_ifo in accepted_ifos and type_ifo[0:1] not in options.ifos:
-        options.ifos.append(type_ifo[0:1])
+      if channel_ifo in accepted_ifos and channel_ifo[0:2] not in options.ifos:
+        options.ifos.append(channel_ifo[0:2])
 
   if options.ifos==[]:
     ifo = raw_input(\
@@ -227,12 +231,20 @@ for ifo in options.ifos:
       frame_info = frame_file.split(' ')
       frame_file = frame_info[-1].replace('file://localhost','')
       #== get channels contained in frame, grepping for input channel string
-      channel_find_cmd = "FrChannels "+frame_file
+      channel_find_cmd = "FrChannels "+frame_file+" | grep "+ifo
+      #== add grep options for each included channel
       if channels is not None:
-        channel_find_cmd += " | grep "+ifo+" | egrep '"
+        channel_find_cmd += " | egrep '"
         for channel in channels:
           channel_find_cmd += channel+"|"
         channel_find_cmd = channel_find_cmd[0:-1]+"'"
+      #== add grep options for each excluded channel
+      if ex_channels is not None:
+        channel_find_cmd += " | egrep -v '"
+        for ex_channel in ex_channels:
+          channel_find_cmd += ex_channel+"|"
+        channel_find_cmd = channel_find_cmd[0:-1]+"'"
+
       channel_list,channel_status = \
               GetCommandOutput(channel_find_cmd)
       if channel_status == 0:
@@ -241,6 +253,8 @@ for ifo in options.ifos:
           if channel_data=='':  continue
           channel_data = channel_data.replace('\n','')
           channel_data = channel_data.split(' ')
+          if options.match:
+            if channel_data[0] not in channels:  continue
           if len(channel_data)>1:
             found_channel = channel_data[0]
             sampling = channel_data[1]
