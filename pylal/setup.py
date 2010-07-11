@@ -562,7 +562,8 @@ setup(
 		os.path.join("bin", "run_skypoints.py"),
 		os.path.join("bin", "make_skypoints_grids.py"),
 		os.path.join("bin", "make_skypoints_rankings.py"),
-                os.path.join("bin", "plot_skypoints.py")
+                os.path.join("bin", "plot_skypoints.py"),
+                os.path.join("bin", "ring_post")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
