@@ -47,7 +47,7 @@ from pylal import rate
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu> and Valeriu Predoi <valeriu.predoi@astro.cf.ac.uk>"
 
 #
 # get loudest coincs from each category
@@ -245,7 +245,7 @@ def parse_args():
     parser.add_option("--onsource-glob", metavar="GLOB", help="glob the "
         "on-source files with GLOB")
     parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
-        "cache descriptions for off-source coincidence files with PAT")
+        "cache descriptions for off-source coincidence files with PAT: THINCA_SLIDE_SECOND*OFFSOURCE for slides only; THINCA*SECOND*OFFSOURCE for slides and zero-lag; THINCA_SECOND*OFFSOURCE for zero-lag only")
     parser.add_option("--injection-pattern", metavar="PAT",
         help="sieve the cache descriptions for injection files with PAT")
     parser.add_option("--inj-coinc-pattern", metavar="PAT",
@@ -380,10 +380,15 @@ on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
                                       coltype=int)
 
 nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-if nominal_num_slides > 0: #timeslides and zerolag
-  total_num_slides = 2 * nominal_num_slides + 1
+if nominal_num_slides > 0: #timeslides and/or zerolag
+  if opts.offsource_pattern == "THINCA_SLIDE_SECOND*OFFSOURCE":
+    total_num_slides = 2 * nominal_num_slides
+  if opts.offsource_pattern == "THINCA*SECOND*OFFSOURCE":
+    total_num_slides = 2 * nominal_num_slides + 1
+  if opts.offsource_pattern == "THINCA_SECOND*OFFSOURCE":
+    total_num_slides = 1
 else:
-  total_num_slides = 1 #just zerolag
+  total_num_slides = 1 #no slides turned on
 extent_off = off_segs.extent()
 extent_buffer = buffer_segs.extent()
 
