@@ -275,15 +275,24 @@ struct gengetopt_args_info
   double fake_dInv_arg;	/**< @brief inverse distance to source of fake signal in seconds (default='0.0').  */
   char * fake_dInv_orig;	/**< @brief inverse distance to source of fake signal in seconds original value given at command line.  */
   const char *fake_dInv_help; /**< @brief inverse distance to source of fake signal in seconds help description.  */
-  double fake_modulation_depth_arg;	/**< @brief depth of sinusoidal phase modulation in radians (default='0.0').  */
-  char * fake_modulation_depth_orig;	/**< @brief depth of sinusoidal phase modulation in radians original value given at command line.  */
-  const char *fake_modulation_depth_help; /**< @brief depth of sinusoidal phase modulation in radians help description.  */
-  double fake_modulation_freq_arg;	/**< @brief frequency of sinusoidal phase modulation (default='0.0').  */
-  char * fake_modulation_freq_orig;	/**< @brief frequency of sinusoidal phase modulation original value given at command line.  */
-  const char *fake_modulation_freq_help; /**< @brief frequency of sinusoidal phase modulation help description.  */
-  double fake_modulation_phase_arg;	/**< @brief phase of sinusoidal phase modulation (default='0.0').  */
-  char * fake_modulation_phase_orig;	/**< @brief phase of sinusoidal phase modulation original value given at command line.  */
-  const char *fake_modulation_phase_help; /**< @brief phase of sinusoidal phase modulation help description.  */
+  double fake_freq_modulation_depth_arg;	/**< @brief depth of additional sinusoidal frequency modulation in Hz (default='0.0').  */
+  char * fake_freq_modulation_depth_orig;	/**< @brief depth of additional sinusoidal frequency modulation in Hz original value given at command line.  */
+  const char *fake_freq_modulation_depth_help; /**< @brief depth of additional sinusoidal frequency modulation in Hz help description.  */
+  double fake_freq_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal frequency modulation (default='0.0').  */
+  char * fake_freq_modulation_freq_orig;	/**< @brief frequency of additional sinusoidal frequency modulation original value given at command line.  */
+  const char *fake_freq_modulation_freq_help; /**< @brief frequency of additional sinusoidal frequency modulation help description.  */
+  double fake_freq_modulation_phase_arg;	/**< @brief phase of additional sinusoidal frequency modulation (default='0.0').  */
+  char * fake_freq_modulation_phase_orig;	/**< @brief phase of additional sinusoidal frequency modulation original value given at command line.  */
+  const char *fake_freq_modulation_phase_help; /**< @brief phase of additional sinusoidal frequency modulation help description.  */
+  double fake_phase_modulation_depth_arg;	/**< @brief depth of additional sinusoidal phase modulation in radians (default='0.0').  */
+  char * fake_phase_modulation_depth_orig;	/**< @brief depth of additional sinusoidal phase modulation in radians original value given at command line.  */
+  const char *fake_phase_modulation_depth_help; /**< @brief depth of additional sinusoidal phase modulation in radians help description.  */
+  double fake_phase_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal phase modulation (default='0.0').  */
+  char * fake_phase_modulation_freq_orig;	/**< @brief frequency of additional sinusoidal phase modulation original value given at command line.  */
+  const char *fake_phase_modulation_freq_help; /**< @brief frequency of additional sinusoidal phase modulation help description.  */
+  double fake_phase_modulation_phase_arg;	/**< @brief phase of additional sinusoidal phase modulation (default='0.0').  */
+  char * fake_phase_modulation_phase_orig;	/**< @brief phase of additional sinusoidal phase modulation original value given at command line.  */
+  const char *fake_phase_modulation_phase_help; /**< @brief phase of additional sinusoidal phase modulation help description.  */
   double snr_precision_arg;	/**< @brief Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/**< @brief Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /**< @brief Assumed level of error in detection strength - used for listing candidates help description.  */
@@ -458,9 +467,12 @@ struct gengetopt_args_info
   unsigned int fake_strain_given ;	/**< @brief Whether fake-strain was given.  */
   unsigned int fake_freq_given ;	/**< @brief Whether fake-freq was given.  */
   unsigned int fake_dInv_given ;	/**< @brief Whether fake-dInv was given.  */
-  unsigned int fake_modulation_depth_given ;	/**< @brief Whether fake-modulation-depth was given.  */
-  unsigned int fake_modulation_freq_given ;	/**< @brief Whether fake-modulation-freq was given.  */
-  unsigned int fake_modulation_phase_given ;	/**< @brief Whether fake-modulation-phase was given.  */
+  unsigned int fake_freq_modulation_depth_given ;	/**< @brief Whether fake-freq-modulation-depth was given.  */
+  unsigned int fake_freq_modulation_freq_given ;	/**< @brief Whether fake-freq-modulation-freq was given.  */
+  unsigned int fake_freq_modulation_phase_given ;	/**< @brief Whether fake-freq-modulation-phase was given.  */
+  unsigned int fake_phase_modulation_depth_given ;	/**< @brief Whether fake-phase-modulation-depth was given.  */
+  unsigned int fake_phase_modulation_freq_given ;	/**< @brief Whether fake-phase-modulation-freq was given.  */
+  unsigned int fake_phase_modulation_phase_given ;	/**< @brief Whether fake-phase-modulation-phase was given.  */
   unsigned int snr_precision_given ;	/**< @brief Whether snr-precision was given.  */
   unsigned int max_candidates_given ;	/**< @brief Whether max-candidates was given.  */
   unsigned int min_candidate_snr_given ;	/**< @brief Whether min-candidate-snr was given.  */

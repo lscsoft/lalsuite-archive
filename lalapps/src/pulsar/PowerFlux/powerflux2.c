@@ -555,7 +555,14 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake strain: %g\n", args_info.fake_strain_arg);
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
-	
+
+	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
+	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
+	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
+	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
+	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
+	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");
 	}

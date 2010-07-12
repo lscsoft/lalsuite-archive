@@ -38,7 +38,7 @@ set first_bin [expr round($FREQ_START*1800)]
 set i 0
 set k 0
 set PARAMS_FILE [open "$ROOT_DIR/params.txt" "w"]
-set PARAMS_LIST {i h0 ra dec psi phi iota f0 spindown aPlus aCross band_start dInv phase_modulation_depth phase_modulation_freq phase_modulation_phase}
+set PARAMS_LIST {i h0 ra dec psi phi iota f0 spindown aPlus aCross band_start dInv freq_modulation_depth freq_modulation_freq freq_modulation_phase phase_modulation_depth phase_modulation_freq phase_modulation_phase}
 puts $PARAMS_FILE [join $PARAMS_LIST "\t"]
 set DAG_FILE [open "$ROOT_DIR/dag" "w"]
 
@@ -59,6 +59,9 @@ while { 1 }  {
 
 	# Additional parameters present since 1.4.41
 	set dInv [sample $DINV_RANGE]
+	set freq_modulation_depth [sample $FREQ_MODULATION_DEPTH_RANGE]
+	set freq_modulation_freq [sample $FREQ_MODULATION_FREQ_RANGE]
+	set freq_modulation_phase [sample $FREQ_MODULATION_PHASE_RANGE]
 	set phase_modulation_depth [sample $PHASE_MODULATION_DEPTH_RANGE]
 	set phase_modulation_freq [sample $PHASE_MODULATION_FREQ_RANGE]
 	set phase_modulation_phase [sample $PHASE_MODULATION_PHASE_RANGE]
