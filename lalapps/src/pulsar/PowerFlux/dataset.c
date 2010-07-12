@@ -79,6 +79,8 @@ extern int do_CutOff;
 
 int lock_file=-1;
 
+extern EphemerisData ephemeris;
+
 /* this is a busy wait.. as condor does not allow sleep() */
 static void spin_wait(int seconds)
 {
@@ -146,12 +148,17 @@ typedef struct {
 
 	double freq;
 	double spindown;
+	double dInv; /* Inverse distance to source in seconds */
 
 	double ra;
 	double dec;
 	double iota;
 	double psi;
 	double phi;
+	
+	double phase_modulation_depth;
+	double phase_modulation_freq;
+	double phase_modulation_phase;
 
 	double strain;
 
@@ -162,29 +169,58 @@ typedef struct {
 
 	float e[26];
 	int bin;
+	
+	char *detector;
 	} SIGNAL_PARAMS;
 
+	
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-double doppler, omega_t, c_omega_t, s_omega_t;
+double doppler, omega_t, c_omega_t, s_omega_t, modomega_t;
 double hann;
 float det_vel[3]={NAN, NAN, NAN};
 float f_plus, f_cross;
+EmissionTime emission_time;
+LIGOTimeGPS tGPS;
+EarthState earth_state;
+double te, phase_spindown, phase_barycenter, phase_bin;
+LALStatus status={level:0, statusPtr:NULL};
 
-get_detector_vel(round(t), det_vel);
+tGPS.gpsSeconds=floor(t);
+tGPS.gpsNanoSeconds=(t-floor(t))*1e9;
 
-doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+LALBarycenterEarth(&status, &(earth_state), &tGPS, &ephemeris);
+TESTSTATUS(&status);
+if(status.statusPtr)FREESTATUSPTR(&status);
+
+get_emission_time(&emission_time, &(earth_state), p->ra, p->dec, p->dInv, p->detector, tGPS);
 
 /*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
 fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
 get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
 // fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
+get_detector_vel(round(t), det_vel);
+
+doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+
 *f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
 
-//*f=p->freq*(1.0+doppler);
+te=(emission_time.te.gpsSeconds-p->ref_time)+1e-9*emission_time.te.gpsNanoSeconds;
+		
+phase_spindown=0.5*te*te*p->spindown;
 
-omega_t=2.0*M_PI*(*f-p->bin/p->coherence_time)*(t-p->segment_start)+p->extra_phase;
+phase_barycenter=p->freq*te;
+
+/* Need to subtract phase accumulated by the frequency bin we are looking at */
+phase_bin=-(p->bin/p->coherence_time)*(t-p->segment_start);
+
+omega_t=2.0*M_PI*((phase_barycenter-floor(phase_barycenter))+(phase_spindown-floor(phase_spindown))+(phase_bin-floor(phase_bin)))+p->phi;
+
+/* add contribution from sinusoidal modulation */
+modomega_t=2.0*M_PI*(te*p->phase_modulation_freq-floor(te*p->phase_modulation_freq))+p->phase_modulation_phase;
+omega_t+=p->phase_modulation_depth*sin(modomega_t);
+
 hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
 
 c_omega_t=cos(omega_t);
@@ -210,11 +246,6 @@ s_omega_t=sin(omega_t);
 
 *im=hann*(f_plus*(p->a_plus*s_omega_t*p->cos_e+p->a_cross*c_omega_t*p->sin_e)+
 	f_cross*(p->a_plus*s_omega_t*p->sin_e-p->a_cross*c_omega_t*p->cos_e));
-
-//fprintf(stderr, "response=%g a_plus=%g a_cross=%g \n", response, p->a_plus, p->a_cross);
-
-// fprintf(stderr, "f=%.4f (%.3f) re=%.2f im=%.2f omega_t=%.2f t=%.1f (%f) doppler=%g\n", (*f), (*f)*1800.0-p->bin*1.0, *re, *im, omega_t, t-p->ref_time, t, doppler);
-
 }
 
 static double signal_re(double t, void *params)
@@ -245,131 +276,6 @@ omega=2.0*M_PI*p->freq*doppler-p->phase_integration_factor;
 return(omega);
 }
 
-static double compute_phase(SIGNAL_PARAMS *sp, gsl_integration_workspace *giw, int giw_size, double start_time, double end_time)
-{
-SIGNAL_PARAMS p;
-gsl_function F; 
-int err;
-double result, abserr;
-double freq_cycles, spindown_cycles;
-double T=end_time-start_time;
-
-if(!(fabs(T)>0))return 0.0;
-
-memcpy(&p, sp, sizeof(*sp));
-
-F.params=&p;
-p.bin=0;
-
-p.segment_start=0;
-p.coherence_time=0;
-
-F.function=signal_omega;
-p.phase_integration_factor=0.0;
-
-while(1) {
-	err=gsl_integration_qag(&F, start_time, end_time,
-		1e-6, 1e-5,
-		giw_size,
-		GSL_INTEG_GAUSS61,
-		giw,
-		&result,
-		&abserr
-		);
-
-	if(fabs(result)>10) {
-		p.phase_integration_factor+=result/T;
-		/* make sure it integrates out to 0 phase */
-		p.phase_integration_factor=2.0*M_PI*rint(p.phase_integration_factor*T/(2.0*M_PI))/T;
-		continue;
-		}
-
-	#if 0
-	/* Original formula - this results in precision errors for large spindowns */
-
-	p.extra_phase=result+p.phase_integration_factor*T+
-		2*M_PI*(p.freq*T+0.5*p.spindown*T*T+p.spindown*(start_time-p.ref_time)*T);
-	#else 
-
-	/* Separate out computation of large phase factors so as to avoid precision loss at high spindowns */
-	spindown_cycles=p.spindown*(start_time-p.ref_time+0.5*T)*T;
-	spindown_cycles=spindown_cycles-floor(spindown_cycles);
-
-	freq_cycles=p.freq*T;
-	freq_cycles=freq_cycles-floor(freq_cycles);
-	
-	p.extra_phase=result+2*M_PI*(freq_cycles+spindown_cycles);
-
-	#endif
-
-	//if(err)fprintf(stderr, "phase %f result=%g (%g) pif=%g abserr=%g %s\n", start_time, result, p.extra_phase, p.phase_integration_factor, abserr,  gsl_strerror(err)); 
-	break;
-	}
-return(p.extra_phase);
-}
-
-static void test_inject_fake_signal(void)
-{
-SIGNAL_PARAMS p;
-double cos_i;
-double re, im, f, re2, im2, f2;
-int status=0;
-
-p.bin=0;
-
-p.ra=2.56;
-p.dec=1.43;
-p.freq=500.12;
-p.spindown=1.23e-9;
-p.ref_time=793154935;
-p.segment_start=793161245;
-p.coherence_time=1800.0;
-p.extra_phase=0;
-
-cos_i=cos(1.23);
-
-p.a_plus=(1+cos_i*cos_i)*0.5;
-p.a_cross=cos_i;
-
-p.cos_e=cos(2.0*(1.23));
-p.sin_e=sin(2.0*(1.23));
-precompute_am_constants(p.e, p.ra, p.dec);
-
-get_detector("LHO");
-
-compute_signal(&re, &im, &f, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
-fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
-
-if(fabs(re-9.59669e-06)>1e-10 ||
-   fabs(im-1.83957e-05)>1e-10 ||
-   fabs(f-500.101774)>1e-5) status|=1;
-
-p.cos_e=1.0;
-p.sin_e=0.0;
-
-compute_signal(&re, &im, &f, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test2: %g %g %f\n", re, im, f);
-fprintf(LOG, "compute_signal_test2: %g %g %f\n", re, im, f);
-
-p.cos_e=1.0;
-p.sin_e=0.0;
-p.extra_phase=M_PI*0.5;
-
-compute_signal(&re2, &im2, &f2, 793161250.0, &p);
-fprintf(stderr, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
-fprintf(LOG, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
-
-if(fabs(f2-f)>1e-5 ||
-   fabs(re-im2)>1e-11 ||
-   fabs(im+re2)>1e-11) status|=2;
-
-if(status) {
-	fprintf(stderr, "compute_signal_test: failed %d\n", status);
-	fprintf(LOG, "compute_signal_test: failed %d\n", status);
-	exit(-1);
-	}
-}
 
 static void precompute_signal_params(SIGNAL_PARAMS *p)
 {
@@ -380,8 +286,8 @@ cos_i=cos(p->iota);
 p->a_plus=(1+cos_i*cos_i)*0.5;
 p->a_cross=cos_i;
 
-p->cos_e=cos(2.0*(p->psi-p->phi));
-p->sin_e=sin(2.0*(p->psi-p->phi));
+p->cos_e=cos(2.0*p->psi);
+p->sin_e=sin(2.0*p->psi);
 
 precompute_am_constants(p->e, p->ra, p->dec);
 }
@@ -399,15 +305,145 @@ p->strain=args_info.fake_strain_arg;
 p->iota=args_info.fake_iota_arg;
 p->psi=args_info.fake_psi_arg;
 p->phi=args_info.fake_phi_arg;
+p->dInv=args_info.fake_dInv_arg;
+p->phase_modulation_depth=args_info.fake_modulation_depth_arg;
+p->phase_modulation_freq=args_info.fake_modulation_freq_arg;
+p->phase_modulation_phase=args_info.fake_modulation_phase_arg;
 
 precompute_signal_params(p);
-//fprintf(stderr, "frequency=%f spindown=%g ra=%f dec=%f\n", p.freq, p.spindown, p.ra, p.dec);
-
-
-// fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p.a_plus, p.a_cross, p.cos_e, p.sin_e);
 }
 
-static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment, double accumulated_phase)
+static void test_inject_fake_signal05(void)
+{
+SIGNAL_PARAMS p;
+double re, im, f, re2, im2, f2;
+int status=0;
+
+memset(&p, 0, sizeof(p));
+
+p.bin=0;
+
+p.ra=2.56;
+p.dec=1.43;
+p.freq=500.12;
+p.spindown=1.23e-9;
+p.ref_time=793154935;
+p.segment_start=793161250-900.0;
+p.coherence_time=1800.0;
+p.extra_phase=0;
+p.iota=1.23;
+p.psi=0.45;
+p.phi=0.123;
+p.dInv=0;
+p.detector="LHO";
+
+precompute_signal_params(&p);
+
+get_detector("LHO");
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+compute_signal(&re2, &im2, &f2, 793161250.0+43*3600.0+123, &p);
+fprintf(stderr, "compute_signal_test05a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+fprintf(LOG, "compute_signal_test05a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+
+if(fabs(re*re2+im*im2+0.0140269)>1e-5 ||
+   fabs(f-500.101774)>1e-5 ||
+   fabs(f2-500.101466)>1e-5
+	) status|=1;
+
+fprintf(stderr, "compute_signal_test05b: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test05b: %g %g %f\n", re, im, f);
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+
+compute_signal(&re, &im, &f, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test05b: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test05b: %g %g %f\n", re, im, f);
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+p.phi+=M_PI*0.5;
+
+compute_signal(&re2, &im2, &f2, 793161250.0, &p);
+fprintf(stderr, "compute_signal_test05c: %g %g %f\n", re2, im2, f2);
+fprintf(LOG, "compute_signal_test05c: %g %g %f\n", re2, im2, f2);
+
+if(fabs(f2-f)>1e-5 ||
+   fabs(re-im2)>1e-11 ||
+   fabs(im+re2)>1e-11) status|=2;
+
+if(status) {
+	fprintf(stderr, "compute_signal_test05: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test05: failed %d\n", status);
+	exit(-1);
+	}
+}
+
+static void test_inject_fake_signal09(void)
+{
+SIGNAL_PARAMS p;
+double re, im, f, re2, im2, f2;
+int status=0;
+
+memset(&p, 0, sizeof(p));
+
+p.bin=0;
+
+p.ra=2.56;
+p.dec=1.43;
+p.freq=500.12;
+p.spindown=1.23e-9;
+p.ref_time=910000000.0-12345.0;
+p.segment_start=910000000.0-900.0;
+p.coherence_time=1800.0;
+p.extra_phase=0;
+p.iota=1.23;
+p.psi=0.45;
+p.phi=0.123;
+p.dInv=0;
+p.detector="LHO";
+
+precompute_signal_params(&p);
+
+get_detector("LHO");
+
+compute_signal(&re, &im, &f, 930000000.0, &p);
+compute_signal(&re2, &im2, &f2, 930000000.0+43*3600.0+123, &p);
+fprintf(stderr, "compute_signal_test09a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+fprintf(LOG, "compute_signal_test09a: %g %g %f %g %g %f %g\n", re, im, f, re2, im2, f2, re*re2+im*im2);
+
+if(fabs(re*re2+im*im2-0.0470977)>1e-5 ||
+   fabs(f-500.140589)>1e-5 ||
+   fabs(f2-500.141517)>1e-5) status|=1;
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+
+compute_signal(&re, &im, &f, 930000000.0, &p);
+fprintf(stderr, "compute_signal_test09b: %g %g %f\n", re, im, f);
+fprintf(LOG, "compute_signal_test09b: %g %g %f\n", re, im, f);
+
+p.cos_e=1.0;
+p.sin_e=0.0;
+p.phi+=M_PI*0.5;
+
+compute_signal(&re2, &im2, &f2, 930000000.0, &p);
+fprintf(stderr, "compute_signal_test09c: %g %g %f\n", re2, im2, f2);
+fprintf(LOG, "compute_signal_test09c: %g %g %f\n", re2, im2, f2);
+
+if(fabs(f2-f)>1e-5 ||
+   fabs(re-im2)>1e-11 ||
+   fabs(im+re2)>1e-11) status|=2;
+
+if(status) {
+	fprintf(stderr, "compute_signal_test09: failed %d\n", status);
+	fprintf(LOG, "compute_signal_test09: failed %d\n", status);
+	exit(-1);
+	}
+}
+
+static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment)
 {
 double result, abserr;
 size_t neval;
@@ -422,6 +458,7 @@ p->bin=0;
 
 p->segment_start=d->gps[segment];
 p->coherence_time=d->coherence_time;
+p->detector=d->detector;
 
 
 compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), p);
@@ -432,7 +469,7 @@ if((bin+window>nbins) || (bin<window))fprintf(stderr, "Injected signal outside l
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
 
-p->extra_phase=accumulated_phase;
+p->extra_phase=0.0;
 
 
 for(i=bin-window; i<=bin+window; i++) {
@@ -852,30 +889,16 @@ get_detector(d->detector);
 sort_dataset(d);
 
 if(fake_injection) {
-	gsl_integration_workspace *giw;
 	SIGNAL_PARAMS sp;
-	double accumulated_phase, current_phase, start_time;
-	int workspace_size=10000;
 
 	fprintf(stderr, "Injecting fake signal.\n");
 	fprintf(LOG, "Injecting fake signal.\n");
 
 	fill_signal_params_from_args_info(&sp);
 
-	giw=gsl_integration_workspace_alloc(workspace_size);
-
-	start_time=sp.ref_time;
-	accumulated_phase=0;
 	for(i=0;i<d->free;i++) {
-		current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
-		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
-		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
-			start_time=d->gps[i];
-			accumulated_phase+=current_phase;
-			accumulated_phase=accumulated_phase-2.0*M_PI*(floor(accumulated_phase/(2.0*M_PI)));
-			}
+		inject_fake_signal(&sp, d, i);
 		}
-	gsl_integration_workspace_free(giw);
 	}
 
 /* compute_power(d); */
@@ -1861,12 +1884,14 @@ if(!strncasecmp(line, "inject_wandering_line2", 22)) {
 	} else
 if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	INT64 gps_start, gps_stop;
-	gsl_integration_workspace *giw;
 	SIGNAL_PARAMS sp;
-	double accumulated_phase, current_phase, start_time;
-	int workspace_size=10000, i;
+	int i;
 	DATASET *d=&(datasets[d_free-1]);
 
+	/* Fill with defaults from command line */
+	fill_signal_params_from_args_info(&sp);
+	
+	
 	locate_arg(line, length, 1, &ai, &aj);
 	sscanf(&(line[ai]), "%lld", &gps_start);
 
@@ -1900,7 +1925,7 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	locate_arg(line, length, 11, &ai, &aj);
 	sscanf(&(line[ai]), "%lg", &sp.phi);
 
-	fprintf(stderr, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf\n", gps_start, gps_stop,
+	fprintf(stderr, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
 			sp.freq,
@@ -1909,8 +1934,12 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 			sp.dec,
 			sp.iota,
 			sp.psi,
-			sp.phi);
-	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf\n", gps_start, gps_stop,
+			sp.phi,
+			sp.dInv,
+			sp.phase_modulation_depth,
+			sp.phase_modulation_freq,
+			sp.phase_modulation_phase);
+	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
 			sp.freq,
@@ -1919,28 +1948,118 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 			sp.dec,
 			sp.iota,
 			sp.psi,
-			sp.phi);
+			sp.phi,
+			sp.dInv,
+			sp.phase_modulation_depth,
+			sp.phase_modulation_freq,
+			sp.phase_modulation_phase);
 
 	precompute_signal_params(&sp);
 
 	sort_dataset(d);
 
-	giw=gsl_integration_workspace_alloc(workspace_size);
-
-	start_time=sp.ref_time;
-	accumulated_phase=0;
 	for(i=0;i<d->free;i++) {
 		if(gps_start>0 && d->gps[i]<gps_start)continue;
 		if(gps_stop>0 && d->gps[i]>=gps_stop)continue;
 
-		current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
-		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
-		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
-			start_time=d->gps[i];
-			accumulated_phase+=current_phase;
-			}
+		inject_fake_signal(&sp, d, i);
 		}
-	gsl_integration_workspace_free(giw);
+
+	} else
+if(!strncasecmp(line, "inject_cw_signal2", 16)) {
+	INT64 gps_start, gps_stop;
+	SIGNAL_PARAMS sp;
+	int i;
+	DATASET *d=&(datasets[d_free-1]);
+
+	/* Fill with defaults from command line */
+	fill_signal_params_from_args_info(&sp);
+	
+	
+	locate_arg(line, length, 1, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_start);
+
+	locate_arg(line, length, 2, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_stop);
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.ref_time);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.strain);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.freq);
+
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.spindown);
+
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.ra);
+
+	locate_arg(line, length, 8, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.dec);
+
+	locate_arg(line, length, 9, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.iota);
+
+	locate_arg(line, length, 10, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.psi);
+
+	locate_arg(line, length, 11, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phi);
+
+	locate_arg(line, length, 12, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.dInv);
+
+	locate_arg(line, length, 13, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_depth);
+
+	locate_arg(line, length, 14, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_freq);
+
+	locate_arg(line, length, 15, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_phase);
+
+	fprintf(stderr, "Injecting fake signal (mode 2) for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
+			sp.ref_time,
+			sp.strain,
+			sp.freq,
+			sp.spindown,
+			sp.ra,
+			sp.dec,
+			sp.iota,
+			sp.psi,
+			sp.phi,
+			sp.dInv,
+			sp.phase_modulation_depth,
+			sp.phase_modulation_freq,
+			sp.phase_modulation_phase);
+	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
+			sp.ref_time,
+			sp.strain,
+			sp.freq,
+			sp.spindown,
+			sp.ra,
+			sp.dec,
+			sp.iota,
+			sp.psi,
+			sp.phi,
+			sp.dInv,
+			sp.phase_modulation_depth,
+			sp.phase_modulation_freq,
+			sp.phase_modulation_phase);
+
+	precompute_signal_params(&sp);
+
+	sort_dataset(d);
+
+	for(i=0;i<d->free;i++) {
+		if(gps_start>0 && d->gps[i]<gps_start)continue;
+		if(gps_stop>0 && d->gps[i]>=gps_stop)continue;
+
+		inject_fake_signal(&sp, d, i);
+		}
 
 	} else {
 	fprintf(stderr, "*** Could not parse line: \n%*s\n *** Exiting.\n", length, line);
@@ -2504,30 +2623,16 @@ void inject_signal(SIGNAL_PARAMS *sp)
 {
 int i,j;
 DATASET *d;
-gsl_integration_workspace *giw;
-double accumulated_phase, start_time, current_phase;
-int workspace_size=10000;
-
-giw=gsl_integration_workspace_alloc(workspace_size);
 
 for(i=0;i<d_free;i++){
 
 	d=&(datasets[i]);
-
-	start_time=sp->ref_time;
-	accumulated_phase=0;
-
+	
 	for(j=0;j<d->free;j++) {
-		current_phase=compute_phase(sp, giw, workspace_size, start_time, d->gps[i]);
-		inject_fake_signal(sp, d, i, accumulated_phase+current_phase);
-		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
-			start_time=d->gps[i];
-			accumulated_phase+=current_phase;
-			}
+		inject_fake_signal(sp, d, i);
 		}
 
 	}
-gsl_integration_workspace_free(giw);
 }
 
 
@@ -2731,11 +2836,12 @@ if(!pass)exit(-1);
 
 void test_datasets(void)
 {
-test_inject_fake_signal();
 test_compute_median();
+test_inject_fake_signal09();
 
 if(args_info.extended_test_arg) {
 	fake_dataset_test();
+	test_inject_fake_signal05();
 	}
 }
 

@@ -85,6 +85,26 @@ if opts.available_backgrounds:
 epoch. Be Warned! Some combinations may be nonsense.\n")
     #Determine all background combinations
     allIfos=getKnownIfos()
+    #Ifo singles
+    sys.stdout.write("Singles\n")
+    for j in allIfos:
+        for myEpoch in getKnownIfoEpochs(j):
+            mySegment=getRunTimesAsLIGOSegment(myEpoch,j)
+            myPickle=dqService.figure_out_pickle([(j,myEpoch)])
+            #Check for existing pickle
+            if os.path.isfile(myPickle) and \
+               not os.access(myPickle,os.R_OK):
+                sys.stderr.write(
+                    "%s:%s found without \
+ read permissions!\n"%(j,myEpoch))
+            elif not os.path.isfile(myPickle):
+                sys.stdout.write(
+                    "%s:%s background file \
+ is not found!\n"%(j,myEpoch))
+            else:
+                sys.stdout.write(
+                    "%s:%s found at %s\n"\
+                    %(j,myEpoch))
     #Ifo doubles
     sys.stdout.write("Doubles\n")
     doubleList=list()
