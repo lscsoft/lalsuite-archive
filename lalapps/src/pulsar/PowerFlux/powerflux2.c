@@ -524,6 +524,7 @@ fprintf(LOG,"nfshift: %d\n", args_info.nfshift_arg);
 fprintf(LOG,"summing step: %f\n", args_info.summing_step_arg);
 fprintf(LOG,"max_first_shift: %d\n", args_info.max_first_shift_arg);
 fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
+fprintf(LOG,"dInv: %g\n", args_info.dInv_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes (unused)" : "no" );
 fprintf(LOG, "weight cutoff fraction: %g\n", args_info.weight_cutoff_fraction_arg);
@@ -554,7 +555,14 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake strain: %g\n", args_info.fake_strain_arg);
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
-	
+
+	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
+	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
+	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
+	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
+	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
+	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");
 	}

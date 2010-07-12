@@ -44,6 +44,7 @@ option "hist-bins"      - "number of bins to use when producing histograms" int 
 option "detector"   	d "detector location (i.e. LHO or LLO), passed to detresponse" string no
 
 option "doppler-multiplier" - "a constant to multiply Doppler shifts by (1.0 corresponds to standard physics)" double default="1.0" no
+option "dInv" - "inverse distance to expected source in seconds" double default="0.0" no
 
 option "spindown-start-time" - "specify spindown start time in GPS sec. Assumed to be the first SFT segment by default" double no
 option "frequency-offset" - "(small) frequency offset - used to achieve fractional bin shifts" double default="0.0" no
@@ -95,9 +96,12 @@ option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0
 option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
 option "fake-dInv"	- "inverse distance to source of fake signal in seconds" double default="0.0" no
-option "fake-modulation-depth" - "depth of sinusoidal phase modulation in radians" double default="0.0" no
-option "fake-modulation-freq" - "frequency of sinusoidal phase modulation" double default="0.0" no
-option "fake-modulation-phase" - "phase of sinusoidal phase modulation" double default="0.0" no
+option "fake-freq-modulation-depth" - "depth of additional sinusoidal frequency modulation in Hz" double default="0.0" no
+option "fake-freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="0.0" no
+option "fake-freq-modulation-phase" - "phase of additional sinusoidal frequency modulation" double default="0.0" no
+option "fake-phase-modulation-depth" - "depth of additional sinusoidal phase modulation in radians" double default="0.0" no
+option "fake-phase-modulation-freq" - "frequency of additional sinusoidal phase modulation" double default="0.0" no
+option "fake-phase-modulation-phase" - "phase of additional sinusoidal phase modulation" double default="0.0" no
 
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
 option "max-candidates"	- "Do not optimize more than this number of candidates" int default="-1" no
