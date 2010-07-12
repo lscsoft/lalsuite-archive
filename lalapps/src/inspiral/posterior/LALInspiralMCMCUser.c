@@ -516,7 +516,7 @@ int CubeToNestPriorHighMass(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParame
   
   multinest_seg = 4;
   // chirp mass
-  //if( Cube[i] < (multinest_seg - 1) * 0.25 - 0.025 || Cube[i] > multinest_seg * 0.25 + 0.025 ) return 0;
+  if( Cube[i] < (multinest_seg - 1) * 0.25 - 0.025 || Cube[i] > multinest_seg * 0.25 + 0.025 ) return 0;
   double mcMin, mcMax;
   if(XLALMCMCCheckParameter(parameter,"logM"))
   {
@@ -644,7 +644,7 @@ int CubeToNestPrior(double *Cube, LALMCMCInput *inputMCMC, LALMCMCParameter *par
 
   multinest_seg = 4;
   // chirp mass
-  //if( Cube[i] < (multinest_seg - 1) * 0.25 - 0.025 || Cube[i] > multinest_seg * 0.25 + 0.025 ) return 0;
+  if( Cube[i] < (multinest_seg - 1) * 0.25 - 0.025 || Cube[i] > multinest_seg * 0.25 + 0.025 ) return 0;
   double mcMin, mcMax;
   if(XLALMCMCCheckParameter(parameter,"logM"))
   {
