@@ -37,6 +37,67 @@ __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 description = \
 "Creates IFAR plots."
 
+
+# ============================================================================
+#
+#                               Define Functions
+#
+# ============================================================================
+
+def get_ifo_multiplicity( ifos ):
+    """
+    Returns the number of coincident ifos in an 'ifos' string.
+
+    @ifos: a string of comma-separated ifos
+    """
+    return len( lsctables.instrument_set_from_ifos( ifos ) )
+
+def multiplicity_colors( nIfos ):
+    """
+    Returns a color and a label based on the number of ifos.
+    """
+    if nIfos == 2:
+        name, color = "Doubles", "#347C2C" # Spring Green4
+    elif nIfos == 3:
+        name, color = "Triples", "#357EC7" # Slate Blue
+    elif nIfos == 4:
+        name, color = "Quadruples", "#7D0541" # Violet Red4
+    else:
+        name, color = str("N ifos = %d" % nIfos), 'k' # just return black
+
+    return name, color
+
+def get_trigger_color( coinc_group, group_by_multiplicity = False ):
+    """
+    Figures out whether to color a trigger by ifo or multiplicity.
+    """
+    if group_by_multiplicity:
+        _, color = multiplicity_colors( coinc_group )
+    elif (isinstance(coinc_group, set) or isinstance(coinc_group, frozenset)):
+        color = InspiralUtils.get_coinc_ifo_colors( coinc_group )
+    elif coinc_group == "ALL_IFOS":
+        color = 'b'
+    else:
+        color = 'k'
+
+    return color
+
+def get_trigger_name( coinc_group, group_by_multiplicity = False ):
+    """
+    Figures out what name to give to a coinc group for legend.
+    """
+    if group_by_multiplicity:
+        name, _ = multiplicity_colors( coinc_group )
+    elif (isinstance(coinc_group, set) or isinstance(coinc_group, frozenset)):
+        name = ''.join(sorted(coinc_group))
+    elif coinc_group == "ALL_IFOS":
+        name = 'All Coincs'
+    else:
+        name = str(coinc_group).replace('_', ' ')
+
+    return name
+
+
 # ============================================================================
 # def poly_between; needed if using older version of matplotlib
 def poly_between(x, ylower, yupper):
@@ -169,16 +230,31 @@ def parse_command_line():
         )
     parser.add_option( "", "--plot-uncombined", action = "store_true", default = False,
         help = 
-            "make an uncombined plot of however many categories there are" 
+            "Make an uncombined plot of however many categories there are. " +
+            "FAR values are read from the --uncombined-column."
+        )
+    parser.add_option( "", "--uncombined-column", action = "store", default = "false_alarm_rate",
+        help =
+            "Column to get uncombined fars from. Default is false_alarm_rate. " +
+            "FAR values are read from the --combined-column."
         )
     parser.add_option( "", "--plot-combined", action = "store_true", default = False,
         help = "Plot combined IFARs on a cumulative histogram." 
         )
+    parser.add_option( "" , "--combined-column", action = "store", default = "combined_far",
+        help =
+            "Column to get combined fars from. Default is combined_far."
+        )
     parser.add_option( "", "--group-by-ifos", action = "store_true", default = False, 
         help = 
-          "Turning on will cause triggers to be grouped by coincident ifos when plotting " +
-          "combined FAR."
-            )
+          "Turning on will cause triggers to be grouped by coincident ifos when creating " +
+          "uncombined plot."
+        )
+    parser.add_option( "", "--group-by-multiplicity", action = "store_true", default = False, 
+        help = 
+          "Turning on will cause triggers to be grouped by the number of coincident ifos when creating " +
+          "uncombined plot. Note: if --group-by-ifos also specified, it will take precedence."
+        )
     parser.add_option( "", "--datatype", action = "store", type = "string",
         default = None, metavar = "all_data, playground, or exclude_play",
         help = 
@@ -309,9 +385,25 @@ open_box = (plot_datatype == "all_data") or (plot_datatype == "exclude_play")
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 
+# get desired ifo grouping for uncombined plots
+if opts.group_by_ifos:
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = '.'.join([ ifo_grouping_table, 'ifos' ])
+    opts.group_by_multiplicity = False # done so later coloring/labelling will be correct
+elif opts.group_by_multiplicity:
+    ifo_grouping_table = 'coinc_inspiral'
+    ifo_grouping = ''.join(['get_ifo_multiplicity(', ifo_grouping_table, '.ifos)'])
+    connection.create_function('get_ifo_multiplicity', 1, get_ifo_multiplicity)
+else:
+    ifo_grouping_table = None
+    ifo_grouping = '"ALL_IFOS"'
+
+# get combined and uncombined columns
+uncombined_column = '.'.join([ 'coinc_inspiral', sqlutils.validate_option( opts.uncombined_column ) ])
+combined_column = '.'.join([ 'coinc_inspiral', sqlutils.validate_option( opts.combined_column ) ])
 
 #
-#   Cycle over each available experiment, collection information
+#   Cycle over each available experiment, collecting information
 #   and generating plots for each
 #
 
@@ -382,11 +474,10 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     sqlquery = ''.join([ """
         SELECT 
             experiment_summary.experiment_summ_id,
-            coinc_inspiral.ifos,
-            """,
-            param_grouping, """,
-            coinc_inspiral.false_alarm_rate,
-            coinc_inspiral.combined_far
+            """, ifo_grouping, """,
+            """, param_grouping, """,
+            """, uncombined_column, """,
+            """, combined_column, """
         FROM 
             coinc_inspiral
         JOIN 
@@ -399,20 +490,17 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 OR experiment_summary.datatype == ? )
         """])
     for esid, ifos, param_group, ufar, cfar in connection.cursor().execute(sqlquery, (eid, plot_datatype) ):
-        ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
+        if opts.group_by_ifos:
+            ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
         # since the ufar_summaries class doesn't know about zero-lag esids,
         # we must remove the zero-lag stats from it's bkg_stats list by hand
         if esid in background.zero_lag_ids[eid]:
             ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
         if opts.plot_combined:
-            if opts.group_by_ifos:
-                ifo_group = ifos
-            else:
-                ifo_group = "ALL_IFOS"
-            cfar_summaries.add_to_bkg_stats(eid, esid, ifo_group, "ALL_PARAM_BINS", cfar)
+            cfar_summaries.add_to_bkg_stats(eid, esid, "ALL_IFOS", "ALL_PARAM_BINS", cfar)
             if esid in background.zero_lag_ids[eid]:
-                cfar_summaries.bkg_stats[(eid, ifo_group, "ALL_PARAM_BINS")].remove(cfar)
+                cfar_summaries.bkg_stats[(eid, "ALL_IFOS", "ALL_PARAM_BINS")].remove(cfar)
 
     # calculate max-bkg fars
     if opts.verbose:
@@ -420,7 +508,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     max_bkg_fars = {}
     sqlquery = ''.join(["""
         SELECT DISTINCT
-            coinc_inspiral.ifos,
+            """, ifo_grouping, """,
             """, param_grouping, """
             FROM 
                 coinc_inspiral
@@ -433,7 +521,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 experiment_summary.datatype == "slide"
             """])
     for ifos, param_group in connection.cursor().execute(sqlquery, (eid,)):
-        ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
+        if opts.group_by_ifos:
+            ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         tot_num = len( ufar_summaries.bkg_stats[(eid, ifos, param_group)] )
         for esid in background.frg_durs[eid]:
             this_num = tot_num
@@ -622,12 +711,12 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 # skip the slides
                 if esid != zero_esid:
                     continue
-                ifos = category[2]
+                coinc_type = category[2]
                 param_group = category[3]
                 loglog( 1./ufars, 
                         uncombined_cumnum[ category ],
                         marker = param_ranges_legend[(param_name, param_group)]['marker'],
-                        markerfacecolor = InspiralUtils.get_coinc_ifo_colors( ifos ),
+                        markerfacecolor = get_trigger_color( coinc_type, group_by_multiplicity = opts.group_by_multiplicity ),
                         markeredgecolor = 'k',
                         linestyle = 'None',
                         alpha = 0.9,
@@ -653,10 +742,10 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
 
             # plot min bkg ifar line (same as max bkg far)
             if opts.show_min_bkg:
-                for (ifos, param_group), max_bkg_far in max_bkg_fars[zero_esid].items():
+                for (coinc_type, param_group), max_bkg_far in max_bkg_fars[zero_esid].items():
                     xminbkg = 1./max_bkg_far 
                     loglog( [xminbkg,xminbkg], [0.1,10000],
-                        color = InspiralUtils.get_coinc_ifo_colors( ifos ), 
+                        color = get_trigger_color( coinc_type, group_by_multiplicity = opts.group_by_multiplicity ), 
                         linestyle = param_ranges_legend[(param_name, param_group)]['linestyle'],
                         linewidth = 2,
                         label='_nolegend_' )
@@ -722,20 +811,15 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             xdum = 0.01*xmin
             ydum = 0.01*ymin
 
-            # Set the ifo colors:
-            # use the ifos listed in the max_bkg_fars to get the ifo colors
-            lgnd = dict([ [ifos, InspiralUtils.get_coinc_ifo_colors(ifos)] \
-                for (ifos, param_group) in max_bkg_fars[zero_esid] ])
-            # if any ifos are in the foreground but not in the background, add those also
-            for (eid, esid, ifos, param_group) in ufar_summaries.sngl_slide_stats:
-                if esid == zero_esid and ifos not in lgnd:
-                    lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
+            # Set the coinc_type colors:
+            # get all coinc types from max_bkg_fars dict and ufar_summaries (in case any coinc_type is in the foreground but not in the background)
+            coinc_types = set([coinc_type for (coinc_type, _) in max_bkg_fars[zero_esid]] + [coinc_type for (_,_,coinc_type,_) in ufar_summaries.sngl_slide_stats])
             # add the ifo colors to the legend
-            for ifos, ifos_color  in lgnd.items():
+            for coinc_type in coinc_types:
                 loglog( [xdum,xdum], [ydum,ydum],
-                    color = ifos_color,
+                    color = get_trigger_color(coinc_type, opts.group_by_multiplicity),
                     linewidth = 5,
-                    label = ''.join(sorted(ifos)) )
+                    label = get_trigger_name(coinc_type, opts.group_by_multiplicity) )
 
             # Set the mass bin symbols and linestyles using param_ranges_legend
             for thisrange in param_ranges_legend:
@@ -854,21 +938,15 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 # skip the slides
                 if esid != zero_esid:
                     continue
-                ifo_group = category[2]
-                if ifo_group == "ALL_IFOS":
-                    trigcolor = 'b'
-                    lbl = "Combined Coincs"
-                else:
-                    trigcolor = InspiralUtils.get_coinc_ifo_colors( ifo_group )
-                    lbl = ' '.join([ "Combined", ''.join(sorted(ifo_group)) ])
+                coinc_type = category[2]
                 loglog( 1./cfars,
                         combined_cumnum[ category ],
                         marker = '^',
-                        markerfacecolor = trigcolor,
+                        markerfacecolor = get_trigger_color(coinc_type),
                         markeredgecolor = 'k',
                         linestyle = 'None',
                         alpha = 0.9,
-                        label = lbl )
+                        label = get_trigger_name(coinc_type) )
                 # if any FARs were zero, stick an arrow on their marker
                 if category in comb_zero_cumnum:
                     xval = 1. / ( min_bkg_ufar[ zero_esid ] * len(max_bkg_fars[zero_esid].values()) )

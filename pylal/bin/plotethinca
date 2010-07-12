@@ -339,8 +339,9 @@ if filelists:
 
     # perform the veto
     if opts.veto_file is not None:
-      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-      inspTriggers = inspTriggers.veto(seglist)
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        inspTriggers = inspTriggers.veto(seglist)
   
     # reconstruct the coincs
     newCoincs = CoincInspiralUtils.coincInspiralTable(inspTriggers, statistic)
@@ -379,8 +380,9 @@ if slidefilelists:
 
     # perform the veto
     if opts.veto_file is not None:
-      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-      slideTriggers = slideTriggers.veto(seglist)
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        slideTriggers = slideTriggers.veto(seglist)
 
     slide_num = range(1 , opts.num_slides + 1)
     slide_num.extend(range(-opts.num_slides, 0))
@@ -419,8 +421,9 @@ if offsourcefilelists:
 
     # perform the veto
     if opts.veto_file is not None:
-      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-      offsourceTriggers = offsourceTriggers.veto(seglist)
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        offsourceTriggers = offsourceTriggers.veto(seglist)
 
     # make coincs
     newOffsource = CoincInspiralUtils.coincInspiralTable(offsourceTriggers, statistic)

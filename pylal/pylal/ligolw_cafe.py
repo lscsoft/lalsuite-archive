@@ -332,7 +332,7 @@ def split_bins(cafepacker, extentlimit):
 			thisseglistdict = cache.to_segmentlistdict()
 			coinc1 = 0
 			coinc2 = 0
-			for offset_vector in self.offset_vectors:
+			for offset_vector in cafepacker.offset_vectors:
 				#
 				# loop over offset vectors updating the smaller
 				# bins and the object we are checking

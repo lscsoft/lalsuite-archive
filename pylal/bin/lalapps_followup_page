@@ -258,17 +258,22 @@ class Coinc(object):
 	def add_dq(self, page):
 		page.add_section("DQ", "Data Quality for %s" % (self.coinctime,))
 		page.sections["DQ"].div("This section gives vetoes and flags that were on")
+
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.flag_cache)
-		if not ca: return # get out of here
-		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
-		#FIXME HACK, may stop working
-		for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
-		page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags: Yellow denotes before, red during and green after')
+		if ca and os.path.isfile(ca[0].path()): 
+			tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+			#FIXME HACK, may stop working
+			for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
+			page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags: Yellow denotes before, red during and green after')
+		else: page.sections["DQ"].div("Job did not finish")
+
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.veto_cache)
-		tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
-		#FIXME HACK, may stop working
-		for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
-		page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes: Yellow denotes before, red during and green after')
+		if ca and os.path.isfile(ca[0].path()):
+			tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+			#FIXME HACK, may stop working
+			for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
+			page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes: Yellow denotes before, red during and green after')
+		else: page.sections["DQ"].div("Job did not finish")
 
 ###############################################################################
 ##### MAIN ####################################################################
