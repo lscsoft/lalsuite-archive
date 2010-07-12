@@ -309,7 +309,7 @@ def get_trigs(channel, segs, min_thresh, trigs_loc=None,name_tag=None,\
           trig = line.split()
           t = float(trig[2]) 
           s = float(trig[7])
-          f = int(trig[3])
+          f = float(trig[3])
 
           # check if KW trig is in the given segment and if its significance 
           # is above the minimum specified

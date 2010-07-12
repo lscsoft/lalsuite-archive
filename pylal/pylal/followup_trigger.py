@@ -77,7 +77,7 @@ class FollowupTrigger:
 
 
   # -----------------------------------------------------
-  def __init__(self, cache, opts, use_injections = True):
+  def __init__(self, cache, opts, use_injections = True,do_slides=False):
     """
     Initialize this class and sets up all the cache files.
     @param cache: The cache of all files
@@ -115,12 +115,21 @@ class FollowupTrigger:
 
     # setting the color definition and the stages of the pipeline
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
-    self.stageLabels = ['INSPIRAL_FIRST', 'THINCA_FIRST',\
-                        'INSPIRAL_SECOND', 'THINCA_SECOND']
+    if do_slides:
+      self.stageLabels = ['INSPIRAL_FIRST', 'THINCA_SLIDE_FIRST',\
+                        'INSPIRAL_SECOND', 'THINCA_SLIDE_SECOND']
+    else:
+      self.stageLabels = ['INSPIRAL_FIRST', 'THINCA_FIRST',\
+                          'INSPIRAL_SECOND', 'THINCA_SECOND']
     self.orderLabels = copy.deepcopy(self.stageLabels)
-    self.orderLabels.extend( [ 'THINCA_SECOND_CAT_1','THINCA_SECOND_CAT_2', \
-                               'THINCA_SECOND_CAT_3','THINCA_SECOND_CAT_4', \
-                               'THINCA_SECOND_CAT_5'] )
+    if do_slides:
+      self.orderLabels.extend( [ 'THINCA_SLIDE_SECOND_CAT_1',\
+          'THINCA_SLIDE_SECOND_CAT_2', 'THINCA_SLIDE_SECOND_CAT_3',\
+          'THINCA_SLIDE_SECOND_CAT_4', 'THINCA_SLIDE_SECOND_CAT_5'] )
+    else:
+      self.orderLabels.extend( [ 'THINCA_SECOND_CAT_1','THINCA_SECOND_CAT_2', \
+                                 'THINCA_SECOND_CAT_3','THINCA_SECOND_CAT_4', \
+                                 'THINCA_SECOND_CAT_5'] )
 
     # set arguments from the options
     self.opts = opts
@@ -555,13 +564,16 @@ class FollowupTrigger:
     pylab.figtext(0.15,0.15, newText)
  
   # -----------------------------------------------------
-  def create_timeseries(self, trigger_files, stage, number):
+  def create_timeseries(self, trigger_files, stage, number,\
+                        slideDict=None,segList=None):
     """
     Investigate inspiral triggers and create a time-series
     of the SNRs around the injected time
     @param trigger_files: List of files containing the inspiral triggers
     @param stage:        the name of the stage (FIRST, SECOND)
     @param number:       the consecutive number for this inspiral followup
+    @param slideDict: A dictionary of ifo keyed slide times if using slides
+    @param segList: Sorted segment list of possible rings if using slides
     """
     
     # read the inspiral file(s)
@@ -571,6 +583,12 @@ class FollowupTrigger:
     sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
               trigger_files , mangle_event_id = True,\
               verbose=False, old_document=self.old_document)
+
+    if (slideDict and segList):
+      if sngls:
+        for sngl in sngls:
+          SnglInspiralUtils.slideTriggersOnRings([sngl],segList[sngl.ifo],\
+                                               slideDict)
 
     # create a figure and initialize some lists
     fig=pylab.figure()
@@ -799,16 +817,23 @@ class FollowupTrigger:
     return page
   
   # --------------------------------------------
-  def create_table_coinc(self, coinc,snglInspirals=None):
+  def create_table_coinc(self, coinc,snglInspirals=None,page=None,
+          slideDict=None,segList=None):
     """
     Creates the first table containing basic properties
     of the coincidence which is followed up.
     @param coinc: an CoincInspiral table
     """
+
+    if slideDict and segList:
+      timeSlide = True
+    else:
+      timeSlide = False
     
     ## create the web-page and add a table
-    page = markup.page()
-    page.h1("Followup trigger #"+str(self.number))
+    if not page:
+      page = markup.page()
+      page.h1("Followup trigger #"+str(self.number))
     page.add('<table border="2">')
 
     page.add('<caption><b>Coincidence Information</b></caption>')
@@ -837,6 +862,10 @@ class FollowupTrigger:
         for sngl in snglInspirals:
           if sngl.ifo == ifo:
             trig = sngl
+            if timeSlide:
+              trig2 = copy.deepcopy(trig)
+              SnglInspiralUtils.unslideTriggersOnRings([trig2],\
+                  segList[trig2.ifo],slideDict)
       elif hasattr(coinc,ifo):
         trig = getattr(coinc,ifo)
 
@@ -855,8 +884,14 @@ class FollowupTrigger:
         self.fill_table( page, ['Mass2', '%.2f'% trig.mass2] )
         self.fill_table( page, ['Mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
         self.fill_table( page, ['Mchirp', '%.2f' % (trig.mchirp)] )
-        self.fill_table( page, ['end_time', '%010d' % trig.end_time] )
-        self.fill_table( page, ['end_time_ns', '%09d' % trig.end_time_ns] )    
+        if timeSlide:
+          endTime = trig.end_time + 1E-9*trig.end_time_ns
+          self.fill_table( page, ['Unslid end_time', '%.4f' % endTime] )
+          slidEndTime = trig2.end_time + 1E-9*trig2.end_time_ns
+          self.fill_table( page, ['Slid end_time', '%.4f' % slidEndTime] ) 
+        else:
+          endTime = trig.end_time + 1E-9*trig.end_time_ns
+          self.fill_table( page, ['end_time', '%.4f' % endTime] )
         self.fill_table( page, ['eff_distance', '%.1f' % trig.eff_distance] )
         page.add('</table></td>')                
 
@@ -988,7 +1023,7 @@ class FollowupTrigger:
 
   # -----------------------------------------------------  
   def from_coinc(self, coinc, ifo = None, more_infos = False, \
-                 injection_id = None):
+                 injection_id = None,slideDict=None,segList=None):
     """
     Creates a followup page from a coincident trigger.
     @param coinc: the coincidence to be followed up
@@ -1012,11 +1047,11 @@ class FollowupTrigger:
  
     # prepare the page
     self.injection_id = injection_id
-    page =  self.create_table_coinc(coinc)
+    page =  self.create_table_coinc(coinc,slideDict=slideDict,segList=segList)
     self.flag_followup = more_infos
 
     # do the followup
-    return self.followup(page)
+    return self.followup(page,slideDict=slideDict,segList=segList)
 
   # -----------------------------------------------------  
   def from_new_coinc(self, coinc, sngls,\
@@ -1065,28 +1100,11 @@ class FollowupTrigger:
 
     # prepare the page
     self.injection_id = injection_id
-    page =  self.create_table_coinc(coinc,snglInspirals= sngls)
+    page =  self.create_table_coinc(coinc,snglInspirals= sngls,\
+        slideDict=slideDict,segList=segList)
     self.flag_followup = more_infos
 
-    # When time slides are properly implemented delete from here
-    self.number+=1
-    page.add("<hr>")
-    page.add("Figure(s) and data produced with " + __prog__ + ", version " \
-              + git_version.verbose_msg)
-        
-    htmlfilename = self.opts.prefix + "_followup_"+str(self.number) +\
-                         self.opts.suffix+'.html'
-    file = open(self.opts.output_path+htmlfilename,'w')
-    file.write(page(False))
-    file.close()
-
-    self.fname_list.append(htmlfilename)
-
-    # to here and uncomment the next line.
-
-#    return self.followup(page)
-
-    return htmlfilename
+    return self.followup(page,slideDict=slideDict,segList=segList)
 
   # -----------------------------------------------------
   def from_sngl(self, sngl, ifo = None, more_infos = False, \
@@ -1128,7 +1146,7 @@ class FollowupTrigger:
     
   # -----------------------------------------------------
   def from_found(self, found, ifo = None, more_infos = False, \
-                 injection_id = None):
+                 injection_id = None,coinc = None, sngls = None):
     """
     Creates a followup page from a found injection.
     @param sngl: the found injection to be followed up
@@ -1139,11 +1157,12 @@ class FollowupTrigger:
     """
 
     return self.from_injection(found, ifo = ifo, more_infos = more_infos, \
-                               injection_id = injection_id )
+                               injection_id = injection_id,coinc=coinc, \
+                               sngls = sngls )
     
   # -----------------------------------------------------
   def from_injection(self, injection, ifo = None, more_infos = True, \
-                     injection_id = None):
+                     injection_id = None,coinc = None, sngls = None):
     """
     Creates a followup page from an injection.
     @param injection: the injection to be followed up
@@ -1161,6 +1180,9 @@ class FollowupTrigger:
 
     # prepare the page
     page =  self.create_table_inj(injection)
+
+    if coinc and sngls:
+      page =  self.create_table_coinc(coinc,snglInspirals= sngls,page=page)
 
     self.flag_followup = more_infos
     
@@ -1197,11 +1219,13 @@ class FollowupTrigger:
     
 
   # -----------------------------------------------------
-  def followup(self, page):
+  def followup(self, page,slideDict = None, segList = None):
     """
     Central followup procedure, finding corresponding files,
     generating the time-series and creating the output html files
     @param page: The head of the html page created with different informations
+    @param slideDict: A dictionary of ifo keyed slide times if using slides
+    @param segList: Sorted segment list of possible rings if using slides
     @return: filename of the created html
     """
   
@@ -1234,7 +1258,7 @@ class FollowupTrigger:
         continue
 
       # call the function to create the timeseries
-      if 'THINCA_SECOND' in stage:
+      if ('THINCA_SECOND' in stage) or ('THINCA_SLIDE_SECOND' in stage):
         # ... need to loop over the four categories
         for cat in [1,2,3,4,5]:          
           select_list=self.select_category(file_list, cat)
@@ -1244,9 +1268,10 @@ class FollowupTrigger:
             continue          
           modstage = stage+'_CAT_' + str(cat)
           invest_dict[modstage] = self.create_timeseries(select_list,modstage,\
-                                                         self.number)
+                                       self.number,slideDict,segList)
       else:
-        invest_dict[stage]=self.create_timeseries(file_list, stage, self.number)
+        invest_dict[stage]=self.create_timeseries(file_list, stage, \
+                                self.number,slideDict,segList)
 
 
     ## add some more followup if required

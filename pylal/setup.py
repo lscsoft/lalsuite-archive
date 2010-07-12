@@ -476,6 +476,7 @@ setup(
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
+		os.path.join("bin", "lalapps_cbc_search_volume_by_m1_m2"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_plot_tisi"),
 		os.path.join("bin", "lalapps_power_plot_binj"),
@@ -561,7 +562,8 @@ setup(
 		os.path.join("bin", "run_skypoints.py"),
 		os.path.join("bin", "make_skypoints_grids.py"),
 		os.path.join("bin", "make_skypoints_rankings.py"),
-                os.path.join("bin", "plot_skypoints.py")
+                os.path.join("bin", "plot_skypoints.py"),
+		os.path.join("bin", "pylal_cbc_select_hardware_injections")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

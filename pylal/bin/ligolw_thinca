@@ -37,6 +37,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
+from glue import segmentsUtils
 # Don't use sngl_inspiral event_id derived from the long built-in.  this
 # must be done before importing pylal.xlal.tools or bad things happen.
 # FIXME:  remove when thinca no longer generates bazillion-digit long
@@ -48,6 +49,7 @@ from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -93,6 +95,7 @@ def parse_command_line():
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor used with the \"inspiral\" effective SNR (default = 250.0).")
 	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
 	parser.add_option("--trigger-program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the event list as it appears in the process table (default = \"inspiral\").")
+	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -106,6 +109,13 @@ def parse_command_line():
 		raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
 	if options.effective_snr not in ("inspiral", "gstlal"):
 		raise ValueError, "unrecognized --effective-snr %s" % options.effective_snr
+
+	if options.coinc_end_time_segment is not None:
+		if ',' in options.coinc_end_time_segment:
+			raise ValueError, "--coinc-end-time-segment may only contain a single segment"
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
+	else:
+		options.coinc_end_time_segs = None
 
 	#
 	# done
@@ -138,6 +148,25 @@ options, filenames = parse_command_line()
 
 if options.effective_snr == "gstlal":
 	ligolw_thinca.SnglInspiral.get_effective_snr = lambda self, fac: self.snr / math.sqrt(self.chisq)
+
+
+#
+# Select ntuple_comparefunc form
+#
+
+
+if options.coinc_end_time_segs is not None:
+	# Custom Ntuple Comparison Function
+	def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
+		"""
+		Return False (ntuple should be retained) if the end time of the
+		coinc is in the segmentlist segs.
+		"""
+		return ligolw_thinca.coinc_inspiral_end_time(events, offset_vector) not in seg
+
+	ntuple_comparefunc = restricted_endtime_ntuple_comparefunc
+else:
+	ntuple_comparefunc = ligolw_thinca.default_ntuple_comparefunc
 
 
 #
@@ -182,6 +211,7 @@ for n, filename in enumerate(filenames):
 		vetoes_name = options.vetoes_name,
 		trigger_program = options.trigger_program,
 		effective_snr = options.effective_snr,
+		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
 
@@ -233,9 +263,11 @@ for n, filename in enumerate(filenames):
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare_exact,
 		thresholds = options.e_thinca_parameter,
+		ntuple_comparefunc = ntuple_comparefunc,
 		effective_snr_factor = options.effective_snr_factor,
 		veto_segments = vetoes,
 		trigger_program = options.trigger_program,
+		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
 
