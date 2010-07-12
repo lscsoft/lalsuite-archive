@@ -21,6 +21,7 @@ from optparse import OptionParser
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import SimInspiralUtils
 from glue import segments
 from glue import segmentdb
@@ -34,7 +35,8 @@ def checkInjection(segments,injection):
 
 usage = """ %prog [options]
 Parse a list of scheduled hardware injections, check which were actually performed.
-Checks that each injection is performed in all detectors specified (i.e. uses AND).
+Checks that each injection is performed in all detectors specified (i.e. uses AND),
+and that those detectors were in science mode at the time.
 Ouputs a SimInspiralTable to specified file, or stdout if none is given.
 """
 
@@ -95,10 +97,5 @@ output_doc.appendChild(output_ligo_lw)
 output_doc.childNodes[0].appendChild(outtable)
 
 # Write the output file and finish
-if opts.output is not None:
-	output_file = open(opts.output,"w")
-	output_doc.write(output_file)
-	output_file.close()
-else:
-	output_doc.write()
+utils.write_filename(output_doc,opts.output, gz=(opts.output or "stdout").endswith("gz"), verbose=False)
 
