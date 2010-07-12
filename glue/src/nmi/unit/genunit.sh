@@ -37,7 +37,7 @@ cd $SUBMIT_DIR
 cp $TEMPLATE_DIR/{cmdfile,scripts.git,remote_*.sh} .
 
 # make sure given build GID exists
-nmi_gid2runid $2 > /dev/null
+#nmi_gid2runid $2 > /dev/null
 
 export _NMI_XML_FILE=$1
 export _NMI_XML_BASENAME=$(basename $_NMI_XML_FILE)
