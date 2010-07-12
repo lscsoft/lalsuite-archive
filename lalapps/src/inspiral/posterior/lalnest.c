@@ -223,7 +223,7 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 'V':
 			fprintf(stdout,"LIGO/LSC Bayesian parameter estimation and evidence calculation code\nfor CBC signals, using nested sampling algorithm.\nJohn Veitch <john.veitch@ligo.org>\n");
-			XLALOutputVersionString(stderr,0);
+			//XLALOutputVersionString(stderr,0);
 			exit(0);
 			break;
 		case 18:
