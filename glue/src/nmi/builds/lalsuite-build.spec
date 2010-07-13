@@ -13,9 +13,8 @@ run_type = build
 platforms = x86_64_cent_5.3
 inputs = $(HARNESS_INPUT_SPEC_FILE)
 remote_task = remote_task.sh
-#remote_post = remote_post.py
-#remote_post_args = --verbose
-remote_post = remote_post.sh
+remote_post = remote_post.py
+remote_post_args = --verbose
 
 # send the submitting user an email if any task fails
 notify = $(USER)@syr.edu
