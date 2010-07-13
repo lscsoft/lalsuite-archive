@@ -50,7 +50,7 @@ cd ${LSCSOFT_SRCDIR}
 if [[ ! -d ${LSCSOFT_SRCDIR}/lalsuite/.git ]]; then
     cd ${LSCSOFT_SRCDIR}
 #    git clone /home/cbc/nmi/src/lalsuite/.git
-    git clone $NMI_git_url
+    git clone $NMI_git_repo
 fi
 
 cd ${LSCSOFT_SRCDIR}/lalsuite
