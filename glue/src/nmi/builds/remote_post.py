@@ -32,7 +32,7 @@ if os.getenv("_NMI_STEP_FAILED") is not None:
     debugging_files = [ "src" ]
 
 tar = tarfile.open("results.tar.gz", "w:gz")
-for name in [ "head" ] + debugging_files:
+for name in [ "opt" ] + debugging_files:
     tar.add(name)
 
 if options.verbose:
