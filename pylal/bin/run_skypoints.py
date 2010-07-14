@@ -233,7 +233,7 @@ for coinc in coincs:
     area = {}
     if  opts.galaxy_priors_dir:
       try:
-        galpt = fbins[sbin(fbins,inj_pt,fine_res)]
+        galpt = fbins[skylocutils.sbin(fbins,inj_pt,fine_res)]
         pval_inj = gal_prior[galpt]
       except KeyError:
         pval_inj = 0.0
