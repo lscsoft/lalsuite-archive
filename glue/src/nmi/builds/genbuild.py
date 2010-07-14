@@ -5,10 +5,10 @@
 import os
 import sys
 import commands
-import nmiOpts
+from glue import nmi.opts
 
 # define common options (e.g., -v -q -h) 
-parser = nmiOpts.OptionParserInit()
+parser = nmi.opts.OptionParserInit()
 
 # define custom options
 parser.add_option("-r", "--git-repo", dest="git_repo",
