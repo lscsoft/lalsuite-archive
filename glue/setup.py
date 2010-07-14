@@ -258,6 +258,7 @@ setup(
     os.path.join('bin','ligolw_publish_dqxml'),
     os.path.join('bin','ligolw_diff'),
     os.path.join('bin','segdb_coalesce'),
+    os.path.join('bin', 'glue_nmi_genbuild'),
     os.path.join('bin', 'ligolw_print_tables') ],
   data_files = [
     ( 'etc',
