@@ -10,10 +10,20 @@
 
 import os
 import tarfile
-import nmiOpts
+from optparse import OptionParser
+
+def OptionParserInit():
+    parser = OptionParser(version="%prog $Id$")
+    parser.add_option("-v", "--verbose",
+                      action="store_true", dest="verbose", default=False,
+                      help="print verbose status messages to stdout")
+    parser.add_option("-q", "--quiet",
+                      action="store_false", dest="verbose",
+                      help="don't print status messages to stdout")
+    return parser
 
 # set up basic -v -q options
-parser = nmiOpts.OptionParserInit()
+parser = OptionParserInit()
 (options, args) = parser.parse_args()
 
 # if any part of the build failed, we want to pack up src/ for debugging
