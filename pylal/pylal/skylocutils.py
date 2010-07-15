@@ -392,9 +392,12 @@ class SkyPoints(list):
     by the factor in normfac
     """
     normfac = sum([pt[n] for pt in self])
-    for i in range(len(self)):
-      self[i][n] /= normfac
-    return normfac
+    if normfac > 0.0:
+      for i in range(len(self)):
+        self[i][n] /= normfac
+      return normfac
+    else:
+      return -1
 
   def write(self,fname,post_dat,comment=None,debug=False,gz=False):
     """
@@ -532,7 +535,7 @@ class Coincidences(list):
       coinc.set_masses(dict((row.ifo, row.mass1) for row in sngltab), \
                        dict((row.ifo, row.mass2) for row in sngltab))
       ctab = tab.get_table(xmldoc,lsctables.CoincInspiralTable.tableName)
-      coinc.set_ifos(ctab[0].get_ifos())
+      coinc.set_ifos(list(ctab[0].get_ifos()))
       
       try:
         simtab = tab.get_table(xmldoc,lsctables.SimInspiralTable.tableName)

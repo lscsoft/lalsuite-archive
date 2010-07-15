@@ -207,11 +207,18 @@ for coinc in coincs:
         sp.append([fine_pt,L,Pdt.get_rank(dtrank),dtrank,pval*L])
 
   fnames = {}
-  fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
-  if opts.galaxy_priors_dir:
-    fnames['galaxy'] = get_unique_filename(gal_fname.replace('GPSTIME',str(coinc.time.seconds)))
+  if opts.input_type == 'coinctable':
+    fnames['posterior'] = 'skymap_no_galaxies.txt'
+    if opts.galaxy_priors_dir:
+      fnames['galaxy'] = 'skymap.txt'
+    else:
+      fnames['galaxy'] = None
   else:
-    fnames['galaxy'] = None
+    fnames['posterior'] = get_unique_filename(post_fname.replace('GPSTIME',str(coinc.time.seconds)))
+    if opts.galaxy_priors_dir:
+      fnames['galaxy'] = get_unique_filename(gal_fname.replace('GPSTIME',str(coinc.time.seconds)))
+    else:
+      fnames['galaxy'] = None
 
   if sp:
     print >>sys.stdout, 'Populating sky localization table...'
@@ -263,15 +270,18 @@ for coinc in coincs:
   print >>sys.stdout, 'Finished processing trigger.'
 
 #name the xml file according to the range of gps times
-if len(coincs) > 1:
-  tmin = min([min(c.gps.values()) for c in coincs]).seconds
-  tmax = max([max(c.gps.values()) for c in coincs]).seconds
-  ofname=outfile.replace('GPSTIME',str(tmin)+'-'+str(tmax))
-#or the single time if only one coinc is present
+if opts.input_type == 'coinctable':
+  output = 'skypoints.xml'
 else:
-  tmin = min([c for c in coincs[0].gps.values()])
-  ofname=outfile.replace('GPSTIME',str(tmin))
-output = get_unique_filename(ofname)
+  if len(coincs) > 1:
+    tmin = min([min(c.gps.values()) for c in coincs]).seconds
+    tmax = max([max(c.gps.values()) for c in coincs]).seconds
+    ofname=outfile.replace('GPSTIME',str(tmin)+'-'+str(tmax))
+  #or the single time if only one coinc is present
+  else:
+    tmin = min([c for c in coincs[0].gps.values()])
+    ofname=outfile.replace('GPSTIME',str(tmin))
+  output = get_unique_filename(ofname)
 #write the xml file and we're done
 f = open(output,'w')
 xmldoc.write(f)
