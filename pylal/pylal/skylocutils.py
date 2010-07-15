@@ -404,18 +404,17 @@ class SkyPoints(list):
     post_grid = '# normfac = ' + str(post_dat['normfac']) + '\n'
     post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+    post_grid += 'gps = ' + str(post_dat['gps']) + '\n'
     post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
-    if fname['galaxy']:
-      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
-      gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
-      gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
     for pt in self:
-        post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
+        post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
     if comment:
       post_grid += '# ' + comment + '\n'
     if fname['galaxy']:
-      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
+      gal_grid = '# normfac = ' + str(post_dat['gnormfac']) + '\n'
+      gal_grid += 'snr = ' + str(post_dat['snr']) + '\n'
       gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+      gal_grid += 'gps = ' + str(post_dat['gps']) + '\n'
       gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
       self.nsort(4)
       for pt in self:
@@ -627,6 +626,7 @@ class SkyLocTable(tab.Table):
     "dt90": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
+    "galaxy_grid": "lstring",
     "grid": "lstring"
     }
     
@@ -671,7 +671,8 @@ class SkyLocInjTable(tab.Table):
     "v1_eff_distance": "real_4",
     "mass1": "real_4",
     "mass2": "real_4",
-    "grid": "lstring"
+    "grid": "lstring",
+    "galaxy_grid": "lstring"
     }
     
 class SkyLocInjRow(object):
@@ -714,7 +715,7 @@ class GalaxyRow(object):
 GalaxyTable.RowType = GalaxyRow
 
 def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
-                         skymap_fname=None):
+                         skymap_fname=None,galmap_fname=None):
   """
   populate a row in a skyloctable
   """
@@ -746,12 +747,17 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
     row.skymap = os.path.basename(str(skymap_fname))
   else:
     row.skymap = skymap_fname
-  row.grid = os.path.basename(str(grid_fname))
 
+  row.grid = os.path.basename(str(grid_fname))
+  if galmap_fname:
+    row.galaxy_grid = os.path.basename(str(galmap_fname))
+  else:
+    row.galaxy_grid = galmap_fname
+  
   skyloctable.append(row)
   
 def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
-                            dtrss_inj,dDrss_inj,grid_fname):
+                            dtrss_inj,dDrss_inj,grid_fname,gal_grid):
   """
   record injection data in a skylocinjtable
   """
@@ -801,7 +807,10 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
   row.mass1 = coinc.mass1_inj
   row.mass2 = coinc.mass2_inj
   row.grid = os.path.basename(str(grid_fname))
-
+  if gal_grid:
+    row.galaxy_grid = os.path.basename(str(gal_grid))
+  else:
+    row.galaxy_grid = gal_grid
   skylocinjtable.append(row)
 
 def populate_GalaxyTable(galaxytable,coinc,galaxy):

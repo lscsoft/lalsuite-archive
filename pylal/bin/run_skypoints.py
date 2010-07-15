@@ -218,7 +218,7 @@ for coinc in coincs:
     #populate the output tables
     #list of points has been sorted so the best one is at the top
     #FIXME: replace None with a link to the skymap file name!!!
-    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['posterior'],None)
+    skylocutils.populate_SkyLocTable(skyloctable,coinc,sp,fine_area,fnames['posterior'],None,fnames['galaxy'])
   else:
     print >>sys.stdout, 'Unable to localize.'
   if coinc.is_injection:
@@ -246,15 +246,18 @@ for coinc in coincs:
     area['dt'] = dt_area
     area['rank'] = rank_area
     skylocutils.populate_SkyLocInjTable(skylocinjtable,coinc,rank_inj,area,\
-                                        dtrss_inj,dDrss_inj,fnames['posterior'])
+                                        dtrss_inj,dDrss_inj,fnames['posterior'],fnames['galaxy'])
 
   #check for name collisions and then write the grid
   #use seconds of the smallest gpstime to label the event
   print >>sys.stdout, 'Writing skymap...'
   post_dat = {}
-  post_dat['normfac'] = sp.normalize(2)
+  post_dat['normfac'] = sp.normalize(1)
   post_dat['snr'] = combsnr
   post_dat['FAR'] = coinc.FAR
+  post_dat['gps'] = coinc.time
+  if opts.galaxy_priors_dir:
+    post_dat['gnormfac'] = sp.normalize(4)
   sp.write(fnames,post_dat,argstring)
   
   print >>sys.stdout, 'Finished processing trigger.'
