@@ -112,7 +112,7 @@ for file in files:
         m.drawmapboundary()
         m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-') # draw parallels
         m.drawmeridians(np.arange(0.,420.,90.),labels=[0,0,0,1],labelstyle='+/-') # draw meridians
-        pyplot.title("Skymap for "+str(fname) + "(SNR = "+str(snr)+")") # add a title
+        pyplot.title("Skymap for "+str(fname) + "\n"+"SNR = "+str(snr)) # add a title
         pyplot.colorbar()
         if inj:
           injx,injy = m(np.asarray(injlon),np.asarray(injlat))
