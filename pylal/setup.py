@@ -389,6 +389,11 @@ setup(
 			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
+		),
+        Extension(
+			"pylal._bayespputils",
+			["src/bayespputils.c"],
+			include_dirs = [numpy_get_include()]
 		)
 	],
 	scripts = [
@@ -405,7 +410,7 @@ setup(
 		os.path.join("bin", "followupQueryDQ.py"),
 		os.path.join("bin", "followupQueryVeto.py"),
 		os.path.join("bin", "followupRatioTest.py"),
-		os.path.join("bin", "followupGetDataAsAscii.py"),		
+		os.path.join("bin", "followupGetDataAsAscii.py"),
 		os.path.join("bin", "followupGenerateDQBackground.py"),
 		os.path.join("bin", "followupCustomFOM.py"),
 		os.path.join("bin", "paste_insp_triggers"),
@@ -420,7 +425,7 @@ setup(
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotnumgalaxies"),
 		os.path.join("bin", "lalapps_compute_posterior"),
-		os.path.join("bin", "plotulvsmass"), 
+		os.path.join("bin", "plotulvsmass"),
 		os.path.join("bin", "plotifar"),
 		os.path.join("bin", "plotinjnum"),
 		os.path.join("bin", "plotinspfound"),
@@ -502,7 +507,7 @@ setup(
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_inspinjfind"),
-		os.path.join("bin", "lalapps_cbc_injfind"),		
+		os.path.join("bin", "lalapps_cbc_injfind"),
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
