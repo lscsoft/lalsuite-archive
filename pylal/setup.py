@@ -177,7 +177,8 @@ setup(
 	packages = [
 		"pylal",
 		"pylal.xlal",
-		"pylal.xlal.datatypes"
+		"pylal.xlal.datatypes",
+                "pylal.dq"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
