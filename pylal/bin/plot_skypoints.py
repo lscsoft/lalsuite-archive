@@ -9,6 +9,8 @@ __date__ = git_version.date
 import sys
 from optparse import *
 import glob
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot
 import matplotlib.cm as cm
 from mpl_toolkits.basemap import Basemap
@@ -57,11 +59,19 @@ for file in files:
   xmldoc =utils.load_filename(file)
   try:
     sltab = table.get_table(xmldoc,skylocutils.SkyLocInjTable.tableName)
-    inj = True
+    if sltab[0].grid:
+      print "injection"    
+      inj = True
+    else:
+      print "no injection"
+      sltab = table.get_table(xmldoc,skylocutils.SkyLocTable.tableName)
+      inj = False  
   except:
+    print "no injection"
     sltab = table.get_table(xmldoc,skylocutils.SkyLocTable.tableName)
     inj = False
   
+  print "Plotting "+file
   for row in sltab:
     for fname in [row.grid,row.galaxy_grid]:
       if fname:
@@ -121,7 +131,7 @@ for file in files:
         pyplot.colorbar()
         if inj:
           injx,injy = m(np.asarray(injlon),np.asarray(injlat))
-          pyplot.scatter(injx,injy,s=60,c='DeepPink',marker=(6,1,0),faceted=False)
+          pyplot.scatter([injx],[injy],s=60,c='#8B008B',marker=(6,1,0),faceted=False)
         bestx,besty = m(np.asarray(bestlon),np.asarray(bestlat))
-        pyplot.scatter(bestx,besty,s=60,c='Black',marker=(6,1,0),faceted=False)
+        pyplot.scatter([bestx],[besty],s=60,c='#FF1493',marker=(6,1,0),faceted=False)
         pyplot.savefig(fname.replace('txt','png'))
