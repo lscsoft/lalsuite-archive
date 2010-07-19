@@ -432,9 +432,6 @@ free_values(fine_grid);
 	   v/c=1e-4
 	   sidecut = 1e-4 * freq_in_bins
 	   
-	   Compare to formula used:
-	   
-	   side_cut = M_PI/(6.0*resolution) = M_PI*freq_in_bins/(6*4500) = 1.1e-4 * freq_in_bins
 	*/
 
 side_cut=args_info.side_cut_arg;
@@ -445,7 +442,7 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=260+ceil((args_info.first_bin_arg+args_info.nbins_arg)*M_PI/9000.0)/6.0+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=260+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
 	/* round it up to a multiple of 450 */
 /*	side_cut=450*ceil(side_cut/450.0);*/
 	}
