@@ -4,7 +4,7 @@ import sys
 import os
 from optparse import OptionParser
 from numpy import argsort
-from pylal.DQ import dataUtils
+from pylal.dq import dqFrameUtils
 
 from glue import git_version
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
@@ -41,7 +41,7 @@ This script will return all frame types associated with given channel. All or pa
 
 Accepted ifos:
 
-H0,H1,H2,L0,L1,G0,G1,V0,V1
+H,L,V,H0,H1,H2,L0,L1,G0,G1,V0,V1
 """
   parser = OptionParser(usage=usage)
 
@@ -107,26 +107,29 @@ if __name__ == '__main__':
   if options.types is None and not options.full:
     ignore_list=['M','T']
 
-  types = \
-      dataUtils.find_types(options.types,short=options.short,full=options.full)
+  types = dqFrameUtils.find_types(options.types,\
+                                  short=options.short,\
+                                  full=options.full)
 
   # ==========
   # set up ifos list
   # ==========
   if options.ifos:
     options.ifos = options.ifos.split(',')
-  ifos = dataUtils.find_ifos(channels,types,options.ifos)
+  ifos = dqFrameUtils.find_ifos(channels,\
+                                types,\
+                                options.ifos)
 
   # ==========
   # search frame types for channels
   # ==========
-  found = dataUtils.find_channels(channels,\
-                                types,\
-                                ifos,\
-                                ignore=ignore_list,\
-                                match=options.match,\
-                                time=options.gps_time,\
-                                verbose=options.verbose)
+  found = dqFrameUtils.find_channels(channels,\
+                                     types,\
+                                     ifos,\
+                                     ignore=ignore_list,\
+                                     match=options.match,\
+                                     time=options.gps_time,\
+                                     verbose=options.verbose)
   
   # ==========
   # print summary
