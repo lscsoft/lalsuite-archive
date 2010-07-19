@@ -84,7 +84,10 @@ for file in files:
           if '=' in line:
             continue
           elif line.strip():
-            lon, lat, c = line.strip().split()
+            try:
+              lon, lat, c = line.strip().split()
+            except ValueError:
+              continue
             #remove everything with a probability below the cutoff
             #this makes the skymaps cleaner
             if float(c) >= cutoff:
@@ -103,6 +106,8 @@ for file in files:
         #strange plotting artifacts
         sortme = zip(color,latitude,longitude)
         sortme.sort()
+        bestlat = sortme[-1][1]
+        bestlon = sortme[-1][2]
         color, latitude, longitude = zip(*sortme)
 
         pyplot.clf()
@@ -117,4 +122,6 @@ for file in files:
         if inj:
           injx,injy = m(np.asarray(injlon),np.asarray(injlat))
           pyplot.scatter(injx,injy,s=60,c='DeepPink',marker=(6,1,0),faceted=False)
+        bestx,besty = m(np.asarray(bestlon),np.asarray(bestlat))
+        pyplot.scatter(bestx,besty,s=60,c='Black',marker=(6,1,0),faceted=False)
         pyplot.savefig(fname.replace('txt','png'))
