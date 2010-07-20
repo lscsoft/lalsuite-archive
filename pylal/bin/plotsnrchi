@@ -25,6 +25,7 @@ from types import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from glue import segmentsUtils
 from glue import lal
 from glue.ligolw import lsctables
 import pylal
@@ -214,6 +215,10 @@ def parse_command_line():
       default=None, metavar="SLIDEPTTRN", help="sieve pattern for background" )
   parser.add_option("","--found-pattern",
       metavar="FOUNDPTTRN", help="sieve pattern for found injection files")
+
+  parser.add_option("-V", "--veto-file", action="store", type="string",
+      default=None, metavar="FNAME",
+      help="read in segments from FNAME (assumed segwizard format)")
 
   ## arguments for plot creation
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -470,7 +475,17 @@ if trigFiles:
       inspTriggers = inspTriggers.ifocut(opts.ifo_tag)
     nevents = len(inspTriggers)
   comments += InspiralUtils.message(opts, \
-      'Read '+str(nevents)+ ' triggers from inspiral files')
+      'Read %d triggers from inspiral files' % nevents)
+  if opts.veto_file is not None:
+    comments += InspiralUtils.message(opts, 'Applying vetos ' + opts.veto_file)
+    n_before_vetos = len(inspTriggers)
+    for veto_file in opts.veto_file.split(','):
+      seglist = segmentsUtils.fromsegwizard(open(veto_file))
+      inspTriggers = inspTriggers.veto(seglist)
+      nevents = len(inspTriggers)
+  comments += InspiralUtils.message(opts,
+      'Inspiral triggers: %d before vetos, %d after vetos (%d vetoed)' % \
+        (n_before_vetos, nevents, n_before_vetos - nevents))
   if nevents:
     snr = inspTriggers.get_column('snr')
     chisq = inspTriggers.get_column('chisq')
@@ -488,6 +503,8 @@ slide_rsq = array([])
 slide_events = 0
 
 if slideFiles:
+  if opts.veto_file is not None:
+    raise NotImplementedError, "Cannot use veto files with timeslides."
   slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles, \
       verbose=opts.verbose)
   if slideTriggers:
@@ -519,6 +536,18 @@ if injFiles:
     if opts.ifo_tag:
       injTriggers = injTriggers.ifocut(opts.ifo_tag)
     ninj_events = len(injTriggers)
+  comments += InspiralUtils.message(opts, \
+      'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
+  if opts.veto_file is not None:
+    comments += InspiralUtils.message(opts, 'Applying vetos ' + opts.veto_file)
+    ninj_before_vetos = ninj_events
+    for veto_file in opts.veto_file.split(','):
+      seglist = segmentsUtils.fromsegwizard(open(veto_file))
+      injTriggers = injTriggers.veto(seglist)
+      ninj_events = len(injTriggers)
+  comments += InspiralUtils.message(opts,
+      'Injection triggers: %d before vetos, %d after vetos (%d vetoed)' % \
+        (ninj_before_vetos, ninj_events, ninj_before_vetos - ninj_events))
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
     inj_chisq = injTriggers.get_column('chisq')
@@ -526,8 +555,6 @@ if injFiles:
     inj_bankchisq = injTriggers.get_column('bank_chisq')
     inj_bankchisq_dof = 2 * (injTriggers.get_column('bank_chisq_dof') - 1)
     inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
-  comments += InspiralUtils.message(opts, \
-      'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
 
 if (nevents == 0) and (ninj_events == 0) and (slide_events == 0):
   ## give up and exit
