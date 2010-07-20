@@ -84,6 +84,7 @@ def coinc_params_func(events, offsetdict):
 
 		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
 		params["%sdf" % prefix] = (df,)
+
 	#
 	# done
 	#
