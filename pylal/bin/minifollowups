@@ -8,7 +8,7 @@ from __future__ import division
 __author__ = "Ian Harry <ian.harry@astro.cf.ac.uk>"
 __prog__="minifollowups"
 
-import sys,os
+import sys,os,copy
 from optparse import *
 from glue import lal
 from pylal import SnglInspiralUtils
@@ -40,7 +40,7 @@ def organize_coincs(new_coincs,sngls,coinc_map):
     snglList = []
     for sngl in sngls:
        if sngl.event_id in snglEventIds:
-         snglList.append(sngl)
+         snglList.append(copy.deepcopy(sngl))
     coinc_list[i].append(snglList)
     i += 1
   return coinc_list
