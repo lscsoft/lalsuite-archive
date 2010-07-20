@@ -645,7 +645,7 @@ if options.verbose:
 # FIXME:  don't hard-code instrument names
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
 process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
-write_products([efficiency], "string_injectcions_", options.image_formats, verbose = False)
+write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
 
 
 if options.verbose:
