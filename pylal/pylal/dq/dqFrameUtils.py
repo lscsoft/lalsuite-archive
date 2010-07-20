@@ -8,7 +8,7 @@ import os
 import sys
 from pylal import Fr
 import numpy
-
+from subprocess import Popen,PIPE
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -35,6 +35,18 @@ def GetCommandOutput(command):
 # ==============================================================================
 def grab_data(start,end,channel,type,\
               nds=False,verbose=False,dmt=False):
+  """
+  This function will return the frame data for the given channel of the given
+  type in the given [start,end] time range and will construct a gps time vector
+  to go with it. The nds option is not yet supported,
+  and the dmt option will return data for dmt channels in frames not found by 
+  ligo_data_find.
+
+  >>>grab_data(960000000,960000001,'H1:IFO-SV_STATE_VECTOR','H1_RDS_R_L3')
+  ([960000000.0,960000001.0,960000002.0,960000003.0,960000004.0,960000005.0],
+   [15.0, 14.125, 13.0, 13.0, 13.0, 13.0])
+  """
+
   time = []
   data = []
 
@@ -43,7 +55,7 @@ def grab_data(start,end,channel,type,\
     print >>sys.stdout, "Generating framecache..."
     sys.stdout.flush()
   if not dmt:
-    cache = cache_gen(start,end,channel[0:1],type)
+    cache = generate_cache(start,end,channel[0:1],type,return_files=True)
   else:
     cache = dmt_cache(start,end,channel[0:1],type)
   #== loop over frames in cache
@@ -79,8 +91,8 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
   Example:
 
   >>>generate_cache(961977615,962582415,R,H)
-  [H R 962000000 962064032 32 /archive/frames/S6/L0/LHO/H-R-9620]
-  [H R 961977600 962000000 32 /archive/frames/S6/L0/LHO/H-R-9619]
+  ['H R 961977600 962000000 32 /archive/frames/S6/L0/LHO/H-R-9619'
+   'H R 962000000 962064032 32 /archive/frames/S6/L0/LHO/H-R-9620']
   >>>generate_cache(961977615,962582415,R,H,return_files=True)
   [/archive/frames/S6/L0/LHO/H-R-9619/H-R-961977600-32.gwf,
    /archive/frames/S6/L0/LHO/H-R-9619/H-R-961977632-32.gwf,
@@ -98,16 +110,20 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
   for ifo in ifos:
     #== loop over each frame type
     for type in types:
+      ldf_exe,sourced = GetCommandOutput('which ligo_data_find')
+      if sourced!=0:
+        print "Cannot find ligo_data_find. Please ensure, lscsoft is sourced."
+        sys.exit()
       try:
-        data_find_cmd = '''ligo_data_find '''+\
-                        ''' --gps-start-time '''+str(start_time)+\
-                        ''' --gps-end-time '''+str(end_time)+\
-                        ''' --observatory '''+ifo[0:1]+\
-                        ''' --type '''+type+\
-                        ''' --url-type file '''+\
-                        ''' --frame-cache '''
-      #== run ligo_data_find and append each frame to the cache
-        cache_out = Popen(data_find_cmd,stdout=PIPE)
+        data_find_cmd =   ldf_exe.replace('\n','')+\
+                          ''' --gps-start-time '''+str(start_time)+\
+                          ''' --gps-end-time '''+str(end_time)+\
+                          ''' --observatory '''+ifo[0:1]+\
+                          ''' --type '''+type+\
+                          ''' --url-type file '''+\
+                          ''' --frame-cache | sort'''
+        #== run ligo_data_find and append each frame to the cache
+        cache_out = Popen(data_find_cmd,shell=True,stdout=PIPE)
         for line in cache_out.stdout.readlines():
           #== if line is not recognised in standard frame cache format, skip
           if len(line.split(' '))!=6:
@@ -128,7 +144,36 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
 # =============================================================================
 # Function to find types
 # =============================================================================
-def find_types(types,short=False,full=False):
+def find_types(types,search='standard'):
+  """
+  This function will return a valid list of LIGO frame types given the list of
+  type strings. The search option defines the breadth of the search, to speed
+  up the search, the following search options are supported:
+  'standard','short','full'. 
+
+  The 'R', 'T', and 'M' (raw, raw second trends, and raw minute trends) are 
+  treated as special cases, so as not to return all types containing those 
+  letters. 
+
+  Example:
+
+  >>>find_types('H1_RDS')
+  ['H1_RDS_C01_LX',
+   'H1_RDS_C02_LX',
+   'H1_RDS_C03_L1',
+   'H1_RDS_C03_L2',
+   'H1_RDS_C03_L2_ET',
+   'H1_RDS_C03_L2_ET2',
+   'H1_RDS_C03_L2_ET30',
+   'H1_RDS_C04_LX',
+   'H1_RDS_R_L1',
+   'H1_RDS_R_L3',
+   'H1_RDS_R_L4']
+
+  >>>find_types(['H1_RDS','R'],search='short')
+  ['H1_RDS_R_L1', 'H1_RDS_R_L3', 'H1_RDS_R_L4', 'R']
+  """
+
   #== check for ldf
   ldf_exe='ligo_data_find'
   ldf_status = GetCommandOutput('which '+ldf_exe)[1]
@@ -136,6 +181,9 @@ def find_types(types,short=False,full=False):
     print >>sys.stderr, \
         "Error: ligo_data_find not found. Please ensure lscsoftrc is sourced"
     sys.exit()
+
+  #== make sure types is a list
+  if isinstance(types,str):  types = [types]
 
   #== set up search command
   find_cmd = ldf_exe+" -y | egrep "
@@ -146,41 +194,45 @@ def find_types(types,short=False,full=False):
   special_cases=[]
 
   #== set list of ignored strings in `ligo_data_find -y`
-  if types is None:
-    #== there are thousands of GRBXXXXXX frame types, so ignore them ALWAYS
+  #== there are thousands of GRBXXXXXX frame types, so ignore them
+  if search!='full': 
     vgrep_list = ['GRB']
-    if short:
-      #== all of these strings are part of frame types that can be ignored for a
-      #== short search
-      short_ignore_list = ['CAL','BRST','Mon','SG','IMR','DuoTone','Concat',\
-                           'BH','WNB','Lock','_M','_S5','Multi','Noise']
-      vgrep_list.extend(short_ignore_list)
-    #== add each of those ignored strings to a vgrep command
-    find_cmd+="-v '"
-    for vstring in vgrep_list:
-      find_cmd+=vstring+'|'
-    #== take off last '|'
-    find_cmd = find_cmd[0:-1] + "'"
+  if search=='short':
+    #== all of these strings are part of frame types that can be ignored for a
+    #== short search
+    short_ignore_list = ['CAL','BRST','Mon','SG','IMR','DuoTone','Concat',\
+                         'BH','WNB','Lock','_M','_S5','Multi','Noise','_C0']
+    vgrep_list.extend(short_ignore_list)
+  #== add each of those ignored strings to a vgrep command
+  find_cmd+="-v '"
+  for vstring in vgrep_list:
+    find_cmd+=vstring+'|'
+  #== take off last '|'
+  find_cmd = find_cmd[0:-1] + "'"
 
   #== if given types
-  else:
-    for type in types:
-      #== if type is one of the special cases, save for later
-      if type in special_types:
-        special_cases.append(type)
-      #== otherwise add it to the grep command
-      else:
-        find_cmd+= "'"
-        find_cmd+=type+"|"
-    #== take of the extra character
-    if find_cmd[-1]=="|":
-      find_cmd = find_cmd[0:-1] + "'"
+  if types:  find_cmd+=' | egrep '
+  for type in types:
+    #== if type is one of the special cases, save.
+    if type in special_types:
+      special_cases.append(type)
+    #== otherwise add it to the grep command
+    else:
+      find_cmd+= "'"
+      find_cmd+=type+"|"
+  #== take of the extra character
+  if find_cmd[-1]=="|":
+    find_cmd = find_cmd[0:-1] + "'"
 
   found_types = []
   #== if not searching only for special types, run the grep command
   if find_cmd != ldf_exe+" -y | egrep '":
-    found_types = GetCommandOutput(find_cmd)[0]
-    found_types = found_types.split('\n')[0:-1]
+    found_types_out = Popen(find_cmd,shell=True,stdout=PIPE)
+    for line in found_types_out.stdout.readlines():
+      if line=='\n':  continue
+      found_type = line.replace('\n','')
+      found_types.append(found_type)
+    found_types_out.stdout.close()
   #== append all special cases to the list
   for type in special_cases:
     found_types.append(type)
@@ -211,14 +263,22 @@ def find_ifos(channels,types,ifos):
                  'G0','G1',\
                  'V0','V1']
 
+  if isinstance(channels,str):
+    channels = [channels]
+  if isinstance(types,str):
+    types = [types]
+  if isinstance(ifos,str):
+    ifos = [ifos]
+
   #== if given no ifos, try to generate a list from the channels given  
   if ifos is None:
     ifos=[]
     if channels is not None:
       for channel in channels:
-        ifo = channel.split(':')[0]
-        if ifo in accepted_ifos and ifo not in ifos:
-          ifos.append(ifo)
+        if channel.find(':')!=-1:
+          ifo = channel.split(':')[0]
+          if ifo in accepted_ifos and ifo not in ifos:
+            ifos.append(ifo)
 
     if types is not None:
       for type in types:
@@ -250,15 +310,50 @@ def find_ifos(channels,types,ifos):
 # Function to find channels
 # =============================================================================
 def find_channels(channels=None,\
-                  ex_channels=None,\
                   types=None,\
                   ifos=None,\
+                  ex_channels=None,\
                   ignore=[],\
                   match=False,\
                   time=None,\
                   unique=False,\
                   verbose=False):
 
+  """
+  This function will use FrChannels to return all LIGO data channels matching
+  the given list of 'channels' strings, whilst exluding the 'ex_channels'
+  strings. Using find_ifos() and find_types() in the same module (if required),
+  the search is performed over the given ifos for each given type.
+
+  Use match=True to restrict the search to find channels that
+  exactly match the given 'channels' list (i.e. not a partial match).
+     Use time=True to search for channels in frame types defined at the given
+  epoch.
+     Use unique=True to return a unique list of channels, parsed using the
+  parse_unique_channels() function, otherwise can return multiple instance of
+  the same name string in different types.
+
+  Returns a list of dqFrameUtils.Channel instances.
+
+  Examples:
+
+  >>>channels = find_channels(channels='DARM',types='H1_RDS_R_L1') 
+  >>>for channel in channels:  print channel.name,channel.type,channel.sampling
+  H1:LSC-DARM_CTRL H1_RDS_R_L1 16384.0
+  H1:LSC-DARM_ERR H1_RDS_R_L1 16384.0
+  H1:LSC-DARM_CTRL_EXC_DAQ H1_RDS_R_L1 16384.0
+  H1:LSC-DARM_GAIN H1_RDS_R_L1 16.0
+
+  >>>channels = find_channels(channels='DARM_ERR',types=['H1_RDS_R_L1','H1_RDS_R_L3'])
+  >>>for channel in channels:  print channel.name,channel.type,channel.sampling
+  H1:LSC-DARM_ERR H1_RDS_R_L1 16384.0
+  H1:LSC-DARM_ERR H1_RDS_R_L3 16384.0
+  
+  >>>channels = find_channels(channels='DARM_ERR',types=['H1_RDS_R_L1','H1_RDS_R_L3'],unique=True)
+  >>>for channel in channels:  print channel.name,channel.type,channel.sampling
+  H1:LSC-DARM_ERR H1_RDS_R_L1 16384.0
+  """
+ 
   #== check for ldf
   ldf_exe='ligo_data_find'
   ldf_status = GetCommandOutput('which '+ldf_exe)[1]
@@ -271,11 +366,13 @@ def find_channels(channels=None,\
     ifos = find_ifos(channels,types,ifos)
 
   #== check list status
-  for input_set in [channels,types,ifos]:
-    if isinstance(input_set,str):
-      input_set = [input_set]
+  if isinstance(channels,str):
+    channels = [channels]
+  if isinstance(types,str):
+    types = [types]
+  if isinstance(ifos,str):
+    ifos = [ifos]
   found_channels=[]
-
   #== loop over each ifo
   for ifo in ifos:
     #== set ligo_data_find frame search time
@@ -333,14 +430,10 @@ def find_channels(channels=None,\
           channel_find_cmd = channel_find_cmd[0:-1]+"'"
 
         #== grab channels
-        channel_list,channel_status = \
-                GetCommandOutput(channel_find_cmd)
-        #== if grab was successful:
-        if channel_status == 0:
-          channel_list=channel_list.split('\n')
-          for data in channel_list:
-            if data=='':  continue
-            data = data.replace('\n','')
+        try:
+          channel_list_out = Popen(channel_find_cmd,shell=True,stdout=PIPE)
+          for line in channel_list_out.stdout.readlines():
+            data = line.replace('\n','')
             name,sampling = data.split(' ')
             #== if asked for exact match, check:
             if match:
@@ -350,7 +443,11 @@ def find_channels(channels=None,\
             found_channels.append(found_channel)
             count+=1
             sys.stdout.flush()
-
+          channel_list_out.stdout.close()
+        except:
+          print "  Failed to find channels for type "+type+", using the"+\
+              " following frame\n"+frame
+          continue
       #== print channel count for data type
       if verbose:  print >>sys.stdout, count,"channels found"
     if verbose:  print >>sys.stdout
@@ -363,10 +460,24 @@ def find_channels(channels=None,\
 # ==============================================================================
 # parse channels for uniqueness
 # ==============================================================================
-#== takes a list of DQutils.Channel structures and extracts a unique list of 
-#== channels based on a given frame type preference order
-#== NB: assumes channel list has been generated using Channel class below
 def parse_unique_channels(channels,type_order=None):
+  """
+  This function will parse a list of dqFrameUtils.Channel instances into a 
+  unique list based on the given type_order, or the internal default (based on 
+  the S6 frame type convention), e.g for H1: 
+
+  type_order=[H1_RDS_R_L1,H1_RDS_R_L3,R]
+
+  Multiple instances of the same channel name will be tried for each type in 
+  the order, if not matched the first instance will be chosen. This is an
+  attempt to maximise performance by picking frame types that contain the least
+  data.
+
+  Example:
+  
+  If the list 'channels' includes H1:LSC-DARM_ERR from both the 'R' and 
+  'H1_RDS_R_L3' frame types, the latter instance will be chosen.
+  """
   #== if given empty, return empty and hope user notices
   if channels==[]:
     return []
@@ -445,6 +556,17 @@ def parse_unique_channels(channels,type_order=None):
 # Class to generate channel structure
 # ==============================================================================
 class Channel:
+  """
+  The Channel class defines objects to represent LIGO data channels. Each Channel
+  has a 'name' attribute and can be assigned 'type' and 'sampling' attributes if
+  relevant.
+
+  Example:
+
+  >>>GWChannel = Channel('H1:LSC-DARM_ERR,'H1_RDS_R_L3',4096)
+  >>>GWChannel.name, GWChannel.type, GWChannel.sampling
+  ('H1:LSC-DARM_ERR', 'H1_RDS_R_L3', 4096)
+  """
   def __init__(self,name,type=None,sampling=None):
     self.name = str(name)
     if type is not None:
@@ -458,14 +580,33 @@ class Channel:
       except:
         self.sampling = float(sampling)
 
-
 # ==============================================================================
 # Function to generate a framecache of /dmt types
 # ==============================================================================
 def dmt_cache(start,end,ifo,type):
+  """
+  This function will return a list of frame files in the given start and stop 
+  time interval for the give IFO using the given DMT frame type. This is
+  required if ligo_data_find will not return the dmt frames.
+
+  Example:
+
+  >>>dmt_cache(960000000,960010000,'H1','LockLoss_H1')
+  ['/archive/frames/dmt/LHO/LockLoss_H1/H-M-960/H-LockLoss_H1_M-960001200-3600.gwf',
+   '/archive/frames/dmt/LHO/LockLoss_H1/H-M-960/H-LockLoss_H1_M-960004800-3600.gwf']
+  """
+
+  #== find dmt frames path
+  host = GetCommandOutput('hostname -f')[0].replace('\n','')
+  if host.find('ligo-')!=-1:
+    dmt_dir = '/dmt'
+  elif host.find('ligo.caltech')!=-1:
+    site = {'H':'LHO','L':'LLO','V':'V1'}
+    dmt_dir = os.path.join('/archive','frames','dmt',site[ifo[0]])
+
   cache=[]
   #== set base directory
-  base_dir = os.path.join('/dmt',type)
+  base_dir = os.path.join(dmt_dir,type)
   #== frames are 3600 seconds long, so round
   tmp = int(str(start)[0:3]+'000000')
   cache_start = tmp+3600*int((start-tmp)/3600)
@@ -493,15 +634,26 @@ def expand_cache(cache):
   """
   Function to expand a frame cache (as given by ligo_data_find -W) into a list 
   of frame files with complete paths.
+
+  Example:
+
+  >>>expand_cache(['H R 963608000 963611296 32 /archive/frames/S6/L0/LHO/H-R-9636'])
+  ['/archive/frames/S6/L0/LHO/H-R-9636/H-R-963608000-32.gwf',
+   '/archive/frames/S6/L0/LHO/H-R-9636/H-R-963608032-32.gwf',
+  ...
+   '/archive/frames/S6/L0/LHO/H-R-9636/H-R-963611264-32.gwf']
   """
   
   frames=[]
   for line in cache:
     obs,type,start,end,duration,path = line.split(' ')
+    start = int(start)
+    end = int(end)
+    duration = int(duration)
     cache_start = start
     while cache_start <=(end-duration):
       #== construct frame file name
-      file = obs+'-'+type+'-'+cache_start+'-'+duration+'.gwf'
+      file = obs+'-'+type+'-'+str(cache_start)+'-'+str(duration)+'.gwf'
       #== construct full path and append to file
       frame = os.path.join(path,file)
       frames.append(frame)
