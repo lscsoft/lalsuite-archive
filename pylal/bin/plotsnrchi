@@ -1013,11 +1013,12 @@ if opts.hist_newsnr:
       close()
 
 ###################################
-# cumulative histogram of newSNR split into mass bins
+# cumulative histogram of newSNR split into chirp mass bins
 if opts.masshist_newsnr and slide_events:
   q = opts.chisq_index
   num_bins = opts.massbins
-  mc_bins = pylal.rate.LinearBins(0.5, 15.5, num_bins)
+  chirpmass = slideTriggers.get_column('mchirp')
+  mc_bins = pylal.rate.LinearBins(0.99*chirpmass.min(), 1.01*chirpmass.max(), num_bins)
   newsnr = slideTriggers.get_new_snr(index=q)
   fig_num +=1
   figure(fig_num)
@@ -1025,10 +1026,11 @@ if opts.masshist_newsnr and slide_events:
   histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
   labels = [r"%.1f - %.1f" % pair for pair in zip(mc_bins.lower(), mc_bins.upper())]
   for i in range(num_bins):
-    counts, edges = histogram(newsnr[mc_indices == i], bins=20, new=True)
-    cum_counts = counts[::-1].cumsum()[::-1]
-    semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
-    color=histcolours[i], label=labels[i])
+    if len(newsnr[mc_indices == i]):
+      counts, edges = histogram(newsnr[mc_indices == i], bins=20, new=True)
+      cum_counts = counts[::-1].cumsum()[::-1]
+      semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
+       color=histcolours[i], label=labels[i])
   if num_bins < 11:
     legend()
   maxcount = max(len(newsnr[mc_indices == i]) for i in range(num_bins))
@@ -1047,21 +1049,24 @@ if opts.masshist_newsnr and slide_events:
     close()
 
 ###################################
-# cumulative histogram of effSNR split into mass bins
+# cumulative histogram of effSNR split into chirp mass bins
 if opts.masshist_effsnr and slide_events:
   C = opts.denominator_constant
   num_bins = opts.massbins
-  mc_bins = pylal.rate.LinearBins(0.5, 15.5, num_bins)
+  chirpmass = slideTriggers.get_column('mchirp')
+  mc_bins = pylal.rate.LinearBins(0.99*chirpmass.min(), 1.01*chirpmass.max(), num_bins)
   effsnr = slideTriggers.get_effective_snr(fac=C)
   fig_num +=1
   figure(fig_num)
+  mc_indices = array([mc_bins[trig.mchirp] for trig in slideTriggers])
   histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
   labels=[r"%.1f - %.1f" % pair for pair in zip(mc_bins.lower(), mc_bins.upper())]
   for i in range(num_bins):
-    counts, edges = histogram(effsnr[mc_indices == i], bins=20, new=True)
-    cum_counts = counts[::-1].cumsum()[::-1]
-    semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
-     color=histcolours[i], label=labels[i])
+    if len(effsnr[mc_indices == i]):
+      counts, edges = histogram(effsnr[mc_indices == i], bins=20, new=True)
+      cum_counts = counts[::-1].cumsum()[::-1]
+      semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
+       color=histcolours[i], label=labels[i])
   if num_bins < 11:
     legend()
   maxcount = max(len(newsnr[mc_indices == i]) for i in range(num_bins))
