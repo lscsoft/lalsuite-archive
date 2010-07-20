@@ -107,9 +107,11 @@ if __name__ == '__main__':
   if options.types is None and not options.full:
     ignore_list=['M','T']
 
+  if options.short:  search='short'
+  elif options.full:  search='full'
+  else:  search='standard'
   types = dqFrameUtils.find_types(options.types,\
-                                  short=options.short,\
-                                  full=options.full)
+                                  search=search)
 
   # ==========
   # set up ifos list
@@ -137,10 +139,9 @@ if __name__ == '__main__':
   if options.verbose:
     print >>sys.stdout, str(len(found))+" channels found:"
   #== sort channels by name
-  order = argsort(found)
-  for i in range(len(found)):
-    print >>sys.stdout, found[order[i]].name,found[order[i]].type,\
-                        found[order[i]].sampling
+  found = sorted(found, key=lambda channel: channel.name)
+  for channel in found:
+    print >>sys.stdout, channel.name,channel.type,channel.sampling
 
   if options.verbose:
     print >>sys.stdout
