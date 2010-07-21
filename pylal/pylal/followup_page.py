@@ -258,7 +258,7 @@ class Coinc(object):
 		page.sections["DQ"].div("This section gives vetoes and flags that were on")
 
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.flag_cache)
-		if ca and os.path.isfile(ca[0].path()): 
+		if ca and os.path.isfile(ca[0].path()):
 			tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
 			#FIXME HACK, may stop working
 			for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
