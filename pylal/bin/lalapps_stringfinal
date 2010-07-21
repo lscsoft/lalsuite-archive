@@ -51,6 +51,8 @@ except NameError:
 	from glue.iterutils import any, all
 
 
+from glue import segments
+from glue import segmentsUtils
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -62,6 +64,9 @@ from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
+SnglBurstUtils.matplotlib.rcParams.update({
+	"grid.linestyle": "-"
+})
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -229,9 +234,11 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 		self.background = []
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
+		self.open_box = open_box
 		self.axes.loglog()
 		self.axes.set_position([0.125, 0.15, 0.83, 0.75])
-		self.open_box = open_box
+		self.axes.xaxis.grid(True, which = "major,minor")
+		self.axes.yaxis.grid(True, which = "major,minor")
 
 	def add_contents(self, contents, verbose = False):
 		#
@@ -348,8 +355,6 @@ WHERE
 
 		self.axes.set_xlim((minX, maxX))
 		self.axes.set_ylim((minY, maxY))
-		self.axes.xaxis.grid(True, which="minor")
-		self.axes.yaxis.grid(True, which="minor")
 
 
 #
@@ -478,8 +483,8 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# print some analysis
 	num_injections = efficiency.denominator.array.sum()
 	num_samples = len(efficiency.denominator)
-	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / interpolate.interp1d(x, dydx)(A50)**2.0)**(1.0/3.0))
-	print "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
+	print >>sys.stderr, "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / interpolate.interp1d(x, dydx)(A50)**2.0)**(1.0/3.0))
+	print >>sys.stderr, "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
 
 	return line, A50, A50_err
 
@@ -492,7 +497,9 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.cal_uncertainty = cal_uncertainty
 		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
+		self.seglists = segments.segmentlistdict()
 		self.found = []
+		self.missed = []
 		self.all = []
 		self.axes.semilogx()
 		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
@@ -500,6 +507,8 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# set desired yticks
 		self.axes.set_yticks((0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0))
 		self.axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
+		self.axes.xaxis.grid(True, which = "major,minor")
+		self.axes.yaxis.grid(True, which = "major,minor")
 
 	def add_contents(self, contents, verbose = False):
 		#
@@ -511,6 +520,12 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 			if verbose:
 				print >>sys.stderr, "\tdatabase does not contain sim_burst table, skipping ..."
 			return
+
+		#
+		# update segment information
+		#
+
+		self.seglists |= contents.seglists
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
@@ -533,10 +548,14 @@ FROM
 			# were at least 2 instruments on when the injection
 			# was made?
 			if any(SimBurstUtils.injection_was_made(sim, contents.seglists, instruments) for instruments in iterutils.choices(contents.seglists.keys(), 2)):
+				# yes
 				self.all.append(sim)
 				if found and likelihood_ratio > self.detection_threshold:
 					self.found.append(sim)
+				else:
+					self.missed.append(sim)
 			elif found:
+				# no
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 	def finish(self):
@@ -566,7 +585,7 @@ FROM
 		rate.filter_binned_ratios(efficiency, windowfunc)
 
 		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
-		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
+		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
 		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.detection_threshold),), loc = "lower right")
@@ -574,6 +593,23 @@ FROM
 		# adjust limits
 		self.axes.set_xlim([4e-21, 1e-17])
 		self.axes.set_ylim([0.0, 1.0])
+
+		# dump some information about the highest-amplitude missed
+		# injections
+		self.missed.sort(lambda a, b: cmp(a.amplitude, b.amplitude))
+		f = file("string_missed_injections.txt", "w")
+		print >>f, "Highest Amplitude Missed Injections"
+		print >>f, "==================================="
+		for sim in self.missed[-100:]:
+			print >>f
+			for instrument in self.seglists:
+				print >>f, "%s:" % instrument
+				print >>f, "\tAmplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
+				print >>f, "\tTime:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
+			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
+			t = sim.get_time_geocent()
+			print >>f, "Time at geocentre:\t%s s" % t
+			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
 
 
 #
@@ -620,6 +656,16 @@ def write_products(products, prefix, image_formats, verbose = False):
 options, filenames = parse_command_line()
 
 
+if options.open_box:
+	print >>sys.stderr, """
+
+---=== !! BOX IS OPEN !! ===---
+
+PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
+
+"""
+
+
 if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 rate_vs_threshold = RateVsThreshold(options.open_box)
@@ -628,16 +674,16 @@ write_products([rate_vs_threshold], "string_triggers_", options.image_formats, v
 
 
 if options.open_box:
-	print "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
-print "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
-print "Time-slide events: %d" % len(rate_vs_threshold.background)
-print "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
+	print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
+print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+print >>sys.stderr, "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
 if options.open_box:
 	detection_threshold = rate_vs_threshold.zero_lag[-1]
-	print "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
+	print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 else:
 	detection_threshold = rate_vs_threshold.background[-int(round(rate_vs_threshold.background_time / rate_vs_threshold.zero_lag_time))]
-	print "Simulated likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
+	print >>sys.stderr, "Simulated likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 
 
 if options.verbose:
