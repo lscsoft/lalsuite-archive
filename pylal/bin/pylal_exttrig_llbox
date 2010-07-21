@@ -7,7 +7,7 @@ import optparse
 import ConfigParser
 
 from pylal import pylal_exttrig_llutils as peu
-from glue import git_version
+from pylal import git_version
 
 usage = """
 Code to handle box opening for GRB's. You need to specify what operation should 
