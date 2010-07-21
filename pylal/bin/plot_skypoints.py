@@ -9,6 +9,8 @@ __date__ = git_version.date
 import sys
 from optparse import *
 import glob
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot
 import matplotlib.cm as cm
 from mpl_toolkits.basemap import Basemap
@@ -57,11 +59,19 @@ for file in files:
   xmldoc =utils.load_filename(file)
   try:
     sltab = table.get_table(xmldoc,skylocutils.SkyLocInjTable.tableName)
-    inj = True
+    if sltab[0].grid:
+      print "injection"    
+      inj = True
+    else:
+      print "no injection"
+      sltab = table.get_table(xmldoc,skylocutils.SkyLocTable.tableName)
+      inj = False  
   except:
+    print "no injection"
     sltab = table.get_table(xmldoc,skylocutils.SkyLocTable.tableName)
     inj = False
   
+  print "Plotting "+file
   for row in sltab:
     for fname in [row.grid,row.galaxy_grid]:
       if fname:
@@ -84,7 +94,10 @@ for file in files:
           if '=' in line:
             continue
           elif line.strip():
-            lon, lat, c = line.strip().split()
+            try:
+              lon, lat, c = line.strip().split()
+            except ValueError:
+              continue
             #remove everything with a probability below the cutoff
             #this makes the skymaps cleaner
             if float(c) >= cutoff:
@@ -103,6 +116,8 @@ for file in files:
         #strange plotting artifacts
         sortme = zip(color,latitude,longitude)
         sortme.sort()
+        bestlat = sortme[-1][1]
+        bestlon = sortme[-1][2]
         color, latitude, longitude = zip(*sortme)
 
         pyplot.clf()
@@ -112,9 +127,11 @@ for file in files:
         m.drawmapboundary()
         m.drawparallels(np.arange(-90.,120.,45.),labels=[1,0,0,0],labelstyle='+/-') # draw parallels
         m.drawmeridians(np.arange(0.,420.,90.),labels=[0,0,0,1],labelstyle='+/-') # draw meridians
-        pyplot.title("Skymap for "+str(fname) + "(SNR = "+str(snr)+")") # add a title
+        pyplot.title("Skymap for "+str(fname) + "\n"+"SNR = "+str(snr)) # add a title
         pyplot.colorbar()
         if inj:
           injx,injy = m(np.asarray(injlon),np.asarray(injlat))
-          pyplot.scatter(injx,injy,s=60,c='DeepPink',marker=(6,1,0),faceted=False)
+          pyplot.scatter([injx],[injy],s=60,c='#8B008B',marker=(6,1,0),faceted=False)
+        bestx,besty = m(np.asarray(bestlon),np.asarray(bestlat))
+        pyplot.scatter([bestx],[besty],s=60,c='#FF1493',marker=(6,1,0),faceted=False)
         pyplot.savefig(fname.replace('txt','png'))

@@ -177,7 +177,8 @@ setup(
 	packages = [
 		"pylal",
 		"pylal.xlal",
-		"pylal.xlal.datatypes"
+		"pylal.xlal.datatypes",
+                "pylal.dq"
 	],
 	cmdclass = {
 		"build_py": pylal_build_py,
@@ -455,7 +456,7 @@ setup(
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_exttrig_llmonitor"),
 		os.path.join("bin", "pylal_exttrig_llsummary"),
-		os.path.join("bin", "pylal_exttrig_llopenbox"),
+		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
