@@ -103,8 +103,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
 		# only by owner;  we should respect umask.  note that
-		# umask() sets it, too, so we have to set it back after we
-		# know what it is
+		# os.umask() sets it, too, so we have to set it back after
+		# we know what it is
 		umsk = os.umask(0777)
 		os.umask(umsk)
 		os.chmod(filename, 0666 & ~umsk)
@@ -112,7 +112,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def truncate(filename, verbose = False):
 		if verbose:
-			print >>sys.stderr, "'%s' exists, truncating ..." % filename
+			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
 		except:
@@ -125,8 +125,10 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def cpy(srcname, dstname, verbose = False):
 		if verbose:
-			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname)
+			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname),
 		shutil.copy2(srcname, dstname)
+		if verbose:
+			print >>sys.stderr, "done."
 		try:
 			# try to preserve permission bits.  according to
 			# the documentation, copy() and copy2() are
@@ -239,8 +241,10 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# replace document
 		if verbose:
-			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename)
+			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
 		shutil.move(working_filename, filename)
+		if verbose:
+			print >>sys.stderr, "done."
 
 		# restore original handlers, and report the most recently
 		# trapped signal if any were
@@ -266,8 +270,10 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 	"""
 	if working_filename != filename:
 		if verbose:
-			print >>sys.stderr, "removing '%s' ..." % working_filename
+			print >>sys.stderr, "removing '%s' ..." % working_filename,
 		os.remove(working_filename)
+		if verbose:
+			print >>sys.stderr, "done."
 
 
 #
