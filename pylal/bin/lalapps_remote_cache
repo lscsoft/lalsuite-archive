@@ -43,7 +43,7 @@ class RemoteCache(object):
 		self.remote_dir = os.path.join(os.getcwd(), ".remote%s" %(self.base,))
 		self.make_dirs()
 
-		
+
 		self.remote_cache_file_copy = self.remote_dir + "/" + os.path.split(self.cache)[1]
 		self.get_cache()
 		self.parse_cache_and_get_dirs()
@@ -51,14 +51,14 @@ class RemoteCache(object):
 			self.make_local_dirs()
 			self.make_cache()
 			self.get_files()
-		else: 
+		else:
 			self.make_local_dirs()
 			self.make_cache()
 
 	def parse_mtab(self):
 		for l in open('/etc/mtab'):
 			self.mtab[l.split()[0]] = l.split()[1]
-		
+
 	def make_dirs(self):
 		try: os.mkdir(self.local_dir)
 		except: pass
@@ -82,7 +82,7 @@ class RemoteCache(object):
 		if self.verbose: st = sys.stderr
 		else: st = None
 		opts = "-zqL"
-		if filelist is None: 
+		if filelist is None:
 			command = ["rsync", opts, "--rsh=gsissh", "--progress", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)]
 			ret = subprocess.call(command, stdout=st, stderr=st)
 		else:
@@ -93,7 +93,7 @@ class RemoteCache(object):
 			print " ".join(command)
 			ret = subprocess.call(command,stdout=st,stderr=st)
 			tmp.close()
-		if ret: 
+		if ret:
 			print >>sys.stderr, "retrieve failed with %d try #%d" % (ret,n)
 			if n>3: sys.exit(1)
 			self.retrieve_file(remotepath, localpath, n=n+1)
@@ -121,7 +121,7 @@ class RemoteCache(object):
 			self.dir_dict[dir] = os.path.join(self.local_dir, dir.replace("/","_"))
 			try: os.mkdir(self.dir_dict[dir])
 			except:  pass
-	
+
 	def make_cache(self):
 		for key, val in self.remote_cache_parsed_dict.items():
 			for i,c in enumerate(val):
@@ -133,7 +133,7 @@ class RemoteCache(object):
 				#FIXME We dont want two copies of this, one a list and one a dict!!
 				self.local_cache_dict.setdefault(key, []).append(cr)
 		if self.verbose: print >>sys.stderr,"\n"
-			
+
 	def get_files(self, n=100000):
 		if self.copy:
 			for key, rcp in self.remote_cache_parsed_dict.items():
@@ -152,17 +152,17 @@ class RemoteCache(object):
 				# mount the remote system readonly
 				cmd = ["sshfs", rdir, ldir, '-o', 'ro', '-o', 'follow_symlinks']
 				self.mount.append(" ".join(cmd))
-				try: 
+				try:
 					self.mtab[rdir]
 					print >>sys.stderr, "\t%s appears to be mounted...continuing" % (self.mtab[rdir],)
-				except: 
+				except:
 					print >>sys.stderr, "\tmounting %s..." % (rdir,)
 					ret = subprocess.call(cmd)
-					if ret: 
+					if ret:
 						print >>sys.stderr, "mount failed with %d" % (ret,)
 						if self.allow_missing: print >>sys.stderr, "ignoring..."
 						else: sys.exit(1)
-	
+
 
 def parse_command_line():
 	parser = OptionParser(
@@ -193,7 +193,7 @@ Host *
 	if not options.force_copy and subprocess.call(["which", "sshfs"]):
 		print >> sys.stderr, "\n\nsshfs is not installed or not in your path.  You can force files to be copied instead by doing --force-copy (could take a while)\n\n"
 		sys.exit(1)
-		
+
         return options
 
 
