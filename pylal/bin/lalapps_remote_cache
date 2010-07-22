@@ -79,17 +79,19 @@ class RemoteCache(object):
 			self.retrieve_file(self.cache, self.remote_cache_file_copy)
 
 	def retrieve_file(self, remotepath, localpath, filelist=None, n=1):
+		if self.verbose: st = sys.stderr
+		else: st = None
 		opts = "-zqL"
 		if filelist is None: 
-			command = ["rsync", opts, "--rsh=gsissh", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)]
-			ret = subprocess.call(command)
+			command = ["rsync", opts, "--rsh=gsissh", "--progress", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)]
+			ret = subprocess.call(command, stdout=st, stderr=st)
 		else:
 			tmp = open("rsync.txt","w")
 			[tmp.write("%s\n" % (os.path.split(f)[1],)) for f in filelist]
 			tmp.close()
-			command = ["rsync", opts, "--rsh=gsissh", "--files-from=rsync.txt", "%s:%s" % (self.host, remotepath), "%s/." % (localpath,)]
+			command = ["rsync", opts, "--rsh=gsissh", "--progress", "--files-from=rsync.txt", "%s:%s" % (self.host, remotepath), "%s/." % (localpath,)]
 			print " ".join(command)
-			ret = subprocess.call(["rsync", opts, "--rsh=gsissh", "--files-from=rsync.txt", "%s:%s" % (self.host, remotepath), "%s/." % (localpath,)])
+			ret = subprocess.call(command,stdout=st,stderr=st)
 			tmp.close()
 		if ret: 
 			print >>sys.stderr, "retrieve failed with %d try #%d" % (ret,n)
@@ -135,8 +137,8 @@ class RemoteCache(object):
 	def get_files(self, n=100000):
 		if self.copy:
 			for key, rcp in self.remote_cache_parsed_dict.items():
+				if self.verbose: print >>sys.stderr, "\tcopying files for %s\n" % (key,)
 				for i,c in enumerate(chunk(rcp,n)):
-					if self.verbose: print >>sys.stderr, "\tcopying files %2.2f %%\r" % (float(i) * n / float(len(rcp) / 100.0)),
 					filelist = [cf.path() for cf in c]
 					remotepath = os.path.split(filelist[0])[0]
 					# just the leading directory
