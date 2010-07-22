@@ -37,7 +37,9 @@ matplotlib.rcParams.update({
 	"legend.fontsize": 8.0,
 	"figure.dpi": 300,
 	"savefig.dpi": 300,
-	"text.usetex": True
+	"text.usetex": True,
+	"grid.linestyle": "-",
+	"grid.linewidth": 0.25
 })
 from matplotlib import figure
 from matplotlib import patches
@@ -126,6 +128,8 @@ def snr2_chi2_plot(key, background_xcoords, background_ycoords, background_data,
 	axes.set_title(r"%s Event Density in $\rho^{2}$--$\chi^{2}$ Plane" % instrument)
 	axes.set_ylabel(r"$\chi^{2} / \mathrm{DOF}$")
 	axes.set_xlabel(r"$\rho^{2}$")
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
 	return fig
 
 
@@ -144,6 +148,8 @@ def dA_plot(key, background_coords, background_data, injections_coords, injectio
 	axes.set_title(r"%s--%s Amplitude Ratio Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
 	axes.set_xlabel(r"$\log_{10} \left|A_{\mathrm{%s}} / A_{\mathrm{%s}}\right|$" % (instrument1, instrument2))
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
 	return fig
 
 
@@ -162,6 +168,8 @@ def dt_plot(key, background_coords, background_data, injections_coords, injectio
 	axes.set_title(r"%s--%s Arrival Time Difference Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
 	axes.set_xlabel(r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % (instrument1, instrument2))
+	axes.xaxis.grid(True, which = "major,minor")
+	axes.yaxis.grid(True, which = "major,minor")
 	return fig
 
 
