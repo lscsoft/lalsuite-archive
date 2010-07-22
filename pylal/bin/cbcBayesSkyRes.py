@@ -387,7 +387,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint):
     (skyinjectionconfidence,toppoints,skyreses)=bayespputils.calculateConfidenceLevels(shist,skypoints,injbin,float(opts.skyres),confidence_levels,len(pos))
     
     if injbin and skyinjectionconfidence:
-        i=list(nonzero(np.asarray(toppoints)[:,2]==injbin))[0]
+        i=list(np.nonzero(np.asarray(toppoints)[:,2]==injbin))[0]
         
         min_sky_area_containing_injection=float(opts.skyres)*float(opts.skyres)*i
         print 'Minimum sky area containing injection point = %f square degrees'%min_sky_area_containing_injection
