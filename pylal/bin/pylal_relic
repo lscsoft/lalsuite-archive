@@ -40,6 +40,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.iterutils import any
 from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
@@ -184,7 +185,7 @@ def get_loudest_stats_by_trial_cat_slide(offsource_doc, coinc_stat,
 
     # slide bins
     nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-    total_num_slides = 2 * nominal_num_slides + 1 or 1
+    total_num_slides = 0 or 1 or  2 * nominal_num_slides or 2 * nominal_num_slides+1
     slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides)
 
 
