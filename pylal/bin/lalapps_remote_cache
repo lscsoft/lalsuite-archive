@@ -3,12 +3,20 @@ import sys, subprocess, os, re, socket
 from glue import lal
 from optparse import OptionParser
 from glue import git_version
-
+import tempfile
 
 __author__ = "Chad Hanna <channa@caltech.edu>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
+def chunk(lst, n):
+	out = []
+	for l in lst:
+		out.append(l)
+		if len(out) > n:
+			yield out
+			out = []
+	yield out
 
 class RemoteCache(object):
 	def __init__(self, url, verbose=False, regex=None, copy=False, ignore_local=False, allow_missing=False, base=''):
@@ -23,9 +31,11 @@ class RemoteCache(object):
 		if not self.base: self.base = self.host
 		self.dir_dict = {}
 		self.local_cache = []
+		self.local_cache_dict = {}
 		self.mtab = {}
 		self.unmount = []
 		self.mount = []
+		self.remote_cache_parsed_dict = {}
 
 		if not self.copy: self.parse_mtab()
 		# Setup some directories
@@ -33,7 +43,7 @@ class RemoteCache(object):
 		self.remote_dir = os.path.join(os.getcwd(), ".remote%s" %(self.base,))
 		self.make_dirs()
 
-		
+
 		self.remote_cache_file_copy = self.remote_dir + "/" + os.path.split(self.cache)[1]
 		self.get_cache()
 		self.parse_cache_and_get_dirs()
@@ -41,14 +51,14 @@ class RemoteCache(object):
 			self.make_local_dirs()
 			self.make_cache()
 			self.get_files()
-		else: 
+		else:
 			self.make_local_dirs()
 			self.make_cache()
 
 	def parse_mtab(self):
 		for l in open('/etc/mtab'):
 			self.mtab[l.split()[0]] = l.split()[1]
-		
+
 	def make_dirs(self):
 		try: os.mkdir(self.local_dir)
 		except: pass
@@ -68,14 +78,25 @@ class RemoteCache(object):
 			if self.verbose: print>>sys.stderr, "\tretrieving %s...\n" % (self.url)
 			self.retrieve_file(self.cache, self.remote_cache_file_copy)
 
-	def retrieve_file(self, remotepath, localpath):
-		#if self.verbose: print>>sys.stderr, "\tretrieving %s:%s...\n" % (self.host, remotepath)
-		if remotepath.endswith(".gz"): opts = "-qL"
-		else: opts = "-zqL"
-		ret = subprocess.call(["rsync", opts, "--rsh=gsissh", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)])
-		if ret: 
-			print >>sys.stderr, "retrieve failed with %d" % (ret,)
-			sys.exit(1)
+	def retrieve_file(self, remotepath, localpath, filelist=None, n=1):
+		if self.verbose: st = sys.stderr
+		else: st = None
+		opts = "-zqL"
+		if filelist is None:
+			command = ["rsync", opts, "--rsh=gsissh", "--progress", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)]
+			ret = subprocess.call(command, stdout=st, stderr=st)
+		else:
+			tmp = open("rsync.txt","w")
+			[tmp.write("%s\n" % (os.path.split(f)[1],)) for f in filelist]
+			tmp.close()
+			command = ["rsync", opts, "--rsh=gsissh", "--progress", "--files-from=rsync.txt", "%s:%s" % (self.host, remotepath), "%s/." % (localpath,)]
+			print " ".join(command)
+			ret = subprocess.call(command,stdout=st,stderr=st)
+			tmp.close()
+		if ret:
+			print >>sys.stderr, "retrieve failed with %d try #%d" % (ret,n)
+			if n>3: sys.exit(1)
+			self.retrieve_file(remotepath, localpath, n=n+1)
 
 	def parse_cache_and_get_dirs(self):
 		self.remote_dir_set = set([])
@@ -88,6 +109,7 @@ class RemoteCache(object):
 			c = lal.CacheEntry(l)
 			self.remote_cache_parsed.append(c)
 			self.remote_dir_set.add(os.path.split(c.path())[0])
+			self.remote_cache_parsed_dict.setdefault(os.path.split(c.path())[0], []).append(c)
 		if self.verbose: print >>sys.stderr,"\n"
 		self.remote_cache_file_parsed = "%s/parsed-%s" % os.path.split(self.remote_cache_file_copy)
 		f = open(self.remote_cache_file_parsed,"w")
@@ -99,24 +121,29 @@ class RemoteCache(object):
 			self.dir_dict[dir] = os.path.join(self.local_dir, dir.replace("/","_"))
 			try: os.mkdir(self.dir_dict[dir])
 			except:  pass
-	
+
 	def make_cache(self):
-		for i,l in enumerate(open(self.remote_cache_file_parsed).readlines()):
-			if self.verbose: print >>sys.stderr, "\tgenerating local cache %d\r" % (i,),
-			c = lal.CacheEntry(l)
-			newpath = os.path.join(self.dir_dict[os.path.split(c.path())[0]], os.path.split(c.path())[1])
-			c.url = "file://localhost" + newpath
-			self.local_cache.append(lal.CacheEntry(str(c)))
+		for key, val in self.remote_cache_parsed_dict.items():
+			for i,c in enumerate(val):
+				if self.verbose: print >>sys.stderr, "\tgenerating local cache %d\r" % (i,),
+				newpath = os.path.join(self.dir_dict[os.path.split(c.path())[0]], os.path.split(c.path())[1])
+				cr = lal.CacheEntry(str(c))
+				cr.url = "file://localhost" + newpath
+				self.local_cache.append(cr)
+				#FIXME We dont want two copies of this, one a list and one a dict!!
+				self.local_cache_dict.setdefault(key, []).append(cr)
 		if self.verbose: print >>sys.stderr,"\n"
-			
-	def get_files(self):
+
+	def get_files(self, n=100000):
 		if self.copy:
-			#FIXME to be fast this should not rsync each separately, but how? gridftp?
-			for i,c in enumerate(self.remote_cache_parsed):
-				if self.verbose: print >>sys.stderr, "\tcopying files %2.2f %%\r" % (float(i) / float(len(self.remote_cache_parsed) / 100.0)),
-				remotepath  = c.path()
-				localpath = self.local_cache[i].path()
-				self.retrieve_file(remotepath, localpath)
+			for key, rcp in self.remote_cache_parsed_dict.items():
+				if self.verbose: print >>sys.stderr, "\tcopying files for %s\n" % (key,)
+				for i,c in enumerate(chunk(rcp,n)):
+					filelist = [cf.path() for cf in c]
+					remotepath = os.path.split(filelist[0])[0]
+					# just the leading directory
+					localpath = os.path.split(self.local_cache_dict[key][i].path())[0]
+					self.retrieve_file(remotepath, localpath, filelist)
 		else: # try sshfs
 			for remote, local in self.dir_dict.items():
 				self.unmount.append(" ".join(["fusermount", "-uz", "%s" % (local,)]))
@@ -125,17 +152,17 @@ class RemoteCache(object):
 				# mount the remote system readonly
 				cmd = ["sshfs", rdir, ldir, '-o', 'ro', '-o', 'follow_symlinks']
 				self.mount.append(" ".join(cmd))
-				try: 
+				try:
 					self.mtab[rdir]
 					print >>sys.stderr, "\t%s appears to be mounted...continuing" % (self.mtab[rdir],)
-				except: 
+				except:
 					print >>sys.stderr, "\tmounting %s..." % (rdir,)
 					ret = subprocess.call(cmd)
-					if ret: 
+					if ret:
 						print >>sys.stderr, "mount failed with %d" % (ret,)
 						if self.allow_missing: print >>sys.stderr, "ignoring..."
 						else: sys.exit(1)
-	
+
 
 def parse_command_line():
 	parser = OptionParser(
@@ -166,7 +193,7 @@ Host *
 	if not options.force_copy and subprocess.call(["which", "sshfs"]):
 		print >> sys.stderr, "\n\nsshfs is not installed or not in your path.  You can force files to be copied instead by doing --force-copy (could take a while)\n\n"
 		sys.exit(1)
-		
+
         return options
 
 
