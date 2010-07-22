@@ -91,6 +91,7 @@ LALFindChirpClusterEvents (
   REAL4			bvChisq = 0;
   UINT4                 ccDOF = 0;
   REAL4                 ccChisq = 0;
+  INT4      applyACTDconstraint = 0;
   INITSTATUS( status, "LALFindChirpClusterEvents", FINDCHIRPCLUSTEREVENTSC );
   ATTATCHSTATUSPTR( status );
 
@@ -267,11 +268,19 @@ LALFindChirpClusterEvents (
         doChisqFlag = 0;
       }
 
+      if ( params->approximant == AmpCorPPN 
+            && input->fcTmplt->tmplt.ACTDconstraintSwitch ) 
+      {
+        applyACTDconstraint =
+          XLALFindChirpACTDApplyConstraint( j, input, params );
+      }
+
       /* if we have don't have a chisq or the chisq drops below the       */
       /* modified chisq threshold, start processing events                */
-      if ( ! input->segment->chisqBinVec->length ||
-          params->chisqVec->data[j] <
-          (params->chisqThresh * ( 1.0 + modqsq * chisqThreshFac )) )
+      if (  ( ! input->segment->chisqBinVec->length ||
+            params->chisqVec->data[j] <
+            (params->chisqThresh * ( 1.0 + modqsq * chisqThreshFac )) )
+          && !applyACTDconstraint )
       {
         if (1) /* eventually check bank veto ! */
         {

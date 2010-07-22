@@ -564,8 +564,8 @@ tagInspiralTemplate
   REAL8 eccentricity;
 
 /* Parameters for ACTD */
-  INT4 ACTDdominant;
-  INT4 ACTDconstraint;
+  INT4 ACTDdominantSwitch;
+  INT4 ACTDconstraintSwitch;
 
 /* Paramters which are computed using LALInspiralParameterCalc */
 

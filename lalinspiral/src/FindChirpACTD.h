@@ -124,6 +124,16 @@ LALFindChirpACTDFilterSegment (
 
 #if 0
 <lalLaTeX>
+\newpage\input{XLALFindChirpACTDConstraintC}
+</lalLaTeX>
+#endif
+INT4 XLALFindChirpACTDApplyConstraint(
+      INT4                        qidx,
+      FindChirpFilterInput      * restrict input,
+      FindChirpFilterParams     * restrict params );
+
+#if 0
+<lalLaTeX>
 \newpage\input{XLALFindChirpACTDInnerProductC}
 </lalLaTeX>
 #endif

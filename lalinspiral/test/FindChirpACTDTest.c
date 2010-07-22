@@ -146,6 +146,7 @@ int main( int argc, char **argv )
   INT4 dominant = 0;
   INT4 dominantFilter = 0;
   INT4 constraint = 1;
+  INT4 applyACTDconstraint = 0;
   INT4 h_plus = 0;
 
   REAL4 invRootData;
@@ -465,10 +466,10 @@ int main( int argc, char **argv )
   fprintf( stderr, "      Done!\n" );
 
   if( dominantFilter )
-    filterInput->fcTmplt->tmplt.ACTDdominant = 1;
+    filterInput->fcTmplt->tmplt.ACTDdominantSwitch = 1;
   if( !constraint )
   {
-    filterInput->fcTmplt->tmplt.ACTDconstraint = 0;
+    filterInput->fcTmplt->tmplt.ACTDconstraintSwitch = 0;
   }
 
   /* set filter parameters, e.g., thresholds for events */
@@ -881,11 +882,15 @@ int main( int argc, char **argv )
   fprintf( stderr, "===================================");
   fprintf( stderr, "==================\n");
 
+  max = 0.0;
   for( i=0; i < (INT4)filterParams->rhosqVec->data->length; ++i  )
   {
     if( filterParams->rhosqVec->data->data[i] > max )
     {
-      max = filterParams->rhosqVec->data->data[i];
+      applyACTDconstraint =
+          XLALFindChirpACTDApplyConstraint( i, filterInput, filterParams );
+      if( !applyACTDconstraint )
+        max = filterParams->rhosqVec->data->data[i];
     }
   }
   max = pow( max, 0.5 );

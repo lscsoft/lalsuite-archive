@@ -164,8 +164,8 @@ LALCreateFindChirpInput (
   }
   else if( params->approximant == AmpCorPPN )
   {
-    outputPtr->fcTmplt->tmplt.ACTDdominant = 0;
-    outputPtr->fcTmplt->tmplt.ACTDconstraint = 1;
+    outputPtr->fcTmplt->tmplt.ACTDdominantSwitch = 0;
+    outputPtr->fcTmplt->tmplt.ACTDconstraintSwitch = 1;
     outputPtr->fcTmplt->ACTDtilde = 
      XLALCreateCOMPLEX8VectorSequence( NACTDTILDEVECS, 
                                                   params->numPoints / 2 + 1 );

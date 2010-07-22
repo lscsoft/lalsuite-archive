@@ -1,6 +1,6 @@
 #if 0
 <lalVerbatim file="FindChirpACTDFilterCV">
-Author: Brown D. A., McKechan D. J. A.
+Author: Brown D. A., McKechan D. J. A., Robinson C.
 $Id$
 </lalVerbatim>
 
@@ -70,9 +70,6 @@ LALFindChirpACTDFilterSegment (
   COMPLEX8             *inputData     = NULL;
   COMPLEX8Vector        tmpltSignal[NACTDTILDEVECS];
 
-  /* For use in applying the constraint */
-  REAL4Vector          *qForConstraint = NULL;
-  UINT4                matrixDim;
   /*
   SnglInspiralTable    *thisEvent     = NULL;
   REAL4                 modqsqThresh;
@@ -177,8 +174,6 @@ LALFindChirpACTDFilterSegment (
   numPoints = params->qVecACTD[0]->length;
   tmpltLength = input->fcTmplt->ACTDtilde->vectorLength;
 
-  /* Create the vector for the constraint */
-  qForConstraint = XLALCreateREAL4Vector( NACTDTILDEVECS );
 
   /* workspace vectors */
   qtilde = params->qtildeVecACTD;
@@ -209,8 +204,6 @@ LALFindChirpACTDFilterSegment (
      artificially set it to numPoints/2. */
   kmax = numPoints / 2;
 
-  /* Calculate the dimension of the matrix used in the constraint */
-  matrixDim = 2 * (input->fcTmplt->stopVecACTD - input->fcTmplt->startVecACTD );
 
   /*
    *
@@ -305,27 +298,18 @@ LALFindChirpACTDFilterSegment (
    *
    */
 
-
-  /* if full snrsq vector is required, set it to zero */
-  if ( params->rhosqVec )
-    memset( params->rhosqVec->data->data, 0, numPoints * sizeof( REAL4 ) );
-
   if (params->cVec )
     memset( params->cVec->data->data, 0, numPoints * sizeof( COMPLEX8 ) );
-
-
-  /* normalisation */
-  normFac = 2.0 * deltaT / (REAL4)(numPoints);
-	normFacSq = normFac * normFac;
-
-	/* normalised snr threhold */
-  /*
-	modqsqThresh = params->rhosqThresh / norm;
-  */
 
   /* if full snrsq vector is required, store the snrsq */
   if ( params->rhosqVec )
   {
+    memset( params->rhosqVec->data->data, 0, numPoints * sizeof( REAL4 ) );
+    /* normalisation */
+
+    normFac = 2.0 * deltaT / (REAL4)(numPoints);
+	  normFacSq = normFac * normFac;
+
     memcpy( params->rhosqVec->name, input->segment->data->name,
         LALNameLength * sizeof(CHAR) );
     memcpy( &(params->rhosqVec->epoch), &(input->segment->data->epoch),
@@ -343,122 +327,76 @@ LALFindChirpACTDFilterSegment (
 
       params->rhosqVec->data->data[j] = rhoSq * normFacSq ;
 
-      if( input->fcTmplt->tmplt.ACTDconstraint == 1 )
-      {
-        /* Go through the transformation matrix */
-        memset( qForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
-        for ( i = 0; i < NACTDTILDEVECS; i++ )
-        {
-          for ( k = 0; k < NACTDTILDEVECS; k++ )
-          {
-            if ( ( i % NACTDVECS - input->fcTmplt->startVecACTD 
-                  < matrixDim / 2 )
-              && ( k % NACTDVECS - input->fcTmplt->startVecACTD 
-                  < matrixDim / 2 ) )
-            {
-              UINT4 idx1, idx2, nVec;
-
-              nVec = matrixDim / 2;
-              idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS 
-                      - input->fcTmplt->startVecACTD;
-              idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS 
-                      - input->fcTmplt->startVecACTD;
-              qForConstraint->data[i] += gsl_matrix_get( 
-                input->fcTmplt->ACTDconmatrix, idx1, idx2 ) * q[k]->data[j];
-            }
-          }
-        }
-        if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
-                  + qForConstraint->data[3] * qForConstraint->data[3])
-                 / (qForConstraint->data[1] * qForConstraint->data[1]
-                  + qForConstraint->data[4] * qForConstraint->data[4]))
-                  > input->fcTmplt->ACTDconstraint->data[0] )
-        {
-          params->rhosqVec->data->data[j] = 0.0 ;
-        }
-
-        if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
-                  + qForConstraint->data[5] * qForConstraint->data[5])
-                 / (qForConstraint->data[1] * qForConstraint->data[1]
-                  + qForConstraint->data[4] * qForConstraint->data[4]))
-                  > input->fcTmplt->ACTDconstraint->data[2] )
-        {
-          params->rhosqVec->data->data[j] = 0.0 ;
-        }
-      }
     }
   }
 
-/*
-  if ( params->cVec )
-  {
-    memcpy( params->cVec->name, input->segment->data->name,
-        LALNameLength * sizeof(CHAR) );
-    memcpy( &(params->cVec->epoch), &(input->segment->data->epoch),
-        sizeof(LIGOTimeGPS) );
-    params->cVec->deltaT = input->segment->deltaT;
-
-    for ( j = 0; j < numPoints; ++j )
-    {
-
-      params->cVec->data->data[j].re = sqrt(norm) * q[j].re;
-      params->cVec->data->data[j].im = sqrt(norm) * q[j].im;
-
-    }
-  }
-*/
-
-  #if 0
-  /* This is done in FindChirpClusterEvents now!!*/
-  /* determine if we need to compute the chisq vector */
-  if ( input->segment->chisqBinVec->length )
-  {
-    /* look for an event in the filter output */
-    for ( j = ignoreIndex; j < numPoints - ignoreIndex; ++j )
-    {
-      REAL4 modqsq = q[j].re * q[j].re + q[j].im * q[j].im;
-
-      /* if snrsq exceeds threshold at any point */
-      if ( modqsq > modqsqThresh )
-      {
-        haveEvent = 1;        /* mark segment to have events    */
-        break;
-      }
-    }
-    if ( haveEvent )
-    {
-      /* compute the chisq vector for this segment */
-      memset( params->chisqVec->data, 0,
-          params->chisqVec->length * sizeof(REAL4) );
-
-      /* pointers to chisq input */
-      params->chisqInput->qtildeVec = params->qtildeVec;
-      params->chisqInput->qVec      = params->qVec;
-
-      /* pointer to the chisq bin vector in the segment */
-      params->chisqParams->chisqBinVec = input->segment->chisqBinVec;
-      params->chisqParams->norm        = norm;
-
-      /* compute the chisq bin boundaries for this template */
-      if ( ! params->chisqParams->chisqBinVec->data )
-      {
-        LALFindChirpComputeChisqBins( status->statusPtr,
-            params->chisqParams->chisqBinVec, input->segment, kmax );
-        CHECKSTATUSPTR( status );
-      }
-
-      /* compute the chisq threshold: this is slow! */
-      LALFindChirpChisqVeto( status->statusPtr, params->chisqVec,
-          params->chisqInput, params->chisqParams );
-      CHECKSTATUSPTR (status);
-    }
-  }
-  #endif
 
   /* Free memory */
-  XLALDestroyREAL4Vector( qForConstraint );
 
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );
+}
+
+INT4 XLALFindChirpACTDApplyConstraint(
+      INT4                        qidx,
+      FindChirpFilterInput      * restrict input,
+      FindChirpFilterParams     * restrict params )
+{
+  
+  REAL4Vector *qForConstraint = NULL;
+  UINT4        matrixDim;
+  INT4         apply = 0;
+  INT4         i, k;
+
+  /* Create the vector for the constraint */
+  qForConstraint = XLALCreateREAL4Vector( NACTDTILDEVECS );
+
+  /* Calculate the dimension of the matrix used in the constraint */
+  matrixDim = 2 * (input->fcTmplt->stopVecACTD - input->fcTmplt->startVecACTD );
+
+  /* Go through the transformation matrix */
+  memset( qForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
+  for ( i = 0; i < NACTDTILDEVECS; i++ )
+  {
+    for ( k = 0; k < NACTDTILDEVECS; k++ )
+    {
+      if ( ( i % NACTDVECS - input->fcTmplt->startVecACTD < matrixDim / 2 )
+         && ( k % NACTDVECS - input->fcTmplt->startVecACTD < matrixDim / 2 ) )
+      {
+        UINT4 idx1, idx2, nVec;
+
+        nVec = matrixDim / 2;
+        idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS 
+          - input->fcTmplt->startVecACTD;
+        idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS 
+          - input->fcTmplt->startVecACTD;
+        qForConstraint->data[i] += gsl_matrix_get( 
+          input->fcTmplt->ACTDconmatrix, idx1, idx2 ) 
+          * params->qVecACTD[k]->data[qidx];
+      }
+    }
+  }
+  if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
+            + qForConstraint->data[3] * qForConstraint->data[3])
+           / (qForConstraint->data[1] * qForConstraint->data[1]
+            + qForConstraint->data[4] * qForConstraint->data[4]))
+           > input->fcTmplt->ACTDconstraint->data[0] )
+  {
+    apply = 1;
+  }
+
+  if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
+            + qForConstraint->data[5] * qForConstraint->data[5])
+           / (qForConstraint->data[1] * qForConstraint->data[1]
+            + qForConstraint->data[4] * qForConstraint->data[4]))
+           > input->fcTmplt->ACTDconstraint->data[2] )
+  {
+    apply = 1;
+  }
+
+
+  XLALDestroyREAL4Vector( qForConstraint );
+ 
+  return apply;
 }

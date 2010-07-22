@@ -261,8 +261,8 @@ typedef struct{
   EccentricBank eccentricSignal;
   CHAR tag[256];
   INT4 fastParam1;
-  INT4 ACTDconstraint;
-  INT4 ACTDdominant;
+  INT4 ACTDconstraintSwitch;
+  INT4 ACTDdominantSwitch;
 }
 UserParametersIn;
 

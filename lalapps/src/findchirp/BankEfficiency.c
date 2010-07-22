@@ -78,7 +78,7 @@ main (INT4 argc, CHAR **argv )
   DataSegmentVector      *ampCorDataSegVec = NULL;
   FindChirpSegmentVector *ampCorFreqSegVec = NULL;
 
-
+  INT4 applyACTDconstraint = 0;
 
   /* --- results and data mining --- */
   OverlapOutputIn        overlapOutputThisTemplate;
@@ -223,10 +223,10 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL( LALFindChirpDataInit( &status, &ampCorDataParams, 
              &ampCorInitParams ), &status);
 
-    if( !userParam.ACTDconstraint )
-      ampCorFilterInput->fcTmplt->tmplt.ACTDconstraint = 0;
-    if( userParam.ACTDdominant )
-      ampCorFilterInput->fcTmplt->tmplt.ACTDdominant = 1;
+    if( !userParam.ACTDconstraintSwitch )
+      ampCorFilterInput->fcTmplt->tmplt.ACTDconstraintSwitch = 0;
+    if( userParam.ACTDdominantSwitch )
+      ampCorFilterInput->fcTmplt->tmplt.ACTDdominantSwitch = 1;
 
 
     ampCorDataSegVec->data->chan->deltaT = 
@@ -672,14 +672,28 @@ main (INT4 argc, CHAR **argv )
                           ampCorFilterParams ), &status );
 
               for( i = 1; 
-                    i < (INT4)ampCorFilterParams->rhosqVec->data->length; ++i )
+                   i < (INT4)ampCorFilterParams->rhosqVec->data->length; ++i )
               {
                 correlation.data[i] = 
-                                   ampCorFilterParams->rhosqVec->data->data[i];
+                                  ampCorFilterParams->rhosqVec->data->data[i];
                 if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
                 {
-                  max = ampCorFilterParams->rhosqVec->data->data[i];
-                  bin = i;
+                  if( userParam.ACTDconstraintSwitch )
+                  {
+                    applyACTDconstraint =
+                      XLALFindChirpACTDApplyConstraint( i, 
+                                      ampCorFilterInput, ampCorFilterParams );
+                    if( !applyACTDconstraint )
+                    { 
+                      max = ampCorFilterParams->rhosqVec->data->data[i];
+                      bin = i;
+                    }
+                  }
+                  else
+                  {
+                    max = ampCorFilterParams->rhosqVec->data->data[i];
+                    bin = i;
+                  }
                 }
               }
 
@@ -3036,8 +3050,8 @@ void BankEfficiencyInitUserParametersIn(
   userParam->inputPSD            = NULL;
   userParam->ambiguity           = 0;
   userParam->fastParam1          = 50;
-  userParam->ACTDconstraint      = 1;
-  userParam->ACTDdominant        = 0;
+  userParam->ACTDconstraintSwitch = 1;
+  userParam->ACTDdominantSwitch  = 0;
   sprintf(userParam->tag,"");
 }
 
@@ -3514,10 +3528,10 @@ void BankEfficiencyParseParameters(
       userParam->printPrototype = 1;
     }
     else if (!strcmp(argv[i],"--skip-actd-constraint")) {
-      userParam->ACTDconstraint = 0;
+      userParam->ACTDconstraintSwitch = 0;
     }
     else if (!strcmp(argv[i],"--actd-dominant")) {
-      userParam->ACTDdominant = 1;
+      userParam->ACTDdominantSwitch = 1;
     }
     else if (!strcmp(argv[i], "--signal-taper")) {
       BankEfficiencyParseGetString(argv, &i);

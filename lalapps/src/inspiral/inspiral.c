@@ -179,6 +179,7 @@ INT4  strainHighPassOrder = -1;         /* h(t) high pass filter order  */
 REAL4 strainHighPassAtten = -1;         /* h(t) high pass attenuation   */
 enum { undefined, real_4, real_8 } calData = undefined; /* cal data type*/
 UINT4 skipAutoChisq = 0;                /* Do autochisq by default      */
+UINT4 ACTDconstraintSwitch = 1;         /* Do ACTD constraint default   */
 
 /* data conditioning parameters */
 LIGOTimeGPS slideData   = {0,0};        /* slide data for time shifting */
@@ -2242,6 +2243,8 @@ int main( int argc, char *argv[] )
             break;
 
           case AmpCorPPN:
+            if( !ACTDconstraintSwitch )
+              fcFilterInput->fcTmplt->tmplt.ACTDconstraintSwitch = 0;
             LAL_CALL( LALFindChirpACTDTemplate( &status, fcFilterInput->fcTmplt,
                   bankCurrent, fcTmpltParams ), &status );
             LAL_CALL( LALFindChirpACTDNormalize( &status,
@@ -3505,7 +3508,8 @@ fprintf( a, "  --write-spectrum             write the uncalibrated psd to a fram
 fprintf( a, "  --write-snrsq                write the snr time series for each data segment\n");\
 fprintf( a, "  --write-chisq                write the r^2 time series for each data segment\n");\
 fprintf( a, "  --write-cdata                write the complex filter output\n");\
-fprintf( a, "  --write-template                write the template time series\n");\
+fprintf( a, "  --write-template             write the template time series\n");\
+fprintf( a, "  --disable-actd-constraint    disable the ACTD constraint\n");\
 fprintf( a, "\n");
 
 int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
@@ -3617,6 +3621,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"band-pass-template",      no_argument,       0,                '}'},
     {"taper-template",          required_argument, 0,                '{'},
     {"cdata-length",            required_argument, 0,                '|'},
+    {"disable-actd-constraint", required_argument, 0,                '='},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
@@ -4973,6 +4978,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           exit( 1 );
         }
         ADD_PROCESS_PARAM( "float", "%s", optarg );
+        break;
+ 
+      case '=':
+        ACTDconstraintSwitch = 0;
         break;
 
       default:

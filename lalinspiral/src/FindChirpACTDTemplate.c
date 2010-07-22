@@ -242,7 +242,7 @@ LALFindChirpACTDTemplate(
   /* legacy - length is the length of the vectors rather than vector Length */
   
   /* This will make all 0 if eta = 0.25 and 2nd harmonic not in band! */
-  if( ppnParams.eta_real8 > 0.24999999 || fcTmplt->tmplt.ACTDdominant )
+  if( ppnParams.eta_real8 > 0.24999999 || fcTmplt->tmplt.ACTDdominantSwitch )
   {
     istart = 1;
     istop  = 2;
@@ -311,8 +311,8 @@ LALFindChirpACTDTemplate(
   tmplt->approximant = params->approximant;
   tmplt->tC = ppnParams.tc;
   tmplt->fFinal = ppnParams.fStop;
-  tmplt->ACTDdominant = fcTmplt->tmplt.ACTDdominant;
-  tmplt->ACTDconstraint = fcTmplt->tmplt.ACTDconstraint;
+  tmplt->ACTDdominantSwitch = fcTmplt->tmplt.ACTDdominantSwitch;
+  tmplt->ACTDconstraintSwitch = fcTmplt->tmplt.ACTDconstraintSwitch;
 
   fcTmplt->tmpltNorm = params->dynRange / ( cannonDist * 1.0e6 * LAL_PC_SI );
   fcTmplt->tmpltNorm *= fcTmplt->tmpltNorm;
@@ -610,7 +610,7 @@ LALFindChirpACTDNormalize(
   }
 
   /* CALCULATE THE CONSTRAINT */
-  if( fcTmplt->tmplt.ACTDconstraint )
+  if( fcTmplt->tmplt.ACTDconstraintSwitch )
   {
     /* Calculate maximum overlap of cross terms */
     memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
