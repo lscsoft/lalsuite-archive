@@ -30,6 +30,7 @@ file mkdir $CONF_DIR $OUTPUT_DIR $ERR_DIR
 proc sample { limits } {
 set a [lindex $limits 0]
 set b [lindex $limits 1]
+if { $a == $b } { return $a }
 return [expr $a+rand()*($b-$a)]
 }
 
@@ -37,7 +38,7 @@ set first_bin [expr round($FREQ_START*1800)]
 set i 0
 set k 0
 set PARAMS_FILE [open "$ROOT_DIR/params.txt" "w"]
-set PARAMS_LIST {i h0 ra dec psi phi iota f0 spindown aPlus aCross band_start}
+set PARAMS_LIST {i h0 ra dec psi phi iota f0 spindown aPlus aCross band_start dInv freq_modulation_depth freq_modulation_freq freq_modulation_phase phase_modulation_depth phase_modulation_freq phase_modulation_phase}
 puts $PARAMS_FILE [join $PARAMS_LIST "\t"]
 set DAG_FILE [open "$ROOT_DIR/dag" "w"]
 
@@ -47,7 +48,7 @@ while { 1 }  {
 	set psi [sample $PSI_RANGE]
 	set phi [sample $PHI_RANGE]
 	set iota [sample $IOTA_RANGE]
-	set freq [sample [list [expr $first_bin/1800.0] [expr ($first_bin+450)/1800.0]]]
+	set freq [sample [list [expr ($first_bin+$FREQ_BIN_START)/1800.0] [expr ($first_bin+$FREQ_BIN_STOP)/1800.0]]]
 	set h0  [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
 	set aPlus [expr $h0 * (1.0+cos($iota)*cos($iota))/2.0]
@@ -55,6 +56,15 @@ while { 1 }  {
 	set f0 $freq
 	set band_start [expr $first_bin/1800.0]
 	set seed [expr round(rand()*1e10)]
+
+	# Additional parameters present since 1.4.41
+	set dInv [sample $DINV_RANGE]
+	set freq_modulation_depth [sample $FREQ_MODULATION_DEPTH_RANGE]
+	set freq_modulation_freq [sample $FREQ_MODULATION_FREQ_RANGE]
+	set freq_modulation_phase [sample $FREQ_MODULATION_PHASE_RANGE]
+	set phase_modulation_depth [sample $PHASE_MODULATION_DEPTH_RANGE]
+	set phase_modulation_freq [sample $PHASE_MODULATION_FREQ_RANGE]
+	set phase_modulation_phase [sample $PHASE_MODULATION_PHASE_RANGE]
 
 	#
 	# And old, but proven method of sampling arbitrary distribution
