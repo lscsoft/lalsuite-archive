@@ -36,6 +36,8 @@ from optparse import OptionParser
 import sys
 
 
+from glue import segments
+from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -69,6 +71,7 @@ def parse_command_line():
 	parser.add_option("--comment", metavar = "text", help = "Set comment string in process and segment_definer tables (default = None).")
 	parser.add_option("--name", metavar = "text", help = "When inserting new segments, set the name string in the definer table to this (default = None).")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
+	parser.add_option("--insert-from-lal-cache", metavar = "filename", default = [], action = "append", help = "Read lists of active segments from a LAL cache file.  The description column is used to provide the segment list names.")
 	parser.add_option("--insert-from-segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, urls = parser.parse_args()
@@ -98,6 +101,8 @@ def append_process(xmldoc, options):
 		params += [(u"--output", u"lstring", options.output)]
 	for item in options.insert_from_segwizard.iteritems():
 		params += [(u"--insert-from-segwizard", u"lstring", "=".join(item))]
+	for filename in options.insert_from_lal_cache:
+		params += [(u"--insert-from-lal-cache", u"lstring", filename)]
 	if options.name is not None:
 		params += [(u"--name", u"lstring", options.name)]
 	if options.comment is not None:
@@ -172,6 +177,25 @@ for url in urls:
 			print >>sys.stderr, "reading \"%s\" for instrument \"%s\" (name %s) ..." % (filename, instrument, repr(options.name))
 
 		ligolw_segments.insert_from_segwizard(segments_tables, file(filename), set([instrument]), options.name, options.comment)
+
+
+	#
+	# Insert LAL cache file contents
+	#
+
+
+	if options.insert_from_lal_cache:
+		seglistdicts = dict()
+		for filename in options.insert_from_lal_cache:
+			if options.verbose:
+				print >>sys.stderr, "reading \"%s\" ..." % filename
+			for cacheentry in [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in file(filename)]:
+				if cacheentry.description not in seglistdicts:
+					seglistdicts[cacheentry.description] = segments.segmentlistdict()
+				seglistdicts[cacheentry.description] |= cacheentry.to_segmentlistdict()
+		for name, seglists in seglistdicts.items():
+			ligolw_segments.insert_from_segmentlistdict(segments_tables, seglists, name, options.comment)
+		del seglistdicts
 
 
 	#

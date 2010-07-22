@@ -106,7 +106,7 @@ def parse_command_line():
 	if options.input_cache: filenames.extend([lal.CacheEntry(l).path() for l in open(options.input_cache).readlines()])
 
 	return options, (filenames or [])
-				
+
 
 opts, files = parse_command_line()
 
@@ -144,10 +144,12 @@ for i, f in enumerate(files):
 	legend_str = []
 	lines = []
 	#FIXME we shouldn't get ifos from filenames, we should put it in the xml :(
-	ifos = os.path.split(f)[1].replace('.xml','').replace("2Dsearchvolume-","")
+	# The naming convention used in search_volume_by_m1_m2: name = 2Dsearchvolume-<tag>-<ifos>.xml
+        output_tag = os.path.split(f)[1].split('-')[1]
+	ifos = os.path.split(f)[1].split('-')[2].replace('.xml','')
 	#FIXME it is stupid to pull out names this way
 	combined_ifos = "_".join(ifos.split("_")[:-1])
-	wiki = open(ifos+'_range_summary.txt',"w")
+	wiki = open(ifos + '-' + output_tag + '_range_summary.txt',"w")
 	wiki.write("||'''Masses'''||'''Range(Mpc)'''||'''Time'''||'''UL @ 90%'''||'''Fractional error'''||\n")
 	# loop over mass bins
   
@@ -192,7 +194,7 @@ for i, f in enumerate(files):
 	pylab.grid()
 	#FIXME hardcoded rate limits are bad for advanced ligo
 	pylab.xlim([1e-8, 1])
-	pylab.savefig(ifos + '_posterior.png')
+	pylab.savefig(ifos + '-' + output_tag + '_posterior.png')
 	pylab.clf()
 
 	##
@@ -211,7 +213,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos+'_volume_time.png')
+	pylab.savefig(ifos + '-' + output_tag + '_volume_time.png')
 	pylab.clf()
 
 	##
@@ -230,7 +232,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos+'_distance.png')
+	pylab.savefig(ifos + '-' + output_tag +'_distance.png')
 	pylab.clf()
 
 	## 
@@ -246,7 +248,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos+'_fractional_error.png')
+	pylab.savefig(ifos + '-' + output_tag + '_fractional_error.png')
 	pylab.clf()
 
 	##
@@ -263,7 +265,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos + '_lambda.png')
+	pylab.savefig(ifos + '-' + output_tag + '_lambda.png')
 	pylab.clf()
 
 	##
@@ -279,7 +281,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	pylab.savefig(ifos + '_upper_limit.png')
+	pylab.savefig(ifos + '-' + output_tag + '_upper_limit.png')
 	pylab.clf()
 
 
@@ -319,7 +321,7 @@ pylab.ylim([0.0001, 1])
 pylab.grid()
 #FIXME hardcoded rate limits are bad for advanced ligo
 pylab.xlim([1e-8, 1])
-pylab.savefig(combined_ifos + '_posterior.png')
+pylab.savefig(ifos + '-' + output_tag  + '_combined_posterior.png')
 pylab.clf()
 
 
@@ -336,10 +338,10 @@ pylab.xlabel("Mass 2",fontsize=14)
 pylab.ylabel("Mass 1",fontsize=14)
 pylab.gca().set_aspect(1)
 pylab.grid()
-pylab.savefig(combined_ifos + '_upper_limit.png')
+pylab.savefig(ifos + '-' + output_tag + '_combined_upper_limit.png')
 pylab.clf()
 
-f = open(combined_ifos + '_upper_limit.txt','w')
+f = open(ifos + '-' + output_tag + '_combined_upper_limit.txt','w')
 for i, m1 in enumerate(bins.centres()[0]):
 	for j, m2 in enumerate(bins.centres()[1]):
 		masses = bins[m1,m2]
