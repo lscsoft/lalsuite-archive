@@ -21,6 +21,7 @@ use('Agg')
 import pylab
 import numpy
 from pylal import Fr
+from subprocess import Popen,PIPE
 
 # =============================================================================
 # Function to execute shell command and get output
@@ -158,3 +159,74 @@ def filter(data, f_low, f_high, order=4):
   data = data[::-1]
 
   return data
+
+# =============================================================================
+# Function to generate an daily ihope cache 
+# =============================================================================
+def daily_ihope_cache(start,end,ifo,cluster=None):
+  """
+  Generates cache list of daily ihope INSPIRAL xml files for give ifo and clustering (None,'30ms','100ms', or '16s') between start and end time
+  """
+
+  #== daily path
+  ihope_daily_path = '/archive/home/cbc/ihope_daily_new'
+
+  #== set clustering tag
+  if cluster==None:
+    cluster_tag='UNCLUSTERED'
+  elif cluster=='100ms':
+    cluster_tag='100MILLISEC_CLUSTERED'
+  elif cluster=='30ms':
+    cluster_tag='30MILLISEC_CLUSTERED'
+  elif cluster=='16s':
+    cluster_tag='16SEC_CLUSTERED'
+
+  #== work out days
+  day_start = int(GetCommandOutput('tconvert `tconvert '+str(start)+\
+                                   ' -f %D`')[0])
+  duration = end-start
+  num_days = int(round((duration)/86400))
+  #== generate array of days
+  day_end = day_start+num_days*86400
+  while day_end<end:
+    day_end+=86400
+  days = numpy.arange(day_start,day_end,86400)
+
+  cache=[]
+  #== loop over days gathering files
+  for day in days:
+    date = GetCommandOutput('tconvert '+str(day)+' -f %Y%m%d')[0]\
+               .replace('\n','')
+    day_path = os.path.join(ihope_daily_path,date[0:6],date)
+    ls_cmd = 'ls '+day_path+'/'+ifo+'-INSPIRAL_'+cluster_tag+\
+             '*.xml.gz'
+    cache_out = Popen(ls_cmd,shell=True,stdout=PIPE,stderr=PIPE)
+    for line in cache_out.stdout.readlines():
+      trig_start = int(line.split('.xml')[0].split('-')[-2])
+      duration = int(line.split('.xml')[0].split('-')[-2])
+      if start<=trig_start<end or start<(trig_start+duration)<=end:
+        cache.append(line.replace('\n',''))
+
+  cache_out.stdout.close()
+
+  return cache
+
+# ==============================================================================
+# Function to grab effective distance from ihope cache of trig files
+# ==============================================================================
+def grab_effective_distance(cache,time=False):
+  distance=[]
+  time=[]
+  #== grab data
+  for file in cache:
+    data = GetCommandOutput('''ligolw_print -t summ_value '''+\
+                            '''-c start_time -c end_time -c name -c value '''+\
+                               file+''' | grep inspiral_effective_distance'''+\
+                            ''' | awk 'NR==1' | cut -f1,2,4 -d,''')[0]\
+               .replace('\n','')
+    start,end,dist = [float(num) for num in data.split(',')]
+    time.append((start+end)/2)
+    distance.append(dist)
+
+  if time:  return distance,time
+  else:  return distance
