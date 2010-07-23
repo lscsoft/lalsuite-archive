@@ -280,7 +280,9 @@ static void print_usage(char *program)
       " [--exttrig-file] exttrig  XML file containing external trigger\n"\
       " [--min-distance] DMIN     set the minimum distance to DMIN kpc\n"\
       " [--max-distance] DMAX     set the maximum distance to DMAX kpc\n"\
-      "                           min/max distance required if d-distr not 'source'\n\n");
+      "                           min/max distance required if d-distr not 'source'\n"\
+      " [--use-chirp-distance]    Use this option to scale injections using \n"\
+      "                           chirp distance (relative to a 1.4,1.4)\n\n");
   fprintf(stderr,
       "Mass distribution information:\n"\
       " --m-distr massDist        set the mass distribution of injections\n"\
@@ -878,6 +880,7 @@ int main( int argc, char *argv[] )
   REAL4 fLower = -1;
   REAL4 eps=0.01;  /* needed for some awkward spinning injections */
 
+  UINT4 useChirpDist = 0;
   size_t ninj;
   int rand_seed = 1;
 
@@ -939,6 +942,7 @@ int main( int argc, char *argv[] )
     {"max-mratio",              required_argument, 0,                'y'},
     {"min-distance",            required_argument, 0,                'p'},
     {"max-distance",            required_argument, 0,                'r'},
+    {"use-chirp-distance",      no_argument,       0,                ','},
     {"d-distr",                 required_argument, 0,                'e'},
     {"l-distr",                 required_argument, 0,                'l'},
     {"longitude",               required_argument, 0,                'v'},
@@ -1363,6 +1367,14 @@ int main( int argc, char *argv[] )
         this_proc_param = this_proc_param->next = 
           next_process_param( long_options[option_index].name, 
               "float", "%e", dmax );
+        break;
+
+      case ',':
+        /* Distribute injections in chirp distance not distance*/
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "" );
+        useChirpDist = 1;
         break;
 
       case 'e':
@@ -2156,6 +2168,13 @@ int main( int argc, char *argv[] )
     {
       simTable=XLALRandomInspiralDistance(simTable, randParams, 
           dDistr, dmin/1000.0, dmax/1000.0);
+    }
+    /* Scale by chirp mass if desired, relative to a 1.4,1.4 object */
+    if (useChirpDist)
+    {
+      REAL4 scaleFac;
+      scaleFac = simTable->mchirp/(2.8*pow(0.25,0.6));
+      simTable->distance = simTable->distance*pow(scaleFac,5./6.);
     }
 
     /* populate location */
