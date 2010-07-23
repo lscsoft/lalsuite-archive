@@ -685,6 +685,17 @@ def create_subpage_bkg(subpage, cp, grb, statistic):
     sec.add('<br')
     sec.add_text(txt='Detailed results can be found here:', bold=True)
     sec.add_link(href = main_path+pagelink, text = key+' summary page')
+
+
+
+# --------------------------------
+def create_subpage_openbox(subpage, cp, grb, statistic, columns, rows):
+
+
+  sec = subpage.add_section('onoff',"Results from onoff analysis")
+  table_gts = [columns]
+  table_gts.extend(rows)
+  sec.add_table(table_gts, 'onoff results')
   
 
 # --------------------------------
@@ -942,6 +953,7 @@ page.add_subpage("subpage_data","Data information", "Data Information")
 page.add_subpage("subpage_bg_diag","Background diagnostics", "Background diagnostics")
 page.add_subpage("subpage_inj_diag","Injection diagnostics", "Injection diagnostics")
 page.add_subpage("subpage_lik_diag","Likelihood diagnostics", "Likelihood diagnostics")
+page.add_subpage("subpage_openbox","OPENBOX results", "OPENBOX results")
 
 # calls to the specific subfunctions to create the subpages
 create_subpage_general(page.subpages["subpage_general"], cp, grb)
@@ -949,11 +961,13 @@ create_subpage_trigger(page.subpages["subpage_trigger"], cp, grb)
 create_subpage_data(page.subpages["subpage_data"], cp, grb)
 create_subpage_bkg(page.subpages["subpage_bg_diag"], cp, grb, statistic)
 
+create_subpage_openbox(page.subpages["subpage_openbox"], cp, grb, statistic, columns, rows)
+
 section_gts = page.subpages["subpage_bg_diag"].sections["grbstats"]
 table_gts = [columns]
 table_gts.extend(rows)
 print table_gts
-section_gts.add_table(table_gts, 'test')
+#section_gts.add_table(table_gts, 'test')
 
 # write the page to disk
 page.write("mypage")
