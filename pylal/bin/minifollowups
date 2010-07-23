@@ -215,7 +215,18 @@ elif FUPtype == 'LE':
       if opts.time_slides:
         for sngl in coinc[1]:
           SnglInspiralUtils.slideTriggersOnRings([sngl],segs[sngl.ifo],coinc[2])
-        page.append( followup.from_new_slide_coinc(coinc[0],coinc[1],coinc[2],segs) )
+        slideDict = {}
+        # If the detector didnt have a trigger but was on we need to know how
+        # much it was being slid by.
+        for ifo in ['H1','L1','H2','V1','G1','T1']:
+          if segs.has_key(ifo):
+            sngl = copy.deepcopy(coinc[1][0])
+            sngl.ifo = ifo
+            slidEndTime = sngl.get_end()
+            SnglInspiralUtils.unslideTriggersOnRings([sngl],segs[sngl.ifo],coinc[2])
+            unslidEndTime = sngl.get_end()
+            slideDict[sngl.ifo] = slidEndTime - unslidEndTime
+        page.append(followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict))
       else:
         page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
       numF += 1
