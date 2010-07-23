@@ -183,12 +183,6 @@ def get_loudest_stats_by_trial_cat_slide(offsource_doc, coinc_stat,
     offsource_coincs = CoincInspiralUtils.coincInspiralTable(offsource_trigs,
         coinc_stat)
 
-    # slide bins
-    nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-    total_num_slides = 0 or 1 or  2 * nominal_num_slides or 2 * nominal_num_slides+1
-    slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides)
-
-
     # define bins and keys
     nd_bins = rate.NDBins((trial_bins, slide_bins, mc_ifo_cats))
     stat_func = operator.attrgetter("stat")
