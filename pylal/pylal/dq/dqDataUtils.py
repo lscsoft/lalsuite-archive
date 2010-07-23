@@ -142,7 +142,7 @@ def blrms(data,sampling,average=None,band=None,offset=0,w_data=None,\
 # =============================================================================
 # Function to bandpass a time-series
 # =============================================================================
-def filter(data, f_low, f_high, order=4):
+def filter(data, f_low, f_high, sampling, order=4):
   """
   This function will bandpass filter data in the given [f_low,f_high) band
   using the given order Butterworth filter.

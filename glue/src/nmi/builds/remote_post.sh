@@ -17,7 +17,7 @@ if [[ "$_NMI_STEP_FAILED" != "" ]]; then
     DEBUG=src
 fi
 
-tar zcvf results.tar.gz head $DEBUG
+tar zcvf results.tar.gz opt $DEBUG
 
 # end of stdout/stderr-combining block
 } 2>&1

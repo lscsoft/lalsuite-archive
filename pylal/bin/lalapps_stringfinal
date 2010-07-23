@@ -51,6 +51,9 @@ except NameError:
 	from glue.iterutils import any, all
 
 
+from glue import segments
+from glue import segmentsUtils
+from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -61,6 +64,9 @@ from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
+SnglBurstUtils.matplotlib.rcParams.update({
+	"grid.linestyle": "-"
+})
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -95,28 +101,31 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [file ...]",
-		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input files ending in \".gz\" are assumed to be gzip-compressed, and if no files are specified on the command line then input is read from stdin."
+		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input consists of a list of all sqlite format database files produced by all injection and non-injection runs of the analysis pipeline.  The file names can be given on the command line and/or provided in a LAL cache file."
 	)
-	parser.add_option("-a", "--amplitude-factor", metavar = "factor", type = "float", default = 1e-20, help = "Multiple amplitudes in XML files by this amount (default = 1e-20).")
-	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", default = 0.0, help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).")
-	parser.add_option("-i", "--injections", action = "store_true", help = "Generate efficiency plots from the output files of an injection run.")
-	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves.")
-	parser.add_option("--loudest-survivor", metavar = "likelihood-ratio", type = "float", help = "Set likelihood ratio from loudest zero-lag non-injection survivor to use as detection threshold for efficiency measurement.")
-	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions.  Default = \"png,pdf\"")
-	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
+	parser.add_option("-a", "--amplitude-factor", metavar = "factor", type = "float", default = 1e-20, help = "Multiply amplitudes in XML files by this amount (default = 1e-20).")
+	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).  This option is required, use 0 to disable calibration uncertainty.")
+	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves (default = 16.7).")
+	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
+	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions (default = \"png,pdf\").")
+	parser.add_option("-p", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
+	parser.add_option("-o", "--open-box", action = "store_true", help = "Perform open-box analysis.  In a closed-box analysis (the default), information about the events seen at zero-lag is concealed:  the rate vs. threshold plot only shows the rate of events seen in the background, the detection threshold used to measure the efficiency curves is obtained from n-th loudest background event where n is (the integer closest to) the ratio of background livetime to zero-lag livetime, and messages to stdout and stderr that contain information about event counts at zero-lag are silenced.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.injections and options.loudest_survivor is None:
-		raise ValueError, "must set --loudest-survivor with --injections"
-
 	if options.cal_uncertainty is None:
-		raise ValueError, "must set --cal-uncertainty"
+		raise ValueError, "must set --cal-uncertainty (use 0 to ignore calibration uncertainty)"
 
 	options.image_formats = options.image_formats.split(",")
 
-	return options, (filenames or [None])
+	if options.input_cache:
+		filenames += [CacheEntry(line).url for line in file(options.input_cache)]
+
+	if not filenames:
+		raise ValueError, "must provide at least one filename"
+
+	return options, filenames
 
 
 #
@@ -219,16 +228,29 @@ def compress_ratevsthresh_curve(x, y, yerr):
 
 
 class RateVsThreshold(SnglBurstUtils.BurstPlot):
-	def __init__(self):
+	def __init__(self, open_box):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
 		self.zero_lag = []
 		self.background = []
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
+		self.open_box = open_box
 		self.axes.loglog()
 		self.axes.set_position([0.125, 0.15, 0.83, 0.75])
+		self.axes.xaxis.grid(True, which = "major,minor")
+		self.axes.yaxis.grid(True, which = "major,minor")
 
-	def add_contents(self, contents):
+	def add_contents(self, contents, verbose = False):
+		#
+		# if the database contains a sim_burst table then it is assumed
+		# to be from an injection run:  skip it
+		#
+
+		if "sim_burst" in dbtables.get_table_names(contents.connection):
+			if verbose:
+				print >>sys.stderr, "\tdatabase contains sim_burst table, skipping ..."
+			return
+
 		#
 		# retrieve the offset vectors, retain only instruments that
 		# are available
@@ -273,19 +295,15 @@ WHERE
 				self.zero_lag.append(likelihood_ratio)
 
 	def finish(self):
-		print "Zero-lag events: %d" % len(self.zero_lag)
-		print "Total time in zero-lag segments: %s s" % str(self.zero_lag_time)
-		print "Time-slide events: %d" % len(self.background)
-		print "Total time in time-slide segments: %s s" % str(self.background_time)
-
-		self.axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
+		if self.open_box:
+			self.axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
+		else:
+			self.axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold (Closed Box)")
 
 		self.background.sort()
 		self.zero_lag.sort()
 		self.background = numpy.array(self.background, dtype = "double")
 		self.zero_lag = numpy.array(self.zero_lag, dtype = "double")
-
-		print "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % self.zero_lag[-1]
 
 		#
 		# convert counts to rates and their uncertainties
@@ -308,7 +326,10 @@ WHERE
 		# determine the horizontal and vertical extent of the plot
 		#
 
-		minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, self.zero_lag, zero_lag_y)
+		if self.open_box:
+			minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, self.zero_lag, zero_lag_y)
+		else:
+			minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, [], [])
 		minX = 1e-2	# FIXME:  don't hard-code
 
 		#
@@ -326,14 +347,14 @@ WHERE
 		poly_y = numpy.concatenate((background_y + 1 * background_yerr, (background_y - 1 * background_yerr)[::-1]))
 		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, minY, maxY)), edgecolor = "k", facecolor = "k", alpha = 0.3))
 		line1, = self.axes.loglog(background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "--")
-		line2, = self.axes.loglog(self.zero_lag.repeat(2)[:-1], zero_lag_y.repeat(2)[1:], color = "k", linestyle = "-", linewidth = 2)
-
-		self.axes.legend((line1, line2), (r"Expected background", r"Zero-lag"), loc = "lower left")
+		if self.open_box:
+			line2, = self.axes.loglog(self.zero_lag.repeat(2)[:-1], zero_lag_y.repeat(2)[1:], color = "k", linestyle = "-", linewidth = 2)
+			self.axes.legend((line1, line2), (r"Expected background", r"Zero-lag"), loc = "lower left")
+		else:
+			self.axes.legend((line1,), (r"Expected background",), loc = "lower left")
 
 		self.axes.set_xlim((minX, maxX))
 		self.axes.set_ylim((minY, maxY))
-		self.axes.xaxis.grid(True, which="minor")
-		self.axes.yaxis.grid(True, which="minor")
 
 
 #
@@ -462,22 +483,23 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# print some analysis
 	num_injections = efficiency.denominator.array.sum()
 	num_samples = len(efficiency.denominator)
-	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / interpolate.interp1d(x, dydx)(A50)**2.0)**(1.0/3.0))
-	print "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
+	print >>sys.stderr, "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / interpolate.interp1d(x, dydx)(A50)**2.0)**(1.0/3.0))
+	print >>sys.stderr, "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
 
 	return line, A50, A50_err
 
 
 class Efficiency(SnglBurstUtils.BurstPlot):
-	def __init__(self, instruments, loudest_survivor_likelihood, cal_uncertainty, amplitude_factor, filter_width):
+	def __init__(self, detection_threshold, cal_uncertainty, amplitude_factor, filter_width):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
-		self.instruments = instruments
-		self.loudest_survivor_likelihood = loudest_survivor_likelihood
+		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
 		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
+		self.seglists = segments.segmentlistdict()
 		self.found = []
+		self.missed = []
 		self.all = []
 		self.axes.semilogx()
 		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
@@ -485,12 +507,30 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# set desired yticks
 		self.axes.set_yticks((0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0))
 		self.axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
+		self.axes.xaxis.grid(True, which = "major,minor")
+		self.axes.yaxis.grid(True, which = "major,minor")
 
-	def add_contents(self, contents):
-		# for each injection, retrieve the highest SNR of the burst
-		# events that were found to match the injection and that
-		# participated in burst<-->burst coincidences or null if no
-		# such matching burst events were found
+	def add_contents(self, contents, verbose = False):
+		#
+		# if the database does not contain a sim_burst table then
+		# it is assumed to be from a non-injection run:  skip it
+		#
+
+		if "sim_burst" not in dbtables.get_table_names(contents.connection):
+			if verbose:
+				print >>sys.stderr, "\tdatabase does not contain sim_burst table, skipping ..."
+			return
+
+		#
+		# update segment information
+		#
+
+		self.seglists |= contents.seglists
+
+		# for each injection, retrieve the highest likelihood ratio
+		# of the burst coincs that were found to match the
+		# injection or null if no such matching burst events were
+		# found
 		create_recovered_likelihood_view(contents.connection, contents.bb_definer_id)
 		for values in contents.connection.cursor().execute("""
 SELECT
@@ -508,10 +548,14 @@ FROM
 			# were at least 2 instruments on when the injection
 			# was made?
 			if any(SimBurstUtils.injection_was_made(sim, contents.seglists, instruments) for instruments in iterutils.choices(contents.seglists.keys(), 2)):
+				# yes
 				self.all.append(sim)
-				if found and likelihood_ratio > self.loudest_survivor_likelihood:
+				if found and likelihood_ratio > self.detection_threshold:
 					self.found.append(sim)
+				else:
+					self.missed.append(sim)
 			elif found:
+				# no
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 	def finish(self):
@@ -524,8 +568,8 @@ FROM
 		for sim in self.all:
 			efficiency.incdenominator((sim.amplitude * self.amplitude_factor,))
 
-		# regularize:  adjust unused bins so that the efficiency
-		# ratio comes out to 0
+		# regularize:  adjust unused bins so that the efficiency is
+		# 0, not NaN
 		efficiency.regularize()
 
 		# generate and plot trend curves.  adjust window function
@@ -541,14 +585,31 @@ FROM
 		rate.filter_binned_ratios(efficiency, windowfunc)
 
 		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
-		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
+		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1,), (r"\noindent Injections recovered with$\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.loudest_survivor_likelihood),), loc = "lower right")
+		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
 		self.axes.set_xlim([4e-21, 1e-17])
 		self.axes.set_ylim([0.0, 1.0])
+
+		# dump some information about the highest-amplitude missed
+		# injections
+		self.missed.sort(lambda a, b: cmp(a.amplitude, b.amplitude))
+		f = file("string_missed_injections.txt", "w")
+		print >>f, "Highest Amplitude Missed Injections"
+		print >>f, "==================================="
+		for sim in self.missed[-100:]:
+			print >>f
+			for instrument in self.seglists:
+				print >>f, "%s:" % instrument
+				print >>f, "\tAmplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
+				print >>f, "\tTime:\t%s s" % SimBurstUtils.time_at_instrument(sim, instrument)
+			print >>f, "Amplitude in waveframe:\t%.16g" % sim.amplitude
+			t = sim.get_time_geocent()
+			print >>f, "Time at geocentre:\t%s s" % t
+			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
 
 
 #
@@ -560,57 +621,78 @@ FROM
 #
 
 
+def process_files(filenames, products, live_time_program, tmp_path = None, verbose = False):
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
+		connection = sqlite3.connect(working_filename)
+		dbtables.DBTable_set_connection(connection)
+		database = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", verbose = verbose)
+		for n, plot in enumerate(products):
+			if verbose:
+				print >>sys.stderr, "adding to plot %d ..." % n
+			plot.add_contents(database, verbose = verbose)
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
+
+
+def write_products(products, prefix, image_formats, verbose = False):
+	format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(products) - 1, 1))) + 1)
+	n = 0
+	while products:
+		if verbose:
+			print >>sys.stderr, "finishing plot %d ..." % n
+		products[0].finish()
+		for ext in image_formats:
+			filename = format % (prefix, n, ext)
+			if verbose:
+				print >>sys.stderr, "writing %s ..." % filename
+			products[0].fig.savefig(filename)
+		del products[0]
+		n += 1
+
+
 options, filenames = parse_command_line()
 
-if options.injections:
-	plots = [
-		Efficiency(("H1", "H2", "L1"), options.loudest_survivor, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
-	]
-	survivors = None
+
+if options.open_box:
+	print >>sys.stderr, """
+
+---=== !! BOX IS OPEN !! ===---
+
+PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
+
+"""
+
+
+if options.verbose:
+	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
+rate_vs_threshold = RateVsThreshold(options.open_box)
+process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+write_products([rate_vs_threshold], "string_triggers_", options.image_formats, verbose = False)
+
+
+if options.open_box:
+	print >>sys.stderr, "Zero-lag events: %d" % len(rate_vs_threshold.zero_lag)
+print >>sys.stderr, "Total time in zero-lag segments: %s s" % str(rate_vs_threshold.zero_lag_time)
+print >>sys.stderr, "Time-slide events: %d" % len(rate_vs_threshold.background)
+print >>sys.stderr, "Total time in time-slide segments: %s s" % str(rate_vs_threshold.background_time)
+if options.open_box:
+	detection_threshold = rate_vs_threshold.zero_lag[-1]
+	print >>sys.stderr, "Likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 else:
-	plots = [
-		RateVsThreshold()
-	]
-	# FIXME:  Survivors() is busted
-	#survivors = Survivors()
-	survivors = None
+	detection_threshold = rate_vs_threshold.background[-int(round(rate_vs_threshold.background_time / rate_vs_threshold.zero_lag_time))]
+	print >>sys.stderr, "Simulated likelihood ratio for highest-ranked zero-lag survivor: %.9g" % detection_threshold
 
 
-for n, filename in enumerate(filenames):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
-	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp", verbose = options.verbose)
-	for n, plot in enumerate(plots):
-		if options.verbose:
-			print >>sys.stderr, "adding to plot %d ..." % n
-		plot.add_contents(database)
-	if survivors is not None:
-		if options.verbose:
-			print >>sys.stderr, "storing zero-lag survivors ..."
-		survivors.add_contents(database)
-	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+if options.verbose:
+	print >>sys.stderr, "Collecting efficiency statistics ..."
+# FIXME:  don't hard-code instrument names
+efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
+process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
 
-n = 0
-format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)
-while plots:
-	if options.verbose:
-		print >>sys.stderr, "finishing plot %d ..." % n
-	plots[0].finish()
-	for ext in options.image_formats:
-		if options.injections:
-			filename = format % ("string_injections_", n, ext)
-		else:
-			filename = format % ("string_triggers_", n, ext)
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % filename
-		plots[0].fig.savefig(filename)
-	del plots[0]
-	n += 1
-if survivors:
-	survivors.finish("string_triggers_survivors.xml", verbose = options.verbose)
+
 if options.verbose:
 	print >>sys.stderr, "done."

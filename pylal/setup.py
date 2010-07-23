@@ -456,7 +456,7 @@ setup(
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_exttrig_llmonitor"),
 		os.path.join("bin", "pylal_exttrig_llsummary"),
-		os.path.join("bin", "pylal_exttrig_llopenbox"),
+		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "ploteffdistcut"),
@@ -569,7 +569,8 @@ setup(
 		os.path.join("bin", "make_skypoints_grids.py"),
 		os.path.join("bin", "make_skypoints_rankings.py"),
                 os.path.join("bin", "plot_skypoints.py"),
-		os.path.join("bin", "pylal_cbc_select_hardware_injections")
+		os.path.join("bin", "pylal_cbc_select_hardware_injections"),
+		os.path.join("bin", "ring_post")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

@@ -565,7 +565,7 @@ class FollowupTrigger:
  
   # -----------------------------------------------------
   def create_timeseries(self, trigger_files, stage, number,\
-                        slideDict=None,segList=None):
+                        slideDict=None):
     """
     Investigate inspiral triggers and create a time-series
     of the SNRs around the injected time
@@ -573,7 +573,6 @@ class FollowupTrigger:
     @param stage:        the name of the stage (FIRST, SECOND)
     @param number:       the consecutive number for this inspiral followup
     @param slideDict: A dictionary of ifo keyed slide times if using slides
-    @param segList: Sorted segment list of possible rings if using slides
     """
     
     # read the inspiral file(s)
@@ -584,11 +583,10 @@ class FollowupTrigger:
               trigger_files , mangle_event_id = True,\
               verbose=False, old_document=self.old_document)
 
-    if (slideDict and segList):
+    if slideDict:
       if sngls:
         for sngl in sngls:
-          SnglInspiralUtils.slideTriggersOnRings([sngl],segList[sngl.ifo],\
-                                               slideDict)
+          sngl.set_end(sngl.get_end() + slideDict[sngl.ifo])
 
     # create a figure and initialize some lists
     fig=pylab.figure()
@@ -818,14 +816,14 @@ class FollowupTrigger:
   
   # --------------------------------------------
   def create_table_coinc(self, coinc,snglInspirals=None,page=None,
-          slideDict=None,segList=None):
+          slideDict=None):
     """
     Creates the first table containing basic properties
     of the coincidence which is followed up.
     @param coinc: an CoincInspiral table
     """
 
-    if slideDict and segList:
+    if slideDict:
       timeSlide = True
     else:
       timeSlide = False
@@ -864,8 +862,7 @@ class FollowupTrigger:
             trig = sngl
             if timeSlide:
               trig2 = copy.deepcopy(trig)
-              SnglInspiralUtils.unslideTriggersOnRings([trig2],\
-                  segList[trig2.ifo],slideDict)
+              trig2.set_end(trig2.get_end() - slideDict[trig2.ifo])
       elif hasattr(coinc,ifo):
         trig = getattr(coinc,ifo)
 
@@ -886,9 +883,9 @@ class FollowupTrigger:
         self.fill_table( page, ['Mchirp', '%.2f' % (trig.mchirp)] )
         if timeSlide:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
-          self.fill_table( page, ['Unslid end_time', '%.4f' % endTime] )
+          self.fill_table( page, ['Slid end_time', '%.4f' % endTime] )
           slidEndTime = trig2.end_time + 1E-9*trig2.end_time_ns
-          self.fill_table( page, ['Slid end_time', '%.4f' % slidEndTime] ) 
+          self.fill_table( page, ['Unslid end_time', '%.4f' % slidEndTime] ) 
         else:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
           self.fill_table( page, ['end_time', '%.4f' % endTime] )
@@ -1023,7 +1020,7 @@ class FollowupTrigger:
 
   # -----------------------------------------------------  
   def from_coinc(self, coinc, ifo = None, more_infos = False, \
-                 injection_id = None,slideDict=None,segList=None):
+                 injection_id = None,slideDict=None):
     """
     Creates a followup page from a coincident trigger.
     @param coinc: the coincidence to be followed up
@@ -1047,11 +1044,11 @@ class FollowupTrigger:
  
     # prepare the page
     self.injection_id = injection_id
-    page =  self.create_table_coinc(coinc,slideDict=slideDict,segList=segList)
+    page =  self.create_table_coinc(coinc,slideDict=slideDict)
     self.flag_followup = more_infos
 
     # do the followup
-    return self.followup(page,slideDict=slideDict,segList=segList)
+    return self.followup(page,slideDict=slideDict)
 
   # -----------------------------------------------------  
   def from_new_coinc(self, coinc, sngls,\
@@ -1079,7 +1076,7 @@ class FollowupTrigger:
     return self.followup(page)
 
   # -----------------------------------------------------  
-  def from_new_slide_coinc(self, coinc, sngls,slideDict,segList,\
+  def from_new_slide_coinc(self, coinc, sngls,slideDict,\
                  more_infos = False, injection_id = None):
     """
     Creates a followup page from a slid coincident trigger. This function
@@ -1101,10 +1098,10 @@ class FollowupTrigger:
     # prepare the page
     self.injection_id = injection_id
     page =  self.create_table_coinc(coinc,snglInspirals= sngls,\
-        slideDict=slideDict,segList=segList)
+        slideDict=slideDict)
     self.flag_followup = more_infos
 
-    return self.followup(page,slideDict=slideDict,segList=segList)
+    return self.followup(page,slideDict=slideDict)
 
   # -----------------------------------------------------
   def from_sngl(self, sngl, ifo = None, more_infos = False, \
@@ -1219,13 +1216,12 @@ class FollowupTrigger:
     
 
   # -----------------------------------------------------
-  def followup(self, page,slideDict = None, segList = None):
+  def followup(self, page,slideDict = None):
     """
     Central followup procedure, finding corresponding files,
     generating the time-series and creating the output html files
     @param page: The head of the html page created with different informations
     @param slideDict: A dictionary of ifo keyed slide times if using slides
-    @param segList: Sorted segment list of possible rings if using slides
     @return: filename of the created html
     """
   
@@ -1268,10 +1264,10 @@ class FollowupTrigger:
             continue          
           modstage = stage+'_CAT_' + str(cat)
           invest_dict[modstage] = self.create_timeseries(select_list,modstage,\
-                                       self.number,slideDict,segList)
+                                       self.number,slideDict)
       else:
         invest_dict[stage]=self.create_timeseries(file_list, stage, \
-                                self.number,slideDict,segList)
+                                self.number,slideDict)
 
 
     ## add some more followup if required

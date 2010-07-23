@@ -177,8 +177,8 @@ for coinc in coincs:
   #open up the necessary pickle with info on the galaxy prior
   if opts.galaxy_priors_dir:
     mineffD = ceil(min(coinc.eff_distances.values()))
-    if mineffD > 100.: 
-      mineffD = 100
+    if mineffD > 50.: 
+      mineffD = 50
     f = open(opts.galaxy_priors_dir+'/galaxy_prior_'+str(int(mineffD))+'Mpc.pkl','r')
     gal_prior = cPickle.load(f)
     f.close()

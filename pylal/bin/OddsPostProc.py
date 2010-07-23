@@ -323,6 +323,12 @@ if(opts.skyres is not None):
 	#skycarts=pol2carts(skypoints[:,0],skypoints[:,1])
 	(bins,shist)=skyhist_cart(skycarts,pos)
 	#(bins,hist)=sky_hist(skypoints,pos)
+	if injection:
+		(injbins,injhist)=skyhist_cart(skycarts,[injpoint])
+		for i in range(0,len(injbins)):
+			if injhist[i]==1:
+				injbin=i
+				break
 	frac=0
 	Nbins=0
 	toppoints=[]
