@@ -89,18 +89,29 @@ Date of last creation: %s<br><br>
   <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Box<br>
 """
 
-def internal_call(command):
-  """
-  Makes an internal call with the usage of subprocess and returns the output
-  and the error code. Found here: 
-  http://www.saltycrane.com/blog/2008/09/how-get-stdout-and-stderr-using-python-subprocess-module/
-  @param command: command to be executed internally
-  @return: tuple of output and stderr
-  """
+# -----------------------------------------------------
+def external_call(command):
+    """
+    Makes an internal call to the shell (with the
+    current set environment), wait for completion
+    and returns the output and error of the command.
+    @param command: command to be executed internally
+    @return: a tuple (status, output, error)
+    """
 
-  p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-  return p.communicate()
+    # open the command with the output directed to the pipe
 
+    p = subprocess.Popen(command, shell=True, \
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # wait for the command to complete, and get the output and
+    # error-text (if any)
+    out, err =  p.communicate()
+
+    # gets the errorcode, if any. 0 means no error
+    errorcode = p.poll()
+
+    return errorcode, out, err
 
 # -----------------------------------------------------
 def system_call(item, command, divert_output_to_log = True):
@@ -128,9 +139,9 @@ def system_call(item, command, divert_output_to_log = True):
     command_actual = command +' 2>>%s '%l
    
   # perform the command
-  out, err = internal_call(command_actual)
+  code, out, err = external_call(command_actual)
 
-  if err is not None:
+  if code>0:
     info(item, "ERROR: " +err)
 
 # -----------------------------------------------------
