@@ -53,10 +53,8 @@ from pylal import git_version
 
 ### constants ###
 
-# gps end time for querying the latest data; good until 2038-01-01
-end_of_gpstime = 1830000000
-
-# per http://www.geo600.uni-hannover.de/geodc/index.php?location=data
+# mapping of 12-bit GEO data-quality word to DQ flags
+# based on http://www.geo600.uni-hannover.de/geodc/index.php?location=data
 dq_word_key = [
     'GEO-UNLOCKED',
     'GEO-HW_MAINT_ON',
@@ -83,9 +81,9 @@ PROGRAM_PID  = os.getpid()
 
 
 """
-Given a state file and GPS time range, returns all segments within the
-range for which GEO frame files have *not* been processed into DQ XML
-files.
+Given a state file and GPS time range, returns all segments within
+that range for which GEO frame files have *not* been processed into DQ
+XML files.
 
 NOTE: the state file contains no calibration version or segment
 version information -- it's assumed you will specify a new state file
@@ -107,10 +105,14 @@ def get_pending_fr_segments(state_file, gps_start, gps_end, verbose=False):
     return pending_segments
 
 
+# TODO: refactor get_pending_fr_segments() and append_processed_fr_segments()
+# to use some kind of common state_file object, so we don't have open & read
+# the same state file in each
 
-# TODO: along with get_pending_fr_segments() above, refactor to use a
-# state_file object, so we don't have re-read in order to write
-
+"""
+Given a state file and segmentlist, add the segments to the table of
+processed segments.
+"""
 def append_processed_fr_segments(state_file, segmentlist, verbose=False):
     if verbose: print "appending segmentlist %s to state file %s" % (segmentlist, state_file)
     # load existing state file and extract processed/excluded segment lists
@@ -134,6 +136,11 @@ def append_processed_fr_segments(state_file, segmentlist, verbose=False):
     ligolw_utils.write_filename(outdoc, state_file)
 
 
+"""
+Given a state file, diskCache, IFO attributes, and GPS time range,
+returns a list of all matching frame PFNs that have not yet been
+processed into DQ XML files.
+"""
 def get_pending_files(state_file, diskcache_file, ifo, frame_type, gps_start, gps_end, verbose=False):
     pending_segments = get_pending_fr_segments(state_file, gps_start, gps_end, verbose=verbose)
     if verbose: print "pending segments =", pending_segments
@@ -153,8 +160,8 @@ its length in seconds; 3) a name/value hash of its DQ flags.
 
 The default bitmask (4032 or int('111111000000',2)) omits the first
 six low-order bits, since they are summarized by the GEO-SCIENCE flag.
-(The GEO-SCIENCE flag is included in the returned hash regardless of
-the bitmask value.)
+(The GEO-SCIENCE flag is always included in the results, regardless of
+the bitmask.)
 """
 def get_dq_flags(file, ifo, bitmask=4032, verbose=False):
     # extract the DQ state vector from the frame file
@@ -168,9 +175,9 @@ def get_dq_flags(file, ifo, bitmask=4032, verbose=False):
     dq['GEO-SCIENCE'] = bool(state_vec[0][0] & 0x111111)
     # iterate through the DQ word and set dq{} according to dq_word_key[]
     for i, name in enumerate(dq_word_key):
-        bit = (state_vec[0][0] >> i) & 0x1
         # if bitmask includes this bit, add its name/value to the hash
         if (bitmask >> i) & 0x1:
+            bit = (state_vec[0][0] >> i) & 0x1
             dq[name] = bool(bit)
     return (gps_start, duration, dq)
 
@@ -188,6 +195,9 @@ def gen_dq_xml_filename(xml_root, ifo, gps_start, duration):
 
 
 """
+THIS SHOULD BE RIPPED OUT AND THE CODE THAT USES IT REFACTORED TO USE
+THE PROPER DISKCACHE API.
+
 Given a frame LFN (e.g., as returned by
 glue.pipeline.LsyncCache.get_lfns()), a root frame directory, and
 various frame metadata, returns the physical path to that frame file
@@ -200,6 +210,16 @@ def fr_lfn_to_pfn_hack(lfn, frame_dir, ifo, frame_type, start_time):
     return os.path.join(frame_dir, subdir, lfn)
 
 
+"""
+
+Given a single frame file (basename), frame file dir, output xml root
+dir, and various frame attributes, write a ligolw XML file containing
+the DQ flags for the frame.
+
+THIS SHOULD BE REFACTORED to take a full frame file PFN (instead of
+using the frame file basename, frame dir, ifo, and frame type to call
+fr_lfn_to_pfn_hack() to generate the PFN).
+"""
 def frame_to_dq_xml(frame_file, frame_dir, xml_root, ifo, type, version, comment, verbose=False):
     # these next two lines are ugly: we don't know the frame's
     # gps_start time until we open it to extract the metadata -- but
@@ -253,6 +273,7 @@ parser = OptionParser(
     usage   = "%prog [OPTIONS]",
     description = "Extracts data quality segments from GEO h(t) frame files, and writes it to XML." )
 
+# defaults are set for use on segdb.ligo.caltech.edu (circa July 2010)
 parser.add_option('-s', '--state-file', metavar='FILE', help='state file',
                   default="%s_state.xml" % os.path.basename(sys.argv[0]) )
 parser.add_option('-c', '--cache-file', metavar='FILE', help='diskCache file',
@@ -301,11 +322,14 @@ if not os.path.isdir(xml_root):
 
 ### main ###
 
+"""
+NOTE: to be really safe, if any of the data (the frames, DQ files,
+statefile, etc.) are on a shared filesystem, then the lockfile should
+be kept on that same filesystem (rather than TMPDIR) so that locking
+has a chance of working if two instances of the script are run on
+different hosts.  In our current use this isn't a concern.
+"""
 # grab the lockfile
-# NOTE: if any of the data (the frames, DQ files, statefile, etc.) are
-# on a shared filesystem, then the lockfile should be kept on that
-# same filesystem (rather than TMPDIR) so that locking has a chance of
-# working if two instances of the script are run on different hosts
 if options.lock_dir is None:
     lock_dir = os.getenv('TMPDIR') or '/tmp'
 lockfile = os.path.join(lock_dir, "%s.pid" % os.path.basename(PROGRAM_NAME))
