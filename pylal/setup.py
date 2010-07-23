@@ -259,6 +259,7 @@ setup(
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_exttrig_llmonitor"),
 		os.path.join("bin", "pylal_exttrig_llsummary"),
+		os.path.join("bin", "pylal_exttrig_llpage"),
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_query_dq"),
 		os.path.join("bin", "pylal_relic"),
