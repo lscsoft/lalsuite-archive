@@ -184,7 +184,7 @@ class Likelihood(object):
 	def P(self, params_func, events, offsetdict, *params_func_extra_args):
 		P_bak = 1.0
 		P_inj = 1.0
-		for name, value in params_func(events, offsetdict, *params_func_extra_args).items():
+		for name, value in sorted(params_func(events, offsetdict, *params_func_extra_args).items()):
 			P_bak *= self.background_rates[name](*value)[0]
 			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj
