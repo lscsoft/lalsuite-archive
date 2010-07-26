@@ -87,6 +87,7 @@ liblalinspiral_la_SOURCES = \
 	GenerateInspRing.c \
 	GenerateInspiral.c \
 	GenerateInspiralSmooth.c \
+        GeneratePPNAmpCorConsistency.c \
 	GeneratePPNAmpCorInspiral.c \
 	GeneratePPNInspiral.c \
 	GenerateRing.c \
@@ -112,6 +113,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralBankUtils.c \
 	LALInspiralChooseModel.c \
 	LALInspiralComputeChisq.c \
+        LALInspiralComputeFisher.c \
 	LALInspiralComputeMetric.c \
 	LALInspiralComputePTFMetric.c \
 	LALInspiralComputeParams.c \
