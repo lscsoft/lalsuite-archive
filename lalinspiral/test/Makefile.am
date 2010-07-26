@@ -12,7 +12,9 @@ check_PROGRAMS = \
 	FindChirpBankVetoTest \
 	FindChirpTDTest \
 	FindChirpACTDTest \
+        FisherTest \
 	GenerateInspiralWaveform \
+        GeneratePPNAmpCorConsistencyTest \
 	GeneratePPNAmpCorInspiralTest \
 	GeneratePPNInspiralTest \
 	GetOrientationEllipse \
