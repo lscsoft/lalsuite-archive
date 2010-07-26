@@ -256,12 +256,6 @@ def parse_args():
     # binning
     parser.add_option("--m2-boundaries", help="comma-delimited list of "
         "boundaries for companion masses")
-    parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass")
-    parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass")
-    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
-        "bins in injected companion mass")
     parser.add_option("--D-min", type="float", help="minimum of the range in "
         "injected distance")
     parser.add_option("--D-max", type="float", help="maximum of the range in "
@@ -291,12 +285,13 @@ def parse_args():
             "--write-offsource, --write-injections}"
     if options.write_injections and (options.injection_pattern is None \
         or options.inj_coinc_pattern is None \
+        or options.m2_boundaries is None \
         or options.D_min is None \
         or options.D_max is None \
         or options.D_nbins is None):
         raise ValueError, "if --write-injections is specified, you must also "\
-            "provide --injection-pattern, --inj-coinc-pattern, --m2-min, "\
-            "--m2-max, --m2-nbins, --D-min, --D-max, and --D-nbins."
+            "provide --injection-pattern, --inj-coinc-pattern, --D-min, "\
+            "--D-max, --D-nbins, and --m2-boundaries."
 
     return options, arguments
 
