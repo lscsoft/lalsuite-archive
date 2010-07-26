@@ -19,6 +19,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import print_tables
+from glue import segments
 from glue import git_version
 import matplotlib
 matplotlib.use('Agg')
@@ -187,7 +188,11 @@ if FUPtype == 'LE':
     coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
     timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
     coincTable = organize_slides(coincTable,coincEvent,timeSlide)
-    segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc)
+    segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc,program="thinca")
+    seg_lists = {}
+    for key in segs:
+      seg_lists[key] = segments.segmentlist(set(segs[key]))
+      seg_lists[key].sort()
 elif FUPtype == 'CMI':
   summTable = table.get_table(xmldoc,opts.table_name + ":table")
 elif FUPtype == 'SFI':
@@ -214,18 +219,23 @@ elif FUPtype == 'LE':
     if numF < opts.max_followups:
       if opts.time_slides:
         for sngl in coinc[1]:
-          SnglInspiralUtils.slideTriggersOnRings([sngl],segs[sngl.ifo],coinc[2])
+          SnglInspiralUtils.slideTriggersOnRings([sngl],seg_lists[sngl.ifo],coinc[2])
         slideDict = {}
         # If the detector didnt have a trigger but was on we need to know how
         # much it was being slid by.
         for ifo in ['H1','L1','H2','V1','G1','T1']:
-          if segs.has_key(ifo):
+          if seg_lists.has_key(ifo):
             sngl = copy.deepcopy(coinc[1][0])
-            sngl.ifo = ifo
-            slidEndTime = sngl.get_end()
-            SnglInspiralUtils.unslideTriggersOnRings([sngl],segs[sngl.ifo],coinc[2])
-            unslidEndTime = sngl.get_end()
-            slideDict[sngl.ifo] = slidEndTime - unslidEndTime
+            if (sngl.get_end() in seg_lists[ifo]):
+              sngl.ifo = ifo
+              slidEndTime = sngl.get_end()
+              SnglInspiralUtils.unslideTriggersOnRings([sngl],seg_lists[sngl.ifo],coinc[2])
+              unslidEndTime = sngl.get_end()
+              slideDict[ifo] = slidEndTime - unslidEndTime
+            else:
+              print "It appears that the thinca rings are different for"
+              print "different ifos. This is not expected and not supported."
+              slideDict[ifo] = 0
         page.append(followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict))
       else:
         page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
