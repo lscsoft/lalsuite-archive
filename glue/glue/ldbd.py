@@ -43,6 +43,8 @@ try:
 except:
   pass
 
+from glue.ligolw.types import string_format_func
+
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
 """
