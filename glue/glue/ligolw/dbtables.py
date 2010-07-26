@@ -271,9 +271,13 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# because we've just deleted the file above, this would
 		# produce an annoying but harmless message about an ignored
 		# OSError, so we create a dummy file for the TemporaryFile
-		# to delete.  FIXME: this is stupid, find a better way to
-		# shut TemporaryFile up
-		file(working_filename, "w")
+		# to delete.  ignore any errors that occur when trying to
+		# make the dummy file.  FIXME: this is stupid, find a
+		# better way to shut TemporaryFile up
+		try:
+			file(working_filename, "w")
+		except:
+			pass
 		del temporary_files[working_filename]
 
 		# restore original handlers, and report the most recently
