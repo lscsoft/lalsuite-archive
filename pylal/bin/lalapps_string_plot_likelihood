@@ -220,7 +220,7 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
 			print >>sys.stderr, "generating %s ..." % outname
-		dt = .010 + inject.light_travel_time(*instruments) / 2
+		dt = .010 + inject.light_travel_time(*instruments)
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-dt, +dt))
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-dt, +dt))
 		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-dt, +dt))
