@@ -24,6 +24,7 @@ lalinspiralinclude_HEADERS = \
 	LALInspiral.h \
 	LALInspiralBCVSpinBank.h \
 	LALInspiralBank.h \
+        LALInspiralComputeFisher.h \
 	LALInspiralConfig.h \
 	LALInspiralRandomBank.h \
 	LALInspiralVCSInfo.h \
