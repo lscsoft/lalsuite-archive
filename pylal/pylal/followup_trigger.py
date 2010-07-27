@@ -646,6 +646,7 @@ class FollowupTrigger:
           loudest_details[ifo] = {}
           loudest_details[ifo]["snr"] = loudest.snr
           loudest_details[ifo]["mchirp"] = loudest.mchirp
+          loudest_details[ifo]["eta"] = loudest.eta
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
           loudest_details[ifo]["chisq"] = loudest.chisq
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
@@ -769,6 +770,7 @@ class FollowupTrigger:
     self.fill_table( page, ['mass2', '%.2f'% inj.mass2] )
     self.fill_table( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
     self.fill_table( page, ['mchirp', '%.2f' % (inj.mchirp)] )
+    self.fill_table( page, ['eta', '%.2f' % (inj.eta)] )
     self.fill_table( page, ['end_time', '%010d' % inj.geocent_end_time] )
     self.fill_table( page, ['end_time_ns', '%09d' %inj.geocent_end_time_ns] )    
     self.fill_table( page, ['distance', '%.1f' % inj.distance] )
@@ -930,7 +932,7 @@ class FollowupTrigger:
     page.add('<table border="2" >')
     page.add('<caption><b> Parameters of the loudest (by SNR) recovered single ifo triggers at each stage of the pipeline </b> </caption>')
     self.fill_table( page, ['step','F/M', 'SNR', \
-                            'Mchirp', 'eff_dist', \
+                            'Mchirp', 'eta','eff_dist', \
                             'chisq', 'eff_snr',\
                             'new_snr','end_time','ethinca', 'Veto ON/OFF'],header=True )
 
@@ -944,6 +946,7 @@ class FollowupTrigger:
         found_ifo = ''
         loudest_snr = ''
         loudest_mchirp = ''
+        loudest_eta = ''
         loudest_eff_dist = ''
         loudest_chisq = ''
 	loudest_effsnr = ''
@@ -964,6 +967,8 @@ class FollowupTrigger:
                          (ifo, result['loudest_details'][ifo]['snr'])
 	  loudest_mchirp += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['mchirp'])
+          loudest_eta += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['eta'])
 	  loudest_eff_dist += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['eff_dist'])
 	  loudest_chisq += "%s : %.3f <br>" % \
@@ -1002,6 +1007,7 @@ class FollowupTrigger:
           self.fill_table( page, [ stage,  'FOUND in <br>'+found_ifo, \
                                    loudest_snr, \
                                    loudest_mchirp, \
+                                   loudest_eta, \
                                    loudest_eff_dist,\
                                    loudest_chisq, \
                                    loudest_effsnr, 

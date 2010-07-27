@@ -391,7 +391,7 @@ setup(
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
 			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
 		),
-        Extension(
+		Extension(
 			"pylal._bayespputils",
 			["src/bayespputils.c"],
 			include_dirs = [numpy_get_include()]
@@ -421,7 +421,7 @@ setup(
 		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
-                os.path.join("bin", "plotextrapolation"),
+		os.path.join("bin", "plotextrapolation"),
 		os.path.join("bin", "plotgrbl"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotnumgalaxies"),
@@ -568,9 +568,10 @@ setup(
 		os.path.join("bin", "run_skypoints.py"),
 		os.path.join("bin", "make_skypoints_grids.py"),
 		os.path.join("bin", "make_skypoints_rankings.py"),
-                os.path.join("bin", "plot_skypoints.py"),
+		os.path.join("bin", "plot_skypoints.py"),
 		os.path.join("bin", "pylal_cbc_select_hardware_injections"),
-		os.path.join("bin", "ring_post")
+		os.path.join("bin", "ring_post"),
+		os.path.join("bin","cbcBayesSkyRes.py")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
