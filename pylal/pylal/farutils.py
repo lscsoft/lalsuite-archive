@@ -119,15 +119,15 @@ def get_veto_segments(connection, program_name, veto_segments_name=None):
 
 def get_segments(connection, xmldoc, program_name):
 	seglists = segments.segmentlistdict()
-	if program_name == "thinca": 
+	if program_name == "thinca":
 		seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name)
 	if program_name == "gstlal_inspiral" or program_name == "lalapps_ring":
 		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
 	return seglists
 
 def get_background_livetime_by_slide(connection, program_name, seglists, veto_segments=None, verbose = False):
-	
-	if program_name == "thinca": 
+
+	if program_name == "thinca":
 		return background_livetime_ring_by_slide(connection, program_name, seglists, veto_segments, verbose)
 
 	if program_name == "gstlal_inspiral":
