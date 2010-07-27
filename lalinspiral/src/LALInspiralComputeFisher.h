@@ -77,10 +77,10 @@ NRCSID( LALINSPIRALCOMPUTEFISHERH, "$Id: LALInspiralComputeFisher.h, v1.0 2 Febr
 #define LALINSPIRALCOMPUTEFISHERC_EGW_MSG "Error Creating CoherentGW"
 
 #define LALINSPIRALCOMPUTEFISHERC_EINPUTPARAMS 7
-#define LALINSPIRALCOMPUTEFISHERC_EINPUTPARAMS_MSG "Invalid input PPNParamStruc"
+#define LALINSPIRALCOMPUTEFISHERC_EINPUTPARAMS_MSG "Invalid input PPNConsistencyParamStruc"
 
 #define LALINSPIRALCOMPUTEFISHERC_EDUPLPARAMS 8
-#define LALINSPIRALCOMPUTEFISHERC_EDUPLPARAMS_MSG "Invalid Duplicate PPNParamStruc"
+#define LALINSPIRALCOMPUTEFISHERC_EDUPLPARAMS_MSG "Invalid Duplicate PPNConsistencyParamStruc"
 
 /***********************************************************************
  *
@@ -89,6 +89,45 @@ NRCSID( LALINSPIRALCOMPUTEFISHERH, "$Id: LALInspiralComputeFisher.h, v1.0 2 Febr
  **********************************************************************/
 
 /* ALGORITHM CONTROL STRUCTURE */
+
+
+
+typedef struct tagPPNConsistencyParamStruc{
+  /* Passed parameters. */
+  SkyPosition position; /* location of source on sky */
+  REAL4 psi;            /* polarization angle (radians) */
+  LIGOTimeGPS epoch;    /* start time of output time series */
+
+  /* Input parameters. */
+  REAL8 mTot_real8; /* total system mass (Msun) */
+  REAL8 eta_real8;  /* mass ratio */
+  REAL8 delta;      /* sqrt(1-4eta) */
+  REAL4 mTot;       /* total system mass (Msun) */
+  REAL4 eta;        /* mass ratio */
+  REAL4 d;          /* distance (metres) */
+  REAL4 inc;        /* inclination angle (radians) */
+  REAL4 cosI;				/* cosine of inclination angle */
+  REAL4 sinI;				/* sine of inclination angle */
+  REAL4 phi;        /* coalescence phase (radians) */
+  REAL8 deltaT;     /* requested sampling interval (s) */
+  REAL4 fStartIn;   /* requested start frequency (Hz) */
+  REAL4 fStopIn;    /* requested stop frequency (Hz) */
+  UINT4 lengthIn;   /* maximum length of waveform */
+  REAL4Vector *ppn; /* post-Newtonian selection parameters */
+  INT4 ampOrder;    /* PN amplitude selection 0-5 */
+  /* PN phasing coefficients for use in AmpCorConsistency */
+  REAL4 phi0, phi2, phi3, phi4, phi5, phi5l, phi6, phi6l, phi7;
+  
+
+  /* Output parameters. */
+  REAL8 tc;         /* time to coalescence from start of waveform */
+  REAL4 dfdt;       /* maximum value of df*dt over any timestep */
+  REAL4 fStart;     /* actual start frequency (Hz) */
+  REAL4 fStop;      /* actual stop frequency (Hz) */
+  UINT4 length;     /* length of signal generated */
+  INT4 termCode;    /* termination code */
+  const CHAR *termDescription; /* description of termination code */
+}PPNConsistencyParamStruc;
 
 typedef struct tagFisherACS
 {
@@ -124,7 +163,6 @@ typedef struct tagFisherACS
 	
 	/* OUTPUT FILE */
   FILE *psd_out;
-  FILE *modsq_out;
   FILE *derivatives_out; 
   FILE *fourierderivs_out;  
   FILE *fisher_out;
@@ -139,11 +177,15 @@ typedef struct tagFisherACS
  *
  **********************************************************************/
 
+void
+LALGeneratePPNAmpCorConsistency( LALStatus     *,
+			CoherentGW    *output,
+			PPNConsistencyParamStruc *params );
 
 void LALInspiralComputeFisherMatrix (
     LALStatus                              *status,  
     REAL8FrequencySeries                   *psd,
-    PPNParamStruc                          *params,
+    PPNConsistencyParamStruc               *params,
     FisherACS															 ACS	 );
     
 void LALInspiralComputeFisherComponents (
@@ -158,19 +200,19 @@ void LALInspiralComputeFisherComponents (
 void LALInspiralComputeDerivatives (
     LALStatus                          *status,
     REAL4TimeSeries                    *hderiv,
-    PPNParamStruc                      *PPNparams,
+    PPNConsistencyParamStruc                      *PPNparams,
     INT4                              paramid,
     FisherACS														ACS);
     
 void LALInspiralComputeSNR (
 		LALStatus															 *status,
 		REAL8FrequencySeries                   *psd,
-    PPNParamStruc                          *PPNparams,
+    PPNConsistencyParamStruc                          *PPNparams,
     FisherACS															 ACS); 
 
 void LALInspiralComputeDerivatives_linReg(
 		LALStatus																*status,			// Status pointer
-		PPNParamStruc														*InputParams,	// Input parameters
+		PPNConsistencyParamStruc														*InputParams,	// Input parameters
 		REAL8																		deltax,				// total width of differentiation
 		INT4																		paramid,			// parameter choice
 		INT4																		icur,				// start waveform element
@@ -181,7 +223,7 @@ void LALInspiralComputeDerivatives_linReg(
     
 void LALInspiralComputeDerivatives_5point(
 		LALStatus																*status,			// Status pointer
-		PPNParamStruc														*InputParams,	// Input parameters
+		PPNConsistencyParamStruc														*InputParams,	// Input parameters
 		INT4																		paramid,			// parameter choice
 		REAL8																		deltax,				// differentiation width
 		INT4																		istart,				// starting time
@@ -191,9 +233,9 @@ void LALInspiralComputeDerivatives_5point(
 void XLALDestroyCoherentGW (
     CoherentGW  *GravWav );
     
-void XLALCopyPPNParamStruc (
-    PPNParamStruc             *inputParams,
-      PPNParamStruc             *duplicateParams );
+void XLALCopyPPNConsistencyParamStruc (
+      PPNConsistencyParamStruc             *inputParams,
+      PPNConsistencyParamStruc             *duplicateParams );
     
 void LALInspiralInvertMatrix (
     LALStatus															*status,
