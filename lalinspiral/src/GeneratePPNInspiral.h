@@ -314,8 +314,6 @@ typedef struct tagPPNParamStruc {
   REAL4 eta;        /* mass ratio */
   REAL4 d;          /* distance (metres) */
   REAL4 inc;        /* inclination angle (radians) */
-  REAL4 cosI;				/* cosine of inclination angle */
-  REAL4 sinI;				/* sine of inclination angle */
   REAL4 phi;        /* coalescence phase (radians) */
   REAL8 deltaT;     /* requested sampling interval (s) */
   REAL4 fStartIn;   /* requested start frequency (Hz) */
@@ -323,9 +321,6 @@ typedef struct tagPPNParamStruc {
   UINT4 lengthIn;   /* maximum length of waveform */
   REAL4Vector *ppn; /* post-Newtonian selection parameters */
   INT4 ampOrder;    /* PN amplitude selection 0-5 */
-  /* PN phasing coefficients for use in AmpCorConsistency */
-  REAL4 phi0, phi2, phi3, phi4, phi5, phi5l, phi6, phi6l, phi7;
-  
 
   /* Output parameters. */
   REAL8 tc;         /* time to coalescence from start of waveform */
@@ -403,10 +398,7 @@ LALGeneratePPNAmpCorInspiral( LALStatus     *,
 			CoherentGW    *output,
 			PPNParamStruc *params );
 
-void
-LALGeneratePPNAmpCorConsistency( LALStatus     *,
-			CoherentGW    *output,
-			PPNParamStruc *params );
+
 
 /* <lalLaTeX>
 \newpage\input{GetInspiralParamsC}
