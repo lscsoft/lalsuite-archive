@@ -67,7 +67,7 @@ int main( INT4 argc, char **argv )
    ********************************************************************/
   
 	static LALStatus status;
-  
+	
   /*********************************************************************
    *
    * Get seed from argument of executable and set up Random Number
@@ -91,17 +91,20 @@ int main( INT4 argc, char **argv )
   gsl_rng_env_setup();                // Setup environment
   gsl_rng_default_seed = seed;		    // vary generation sequence
   type = gsl_rng_default;             // set RNG type to default
-  p = gsl_rng_alloc (type);           // Set RNG type  
-  
+  p = gsl_rng_alloc (type);           // Set RNG type
+	
   /*********************************************************************
    *
-   * Input parameters for waveform generation
+   *  Input parameters
    * 
-   ********************************************************************/	  
+   ********************************************************************/
   
-	// WAVEFORM PARAMETERS
-  REAL8 m1            = 2.0;           // Component Mass 1 
-  REAL8 m2            = 3.0; 					// Component Mass 2
+	FisherACS testACS;
+	//REAL8 eta = 0.1;
+  
+  // WAVEFORM PARAMETERS
+  REAL8 m1            = 50.0;           // Component Mass 1 
+  REAL8 m2            = 30.0; 					// Component Mass 2
 		//m1*((1.0-2.0*eta)+sqrt(1.0-4*eta))/(2*eta);        
   REAL8 inc           = LAL_PI/7.0;     // Inclination angle
   REAL8 tc            = 0.0;            // End time of waveform
@@ -110,48 +113,9 @@ int main( INT4 argc, char **argv )
   REAL8 fStartIn      = 40.0;           // Starting frequency
   REAL8 fStopIn       = 0.0;            // No early termination
 	INT4 phaseOrder     = 6;              // Expansion order PPN
-  INT4 ampOrder       = 3;              // Amplitude Order    
+  INT4 ampOrder       = 3;              // Amplitude Order  
   
-  // LOADING PARAMETER INTO STRUCTURE
-  PPNParamStruc params;
-  params.position.longitude = acos(gsl_ran_flat (p, -1.0, 1.0));
-  params.position.latitude = gsl_ran_flat (p, 0, LAL_TWOPI);
-  params.position.system = COORDINATESYSTEM_GEOGRAPHIC;
-  params.psi			= acos(gsl_ran_flat(p,-1.0,1.0));
-  params.deltaT = 1.0/16384.0;
-  params.mTot_real8 = m1 + m2;
-  params.mTot = m1 + m2;
-  params.eta_real8  = m1 * m2 / pow(m1 + m2, 2.);
-  params.inc = inc;
-  params.cosI = cos(inc);
-  params.sinI = sin(inc);
-  params.tc  = tc;
-  params.phi = phic;
-  params.d   = dist;
-  params.fStartIn = fStartIn;
-  params.fStopIn  = fStopIn;
-  params.ampOrder = ampOrder;
-  
-  INT4 i;
-  params.ppn = XLALCreateREAL4Vector( phaseOrder+1 );
-  for (i=0; i<=(phaseOrder); i++)
-  {
-    if(phaseOrder > 0 && i==1) {params.ppn->data[i] = 0.0;}
-    else {params.ppn->data[i] = 1.0;}
-    
-	}
-	
-  // PSD MODEL
-  void (*noisemodel)(LALStatus*,REAL8*,REAL8) = LALLIGOIPsd;	
-	
-  /*********************************************************************
-   *
-   * Algorithm Control Structure
-   * 
-   ********************************************************************/	
-	
 	/* ALGORITHM CONTROL STRUCTURE */
-	FisherACS testACS;
 	
 	/* GENERAL CONTROL PARAMETERS */
 	testACS.verbose_switch		=	1;
@@ -180,8 +144,12 @@ int main( INT4 argc, char **argv )
 	
 	/* DETECTOR FREQUENCY WINDOW */
 	testACS.fstart								= 40.0;
-	testACS.fstop									= (pow(LAL_C_SI, 3.0))/(pow(6.0,1.5)*LAL_PI*LAL_G_SI*(m1+m2)*LAL_MSUN_SI);		
-	
+	testACS.fstop									= (pow(LAL_C_SI, 3.0))/(pow(6.0,1.5)*LAL_PI*LAL_G_SI*(m1+m2)*LAL_MSUN_SI);	
+    
+  // PSD MODEL
+  void (*noisemodel)(LALStatus*,REAL8*,REAL8) = LALLIGOIPsd;
+  
+  
   /*********************************************************************
    *
    *  Output Files
@@ -191,20 +159,18 @@ int main( INT4 argc, char **argv )
   if(testACS.verbose_switch==1){fprintf(stdout, "... Creating Output Files \n");}
   
   /* FOLDER FOR OUTPUT FILES */
-	char folder[128] = "/home/spxcv/src/lalsuite/lalinspiral/test/";
-  
+  char folder[128] = "../";
+
   /* NAME OUTPUT FILES */
-	const char powerspectral[]		= "psd.dat";
-	const char modsq[]						= "modsq.dat";	
+  const char powerspectral[]		= "psd.dat";
   const char derivatives[] 			= "derivatives.dat";
   const char fourierderivs[] 		= "fourierderivatives.dat";
   const char fisher[]						= "fisher";
   const char covariance[]				= "covariance";
   const char hx[]								= "hx";
-  
+
   /* CREATE OUTPUT FILES */
-  FILE *psd_out;
-  FILE *modsq_out=NULL;
+  FILE *psd_out=NULL;
   FILE *derivatives_out=NULL; 
   FILE *fourierderivs_out=NULL;  
   FILE *fisher_out=NULL;
@@ -212,7 +178,6 @@ int main( INT4 argc, char **argv )
   FILE *hx_out=NULL;
   
 	char psd_name[128];
-  char modsq_name[128];
 	char derivatives_name[128];
 	char fourierderivs_name[128];
 	char fisher_name[128];
@@ -220,77 +185,143 @@ int main( INT4 argc, char **argv )
   char hx_name[128];
   
   sprintf(psd_name, "%s%s", folder, powerspectral);
-	sprintf(modsq_name, "%s%s", folder, modsq);
 	sprintf(derivatives_name, "%s%s", folder, derivatives);
 	sprintf(fourierderivs_name, "%s%s", folder, fourierderivs);
 	sprintf(fisher_name, "%s%s%d%s", folder, fisher, seed, ".dat");
 	sprintf(cov_name, "%s%s%d%s", folder, covariance, seed, ".dat");
 	sprintf(hx_name, "%s%s%d%s", folder, hx, seed, ".dat");
 	
+	/* VERBOSE OUTPUT */
 	if(testACS.printall == 1)
 	{
 		psd_out						= fopen(psd_name, "w");
-		modsq_out					= fopen(modsq_name, "w");
 		derivatives_out		= fopen(derivatives_name, "w");
 		fourierderivs_out	= fopen(fourierderivs_name, "w");  
 		hx_out						= fopen(hx_name, "w");
+		
+		testACS.psd_out						= psd_out;
+		testACS.derivatives_out		= derivatives_out;
+		testACS.fourierderivs_out	= fourierderivs_out; 	
+		testACS.hx_out						= hx_out;	
 	}
+	
+	/* GENERAL OUTPUT */
   fisher_out				= fopen(fisher_name, "a");
   cov_out						= fopen(cov_name, "a");
-	
-	/* INCLUDE OUTPUT FILES INTO ACS */
-  testACS.psd_out						= psd_out;
-	testACS.modsq_out					= modsq_out;
-  testACS.derivatives_out		= derivatives_out;
-  testACS.fourierderivs_out	= fourierderivs_out;  
+  
   testACS.fisher_out				= fisher_out;
-  testACS.cov_out						= cov_out;
-  testACS.hx_out						= hx_out;
+  testACS.cov_out						= cov_out;  
   
   /* WRITE PARAMETER INTO OUTPUT FILES */
   fprintf(testACS.fisher_out, "%e\t%e\t%e\t%e", m1, m2, m1 + m2, m1 * m2 / pow(m1 + m2, 2.));
-  fprintf(testACS.cov_out, "%e\t%e\t%e\t%e", m1, m2, m1 + m2, m1 * m2 / pow(m1 + m2, 2.));  	
+  fprintf(testACS.cov_out, "%e\t%e\t%e\t%e", m1, m2, m1 + m2, m1 * m2 / pow(m1 + m2, 2.));  
+  
+  /*********************************************************************
+   *
+   *  Declare and set temporary variables
+   * 
+   ********************************************************************/
+  
+  if(testACS.verbose_switch==1){fprintf(stdout, "... Declaring variables \n");}
+  
+  // COUNTERS
+  INT4 i,j;
+  
+  // LOADING PARAMETER INTO STRUCTURE
+  PPNConsistencyParamStruc params;
+  params.position.longitude = acos(gsl_ran_flat (p, -1.0, 1.0));
+  params.position.latitude = gsl_ran_flat (p, 0, LAL_TWOPI);
+  params.position.system = COORDINATESYSTEM_GEOGRAPHIC;
+  params.psi			= acos(gsl_ran_flat(p,-1.0,1.0));
+  params.deltaT = testACS.deltaT_ts;
+  params.mTot_real8 = m1 + m2;
+  params.eta_real8  = m1 * m2 / pow(m1 + m2, 2.);
+  params.inc = inc;
+  params.cosI = cos(inc);
+  params.sinI = sin(inc);
+  params.tc  = tc;
+  params.phi = phic;
+  params.d   = dist;
+  params.fStartIn = fStartIn;
+  params.fStopIn  = fStopIn;
+  params.ampOrder = ampOrder;
+  
+	params.phi0 = -pow(params.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-5.0/8.0); 
+	params.phi2 = -(3715.0/8064.0 + 55.0/96.0*params.eta_real8)*pow(params.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-3.0/8.0);
+	params.phi3 = 3.0/4.0*LAL_PI*pow(params.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-0.25); 
+	params.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*params.eta_real8 + 1855.0/2048.0*pow(params.eta_real8,2.0))*pow(params.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,-1.0/8.0);
+	params.phi5 = -1.0/params.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*params.eta_real8)*LAL_PI*log(params.eta_real8/(5.0*LAL_MTSUN_SI*params.mTot_real8));
+	params.phi5l = -1.0/params.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*params.eta_real8)*LAL_PI; 
+	params.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(params.eta_real8/(256*5.0*LAL_MTSUN_SI*params.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*params.eta_real8 + 154565.0/1835008.0*pow(params.eta_real8,2.0) - 1179625.0/1769472.0*pow(params.eta_real8,3.0))*pow(params.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,1.0/8.0);
+	params.phi6l = -107.0/448.0*pow(params.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,1.0/8.0);
+	params.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*params.eta_real8 - 141769.0/516096.0*pow(params.eta_real8,2.0))*LAL_PI*pow(params.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*params.mTot_real8,1.0/4.0); 
+  
+  params.ppn = XLALCreateREAL4Vector( phaseOrder+1 );
+  for (i=0; i<=(phaseOrder); i++)
+  {
+    if(phaseOrder > 0 && i==1) {params.ppn->data[i] = 0.0;}
+    else {params.ppn->data[i] = 1.0;}
+  }
+  
+  // OTHER TEMPORARY VARIABLES
+  REAL8FrequencySeries *psd;  // PSD
+  
+  if(testACS.verbose_switch==1){fprintf(stdout, "... m1 = %e | m2 = %e | mtot = %e | eta = %e | phiOrder = %d | ampOrder = %d \n", m1, m2, params.mTot_real8, params.eta_real8, phaseOrder, ampOrder);}
   
   /*********************************************************************
    *
    *  Determine waveform length to adjust for 
    *  optimal sampling frequency
    * 
-   ********************************************************************/   
+   ********************************************************************/    
   
-  if(testACS.verbose_switch==1){fprintf(stdout, "... Determine optimal sampling frequency \n");}  
+  if(testACS.verbose_switch==1){fprintf(stdout, "... Determine optimal sampling frequency \n");}
+  
+  INT4 k;
   
   // CREATE WAVEFORM TO DETERMINE OPTIMAL SAMPLING FREQUENCY
   CoherentGW tmpwaveform;
-  CoherentGW tmp2waveform;
-  PPNParamStruc tmpparams;
+  PPNConsistencyParamStruc tmpparams;
   
-  ///* TEST COMBINING HP AND HC */
-  //REAL4TimeSeries *ht_test;
-  //ht_test = XLALCreateREAL4TimeSeries("ht", &(testACS.epoch), 0.0, testACS.deltaT_ts, &lalStrainUnit, testACS.N_ts);
+  /* TEST COMBINING HP AND HC */
+  REAL4TimeSeries *ht_test;
+  ht_test = XLALCreateREAL4TimeSeries("ht", &(testACS.epoch), 0.0, testACS.deltaT_ts, &lalStrainUnit, testACS.N_ts);
   
-  ///* CLEAN WAVEFORM */
-	//for(k=0;k<ht_test->data->length;k++)
-	//{
-		//ht_test->data->data[k] = 0.0;
-	//}
+  /* CLEAN WAVEFORM */
+	for(k=0;k<((INT4)ht_test->data->length);k++)
+	{
+		ht_test->data->data[k] = 0.0;
+	}
   
   memset(&tmpwaveform, 0, sizeof(CoherentGW));
-  memset(&tmp2waveform, 0, sizeof(CoherentGW));
   tmpparams.ppn = XLALCreateREAL4Vector( params.ppn->length );
-  XLALCopyPPNParamStruc(&params, &tmpparams);
+  XLALCopyPPNConsistencyParamStruc(&params, &tmpparams);
   
-  fprintf(stdout, "... Ready for first function call\n");
-  LALGeneratePPNAmpCorInspiral( &status, &tmpwaveform, &tmpparams);
-  fprintf(stdout, "... Past first function call\n");    
-  LALGeneratePPNAmpCorInspiral( &status, &tmp2waveform, &params);
+  LALGeneratePPNAmpCorConsistency( &status, &tmpwaveform, &params);
   
-  for(i=0;i<((INT4)tmpwaveform.f->data->length);i++)
-  {
-		if(tmpwaveform.h->data->data[2*i] != tmp2waveform.h->data->data[2*i] && tmpwaveform.h->data->data[2*i+1] != tmp2waveform.h->data->data[2*i+1] && tmpwaveform.phi->data->data[i] != tmp2waveform.phi->data->data[i]) printf("copy failed for %d \n", i);
-		
-	}    
-	
+  //LALInspiralCombinePlusCross( &status, tmpwaveform, ht_test);
+
+	/* OUTPUT TO FILE */
+  //FILE *htCombine_out;
+  //htCombine_out = fopen("/home/tjonnie/Data/Fisher/test/htCombine.dat", "w");
+
+  //for(k=0; k<tmpwaveform.f->data->length; k++)
+  //{
+		//fprintf(stdout, "%e\t%e\t%e\t%e\t%e\n", k*testACS.deltaT_ts, ht_test->data->data[k], tmpwaveform.h->data->data[2*k], tmpwaveform.h->data->data[2*k+1], tmpwaveform.phi->data->data[k]);
+	//}
+	//fclose(htCombine_out);
+  
+  if(testACS.verbose_switch==1){fprintf(stdout, "... Determine optimal sampling frequency - wavelength %d, deltaT = %e \n", tmpwaveform.f->data->length, testACS.deltaT_ts);}
+  
+  testACS.deltaT_ts		= 1.05*((REAL8)tmpwaveform.f->data->length)/((REAL8) testACS.N_ts)*tmpparams.deltaT;
+  testACS.deltaF_fs		= 1.0/( ((REAL8) testACS.N_ts) * testACS.deltaT_ts	);
+  params.deltaT = testACS.deltaT_ts;
+  
+	XLALDestroyCoherentGW(&tmpwaveform); 
+	XLALDestroyREAL4Vector( tmpparams.ppn );
+	  
+  if(testACS.verbose_switch==1){fprintf(stdout, "... Determine optimal sampling frequency - UPDATED: segmentlength %d, deltaT = %e \n", testACS.N_ts, testACS.deltaT_ts);}
+  
   /*********************************************************************
    *
    *  Create PSD
@@ -300,7 +331,6 @@ int main( INT4 argc, char **argv )
   if(testACS.verbose_switch==1){fprintf(stdout, "... Creating PSD \n");}
   
   // CREATE FREQUENCY SERIES FOR PSD COMPUTING
-  REAL8FrequencySeries *psd;
   if ( ( psd = (REAL8FrequencySeries *) LALMalloc( sizeof(REAL8FrequencySeries) ) ) == NULL)
   {
       LALFree(psd); psd = NULL;
@@ -314,12 +344,89 @@ int main( INT4 argc, char **argv )
   // Computing LIGO PSD
   LALNoiseSpectralDensity( &status, psd->data, noisemodel, psd->deltaF );
 
-	INT4 j;
 	if(testACS.printall == 1)
 	{
 		for (j=0;j<testACS.N_fs;j++){fprintf(testACS.psd_out, "%e\t%e\n", j*testACS.deltaF_fs, pow(psd->data->data[j],0.5));}
-	}	
+	}
+  
+  /*********************************************************************
+   *
+   *  Computing Fisher Matrix
+   * 
+   ********************************************************************/ 
+  if(testACS.verbose_switch==1){fprintf(stdout, "... Computing Fisher Matrix \n");}
+  
+  LALInspiralComputeFisherMatrix(&status, psd, &params, testACS);
+  
+  /*********************************************************************
+   *
+   *  Run the Matrix inversion individually
+   * 
+   ********************************************************************/ 
+  
+  /*
+  REAL4 testArray[25];
+  REAL4 tempArray[25];
+  testArray[  0 ]=  767497.2000 ;
+  testArray[  1 ]=  8354162.0000  ;
+  testArray[  2 ]=  340.8354  ;
+  testArray[  3 ]=  2333.4200 ;
+  testArray[  4 ]=  -1295669.0000 ;
+  testArray[  5 ]=  8354162.0000  ;
+  testArray[  6 ]=  93852170.0000 ;
+  testArray[  7 ]=  7041.6930 ;
+  testArray[  8 ]=  23271.4300  ;
+  testArray[  9 ]=  -11451450.0000  ;
+  testArray[  10  ]=  340.8354  ;
+  testArray[  11  ]=  7041.6930 ;
+  testArray[  12  ]=  8.4014  ;
+  testArray[  13  ]=  0.0011  ;
+  testArray[  14  ]=  -1054.3020  ;
+  testArray[  15  ]=  2333.4200 ;
+  testArray[  16  ]=  23271.4300  ;
+  testArray[  17  ]=  0.0011  ;
+  testArray[  18  ]=  9.5618  ;
+  testArray[  19  ]=  -7398.2110  ;
+  testArray[  20  ]=  -1295669.0000 ;
+  testArray[  21  ]=  -11451450.0000  ;
+  testArray[  22  ]=  -1054.3020  ;
+  testArray[  23  ]=  -7398.2110  ;
+  testArray[  24  ]=  8700380.0000  ;
+
+	XLALInspiralInvertMatrix(testArray, tempArray);	*/
 	
+  /*********************************************************************
+   *
+   *  PLOTTING LENGTH CHANGE WRT TO MTOT AND ETA
+   * 
+   ********************************************************************/ 	
+  
+  //FILE *length_out;
+  //length_out = fopen("/data/gravwav/tgfli/Fisher/length_eta0p15.dat", "w");
+  //INT4 k;
+  
+  //for(k=1;k<101;k++)
+  //{
+		//CoherentGW length_waveform;
+		//PPNConsistencyParamStruc length_params;
+		
+		//memset(&length_waveform, 0, sizeof(CoherentGW));
+		//length_params.ppn = XLALCreateREAL4Vector( params.ppn->length );
+		//XLALCopyPPNConsistencyParamStruc(&params, &length_params);
+		
+		//length_params.mTot_real8 = 1.0*k;
+		//length_params.eta_real8 = 0.15;
+		
+		//LALGeneratePPNAmpCorInspiral( &status, &length_waveform, &length_params);
+		
+		//fprintf(stdout, "\r%e\t%e", length_params.mTot_real8, length_waveform.f->data->length*length_params.deltaT);
+		//fprintf(length_out, "%e\t%e\n", length_params.mTot_real8, length_waveform.f->data->length*length_params.deltaT);
+		
+		//XLALDestroyCoherentGW(&length_waveform); 
+		//XLALDestroyREAL4Vector( length_params.ppn );
+	//}
+  
+  
   /*********************************************************************
    *
    *  Clean Up
@@ -334,7 +441,7 @@ int main( INT4 argc, char **argv )
   
   /* TEMPORARY STRUCTURES */
   //if(testACS.verbose_switch==1){fprintf(stdout, "... Cleaning Up - InputParams \n");}
-  XLALDestroyREAL4Vector(params.ppn); params.ppn = NULL;
+  XLALDestroyREAL4Vector(params.ppn);
   //if(testACS.verbose_switch==1){fprintf(stdout, "... Cleaning Up - PSD \n");}
   XLALDestroyREAL8FrequencySeries(psd); psd = NULL;
 
@@ -343,22 +450,15 @@ int main( INT4 argc, char **argv )
   if(testACS.printall == 1)
   {
 		fclose(psd_out);
-		fclose(modsq_out);
 		fclose(derivatives_out);
 		fclose(fourierderivs_out);
 		fclose(hx_out);
 	}
   fclose(fisher_out);
   fclose(cov_out);
-  //fclose(length_out);	
-  
-  /*********************************************************************
-   *
-   * Closing program
-   * 
-   ********************************************************************/	    
+  //fclose(length_out);
 
-  /*if(testACS.verbose_switch==1)*/fprintf(stdout, "Finished FisherTest \n");
+  if(testACS.verbose_switch==1)fprintf(stdout, "Finished FisherTest \n");
   REPORTSTATUS( &status );
 	return status.statusCode;
 }
