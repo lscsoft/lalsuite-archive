@@ -84,6 +84,7 @@ LALSBisectionFindRoot()       snprintf()
 #include <lal/SeqFactories.h>
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GeneratePPNInspiral.h>
+#include <lal/LALInspiralComputeFisher.h>
 
 NRCSID( GENERATEPPNAMPCORCONSISTENCYC, "$Id$" );
 
@@ -219,7 +220,7 @@ void
 LALGeneratePPNAmpCorConsistency(
                               LALStatus     *stat,
                               CoherentGW    *output,
-                              PPNParamStruc *params
+                              PPNConsistencyParamStruc *params
                             )
 { /* </lalVerbatim> */
 
@@ -410,16 +411,16 @@ LALGeneratePPNAmpCorConsistency(
   phi6l = p[6]*params->phi6l;
   phi7 = p[7]*params->phi7;
   mu = eta*mTot;
+  
+  cosI = params->cosI;
+  cos2I = cosI*cosI;
+  cos4I = cos2I*cos2I;
+  cos6I = cos4I*cos2I;  
 
-  sinI = sin( params->inc );
+  sinI = params->sinI;
   sin2I = sinI*sinI;
   sin4I = sin2I*sin2I;
   sin5I = sin4I*sinI;
-
-  cosI = cos( params->inc );
-  cos2I = cosI*cosI;
-  cos4I = cos2I*cos2I;
-  cos6I = cos4I*cos2I;
 
   phiC = params->phi;
 
@@ -766,6 +767,7 @@ LALGeneratePPNAmpCorConsistency(
   for ( j = 0; ( j < MAXORDER ) && ( b[j] == 0 ); j++ )
     ;
   if ( j == MAXORDER ) {
+		fprintf(stdout, "maxorder error \n");
     ABORT( stat, GENERATEPPNINSPIRALH_EPBAD,
      GENERATEPPNINSPIRALH_MSGEPBAD );
   }
@@ -791,6 +793,7 @@ LALGeneratePPNAmpCorConsistency(
   }
 
   if ( ( c[j]*fFac < 0.0 ) || ( yStart < 0.0 ) || ( yMax < 0.0 ) ) {
+		fprintf(stdout, "yStart error \n");
      ABORT( stat, GENERATEPPNINSPIRALH_EPBAD,
      GENERATEPPNINSPIRALH_MSGEPBAD );
   }
