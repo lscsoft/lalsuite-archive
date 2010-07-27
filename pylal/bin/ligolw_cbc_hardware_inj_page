@@ -143,7 +143,7 @@ def check_ifo_result_pipedowndb(ifo,time,database_connection,successful_inj,veto
             injected=1
         else: injected=0
     else: injected=0
-    if(injected==0): return (0,0,0)
+    if(injected==0): return (0,0,0,0)
     
     # Check that time was analysed
     if (time in veto_segs): analysed=0
@@ -163,9 +163,10 @@ def check_ifo_result_pipedowndb(ifo,time,database_connection,successful_inj,veto
     triggers=database_connection.cursor().execute(sql_query)
     if(triggers and len(triggers)>0):
         found=1
+	snr=triggers[0].snr
     else:
         found=0
-    return (injected,analysed,found)
+    return (injected,analysed,found,snr)
 
 # =============================================================================
 def check_ifo_result(ifo,time,filenames,successful_inj):
@@ -178,7 +179,7 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 		else: injected = 0
 	else: injected=0
 	if(injected==0):
-		return (0,0,0)
+		return (0,0,0,0)
 	xml_files = get_xml_files(filenames,int(time),ifo)
 	if not xml_files:
 		analysed=0
@@ -190,19 +191,21 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 			inj_time = segments.segment(time - 0.1, time + 0.1)
 			triggers = triggers.vetoed(inj_time)
 			triggers=triggers.ifocut(ifo)
-		if triggers and len(triggers): found=1
+		if triggers and len(triggers):
+			found=1
+			snr=triggers[0].snr
 		else: found=0
-	return (injected,analysed,found)
+	return (injected,analysed,found,snr)
 
 def get_ifo_result_string(key):
 	"""
 	Generate the HTML table element for a particular IFO and time
 	"""
-	(injected,analysed,found)=key
+	(injected,analysed,found,snr)=key
 	if not injected: return "<td bgcolor=#ddffdd>Not performed</td>"
 	if not analysed: return "<td bgcolor=#ff9900>Not analysed</td>"
 	if not found: return "<td bgcolor=#ff2222>Missed</td>"
-	else: return "<td bgcolor=#22ff22>Found</td>"
+	else: return "<td bgcolor=#22ff22>Found<br>SNR=%.2f</td>"%(snr)
 
 def chirp_dist(inj,ifo):
 	return inj.get_eff_dist(ifo[0])*(2.8*.25**(3.0/5.0)/inj.mchirp)**(5.0/6.0)
@@ -350,15 +353,16 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		injected={}
 		analysed={}
 		found={}
+		snr={}
 		if(int(inj.get_end("H")) < opts.gps_start_time or int(inj.get_end("H")) > opts.gps_end_time):
 #			print 'skipping %d'%(inj.get_end("H"))
 			continue
 #		print 'processing '+str(inj.get_end("H"))
 		for ifo in ifos:
                     if opts.pipedown_db is not None:
-                        (injected[ifo],analysed[ifo],found[ifo])=check_ifo_result_pipedowndb(ifo,inj.get_end(ifo[0]),db_connection,hwinj_done,vetos[ifo])
+                        (injected[ifo],analysed[ifo],found[ifo],snr[ifo])=check_ifo_result_pipedowndb(ifo,inj.get_end(ifo[0]),db_connection,hwinj_done,vetos[ifo])
                     else:
-                        (injected[ifo],analysed[ifo],found[ifo])=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
+                        (injected[ifo],analysed[ifo],found[ifo],snr[ifo])=check_ifo_result(ifo,inj.get_end(ifo[0]),filenames,hwinj_done)
 		if opts.coinc==True:
 			if sum(injected.values())<2:
 				print >>sys.stderr,'Injection %d not coincident in 2 or more detectors' % (inj.geocent_end_time)
@@ -370,7 +374,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			if(expSNR is not None):
 				SNRAvailable=True
 				expSNR=8.0*expSNR/chirp_dist(inj,ifo[0])
-			print >>outfile,get_ifo_result_string((injected[ifo],analysed[ifo],found[ifo]))
+			print >>outfile,get_ifo_result_string((injected[ifo],analysed[ifo],found[ifo],snr[ifo]))
 			totalinj[ifo]=totalinj[ifo]+injected[ifo]
 			totalanalysed[ifo]=totalanalysed[ifo]+analysed[ifo]
 			totalfound[ifo]=totalfound[ifo]+found[ifo]

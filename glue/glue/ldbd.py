@@ -43,6 +43,8 @@ try:
 except:
   pass
 
+from glue.ligolw.types import string_format_func
+
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
 """
@@ -549,12 +551,22 @@ class LIGOMetadata:
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
-              ligolw += '"x\'' 
+              ligolw += '"'
               for ch in str(tupi):
-                ligolw += "%02x" % ord(ch)
-              ligolw += '\'"'
+                ligolw += "%c" % ch
+              ligolw += '"'
             elif re.match(r'\Alstring\Z',coltype):
-              ligolw += '"'+self.strtoxml.xlat(str(tupi))+'"'
+              # this santizes the contents of tupi in two ways: first,
+              # string_format_func() escapes any double-quote and
+              # backslash chars (with a preceding blackslash); and
+              # then strtoxml.xlat replaces <>& chars with their html
+              # code equivalents (although that is probably the
+              # semantically incorrect thing to do, since although
+              # these strings are commonly printed inside html,
+              # they're not inherently or exclusively html strings,
+              # and shouldn't contain html-specific codes that won't
+              # display properly in other contexts...
+              ligolw += '"'+self.strtoxml.xlat(string_format_func(tupi))+'"'
             elif re.match(r'\Areal_4\Z',coltype):
               ligolw += '%13.7e' % tupi
             elif re.match(r'\Areal_8\Z',coltype):
