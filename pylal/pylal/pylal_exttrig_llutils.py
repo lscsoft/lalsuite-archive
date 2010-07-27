@@ -141,7 +141,7 @@ def system_call(item, command, divert_output_to_log = True):
   # perform the command
   code, out, err = external_call(command_actual)
 
-  if code>0:
+  if code>0 and len(err)>0:
     info(item, "ERROR: " +err)
 
 # -----------------------------------------------------
@@ -1424,7 +1424,7 @@ class GRB(object):
        # retrieve the version of this file
        basename = os.path.basename(name)
        cmdtmp = "cd %s; cvs status %s " % (os.path.dirname(name), basename)
-       output, error = internal_call(cmdtmp)
+       code, output, error = external_call(cmdtmp)
 
        # parse the output
        for line in output.split('\n'):
