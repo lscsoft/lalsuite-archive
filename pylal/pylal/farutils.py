@@ -84,6 +84,7 @@ def background_livetime_ring_by_slide(connection, live_time_program, seglists, v
 def add_background_livetime(connection, live_time_program, seglists, veto_segments, verbose=False):
 	if live_time_program == "thinca": lt = background_livetime_ring_by_slide(connection, live_time_program, seglists, veto_segments, verbose)
 	if live_time_program == "gstlal_inspiral": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, verbose)
+	if live_time_program == "lalapps_ring": lt = background_livetime_nonring_by_slide(connection, seglists, veto_segments, verbose)
 	out = {}
 	for k, v in lt.items():
 		out.setdefault(k,0)
@@ -120,7 +121,7 @@ def get_segments(connection, xmldoc, program_name):
 	seglists = segments.segmentlistdict()
 	if program_name == "thinca": 
 		seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name)
-	if program_name == "gstlal_inspiral":
+	if program_name == "gstlal_inspiral" or program_name == "lalapps_ring":
 		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
 	return seglists
 
