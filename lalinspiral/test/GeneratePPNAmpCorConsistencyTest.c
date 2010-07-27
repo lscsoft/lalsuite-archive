@@ -213,7 +213,7 @@ main(int argc, char **argv)
   /* Other variables. */
   UINT4 i;                      /* index */
   CHAR message[MSGLENGTH];      /* signal generation output message */
-  PPNParamStruc params;         /* input parameters */
+  PPNConsistencyParamsStruc params;         /* input parameters */
   CoherentGW waveform;          /* output waveform */
   FILE *fp;                     /* output file pointer */
   static REAL4Vector	      *hoft;
@@ -405,6 +405,8 @@ main(int argc, char **argv)
   /*****************/
   params.delta = pow( 1.0 - 4.0*params.eta_real8, 0.5 );
   params.inc = inc;
+  params.cosI = cos(inc);
+  params.sinI = sin(inc);
   params.phi = 0.0;
   params.psi = psi;
   params.d = dist*LAL_PC_SI*1.0e3;
@@ -480,7 +482,6 @@ main(int argc, char **argv)
   time_info.epoch.gpsNanoSeconds = 640000000;
   time_info.deltaT               = dt;
   time_info.nSample              = waveform.h->data->length;
-  time_info.accuracy             = LALLEAPSEC_STRICT;
 
   LALComputeDetAMResponseSeries(&stat,
                                 &am_response_series,
@@ -564,7 +565,7 @@ main(int argc, char **argv)
 
     /* t phi f h+ hx ht  */
     for ( i = 0; i < waveform.h->data->length; i++, t += dt )
-      fprintf( fp, "%1.6e\n", waveform.phi->data->data[i]);
+      fprintf( fp, "%f\t%1.6e\t%1.6e\t%1.6e\t%1.6e\n", t, waveform.h->data->data[2*i], waveform.h->data->data[2*i+1], waveform.phi->data->data[i], cos(waveform.phi->data->data[i]));
       /*
       fprintf( fp, "%f %.3e %1.6e %1.6e %1.6e %1.6e %1.6e %1.6e %1.6e \n", t,
                   waveform.phi->data->data[i],
