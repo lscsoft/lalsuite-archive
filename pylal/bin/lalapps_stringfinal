@@ -44,11 +44,6 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
-try:
-	any
-	all
-except NameError:
-	from glue.iterutils import any, all
 
 
 from glue import segments
@@ -58,7 +53,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue import iterutils
 from glue import segments
 from pylal import git_version
 from pylal import rate
@@ -547,7 +541,7 @@ FROM
 			found = likelihood_ratio is not None
 			# were at least 2 instruments on when the injection
 			# was made?
-			if any(SimBurstUtils.injection_was_made(sim, contents.seglists, instruments) for instruments in iterutils.choices(contents.seglists.keys(), 2)):
+			if len(SimBurstUtils.on_instruments(sim, contents.seglists)) >= 2:
 				# yes
 				self.all.append(sim)
 				if found and likelihood_ratio > self.detection_threshold:
@@ -591,7 +585,7 @@ FROM
 		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
-		self.axes.set_xlim([4e-21, 1e-17])
+		self.axes.set_xlim([1e-21, 2e-18])
 		self.axes.set_ylim([0.0, 1.0])
 
 		# dump some information about the highest-amplitude missed
