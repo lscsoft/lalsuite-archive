@@ -31,6 +31,34 @@ import glue.ligolw
 import numpy
 
 ##############################################################################
+# redefine the SnglInspiral columns of interest
+##############################################################################
+lsctables.SnglInspiralTable.loadcolumns = [
+    "ifo",
+#    "end_time",
+#    "end_time_ns",
+#    "eff_distance",
+    "mass1",
+    "mass2",
+    "mtotal",
+    "mchirp",
+    "eta",
+    "snr",
+    "chisq",
+    "chisq_dof",
+    "bank_chisq",
+    "bank_chisq_dof",
+    "cont_chisq",
+    "cont_chisq_dof",
+    "rsqveto_duration",
+#    "sigmasq",
+#    "alpha",
+    "template_duration",
+    "ttotal",
+    "event_id",
+    "process_id"]
+
+##############################################################################
 def solve_for_chisq(snr, eff_snr, chisq_dof, denominator_constant):
   # return the value of chisq that will give the requested effective snr for 
   # this snr
@@ -176,14 +204,18 @@ triggers can be made.  Three such plots are available:
    
    The value of q must be given as --chisq-index as for the contour plot.
 
-*) Multicoloured background cumulative histograms split over 10 chirp mass bins.
-   Called with --masshist-newsnr or --masshist-effsnr
-   Currently only useful for the lowmass search.
+*) Multicoloured background cumulative histograms split over chirp mass bins.
+   Called with --masshist-newsnr or --masshist-effsnr with the number of bins
+   specified by --massbins (default 10). Recommended for lowmass search
+
+*) Multicoloured background cumulative histograms splot over template duration.
+   Called with --durationhist-(new,eff)snr, number of bins specified by 
+   --durationbins. Recommended for highmass search
 
 *) A plot of snr vs rsq can also be made for a glob of triggers that are read in.
    If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
    in a different color than those kept by that veto. Injections are also plotted
-   if specified. Called with --rsq-snr
+   if specified. Called with --snr-rsq
 
 """
 def parse_command_line():
@@ -254,7 +286,13 @@ def parse_command_line():
   parser.add_option("","--masshist-effsnr",action="store_true",default=False,\
       help="cumulative histograms of effsnr split by chirp mass")
   parser.add_option("","--massbins",action="store",type="int",default=10,\
-      help="number of bins to split the mchirp range")
+      help="number of bins to split mchirp into")
+  parser.add_option("","--durationhist-effsnr",action="store_true",default=False,\
+      help="cumulative histograms of effsnr split by template duration")
+  parser.add_option("","--durationhist-newsnr",action="store_true",default=False,\
+      help="cumulative histograms of newsnr split by template duration")
+  parser.add_option("","--durationbins",action="store",type="int",default=10,\
+      help="number of bins to split duration into")
   parser.add_option("-r","--snr-rsq",action="store_true",default=False,\
       help="make a plot of snr vs rsq" )
   parser.add_option("","--rsq-threshold",action="store",type="float",\
@@ -323,7 +361,7 @@ def parse_command_line():
     print >>sys.stderr, "should be given for --chisq-index"
     sys.exit(1)
 
-  if (options.masshist_newsnr or options.masshist_effsnr) and not \
+  if (options.masshist_newsnr or options.masshist_effsnr or options.durationhist_newsnr or options.durationhist.effsnr) and not \
       (options.slide_glob or options.cache_file):
     print >>sys.stderr, "To produce mass-binned background histograms a"
     print >>sys.stderr, "SLIDE_GLOB or cache file containing slides must be given"
@@ -1108,6 +1146,76 @@ if opts.masshist_effsnr and slide_events:
       dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("effSNR_cdf_by_mc")
+  if not opts.show_plot:
+    close()
+
+###################################
+# cumulative histogram of effSNR split into duration bins
+if opts.durationhist_effsnr and slide_events:
+  C = opts.denominator_constant
+  num_bins = opts.durationbins
+  duration = slideTriggers.get_column('template_duration')
+  dur_bins = pylal.rate.LogarithmicBins(0.99*duration.min(), 1.01*duration.max(), num_bins)
+  effsnr = slideTriggers.get_effective_snr(fac=C)
+  fig_num +=1
+  figure(fig_num)
+  dur_indices = array([dur_bins[trig.template_duration] for trig in slideTriggers])
+  histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
+  labels=[r"%.2f - %.2f" % pair for pair in zip(dur_bins.lower(), dur_bins.upper())]
+  for i in range(num_bins):
+    counts, edges = histogram(effsnr[dur_indices == i], bins=20, new=True)
+    cum_counts = counts[::-1].cumsum()[::-1]
+    semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
+     color=histcolours[i], label=labels[i])
+  if num_bins < 11:
+    legend()
+  maxcount = max(len(effsnr[dur_indices == i]) for i in range(num_bins))
+  ylim(0.8,1.5*maxcount)
+  xlim(3,1.05*max(effsnr))
+  title(opts.ifo_times + ' background effsnr distribution split by template duration', size='x-large')
+  xlabel('effSNR', size='x-large')
+  ylabel('cumulative frequency', size='x-large')
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "effSNR_cdf_by_duration")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+      dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append("effSNR_cdf_by_duration")
+  if not opts.show_plot:
+    close()
+
+###################################
+# cumulative histogram of newSNR split into duration bins
+if opts.durationhist_newsnr and slide_events:
+  q = opts.chisq_index
+  num_bins = opts.durationbins
+  duration = slideTriggers.get_column('template_duration')
+  dur_bins = pylal.rate.LogarithmicBins(0.99*duration.min(), 1.01*duration.max(), num_bins)
+  newsnr = slideTriggers.get_new_snr(index=q)
+  fig_num +=1
+  figure(fig_num)
+  dur_indices = array([dur_bins[trig.template_duration] for trig in slideTriggers])
+  histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
+  labels=[r"%.2f - %.2f" % pair for pair in zip(dur_bins.lower(), dur_bins.upper())]
+  for i in range(num_bins):
+    counts, edges = histogram(newsnr[dur_indices == i], bins=20, new=True)
+    cum_counts = counts[::-1].cumsum()[::-1]
+    semilogy(0.5*(edges[1:]+edges[:-1]), cum_counts+0.04*i, linewidth=2, \
+     color=histcolours[i], label=labels[i])
+  if num_bins < 11:
+    legend()
+  maxcount = max(len(newsnr[dur_indices == i]) for i in range(num_bins))
+  ylim(0.8,1.5*maxcount)
+  xlim(3,1.05*max(newsnr))
+  title(opts.ifo_times + ' background newsnr distribution split by template duration', size='x-large')
+  xlabel('newSNR', size='x-large')
+  ylabel('cumulative frequency', size='x-large')
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "newSNR_cdf_by_duration")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+      dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append("newSNR_cdf_by_duration")
   if not opts.show_plot:
     close()
 
