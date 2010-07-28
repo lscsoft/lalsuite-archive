@@ -44,11 +44,6 @@ except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
-try:
-	any
-	all
-except NameError:
-	from glue.iterutils import any, all
 
 
 from glue import segments
@@ -58,7 +53,6 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue import iterutils
 from glue import segments
 from pylal import git_version
 from pylal import rate
@@ -547,13 +541,13 @@ FROM
 			found = likelihood_ratio is not None
 			# were at least 2 instruments on when the injection
 			# was made?
-			if any(SimBurstUtils.injection_was_made(sim, contents.seglists, instruments) for instruments in iterutils.choices(contents.seglists.keys(), 2)):
+			if len(SimBurstUtils.on_instruments(sim, contents.seglists)) >= 2:
 				# yes
 				self.all.append(sim)
 				if found and likelihood_ratio > self.detection_threshold:
 					self.found.append(sim)
 				else:
-					self.missed.append(sim)
+					self.missed.append((sim, contents.filename))
 			elif found:
 				# no
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
@@ -591,17 +585,18 @@ FROM
 		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
-		self.axes.set_xlim([4e-21, 1e-17])
+		self.axes.set_xlim([1e-21, 2e-18])
 		self.axes.set_ylim([0.0, 1.0])
 
 		# dump some information about the highest-amplitude missed
 		# injections
-		self.missed.sort(lambda a, b: cmp(a.amplitude, b.amplitude))
+		self.missed.sort(lambda (a, f1), (b, f2): cmp(a.amplitude, b.amplitude))
 		f = file("string_missed_injections.txt", "w")
 		print >>f, "Highest Amplitude Missed Injections"
 		print >>f, "==================================="
-		for sim in self.missed[-100:]:
+		for sim, filename in self.missed[-100:]:
 			print >>f
+			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
 			for instrument in self.seglists:
 				print >>f, "%s:" % instrument
 				print >>f, "\tAmplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
@@ -629,6 +624,7 @@ def process_files(filenames, products, live_time_program, tmp_path = None, verbo
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
 		database = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", verbose = verbose)
+		database.filename = filename
 		for n, plot in enumerate(products):
 			if verbose:
 				print >>sys.stderr, "adding to plot %d ..." % n

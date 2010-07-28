@@ -406,7 +406,8 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 
 	const double cannonDist = 1.0; /* Mpc */
 	double distNorm = 2.0 * LAL_MRSUN_SI / (cannonDist * 1.0e6 * LAL_PC_SI);
-	double tNorm = sqrt ((5.0 * mu) / 96.0) * pow (m / (LAL_PI * LAL_PI), 1.0 / 3.0) * pow (LAL_MTSUN_SI / (double) deltaT, -1.0 / 6.0);
+	/* from FINDCHIRP paper */
+	double tNorm = sqrt(5.0 * LAL_PI / 24.0) * pow(LAL_PI, -1./6.) * sqrt(mu) * pow(m, 1.0 / 3.0);
 
 	/* pn constants */
 	double c0, c10, c15, c20, c25, c25Log, c30, c30Log, c35, c40P;
@@ -421,8 +422,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 	complex double value;
 
 	/* template norm */
-	tNorm *= tNorm;
-	tNorm *= distNorm * distNorm;
+	tNorm *= distNorm;
 
 	/* zero output */
 	memset (expPsi, 0, numPoints * sizeof (complex double));
@@ -512,7 +512,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 			expPsi[k] = value;
 			}
 		/* put in the first order amplitude factor */
-		expPsi[k] *= pow(k, -7.0 / 6.0) * tNorm;
+		expPsi[k] *= pow(k*deltaF, -7.0 / 6.0) * tNorm;
 		}
 	return 0;
 	}
