@@ -124,7 +124,7 @@ LALFindChirpACTDFilterSegment (
 
 #if 0
 <lalLaTeX>
-\newpage\input{XLALFindChirpACTDConstraintC}
+\newpage\input{XLALFindChirpACTDApplyConstraintC}
 </lalLaTeX>
 #endif
 INT4 XLALFindChirpACTDApplyConstraint(
@@ -181,17 +181,6 @@ INT4 XLALFindChirpACTDMiniMax(
                REAL4           *max
                );
 
-#if 0
-<lalLaTeX>
-\newpage\input{XLALFindChirpACTDConstraintC}
-</lalLaTeX>
-#endif
-
-INT4 XLALFindChirpACTDConstraint(
-            REAL8          eta,
-            REAL8          mTot,
-            REAL4Vector   *conVec
-  );
 
 
 #ifdef  __cplusplus

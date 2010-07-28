@@ -178,7 +178,7 @@ LALFindChirpACTDTemplate(
 
 
   /* ACTD specific */
-  ppnParams.inc = LAL_PI_4;
+  ppnParams.inc = LAL_PI_2;
   /* 
   ppnParams.ampOrder = ( INT4 )( tmplt->ampOrder );
   ppnParams.ampOrder = 1;
@@ -583,7 +583,8 @@ LALFindChirpACTDNormalize(
 */
 
 
-  /* Norm the templates before we start */
+  /* Norm the templates before we start and use for constraint */
+  memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
   for( i = 0; i < NACTDVECS; ++i ) 
   {
     if ( i >= fcTmplt->startVecACTD && i < fcTmplt->stopVecACTD )
@@ -594,7 +595,7 @@ LALFindChirpACTDNormalize(
       {
         norm = sqrt( norm );
       }
-
+      fcTmplt->ACTDconstraint->data[i] = norm;
       for( k = 0; k < numPoints; k++ )
       {
         if( norm != 0.0 )
@@ -612,11 +613,6 @@ LALFindChirpACTDNormalize(
   /* CALCULATE THE CONSTRAINT */
   if( fcTmplt->tmplt.ACTDconstraintSwitch )
   {
-    /* Calculate maximum overlap of cross terms */
-    memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
-    XLALFindChirpACTDConstraint( fcTmplt->tmplt.eta, 
-                                 fcTmplt->tmplt.totalMass,
-                                 fcTmplt->ACTDconstraint  ); 
     /* h1 and h2 */
     XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[1], 
             &ACTDtilde[4], wtilde, tmpltParams->fLow, deltaT, &min12, &max12 );
@@ -627,17 +623,17 @@ LALFindChirpACTDNormalize(
     XLALFindChirpACTDMiniMax( &ACTDtilde[1], &ACTDtilde[4], &ACTDtilde[2], 
             &ACTDtilde[5], wtilde, tmpltParams->fLow, deltaT, &min23, &max23 );
 
-    cons1 = sqrt(fcTmplt->ACTDconstraint->data[0]) 
-          + max12 * sqrt(fcTmplt->ACTDconstraint->data[1])
-          + max13 * sqrt(fcTmplt->ACTDconstraint->data[2]);
+    cons1 = fcTmplt->ACTDconstraint->data[0]
+          + max12 * fcTmplt->ACTDconstraint->data[1]
+          + max13 * fcTmplt->ACTDconstraint->data[2];
 
-    cons2 = sqrt(fcTmplt->ACTDconstraint->data[1]) 
-          + max23 * sqrt(fcTmplt->ACTDconstraint->data[2])
-          + max12 * sqrt(fcTmplt->ACTDconstraint->data[0]);
+    cons2 = fcTmplt->ACTDconstraint->data[1] 
+          + max23 * fcTmplt->ACTDconstraint->data[2]
+          + max12 * fcTmplt->ACTDconstraint->data[0];
 
-    cons3 = sqrt(fcTmplt->ACTDconstraint->data[2]) 
-          + max13 * sqrt(fcTmplt->ACTDconstraint->data[0])
-          + max23 * sqrt(fcTmplt->ACTDconstraint->data[1]);
+    cons3 = fcTmplt->ACTDconstraint->data[2] 
+          + max13 * fcTmplt->ACTDconstraint->data[0]
+          + max23 * fcTmplt->ACTDconstraint->data[1];
 
     if ( cons2 == 0.0 )
     {
@@ -1017,38 +1013,4 @@ INT4 XLALFindChirpACTDMiniMax(
 
  return XLAL_SUCCESS;
 
-}
-
-INT4 XLALFindChirpACTDConstraint(
-            REAL8          eta,
-            REAL8          mTot,
-            REAL4Vector   *conVec
-  )
-{
-  REAL8 con1, con2, con3;
-  REAL8 peak;  
-
-  peak = 30.;
-  con1  = fabs( mTot -peak )*( 0.25 - eta );
-  con1  = pow( con1, ( 1 + 0.25 - eta ) );
-  con1 += 25.0*( 0.25 - eta );
-  con1 *= 0.012 / 10.67;
-
-  con2 = 1.0;
-
-  peak = 60.0;
-  con3  = gsl_ran_lognormal_pdf( mTot, log( peak ), ( 1 - 0.25 + eta ) );
-  con3 *= ( 0.25 - eta );
-  con3 *= pow( mTot, 1.2 );
-  con3 *= 0.42 / 0.23; 
-
-/*  fprintf( stderr, "\ncon1=%.3e  con2=%.3e  con3=%.3e", 
-            sqrt( con1 ), sqrt( con2 ), sqrt( con3 ) );
- */ 
-  
-  conVec->data[0] = con1;
-  conVec->data[1] = con2;
-  conVec->data[2] = con3;
-
-  return XLAL_SUCCESS;
 }

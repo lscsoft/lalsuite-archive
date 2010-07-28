@@ -150,8 +150,8 @@ LALFindChirpClusterEvents (
   norm = input->fcTmplt->norm;
   BVLen = bankVetoData->length;
 
-  /* normalised snr threhold */
-  modqsqThresh = params->rhosqThresh / norm;
+  /* normalised snr threshold */
+  modqsqThresh = params->rhosqThresh / norm; 
 
   /* the length of the chisq bin vec is the number of bin boundaries so the */
   /* number of chisq bins is (length - 1) or 0 if there are no boundaries   */
