@@ -89,6 +89,7 @@ CHAR **ChannelNames = NULL;
 CHAR **IFOnames = NULL;
 CHAR UserChannel[512];
 CHAR **UserChannelNames = NULL;
+double *CalAmpFacs = NULL;
 int nChannel=0;
 UINT4 nIFO=0;
 int fakeinj =0;
@@ -131,6 +132,8 @@ int decohereflag=0;
 REAL8 offset=0.0;
 extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
+int enable_calamp=0;
+int nCalAmpFacs=0;
 
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
@@ -213,6 +216,8 @@ void initialise(int argc, char *argv[]){
 		{"Dmax",required_argument,0,19},
 		{"version",no_argument,0,'V'},
 		{"help",no_argument,0,'h'},
+        {"enable-calamp",no_argument,0,265},
+        {"calamp-fac",required_argument,0,266},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
@@ -364,6 +369,15 @@ void initialise(int argc, char *argv[]){
 		case 'L':
 			timeslides=1;
 			break;
+        case 265:
+			enable_calamp=1;
+			break;
+        case 266: 
+			if(nCalAmpFacs==0) CalAmpFacs=malloc(sizeof(double));
+			else CalAmpFacs=realloc(CalAmpFacs,(nCalAmpFacs+1)*sizeof(double));
+			CalAmpFacs[nCalAmpFacs]=atof(optarg);
+            nCalAmpFacs++;
+			break;
 		default:
 			fprintf(stdout,USAGE); exit(0);
 			break;
@@ -382,6 +396,7 @@ void initialise(int argc, char *argv[]){
 	if(nSegs==0){fprintf(stderr,"Error: --Nsegs must be greater than 0\n"); exit(-1);}
 	if(Nlive<=1){fprintf(stderr,"Error: Nlive must be >1"); exit(-1);}
 	if(studentt) estimatenoise=0;
+    if(enable_calamp && nIFO!=nCalAmpFacs){fprintf(stderr,"Error: You must specify an amplitude calibration factor for each IFO (even if it is just 1.0)");exit(-1);}
 	return;
 }
 
@@ -744,13 +759,21 @@ int main( int argc, char *argv[])
 
 			networkSNR+=SNR;
 			SNR=sqrt(SNR);
-
+            
 			/* Actually inject the waveform */
 			if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
 			for(j=0;j<injF->data->length;j++) {
 				inputMCMC.stilde[i]->data->data[j].re+=(REAL8)injF->data->data[j].re;
 				inputMCMC.stilde[i]->data->data[j].im+=(REAL8)injF->data->data[j].im;
 			}
+
+            if(enable_calamp){
+                for(j=0;j<injF->data->length;j++) {
+                    inputMCMC.stilde[i]->data->data[j].re*=(REAL8)CalAmpFacs[i];
+                    inputMCMC.stilde[i]->data->data[j].im*=(REAL8)CalAmpFacs[i];
+                }
+            }
+            
 #if DEBUG
 			FILE *waveout;
 			char wavename[100];
