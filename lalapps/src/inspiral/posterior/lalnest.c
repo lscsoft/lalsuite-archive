@@ -77,6 +77,8 @@ Optional OPTIONS:\n \
 [--dt FLOAT (0.01)\t:\ttime window (0.01s)]\n \
 [--injSNR FLOAT\t:\tScale injection to have network SNR of FLOAT]\n \
 [--SNRfac FLOAT\t:\tScale injection SNR by a factor FLOAT]\n \
+[--enable-calamp\t:\tEnable amplitude calibration error simulation.\n \
+[--calamp-fac\t:\tAmplitude calibration error pre-factors. Used if --enable-calamp is passed. One for each IFO is required and will be applied to the IFOs in the order in which the IFOs were added by -I etc.\n \
 [--version\t:\tPrint version information and exit]\n \
 [--help\t:\tPrint this message]\n"
 
