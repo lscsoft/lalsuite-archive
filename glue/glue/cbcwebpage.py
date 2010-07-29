@@ -302,7 +302,7 @@ class _table(markup.page):
 
 # PROBABLY DOES NOT EVER NEED TO BE USED DIRECTLY, BUT IS USED IN cbcpage
 class _section(markup.page):
-	def __init__(self, tag, title="", secnum="1", pagenum="1", level=2):
+	def __init__(self, tag, title="", secnum="1", pagenum="1", level=2, open_by_default=False):
 		markup.page.__init__(self, mode="strict_html")
 		self.pagenum = pagenum
 		self.secnum = secnum
@@ -314,11 +314,15 @@ class _section(markup.page):
 		self.id = tag + self.secnum
 		self.tables = 0
 		self.add('<div class="contenu"><h%d id="toggle_%s" onclick="javascript:toggle2(\'div_%s\', \'toggle_%s\');"> %s.%s %s </h%d>' % (level, self.id, secnum, self.id, pagenum, secnum, title, level) )
-		self.div(id="div_"+secnum , style='display:none;')
+		if open_by_default:
+			style = 'display:block;'
+		else:
+			style = 'display:none;'
+		self.div(id="div_"+secnum , style=style)
 
-	def add_section(self, tag, title=""):
+	def add_section(self, tag, title="", open_by_default=False):
 		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
-		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1)
+		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1, open_by_default=open_by_default)
 		self.section_ids.append([len(self.sections.values()), tag])
 		return self.sections[tag]
 
@@ -459,12 +463,12 @@ class cbcpage(markup.page):
 		pagefile.close()
 		return '%s/%s.html' % (self.path, file_name)
 			
-	def add_section(self, tag, title="", level=2):
+	def add_section(self, tag, title="", level=2, open_by_default=False):
 		"""
 		"""
 		secnum = len(self.sections.values()) + 1
 		self.section_ids.append([secnum, tag])
-		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level)
+		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level, open_by_default=open_by_default)
 		return self.sections[tag]
 
 	def add_table(self, two_d_data, title="", caption="", tag="table"):
