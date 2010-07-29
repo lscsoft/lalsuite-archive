@@ -229,8 +229,6 @@ hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
 
 sincos(omega_t, &s_omega_t, &c_omega_t);
 
-sincos(2.0*M_PI*(phase_bin-floor(phase_bin)), &s_bin, &c_bin);
-
 /* 
 	cos(a)*cos(-b)=0.5*(cos(a-b)+cos(a+b))
 	sin(a)*cos(-b)=0.5*(sin(a-b)+sin(a+b))
