@@ -799,8 +799,7 @@ LALFindChirpACTDNormalize(
   */
   /* XXX UNCOMMENT ABOVE TO TEST ORTHONORMALIZATION XXX */
 
-  /* Since the template is now properly normalized, set norm to 1.0 */
-  fcTmplt->norm = 2.0 * deltaT / (REAL4)(numPoints);
+  fcTmplt->norm = 2.0 * deltaT / (REAL4)(numTDPoints);
   fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
 
   /* Set the transformation matrix to be used to constrain the filter */

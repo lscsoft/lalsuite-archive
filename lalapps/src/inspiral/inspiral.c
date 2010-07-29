@@ -3621,7 +3621,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"band-pass-template",      no_argument,       0,                '}'},
     {"taper-template",          required_argument, 0,                '{'},
     {"cdata-length",            required_argument, 0,                '|'},
-    {"disable-actd-constraint", required_argument, 0,                '='},
+    {"disable-actd-constraint", no_argument,       0,                '='},
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
