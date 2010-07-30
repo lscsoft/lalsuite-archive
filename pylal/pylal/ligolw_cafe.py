@@ -503,7 +503,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 	packer = CafePacker(outputcaches)
 	packer.set_offset_vectors(offset_vectors)
 	if verbose:
-		print >>sys.stderr, "packing files ..."
+		print >>sys.stderr, "packing files (considering %s offset vectors) ..." % len(offset_vectors)
 	for n, cacheentry in enumerate(cache):
 		if verbose and not n % 13:
 			print >>sys.stderr, "\t%.1f%%\t(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
