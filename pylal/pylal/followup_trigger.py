@@ -1245,7 +1245,8 @@ class FollowupTrigger:
       for c in cache:
 
         # check the time and the injection ID
-        if self.followup_time in c.segment:
+        # Also pick up files +/- 2048s of this trigger to avoid boundary issues
+        if (self.followup_time in c.segment) or ((self.followup_time-2048) in c.segment) or ((self.followup_time+2048) in c.segment):
           if not self.injection_id or \
                  (self.injection_id and \
                   self.get_injection_id(url = c.url) == self.injection_id):
