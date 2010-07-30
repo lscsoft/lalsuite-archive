@@ -135,7 +135,7 @@ REAL8 offset=0.0;
 extern const LALUnit strainPerCount;
 INT4 ampOrder=0;
 int enable_calamp=0;
-int nCalAmpFacs=0;
+unsigned int nCalAmpFacs=0;
 
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
@@ -761,6 +761,13 @@ int main( int argc, char *argv[])
 
 			networkSNR+=SNR;
 			SNR=sqrt(SNR);
+
+            if(enable_calamp){
+                for(j=0;j<injF->data->length;j++) {
+                    injF->data->data[j].re*=(REAL8)CalAmpFacs[i];
+                    injF->data->data[j].im*=(REAL8)CalAmpFacs[i];
+                }
+            }
             
 			/* Actually inject the waveform */
 			if(!FakeFlag) for(j=0;j<inj8Wave->data->length;j++) inputMCMC.segment[i]->data->data[j]+=(REAL8)inj8Wave->data->data[j];
@@ -769,12 +776,6 @@ int main( int argc, char *argv[])
 				inputMCMC.stilde[i]->data->data[j].im+=(REAL8)injF->data->data[j].im;
 			}
 
-            if(enable_calamp){
-                for(j=0;j<injF->data->length;j++) {
-                    inputMCMC.stilde[i]->data->data[j].re*=(REAL8)CalAmpFacs[i];
-                    inputMCMC.stilde[i]->data->data[j].im*=(REAL8)CalAmpFacs[i];
-                }
-            }
             
 #if DEBUG
 			FILE *waveout;
