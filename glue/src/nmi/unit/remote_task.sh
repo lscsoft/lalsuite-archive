@@ -24,7 +24,7 @@ BASE_DIR=$(pwd)
 
 # in the provided lalsuite install dir, rebase any now-incorrect
 # static paths that were set at build time in *-user-env.sh, etc.
-find $BASE_DIR/head \( -name \*-user-env.sh -or -name lscsoftrc \) -print0 | \
+find $BASE_DIR/opt \( -name \*-user-env.sh -or -name lscsoftrc \) -print0 | \
     xargs -0 \
     perl -p -i.orig -e 's!/.*/execute/dir_\d+/userdir/!'${BASE_DIR}'/!g'
 
@@ -32,11 +32,13 @@ find $BASE_DIR/head \( -name \*-user-env.sh -or -name lscsoftrc \) -print0 | \
 # lal, glue, etc. cannot be, and thus have runtime dependencies
 # requiring env setup (boo)
 set +u
-source $BASE_DIR/head/etc/lscsoftrc
+for f in $BASE_DIR/opt/lscsoft/etc/*-user-env.sh; do
+    . $f
+done
 set -u
 
 # useful info to have logged for later debugging
-$BASE_DIR/head/opt/lscsoft/lal/bin/lal-version
+$BASE_DIR/opt/lscsoft/bin/lal-version
 
 # create and work in a subdir named after the git id we're testing so
 # that later diff tests can keep straight which results which
@@ -53,7 +55,7 @@ for filename in $(< $BASE_DIR/input_files.tmp) $(< $BASE_DIR/symlinks.tmp); do
 done
 
 # do the deed
-time $BASE_DIR/head/opt/lscsoft/lalapps/bin/$NMI_ligo_exe $(< $BASE_DIR/params.tmp) $NMI_ligo_add_params $(< $BASE_DIR/input_files.tmp)
+time $BASE_DIR/opt/lscsoft/bin/$NMI_ligo_exe $(< $BASE_DIR/params.tmp) $NMI_ligo_add_params $(< $BASE_DIR/input_files.tmp)
 
 # end of stdout/stderr-combining block
 } 2>&1

@@ -38,6 +38,8 @@ __date__ = git_version.date
 ###############################################################################
 ##### UTILITY FUNCTIONS #######################################################
 ###############################################################################
+
+# THIS SHOULD MOST CERTAINLY NEVER BE USED :)
 def web_path_to_url(path):
 	host = socket.getfqdn()
 	pl = path.rstrip('/').split('/')
@@ -61,6 +63,30 @@ This function is just an alias to create a javascript for the toggle on/off.
 	"""
 	fname = open(filename, "w")
 	fname.write("""
+function get_url_vars() {
+    var st = window.location.href.split('?'),
+        obj = {}, //an object to store properties and values in
+        eq,
+        i;
+    if (st[1]) { //if a ( ? ) was found in the split, use the second part after the ?
+        st = unescape(st[1]).split('&'); //split st into array of strings containing url variables=values
+        for (i = 0; i < st.length; i++) {
+            eq = st[i].split('='); //get values from both sides of ( = ) sign
+            obj[eq[0]] = eq[1]; //insert properties and values into object
+        }
+        return obj;
+    }
+    return false;
+}
+
+window.onload = function () {
+        var vars = get_url_vars(), prop;
+        for (url in vars) {
+                loadURL(url)
+        }
+
+};
+
 function toggle2(showHideDiv, switchTextDiv) {
 	var ele = document.getElementById(showHideDiv);
 	var text = document.getElementById(switchTextDiv);
@@ -71,15 +97,23 @@ function toggle2(showHideDiv, switchTextDiv) {
 		ele.style.display = "block";
 	}
 }
+
 function afterLoadFrame() {
 	$('#iframecontent a[rel="external"]').attr('target','_blank');
 	$('#iframecontent input').hide();
 	$('#iframecontent p:first').hide(); 
 	}
+
 function loadFrame(sourceURL) {
-	$("#iframecontent").load(sourceURL,{},afterLoadFrame);
-	/* Remove the last two arguments to disable toggling from the title. */
-	}
+        $("#iframecontent").load(sourceURL,{},afterLoadFrame);
+        str = window.location.href.split('?')
+        window.location.href = str[0] + "?" + sourceURL
+        }
+
+function loadURL(sourceURL) {
+        $("#iframecontent").load(sourceURL,{},afterLoadFrame);
+        }
+
 function toggleAllOpen() {
 	var tags = document.getElementsByTagName('div');
 	for (t in tags)
@@ -89,9 +123,9 @@ function toggleAllOpen() {
 	fname.close()
 	return filename
 
-def script_dict():
+def script_dict(fname):
 	script = {}
-	tog = create_toggle()
+	tog = os.path.split(create_toggle(fname))[1]
 	script[tog] = 'javascript'
 	script['http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
 	return (script, [tog])
@@ -113,7 +147,7 @@ def copy_ihope_style(stylefile="cbcwebpage.css", base_dir="."):
 		sys.exit(1)
 	shutil.copy(out, base_dir)
 	
-	return base_dir + '/' + os.path.split(out.rstrip('/'))[1]
+	return os.path.split(out.rstrip('/'))[1]
 
 def which(prog):
 	which = subprocess.Popen(['which',prog], stdout=subprocess.PIPE)
@@ -174,16 +208,36 @@ def wiki_table_parse(file):
 	tabs.append(tab)
 	return tabs, titles
 	
-###############################################################################
-##### CBC WEB PAGE CLASSES ####################################################
-###############################################################################
-
 # PROBABLY DOES NOT EVER NEED TO BE USED DIRECTLY, BUT IS USED IN cbcpage
 class _subpage_id(object):
 	def __init__(self, id, link_text, closed_flag=0):
 		self.id = id
 		self.link_text = link_text
 		self.closed_flag = closed_flag
+
+###############################################################################
+##### CBC WEB PAGE CLASSES ####################################################
+###############################################################################
+
+class _link(markup.page):
+	def __init__(self, href="", text=""):
+		markup.page.__init__(self, mode="strict_html")
+		self.a(href=href)
+		self.add(text)
+		self.a.close()
+	def get_content(self):
+		return self.content
+
+class _text(markup.page):
+	def __init__(self, txt="", bold=False, italic=False):
+		markup.page.__init__(self, mode="strict_html")
+		if bold: self.b()
+		if italic: self.i()
+		self.add(txt)
+		if bold: self.b.close()
+		if italic: self.i.close()
+	def get_content(self):
+		return self.content
 
 class _imagelink(markup.page):
 	def __init__(self, imageurl, thumburl, tag="img", width=240):
@@ -248,7 +302,7 @@ class _table(markup.page):
 
 # PROBABLY DOES NOT EVER NEED TO BE USED DIRECTLY, BUT IS USED IN cbcpage
 class _section(markup.page):
-	def __init__(self, tag, title="", secnum="1", pagenum="1", level=2):
+	def __init__(self, tag, title="", secnum="1", pagenum="1", level=2, open_by_default=False):
 		markup.page.__init__(self, mode="strict_html")
 		self.pagenum = pagenum
 		self.secnum = secnum
@@ -260,12 +314,17 @@ class _section(markup.page):
 		self.id = tag + self.secnum
 		self.tables = 0
 		self.add('<div class="contenu"><h%d id="toggle_%s" onclick="javascript:toggle2(\'div_%s\', \'toggle_%s\');"> %s.%s %s </h%d>' % (level, self.id, secnum, self.id, pagenum, secnum, title, level) )
-		self.div(id="div_"+secnum , style='display:none;')
+		if open_by_default:
+			style = 'display:block;'
+		else:
+			style = 'display:none;'
+		self.div(id="div_"+secnum , style=style)
 
-	def add_section(self, tag, title=""):
+	def add_section(self, tag, title="", open_by_default=False):
 		secnum = "%s.%d" % (self.secnum, len(self.sections.values())+1)
-		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1)
+		self.sections[tag] = _section(tag, title=title, secnum=secnum, pagenum=self.pagenum, level=self.level+1, open_by_default=open_by_default)
 		self.section_ids.append([len(self.sections.values()), tag])
+		return self.sections[tag]
 
 	def get_content(self):
 		self.section_ids.sort()
@@ -281,8 +340,17 @@ class _section(markup.page):
 		tabnum = "%s %s.%s.%s" %  ("Table", self.pagenum, self.secnum, str(self.tables))
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=tabnum)
 		self.content.extend(table.get_content())
+		return self
 
+	def add_link(self, **kwargs):
+		link = _link(**kwargs)
+		self.content.extend(link.get_content())
+		return self
 
+	def add_text(self, **kwargs):
+		text = _text(**kwargs)
+		self.content.extend(text.get_content())
+		return self
 
 # MAIN CBC WEB PAGE CLASS 
 class cbcpage(markup.page):
@@ -290,8 +358,8 @@ class cbcpage(markup.page):
 	def __init__(self, title="cbc web page", path='./', css=None, script=None, pagenum=1, verbose=False):
 		"""
 		"""
-		if not css: css = copy_ihope_style()
-		scdict = script_dict()
+		if not css: css = copy_ihope_style(base_dir=path)
+		scdict = script_dict(fname='%s/%s' % (path,"toggle.js"))
 		if not script: script = scdict[0]
 		self.front = ""
 		scriptfiles = scdict[1]
@@ -326,9 +394,10 @@ class cbcpage(markup.page):
 		if not link_text: link_text=str(subpage_num)
 
 		# tuple including number so it can be sorted later
-		self.subpages[tag] = cbcpage(title=title,css=self._style,script=self._script,pagenum=subpage_num)
+		self.subpages[tag] = cbcpage(title=title,path=self.path,css=self._style,script=self._script,pagenum=subpage_num)
 		self.subpages[tag].add('<table align=right><tr><td align=right onclick="javascript:toggleAllOpen();"><b>Toggle Open</b></td></tr></table>')
 		self.subpage_ids.append( [subpage_num, _subpage_id(tag, link_text)] )
+		return self.subpages[tag]
 
 	def close_subpage(self,id=None):
 		#SECTIONS WILL AUTOMATICALLY BE CLOSED IN WRITE METHOD IF NOT DONE EXPLICITELY
@@ -366,7 +435,7 @@ class cbcpage(markup.page):
 				self.div.close()
 			for i, ext_frame in enumerate(self.external_frames):
 				self.div(class_="menuitem")
-				self.add('\t<a class="menulink" href="javascript:loadFrame(\'%s\');"> %d: %s </a>\n' % (ext_frame[0], num+i, ext_frame[1]) )
+				self.add('\t<a class="menulink" href=%s# onclick="javascript:loadFrame(\'%s\');"> %d: %s </a>\n' % (ext_frame[0], ext_frame[0], num+i, ext_frame[1]) )
 				self.div.close()
 			self.div.close()
 			self.div.close()
@@ -394,15 +463,26 @@ class cbcpage(markup.page):
 		pagefile.close()
 		return '%s/%s.html' % (self.path, file_name)
 			
-	def add_section(self, tag, title="", level=2):
+	def add_section(self, tag, title="", level=2, open_by_default=False):
 		"""
 		"""
 		secnum = len(self.sections.values()) + 1
 		self.section_ids.append([secnum, tag])
-		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level)
+		self.sections[tag] = _section(title=title, tag=tag, secnum=str(secnum), pagenum=str(self.pagenum), level=level, open_by_default=open_by_default)
+		return self.sections[tag]
 
 	def add_table(self, two_d_data, title="", caption="", tag="table"):
 		self.tables += 1
 		table = _table(two_d_data, title=title, caption=caption, tag="table", num=str(self.pagenum) + " Table "+str(self.tables))
 		self.content.extend(table.get_content())
+		return self
 
+	def add_link(self, **kwargs):
+		link = _link(**kwargs)
+		self.content.extend(link.get_content())
+		return self
+
+	def add_text(self, **kwargs):
+		text = _text(**kwargs)
+		self.content.extend(text.get_content())
+		return self

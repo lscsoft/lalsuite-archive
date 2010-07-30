@@ -392,10 +392,11 @@ double doppler, omega_t, c_omega_t, s_omega_t;
 double hann;
 float det_vel[3]={NAN, NAN, NAN};
 float f_plus, f_cross;
+double te, phase_spindown, phase_barycenter, phase_bin;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
 EarthState earth_state;
-double te, phase_spindown, phase_barycenter, phase_bin;
+BarycenterInput baryinput;
 LALStatus status={level:0, statusPtr:NULL};
 
 tGPS.gpsSeconds=floor(t);

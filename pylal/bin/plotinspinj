@@ -477,10 +477,6 @@ if opts.cache_file:
 else:
   injFiles = args
 
-# get veto segment list
-if opts.veto_file:
-  seglist = segmentsUtils.fromsegwizard(file(opts.veto_file, 'r'))
-
 lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
 trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose,\
           mangle_event_id = True, old_document=opts.old_document)
@@ -491,11 +487,11 @@ if (trigs is None) :
   raise ValueError, "the number of triggers   is zero"   
 if (sims is None):
   raise ValueError, "the number of sims is zero"   
-  
-# veto if supplied
-if opts.veto_file:
-  trigs = trigs.veto(seglist)
-  sims = sims.veto(seglist)
+
+# Check that veto-file is only used if coire-split present
+if opts.veto_file is not None and not opts.coire_split:
+  raise ValueError, "Can only use --veto-file when --coire-split is used"
+# because triggers and sims have different end times, and vetoing is not well defined
   
 # provide a matching sim_inspiral for each sngl_inspiral if requested
 if opts.coire_split:
@@ -509,8 +505,26 @@ if opts.coire_split:
     new_sim_table.extend([inj] * num_coincs)
   sims = new_sim_table
 
+  # veto if supplied
+  if opts.veto_file is not None:
+    if len(trigs) != len(sims):
+      raise ValueError, "len(trigs) must be equal to len(sims)"
+
+    for veto_file in opts.veto_file.split(','):
+      seglist = segmentsUtils.fromsegwizard(open(veto_file))
+      # We would do just "trigs.veto(seglist); sims.veto(seglist)", but
+      # their times may differ, with one inside the veto and not the other
+      trigs_keep = tab.new_from_template(trigs)
+      sims_keep = tab.new_from_template(sims)
+      for trig, sim in itertools.izip(trigs, sims):
+        if trig.get_end() not in seglist and sim.get_end() not in seglist:
+          trigs_keep.append(trig)
+          sims_keep.append(sim)
+      trigs = trigs_keep
+      sims = sims_keep
+
 if len(trigs) != len(sims):
-  print ' Found '+ str(len(trigs)) +' triggers and ', str(len(sims)) +'simulations'
+  print "Found %d triggers and %d simulations" % (len(trigs), len(sims))
   raise ValueError, "number of triggers and found injections must be equal"
 
 # sort into bins by IFO
@@ -578,7 +592,7 @@ if opts.hist_eta:
 # plot of timing error vs time
 if opts.plot_time:
   fname, text, plot_num = plot_parameter_accuracy(opts, plot_num, injSets, \
-    'end_time', 'days', opts.time_axis, plot_type = 'linear' )
+    'end_time', 'seconds', opts.time_axis, plot_type = 'linear' )
   fnameList.append(fname)
   tagList.append(text)
 

@@ -392,9 +392,12 @@ class SkyPoints(list):
     by the factor in normfac
     """
     normfac = sum([pt[n] for pt in self])
-    for i in range(len(self)):
-      self[i][n] /= normfac
-    return normfac
+    if normfac > 0.0:
+      for i in range(len(self)):
+        self[i][n] /= normfac
+      return normfac
+    else:
+      return -1
 
   def write(self,fname,post_dat,comment=None,debug=False,gz=False):
     """
@@ -404,36 +407,50 @@ class SkyPoints(list):
     post_grid = '# normfac = ' + str(post_dat['normfac']) + '\n'
     post_grid += 'snr = ' + str(post_dat['snr']) + '\n'
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+    post_grid += 'gps = ' + str(post_dat['gps']) + '\n'
     post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
-    if fname['galaxy']:
-      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
-      gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
-      gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    post_grid_l = post_grid
     for pt in self:
-        post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[2]) + '\n'
+        post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
+    for pt in self[:1000]:
+        post_grid_l += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
     if comment:
       post_grid += '# ' + comment + '\n'
+      post_grid_l += '# ' + comment + '\n'
     if fname['galaxy']:
-      gal_grid = 'snr = ' + str(post_dat['snr']) + '\n'
+      gal_grid = '# normfac = ' + str(post_dat['gnormfac']) + '\n'
+      gal_grid += 'snr = ' + str(post_dat['snr']) + '\n'
       gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
+      gal_grid += 'gps = ' + str(post_dat['gps']) + '\n'
       gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+      gal_grid_l = gal_grid
       self.nsort(4)
       for pt in self:
         gal_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[4]) + '\n'
+      for pt in self[:1000]:
+        gal_grid_l += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[4]) + '\n'
     if gz:
       fpost = gzip.open(fname['posterior']+'.gz', 'w')
+      fpost_l = gzip.open(fname['posterior'].replace('.txt','_lumin.txt')+'.gz', 'w')
       if fname['galaxy']:
         fgal = gzip.open(fname['galaxy']+'.gz', 'w')
+        fgal_l = gzip.open(fname['galaxy'].replace('.txt','_lumin.txt')+'.gz', 'w')
     else:
       fpost = open(fname['posterior'], 'w')
+      fpost_l = open(fname['posterior'].replace('.txt','_lumin.txt'), 'w')
       if fname['galaxy']:
         fgal = open(fname['galaxy'], 'w')
+        fgal_l = open(fname['galaxy'].replace('.txt','_lumin.txt'), 'w')
 
     fpost.write(post_grid)
+    fpost_l.write(post_grid_l)
     fpost.close()
+    fpost_l.close()
     if fname['galaxy']:
       fgal.write(gal_grid)
+      fgal_l.write(gal_grid_l)
       fgal.close()
+      fgal_l.close()
 
 class CoincData(object):
   """
@@ -533,7 +550,7 @@ class Coincidences(list):
       coinc.set_masses(dict((row.ifo, row.mass1) for row in sngltab), \
                        dict((row.ifo, row.mass2) for row in sngltab))
       ctab = tab.get_table(xmldoc,lsctables.CoincInspiralTable.tableName)
-      coinc.set_ifos(ctab[0].get_ifos())
+      coinc.set_ifos(list(ctab[0].get_ifos()))
       
       try:
         simtab = tab.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
@@ -627,6 +644,7 @@ class SkyLocTable(tab.Table):
     "dt90": "real_4",
     "min_eff_distance": "real_4",
     "skymap": "lstring",
+    "galaxy_grid": "lstring",
     "grid": "lstring"
     }
     
@@ -671,7 +689,8 @@ class SkyLocInjTable(tab.Table):
     "v1_eff_distance": "real_4",
     "mass1": "real_4",
     "mass2": "real_4",
-    "grid": "lstring"
+    "grid": "lstring",
+    "galaxy_grid": "lstring"
     }
     
 class SkyLocInjRow(object):
@@ -714,7 +733,7 @@ class GalaxyRow(object):
 GalaxyTable.RowType = GalaxyRow
 
 def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
-                         skymap_fname=None):
+                         skymap_fname=None,galmap_fname=None):
   """
   populate a row in a skyloctable
   """
@@ -746,12 +765,17 @@ def populate_SkyLocTable(skyloctable,coinc,grid,A,grid_fname,\
     row.skymap = os.path.basename(str(skymap_fname))
   else:
     row.skymap = skymap_fname
-  row.grid = os.path.basename(str(grid_fname))
 
+  row.grid = os.path.basename(str(grid_fname))
+  if galmap_fname:
+    row.galaxy_grid = os.path.basename(str(galmap_fname))
+  else:
+    row.galaxy_grid = galmap_fname
+  
   skyloctable.append(row)
   
 def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
-                            dtrss_inj,dDrss_inj,grid_fname):
+                            dtrss_inj,dDrss_inj,grid_fname,gal_grid):
   """
   record injection data in a skylocinjtable
   """
@@ -801,7 +825,10 @@ def populate_SkyLocInjTable(skylocinjtable,coinc,rank,area,\
   row.mass1 = coinc.mass1_inj
   row.mass2 = coinc.mass2_inj
   row.grid = os.path.basename(str(grid_fname))
-
+  if gal_grid:
+    row.galaxy_grid = os.path.basename(str(gal_grid))
+  else:
+    row.galaxy_grid = gal_grid
   skylocinjtable.append(row)
 
 def populate_GalaxyTable(galaxytable,coinc,galaxy):

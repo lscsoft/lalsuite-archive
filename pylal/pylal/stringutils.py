@@ -84,6 +84,7 @@ def coinc_params_func(events, offsetdict):
 
 		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
 		params["%sdf" % prefix] = (df,)
+
 	#
 	# done
 	#
@@ -134,28 +135,28 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	}
 
 	filters = {
-		"H1_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"H2_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"L1_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"V1_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"H1_H2_dt": rate.gaussian_window(11),
-		"H1_L1_dt": rate.gaussian_window(11),
-		"H1_V1_dt": rate.gaussian_window(11),
-		"H2_L1_dt": rate.gaussian_window(11),
-		"H2_V1_dt": rate.gaussian_window(11),
-		"L1_V1_dt": rate.gaussian_window(11),
-		"H1_H2_dA": rate.gaussian_window(11),
-		"H1_L1_dA": rate.gaussian_window(11),
-		"H1_V1_dA": rate.gaussian_window(11),
-		"H2_L1_dA": rate.gaussian_window(11),
-		"H2_V1_dA": rate.gaussian_window(11),
-		"L1_V1_dA": rate.gaussian_window(11),
-		"H1_H2_df": rate.gaussian_window(11),
-		"H1_L1_df": rate.gaussian_window(11),
-		"H1_V1_df": rate.gaussian_window(11),
-		"H2_L1_df": rate.gaussian_window(11),
-		"H2_V1_df": rate.gaussian_window(11),
-		"L1_V1_df": rate.gaussian_window(11)
+		"H1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H2_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"L1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"V1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H1_H2_dt": rate.gaussian_window(11, sigma = 20),
+		"H1_L1_dt": rate.gaussian_window(11, sigma = 20),
+		"H1_V1_dt": rate.gaussian_window(11, sigma = 20),
+		"H2_L1_dt": rate.gaussian_window(11, sigma = 20),
+		"H2_V1_dt": rate.gaussian_window(11, sigma = 20),
+		"L1_V1_dt": rate.gaussian_window(11, sigma = 20),
+		"H1_H2_dA": rate.gaussian_window(11, sigma = 20),
+		"H1_L1_dA": rate.gaussian_window(11, sigma = 20),
+		"H1_V1_dA": rate.gaussian_window(11, sigma = 20),
+		"H2_L1_dA": rate.gaussian_window(11, sigma = 20),
+		"H2_V1_dA": rate.gaussian_window(11, sigma = 20),
+		"L1_V1_dA": rate.gaussian_window(11, sigma = 20),
+		"H1_H2_df": rate.gaussian_window(11, sigma = 20),
+		"H1_L1_df": rate.gaussian_window(11, sigma = 20),
+		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
+		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
+		"L1_V1_df": rate.gaussian_window(11, sigma = 20)
 	}
 
 	def __init__(self):

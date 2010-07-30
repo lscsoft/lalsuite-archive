@@ -194,6 +194,25 @@ if(!strcasecmp("LHO", det)){
 	} else 
 if(!strcasecmp("LLO", det)){
 	detector=lalCachedDetectors[LALDetectorIndexLLODIFF];
+	} else
+if(!strcasecmp("VIRGO", det)){
+	detector=lalCachedDetectors[LALDetectorIndexVIRGODIFF];
+	} else {
+	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
+	exit(-1);
+	}
+}
+
+LALDetector get_detector_struct(char *det) 
+{
+if(!strcasecmp("LHO", det)){
+	return lalCachedDetectors[LALDetectorIndexLHODIFF];
+	} else 
+if(!strcasecmp("LLO", det)){
+	return lalCachedDetectors[LALDetectorIndexLLODIFF];
+	} else
+if(!strcasecmp("VIRGO", det)){
+	return lalCachedDetectors[LALDetectorIndexVIRGODIFF];
 	} else {
 	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
 	exit(-1);
@@ -253,6 +272,39 @@ TESTSTATUS(&status);
 if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
+void get_AM_response_d(double gps, float latitude, float longitude, float orientation, char *detector,
+	float *plus, float *cross)
+{
+LALStatus status={level:0, statusPtr:NULL};
+LALSource source;
+LALDetAndSource det_and_source={NULL, NULL};
+LALDetAMResponse response;
+LIGOTimeGPS ligo_gps;
+LALDetector det;
+
+memset(&ligo_gps, 0, sizeof(ligo_gps));
+ligo_gps.gpsSeconds=floor(gps); 
+ligo_gps.gpsNanoSeconds=(gps-floor(gps))*1e9;
+
+memset(&source, 0, sizeof(source));
+source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
+source.orientation=orientation;
+source.equatorialCoords.longitude=longitude;
+source.equatorialCoords.latitude=latitude;
+
+det=get_detector_struct(detector);
+
+det_and_source.pDetector=&det;
+det_and_source.pSource=&source;
+
+LALComputeDetAMResponse(&status, &response, &det_and_source, &ligo_gps);
+TESTSTATUS(&status);
+
+*cross=response.cross;
+*plus=response.plus;
+if(status.statusPtr)FREESTATUSPTR(&status);
+}
+
 void get_detector_vel(INT64 gps, float *velocity)
 {
 LALStatus status={level:0, statusPtr:NULL};
@@ -283,6 +335,26 @@ fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 #endif
 
 for(i=0;i<3;i++)velocity[i]=det_velocity[i];
+if(status.statusPtr)FREESTATUSPTR(&status);
+}
+
+void get_emission_time(EmissionTime *emission_time, EarthState *earth_state, double ra, double dec, double dInv, char *detector, LIGOTimeGPS tGPS)
+{
+BarycenterInput baryinput;
+LALStatus status={level:0, statusPtr:NULL};
+
+memset(&baryinput, 0, sizeof(baryinput));
+baryinput.tgps=tGPS;
+baryinput.site=get_detector_struct(detector);
+baryinput.site.location[0]=baryinput.site.location[0]/LAL_C_SI;
+baryinput.site.location[1]=baryinput.site.location[1]/LAL_C_SI;
+baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
+baryinput.alpha=ra;
+baryinput.delta=dec;
+baryinput.dInv=dInv;
+
+LALBarycenter(&status, emission_time, &baryinput, earth_state);
+TESTSTATUS(&status);
 if(status.statusPtr)FREESTATUSPTR(&status);
 }
 

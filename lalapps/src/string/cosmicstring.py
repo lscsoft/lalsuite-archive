@@ -48,6 +48,9 @@ class MeasLikelihoodJob(pipeline.CondorDAGJob):
 		self.add_condor_cmd("getenv", "True")
 		self.add_ini_opts(config_parser, "lalapps_string_meas_likelihood")
 
+		self.cache_dir = power.get_cache_dir(config_parser)
+		self.output_dir = "."
+
 
 class MeasLikelihoodNode(pipeline.CondorDAGNode):
 	def __init__(self, *args):
@@ -55,18 +58,18 @@ class MeasLikelihoodNode(pipeline.CondorDAGNode):
 		self.input_cache = []
 		self.output_cache = []
 
+		self.cache_dir = os.path.join(os.getcwd(), self.job().cache_dir)
+		self.output_dir = os.path.join(os.getcwd(), self.job().output_dir)
+
 	def set_name(self, *args):
 		pipeline.CondorDAGNode.set_name(self, *args)
-		self.cache_name = os.path.join(self._CondorDAGNode__job.cache_dir, "%s.cache" % self.get_name())
+		self.cache_name = os.path.join(self.cache_dir, "%s.cache" % self.get_name())
+		self.add_var_opt("input-cache", self.cache_name)
 
 	def add_input_cache(self, cache):
 		if self.output_cache:
 			raise AttributeError, "cannot change attributes after computing output cache"
 		self.input_cache.extend(cache)
-		for c in cache:
-			filename = c.path()
-			pipeline.CondorDAGNode.add_file_arg(self, filename)
-		self.add_output_file(filename)
 
 	def add_file_arg(self, filename):
 		raise NotImplementedError
@@ -75,9 +78,9 @@ class MeasLikelihoodNode(pipeline.CondorDAGNode):
 		if self.output_cache:
 			raise AttributeError, "cannot change attributes after computing output cache"
 		cache_entry = power.make_cache_entry(self.input_cache, description, "")
-		filename = "%s-STRING_LIKELIHOOD_%s-%d-%d.xml.gz" % (cache_entry.observatory, cache_entry.description, int(cache_entry.segment[0]), int(abs(cache_entry.segment)))
-		self.add_var_opt("output", filename)
+		filename = os.path.join(self.output_dir, "%s-STRING_LIKELIHOOD_%s-%d-%d.xml.gz" % (cache_entry.observatory, cache_entry.description, int(cache_entry.segment[0]), int(abs(cache_entry.segment))))
 		cache_entry.url = "file://localhost" + os.path.abspath(filename)
+		self.add_var_opt("output", filename)
 		del self.output_cache[:]
 		self.output_cache.append(cache_entry)
 		return filename
@@ -91,14 +94,10 @@ class MeasLikelihoodNode(pipeline.CondorDAGNode):
 		return self.output_cache
 
 	def write_input_files(self, *args):
-		# oh.  my.  god.  this is fscked.
-		for arg in self.get_args():
-			if "--add-from-cache" in arg:
-				f = file(self.cache_name, "w")
-				for c in self.input_cache:
-					print >>f, str(c)
-				pipeline.CondorDAGNode.write_input_files(self, *args)
-				break
+		f = file(self.cache_name, "w")
+		for c in self.input_cache:
+			print >>f, str(c)
+		pipeline.CondorDAGNode.write_input_files(self, *args)
 
 	def get_output_files(self):
 		raise NotImplementedError
@@ -127,6 +126,8 @@ class StringJob(pipeline.CondorDAGJob, pipeline.AnalysisJob):
     self.set_sub_file("lalapps_StringSearch.sub")
     self.add_condor_cmd("Requirements", "Memory > 1100")
 
+    self.output_dir = power.get_triggers_dir(config_parser)
+
 
 class StringNode(pipeline.AnalysisNode):
   """
@@ -140,6 +141,7 @@ class StringNode(pipeline.AnalysisNode):
     pipeline.AnalysisNode.__init__(self)
     self.__usertag = job.get_config('pipeline','user_tag')
     self.output_cache = []
+    self.output_dir = os.path.join(os.getcwd(), self.job().output_dir)
 
   def set_ifo(self, instrument):
     """
@@ -183,7 +185,7 @@ class StringNode(pipeline.AnalysisNode):
       if None in (self.get_start(), self.get_end(), self.get_ifo(), self.__usertag):
         raise ValueError, "start time, end time, ifo, or user tag has not been set"
       seg = segments.segment(LIGOTimeGPS(self.get_start()), LIGOTimeGPS(self.get_end()))
-      self.set_output("triggers/%s-STRINGSEARCH_%s-%d-%d.xml.gz" % (self.get_ifo(), self.__usertag, int(self.get_start()), int(self.get_end()) - int(self.get_start())))
+      self.set_output(os.path.join(self.output_dir, "%s-STRINGSEARCH_%s-%d-%d.xml.gz" % (self.get_ifo(), self.__usertag, int(self.get_start()), int(self.get_end()) - int(self.get_start()))))
 
     return self._AnalysisNode__output
 
@@ -315,7 +317,6 @@ def init_job_types(config_parser, job_types = ("string","meas_likelihoodjob")):
   # lalapps_string_meas_likelihood
   if "meas_likelihood" in job_types:
     meas_likelihoodjob = MeasLikelihoodJob(config_parser)
-    meas_likelihoodjob.cache_dir = power.get_cache_dir(config_parser)
 
 #
 # =============================================================================

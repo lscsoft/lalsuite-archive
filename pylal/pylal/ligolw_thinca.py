@@ -157,7 +157,7 @@ def append_process(xmldoc, comment = None, force = None, e_thinca_parameter = No
 		params += [(u"--trigger-program", u"lstring", trigger_program)]
 	if effective_snr is not None:
 		params += [(u"--effective-snr", u"lstring", effective_snr)]
-	if coinc_end_time_segments is not None:
+	if coinc_end_time_segment is not None:
 		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
@@ -260,7 +260,9 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		#
 
 		tstart = coinc_inspiral.get_end()
-		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
+		instruments = set([event.ifo for event in events])
+		instruments |= set([instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs])
+		coinc.set_instruments(instruments)
 
 		#
 		# save memory by re-using strings
