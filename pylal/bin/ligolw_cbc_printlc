@@ -164,13 +164,13 @@ def parse_command_line():
             )
     parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
         help =
-            "Requried. Statistic to rank by (can be any column " +
+            "Required. Statistic to rank by (can be any column " +
             "in the coinc_inspiral table)." 
             )
     parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
         metavar = "MAX or MIN",
         help = 
-            "Requried. Options are MAX or MIN. " +
+            "Required. Options are MAX or MIN. " +
             "This specifies whether to rank triggers by maximum or " +
             "minimum stat value." 
             )
