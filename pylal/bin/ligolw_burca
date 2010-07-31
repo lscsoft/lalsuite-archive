@@ -189,6 +189,8 @@ def parse_command_line():
 			raise ValueError, "missing required argument --program"
 	if options.coincidence_segment is not None:
 		options.coinc_segs = segmentsUtils.from_range_strings(options.coincidence_segment.split(","), boundtype = LIGOTimeGPS).coalesce()
+		if filenames is not None and len(filenames) > 1:
+			raise ValueError, "refusing to allow use of --coincidence-segment with more than one input file"
 	else:
 		options.coinc_segs = None
 
@@ -204,7 +206,10 @@ def parse_command_line():
 		# empty thresholds
 		options.thresholds = {}
 
-	# success
+	#
+	# done
+	#
+
 	return options, (filenames or [None])
 
 
