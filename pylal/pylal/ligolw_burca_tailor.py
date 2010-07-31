@@ -317,22 +317,11 @@ class Stats(object):
 
 	def add_noninjections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs
-		for (coinc_event_id,) in database.connection.cursor().execute("""
+		for coinc_event_id, rows in itertools.groupby(database.connection.cursor().execute("""
 SELECT
-	coinc_event_id
-FROM
-	coinc_event
-WHERE
-	coinc_def_id == ?
-		""", (database.bb_definer_id,)):
-			# retrieve the list of the sngl_bursts in this
-			# coinc, and their time slide dictionary
-			events = []
-			offsetdict = {}
-			for values in database.connection.cursor().execute("""
-SELECT
-	sngl_burst.*,
-	time_slide.offset
+	coinc_event.coinc_event_id,
+	time_slide.offset,
+	sngl_burst.*
 FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
@@ -347,19 +336,15 @@ FROM
 		AND sngl_burst.ifo == time_slide.instrument
 	)
 WHERE
-	coinc_event.coinc_event_id == ?
+	coinc_event.coinc_def_id == ?
 ORDER BY
-	sngl_burst.ifo
-			""", (coinc_event_id,)):
-				# reconstruct the event
-				event = database.sngl_burst_table.row_from_cols(values)
-
-				# add to list
-				events.append(event)
-
-				# store the time slide offset
-				offsetdict[event.ifo] = values[-1]
-
+	coinc_event.coinc_event_id
+		""", (database.bb_definer_id,)), lambda row: row[0]):
+			events = []
+			offsetdict = {}
+			for row in rows:
+				events.append(database.sngl_burst_table.row_from_cols(row[2:]))
+				offsetdict[events[-1].ifo] = row[1]
 			if any(offsetdict.values()):
 				self._add_background(param_func, events, offsetdict, *args)
 			else:

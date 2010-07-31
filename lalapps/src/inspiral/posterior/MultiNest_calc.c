@@ -13,7 +13,7 @@ void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int n
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
 	
-	__nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
+	__nested__nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
 	root, &seed, pWrap, &fb, &resume, LogLike, &context);
 }
 
@@ -103,7 +103,7 @@ void MultiNestZ(UINT4 Nlive, LALMCMCInput *MCMCinput)
 	int ndims = MCMCinput->dim;
 	int nPar = 11;
 	int nClsPar = 2;
-	int updInt = 500;
+	int updInt = 100;
 	double Ztol = -1.e90;
 	int maxModes = 100;
 	int pWrap[ndims];

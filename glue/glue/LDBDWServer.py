@@ -692,9 +692,9 @@ class Server(object):
         # check the dn in the row we are about to update matches the users dn
         dn = last_end_time[1].strip()
         if subject != dn:
-          msg = "%s does not have permission to update row entries" % subject
-          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
-          raise ServerHandlerException, msg
+          msg = "\"%s\" does not match dn in existing row entries: " % subject
+          msg += "%s (process_id %s)" % (dn, known_proc[pid][0])
+          logger.warn(msg)
         else:
           logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
 

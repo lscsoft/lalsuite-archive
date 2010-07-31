@@ -4,11 +4,20 @@ import sys
 import os
 from optparse import OptionParser
 from numpy import argsort
+from pylal.dq import dqFrameUtils
+
+from glue import git_version
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+"""
+Script to query frames for channels
+"""
 
 # =============================================================================
-# Main program starts here
+# Function to execute shell command and get output
 # =============================================================================
-
 def GetCommandOutput(command):
   # == function to execute bash commands and return the stdout and error status
   stdin, out, err = os.popen3(command)
@@ -20,240 +29,119 @@ def GetCommandOutput(command):
   return this_output, status
 
 # =============================================================================
-# Main program starts here
+# Function to parse command line
 # =============================================================================
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  usage = """usage: %prog [options]
 
-usage = """usage: %prog [options]
-
-This script will return all frame types associated with given channel. All or part of a channel name to search for must be given. Including all or part of a data type will greatly speed up the search. Required options:
-
---channel
+This script will return all frame types associated with given channel. All or part of a channel name to search for must be given. Including all or part of a data type will greatly speed up the search.
 
 Accepted ifos:
 
-H0,H1,H2,L0,L1,G0,G1,V0,V1
-
+H,L,V,H0,H1,H2,L0,L1,G0,G1,V0,V1
 """
+  parser = OptionParser(usage=usage)
 
-parser = OptionParser(usage=usage)
+  parser.add_option("--verbose", action="store_true", default=False,\
+      help="verbose output")
 
-parser.add_option("--verbose", action="store_true", default=False,\
-    help="verbose output")
+  parser.add_option("-c", "--channels", action="store", type="string",\
+      help="relevant channel (or part therein), or comma separated list of channels (or parts therein) for search")
 
-parser.add_option("-c", "--channels", action="store", type="string",\
-    help="relevant channel (or part therein), or comma separated list of channels (or parts therein) for search")
-
-parser.add_option("-t", "--types", action="store", type="string",\
-    help="specfic data type (or part therein), "+\
+  parser.add_option("-e", "--exclude-channels", action="store", type="string",\
+      help="exclude these channels (or parts therein), comma separated")
+  
+  parser.add_option("-t", "--types", action="store", type="string",\
+      help="specfic data type (or part therein), "+\
         "or comma separated list of data types (or parts therein) to search")
+ 
+  parser.add_option("-i", "--ifos", action="store", type="string",\
+      help="specific ifo, or comma separated list of ifos, to search")
 
-parser.add_option("-i", "--ifos", action="store", type="string",\
-    help="specific ifo, or comma separated list of ifos, to search")
+  parser.add_option("-s", "--gps-time", action="store", type="string",\
+      help="gps time around which channels must be active")
 
-parser.add_option("-s", "--gps-time", action="store", type="string",\
-    help="gps time around which channels must be active")
+  parser.add_option("--full", action="store_true", default=False,\
+      help="include ALL data types in search, default: %default")
 
-parser.add_option("--full", action="store_true", default=False,\
-    help="include ALL data types in search, default: %default")
+  parser.add_option("--short", action="store_true", default=False,\
+      help="include only the most common data types in search "+\
+           "(recommended for most users), default: %default")
 
-parser.add_option("--short", action="store_true", default=False,\
-    help="include only the most common data types in search "+\
-        "(recommended for most users), default: %default")
+  parser.add_option("--match", action="store_true", default=False,\
+      help="return only full matches to --channels option, default: %default")
 
-(options, args) = parser.parse_args()
+  (options, args) = parser.parse_args()
 
-#== set up input options
-#if options.channels is None and options.types is None:
-#  parser.error("Please specify either a list of channels, "+\
-#      "or a list of data types")
+  return options,args
 
-# ==========
-# set up channels and types sets
-# ==========
-if options.channels is not None:
-  channels = options.channels.split(',')
-else:
-  channels = None
+# =============================================================================
+# Main program starts here
+# =============================================================================
 
+if __name__ == '__main__':
+  options,args = parse_command_line()
 
-home_path = str(GetCommandOutput('echo ${HOME}')[0]).replace('\n','')
+  # ==========
+  # set up channels and types sets
+  # ==========
+  if options.channels:
+    channels = options.channels.split(',')
+  else:
+    channels = None
 
-# ==========
-# set up type search
-# ==========
-ldf_exe='ligo_data_find'
-ldf_status = GetCommandOutput('which '+ldf_exe)[1]
-if ldf_status != 0:
-  print "Error: ligo_data_find not found. Please ensure lscsoftrc is sourced"
-  exit
-
-#== treat 'R','M' and 'T' as special cases,
-#== so not to grep for all types containing 'R'
-special_types = ['M','R','T']
-special_cases=[]
-
-#== ignore these types unless running full search
-ignore_list=[]
-if options.types is None and not options.full:
+  if options.exclude_channels:
+    ex_channels = options.exclude_channels.split(',')
+  else:
+    ex_channels = None
+ 
+  # ==========
+  # find types
+  # ==========
+  if options.types:
+    options.types = options.types.split(',')
+  ignore_list=[]
+  if options.types is None and not options.full:
     ignore_list=['M','T']
 
-#== set list of ignored strings in `ligo_data_find -y`
-vgrep_list=[]
-if options.types is None:
-  vgrep_list.append('GRB')
-  if options.short:
-    vgrep_list.append('CAL')
-    vgrep_list.append('BRST')
-    vgrep_list.append('Mon')
-    vgrep_list.append('SG')
-    vgrep_list.append('IMR')
-    vgrep_list.append('DuoTone')
-    vgrep_list.append('Concat')
-    vgrep_list.append('BH')
-    vgrep_list.append('WNB')
-    vgrep_list.append('Lock')
-    vgrep_list.append('_M')
-    vgrep_list.append('_S5')
-    vgrep_list.append('Multi')
-    vgrep_list.append('Noise')
+  if options.short:  search='short'
+  elif options.full:  search='full'
+  else:  search='standard'
+  types = dqFrameUtils.find_types(options.types,\
+                                  search=search)
 
-frame_type_find_cmd = ldf_exe+" -y | egrep "
-if options.types is None:
-  frame_type_find_cmd+="-v '"
-  for vstring in vgrep_list:
-    frame_type_find_cmd+=vstring+'|'
-  frame_type_find_cmd = frame_type_find_cmd[0:-1] + "'"
+  # ==========
+  # set up ifos list
+  # ==========
+  if options.ifos:
+    options.ifos = options.ifos.split(',')
+  ifos = dqFrameUtils.find_ifos(channels,\
+                                types,\
+                                options.ifos)
 
-else:
-  if options.types in special_cases:
-    special_cases.append(options.types)
-
-  else:
-    data_types = options.types.split(',')
-    frame_type_find_cmd+= "'"
-    for data_type in data_types:
-      if data_type in special_types:
-        special_cases.append(data_type)
-        continue
-      frame_type_find_cmd+=data_type+'|'
-    frame_type_find_cmd = frame_type_find_cmd[0:-1] + "'"
-
-#== find data types
-if options.verbose:
-  print >>sys.stdout, "Setting up data type list..."
-
-options.types=[]
-if frame_type_find_cmd != ldf_exe+" -y | egrep '":
-  #== if not searching only for special types, grep for types in ldf
-  options.types = GetCommandOutput(frame_type_find_cmd)[0]
-  options.types = options.types.split('\n')[0:-1]
-for type in special_cases:
-  options.types.append(type)
-if options.types == ['']:
-  print "No data types found, exiting."
-  sys.exit()
-
-# ==========
-# set up ifos list
-# ==========
-accepted_ifos=['H1','H0','H2','L0','L1','G0','G1','V0','V1']
-
-if options.ifos is None:
-  options.ifos=[]
-  if channels is not None:
-    for channel in channels:
-      channel_ifo = channel[0:2]
-      if channel_ifo in accepted_ifos and channel_ifo[0:1] not in options.ifos:
-        options.ifos.append(channel_ifo[0:1])
-
-  if options.types is not None:
-    for type in options.types:
-      type_ifo = type[0:2]
-      if type_ifo in accepted_ifos and type_ifo[0:1] not in options.ifos:
-        options.ifos.append(type_ifo[0:1])
-
-  if options.ifos==[]:
-    ifo = raw_input(\
-        "Cannot determine IFO from channels or data types names, "+\
-        "please enter the relevant ifos (comma separated), G/H/L/V: ")
-    options.ifos=ifo.split(',')
-
-else:
-  options.ifos=options.ifos.split(',')
-  for ifo in options.ifos:
-    if ifo not in accepted_ifos:
-      parser.error('Unable to search for ifo '+ifo+'. Please try again')
-
-# ==========
-# search frame types for channels
-# ==========
-found=[]
-for ifo in options.ifos:
-
-  #== set ligo_data_find frame search time
-  if options.gps_time is None:
-    start_time = \
-        str(GetCommandOutput('tconvert now -2 days')[0]).replace('\n','')
-  else:
-    start_time = options.gps_time
+  # ==========
+  # search frame types for channels
+  # ==========
+  found = dqFrameUtils.find_channels(channels,\
+                                     types,\
+                                     ifos,\
+                                     ignore=ignore_list,\
+                                     match=options.match,\
+                                     time=options.gps_time,\
+                                     verbose=options.verbose)
+  
+  # ==========
+  # print summary
+  # ==========
+  if options.verbose:
+    print >>sys.stdout, str(len(found))+" channels found:"
+  #== sort channels by name
+  found = sorted(found, key=lambda channel: channel.name)
+  for channel in found:
+    print >>sys.stdout, channel.name,channel.type,channel.sampling
 
   if options.verbose:
-    print_statement =  "Searching "+str(len(options.types))+" frame types for: "
-    if channels is not None:
-      for channel in channels:
-        print_statement+=channel+', '
-      print_statement+='in ifo '+ifo
-    else:
-      print_statement+='all channels, in ifo '+ifo
-    print >>sys.stdout, print_statement
-
-  for frame_type in options.types:
-    channel_count=0
-    if frame_type in ignore_list:  continue
-    if frame_type=='':  continue
-    if options.verbose:
-      print >>sys.stdout, "  Searching "+str(frame_type)+"...",
-    sys.stdout.flush()
-    #== find frame file for type
-    frame_cmd = ldf_exe+''' --observatory '''+ifo[0:1]+\
-                ''' --type='''+frame_type+\
-                ''' --gps-start-time '''+start_time+\
-                ''' --gps-end-time '''+start_time+\
-                ''' --url-type file --lal-cache | '''+\
-                ''' sort -g -k 3 -r | awk 'NR==1' '''
-    frame_file,frame_status = GetCommandOutput(frame_cmd)
-    frame_file = frame_file.replace('\n','')
-    if frame_status == 0 and frame_file != "":
-      frame_info = frame_file.split(' ')
-      frame_file = frame_info[-1].replace('file://localhost','')
-      #== get channels contained in frame, grepping for input channel string
-      channel_find_cmd = "FrChannels "+frame_file
-      if channels is not None:
-        channel_find_cmd += " | grep "+ifo+" | egrep '"
-        for channel in channels:
-          channel_find_cmd += channel+"|"
-        channel_find_cmd = channel_find_cmd[0:-1]+"'"
-      channel_list,channel_status = \
-              GetCommandOutput(channel_find_cmd)
-      if channel_status == 0:
-        channel_list=channel_list.split('\n')
-        for channel_data in channel_list:
-          if channel_data=='':  continue
-          channel_data = channel_data.replace('\n','')
-          channel_data = channel_data.split(' ')
-          if len(channel_data)>1:
-            found_channel = channel_data[0]
-            sampling = channel_data[1]
-            found.append(str(found_channel+" "+frame_type+" "+sampling))
-            channel_count+=1
-          sys.stdout.flush()
-    #== print channel count for data type
-    if options.verbose:  print >>sys.stdout, channel_count,"channels found"
-  if options.verbose:  print >>sys.stdout
-
-#== print summary
-if options.verbose:  print >>sys.stdout, str(len(found))+" channels found:"
-alpha_order = argsort(found)
-for i in range(len(found)):
-  print found[alpha_order[i]]
-if options.verbose:  print >>sys.stdout
+    print >>sys.stdout

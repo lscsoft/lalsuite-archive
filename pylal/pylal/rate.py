@@ -862,7 +862,7 @@ class BinnedRatios(object):
 #
 
 
-def gaussian_window(bins, sigma=10):
+def gaussian_window(bins, sigma = 10):
 	"""
 	Generate a normalized (integral = 1) Gaussian window in 1
 	dimension.  bins sets the width of the window in bin count.  The
@@ -876,7 +876,7 @@ def gaussian_window(bins, sigma=10):
 	return w.data / w.sum
 
 
-def gaussian_window2d(bins_x, bins_y, sigma=10):
+def gaussian_window2d(bins_x, bins_y, sigma = 10):
 	"""
 	Generate a normalized (integral = 1) Gaussian window in 2
 	dimensions.  bins_x and bins_y set the widths of the window in bin
