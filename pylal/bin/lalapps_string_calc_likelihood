@@ -37,6 +37,7 @@ except ImportError:
 import sys
 
 
+from glue.lal import CacheEntry
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
