@@ -78,6 +78,7 @@ Optional OPTIONS:\n \
 [--dt FLOAT (0.01)\t:\ttime window (0.01s)]\n \
 [--injSNR FLOAT\t:\tScale injection to have network SNR of FLOAT]\n \
 [--SNRfac FLOAT\t:\tScale injection SNR by a factor FLOAT]\n \
+[--MNSeg\t:\tWhich segment to explore, relevant only for MultiNest]\n \
 [--version\t:\tPrint version information and exit]\n \
 [--help\t:\tPrint this message]\n"
 
@@ -128,6 +129,7 @@ int FakeFlag=0;
 int GRBflag=0;
 int SkyLocFlag=0;
 REAL8 SNRfac=1.0;
+UINT4 MNSeg = 0;
 int HighMassFlag=0;
 int decohereflag=0;
 REAL8 offset=0.0;
@@ -204,6 +206,7 @@ void initialise(int argc, char *argv[]){
 		{"RA",required_argument,0,'O'},
 		{"dec",required_argument,0,'a'},
 		{"SNRfac",required_argument,0,14},
+		{"MNSeg",required_argument,0,30},
 		{"skyloc",no_argument,0,13},
 		{"channel",required_argument,0,'C'},
 		{"highmass",no_argument,0,15},
@@ -238,6 +241,10 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 14:
 			SNRfac=atof(optarg);
+			break;
+		case 30:
+			MNSeg=atoi(optarg);
+			if(MNSeg < 0 || MNSeg > 4) {fprintf(stderr,"ERROR: Incorrect value for MultiNest segment, please set --MNSeg between 0 and 4\n"); exit(1);}
 			break;
 		case 16:
 			decohereflag=1;
