@@ -75,7 +75,7 @@ def parse_command_line():
 		raise ValueError, "missing required option --likelihood-file"
 
 	if options.input_cache:
-		filenames += [CacheEntry(line).url for line in file(options.input_cache)]
+		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
 
 	return options, (filenames or [None])
 
