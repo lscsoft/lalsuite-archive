@@ -27,6 +27,7 @@
 
 
 import glob
+import math
 from optparse import OptionParser
 import sys
 
@@ -36,10 +37,12 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
+from glue import segmentsUtils
 from pylal import git_version
 from pylal import ligolw_rinca
 from pylal import llwapp
 from pylal import snglcoinc
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -82,7 +85,8 @@ def parse_command_line():
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--ds-sq-threshold", metavar = "float", type = "float", help = "Set the metrical coincidence algorithm's threshold (required).")
 	parser.add_option("-s", "--save-small-coincs", action = "store_true", help = "Also record m-coincidences where m < n_{instruments}.")
-	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, exatract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
+	parser.add_option("--vetoes-name", metavar = "string", default = "vetoes", help = "From the input document, extract the segment list having this name to use as the veto segments (default = \"vetoes\").  Warning:  if no segments by this name are found in the document then vetoes will not be applied, this is not an error condition.")
+	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -92,6 +96,12 @@ def parse_command_line():
 
 	if options.ds_sq_threshold is None:
 		raise ValueError, "missing required argument --ds-sq-threshold"
+	if options.coinc_end_time_segment is not None:
+		if ',' in options.coinc_end_time_segment:
+			raise ValueError, "--coinc-end-time-segment may only contain a single segment"
+		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
+	else:
+		options.coinc_end_time_segs = None
 
 	#
 	# done
@@ -115,6 +125,25 @@ def parse_command_line():
 
 
 options, filenames = parse_command_line()
+
+
+#
+# Select ntuple_comparefunc form
+#
+
+
+if options.coinc_end_time_segs is not None:
+	# Custom Ntuple Comparison Function
+	def restricted_endtime_ntuple_comparefunc(events, offset_vector, seg = options.coinc_end_time_segs):
+		"""
+		Return False (ntuple should be retained) if the end time of the
+		coinc is in the segmentlist segs.
+		"""
+		return ligolw_rinca.coinc_ringdown_start(events, offset_vector) not in seg
+
+	ntuple_comparefunc = restricted_endtime_ntuple_comparefunc
+else:
+	ntuple_comparefunc = ligolw_rinca.default_ntuple_comparefunc
 
 
 #
@@ -157,6 +186,7 @@ for n, filename in enumerate(filenames):
 		ds_sq_threshold = options.ds_sq_threshold,
 		save_small_coincs = options.save_small_coincs,
 		vetoes_name = options.vetoes_name,
+		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
 
@@ -210,8 +240,10 @@ for n, filename in enumerate(filenames):
 		coinc_definer_row = ligolw_rinca.RingdownCoincDef,
 		event_comparefunc = ligolw_rinca.ringdown_coinc_compare,
 		thresholds = options.ds_sq_threshold,
+		ntuple_comparefunc = ntuple_comparefunc,
 		small_coincs = options.save_small_coincs,
 		veto_segments = vetoes,
+		coinc_end_time_segment = options.coinc_end_time_segment,
 		verbose = options.verbose
 	)
 

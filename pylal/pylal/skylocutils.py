@@ -409,33 +409,48 @@ class SkyPoints(list):
     post_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
     post_grid += 'gps = ' + str(post_dat['gps']) + '\n'
     post_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+    post_grid_l = post_grid
     for pt in self:
         post_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
+    for pt in self[:1000]:
+        post_grid_l += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[1]) + '\n'
     if comment:
       post_grid += '# ' + comment + '\n'
+      post_grid_l += '# ' + comment + '\n'
     if fname['galaxy']:
       gal_grid = '# normfac = ' + str(post_dat['gnormfac']) + '\n'
       gal_grid += 'snr = ' + str(post_dat['snr']) + '\n'
       gal_grid += 'FAR = ' + str(post_dat['FAR']) + '\n'
       gal_grid += 'gps = ' + str(post_dat['gps']) + '\n'
       gal_grid += '#  ra' + '\t' + 'dec' + '\t' + 'probability (posterior)' + '\n'
+      gal_grid_l = gal_grid
       self.nsort(4)
       for pt in self:
         gal_grid += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[4]) + '\n'
+      for pt in self[:1000]:
+        gal_grid_l += str(pt[0][1]) + '\t' + str(pt[0][0]) + '\t' + str(pt[4]) + '\n'
     if gz:
       fpost = gzip.open(fname['posterior']+'.gz', 'w')
+      fpost_l = gzip.open(fname['posterior'].replace('.txt','_lumin.txt')+'.gz', 'w')
       if fname['galaxy']:
         fgal = gzip.open(fname['galaxy']+'.gz', 'w')
+        fgal_l = gzip.open(fname['galaxy'].replace('.txt','_lumin.txt')+'.gz', 'w')
     else:
       fpost = open(fname['posterior'], 'w')
+      fpost_l = open(fname['posterior'].replace('.txt','_lumin.txt'), 'w')
       if fname['galaxy']:
         fgal = open(fname['galaxy'], 'w')
+        fgal_l = open(fname['galaxy'].replace('.txt','_lumin.txt'), 'w')
 
     fpost.write(post_grid)
+    fpost_l.write(post_grid_l)
     fpost.close()
+    fpost_l.close()
     if fname['galaxy']:
       fgal.write(gal_grid)
+      fgal_l.write(gal_grid_l)
       fgal.close()
+      fgal_l.close()
 
 class CoincData(object):
   """
