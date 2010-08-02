@@ -491,7 +491,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 
 	if verbose:
 		print >>sys.stderr, "sorting input cache ..."
-	cache.sort(lambda a, b: cmp(a.segment, b.segment))
+	cache.sort(key = lambda x: x.segment)
 
 	#
 	# Pack cache entries into output caches.  Having reduced the file
