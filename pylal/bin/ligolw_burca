@@ -250,9 +250,11 @@ def burca1(options, filenames):
 
 	if options.coinc_segs is not None:
 		def coinc_segs_ntuple_comparefunc(events, offset_vector, coinc_segs = options.coinc_segs):
+			# sort so we always do arithmetic in the same order
+			events = sorted(events, key = lambda event: event.get_peak())
 			# coinc time is SNR-weighted mean of event peak times
-			epoch = events[0].get_peak_time() + offset_vector[events[0].ifo]
-			coinc_time = sum(float(event.get_peak_time() + offset_vector[event.ifo] - epoch) * event.snr for event in events) / sum(event.snr for event in events)
+			epoch = events[0].get_peak() + offset_vector[events[0].ifo]
+			coinc_time = sum(float(event.get_peak() + offset_vector[event.ifo] - epoch) * event.snr for event in events) / sum(event.snr for event in events)
 			return coinc_time not in coinc_segs
 
 
