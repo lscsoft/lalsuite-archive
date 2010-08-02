@@ -328,9 +328,11 @@ elif FUPtype == 'LE':
               unslidEndTime = sngl.get_end()
               slideDict[ifo] = slidEndTime - unslidEndTime
             else:
-              print "It appears that the thinca rings are different for"
-              print "different ifos. This is not expected and not supported."
-              slideDict[ifo] = 0
+              # If the trigger is in double time you dont want to know about the
+              # other ifo triggers, slide 'em out of the way!
+              slideDict[ifo] = -1000000
+          else:
+            slideDict[ifo] = -1000000
         page.append(followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict))
       else:
         page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
