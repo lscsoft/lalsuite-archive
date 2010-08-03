@@ -1158,15 +1158,19 @@ class segmentlistdict(dict):
 		without requiring the keys of the intersecting segment
 		lists to match.
 		"""
-		keys1 = set(self.keys())
-		keys2 = set(other.keys())
 		if keys is not None:
 			keys = set(keys)
-			keys1 &= keys
-			keys2 &= keys
-		other = tuple(other[key] for key in keys2)
-		# FIXME:  replace with any() when min version bumped to 2.5
-		for a in (self[key] for key in keys1):
+			self = tuple(self[key] for key in set(self) & keys)
+			other = tuple(other[key] for key in set(other) & keys)
+		else:
+			self = tuple(self.values())
+			other = tuple(other.values())
+		# make sure inner loop is smallest
+		if len(self) < len(other):
+			self, other = other, self
+		for a in self:
+			# FIXME:  replace with any() when min version
+			# bumped to 2.5
 			for b in other:
 				if a.intersects(b):
 					return True
