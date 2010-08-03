@@ -89,6 +89,7 @@ def parse_command_line():
     parser.add_option("-a", "--omega-conf",       metavar="omega_conf",      help = "Omega configuration file")
     parser.add_option("-c", "--omega-frame-dir",  metavar="omega_frame_dir", help = "Top level directory of frame files for omega")
     parser.add_option("-d", "--omega-out-dir",    metavar="omega_out_dir",   help = "Output directory for omega results")
+    parser.add_option("-r", "--statistic",        metavar="statistic",       help = "Ranking statistic, snr|newsnr, default=snr", default="snr")
 
     options, others = parser.parse_args()
 
@@ -124,16 +125,24 @@ def sigfigs(num):
     return str(int(num) * mul)
 
 
-def generate_html(outf, triggers, colors):
-    # echo "<p><tt><a href=\"${xmlfile}\">${xmlfile}</a></tt>" >> ${htmlfile}
+def generate_html(outf, triggers, colors, options):
     print >>outf, '<p>'
     print >>outf, '<table border=1>'
-    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th>',
-    print >>outf, "<th>M<sub>chirp</sub></th>",
-    print >>outf, "<th>&chi;<sup>2</sup></th>",
-    print >>outf, "<th>Reduced bank &chi;<sup>2</sup></th>",
-    print >>outf, "<th>Reduced cont. &chi;<sup>2</sup></th>",
-    print >>outf, "<th>&Omega; scan</th><th>DQ flags</th></tr>"
+
+    if options.statistic == 'newsnr':
+        print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th>',
+        print >>outf, '<th>end_time</th><th>end_time_ns</th>',
+        print >>outf, '<th>SNR</th><th>&chi;<sup>2</sup></th><th>New SNR</th><th>eff_distance</th>' 
+        print >>outf, "<th>M<sub>chirp</sub></th>",
+        print >>outf, "<th>M<sub>total</sub></th>",
+        print >>outf, "<th>&Omega; scan</th><th>DQ flags</th></tr>"
+    else:
+        print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>SNR</th><th>eff_distance</th>' 
+        print >>outf, "<th>M<sub>chirp</sub></th>",
+        print >>outf, "<th>M<sub>total</sub></th>",
+        print >>outf, "<th>&chi;<sup>2</sup></th>",
+        print >>outf, "<th>Reduced cont. &chi;<sup>2</sup></th>",
+        print >>outf, "<th>&Omega; scan</th><th>DQ flags</th></tr>"
 
     for count, trig in enumerate(triggers):
         print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
@@ -207,6 +216,23 @@ def get_times_with_flags(gps_start_time, gps_end_time):
     return times_with_flags
 
 
+def newsnr(snr,chisq,chisq_dof):
+    index  = 6.0
+    rchisq = chisq/(2 * chisq_dof - 2)
+    nhigh  = 2.
+
+    if rchisq > 1.:
+        return snr / ((1. + rchisq**(index/nhigh))/2)**(1./index)
+    else:
+        return snr
+
+
+def oldsnr(snr,chisq,chisq_dof):
+    return snr
+
+def calc_mchirp(mass1,mass2):
+    return pow(mass1 * mass2, 3.0/5.0) / pow(mass1 + mass2, 1.0/5.0)
+
 def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, count):
     if not abs(valid_times):
         return []
@@ -243,33 +269,57 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
     # So we have to be a little trickier...
     #
 
-    rows = connection.cursor().execute("""SELECT sngl_inspiral.ifo, 
+    connection.create_function("mchirp", 2, calc_mchirp)
+
+    if options.statistic == 'newsnr':
+        connection.create_function("newsnr", 3, newsnr)
+        fields = """sngl_inspiral.ifo, 
              sngl_inspiral.end_time,
              sngl_inspiral.end_time_ns,
-             sngl_inspiral.snr, 
+             sngl_inspiral.snr,
+             sngl_inspiral.chisq,
+             newsnr(sngl_inspiral.snr,sngl_inspiral.chisq,sngl_inspiral.chisq_dof), 
+             sngl_inspiral.eff_distance,
+             mchirp(sngl_inspiral.mass1,sngl_inspiral.mass2),
+             sngl_inspiral.mass1 + sngl_inspiral.mass2
+        """
+    else:
+        connection.create_function("newsnr", 3, oldsnr)
+        fields = """sngl_inspiral.ifo, 
+             sngl_inspiral.end_time,
+             sngl_inspiral.end_time_ns,
+             sngl_inspiral.snr,
              sngl_inspiral.eff_distance,
              sngl_inspiral.chisq,
              sngl_inspiral.mass1,
              sngl_inspiral.mass2,
              sngl_inspiral.bank_chisq / (2.0 * sngl_inspiral.bank_chisq_dof),
              sngl_inspiral.cont_chisq / sngl_inspiral.cont_chisq_dof
+        """
+
+    #
+    # The join above was meant to ensure that we only pick
+    # the loudest trigger from each second, so we don't
+    # fill the table with triggers from the same glitch.
+    # Bu since we only ever look at 16-second clustered
+    # triggers anyway, we don't need that.
+    #
+    rows = connection.cursor().execute("SELECT " + fields + """
       FROM sngl_inspiral 
-      WHERE (cast(sngl_inspiral.end_time as char) || " -- " || cast(sngl_inspiral.snr as char)) IN
-             (SELECT cast(end_time as char) || " -- " || cast(MAX(snr) as char)
-              FROM sngl_inspiral
-              WHERE end_time >= ? AND
-                    end_time <  ? AND
-                    ifo = ? AND
-                    snr >= ?
-              GROUP BY end_time
-              ORDER BY snr desc)
-      AND sngl_inspiral.ifo = ? 
-      ORDER BY snr DESC""",  (gps_start_time, gps_end_time, options.ifo, options.min_glitch_snr, options.ifo) )
+      WHERE sngl_inspiral.end_time >= ? AND
+            sngl_inspiral.end_time <  ? AND
+            sngl_inspiral.ifo = ? AND
+            newsnr(sngl_inspiral.snr, sngl_inspiral.chisq, sngl_inspiral.chisq_dof) >= ?
+      ORDER BY newsnr(sngl_inspiral.snr,sngl_inspiral.chisq,sngl_inspiral.chisq_dof) DESC""",
+      (gps_start_time, gps_end_time, options.ifo, float(options.min_glitch_snr)) )
 
     ret = []
     i   = 0
 
-    for ifo, end_time, end_time_ns, snr, eff_dist, chisq, mass1, mass2, bank_chisq, cont_chisq in rows:
+    # These variables names are incorrect if we're using new snr: snr appears before new_snr and
+    # cont_chisq is eleimated.  But we only really need the time fields, and there's the same 
+    # number of values.
+    for ifo, end_time, end_time_ns, snr, chisq, new_snr, eff_dist, mchirp, mtotal in rows:
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
@@ -303,9 +353,7 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
             ifo_status        = ifo_status[:-1]
             flags[ifo_status] = True
 
-        mchirp = pow(mass1 * mass2, 3.0/5.0) / pow(mass1 + mass2, 4.0/5.0)
-
-        ret.append((ifo, end_time, end_time_ns, snr, eff_dist, mchirp, chisq, bank_chisq, cont_chisq, flags))
+        ret.append((ifo, end_time, end_time_ns, snr, chisq, new_snr, eff_dist, mchirp, mtotal, flags))
 
 
         i += 1
@@ -327,7 +375,7 @@ def get_triggers_in_times(options, gps_start_time, gps_end_time, valid_times, co
 if __name__ == '__main__':
     options = parse_command_line()    
 
-    # Do we have everything we need for omage scans?
+    # Do we have everything we need for omega scans?
     omega_ok = options.omega_conf and options.omega_frame_dir and options.omega_out_dir
 
     if not omega_ok:
@@ -412,11 +460,11 @@ if __name__ == '__main__':
     print >>out_tmp, "<h3>%s through %s</h3>" % (start_time_str, end_time_str)
 
     print >>out_tmp, '<h3>Glitches without associated DQ flag</h3>'
-    generate_html(out_tmp, unknown_trigs, ['#ffdddd', '#ffcccc'])
+    generate_html(out_tmp, unknown_trigs, ['#ffdddd', '#ffcccc'], options)
     
 
     print >>out_tmp, '<h3>Glitches with associated DQ flag</h3>'
-    generate_html(out_tmp, known_trigs, ['#ddffdd', '#ccffcc'])
+    generate_html(out_tmp, known_trigs, ['#ddffdd', '#ccffcc'], options)
 
     print >>out_tmp, "<hr>"
 

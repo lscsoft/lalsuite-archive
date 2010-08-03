@@ -156,9 +156,15 @@ typedef struct {
 	double psi;
 	double phi;
 	
+	/* Parameters for additional sinusoidal phase modulation */
 	double phase_modulation_depth;
 	double phase_modulation_freq;
 	double phase_modulation_phase;
+
+	/* Parameters for additional sinusoidal frequency modulation */
+	double freq_modulation_depth;
+	double freq_modulation_freq;
+	double freq_modulation_phase;
 
 	double strain;
 
@@ -176,14 +182,14 @@ typedef struct {
 	
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-double doppler, omega_t, c_omega_t, s_omega_t, modomega_t;
+double doppler, omega_t, c_omega_t, s_omega_t, c_bin, s_bin, modomega_t, fmodomega_t;
 double hann;
 float det_vel[3]={NAN, NAN, NAN};
 float f_plus, f_cross;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
 EarthState earth_state;
-double te, phase_spindown, phase_barycenter, phase_bin;
+double te, phase_spindown, phase_freq;
 LALStatus status={level:0, statusPtr:NULL};
 
 tGPS.gpsSeconds=floor(t);
@@ -195,36 +201,33 @@ if(status.statusPtr)FREESTATUSPTR(&status);
 
 get_emission_time(&emission_time, &(earth_state), p->ra, p->dec, p->dInv, p->detector, tGPS);
 
-/*get_AM_response(round(t), p->dec, p->ra, 0.7853982, &f_plus, &f_cross);
-fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);*/
-get_AM_response(round(t), p->dec, p->ra, 0.0, &f_plus, &f_cross);
+get_AM_response_d(t, p->dec, p->ra, 0.0, p->detector, &f_plus, &f_cross);
 // fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
 get_detector_vel(round(t), det_vel);
 
 doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
 
-*f=p->freq*(1.0+doppler)+p->spindown*(t-p->ref_time);
+/* Compute SSB time since ref time */
+te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.gpsNanoSeconds;
 
-te=(emission_time.te.gpsSeconds-p->ref_time)+1e-9*emission_time.te.gpsNanoSeconds;
-		
+fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq))+p->freq_modulation_phase;
+
+*f=(p->freq+p->spindown*te+p->freq_modulation_depth*sin(fmodomega_t))*(1.0+doppler);
+
 phase_spindown=0.5*te*te*p->spindown;
 
-phase_barycenter=p->freq*te;
+phase_freq=(p->freq+p->freq_modulation_depth*sin(fmodomega_t)-(double)(p->bin)/(double)(p->coherence_time))*te+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
 
-/* Need to subtract phase accumulated by the frequency bin we are looking at */
-phase_bin=-(p->bin/p->coherence_time)*(t-p->segment_start);
+omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
 
-omega_t=2.0*M_PI*((phase_barycenter-floor(phase_barycenter))+(phase_spindown-floor(phase_spindown))+(phase_bin-floor(phase_bin)))+p->phi;
-
-/* add contribution from sinusoidal modulation */
+/* add contribution from sinusoidal phase modulation */
 modomega_t=2.0*M_PI*(te*p->phase_modulation_freq-floor(te*p->phase_modulation_freq))+p->phase_modulation_phase;
 omega_t+=p->phase_modulation_depth*sin(modomega_t);
 
 hann=0.5*(1.0-cos(2.0*M_PI*(t-p->segment_start)/p->coherence_time));
 
-c_omega_t=cos(omega_t);
-s_omega_t=sin(omega_t);
+sincos(omega_t, &s_omega_t, &c_omega_t);
 
 /* 
 	cos(a)*cos(-b)=0.5*(cos(a-b)+cos(a+b))
@@ -241,11 +244,13 @@ s_omega_t=sin(omega_t);
 
 /* Note: we do not have an extra factor of 0.5 because of normalization convention used, 
   there is an extra factor of 2.0 to compensate for Hann windowing */
+
 *re=hann*(f_plus*(p->a_plus*c_omega_t*p->cos_e-p->a_cross*s_omega_t*p->sin_e)+
 	f_cross*(p->a_plus*c_omega_t*p->sin_e+p->a_cross*s_omega_t*p->cos_e));
 
 *im=hann*(f_plus*(p->a_plus*s_omega_t*p->cos_e+p->a_cross*c_omega_t*p->sin_e)+
 	f_cross*(p->a_plus*s_omega_t*p->sin_e-p->a_cross*c_omega_t*p->cos_e));
+
 }
 
 static double signal_re(double t, void *params)
@@ -306,9 +311,12 @@ p->iota=args_info.fake_iota_arg;
 p->psi=args_info.fake_psi_arg;
 p->phi=args_info.fake_phi_arg;
 p->dInv=args_info.fake_dInv_arg;
-p->phase_modulation_depth=args_info.fake_modulation_depth_arg;
-p->phase_modulation_freq=args_info.fake_modulation_freq_arg;
-p->phase_modulation_phase=args_info.fake_modulation_phase_arg;
+p->freq_modulation_depth=args_info.fake_freq_modulation_depth_arg;
+p->freq_modulation_freq=args_info.fake_freq_modulation_freq_arg;
+p->freq_modulation_phase=args_info.fake_freq_modulation_phase_arg;
+p->phase_modulation_depth=args_info.fake_phase_modulation_depth_arg;
+p->phase_modulation_freq=args_info.fake_phase_modulation_freq_arg;
+p->phase_modulation_phase=args_info.fake_phase_modulation_phase_arg;
 
 precompute_signal_params(p);
 }
@@ -446,12 +454,14 @@ if(status) {
 static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment)
 {
 double result, abserr;
-size_t neval;
 int err;
 int window=5, bin;
 int i;
 double re, im, f;
 gsl_function F; 
+gsl_integration_workspace *w;
+gsl_integration_qawo_table *t_sine, *t_cosine;
+int w_size=1024*32;
 
 F.params=p;
 p->bin=0;
@@ -471,25 +481,66 @@ if(bin<window)bin=window;
 
 p->extra_phase=0.0;
 
+w=gsl_integration_workspace_alloc(w_size);
 
 for(i=bin-window; i<=bin+window; i++) {
 	p->bin=i+d->first_bin;
 
 	F.function=signal_re;
-	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
-		1, 1e-3,
-		&result, &abserr, &neval);
-/*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
+	err=gsl_integration_qag(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
+		1e-4, 1e-3, w_size, GSL_INTEG_GAUSS61, w,
+		&result, &abserr);
+	//fprintf(stderr, "re %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
 	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	F.function=signal_im;
-	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
-		1, 1e-3,
-		&result, &abserr, &neval);
-/*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
+	err=gsl_integration_qag(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
+		1e-4, 1e-3, w_size, GSL_INTEG_GAUSS61, w,
+		&result, &abserr);
+	//fprintf(stderr, "im %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
 	d->im[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	#if 0
+	/* this code computes fast contribution from 2f it is not run because the values returned are many orders of magnitude smaller than injection strength (1e-15 for 1000 Hz) */
+	
+	t_sine=gsl_integration_qawo_table_alloc(-2*2*M_PI*p->bin*1.0/d->coherence_time, d->coherence_time, GSL_INTEG_SINE, 16);
+	t_cosine=gsl_integration_qawo_table_alloc(-2*2*M_PI*p->bin*1.0/d->coherence_time, d->coherence_time, GSL_INTEG_COSINE, 16);
+	
+	F.function=signal_re;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_cosine,
+		&result, &abserr);
+	fprintf(stderr, "re2 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	F.function=signal_im;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_sine,
+		&result, &abserr);
+	fprintf(stderr, "re3 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	F.function=signal_re;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_sine,
+		&result, &abserr);
+	fprintf(stderr, "im2 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->im[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	F.function=signal_im;
+	err=gsl_integration_qawo(&F, d->gps[segment], 
+		1e-4, 1e-3, w_size, w, t_cosine,
+		&result, &abserr);
+	fprintf(stderr, "im3 %d %d result=%g abserr=%g %s\n", segment, i, result, abserr, gsl_strerror(err)); 
+	d->im[segment*d->nbins+i]-=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
+
+	gsl_integration_qawo_table_free(t_sine);
+	gsl_integration_qawo_table_free(t_cosine);
+	#endif
 	}
+	
+gsl_integration_workspace_free(w);
 
 }
 
@@ -1925,7 +1976,7 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	locate_arg(line, length, 11, &ai, &aj);
 	sscanf(&(line[ai]), "%lg", &sp.phi);
 
-	fprintf(stderr, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
+	fprintf(stderr, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg freq_mod_depth=%lg freq_mod_freq=%lg freq_mod_phase=%lf phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
 			sp.freq,
@@ -1936,10 +1987,13 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 			sp.psi,
 			sp.phi,
 			sp.dInv,
+			sp.freq_modulation_depth,
+			sp.freq_modulation_freq,
+			sp.freq_modulation_phase,
 			sp.phase_modulation_depth,
 			sp.phase_modulation_freq,
 			sp.phase_modulation_phase);
-	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
+	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg freq_mod_depth=%lg freq_mod_freq=%lg freq_mod_phase=%lf phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
 			sp.freq,
@@ -1950,6 +2004,9 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 			sp.psi,
 			sp.phi,
 			sp.dInv,
+			sp.freq_modulation_depth,
+			sp.freq_modulation_freq,
+			sp.freq_modulation_phase,
 			sp.phase_modulation_depth,
 			sp.phase_modulation_freq,
 			sp.phase_modulation_phase);
@@ -2013,15 +2070,24 @@ if(!strncasecmp(line, "inject_cw_signal2", 16)) {
 	sscanf(&(line[ai]), "%lg", &sp.dInv);
 
 	locate_arg(line, length, 13, &ai, &aj);
-	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_depth);
+	sscanf(&(line[ai]), "%lg", &sp.freq_modulation_depth);
 
 	locate_arg(line, length, 14, &ai, &aj);
-	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_freq);
+	sscanf(&(line[ai]), "%lg", &sp.freq_modulation_freq);
 
 	locate_arg(line, length, 15, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.freq_modulation_phase);
+
+	locate_arg(line, length, 16, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_depth);
+
+	locate_arg(line, length, 17, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_freq);
+
+	locate_arg(line, length, 18, &ai, &aj);
 	sscanf(&(line[ai]), "%lg", &sp.phase_modulation_phase);
 
-	fprintf(stderr, "Injecting fake signal (mode 2) for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
+	fprintf(stderr, "Injecting fake signal (mode 2) for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg freq_mod_depth=%lg freq_mod_freq=%lg freq_mod_phase=%lf phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
 			sp.freq,
@@ -2032,10 +2098,13 @@ if(!strncasecmp(line, "inject_cw_signal2", 16)) {
 			sp.psi,
 			sp.phi,
 			sp.dInv,
+			sp.freq_modulation_depth,
+			sp.freq_modulation_freq,
+			sp.freq_modulation_phase,
 			sp.phase_modulation_depth,
 			sp.phase_modulation_freq,
 			sp.phase_modulation_phase);
-	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
+	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf dInv=%lg freq_mod_depth=%lg freq_mod_freq=%lg freq_mod_phase=%lf phase_mod_depth=%lg phase_mod_freq=%lg phase_mod_phase=%lf\n", gps_start, gps_stop,
 			sp.ref_time,
 			sp.strain,
 			sp.freq,
@@ -2046,6 +2115,9 @@ if(!strncasecmp(line, "inject_cw_signal2", 16)) {
 			sp.psi,
 			sp.phi,
 			sp.dInv,
+			sp.freq_modulation_depth,
+			sp.freq_modulation_freq,
+			sp.freq_modulation_phase,
 			sp.phase_modulation_depth,
 			sp.phase_modulation_freq,
 			sp.phase_modulation_phase);

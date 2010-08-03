@@ -44,6 +44,8 @@ void get_detector(char *det);
 LALDetector get_detector_struct(char *det);
 void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
 	float *plus, float *cross);
+void get_AM_response_d(double gps, float latitude, float longitude, float orientation, char *detector,
+	float *plus, float *cross);
 void get_detector_vel(INT64 gps, float *velocity);
 /* there are count*GRID_FIT_COUNT coefficients */
 void get_whole_sky_AM_response(INT64 *gps, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size);

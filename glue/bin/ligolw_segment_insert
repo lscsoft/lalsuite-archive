@@ -72,6 +72,8 @@ def parse_command_line():
                     help = "Set the subject line of the server's service certificate to IDENTITY")
   parser.add_option("-I", "--insert", action = "store_true", default = 0, help = "Insert segments to the segment database")
   parser.add_option("-A", "--append", action = "store_true", default = 0, help = "Append segments to an existing segment type")
+  parser.add_option("-F", "--ignore-append-check", action = "store_true", default = 0,
+                    help = "Allow --append to insert segments prior to the latest existing segment.")
   parser.add_option("-i", "--ifos", action = "store", metavar = "IFOS", default = None, \
                     help = "Set the segment interferometer to IFOS (e.g. H1)")
   parser.add_option("-n", "--name", action = "store", metavar = "NAME", default = None, \
@@ -115,6 +117,10 @@ if options.insert and options.append:
   errmsg += "Error: Exactly one of [--insert | --append] can be specified\n"
 if (not options.ping) and (not options.insert) and (not options.append):
   errmsg += "One of --ping, --help, --insert, --append must be specified\n"
+# --ignore-append-check is too dangerous to allow for direct DB access;
+# user must dump to XML, check it, and be authorized to insert via ldbdc
+if (not options.output and options.ignore_append_check):
+  errmsg += "--ignore-append-check may only be used with --output-file\n"
   
 if len(errmsg) and not options.ping:
   print >> sys.stderr, errmsg
@@ -242,7 +248,8 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
        print "Invalid interval is %s" % str(sum_line)
        sys.exit(1)
     # make sure interval start time is greater than the max end time in the database
-    elif (int(sum_line[0]) < max_end_sum):
+    # unless --ignore-append-check is specified
+    elif (int(sum_line[0]) < max_end_sum) and not options.ignore_append_check:
        print "\nERROR: summary start_time MUST be greater than the max summary end_time %d in the database" % max_end_sum
        print "Invalid interval in your --summary-file row number: %d" % line_no
        print "Invalid interval is %s" % str(sum_line)

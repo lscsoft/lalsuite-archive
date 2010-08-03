@@ -272,6 +272,39 @@ TESTSTATUS(&status);
 if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
+void get_AM_response_d(double gps, float latitude, float longitude, float orientation, char *detector,
+	float *plus, float *cross)
+{
+LALStatus status={level:0, statusPtr:NULL};
+LALSource source;
+LALDetAndSource det_and_source={NULL, NULL};
+LALDetAMResponse response;
+LIGOTimeGPS ligo_gps;
+LALDetector det;
+
+memset(&ligo_gps, 0, sizeof(ligo_gps));
+ligo_gps.gpsSeconds=floor(gps); 
+ligo_gps.gpsNanoSeconds=(gps-floor(gps))*1e9;
+
+memset(&source, 0, sizeof(source));
+source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
+source.orientation=orientation;
+source.equatorialCoords.longitude=longitude;
+source.equatorialCoords.latitude=latitude;
+
+det=get_detector_struct(detector);
+
+det_and_source.pDetector=&det;
+det_and_source.pSource=&source;
+
+LALComputeDetAMResponse(&status, &response, &det_and_source, &ligo_gps);
+TESTSTATUS(&status);
+
+*cross=response.cross;
+*plus=response.plus;
+if(status.statusPtr)FREESTATUSPTR(&status);
+}
+
 void get_detector_vel(INT64 gps, float *velocity)
 {
 LALStatus status={level:0, statusPtr:NULL};
@@ -310,6 +343,7 @@ void get_emission_time(EmissionTime *emission_time, EarthState *earth_state, dou
 BarycenterInput baryinput;
 LALStatus status={level:0, statusPtr:NULL};
 
+memset(&baryinput, 0, sizeof(baryinput));
 baryinput.tgps=tGPS;
 baryinput.site=get_detector_struct(detector);
 baryinput.site.location[0]=baryinput.site.location[0]/LAL_C_SI;

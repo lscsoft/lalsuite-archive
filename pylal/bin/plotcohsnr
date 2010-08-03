@@ -3,13 +3,13 @@
 Generate various plots related to multi inspiral tables 
 
 Example:
-you can use a cache file that will be parsed INSPIRAL files 
+You can use a cache file that will be parsed for COHIRE_COHERENT files 
 
 >>>  plotcohsnr --enable-output --cache-file
 >>> ../playground/inspiral_hipe_playground_intermediate_data-847555570-849974770.cache
 >>>   --ifo-times H1H2L1 --user-tag test --verbose
 
-or with a glob option
+or use the glob option
 
 >>> plotcohsnr --enable-output --inspiral-glob '*COHERENT-* *COHERENT_SLIDE-* '
 >>> --ifo-times H1H2L1 --user-tag test --verbose
@@ -49,10 +49,10 @@ usage = """\
 
   The plots are
 
-  1)  SNR v time
-  2)  NULL v SNR
-  3)  Cumulative Histogram of SNR values
-  4)  Histogram of SNR values
+  1)  coherent SNR vs time
+  2)  coherent SNR  vs null-stream
+  3)  Cumulative Histogram of coherent SNR values
+  4)  Histogram of coherent SNR values
 """
 
 #################################################################
@@ -65,16 +65,54 @@ def parse_command_line():
   # histogram related or SNR related
   parser.add_option("-e","--null-snr",action="store_true",default=False,
       help="make a plot of null vs snr" )
+  parser.add_option("","--null-autoCorrNullSq",action="store_true",default=False,
+      help="make a plot of null-statistic vs autoCorrNullSq" )
+  parser.add_option("","--null-autoCorrCohSq",action="store_true",default=False,
+      help="make a plot of null-statistic vs autoCorrCohSq" )
+  parser.add_option("","--null-crossCorrNullSq",action="store_true",default=False,
+      help="make a plot of null-statistic vs crossCorrNullSq" )
+  parser.add_option("","--null-crossCorrCohSq",action="store_true",default=False,
+      help="make a plot of null-statistic vs crossCorrCohSq" )
+  parser.add_option("","--null-effCohSnr",action="store_true",default=False,
+      help="make a plot of null v effective-coherent-SNR" )
+
+  parser.add_option("","--combinedEffSnr-null",action="store_true",default=False,
+      help="make a plot of null v combined-effective-SNR" )
+  parser.add_option("","--combinedEffSnr-crossIfoCohSnr",action="store_true",default=False,
+      help="make a plot of combined-effective-SNR v cross-IFO terms of the coherent SNR" )
+  parser.add_option("","--combinedEffSnr-snr",action="store_true",default=False,
+      help="make a plot of combined-effective-SNR v coherent SNR" )
+
+  parser.add_option("-r","--ratio-snr",action="store_true",default=False,
+      help="make a plot of ratio-statistic vs snr" )
+  parser.add_option("","--ratio-autoCorrNullSq",action="store_true",default=False,
+      help="make a plot of ratio-statistic vs autoCorrNullSq" )
+  parser.add_option("","--ratio-autoCorrCohSq",action="store_true",default=False,
+      help="make a plot of ratio-statistic vs autoCorrCohSq" )
+  parser.add_option("","--ratio-crossCorrNullSq",action="store_true",default=False,
+      help="make a plot of ratio-statistic vs crossCorrNullSq" )
+  parser.add_option("","--ratio-crossCorrCohSq",action="store_true",default=False,
+      help="make a plot of ratio-statistic vs crossCorrCohSq" )
+
+  parser.add_option("","--crossCorrNullSq-crossCorrCohSq",action="store_true",default=False,
+      help="make a plot of crossCorrNullSq vs crossCorrCohSq " )
   parser.add_option("-E","--snr-time",action="store_true",default=False,
       help="make a plot of snr vs time" )
   parser.add_option("-f","--cum-hist-snr",action="store_true",default=False,
       help="cumulative histogram of the snr" )
   parser.add_option("-F","--hist-snr",action="store_true",default=False,
       help="histogram of the snr" )
+  parser.add_option("","--hist-slides",action="store_true",default=False,
+      help="histogram of the snr " )
+  parser.add_option("-Z","--zero-lag-playground",action="store_true",\
+      default=False,\
+      help="scale number of bkg triggers in slide plots by 600/6370")
 
   #axis and plotting related
   parser.add_option("", "--add-zero-lag", action="store_true", default=False,
       help="add zero-lag triggers to the histogram and --null-snr plots")
+  parser.add_option("", "--add-found-inj", action="store_true", default=False,
+      help="add found injection triggers to the histogram and --null-snr plots")
   parser.add_option("-G","--add-vertical-line",action="store",default=None,
       metavar=" GPS_TIME",type="float",
       help="add a vertical line at GPS_TIME to the snr vs time plot" )
@@ -132,7 +170,10 @@ def parse_command_line():
       help="read a file of a particular description  from cache file" )
 
   #input
-  parser.add_option("-U","--glob",action="store",type="string",
+  parser.add_option("-I","--found-inj-glob",action="store",type="string",
+      default=None, metavar=" GLOB",
+      help="GLOB of coherent inspiral trigger files to read" )
+  parser.add_option("-S","--full-data-glob",action="store",type="string",
       default=None, metavar=" GLOB",
       help="GLOB of coherent inspiral trigger files to read" )
   parser.add_option("-w", "--cache-file",
@@ -145,6 +186,13 @@ def parse_command_line():
     help="sieve a cache file according to a particular ifo type")
   parser.add_option("-M","--missed-inj",action="store",type="string",\
       default=None, metavar=" FILE",help="missed injection file")
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
+
 
   (options,args) = parser.parse_args()
 
@@ -152,7 +200,7 @@ def parse_command_line():
   if not options.ifo_times: 
     raise ValueError, "--ifo-times must be provided in (H1, H2, L1, V1, G1)"
 
-  if options.cache_file and (options.glob):
+  if options.cache_file and ( options.found_inj_glob or options.full_data_glob):
     raise ValueError, """
 Use either the glob options(--glob)
 OR the cachefile options (--cache-file), not both at the same time.
@@ -160,7 +208,402 @@ OR the cachefile options (--cache-file), not both at the same time.
 
   return options, sys.argv[1:]
 
+#######################################################################
+# function to plot the col1 vs col2 from the table
+def plot_sqrt_a_v_sqrt_b(table, col_name_a, col_name_b, plot_type = 'linear',
+  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
+  x_min = None, x_max = None, y_min = None, y_max = None):
+  """
+  function to plot the values of col_name_a vs col_name_b from the table
 
+  @param table: metaDataTable
+  @param col_name_a: name of first column (x-axis)
+  @param col_name_b: name of second column (y-axis)
+  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
+  @param plot_sym : Symbol for plot, default 'kx'
+  @param plot_label: Name for the plot in the legend
+  @param output_name: If given, save the plot, with output_name as prefix
+  @param ifo: Name of ifo
+  @param x_min: Minimum value of x axis
+  @param x_max: Maximum value of x axis
+  @param y_min: Minimum value of y axis
+  @param y_max: Maximum value of y axis
+  """
+  if not ifo and len(table):
+    if ("ifo" in table.validcolumns.keys()):
+      ifo = table[0].ifo
+#  if col_name_a == 'EffCohSNR':
+ #       col_a = sqrt(viz.readcol(table, col_name_a, ifo )/(viz.readcol(table, col_name_b, ifo )**0.14))
+ # else:
+  col_a = sqrt(viz.readcol(table, col_name_a, ifo ))
+  col_b = sqrt(viz.readcol(table, col_name_b, ifo ))
+
+  if plot_type != 'seconds':
+    if 'time' in col_name_a:
+      col_a = timeindays(col_a)
+    if 'time' in col_name_b:
+      col_b = timeindays(col_b)
+
+  if (plot_type == 'linear') or (plot_type == 'seconds'):
+    plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logx':
+    semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logy':
+    semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'loglog':
+    loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+    xlim(0.95 * min(col_a), 1.05 * max(col_a))
+    ylim(0.95 * min(col_b), 1.05 * max(col_b))
+  
+  if col_name_a == "snr":
+	col_name_a = "coherent snr"
+  if col_name_a == "tau5":
+        col_name_a = "chi-square-weighted coherent snr"
+  if col_name_a == "kappa":
+        col_name_a = "combined effective SNR"
+
+  if col_name_b == "snr":
+        col_name_b = "coherent snr"
+  if col_name_b == "tau5":
+        col_name_b = "chi-square-weighted coherent snr"
+  if col_name_b == "kappa":
+        col_name_b = "combined effective SNR"
+
+  xlabel(col_name_a.replace("_"," "),size='x-large')
+  ylabel(col_name_b.replace("_"," "),size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if ifo:
+    title(ifo + ' ' + col_name_b.replace("_"," ") + ' vs ' + \
+        col_name_a.replace("_"," "), size='x-large')
+  else:
+    title(col_name_b.replace("_"," ") + ' vs ' + col_name_a.replace("_"," "), \
+        size='x-large')
+
+  grid(True)
+
+  #if plot_label:
+   # legend()
+
+  if x_min:
+    xlim(xmin=x_min)
+  if x_max:
+    xlim(xmax=x_max)
+
+  if y_min:
+    ylim(ymin=y_min)
+  if y_max:
+    ylim(ymax=y_max)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '.png'
+    savefig(output_name)
+
+#######################################################################
+# function to plot the col1 vs col2 from the table
+def plot_log10_sqrt_a_v_log10_sqrt_b(table, col_name_a, col_name_b, plot_type = 'linear',
+  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
+  x_min = None, x_max = None, y_min = None, y_max = None):
+  """
+  function to plot the values of col_name_a vs col_name_b from the table
+
+  @param table: metaDataTable
+  @param col_name_a: name of first column (x-axis)
+  @param col_name_b: name of second column (y-axis)
+  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
+  @param plot_sym : Symbol for plot, default 'kx'
+  @param plot_label: Name for the plot in the legend
+  @param output_name: If given, save the plot, with output_name as prefix
+  @param ifo: Name of ifo
+  @param x_min: Minimum value of x axis
+  @param x_max: Maximum value of x axis
+  @param y_min: Minimum value of y axis
+  @param y_max: Maximum value of y axis
+  """
+  if not ifo and len(table):
+    if ("ifo" in table.validcolumns.keys()):
+      ifo = table[0].ifo
+
+  col_a = log10(sqrt(viz.readcol(table, col_name_a, ifo )))
+  col_b = log10(sqrt(viz.readcol(table, col_name_b, ifo )))
+
+  if plot_type != 'seconds':
+    if 'time' in col_name_a:
+      col_a = timeindays(col_a)
+    if 'time' in col_name_b:
+      col_b = timeindays(col_b)
+
+  if (plot_type == 'linear') or (plot_type == 'seconds'):
+    plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logx':
+    semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logy':
+    semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'loglog':
+    loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+    xlim(0.95 * min(col_a), 1.05 * max(col_a))
+    ylim(0.95 * min(col_b), 1.05 * max(col_b))
+
+  if col_name_a == "null_statistic":
+        col_name_a = "log10(null statistic)"
+  if col_name_a == "snr":
+        col_name_a = "log10(coherent snr)"
+  if col_name_a == "tau5":
+        col_name_a = "(chi-square-weighted coherent snr)"
+  if col_name_a == "kappa":
+        col_name_a = "log10(combined effective SNR)"
+  if col_name_a == "crossCorrCohSq":
+        col_name_a = "log10(cross-ifo terms of coherent-SNR)"
+
+  if col_name_b == "null_statistic":
+        col_name_b = "log10(null statistic)"
+  if col_name_b == "snr":
+        col_name_b = "log10(coherent snr)"
+  if col_name_b == "tau5":
+        col_name_a = "(chi-square-weighted coherent snr)"
+  if col_name_b == "kappa":
+        col_name_b = "log10(combined effective SNR)"
+  if col_name_b == "crossCorrCohSq":
+        col_name_b = "log10(cross-ifo terms of coherent-SNR)"
+
+
+  xlabel(col_name_a.replace("_"," "),size='x-large')
+  ylabel(col_name_b.replace("_"," "),size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if ifo:
+    title(ifo + ' ' + col_name_b.replace("_"," ") + ' vs ' + \
+        col_name_a.replace("_"," "), size='x-large')
+  else:
+    title(col_name_b.replace("_"," ") + ' vs ' + col_name_a.replace("_"," "), \
+        size='x-large')
+
+  grid(True)
+
+  if plot_label:
+    legend()
+
+  if x_min:
+    xlim(xmin=x_min)
+  if x_max:
+    xlim(xmax=x_max)
+
+  if y_min:
+    ylim(ymin=y_min)
+  if y_max:
+    ylim(ymax=y_max)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '.png'
+    savefig(output_name)
+
+#######################################################################
+# function to plot the col1 vs col2 from the table
+def plot_sqrt_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
+  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
+  x_min = None, x_max = None, y_min = None, y_max = None):
+  """
+  function to plot the values of col_name_a vs col_name_b from the table
+  
+  @param table: metaDataTable
+  @param col_name_a: name of first column (x-axis)
+  @param col_name_b: name of second column (y-axis)
+  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
+  @param plot_sym : Symbol for plot, default 'kx'
+  @param plot_label: Name for the plot in the legend
+  @param output_name: If given, save the plot, with output_name as prefix
+  @param ifo: Name of ifo
+  @param x_min: Minimum value of x axis
+  @param x_max: Maximum value of x axis
+  @param y_min: Minimum value of y axis
+  @param y_max: Maximum value of y axis
+  """
+  if not ifo and len(table):
+    if ("ifo" in table.validcolumns.keys()):
+      ifo = table[0].ifo
+  
+  col_a = sqrt(viz.readcol(table, col_name_a, ifo ))
+  col_b = viz.readcol(table, col_name_b, ifo )
+    
+  if plot_type != 'seconds':
+    if 'time' in col_name_a:
+      col_a = timeindays(col_a)
+    if 'time' in col_name_b:
+      col_b = timeindays(col_b)
+
+  if (plot_type == 'linear') or (plot_type == 'seconds'):
+    plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logx':
+    semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logy':
+    semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'loglog':
+    loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+    xlim(0.95 * min(col_a), 1.05 * max(col_a))
+    ylim(0.95 * min(col_b), 1.05 * max(col_b))
+
+  if col_name_a == "snr":
+        col_name_a = "coherent snr"
+  if col_name_a == "tau5":
+        col_name_a = "chi-square-weighted coherent snr"
+
+  if col_name_b == "snr":
+        col_name_b = "coherent snr"
+  if col_name_b == "tau5":
+        col_name_b = "chi-square-weighted coherent snr"
+
+
+  xlabel(col_name_a.replace("_"," "),size='x-large')
+  ylabel(col_name_b.replace("_"," "),size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if ifo:
+    title(ifo + ' ' + col_name_b.replace("_"," ") + ' vs ' + \
+        col_name_a.replace("_"," "), size='x-large')
+  else:
+    title(col_name_b.replace("_"," ") + ' vs ' + col_name_a.replace("_"," "), \
+        size='x-large')
+
+  grid(True)
+
+  if plot_label:
+    legend()
+
+  if x_min:
+    xlim(xmin=x_min)
+  if x_max:
+    xlim(xmax=x_max)
+
+  if y_min:
+    ylim(ymin=y_min)
+  if y_max:
+    ylim(ymax=y_max)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '.png'
+    savefig(output_name)
+  
+#######################################################################
+# function to plot the col1 vs col2 from the table
+def plot_a_v_sqrt_b(table, col_name_a, col_name_b, plot_type = 'linear',
+  plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
+  x_min = None, x_max = None, y_min = None, y_max = None):
+  """
+  function to plot the values of col_name_a vs col_name_b from the table
+
+  @param table: metaDataTable
+  @param col_name_a: name of first column (x-axis)
+  @param col_name_b: name of second column (y-axis)
+  @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
+  @param plot_sym : Symbol for plot, default 'kx'
+  @param plot_label: Name for the plot in the legend
+  @param output_name: If given, save the plot, with output_name as prefix
+  @param ifo: Name of ifo
+  @param x_min: Minimum value of x axis
+  @param x_max: Maximum value of x axis
+  @param y_min: Minimum value of y axis
+  @param y_max: Maximum value of y axis
+  """
+  if not ifo and len(table):
+    if ("ifo" in table.validcolumns.keys()):
+      ifo = table[0].ifo
+
+  col_a = viz.readcol(table, col_name_a, ifo )
+  col_b = sqrt(viz.readcol(table, col_name_b, ifo ))
+
+  if plot_type != 'seconds':
+    if 'time' in col_name_a:
+      col_a = timeindays(col_a)
+    if 'time' in col_name_b:
+      col_b = timeindays(col_b)
+  
+  if (plot_type == 'linear') or (plot_type == 'seconds'):
+    plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logx':
+    semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'logy':
+    semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+  elif plot_type == 'loglog':
+    loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
+        markerfacecolor='None', label = plot_label)
+    xlim(0.95 * min(col_a), 1.05 * max(col_a))
+    ylim(0.95 * min(col_b), 1.05 * max(col_b))
+
+  if col_name_a == "snr":
+        col_name_a = "coherent snr"
+  if col_name_a == "tau5":
+        col_name_a = "chi-square-weighted coherent snr"
+
+  if col_name_b == "snr":
+        col_name_b = "coherent snr"
+  if col_name_b == "tau5":
+        col_name_b = "chi-square-weighted coherent snr"
+
+
+  xlabel(col_name_a.replace("_"," "),size='x-large')
+  ylabel(col_name_b.replace("_"," "),size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if ifo:
+    title(ifo + ' ' + col_name_b.replace("_"," ") + ' vs ' + \
+        col_name_a.replace("_"," "), size='x-large')
+  else:
+    title(col_name_b.replace("_"," ") + ' vs ' + col_name_a.replace("_"," "), \
+        size='x-large')
+
+  grid(True)
+
+  if plot_label:
+    legend()
+
+  if x_min:
+    xlim(xmin=x_min)
+  if x_max:
+    xlim(xmax=x_max)
+
+  if y_min:
+    ylim(ymin=y_min)
+  if y_max:
+    ylim(ymax=y_max)
+
+  if output_name:
+    if ifo:
+      output_name += '_' + ifo
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '.png'
+    savefig(output_name)
+  
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
@@ -182,7 +625,7 @@ from pylab import *
 from pylal import viz
 
 # check at least one trig file was specified
-if opts.glob is None and opts.cache_file is None:
+if opts.found_inj_glob is None and opts.full_data_glob is None and opts.cache_file is None:
   print >>sys.stderr, "Must specify a GLOB of files to read or a LAL cache"
   print >>sys.stderr, "Enter 'plotcohsnr --help' for usage"
   sys.exit(1)
@@ -196,15 +639,19 @@ if opts.cache_file is not None:
 # determine trigger files
 trigFiles = []
 slideFiles = []
-if opts.glob is not None:
+if opts.found_inj_glob is not None:
   allFiles = []
-  for gl in opts.glob.split(" "):
+  for gl in opts.found_inj_glob.split(" "):
     allFiles.extend(glob.glob(gl))
   for file in allFiles:
-    if 'SLIDE' in file:
-      slideFiles.append(file)
-    else:
-      trigFiles.append(file)
+    trigFiles.append(file)
+
+if opts.full_data_glob is not None:
+  allFiles = []
+  for gl in opts.full_data_glob.split(" "):
+    allFiles.extend(glob.glob(gl))
+  for file in allFiles:
+    slideFiles.append(file)
 
 if opts.trig_pattern is not None:
   trig_cache = cache.sieve(description=opts.trig_pattern)
@@ -213,14 +660,15 @@ if opts.trig_pattern is not None:
   slide_cache = cache.sieve(description=opts.slide_pattern)
   slideFiles.extend(slide_cache.checkfilesexist()[0].pfnlist())
 
-# check if the file lists are not empty
+# check that the file lists are not empty
 if not (trigFiles or slideFiles):
   print >>sys.stdout, "The trigger files or slide files lists are empty."
   sys.exit(1)
 
   print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
 
-tmpTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+foundInjections = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+tmpTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(slideFiles)
 inspTriggers = lsctables.table.new_from_template(tmpTriggers)
 inspSlide = lsctables.table.new_from_template(tmpTriggers)
 for row in tmpTriggers:
@@ -231,8 +679,6 @@ for row in tmpTriggers:
 
 slideTriggers = []
 if opts.num_slides:
-  #inspSlide = MultiInspiralUtils.ReadMultiInspiralFromFiles(slideFiles)
-
   # perform the veto
   if opts.veto_file:
     seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
@@ -258,6 +704,10 @@ max_snr = max(inspTriggers.get_column('snr'))
 min_snr = min(inspTriggers.get_column('snr'))
 snr_range = arange( min_snr, max_snr, (max_snr - min_snr)/100  )
 
+max_null = max(inspTriggers.get_column('null_statistic'))
+min_null = min(inspTriggers.get_column('null_statistic'))
+null_range = arange( min_null, max_null, (max_null - min_null)/100  )
+  
 ###################################
 # plot of snr vs time
 if opts.snr_time is True:
@@ -293,7 +743,7 @@ if opts.snr_time is True:
 ###################################
 # plot of null vs snr
 if opts.null_snr is True:
-  text = "Null Statistic versus Coherent SNR"
+  text = "Null Statistic versus Ratio Statistic"
   InspiralUtils.message(opts, "plotting..."+text)
   figure_number += 1
   figure(figure_number)
@@ -302,12 +752,17 @@ if opts.null_snr is True:
     ax.set_xscale('log')
     ax.set_yscale('log')
   for slide in slideTriggers:
-    viz.plot_a_v_b(slide["coinc_trigs"],'snr','null_statistic','linear','kx',
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'snr','null_statistic','linear','kx',
         x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
         y_max=opts.max_null)
   if opts.add_zero_lag:
     hold(True)
-    viz.plot_a_v_b(inspTriggers,'snr','null_statistic','linear','bx',
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'snr','null_statistic','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'snr','null_statistic','linear','r+',
         x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
         y_max=opts.max_null)
   if opts.enable_output is True: 
@@ -319,6 +774,380 @@ if opts.null_snr is True:
   if not opts.show_plot:
     close()
 
+###################################
+# plot of null vs effCohSnr (with only chi-sq)
+if opts.null_effCohSnr is True:
+  text = "Null Statistic versus Ratio Statistic"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'tau5','null_statistic','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'tau5','null_statistic','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'tau5','null_statistic','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "null_vs_effCohSnr")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.ratio_snr is True:
+  text = "Ratio Statistic versus Coherent SNR"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'snr','cohSnrSqLocal','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'snr','cohSnrSqLocal','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'snr','cohSnrSqLocal','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "cohSnrSqLocal_vs_ratioStat")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.ratio_crossCorrNullSq is True:
+  text = "CrossCorNullSq versus Coherent SNR-squared"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_sqrt_a_v_b(slide["coinc_trigs"],'snr','crossCorrNullSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_sqrt_a_v_b(inspTriggers,'snr','crossCorrNullSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_sqrt_a_v_b(foundInjections,'snr','crossCorrNullSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  legend()
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "crossCorrNullSq_vs_CohSNR")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.ratio_crossCorrCohSq is True:
+  text = "SNRSq versus crossCorrCohSq"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_sqrt_a_v_b(slide["coinc_trigs"],'snr','crossCorrCohSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_sqrt_a_v_b(inspTriggers,'snr','crossCorrCohSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_sqrt_a_v_b(foundInjections,'snr','crossCorrCohSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "crossCorrCohSq_vs_SNR")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.ratio_autoCorrNullSq is True:
+  text = "AutoCorrNullSq versus Coherent SNR-squared"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'snr','autoCorrNullSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'snr','autoCorrNullSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'snr','autoCorrNullSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "autoCorrNullSq_vs_CohSNR")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.ratio_autoCorrCohSq is True:
+  text = "SNRSq versus autoCorrCohSq"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'snr','autoCorrCohSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'snr','autoCorrCohSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'snr','autoCorrCohSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "autoCorrCohSq_vs_CohSNR")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.crossCorrNullSq_crossCorrCohSq is True:
+  text = "crossCorrNullSq versus crossCorrCohSq"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_a_v_sqrt_b(slide["coinc_trigs"],'crossCorrNullSq','crossCorrCohSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_a_v_sqrt_b(inspTriggers,'crossCorrNullSq','crossCorrCohSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_a_v_sqrt_b(foundInjections,'crossCorrNullSq','crossCorrCohSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "crossCorrNullSq_vs_crossCorrCohSq")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.null_crossCorrNullSq is True:
+  text = "CrossCorNullSq versus Coherent SNR-squared"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_sqrt_a_v_sqrt_b(slide["coinc_trigs"],'null_statistic','crossCorrNullSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_sqrt_a_v_sqrt_b(inspTriggers,'null_statistic','crossCorrNullSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_sqrt_a_v_sqrt_b(foundInjections,'null_statistic','crossCorrNullSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "crossCorrNullSq_vs_Null")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+####################################
+# plot of null vs snr
+if opts.null_crossCorrCohSq is True:
+  text = "SNRSq versus crossCorrCohSq"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'null_statistic','crossCorrCohSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'null_statistic','crossCorrCohSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'null_statistic','crossCorrCohSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "crossCorrCohSq_vs_Null")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.null_autoCorrNullSq is True:
+  text = "AutoCorrNullSq versus Coherent SNR-squared"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'null_statistic','autoCorrNullSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'null_statistic','autoCorrNullSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'null_statistic','autoCorrNullSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "autoCorrNullSq_vs_Null")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of null vs snr
+if opts.null_autoCorrCohSq is True:
+  text = "SNRSq versus autoCorrCohSq"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'null_statistic','autoCorrCohSq','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'null_statistic','autoCorrCohSq','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'null_statistic','autoCorrCohSq','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "autoCorrCohSq_vs_Null")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 ###################################
 # cumulative histogram of snr
@@ -339,6 +1168,26 @@ if opts.cum_hist_snr is True:
   
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+###################################
+# histogram of snr for slides
+if opts.hist_slides is True:
+  text = "Histogram of number of all coincident triggers per time slide"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+
+  if len(slideTriggers)>0:
+    viz.plotslides(slideTriggers,inspTriggers,scalebkg=opts.zero_lag_playground)
+
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "snr_hist_slides")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
@@ -374,12 +1223,119 @@ if opts.hist_snr is True:
     close()
 
 
+###################################
+# plot of combined-effective SNR vs coherent snr
+if opts.combinedEffSnr_snr is True:
+  text = "combined effective SNR versus coherent SNR"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'snr','kappa','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'snr','kappa','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'snr','kappa','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "combinedEffSnr_snr")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+
+###################################
+# plot of combined-effective SNR vs null statistic
+if opts.combinedEffSnr_null is True:
+  text = "combined effective SNR versus null statistic"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'kappa','null_statistic','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'kappa','null_statistic','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'kappa','null_statistic','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "combinedEffSnr_null")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+
+###################################
+# plot of combined effective SNR versus cross-ifo terms of coherent SNR
+if opts.combinedEffSnr_crossIfoCohSnr is True:
+  text = "combined effective SNR versus cross-ifo terms of coherent SNR"
+  InspiralUtils.message(opts, "plotting..."+text)
+  figure_number += 1
+  figure(figure_number)
+  if opts.log:
+    ax = subplot(111)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+  for slide in slideTriggers:
+    plot_log10_sqrt_a_v_log10_sqrt_b(slide["coinc_trigs"],'crossCorrCohSq','kappa','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(inspTriggers,'crossCorrCohSq','kappa','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_found_inj:
+    hold(True)
+    plot_log10_sqrt_a_v_log10_sqrt_b(foundInjections,'crossCorrCohSq','kappa','linear','r+',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.enable_output is True:
+    fname = InspiralUtils.set_figure_name(opts, "combinedEffSnr_crossIfoCohSnr")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
+
+
 #########################################
 # final step: html, cache file generation
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList,
       tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()
