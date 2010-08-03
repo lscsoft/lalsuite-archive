@@ -583,7 +583,7 @@ if(args_info.dataset_given) {
 /* This diagnostics should be moved into dataset.c when tested */
 for(i=0;i<d_free;i++) {
 	fprintf(LOG, "FMedians: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
-	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].TMedians[j]);
+	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].FMedians[j]);
 	fprintf(LOG, "\n");
 	}
 
