@@ -210,11 +210,13 @@ te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.g
 
 fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq))+p->freq_modulation_phase;
 
-*f=(p->freq+p->spindown*te+p->freq_modulation_depth*sin(fmodomega_t))*(1.0+doppler);
+*f=(p->freq+p->spindown*te+p->freq_modulation_depth*cos(fmodomega_t))*(1.0+doppler);
 
 phase_spindown=0.5*te*te*p->spindown;
 
-phase_freq=(p->freq+p->freq_modulation_depth*sin(fmodomega_t)-(double)(p->bin)/(double)(p->coherence_time))*te+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
+phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
+	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time)
+	+p->freq_modulation_depth*sin(fmodomega_t)/p->freq_modulation_freq;
 
 omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
 
@@ -291,6 +293,12 @@ p->a_cross=cos_i;
 p->cos_e=cos(2.0*p->psi);
 p->sin_e=sin(2.0*p->psi);
 
+/* Avoid division by 0 when integrating phase evolution */
+if(fabs(p->freq_modulation_freq)<=0.0) {
+	p->freq_modulation_depth=0.0;
+	p->freq_modulation_freq=1.0;
+	}
+	
 precompute_am_constants(p->e, p->ra, p->dec);
 }
 
@@ -452,7 +460,8 @@ static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment)
 {
 double result, abserr;
 int err;
-int window=5, bin;
+int window=args_info.fake_injection_window_arg;
+int bin;
 int i;
 double re, im, f;
 gsl_function F; 
