@@ -182,9 +182,8 @@ typedef struct {
 	
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-double doppler, omega_t, c_omega_t, s_omega_t, c_bin, s_bin, modomega_t, fmodomega_t;
+double doppler, omega_t, c_omega_t, s_omega_t, modomega_t, fmodomega_t;
 double hann;
-float det_vel[3]={NAN, NAN, NAN};
 float f_plus, f_cross;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
@@ -204,9 +203,7 @@ get_emission_time(&emission_time, &(earth_state), p->ra, p->dec, p->dInv, p->det
 get_AM_response_d(t, p->dec, p->ra, 0.0, p->detector, &f_plus, &f_cross);
 // fprintf(stderr, "%d f_plus=%f f_cross=%f\n", (int)round(t), f_plus, f_cross);
 
-get_detector_vel(round(t), det_vel);
-
-doppler=p->e[0]*det_vel[0]+p->e[1]*det_vel[1]+p->e[2]*det_vel[2];
+doppler=p->e[0]*emission_time.vDetector[0]+p->e[1]*emission_time.vDetector[1]+p->e[2]*emission_time.vDetector[2];
 
 /* Compute SSB time since ref time */
 te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.gpsNanoSeconds;
