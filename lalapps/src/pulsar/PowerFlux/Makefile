@@ -254,6 +254,11 @@ test4g: powerflux-mt
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
 	)
 
+test4h: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config.valgrind \
+	)
+
 test5: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
