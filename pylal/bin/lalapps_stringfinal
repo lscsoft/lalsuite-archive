@@ -53,11 +53,13 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolwprocess
 from glue import segments
 from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
+from pylal import stringutils
 SnglBurstUtils.matplotlib.rcParams.update({
 	"grid.linestyle": "-"
 })
@@ -182,14 +184,6 @@ WHERE
 #
 
 
-def clip_offset_vector(offset_vector, instruments):
-	return dict((instrument, offset) for instrument, offset in offset_vector.items() if instrument in instruments)
-
-
-def clip_offset_vectors(offset_vectors, instruments):
-	return dict((id, clip_offset_vector(offset_vector, instruments)) for id, offset_vector in offset_vectors.items())
-
-
 def ratevsthresh_bounds(background_x, background_y, zero_lag_x, zero_lag_y):
 	if len(zero_lag_x):
 		if len(background_x):
@@ -252,15 +246,13 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 
 		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(contents.connection)
 		assert len(zero_lag_time_slides) == 1
-		zero_lag_time_slides = clip_offset_vectors(zero_lag_time_slides, contents.instruments)
-		background_time_slides = clip_offset_vectors(background_time_slides, contents.instruments)
 
 		#
 		# compute the live time
 		#
 
-		self.zero_lag_time += SnglBurstUtils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values())
-		self.background_time += SnglBurstUtils.time_slides_livetime(contents.seglists, background_time_slides.values())
+		self.zero_lag_time += stringutils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
+		self.background_time += stringutils.time_slides_livetime(contents.seglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
 
 		#
 		# count events
@@ -620,15 +612,48 @@ def process_files(filenames, products, live_time_program, tmp_path = None, verbo
 	for n, filename in enumerate(filenames):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		#
+		# connect to database and summarize contents
+		#
+
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", verbose = verbose)
-		database.filename = filename
+		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", verbose = verbose)
+
+		#
+		# augment summary with extra stuff we need.  the filename
+		# is recorded for dumping debuggin information related to
+		# missed injections.  if burca was run with the
+		# --coincidence-segments option then the value is copied
+		# into a segmentlistdict to facilitate the computation of
+		# livetime, otherwise a dummy value is created spanning all
+		# time
+		#
+
+		contents.filename = filename
+
+		# as a side-effect, this enforces the rule that burca has
+		# been run on the input file exactly once
+		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+		if contents.coincidence_segments:
+			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
+		else:
+			contents.coincidence_segments = None
+
+		#
+		# process contents
+		#
+
 		for n, plot in enumerate(products):
 			if verbose:
 				print >>sys.stderr, "adding to plot %d ..." % n
-			plot.add_contents(database, verbose = verbose)
+			plot.add_contents(contents, verbose = verbose)
+
+		#
+		# close
+		#
+
 		connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 

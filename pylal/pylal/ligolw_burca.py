@@ -103,6 +103,8 @@ def append_process(xmldoc, **kwargs):
 		for (a, b), value in kwargs["thresholds"].items():
 			if a < b:
 				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (a, b, ",".join(map(str, value))))]
+	if "coincidence_segments" in kwargs:
+		params += [(u"--coincidence-segments", u"lstring", kwargs["coincidence_segments"])]
 
 	ligolw_process.append_process_params(xmldoc, process, params)
 
