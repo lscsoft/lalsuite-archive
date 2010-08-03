@@ -300,7 +300,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('_lambda', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal('lambda', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	##
@@ -316,8 +316,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('upper_limit', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-	pylab.savefig(ifos + '-' + output_tag + '_upper_limit.png')
+	savefig_pylal('upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
