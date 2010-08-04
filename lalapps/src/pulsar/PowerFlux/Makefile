@@ -259,6 +259,16 @@ test4h: powerflux-valgrind2
 	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config.valgrind \
 	)
 
+test4i: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --num-threads=1 --config=config.valgrind \
+	)
+
+test4j: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config_loose_pi_2.valgrind \
+	)
+
 test5: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \

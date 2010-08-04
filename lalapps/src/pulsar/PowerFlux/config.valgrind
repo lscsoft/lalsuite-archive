@@ -5,7 +5,7 @@ sun-ephemeris testsuite/sun05-09.dat
 sky-marks all_sky_marks.txt
 first-bin 180000
 nbins 501
-do-cutoff 1
+do-cutoff 0
 filter-lines 1
 averaging-mode one 
 spindown-start-time 793154935 
