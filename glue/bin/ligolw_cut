@@ -123,14 +123,6 @@ table.RowBuilder = table.InterningRowBuilder
 
 
 #
-# Over-ride default content handler with our special one
-#
-
-
-utils.ContentHandler = ContentHandler
-
-
-#
 # =============================================================================
 #
 #                                     Cut
@@ -217,7 +209,7 @@ options, filenames = parse_command_line()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	doc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	doc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"), contenthandler = ContentHandler)
 	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
 		print >>sys.stderr, "processing"
