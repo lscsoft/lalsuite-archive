@@ -1331,7 +1331,7 @@ parser.add_option("-l", "--l1-data",action="store_true",default=False,\
     help="analyze l1 data")
 parser.add_option("-n", "--v1-data",action="store_true",default=False,\
     help="analyze v1 data")
-parser.add_option("-q", "--e1-data",action="store_true",default=False,\
+parser.add_option("-G", "--e1-data",action="store_true",default=False,\
     help="analyze e1 data")
 parser.add_option("-y", "--e2-data",action="store_true",default=False,\
     help="analyze e2 data")
