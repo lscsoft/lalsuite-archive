@@ -22,6 +22,19 @@ __date__ = git_version.date
 Module to provide veto tools for DQ work.
 """
 
+# =============================================================================
+# Function to execute shell command and get output
+# =============================================================================
+def GetCommandOutput(command):
+  # == function to execute bash commands and return the stdout and error status
+  stdin, out, err = os.popen3(command)
+  pid, status = os.wait()
+  this_output = out.read()
+  stdin.close()
+  out.close()
+  err.close()
+  return this_output, status
+
 # ==============================================================================
 # Function to load segments from an xml file
 # ==============================================================================
