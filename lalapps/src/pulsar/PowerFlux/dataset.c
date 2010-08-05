@@ -214,9 +214,16 @@ fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_fre
 
 phase_spindown=0.5*te*te*p->spindown;
 
+
 phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
-	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time)
-	+p->freq_modulation_depth*sin(fmodomega_t)/p->freq_modulation_freq;
+	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
+	
+if(fabs(p->freq_modulation_freq)>0) {	
+	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)/p->freq_modulation_freq;
+	} else {
+	/* we just have a constant frequency offset for practical purposes */
+	phase_freq+=p->freq_modulation_depth*te;
+	}
 
 omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
 
@@ -292,12 +299,6 @@ p->a_cross=cos_i;
 
 p->cos_e=cos(2.0*p->psi);
 p->sin_e=sin(2.0*p->psi);
-
-/* Avoid division by 0 when integrating phase evolution */
-if(fabs(p->freq_modulation_freq)<=0.0) {
-	p->freq_modulation_depth=0.0;
-	p->freq_modulation_freq=1.0;
-	}
 	
 precompute_am_constants(p->e, p->ra, p->dec);
 }
@@ -945,6 +946,9 @@ get_detector(d->detector);
 
 sort_dataset(d);
 
+fprintf(stderr, "Dataset \"%s\" sorted memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Dataset \"%s\" sorted  memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
 if(fake_injection) {
 	SIGNAL_PARAMS sp;
 
@@ -956,6 +960,9 @@ if(fake_injection) {
 	for(i=0;i<d->free;i++) {
 		inject_fake_signal(&sp, d, i);
 		}
+
+	fprintf(stderr, "Dataset \"%s\" injected memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	fprintf(LOG, "Dataset \"%s\" injected  memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 	}
 
 /* compute_power(d); */
@@ -1063,6 +1070,8 @@ free(cd);
 
 characterize_dataset(d);
 d->validated=1;
+fprintf(stderr, "Dataset \"%s\" validated memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Dataset \"%s\" validated  memory: %g MB\n", d->name, (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 return 1;
 }
 
