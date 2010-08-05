@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.42-64
+VERSION=1.4.43-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -252,6 +252,21 @@ test4g: powerflux-mt
  		--write-dat=NONE \
  		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.1 \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
+	)
+
+test4h: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config.valgrind \
+	)
+
+test4i: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --num-threads=1 --config=config.valgrind \
+	)
+
+test4j: powerflux-valgrind2
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config_loose_pi_2.valgrind \
 	)
 
 test5: powerflux

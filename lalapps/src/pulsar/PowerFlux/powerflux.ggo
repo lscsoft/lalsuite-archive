@@ -97,11 +97,12 @@ option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-2
 option "fake-freq"	- "frequency of fake signal to inject" double no
 option "fake-dInv"	- "inverse distance to source of fake signal in seconds" double default="0.0" no
 option "fake-freq-modulation-depth" - "depth of additional sinusoidal frequency modulation in Hz" double default="0.0" no
-option "fake-freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="0.0" no
+option "fake-freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="1.0" no
 option "fake-freq-modulation-phase" - "phase of additional sinusoidal frequency modulation" double default="0.0" no
 option "fake-phase-modulation-depth" - "depth of additional sinusoidal phase modulation in radians" double default="0.0" no
 option "fake-phase-modulation-freq" - "frequency of additional sinusoidal phase modulation" double default="0.0" no
 option "fake-phase-modulation-phase" - "phase of additional sinusoidal phase modulation" double default="0.0" no
+option "fake-injection-window"	- "compute this number of frequency bins to the left and right of the central frequency" int default="5" no
 
 option "snr-precision"	- "Assumed level of error in detection strength - used for listing candidates" double default="0.2" no
 option "max-candidates"	- "Do not optimize more than this number of candidates" int default="-1" no
