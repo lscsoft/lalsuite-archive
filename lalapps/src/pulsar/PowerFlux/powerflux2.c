@@ -787,7 +787,6 @@ plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
-
 /* COMP3 stage */
 
 if(args_info.no_decomposition_arg){
@@ -878,6 +877,8 @@ snprintf(s, 20000, "bands.dat");
 dump_ints(s, patch_grid->band, patch_grid->npoints, 1);
 fflush(LOG);
 
+free_plot(plot);
+free_RGBPic(p);
 
 power_cache_selftest();
 power_sum_stats_selftest();

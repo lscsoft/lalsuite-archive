@@ -804,4 +804,7 @@ fprintf(LOG, "Outer loop extreme info done memory: %g MB\n", (MEMUSAGE*10.0/(102
 
 for(i=0;i<nei;i++)
 	free_extreme_info(ei[i]);
+
+free_plot(plot);
+free_RGBPic(p);
 }

@@ -256,7 +256,7 @@ test4g: powerflux-mt
 
 test4h: powerflux-valgrind2
 	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
-	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-valgrind2 --config=config.valgrind \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full --show-reachable=yes ./powerflux-valgrind2 --config=config.valgrind \
 	)
 
 test4i: powerflux-valgrind2
