@@ -105,7 +105,7 @@ __date__ = git_version.date
 #
 
 
-from __ilwd import *
+from glue.ligolw.__ilwd import *
 
 
 #
@@ -206,49 +206,52 @@ def get_ilwdchar_class(tbl_name, col_name):
 	process:process_id:9
 	"""
 	#
-	# if the class already exists, retrieve it
+	# if the class already exists, retrieve and return it
 	#
 
 	key = (str(tbl_name), str(col_name))
 	try:
 		return ilwdchar_class_cache[key]
 	except KeyError:
-		#
-		# define a new class, and add it to the cache
-		#
+		pass
 
-		class cached_ilwdchar_class(ilwdchar):
-			__slots__ = ()
-			table_name, column_name = key
-			index_offset = len("%s:%s:" % key)
+	#
+	# otherwise define a new class, and add it to the cache
+	#
 
-			def __conform__(self, protocol):
-				# The presence of this method allows
-				# ilwdchar sub-classes to be inserted
-				# directly into SQLite databases as
-				# strings. See
-				#
-				# http://www.python.org/dev/peps/pep-0246
-				#
-				# for more information.
-				#
-				# NOTE:  GvR has rejected that PEP, so this
-				# mechanism is obsolete.  Be prepared to
-				# fix this, replacing it with whatever
-				# replaces it.
-				#
-				# NOTE:  The return should be inside an "if
-				# protocol is sqlite3.PrepareProtocol:"
-				# conditional, but that would require
-				# importing sqlite3 which would break this
-				# module on FC4 boxes, and I'm not going to
-				# spend time fixing something that's
-				# obsolete anyway.
-				return unicode(self)
+	class cached_ilwdchar_class(ilwdchar):
+		__slots__ = ()
+		table_name, column_name = key
+		index_offset = len("%s:%s:" % key)
 
-		ilwdchar_class_cache[key] = cached_ilwdchar_class
+		def __conform__(self, protocol):
+			# The presence of this method allows ilwdchar
+			# sub-classes to be inserted directly into SQLite
+			# databases as strings. See
+			#
+			# http://www.python.org/dev/peps/pep-0246
+			#
+			# for more information.
+			#
+			# NOTE:  GvR has rejected that PEP, so this
+			# mechanism is obsolete.  Be prepared to fix this,
+			# replacing it with whatever replaces it.
+			#
+			# NOTE:  The return should be inside an "if
+			# protocol is sqlite3.PrepareProtocol:"
+			# conditional, but that would require importing
+			# sqlite3 which would break this module on FC4
+			# boxes, and I'm not going to spend time fixing
+			# something that's obsolete anyway.
+			return unicode(self)
 
-		return cached_ilwdchar_class
+	ilwdchar_class_cache[key] = cached_ilwdchar_class
+
+	#
+	# return the new class
+	#
+
+	return cached_ilwdchar_class
 
 
 def get_ilwdchar(s):

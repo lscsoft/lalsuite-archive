@@ -37,6 +37,7 @@ try:
 except ImportError:
 	# < 2.5.0
 	from md5 import new as md5
+import warnings
 import os
 import urllib2
 import urlparse
@@ -86,6 +87,7 @@ class IOTrappedSignal(Exception):
 
 # FIXME:  remove, use parameter passed to load_*() functions instead
 ContentHandler = ligolw.LIGOLWContentHandler
+__orig_ContentHandler = ContentHandler	# to detect when ContentHandler symbol has been modified
 
 
 def measure_file_sizes(filenames, reverse = False):
@@ -287,6 +289,10 @@ def load_fileobj(fileobj, gz = False, xmldoc = None, contenthandler = None):
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
+	if contenthandler is None:
+		if ContentHandler is not __orig_ContentHandler:
+			warnings.warn("modification of glue.ligolw.utils.ContentHandler global variable for input customization is deprecated.  Use contenthandler parameter of glue.ligolw.utils.load_*() functions instead", DeprecationWarning)
+		contenthandler = ContentHandler
 	ligolw.make_parser((contenthandler or ContentHandler)(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
 
