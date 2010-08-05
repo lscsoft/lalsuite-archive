@@ -14,6 +14,7 @@ from glue import lal
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import llwapp
+from pylal.datatypes import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -25,6 +26,29 @@ import matplotlib
 matplotlib.use('Agg')
 from pylal import followup_trigger
 from pylal import printutils
+
+def make_external_call(command, show_stdout=False, show_command=False):
+  """
+  Run a program on the shell and print informative messages on failure.
+  """
+  if show_command: print command
+
+  stdin, out, err = os.popen3(command)
+  pid, status = os.wait()
+
+  if status != 0:
+      print >>sys.stderr, "External call failed."
+      print >>sys.stderr, "  status: %d" % status
+      print >>sys.stderr, "  stdout: %s" % out.read()
+      print >>sys.stderr, "  stderr: %s" % err.read()
+      print >>sys.stderr, "  command: %s" % command
+      sys.exit(status)
+  if show_stdout:
+      print out.read()
+  stdin.close()
+  out.close()
+  err.close()
+
 
 def organize_coincs(new_coincs,sngls,coinc_map):
 # This function takes a (new style) coinc table and sngl table along with
@@ -84,16 +108,56 @@ def organize_found_injs(summTable,sims,new_coincs,coinc_map,sngls):
     i += 1
   return injList
 
+def omega_scan_inj(opts,inj):
+  omegaTimes = {}
+  for ifo in opts.omega_ifos:
+    injT = ifo.lower() + '_end_time'
+    omegaTimes[ifo] = LIGOTimeGPS(eval('inj.'+injT) + eval('inj.'+injT+'_ns')*1E-9)
+  omegaDirs,omegaLinks = run_omega_scan(opts,omegaTimes)
+  return omegaDirs,omegaLinks
+
+def omega_scan_coinc(opts,coinc):
+  omegaTimes = {}
+  for sngl in coinc:
+    omegaTimes[sngl.ifo] = sngl.get_end()
+  print omegaTimes
+  omegaDirs,omegaLinks = run_omega_scan(opts,omegaTimes)
+  return omegaDirs,omegaLinks
+
+def run_omega_scan(opts,omegaTimes):
+  omegaDirs = {}
+  omegaLinks = ''
+  omegaCommand = ['','','','','','','']
+  omegaCommand[0] = opts.omega_executable
+  omegaCommand[1] = 'scan'
+  omegaCommand[2] = '--report'
+  for ifo in omegaTimes.keys():
+    omegaCommand[3]='--configuration '+eval('opts.'+ifo.lower()+'_omega_config_file')
+    omegaCommand[4]='--framecache '+eval('opts.'+ifo.lower()+'_omega_frame_file')
+    if not os.path.isdir(opts.output_path + 'omega_scans'):
+      os.mkdir(opts.output_path + 'omega_scans')
+    outDir=opts.output_path+'omega_scans/'+ifo+'_'+str(omegaTimes[ifo].seconds)
+    outDir= outDir + '_' + str(omegaTimes[ifo].nanoseconds)
+    omegaCommand[5] = '--outdir ' + outDir
+    omegaCommand[6] = str(omegaTimes[ifo])
+    if not os.path.isdir(outDir):
+      make_external_call(' '.join(omegaCommand))
+    omegaDirs[ifo] = outDir
+    omegaLinks+= '<a href="pipedown/'+omegaDirs[ifo]+'" rel="external">'
+    omegaLinks+= ifo + '</a> '
+
+  return omegaDirs,omegaLinks
+
 def get_column_list(tableName, with_sngl = False):
   if tableName == "loudest_events":
     columnList, row_span_columns, rspan_break_columns = \
         printutils.get_columns_to_print(xmlSummary, tableName, with_sngl = with_sngl)
     columnList.remove('instruments_on')
   elif tableName == "close_missed_injections":
-    columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup']
+    columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup','omega_scan']
     row_span_columns = rspan_break_columns = []
   elif tableName == 'selected_found_injections':
-    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','recovered_ifos','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_mchirp']
+    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','recovered_ifos','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_mchirp','omega_scan']
     row_span_columns = rspan_break_columns = ['injected_decisive_distance', 'injected_end_time', 'injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs','injected_mass1', 'injected_mass2', 'injected_mchirp']
   return columnList, row_span_columns, rspan_break_columns
 
@@ -134,6 +198,22 @@ parser.add_option("-T","--output-html-table",action="store",type="string",\
 parser.add_option("","--max-followups",action="store",\
       type="int",  metavar="MAXFOLLOWUPS",default = 15,\
       help="Only followup this number of files.")
+parser.add_option("-O","--do-omega-scan",action="store_true",\
+      default=False,help="Use this flag to enable omega scans.")
+parser.add_option("-H","--h1-omega-config-file",action="store",\
+      default=None,help="The omega config file for H1.")
+parser.add_option("-f","--h1-omega-frame-file",action="store",\
+      default=None,help="The omega frame file for H1.")
+parser.add_option("-L","--l1-omega-config-file",action="store",\
+      default=None,help="The omega config file for L1.")
+parser.add_option("-l","--l1-omega-frame-file",action="store",\
+      default=None,help="The omega frame file for L1.")
+parser.add_option("-V","--v1-omega-config-file",action="store",\
+      default=None,help="The omega config file for V1.")
+parser.add_option("-a","--v1-omega-frame-file",action="store",\
+      default=None,help="The omega frame file for V1.")
+parser.add_option("-e","--omega-executable",action="store",\
+      default=None,help="The omega executable.")
 parser.add_option("","--time-slides",action="store_true",\
       default=False,help="Use this flag to followup time slide triggers.")
 parser.add_option("-v","--verbose",action="store_true",\
@@ -160,6 +240,14 @@ opts.suffix = '_' + opts.suffix
 opts.verbose = True
 opts.followup_time_window = 10
 opts.user_tag = opts.cache_string
+opts.omega_ifos = []
+
+if opts.h1_omega_config_file:
+  opts.omega_ifos.append('H1')
+if opts.l1_omega_config_file:
+  opts.omega_ifos.append('L1')
+if opts.v1_omega_config_file:
+  opts.omega_ifos.append('V1')
 
 if not os.path.isdir('Images'):
   os.mkdir('Images')
@@ -208,15 +296,22 @@ elif FUPtype == 'SFI':
 # Run the followups on each of the coincs. coinc[0] is the coinc itself
 # coinc[1] is a list of its sngls (created by organize_coincs)
 page = []
+omegaScans = []
 numF = 0
 if FUPtype == 'CMI':
   for inj in summTable:
     if numF < opts.max_followups:
+      if opts.do_omega_scan:
+        omegaDirs,omegaLinks = omega_scan_inj(opts,inj)
+        omegaScans.append(omegaLinks)
       page.append( followup.from_injection( inj,more_infos=True ) )
       numF += 1
 elif FUPtype == 'LE':
   for coinc in coincTable:
     if numF < opts.max_followups:
+      if opts.do_omega_scan:
+        omegaDirs,omegaLinks = omega_scan_coinc(opts,coinc[1])
+        omegaScans.append(omegaLinks)
       if opts.time_slides:
         for sngl in coinc[1]:
           SnglInspiralUtils.slideTriggersOnRings([sngl],seg_lists[sngl.ifo],coinc[2])
@@ -243,6 +338,9 @@ elif FUPtype == 'LE':
 elif FUPtype == 'SFI':
   for event in simTable:
     if numF < opts.max_followups:
+      if opts.do_omega_scan:
+        omegaDirs,omegaLinks = omega_scan_inj(opts,event[1])
+        omegaScans.append(omegaLinks)
       page.append( followup.from_found( event[1],more_infos=True,coinc = event[2],sngls = event[3]))
       numF += 1
 
@@ -251,12 +349,14 @@ elif FUPtype == 'SFI':
 
 if FUPtype == 'LE':
   for event in summTable:
-    for coinc,p in zip(coincTable,page):
+    for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
       if event.coinc_event_id == coinc[0].coinc_event_id:
         event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>''' 
+        event.omega_scan = omegaScan
 elif FUPtype == 'CMI' or FUPtype == 'SFI':
-  for event,p in zip(summTable,page):
+  for event,p,omegaScan in zip(summTable,page,omegaScans):
     event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+    event.omega_scan = omegaScan
 
 if opts.output_html_table is not None:
   output = open(opts.output_html_table,'w')
@@ -271,13 +371,15 @@ if opts.output_html_table is not None:
 
 if FUPtype == 'LE':
   for event in summTable:
-    for coinc,p in zip(coincTable,page):
+    for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
       if event.coinc_event_id == coinc[0].coinc_event_id:
         event.mini_followup = p
+        event.omega_scan = omegaScan
   utils.write_filename(xmlSummary,opts.input_xml_summary,xsl_file='ligolw.xsl')
 else:
-  for event,p in zip(summTable,page):
+  for event,p,omegaScan in zip(summTable,page,omegaScans):
     event.mini_followup = p 
+    event.omega_scan = omegaScan
   utils.write_filename(xmldoc,opts.input_xml,xsl_file='ligolw.xsl')
 
 
