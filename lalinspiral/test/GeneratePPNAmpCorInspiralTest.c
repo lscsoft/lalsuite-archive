@@ -84,7 +84,7 @@ GeneratePPNAmpCorInspiralTest [-m m1 m2] [-r dist] [-i inc phii psi] [-f f_min f
 NRCSID( GENERATEPPNINSPIRALTESTC, "$Id$" );
 
 /* Default parameter settings. */
-int lalDebugLevel = 1;
+int lalDebugLevel = 0;
 #define EPOCH (315187200000000000LL) /* about Jan. 1, 1990 */
 #define M1    (1.4)
 #define M2    (1.4)
