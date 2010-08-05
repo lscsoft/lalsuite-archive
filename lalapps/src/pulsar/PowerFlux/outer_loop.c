@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 /* We need this define to get NAN values */
 #define __USE_ISOC99
