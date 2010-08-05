@@ -735,6 +735,9 @@ gps_stop=max_gps()+1;
 
 reset_jobs_done_ratio();
 
+fprintf(stderr, "Outer loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Outer loop iteration start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
 time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
@@ -794,6 +797,9 @@ fprintf(stderr, "Writing skymaps\n");
 
 for(i=0;i<nei;i++)
 	output_extreme_info(p, ei[i]);
+
+fprintf(stderr, "Outer loop extreme info done memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Outer loop extreme info done memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 for(i=0;i<nei;i++)
 	free_extreme_info(ei[i]);
