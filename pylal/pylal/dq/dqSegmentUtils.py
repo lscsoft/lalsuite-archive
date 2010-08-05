@@ -110,25 +110,30 @@ def grab_segments(start,end,flag):
 
   #== construct segment query
   segment_cmd = "ligolw_segment_query --query-segments"+\
-      " --segment_url https://segdb.ligo.caltech.edu"+\
+      " --segment-url https://segdb.ligo.caltech.edu"+\
       " --include-segments "+flag+\
-      " --gps-start-time "+str(start)+\
-      " --gps-end-time "+str(end)+\
+      " --gps-start-time "+str(int(start))+\
+      " --gps-end-time "+str(int(end))+\
     ''' | ligolw_print -t segment -c start_time -c end_time --delimiter " "'''
   #== run segment query
-  segs = GetCommandOutput(segment_cmd)
+  segs,status = GetCommandOutput(segment_cmd)
 
   #== construct segments as structure
   seglist=[]
-  segs=segs.split('\n')
-  for seg in segs:
-    if seg=='':  continue
-    try:
-      [seg_start,seg_end]=seg.split(' ')
-      seglist.append(segment(int(seg_start),int(seg_end)))
-    except:  continue
+  if status==0:
+    segs=segs.split('\n')
+    for seg in segs:
+      if seg=='':  continue
+      try:
+        [seg_start,seg_end]=seg.split(' ')
+        seglist.append(segment(int(seg_start),int(seg_end)))
+      except:  continue
+    seglist = segmentlist(seglist)
+  else:
+    print >>sys.stderr, "Warning: Call to ligolw_segment_query failed with "+\
+                        "command:"
+    print >>sys.stderr, "\n"+segment_cmd+"\n"
 
-  seglist = segmentlist([seglist])
   return seglist
 
 # =============================================================================
