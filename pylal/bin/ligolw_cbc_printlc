@@ -352,7 +352,7 @@ column_names.extend(coinc_inspiral_cols)
 # add instruments on, duration, mini_followups
 rankname = 'rank__Px_using_' + ranking_stat.split('.')[-1] + '_xP_'
 durname = ''.join([ datatype, u'_duration__Px_', opts.convert_durations.strip().lower(), '_xP_' ])
-column_names.extend([rankname, durname, u'instruments_on', u'mini_followup', 'ifos__Px_click_for_elog_xP_', 'end_time_utc__Px_click_for_daily_ihope_xP_' ])
+column_names.extend([rankname, durname, u'instruments_on', u'mini_followup',u'omega_scan', 'ifos__Px_click_for_elog_xP_', 'end_time_utc__Px_click_for_daily_ihope_xP_' ])
 
 #
 # define the table
@@ -431,6 +431,7 @@ for values in connection.cursor().execute( sqlquery ):
     lcrow.instruments_on = values[-2]
     setattr(lcrow, durname, values[-1])
     lcrow.mini_followup = None
+    lcrow.omega_scan = None
     if 'ifos' in coinc_inspiral_cols and 'end_time' in coinc_inspiral_cols:
         elog_pages = [(ifo, printutils.get_elog_page(ifo, lcrow.end_time)) for ifo in lsctables.instrument_set_from_ifos(lcrow.ifos)]
         lcrow.ifos__Px_click_for_elog_xP_ = ','.join([ printutils.create_hyperlink(elog[1], elog[0]) for elog in sorted(elog_pages) ])
