@@ -225,14 +225,16 @@ parser.add_option("-s","--gps-t0",action="store",type="string",\
                    help="Specify the GPS t0 time of the \
 for data interval of interest")
 parser.add_option("-e","--gps-window",action="store",type="string",\
-                   metavar="gpsWindow",default="1.0",\
-                   help="Specify the integer window time for the \
-data point t0 of interest. Default is pm 1 second(s)")
+                   metavar="gpsWindow",default="0.5,0.5",\
+                   help="Specify the integer window time pair \
+(InFront,Behind) for the data point t0 of interest. Default is \
+pm 0.5,0.5 second(s)")
 parser.add_option("-d","--gps-history",action="store",type="string",\
-                   metavar="gpsHistory",default="300",\
-                   help="Specify a second window in integer seconds \
-for constructing the PSD 2D histograms to determine \
-surface senstivity for DCPDs. Default is pm 300 seconds")
+                   metavar="gpsHistory",default="300,300",\
+                   help="Specify a second window pair \
+(InFront,Behind)in integer seconds for constructing the \
+PSD 2D histograms to determine surface senstivity for DCPDs. \
+Default is 300,300 seconds")
 parser.add_option("-i","--ifo",action="store",type="string",\
                    metavar="IFO",default=None,help="Specify the \
 IFO of interest as one of the following from the set of valid IFO \
@@ -280,10 +282,12 @@ if (opts.url_type == None) or \
 #
 # Create data spigot
 #
-gpsStart=floor(float(opts.gps_t0)-float(opts.gps_history))
-gpsEnd=ceil(float(opts.gps_t0)+float(opts.gps_history))
-gpsA=floor(float(opts.gps_t0)-float(opts.gps_window))
-gpsB=ceil(float(opts.gps_t0)+float(opts.gps_window))
+(gps_frontHistory,gps_backHistory)=opts.gps_history.split(",")
+gpsStart=floor(float(opts.gps_t0)-float(gps_frontHistory))
+gpsEnd=ceil(float(opts.gps_t0)+float(gps_backHistory))
+(gps_frontWindow,gps_backWindow)=opts.gps_window.split(",")
+gpsA=floor(float(opts.gps_t0)-float(gps_frontWindow))
+gpsB=ceil(float(opts.gps_t0)+float(gps_backWindow))
 gpsT0=float(opts.gps_t0)
 beamName=str(opts.laser_channel)
 beamPitch=str(opts.laser_pitch)
@@ -412,7 +416,7 @@ myPitchPlusDT=interp(gpsT0+minDT,myData["time"],myData["pitch"])
 myBeam=interp(gpsT0,myData["time"],myData["beam"])
 mySubPlot.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
                    size=50,color='white')
-pylab.title("Beam Time on PD (%s,%s)"%(gpsT0,float(opts.gps_history)))
+pylab.title("Beam Time on PD (%s,%s,%s)"%(gpsT0,float(gps_frontHistory),float(gps_backHistory)))
 #Need to determine colorbar range
 CB1=pylab.colorbar(orientation='horizontal')
 CB1.set_label("Time(s)")
@@ -431,7 +435,7 @@ myHandles.append(pylab.imshow(beamMedianHistData.transpose(),\
 mySubPlot2.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
                    size=50,color='white')
 prevFig=myHandles[-1]
-pylab.title("Median Beam Intensity on PD (%s,%s)"%(gpsT0,float(opts.gps_history))) 
+pylab.title("Median Beam Intensity on PD (%s,%s,%s)"%(gpsT0,float(gps_frontHistory),float(gps_backHistory)))
 #Need to determine colorbar range
 CB2=pylab.colorbar(orientation='horizontal')
 CB2.set_label("Counts")
@@ -483,7 +487,7 @@ myHandles.append(pylab.scatter([mySnipData["yaw"][-1]],\
                                marker=myMarkerStop,\
                                linewidth=1,\
                                label="Stop"))                               
-pylab.title("Beam trace on PD face at %s pm %s"%(gpsT0,float(opts.gps_window)))
+pylab.title("Beam trace on PD face at %s,%s,%s"%(gpsT0,float(gps_frontWindow),float(gps_backWindow)))
 #Need to determine colorbar range
 pylab.xlabel(myLabel["yaw"])
 pylab.ylabel(myLabel["pitch"])
