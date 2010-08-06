@@ -111,7 +111,7 @@ def organize_found_injs(summTable,sims,new_coincs,coinc_map,sngls):
 def omega_scan_inj(opts,inj):
   omegaTimes = {}
   for ifo in opts.omega_ifos:
-    injT = ifo.lower() + '_end_time'
+    injT = (ifo.lower())[0] + '_end_time'
     omegaTimes[ifo] = LIGOTimeGPS(eval('inj.'+injT) + eval('inj.'+injT+'_ns')*1E-9)
   omegaDirs,omegaLinks = run_omega_scan(opts,omegaTimes)
   return omegaDirs,omegaLinks
