@@ -583,7 +583,7 @@ if(args_info.dataset_given) {
 /* This diagnostics should be moved into dataset.c when tested */
 for(i=0;i<d_free;i++) {
 	fprintf(LOG, "FMedians: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
-	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].TMedians[j]);
+	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].FMedians[j]);
 	fprintf(LOG, "\n");
 	}
 
@@ -787,7 +787,6 @@ plot_grid_f(p, fine_grid, fine_grid->longitude,1);
 RGBPic_dump_png("fine_longitude.png", p);
 dump_floats("fine_longitude.dat", fine_grid->longitude, fine_grid->npoints, 1);
 
-
 /* COMP3 stage */
 
 if(args_info.no_decomposition_arg){
@@ -878,6 +877,8 @@ snprintf(s, 20000, "bands.dat");
 dump_ints(s, patch_grid->band, patch_grid->npoints, 1);
 fflush(LOG);
 
+free_plot(plot);
+free_RGBPic(p);
 
 power_cache_selftest();
 power_sum_stats_selftest();
@@ -903,10 +904,15 @@ if((fabs(spindown_start-min_gps())>args_info.expected_timebase_arg*24*3600*31)) 
 time(&stage_time);
 fprintf(LOG, "outer_loop_start: %d\n", (int)(stage_time-start_time));
 fprintf(stderr, "outer_loop_start: %d\n", (int)(stage_time-start_time));
+fprintf(stderr, "Outer loop start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Outer loop start memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 outer_loop();
 
 fflush(LOG);
+
+fprintf(stderr, "Outer loop end memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Outer loop end memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 /*	fine_grid_free_arrays();*/
 fine_grid=proto_super_grid->super_grid;

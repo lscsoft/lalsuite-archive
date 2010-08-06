@@ -177,14 +177,16 @@ def parse_command_line():
             "lightning-bolt plots."
         ) 
     parser.add_option( "", "--param-name", action = "store", default = None,
-        metavar = "PARAMETER", 
+        metavar = "PARAMETER(:label)", 
         help = 
             "Can be any parameter in the coinc_inspiral table. " + 
             "Specifying this and param-ranges defines the bins " +
             "which the uncombined_fars are calculated will be " +
             "plotted in. The bins should be the same as " +
             "whatever was used when calculating the uncombined false " +
-            "alarm rate."
+            "alarm rate. The parameter name will be in the legend of each plot; " +
+            "to give a label for the name, add a colon and the label. If no label is specified, " +
+            "the parameter name as given will be used. "
         )
     parser.add_option( "", "--param-ranges", action = "store", default = None,
         metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
@@ -337,32 +339,27 @@ rc('text', usetex=True)
 # Get param and param-ranges if specified, and set ranges (for legend), symbols, and 
 # linestyles for plotting based on param_ranges. This plotting info is stored to the
 # param_ranges_legend, which has the following form:
-# param_ranges_legend[(param_name, group_number)]: {'range': string }, {'marker': marker}, {'linestyle': linestyle}
+# param_ranges_legend[(param_name, group_number)]: {'range': string }, {'marker': marker}, {'linestyle': linestyle}, {'label': label}
 param_ranges_legend = {}
 trigsymbols = itertools.cycle(( 'v', 'o', 's' ))
 linestyles = itertools.cycle(( ':', '-.', '--' ))
 if opts.param_name:
+    opts.param_name, param_label = len(opts.param_name.split(':')) == 2 and opts.param_name.split(':') or [opts.param_name, opts.param_name.replace('_', ' ')]
     param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name,
         opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.param.split('.')[1]
     connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
     param_grouping = ''.join([ 'group_by_param(', param_parser.param, ')' ])
-    for (n, (low, high)), marker, linestyle in zip( enumerate(param_parser.param_ranges), trigsymbols, linestyles ):
-        if low[0] == '>=':
-            lowbnd = '['
-        elif low[0] == '>':
-            lowbnd = '('
-        if high[0] == '<=':
-            highbnd = ']'
-        elif high[0] == '<':
-            highbnd = ')'
+    for (n, _), marker, linestyle in zip( enumerate(param_parser.param_ranges), trigsymbols, linestyles ):
         param_ranges_legend[(param_name, n)] = {}
         param_ranges_legend[(param_name, n)]['range'] = \
-            ''.join([lowbnd, str(low[1]), ',', str(high[1]), highbnd])
+            param_parser.param_range_by_group(n) 
         param_ranges_legend[(param_name, n)]['marker'] = \
             marker
         param_ranges_legend[(param_name, n)]['linestyle'] = \
             linestyle
+        param_ranges_legend[(param_name, n)]['label'] = \
+            param_label
 
 else:
     param_grouping = '0'
@@ -371,6 +368,7 @@ else:
     param_ranges_legend[(param_name, 0 )]['range'] = ''
     param_ranges_legend[(param_name, 0 )]['marker'] = '^'
     param_ranges_legend[(param_name, 0 )]['linestyle'] = '--'
+    param_ranges_legend[(param_name, n)]['label'] = 'No binning'
 
 # get datatype
 plot_datatype = opts.datatype.strip().lower()
@@ -490,6 +488,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 OR experiment_summary.datatype == ? )
         """])
     for esid, ifos, param_group, ufar, cfar in connection.cursor().execute(sqlquery, (eid, plot_datatype) ):
+        if param_group is None:
+            continue
         if opts.group_by_ifos:
             ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
@@ -521,6 +521,8 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                 experiment_summary.datatype == "slide"
             """])
     for ifos, param_group in connection.cursor().execute(sqlquery, (eid,)):
+        if param_group is None:
+            continue
         if opts.group_by_ifos:
             ifos = frozenset(lsctables.instrument_set_from_ifos(ifos))
         tot_num = len( ufar_summaries.bkg_stats[(eid, ifos, param_group)] )
@@ -827,7 +829,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
                     color = 'k',
                     marker = param_ranges_legend[thisrange]['marker'],
                     linestyle = param_ranges_legend[thisrange]['linestyle'],
-                    label = ' '.join([ thisrange[0], param_ranges_legend[thisrange]['range'] ]) )
+                    label = ' '.join([ param_ranges_legend[thisrange]['label'], param_ranges_legend[thisrange]['range'] ]) )
 
             # make the legend
             legend()

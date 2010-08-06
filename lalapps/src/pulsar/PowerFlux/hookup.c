@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <regex.h>
 
+#include <lal/LALRCSID.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/DetResponse.h>
 #include <lal/Velocity.h>
