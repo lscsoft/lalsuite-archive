@@ -31,7 +31,7 @@ from glue import lal
 from numpy import mean,std,median,min,max,\
      abs,array,log,floor,power,arange,\
      floor,ceil,searchsorted,empty,isnan,\
-     interp,zeros
+     interp,zeros,arcsin,pi
 from pylal import frutils
 from sys import stderr,stdout,exit
 import optparse
@@ -147,6 +147,41 @@ def build3DHistogramArray(inputA=None,xBinVector=None,yBinVector=None):
             zMapLists[xIndex][yIndex].extend(zDataMatch)
     return zMapLists
 
+def scatterPointer(A=None,B=None):
+    """
+    Expects two ordered pairs as tuples (x1,y1) and (x2,y2)...
+    Then this defines an angle.
+    From this angle we orient a triangle point and return this as
+    a tuple of requested size.  This can be plotted by the scatter
+    plot to point in a particular orientation.
+    The direction right(0,0)->(1,0) is angle 0 radians, then we rotate
+    counter clockwise from there... What is returned in a three
+    element tuple (numsides,style,angle) which can be put into
+    a plot call via marker=X as a **kwarg
+    """
+    if A == None or B == None:
+        return (3,0,0)
+    if( A != type(tuple()) and len(A) != 2) \
+        or \
+      ( B != type(tuple()) and len(B) != 2):
+        return (3,0,0)
+    #
+    # Calculate orientation of triangle
+    # Ang = arcsin(dY/dX)
+    dY=float(B[-1]-A[-1])
+    dX=float(B[0]-A[0])
+    if dY>=0 and dX>=0:
+        myAngle=arcsin(dY/dX)
+    elif dY>=0 and dX<0:
+        myAngle=pi-arcsin(dY/dX)
+    elif dY<0 and dX<0:
+        myAngle=arcsin(dY/dX)+pi
+    elif dY<0 and dX>0:
+        myAngle=(2.0*pi)-arcsin(dY/dX)
+    else:
+        myAngle=0
+    return (3,0,myAngle)
+        
 def convert2DHistTo3ColVectors(myMatrix,xBins=None,yBins=None):
     """
     Create three vectors X,Y,Z for ease of use in functs like contour,
@@ -371,9 +406,12 @@ myHandles.append(pylab.imshow(beamLocationHistData.transpose(),\
                               origin='lower'))
 myYaw=interp(gpsT0,myData["time"],myData["yaw"])
 myPitch=interp(gpsT0,myData["time"],myData["pitch"])
+myYawPlusDT=interp(gpsT0+minDT,myData["time"],myData["yaw"])
+myPitchPlusDT=interp(gpsT0+minDT,myData["time"],myData["pitch"])
+
 myBeam=interp(gpsT0,myData["time"],myData["beam"])
 mySubPlot.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
-                   size=30,color='white')
+                   size=50,color='white')
 pylab.title("Beam Time on PD (%s,%s)"%(gpsT0,float(opts.gps_history)))
 #Need to determine colorbar range
 CB1=pylab.colorbar(orientation='horizontal')
@@ -391,7 +429,7 @@ myHandles.append(pylab.imshow(beamMedianHistData.transpose(),\
                               aspect='auto',\
                               origin='lower'))
 mySubPlot2.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
-                   size=30,color='white')
+                   size=50,color='white')
 prevFig=myHandles[-1]
 pylab.title("Median Beam Intensity on PD (%s,%s)"%(gpsT0,float(opts.gps_history))) 
 #Need to determine colorbar range
@@ -412,20 +450,44 @@ myHandles.append(pylab.scatter(mySnipData["yaw"],
                                c=mySnipData["beam"],
                                edgecolors=None,
                                linewidth=0,
-                               hold=True))
+                               hold=True,\
+                               label="Beam Path"))
 CB3=pylab.colorbar(orientation='horizontal')
+pylab.clim(min(rangeMedianData),max(rangeMedianData))
 CB3.set_label("Counts")
+symbolSize=250
+myMarkerT0=scatterPointer((myYaw,myYawPlusDT),(myPitch,myPitchPlusDT))
 myHandles.append(pylab.scatter([myYaw],\
                                [myPitch],\
-                               s=200,\
-                               c=[myBeam],\
-                               marker='d',
+                               s=symbolSize,\
+                               c='m',\
+                               marker=myMarkerT0,
                                facecolor=None,\
-                               linewidth=1))
+                               linewidth=1,\
+                               label="t0"))
+myMarkerStart=scatterPointer((mySnipData["yaw"][0],mySnipData["pitch"][0]),\
+                             (mySnipData["yaw"][1],mySnipData["pitch"][1]))                        
+myHandles.append(pylab.scatter([mySnipData["yaw"][0]],\
+                               [mySnipData["pitch"][0]],\
+                               s=symbolSize,\
+                               c='g',\
+                               marker=myMarkerStart,\
+                               linewidth=1,\
+                               label="Start"))
+myMarkerStop=scatterPointer((mySnipData["yaw"][-1],mySnipData["pitch"][-1]),\
+                        (mySnipData["yaw"][-2],mySnipData["pitch"][-2]))
+myHandles.append(pylab.scatter([mySnipData["yaw"][-1]],\
+                               [mySnipData["pitch"][-1]],\
+                               s=symbolSize,\
+                               c='r',\
+                               marker=myMarkerStop,\
+                               linewidth=1,\
+                               label="Stop"))                               
 pylab.title("Beam trace on PD face at %s pm %s"%(gpsT0,float(opts.gps_window)))
 #Need to determine colorbar range
 pylab.xlabel(myLabel["yaw"])
 pylab.ylabel(myLabel["pitch"])
+pylab.legend()
 #
 # Save the raw data and plots to disk.
 #
