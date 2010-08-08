@@ -936,9 +936,9 @@ def main():
       for ifo in options.ifos:    
         print >>output, ifo+"||",
       print >>output
-      snr_vs_time = "|| SNR vs. time <<BR>> (100ms / CAT4) ||"
+      newsnr_vs_time = "|| newSNR vs. time <<BR>> (30ms / CAT4) ||"
       for ifo in options.ifos:
-        snr_vs_time += \
+        newsnr_vs_time += \
             "<)>[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+\
             date[day][0:6]+"/"+date[day]+"/"+ifo+\
             "_4_30MILLISEC_CLUSTERED_newsnr_vs_time.png|"+\
@@ -947,6 +947,15 @@ def main():
             "_4_30MILLISEC_CLUSTERED_newsnr_vs_time.png||width=300}}]]"+\
             "&nbsp;&nbsp;||"
       print >>output, snr_vs_time
+      snr_vs_time = "|| SNR vs. time <<BR>> (30ms / CAT4) ||"
+      for ifo in options.ifos:
+        snr_vs_time += \
+            "<)>[[https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+\
+            date[day][0:6]+"/"+date[day]+"/"+ifo+\
+            "_4_30MILLISEC_CLUSTERED_newsnr_vs_time.png|"+\
+            "{{https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily/"+\
+            date[day][0:6]+"/"+date[day]+"/"+ifo+\
+            "_4_30MILLISEC_CLUSTERED_snr_vs_time.png||width=300}}]]"+\
       omega_daily = "|| Omega ||"
       for ifo in options.ifos:
         if ifo in options.ligo_ifos:
