@@ -187,8 +187,7 @@ class upper_limit(object):
       """
       for inst, far in connection.cursor().execute(query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-        if far > 0: #ignore any ifo combination with far == 0 event
-           self.far[inst] = far
+        self.far[inst] = far # handle FAR = 0 case specially downstream
 
 
   def get_volume_derivative(self,instruments):
@@ -198,6 +197,11 @@ class upper_limit(object):
     FAR = self.far[instruments]
     gw = self.gw
     twoDMassBins = self.twoDMassBins
+
+    # If the loudest event has 0-FAR, then there is no volume above that event.
+    # We return zeros for the volume arrays.
+    if FAR == 0:
+      return rate.BinnedArray(self.twoDMassBins)
 
     #determine binning up front for infinite FAR
     found, missed = self.get_injections(instruments, FAR=float("inf"))
@@ -419,7 +423,7 @@ class upper_limit(object):
     # If the loudest event has 0-FAR, then there is no volume above that event.
     # We return zeros for the volume arrays.
     if FAR == 0:
-	return numpy.zeros(twodbin.shape),numpy.zeros(twodbin.shape)
+      return rate.BinnedArray(self.twoDMassBins),rate.BinnedArray(self.twoDMassBins)
 
     # set up an empty ratio array for each distance bin
     z = int(self.opts.dist_bins)
@@ -486,6 +490,17 @@ class upper_limit(object):
       for i, l in enumerate(f_dist):
         tbin = rArrays[dbin[f_dist[i]]]
         tbin.incnumerator( (f_m1[i], f_m2[i]) )
+
+      # check whether there are a sensible number of injections
+      # FIXME this check could be cleaner
+      if n == 0:
+        farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
+        for m1 in twodbin.centres()[0]:
+          for m2 in twodbin.centres()[1]:
+            if m1+m2<self.maxtotal and m1+m2>self.mintotal and m1<=m2 and farray[twodbin[(m1,m2)]] < 100:
+               print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f-%.1f mass bin above FAR=%g over all injected distances."  % (farray[twodbin[(m1,m2)]],''.join(sorted(list(instruments))),m1,m2,FAR)
+               print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
+
 
       # for each found injection, find the m1-m2-d bin it corresponds to
       # and increment the denominator there by one
