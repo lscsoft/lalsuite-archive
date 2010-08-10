@@ -31,7 +31,7 @@ from glue import lal
 from numpy import mean,std,median,min,max,\
      abs,array,log,floor,power,arange,\
      floor,ceil,searchsorted,empty,isnan,\
-     interp,zeros,arcsin,pi
+     interp,zeros,arctan,pi,ones,size
 from pylal import frutils
 from sys import stderr,stdout,exit
 import optparse
@@ -171,13 +171,13 @@ def scatterPointer(A=None,B=None):
     dY=float(B[-1]-A[-1])
     dX=float(B[0]-A[0])
     if dY>=0 and dX>=0:
-        myAngle=arcsin(dY/dX)
+        myAngle=arctan(dY/dX)
     elif dY>=0 and dX<0:
-        myAngle=pi-arcsin(dY/dX)
+        myAngle=pi-arctan(dY/dX)
     elif dY<0 and dX<0:
-        myAngle=arcsin(dY/dX)+pi
+        myAngle=arctan(dY/dX)+pi
     elif dY<0 and dX>0:
-        myAngle=(2.0*pi)-arcsin(dY/dX)
+        myAngle=(2.0*pi)-arctan(dY/dX)
     else:
         myAngle=0
     return (3,0,myAngle)
@@ -212,7 +212,7 @@ validIFOList=["L","H","V"]
 parser = optparse.OptionParser(usage)
 #Specify all needed options
 parser.add_option("-l","--laser-channel",action="store",\
-                  type="string",default=None,\
+                  type="string",default="dummy",\
                   help="Name of the laser channel.")
 parser.add_option("-p","--laser-pitch",action="store",\
                   type="string",default=None,\
@@ -307,10 +307,15 @@ beamSpigot=followup_utils.connectToFrameData(gpsStart,
 #
 # Grab all data for beam intensity, beam pitch and beam yaw 
 #
-origData=dict()
-origData["beam"]=beamSpigot.getDataStream(beamName,gpsStart,gpsEnd)
+origData=dict()    
 origData["pitch"]=beamSpigot.getDataStream(beamPitch,gpsStart,gpsEnd)
 origData["yaw"]=beamSpigot.getDataStream(beamYaw,gpsStart,gpsEnd)
+if beamName=="dummy":
+    # In the case of needing dummy data, we will just load up the pitch
+    # data vector and replace the numpy data structure with ones!
+    origData["beam"]=frutils.TimeSeries(ones(size(origData["pitch"])),origData["pitch"].metadata)
+else:
+    origData["beam"]=beamSpigot.getDataStream(beamName,gpsStart,gpsEnd)
 #
 # Tabulate the bins for binning the PD surface
 #
@@ -385,12 +390,18 @@ for ii in range(beamIntensityHistData.shape[0]):
 #
 mySnipData=dict()
 mySnipData["time"]=arange(gpsA,gpsB,minDT)
+mySnipData["time"]=arange(float(opts.gps_t0)-float(gps_frontWindow),\
+                          float(opts.gps_t0)+float(gps_backWindow),
+                          minDT)
 for myKey in myData.keys():
     if "time" not in myKey:
-        tmpData=beamSpigot.getDataStream(myLabel[myKey],gpsA,gpsB)
-        mySnipData[myKey]=interp(mySnipData["time"],
-                                 getTimeStamps(tmpData),
-                                 tmpData)
+        if beamName == "dummy" and myKey == "beam":
+            mySnipData[myKey]=ones(size(mySnipData["time"]))
+        else:
+            tmpData=beamSpigot.getDataStream(myLabel[myKey],gpsA,gpsB)
+            mySnipData[myKey]=interp(mySnipData["time"],
+                                     getTimeStamps(tmpData),
+                                     tmpData)
 #
 # Setup figure
 #
@@ -410,12 +421,14 @@ myHandles.append(pylab.imshow(beamLocationHistData.transpose(),\
                               origin='lower'))
 myYaw=interp(gpsT0,myData["time"],myData["yaw"])
 myPitch=interp(gpsT0,myData["time"],myData["pitch"])
+myIntensity=interp(gpsT0,myData["time"],myData["beam"])
 myYawPlusDT=interp(gpsT0+minDT,myData["time"],myData["yaw"])
 myPitchPlusDT=interp(gpsT0+minDT,myData["time"],myData["pitch"])
 
+starSize=75
 myBeam=interp(gpsT0,myData["time"],myData["beam"])
 mySubPlot.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
-                   size=50,color='white')
+                   size=starSize,color='white')
 pylab.title("Beam Time on PD (%s,%s,%s)"%(gpsT0,float(gps_frontHistory),float(gps_backHistory)))
 #Need to determine colorbar range
 CB1=pylab.colorbar(orientation='horizontal')
@@ -433,7 +446,7 @@ myHandles.append(pylab.imshow(beamMedianHistData.transpose(),\
                               aspect='auto',\
                               origin='lower'))
 mySubPlot2.annotate('*',xy=(myYaw,myPitch),xycoords='data',\
-                   size=50,color='white')
+                   size=starSize,color='white')
 prevFig=myHandles[-1]
 pylab.title("Median Beam Intensity on PD (%s,%s,%s)"%(gpsT0,float(gps_frontHistory),float(gps_backHistory)))
 #Need to determine colorbar range
@@ -461,12 +474,12 @@ pylab.clim(min(rangeMedianData),max(rangeMedianData))
 CB3.set_label("Counts")
 symbolSize=250
 myMarkerT0=scatterPointer((myYaw,myYawPlusDT),(myPitch,myPitchPlusDT))
+print "Coord :",myYaw,myYawPlusDT,myPitch,myPitchPlusDT,myMarkerT0
 myHandles.append(pylab.scatter([myYaw],\
                                [myPitch],\
                                s=symbolSize,\
                                c='m',\
                                marker=myMarkerT0,
-                               facecolor=None,\
                                linewidth=1,\
                                label="t0"))
 myMarkerStart=scatterPointer((mySnipData["yaw"][0],mySnipData["pitch"][0]),\
@@ -492,6 +505,25 @@ pylab.title("Beam trace on PD face at %s,%s,%s"%(gpsT0,float(gps_frontWindow),fl
 pylab.xlabel(myLabel["yaw"])
 pylab.ylabel(myLabel["pitch"])
 pylab.legend()
+#
+# Print out beam location to screen
+#
+print "Beam location at %s is (%s,%s) with intensity measure %s"%\
+      (gpsT0,\
+       myYaw,\
+       myPitch,\
+       myIntensity)
+print "Beam location at %s is (%s,%s) with intensity measure %s"%\
+      (mySnipData["time"][0]-gpsT0,\
+       mySnipData["yaw"][0],\
+       mySnipData["pitch"][0],\
+       mySnipData["beam"][0])
+print "Beam location at %s is (%s,%s) with intensity measure %s"%\
+      (gpsT0-mySnipData["time"][-1],\
+       mySnipData["yaw"][-1],\
+       mySnipData["pitch"][-1],\
+       mySnipData["beam"][-1])
+
 #
 # Save the raw data and plots to disk.
 #
