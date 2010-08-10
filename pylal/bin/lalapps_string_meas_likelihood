@@ -37,6 +37,7 @@ import sys
 
 
 from glue import segments
+from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
@@ -70,6 +71,7 @@ def parse_command_line():
 		description = "%prog analyzes a collection of sqlite3 database files containing ligolw_burca outputs of string-cusp coincidence events, and measures probability distributions for a variety of parameters computed from those coincidences.  The distributions are written to a likelihood data file in XML format, which can later be used by to assign likelihoods to the coincidences.  The command line arguments are used to provide shell patterns for the files from which to obtain injection and backgroun coincidences.  If file names are given on the command line following the arguments, then likelihood data is loaded from those files and added to the output."
 	)
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood data file to write (default = stdout).")
+	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--T010150", metavar = "description", default = None, help = "Write the output to a file whose name is compatible with the file name format described in LIGO-T010150-00-E, \"Naming Convention for Frame Files which are to be Processed by LDAS\".  The description string will be used to form the second field in the file name.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -82,6 +84,9 @@ def parse_command_line():
 			options.T010150 = "STRING_LIKELIHOOD"
 		elif set(options.T010150) - T010150_letters:
 			raise ValueError, "invalid characters in description \"%s\"" % options.T010150
+
+	if options.input_cache:
+		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
 
 	if not filenames:
 		raise ValueError, "no input files!"

@@ -32,6 +32,7 @@ import sys
 
 
 from glue.lal import CacheEntry
+from glue import segmentsUtils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import inject
@@ -159,6 +160,7 @@ def parse_command_line():
 	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use (required).")
 	parser.add_option("--likelihood-data", metavar = "filename", default = [], action = "append", help = "Read likelihood data from this XML file.  (use ligolw_burca_tailor to generate these files)")
 	parser.add_option("--likelihood-data-cache", metavar = "filename", help = "Read likelihood data from the XML files described by this LAL cache.  For each trigger file, the live time of the trigger file is established and all likelihood data files whose segments intersect the trigger file's live time are loaded and merged into a single distribution data set.  (use ligolw_burca_tailor to generate these files)")
+	parser.add_option("-s", "--coincidence-segments", metavar = "start:end[,start:end,...]", help = "Set the GPS segments in which to retain coincidences.  Multiple segments can be specified by separating them with commas.  If either start or end is absent from a segment then the interval is unbounded on that side, for example \"874000000:\" causes all coincidences starting at 874000000 to be retained.  The \"time\" of a coincidence is ambiguous, and is different for different search algorithms, but a deterministic algorithm is used in all cases so the same coincidence of events will always be assigned the same time.  This feature is intended to allow large input files to be analyzed;  the procedure is to make n copies of the file and run n instances of burca specifying disjoint --coincidence-segments for each.")
 	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=[threshold,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower there are no thresholds.  For stringcusp, each instrument pair has a single threshold setting dt.  One set of thresholds must be provided for each instrument combination that will be compared, even if there are no thresholds to set.")
 	parser.add_option("--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	# FIXME:  split this next one into two arguments
@@ -185,6 +187,12 @@ def parse_command_line():
 			options.likelihood_data_cache = set()
 		if options.program is None:
 			raise ValueError, "missing required argument --program"
+	if options.coincidence_segments is not None:
+		options.coinc_segs = segmentsUtils.from_range_strings(options.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce()
+		if filenames is not None and len(filenames) > 1:
+			raise ValueError, "refusing to allow use of --coincidence-segments with more than one input file"
+	else:
+		options.coinc_segs = None
 
 	#
 	# parse the --thresholds arguments
@@ -198,7 +206,10 @@ def parse_command_line():
 		# empty thresholds
 		options.thresholds = {}
 
-	# success
+	#
+	# done
+	#
+
 	return options, (filenames or [None])
 
 
@@ -237,16 +248,32 @@ def burca1(options, filenames):
 	#
 
 
+	if options.coinc_segs is not None:
+		def coinc_segs_ntuple_comparefunc(events, offset_vector, coinc_segs = options.coinc_segs):
+			# sort so we always do arithmetic in the same order
+			events = sorted(events, key = lambda event: event.get_peak())
+			# coinc time is SNR-weighted mean of event peak times
+			epoch = events[0].get_peak() + offset_vector[events[0].ifo]
+			coinc_time = sum(float(event.get_peak() + offset_vector[event.ifo] - epoch) * event.snr for event in events) / sum(event.snr for event in events)
+			return coinc_time not in coinc_segs
+
+
 	if options.coincidence_algorithm == "excesspower":
 		EventListType = ligolw_burca.ExcessPowerEventList
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
-		ntuple_comparefunc = lambda events, offset_vector: False
+		if options.coinc_segs is not None:
+			ntuple_comparefunc = coinc_segs_ntuple_comparefunc
+		else:
+			ntuple_comparefunc = lambda *args: False	# keep everything
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
 		CoincDef = ligolw_burca.ExcessPowerBBCoincDef
 	elif options.coincidence_algorithm == "stringcusp":
 		EventListType = ligolw_burca.StringEventList
 		comparefunc = ligolw_burca.StringCoincCompare
-		ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
+		if options.coinc_segs is not None:
+			ntuple_comparefunc = lambda *args: coinc_segs_ntuple_comparefunc(*args) or ligolw_burca.StringNTupleCoincCompare(*args)
+		else:
+			ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
 		CoincTables = snglcoinc.CoincTables
 		CoincDef = ligolw_burca.StringCuspBBCoincDef
 	else:
