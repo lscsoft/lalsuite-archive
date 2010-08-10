@@ -65,7 +65,8 @@ const char *gengetopt_args_info_help[] = {
   "      --sun-ephemeris=STRING    Sun ephemeris file, overrides ephemeris-path \n                                  argument",
   "  -f, --first-bin=INT           first frequency bin in the band to be analyzed",
   "  -n, --nbins=INT               number of frequency bins to analyze  \n                                  (default=`501')",
-  "      --side-cut=INT            number of bins to cut from each side due to \n                                  corruption from doppler shifts",
+  "      --side-cut=INT            number of extra bins to load to accomodate \n                                  doppler shifts and spindown",
+  "      --extra-side-cut=INT      number of extra bins to load in addition to \n                                  side-cut computed automatically  \n                                  (default=`0')",
   "      --expected-timebase=DOUBLE\n                                expected timebase in months  (default=`6')",
   "      --hist-bins=INT           number of bins to use when producing histograms \n                                   (default=`200')",
   "  -d, --detector=STRING         detector location (i.e. LHO or LLO), passed to \n                                  detresponse",
@@ -104,13 +105,13 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-linear             Inject linearly polarized fake signal",
   "      --fake-circular           Inject circularly polarized fake signal",
   "      --fake-ref-time=DOUBLE    time of signal start  (default=`0')",
-  "      --fake-ra=DOUBLE          RA of fake signal to inject  (default=`3.14')",
+  "      --fake-ra=DOUBLE          RA of fake signal to inject  (default=`0.0')",
   "      --fake-dec=DOUBLE         DEC of fake signal to inject  (default=`0.0')",
   "      --fake-iota=DOUBLE        iota of fake signal to inject  (default=`0.0')",
   "      --fake-psi=DOUBLE         orientation of fake signal to inject  \n                                  (default=`0.0')",
   "      --fake-phi=DOUBLE         phase of fake signal to inject  (default=`0.0')",
   "      --fake-spindown=DOUBLE    spindown of fake signal to inject  \n                                  (default=`0.0')",
-  "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
+  "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`0.0')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
   "      --fake-dInv=DOUBLE        inverse distance to source of fake signal in \n                                  seconds  (default=`0.0')",
   "      --fake-freq-modulation-depth=DOUBLE\n                                depth of additional sinusoidal frequency \n                                  modulation in Hz  (default=`0.0')",
@@ -236,6 +237,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->first_bin_given = 0 ;
   args_info->nbins_given = 0 ;
   args_info->side_cut_given = 0 ;
+  args_info->extra_side_cut_given = 0 ;
   args_info->expected_timebase_given = 0 ;
   args_info->hist_bins_given = 0 ;
   args_info->detector_given = 0 ;
@@ -386,6 +388,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nbins_arg = 501;
   args_info->nbins_orig = NULL;
   args_info->side_cut_orig = NULL;
+  args_info->extra_side_cut_arg = 0;
+  args_info->extra_side_cut_orig = NULL;
   args_info->expected_timebase_arg = 6;
   args_info->expected_timebase_orig = NULL;
   args_info->hist_bins_arg = 200;
@@ -451,7 +455,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->only_large_cos_orig = NULL;
   args_info->fake_ref_time_arg = 0;
   args_info->fake_ref_time_orig = NULL;
-  args_info->fake_ra_arg = 3.14;
+  args_info->fake_ra_arg = 0.0;
   args_info->fake_ra_orig = NULL;
   args_info->fake_dec_arg = 0.0;
   args_info->fake_dec_orig = NULL;
@@ -463,7 +467,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_phi_orig = NULL;
   args_info->fake_spindown_arg = 0.0;
   args_info->fake_spindown_orig = NULL;
-  args_info->fake_strain_arg = 1e-23;
+  args_info->fake_strain_arg = 0.0;
   args_info->fake_strain_orig = NULL;
   args_info->fake_freq_orig = NULL;
   args_info->fake_dInv_arg = 0.0;
@@ -585,90 +589,91 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->first_bin_help = gengetopt_args_info_help[31] ;
   args_info->nbins_help = gengetopt_args_info_help[32] ;
   args_info->side_cut_help = gengetopt_args_info_help[33] ;
-  args_info->expected_timebase_help = gengetopt_args_info_help[34] ;
-  args_info->hist_bins_help = gengetopt_args_info_help[35] ;
-  args_info->detector_help = gengetopt_args_info_help[36] ;
-  args_info->doppler_multiplier_help = gengetopt_args_info_help[37] ;
-  args_info->dInv_help = gengetopt_args_info_help[38] ;
-  args_info->spindown_start_time_help = gengetopt_args_info_help[39] ;
-  args_info->frequency_offset_help = gengetopt_args_info_help[40] ;
-  args_info->spindown_start_help = gengetopt_args_info_help[41] ;
-  args_info->spindown_step_help = gengetopt_args_info_help[42] ;
-  args_info->spindown_count_help = gengetopt_args_info_help[43] ;
-  args_info->fdotdot_help = gengetopt_args_info_help[44] ;
-  args_info->orientation_help = gengetopt_args_info_help[45] ;
-  args_info->nlinear_polarizations_help = gengetopt_args_info_help[46] ;
-  args_info->no_demodulation_help = gengetopt_args_info_help[47] ;
-  args_info->no_decomposition_help = gengetopt_args_info_help[48] ;
-  args_info->no_candidates_help = gengetopt_args_info_help[49] ;
-  args_info->no_am_response_help = gengetopt_args_info_help[50] ;
-  args_info->no_secondary_skymaps_help = gengetopt_args_info_help[51] ;
-  args_info->averaging_mode_help = gengetopt_args_info_help[52] ;
-  args_info->subtract_background_help = gengetopt_args_info_help[53] ;
-  args_info->do_cutoff_help = gengetopt_args_info_help[54] ;
-  args_info->filter_lines_help = gengetopt_args_info_help[55] ;
-  args_info->ks_test_help = gengetopt_args_info_help[56] ;
-  args_info->compute_betas_help = gengetopt_args_info_help[57] ;
-  args_info->upper_limit_comp_help = gengetopt_args_info_help[58] ;
-  args_info->lower_limit_comp_help = gengetopt_args_info_help[59] ;
-  args_info->write_dat_help = gengetopt_args_info_help[60] ;
-  args_info->write_png_help = gengetopt_args_info_help[61] ;
-  args_info->dump_points_help = gengetopt_args_info_help[62] ;
-  args_info->dump_candidates_help = gengetopt_args_info_help[63] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[64] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[65] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[66] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[67] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[69] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[70] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[71] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[72] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[73] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[74] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[75] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[76] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[77] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[78] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[79] ;
-  args_info->fake_dInv_help = gengetopt_args_info_help[80] ;
-  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[81] ;
-  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[82] ;
-  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[83] ;
-  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[84] ;
-  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[85] ;
-  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[86] ;
-  args_info->fake_injection_window_help = gengetopt_args_info_help[87] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[88] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[89] ;
-  args_info->min_candidate_snr_help = gengetopt_args_info_help[90] ;
-  args_info->output_initial_help = gengetopt_args_info_help[91] ;
-  args_info->output_optimized_help = gengetopt_args_info_help[92] ;
-  args_info->output_cache_help = gengetopt_args_info_help[93] ;
-  args_info->extended_test_help = gengetopt_args_info_help[94] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[95] ;
-  args_info->num_threads_help = gengetopt_args_info_help[96] ;
-  args_info->niota_help = gengetopt_args_info_help[97] ;
-  args_info->npsi_help = gengetopt_args_info_help[98] ;
-  args_info->nfshift_help = gengetopt_args_info_help[99] ;
-  args_info->nchunks_help = gengetopt_args_info_help[100] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[101] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[102] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[103] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[104] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[105] ;
-  args_info->summing_step_help = gengetopt_args_info_help[106] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[107] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[108] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[109] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[110] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[111] ;
-  args_info->half_window_help = gengetopt_args_info_help[112] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[113] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[114] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[115] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[116] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[117] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[118] ;
+  args_info->extra_side_cut_help = gengetopt_args_info_help[34] ;
+  args_info->expected_timebase_help = gengetopt_args_info_help[35] ;
+  args_info->hist_bins_help = gengetopt_args_info_help[36] ;
+  args_info->detector_help = gengetopt_args_info_help[37] ;
+  args_info->doppler_multiplier_help = gengetopt_args_info_help[38] ;
+  args_info->dInv_help = gengetopt_args_info_help[39] ;
+  args_info->spindown_start_time_help = gengetopt_args_info_help[40] ;
+  args_info->frequency_offset_help = gengetopt_args_info_help[41] ;
+  args_info->spindown_start_help = gengetopt_args_info_help[42] ;
+  args_info->spindown_step_help = gengetopt_args_info_help[43] ;
+  args_info->spindown_count_help = gengetopt_args_info_help[44] ;
+  args_info->fdotdot_help = gengetopt_args_info_help[45] ;
+  args_info->orientation_help = gengetopt_args_info_help[46] ;
+  args_info->nlinear_polarizations_help = gengetopt_args_info_help[47] ;
+  args_info->no_demodulation_help = gengetopt_args_info_help[48] ;
+  args_info->no_decomposition_help = gengetopt_args_info_help[49] ;
+  args_info->no_candidates_help = gengetopt_args_info_help[50] ;
+  args_info->no_am_response_help = gengetopt_args_info_help[51] ;
+  args_info->no_secondary_skymaps_help = gengetopt_args_info_help[52] ;
+  args_info->averaging_mode_help = gengetopt_args_info_help[53] ;
+  args_info->subtract_background_help = gengetopt_args_info_help[54] ;
+  args_info->do_cutoff_help = gengetopt_args_info_help[55] ;
+  args_info->filter_lines_help = gengetopt_args_info_help[56] ;
+  args_info->ks_test_help = gengetopt_args_info_help[57] ;
+  args_info->compute_betas_help = gengetopt_args_info_help[58] ;
+  args_info->upper_limit_comp_help = gengetopt_args_info_help[59] ;
+  args_info->lower_limit_comp_help = gengetopt_args_info_help[60] ;
+  args_info->write_dat_help = gengetopt_args_info_help[61] ;
+  args_info->write_png_help = gengetopt_args_info_help[62] ;
+  args_info->dump_points_help = gengetopt_args_info_help[63] ;
+  args_info->dump_candidates_help = gengetopt_args_info_help[64] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[65] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[66] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[67] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[68] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[70] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[71] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[72] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[73] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[74] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[75] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[76] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[77] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[78] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[79] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[80] ;
+  args_info->fake_dInv_help = gengetopt_args_info_help[81] ;
+  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[82] ;
+  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[83] ;
+  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[84] ;
+  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[85] ;
+  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[86] ;
+  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[87] ;
+  args_info->fake_injection_window_help = gengetopt_args_info_help[88] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[89] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[90] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[91] ;
+  args_info->output_initial_help = gengetopt_args_info_help[92] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[93] ;
+  args_info->output_cache_help = gengetopt_args_info_help[94] ;
+  args_info->extended_test_help = gengetopt_args_info_help[95] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[96] ;
+  args_info->num_threads_help = gengetopt_args_info_help[97] ;
+  args_info->niota_help = gengetopt_args_info_help[98] ;
+  args_info->npsi_help = gengetopt_args_info_help[99] ;
+  args_info->nfshift_help = gengetopt_args_info_help[100] ;
+  args_info->nchunks_help = gengetopt_args_info_help[101] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[102] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[103] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[104] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[105] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[106] ;
+  args_info->summing_step_help = gengetopt_args_info_help[107] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[108] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[109] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[110] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[111] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[112] ;
+  args_info->half_window_help = gengetopt_args_info_help[113] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[114] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[115] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[116] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[117] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[118] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[119] ;
   
 }
 
@@ -843,6 +848,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->first_bin_orig));
   free_string_field (&(args_info->nbins_orig));
   free_string_field (&(args_info->side_cut_orig));
+  free_string_field (&(args_info->extra_side_cut_orig));
   free_string_field (&(args_info->expected_timebase_orig));
   free_string_field (&(args_info->hist_bins_orig));
   free_string_field (&(args_info->detector_arg));
@@ -1037,6 +1043,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "nbins", args_info->nbins_orig, 0);
   if (args_info->side_cut_given)
     write_into_file(outfile, "side-cut", args_info->side_cut_orig, 0);
+  if (args_info->extra_side_cut_given)
+    write_into_file(outfile, "extra-side-cut", args_info->extra_side_cut_orig, 0);
   if (args_info->expected_timebase_given)
     write_into_file(outfile, "expected-timebase", args_info->expected_timebase_orig, 0);
   if (args_info->hist_bins_given)
@@ -1804,6 +1812,7 @@ cmdline_parser_internal (
         { "first-bin",	1, NULL, 'f' },
         { "nbins",	1, NULL, 'n' },
         { "side-cut",	1, NULL, 0 },
+        { "extra-side-cut",	1, NULL, 0 },
         { "expected-timebase",	1, NULL, 0 },
         { "hist-bins",	1, NULL, 0 },
         { "detector",	1, NULL, 'd' },
@@ -2340,7 +2349,7 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* number of bins to cut from each side due to corruption from doppler shifts.  */
+          /* number of extra bins to load to accomodate doppler shifts and spindown.  */
           else if (strcmp (long_options[option_index].name, "side-cut") == 0)
           {
           
@@ -2350,6 +2359,20 @@ cmdline_parser_internal (
                 &(local_args_info.side_cut_given), optarg, 0, 0, ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "side-cut", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* number of extra bins to load in addition to side-cut computed automatically.  */
+          else if (strcmp (long_options[option_index].name, "extra-side-cut") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->extra_side_cut_arg), 
+                 &(args_info->extra_side_cut_orig), &(args_info->extra_side_cut_given),
+                &(local_args_info.extra_side_cut_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "extra-side-cut", '-',
                 additional_error))
               goto failure;
           
@@ -2871,7 +2894,7 @@ cmdline_parser_internal (
           
             if (update_arg( (void *)&(args_info->fake_ra_arg), 
                  &(args_info->fake_ra_orig), &(args_info->fake_ra_given),
-                &(local_args_info.fake_ra_given), optarg, 0, "3.14", ARG_DOUBLE,
+                &(local_args_info.fake_ra_given), optarg, 0, "0.0", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "fake-ra", '-',
                 additional_error))
@@ -2955,7 +2978,7 @@ cmdline_parser_internal (
           
             if (update_arg( (void *)&(args_info->fake_strain_arg), 
                  &(args_info->fake_strain_orig), &(args_info->fake_strain_given),
-                &(local_args_info.fake_strain_given), optarg, 0, "1e-23", ARG_DOUBLE,
+                &(local_args_info.fake_strain_given), optarg, 0, "0.0", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "fake-strain", '-',
                 additional_error))
