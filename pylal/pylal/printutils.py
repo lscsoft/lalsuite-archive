@@ -74,6 +74,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'mass',
             'mchirp',
             'mini_followup',
+            'omega_scan',
             durname]
         row_span_columns = rspan_break_columns = [durname]
     elif tableName == "loudest_events:table" and with_sngl:
@@ -93,6 +94,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'sngl_end_time',
             'sngl_end_time_utc__Px_click_for_daily_ihope_xP_',
             'mini_followup',
+            'omega_scan',
             durname]
         row_span_columns = rspan_break_columns = \
             [col for col in summTable.columnnames if not col.startswith('sngl_')]
@@ -105,6 +107,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mini_followup',
+            'omega_scan',
             'sim_tag',
             'injected_decisive_distance',
             'injected_mchirp',
@@ -125,6 +128,7 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'injected_end_time_utc__Px_click_for_daily_ihope_xP_',
             'elogs',
             'mini_followup',
+            'omega_scan',
             'sim_tag',
             'injected_decisive_distance',
             'injected_mchirp',
@@ -144,7 +148,8 @@ def get_columns_to_print(xmldoc, tableName, with_sngl = False):
             'eff_dist_l',
             'eff_dist_v',
             'sim_tag',
-            'mini_followup'
+            'mini_followup',
+            'omega_scan'
             ]
         row_span_columns = rspan_break_columns = []
     else:
@@ -479,8 +484,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     # add instruments on, duration, mini_followups
     rankname = 'rank_in_' + comparison_datatype.strip().lower() + '_using_' + ranking_stat.split('.')[-1]
     durname = ''.join([ 'simulation', u'_duration__Px_', convert_durations, '_xP_' ])
-    column_names.extend([u'instruments_on', durname, u'mini_followup' ])
-    column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', 'elogs', durname, 'mini_followup', 'sim_tag' ] )
+    column_names.extend( [ rankname, 'recovered_match_rank', 'instruments_on', 'elogs', durname, 'mini_followup','omega_scan', 'sim_tag' ] )
     
     #
     # define needed tables
@@ -634,6 +638,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
         sfrow.instruments_on = ','.join(sorted(on_instruments))
         sfrow.injected_decisive_distance = sorted([getattr(sfrow, 'injected_eff_dist_%s' % ifo[0].lower()) for ifo in on_instruments])[1]
         sfrow.mini_followup = None
+        sfrow.omega_scan = None
         sfrow.sim_tag = values[-6]
         setattr(sfrow, durname, duration)
     
@@ -680,7 +685,7 @@ def printmissed(connection, simulation_table, recovery_table,
     # Get simulation table column names from database
     simulation_table_columns = sqlutils.get_column_names_from_table( connection, simulation_table )
     column_names = simulation_table_columns + \
-        ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'instruments_on', 'veto_def_name', 'mini_followup', 'sim_tag']
+        ['rank', 'decisive_distance', 'end_time', 'end_time_ns', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'instruments_on', 'veto_def_name', 'mini_followup','omega_scan', 'sim_tag']
     
     
     # define needed tables
@@ -890,6 +895,7 @@ def printmissed(connection, simulation_table, recovery_table,
                 cmrow.veto_def_name = veto_def_name
                 cmrow.sim_tag = values[-3]
                 cmrow.mini_followup = None
+                cmrow.omega_scan = None
                 cmrow.end_time = getattr(cmrow, sorted(on_instruments)[0][0].lower() + '_end_time')
                 cmrow.end_time_ns = getattr(cmrow, sorted(on_instruments)[0][0].lower() + '_end_time_ns')
                 # set  elog page
