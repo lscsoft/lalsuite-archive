@@ -303,6 +303,14 @@ p->sin_e=sin(2.0*p->psi);
 precompute_am_constants(p->e, p->ra, p->dec);
 }
 
+static void fill_signal_params_with_defaults(SIGNAL_PARAMS *p)
+{
+memset(p, 0, sizeof(SIGNAL_PARAMS));
+p->freq_modulation_freq=1.0;
+
+precompute_signal_params(p);
+}
+
 static void fill_signal_params_from_args_info(SIGNAL_PARAMS *p)
 {
 p->bin=0;
@@ -1955,7 +1963,7 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	DATASET *d=&(datasets[d_free-1]);
 
 	/* Fill with defaults from command line */
-	fill_signal_params_from_args_info(&sp);
+	fill_signal_params_with_defaults(&sp);
 	
 	
 	locate_arg(line, length, 1, &ai, &aj);
@@ -2045,7 +2053,7 @@ if(!strncasecmp(line, "inject_cw_signal2", 16)) {
 	DATASET *d=&(datasets[d_free-1]);
 
 	/* Fill with defaults from command line */
-	fill_signal_params_from_args_info(&sp);
+	fill_signal_params_with_defaults(&sp);
 	
 	
 	locate_arg(line, length, 1, &ai, &aj);

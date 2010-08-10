@@ -138,9 +138,12 @@ struct gengetopt_args_info
   int nbins_arg;	/**< @brief number of frequency bins to analyze (default='501').  */
   char * nbins_orig;	/**< @brief number of frequency bins to analyze original value given at command line.  */
   const char *nbins_help; /**< @brief number of frequency bins to analyze help description.  */
-  int side_cut_arg;	/**< @brief number of bins to cut from each side due to corruption from doppler shifts.  */
-  char * side_cut_orig;	/**< @brief number of bins to cut from each side due to corruption from doppler shifts original value given at command line.  */
-  const char *side_cut_help; /**< @brief number of bins to cut from each side due to corruption from doppler shifts help description.  */
+  int side_cut_arg;	/**< @brief number of extra bins to load to accomodate doppler shifts and spindown.  */
+  char * side_cut_orig;	/**< @brief number of extra bins to load to accomodate doppler shifts and spindown original value given at command line.  */
+  const char *side_cut_help; /**< @brief number of extra bins to load to accomodate doppler shifts and spindown help description.  */
+  int extra_side_cut_arg;	/**< @brief number of extra bins to load in addition to side-cut computed automatically (default='0').  */
+  char * extra_side_cut_orig;	/**< @brief number of extra bins to load in addition to side-cut computed automatically original value given at command line.  */
+  const char *extra_side_cut_help; /**< @brief number of extra bins to load in addition to side-cut computed automatically help description.  */
   double expected_timebase_arg;	/**< @brief expected timebase in months (default='6').  */
   char * expected_timebase_orig;	/**< @brief expected timebase in months original value given at command line.  */
   const char *expected_timebase_help; /**< @brief expected timebase in months help description.  */
@@ -248,7 +251,7 @@ struct gengetopt_args_info
   double fake_ref_time_arg;	/**< @brief time of signal start (default='0').  */
   char * fake_ref_time_orig;	/**< @brief time of signal start original value given at command line.  */
   const char *fake_ref_time_help; /**< @brief time of signal start help description.  */
-  double fake_ra_arg;	/**< @brief RA of fake signal to inject (default='3.14').  */
+  double fake_ra_arg;	/**< @brief RA of fake signal to inject (default='0.0').  */
   char * fake_ra_orig;	/**< @brief RA of fake signal to inject original value given at command line.  */
   const char *fake_ra_help; /**< @brief RA of fake signal to inject help description.  */
   double fake_dec_arg;	/**< @brief DEC of fake signal to inject (default='0.0').  */
@@ -266,7 +269,7 @@ struct gengetopt_args_info
   double fake_spindown_arg;	/**< @brief spindown of fake signal to inject (default='0.0').  */
   char * fake_spindown_orig;	/**< @brief spindown of fake signal to inject original value given at command line.  */
   const char *fake_spindown_help; /**< @brief spindown of fake signal to inject help description.  */
-  double fake_strain_arg;	/**< @brief amplitude of fake signal to inject (default='1e-23').  */
+  double fake_strain_arg;	/**< @brief amplitude of fake signal to inject (default='0.0').  */
   char * fake_strain_orig;	/**< @brief amplitude of fake signal to inject original value given at command line.  */
   const char *fake_strain_help; /**< @brief amplitude of fake signal to inject help description.  */
   double fake_freq_arg;	/**< @brief frequency of fake signal to inject.  */
@@ -424,6 +427,7 @@ struct gengetopt_args_info
   unsigned int first_bin_given ;	/**< @brief Whether first-bin was given.  */
   unsigned int nbins_given ;	/**< @brief Whether nbins was given.  */
   unsigned int side_cut_given ;	/**< @brief Whether side-cut was given.  */
+  unsigned int extra_side_cut_given ;	/**< @brief Whether extra-side-cut was given.  */
   unsigned int expected_timebase_given ;	/**< @brief Whether expected-timebase was given.  */
   unsigned int hist_bins_given ;	/**< @brief Whether hist-bins was given.  */
   unsigned int detector_given ;	/**< @brief Whether detector was given.  */

@@ -442,7 +442,7 @@ if(!args_info.side_cut_given){
 	if(fabs(args_info.spindown_start_arg)>max_spindown)max_spindown=fabs(args_info.spindown_start_arg);
 	/* determine side cut from resolution, 6.0 factor is empirical */
 	/* also add in spindown contribution - for now just plan for 4 months of data */
-	side_cut=260+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
+	side_cut=50+args_info.extra_side_cut_arg+ceil((args_info.first_bin_arg+args_info.nbins_arg)*1e-4)+ceil(1800.0*max_spindown*args_info.expected_timebase_arg*3600*24*31);
 	/* round it up to a multiple of 450 */
 /*	side_cut=450*ceil(side_cut/450.0);*/
 	}
@@ -553,12 +553,14 @@ if(args_info.fake_freq_given) {
 	fprintf(LOG,"fake frequency: %f\n", args_info.fake_freq_arg);
 	fprintf(LOG,"fake reference time: %f\n", args_info.fake_ref_time_arg);
 
+	fprintf(LOG,"fake dInv: %g\n", args_info.fake_dInv_arg);
 	fprintf(LOG,"fake frequency modulation depth: %f\n", args_info.fake_freq_modulation_depth_arg);
 	fprintf(LOG,"fake frequency modulation frequency: %f\n", args_info.fake_freq_modulation_freq_arg);
 	fprintf(LOG,"fake frequency modulation phase: %f\n", args_info.fake_freq_modulation_phase_arg);
 	fprintf(LOG,"fake phase modulation depth: %f\n", args_info.fake_phase_modulation_depth_arg);
 	fprintf(LOG,"fake phase modulation frequency: %f\n", args_info.fake_phase_modulation_freq_arg);
 	fprintf(LOG,"fake phase modulation phase: %f\n", args_info.fake_phase_modulation_phase_arg);
+	fprintf(LOG,"fake injection window: %d\n", args_info.fake_injection_window_arg);
 
    	} else {
    	fprintf(LOG,"fake signal injection: none\n");
