@@ -422,10 +422,13 @@ class TableStream(ligolw.Stream):
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
+		# retrieve the .write() method of the file object to avoid
+		# doing the attribute lookup in loops
+		w = file.write
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
-		file.write(self.start_tag(indent))
+		w(self.start_tag(indent))
 		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
 		rowdumper.dump(self.parentNode)
 		try:
@@ -436,25 +439,25 @@ class TableStream(ligolw.Stream):
 		else:
 			# write first row
 			newline = u"\n" + indent + ligolw.Indent
-			file.write(newline)
+			w(newline)
 			# the xmlescape() call replaces things like "<"
 			# with "&lt;" so that the string will not confuse
 			# an XML parser when the file is read.  turning
 			# "&lt;" back into "<" during file reading is
 			# handled by the XML parser, so there is no code
 			# in Glue related to that.
-			file.write(xmlescape(line))
+			w(xmlescape(line))
 			# now add delimiter and write the remaining rows
 			newline = rowdumper.delimiter + newline
 			for line in rowdumper:
-				file.write(newline)
-				file.write(xmlescape(line))
+				w(newline)
+				w(xmlescape(line))
 			if rowdumper.tokens and rowdumper.tokens[-1] == u"":
 				# the last token of the last row was null:
 				# add a final delimiter to indicate that a
 				# token is present
-				file.write(rowdumper.delimiter)
-		file.write(u"\n" + self.end_tag(indent) + u"\n")
+				w(rowdumper.delimiter)
+		w(u"\n" + self.end_tag(indent) + u"\n")
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function

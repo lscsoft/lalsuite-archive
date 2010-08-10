@@ -78,7 +78,7 @@ def get_username():
 	try:
 		import pwd
 		return pwd.getpwuid(os.getuid())[0]
-	except ImportError, KeyError:
+	except (ImportError, KeyError):
 		raise KeyError
 
 
