@@ -352,41 +352,6 @@ WHERE
 #
 
 
-def create_recovered_likelihood_view(connection, bb_coinc_def_id):
-	# Create a temporary table containing two columns:  the
-	# simulation_id of an injection, and the highest likelihood ratio
-	# at which that injection was recovered by a coincidence of type
-	# bb_coinc_def_id.
-	cursor = connection.cursor()
-	cursor.execute("""
-CREATE TEMPORARY TABLE recovered_likelihood (simulation_id TEXT PRIMARY KEY, likelihood REAL)
-	""")
-	cursor.execute("""
-INSERT OR REPLACE INTO
-	recovered_likelihood
-SELECT
-	sim_burst.simulation_id AS simulation_id,
-	MAX(coinc_event.likelihood) AS likelihood
-FROM
-	sim_burst
-	JOIN coinc_event_map AS a ON (
-		a.table_name == "sim_burst"
-		AND a.event_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN coinc_event ON (
-		b.table_name == "coinc_event"
-		AND b.event_id == coinc_event.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-GROUP BY
-	sim_burst.simulation_id
-	""", (bb_coinc_def_id,))
-
-
 def slope(x, y):
 	"""
 	From the x and y arrays, compute the slope at the x co-ordinates
@@ -517,7 +482,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# of the burst coincs that were found to match the
 		# injection or null if no such matching burst events were
 		# found
-		create_recovered_likelihood_view(contents.connection, contents.bb_definer_id)
+		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
