@@ -266,3 +266,25 @@ GROUP BY
 	sim_burst.simulation_id
 	""", (bb_coinc_def_id,))
 	cursor.close()
+
+
+def create_string_sngl_is_vetoed_function(connection, veto_segments_name):
+	"""
+	Creates a function named string_sngl_is_vetoed in the database at
+	@connection.  The function accepts three parameters --- the
+	instrument name, and the integer and integer nanoseconds components
+	of a time --- and returns true if the instrument is vetoed at that
+	time or false otherwise.
+
+	Note:  this function assumes glue.ligolw.dbtables has been
+	imported and will import it if it hasn't been.
+	"""
+	try:
+		dbtables
+	except NameError:
+		from glue.ligolw import dbtables
+	xmldoc = dbtables.get_xml(connection)
+	def is_vetoed(ifo, peak_time, peak_time_ns, seglists = ligolwsegments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()):
+		return ifo in seglists and dbtables.lsctables.LIGOTimeGPS(peak_time, peak_time_ns) in seglists[ifo]
+	connection.create_function("string_sngl_is_vetoed", 3, is_vetoed)
+	xmldoc.unlink()
