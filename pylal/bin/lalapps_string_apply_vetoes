@@ -97,6 +97,32 @@ options, filenames = parse_command_line()
 #
 
 
+def create_string_sngl_is_vetoed_function(connection, veto_segments_name = None):
+	"""
+	Creates a function named string_sngl_is_vetoed in the database at
+	@connection.  The function accepts three parameters --- the
+	instrument name, and the integer and integer nanoseconds components
+	of a time --- and returns true if the instrument is vetoed at that
+	time or false otherwise.  @veto_segments_name sets the name of the
+	segment lists used to define the vetoes.
+
+	If @veto_segments_name is None then a no-op function is created
+	that always returns False.
+
+	Note:  this funtion requires glue.ligolw.dbtables and
+	glue.ligolw.utils.segments to be imported as dbtables and
+	ligolwsegments respectively.
+	"""
+	if veto_segments_name is None:
+		connection.create_function("string_sngl_is_vetoed", 3, lambda instrument, peak_time, peak_time_ns: False)
+		return
+	xmldoc = dbtables.get_xml(connection)
+	def is_vetoed(instrument, peak_time, peak_time_ns, seglists = ligolwsegments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()):
+		return instrument in seglists and dbtables.lsctables.LIGOTimeGPS(peak_time, peak_time_ns) in seglists[instrument]
+	connection.create_function("string_sngl_is_vetoed", 3, is_vetoed)
+	xmldoc.unlink()
+
+
 for n, filename in enumerate(filenames):
 	#
 	# Open the database file.
@@ -113,7 +139,7 @@ for n, filename in enumerate(filenames):
 	# Define the is_vetoed() SQL function.
 	#
 
-	stringutils.create_string_sngl_is_vetoed_function(connection, options.vetoes_name)
+	create_string_sngl_is_vetoed_function(connection, options.vetoes_name)
 
 	#
 	# (Re)build table.
