@@ -141,20 +141,20 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	database = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", verbose = options.verbose)
-	if not database.seglists and options.verbose:
+	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", verbose = options.verbose)
+	if not contents.seglists and options.verbose:
 		print >>sys.stderr, "\twarning:  no segments found"
-	segs |= database.seglists
+	segs |= contents.seglists
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
 	# the outputs of injection runs, and others aren't.
 	#
 
-	if database.sim_burst_table is None:
-		stats.add_noninjections(stringutils.coinc_params_func, database)
+	if contents.sim_burst_table is None:
+		stats.add_noninjections(stringutils.coinc_params_func, contents)
 	else:
-		stats.add_injections(stringutils.coinc_params_func, database)
+		stats.add_injections(stringutils.coinc_params_func, contents)
 
 	#
 	# Clean up.
