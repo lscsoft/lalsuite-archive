@@ -160,6 +160,8 @@ for n, filename in enumerate(filenames):
 	# Clean up.
 	#
 
+	contents.xmldoc.unlink()
+	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
