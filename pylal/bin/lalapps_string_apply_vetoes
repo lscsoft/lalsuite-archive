@@ -36,8 +36,12 @@ import sys
 
 
 from glue.ligolw import dbtables
-from glue.ligolw import utils
+from glue.ligolw.utils import segments as ligolwsegments
 from pylal import git_version
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -104,18 +108,44 @@ for n, filename in enumerate(filenames):
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
+	xmldoc = dbtables.get_xml(connection)
+
+	#
+	# Define the is_vetoed() SQL function.
+	#
+
+	def is_vetoed(ifo, peak_time, peak_time_ns, seglists = ligolwsegments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()):
+		return ifo in seglists and LIGOTimeGPS(peak_time, peak_time_ns) in seglists[ifo]
+	connection.create_function("is_vetoed", 3, is_vetoed)
 
 	#
 	# (Re)build table.
 	#
 
-	stringutils.create_vetoed_sngl_table(connection, options.vetoes_name, temporary = False)
-
+	cursor = connection.cursor()
+	cursor.execute("""
+DROP TABLE IF EXISTS string_vetoed_sngl;
+	""")
+	cursor.execute("""
+CREATE TABLE string_vetoed_sngl (event_id TEXT PRIMARY KEY)
+	""")
+	cursor.execute("""
+INSERT OR REPLACE INTO
+	string_vetoed_sngl
+SELECT
+	sngl_burst.event_id AS event_id
+FROM
+	sngl_burst
+WHERE
+	is_vetoed(sngl_burst.ifo, sngl_burst.peak_time, sngl_burst.peak_time_ns)
+	""")
+	cursor.close()
 
 	#
 	# Clean up.
 	#
 
+	xmldoc.unlink()
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
