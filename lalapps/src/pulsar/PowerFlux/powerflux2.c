@@ -233,19 +233,6 @@ if(!args_info.sky_marks_file_given){
 	exit(-1);
 	}
 
-if(args_info.preallocate_memory_arg>0) {
-	char *buffer;
-	fprintf(stderr, "Preallocating %g gigabytes of memory\n", args_info.preallocate_memory_arg);
-	/* prevent malloc from returning memory to the system */
-	mallopt(M_TRIM_THRESHOLD, ~0);
-	mallopt(M_MMAP_THRESHOLD, ~0);
-	mallopt(M_MMAP_MAX, 0);
-	fprintf(stderr, "Memory usage before preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
-	buffer=do_alloc(ceil(args_info.preallocate_memory_arg*1024), 1024*1024);
-	free(buffer);
-	fprintf(stderr, "Memory usage after preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
-	}
-
 gsl_rng_env_setup();
 gsl_set_error_handler_off();
 
@@ -302,6 +289,19 @@ if(gethostname(s, 19999)>=0){
 
 for(i=0;i<args_info.config_given;i++) {
 	fprintf(LOG, "using config file: %s\n", args_info.config_arg[i]);
+	}
+
+if(args_info.preallocate_memory_arg>0) {
+	char *buffer;
+	fprintf(stderr, "Preallocating %g gigabytes of memory\n", args_info.preallocate_memory_arg);
+	/* prevent malloc from returning memory to the system */
+	mallopt(M_TRIM_THRESHOLD, ~0);
+	mallopt(M_MMAP_THRESHOLD, ~0);
+	mallopt(M_MMAP_MAX, 0);
+	fprintf(stderr, "Memory usage before preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	buffer=do_alloc(ceil(args_info.preallocate_memory_arg*1024), 1024*1024);
+	free(buffer);
+	fprintf(stderr, "Memory usage after preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 	}
 
 init_threads(args_info.num_threads_arg);
