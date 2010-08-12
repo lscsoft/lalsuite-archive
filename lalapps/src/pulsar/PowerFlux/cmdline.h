@@ -392,6 +392,9 @@ struct gengetopt_args_info
   int bypass_powersum_cache_arg;	/**< @brief bypass partial power sum cache (default='0').  */
   char * bypass_powersum_cache_orig;	/**< @brief bypass partial power sum cache original value given at command line.  */
   const char *bypass_powersum_cache_help; /**< @brief bypass partial power sum cache help description.  */
+  double preallocate_memory_arg;	/**< @brief preallocate this many gigabytes of memory for future usage (default='0.0').  */
+  char * preallocate_memory_orig;	/**< @brief preallocate this many gigabytes of memory for future usage original value given at command line.  */
+  const char *preallocate_memory_help; /**< @brief preallocate this many gigabytes of memory for future usage help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -512,6 +515,7 @@ struct gengetopt_args_info
   unsigned int time_group_count_given ;	/**< @brief Whether time-group-count was given.  */
   unsigned int phase_mismatch_given ;	/**< @brief Whether phase-mismatch was given.  */
   unsigned int bypass_powersum_cache_given ;	/**< @brief Whether bypass-powersum-cache was given.  */
+  unsigned int preallocate_memory_given ;	/**< @brief Whether preallocate-memory was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;

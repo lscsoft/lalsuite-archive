@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <malloc.h>
 #include <gsl/gsl_rng.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -230,6 +231,19 @@ if(!args_info.dataset_given && !args_info.detector_given){
 if(!args_info.sky_marks_file_given){
 	fprintf(stderr,"** You must provide a skymarks file (--sky-marks-file)\n");
 	exit(-1);
+	}
+
+if(args_info.preallocate_memory_arg>0) {
+	char *buffer;
+	fprintf(stderr, "Preallocating %g gigabytes of memory\n", args_info.preallocate_memory_arg);
+	/* prevent malloc from returning memory to the system */
+	mallopt(M_TRIM_THRESHOLD, ~0);
+	mallopt(M_MMAP_THRESHOLD, ~0);
+	mallopt(M_MMAP_MAX, 0);
+	fprintf(stderr, "Memory usage before preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	buffer=do_alloc(ceil(args_info.preallocate_memory_arg*1024), 1024*1024);
+	free(buffer);
+	fprintf(stderr, "Memory usage after preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 	}
 
 gsl_rng_env_setup();
@@ -853,7 +867,7 @@ if(args_info.focus_ra_given &&
 
 if(args_info.only_large_cos_given) {
 	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[2], args_info.only_large_cos_arg);
 	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 	}
 
