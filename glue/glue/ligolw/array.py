@@ -198,20 +198,23 @@ class ArrayStream(ligolw.Stream):
 		# delimiter after the last element.
 		delim = self.getAttribute(u"Delimiter")
 		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
-		a = self.parentNode.array
-		n = iter(IndexIter(a.shape)).next
+		elems = self.parentNode.array.T.flat
+		linelen = self.parentNode.array.shape[0]
+		totallen = self.parentNode.array.size
 		newline = u"\n" + indent + ligolw.Indent
-		file.write(self.start_tag(indent))
-		try:
-			indexes = n()
-			while True:
-				if not indexes[0]:
-					file.write(newline)
-				file.write(xmlescape(format(a[indexes])))
-				indexes = n()
-				file.write(delim)
-		except StopIteration:
-			file.write(u"\n" + self.end_tag(indent) + u"\n")
+		w = file.write
+		w(self.start_tag(indent))
+		if totallen:
+			# there will be at least one line of data
+			w(newline)
+		newline = delim + newline
+		while True:
+			w(xmlescape(delim.join(format(elems.next()) for i in xrange(linelen))))
+			if elems.index >= totallen:
+				break
+			w(newline)
+		w(u"\n" + self.end_tag(indent) + u"\n")
+		return
 
 
 class Array(ligolw.Array):
