@@ -395,7 +395,7 @@ struct gengetopt_args_info
   double preallocate_memory_arg;	/**< @brief preallocate this many gigabytes of memory for future usage (default='0.0').  */
   char * preallocate_memory_orig;	/**< @brief preallocate this many gigabytes of memory for future usage original value given at command line.  */
   const char *preallocate_memory_help; /**< @brief preallocate this many gigabytes of memory for future usage help description.  */
-  int memory_allocation_retries_arg;	/**< @brief number of times to retry allocating memory before giving up (default='100').  */
+  int memory_allocation_retries_arg;	/**< @brief number of times to retry allocating memory before giving up (default='1000').  */
   char * memory_allocation_retries_orig;	/**< @brief number of times to retry allocating memory before giving up original value given at command line.  */
   const char *memory_allocation_retries_help; /**< @brief number of times to retry allocating memory before giving up help description.  */
   
