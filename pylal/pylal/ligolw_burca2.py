@@ -31,6 +31,7 @@ from scipy.interpolate import interpolate
 import sys
 
 
+from glue import segments
 from glue.ligolw import lsctables
 from pylal import git_version
 
@@ -302,7 +303,7 @@ FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 		""", (coinc_event_id,)))
-		return likelihood_ratio(params_func, events, offset_vectors[time_slide_id], *params_func_extra_args)
+		return likelihood_ratio(params_func, [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args)
 
 	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 

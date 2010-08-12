@@ -26,8 +26,6 @@
 #
 
 
-import math
-import numpy
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -37,14 +35,13 @@ except ImportError:
 import sys
 
 
-from glue.lal import CacheEntry
-from glue.ligolw import lsctables
-from glue.ligolw import utils
+from glue.ligolw import dbtables
+from glue.ligolw.utils import segments as ligolwsegments
 from pylal import git_version
-from pylal import ligolw_burca_tailor
-from pylal import ligolw_burca2
-from pylal import SnglBurstUtils
-from pylal import stringutils
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -63,22 +60,19 @@ __date__ = git_version.date
 
 def parse_command_line():
 	parser = OptionParser(
-		version = "Name: %%prog\n%s" % git_version.verbose_msg
+		version = "Name: %%prog\n%s" % git_version.verbose_msg,
+		usage = "%prog [options] [filename ...]",
+		description = "%prog constructs or clears and then populates the string_vetoed_sngl table providing a list of the sngl_burst event_ids of vetoed triggers.  This table is used by other post-processing tools like lalapps_string_meas_likelihood to determine which triggers have been vetoed and which haven't."
 	)
-	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
-	parser.add_option("-l", "--likelihood-file", action = "append", help = "Set the name of the likelihood ratio data file to use.  Can be given more than once.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
+	parser.add_option("-n", "--vetoes-name", metavar = "name", default = "vetoes", help = "Set the name of the segment lists to use as vetoes (default = \"vetoes\").")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.likelihood_file is None:
-		raise ValueError, "missing required option --likelihood-file"
+	if not filenames:
+		raise ValueError, "no input files!"
 
-	if options.input_cache:
-		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
-
-	return options, (filenames or [None])
+	return options, filenames
 
 
 #
@@ -91,7 +85,7 @@ def parse_command_line():
 
 
 #
-# command line
+# Command line.
 #
 
 
@@ -99,33 +93,34 @@ options, filenames = parse_command_line()
 
 
 #
-# load likelihood data
+# Iterate over files
 #
 
 
-coincparamsdistributions = None
-for n, filename in enumerate(options.likelihood_file):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(options.likelihood_file)),
-	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
-	if coincparamsdistributions is None:
-		coincparamsdistributions = stringutils.get_coincparamsdistributions(xmldoc)
-	else:
-		coincparamsdistributions += stringutils.get_coincparamsdistributions(xmldoc)
+def create_string_sngl_is_vetoed_function(connection, veto_segments_name = None):
+	"""
+	Creates a function named string_sngl_is_vetoed in the database at
+	@connection.  The function accepts three parameters --- the
+	instrument name, and the integer and integer nanoseconds components
+	of a time --- and returns true if the instrument is vetoed at that
+	time or false otherwise.  @veto_segments_name sets the name of the
+	segment lists used to define the vetoes.
 
-if options.verbose:
-	print >>sys.stderr, "computing event densities ..."
-coincparamsdistributions.finish(filters = stringutils.DistributionsStats.filters, verbose = options.verbose)
+	If @veto_segments_name is None then a no-op function is created
+	that always returns False.
 
-likelihood_ratio = ligolw_burca2.LikelihoodRatio(coincparamsdistributions)
-
-
-#
-# iterate over files
-#
-
-
-from glue.ligolw import dbtables
+	Note:  this funtion requires glue.ligolw.dbtables and
+	glue.ligolw.utils.segments to be imported as dbtables and
+	ligolwsegments respectively.
+	"""
+	if veto_segments_name is None:
+		connection.create_function("string_sngl_is_vetoed", 3, lambda instrument, peak_time, peak_time_ns: False)
+		return
+	xmldoc = dbtables.get_xml(connection)
+	def is_vetoed(instrument, peak_time, peak_time_ns, seglists = ligolwsegments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()):
+		return instrument in seglists and dbtables.lsctables.LIGOTimeGPS(peak_time, peak_time_ns) in seglists[instrument]
+	connection.create_function("string_sngl_is_vetoed", 3, is_vetoed)
+	xmldoc.unlink()
 
 
 for n, filename in enumerate(filenames):
@@ -141,23 +136,41 @@ for n, filename in enumerate(filenames):
 	dbtables.DBTable_set_connection(connection)
 
 	#
-	# Summarize the database.
+	# Define the is_vetoed() SQL function.
 	#
 
-	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", veto_segments_name = options.vetoes_name, verbose = options.verbose)
-	if not contents.seglists and options.verbose:
-		print >>sys.stderr, "\twarning:  no segments found"
+	create_string_sngl_is_vetoed_function(connection, options.vetoes_name)
 
 	#
-	# Run likelihood ratio calculation.
+	# (Re)build table.
 	#
 
-	ligolw_burca2.ligolw_burca2(contents, likelihood_ratio, stringutils.coinc_params_func, verbose = options.verbose)
+	cursor = connection.cursor()
+	cursor.execute("""
+DROP TABLE IF EXISTS string_vetoed_sngl;
+	""")
+	cursor.execute("""
+CREATE TABLE string_vetoed_sngl (event_id TEXT PRIMARY KEY)
+	""")
+	cursor.execute("""
+INSERT OR REPLACE INTO
+	string_vetoed_sngl
+SELECT
+	sngl_burst.event_id AS event_id
+FROM
+	sngl_burst
+WHERE
+	string_sngl_is_vetoed(sngl_burst.ifo, sngl_burst.peak_time, sngl_burst.peak_time_ns)
+	""")
+	cursor.close()
 
 	#
 	# Clean up.
-	#
 
-	contents.xmldoc.unlink()
 	connection.close()
-	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+
+
+#
+# Done.
+#
