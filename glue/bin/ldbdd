@@ -131,7 +131,7 @@ Usage: ldbdd [OPTIONS]
 
 If no configuration file is given, the server will attempt to use
 
-  ${GLUE_LOCATION}/etc/ldbdd.ini
+  ${GLUE_PREFIX}/etc/ldbdd.ini
 
 Sending the server process a HUP will cause the confuration and grid-mapfile
 to be re-read and sending the process a TERM will shutdown the server.
@@ -157,12 +157,12 @@ for o, a in opts:
     sys.exit(0)
 
 try:
-  GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+  GLUE_PREFIX = os.environ["GLUE_PREFIX"]
 except:
   pass
 
 if not configFilePath:
-  configFilePath = os.path.join(GLUE_LOCATION, "etc/ldbdserver.ini")
+  configFilePath = os.path.join(GLUE_PREFIX, "etc/ldbdserver.ini")
 
 # default configuration values may go here, but they will be replaced
 # by actual values if and when a ConfigurationManager instance is

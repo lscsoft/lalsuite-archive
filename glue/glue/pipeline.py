@@ -441,17 +441,11 @@ class CondorJob:
       subfile.write( 'arguments = "' )
       for c in self.__options.keys():
         if self.__options[c]:
-          if ' ' in self.__options[c] and '$(macro' not in self.__options[c]:
-            # option has space, add single quotes around it
-            self.__options[c] = ''.join([ "'", self.__options[c], "'" ])
           subfile.write( ' --' + c + ' ' + self.__options[c] )
         else:
           subfile.write( ' --' + c )
       for c in self.__short_options.keys():
         if self.__short_options[c]:
-          if ' ' in self.__short_options[c] and '$(macro' not in self.__short_options[c]:
-            # option has space, add single quotes around it
-            self.__short_options[c] = ''.join([ "'", self.__short_options[c], "'" ])
           subfile.write( ' -' + c + ' ' + self.__short_options[c] )
         else:
           subfile.write( ' -' + c )
@@ -1014,8 +1008,8 @@ class CondorDAGNode:
     parent node has run sucessfully.
     @param node: CondorDAGNode to add as a parent.
     """
-    if not isinstance(node, CondorDAGNode):
-      raise CondorDAGNodeError, "Parent must be a Condor DAG node"
+    if not isinstance(node, (CondorDAGNode,CondorDAGManNode) ):
+      raise CondorDAGNodeError, "Parent must be a CondorDAGNode or a CondorDAGManNode"
     self.__parents.append( node )
 
   def get_cmd_line(self):
@@ -1606,6 +1600,14 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         pass
       try:
         print >> sitefile, """    <profile namespace="env" key="PEGASUS_HOME">%s</profile>""" % os.environ['PEGASUS_HOME']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="LIGO_DATAFIND_SERVER">%s</profile>""" % os.environ['LIGO_DATAFIND_SERVER']
+      except:
+        pass
+      try:
+        print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
       except:
         pass
       print >> sitefile, """\
@@ -3042,7 +3044,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     once the ifo, start and end times have been set.
     """
     if self.__start and self.__end and self.__observatory and self.__type:
-      self.__output = os.path.join(self.__job.get_cache_dir(), self.__observatory + '-' + self.__type + '-' + str(self.__start) + '-' + str(self.__end) + '.cache')
+      self.__output = os.path.join(self.__job.get_cache_dir(), self.__observatory + '-' + self.__type +'_CACHE' + '-' + str(self.__start) + '-' + str(self.__end - self.__start) + '.lcf')
       self.set_output(self.__output)
 
   def set_start(self,time,pad = None):

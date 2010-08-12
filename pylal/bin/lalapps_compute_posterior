@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import sys
 import os
@@ -304,7 +301,7 @@ of plotnumgalaxies (png-output.ini).
 Example:
 
 """
-parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
+parser = OptionParser( usage=usage, version=git_version.verbose_msg )
 
 parser.add_option("-p","--prior",action="store",type="string",\
     default=None,\

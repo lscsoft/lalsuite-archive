@@ -152,6 +152,12 @@ def load_time_slides(filename, verbose = False, gz = False):
 	is synchronized with the result, so that the next ID it generates
 	will be immediately following the IDs listed in the dictionary
 	returned by this function.
+
+	Note also that this utility function should not be how applications
+	that perform multiple manipulations with an XML file obtain the
+	time slide table's contents since this function re-parses the file
+	from scratch.  Instead, from the glue.ligolw package use
+	table.get_table(...).as_dict().
 	"""
 	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz")), lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()

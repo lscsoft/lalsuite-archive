@@ -30,5 +30,7 @@ foreach F $files {
 	foreach {var value} [get_header $F] { set $var $value }
 	set NEW_NAME [subst $NEW_SFT_TEMPLATE]
 	puts "$NEW_NAME"
-	file rename $F [file join $DIRECTORY [subst $NEW_NAME]]
+	catch {
+		file rename $F [file join $DIRECTORY [subst $NEW_NAME]]
+		}
 	}

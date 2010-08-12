@@ -527,6 +527,9 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
 #
 #   Finished cycling over experiments; exit
 #
+connection.close()
+dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
+
 if opts.verbose:
     print >> sys.stdout, "Finished!"
 sys.exit(0)

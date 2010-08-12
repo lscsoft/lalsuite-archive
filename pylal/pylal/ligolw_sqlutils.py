@@ -305,11 +305,27 @@ class parse_param_ranges:
         # just return None
         return None
 
+    def param_range_by_group( self, group_num ):
+        """
+        Takes in a group number as returned by group_by_param_range
+        and returns a string representing that group.
+        """
+        this_range = self.param_ranges[group_num]
+        if len(this_range) > 1:
+            range_str = '%s%.2f,%.2f%s' % (
+            this_range[0][0] == '>=' and '[' or this_range[0][0] == '>' and '(',
+            float(this_range[0][1]),
+            float(this_range[1][1]),
+            this_range[1][0] == '<=' and ']' or this_range[1][0] == '<' and ')'
+            )
+        else:
+            range_str = '%s %.2f' % ( this_range[0][0], this_range[0][1] )
+
+        return range_str
+
 
 class parse_coinc_options:
 
-    coinc_types = {}
-    
     def __init__( self, coincs_opt, verbose = False):
         """
         Parses --exclude-coincs and --include-coincs options. The class doesn't
@@ -346,6 +362,8 @@ class parse_coinc_options:
 
         if verbose:
             print >> sys.stderr, "Parsing coinc options..."
+
+        self.coinc_types = {}
 
         for rule in coincs_opt.split(';'):
             rule = rule.strip().lstrip('[').rstrip(']').upper()

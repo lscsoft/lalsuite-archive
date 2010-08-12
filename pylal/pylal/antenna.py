@@ -1,5 +1,3 @@
-# $Id$
-#
 # Copyright (C) 2007   Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -39,11 +37,6 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
-
-    
-
 
 def response( gpsTime, rightAscension, declination, inclination,
               polarization, unit, det ):

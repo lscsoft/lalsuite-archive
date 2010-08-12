@@ -2,14 +2,10 @@
 """
 Something
 
-$Id$
-
 This program generates a detection checklist for a candidate.
 """
 
 __author__ = 'Romain Gouaty <gouaty@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 __prog__ = "makeChecklist"
 
 ##############################################################################
@@ -41,6 +37,7 @@ from glue import markup
 from pylal import InspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import fu_utils
+from pylal import git_version
 from pylal.fu_writeXMLparams import *
 from pylal import Fr
 from pylal.scrapeHtmlUtils import scrapePage
@@ -70,10 +67,7 @@ def getFileMatchingTrigger(jobname,string_id,file_list=False):
 usage = """usage: %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v", "--version",action="store_true",default=False,\
-    help="print version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("","--trigger-id",action="store",type="string",\
     metavar=" STRING",help="eventid of the analysed trigger")
@@ -158,19 +152,13 @@ parser.add_option("","--remote-seismic-qscan-web",action="store",type="string",\
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id: generate_checklist.py, v 1.0 2008/05/20 07:00:00 romain Exp"
-  sys.exit(0)
-
 ##############################################################################
 # main program
 
 # List of ifos (used to check for Nelson KW vetoes)
 #ifoList = ['H1','H2','L1']
 
-opts = InspiralUtils.initialise(opts,__prog__,__version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 page = markup.page(mode="strict_html")
 page._escape = False

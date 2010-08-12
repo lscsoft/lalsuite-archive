@@ -8,12 +8,9 @@
 # =============================================================================
 #
 
-__Id__ = "$Id$"
 __author__ = "David McKechan"
 __title__ = "Track the SNR of found triggers"
 __prog__ = "plotinspfound"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 
 import sys, os, re, glob, exceptions
@@ -27,6 +24,7 @@ from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import SimInspiralUtils
+from pylal import git_version
 import numpy
 import matplotlib
 matplotlib.use('Agg')
@@ -54,7 +52,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage) 
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
   parser.add_option("-c", "--cache-file", help="LAL cache of relevant files")
   parser.add_option("-e", "--enable-output", action="store_true",\
                      default=False, help="write output to webpage" )
@@ -124,7 +122,8 @@ to analyze." )
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
-  options = InspiralUtils.initialise(options, __prog__, __version__)
+  options = InspiralUtils.initialise(options, __prog__,
+    git_version.verbose_msg)
   return options, sys.argv[1:]
 
 

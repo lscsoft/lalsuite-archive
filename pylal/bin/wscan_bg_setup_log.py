@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "wscan_bg_setup_log.py"
-__Id__ = "$Id$"
 __title__ = "Set up a log file with the start time of the run"
 
 ##############################################################################
@@ -14,16 +11,14 @@ import ConfigParser
 import time
 
 from glue import gpstime
+from pylal import git_version
 
 ##############################################################################
 
 ######################## OPTION PARSING  #####################################
 usage = """usage: %prog [options]
 """
-parser = OptionParser( usage )
-
-parser.add_option("-v", "--version",action="store_true",default=False,\
-	help="print version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("-s","--start-run",action="store_true",default=False,\
 	help="creates a log file and write the start time of the run inside it")
@@ -39,10 +34,6 @@ parser.add_option("-n","--log-name",action="store",type="string",\
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-if opts.version:
-	print "$Id$"
-	sys.exit(0)
 
 #############################################################################
 

@@ -2,10 +2,7 @@
 
 
 __author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __name__="addEfficiencyFactor"
-__Id__ = "$Id$"
 
 #loading standard modules
 from optparse import *
@@ -31,6 +28,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
 from pylal import SearchSummaryUtils
+from pylal import git_version
 
 
 import numpy
@@ -51,7 +49,7 @@ def parse_command_line():
   """
   
   # options for input data
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
   
   parser.add_option("", "--config-file",action="store",type="string",\
 	  metavar=" FILE",help="use configuration file FILE")

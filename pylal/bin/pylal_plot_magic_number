@@ -12,6 +12,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from glue import lal
 from pylal import InspiralUtils
+from pylal import git_version
 import numpy
 
 usage = """
@@ -29,10 +30,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg)
 
   parser.add_option("", "--cache-file", metavar="CACHEFILE",\
       help="cache pointing to files of interest")

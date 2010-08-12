@@ -1,5 +1,4 @@
 # encoding: utf-8
-# $Id$
 #
 # Copyright (C) 2008  Nickolas V Fotopoulos
 #
@@ -18,8 +17,6 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
 
 from glue.segments import segment
 import pylab

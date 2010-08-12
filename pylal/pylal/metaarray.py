@@ -10,8 +10,6 @@
                    compatibility between two Spectra
   SpectrumList - subclass of MetaArrayList that has some nice features specific
                to SpectrumMetadata
-
-  $Id$
 """
 from __future__ import division
 

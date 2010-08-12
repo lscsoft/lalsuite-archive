@@ -7,6 +7,8 @@ import ConfigParser
 import random
 import shutil
 
+from pylal import git_version
+
 ##############################################################################
 usage = """
 usage: %prog [options] 
@@ -17,7 +19,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg )
   parser.add_option("-f", "--config-file",action="store",type="string",\
       metavar=" FILE", help="use configuration file FILE")
   parser.add_option("-s", "--skip-spin",action="store_true",default=False,\

@@ -90,6 +90,16 @@ def DBTable_set_connection(connection):
 	DBTable.connection = connection
 
 
+#
+# Module-level variable used to hold references to
+# tempfile.NamedTemporaryFiles objects to prevent them from being deleted
+# while in use.  NOT MEANT FOR USE BY CODE OUTSIDE OF THIS MODULE!
+#
+
+
+temporary_files = dict()
+
+
 def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
 	"""
 	Utility code for moving database files to a (presumably local)
@@ -97,14 +107,23 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	load.
 	"""
 	def mktmp(path, verbose = False):
-		fd, filename = tempfile.mkstemp(suffix = ".sqlite", dir = path)
-		os.close(fd)
+		temporary_file = tempfile.NamedTemporaryFile(suffix = ".sqlite", dir = path)
+		def new_unlink(self, orig_unlink = temporary_file.unlink):
+			# also remove a -journal partner, ignore all errors
+			try:
+				orig_unlink("%s-journal" % self)
+			except:
+				pass
+			orig_unlink(self)
+		temporary_file.unlink = new_unlink
+		filename = temporary_file.name
+		temporary_files[filename] = temporary_file
 		if verbose:
 			print >>sys.stderr, "using '%s' as workspace" % filename
 		# mkstemp() ignores umask, creates all files accessible
 		# only by owner;  we should respect umask.  note that
-		# umask() sets it, too, so we have to set it back after we
-		# know what it is
+		# os.umask() sets it, too, so we have to set it back after
+		# we know what it is
 		umsk = os.umask(0777)
 		os.umask(umsk)
 		os.chmod(filename, 0666 & ~umsk)
@@ -112,7 +131,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def truncate(filename, verbose = False):
 		if verbose:
-			print >>sys.stderr, "'%s' exists, truncating ..." % filename
+			print >>sys.stderr, "'%s' exists, truncating ..." % filename,
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
 		except:
@@ -125,8 +144,10 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 
 	def cpy(srcname, dstname, verbose = False):
 		if verbose:
-			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname)
+			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname),
 		shutil.copy2(srcname, dstname)
+		if verbose:
+			print >>sys.stderr, "done."
 		try:
 			# try to preserve permission bits.  according to
 			# the documentation, copy() and copy2() are
@@ -175,6 +196,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 						target = filename
 					break
 	else:
+		if filename in temporary_files:
+			raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
@@ -239,8 +262,23 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# replace document
 		if verbose:
-			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename)
+			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename),
 		shutil.move(working_filename, filename)
+		if verbose:
+			print >>sys.stderr, "done."
+
+		# remove reference to tempfile.TemporaryFile object.
+		# because we've just deleted the file above, this would
+		# produce an annoying but harmless message about an ignored
+		# OSError, so we create a dummy file for the TemporaryFile
+		# to delete.  ignore any errors that occur when trying to
+		# make the dummy file.  FIXME: this is stupid, find a
+		# better way to shut TemporaryFile up
+		try:
+			file(working_filename, "w")
+		except:
+			pass
+		del temporary_files[working_filename]
 
 		# restore original handlers, and report the most recently
 		# trapped signal if any were
@@ -266,8 +304,11 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 	"""
 	if working_filename != filename:
 		if verbose:
-			print >>sys.stderr, "removing '%s' ..." % working_filename
-		os.remove(working_filename)
+			print >>sys.stderr, "removing '%s' ..." % working_filename,
+		# remove reference to tempfile.TemporaryFile object
+		del temporary_files[working_filename]
+		if verbose:
+			print >>sys.stderr, "done."
 
 
 #
@@ -304,6 +345,18 @@ def idmap_reset(connection):
 	connection.cursor().execute("DELETE FROM _idmap_")
 
 
+def idmap_sync(connection):
+	"""
+	Iterate over the tables in the database, ensure that there exists a
+	custom DBTable class for each, and synchronize that table's ID
+	generator to the ID values in the database.
+	"""
+	xmldoc = get_xml(connection)
+	for tbl in xmldoc.getElementsByTagName(DBTable.tagName):
+		tbl.sync_next_id()
+	xmldoc.unlink()
+
+
 def idmap_get_new(connection, old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
@@ -336,19 +389,19 @@ def idmap_get_max_id(connection, id_class):
 
 	Example:
 
-	>>> id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
-	>>> print id
+	>>> event_id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> print event_id
 	sngl_inspiral:event_id:0
-	>>> max = get_max_id(connection, type(id))
-	>>> print max
+	>>> max_id = get_max_id(connection, type(event_id))
+	>>> print max_id
 	sngl_inspiral:event_id:1054
 	"""
 	cursor = connection.cursor()
 	cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (id_class.column_name, id_class.index_offset + 1, id_class.table_name))
-	max = cursor.fetchone()[0]
-	if max is None:
+	maxid = cursor.fetchone()[0]
+	if maxid is None:
 		return None
-	return id_class(max)
+	return id_class(maxid)
 
 
 #

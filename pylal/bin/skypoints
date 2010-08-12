@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Patrick Brady <patrick.brady@ligo.org> and Larry Price <larry.price@ligo.org> "
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="plotskypoints"
-__Id__ = "$Id$"
 
 import sys
 import os
@@ -38,6 +33,7 @@ from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import llwapp
 from pylal import date
+from pylal import git_version
 from pylal import googlesky
 from pylal.xlal import tools
 from pylal.xlal import inject
@@ -1043,7 +1039,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\

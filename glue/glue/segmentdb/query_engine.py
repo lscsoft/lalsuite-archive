@@ -92,7 +92,7 @@ class LdbdQueryEngine(QueryEngine):
 	def __init__(self, client):
 		def dtd_uri_callback(uri):
 			if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
-				return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"], 'etc/ligolw_dtd.txt' )
+				return 'file://localhost' + os.path.join( os.environ["GLUE_PREFIX"], 'etc/ligolw_dtd.txt' )
 			else:
 				return uri
 
