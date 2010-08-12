@@ -154,10 +154,6 @@ def get_array(xmldoc, name):
 #
 
 
-def IndexIter(shape):
-	return iterutils.MultiIter(*map(range, shape))
-
-
 class ArrayStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Arrays.  This element
@@ -175,15 +171,14 @@ class ArrayStream(ligolw.Stream):
 		# has been set.
 		self._tokenizer.set_types([parentNode.pytype])
 		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
-		self._index = iter(IndexIter(parentNode.array.shape))
+		self._index = 0
 		return self
 
 	def appendData(self, content):
 		# tokenize buffer, and assign to array
-		a = self.parentNode.array
-		n = self._index.next
-		for token in self._tokenizer.append(content):
-			a[n()] = token
+		tokens = tuple(self._tokenizer.append(content))
+		self.parentNode.array.T.flat[self._index : self._index + len(tokens)] = tokens
+		self._index += len(tokens)
 
 	def unlink(self):
 		"""
