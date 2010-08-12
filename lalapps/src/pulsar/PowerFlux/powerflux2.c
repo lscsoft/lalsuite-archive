@@ -117,7 +117,7 @@ if(b<1)b=1;
 r=calloc(a,b);
 while(r==NULL){
 	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total), current memory usage %ld\n",a,b,a*b, MEMUSAGE);
-	if(i>10)exit(-1);
+	if(i>100)exit(-1);
 	condor_safe_sleep(10);
 	r=calloc(a,b);
 	i++;
