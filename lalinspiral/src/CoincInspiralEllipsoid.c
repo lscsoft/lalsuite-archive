@@ -177,7 +177,15 @@ LALCreateTwoIFOCoincListEllipsoid(
   memset( currentTriggerNS, 0, 2 * sizeof(INT8) );
 
   /* Loop through triggers and assign each of them an error ellipsoid */
-  errorListHead = XLALCreateTriggerErrorList( snglInput, accuracyParams->eMatch, &timeError );
+  if ( !accuracyParams->snrDepEThinca )
+  {
+    errorListHead = XLALCreateTriggerErrorList( snglInput, accuracyParams->eMatch, &timeError );
+  }
+  else
+  {
+    errorListHead = XLALSNRDepTriggerErrorList( snglInput, accuracyParams->eMatch,
+                                     accuracyParams->minEThinca, &timeError );
+  }
   if ( !errorListHead )
   {
     ABORTXLAL( status );

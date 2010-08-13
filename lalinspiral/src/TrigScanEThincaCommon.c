@@ -66,16 +66,66 @@ TrigScan and E-thinca have completed.
 #endif
 
 
+static
+TriggerErrorList * CreateTriggerErrorList( SnglInspiralTable *tableHead,
+                                           REAL8             scaleFactor,
+                                           UINT2             snrDep,
+                                           REAL8             minScale,
+                                           REAL8             *tcMax );
+
+
 /* <lalVerbatim file="TrigScanEThincaCommonCP"> */
+
 TriggerErrorList * XLALCreateTriggerErrorList( SnglInspiralTable *tableHead,
                                                REAL8             scaleFactor,
                                                REAL8             *tcMax )
 /* </lalVerbatim> */
 {
+  static const char func[] = "XLALCreateTriggerErrorList";
 
-  static const char *func = "XLALCreateTriggerErrorList";
+  TriggerErrorList *errorList;
+
+  errorList = CreateTriggerErrorList( tableHead, scaleFactor, 0, 0, tcMax );
+
+  if ( !errorList )
+    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+
+  return errorList;
+}
+
+
+TriggerErrorList * XLALSNRDepTriggerErrorList( SnglInspiralTable *tableHead,
+                                           REAL8             scaleFactor,
+                                           REAL8             minScale,
+                                           REAL8             *tcMax )
+{
+  static const char func[] = "XLALSNRDepTriggerErrorList";
+
+  TriggerErrorList *errorList;
+
+  errorList = CreateTriggerErrorList( tableHead, scaleFactor, 1, 
+                                      minScale, tcMax );
+
+  if ( !errorList )
+    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+
+  return errorList;
+}
+
+
+static
+TriggerErrorList * CreateTriggerErrorList( SnglInspiralTable *tableHead,
+                                           REAL8             scaleFactor,
+                                           UINT2             snrDep,
+                                           REAL8             minScale,
+                                           REAL8             *tcMax )
+{
+
+  static const char func[] = "CreateTriggerErrorList";
 
   REAL8 timeError = 0.0;
+
+  REAL8 scaleToUse = scaleFactor;
 
   TriggerErrorList *errorListHead = NULL;
   TriggerErrorList *thisErrorList = NULL;
@@ -88,6 +138,9 @@ TriggerErrorList * XLALCreateTriggerErrorList( SnglInspiralTable *tableHead,
 
   if ( scaleFactor <= 0 )
     XLAL_ERROR_NULL( func, XLAL_EINVAL );
+
+  if ( snrDep > 1 )
+    XLAL_ERROR_NULL( func, XLAL_EINVAL );
 #endif
 
   /* Loop through triggers and assign each of them an error ellipsoid */
@@ -95,6 +148,13 @@ TriggerErrorList * XLALCreateTriggerErrorList( SnglInspiralTable *tableHead,
       currentTrigger = currentTrigger->next)
   {
     REAL8 thisTimeError;
+
+    /* If necessary, scale the ellipsoid according to the SNR of the trigger */
+    if ( snrDep )
+    {
+      REAL8 rhoSq = currentTrigger->snr * currentTrigger->snr;
+      scaleToUse = scaleFactor <= minScale * rhoSq ? minScale : scaleFactor / rhoSq;
+    }
 
     if (!errorListHead)
     {
@@ -114,7 +174,7 @@ TriggerErrorList * XLALCreateTriggerErrorList( SnglInspiralTable *tableHead,
 
     thisErrorList->trigger    = currentTrigger;
     thisErrorList->err_matrix = XLALGetErrorMatrixFromSnglInspiral( currentTrigger,
-                                  scaleFactor );
+                                  scaleToUse );
     if ( !thisErrorList->err_matrix )
     {
       XLALDestroyTriggerErrorList( errorListHead );
@@ -127,7 +187,7 @@ TriggerErrorList * XLALCreateTriggerErrorList( SnglInspiralTable *tableHead,
       XLALDestroyTriggerErrorList( errorListHead );
       XLAL_ERROR_NULL( func, XLAL_EFUNC );
     }
-    thisTimeError = XLALSnglInspiralTimeError(currentTrigger, scaleFactor );
+    thisTimeError = XLALSnglInspiralTimeError(currentTrigger, scaleToUse );
     if (thisTimeError > timeError)
     {
       timeError = thisTimeError;

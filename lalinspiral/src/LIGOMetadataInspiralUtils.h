@@ -96,12 +96,14 @@ typedef struct
 tagInspiralAccuracyList
 {
   INT4                      match;
+  INT2                      snrDepEThinca;
   SnglInspiralParameterTest test;
   SnglInspiralAccuracy      ifoAccuracy[LAL_NUM_IFO];
   INT8                      lightTravelTime[LAL_NUM_IFO][LAL_NUM_IFO];
   REAL4                     iotaCutH1H2;
   REAL4                     iotaCutH1L1;
   REAL8                     eMatch;
+  REAL8                     minEThinca;
   INT4                      exttrig;
 }
 InspiralAccuracyList;

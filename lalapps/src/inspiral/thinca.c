@@ -93,6 +93,7 @@ int doBCVC = 0;
 int h1h2Consistency = 0;
 int doVeto = 0;
 int completeCoincs = 0;
+int snrDepEThinca = 0;
 
 INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
@@ -233,6 +234,10 @@ fprintf( a, "  [--exttrig]           source     enables the External-Trigger mod
 fprintf( a, "                                         (using actual time delays) for a source\n");\
 fprintf( a, "                                   specified in the source file\n");\
 fprintf( a, "\n");\
+fprintf( a, "  [--snr-dependent]                Allow the e-thinca parameter to scale with SNR\n");\
+fprintf( a, "  [--min-ethinca]       value      Ensure the scaled e-thinca parameter remains larger\n");\
+fprintf( a, "                                   than the given value.\n");\
+fprintf( a, "\n");\
 fprintf( a, "[LIGOLW XML input files] list of the input trigger files.\n");\
 
 /*
@@ -250,6 +255,8 @@ int main( int argc, char *argv[] )
   LIGOTimeGPS startCoinc = {0,0};
   INT4  endCoincidence = -1;
   LIGOTimeGPS endCoinc = {0,0};
+
+  REAL8        minEThinca = -1;
 
   REAL8        slideStep[LAL_NUM_IFO];
   LIGOTimeGPS  slideTimes[LAL_NUM_IFO];
@@ -357,6 +364,7 @@ int main( int argc, char *argv[] )
     {"bcvc",                no_argument,   &doBCVC,                   1 },
     {"do-veto",             no_argument,   &doVeto,                   1 },
     {"complete-coincs",     no_argument,   &completeCoincs,           1 },
+    {"snr-dependent",       no_argument,   &snrDepEThinca,            1 },
     {"g1-slide",            required_argument, 0,                    'b'},
     {"h1-slide",            required_argument, 0,                    'c'},
     {"h2-slide",            required_argument, 0,                    'd'},
@@ -401,6 +409,7 @@ int main( int argc, char *argv[] )
     {"t1-psi3-accuracy",    required_argument, 0,                    '+'},
     {"v1-psi3-accuracy",    required_argument, 0,                    '='},
     {"e-thinca-parameter",  required_argument, 0,                    '`'},
+    {"min-e-thinca",        required_argument, 0,                    ','},
     {"h1-kappa",            required_argument, 0,                    'W'},
     {"h2-kappa",            required_argument, 0,                    'Y'},
     {"h1-epsilon",          required_argument, 0,                    'w'},
@@ -508,7 +517,7 @@ int main( int argc, char *argv[] )
     c = getopt_long_only( argc, argv, 
         "A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "2:3:4:5:6:7:8:9:`:!:-:+:=:@:^:&:*:(:):{:}:[:]:~", 
+        "2:3:4:5:6:7:8:9:`:!:-:+:=:@:^:&:*:(:):{:}:[:]:,:~", 
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -1074,6 +1083,13 @@ int main( int argc, char *argv[] )
         ADD_PROCESS_PARAM( "float", "%s", optarg );
         break;
 
+      case ',':
+      /* Min e-thinca if scaling by SNR */
+        accuracyParams.minEThinca    = minEThinca = atof(optarg);
+        accuracyParams.snrDepEThinca = 1;
+        ADD_PROCESS_PARAM( "float", "%s", optarg );
+        break;
+
       case '@':
         /* set the maximization window */
         maximizationInterval = atoi( optarg );
@@ -1237,6 +1253,32 @@ int main( int argc, char *argv[] )
                "and must be larger than 0.\n" );
      exit(1);
   }    
+
+  /* If we are scaling ellipsoids by SNR check options are consistent */
+  if ( snrDepEThinca )
+  {
+     if ( accuracyParams.test != ellipsoid )
+     {
+       fprintf( stderr, "Error: You have requested SNR dependent e-thinca "\
+                 "but the test is not set to 'ellipsoid'.\n" );
+       exit(1);
+     }
+
+     if ( minEThinca < 0 )
+     {
+       fprintf( stderr, "SNR dependent e-thinca requested, but min e-thinca "\
+                 "value invalid or not set.\n" );
+       exit(1);
+     }
+  }
+  else if ( minEThinca >= 0 )
+  {
+     fprintf( stderr, "Min e-thinca value has been set, but SNR dependent "\
+               "e-thinca has not been requested.\n" );
+     exit(1);
+  }
+
+  
 
   /* Data Type */
   if ( dataType == unspecified_data_type )
@@ -1824,7 +1866,14 @@ int main( int argc, char *argv[] )
  
   }
  
-  
+ 
+  /* If we are doing SNR dependent e-thinca, we will need ro
+   * rescale the e-thinca parameter */
+  if ( snrDepEThinca )
+  {
+    accuracyParams.eMatch *= 5.5*5.5;
+  } 
+
   /* 
    *  
    * check for two IFO coincidence
