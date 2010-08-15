@@ -66,8 +66,15 @@ parser.add_option("-o","--output-file",action="store",type="string",\
                   metavar="OUTPUTFILE.wiki",default=None,\
                   help="This sets the name of the file to save the DQ\
  result into.")
-                  
-
+parser.add_option("-b","--estimate-background",action="store_true",\
+                  default=False,help="Use this flag to \
+invoke the generation of a DQ background to include in the output \
+of the DQ information for the time in question.")
+parser.add_option("-l","--background-location",action="store",\
+                   type="string",metavar="myDiskURL", \
+                   default="",help="Specify the disk path to the \
+stored location of a static DQ background file.  This is epoch \
+specific.")
 
 ######################################################################
 
@@ -79,6 +86,8 @@ triggerTime=opts.trigger_time
 outputType=opts.output_format
 outputFile=opts.output_file
 ifos=opts.ifo_list.upper().split(",")
+backgroundLocation=str(opts.background_location).strip()
+estimateBackground=opts.estimate_background
 
 #If ifo args seem wrong
 if sum([len(x) != 2 for x in ifos]):
@@ -91,9 +100,21 @@ if len(opts.window.split(',')) == 2:
     frontWindow,backWindow=opts.window.split(',')
     if len(backWindow) == 0:
         backWindow=frontWindow
-
 x=followupDQV(server)
 x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,ifoList=ifos)
+if estimateBackground:
+    if backgroundLocation == "automatic":
+        backgroundLocation=x.figure_out_pickle("automatic")
+        x.resetPicklePointer(backgroundLocation)
+    elif backgroundLocation != "":
+        #Check background file exists!
+        if not os.path.isfile(backgroundLocation):
+            sys.stderr.write("%s does not exist!\n"%(backgroundLocation))
+            sys.stderr.write("Generate one with followupGenerateDQBackground.py.\n")
+            sys.stderr.write("Skipping background use...\n")
+        else:
+            x.resetPicklePointer(backgroundLocation)
+    x.estimateDQbackground()
 result=""
 if outputType.upper().strip() == "LIST":
     result=x.generateResultList()

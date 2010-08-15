@@ -25,9 +25,11 @@
 
 
 import math
+import sys
 
 
 from glue import iterutils
+from glue import segmentsUtils
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -84,6 +86,7 @@ def coinc_params_func(events, offsetdict):
 
 		df = float((event1.central_freq + 0.5*event1.bandwidth - event2.central_freq - 0.5*event2.bandwidth)/(event1.central_freq + 0.5*event1.bandwidth + event2.central_freq + 0.5*event2.bandwidth))
 		params["%sdf" % prefix] = (df,)
+
 	#
 	# done
 	#
@@ -134,28 +137,28 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	}
 
 	filters = {
-		"H1_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"H2_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"L1_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"V1_snr2_chi2": rate.gaussian_window2d(11, 11),
-		"H1_H2_dt": rate.gaussian_window(11),
-		"H1_L1_dt": rate.gaussian_window(11),
-		"H1_V1_dt": rate.gaussian_window(11),
-		"H2_L1_dt": rate.gaussian_window(11),
-		"H2_V1_dt": rate.gaussian_window(11),
-		"L1_V1_dt": rate.gaussian_window(11),
-		"H1_H2_dA": rate.gaussian_window(11),
-		"H1_L1_dA": rate.gaussian_window(11),
-		"H1_V1_dA": rate.gaussian_window(11),
-		"H2_L1_dA": rate.gaussian_window(11),
-		"H2_V1_dA": rate.gaussian_window(11),
-		"L1_V1_dA": rate.gaussian_window(11),
-		"H1_H2_df": rate.gaussian_window(11),
-		"H1_L1_df": rate.gaussian_window(11),
-		"H1_V1_df": rate.gaussian_window(11),
-		"H2_L1_df": rate.gaussian_window(11),
-		"H2_V1_df": rate.gaussian_window(11),
-		"L1_V1_df": rate.gaussian_window(11)
+		"H1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H2_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"L1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"V1_snr2_chi2": rate.gaussian_window2d(11, 11, sigma = 20),
+		"H1_H2_dt": rate.gaussian_window(11, sigma = 20),
+		"H1_L1_dt": rate.gaussian_window(11, sigma = 20),
+		"H1_V1_dt": rate.gaussian_window(11, sigma = 20),
+		"H2_L1_dt": rate.gaussian_window(11, sigma = 20),
+		"H2_V1_dt": rate.gaussian_window(11, sigma = 20),
+		"L1_V1_dt": rate.gaussian_window(11, sigma = 20),
+		"H1_H2_dA": rate.gaussian_window(11, sigma = 20),
+		"H1_L1_dA": rate.gaussian_window(11, sigma = 20),
+		"H1_V1_dA": rate.gaussian_window(11, sigma = 20),
+		"H2_L1_dA": rate.gaussian_window(11, sigma = 20),
+		"H2_V1_dA": rate.gaussian_window(11, sigma = 20),
+		"L1_V1_dA": rate.gaussian_window(11, sigma = 20),
+		"H1_H2_df": rate.gaussian_window(11, sigma = 20),
+		"H1_L1_df": rate.gaussian_window(11, sigma = 20),
+		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
+		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
+		"L1_V1_df": rate.gaussian_window(11, sigma = 20)
 	}
 
 	def __init__(self):
@@ -173,6 +176,40 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
+
+
+#
+# Livetime
+#
+
+
+def time_slides_livetime(seglists, time_slides, min_instruments, verbose = False, clip = None):
+	"""
+	seglists is a segmentlistdict of times when each of a set of
+	instruments were on, time_slides is a sequence of
+	instrument-->offset dictionaries, each vector of offsets in the
+	sequence is applied to the segmentlists and the total time during
+	which at least min_instruments were on is summed and returned.  If
+	clip is not None, after each offset vector is applied to seglists
+	the result is intersected with clip before computing the livetime.
+	If verbose is True then progress reports are printed to stderr.
+	"""
+	livetime = 0.0
+	seglists = seglists.copy()	# don't modify original
+	N = len(time_slides)
+	if verbose:
+		print >>sys.stderr, "computing the live time for %d time slides:" % N
+	for n, time_slide in enumerate(time_slides):
+		if verbose:
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+		seglists.offsets.update(time_slide)
+		if clip is None:
+			livetime += float(abs(segmentsUtils.vote(seglists.values(), min_instruments)))
+		else:
+			livetime += float(abs(segmentsUtils.vote((seglists & clip).values(), min_instruments)))
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
+	return livetime
 
 
 #

@@ -236,7 +236,7 @@ fprintf(stderr,"Successfully initialized ephemeris data\n");
 if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
-void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
+void get_AM_response(INT64 gps, double coherence_time, float latitude, float longitude, float orientation,
 	float *plus, float *cross)
 {
 LALStatus status={level:0, statusPtr:NULL};
@@ -246,8 +246,8 @@ LALDetAMResponse response;
 LIGOTimeGPS ligo_gps;
 
 memset(&ligo_gps, 0, sizeof(ligo_gps));
-ligo_gps.gpsSeconds=gps; 
-ligo_gps.gpsNanoSeconds=0;
+ligo_gps.gpsSeconds=gps+floor(0.5*coherence_time); 
+ligo_gps.gpsNanoSeconds=round(1e9*(0.5*coherence_time-floor(0.5*coherence_time)));
 
 memset(&source, 0, sizeof(source));
 source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
@@ -320,7 +320,7 @@ TESTSTATUS(&status);
 }
 
 /* there are count*GRID_FIT_COUNT coefficients */
-void get_whole_sky_AM_response(INT64 *gps, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
+void get_whole_sky_AM_response(INT64 *gps, double coherence_time, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
 {
 int i, j, k;
 SKY_GRID *sample_grid=NULL;
@@ -352,7 +352,7 @@ X=gsl_matrix_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 
 for(k=0;k<count;k++){
 	for(i=0;i<sample_grid->npoints;i++){
-		get_AM_response(gps[k]+900, 
+		get_AM_response(gps[k], coherence_time, 
 			sample_grid->latitude[i], sample_grid->longitude[i], 
 			orientation,
 			&plus, &cross);
@@ -399,7 +399,7 @@ free_grid(sample_grid);
 }
 
 /* there are count*GRID_FIT_COUNT coefficients */
-void verify_whole_sky_AM_response(INT64 *gps, long count, float orientation,  SKY_GRID *sample_grid, float *coeffs_plus, char *name)
+void verify_whole_sky_AM_response(INT64 *gps, double coherence_time, long count, float orientation,  SKY_GRID *sample_grid, float *coeffs_plus, char *name)
 {
 int i,j;
 long offset;
@@ -414,7 +414,7 @@ for(i=0;i<count;i++){
 	for(j=0;j<20;j++){
 		/* test in random grid points */
 		offset=floor(sample_grid->npoints*gsl_rng_uniform(rng));
-		get_AM_response(gps[i]+900, 
+		get_AM_response(gps[i], coherence_time,
 			sample_grid->latitude[offset], sample_grid->longitude[offset], 
 			orientation,
 			&plus, &cross);
@@ -425,4 +425,9 @@ for(i=0;i<count;i++){
 fprintf(stderr, "%s AM coeffs error: %g\n", name, max_err);
 fprintf(LOG, "%s AM coeffs error: %g\n", name, max_err);
 gsl_rng_free(rng);
+}
+
+void epicyclic_phase_model(double gps, SKY_GRID *sample_grid, float *coeffs)
+{
+	
 }

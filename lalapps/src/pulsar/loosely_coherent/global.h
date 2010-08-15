@@ -62,5 +62,11 @@ return (a*a);
 	if(do_print)fprintf(stderr, "**** TODO function \"%s\" line %d file \"%s\": %s\n", __FUNCTION__, __LINE__, __FILE__, (a)); \
 	do_print=0; \
 	}
+	
+#define WARN_ONCE(a) {\
+	static int do_warn=1; \
+	if(do_warn) fprintf(stderr, a); \
+	do_warn=0; \
+	}
 
 #endif

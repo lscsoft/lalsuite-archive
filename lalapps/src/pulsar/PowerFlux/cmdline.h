@@ -120,6 +120,9 @@ struct gengetopt_args_info
   char * output_arg;	/**< @brief output directory.  */
   char * output_orig;	/**< @brief output directory original value given at command line.  */
   const char *output_help; /**< @brief output directory help description.  */
+  char * flat_output_arg;	/**< @brief output directory to contain all files, with no subdirectories (for globus condor).  */
+  char * flat_output_orig;	/**< @brief output directory to contain all files, with no subdirectories (for globus condor) original value given at command line.  */
+  const char *flat_output_help; /**< @brief output directory to contain all files, with no subdirectories (for globus condor) help description.  */
   char * ephemeris_path_arg;	/**< @brief path to detresponse program from lalapps.  */
   char * ephemeris_path_orig;	/**< @brief path to detresponse program from lalapps original value given at command line.  */
   const char *ephemeris_path_help; /**< @brief path to detresponse program from lalapps help description.  */
@@ -150,6 +153,9 @@ struct gengetopt_args_info
   double doppler_multiplier_arg;	/**< @brief a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) (default='1.0').  */
   char * doppler_multiplier_orig;	/**< @brief a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) original value given at command line.  */
   const char *doppler_multiplier_help; /**< @brief a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) help description.  */
+  double dInv_arg;	/**< @brief inverse distance to expected source in seconds (default='0.0').  */
+  char * dInv_orig;	/**< @brief inverse distance to expected source in seconds original value given at command line.  */
+  const char *dInv_help; /**< @brief inverse distance to expected source in seconds help description.  */
   double spindown_start_time_arg;	/**< @brief specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
   char * spindown_start_time_orig;	/**< @brief specify spindown start time in GPS sec. Assumed to be the first SFT segment by default original value given at command line.  */
   const char *spindown_start_time_help; /**< @brief specify spindown start time in GPS sec. Assumed to be the first SFT segment by default help description.  */
@@ -266,6 +272,30 @@ struct gengetopt_args_info
   double fake_freq_arg;	/**< @brief frequency of fake signal to inject.  */
   char * fake_freq_orig;	/**< @brief frequency of fake signal to inject original value given at command line.  */
   const char *fake_freq_help; /**< @brief frequency of fake signal to inject help description.  */
+  double fake_dInv_arg;	/**< @brief inverse distance to source of fake signal in seconds (default='0.0').  */
+  char * fake_dInv_orig;	/**< @brief inverse distance to source of fake signal in seconds original value given at command line.  */
+  const char *fake_dInv_help; /**< @brief inverse distance to source of fake signal in seconds help description.  */
+  double fake_freq_modulation_depth_arg;	/**< @brief depth of additional sinusoidal frequency modulation in Hz (default='0.0').  */
+  char * fake_freq_modulation_depth_orig;	/**< @brief depth of additional sinusoidal frequency modulation in Hz original value given at command line.  */
+  const char *fake_freq_modulation_depth_help; /**< @brief depth of additional sinusoidal frequency modulation in Hz help description.  */
+  double fake_freq_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal frequency modulation (default='1.0').  */
+  char * fake_freq_modulation_freq_orig;	/**< @brief frequency of additional sinusoidal frequency modulation original value given at command line.  */
+  const char *fake_freq_modulation_freq_help; /**< @brief frequency of additional sinusoidal frequency modulation help description.  */
+  double fake_freq_modulation_phase_arg;	/**< @brief phase of additional sinusoidal frequency modulation (default='0.0').  */
+  char * fake_freq_modulation_phase_orig;	/**< @brief phase of additional sinusoidal frequency modulation original value given at command line.  */
+  const char *fake_freq_modulation_phase_help; /**< @brief phase of additional sinusoidal frequency modulation help description.  */
+  double fake_phase_modulation_depth_arg;	/**< @brief depth of additional sinusoidal phase modulation in radians (default='0.0').  */
+  char * fake_phase_modulation_depth_orig;	/**< @brief depth of additional sinusoidal phase modulation in radians original value given at command line.  */
+  const char *fake_phase_modulation_depth_help; /**< @brief depth of additional sinusoidal phase modulation in radians help description.  */
+  double fake_phase_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal phase modulation (default='0.0').  */
+  char * fake_phase_modulation_freq_orig;	/**< @brief frequency of additional sinusoidal phase modulation original value given at command line.  */
+  const char *fake_phase_modulation_freq_help; /**< @brief frequency of additional sinusoidal phase modulation help description.  */
+  double fake_phase_modulation_phase_arg;	/**< @brief phase of additional sinusoidal phase modulation (default='0.0').  */
+  char * fake_phase_modulation_phase_orig;	/**< @brief phase of additional sinusoidal phase modulation original value given at command line.  */
+  const char *fake_phase_modulation_phase_help; /**< @brief phase of additional sinusoidal phase modulation help description.  */
+  int fake_injection_window_arg;	/**< @brief compute this number of frequency bins to the left and right of the central frequency (default='5').  */
+  char * fake_injection_window_orig;	/**< @brief compute this number of frequency bins to the left and right of the central frequency original value given at command line.  */
+  const char *fake_injection_window_help; /**< @brief compute this number of frequency bins to the left and right of the central frequency help description.  */
   double snr_precision_arg;	/**< @brief Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/**< @brief Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /**< @brief Assumed level of error in detection strength - used for listing candidates help description.  */
@@ -387,6 +417,7 @@ struct gengetopt_args_info
   unsigned int dump_data_given ;	/**< @brief Whether dump-data was given.  */
   unsigned int dump_sftv2_given ;	/**< @brief Whether dump-sftv2 was given.  */
   unsigned int output_given ;	/**< @brief Whether output was given.  */
+  unsigned int flat_output_given ;	/**< @brief Whether flat-output was given.  */
   unsigned int ephemeris_path_given ;	/**< @brief Whether ephemeris-path was given.  */
   unsigned int earth_ephemeris_given ;	/**< @brief Whether earth-ephemeris was given.  */
   unsigned int sun_ephemeris_given ;	/**< @brief Whether sun-ephemeris was given.  */
@@ -397,6 +428,7 @@ struct gengetopt_args_info
   unsigned int hist_bins_given ;	/**< @brief Whether hist-bins was given.  */
   unsigned int detector_given ;	/**< @brief Whether detector was given.  */
   unsigned int doppler_multiplier_given ;	/**< @brief Whether doppler-multiplier was given.  */
+  unsigned int dInv_given ;	/**< @brief Whether dInv was given.  */
   unsigned int spindown_start_time_given ;	/**< @brief Whether spindown-start-time was given.  */
   unsigned int frequency_offset_given ;	/**< @brief Whether frequency-offset was given.  */
   unsigned int spindown_start_given ;	/**< @brief Whether spindown-start was given.  */
@@ -437,6 +469,14 @@ struct gengetopt_args_info
   unsigned int fake_spindown_given ;	/**< @brief Whether fake-spindown was given.  */
   unsigned int fake_strain_given ;	/**< @brief Whether fake-strain was given.  */
   unsigned int fake_freq_given ;	/**< @brief Whether fake-freq was given.  */
+  unsigned int fake_dInv_given ;	/**< @brief Whether fake-dInv was given.  */
+  unsigned int fake_freq_modulation_depth_given ;	/**< @brief Whether fake-freq-modulation-depth was given.  */
+  unsigned int fake_freq_modulation_freq_given ;	/**< @brief Whether fake-freq-modulation-freq was given.  */
+  unsigned int fake_freq_modulation_phase_given ;	/**< @brief Whether fake-freq-modulation-phase was given.  */
+  unsigned int fake_phase_modulation_depth_given ;	/**< @brief Whether fake-phase-modulation-depth was given.  */
+  unsigned int fake_phase_modulation_freq_given ;	/**< @brief Whether fake-phase-modulation-freq was given.  */
+  unsigned int fake_phase_modulation_phase_given ;	/**< @brief Whether fake-phase-modulation-phase was given.  */
+  unsigned int fake_injection_window_given ;	/**< @brief Whether fake-injection-window was given.  */
   unsigned int snr_precision_given ;	/**< @brief Whether snr-precision was given.  */
   unsigned int max_candidates_given ;	/**< @brief Whether max-candidates was given.  */
   unsigned int min_candidate_snr_given ;	/**< @brief Whether min-candidate-snr was given.  */

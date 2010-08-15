@@ -59,6 +59,7 @@ const char *gengetopt_args_info_help[] = {
   "      --dump-data=STRING        file to output loaded SFT data into, for \n                                  testing",
   "      --dump-sftv2=STRING       directory to output loaded data, together with \n                                  dataset description",
   "  -o, --output=STRING           output directory",
+  "      --flat-output=STRING      output directory to contain all files, with no \n                                  subdirectories (for globus condor)",
   "      --ephemeris-path=STRING   path to detresponse program from lalapps",
   "      --earth-ephemeris=STRING  Earth ephemeris file, overrides ephemeris-path \n                                  argument",
   "      --sun-ephemeris=STRING    Sun ephemeris file, overrides ephemeris-path \n                                  argument",
@@ -69,6 +70,7 @@ const char *gengetopt_args_info_help[] = {
   "      --hist-bins=INT           number of bins to use when producing histograms \n                                   (default=`200')",
   "  -d, --detector=STRING         detector location (i.e. LHO or LLO), passed to \n                                  detresponse",
   "      --doppler-multiplier=DOUBLE\n                                a constant to multiply Doppler shifts by (1.0 \n                                  corresponds to standard physics)  \n                                  (default=`1.0')",
+  "      --dInv=DOUBLE             inverse distance to expected source in seconds  \n                                  (default=`0.0')",
   "      --spindown-start-time=DOUBLE\n                                specify spindown start time in GPS sec. Assumed \n                                  to be the first SFT segment by default",
   "      --frequency-offset=DOUBLE (small) frequency offset - used to achieve \n                                  fractional bin shifts  (default=`0.0')",
   "      --spindown-start=DOUBLE   first spindown value to process  \n                                  (default=`0.0')",
@@ -110,6 +112,14 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-spindown=DOUBLE    spindown of fake signal to inject  \n                                  (default=`0.0')",
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
+  "      --fake-dInv=DOUBLE        inverse distance to source of fake signal in \n                                  seconds  (default=`0.0')",
+  "      --fake-freq-modulation-depth=DOUBLE\n                                depth of additional sinusoidal frequency \n                                  modulation in Hz  (default=`0.0')",
+  "      --fake-freq-modulation-freq=DOUBLE\n                                frequency of additional sinusoidal frequency \n                                  modulation  (default=`1.0')",
+  "      --fake-freq-modulation-phase=DOUBLE\n                                phase of additional sinusoidal frequency \n                                  modulation  (default=`0.0')",
+  "      --fake-phase-modulation-depth=DOUBLE\n                                depth of additional sinusoidal phase modulation \n                                  in radians  (default=`0.0')",
+  "      --fake-phase-modulation-freq=DOUBLE\n                                frequency of additional sinusoidal phase \n                                  modulation  (default=`0.0')",
+  "      --fake-phase-modulation-phase=DOUBLE\n                                phase of additional sinusoidal phase modulation \n                                   (default=`0.0')",
+  "      --fake-injection-window=INT\n                                compute this number of frequency bins to the \n                                  left and right of the central frequency  \n                                  (default=`5')",
   "      --snr-precision=DOUBLE    Assumed level of error in detection strength - \n                                  used for listing candidates  (default=`0.2')",
   "      --max-candidates=INT      Do not optimize more than this number of \n                                  candidates  (default=`-1')",
   "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this \n                                  level  (default=`5.0')",
@@ -219,6 +229,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->dump_data_given = 0 ;
   args_info->dump_sftv2_given = 0 ;
   args_info->output_given = 0 ;
+  args_info->flat_output_given = 0 ;
   args_info->ephemeris_path_given = 0 ;
   args_info->earth_ephemeris_given = 0 ;
   args_info->sun_ephemeris_given = 0 ;
@@ -229,6 +240,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->hist_bins_given = 0 ;
   args_info->detector_given = 0 ;
   args_info->doppler_multiplier_given = 0 ;
+  args_info->dInv_given = 0 ;
   args_info->spindown_start_time_given = 0 ;
   args_info->frequency_offset_given = 0 ;
   args_info->spindown_start_given = 0 ;
@@ -269,6 +281,14 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->fake_spindown_given = 0 ;
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
+  args_info->fake_dInv_given = 0 ;
+  args_info->fake_freq_modulation_depth_given = 0 ;
+  args_info->fake_freq_modulation_freq_given = 0 ;
+  args_info->fake_freq_modulation_phase_given = 0 ;
+  args_info->fake_phase_modulation_depth_given = 0 ;
+  args_info->fake_phase_modulation_freq_given = 0 ;
+  args_info->fake_phase_modulation_phase_given = 0 ;
+  args_info->fake_injection_window_given = 0 ;
   args_info->snr_precision_given = 0 ;
   args_info->max_candidates_given = 0 ;
   args_info->min_candidate_snr_given = 0 ;
@@ -354,6 +374,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->dump_sftv2_orig = NULL;
   args_info->output_arg = NULL;
   args_info->output_orig = NULL;
+  args_info->flat_output_arg = NULL;
+  args_info->flat_output_orig = NULL;
   args_info->ephemeris_path_arg = NULL;
   args_info->ephemeris_path_orig = NULL;
   args_info->earth_ephemeris_arg = NULL;
@@ -372,6 +394,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->detector_orig = NULL;
   args_info->doppler_multiplier_arg = 1.0;
   args_info->doppler_multiplier_orig = NULL;
+  args_info->dInv_arg = 0.0;
+  args_info->dInv_orig = NULL;
   args_info->spindown_start_time_orig = NULL;
   args_info->frequency_offset_arg = 0.0;
   args_info->frequency_offset_orig = NULL;
@@ -442,6 +466,22 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_strain_arg = 1e-23;
   args_info->fake_strain_orig = NULL;
   args_info->fake_freq_orig = NULL;
+  args_info->fake_dInv_arg = 0.0;
+  args_info->fake_dInv_orig = NULL;
+  args_info->fake_freq_modulation_depth_arg = 0.0;
+  args_info->fake_freq_modulation_depth_orig = NULL;
+  args_info->fake_freq_modulation_freq_arg = 1.0;
+  args_info->fake_freq_modulation_freq_orig = NULL;
+  args_info->fake_freq_modulation_phase_arg = 0.0;
+  args_info->fake_freq_modulation_phase_orig = NULL;
+  args_info->fake_phase_modulation_depth_arg = 0.0;
+  args_info->fake_phase_modulation_depth_orig = NULL;
+  args_info->fake_phase_modulation_freq_arg = 0.0;
+  args_info->fake_phase_modulation_freq_orig = NULL;
+  args_info->fake_phase_modulation_phase_arg = 0.0;
+  args_info->fake_phase_modulation_phase_orig = NULL;
+  args_info->fake_injection_window_arg = 5;
+  args_info->fake_injection_window_orig = NULL;
   args_info->snr_precision_arg = 0.2;
   args_info->snr_precision_orig = NULL;
   args_info->max_candidates_arg = -1;
@@ -538,87 +578,97 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->dump_data_help = gengetopt_args_info_help[24] ;
   args_info->dump_sftv2_help = gengetopt_args_info_help[25] ;
   args_info->output_help = gengetopt_args_info_help[26] ;
-  args_info->ephemeris_path_help = gengetopt_args_info_help[27] ;
-  args_info->earth_ephemeris_help = gengetopt_args_info_help[28] ;
-  args_info->sun_ephemeris_help = gengetopt_args_info_help[29] ;
-  args_info->first_bin_help = gengetopt_args_info_help[30] ;
-  args_info->nbins_help = gengetopt_args_info_help[31] ;
-  args_info->side_cut_help = gengetopt_args_info_help[32] ;
-  args_info->expected_timebase_help = gengetopt_args_info_help[33] ;
-  args_info->hist_bins_help = gengetopt_args_info_help[34] ;
-  args_info->detector_help = gengetopt_args_info_help[35] ;
-  args_info->doppler_multiplier_help = gengetopt_args_info_help[36] ;
-  args_info->spindown_start_time_help = gengetopt_args_info_help[37] ;
-  args_info->frequency_offset_help = gengetopt_args_info_help[38] ;
-  args_info->spindown_start_help = gengetopt_args_info_help[39] ;
-  args_info->spindown_step_help = gengetopt_args_info_help[40] ;
-  args_info->spindown_count_help = gengetopt_args_info_help[41] ;
-  args_info->fdotdot_help = gengetopt_args_info_help[42] ;
-  args_info->orientation_help = gengetopt_args_info_help[43] ;
-  args_info->nlinear_polarizations_help = gengetopt_args_info_help[44] ;
-  args_info->no_demodulation_help = gengetopt_args_info_help[45] ;
-  args_info->no_decomposition_help = gengetopt_args_info_help[46] ;
-  args_info->no_candidates_help = gengetopt_args_info_help[47] ;
-  args_info->no_am_response_help = gengetopt_args_info_help[48] ;
-  args_info->no_secondary_skymaps_help = gengetopt_args_info_help[49] ;
-  args_info->averaging_mode_help = gengetopt_args_info_help[50] ;
-  args_info->subtract_background_help = gengetopt_args_info_help[51] ;
-  args_info->do_cutoff_help = gengetopt_args_info_help[52] ;
-  args_info->filter_lines_help = gengetopt_args_info_help[53] ;
-  args_info->ks_test_help = gengetopt_args_info_help[54] ;
-  args_info->compute_betas_help = gengetopt_args_info_help[55] ;
-  args_info->upper_limit_comp_help = gengetopt_args_info_help[56] ;
-  args_info->lower_limit_comp_help = gengetopt_args_info_help[57] ;
-  args_info->write_dat_help = gengetopt_args_info_help[58] ;
-  args_info->write_png_help = gengetopt_args_info_help[59] ;
-  args_info->dump_points_help = gengetopt_args_info_help[60] ;
-  args_info->dump_candidates_help = gengetopt_args_info_help[61] ;
-  args_info->focus_ra_help = gengetopt_args_info_help[62] ;
-  args_info->focus_dec_help = gengetopt_args_info_help[63] ;
-  args_info->focus_radius_help = gengetopt_args_info_help[64] ;
-  args_info->only_large_cos_help = gengetopt_args_info_help[65] ;
-  args_info->fake_linear_help = gengetopt_args_info_help[67] ;
-  args_info->fake_circular_help = gengetopt_args_info_help[68] ;
-  args_info->fake_ref_time_help = gengetopt_args_info_help[69] ;
-  args_info->fake_ra_help = gengetopt_args_info_help[70] ;
-  args_info->fake_dec_help = gengetopt_args_info_help[71] ;
-  args_info->fake_iota_help = gengetopt_args_info_help[72] ;
-  args_info->fake_psi_help = gengetopt_args_info_help[73] ;
-  args_info->fake_phi_help = gengetopt_args_info_help[74] ;
-  args_info->fake_spindown_help = gengetopt_args_info_help[75] ;
-  args_info->fake_strain_help = gengetopt_args_info_help[76] ;
-  args_info->fake_freq_help = gengetopt_args_info_help[77] ;
-  args_info->snr_precision_help = gengetopt_args_info_help[78] ;
-  args_info->max_candidates_help = gengetopt_args_info_help[79] ;
-  args_info->min_candidate_snr_help = gengetopt_args_info_help[80] ;
-  args_info->output_initial_help = gengetopt_args_info_help[81] ;
-  args_info->output_optimized_help = gengetopt_args_info_help[82] ;
-  args_info->output_cache_help = gengetopt_args_info_help[83] ;
-  args_info->extended_test_help = gengetopt_args_info_help[84] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[85] ;
-  args_info->num_threads_help = gengetopt_args_info_help[86] ;
-  args_info->niota_help = gengetopt_args_info_help[87] ;
-  args_info->npsi_help = gengetopt_args_info_help[88] ;
-  args_info->nfshift_help = gengetopt_args_info_help[89] ;
-  args_info->nchunks_help = gengetopt_args_info_help[90] ;
-  args_info->split_ifos_help = gengetopt_args_info_help[91] ;
-  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[92] ;
-  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[93] ;
-  args_info->power_max_median_factor_help = gengetopt_args_info_help[94] ;
-  args_info->tmedian_noise_level_help = gengetopt_args_info_help[95] ;
-  args_info->summing_step_help = gengetopt_args_info_help[96] ;
-  args_info->max_first_shift_help = gengetopt_args_info_help[97] ;
-  args_info->statistics_function_help = gengetopt_args_info_help[98] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[99] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[100] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[101] ;
-  args_info->half_window_help = gengetopt_args_info_help[102] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[103] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[104] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[105] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[106] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[107] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[108] ;
+  args_info->flat_output_help = gengetopt_args_info_help[27] ;
+  args_info->ephemeris_path_help = gengetopt_args_info_help[28] ;
+  args_info->earth_ephemeris_help = gengetopt_args_info_help[29] ;
+  args_info->sun_ephemeris_help = gengetopt_args_info_help[30] ;
+  args_info->first_bin_help = gengetopt_args_info_help[31] ;
+  args_info->nbins_help = gengetopt_args_info_help[32] ;
+  args_info->side_cut_help = gengetopt_args_info_help[33] ;
+  args_info->expected_timebase_help = gengetopt_args_info_help[34] ;
+  args_info->hist_bins_help = gengetopt_args_info_help[35] ;
+  args_info->detector_help = gengetopt_args_info_help[36] ;
+  args_info->doppler_multiplier_help = gengetopt_args_info_help[37] ;
+  args_info->dInv_help = gengetopt_args_info_help[38] ;
+  args_info->spindown_start_time_help = gengetopt_args_info_help[39] ;
+  args_info->frequency_offset_help = gengetopt_args_info_help[40] ;
+  args_info->spindown_start_help = gengetopt_args_info_help[41] ;
+  args_info->spindown_step_help = gengetopt_args_info_help[42] ;
+  args_info->spindown_count_help = gengetopt_args_info_help[43] ;
+  args_info->fdotdot_help = gengetopt_args_info_help[44] ;
+  args_info->orientation_help = gengetopt_args_info_help[45] ;
+  args_info->nlinear_polarizations_help = gengetopt_args_info_help[46] ;
+  args_info->no_demodulation_help = gengetopt_args_info_help[47] ;
+  args_info->no_decomposition_help = gengetopt_args_info_help[48] ;
+  args_info->no_candidates_help = gengetopt_args_info_help[49] ;
+  args_info->no_am_response_help = gengetopt_args_info_help[50] ;
+  args_info->no_secondary_skymaps_help = gengetopt_args_info_help[51] ;
+  args_info->averaging_mode_help = gengetopt_args_info_help[52] ;
+  args_info->subtract_background_help = gengetopt_args_info_help[53] ;
+  args_info->do_cutoff_help = gengetopt_args_info_help[54] ;
+  args_info->filter_lines_help = gengetopt_args_info_help[55] ;
+  args_info->ks_test_help = gengetopt_args_info_help[56] ;
+  args_info->compute_betas_help = gengetopt_args_info_help[57] ;
+  args_info->upper_limit_comp_help = gengetopt_args_info_help[58] ;
+  args_info->lower_limit_comp_help = gengetopt_args_info_help[59] ;
+  args_info->write_dat_help = gengetopt_args_info_help[60] ;
+  args_info->write_png_help = gengetopt_args_info_help[61] ;
+  args_info->dump_points_help = gengetopt_args_info_help[62] ;
+  args_info->dump_candidates_help = gengetopt_args_info_help[63] ;
+  args_info->focus_ra_help = gengetopt_args_info_help[64] ;
+  args_info->focus_dec_help = gengetopt_args_info_help[65] ;
+  args_info->focus_radius_help = gengetopt_args_info_help[66] ;
+  args_info->only_large_cos_help = gengetopt_args_info_help[67] ;
+  args_info->fake_linear_help = gengetopt_args_info_help[69] ;
+  args_info->fake_circular_help = gengetopt_args_info_help[70] ;
+  args_info->fake_ref_time_help = gengetopt_args_info_help[71] ;
+  args_info->fake_ra_help = gengetopt_args_info_help[72] ;
+  args_info->fake_dec_help = gengetopt_args_info_help[73] ;
+  args_info->fake_iota_help = gengetopt_args_info_help[74] ;
+  args_info->fake_psi_help = gengetopt_args_info_help[75] ;
+  args_info->fake_phi_help = gengetopt_args_info_help[76] ;
+  args_info->fake_spindown_help = gengetopt_args_info_help[77] ;
+  args_info->fake_strain_help = gengetopt_args_info_help[78] ;
+  args_info->fake_freq_help = gengetopt_args_info_help[79] ;
+  args_info->fake_dInv_help = gengetopt_args_info_help[80] ;
+  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[81] ;
+  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[82] ;
+  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[83] ;
+  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[84] ;
+  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[85] ;
+  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[86] ;
+  args_info->fake_injection_window_help = gengetopt_args_info_help[87] ;
+  args_info->snr_precision_help = gengetopt_args_info_help[88] ;
+  args_info->max_candidates_help = gengetopt_args_info_help[89] ;
+  args_info->min_candidate_snr_help = gengetopt_args_info_help[90] ;
+  args_info->output_initial_help = gengetopt_args_info_help[91] ;
+  args_info->output_optimized_help = gengetopt_args_info_help[92] ;
+  args_info->output_cache_help = gengetopt_args_info_help[93] ;
+  args_info->extended_test_help = gengetopt_args_info_help[94] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[95] ;
+  args_info->num_threads_help = gengetopt_args_info_help[96] ;
+  args_info->niota_help = gengetopt_args_info_help[97] ;
+  args_info->npsi_help = gengetopt_args_info_help[98] ;
+  args_info->nfshift_help = gengetopt_args_info_help[99] ;
+  args_info->nchunks_help = gengetopt_args_info_help[100] ;
+  args_info->split_ifos_help = gengetopt_args_info_help[101] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[102] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[103] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[104] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[105] ;
+  args_info->summing_step_help = gengetopt_args_info_help[106] ;
+  args_info->max_first_shift_help = gengetopt_args_info_help[107] ;
+  args_info->statistics_function_help = gengetopt_args_info_help[108] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[109] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[110] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[111] ;
+  args_info->half_window_help = gengetopt_args_info_help[112] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[113] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[114] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[115] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[116] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[117] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[118] ;
   
 }
 
@@ -782,6 +832,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->dump_sftv2_orig));
   free_string_field (&(args_info->output_arg));
   free_string_field (&(args_info->output_orig));
+  free_string_field (&(args_info->flat_output_arg));
+  free_string_field (&(args_info->flat_output_orig));
   free_string_field (&(args_info->ephemeris_path_arg));
   free_string_field (&(args_info->ephemeris_path_orig));
   free_string_field (&(args_info->earth_ephemeris_arg));
@@ -796,6 +848,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->detector_arg));
   free_string_field (&(args_info->detector_orig));
   free_string_field (&(args_info->doppler_multiplier_orig));
+  free_string_field (&(args_info->dInv_orig));
   free_string_field (&(args_info->spindown_start_time_orig));
   free_string_field (&(args_info->frequency_offset_orig));
   free_string_field (&(args_info->spindown_start_orig));
@@ -839,6 +892,14 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->fake_spindown_orig));
   free_string_field (&(args_info->fake_strain_orig));
   free_string_field (&(args_info->fake_freq_orig));
+  free_string_field (&(args_info->fake_dInv_orig));
+  free_string_field (&(args_info->fake_freq_modulation_depth_orig));
+  free_string_field (&(args_info->fake_freq_modulation_freq_orig));
+  free_string_field (&(args_info->fake_freq_modulation_phase_orig));
+  free_string_field (&(args_info->fake_phase_modulation_depth_orig));
+  free_string_field (&(args_info->fake_phase_modulation_freq_orig));
+  free_string_field (&(args_info->fake_phase_modulation_phase_orig));
+  free_string_field (&(args_info->fake_injection_window_orig));
   free_string_field (&(args_info->snr_precision_orig));
   free_string_field (&(args_info->max_candidates_orig));
   free_string_field (&(args_info->min_candidate_snr_orig));
@@ -962,6 +1023,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "dump-sftv2", args_info->dump_sftv2_orig, 0);
   if (args_info->output_given)
     write_into_file(outfile, "output", args_info->output_orig, 0);
+  if (args_info->flat_output_given)
+    write_into_file(outfile, "flat-output", args_info->flat_output_orig, 0);
   if (args_info->ephemeris_path_given)
     write_into_file(outfile, "ephemeris-path", args_info->ephemeris_path_orig, 0);
   if (args_info->earth_ephemeris_given)
@@ -982,6 +1045,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "detector", args_info->detector_orig, 0);
   if (args_info->doppler_multiplier_given)
     write_into_file(outfile, "doppler-multiplier", args_info->doppler_multiplier_orig, 0);
+  if (args_info->dInv_given)
+    write_into_file(outfile, "dInv", args_info->dInv_orig, 0);
   if (args_info->spindown_start_time_given)
     write_into_file(outfile, "spindown-start-time", args_info->spindown_start_time_orig, 0);
   if (args_info->frequency_offset_given)
@@ -1062,6 +1127,22 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "fake-strain", args_info->fake_strain_orig, 0);
   if (args_info->fake_freq_given)
     write_into_file(outfile, "fake-freq", args_info->fake_freq_orig, 0);
+  if (args_info->fake_dInv_given)
+    write_into_file(outfile, "fake-dInv", args_info->fake_dInv_orig, 0);
+  if (args_info->fake_freq_modulation_depth_given)
+    write_into_file(outfile, "fake-freq-modulation-depth", args_info->fake_freq_modulation_depth_orig, 0);
+  if (args_info->fake_freq_modulation_freq_given)
+    write_into_file(outfile, "fake-freq-modulation-freq", args_info->fake_freq_modulation_freq_orig, 0);
+  if (args_info->fake_freq_modulation_phase_given)
+    write_into_file(outfile, "fake-freq-modulation-phase", args_info->fake_freq_modulation_phase_orig, 0);
+  if (args_info->fake_phase_modulation_depth_given)
+    write_into_file(outfile, "fake-phase-modulation-depth", args_info->fake_phase_modulation_depth_orig, 0);
+  if (args_info->fake_phase_modulation_freq_given)
+    write_into_file(outfile, "fake-phase-modulation-freq", args_info->fake_phase_modulation_freq_orig, 0);
+  if (args_info->fake_phase_modulation_phase_given)
+    write_into_file(outfile, "fake-phase-modulation-phase", args_info->fake_phase_modulation_phase_orig, 0);
+  if (args_info->fake_injection_window_given)
+    write_into_file(outfile, "fake-injection-window", args_info->fake_injection_window_orig, 0);
   if (args_info->snr_precision_given)
     write_into_file(outfile, "snr-precision", args_info->snr_precision_orig, 0);
   if (args_info->max_candidates_given)
@@ -1716,6 +1797,7 @@ cmdline_parser_internal (
         { "dump-data",	1, NULL, 0 },
         { "dump-sftv2",	1, NULL, 0 },
         { "output",	1, NULL, 'o' },
+        { "flat-output",	1, NULL, 0 },
         { "ephemeris-path",	1, NULL, 0 },
         { "earth-ephemeris",	1, NULL, 0 },
         { "sun-ephemeris",	1, NULL, 0 },
@@ -1726,6 +1808,7 @@ cmdline_parser_internal (
         { "hist-bins",	1, NULL, 0 },
         { "detector",	1, NULL, 'd' },
         { "doppler-multiplier",	1, NULL, 0 },
+        { "dInv",	1, NULL, 0 },
         { "spindown-start-time",	1, NULL, 0 },
         { "frequency-offset",	1, NULL, 0 },
         { "spindown-start",	1, NULL, 0 },
@@ -1766,6 +1849,14 @@ cmdline_parser_internal (
         { "fake-spindown",	1, NULL, 0 },
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
+        { "fake-dInv",	1, NULL, 0 },
+        { "fake-freq-modulation-depth",	1, NULL, 0 },
+        { "fake-freq-modulation-freq",	1, NULL, 0 },
+        { "fake-freq-modulation-phase",	1, NULL, 0 },
+        { "fake-phase-modulation-depth",	1, NULL, 0 },
+        { "fake-phase-modulation-freq",	1, NULL, 0 },
+        { "fake-phase-modulation-phase",	1, NULL, 0 },
+        { "fake-injection-window",	1, NULL, 0 },
         { "snr-precision",	1, NULL, 0 },
         { "max-candidates",	1, NULL, 0 },
         { "min-candidate-snr",	1, NULL, 0 },
@@ -2193,6 +2284,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* output directory to contain all files, with no subdirectories (for globus condor).  */
+          else if (strcmp (long_options[option_index].name, "flat-output") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->flat_output_arg), 
+                 &(args_info->flat_output_orig), &(args_info->flat_output_given),
+                &(local_args_info.flat_output_given), optarg, 0, 0, ARG_STRING,
+                check_ambiguity, override, 0, 0,
+                "flat-output", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* path to detresponse program from lalapps.  */
           else if (strcmp (long_options[option_index].name, "ephemeris-path") == 0)
           {
@@ -2287,6 +2392,20 @@ cmdline_parser_internal (
                 &(local_args_info.doppler_multiplier_given), optarg, 0, "1.0", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "doppler-multiplier", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* inverse distance to expected source in seconds.  */
+          else if (strcmp (long_options[option_index].name, "dInv") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->dInv_arg), 
+                 &(args_info->dInv_orig), &(args_info->dInv_given),
+                &(local_args_info.dInv_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "dInv", '-',
                 additional_error))
               goto failure;
           
@@ -2853,6 +2972,118 @@ cmdline_parser_internal (
                 &(local_args_info.fake_freq_given), optarg, 0, 0, ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "fake-freq", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* inverse distance to source of fake signal in seconds.  */
+          else if (strcmp (long_options[option_index].name, "fake-dInv") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_dInv_arg), 
+                 &(args_info->fake_dInv_orig), &(args_info->fake_dInv_given),
+                &(local_args_info.fake_dInv_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-dInv", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* depth of additional sinusoidal frequency modulation in Hz.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq-modulation-depth") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_freq_modulation_depth_arg), 
+                 &(args_info->fake_freq_modulation_depth_orig), &(args_info->fake_freq_modulation_depth_given),
+                &(local_args_info.fake_freq_modulation_depth_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-freq-modulation-depth", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* frequency of additional sinusoidal frequency modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq-modulation-freq") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_freq_modulation_freq_arg), 
+                 &(args_info->fake_freq_modulation_freq_orig), &(args_info->fake_freq_modulation_freq_given),
+                &(local_args_info.fake_freq_modulation_freq_given), optarg, 0, "1.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-freq-modulation-freq", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* phase of additional sinusoidal frequency modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq-modulation-phase") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_freq_modulation_phase_arg), 
+                 &(args_info->fake_freq_modulation_phase_orig), &(args_info->fake_freq_modulation_phase_given),
+                &(local_args_info.fake_freq_modulation_phase_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-freq-modulation-phase", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* depth of additional sinusoidal phase modulation in radians.  */
+          else if (strcmp (long_options[option_index].name, "fake-phase-modulation-depth") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_phase_modulation_depth_arg), 
+                 &(args_info->fake_phase_modulation_depth_orig), &(args_info->fake_phase_modulation_depth_given),
+                &(local_args_info.fake_phase_modulation_depth_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-phase-modulation-depth", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* frequency of additional sinusoidal phase modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-phase-modulation-freq") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_phase_modulation_freq_arg), 
+                 &(args_info->fake_phase_modulation_freq_orig), &(args_info->fake_phase_modulation_freq_given),
+                &(local_args_info.fake_phase_modulation_freq_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-phase-modulation-freq", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* phase of additional sinusoidal phase modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-phase-modulation-phase") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_phase_modulation_phase_arg), 
+                 &(args_info->fake_phase_modulation_phase_orig), &(args_info->fake_phase_modulation_phase_given),
+                &(local_args_info.fake_phase_modulation_phase_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-phase-modulation-phase", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* compute this number of frequency bins to the left and right of the central frequency.  */
+          else if (strcmp (long_options[option_index].name, "fake-injection-window") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_injection_window_arg), 
+                 &(args_info->fake_injection_window_orig), &(args_info->fake_injection_window_given),
+                &(local_args_info.fake_injection_window_given), optarg, 0, "5", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "fake-injection-window", '-',
                 additional_error))
               goto failure;
           

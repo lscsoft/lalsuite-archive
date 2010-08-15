@@ -2,13 +2,14 @@
 FRAMEROOT=/opt/lscsoft/libframe/
 LALROOT=/opt/lscsoft/lal
 LALROOT=/home/vdergach/opt/
+LALROOT=/opt/lalsuite
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -lgsl -llal -llalsupport -lm
 
 
 OPTFLAGS=-O2 -mcpu=i686 -funroll-loops
 
-CFLAGS=-Wall -g $(OPTFLAGS) $(LALINCLUDE) -I$(FRAMEROOT)/include/
+CFLAGS=-Wall -g $(OPTFLAGS) $(LALINCLUDE) -I$(FRAMEROOT)/include/ -Drestrict=
 
 LDFLAGS=$(LALLDFLAGS) -L$(FRAMEROOT)/lib64/  
 

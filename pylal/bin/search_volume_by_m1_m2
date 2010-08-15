@@ -165,16 +165,23 @@ class upper_limit(object):
       return []
 
   def get_mass_ranges(self, connection):
-    query = 'SELECT MIN(mass1), MIN(mass2), MAX(mass1), MAX(mass2), MIN(mass1+mass2), MAX(mass1+mass2) FROM sim_inspiral;'
-    for v in connection.cursor().execute(query):
-      if self.minmass: self.minmass = min([v[0], v[1], self.minmass])
-      else: self.minmass = min(v[0], v[1])
-      if self.maxmass: self.maxmass = max([v[2], v[3], self.maxmass])
-      else: self.maxmass = max(v[2], v[3])
-      if self.mintotal: self.mintotal = min([v[4], self.mintotal])
-      else: self.mintotal = v[4]
-      if self.maxtotal: self.maxtotal = max([v[5], self.maxtotal])
-      else: self.maxtotal = v[5]
+    #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
+    minmass1 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+    minmass2 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+    maxmass1 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+    maxmass2 = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+    minmtotal = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+    maxmtotal = float(connection.cursor().execute('SELECT value FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+
+    v = (minmass1, minmass2, maxmass1, maxmass2, minmtotal, maxmtotal)
+    if self.minmass: self.minmass = min([v[0], v[1], self.minmass])
+    else: self.minmass = min(v[0], v[1])
+    if self.maxmass: self.maxmass = max([v[2], v[3], self.maxmass])
+    else: self.maxmass = max(v[2], v[3])
+    if self.mintotal: self.mintotal = min([v[4], self.mintotal])
+    else: self.mintotal = v[4]
+    if self.maxtotal: self.maxtotal = max([v[5], self.maxtotal])
+    else: self.maxtotal = v[5]
 
   def get_instruments(self, connection):
     instruments = []
@@ -245,7 +252,7 @@ class upper_limit(object):
     vA2 = []
     for far in FARS.centres():
       print >>sys.stderr, "computing volume at FAR " + str(far)
-      vAt, vA2t = self.twoD_SearchVolume(instruments, dbin=dbin, FAR = far, bootnum=1)
+      vAt, vA2t = self.twoD_SearchVolume(instruments, dbin_in=dbin, FAR = far, bootnum=1)
       # we need to compute derivitive of log according to ul paper
       vAt.array = scipy.log10(vAt.array + 0.001)
       vA.append(vAt)
@@ -259,11 +266,11 @@ class upper_limit(object):
        to find the derivitave of the volume at a given
        FAR.  See how this works for a simple case where
        I am clearly giving it a parabola.  To high precision it calculates
-       the proper derivitave. 
+       the proper derivitave.
        A = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
        B = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
        C = interpolate.splrep(B,A,s=0, k=4)
-       interpolate.splev(5,C,der=1) 
+       interpolate.splev(5,C,der=1)
        10.000
     '''
     dA = rate.BinnedArray(twodbin)
@@ -424,7 +431,7 @@ WHERE
 
   def fix_masses(self, sims):
     """
-    Function to duplicate the mass pairs to remove edge effects 
+    Function to duplicate the mass pairs to remove edge effects
     on the equal mass line, takes a list of sim rows
     """
     sims2 = []
@@ -447,10 +454,10 @@ WHERE
 
   def _scramble_pop(self, m, f):
     """
-    A function to draw a new injection sample in the "boot strap" method 
-    http://en.wikipedia.org/wiki/Bootstrapping_(statistics) 
+    A function to draw a new injection sample in the "boot strap" method
+    http://en.wikipedia.org/wiki/Bootstrapping_(statistics)
     and included refereneces.
-    This was used in the stack-a-flare search to get MC errors etc. 
+    This was used in the stack-a-flare search to get MC errors etc.
     """
     inj = m+f
     ix = scipy.random.randint(0,len(inj), (len(inj),))
@@ -461,17 +468,14 @@ WHERE
 
   def _scramble_dist(self, inj, relerr, syserr):
     """
-    function to handle random calibration error.  Individually srambles the distances
-    of injection by an error.
+    function to handle random calibration error.  Individually scrambles the distances
+    of injection by an error assumed to be log normal + a systematic.
     """
-    dist_array = numpy.zeros(len(inj))
-    for i,sim in enumerate(inj):
-      dist_array[i] = sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1)))
-    return dist_array
+    return numpy.array([sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1))) for sim in inj])
 
   def live_time_array(self, instruments):
     """
-    return an array of live times, note every bin will be the same :) it is just a 
+    return an array of live times, note every bin will be the same :) it is just a
     convenience.
     """
     live_time = rate.BinnedArray(self.twoDMassBins)
@@ -480,16 +484,16 @@ WHERE
     return live_time
 
 
-  def twoD_SearchVolume(self, instruments, dbin=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
+  def twoD_SearchVolume(self, instruments, dbin_in=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
     """
     Compute the search volume in the mass/mass plane, bootstrap
-    and measure the first and second moment (assumes the underlying 
-    distribution can be characterized by those two parameters) 
+    and measure the first and second moment (assumes the underlying
+    distribution can be characterized by those two parameters)
     This is gonna be brutally slow
-    derr = (0.134**2+.103**2+.102**2)**.5 = 0.197 which is the 3 detector 
+    derr = (0.134**2+.103**2+.102**2)**.5 = 0.197 which is the 3 detector
     calibration uncertainty in quadrature.  This is conservative since some injections
      will be H1L1 and have a lower error of .17
-    the dsys is the DC offset which is the max offset of .074. 
+    the dsys is the DC offset which is the max offset of .074.
     """
 
     if not FAR: FAR = self.far[instruments]
@@ -523,28 +527,36 @@ WHERE
         sm, sf = self._scramble_pop(missed, found)
         # I make a separate array of distances to speed up this calculation
         f_dist = self._scramble_dist(sf, derr, dsys)
+        m_dist = self._scramble_dist(sm, derr, dsys)
       else:
         sm, sf = missed, found
         f_dist = numpy.array([l.distance for l in found])
+        m_dist = numpy.array([l.distance for l in missed])
+
+      # get arrays of m1 and m2 also for convenience, now we are done with sm and sf
+      f_m1 = numpy.array([l.mass1 for l in  sf])
+      f_m2 = numpy.array([l.mass2 for l in  sf])
+      m_m1 = numpy.array([l.mass1 for l in  sm])
+      m_m2 = numpy.array([l.mass2 for l in  sm])
 
       # compute the distance bins
-      if not dbin:
+      if not dbin_in:
         dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), z)
-      #else: print dbin.centres()
+      else: dbin = dbin_in
 
 
       # get rid of all missed injections outside the distance bins
       # to prevent binning errors
-      sm, m_dist = self.cut_distance(sm, dbin)
-      sf, f_dist = self.cut_distance(sf, dbin)
+      m_m1, m_m2, m_dist = self.cut_distance(m_m1, m_m2, m_dist, dbin)
+      f_m1, f_m2, f_dist = self.cut_distance(f_m1, f_m2, f_dist, dbin)
 
-
-      for i, l in enumerate(sf):#found:
+      for i, l in enumerate(f_dist):#found:
         tbin = rArrays[dbin[f_dist[i]]]
-        tbin.incnumerator( (l.mass1, l.mass2) )
-      for i, l in enumerate(sm):#missed:
+        tbin.incnumerator( (f_m1[i], f_m2[i]) )
+
+      for i, l in enumerate(m_dist):#missed:
         tbin = rArrays[dbin[m_dist[i]]]
-        tbin.incdenominator( (l.mass1, l.mass2) )
+        tbin.incdenominator( (m_m1[i], m_m2[i]) )
 
       tmpArray2=rate.BinnedArray(twodbin) #start with a zero array to compute the mean square
       for k in range(z):
@@ -556,7 +568,7 @@ WHERE
         # logarithmic(d)
         integrand = 4.0 * pi * tbins.ratio() * dbin.centres()[k]**3 * dbin.delta
         volArray.array += integrand
-        tmpArray2.array += integrand #4.0 * pi * tbins.ratio() * dbin.centres()[k]**3 * dbin.delta
+        tmpArray2.array += integrand
         print >>sys.stderr, "bootstrapping:\t%.1f%% and Calculating smoothed volume:\t%.1f%%\r" % ((100.0 * n / bootnum), (100.0 * k / z)),
       tmpArray2.array *= tmpArray2.array
       volArray2.array += tmpArray2.array
@@ -571,15 +583,14 @@ WHERE
     return volArray, volArray2
 
 
-  def cut_distance(self, sims, dbin):
+  def cut_distance(self, m1, m2, d, dbin):
     """
     Exclude sims outside some distance range to avoid errors when binning
     """
     mnd = min(dbin.lower())
     mxd = max(dbin.upper())
-    out =  [sim for sim in sims if mnd <= sim.distance <= mxd]
-    return out, numpy.array([l.distance for l in out])
-
+    indexes = numpy.logical_and(d <= mxd, d >= mnd)
+    return m1[indexes], m2[indexes], d[indexes]
 
 ######################## ACTUAL PROGRAM #######################################
 ###############################################################################
@@ -609,8 +620,9 @@ def parse_command_line():
     sys.exit(1)
   return opts, filenames
 
-# FIXME These values should probably be command line arguments or derived from the database
-secs_in_year = 31556926.0
+# FIXME this should come from a constants package
+# Astronomers use Julian year
+secs_in_year = 31557600.0
 
 opts, filenames = parse_command_line()
 

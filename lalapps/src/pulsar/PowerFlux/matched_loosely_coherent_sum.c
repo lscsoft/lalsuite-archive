@@ -19,6 +19,7 @@
 #include "power_cache.h"
 #include "summing_context.h"
 #include "power_sums.h"
+#include "hookup.h"
 #include "cmdline.h"
 #include "single_bin_loosely_coherent_sum.h"
 
@@ -54,9 +55,6 @@ typedef struct {
 
 /* Lanczos window actually vanishes */
 #define LOOSE_SEARCH_TOLERANCE 0.0
-
-/* Single-bin helper function useful for matched code */
-LALDetector get_detector_struct(char *det);
 
 
 /* 
@@ -803,7 +801,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			baryinput.site.location[2]=baryinput.site.location[2]/LAL_C_SI;
 			baryinput.alpha=ps[i].ra;
 			baryinput.delta=ps[i].dec;
-			baryinput.dInv=0; /* TODO: pass this from command line */
+			baryinput.dInv=args_info.dInv_arg;
 
 			LALBarycenter(&status, &(priv->emission_time[i*segment_count+j]), &baryinput, &earth_state);
 			TESTSTATUS(&status);
@@ -847,9 +845,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				memset(priv->computed, 0, priv->computed_size*sizeof(*priv->computed));
 
 				for(j=0;j<tmp_count;j++) {
-		// 			si[j].ra=ps[i].patch_ra;
-		// 			si[j].dec=ps[i].patch_dec;
-		// 			memcpy(si[j].e, ps[i].patch_e, GRID_E_COUNT*sizeof(SKY_GRID_TYPE));
+					si_local->index= (j<ctx->loose_first_half_count ? groups[k][j].index : groups[m][j-ctx->loose_first_half_count].index)+segment_count*i;
 		
 					si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(si_local->gps+si_local->coherence_time*0.5-spindown_start))+
 						(center_frequency+ps_local->freq_shift)*args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
