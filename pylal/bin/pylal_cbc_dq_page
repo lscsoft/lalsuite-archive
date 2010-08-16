@@ -12,7 +12,7 @@ import numpy
 import shutil
 from pylal.dq import dqFrameUtils,dqDataUtils,dqSegmentUtils
 from socket import getfqdn
-
+from subprocess import Popen,PIPE
 # =============================================================================
 # Function to execute shell command and get output
 # =============================================================================
@@ -130,7 +130,7 @@ def scimon_flags(start,end,ifos,username,password):
   query_cmd_print = query_cmd_print.replace(password,'<password>')
 
   try:
-    flags,status = Popen(query_cmd,shell=True,stdout=PIPE)
+    flags = Popen(query_cmd,shell=True,stdout=PIPE)
     scimon_flags={}
     for ifo in ifos:
       scimon_flags[ifo]=[]
@@ -140,15 +140,18 @@ def scimon_flags(start,end,ifos,username,password):
       flag_start,flag_end,flag_ifo,flag_comment,flag_url = flag.split('QQQ')
       flag_start = int(flag_start)
       flag_end = int(flag_end)
-      if start<=flag_start<=end or start<=flag_end<end \
-          or (flag_start<start and flag_end>end):
-        scimon_flags[flag_ifo].append(flag.split('QQQ'))
-      flag = [flag_ifo,\
-              flag_start,\
-              flag_end,\
-              flag_end-flag_start,\
-              flag_coment,\
-              flag_url]
+      if int(start)<=flag_start<=int(end) \
+          or int(start)<=flag_end<=int(end) \
+          or (flag_start<int(start) and flag_end>int(end)):
+        flag_utc = GetCommandOutput('tconvert '+str(flag_start))[0].replace('\n','')
+        flag = [flag_ifo.replace(' ','').replace('\t',''),\
+                flag_start,\
+                flag_end,\
+                flag_utc,\
+                flag_end-flag_start,\
+                flag_comment,\
+                flag_url.replace('\n','')]
+        scimon_flags[flag_ifo.replace(' ','').replace('\t','')].append(flag)
     num_flags=0
     for ifo in ifos:
        num_flags+=len(scimon_flags[ifo])
@@ -161,7 +164,6 @@ def scimon_flags(start,end,ifos,username,password):
                         "To verify please run \n"
     print >>sys.stdout, query_cmd_print+"\n"
     scimon_flags=None
-
   return scimon_flags,query_cmd_print
 
 # =============================================================================
@@ -502,18 +504,19 @@ def main():
         #== write flags to page
         header=True
         for ifo in options.ifos:
-          print >>output, len(flags[ifo])+' were defined for '+ifo+'. '
+          print >>output, str(len(flags[ifo]))+' were defined for '+ifo+'. '
           #== write table header if not done already, and this ifo has some flags
           if flags[ifo] and header:
             print >>output, '||<rowbgcolor="#ffffcc">IFO'+\
                             '||Start time'+\
                             '||End time'+\
+                            '||UTC start'+\
                             '||Duration'+\
                             '||<style="width: 99%;">Notes'+\
                             '||link||'
             header=True
           #== print each flag
-          for flag in flags[ifo]:
+          for flag in sorted(flags[ifo],key=lambda fl: fl[1]):
             flag[-1] = '[['+flag[-1]+'|ilog]]'
             flag_print = '||'
             for item in flag:
@@ -561,7 +564,8 @@ def main():
       print >>output, "A list of common data quality flags for "+ifo+\
           " after category "+str(options.cat_level)+\
           " vetoes applied, on triggers with SNR > "+str(options.snr_threshold)+\
-          " can be found [["+common_dq_web_path+'/'+filename+"|here]]."
+          " can be found [["+common_dq_web_path+'/'+\
+                             os.path.split(filename)[-1]+"|here]]."
   
       f = open(filename,'w')
       #== construct query command
