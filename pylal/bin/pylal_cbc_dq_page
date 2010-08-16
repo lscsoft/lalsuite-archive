@@ -127,7 +127,7 @@ def scimon_flags(start,end,ifos,username,password):
                               '''$3,$1,$2,$2-$1,$4,$5 }' '''
   #== fudge command for print
   query_cmd_print = query_cmd_print.replace(username,'albert.einstein')
-  query_cmd_print = query_cmd_print.replace(username,'password')
+  query_cmd_print = query_cmd_print.replace(password,'<password>')
 
   try:
     flags,status = Popen(query_cmd,shell=True,stdout=PIPE)
@@ -242,7 +242,9 @@ are set TRUE automatically as the scripts to run these sections require access t
 
   if options.username != None:
     options.password = getpass.getpass()
-
+    if options.password=='':
+      print >>sys.stdout, "No password given, unsetting --username option..."
+      options.username = None
   # ==========
   # Set up name variables from options
   # ==========
@@ -609,7 +611,7 @@ def main():
     dq_stats_path = os.path.join(dq_path,dq_stats_tag)
     if not os.path.exists(dq_stats_path):
       os.makedirs(dq_stats_path)
-    dq_stats_web_path = (web_path,dq_stats_tag)
+    dq_stats_web_path = os.path.join(web_path,dq_stats_tag)
     #== stats exe
     dq_stats_script = '/archive/home/cavaglia/S6c_daily_week_current/DQweekrun.sh'
     dq_stats_status = {}
@@ -631,8 +633,9 @@ def main():
     #== set up link urls
     dq_stats_url={}
     for ifo in options.ifos:
-      dq_stats_url[ifo] = (dq_stats_web_path+'/S6c_'+str(gps_start)+\
-          '-'+str(gps_end)+'-'+ifo)
+      dq_stats_url[ifo] = os.path.join(dq_stats_web_path,\
+                                       'S6c_'+str(gps_start)+\
+                                           '-'+str(gps_end)+'-'+ifo)
     #== write output
     print >>output, "== Veto Flag Statistics =="
     print >>output, "{{{"

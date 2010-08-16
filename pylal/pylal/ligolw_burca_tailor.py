@@ -401,8 +401,6 @@ FROM
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
-ORDER BY
-	sngl_burst.ifo
 			""", (coinc_event_id,)):
 				# reconstruct the burst event
 				event = database.sngl_burst_table.row_from_cols(values)
