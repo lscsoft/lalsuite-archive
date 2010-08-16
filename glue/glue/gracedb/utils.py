@@ -168,8 +168,9 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
 
     log_data = event['comment'] + '\n'
     try:
-      far = 1/(float(event['IFAR_year'])*365.0)
-    except KeyError:
+        far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
+               'False Alarm Rate' in line][0]
+    except IndexError:
         far = None
     for ifo in detectors:
       end_time[ifo] = LIGOTimeGPS(event[ifo+':end_time'])
