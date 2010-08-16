@@ -101,7 +101,7 @@ while(1) {
 /* we need the structure to be global as a workaround for a bug in condor libraries:
    this way the pointer is 32bit even on 64bit machines */
 
-static void acquire_lock(char *filename)
+static int acquire_lock(char *filename, int wait)
 {
 int i;
 struct flock fl;
@@ -124,10 +124,12 @@ while((lock_file<0) || (direct_fcntl(lock_file, F_SETLK, &fl)<0)){
 		i=0;
 		}
 	if(lock_file>=0)close(lock_file);
+	if(!wait)return(0);
 	condor_safe_sleep(args_info.lock_retry_delay_arg);
 	lock_file=open(filename, O_CREAT | O_RDWR, 0666);
 	i++;
 	}
+return(1);
 }
 
 static void release_lock(void)
@@ -301,6 +303,14 @@ p->cos_e=cos(2.0*p->psi);
 p->sin_e=sin(2.0*p->psi);
 	
 precompute_am_constants(p->e, p->ra, p->dec);
+}
+
+static void fill_signal_params_with_defaults(SIGNAL_PARAMS *p)
+{
+memset(p, 0, sizeof(SIGNAL_PARAMS));
+p->freq_modulation_freq=1.0;
+
+precompute_signal_params(p);
 }
 
 static void fill_signal_params_from_args_info(SIGNAL_PARAMS *p)
@@ -1385,7 +1395,7 @@ while((fin=fopen(filename,"r"))==NULL) {
 	condor_safe_sleep(args_info.retry_delay_arg);
 	}
 if(retries>0) {
-	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
+	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
 /* read header */
 header_offset=0;
@@ -1445,7 +1455,7 @@ struct timeval start_time, end_time, last_time;
 int i, last_i, limit=100;
 double delta, delta_avg;
 long retries;
-int alternative, ai, aj;
+int alternative, ai, aj, lock_ok;
 s=do_alloc(length+20001, sizeof(*s));
 
 
@@ -1467,13 +1477,24 @@ while(1) {
 	memcpy(s, &(line[ai]), aj-ai);
 	s[aj-ai]=0;
 
-	fprintf(stderr, "Reading directory %s\n", s);
+	lock_ok=1;
+	if(args_info.enable_dataset_locking_arg && (alternative<=MAX_LOCKS) && (dst->lock_file[alternative-1] != NULL)) {
+		lock_ok=acquire_lock(dst->lock_file[alternative-1], 0);
+		} else 
+	if(args_info.lock_file_given) {
+		lock_ok=acquire_lock(args_info.lock_file_arg, 0);
+		}
 
-	errno=0;
-	if((d=opendir(s))!=NULL)break;
-	int errsv=errno;
+	if(lock_ok) {
+		fprintf(stderr, "Reading directory %s\n", s);
 
-	fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
+		errno=0;
+		if((d=opendir(s))!=NULL)break;
+		int errsv=errno;
+
+		fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
+		release_lock();
+		}
 
 	alternative++;
 	retries++;
@@ -1481,14 +1502,6 @@ while(1) {
 	}
 if(retries>0) {
 	fprintf(stderr, "Successfully opened directory %s\n", s);
-	}
-
-if(args_info.enable_dataset_locking_arg && (dst->lock_file[0] != NULL)) {
-	for(i=0;i+1<alternative && i<MAX_LOCKS && dst->lock_file[i]!=NULL;i++);
-	acquire_lock(dst->lock_file[i]);
-	} else 
-if(args_info.lock_file_given) {
-	acquire_lock(args_info.lock_file_arg);
 	}
 
 gettimeofday(&start_time, NULL);
@@ -1531,15 +1544,16 @@ void d_read_file(DATASET *dst, char *line, int length)
 {
 char *s;
 long retries;
-int i, alternative, ai, aj;
+int alternative, ai, aj;
 struct stat stat_buf;
+int lock_ok;
 
 s=do_alloc(length+20001, sizeof(*s));
 
 retries=0;
 alternative=1;
 while(1) {
-
+		
 	locate_arg(line, length, alternative, &ai, &aj);
 
 	if(ai==aj) {
@@ -1554,13 +1568,23 @@ while(1) {
 	memcpy(s, &(line[ai]), aj-ai);
 	s[aj-ai]=0;
 
-	fprintf(stderr, "Accessing file %s\n", s);
+	lock_ok=1;
+	if(args_info.enable_dataset_locking_arg && (alternative<=MAX_LOCKS) && (dst->lock_file[alternative-1] != NULL)) {
+		lock_ok=acquire_lock(dst->lock_file[alternative-1], 0);
+		} else 
+	if(args_info.lock_file_given) {
+		lock_ok=acquire_lock(args_info.lock_file_arg, 0);
+		}
 
-	errno=0;
-	if(stat(s, &stat_buf)==0)break;
-	int errsv=errno;
+	if(lock_ok) {
+		fprintf(stderr, "Accessing file %s\n", s);
+		errno=0;
+		if(stat(s, &stat_buf)==0)break;
+		int errsv=errno;
 
-	fprintf(stderr, "Error accessing file %s: %s\n", s, strerror(errsv));
+		fprintf(stderr, "Error accessing file %s: %s\n", s, strerror(errsv));
+		release_lock();
+		}
 
 	alternative++;
 	retries++;
@@ -1570,13 +1594,6 @@ if(retries>0) {
 	fprintf(stderr, "Successfully accessed file %s\n", s);
 	}
 
-if(args_info.enable_dataset_locking_arg && (dst->lock_file[0] != NULL)) {
-	for(i=0;i+1<alternative && i<MAX_LOCKS && dst->lock_file[i]!=NULL;i++);
-	acquire_lock(dst->lock_file[i]);
-	} else 
-if(args_info.lock_file_given) {
-	acquire_lock(args_info.lock_file_arg);
-	}
 add_file(dst, s);
 free(s);
 release_lock();
@@ -1955,7 +1972,7 @@ if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	DATASET *d=&(datasets[d_free-1]);
 
 	/* Fill with defaults from command line */
-	fill_signal_params_from_args_info(&sp);
+	fill_signal_params_with_defaults(&sp);
 	
 	
 	locate_arg(line, length, 1, &ai, &aj);
@@ -2045,7 +2062,7 @@ if(!strncasecmp(line, "inject_cw_signal2", 16)) {
 	DATASET *d=&(datasets[d_free-1]);
 
 	/* Fill with defaults from command line */
-	fill_signal_params_from_args_info(&sp);
+	fill_signal_params_with_defaults(&sp);
 	
 	
 	locate_arg(line, length, 1, &ai, &aj);

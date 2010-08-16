@@ -59,6 +59,13 @@ def coinc_params_func(events, offsetdict):
 	params = {}
 
 	#
+	# check for coincs that have been vetoed entirely
+	#
+
+	if len(events) < 2:
+		return params
+
+	#
 	# one-instrument parameters
 	#
 
@@ -165,14 +172,14 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 		ligolw_burca_tailor.Stats.__init__(self)
 		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
 
-	def _add_zero_lag(self, param_func, events, offsetdict, *args):
-		self.distributions.add_zero_lag(param_func, events, offsetdict, *args)
+	def _add_zero_lag(self, param_func, events, offsetdict, vetosegs, *args):
+		self.distributions.add_zero_lag(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetdict, *args)
 
-	def _add_background(self, param_func, events, offsetdict, *args):
-		self.distributions.add_background(param_func, events, offsetdict, *args)
+	def _add_background(self, param_func, events, offsetdict, vetosegs, *args):
+		self.distributions.add_background(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetdict, *args)
 
-	def _add_injections(self, param_func, sim, events, offsetdict, *args):
-		self.distributions.add_injection(param_func, events, offsetdict, *args)
+	def _add_injections(self, param_func, sim, events, offsetdict, vetosegs, *args):
+		self.distributions.add_injection(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetdict, *args)
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
@@ -220,3 +227,49 @@ def time_slides_livetime(seglists, time_slides, min_instruments, verbose = False
 def get_coincparamsdistributions(xmldoc):
 	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
 	return coincparamsdistributions
+
+
+#
+# =============================================================================
+#
+#                              Database Utilities
+#
+# =============================================================================
+#
+
+
+def create_recovered_likelihood_table(connection, bb_coinc_def_id):
+	"""
+	Create a temporary table containing two columns:  the simulation_id
+	of an injection, and the highest likelihood ratio at which that
+	injection was recovered by a coincidence of type bb_coinc_def_id.
+	"""
+	cursor = connection.cursor()
+	cursor.execute("""
+CREATE TEMPORARY TABLE recovered_likelihood (simulation_id TEXT PRIMARY KEY, likelihood REAL)
+	""")
+	cursor.execute("""
+INSERT OR REPLACE INTO
+	recovered_likelihood
+SELECT
+	sim_burst.simulation_id AS simulation_id,
+	MAX(coinc_event.likelihood) AS likelihood
+FROM
+	sim_burst
+	JOIN coinc_event_map AS a ON (
+		a.table_name == "sim_burst"
+		AND a.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event_map AS b ON (
+		b.coinc_event_id == a.coinc_event_id
+	)
+	JOIN coinc_event ON (
+		b.table_name == "coinc_event"
+		AND b.event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+GROUP BY
+	sim_burst.simulation_id
+	""", (bb_coinc_def_id,))
+	cursor.close()

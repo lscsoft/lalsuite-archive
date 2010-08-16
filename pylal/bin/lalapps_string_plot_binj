@@ -443,6 +443,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
+	sngl_burst.snr,
 	sngl_burst.peak_time, sngl_burst.peak_time_ns
 FROM
 	sim_burst
@@ -456,6 +457,7 @@ WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
 			sim = contents.sim_burst_table.row_from_cols(values)
+			burst_snr = values[-3]
 			burst_peak = LIGOTimeGPS(*values[-2:])
 			sim_peak = SimBurstUtils.time_at_instrument(sim, self.instrument)
 			self.found += 1
