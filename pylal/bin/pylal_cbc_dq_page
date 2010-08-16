@@ -379,7 +379,7 @@ def main():
 
   #== try to display output_file to user as https path
   if options.output_file.find(public_folder)!=-1:
-    output_file = options.output_file.split(public_folder+'/')[-1]
+    output_file = options.output_file.split(dq_folder+'/')[-1]
     options.output_file = os.path.join(web_path,output_file)
 
   if options.verbose:
@@ -501,10 +501,14 @@ def main():
       #== if there were some flags to receive
       num_flags = sum([len(f) for f in flags.values()])
       if num_flags != 0:
+        flag_len = 7
         #== write flags to page
         header=True
         for ifo in options.ifos:
-          print >>output, str(len(flags[ifo]))+' were defined for '+ifo+'. '
+          scimon_header = ''
+          for i in range(flag_len):  scimon_header+='||'
+          scimon_header += str(len(flags[ifo]))+' were defined for '+ifo+'||'
+          print >>output, scimon_header
           #== write table header if not done already, and this ifo has some flags
           if flags[ifo] and header:
             print >>output, '||<rowbgcolor="#ffffcc">IFO'+\
@@ -512,7 +516,7 @@ def main():
                             '||End time'+\
                             '||UTC start'+\
                             '||Duration'+\
-                            '||<style="width: 99%;">Notes'+\
+                            '||Notes'+\
                             '||link||'
             header=True
           #== print each flag
