@@ -471,7 +471,7 @@ class CoincData(object):
     self.mass2 = {}
     
     self.time = None
-    self.FAR = -1
+    self.FAR = 99
     
     #this stuff is only needed for injections
     self.is_injection = False
@@ -481,7 +481,6 @@ class CoincData(object):
     self.mass2_inj = None
     self.distance_inj = None
     self.eff_distances_inj = {}
-
   
   def set_ifos(self,ifolist):
     """
@@ -515,6 +514,10 @@ class CoincData(object):
     self.mass2_inj = m2
     self.distance_inj = dist
     self.eff_distances_inj = effDs
+  
+  def set_FAR(self,FAR_per_day):
+    self.FAR=FAR_per_day
+
 
 class Coincidences(list):
   """
@@ -551,7 +554,9 @@ class Coincidences(list):
                        dict((row.ifo, row.mass2) for row in sngltab))
       ctab = tab.get_table(xmldoc,lsctables.CoincInspiralTable.tableName)
       coinc.set_ifos(list(ctab[0].get_ifos()))
-      
+      if ctab[0].false_alarm_rate is not None:
+        coinc.set_FAR(ctab[0].false_alarm_rate)
+
       try:
         simtab = tab.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
         row = siminsptab[0]
