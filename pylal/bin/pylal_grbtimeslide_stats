@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2007  Nickolas Fotopoulos
 #
@@ -23,14 +23,17 @@ Characterize a set of timeslide triggers.
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos and Valeriu Predoi <nvf@gravity.phys.uwm.edu> <valeriu.predoi@astro.cf.ac.uk>"
-__prog__ = "pylal_grbtimeslide_stats"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"
+__Id__ = "$Id$"
+__name__ = "pylal_grbtimeslide_stats"
 __title__ = "GRB timeslide and trial statistics"
 
 
 import glob
-import itertools
 import optparse
 import sys
+itertools = __import__("itertools")  # system-wide itertools
 
 import numpy
 numpy.seterr(all="raise")
@@ -52,7 +55,6 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import SnglInspiralUtils
-from pylal import git_version
 from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
@@ -241,7 +243,7 @@ else:
 
 ##############################################################################
 # HTML initialization
-page = InspiralUtils.InspiralPage(opts)
+InspiralUtils.initialise(opts, __name__, __version__)
 
 ##############################################################################
 # read in document
@@ -342,14 +344,15 @@ eff_num_trials = numpy.sum(~trial_veto_mask)
 ##############################################################################
 # output statistics by mchirp
 
-page.write("Total number of slides and zero lag: "\
+info_text = ""
+info_text += InspiralUtils.message(opts, "Total number of slides and zero lag: "\
     "(pos + neg+zero lag): %d" % (total_num_slides+1))
-page.write("Total number of analyzed trials: "\
+info_text += InspiralUtils.message(opts, "Total number of analyzed trials: "\
     "%d of %d" % (eff_num_trials, num_trials*(total_num_slides+1)))
-page.write("Number of %d second "\
+info_text += InspiralUtils.message(opts, "Number of %d second "\
     "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides+1)))
 
-#loudest coincs display using coinc_summ_table changed for NEWSNR 
+#loudest coincs display
 def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=None, number=None, format=None,followup = None, followupOpts = None):
   """
   picks out loudest coincident triggers from given CoincInspiralUtils Tables
@@ -434,7 +437,7 @@ coincSumm = write_coinc_summ_table(
   tableList = [coincTable], commentList = ['Loudest triggers'], stat = stat,
   statTag = 'new SNR', number=opts.numloudesttable, format='html',\
   followup=None,followupOpts=None)
-page.write(coincSumm)
+
 
 # by mchirp range
 for counts_by_slide_trial, mc_range in \
@@ -446,20 +449,21 @@ for counts_by_slide_trial, mc_range in \
     stdev = numpy.sqrt(norm * ((counts_by_slide_trial[~trial_veto_mask_2d] \
                                 - mean)**2).sum())
 
-    page.write("Mean mchirp in [%f, %f):" \
+    info_text += InspiralUtils.message(opts, "Mean mchirp in [%f, %f):" \
         % mc_range)
-    page.write("  Total number of coincidences: "\
+    info_text += InspiralUtils.message(opts, "  Total number of coincidences: "\
         "%d" % total_counts)
-    page.write("  Mean coincidences per trial: "\
+    info_text += InspiralUtils.message(opts, "  Mean coincidences per trial: "\
         "%f" % mean)
    
 
-    page.write("  Stdev of trials: %f" % stdev)
+    info_text += InspiralUtils.message(opts, "  Stdev of trials: %f" % stdev)
 
     for i in range(min(10, counts_by_slide_trial[~trial_veto_mask_2d].max()+1)):
         prob = norm * (counts_by_slide_trial[~trial_veto_mask_2d] == i).sum()
-        page.write("  p(%d|0): %f" % (i, prob))
-    page.write("")    
+        info_text += InspiralUtils.message(opts, "  p(%d|0): %f" % (i, prob))
+
+    info_text += "<br>"
 
 # all together
 if len(mc_bins) > 1:
@@ -470,16 +474,16 @@ if len(mc_bins) > 1:
     stdev = numpy.sqrt(norm * ((counts_by_slide_trial[~trial_veto_mask_2d] \
                                 - mean)**2).sum())
 
-    page.write("Combined mchirp bins:")
-    page.write("  Total number of coincidences: "\
+    info_text += InspiralUtils.message(opts, "Combined mchirp bins:")
+    info_text += InspiralUtils.message(opts, "  Total number of coincidences: "\
         "%d" % total_counts)
-    page.write("  Mean coincidences per trial: "\
+    info_text += InspiralUtils.message(opts, "  Mean coincidences per trial: "\
         "%f" % mean)
-    page.write("  Stdev of trials: %f" % stdev)
+    info_text += InspiralUtils.message(opts, "  Stdev of trials: %f" % stdev)
 
     for i in range(min(10, counts_by_slide_trial[~trial_veto_mask_2d].max()+1)):
         prob = norm * (counts_by_slide_trial[~trial_veto_mask_2d] == i).sum()
-        page.write("  p(%d|0): %f" % (i, prob))
+        info_text += InspiralUtils.message(opts, "  p(%d|0): %f" % (i, prob))
 
 ##############################################################################
 # prepare loudest event statistics (squared) for plots
@@ -522,8 +526,12 @@ for loudest_sq, counts, mc_range in \
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig, "trial_loudest_%s_cum_hist_mchirp" \
-                % opts.coinc_statistic + fname_suffix)
+            fname = InspiralUtils.set_figure_name(opts,
+                "trial_loudest_%s_cum_hist_mchirp" % opts.coinc_statistic + \
+                fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
         if not opts.show_plot:
             plot.close()
 
@@ -560,8 +568,11 @@ for loudest_sq, counts, mc_range in \
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig,
+            fname = InspiralUtils.set_figure_name(opts,
                 "trials_%s_cum_hist" % opts.coinc_statistic + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
         if not opts.show_plot:
             plot.close()
 
@@ -581,8 +592,11 @@ for loudest_sq, counts, mc_range in \
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig,
+            fname = InspiralUtils.set_figure_name(opts,
                 "trial_loudest_%s" % opts.coinc_statistic + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
         if not opts.show_plot:
             plot.close()
 
@@ -604,8 +618,11 @@ for loudest_sq, counts, mc_range in \
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig,
+            fname = InspiralUtils.set_figure_name(opts,
                 "plot_num_coincs" + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
         if not opts.show_plot:
             plot.close()
 
@@ -628,14 +645,24 @@ for loudest_sq, counts, mc_range in \
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig,
+            fname = InspiralUtils.set_figure_name(opts,
                 "hist_num_coincs" + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
         if not opts.show_plot:
             plot.close()
 
 #############################################################################
 # Generate HTML and cache file
-page.write_page()
+if opts.enable_output:
+    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
+        fnameList, tagList, comment=info_text, CoincSummTable=coincSumm)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+    if opts.html_for_cbcweb:
+        html_filename_publish = InspiralUtils.write_html_output(opts,
+            sys.argv[1:], fnameList, tagList, comment=info_text, cbcweb=True)
 
 if opts.show_plot:
     pylab.show()
