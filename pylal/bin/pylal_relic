@@ -45,7 +45,12 @@ from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import rate
 from pylal import git_version
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+# LIGOTimeGPS moved; if the usual import fails, fall back to the old import.
+try:
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
+    from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
@@ -254,12 +259,8 @@ def parse_args():
 
 
     # binning
-    parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass")
-    parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass")
-    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
-        "bins in injected companion mass")
+    parser.add_option("--m2-boundaries", help="comma-delimited list of "
+        "boundaries for companion masses")
     parser.add_option("--D-min", type="float", help="minimum of the range in "
         "injected distance")
     parser.add_option("--D-max", type="float", help="maximum of the range in "
@@ -289,15 +290,13 @@ def parse_args():
             "--write-offsource, --write-injections}"
     if options.write_injections and (options.injection_pattern is None \
         or options.inj_coinc_pattern is None \
-        or options.m2_min is None \
-        or options.m2_max is None \
-        or options.m2_nbins is None \
+        or options.m2_boundaries is None \
         or options.D_min is None \
         or options.D_max is None \
         or options.D_nbins is None):
         raise ValueError, "if --write-injections is specified, you must also "\
-            "provide --injection-pattern, --inj-coinc-pattern, --m2-min, "\
-            "--m2-max, --m2-nbins, --D-min, --D-max, and --D-nbins."
+            "provide --injection-pattern, --inj-coinc-pattern, --D-min, "\
+            "--D-max, --D-nbins, and --m2-boundaries."
 
     return options, arguments
 
@@ -320,7 +319,7 @@ if not opts.write_onsource:
     lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
         "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
-# always read offsource triggers (needed in any case)
+# always read offsource triggers (needed in any case; see next section)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
 off_segs = grbsummary.get_segs_from_doc(offsource_doc)
@@ -339,7 +338,7 @@ trial_bins, trial_veto_mask, _ = \
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
 
 if opts.write_injections:
-    m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+    m2_bins = rate.IrregularBins(map(float, opts.m2_boundaries.split(",")))
     D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 # turn all mc+IFO combos into distinct categories, starting with the largest
