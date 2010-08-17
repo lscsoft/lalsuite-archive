@@ -172,7 +172,7 @@ parser.add_option("", "--html-for-cbcweb", action="store_true", default=False,
 parser.add_option("--cache-file", help="LAL-formatted cache file "
     "containing entries for all XML filies of interest")
 parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
-    "cache descriptions for off-source coincidence files with PAT")
+    "cache pattern for offsource coincs: THINCA_SLIDE_SECOND*OFFSOURCE for slides only; THINCA*SECOND*OFFSOURCE for slides and zero-lag; THINCA_SECOND*OFFSOURCE for zero-lag only")
 
 
     # output
@@ -251,9 +251,14 @@ page = InspiralUtils.InspiralPage(opts)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
 nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-if nominal_num_slides > 0: #when doing timeslides and zerolag
-  total_num_slides = 2 * nominal_num_slides + 1
-else: #when doing just zerolag
+if nominal_num_slides > 0: #when doing timeslides and/or zerolag
+  if opts.offsource_pattern == "THINCA_SLIDE_SECOND*OFFSOURCE":
+    total_num_slides = 2 * nominal_num_slides
+  if opts.offsource_pattern == "THINCA*SECOND*OFFSOURCE":
+    total_num_slides = 2 * nominal_num_slides + 1
+  if opts.offsource_pattern == "THINCA_SECOND*OFFSOURCE":
+    total_num_slides = 1
+else: #when slides are not turned on
   total_num_slides = 1
 
 off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
@@ -349,8 +354,8 @@ eff_num_trials = numpy.sum(~trial_veto_mask)
 # output statistics by mchirp
 
 page.write("Total number of slides and zero lag: "\
-    "(pos + neg+zero lag): %d" % (total_num_slides))
-page.write("Total number of analyzed trials: "\
+    "(pos + neg + zero lag): %d" % (total_num_slides))
+page.write("Total number of analyzed background trials: "\
     "%d of %d" % (eff_num_trials, num_trials*(total_num_slides)))
 page.write("Number of %d second "\
     "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides)))
