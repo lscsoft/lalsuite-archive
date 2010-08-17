@@ -116,7 +116,7 @@ def comma_delimited(option, opt_str, value, parser, elem_type=str):
     setattr(parser.values, option.dest, map(elem_type, value.split(",")))
 
 
-parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+parser = optparse.OptionParser(version=git_version.verbose_msg)
 parser.add_option("-g", "--glob",
     help="glob of zero-lag thinca or thinca slide files to read")
 parser.add_option("-o", "--onsource-pattern",
@@ -213,7 +213,10 @@ parser.add_option("--ifos", action="callback", type="string",
     help="comma-separated list of IFOs in lower case")
 parser.add_option("--numloudesttable", action="store", type="int", default="-1",
     help="number of loudest coincident triggers to be displayed in the Loudest triggers table, defaults at -1")
-
+parser.add_option("", "--gps-start-time", type="int",
+    help="GPS start time of data analyzed")
+parser.add_option("", "--gps-end-time", type="int",
+    help="GPS end time of data analyzed")
 
 
 (opts, args) = parser.parse_args()
@@ -248,7 +251,10 @@ page = InspiralUtils.InspiralPage(opts)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
 nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-total_num_slides = 2 * nominal_num_slides
+if nominal_num_slides > 0: #when doing timeslides and zerolag
+  total_num_slides = 2 * nominal_num_slides + 1
+else: #when doing just zerolag
+  total_num_slides = 1
 
 off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
                                       coltype=int)
@@ -292,7 +298,7 @@ bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
 #build veto masks to left and right and then merge them
 veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
 veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], extent_off[1], trial_len, veto_segs)
-trial_veto_mask_2d = numpy.zeros((total_num_slides+1, num_trials), dtype=numpy.bool8)
+trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
 buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
 
 for slide in range(-nominal_num_slides, nominal_num_slides+1):
@@ -318,7 +324,7 @@ coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
 # sort coincidences in each opts.fold_time second segment
 
 # initialize an array of empty lists, into which we will sort our triggers
-coincs = array_of_lists(shape=(len(mc_bins), total_num_slides+1, num_trials))
+coincs = array_of_lists(shape=(len(mc_bins), total_num_slides, num_trials))
 
 # sort into (mchirp, slide, segment) bins
 num_discarded = 0
@@ -343,11 +349,11 @@ eff_num_trials = numpy.sum(~trial_veto_mask)
 # output statistics by mchirp
 
 page.write("Total number of slides and zero lag: "\
-    "(pos + neg+zero lag): %d" % (total_num_slides+1))
+    "(pos + neg+zero lag): %d" % (total_num_slides))
 page.write("Total number of analyzed trials: "\
-    "%d of %d" % (eff_num_trials, num_trials*(total_num_slides+1)))
+    "%d of %d" % (eff_num_trials, num_trials*(total_num_slides)))
 page.write("Number of %d second "\
-    "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides+1)))
+    "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides)))
 
 #loudest coincs display using coinc_summ_table changed for NEWSNR 
 def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=None, number=None, format=None,followup = None, followupOpts = None):
