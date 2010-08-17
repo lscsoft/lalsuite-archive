@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="septimes"
-__Id__ = "$Id$"
 
 import copy
 import sys
@@ -29,6 +24,7 @@ from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
 from pylal import llwapp
 from pylal import date
+from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 import matplotlib
@@ -47,7 +43,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   # options related to input and output
   parser.add_option("","--thinca",action="store",type="string",\
@@ -347,7 +343,7 @@ xmldoc = utils.load_filename(opts.thinca, gz=opts.thinca.endswith("gz"))
 
 #############################
 # set process end time
-process = llwapp.append_process(xmldoc, program = __prog__, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = opts.comment, domain = "pylal")
+process = llwapp.append_process(xmldoc, program = __prog__, version = git_version.tag or git_version.id, cvs_repository = "lscsoft", cvs_entry_time = git_version.date, comment = opts.comment, domain = "pylal")
 
 llwapp.set_process_end_time(process)
 

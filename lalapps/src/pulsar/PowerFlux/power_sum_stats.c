@@ -661,8 +661,7 @@ void point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag
 int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
-NORMAL_STATS nstats;
-float max_dx, snr;
+float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -670,18 +669,6 @@ int half_window=args_info.half_window_arg;
 
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
-
-memset(&nstats, 0, sizeof(nstats));
-
-/* sort to compute robust estimates */
-nstats.flag= STAT_FLAG_ESTIMATE_MEAN
-	| STAT_FLAG_ESTIMATE_SIGMA;
-
-if(args_info.ks_test_arg){
-	nstats.flag|=STAT_FLAG_ESTIMATE_KS_LEVEL
-		| STAT_FLAG_COMPUTE_KS_TEST;
-	}
-
 
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;
@@ -855,7 +842,7 @@ int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL, *weight_tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx, snr;
+float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -1071,7 +1058,7 @@ int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx, snr;
+float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
@@ -1671,8 +1658,12 @@ if(!strcasecmp("Hann", args_info.upper_limit_comp_arg)){
 		   *amplitude*
 
 		   */
-		/* Loose mode uses matched filter which correctly reconstructs power in the bin */
+		/* Usual worst case single-bin correction for loss of power when not bin centered. */
 		upper_limit_comp=1.0/0.85; 
+		} else
+	if(!strcasecmp(args_info.averaging_mode_arg, "matched_loose")) {
+		/* Matched filter  correctly reconstructs power in the bin */
+		upper_limit_comp=1.0; 
 		} else
 	if(!strcasecmp(args_info.averaging_mode_arg, "3") || !strcasecmp(args_info.averaging_mode_arg, "three")){
 		/* 3 bins should contain the entire signal, regardless

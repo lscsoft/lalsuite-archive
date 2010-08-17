@@ -1,7 +1,5 @@
 #!/usr/bin/python
 #
-# $Id$
-#
 # Copyright (C) 2006  Duncan A. Brown
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -34,11 +32,10 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import SnglInspiralUtils
+from pylal import git_version
 from pylal import ligolw_sicluster
 
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 #
 # Use interning row builder to save memory.
@@ -55,7 +52,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 #
 
 def parse_command_line():
-  parser = OptionParser(version = "%prog CVS $Id$")
+  parser = OptionParser(version = git_version.verbose_msg)
   parser.add_option("--comment", metavar = "text", default = "", 
     help = "set comment string in process table")
   parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Process the files listed in this LAL cache.")

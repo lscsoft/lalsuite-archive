@@ -119,7 +119,7 @@ proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbaddinj', opts.__dict_
 if opts.verbose:
     print >> sys.stderr, "Adding the injection file to the database..."
 
-ligolw_sqlite.insert(connection, [opts.injection_file], preserve_ids = False, verbose = opts.verbose)
+ligolw_sqlite.insert_from_urls(connection, [opts.injection_file], preserve_ids = False, verbose = opts.verbose)
 
 #
 #   Update any simulation rows in the experiment_summary table who's sim_proc_id is None

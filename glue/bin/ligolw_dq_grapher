@@ -6,11 +6,13 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 import numpy as np
 
-# Justin Garofoli justing@physics.syr.edu
-# 2009 October 27
+#== Originally written by: Justin Garofoli justing@physics.syr.edu
+#== 2009 October 27
 
-# this update:
-# no longer needs an x11 server to produce graphics.
+#== Maintained by: Duncan Macleod duncan.macleod@astro.cf.ac.uk
+
+#== this update:
+#== takes IFO as 2nd input argument (comma separated list).
 
 """
  todo:
@@ -22,7 +24,7 @@ import numpy as np
       the central time.
 """
 
-
+#== default IFOs options
 IFOs = ('H1', 'L1', 'V1')
 
 def get_segments(gpstime):
@@ -30,7 +32,8 @@ def get_segments(gpstime):
   pp = os.popen(req)
   dd = {}
   for line in pp.readlines():
-    print line[:-1]
+    if line[0:2] in IFOs:
+      print line[:-1]
     this_line = line[:-1]
     these_words = this_line.split()
     dd[these_words[0]] = (int(these_words[1][1:]), int(these_words[2]), int(these_words[3][:-1]))
@@ -98,10 +101,16 @@ if __name__ == '__main__':
     sys.exit()
   elif len(sys.argv)==2:
     gpstime = sys.argv[1]
+    IFOs = ['H1','L1','V1']
     width=600
   elif len(sys.argv)==3:
     gpstime = sys.argv[1]
-    width   = float(sys.argv[2])
+    IFOs    = sys.argv[2].split(',')
+    width=600
+  elif len(sys.argv)==4:
+    gpstime = sys.argv[1]
+    IFOs    = sys.argv[2].split(',')
+    width   = float(sys.argv[3])    
   else :
     print 'wrong arguments'
     sys.exit()

@@ -280,7 +280,7 @@ if __name__ == '__main__':
         segment_connection   = segmentdb_utils.setup_database(db_location)
         segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
-    ligolw_sqlite.insert(veto_connection, xml_files)
+    ligolw_sqlite.insert_from_urls(veto_connection, xml_files)
 
     # If we're working with DMT files make sure we have a segment table
     if file_location:

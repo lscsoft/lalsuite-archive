@@ -149,8 +149,10 @@ def choices(vals, n):
 	elif n == 1:
 		for v in vals:
 			yield (v,)
+	elif n == 0:
+		yield ()
 	else:
-		# n < 1
+		# n < 0
 		raise ValueError, n
 
 

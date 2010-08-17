@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 
 __prog__ = "submit_remote_scan"
-__Id__ = "$Id$"
 __title__ = "script to submit remote qscans via Cm messages"
 __author__ = "Romain Gouaty"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import os
 import tarfile
@@ -16,15 +13,14 @@ import subprocess
 import time
 from optparse import *
 
+from pylal import git_version
+
 sys.path.append('@PYTHONLIBDIR@')
 
 usage = """ %prog [options]
 """
 
-parser = OptionParser( usage )
-
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information and exit")
+parser = OptionParser(usage, version=git_version.verbose_msg)
 
 parser.add_option("-g","--gps-time",action="store",type="string",\
     metavar=" GPS",help="GPS time to be used for the scan")
@@ -53,13 +49,6 @@ parser.add_option("-o","--output-path",action="store",type="string",\
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
-
-#################################
-# if --version flagged
-if opts.version:
-  print "$Id$"
-  sys.exit(0)
-
 
 #################################
 # Main program

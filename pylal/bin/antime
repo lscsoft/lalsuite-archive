@@ -1,12 +1,7 @@
 #!/usr/bin/python
 
-# $Id$
-
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__="antime"
-__Id__ = "$Id$"
 
 import copy
 import sys
@@ -25,6 +20,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import iterutils
+from pylal import git_version
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
@@ -40,7 +36,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  parser = OptionParser( usage=usage, version=git_version.verbose_msg )
 
   # options related to input and output
   parser.add_option("","--g1-triggers",action="store_true",default=False,\

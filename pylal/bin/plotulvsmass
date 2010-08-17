@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 
 import sys
 import os
@@ -16,6 +13,7 @@ import random
 from types import *
 
 from glue import segmentsUtils
+from pylal import git_version
 
 #####################################################################
 # function to read in and populate information about each mass range
@@ -91,7 +89,7 @@ of lalapps_compute_posterior (lcp-upperlimit).
 Example:
 
 """
-parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
+parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
 parser.add_option("-g","--computepost-glob",action="store",type="string",\
     default=None, metavar=" FNAME",\

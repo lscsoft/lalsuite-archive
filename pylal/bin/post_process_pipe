@@ -4,8 +4,6 @@ This program makes an SQLITE / coinc table based post processing DAG
 """
 
 __author__ = 'Chad Hanna <channa@caltech.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path

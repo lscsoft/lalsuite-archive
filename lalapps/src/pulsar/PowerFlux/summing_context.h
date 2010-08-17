@@ -19,7 +19,6 @@ typedef struct S_SUMMING_CONTEXT {
 	int sidereal_group_count; /* group sfts falling on similar times of the day in this many groups */
 	double summing_step; /* process SFTs in blocks of this many seconds each */
 	int time_group_count; /* group SFTs by their GPS time within a block into this many groups - used by loosely coherent code */
-	double loose_coherence_alpha;
 
 	void *cache;
 	void (*free_cache)(struct S_SUMMING_CONTEXT *ctx);
@@ -33,7 +32,8 @@ typedef struct S_SUMMING_CONTEXT {
 
 	} SUMMING_CONTEXT;
 
-#define PATCH_PRIVATE_LOOSELY_COHERENT_SIGNATURE 1
+#define PATCH_PRIVATE_SINGLE_BIN_LOOSELY_COHERENT_SIGNATURE 1
+#define PATCH_PRIVATE_MATCHED_LOOSELY_COHERENT_SIGNATURE 2
 
 SUMMING_CONTEXT *create_summing_context(void);
 void free_summing_context(SUMMING_CONTEXT *ctx);

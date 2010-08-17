@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
-__Id__ = "$Id$"
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
 __prog__ = "grbSelect"
 __title__ = "grb selection tool"
 
@@ -29,6 +26,7 @@ from glue import segments
 from glue import segmentsUtils
 from pylal import antenna
 from pylal import date
+from pylal import git_version
 from pylal import grbsummary
 from pylal import CoincInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -119,9 +117,7 @@ htmlHeader='''
 def parse_command_line():
 
   parser = OptionParser( usage=usage, \
-      version="%prog CVS\n" + 
-      "$Id$\n" + 
-      "Name: $\n") 
+      version=git_version.verbose_msg) 
   parser.add_option("-i","--input",action="store",type="string",\
       default=None, metavar=" INPUT",\
       help="XML input file containing the list of GRBs to read" )

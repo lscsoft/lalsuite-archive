@@ -18,13 +18,8 @@ or with a glob option
 
 
 
-__version__ = "$Revision$"
-__date__ = "$Date$"
 __prog__ = "plotinspiral"
-__Id__ = "$Id$"
 __title__ = "Inspiral Plots"
-
-# $Source$
 
 import sys
 import os
@@ -41,6 +36,7 @@ from glue import lal
 from glue import segments
 from glue import segmentsUtils
 from pylal import InspiralUtils
+from pylal import git_version
 
 #################################################################
 # help message
@@ -73,10 +69,7 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-  parser = OptionParser( usage=usage, \
-      version= "%prog CVS\n" +
-      "$Id$\n" +
-      "$Name$\n")
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
 
   #chisq  related
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
@@ -205,7 +198,7 @@ opts, args = parse_command_line()
 InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 comments = ""
 # -- set the proper color code
 ifocolors = InspiralUtils.colors

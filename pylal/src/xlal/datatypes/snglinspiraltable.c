@@ -127,6 +127,35 @@ static struct PyGetSetDef getset[] = {
 };
 
 
+#if PY_VERSION_HEX < 0x02050000
+static int getreadbuffer(PyObject *self, int segment, void **ptrptr)
+#else
+static Py_ssize_t getreadbuffer(PyObject *self, Py_ssize_t segment, void **ptrptr)
+#endif
+{
+	*ptrptr = &((pylal_SnglInspiralTable*)self)->sngl_inspiral;
+	return sizeof(((pylal_SnglInspiralTable*)self)->sngl_inspiral);
+}
+
+
+#if PY_VERSION_HEX < 0x02050000
+static int getsegcount(PyObject *self, int *lenp)
+#else
+static Py_ssize_t getsegcount(PyObject *self, Py_ssize_t *lenp)
+#endif
+{
+	return 1;
+}
+
+
+static PyBufferProcs as_buffer = {
+	.bf_getreadbuffer = getreadbuffer,
+	.bf_getsegcount = getsegcount,
+	.bf_getwritebuffer = NULL,
+	.bf_getcharbuffer = NULL
+};
+
+
 /*
  * Methods
  */
@@ -163,6 +192,7 @@ static PyTypeObject pylal_snglinspiraltable_type = {
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_members = members,
 	.tp_getset = getset,
+	.tp_as_buffer = &as_buffer,
 	.tp_name = MODULE_NAME ".SnglInspiralTable",
 	.tp_new = __new__,
 };

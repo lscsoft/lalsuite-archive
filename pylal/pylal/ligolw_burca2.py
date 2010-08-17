@@ -151,10 +151,10 @@ class Likelihood(object):
 	def __init__(self, coinc_param_distributions):
 		# check input
 		if set(coinc_param_distributions.background_rates.keys()) != set(coinc_param_distributions.injection_rates.keys()):
-			raise ValueError, "distribution density name mismatch"
+			raise ValueError, "distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates.keys())), ", ".join(sorted(coinc_param_distributions.injection_rates.keys())))
 		for name, binnedarray in coinc_param_distributions.background_rates.items():
 			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
-				raise ValueError, "distribution density dimension mismatch"
+				raise ValueError, "background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape))
 
 		# construct interpolators from the distribution data
 		self.background_rates = {}
@@ -167,7 +167,7 @@ class Likelihood(object):
 				x, y = binnedarray.centres()
 				self.background_rates[name] = interp2d(x, y, binnedarray.array)
 			else:
-				raise ValueError, "distribution densities with >2 dimensions not supported"
+				raise ValueError, "distribution densities with >2 dimensions not supported:  background data %s has shape %s" % (name, str(binnedarray.array.shape))
 		for name, binnedarray in coinc_param_distributions.injection_rates.items():
 			if len(binnedarray.array.shape) == 1:
 				x, = binnedarray.centres()
@@ -176,7 +176,7 @@ class Likelihood(object):
 				x, y = binnedarray.centres()
 				self.injection_rates[name] = interp2d(x, y, binnedarray.array)
 			else:
-				raise ValueError, "distribution densities with >2 dimensions not supported"
+				raise ValueError, "distribution densities with >2 dimensions not supported:  injection data %s has shape %s" % (name, str(binnedarray.array.shape))
 
 	def set_P_gw(self, P):
 		self.P_gw = P
@@ -184,7 +184,7 @@ class Likelihood(object):
 	def P(self, params_func, events, offsetdict, *params_func_extra_args):
 		P_bak = 1.0
 		P_inj = 1.0
-		for name, value in params_func(events, offsetdict, *params_func_extra_args).items():
+		for name, value in sorted(params_func(events, offsetdict, *params_func_extra_args).items()):
 			P_bak *= self.background_rates[name](*value)[0]
 			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj

@@ -317,19 +317,25 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	lag betwen the three instruments, *and* a double-coincident
 	analysis between H1 and H2 with H2 offset by 10 seconds.
 
-	During the computations, the input segmentlistdict object will have
-	offsets applied to it in place, but they will be restored to their
-	original values upon exit.  The segmentlistdict object returned by
-	this function has its offsets set to those of the input
-	segmentlistdict.
+	The segmentlistdict object returned by this function has its
+	offsets set to those of the input segmentlistdict.
 	"""
+	# don't modify original
+	seglistdict = seglistdict.copy()
+
+	# save original offsets
 	origoffsets = dict(seglistdict.offsets)
+
+	# compute result
 	coincseglists = segments.segmentlistdict()
 	for offsetdict in offsetdictlist:
 		seglistdict.offsets.update(offsetdict)
 		intersection = seglistdict.extract_common(offsetdict.keys())
 		intersection.offsets.clear()
 		coincseglists |= intersection
-	seglistdict.offsets.update(origoffsets)
+
+	# restore original offsets
 	coincseglists.offsets.update(origoffsets)
+
+	# done
 	return coincseglists
