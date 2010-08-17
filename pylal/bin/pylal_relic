@@ -44,8 +44,13 @@ from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import rate
-from pylal.date import LIGOTimeGPS
 from pylal import git_version
+
+# LIGOTimeGPS moved; if the usual import fails, fall back to the old import.
+try:
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
+    from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
