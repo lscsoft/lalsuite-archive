@@ -107,6 +107,7 @@ def parse_command_line():
 	parser.add_option("-p", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
 	parser.add_option("-o", "--open-box", action = "store_true", help = "Perform open-box analysis.  In a closed-box analysis (the default), information about the events seen at zero-lag is concealed:  the rate vs. threshold plot only shows the rate of events seen in the background, the detection threshold used to measure the efficiency curves is obtained from n-th loudest background event where n is (the integer closest to) the ratio of background livetime to zero-lag livetime, and messages to stdout and stderr that contain information about event counts at zero-lag are silenced.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("--vetoes-name", metavar = "name", help = "Set the name of the segment lists to use as vetoes (default = do not apply vetoes).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -251,8 +252,8 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 		# compute the live time
 		#
 
-		self.zero_lag_time += stringutils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
-		self.background_time += stringutils.time_slides_livetime(contents.seglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		self.zero_lag_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
+		self.background_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
 
 		#
 		# count events
@@ -350,41 +351,6 @@ WHERE
 #
 # =============================================================================
 #
-
-
-def create_recovered_likelihood_view(connection, bb_coinc_def_id):
-	# Create a temporary table containing two columns:  the
-	# simulation_id of an injection, and the highest likelihood ratio
-	# at which that injection was recovered by a coincidence of type
-	# bb_coinc_def_id.
-	cursor = connection.cursor()
-	cursor.execute("""
-CREATE TEMPORARY TABLE recovered_likelihood (simulation_id TEXT PRIMARY KEY, likelihood REAL)
-	""")
-	cursor.execute("""
-INSERT OR REPLACE INTO
-	recovered_likelihood
-SELECT
-	sim_burst.simulation_id AS simulation_id,
-	MAX(coinc_event.likelihood) AS likelihood
-FROM
-	sim_burst
-	JOIN coinc_event_map AS a ON (
-		a.table_name == "sim_burst"
-		AND a.event_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
-	)
-	JOIN coinc_event ON (
-		b.table_name == "coinc_event"
-		AND b.event_id == coinc_event.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-GROUP BY
-	sim_burst.simulation_id
-	""", (bb_coinc_def_id,))
 
 
 def slope(x, y):
@@ -511,13 +477,15 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# update segment information
 		#
 
+		seglists = contents.seglists - contents.vetoseglists
 		self.seglists |= contents.seglists
+		self.vetoseglists |= contents.vetoseglists
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
 		# injection or null if no such matching burst events were
 		# found
-		create_recovered_likelihood_view(contents.connection, contents.bb_definer_id)
+		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -533,7 +501,7 @@ FROM
 			found = likelihood_ratio is not None
 			# were at least 2 instruments on when the injection
 			# was made?
-			if len(SimBurstUtils.on_instruments(sim, contents.seglists)) >= 2:
+			if len(SimBurstUtils.on_instruments(sim, seglists)) >= 2:
 				# yes
 				self.all.append(sim)
 				if found and likelihood_ratio > self.detection_threshold:
@@ -597,6 +565,7 @@ FROM
 			t = sim.get_time_geocent()
 			print >>f, "Time at geocentre:\t%s s" % t
 			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
+			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.vetoseglists))
 
 
 #
@@ -608,7 +577,7 @@ FROM
 #
 
 
-def process_files(filenames, products, live_time_program, tmp_path = None, verbose = False):
+def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
@@ -619,7 +588,7 @@ def process_files(filenames, products, live_time_program, tmp_path = None, verbo
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
-		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", verbose = verbose)
+		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name, verbose = verbose)
 
 		#
 		# augment summary with extra stuff we need.  the filename
@@ -635,9 +604,9 @@ def process_files(filenames, products, live_time_program, tmp_path = None, verbo
 
 		# as a side-effect, this enforces the rule that burca has
 		# been run on the input file exactly once
-		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+		contents.coincidence_segments, = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
 		if contents.coincidence_segments:
-			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
+			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
 		else:
 			contents.coincidence_segments = None
 
@@ -645,10 +614,10 @@ def process_files(filenames, products, live_time_program, tmp_path = None, verbo
 		# process contents
 		#
 
-		for n, plot in enumerate(products):
+		for n, product in enumerate(products):
 			if verbose:
-				print >>sys.stderr, "adding to plot %d ..." % n
-			plot.add_contents(contents, verbose = verbose)
+				print >>sys.stderr, "adding to product %d ..." % n
+			product.add_contents(contents, verbose = verbose)
 
 		#
 		# close
@@ -663,7 +632,7 @@ def write_products(products, prefix, image_formats, verbose = False):
 	n = 0
 	while products:
 		if verbose:
-			print >>sys.stderr, "finishing plot %d ..." % n
+			print >>sys.stderr, "finishing product %d ..." % n
 		products[0].finish()
 		for ext in image_formats:
 			filename = format % (prefix, n, ext)
@@ -690,7 +659,7 @@ PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
 if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 rate_vs_threshold = RateVsThreshold(options.open_box)
-process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([rate_vs_threshold], "string_triggers_", options.image_formats, verbose = False)
 
 
@@ -711,7 +680,7 @@ if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
 # FIXME:  don't hard-code instrument names
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
-process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
 
 

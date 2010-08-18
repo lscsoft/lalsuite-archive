@@ -1519,12 +1519,22 @@ class GRB(object):
        self.cleanup(thispath)
 
     # download the original VD file for later review issues
-    filename = os.path.basename(definer_file)
-    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
-    system_call(self.name, cmd)
+    # if the path already exists
+    if os.path.exists(self.analysis_dir):
+      self.get_veto_definer(definer_file)
 
     # remember the veto definer file used
     self.veto_definer = os.path.basename(definer_file)
+
+  # -----------------------------------------------------
+  def get_veto_definer(self, definer_file):
+    """
+    Downloading the veto-definer file and keeping the original name.
+    """
+
+    filename = os.path.basename(definer_file)
+    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
+    system_call(self.name, cmd)
 
   # -----------------------------------------------------
   def check_veto_onsource(self):
