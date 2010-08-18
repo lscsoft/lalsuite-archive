@@ -110,6 +110,9 @@ def load_segments(filename, name, verbose = False):
 
 
 def apply_excess_power_veto(contents, veto_segs, verbose = False):
+	if verbose:
+		SnglBurstUtils.summarize_coinc_database(contents)
+
 	def sngl_burst_is_vetoed(ifo, start, start_ns, duration, veto_segs = veto_segs):
 		start = LIGOTimeGPS(start, start_ns)
 		return ifo in veto_segs and veto_segs[ifo].intersects_segment(segments.segment(start, start + duration))
@@ -310,7 +313,7 @@ for n, filename in enumerate(filenames):
 	# Apply vetoes
 	#
 
-	apply_excess_power_veto(SnglBurstUtils.CoincDatabase(connection, "lalapps_power", verbose = options.verbose), veto_segs, verbose = options.verbose)
+	apply_excess_power_veto(SnglBurstUtils.CoincDatabase(connection, "lalapps_power"), veto_segs, verbose = options.verbose)
 
 	#
 	# Clean up

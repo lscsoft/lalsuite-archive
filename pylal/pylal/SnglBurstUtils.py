@@ -57,7 +57,7 @@ from pylal import llwapp
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, search = "excesspower", veto_segments_name = None, verbose = False):
+	def __init__(self, connection, live_time_program, search = "excesspower", veto_segments_name = None):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
@@ -123,9 +123,6 @@ class CoincDatabase(object):
 			self.sb_definer_id = None
 			self.sce_definer_id = None
 			self.scn_definer_id = None
-
-		if verbose:
-			summarize_coinc_database(self)
 
 
 def summarize_coinc_database(contents):
