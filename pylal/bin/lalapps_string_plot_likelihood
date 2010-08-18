@@ -80,9 +80,12 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
-	parser.add_option("-f", "--format", metavar = "extension", default = "png", help = "Set the image output format by setting the filename extension.  Default = \"png\".")
+	parser.add_option("-f", "--format", metavar = "extension", action = "append", default = [], help = "Set the image output format by setting the filename extension (default = \"png\").  Can be given multiple times to generate plots in multiple formats.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
+
+	if not options.format:
+		options.format = ["png"]
 
 	return options, (filenames or [None])
 
@@ -208,36 +211,39 @@ for (background_name, background_binnedarray), (injections_name, injections_binn
 	# FIXME:  hard-coded list of allowed instruments = BAD BAD BAD
 	instruments = set(name.split("_")) & set(("G1", "H1", "H2", "L1", "T1", "V1"))
 	if name.endswith("_snr2_chi2"):
-		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
-			print >>sys.stderr, "generating %s ..." % outname
+			print >>sys.stderr, "generating plots for %s ..." % name
 		background_xcoords, background_ycoords, background_data = clip_binned_array_2d(background_binnedarray, [10, 1e6], [.01, 1e4])
 		injections_xcoords, injections_ycoords, injections_data = clip_binned_array_2d(injections_binnedarray, [10, 1e6], [.01, 1e4])
 		zero_lag_xcoords, zero_lag_ycoords, zero_lag_data = clip_binned_array_2d(zero_lag_binnedarray, [10, 1e6], [.01, 1e4])
 		fig = snr2_chi2_plot("%s" % name.replace("_", "-"), background_xcoords, background_ycoords, numpy.transpose(background_data), injections_xcoords, injections_ycoords, numpy.transpose(injections_data))
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % outname
-		fig.savefig(outname)
+		for extension in options.format:
+			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
 	elif name.endswith("_dt"):
-		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
-			print >>sys.stderr, "generating %s ..." % outname
+			print >>sys.stderr, "generating plots for %s ..." % name
 		dt = .010 + inject.light_travel_time(*instruments)
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-dt, +dt))
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-dt, +dt))
 		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-dt, +dt))
 		fig = dt_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % outname
-		fig.savefig(outname)
+		for extension in options.format:
+			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
 	elif name.endswith("_dA"):
-		outname = "%s.%s" % (name, options.format)
 		if options.verbose:
-			print >>sys.stderr, "generating %s ..." % outname
+			print >>sys.stderr, "generating plots for %s ..." % name
 		background_coords, background_data = clip_binned_array_1d(background_binnedarray, (-2, +2))
 		injections_coords, injections_data = clip_binned_array_1d(injections_binnedarray, (-2, +2))
 		zero_lag_coords, zero_lag_data = clip_binned_array_1d(zero_lag_binnedarray, (-2, +2))
 		fig = dA_plot("%s" % name.replace("_", "-"), background_coords, background_data, injections_coords, injections_data)
-		if options.verbose:
-			print >>sys.stderr, "writing %s ..." % outname
-		fig.savefig(outname)
+		for extension in options.format:
+			outname = "%s.%s" % (name, extension)
+			if options.verbose:
+				print >>sys.stderr, "\twriting %s ..." % outname
+			fig.savefig(outname)
