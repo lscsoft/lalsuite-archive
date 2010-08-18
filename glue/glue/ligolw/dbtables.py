@@ -199,6 +199,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		if filename in temporary_files:
 			raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
 		target = filename
+		if verbose:
+			print >>sys.stderr, "using '%s'" % target
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
 
