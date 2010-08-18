@@ -581,7 +581,7 @@ FROM
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
 		#
 		# connect to database and summarize contents
 		#
