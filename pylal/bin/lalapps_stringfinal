@@ -241,6 +241,14 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 			return
 
 		#
+		# this is costly, so we do it after deciding if we care
+		# about this file
+		#
+
+		if verbose:
+			SnglBurstUtils.summarize_coinc_database(contents)
+
+		#
 		# retrieve the offset vectors, retain only instruments that
 		# are available
 		#
@@ -475,6 +483,14 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 			return
 
 		#
+		# this is costly, so we do it after deciding if we care
+		# about this file
+		#
+
+		if verbose:
+			SnglBurstUtils.summarize_coinc_database(contents)
+
+		#
 		# update segment information
 		#
 
@@ -581,7 +597,7 @@ FROM
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
-			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename),
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		#
 		# connect to database and summarize contents
 		#
@@ -590,8 +606,6 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
 		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents)
 
 		#
 		# augment summary with extra stuff we need.  the filename
