@@ -450,6 +450,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
 		self.seglists = segments.segmentlistdict()
+		self.vetoseglists = segments.segmentlistdict()
 		self.found = []
 		self.missed = []
 		self.all = []
