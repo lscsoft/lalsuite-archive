@@ -395,7 +395,16 @@ setup(
 			"pylal._bayespputils",
 			["src/bayespputils.c"],
 			include_dirs = [numpy_get_include()]
-		)
+		),
+		Extension(
+			"pylal.cs_gamma",
+			["src/cs_gamma.c"],
+			include_dirs = lalburst_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lalburst_pkg_config.libs,
+			library_dirs = lalburst_pkg_config.libdirs,
+			runtime_library_dirs = lalburst_pkg_config.libdirs,
+			extra_compile_args = lalburst_pkg_config.extra_cflags
+		),
 	],
 	scripts = [
 		os.path.join("bin", "analyseQscan.py"),
@@ -495,6 +504,7 @@ setup(
 		os.path.join("bin", "lalapps_run_sqlite"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "lalapps_string_calc_likelihood"),
+		os.path.join("bin", "lalapps_string_cs_gamma"),
 		os.path.join("bin", "lalapps_string_meas_likelihood"),
 		os.path.join("bin", "lalapps_string_plot_binj"),
 		os.path.join("bin", "lalapps_string_plot_likelihood"),
