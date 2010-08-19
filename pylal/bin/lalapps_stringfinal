@@ -241,6 +241,14 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 			return
 
 		#
+		# this is costly, so we do it after deciding if we care
+		# about this file
+		#
+
+		if verbose:
+			SnglBurstUtils.summarize_coinc_database(contents)
+
+		#
 		# retrieve the offset vectors, retain only instruments that
 		# are available
 		#
@@ -276,9 +284,15 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
-			if is_background:
+			if likelihood_ratio is None:
+				# coinc got vetoed (unable to compute
+				# likelihood)
+				pass
+			elif is_background:
+				# non-vetoed background
 				self.background.append(likelihood_ratio)
 			else:
+				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
 
 	def finish(self):
@@ -450,6 +464,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
 		self.seglists = segments.segmentlistdict()
+		self.vetoseglists = segments.segmentlistdict()
 		self.found = []
 		self.missed = []
 		self.all = []
@@ -472,6 +487,14 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 			if verbose:
 				print >>sys.stderr, "\tdatabase does not contain sim_burst table, skipping ..."
 			return
+
+		#
+		# this is costly, so we do it after deciding if we care
+		# about this file
+		#
+
+		if verbose:
+			SnglBurstUtils.summarize_coinc_database(contents)
 
 		#
 		# update segment information
@@ -580,7 +603,7 @@ FROM
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		#
 		# connect to database and summarize contents
 		#
@@ -588,7 +611,7 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
-		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name, verbose = verbose)
+		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
 
 		#
 		# augment summary with extra stuff we need.  the filename
@@ -604,9 +627,9 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 
 		# as a side-effect, this enforces the rule that burca has
 		# been run on the input file exactly once
-		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+		contents.coincidence_segments, = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
 		if contents.coincidence_segments:
-			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
+			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
 		else:
 			contents.coincidence_segments = None
 

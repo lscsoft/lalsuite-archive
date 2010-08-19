@@ -56,18 +56,18 @@ __date__ = git_version.date
 
 
 def coinc_params_func(events, offsetdict):
-	params = {}
-
 	#
 	# check for coincs that have been vetoed entirely
 	#
 
 	if len(events) < 2:
-		return params
+		return None
 
 	#
 	# one-instrument parameters
 	#
+
+	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo
@@ -78,7 +78,7 @@ def coinc_params_func(events, offsetdict):
 	# two-instrument parameters
 	#
 
-	for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
+	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
 		if event1.ifo == event2.ifo:
 			# shouldn't happen, but might as well check for it
 			continue
