@@ -76,7 +76,7 @@ def parse_command_line():
                       help = "The total amount of live time in the run")
 
     options, filenames = parser.parse_args()
-    if options.t is None:
+    if options.livetime is None:
         raise ValueError, "No live time specified. Use -t or --live-time."
     if filenames is None:
         raise ValueError, "No data file specified."
