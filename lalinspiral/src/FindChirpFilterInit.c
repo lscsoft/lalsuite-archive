@@ -332,6 +332,12 @@ LALDestroyFindChirpInput (
     outputPtr->fcTmplt->ACTDconmatrix = NULL;
   }
 
+  if ( outputPtr->fcTmplt->ACTDconvector )
+  {
+    gsl_vector_free( outputPtr->fcTmplt->ACTDconvector );
+    outputPtr->fcTmplt->ACTDconvector = NULL;
+  }
+
 
   /* destroy the chirp template structure */
   LALFree( outputPtr->fcTmplt );

@@ -451,8 +451,9 @@ tagFindChirpTemplate
   REAL8Vector                  *A3BCVSpin;
   REAL4Vector                  *ACTDconstraint;
   gsl_matrix                   *ACTDconmatrix;
-  UINT4                        startVecACTD;
-  UINT4                        stopVecACTD;
+  gsl_vector                   *ACTDconvector;
+  UINT4                         startVecACTD;
+  UINT4                         stopVecACTD;
 }
 FindChirpTemplate;
 /* </lalVerbatim> */

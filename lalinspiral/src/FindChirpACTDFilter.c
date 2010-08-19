@@ -370,10 +370,13 @@ INT4 XLALFindChirpACTDApplyConstraint(
           - input->fcTmplt->startVecACTD;
         qForConstraint->data[i] += gsl_matrix_get( 
           input->fcTmplt->ACTDconmatrix, idx1, idx2 ) 
-          * params->qVecACTD[k]->data[qidx];
+          * params->qVecACTD[k]->data[qidx]
+          * sqrt( gsl_vector_get( input->fcTmplt->ACTDconvector, k ) );
       }
     }
   }
+
+  /* Compare ratio of first harmonic with second in original basis */
   if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
             + qForConstraint->data[3] * qForConstraint->data[3])
            / (qForConstraint->data[1] * qForConstraint->data[1]
@@ -383,6 +386,7 @@ INT4 XLALFindChirpACTDApplyConstraint(
     apply = 1;
   }
 
+  /* Compare ratio of third harmonic with second in original basis */
   if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
             + qForConstraint->data[5] * qForConstraint->data[5])
            / (qForConstraint->data[1] * qForConstraint->data[1]

@@ -725,10 +725,10 @@ LALFindChirpACTDNormalize(
       }
     }
   }
-
+ 
 
   /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
-  /*
+  /* 
   fprintf( stderr, "\n\n NORMALIZATION TEST:\n    ");
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -748,11 +748,11 @@ LALFindChirpACTDNormalize(
   fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
 
   /* Set the transformation matrix to be used to constrain the filter */
-  fcTmplt->ACTDconmatrix = eigenVect;  /* Do not free eigeinVect here ! */
+  fcTmplt->ACTDconmatrix = eigenVect;  /* Do not free eigenVect here! */
+  fcTmplt->ACTDconvector = eigenVal;   /* Do not free eigenVal here!  */
 
   /* Free memory */
   gsl_matrix_free( innerProd );
-  gsl_vector_free( eigenVal );
   gsl_eigen_symmv_free( workspace );
 
 
