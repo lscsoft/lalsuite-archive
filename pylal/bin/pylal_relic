@@ -58,22 +58,6 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu> and Valeriu Predoi 
 #
 # get loudest coincs from each category
 #
-def comma_delimited(option, opt_str, value, parser, elem_type=str):
-    """
-    This callback function stores a comma-delimited string as a list during
-    option parsing.  Cast elements of list to elem_type, specified via
-    callback_kwargs (default: str).  Must specify type="string"!
-
-    Example:
-    parser.add_option("-n", "--names", action="callback", type="string",
-        callback=comma_delimited, callback_kwargs={"elem_type":str})
-
-    This would allow a user to provide "--names Joe,Bob,Sarah" and the
-    developer to have opts.names == ["Joe", "Bob", "Sarah"].
-    """
-    setattr(parser.values, option.dest, map(elem_type, value.split(",")))
-
-
 def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
     dtype=float, verbose=False):
     """
@@ -312,8 +296,7 @@ def parse_args():
         "snr,effective_snr and new_snr")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
-    parser.add_option("--ifos", action="callback", type="string",
-        callback=comma_delimited,
+    parser.add_option("--ifos", type="string",
         help="comma-separated list of IFOs in lower case")
 
 
@@ -395,7 +378,7 @@ num_trials = abs(off_segs) // trial_len
 num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 ##veto segments for IFOs
-ifo_list = opts.ifos
+ifo_list = opts.ifos.split(',')
 veto_segs = {}
 for ifo in ifo_list:
   veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
