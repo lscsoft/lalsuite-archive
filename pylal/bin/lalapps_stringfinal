@@ -284,9 +284,15 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
-			if is_background:
+			if likelihood_ratio is None:
+				# coinc got vetoed (unable to compute
+				# likelihood)
+				pass
+			elif is_background:
+				# non-vetoed background
 				self.background.append(likelihood_ratio)
 			else:
+				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
 
 	def finish(self):
