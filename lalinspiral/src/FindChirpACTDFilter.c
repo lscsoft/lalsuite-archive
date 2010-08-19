@@ -330,9 +330,6 @@ LALFindChirpACTDFilterSegment (
     }
   }
 
-
-  /* Free memory */
-
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );

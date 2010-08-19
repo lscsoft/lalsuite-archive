@@ -557,31 +557,6 @@ LALFindChirpACTDNormalize(
     ACTDtilde[i].length = numPoints;
     ACTDtilde[i].data  = fcTmplt->ACTDtilde->data + (i * numPoints );
   }
-  /* Do a little jiggery-pokery so that the dominant 
-   * harmonic is the first index.
-   * The third harmonic has more power in band so that goes in to 
-   * second place. 
-   */
-/*
-  {
-    COMPLEX8 *tmp = ACTDtilde[0].data;
-    ACTDtilde[0].data = ACTDtilde[1].data;
-    ACTDtilde[1].data = tmp;
-
-    tmp = ACTDtilde[1].data;
-    ACTDtilde[1].data = ACTDtilde[3].data;
-    ACTDtilde[3].data = tmp;
-
-    tmp = ACTDtilde[3].data;
-    ACTDtilde[3].data = ACTDtilde[5].data;
-    ACTDtilde[5].data = tmp;
-
-    tmp = ACTDtilde[4].data;
-    ACTDtilde[4].data = ACTDtilde[5].data;
-    ACTDtilde[5].data = tmp;
-  }
-*/
-
 
   /* Norm the templates before we start and use for constraint */
   memset( fcTmplt->ACTDconstraint->data, 0.0, NACTDVECS * sizeof( REAL4 ) );
@@ -595,7 +570,10 @@ LALFindChirpACTDNormalize(
       {
         norm = sqrt( norm );
       }
+      /* Store <h_+k, h_+k> in a vector, length( 3 ), for the constraint*/
       fcTmplt->ACTDconstraint->data[i] = norm;
+      
+      /* Normalize each harmonic individually */
       for( k = 0; k < numPoints; k++ )
       {
         if( norm != 0.0 )
@@ -613,6 +591,8 @@ LALFindChirpACTDNormalize(
   /* CALCULATE THE CONSTRAINT */
   if( fcTmplt->tmplt.ACTDconstraintSwitch )
   {
+    /* Minimax calculates the maximum overlap between two harmonics
+       maximising over both phases */
     /* h1 and h2 */
     XLALFindChirpACTDMiniMax( &ACTDtilde[0], &ACTDtilde[3], &ACTDtilde[1], 
             &ACTDtilde[4], wtilde, tmpltParams->fLow, deltaT, &min12, &max12 );
@@ -623,8 +603,8 @@ LALFindChirpACTDNormalize(
     XLALFindChirpACTDMiniMax( &ACTDtilde[1], &ACTDtilde[4], &ACTDtilde[2], 
             &ACTDtilde[5], wtilde, tmpltParams->fLow, deltaT, &min23, &max23 );
 
-    cons1 = fcTmplt->ACTDconstraint->data[0]
-          + max12 * fcTmplt->ACTDconstraint->data[1]
+    cons1 = fcTmplt->ACTDconstraint->data[0] /*<h_1,h_1> */
+          + max12 * fcTmplt->ACTDconstraint->data[1] /*C_{12} x <h_2, h_2>*/
           + max13 * fcTmplt->ACTDconstraint->data[2];
 
     cons2 = fcTmplt->ACTDconstraint->data[1] 
@@ -647,6 +627,8 @@ LALFindChirpACTDNormalize(
     fcTmplt->ACTDconstraint->data[2] = cons3 / cons2;
   }
 
+
+  /* ORTHONORMALIZATION... */
   /* Fill the inner product matrix */
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -745,43 +727,6 @@ LALFindChirpACTDNormalize(
   }
 
 
-#if 0
-  /* Gram-Schmidt works */
-  for ( i = 0; i < NACTDTILDEVECS; ++i )
-  {
-    for ( j = 0; j < i; ++j )
-    {
-      norm = 0.0;
-
-      REAL4 innerProd = 
-                XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[j],
-                             wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-
-      if( innerProd != 0.0 )
-      {
-        for ( k = 0; k < numPoints; ++k )
-        {
-          ACTDtilde[i].data[k].re -= innerProd * ACTDtilde[j].data[k].re;
-          ACTDtilde[i].data[k].im -= innerProd * ACTDtilde[j].data[k].im;
-        }
-      
-        /* Now re-norm the vector */
-        norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
-                wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-      }
- 
-      if( norm != 0.0 )
-      {
-        norm = sqrt(norm);
-        for (k = 0; k < numPoints; k++)
-        {
-          ACTDtilde[i].data[k].re /= norm;
-          ACTDtilde[i].data[k].im /= norm;
-        }
-      }  
-    }
-  }
-#endif
   /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
   /*
   fprintf( stderr, "\n\n NORMALIZATION TEST:\n    ");
@@ -803,11 +748,10 @@ LALFindChirpACTDNormalize(
   fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
 
   /* Set the transformation matrix to be used to constrain the filter */
-  fcTmplt->ACTDconmatrix = eigenVect;
+  fcTmplt->ACTDconmatrix = eigenVect;  /* Do not free eigeinVect here ! */
 
   /* Free memory */
   gsl_matrix_free( innerProd );
-  /* gsl_matrix_free( eigenVect ); */
   gsl_vector_free( eigenVal );
   gsl_eigen_symmv_free( workspace );
 
