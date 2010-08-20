@@ -415,7 +415,7 @@ LALGeneratePPNAmpCorInspiral(
 
   preFac = -2.0*mu*LAL_MRSUN_SI/params->d; 
 /*  delta = params->delta; */ 
-  delta = pow( 1.0 - 4.0*eta, 0.5 );
+  delta = sqrt( 1.0 - 4.0*eta );
   sd = sinI*delta;
   scd = sd*cosI;
 
@@ -1004,11 +1004,11 @@ LALGeneratePPNAmpCorInspiral(
      f2a = pow(f2aFac*y, TWOTHIRDS);
 
      /* powers of frequency */
-     fthree = pow(f2a, 1.5);
-     ffour  = pow(f2a, 2.0);
-     ffive  = pow(f2a, 2.5);
-     fsix   = pow(f2a, 3.0);
-     fseven = pow(f2a, 3.5);
+     fthree = f2a * sqrt(f2a);
+     ffour  = f2a * f2a;
+     ffive  = ffour * sqrt(f2a);
+     fsix   = ffour * f2a;
+     fseven = ffive * f2a;
 
      /* PLUS */
      a1 =   q[1]*a1Pthree*fthree + q[3]*a1Pfive*ffive + q[4]*a1Psix*fsix
