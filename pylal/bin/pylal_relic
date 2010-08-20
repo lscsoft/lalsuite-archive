@@ -297,7 +297,7 @@ def parse_args():
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
     parser.add_option("--ifos", type="string",
-        help="comma-separated list of IFOs in lower case")
+        help="used IFsO written together, like H1V1")
 
 
 
@@ -378,7 +378,7 @@ num_trials = abs(off_segs) // trial_len
 num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 ##veto segments for IFOs
-ifo_list = opts.ifos.split(',')
+ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
 veto_segs = {}
 for ifo in ifo_list:
   veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))

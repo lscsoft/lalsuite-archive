@@ -208,9 +208,8 @@ parser.add_option( "--buffer-seg", action="store", type="string",
 parser.add_option( "--offsource-seg", action="store", type="string",
     default=None,
     help="segwizard-formatted file containing offsource segments")
-parser.add_option("--ifos", action="callback", type="string",
-    callback=comma_delimited,
-    help="comma-separated list of IFOs in lower case")
+parser.add_option("--ifos", type="string",
+    help="used IFsO written together, like H1V1")
 parser.add_option("--numloudesttable", action="store", type="int", default="-1",
     help="number of loudest coincident triggers to be displayed in the Loudest triggers table, defaults at -1")
 parser.add_option("", "--gps-start-time", type="int",
@@ -275,7 +274,7 @@ num_trials = abs(off_segs) // trial_len
 num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 ##veto segments for IFOs
-ifo_list = opts.ifos
+ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
 veto_segs = {}
 for ifo in ifo_list:
   veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
