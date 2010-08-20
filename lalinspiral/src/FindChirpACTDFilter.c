@@ -364,14 +364,13 @@ INT4 XLALFindChirpACTDApplyConstraint(
         UINT4 idx1, idx2, nVec;
 
         nVec = matrixDim / 2;
-        idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS 
-          - input->fcTmplt->startVecACTD;
-        idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS 
-          - input->fcTmplt->startVecACTD;
-        qForConstraint->data[i] += gsl_matrix_get( 
-          input->fcTmplt->ACTDconmatrix, idx1, idx2 ) 
+        idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS - input->fcTmplt->startVecACTD;
+        idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS - input->fcTmplt->startVecACTD;
+
+        qForConstraint->data[i] += 
+          gsl_matrix_get( input->fcTmplt->ACTDconmatrix, idx1, idx2 ) 
           * params->qVecACTD[k]->data[qidx]
-          * sqrt( gsl_vector_get( input->fcTmplt->ACTDconvector, k ) );
+          * sqrt( gsl_vector_get( input->fcTmplt->ACTDconvector, idx2 ) );
       }
     }
   }
