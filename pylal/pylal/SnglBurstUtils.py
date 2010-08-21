@@ -171,33 +171,20 @@ def get_time_slides(connection):
 	return two dictionaries one containing the all-zero time slides and
 	the other containing the not-all-zero time slides.
 	"""
-	zero_lag_time_slides = {}
-	background_time_slides = {}
-	for id, instrument, offset, is_background in connection.cursor().execute("""
+	offset_vectors = {}
+	for id, instrument, offset in connection.cursor().execute("""
 SELECT
 	time_slide_id,
 	instrument,
-	offset,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide AS a
-		WHERE
-			a.time_slide_id == time_slide.time_slide_id
-			AND a.offset != 0
-	)
+	offset
 FROM
 	time_slide
 	"""):
-		if is_background:
-			if id not in background_time_slides:
-				background_time_slides[id] = {}
-			background_time_slides[id][instrument] = offset
-		else:
-			if id not in zero_lag_time_slides:
-				zero_lag_time_slides[id] = {}
-			zero_lag_time_slides[id][instrument] = offset
+		if id not in offset_vectors:
+			offset_vectors[id] = {}
+		offset_vectors[id][instrument] = offset
+	zero_lag_time_slides = dict((id, offset_vector) for id, offset_vector in offset_vectors.items() if not any(offset_vector.values()))
+	background_time_slides = dict((id, offset_vector) for id, offset_vector in offset_vectors.items() if any(offset_vector.values()))
 	return zero_lag_time_slides, background_time_slides
 
 
@@ -241,7 +228,7 @@ def latexnumber(s):
 	10^{-dd}"
 	"""
 	m, e = floatpattern.match(s).groups()
-	return r"%s \\times 10^{%d}" % (m, int(e))
+	return r"%s \times 10^{%d}" % (m, int(e))
 
 
 #
