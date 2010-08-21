@@ -198,6 +198,17 @@ def ratevsthresh_bounds(background_x, background_y, zero_lag_x, zero_lag_y):
 		# background we're screwed anyway
 		minX, maxX = min(background_x), max(background_x)
 		minY, maxY = min(background_y), max(background_y)
+
+	# override the plot's X axis lower bound
+	minX = 1e-2	# FIXME:  don't hard-code
+	if len(zero_lag_x):
+		if len(background_x):
+			maxY = max(zero_lag_y[bisect.bisect_left(zero_lag_x, minX)], background_y[bisect.bisect_left(background_x, minX)])
+		else:
+			maxY = zero_lag_y[bisect.bisect_left(zero_lag_x, minX)]
+	else:
+		maxY = background_y[bisect.bisect_left(background_x, minX)]
+
 	return minX, maxX, minY, maxY
 
 
@@ -331,7 +342,6 @@ WHERE
 			minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, self.zero_lag, zero_lag_y)
 		else:
 			minX, maxX, minY, maxY = ratevsthresh_bounds(self.background, background_y, [], [])
-		minX = 1e-2	# FIXME:  don't hard-code
 
 		#
 		# compress the background data
