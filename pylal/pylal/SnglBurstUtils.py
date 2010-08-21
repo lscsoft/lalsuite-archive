@@ -233,12 +233,15 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 #
 
 
+floatpattern = re.compile("([+-]?[.0-9]+)[Ee]([+-]?[0-9]+)")
+
 def latexnumber(s):
 	"""
 	Convert a string of the form "d.dddde-dd" to "d.dddd \times
 	10^{-dd}"
 	"""
-	return re.sub(r"([+-]?[.0-9]+)[Ee]?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
+	m, e = floatpattern.match(s).groups()
+	return r"%s \\times 10^{%d}" % (m, int(e))
 
 
 #

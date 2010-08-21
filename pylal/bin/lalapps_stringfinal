@@ -565,7 +565,7 @@ FROM
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3g" % self.detection_threshold),), loc = "lower right")
+		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3e" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
 		self.axes.set_xlim([1e-21, 2e-18])
@@ -701,7 +701,6 @@ else:
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
-# FIXME:  don't hard-code instrument names
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
 process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
