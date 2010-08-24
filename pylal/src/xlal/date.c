@@ -352,7 +352,7 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, NULL},
 	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, NULL},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, NULL},
-	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, NULL},
+	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, "Use XLALUTCToGPS(time.gmtime()) instead."},
 	{NULL,}
 };
 
