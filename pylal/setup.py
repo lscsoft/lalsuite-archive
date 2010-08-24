@@ -322,7 +322,7 @@ setup(
 		),
 		Extension(
 			"pylal.xlal.date",
-			["src/xlal/date.c"],
+			["src/xlal/date.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
 			libraries = lal_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs,

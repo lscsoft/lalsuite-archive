@@ -33,6 +33,7 @@
 #include <numpy/arrayobject.h>
 #include <lal/Date.h>
 #include <lal/TimeDelay.h>
+#include <misc.h>
 #include <datatypes/ligotimegps.h>
 
 
@@ -200,6 +201,20 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 }
 
 
+static PyObject *pylal_XLALGPSTimeNow(PyObject *self, PyObject *args)
+{
+	LIGOTimeGPS gps;
+
+	if(!XLALGPSTimeNow(&gps)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	/* LIGOTimeGPS */
+	return pylal_LIGOTimeGPS_new(gps);
+}
+
+
 /*
  * Julian day
  */
@@ -337,6 +352,7 @@ static struct PyMethodDef module_methods[] = {
 	{"XLALLeapSecondsUTC", pylal_XLALLeapSecondsUTC, METH_VARARGS, NULL},
 	{"XLALModifiedJulianDay", pylal_XLALModifiedJulianDay, METH_VARARGS, NULL},
 	{"XLALUTCToGPS", pylal_XLALUTCToGPS, METH_VARARGS, NULL},
+	{"XLALGPSTimeNow", pylal_XLALGPSTimeNow, METH_NOARGS, NULL},
 	{NULL,}
 };
 
