@@ -65,17 +65,6 @@ def sngl_burst___cmp__(self, other):
 lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 
 
-def use___segments(modulename):
-	from glue import __segments
-	modulename.segments.infinity = __segments.infinity
-	modulename.segments.NegInfinity = __segments.NegInfinity
-	modulename.segments.PosInfinity = __segments.PosInfinity
-	modulename.segments.segment = __segments.segment
-	modulename.segments.segmentlist = __segments.segmentlist
-use___segments(llwapp)
-use___segments(lsctables)
-
-
 #
 # =============================================================================
 #
