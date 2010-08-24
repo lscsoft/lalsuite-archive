@@ -827,8 +827,8 @@ int main( int argc, char *argv[])
     
         //Increment number of tries
         injTries++;
-        printf("Network SNR: %lf\n " , networkSNR);
-    } while( fabs((networkSNR-injSNR)/injSNR) > 0.1 && injTries<50 );
+        printf("Network SNR: %lf\n " , sqrt(networkSNR));
+    } while( fabs((sqrt(networkSNR)-injSNR)/injSNR) > 0.1 && injTries<50 );
 
     
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
