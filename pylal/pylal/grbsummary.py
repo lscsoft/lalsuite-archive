@@ -1,7 +1,7 @@
 from __future__ import division
 
-import itertools
 import sys
+itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 import numpy
 
@@ -262,35 +262,6 @@ def get_mean_mchirp(coinc):
     """
     return sum(t.mchirp for t in coinc) / coinc.numifos
 
-def get_mean_mchirp_lv(coinc):
-    """
-    Return the arithmetic average of the mchirps of all triggers in coinc,
-    taking into account the four different type of coincidences with LV.
-    """
-    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
-
-    ifos = ''
-    for ifo in ['H1','L1','V1']:
-      if hasattr(coinc, ifo):
-        ifos += ifo
-    print ifos, mean_mchirp
-    if ifos=='H1L1V1':
-      modified_mean_mchirp = mean_mchirp
-    elif ifos=='H1L1':
-      modified_mean_mchirp = mean_mchirp+20.0
-    elif ifos=='H1V1':
-      modified_mean_mchirp = mean_mchirp+40.0
-    elif ifos=='L1V1':
-      modified_mean_mchirp = mean_mchirp+60.0
-    else:
-      modified_mean_mchirp = -1
-
-    if mean_mchirp<0.0 or mean_mchirp>20.0:
-      raise ValueError, "The given mean_mchirp of %.2f is outside the "\
-                        " allowed range [0,20]." % mean_mchirp
-
-    return modified_mean_mchirp
-
 
 ##############################################################################
 # XML convenience code
@@ -369,4 +340,54 @@ def get_num_slides(xmldoc):
            if row.param == "--num-slides":
                return int(row.value)
     return 0
+#####################################################################################
+#timeslides functions#
+#####################################################################################
+def shift(a, n):
+    """Shift the list in place. shiftInPlace. 
+    See http://gist.github.com/288272"""
+    #l = copy.deepcopy(ll)
+    l = list(a)
+    n = n % len(l)
+    head = l[:n]
+    l[:n] = []
+    l.extend(head)
+    return l
+
+def get_veto_mask(gpsstart, gpsend, trial_len, veto_segs):
+  """
+  Returns a dictionary with a veto mask for each IFO.
+  @param gpsstart: the start time of the mask
+  @param gpsend: the end time of the mask
+  @param trial_len: length of one trial
+  @param veto_segs: dictionary containing the veto segments
+  """
+
+  num_trials = abs(gpsend - gpsstart) // trial_len
+  trial_bins = rate.LinearBins(gpsstart, gpsend, num_trials)
+
+  ##veto masks
+  veto_mask = {}
+  for ifo, veto_seg in veto_segs.iteritems():
+     veto_mask[ifo] = rate.bins_spanned(trial_bins, veto_seg, dtype=numpy.bool8)
+  return veto_mask
+
+def get_trial_mask(veto_mask, slide_amount, slide):
+  """
+  Returns a dictionary with a trial mask for each IFO
+  after applying a time shift
+  @param veto_mask: dictionary with the veto mask for each IFO
+  @param slide_amount: dictionary containing the amount of shift per IFO (units of trial_len)
+  @param slide: the amount to slide (units of trial_len)
+  """
+
+  # create the trial mask
+  num_trials = len(veto_mask.values()[0])
+  trial_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
+
+  # loop over all shifted veto masks
+  for ifo in veto_mask.keys():
+    trial_mask |= shift(veto_mask[ifo], slide_amount[ifo] * slide)
+
+  return trial_mask
 

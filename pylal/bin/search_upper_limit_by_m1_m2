@@ -14,6 +14,9 @@ import sys
 import glob
 import copy
 from glue.ligolw.utils import ligolw_add
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw, utils
 from glue import lal
 
@@ -106,14 +109,21 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 	fnameList.append(fname)
 	tagList.append(name)
 
+class UpperLimitTable(table.Table):
+	tableName = "upper_limit:table"
+	validcolumns = {"mass1":"real_8","mass2":"real_8","range":"real_8",
+			"time":"real_8","upper_limit":"real_8","fractional_error":"real_8"}
 
 def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
-	parser.add_option("","--input-cache", help="input cache containing only the databases you want to run on (you can also list them as arguments, but you should use a cache if you are afraid that the command line will be too long.)")
+	parser.add_option("","--input-cache", help="input cache containing only the xml files you want to run on")
 
 	## Added to support WIP ##
+	parser.add_option("-f", "--output-format", action = "store", type = "string",
+			  default = "html", metavar = "wiki, html, OR xml",
+			  help = "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. Default is html.")
 	parser.add_option("--output-path", default = "./", action = "store",
 			  help="Choose directory to save output files.")
 	parser.add_option("--open-box", default = False, action = "store_true",
@@ -141,6 +151,7 @@ bins, vA, ulA = get_combined_array("2DsearchvolumeFirstMoment", 0, files)
 #FIXME Hack to give volume that is zero a value = 0.01
 vA[vA==0] = 0.01
 
+combined_ifos = opts.input_cache.split('-')[0] #FIXME super hack
 bins, vA2, ulA = get_combined_array("2DsearchvolumeSecondMoment", 1, files)
 bins, dvA, ulA = get_combined_array("2DsearchvolumeDerivative", 2, files)
 bins, vAD, ulA = get_combined_array("2DsearchvolumeDistance", 3, files)
@@ -184,10 +195,12 @@ for i, f in enumerate(files):
 	fnameList = []
 	tagList = []
 
-	# Open wiki to put table of results
-	wikiname = opts.output_path + ifos + '-' + output_tag + '_range_summary.txt'
-	wiki = open(wikiname,"w")
-	wiki.write("||'''Masses'''||'''Range(Mpc)'''||'''Time'''||'''UL @ 90%'''||'''Fractional error'''||\n")
+	# Open file to put table of results
+	summary_file = open(opts.output_path + ifos + '-' + output_tag + '_range_summary.'+opts.output_format,'w')
+	summary_doc = ligolw.Document()
+	summary_doc.appendChild(ligolw.LIGO_LW())
+	ul_table = lsctables.New(UpperLimitTable)
+	summary_doc.childNodes[0].appendChild(ul_table)
 
 	# loop over mass bins and write results to wiki
 	ulA.array *= 0
@@ -199,8 +212,20 @@ for i, f in enumerate(files):
 			mu,post = posterior(vA[i:i+1,masses[0],masses[1]], vA2[i:i+1,masses[0],masses[1]], dvA[i:i+1,masses[0],masses[1]])
 			lines.append(pylab.loglog(mu,post/post.max()))
 			ulA.array[j][k] = integrate_posterior(mu, post, 0.90)
-			wiki.write("||%.2f,%.2f||%.2f|| %.2f || %.2e || %.2f ||\n" % (m1, m2, vAD[i,masses[0],masses[1]], ltA[i, masses[0], masses[1]], ulA.array[j][k], vA2[i, masses[0], masses[1]]**0.5 / (vA[i, masses[0], masses[1]])) )
 
+			row = ul_table.RowType()
+			row.mass1 = m1
+			row.mass2 = m2
+			row.range = vAD[i,masses[0],masses[1]]
+			row.time = ltA[i, masses[0], masses[1]]
+			row.upper_limit = ulA.array[j][k]
+			row.fractional_error = vA2[i, masses[0], masses[1]]**0.5 / (vA[i, masses[0], masses[1]])
+			ul_table.append(row)
+
+	print_tables.print_tables(summary_doc,summary_file,opts.output_format,
+				  tableList=['upper_limit'],
+				  columnList = ['mass1','mass2','range','time','upper_limit','fractional_error'])
+	summary_file.close()
 
 	fudge = 0.01 * min (ulA.array[ulA.array !=0])
 	log_vol = pylab.log10(vA[i])
@@ -351,6 +376,7 @@ log_ul[mbA == 1] = 0
 
 
 # Initialize inspiral utility plotting helper
+opts.ifo_times = combined_ifos
 InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
 fnameList = []
 tagList = []
@@ -385,7 +411,6 @@ pylab.ylabel("Mass 1",fontsize=14)
 pylab.gca().set_aspect(1)
 pylab.grid()
 savefig_pylal('combined_upper_limit', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-pylab.savefig(ifos + '-' + output_tag + '_combined_upper_limit.png')
 pylab.clf()
 
 plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
@@ -393,13 +418,26 @@ plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
 InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
 
 
-f = open(ifos + '-' + output_tag + '_combined_upper_limit.txt','w')
+summary_file = open(opts.output_path + combined_ifos + '-' + output_tag + '_combined_upper_limit.'+opts.output_format,'w')
+summary_doc = ligolw.Document()
+summary_doc.appendChild(ligolw.LIGO_LW())
+ul_table = lsctables.New(UpperLimitTable)
+summary_doc.childNodes[0].appendChild(ul_table)
+
 for i, m1 in enumerate(bins.centres()[0]):
 	for j, m2 in enumerate(bins.centres()[1]):
 		masses = bins[m1,m2]
 		if mbA[masses[0], masses[1]]: continue
-		f.write("||%.2f||%.2f||%.2e||\n" % (m1,m2,log_ul[i,j]))
-f.close()
+		row = ul_table.RowType()
+		row.mass1 = m1
+		row.mass2 = m2
+		row.upper_limit = log_ul[i,j]
+		ul_table.append(row)
+
+print_tables.print_tables(summary_doc,summary_file,opts.output_format,
+			  tableList=['upper_limit'],
+			  columnList = ['mass1','mass2','upper_limit'])
+summary_file.close()
 
 print >> sys.stderr, "ALL FINNISH!"
 sys.exit(0)

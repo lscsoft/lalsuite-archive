@@ -56,18 +56,18 @@ __date__ = git_version.date
 
 
 def coinc_params_func(events, offsetdict):
-	params = {}
-
 	#
 	# check for coincs that have been vetoed entirely
 	#
 
 	if len(events) < 2:
-		return params
+		return None
 
 	#
 	# one-instrument parameters
 	#
+
+	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo

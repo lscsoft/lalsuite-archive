@@ -144,7 +144,9 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", veto_segments_name = options.vetoes_name, verbose = options.verbose)
+	contents = SnglBurstUtils.CoincDatabase(connection, live_time_program = "StringSearch", search = "StringCusp", veto_segments_name = options.vetoes_name)
+	if options.verbose:
+		SnglBurstUtils.summarize_coinc_database(contents)
 	if not contents.seglists and options.verbose:
 		print >>sys.stderr, "\twarning:  no segments found"
 	segs |= contents.seglists
