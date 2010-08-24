@@ -813,7 +813,7 @@ int main( int argc, char *argv[])
         
         //If no injSNR spec. fix SNR to accept injection.
         if(injSNR<0.) {
-            injSNR=networkSNR/1.01;
+            injSNR=sqrt(networkSNR);
         }
         //Else scale distance 
         else {
