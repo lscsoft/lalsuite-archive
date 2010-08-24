@@ -291,7 +291,7 @@ if(opts.injfile is not None):
         if(len(injections)<1):
 	    print 'Warning: Cannot find injection with end time %f' %(means[2])
         else:
-    	    injection = itertools.ifilter(lambda a: abs(a.get_end() - means[2]) < 0.1, injections).next()
+    	    injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - means[2]) < 0.1, injections).next()
 
 def getinjpar(inj,parnum):
     if parnum==0: return inj.mchirp
