@@ -225,9 +225,9 @@ def compress_ratevsthresh_curve(x, y, yerr):
 	return x.compress(mask), y.compress(mask), yerr.compress(mask)
 
 
-class RateVsThreshold(SnglBurstUtils.BurstPlot):
+class RateVsThreshold(object):
 	def __init__(self, open_box):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
 		self.zero_lag = []
 		self.background = []
 		self.zero_lag_time = 0.0
@@ -463,9 +463,9 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	return line, A50, A50_err
 
 
-class Efficiency(SnglBurstUtils.BurstPlot):
+class Efficiency(object):
 	def __init__(self, detection_threshold, cal_uncertainty, amplitude_factor, filter_width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
