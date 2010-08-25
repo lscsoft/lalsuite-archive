@@ -23,7 +23,8 @@ __version__ = ''
 
 import os
 from numpy import ndarray,dtype,NaN,Inf,zeros,mean,sin,\
-     pi,all,any,array,arange,inner,cross,isnan,arcsin
+     pi,all,any,array,arange,inner,cross,isnan,arcsin,\
+     mod
 from pylal.metaarray import TimeSeries,TimeSeriesList
 import copy
 import sys
@@ -103,13 +104,13 @@ def intersectPlanes(normA,normB,coordA,coordB,wiggleA=0.0):
     """
     Expects a 3xM matrices of 3D vectors for the plane norms
     also in addition to that we take vectors from the "origin"
-    (0,0,0) to be the coordinate input.  The output is a tuple of
-    3xM arrays parameterized by their index, intersection vector and
-    point on that line. Output is (lineVector,linePoint)
-    ((3xM),(3xM)). The input wiggleA is the wiggle angle in radian to
-    consider two vectors parrallel.
+    (0,0,0) (single 3x1 matrix) to be the coordinate input.  The
+    output is a tuple of 3xM arrays parameterized by their index,
+    intersection vector and point on that line. Output is
+    (linePoint,LineVector) ((3xM),(3xM)). The input wiggleA is the
+    wiggle angle in radian to consider two vectors parrallel.
     """
-    #Error check input shapes etc!
+    #If inputs a 'lone' vectors make them a 3x1 matrix!
     #Normalize the input vectors, but NOT coords!
     for j in arange(len(normA)):
         normA[j]=normA[j]/CSTdot(normA[j],normA[j])
@@ -125,26 +126,25 @@ def intersectPlanes(normA,normB,coordA,coordB,wiggleA=0.0):
             linePoi[i]=NaN
         else:
             #Find normal vector along line of intersection!
-            lineVec[i]=CSTcross(normA[i],normB[i])/CSTdot(normA[i],normB[i])
+            tmpVec=CSTcross(normA[i],normB[i])
+            lineVec[i]=tmpVec/CSTdot(tmpVec,tmpVec)
+            print "Intersecting line vector(unit) %s"%(lineVec)
             #Find point along line of intersection!
-            if isnan(lineVec[i]).any() or any(lineVec[i]==0.0):
-                print "Line orientation vector ZERO!, %i"
-                lineVec[i]=NaN
-                linePoi[i]=NaN
+            if isnan(lineVec[i]).any() or all(lineVec[i]==0.0):
+              print "Vector of plane intersection line is ZERO Vector!"
+              lineVec[i]=NaN
+              linePoi[i]=NaN
             else:
-                #Determine which zero axis vector points through!
-                zeroIndex=lineVec.argmin()
-                #Map out x,y,z to index of i,j,k with lowest index as 'i'
-                (iX,iY,iZ)=mod(range(zeroIndex,zeroIndex+3),3).tolist()
-                #(x,y,z)==(l0,l1,l2)
-                linePoi[i][iZ]=0
-                linePoi[i][iX]=(\
-                CSTdot(normB[i],coordB[i])-\
-                (CSTdot(normA[i],coordA[i])*normB[i][iY])/normA[i][iY]\
-                )/\
-                (normB[i][iX]-(normB[i][iY]*normA[i][iX])/normA[iY])
-                linePoi[i][iY]=(CSTdot(normA[i],coordA[i])-normA[i][iX]*linePoi[i][iX])/normA[i][iY]
-    return (lineVec,linePoi)
+              #Determine which zero axis vector points through!
+              zeroIndex=lineVec.argmax()
+              #Map out x,y,z to index of i,j,k with lowest index as 'i'
+              (iX,iY,iZ)=mod(range(zeroIndex,zeroIndex+3),3).tolist()
+              print "Vector elements:%s,%s,%s"%(iX,iY,iZ)
+              #(x,y,z)==(l0,l1,l2)
+              linePoi[i][iZ]=0
+              linePoi[i][iX]=(CSTdot(normB[i],coordB)-(CSTdot(normA[i],coordA)*normB[i][iY])/normA[i][iY])/(normB[i][iX]-(normB[i][iY]*normA[i][iX])/normA[i][iY])
+              linePoi[i][iY]=(CSTdot(normA[i],coordA)-normA[i][iX]*linePoi[i][iX])/normA[i][iY]
+    return (liveVec,linePoi)
 
 #
 # Intersect two lines
@@ -152,15 +152,17 @@ def intersectPlanes(normA,normB,coordA,coordB,wiggleA=0.0):
 def intersectLines(vecA,vecB,coordA,coordB,wiggleA=0.0):
     """
     Expects inputs of 3xM matrices representing vectors along a line
-    and a single point on that line. Output is in same form as
-    intersectPlanes ((lineVector),(intersection)).  If the two lines
-    intersection then (lineVector) is set to (0,0,0).
+    and a vector 3xM of matching points on lines for those vectors.
+    Output is in a 3xM collection of intersecting points.
     Examples:
-    Intersection of two lines
-    (x,y,z) in a  (3xM) matrix
-    Input was two parallel coincident lines
-    (None,None,None) (3xM) Matrix
-    The wiggleA angle is the angle in radians that we will consider parallel.
+    Input
+    ([[vX,vY,vZ]],[[lX,lY,lZ]])
+
+    Output
+    [[i,j,k]]
+    A set of lines is considered parallel if angle(rads) between
+    then is less than wiggleA, in this case the output coordinate
+    is (NaN,NaN,NaN).
     """
     #Error check input shapes etc!
     #Normalize the input vectors, but NOT coords!
@@ -270,7 +272,7 @@ class cSqrTSensor(object):
 
     #
     # Save the coordinate information
-    #
+    # (Coordinate 3x1 Array [X,Y,Z] NOT [[X,Y,Z]])
     if isinstance(coordinate,ndarray):
       self.coordinate=coordinate
     else:
