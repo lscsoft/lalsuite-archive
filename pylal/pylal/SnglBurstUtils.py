@@ -57,7 +57,7 @@ from pylal import llwapp
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, search = "excesspower", verbose = False):
+	def __init__(self, connection, live_time_program, search = "excesspower", veto_segments_name = None):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
@@ -65,10 +65,9 @@ class CoincDatabase(object):
 		"""
 
 		from glue.ligolw import dbtables
+		from glue.ligolw.utils import segments as ligolwsegments
 		self.connection = connection
 		self.xmldoc = dbtables.get_xml(connection)
-
-		cursor = connection.cursor()
 
 		# find the tables
 		try:
@@ -95,6 +94,10 @@ class CoincDatabase(object):
 		# get the segment lists
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program).coalesce()
 		self.instruments = set(self.seglists.keys())
+		if veto_segments_name is not None:
+			self.vetoseglists = ligolwsegments.segmenttable_get_by_name(self.xmldoc, veto_segments_name).coalesce()
+		else:
+			self.vetoseglists = ligolwsegments.segments.segmentlistdict()
 
 		# determine a few coinc_definer IDs
 		# FIXME:  don't hard-code the numbers
@@ -121,18 +124,22 @@ class CoincDatabase(object):
 			self.sce_definer_id = None
 			self.scn_definer_id = None
 
-		# verbosity
-		if verbose:
-			print >>sys.stderr, "database stats:"
-			if self.sngl_burst_table is not None:
-				print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
-			if self.sim_burst_table is not None:
-				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
-			if self.time_slide_table is not None:
-				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
-			if self.coinc_def_table is not None:
-				for description, n in connection.cursor().execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
-					print >>sys.stderr, "\t%s: %d" % (description, n)
+
+def summarize_coinc_database(contents):
+	cursor = contents.connection.cursor()
+	print >>sys.stderr, "database stats:"
+	for instrument, seglist in sorted(contents.seglists.items()):
+		print >>sys.stderr, "\t%s livetime: %g s (%g%% vetoed)" % (instrument, abs(seglist), 100.0 * float(abs(instrument in contents.vetoseglists and (seglist & contents.vetoseglists[instrument]) or 0.0)) / float(abs(seglist)))
+	if contents.sngl_burst_table is not None:
+		print >>sys.stderr, "\tburst events: %d" % len(contents.sngl_burst_table)
+	if contents.sim_burst_table is not None:
+		print >>sys.stderr, "\tinjections: %d" % len(contents.sim_burst_table)
+	if contents.time_slide_table is not None:
+		print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
+	if contents.coinc_def_table is not None:
+		for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id ORDER BY description"):
+			print >>sys.stderr, "\t%s: %d" % (description, n)
+	cursor.close()
 
 
 def coinc_sngl_bursts(contents, coinc_event_id):
@@ -164,33 +171,20 @@ def get_time_slides(connection):
 	return two dictionaries one containing the all-zero time slides and
 	the other containing the not-all-zero time slides.
 	"""
-	zero_lag_time_slides = {}
-	background_time_slides = {}
-	for id, instrument, offset, is_background in connection.cursor().execute("""
+	offset_vectors = {}
+	for id, instrument, offset in connection.cursor().execute("""
 SELECT
 	time_slide_id,
 	instrument,
-	offset,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide AS a
-		WHERE
-			a.time_slide_id == time_slide.time_slide_id
-			AND a.offset != 0
-	)
+	offset
 FROM
 	time_slide
 	"""):
-		if is_background:
-			if id not in background_time_slides:
-				background_time_slides[id] = {}
-			background_time_slides[id][instrument] = offset
-		else:
-			if id not in zero_lag_time_slides:
-				zero_lag_time_slides[id] = {}
-			zero_lag_time_slides[id][instrument] = offset
+		if id not in offset_vectors:
+			offset_vectors[id] = {}
+		offset_vectors[id][instrument] = offset
+	zero_lag_time_slides = dict((id, offset_vector) for id, offset_vector in offset_vectors.items() if not any(offset_vector.values()))
+	background_time_slides = dict((id, offset_vector) for id, offset_vector in offset_vectors.items() if any(offset_vector.values()))
 	return zero_lag_time_slides, background_time_slides
 
 
@@ -226,12 +220,15 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 #
 
 
+floatpattern = re.compile("([+-]?[.0-9]+)[Ee]([+-]?[0-9]+)")
+
 def latexnumber(s):
 	"""
 	Convert a string of the form "d.dddde-dd" to "d.dddd \times
 	10^{-dd}"
 	"""
-	return re.sub(r"([+-]?[.0-9]+)[Ee]?([+-]?[0-9]+)", r"\1 \\times 10^{\2}", s)
+	m, e = floatpattern.match(s).groups()
+	return r"%s \times 10^{%d}" % (m, int(e))
 
 
 #

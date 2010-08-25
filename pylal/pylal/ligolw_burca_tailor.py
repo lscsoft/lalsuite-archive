@@ -226,7 +226,7 @@ class CoincParamsDistributions(object):
 		return self
 
 	def add_zero_lag(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+		for param, value in (param_func(events, timeslide, *args) or {}).items():
 			rate = self.zero_lag_rates[param]
 			try:
 				rate[value] += 1.0
@@ -235,7 +235,7 @@ class CoincParamsDistributions(object):
 				pass
 
 	def add_background(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+		for param, value in (param_func(events, timeslide, *args) or {}).items():
 			rate = self.background_rates[param]
 			try:
 				rate[value] += 1.0
@@ -244,7 +244,7 @@ class CoincParamsDistributions(object):
 				pass
 
 	def add_injection(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+		for param, value in (param_func(events, timeslide, *args) or {}).items():
 			rate = self.injection_rates[param]
 			try:
 				rate[value] += 1.0
@@ -317,58 +317,46 @@ class Stats(object):
 
 	def add_noninjections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs
-		for (coinc_event_id,) in database.connection.cursor().execute("""
+		cursor = database.connection.cursor()
+		for coinc_event_id, time_slide_id in database.connection.cursor().execute("""
 SELECT
-	coinc_event_id
+	coinc_event_id,
+	time_slide_id
 FROM
 	coinc_event
 WHERE
 	coinc_def_id == ?
 		""", (database.bb_definer_id,)):
-			# retrieve the list of the sngl_bursts in this
-			# coinc, and their time slide dictionary
-			events = []
-			offsetdict = {}
-			for values in database.connection.cursor().execute("""
+			rows = [(database.sngl_burst_table.row_from_cols(row), row[-1]) for row in cursor.execute("""
 SELECT
 	sngl_burst.*,
 	time_slide.offset
 FROM
-	sngl_burst
-	JOIN coinc_event_map ON (
+	coinc_event_map
+	JOIN sngl_burst ON (
 		coinc_event_map.table_name == 'sngl_burst'
-		AND coinc_event_map.event_id == sngl_burst.event_id
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+		AND sngl_burst.event_id == coinc_event_map.event_id
 	)
 	JOIN time_slide ON (
-		coinc_event.time_slide_id == time_slide.time_slide_id
-		AND sngl_burst.ifo == time_slide.instrument
+		time_slide.instrument == sngl_burst.ifo
 	)
 WHERE
-	coinc_event.coinc_event_id == ?
-ORDER BY
-	sngl_burst.ifo
-			""", (coinc_event_id,)):
-				# reconstruct the event
-				event = database.sngl_burst_table.row_from_cols(values)
-
-				# add to list
-				events.append(event)
-
-				# store the time slide offset
-				offsetdict[event.ifo] = values[-1]
-
+	coinc_event_map.coinc_event_id == ?
+	AND time_slide.time_slide_id == ?
+			""", (coinc_event_id, time_slide_id))]
+			events = [event for event, offset in rows]
+			offsetdict = dict((event.ifo, offset) for event, offset in rows)
 			if any(offsetdict.values()):
 				self._add_background(param_func, events, offsetdict, *args)
 			else:
 				self._add_zero_lag(param_func, events, offsetdict, *args)
+		cursor.close()
 
 
 	def add_injections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
+		cursor = database.connection.cursor()
 		for values in database.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -395,9 +383,7 @@ WHERE
 
 			# retrieve the list of the sngl_bursts in this
 			# coinc, and their time slide dictionary
-			events = []
-			offsetdict = {}
-			for values in database.connection.cursor().execute("""
+			rows = [(database.sngl_burst_table.row_from_cols(row), row[-1]) for row in cursor.execute("""
 SELECT
 	sngl_burst.*,
 	time_slide.offset
@@ -416,20 +402,13 @@ FROM
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
-ORDER BY
-	sngl_burst.ifo
-			""", (coinc_event_id,)):
-				# reconstruct the burst event
-				event = database.sngl_burst_table.row_from_cols(values)
-
-				# add to list
-				events.append(event)
-
-				# store the time slide offset
-				offsetdict[event.ifo] = values[-1]
+			""", (coinc_event_id,))]
+			events = [event for event, offset in rows]
+			offsetdict = dict((event.ifo, offset) for event, offset in rows)
 
 			# pass the events to whatever wants them
 			self._add_injections(param_func, sim, events, offsetdict, *args)
+		cursor.close()
 
 	def finish(self):
 		pass

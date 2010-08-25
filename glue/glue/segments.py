@@ -855,11 +855,11 @@ class segmentlistdict(dict):
 	[segment(5, 10.0)]
 	>>> x.offsets["H1"] = 6
 	>>> x.intersection(["H1", "H2"])
-	[segment(11.0, 15)]
+	[segment(6.0, 15)]
 	>>> c = x.extract_common(["H1", "H2"])
 	>>> c.offsets.clear()
 	>>> c
-	{'H2': [segment(11.0, 15)], 'H1': [segment(5.0, 9.0)]}
+	{'H2': [segment(6.0, 15)], 'H1': [segment(0.0, 9.0)]}
 	"""
 	def __init__(self, *args):
 		dict.__init__(self, *args)
@@ -878,20 +878,21 @@ class segmentlistdict(dict):
 		until such modifications are made.
 
 		More details.  There are two "built-in" ways to create a
-		working copy of a segmentlist object.  The first is to
-		initialize a new object from an existing one with
+		copy of a segmentlist object.  The first is to initialize a
+		new object from an existing one with
 
+		>>> old = segmentlistdict()
 		>>> new = segmentlistdict(old)
 
-		This creates a working copy of the dictionary, but not of
-		its contents.  That is, this creates new with references to
-		the segmentlists in old, so changes to the segmentlists in
-		either new or old are reflected in both.  The second method
-		is
+		This creates a copy of the dictionary, but not of its
+		contents.  That is, this creates new with references to the
+		segmentlists in old, therefore changes to the segmentlists
+		in either new or old are reflected in both.  The second
+		method is
 
 		>>> new = old.copy()
 
-		This creates a working copy of the dictionary and of the
+		This creates a copy of the dictionary and of the
 		segmentlists, but with references to the segment objects in
 		the original segmentlists.  Since segments are immutable,
 		this effectively creates a completely independent working
@@ -1158,15 +1159,19 @@ class segmentlistdict(dict):
 		without requiring the keys of the intersecting segment
 		lists to match.
 		"""
-		keys1 = set(self.keys())
-		keys2 = set(other.keys())
 		if keys is not None:
 			keys = set(keys)
-			keys1 &= keys
-			keys2 &= keys
-		other = tuple(other[key] for key in keys2)
-		# FIXME:  replace with any() when min version bumped to 2.5
-		for a in (self[key] for key in keys1):
+			self = tuple(self[key] for key in set(self) & keys)
+			other = tuple(other[key] for key in set(other) & keys)
+		else:
+			self = tuple(self.values())
+			other = tuple(other.values())
+		# make sure inner loop is smallest
+		if len(self) < len(other):
+			self, other = other, self
+		for a in self:
+			# FIXME:  replace with any() when min version
+			# bumped to 2.5
 			for b in other:
 				if a.intersects(b):
 					return True

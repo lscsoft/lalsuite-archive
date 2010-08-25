@@ -34,6 +34,16 @@ def path_to_cache(pat, outname="ringfirst.cache"):
 	return outname
 
 class Tisi(object):
+#	#FIXME pick different time slide file name
+#	def __init__(self, options, tisi_parse, filename="tisi.xml"):
+#		self.tisi_parse = tisi_parse
+#		self.time_slides = {}
+#		self.dict_map()
+#		self.convert(options)
+#		self.filenames = [filename]
+#		self.make_doc(options)
+#		self.filename = filename
+
 	#FIXME pick different time slide file name
 	def __init__(self, options, tisi_parse, filename="tisi.xml"):
 		self.tisi_parse = tisi_parse
@@ -85,9 +95,9 @@ def cafe(cachenames, options, time_slide_file, base="cafe_"):
 	cache = []
 	for filename in cachenames:
 		cache.extend(ligolw_cafe.load_cache(filename, options.verbose))
-	seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(time_slide_file, verbose = options.verbose, gz = time_slide_file.endswith(".gz")).values(), options.verbose)
+	seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(time_slide_file, verbose = options.verbose, gz = time_slide_file.endswith(".gz")).values(), options.verbose, extentlimit=3600)
 	instruments = set(seglists.keys())
-	return ligolw_cafe.write_caches(base, outputcaches, instruments, options.verbose)
+	return outputcaches, ligolw_cafe.write_caches(base, outputcaches, instruments, options.verbose)
 
 class ring_post_DAG(pipeline.CondorDAG):
 	def __init__(self, config_file, log_path):
@@ -143,18 +153,38 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
 		self.set_sub_file(tag_base+'.sub')
 		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
 		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.add_opt("tmp-space",cp.get('input','tmp-space'))
+
+class lalapps_run_sqlite_job(pipeline.CondorDAGJob):
+	"""
+	A lalapps_run_sqlite job
+	"""
+	def __init__(self, cp, tag_base='LALAPPS_RUN_SQLITE'):
+		"""
+		"""
+		self.__prog__ = 'lalapps_run_sqlite'
+		self.__executable = string.strip(cp.get('condor','lalapps_run_sqlite'))
+		self.__universe = "vanilla"
+		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.tag_base = tag_base
+		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+		self.set_sub_file(tag_base+'.sub')
+		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
 class ligolw_add_node(pipeline.CondorDAGNode):
 	"""
 	"""
-	def __init__(self, job, dag, cache, tisi_file, p_node=[]):
+	def __init__(self, job, dag, cache, tisi_file, output, p_node=[]):
 		pipeline.CondorDAGNode.__init__(self,job)
 		#FIXME add tmp file space
 		self.add_macro("macroid", dag.id)
 		self.add_file_arg(tisi_file)
 		self.add_var_opt("input-cache", cache)
-		self.add_var_opt("output", cache.replace('.cache', '.xml.gz'))
-		self.add_output_file(cache.replace('.cache', '.xml.gz'))
+		self.add_var_opt("output", output)
+		self.add_output_file(output)
 		for p in p_node:
 			self.add_parent(p)
 		dag.add_node(self)
@@ -178,20 +208,71 @@ class ligolw_rinca_job(pipeline.CondorDAGJob):
 		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
 		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 
+class lalapps_cbc_injfind_job(pipeline.CondorDAGJob):
+        """
+        A lalapps_cbc_injfind job
+        """
+        def __init__(self, cp, tag_base='LALAPPS_CBC_INJFIND'):
+                """
+                """
+                self.__prog__ = 'lalapps_cbc_injfind'
+                self.__executable = string.strip(cp.get('condor','lalapps_cbc_injfind'))
+                self.__universe = "vanilla"
+                pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+                self.add_condor_cmd('getenv','True')
+                self.tag_base = tag_base
+                self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+                self.set_sub_file(tag_base+'.sub')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+
+class lalapps_ringcorse_job(pipeline.CondorDAGJob):
+        """
+        A lalapps_ringcorse job
+        """
+        def __init__(self, cp, tag_base='LALAPPS_RINGCORSE'):
+                """
+                """
+                self.__prog__ = 'lalapps_ringcorse'
+                self.__executable = string.strip(cp.get('condor','lalapps_ringcorse'))
+                self.__universe = "vanilla"
+                pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+                self.add_condor_cmd('getenv','True')
+                self.tag_base = tag_base
+                self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+                self.set_sub_file(tag_base+'.sub')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 
 class ligolw_rinca_node(pipeline.CondorDAGNode):
-	"""
-	"""
-	def __init__(self, job, dag, xml, ds_sq=0.4, p_node=[]):
-		pipeline.CondorDAGNode.__init__(self,job)
-		#FIXME add tmp file space
-		self.add_macro("macroid", dag.id)
-		self.add_file_arg(xml)
-		self.add_output_file(xml)
-		self.add_var_opt("ds-sq-threshold", ds_sq)
-		for p in p_node:
-			self.add_parent(p)
-		dag.add_node(self)
+        """
+        """
+        def __init__(self, job, dag, xml, ds_sq=0.5, extent=None, p_node=[]):
+                pipeline.CondorDAGNode.__init__(self,job)
+                #FIXME add tmp file space
+                self.add_macro("macroid", dag.id)
+                self.add_file_arg(xml)
+                self.add_output_file(xml)
+                self.add_var_opt("ds-sq-threshold", ds_sq)
+                self.add_var_opt("save-small-coincs", "")
+                if extent: self.add_var_opt("coinc-end-time-segment",":".join([str(t) for t in extent]))
+                for p in p_node:
+                        self.add_parent(p)
+                dag.add_node(self)
+
+class lalapps_cbc_injfind_node(pipeline.CondorDAGNode):
+        """
+        """
+        def __init__(self, job, dag, xml_list, match_alg='ringdown',p_node=[]):
+                pipeline.CondorDAGNode.__init__(self,job)
+                #FIXME add tmp file space
+                self.add_macro("macroid", dag.id)
+                for x in xml_list: self.add_file_arg(x)
+		#[sef.add_file_arg(x) for x in xml_list]
+                self.add_var_opt("match-algorithm", match_alg)
+                for p in p_node:
+                        self.add_parent(p)
+                dag.add_node(self)
 
 class ligolw_sqlite_node(pipeline.CondorDAGNode):
 	"""
@@ -207,6 +288,36 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
 		for p in p_node:
 			self.add_parent(p)
 		dag.add_node(self)
+
+class lalapps_run_sqlite_node(pipeline.CondorDAGNode):
+	"""
+	"""
+	def __init__(self, job, dag, database, p_node=[]):
+		pipeline.CondorDAGNode.__init__(self,job)
+		#FIXME add tmp file s
+		self.add_macro("macroid", dag.id)
+		self.add_file_arg(database)
+		self.add_file_opt("sql-file",cp.get('input','cluster_sql'))
+		for p in p_node:
+			self.add_parent(p)
+		dag.add_node(self)
+
+class lalapps_ringcorse_node(pipeline.CondorDAGNode):
+        """
+        """
+        def __init__(self, job, dag, database, categories="frequency-ifos-oninstruments", rank_by="snr", frequency_bins="0,30,inf", live_time_program="rinca",p_node=[]):
+                pipeline.CondorDAGNode.__init__(self,job)
+                #FIXME add tmp file s
+                self.add_macro("macroid", dag.id)
+		for x in database: self.add_file_arg(x)
+		# self.add_file_arg(database)
+		self.add_var_opt("categories", categories)
+                self.add_var_opt("rank-by", rank_by)
+		self.add_var_opt("frequency-bins", frequency_bins)
+		self.add_var_opt("live-time-program", live_time_program)
+                for p in p_node:
+                        self.add_parent(p)
+                dag.add_node(self)
 
 ###
 # NEW FUNCTIONS
@@ -225,10 +336,11 @@ def parse_cache(cachefile):
 			fp.close()
 	for k,v in f.items():
 		for k1, v1 in c.items():
-			if "INJECTIONS" in k1 and k in k1:
+			# FIXME please make this sensible
+			if "INJECTIONS" in k1 and not "COIRE" in k1 and k in k1:
 				f[k].append(k1+".cache")
 				fp=open(f[k][1],"w")
-				[fp.write(l) for l in v]
+				[fp.write(l) for l in v1]
 				fp.close()
 
 	return f
@@ -268,6 +380,11 @@ cp = ConfigParser.ConfigParser()
 #FIXME don't assume file name
 ininame = "ring_post.ini"
 cp.read(ininame)
+ds_sq_threshold = float(cp.get("rinca","ds-sq-threshold"))
+categories = str(cp.get("ringcorse","categories"))
+rank_by = str(cp.get("ringcorse","rank-by"))
+frequency_bins = str(cp.get("ringcorse","frequency-bins"))
+live_time_program = str(cp.get("ringcorse","live-time-program"))
 dag = ring_post_DAG(ininame, opts.log_path)
 
 #ligolw_add
@@ -278,15 +395,28 @@ add_node = {}
 rinca_job = ligolw_rinca_job(cp)
 rinca_node = {}
 
+#lalapps cbc injfind
+injfind_job = lalapps_cbc_injfind_job(cp)
+injfind_node = {}
+
 #ligolw sqlite
 sqlite_job = ligolw_sqlite_job(cp)
 sqlite_node = {}
+
+#lalapps run sqlite
+runsql_job = lalapps_run_sqlite_job(cp)
+runsql_node = {}
+
+#lalapps ringcorse
+ringcorse_job = lalapps_ringcorse_job(cp)
+ringcorse_node = {}
 
 #
 # Parse cache file
 #
 
 cachenamestypes = parse_cache(opts.cache)
+dbs = []
 
 for (desc, cachefile) in cachenamestypes.items():
 	if opts.verbose: print >> sys.stderr, "processing %s" % (desc,)
@@ -296,29 +426,35 @@ for (desc, cachefile) in cachenamestypes.items():
 	#
 
 	tisi_parse = ligolw_tisi.parse_slides(opts.instrument)
-	if "INJ" not in desc: tisi = Tisi(opts,tisi_parse)
+	#if "INJ" not in desc: tisi = Tisi(opts,tisi_parse)
+	if "INJ" not in desc: tisi = Tisi(opts,tisi_parse,filename = desc+"_tisi.xml")
 	else: 
 		for k in tisi_parse.keys(): tisi_parse[k] = [0.0]
-		tisi = Tisi(opts,tisi_parse)
+		tisi = Tisi(opts,tisi_parse,desc+"_tisi.xml")
 
-	cafe_caches = cafe([cachefile[0]], opts, tisi.filename)
+	cafe_caches, cafe_cache_files = cafe([cachefile[0]], opts, tisi.filename, base=desc+"_cafe")
 	
 
 	#Assemble dag
-	for f in cafe_caches:
+	for c, f in zip(cafe_caches, cafe_cache_files):
 		# add the injection file if necessary, a hack to use --input-cache twice
-		if "INJ" in desc: add_node[f] = ligolw_add_node(add_job, dag, f + " --input-cache " + cachefile[1], tisi.filename)
-		else: add_node[f] = ligolw_add_node(add_job, dag, f, tisi.filename)
-		rinca_node[f] = ligolw_rinca_node(rinca_job, dag, add_node[f].get_output_files()[0], p_node=[add_node[f]])
-		# FIXME if INJ: add injection finding
-		sqlite_node[f] = ligolw_sqlite_node(sqlite_job, dag, f.replace(".cache",".sqlite"), rinca_node[f].get_output_files(), p_node=[rinca_node[f]])
-		# FIXME add remove h1h2? pure sql use lalapps_run_sqlite
-		# FIXME add clustering pure sql use lalapps_run_sqlite
+		if "INJ" in desc: add_node[f] = ligolw_add_node(add_job, dag, f + " --input-cache " + cachefile[1], tisi.filename, f.replace(".cache",".xml.gz"))
+		else: add_node[f] = ligolw_add_node(add_job, dag, f, tisi.filename, f.replace(".cache",".xml.gz"))
+		rinca_node[f] = ligolw_rinca_node(rinca_job, dag, add_node[f].get_output_files()[0], ds_sq_threshold, extent=c.extent, p_node=[add_node[f]])
+		if "INJ" in desc:
+			injfind_node[f] = lalapps_cbc_injfind_node(injfind_job, dag, rinca_node[f].get_output_files(), p_node=[rinca_node[f]])
+			pnode = injfind_node[f]
+		else: pnode = rinca_node[f]
+		db = f.replace(".cache",".sqlite")
+		dbs.append(db)
+		sqlite_node[f] = ligolw_sqlite_node(sqlite_job, dag, db, rinca_node[f].get_output_files(), p_node=[pnode])
+		runsql_node[f] = lalapps_run_sqlite_node(runsql_job, dag, db, p_node=[sqlite_node[f]])
 		# FIXME add ringcorse
-		
+
+ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, p_node=runsql_node.values())
 
 	#FIXME Do you want everying in one file, what should be the file name?
-	sqlite_node[desc] = ligolw_sqlite_node(sqlite_job, dag, "%s.sqlite" % (desc,), [f.get_output_files()[0] for f in rinca_node.values()], p_node=rinca_node.values())
+	#sqlite_node[desc] = ligolw_sqlite_node(sqlite_job, dag, "%s.sqlite" % (desc,), [f.get_output_files()[0] for f in rinca_node.values()], p_node=rinca_node.values())
 
 dag.write_sub_files()
 dag.write_dag()

@@ -1,0 +1,246 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2010  Andrew Mergl
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+#
+# This is a Python replacement for the contour_plotter.m MATLAB code
+#
+
+
+import math
+import matplotlib
+matplotlib.rcParams.update({
+	"font.size": 8.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0,
+	"figure.dpi": 300,
+	"savefig.dpi": 300,
+	"text.usetex": True
+})
+#import matplotlib.pyplot as plt
+from matplotlib import figure
+#from matplotlib import patches
+#from matplotlib import cm
+#from matplotlib import colorbar
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+import numpy
+from optparse import OptionParser
+import sys
+
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from pylal import git_version
+from pylal import inject
+from pylal import ligolw_burca_tailor
+from pylal import stringutils
+
+#import array
+
+def parse_command_line():
+#    parser = OptionParser(
+#        version = "Name: %%prog\n$s" % git_version.verbose_msg
+#        )
+    parser = OptionParser()
+    parser.add_option("-v", "--verbose", action = "store_true",
+                      help = "Be verbose.")
+    parser.add_option("-t", "--live-time", dest="livetime",
+                      type = "float", 
+                      help = "The total amount of live time in the run")
+
+    options, filenames = parser.parse_args()
+    if options.livetime is None:
+        raise ValueError, "No live time specified. Use -t or --live-time."
+    if filenames is None:
+        raise ValueError, "No data file specified."
+    return options, filenames
+
+
+#------------------------------------------------------------------------------
+#       A 'uniquify' function to quickly and efficiently remove duplicate
+#     members of a sequence http://www.peterbe.com/plog/uniqifiers-benchmark
+#------------------------------------------------------------------------------
+
+def unique(seq, idfun=None):
+    # order preserving
+    if idfun is None:
+        def idfun(x): return x
+    seen = {}
+    result = []
+    for item in seq:
+        marker = idfun(item)
+        # in old Python versions:
+        # if seen.has_key(marker)
+        # but in new ones:
+        if marker in seen: continue
+        seen[marker] = 1
+        result.append(item)
+    return result
+
+
+
+def cosmo_contour(x, y, avg, min, max, p, neventsUL, filename):
+    fig = Figure()
+    FigureCanvas(fig)
+    axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+    axes.loglog()
+    axes.contour(x, y, avg/p, [neventsUL], linestyles='solid', colors='r')
+    axes.contour(x, y, min/p, [neventsUL], linestyles='dashed', colors='r')
+    axes.contour(x, y, max/p, [neventsUL], linestyles='dashed', colors='r')
+    axes.set_xlim([x.min(),x.max()])
+    axes.set_ylim([y.min(),y.max()])
+    axes.set_title("p=" + str(p))
+    axes.set_xlabel(r"$G\mu{}$")
+    axes.set_ylabel(r"$\epsilon{}$")
+    fig.savefig(filename)
+       
+
+    
+
+#main
+
+options, filenames = parse_command_line()
+
+#read cs_gamma file output
+f = open(filenames[0], 'r')
+
+#at the moment the titles should be %,p,n,epsilon,Gmu,gammaAverage,gammaMin,
+# gammaMax
+titles = f.readline().split()
+tbl=[]
+#for i in range(7): tbl.append([])
+tbl = [[] for i in range(7)]
+numberofeventsUL=-numpy.log(1-0.90);
+numberofeventsS=1.0000001
+
+#Read in the values from the gamma file produced by cs_gamma
+while True:
+    line = f.readline()
+    if line == '': break #Exit the loop at the end of the file
+    tmplst = line.split()
+    for i in range(len(tmplst)):
+        tbl[i].append(float(tmplst[i]))
+
+#eps = array.array('f',tbl[2])
+eps = tbl[2]
+eps2 = unique(eps)
+leneps2 = len(eps2)
+#gmu = array.array('f',tbl[3])
+gmu = tbl[3]
+gmu2 = unique(gmu)
+lengmu2 = len(gmu2)
+#print lengmu2
+avg = tbl[4]
+min = tbl[5]
+max = tbl[6]
+
+
+#for kk in range(length(gmu2)):
+#    for jj in range(length(eps2)):
+#        cut = (tbl[3] == gmu2[kk]) & (tbl[2] == eps2[jj])
+#        if sum(cut) == 1:
+gmuarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+epsarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+avgarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+minarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+maxarr = numpy.zeros([lengmu2,leneps2],dtype=float)
+
+
+for i in range(lengmu2):
+    for j in range(lengmu2):
+        gmuarr[i,j]=gmu[j+(i*lengmu2)]
+        epsarr[i,j]=eps[j+(i*lengmu2)]
+        avgarr[i,j]=avg[j+(i*lengmu2)]
+        minarr[i,j]=min[j+(i*lengmu2)]
+        maxarr[i,j]=max[j+(i*lengmu2)]
+
+t = options.livetime
+avgarr = avgarr*t
+minarr = minarr*t
+maxarr = maxarr*t
+
+cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 1.000, numberofeventsUL,
+             "gmu-eps-p1e+0")
+cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.100, numberofeventsUL,
+             "gmu-eps-p1e-1")
+cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.010, numberofeventsUL,
+             "gmu-eps-p1e-2")
+cosmo_contour(gmuarr, epsarr, avgarr, minarr, maxarr, 0.001, numberofeventsUL,
+             "gmu-eps-p1e-3")
+
+#fig = Figure()
+#FigureCanvas(fig)
+#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+#axes.loglog()
+#axes.contour(gmuarr, epsarr, avgarr*t, [numberofeventsUL], 
+#             linestyles='solid', colors='r')
+#axes.contour(gmuarr, epsarr, minarr*t, [numberofeventsUL], 
+#             linestyles='dashed', colors='r')
+#axes.contour(gmuarr, epsarr, maxarr*t, [numberofeventsUL], 
+#             linestyles='dashed',colors='r')
+#fig.savefig('tmplot1')
+#
+#fig = Figure()
+#FigureCanvas(fig)
+#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+#axes.loglog()
+#axes.contour(gmuarr, epsarr, avgarr*t/1e-1, 
+#             [numberofeventsUL], linestyles='solid', colors='r')
+#axes.contour(gmuarr, epsarr, minarr*t/1e-1, 
+#             [numberofeventsUL], linestyles='dashed', colors='r')
+#axes.contour(gmuarr, epsarr, maxarr*t/1e-1, 
+#             [numberofeventsUL], linestyles='dashed', colors='r')
+#fig.savefig('tmplot2')
+#
+#fig = Figure()
+#FigureCanvas(fig)
+#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+#axes.loglog()
+#axes.contour(gmuarr, epsarr, avgarr*t/1e-2, 
+#             [numberofeventsUL], linestyles='solid', colors='r')
+#axes.contour(gmuarr, epsarr, minarr*t/1e-2, 
+#             [numberofeventsUL], linestyles='dashed', colors='r')
+#axes.contour(gmuarr, epsarr, maxarr*t/1e-2, 
+#             [numberofeventsUL], linestyles='dashed', colors='r')
+#fig.savefig('tmplot3')
+#
+#fig = Figure()
+#FigureCanvas(fig)
+#axes = fig.add_axes((.12, .15, .98 - .12, .90 - .15))
+#axes.loglog()
+#axes.contour(gmuarr, epsarr, avgarr*t/1e-3, 
+#             [numberofeventsUL], linestyles='solid', colors='r')
+#axes.contour(gmuarr, epsarr, minarr*t/1e-3, 
+#             [numberofeventsUL], linestyles='dashed', colors='r')
+#axes.contour(gmuarr, epsarr, maxarr*t/1e-3, 
+#             [numberofeventsUL], linestyles='dashed',colors='r')
+#fig.savefig('tmplot4')
+#
+#    

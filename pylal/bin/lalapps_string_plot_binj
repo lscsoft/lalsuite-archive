@@ -71,7 +71,7 @@ def parse_command_line():
 	)
 	parser.add_option("--made-only", action = "store_true", default = False, help = "Plot only injections that were made.")
 	parser.add_option("-b", "--base", metavar = "base", default = "string_plotbinj_", help = "Set the prefix for output filenames (default = \"string_plotbinj_\").")
-	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\").")
+	parser.add_option("-f", "--format", metavar = "format", action = "append", default = [], help = "Set the output image format (default = \"png\").  Option can be given multiple times to generate plots in multiple formats.")
 	parser.add_option("--amplitude-func", metavar = "det|wave", default = "det", help = "Select the amplitude to show on the plots.  \"det\" = the amplitude expected in the detector, \"wave\" = the amplitude of the wave (default = \"det\").")
 	parser.add_option("--input-cache", metavar = "filename", action = "append", default = [], help = "Get list of files from this LAL cache.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name of the program, as it appears in the process table, whose search summary entries define the search live time (default = \"StringSearch\").")
@@ -89,6 +89,9 @@ def parse_command_line():
 		options.amplitude_lbl = r"$A^{\mathrm{det}}$"
 	else:
 		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
+
+	if not options.format:
+		options.format = ["png"]
 
 	if options.plot is None:
 		pass
@@ -443,6 +446,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
+	sngl_burst.snr,
 	sngl_burst.peak_time, sngl_burst.peak_time_ns
 FROM
 	sim_burst
@@ -456,6 +460,7 @@ WHERE
 	sngl_burst.ifo == ?
 		""", (self.instrument,)):
 			sim = contents.sim_burst_table.row_from_cols(values)
+			burst_snr = values[-3]
 			burst_peak = LIGOTimeGPS(*values[-2:])
 			sim_peak = SimBurstUtils.time_at_instrument(sim, self.instrument)
 			self.found += 1
@@ -727,7 +732,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp", verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp")
+	if options.verbose:
+		SnglBurstUtils.summarize_coinc_database(database)
 	if options.plot != []:
 		if database.coinc_table is not None:
 			#SimBurstUtils.create_sim_burst_best_string_sngl_map(connection, database.sb_definer_id)
@@ -789,7 +796,6 @@ for instrument in plots:
 	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(len(plots[instrument]) or 1)) + 1)
 	while len(plots[instrument]):
 		plot = plots[instrument].pop(0)
-		filename = format % (options.base, n, options.format)
 		if options.verbose:
 			print >>sys.stderr, "finishing %s plot %d ..." % (instrument, n)
 		try:
@@ -798,9 +804,11 @@ for instrument in plots:
 		except ValueError, e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, n, str(e))
 		else:
-			if options.verbose:
-				print >>sys.stderr, "writing %s ..." % filename
-			fig.savefig(filename)
+			for extension in options.format:
+				filename = format % (options.base, n, extension)
+				if options.verbose:
+					print >>sys.stderr, "writing %s ..." % filename
+				fig.savefig(filename)
 		n += 1
 
 

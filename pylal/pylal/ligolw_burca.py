@@ -65,17 +65,6 @@ def sngl_burst___cmp__(self, other):
 lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 
 
-def use___segments(modulename):
-	from glue import __segments
-	modulename.segments.infinity = __segments.infinity
-	modulename.segments.NegInfinity = __segments.NegInfinity
-	modulename.segments.PosInfinity = __segments.PosInfinity
-	modulename.segments.segment = __segments.segment
-	modulename.segments.segmentlist = __segments.segmentlist
-use___segments(llwapp)
-use___segments(lsctables)
-
-
 #
 # =============================================================================
 #
@@ -103,6 +92,8 @@ def append_process(xmldoc, **kwargs):
 		for (a, b), value in kwargs["thresholds"].items():
 			if a < b:
 				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (a, b, ",".join(map(str, value))))]
+	if "coincidence_segments" in kwargs:
+		params += [(u"--coincidence-segments", u"lstring", kwargs["coincidence_segments"])]
 
 	ligolw_process.append_process_params(xmldoc, process, params)
 
