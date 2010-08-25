@@ -329,8 +329,8 @@ WHERE
 		""", (database.bb_definer_id,)):
 			rows = [(database.sngl_burst_table.row_from_cols(row), row[-1]) for row in cursor.execute("""
 SELECT
-	sngl_burst.*
-	time_slide.offset,
+	sngl_burst.*,
+	time_slide.offset
 FROM
 	coinc_event_map
 	JOIN sngl_burst ON (
