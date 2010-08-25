@@ -47,6 +47,13 @@ from glue.ligolw import lsctables
 from pylal import llwapp
 
 
+try:
+	any
+except NameError:
+	# compatibility for Python < 2.5
+	from glue.iterutils import any
+
+
 #
 # =============================================================================
 #
