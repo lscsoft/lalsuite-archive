@@ -226,7 +226,7 @@ class CoincParamsDistributions(object):
 		return self
 
 	def add_zero_lag(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+		for param, value in (param_func(events, timeslide, *args) or {}).items():
 			rate = self.zero_lag_rates[param]
 			try:
 				rate[value] += 1.0
@@ -235,7 +235,7 @@ class CoincParamsDistributions(object):
 				pass
 
 	def add_background(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+		for param, value in (param_func(events, timeslide, *args) or {}).items():
 			rate = self.background_rates[param]
 			try:
 				rate[value] += 1.0
@@ -244,7 +244,7 @@ class CoincParamsDistributions(object):
 				pass
 
 	def add_injection(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+		for param, value in (param_func(events, timeslide, *args) or {}).items():
 			rate = self.injection_rates[param]
 			try:
 				rate[value] += 1.0
@@ -329,8 +329,8 @@ WHERE
 		""", (database.bb_definer_id,)):
 			rows = [(database.sngl_burst_table.row_from_cols(row), row[-1]) for row in cursor.execute("""
 SELECT
-	sngl_burst.*
-	time_slide.offset,
+	sngl_burst.*,
+	time_slide.offset
 FROM
 	coinc_event_map
 	JOIN sngl_burst ON (

@@ -60,9 +60,6 @@ from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 from pylal import stringutils
-SnglBurstUtils.matplotlib.rcParams.update({
-	"grid.linestyle": "-"
-})
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -72,7 +69,8 @@ SnglBurstUtils.matplotlib.rcParams.update({
 	"axes.labelsize": 10.0,
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
-	"legend.fontsize": 8.0
+	"legend.fontsize": 8.0,
+	"grid.linestyle": "-"
 })
 
 
