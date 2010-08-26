@@ -269,8 +269,14 @@ class RateVsThreshold(object):
 		# compute the live time
 		#
 
-		self.zero_lag_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
-		self.background_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		seglists = contents.seglists - contents.vetoseglists
+		self.zero_lag_time += stringutils.time_slides_livetime(seglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
+		self.background_time += stringutils.time_slides_livetime(seglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		if set(("H1", "H2")).issubset(set(contents.seglists)):
+			# we have segments for both H1 and H2, remove time
+			# when exactly that pair are on
+			self.zero_lag_time -= stringutils.time_slides_livetime_for_instrument_combo(seglists, zero_lag_time_slides.values(), ("H1", "H2"), clip = contents.coincidence_segments)
+			self.background_time -= stringutils.time_slides_livetime_for_instrument_combo(seglists, background_time_slides.values(), ("H1", "H2"), clip = contents.coincidence_segments)
 
 		#
 		# count events
@@ -508,9 +514,13 @@ class Efficiency(object):
 		# update segment information
 		#
 
-		seglists = contents.seglists - contents.vetoseglists
 		self.seglists |= contents.seglists
 		self.vetoseglists |= contents.vetoseglists
+		seglists = contents.seglists - contents.vetoseglists
+		if set(("H1", "H2")).issubset(set(seglists)):
+			# we have segments for both H1 and H2, remove time
+			# when exactly that pair are on
+			seglists -= segments.segmentlistdict.fromkeys(seglists, seglists.intersection(("H1", "H2")) - seglists.union(set(seglists) - set(("H1", "H2"))))
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
@@ -633,10 +643,11 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 
 		contents.filename = filename
 
-		# as a side-effect, this enforces the rule that burca has
-		# been run on the input file exactly once
-		contents.coincidence_segments, = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
 		if contents.coincidence_segments:
+			# as a side-effect, this enforces the rule that
+			# burca has been run on the input file exactly once
+			contents.coincidence_segments, = contents.coincidence_segments
 			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
 		else:
 			contents.coincidence_segments = None
