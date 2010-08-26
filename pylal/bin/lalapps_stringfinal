@@ -172,10 +172,11 @@ def compress_ratevsthresh_curve(x, y, yerr):
 
 
 class RateVsThreshold(object):
-	def __init__(self, open_box):
+	def __init__(self, open_box, record_candidates = 10):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
 		self.zero_lag = []
 		self.background = []
+		self.candidates = iterutils.Highest(max = record_candidates)
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
 		self.open_box = open_box
@@ -210,9 +211,23 @@ class RateVsThreshold(object):
 		# count events
 		#
 
-		for likelihood_ratio, is_background in contents.connection.cursor().execute("""
+		candidates = []
+		for likelihood_ratio, instruments, coinc_event_id, peak_time, is_background in contents.connection.cursor().execute("""
 SELECT
 	coinc_event.likelihood,
+	coinc_event.instruments,
+	coinc_event.coinc_event_id,
+	(
+		SELECT
+			AVG(sngl_burst.peak_time) + 1e-9 * AVG(sngl_burst.peak_time_ns)
+		FROM
+			sngl_burst
+			JOIN coinc_event_map ON (
+				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+				AND coinc_event_map.table_name == 'sngl_burst'
+				AND coinc_event_map.event_id == sngl_burst.event_id
+			)
+	),
 	EXISTS (
 		SELECT
 			*
@@ -227,6 +242,7 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
+			instruments = dbtables.lsctables.instrument_set_from_ifos(instruments)
 			if likelihood_ratio is None:
 				# coinc got vetoed (unable to compute
 				# likelihood)
@@ -237,6 +253,12 @@ WHERE
 			else:
 				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
+				# likelihood ratio must be listed first to
+				# act as the sort key
+				candidates.append((likelihood_ratio, contents.filename, coinc_event_id, instruments, peak_time))
+		# this is much faster than appending each element into the
+		# Highest object one-by-one
+		self.candidates.extend(candidates)
 
 	def finish(self):
 		if self.open_box:
@@ -298,6 +320,20 @@ WHERE
 
 		self.axes.set_xlim((minX, maxX))
 		self.axes.set_ylim((minY, maxY))
+
+		#
+		# dump info about highest-ranked zero-lag events
+		#
+
+		f = file("string_candidates.txt", "w")
+		print >>f, "Highest-Ranked Zero-Lag Events"
+		print >>f, "=============================="
+		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+			print >>f
+			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
+			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
+			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
+			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
 
 
 #
@@ -408,7 +444,7 @@ class Efficiency(object):
 		self.seglists = segments.segmentlistdict()
 		self.vetoseglists = segments.segmentlistdict()
 		self.found = []
-		self.missed = []
+		self.missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
 		self.all = []
 		self.axes.semilogx()
 		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
@@ -437,6 +473,7 @@ class Efficiency(object):
 		# injection or null if no such matching burst events were
 		# found
 		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
+		missed = []
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -458,10 +495,15 @@ FROM
 				if found and likelihood_ratio > self.detection_threshold:
 					self.found.append(sim)
 				else:
-					self.missed.append((sim, contents.filename))
+					# amplitude needs to be first so
+					# that it acts as the sort key
+					missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
 			elif found:
 				# no
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
+		# this is much faster than appending each element into the
+		# Highest object one-by-one
+		self.missed.extend(missed)
 
 	def finish(self):
 		# put made and found injections in the denominators and
@@ -499,15 +541,21 @@ FROM
 		self.axes.set_xlim([1e-21, 2e-18])
 		self.axes.set_ylim([0.0, 1.0])
 
+		#
 		# dump some information about the highest-amplitude missed
 		# injections
-		self.missed.sort(lambda (a, f1), (b, f2): cmp(a.amplitude, b.amplitude))
+		#
+
 		f = file("string_missed_injections.txt", "w")
 		print >>f, "Highest Amplitude Missed Injections"
 		print >>f, "==================================="
-		for sim, filename in self.missed[-100:]:
+		for amplitude, sim, filename, likelihood_ratio in self.missed:
 			print >>f
 			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
+			if likelihood_ratio is None:
+				print >>f, "Not recovered"
+			else:
+				print >>f, "Recovered with \\Lambda = %.16g, detection threshold was %.16g" % (likelihood_ratio, self.detection_threshold)
 			for instrument in self.seglists:
 				print >>f, "%s:" % instrument
 				print >>f, "\tAmplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
