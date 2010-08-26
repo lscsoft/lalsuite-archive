@@ -618,6 +618,22 @@ FROM
 #
 
 
+def group_files(filenames, verbose = False):
+	# figure out which files are injection runs and which aren't
+	injection_filenames = []
+	noninjection_filenames = []
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		connection = sqlite3.connect(filename)
+		if "sim_burst" in dbtables.get_table_names(connection):
+			injection_filenames.append(filename)
+		else:
+			noninjection_filenames.append(filename)
+		connection.close()
+	return injection_filenames, noninjection_filenames
+
+
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
@@ -637,8 +653,7 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		# missed injections.  if burca was run with the
 		# --coincidence-segments option then the value is copied
 		# into a segmentlistdict to facilitate the computation of
-		# livetime, otherwise a dummy value is created spanning all
-		# time
+		# livetime
 		#
 
 		contents.filename = filename
@@ -699,9 +714,13 @@ PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
 
 
 if options.verbose:
+	print >>sys.stderr, "Identifying injection and non-injection databases ..."
+injection_filenames, noninjection_filenames = group_files(filenames, verbose = options.verbose)
+
+if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 rate_vs_threshold = RateVsThreshold(options.open_box)
-process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([rate_vs_threshold], "string_triggers_", options.image_formats, verbose = False)
 
 
@@ -721,7 +740,7 @@ else:
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
-process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+process_files(injection_filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
 
 
