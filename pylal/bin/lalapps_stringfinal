@@ -46,15 +46,12 @@ except ImportError:
 import sys
 
 
+from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
 from glue.lal import CacheEntry
-from glue.ligolw import ligolw
-from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolwprocess
-from glue import segments
 from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
@@ -74,7 +71,7 @@ SnglBurstUtils.matplotlib.rcParams.update({
 })
 
 
-lsctables.LIGOTimeGPS = LIGOTimeGPS
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -121,57 +118,6 @@ def parse_command_line():
 		raise ValueError, "must provide at least one filename"
 
 	return options, filenames
-
-
-#
-# =============================================================================
-#
-#                              Zero-Lag Survivors
-#
-# =============================================================================
-#
-
-
-class Survivors(object):
-	def __init__(self):
-		self.xmldoc = None
-
-	def add_contents(self, contents):
-		if self.xmldoc is None:
-			self.xmldoc = ligolw.Document()
-			self.xmldoc.appendChild(ligolw.LIGO_LW())
-			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
-			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
-
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sngl_burst.*
-FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-	JOIN sngl_burst ON (
-		coinc_event_map.table_name == 'sngl_burst'
-		AND coinc_event_map.event_id == sngl_burst.event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND NOT EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-		""", (contents.bb_definer_id,)):
-			self.sngl_burst_table.append(contents.sngl_burst_table.row_from_cols(values))
-
-	def finish(self, filename, verbose = False):
-		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
-		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #
@@ -239,24 +185,6 @@ class RateVsThreshold(object):
 		self.axes.yaxis.grid(True, which = "major,minor")
 
 	def add_contents(self, contents, verbose = False):
-		#
-		# if the database contains a sim_burst table then it is assumed
-		# to be from an injection run:  skip it
-		#
-
-		if "sim_burst" in dbtables.get_table_names(contents.connection):
-			if verbose:
-				print >>sys.stderr, "\tdatabase contains sim_burst table, skipping ..."
-			return
-
-		#
-		# this is costly, so we do it after deciding if we care
-		# about this file
-		#
-
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents)
-
 		#
 		# retrieve the offset vectors, retain only instruments that
 		# are available
@@ -493,24 +421,6 @@ class Efficiency(object):
 
 	def add_contents(self, contents, verbose = False):
 		#
-		# if the database does not contain a sim_burst table then
-		# it is assumed to be from a non-injection run:  skip it
-		#
-
-		if "sim_burst" not in dbtables.get_table_names(contents.connection):
-			if verbose:
-				print >>sys.stderr, "\tdatabase does not contain sim_burst table, skipping ..."
-			return
-
-		#
-		# this is costly, so we do it after deciding if we care
-		# about this file
-		#
-
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents)
-
-		#
 		# update segment information
 		#
 
@@ -627,8 +537,12 @@ def group_files(filenames, verbose = False):
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		connection = sqlite3.connect(filename)
 		if "sim_burst" in dbtables.get_table_names(connection):
+			if verbose:
+				print >>sys.stderr, "\t--> injections"
 			injection_filenames.append(filename)
 		else:
+			if verbose:
+				print >>sys.stderr, "\t--> non-injections"
 			noninjection_filenames.append(filename)
 		connection.close()
 	return injection_filenames, noninjection_filenames
@@ -646,6 +560,8 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
 		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
+		if verbose:
+			SnglBurstUtils.summarize_coinc_database(contents)
 
 		#
 		# augment summary with extra stuff we need.  the filename
