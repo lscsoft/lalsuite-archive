@@ -1213,7 +1213,13 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		#add parents and put node in dag
+# 		# Wed-Aug-25-2010:201008251418 Added Pre & Post
+# 		# scripts depends on value of output-path
+# 		patchScript=create_default_config().which("followup_InspiralDataMover.sh")
+# 		self.set_pre_script("%s %s"%(patchScript,job.outputPath))
+# 		self.set_post_script("%s %s"%(patchScript,job.outputPath))
+# 		# End temporary additions Wed-Aug-25-2010:201008251421 
+# 		#add parents and put node in dag
 		for node in p_nodes:
 			if node.validNode:
 				self.add_parent(node)
