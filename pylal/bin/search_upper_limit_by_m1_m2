@@ -24,7 +24,7 @@ from pylal import git_version
 __author__ = "Chad Hanna <channa@ligo.caltech.edu>, Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-__prog__ = "search_upper_limit_by_m2_m1"
+__prog__ = "search_upper_limit_by_m1_m2"
 
 # FIXME:  the plots should use LaTeX to generate the labels, but some don't
 # work yet
@@ -353,6 +353,7 @@ for i, f in enumerate(files):
 ###############################################################################
 # now write out the special combined case
 ###############################################################################
+__prog__ = "search_combined_upper_limit_by_m1_m2"
 lines = []
 legend_str = []
 ulA.array *= 0
@@ -410,7 +411,7 @@ pylab.xlabel("Mass 2",fontsize=14)
 pylab.ylabel("Mass 1",fontsize=14)
 pylab.gca().set_aspect(1)
 pylab.grid()
-savefig_pylal('combined_upper_limit', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 pylab.clf()
 
 plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
