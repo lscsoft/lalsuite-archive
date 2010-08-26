@@ -103,9 +103,9 @@ def parse_command_line():
 #
 
 
-class RateContours(SnglBurstUtils.BurstPlot):
+class RateContours(object):
 	def __init__(self, x_instrument, y_instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
 		self.fig.set_size_inches(6,6)
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
@@ -253,9 +253,9 @@ def magnitude_b(burst):
 	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 
-class ConfidenceContours(SnglBurstUtils.BurstPlot):
+class ConfidenceContours(object):
 	def __init__(self, x_instrument, y_instrument, magnitude, desc, min_magnitude, max_magnitude):
-		SnglBurstUtils.BurstPlot.__init__(self, "%s %s" % (x_instrument, desc), "%s %s" % (y_instrument, desc))
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("%s %s" % (x_instrument, desc), "%s %s" % (y_instrument, desc))
 		self.fig.set_size_inches(6,6)
 		self.axes.loglog()
 		self.x_instrument = x_instrument
@@ -394,9 +394,9 @@ WHERE
 		self.axes.set_ylim([self.background_bins.bins.min[1], self.background_bins.bins.max[1]])
 
 
-class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
+class ConfidenceContourProjection(object):
 	def __init__(self, x, y, magnitude, max_magnitude):
-		SnglBurstUtils.BurstPlot.__init__(self, "X", "Y")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("X", "Y")
 		self.fig.set_size_inches(6,6)
 		self.x = x
 		self.y = y
@@ -535,9 +535,9 @@ WHERE
 #
 
 
-class RateVsConfidence(SnglBurstUtils.BurstPlot):
+class RateVsConfidence(object):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % instrument, "Coincident Event Rate (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("%s Confidence" % instrument, "Coincident Event Rate (Hz)")
 		self.instrument = instrument
 		self.foreground = []
 		self.background = []

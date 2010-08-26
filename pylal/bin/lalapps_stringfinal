@@ -60,9 +60,6 @@ from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 from pylal import stringutils
-SnglBurstUtils.matplotlib.rcParams.update({
-	"grid.linestyle": "-"
-})
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -72,7 +69,8 @@ SnglBurstUtils.matplotlib.rcParams.update({
 	"axes.labelsize": 10.0,
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
-	"legend.fontsize": 8.0
+	"legend.fontsize": 8.0,
+	"grid.linestyle": "-"
 })
 
 
@@ -227,9 +225,9 @@ def compress_ratevsthresh_curve(x, y, yerr):
 	return x.compress(mask), y.compress(mask), yerr.compress(mask)
 
 
-class RateVsThreshold(SnglBurstUtils.BurstPlot):
+class RateVsThreshold(object):
 	def __init__(self, open_box):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
 		self.zero_lag = []
 		self.background = []
 		self.zero_lag_time = 0.0
@@ -271,8 +269,14 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 		# compute the live time
 		#
 
-		self.zero_lag_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
-		self.background_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		seglists = contents.seglists - contents.vetoseglists
+		self.zero_lag_time += stringutils.time_slides_livetime(seglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
+		self.background_time += stringutils.time_slides_livetime(seglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		if set(("H1", "H2")).issubset(set(contents.seglists)):
+			# we have segments for both H1 and H2, remove time
+			# when exactly that pair are on
+			self.zero_lag_time -= stringutils.time_slides_livetime_for_instrument_combo(seglists, zero_lag_time_slides.values(), ("H1", "H2"), clip = contents.coincidence_segments)
+			self.background_time -= stringutils.time_slides_livetime_for_instrument_combo(seglists, background_time_slides.values(), ("H1", "H2"), clip = contents.coincidence_segments)
 
 		#
 		# count events
@@ -465,9 +469,9 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	return line, A50, A50_err
 
 
-class Efficiency(SnglBurstUtils.BurstPlot):
+class Efficiency(object):
 	def __init__(self, detection_threshold, cal_uncertainty, amplitude_factor, filter_width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
@@ -510,9 +514,13 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# update segment information
 		#
 
-		seglists = contents.seglists - contents.vetoseglists
 		self.seglists |= contents.seglists
 		self.vetoseglists |= contents.vetoseglists
+		seglists = contents.seglists - contents.vetoseglists
+		if set(("H1", "H2")).issubset(set(seglists)):
+			# we have segments for both H1 and H2, remove time
+			# when exactly that pair are on
+			seglists -= segments.segmentlistdict.fromkeys(seglists, seglists.intersection(("H1", "H2")) - seglists.union(set(seglists) - set(("H1", "H2"))))
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
@@ -575,7 +583,7 @@ FROM
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3e" % self.detection_threshold),), loc = "lower right")
+		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.2e" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
 		self.axes.set_xlim([1e-21, 2e-18])
@@ -610,6 +618,22 @@ FROM
 #
 
 
+def group_files(filenames, verbose = False):
+	# figure out which files are injection runs and which aren't
+	injection_filenames = []
+	noninjection_filenames = []
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		connection = sqlite3.connect(filename)
+		if "sim_burst" in dbtables.get_table_names(connection):
+			injection_filenames.append(filename)
+		else:
+			noninjection_filenames.append(filename)
+		connection.close()
+	return injection_filenames, noninjection_filenames
+
+
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
@@ -629,16 +653,16 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		# missed injections.  if burca was run with the
 		# --coincidence-segments option then the value is copied
 		# into a segmentlistdict to facilitate the computation of
-		# livetime, otherwise a dummy value is created spanning all
-		# time
+		# livetime
 		#
 
 		contents.filename = filename
 
-		# as a side-effect, this enforces the rule that burca has
-		# been run on the input file exactly once
-		contents.coincidence_segments, = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
 		if contents.coincidence_segments:
+			# as a side-effect, this enforces the rule that
+			# burca has been run on the input file exactly once
+			contents.coincidence_segments, = contents.coincidence_segments
 			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
 		else:
 			contents.coincidence_segments = None
@@ -690,9 +714,13 @@ PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
 
 
 if options.verbose:
+	print >>sys.stderr, "Identifying injection and non-injection databases ..."
+injection_filenames, noninjection_filenames = group_files(filenames, verbose = options.verbose)
+
+if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 rate_vs_threshold = RateVsThreshold(options.open_box)
-process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([rate_vs_threshold], "string_triggers_", options.image_formats, verbose = False)
 
 
@@ -712,7 +740,7 @@ else:
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
-process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+process_files(injection_filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
 
 

@@ -47,6 +47,13 @@ from glue.ligolw import lsctables
 from pylal import llwapp
 
 
+try:
+	any
+except NameError:
+	# compatibility for Python < 2.5
+	from glue.iterutils import any
+
+
 #
 # =============================================================================
 #
@@ -240,23 +247,16 @@ def latexnumber(s):
 #
 
 
-class BurstPlot(object):
-	def __init__(self, x_label, y_label, width = 165.0):
-		"""
-		width is in mm
-		"""
-		self.nevents = 0
-		self.fig = figure.Figure()
-		FigureCanvas(self.fig)
-		# width mm wide, golden ratio high
-		self.fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
-		self.axes = self.fig.gca()
-		self.axes.grid(True)
-		self.axes.set_xlabel(x_label)
-		self.axes.set_ylabel(y_label)
-
-	def add_contents(self, doc):
-		raise NotImplementedError
-
-	def finish(self):
-		pass
+def make_burst_plot(x_label, y_label, width = 165.0):
+	"""
+	width is in mm
+	"""
+	fig = figure.Figure()
+	FigureCanvas(fig)
+	# width mm wide, golden ratio high
+	fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
+	axes = fig.gca()
+	axes.grid(True)
+	axes.set_xlabel(x_label)
+	axes.set_ylabel(y_label)
+	return fig, axes
