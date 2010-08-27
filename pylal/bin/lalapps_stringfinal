@@ -46,23 +46,17 @@ except ImportError:
 import sys
 
 
+from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
 from glue.lal import CacheEntry
-from glue.ligolw import ligolw
-from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolwprocess
-from glue import segments
 from pylal import git_version
 from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 from pylal import stringutils
-SnglBurstUtils.matplotlib.rcParams.update({
-	"grid.linestyle": "-"
-})
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -72,11 +66,12 @@ SnglBurstUtils.matplotlib.rcParams.update({
 	"axes.labelsize": 10.0,
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
-	"legend.fontsize": 8.0
+	"legend.fontsize": 8.0,
+	"grid.linestyle": "-"
 })
 
 
-lsctables.LIGOTimeGPS = LIGOTimeGPS
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -123,57 +118,6 @@ def parse_command_line():
 		raise ValueError, "must provide at least one filename"
 
 	return options, filenames
-
-
-#
-# =============================================================================
-#
-#                              Zero-Lag Survivors
-#
-# =============================================================================
-#
-
-
-class Survivors(object):
-	def __init__(self):
-		self.xmldoc = None
-
-	def add_contents(self, contents):
-		if self.xmldoc is None:
-			self.xmldoc = ligolw.Document()
-			self.xmldoc.appendChild(ligolw.LIGO_LW())
-			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
-			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
-
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sngl_burst.*
-FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-	JOIN sngl_burst ON (
-		coinc_event_map.table_name == 'sngl_burst'
-		AND coinc_event_map.event_id == sngl_burst.event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-	AND NOT EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-		""", (contents.bb_definer_id,)):
-			self.sngl_burst_table.append(contents.sngl_burst_table.row_from_cols(values))
-
-	def finish(self, filename, verbose = False):
-		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
-		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #
@@ -227,11 +171,12 @@ def compress_ratevsthresh_curve(x, y, yerr):
 	return x.compress(mask), y.compress(mask), yerr.compress(mask)
 
 
-class RateVsThreshold(SnglBurstUtils.BurstPlot):
-	def __init__(self, open_box):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
+class RateVsThreshold(object):
+	def __init__(self, open_box, record_candidates = 10):
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
 		self.zero_lag = []
 		self.background = []
+		self.candidates = iterutils.Highest(max = record_candidates)
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
 		self.open_box = open_box
@@ -241,24 +186,6 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 		self.axes.yaxis.grid(True, which = "major,minor")
 
 	def add_contents(self, contents, verbose = False):
-		#
-		# if the database contains a sim_burst table then it is assumed
-		# to be from an injection run:  skip it
-		#
-
-		if "sim_burst" in dbtables.get_table_names(contents.connection):
-			if verbose:
-				print >>sys.stderr, "\tdatabase contains sim_burst table, skipping ..."
-			return
-
-		#
-		# this is costly, so we do it after deciding if we care
-		# about this file
-		#
-
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents)
-
 		#
 		# retrieve the offset vectors, retain only instruments that
 		# are available
@@ -271,16 +198,36 @@ class RateVsThreshold(SnglBurstUtils.BurstPlot):
 		# compute the live time
 		#
 
-		self.zero_lag_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
-		self.background_time += stringutils.time_slides_livetime(contents.seglists - contents.vetoseglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		seglists = contents.seglists - contents.vetoseglists
+		self.zero_lag_time += stringutils.time_slides_livetime(seglists, zero_lag_time_slides.values(), 2, clip = contents.coincidence_segments)
+		self.background_time += stringutils.time_slides_livetime(seglists, background_time_slides.values(), 2, clip = contents.coincidence_segments)
+		if set(("H1", "H2")).issubset(set(contents.seglists)):
+			# we have segments for both H1 and H2, remove time
+			# when exactly that pair are on
+			self.zero_lag_time -= stringutils.time_slides_livetime_for_instrument_combo(seglists, zero_lag_time_slides.values(), ("H1", "H2"), clip = contents.coincidence_segments)
+			self.background_time -= stringutils.time_slides_livetime_for_instrument_combo(seglists, background_time_slides.values(), ("H1", "H2"), clip = contents.coincidence_segments)
 
 		#
 		# count events
 		#
 
-		for likelihood_ratio, is_background in contents.connection.cursor().execute("""
+		candidates = []
+		for likelihood_ratio, instruments, coinc_event_id, peak_time, is_background in contents.connection.cursor().execute("""
 SELECT
 	coinc_event.likelihood,
+	coinc_event.instruments,
+	coinc_event.coinc_event_id,
+	(
+		SELECT
+			AVG(sngl_burst.peak_time) + 1e-9 * AVG(sngl_burst.peak_time_ns)
+		FROM
+			sngl_burst
+			JOIN coinc_event_map ON (
+				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+				AND coinc_event_map.table_name == 'sngl_burst'
+				AND coinc_event_map.event_id == sngl_burst.event_id
+			)
+	),
 	EXISTS (
 		SELECT
 			*
@@ -295,6 +242,7 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.bb_definer_id,)):
+			instruments = dbtables.lsctables.instrument_set_from_ifos(instruments)
 			if likelihood_ratio is None:
 				# coinc got vetoed (unable to compute
 				# likelihood)
@@ -305,6 +253,12 @@ WHERE
 			else:
 				# non-vetoed zero lag
 				self.zero_lag.append(likelihood_ratio)
+				# likelihood ratio must be listed first to
+				# act as the sort key
+				candidates.append((likelihood_ratio, contents.filename, coinc_event_id, instruments, peak_time))
+		# this is much faster than appending each element into the
+		# Highest object one-by-one
+		self.candidates.extend(candidates)
 
 	def finish(self):
 		if self.open_box:
@@ -366,6 +320,20 @@ WHERE
 
 		self.axes.set_xlim((minX, maxX))
 		self.axes.set_ylim((minY, maxY))
+
+		#
+		# dump info about highest-ranked zero-lag events
+		#
+
+		f = file("string_candidates.txt", "w")
+		print >>f, "Highest-Ranked Zero-Lag Events"
+		print >>f, "=============================="
+		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+			print >>f
+			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
+			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
+			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
+			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
 
 
 #
@@ -465,9 +433,9 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	return line, A50, A50_err
 
 
-class Efficiency(SnglBurstUtils.BurstPlot):
+class Efficiency(object):
 	def __init__(self, detection_threshold, cal_uncertainty, amplitude_factor, filter_width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
@@ -476,7 +444,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.seglists = segments.segmentlistdict()
 		self.vetoseglists = segments.segmentlistdict()
 		self.found = []
-		self.missed = []
+		self.missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
 		self.all = []
 		self.axes.semilogx()
 		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
@@ -489,36 +457,23 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents, verbose = False):
 		#
-		# if the database does not contain a sim_burst table then
-		# it is assumed to be from a non-injection run:  skip it
-		#
-
-		if "sim_burst" not in dbtables.get_table_names(contents.connection):
-			if verbose:
-				print >>sys.stderr, "\tdatabase does not contain sim_burst table, skipping ..."
-			return
-
-		#
-		# this is costly, so we do it after deciding if we care
-		# about this file
-		#
-
-		if verbose:
-			SnglBurstUtils.summarize_coinc_database(contents)
-
-		#
 		# update segment information
 		#
 
-		seglists = contents.seglists - contents.vetoseglists
 		self.seglists |= contents.seglists
 		self.vetoseglists |= contents.vetoseglists
+		seglists = contents.seglists - contents.vetoseglists
+		if set(("H1", "H2")).issubset(set(seglists)):
+			# we have segments for both H1 and H2, remove time
+			# when exactly that pair are on
+			seglists -= segments.segmentlistdict.fromkeys(seglists, seglists.intersection(("H1", "H2")) - seglists.union(set(seglists) - set(("H1", "H2"))))
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
 		# injection or null if no such matching burst events were
 		# found
 		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
+		missed = []
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -540,10 +495,15 @@ FROM
 				if found and likelihood_ratio > self.detection_threshold:
 					self.found.append(sim)
 				else:
-					self.missed.append((sim, contents.filename))
+					# amplitude needs to be first so
+					# that it acts as the sort key
+					missed.append((sim.amplitude, sim, contents.filename, likelihood_ratio))
 			elif found:
 				# no
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
+		# this is much faster than appending each element into the
+		# Highest object one-by-one
+		self.missed.extend(missed)
 
 	def finish(self):
 		# put made and found injections in the denominators and
@@ -575,21 +535,27 @@ FROM
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.3e" % self.detection_threshold),), loc = "lower right")
+		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.2e" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
 		self.axes.set_xlim([1e-21, 2e-18])
 		self.axes.set_ylim([0.0, 1.0])
 
+		#
 		# dump some information about the highest-amplitude missed
 		# injections
-		self.missed.sort(lambda (a, f1), (b, f2): cmp(a.amplitude, b.amplitude))
+		#
+
 		f = file("string_missed_injections.txt", "w")
 		print >>f, "Highest Amplitude Missed Injections"
 		print >>f, "==================================="
-		for sim, filename in self.missed[-100:]:
+		for amplitude, sim, filename, likelihood_ratio in self.missed:
 			print >>f
 			print >>f, "%s in %s:" % (str(sim.simulation_id), filename)
+			if likelihood_ratio is None:
+				print >>f, "Not recovered"
+			else:
+				print >>f, "Recovered with \\Lambda = %.16g, detection threshold was %.16g" % (likelihood_ratio, self.detection_threshold)
 			for instrument in self.seglists:
 				print >>f, "%s:" % instrument
 				print >>f, "\tAmplitude:\t%.16g" % SimBurstUtils.string_amplitude_in_instrument(sim, instrument)
@@ -610,6 +576,26 @@ FROM
 #
 
 
+def group_files(filenames, verbose = False):
+	# figure out which files are injection runs and which aren't
+	injection_filenames = []
+	noninjection_filenames = []
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		connection = sqlite3.connect(filename)
+		if "sim_burst" in dbtables.get_table_names(connection):
+			if verbose:
+				print >>sys.stderr, "\t--> injections"
+			injection_filenames.append(filename)
+		else:
+			if verbose:
+				print >>sys.stderr, "\t--> non-injections"
+			noninjection_filenames.append(filename)
+		connection.close()
+	return injection_filenames, noninjection_filenames
+
+
 def process_files(filenames, products, live_time_program, tmp_path = None, veto_segments_name = None, verbose = False):
 	for n, filename in enumerate(filenames):
 		if verbose:
@@ -622,6 +608,8 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
 		contents = SnglBurstUtils.CoincDatabase(connection, live_time_program, search = "StringCusp", veto_segments_name = veto_segments_name)
+		if verbose:
+			SnglBurstUtils.summarize_coinc_database(contents)
 
 		#
 		# augment summary with extra stuff we need.  the filename
@@ -629,16 +617,16 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 		# missed injections.  if burca was run with the
 		# --coincidence-segments option then the value is copied
 		# into a segmentlistdict to facilitate the computation of
-		# livetime, otherwise a dummy value is created spanning all
-		# time
+		# livetime
 		#
 
 		contents.filename = filename
 
-		# as a side-effect, this enforces the rule that burca has
-		# been run on the input file exactly once
-		contents.coincidence_segments, = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
+		contents.coincidence_segments = ligolwprocess.get_process_params(contents.xmldoc, "ligolw_burca", "--coincidence-segments")
 		if contents.coincidence_segments:
+			# as a side-effect, this enforces the rule that
+			# burca has been run on the input file exactly once
+			contents.coincidence_segments, = contents.coincidence_segments
 			contents.coincidence_segments = segments.segmentlistdict.fromkeys(contents.seglists, segmentsUtils.from_range_strings(contents.coincidence_segments.split(","), boundtype = LIGOTimeGPS).coalesce())
 		else:
 			contents.coincidence_segments = None
@@ -690,9 +678,13 @@ PRESS CTRL-C SOON IF YOU DIDN'T MEAN TO OPEN THE BOX
 
 
 if options.verbose:
+	print >>sys.stderr, "Identifying injection and non-injection databases ..."
+injection_filenames, noninjection_filenames = group_files(filenames, verbose = options.verbose)
+
+if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 rate_vs_threshold = RateVsThreshold(options.open_box)
-process_files(filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([rate_vs_threshold], "string_triggers_", options.image_formats, verbose = False)
 
 
@@ -712,7 +704,7 @@ else:
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
-process_files(filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
+process_files(injection_filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
 
 
