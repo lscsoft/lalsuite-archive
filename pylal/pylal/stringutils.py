@@ -56,18 +56,18 @@ __date__ = git_version.date
 
 
 def coinc_params_func(events, offsetdict):
-	params = {}
-
 	#
 	# check for coincs that have been vetoed entirely
 	#
 
 	if len(events) < 2:
-		return params
+		return None
 
 	#
 	# one-instrument parameters
 	#
+
+	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo
@@ -78,7 +78,7 @@ def coinc_params_func(events, offsetdict):
 	# two-instrument parameters
 	#
 
-	for event1, event2 in iterutils.choices(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)), 2):
+	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
 		if event1.ifo == event2.ifo:
 			# shouldn't happen, but might as well check for it
 			continue
@@ -214,6 +214,34 @@ def time_slides_livetime(seglists, time_slides, min_instruments, verbose = False
 			livetime += float(abs(segmentsUtils.vote(seglists.values(), min_instruments)))
 		else:
 			livetime += float(abs(segmentsUtils.vote((seglists & clip).values(), min_instruments)))
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
+	return livetime
+
+
+def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments, verbose = False, clip = None):
+	"""
+	like time_slides_livetime() except computes the time for which
+	exactly the instruments given by the sequence instruments were on
+	(and nothing else).
+	"""
+	livetime = 0.0
+	# segments for instruments that must be on
+	onseglists = seglists.copy(keys = instruments)
+	# segments for instruments that must be off
+	offseglists = seglists.copy(keys = set(seglists) - set(instruments))
+	N = len(time_slides)
+	if verbose:
+		print >>sys.stderr, "computing the live time for %s in %d time slides:" % (", ".join(instruments), N)
+	for n, time_slide in enumerate(time_slides):
+		if verbose:
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+		onseglists.offsets.update(time_slide)
+		offseglists.offsets.update(time_slide)
+		if clip is None:
+			livetime += float(abs(onseglists.intersection(onseglists.keys()) - offseglists.union(offseglists.keys())))
+		else:
+			livetime += float(abs((onseglists & clip).intersection(onseglists.keys()) - offseglists.union(offseglists.keys())))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 	return livetime

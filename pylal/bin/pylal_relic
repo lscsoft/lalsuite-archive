@@ -46,29 +46,18 @@ from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import rate
 from pylal import git_version
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+# LIGOTimeGPS moved; if the usual import fails, fall back to the old import.
+try:
+    from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+except ImportError:
+    from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu> and Valeriu Predoi <valeriu.predoi@astro.cf.ac.uk>"
 
 #
 # get loudest coincs from each category
 #
-def comma_delimited(option, opt_str, value, parser, elem_type=str):
-    """
-    This callback function stores a comma-delimited string as a list during
-    option parsing.  Cast elements of list to elem_type, specified via
-    callback_kwargs (default: str).  Must specify type="string"!
-
-    Example:
-    parser.add_option("-n", "--names", action="callback", type="string",
-        callback=comma_delimited, callback_kwargs={"elem_type":str})
-
-    This would allow a user to provide "--names Joe,Bob,Sarah" and the
-    developer to have opts.names == ["Joe", "Bob", "Sarah"].
-    """
-    setattr(parser.values, option.dest, map(elem_type, value.split(",")))
-
-
 def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
     dtype=float, verbose=False):
     """
@@ -290,12 +279,8 @@ def parse_args():
 
 
     # binning
-    parser.add_option("--m2-min", type="float", help="minimum of the range in "
-        "injected companion mass")
-    parser.add_option("--m2-max", type="float", help="maximum of the range in "
-        "injected companion mass")
-    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
-        "bins in injected companion mass")
+    parser.add_option("--m2-boundaries", help="comma-delimited list of "
+        "boundaries for companion masses")
     parser.add_option("--D-min", type="float", help="minimum of the range in "
         "injected distance")
     parser.add_option("--D-max", type="float", help="maximum of the range in "
@@ -311,9 +296,8 @@ def parse_args():
         "snr,effective_snr and new_snr")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
-    parser.add_option("--ifos", action="callback", type="string",
-        callback=comma_delimited,
-        help="comma-separated list of IFOs in lower case")
+    parser.add_option("--ifos", type="string",
+        help="used IFsO written together, like H1V1")
 
 
 
@@ -330,15 +314,13 @@ def parse_args():
             "--write-offsource, --write-injections}"
     if options.write_injections and (options.injection_pattern is None \
         or options.inj_coinc_pattern is None \
-        or options.m2_min is None \
-        or options.m2_max is None \
-        or options.m2_nbins is None \
+        or options.m2_boundaries is None \
         or options.D_min is None \
         or options.D_max is None \
         or options.D_nbins is None):
         raise ValueError, "if --write-injections is specified, you must also "\
-            "provide --injection-pattern, --inj-coinc-pattern, --m2-min, "\
-            "--m2-max, --m2-nbins, --D-min, --D-max, and --D-nbins."
+            "provide --injection-pattern, --inj-coinc-pattern, --D-min, "\
+            "--D-max, --D-nbins, and --m2-boundaries."
 
     return options, arguments
 
@@ -361,7 +343,7 @@ if not opts.write_onsource:
     lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
         "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
-# always read offsource triggers (needed in any case)
+# always read offsource triggers (needed in any case; see next section)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
 off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
@@ -396,7 +378,7 @@ num_trials = abs(off_segs) // trial_len
 num_trials_buffers_onsource = abs(buffer_segs) // trial_len
 
 ##veto segments for IFOs
-ifo_list = opts.ifos
+ifo_list = set(opts.ifos[2*i:2*i+2].lower() for i in range(len(opts.ifos)/2))
 veto_segs = {}
 for ifo in ifo_list:
   veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
@@ -440,7 +422,7 @@ else:
 # choose other binnings: mchirp, m2, D, and (mchirp_ind and IFO combo)
 
 if opts.write_injections:
-    m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+    m2_bins = rate.IrregularBins(map(float, opts.m2_boundaries.split(",")))
     D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 # turn all mc+IFO combos into distinct categories, starting with the largest
@@ -552,8 +534,8 @@ else:
 if opts.write_onsource:
     fname = fname_prefix + "_onsource" + fname_suffix
     # write pickle
-    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat),
-                open(fname, "wb"), -1)
+    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
+                 onsource_loudest_by_cat), open(fname, "wb"), -1)
     # write XML
     ligolw_process.set_process_end_time(process)
     utils.write_filename(onsource_doc, fname_prefix + "_onsource" \
@@ -561,13 +543,13 @@ if opts.write_onsource:
     sys.stdout.write("Loudest on-source coincs written.\n")
 if opts.write_offsource:
     fname = fname_prefix + "_offsource" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats,
+    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
                  offsource_loudest_by_trial_cat), open(fname, "wb"), -1)
     sys.stdout.write("Loudest off-source coincs written.\n")
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins,
-                 m2_D_by_inj, inj_loudest_by_inj_cat),
+    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
+                 m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat),
                 open(fname, "wb"), -1)
     sys.stdout.write("Loudest injection coincs written.\n")
 

@@ -199,7 +199,6 @@ for grb_name in list_grb:
         inj_log_sum_L_by_trial = [0]
         injections_L_by_trial_m2 = []
 
-
     # double check the detection statistic
     count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
     stat = count_louder/n_trials

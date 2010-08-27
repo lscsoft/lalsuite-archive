@@ -319,12 +319,14 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 		#
 
 		for bin in newbins:
+			bin_extent_plus_max_gap = bin.extent.protract(cafepacker.max_gap)
+
 			for cache_entry in origbin.objects:
 				#
 				# quick check of gap
 				#
 
-				if cache_entry.segment.protract(cafepacker.max_gap).disjoint(bin.extent):
+				if cache_entry.segment.disjoint(bin_extent_plus_max_gap):
 					continue
 
 				#

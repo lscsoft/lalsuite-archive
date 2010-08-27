@@ -152,6 +152,8 @@ const char *gengetopt_args_info_help[] = {
   "      --time-group-count=INT    separate SFTs in that many groups by gps time",
   "      --phase-mismatch=DOUBLE   maximal phase mismatch over coherence length to \n                                  assume when using loosely coherent mode  \n                                  (default=`1.570796')",
   "      --bypass-powersum-cache=INT\n                                bypass partial power sum cache  (default=`0')",
+  "      --preallocate-memory=DOUBLE\n                                preallocate this many gigabytes of memory for \n                                  future usage  (default=`0.0')",
+  "      --memory-allocation-retries=INT\n                                number of times to retry allocating memory \n                                  before giving up  (default=`1000')",
     0
 };
 
@@ -322,6 +324,8 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->time_group_count_given = 0 ;
   args_info->phase_mismatch_given = 0 ;
   args_info->bypass_powersum_cache_given = 0 ;
+  args_info->preallocate_memory_given = 0 ;
+  args_info->memory_allocation_retries_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -545,6 +549,10 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->phase_mismatch_orig = NULL;
   args_info->bypass_powersum_cache_arg = 0;
   args_info->bypass_powersum_cache_orig = NULL;
+  args_info->preallocate_memory_arg = 0.0;
+  args_info->preallocate_memory_orig = NULL;
+  args_info->memory_allocation_retries_arg = 1000;
+  args_info->memory_allocation_retries_orig = NULL;
   
 }
 
@@ -674,6 +682,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->time_group_count_help = gengetopt_args_info_help[117] ;
   args_info->phase_mismatch_help = gengetopt_args_info_help[118] ;
   args_info->bypass_powersum_cache_help = gengetopt_args_info_help[119] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[120] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[121] ;
   
 }
 
@@ -938,6 +948,8 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->time_group_count_orig));
   free_string_field (&(args_info->phase_mismatch_orig));
   free_string_field (&(args_info->bypass_powersum_cache_orig));
+  free_string_field (&(args_info->preallocate_memory_orig));
+  free_string_field (&(args_info->memory_allocation_retries_orig));
   
   
 
@@ -1213,6 +1225,10 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "phase-mismatch", args_info->phase_mismatch_orig, 0);
   if (args_info->bypass_powersum_cache_given)
     write_into_file(outfile, "bypass-powersum-cache", args_info->bypass_powersum_cache_orig, 0);
+  if (args_info->preallocate_memory_given)
+    write_into_file(outfile, "preallocate-memory", args_info->preallocate_memory_orig, 0);
+  if (args_info->memory_allocation_retries_given)
+    write_into_file(outfile, "memory-allocation-retries", args_info->memory_allocation_retries_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1897,6 +1913,8 @@ cmdline_parser_internal (
         { "time-group-count",	1, NULL, 0 },
         { "phase-mismatch",	1, NULL, 0 },
         { "bypass-powersum-cache",	1, NULL, 0 },
+        { "preallocate-memory",	1, NULL, 0 },
+        { "memory-allocation-retries",	1, NULL, 0 },
         { 0,  0, 0, 0 }
       };
 
@@ -3541,6 +3559,34 @@ cmdline_parser_internal (
                 &(local_args_info.bypass_powersum_cache_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "bypass-powersum-cache", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* preallocate this many gigabytes of memory for future usage.  */
+          else if (strcmp (long_options[option_index].name, "preallocate-memory") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->preallocate_memory_arg), 
+                 &(args_info->preallocate_memory_orig), &(args_info->preallocate_memory_given),
+                &(local_args_info.preallocate_memory_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "preallocate-memory", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* number of times to retry allocating memory before giving up.  */
+          else if (strcmp (long_options[option_index].name, "memory-allocation-retries") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->memory_allocation_retries_arg), 
+                 &(args_info->memory_allocation_retries_orig), &(args_info->memory_allocation_retries_given),
+                &(local_args_info.memory_allocation_retries_given), optarg, 0, "1000", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "memory-allocation-retries", '-',
                 additional_error))
               goto failure;
           

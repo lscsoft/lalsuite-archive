@@ -147,10 +147,9 @@ def coinc_segments(start,end,ifos):
     for ifo_2 in ifos:
       if ifos.index(ifo_2)>ifos.index(ifo_1):
         doubles.append(ifo_1+ifo_2)
-        if triple_coinc is True:
-          for ifo_3 in ifos:
-             if ifos.index(ifo_3)>ifos.index(ifo_2):
-               triples.append(ifo_1+ifo_2+ifo_3)
+        for ifo_3 in ifos:
+          if ifos.index(ifo_3)>ifos.index(ifo_2):
+            triples.append(ifo_1+ifo_2+ifo_3)
 
   segments={}
   double_segments={}
@@ -161,8 +160,8 @@ def coinc_segments(start,end,ifos):
                   'L1':'L1:DMT-SCIENCE',\
                   'V1':'V1:ITF_SCIENCEMODE'}
   for ifo in ifos:
-    segments[ifo] = grab_segments(gps_start,\
-                                  gps_end,\
+    segments[ifo] = grab_segments(start,\
+                                  end,\
                                   science_flag[ifo])
   #== grab double-coincidence segments
   for double in doubles:

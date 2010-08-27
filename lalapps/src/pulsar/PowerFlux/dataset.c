@@ -1395,7 +1395,7 @@ while((fin=fopen(filename,"r"))==NULL) {
 	condor_safe_sleep(args_info.retry_delay_arg);
 	}
 if(retries>0) {
-	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
+	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
 /* read header */
 header_offset=0;

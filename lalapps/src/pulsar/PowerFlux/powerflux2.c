@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
+#include <malloc.h>
 #include <gsl/gsl_rng.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -116,7 +117,7 @@ if(b<1)b=1;
 r=calloc(a,b);
 while(r==NULL){
 	fprintf(stderr,"Could not allocate %ld chunks of %ld bytes each (%ld bytes total), current memory usage %ld\n",a,b,a*b, MEMUSAGE);
-	if(i>10)exit(-1);
+	if(i>args_info.memory_allocation_retries_arg)exit(-1);
 	condor_safe_sleep(10);
 	r=calloc(a,b);
 	i++;
@@ -288,6 +289,19 @@ if(gethostname(s, 19999)>=0){
 
 for(i=0;i<args_info.config_given;i++) {
 	fprintf(LOG, "using config file: %s\n", args_info.config_arg[i]);
+	}
+
+if(args_info.preallocate_memory_arg>0) {
+	char *buffer;
+	fprintf(stderr, "Preallocating %g gigabytes of memory\n", args_info.preallocate_memory_arg);
+	/* prevent malloc from returning memory to the system */
+	mallopt(M_TRIM_THRESHOLD, ~0);
+	mallopt(M_MMAP_THRESHOLD, ~0);
+	mallopt(M_MMAP_MAX, 0);
+	fprintf(stderr, "Memory usage before preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+	buffer=do_alloc(ceil(args_info.preallocate_memory_arg*1024), 1024*1024);
+	free(buffer);
+	fprintf(stderr, "Memory usage after preallocation: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 	}
 
 init_threads(args_info.num_threads_arg);
@@ -853,7 +867,7 @@ if(args_info.focus_ra_given &&
 
 if(args_info.only_large_cos_given) {
 	fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+	mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[2], args_info.only_large_cos_arg);
 	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 	}
 

@@ -173,6 +173,7 @@ def check_ifo_result(ifo,time,filenames,successful_inj):
 	"""
 	Return indicator of status for this injection
 	"""
+	snr=0
 	if(successful_inj.has_key(ifo)) and (successful_inj[ifo] is not None):
 	        if time in successful_inj[ifo]:
 			injected=1

@@ -62,6 +62,7 @@ class upper_limit(object):
     self.segments = {}  #An ifo-keys segments dict for single ifo
     self.zero_lag_segments = {}  #An instruments-keyed segment dict for coincident ifo time
     self.coinc_inspiral_table = None
+    self.sngl_sngl_coinc_def_id = None
     ############################################################
 
     if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
@@ -91,8 +92,10 @@ class upper_limit(object):
 
   def get_instruments(self, connection):
     '''Retrieve the sets of instruments which participated in coincident events. '''
-    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
-      if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
+    # FIXME bad to hardcode search_coinc_type
+    self.sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
+    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?', (self.sngl_sngl_coinc_def_id,)):
+      self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
     return self.instruments
 
 
@@ -155,12 +158,12 @@ class upper_limit(object):
 
   def get_mass_ranges(self, connection):
     #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
-    minmass1 = float(connection.cursor().execute('SELECT MIN(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-    minmass2 = float(connection.cursor().execute('SELECT MIN(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-    maxmass1 = float(connection.cursor().execute('SELECT MAX(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-    maxmass2 = float(connection.cursor().execute('SELECT MAX(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
-    self.mintotal = float(connection.cursor().execute('SELECT MIN(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-    self.maxtotal = float(connection.cursor().execute('SELECT MAX(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+    minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+    minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+    maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+    maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+    self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+    self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
 
     self.minmass = min(minmass1,minmass2)
     self.maxmass = max(maxmass1,maxmass2)
