@@ -43,6 +43,8 @@ try:
 except:
   pass
 
+from glue.ligolw.types import string_format_func
+
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
 """
@@ -514,7 +516,7 @@ class LIGOMetadata:
 
     return len(self.table[tab]['stream'])
 
-  def xml(self):
+  def xml(self, ilwdchar_to_hex = True):
     """Convert a table dictionary to LIGO lightweight XML"""
     if len(self.table) == 0:
       raise LIGOLwDBError, 'attempt to convert empty table to xml'
@@ -549,12 +551,23 @@ class LIGOMetadata:
                 ligolw += '\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
-              ligolw += '"x\'' 
-              for ch in str(tupi):
-                ligolw += "%02x" % ord(ch)
-              ligolw += '\'"'
+              if ilwdchar_to_hex is True:
+                # encode in DB2-style hex (e.g., "x'deadbeef'")
+                ligolw += '"x\''
+                for ch in str(tupi):
+                  ligolw += "%02x" % ord(ch)
+                ligolw += '\'"'
+              else:
+                ligolw += '"' + str(tupi) + '"'
             elif re.match(r'\Alstring\Z',coltype):
-              ligolw += '"'+self.strtoxml.xlat(str(tupi))+'"'
+              # this santizes the contents of tupi in two ways: first,
+              # string_format_func() escapes any double-quote and
+              # backslash chars (with a preceding blackslash); and
+              # then strtoxml.xlat replaces <>& chars with their html
+              # code equivalents
+              # NOTE: string_format_func inserts the enclosing ""
+              # chars, so we don't need to do it ourselves
+              ligolw += self.strtoxml.xlat(string_format_func(tupi))
             elif re.match(r'\Areal_4\Z',coltype):
               ligolw += '%13.7e' % tupi
             elif re.match(r'\Areal_8\Z',coltype):

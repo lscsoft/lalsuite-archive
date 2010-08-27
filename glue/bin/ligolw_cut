@@ -74,7 +74,7 @@ def parse_command_line():
 	# parse element specs
 	def parse_delete_element(arg):
 		arg = arg.split(",")
-		return arg[0], dict([a.split("=") for a in arg[1:]])
+		return arg[0], tuple(a.split("=") for a in arg[1:])
 	options.delete_element = set(map(parse_delete_element, options.delete_element))
 
 	# strip table names
@@ -123,14 +123,6 @@ table.RowBuilder = table.InterningRowBuilder
 
 
 #
-# Over-ride default content handler with our special one
-#
-
-
-utils.ContentHandler = ContentHandler
-
-
-#
 # =============================================================================
 #
 #                                     Cut
@@ -156,15 +148,15 @@ def RemoveColumns(doc, columns):
 #
 
 
-def CompareDeleteElement(elem, elemspec):
+def CompareDeleteElement(elem, name, attrvalues):
 	"""
 	Return 1 for !=, 0 for ==.
 	"""
-	if elem.tagName != elemspec[0]:
+	if elem.tagName != name:
 		return 1
-	for name, value in elemspec[1].iteritems():
+	for attr, value in attrvalues:
 		try:
-			if elem.getAttribute(name) != value:
+			if elem.getAttribute(attr) != value:
 				return 1
 		except KeyError:
 			return 1
@@ -175,8 +167,8 @@ def IsDeleteElement(elem, specs):
 	"""
 	Return True if elem matches an elem spec for deleting.
 	"""
-	for spec in specs:
-		if CompareDeleteElement(elem, spec) == 0:
+	for name, attrvalues in specs:
+		if CompareDeleteElement(elem, name, attrvalues) == 0:
 			return True
 	return False
 
@@ -217,7 +209,7 @@ options, filenames = parse_command_line()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	doc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	doc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"), contenthandler = ContentHandler)
 	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
 		print >>sys.stderr, "processing"

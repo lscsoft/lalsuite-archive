@@ -283,7 +283,7 @@ static PyObject *ns(PyObject *self, PyObject *args)
 	if(!pyobject_to_ligotimegps(self, &gps))
 		return NULL;
 
-	return PyLong_FromLong(XLALGPSToINT8NS(&gps));
+	return PyLong_FromLongLong(XLALGPSToINT8NS(&gps));
 }
 
 

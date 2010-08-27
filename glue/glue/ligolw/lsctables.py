@@ -193,8 +193,9 @@ def ifos_from_instrument_set(instruments):
 	can be None or an interable of zero or more instrument names, none
 	of which may contain "," or "+" characters.  The output is a single
 	string containing the instrument names concatenated using "," as a
-	delimiter.  Whitespace is allowed in instrument names but may not
-	be preserved.
+	delimiter.  instruments will only be iterated over once and so can
+	be a generator expression.  Whitespace is allowed in instrument
+	names but may not be preserved.
 	"""
 	if instruments is None:
 		return None

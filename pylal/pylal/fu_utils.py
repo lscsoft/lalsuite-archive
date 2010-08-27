@@ -69,26 +69,30 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 interferometers=["H1","H2","L1","V1"]
 defaultsegmentserver="https://segdb.ligo.caltech.edu"
 runEpochs={"L1":{
-  "s6c_current":(949449543,999999999),
+  "s6d_current":(961545687,999999999),
+  "s6c":(949449543,961545687),
   "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "H1":{
-  "s6c_current":(949449543,999999999),
+  "s6d_current":(961545687,999999999),
+  "s6c":(949449543,961545687),
   "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "H2":{
-  "s6c_current":(949449543,999999999),
+  "s6d_current":(961545687,999999999),
+  "s6c":(949449543,961545687),
   "s6b":(937800015,947260815),
   "s6a":(931035296,935798487),
   "s5":(815155213,875232014)
   },
            "V1":{
   "vsr1":(863557214,875250014),
-  "vsr2":(931035615,947023215)
+  "vsr2":(931035615,947023215),
+  "vsr3":(965520016,999999999)
   }
            }
 # method to return the science run start and stop
@@ -2324,6 +2328,7 @@ class followupDQV:
     """
     self.__connection__= None
     self.__engine__= None
+    self.__installPath__=home_dir()+"/ctorres/followupbackgrounds/dq/"
     if pickle==None:
       self.__backgroundPickle__=None
     else:
@@ -2432,9 +2437,16 @@ defaulting to %s\n"%(self.serverURL))
     return outputList
   #End __merge__() method
 
+  def getInstallPath(self):
+    """
+    Returns a string pointing to the local install location of where
+    the DQ background pickles should be found.
+    """
+    return self.__installPath__
+    
   def figure_out_pickle(self,ifoEpochList=None):
     fileMask="followup_background_%s.pickle"
-    installPath=home_dir()+"/ctorres/followupbackgrounds/dq/"
+    installPath=self.__installPath__
     if ifoEpochList==None:
       return None
     elif type(ifoEpochList) == type(str()):
@@ -3203,6 +3215,10 @@ def getiLogURL(time=None,ifo=None):
   This method returns a URL string to point you to ilog day page for
   specified IFO and GPStime. Valid IFO labels are V1, L1, H1 or H2.
   """
+  #Example URL to give to query between two dates, still need to click
+  #search button but this is a start(Dec 4, 2009 -> Dec 24,2009)
+  #https://pub3.ego-gw.it/logbook/index.php?area=logbook&ref=detailedsearch&datefrom=04/12/2009&dateto=24/12/2009
+  #Due to difficulty in navigating virgo ilog search (t0-1 day,t0+1 day)
   dateString="%s/%s/%s"
   urls={
     'default':"http://www.ligo.caltech.edu/~pshawhan/scilinks.html",
@@ -3318,7 +3334,7 @@ class getFOMdata:
   version of the top N control room plots for H1 and L1.
   Eventually we try to integrate V1 also.
   """
-  def __init__(self):
+  def __init__(self,verbose=False):
     """
     This object does not need any input arguments.
     """
@@ -3328,6 +3344,7 @@ class getFOMdata:
     self.postWindow=int(2*3600)
     self.dataDict=dict()
     self.haveData=False
+    self.__verbose__=verbose
     self.channelDict={"Inspiral Range":{
       "H1":{"frametype":"SenseMonitor_H1_M",
             "channels":["H1:DMT-SNSM_EFFECTIVE_RANGE_MPC.rms"]},
@@ -3389,11 +3406,15 @@ class getFOMdata:
                         "H0:DMT-BRMS_PEM_EY_SEISZ_10_30Hz.rms"]}
       }
                       }
-                      
-                      
-                    
     self.graphList=self.channelDict.keys()
-    
+
+  def getGraphKeys(self):
+    """
+    Simple method which returns a list of know graphs
+    that can be generated.
+    """
+    return self.graphList
+  
   def __getTimeSeries__(self,
                         frameType=None,
                         observatory=None,
@@ -3429,15 +3450,27 @@ class getFOMdata:
                               start,\
                               stop,\
                               "file")
+    if self.__verbose__:
+      sys.stdout.write("Executing data query:%s\n"%myCommand)
     (errorCode,cmdOutput)=getstatusoutput(myCommand)
+    if self.__verbose__:
+      sys.stdout.write("Query Completed!\n")
     if errorCode != 0:
+      if self.__verbose__:
+        sys.stderr.write("Error seen! : Code %s: Message %s\n"%(errorCode,cmdOutput))
       return None
+    if self.__verbose__:
+      sys.stdout.write("Opening cache files.\n")
     cacheInRam=StringIO(cmdOutput)
     dataStream=frutils.FrameCache(lal.Cache.fromfile(cacheInRam))
     cacheInRam.close()
+    if self.__verbose__:
+      sys.stdout.write("Reading data stream.\n")
     dataVector=dataStream.fetch(channel,
                                 start,
                                 stop)
+    if self.__verbose__:
+      sys.stdout.write("Done reading in trend data.\n")
     return dataVector
                                   
   def setWindows(self,preWindow=None,postWindow=None):
@@ -3466,7 +3499,9 @@ class getFOMdata:
       if  graphList==None:
         raise Exception, "None variable specified at graphs to plot."
       for myKey in graphList:
-        if myKey not in self.channelDict.keys():
+        if myKey not in self.getGraphKeys():
+          sys.stderr.write("Expected any of these %s, but got \
+these %s\n"%(self.getGraphKeys(),graphList))
           raise Exception, "Invalid graph key specified."
       self.graphList=graphList
 

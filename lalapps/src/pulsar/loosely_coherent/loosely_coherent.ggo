@@ -92,10 +92,18 @@ option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0
 option "fake-strain"	- "amplitude of fake signal to inject" double default="1e-23" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
 option "fake-dInv"	- "inverse distance to the source in seconds" double default="0" no
+option "fake-freq-modulation-depth" - "depth of additional sinusoidal frequency modulation in Hz" double default="0.0" no
+option "fake-freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="1.0" no
+option "fake-freq-modulation-phase" - "phase of additional sinusoidal frequency modulation" double default="0.0" no
+option "fake-phase-modulation-depth" - "depth of additional sinusoidal phase modulation in radians" double default="0.0" no
+option "fake-phase-modulation-freq" - "frequency of additional sinusoidal phase modulation" double default="0.0" no
+option "fake-phase-modulation-phase" - "phase of additional sinusoidal phase modulation" double default="0.0" no
+option "fake-injection-window"	- "compute this number of frequency bins to the left and right of the central frequency" int default="2" no
 
 option "extended-test" - "Perform extended self test" int default="0" no
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no
 
 option "dump-stream-data" - "Output timeseries" int default="0" no
+option "dump-fft-data" - "Output fft" int default="0" no
 
 option "num-threads"  - "Use that many threads for computation" int default="-1" no

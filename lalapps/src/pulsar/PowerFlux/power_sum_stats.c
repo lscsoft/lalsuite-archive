@@ -661,7 +661,6 @@ void point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag
 int i, count;
 float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
-NORMAL_STATS nstats;
 float max_dx;
 int max_dx_bin;
 float weight, min_weight, max_weight;
@@ -670,18 +669,6 @@ int half_window=args_info.half_window_arg;
 
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
-
-memset(&nstats, 0, sizeof(nstats));
-
-/* sort to compute robust estimates */
-nstats.flag= STAT_FLAG_ESTIMATE_MEAN
-	| STAT_FLAG_ESTIMATE_SIGMA;
-
-if(args_info.ks_test_arg){
-	nstats.flag|=STAT_FLAG_ESTIMATE_KS_LEVEL
-		| STAT_FLAG_COMPUTE_KS_TEST;
-	}
-
 
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;

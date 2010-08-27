@@ -72,7 +72,7 @@ parser.add_option("-w","--plot-windows",action="store",type="string",\
                   help="Specify this in seconds, using only positive \
 numbers.  The default should be find for most people.")
 parser.add_option("-i","--ifo-list",action="store",type="string",\
-                  metavar="L1,H1,V1",default=None,\
+                  metavar="L1,H1",default=None,\
                   help="By default this plotting script will \
 attempt to generate the FOMs for all plots and ifos it knows \
 about see fu_utils.getFOMdata.channelDict for more details.")
@@ -82,6 +82,9 @@ parser.add_option("-g","--graphs",action="store",type="string",\
 want to explicitly specify the graphs to generate see \
 fu_utils.getFOMdata.channelDict to figure out which graphs the code \
 knows how to create.")
+parser.add_option("-G","--graph-keys",action="store_true",default=False,\
+                  help="Invoke this plot to display a list of graphs \
+that can be generated.")
 parser.add_option("-v","--verbose",action="store_true",
                   help="Set this flag to get some feedback during \
 graph generation.")
@@ -90,7 +93,10 @@ graph generation.")
 #
 # Setup the class to retrieve the data.
 #
-myFOM=getFOMdata()
+myFOM=getFOMdata(verbose=opts.verbose)
+if opts.graph_keys:
+    sys.stdout.write("Available graph keys :%s\n"%myFOM.getGraphKeys())
+    sys.exit(0)
 myFOM.setGPS(str(int(opts.gps_time)))
 (preWindow,postWindow)=opts.plot_windows.strip().split(",")
 myFOM.setWindows(preWindow,postWindow)

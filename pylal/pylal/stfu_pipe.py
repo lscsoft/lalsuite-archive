@@ -158,7 +158,9 @@ def figure_out_cache(time,ifo):
 		(home_dirs()+"/romain/followupbackgrounds/omega/S5/background/background_815155213_875232014.cache",815155213,875232014,"H1H2L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6a/background/background_931035296_935798415.cache",931035296,935798415,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_937800015_944587815.cache",935798415,944587815,"H1L1"),
-		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,999999999,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6b/background/background_944587815_947260815.cache",944587815,947260815,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",948672015,961545687,"H1L1"),
+		(home_dirs()+"/romain/followupbackgrounds/omega/S6c/background/background_948672015_961545615.cache",961545687,999999999,"H1L1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2aRerun/background/background_931035296_935798415.cache",931035296,935798415,"V1"),
 		(home_dirs()+"/romain/followupbackgrounds/omega/VSR2bRerun/background/background_937800015_947260815.cache",935798415,999999999,"V1")
 		)
@@ -1211,7 +1213,13 @@ class followUpInspNode(inspiral.InspiralNode,FUNode):
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
 
-		#add parents and put node in dag
+# 		# Wed-Aug-25-2010:201008251418 Added Pre & Post
+# 		# scripts depends on value of output-path
+# 		patchScript=create_default_config().which("followup_InspiralDataMover.sh")
+# 		self.set_pre_script("%s %s"%(patchScript,job.outputPath))
+# 		self.set_post_script("%s %s"%(patchScript,job.outputPath))
+# 		# End temporary additions Wed-Aug-25-2010:201008251421 
+# 		#add parents and put node in dag
 		for node in p_nodes:
 			if node.validNode:
 				self.add_parent(node)

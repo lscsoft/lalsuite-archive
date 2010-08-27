@@ -289,6 +289,20 @@ def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
 	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
 
 
+def insert_from_segmentlistdict(ligolw_segments, seglists, name, comment):
+	"""
+	Insert the segments from the segmentlistdict object seglists as a
+	new list of "active" segments into the LigolwSegments object
+	ligolw_segments.  The dictionary's keys are assumed to provide the
+	instrument name for each segment list.  A new entry will be created
+	in the segment_definer table for the segment lists, and the
+	dictionary's keys, the name, and comment will be used to populate
+	the entry's metadata.
+	"""
+	for instrument, segments in seglists.items():
+		ligolw_segments.segment_lists.append(LigolwSegmentList(active = segments, instruments = set([instrument]), name = name, comment = comment))
+
+
 def has_segment_tables(xmldoc, name = None):
 	"""
 	Return True if the document contains a complete set of segment

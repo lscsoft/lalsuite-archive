@@ -29,8 +29,9 @@ LIGO Light-Weight XML coincidence analysis front end.
 """
 
 
-from math import log10
+import math
 import sys
+
 
 from glue import segments
 from glue.lal import CacheEntry
@@ -167,11 +168,21 @@ class CafePacker(packing.Packer):
 		called before packing any files.  The input is a list of
 		dictionaries, each mapping instruments to offsets.
 		"""
-		self.offset_vectors = offset_vectors
+		#
+		# sort the offset vectors to reduce the number of
+		# arithmetic operations performed while applying them
+		#
+
+		self.offset_vectors = list(offset_vectors)
+		self.offset_vectors.sort(key = lambda offset_vector: sorted(offset_vector.items()))
+
+		#
+		# determine the largest gap that can conceivably be closed
+		# by the time slides
+		#
+
 		min_offset = min(min(offset_vector.values()) for offset_vector in offset_vectors)
 		max_offset = max(max(offset_vector.values()) for offset_vector in offset_vectors)
-		# largest gap that can conceivably be closed by the time
-		# slides
 		self.max_gap = max_offset - min_offset
 		assert self.max_gap >= 0
 
@@ -251,6 +262,107 @@ class CafePacker(packing.Packer):
 		self.bins.sort()
 
 
+def split_bins(cafepacker, extentlimit, verbose = False):
+	"""
+	Split bins in CafePacker so that each bin has an extent no longer
+	than extentlimit.
+	"""
+
+	#
+	# loop over all bins in cafepacker.bins
+	#
+
+	idx = 0
+	while idx < len(cafepacker.bins):
+		#
+		# retrieve bin
+		#
+
+		origbin = cafepacker.bins[idx]
+
+		#
+		# how many pieces?  if bin doesn't need splitting move to
+		# next
+		#
+
+		n = int(math.ceil(float(abs(origbin.extent)) / extentlimit))
+		if n <= 1:
+			idx += 1
+			continue
+
+		#
+		# calculate the times of the splits, and then build
+		# segmentlistdicts for clipping.
+		#
+
+		splits = [-segments.infinity()] + [lsctables.LIGOTimeGPS(origbin.extent[0] + i * float(origbin.extent[1] - origbin.extent[0]) / n) for i in range(1, n)] + [+segments.infinity()]
+		if verbose:
+			print >>sys.stderr, "\tsplitting cache spanning %s at %s" % (str(origbin.extent), ", ".join(str(split) for split in splits[1:-1]))
+		splits = [segments.segmentlist([segments.segment(*bounds)]) for bounds in zip(splits[:-1], splits[1:])]
+		splits = [segments.segmentlistdict.fromkeys(origbin.size, seglist) for seglist in splits]
+
+		#
+		# build new bins, populate sizes and extents
+		#
+
+		newbins = []
+		for split in splits:
+			newbins.append(LALCacheBin())
+			newbins[-1].size = origbin.size & split
+			for key in tuple(newbins[-1].size):
+				if not newbins[-1].size[key]:
+					del newbins[-1].size[key]
+			newbins[-1].extent = newbins[-1].size.extent_all()
+
+		#
+		# pack objects from origbin into new bins
+		#
+
+		for bin in newbins:
+			bin_extent_plus_max_gap = bin.extent.protract(cafepacker.max_gap)
+
+			for cache_entry in origbin.objects:
+				#
+				# quick check of gap
+				#
+
+				if cache_entry.segment.disjoint(bin_extent_plus_max_gap):
+					continue
+
+				#
+				# apply each offset vector
+				#
+
+				cache_entry_segs = cache_entry.to_segmentlistdict()
+				for offset_vector in cafepacker.offset_vectors:
+					cache_entry_segs.offsets.update(offset_vector)
+
+					#
+					# test against bin
+					#
+
+					if cache_entry_segs.intersects_segment(bin.extent):
+						#
+						# object is coicident with
+						# bin
+						#
+
+						bin.objects.append(cache_entry)
+						break
+
+		#
+		# replace original bin with split bins.  increment idx to
+		# skip over all new bins
+		#
+
+		cafepacker.bins[idx:idx+1] = newbins
+		idx += len(newbins)
+
+	#
+	# done
+	#
+
+
 #
 # =============================================================================
 #
@@ -263,7 +375,7 @@ class CafePacker(packing.Packer):
 def write_caches(base, bins, instruments, verbose = False):
 	filenames = []
 	if len(bins):
-		pattern = "%%s%%0%dd.cache" % int(log10(len(bins)) + 1)
+		pattern = "%%s%%0%dd.cache" % int(math.log10(len(bins)) + 1)
 	for n, bin in enumerate(bins):
 		filename = pattern % (base, n)
 		filenames.append(filename)
@@ -290,7 +402,7 @@ def write_single_instrument_caches(base, bins, instruments, verbose = False):
 #
 
 
-def ligolw_cafe(cache, offset_vectors, verbose = False):
+def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 	"""
 	Transform a LAL cache into a list of caches each of whose contents
 	can be subjected to a coincidence analysis independently of the
@@ -346,7 +458,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False):
 
 	if verbose:
 		print >>sys.stderr, "sorting input cache ..."
-	cache.sort(lambda a, b: cmp(a.segment, b.segment))
+	cache.sort(key = lambda x: x.segment)
 
 	#
 	# Pack cache entries into output caches.  Having reduced the file
@@ -358,13 +470,31 @@ def ligolw_cafe(cache, offset_vectors, verbose = False):
 	packer = CafePacker(outputcaches)
 	packer.set_offset_vectors(offset_vectors)
 	if verbose:
-		print >>sys.stderr, "packing files ..."
+		print >>sys.stderr, "packing files (considering %s offset vectors) ..." % len(offset_vectors)
 	for n, cacheentry in enumerate(cache):
 		if verbose and not n % 13:
 			print >>sys.stderr, "\t%.1f%%\t(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
-		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)\nsorting output caches ..." % (n + 1, len(outputcaches))
+		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)" % (n + 1, len(outputcaches))
+
+	#
+	# Split caches with extent more than extentlimit
+	#
+
+	if extentlimit is not None:
+		if verbose:
+			print >>sys.stderr, "splitting caches with extent greater than %g s ..." % extentlimit
+		split_bins(packer, extentlimit, verbose = verbose)
+		if verbose:
+			print >>sys.stderr, "\t\t(%d files, %d caches)" % (n + 1, len(outputcaches))
+
+	#
+	# Sort output caches
+	#
+
+	if verbose:
+		print >>sys.stderr, "sorting output caches ..."
 	for cache in outputcaches:
 		cache.objects.sort()
 

@@ -44,6 +44,7 @@ from __future__ import division
 import sys
 import os
 import optparse
+from math import floor, ceil
 
 try:
     import sqlite3
@@ -233,7 +234,7 @@ def find_coincidence(master_cur, KWcur, GWcur):
          self.IDs.append(ID)
    
     ## initialize tables to put data in
-    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, frequency int, CoincidenceGWTrigID text)")
+    master_cur.execute("create table KWtrigs (ID integer primary key, GPSTime double, KWSignificance double, frequency double, CoincidenceGWTrigID text)")
     master_cur.execute("create table GWtrigs (ID integer primary key, GPSTime double, SNR double, coincidence int)")
 
     ## get KW triggers
@@ -264,8 +265,8 @@ def find_coincidence(master_cur, KWcur, GWcur):
           break
 
         KW = KWlist[i]
-        if KW.GPSTime + opts.positive_window >= GW[0]:
-          if KW.GPSTime - opts.negative_window <= GW[0]:
+        if ceil(KW.GPSTime + opts.positive_window) >= GW[0]:
+          if floor(KW.GPSTime - opts.negative_window) <= GW[0]:
             ## Case 1: Coincidence
             GWcoinc = True
             # add 1 to GW_id because actual ID starts from 1 and not 0

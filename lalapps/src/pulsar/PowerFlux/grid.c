@@ -224,7 +224,9 @@ TARGETED_RECT_SKY_GRID_PRIV *priv;
 long i,j,k;
 double a,b, e1[3], e2[3];
 
-/* set all up */
+num_dec|=1; /* Make sure num_dec is odd */
+
+
 grid=do_alloc(1,sizeof(*grid));
 grid->npoints=num_dec*num_dec;
 grid->max_n_dec=num_dec;
@@ -254,10 +256,10 @@ grid->grid_priv=priv;
 
 /* fill in the coordinates */
 for(i=0;i<num_dec;i++){
-	a=radius*(i*2.0-num_dec)/num_dec;
+	a=radius*(i*2.0-num_dec+1)/(num_dec-1);
 	for(j=0;j<num_dec;j++){
 		k=i*num_dec+j;
-		b=radius*(j*2.0-num_dec)/num_dec;
+		b=radius*(j*2.0-num_dec+1)/(num_dec-1);
 
 		/* transition to standard coordinates around point (RA, DEC) */
 
@@ -1032,7 +1034,9 @@ SKY_SUPERGRID *make_targeted_rect_supergrid(SKY_GRID *grid, int factor)
 {
 SKY_SUPERGRID *sg;
 TARGETED_RECT_SKY_GRID_PRIV *priv;
-long i,j,k, ra_start, dec_start, di,dj;
+TARGETED_RECT_SKY_GRID_PRIV *sg_priv;
+long i,j,k, ra_start, dec_start, pi, pj, pk, di,dj, best_di, best_dj, best_pk;
+double ds, best_ds;
 if(strcmp(grid->name,"targeted rectangular")){
    	fprintf(stderr,"** Internal error: cannot make rectangular supergrid from %s\n", grid->name);
 	exit(-1);
@@ -1040,13 +1044,14 @@ if(strcmp(grid->name,"targeted rectangular")){
 priv=grid->grid_priv;
 
 sg=do_alloc(1, sizeof(*sg));
-sg->super_grid=make_targeted_rect_grid(priv->ra, priv->dec, priv->radius, priv->num_dec*factor);
+sg->super_grid=make_targeted_rect_grid(priv->ra, priv->dec, priv->radius, (priv->num_dec-1)*factor+1);
 
 sg->subgrid_npoints=grid->npoints;
 sg->first_map=do_alloc(grid->npoints, sizeof(*sg->first_map));
 sg->reverse_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->reverse_map));
 sg->list_map=do_alloc(sg->super_grid->npoints, sizeof(*sg->list_map));
 //sg->max_npatch=ra_factor*dec_factor;
+sg_priv=sg->super_grid->grid_priv;
 
 /* clear the arrays */
 for(i=0;i<grid->npoints;i++)sg->first_map[i]=-1;
@@ -1058,27 +1063,56 @@ for(i=0;i<sg->super_grid->npoints;i++){
 ra_start=(factor)/2;
 dec_start=(factor)/2;
 
-//for(i=0;i<sg->super_grid->npoints;i++) {
-//	}
+for(i=0;i<sg_priv->num_dec;i++)
+	for(j=0;j<sg_priv->num_dec;j++) {
+		pi=i/factor;
+		pj=j/factor;
 
-k=0;
-for(i=ra_start;i<priv->num_dec*factor;i+=factor)
-	for(j=dec_start;j<priv->num_dec*factor;j+=factor){
-		sg->first_map[k]=i*priv->num_dec*factor+j;
-		for(di=0;di<factor;di++)
-			for(dj=0;dj<factor;dj++){
-				sg->reverse_map[(i+di-ra_start)*priv->num_dec*factor+j+dj-dec_start]=k;
+		k=i*sg_priv->num_dec+j;
+		
+		best_ds=100.0;
+		best_di=-2;
+		best_dj=-2;
+		best_pk=-1;
+
+		for(di=-2;di<=2;di++)
+			for(dj=-2;dj<=2;dj++) {
+				if(pi+di<0)continue;
+				if(pi+di>=priv->num_dec)continue;
+				if(pj+dj<0)continue;
+				if(pj+dj>=priv->num_dec)continue;
+				
+				pk=(pi+di)*priv->num_dec+pj+dj;
+				
+				ds=spherical_distance(grid->longitude[pk], grid->latitude[pk],
+					sg->super_grid->longitude[k], sg->super_grid->latitude[k]);
+				if(ds<best_ds) {
+					best_ds=ds;
+					best_pk=pk;
+					best_di=di;
+					best_dj=dj;
+					}
 				}
-		k++;
+		if(best_pk<0) {
+			fprintf(stderr, "***** INTERNAL ERROR: targeted grid did not find closest patch\n");
+			exit(-1);
+			}
+		sg->first_map[best_pk]=k;
+		sg->reverse_map[k]=best_pk;
 		}
+
 compute_list_map(sg);
 /*for(i=0;i<sg->super_grid->npoints;i++){
-	 if(i % (priv->num_dec*factor)==0)fprintf(stderr, "\n");
+	 if(i % (sg_priv->num_dec)==0)fprintf(stderr, "\n");
 	 fprintf(stderr, "%d ", sg->list_map[i]);
 	}
 for(i=0;i<grid->npoints;i++){
 	 if(i % (priv->num_dec)==0)fprintf(stderr, "\n");
 	 fprintf(stderr, "%d ", sg->first_map[i]);
+	}
+for(i=0;i<sg->super_grid->npoints;i++){
+	 if(i % (sg_priv->num_dec)==0)fprintf(stderr, "\n");
+	 fprintf(stderr, "%d ", sg->reverse_map[i]);
 	}
 for(i=0;i<sg->super_grid->npoints;i++){
 	 if(i % (priv->num_dec*factor)==0)fprintf(stderr, "\n");
