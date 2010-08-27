@@ -22,7 +22,7 @@ Characterize a set of timeslide triggers.
 
 from __future__ import division
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__author__ = "Nickolas Fotopoulos and Valeriu Predoi <nvf@gravity.phys.uwm.edu> <valeriu.predoi@astro.cf.ac.uk>"
 __prog__ = "pylal_grbtimeslide_stats"
 __title__ = "GRB timeslide and trial statistics"
 
@@ -48,6 +48,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
+from glue.iterutils import any
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import SearchSummaryUtils
@@ -56,7 +57,7 @@ from pylal import git_version
 from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
-
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 ##############################################################################
 # utility functions
@@ -97,7 +98,6 @@ def vec_get_loudest_stat(arr):
     """
     return _vec_get_loudest_stat(arr).astype(numpy.float32)
 
-
 ##############################################################################
 # handle user input
 
@@ -116,28 +116,19 @@ def comma_delimited(option, opt_str, value, parser, elem_type=str):
     """
     setattr(parser.values, option.dest, map(elem_type, value.split(",")))
 
+
 parser = optparse.OptionParser(version=git_version.verbose_msg)
 parser.add_option("-g", "--glob",
     help="glob of zero-lag thinca or thinca slide files to read")
-parser.add_option("-i", "--cache-file",
-    help="lal cache of zero-lag thinca or thinca slide files to read")
 parser.add_option("-o", "--onsource-pattern",
     help="on-source coinc file; only used for segment information without "
          "--hist-onsource")
-parser.add_option("-p", "--offsource-pattern",
-    help="sieve pattern for coincidences of interest (slide or zerolag)")
-parser.add_option("-V", "--veto-files", action="callback", type="string",
-    callback=comma_delimited, default=[],
-    help="list of segwizard-formatted files containing segments to exclude")
-parser.add_option("-t", "--onsource-seg", action="store", type="string",
-    default=None,
-    help="segwizard-formatted file containing onsource segment")
 parser.add_option("--mc-boundaries", action="callback", type="string",
     callback=comma_delimited, default=[-numpy.inf, numpy.inf],
     callback_kwargs={"elem_type":float},
     help="comma-separated list of mchirp bin boundaries")
 parser.add_option("", "--coinc-statistic",
-    help="coincidence statistic of interest (snr or effective_snr)")
+    help="coincidence statistic of interest (effective_snr or new_snr)")
 parser.add_option("", "--hist-loudest", action="store_true", default=False,
     help="make a cumulative histogram that includes the loudest statistic "\
          "from each trial")
@@ -173,15 +164,61 @@ parser.add_option("-v", "--verbose", action="store_true", default=False,
     help="print extra information to stdout")
 
 # InspiralUtils compatibility
+parser.add_option("", "--ifo-tag", help="IFO coincidence time analyzed")
+parser.add_option("", "--output-path", help="root of the HTML output")
+parser.add_option("", "--enable-output", action="store_true", default=False,
+    help="enable plots and HTML output")
+parser.add_option("", "--html-for-cbcweb", action="store_true", default=False,
+    help="enable HTML output with the appropriate headers for the CBC website")
+parser.add_option("--cache-file", help="LAL-formatted cache file "
+    "containing entries for all XML filies of interest")
+parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
+    "cache pattern for offsource coincs: THINCA_SLIDE_SECOND*OFFSOURCE for slides only; THINCA*SECOND*OFFSOURCE for slides and zero-lag; THINCA_SECOND*OFFSOURCE for zero-lag only")
+
+
+    # output
+parser.add_option("--user-tag", default="",
+    help="identifying string for the analysed data")
+
+    # segments
+parser.add_option("--g1-veto-file", default="",
+    help="segwizard-formatted segment files that "
+    "contain segments to veto in G1")
+parser.add_option("--h1-veto-file", default="",
+    help="segwizard-formatted segment files that "
+    "contain segments to veto in H1")
+parser.add_option("--h2-veto-file", default="",
+    help="segwizard-formatted segment files that "
+    "contain segments to veto in H2")
+parser.add_option("--l1-veto-file", default="",
+    help="segwizard-formatted segment files that "
+    "contain segments to veto in L1")
+parser.add_option("--t1-veto-file", default="",
+    help="segwizard-formatted segment files that "
+    "contain segments to veto in T1")
+parser.add_option("--v1-veto-file", default="",
+    help="segwizard-formatted segment files that "
+    "contain segments to veto in V1")
+
+parser.add_option( "--onsource-seg", action="store", type="string",
+    default=None,
+    help="segwizard-formatted file containing onsource segment")
+parser.add_option( "--buffer-seg", action="store", type="string",
+    default=None,
+    help="segwizard-formatted file containing buffer segment")
+parser.add_option( "--offsource-seg", action="store", type="string",
+    default=None,
+    help="segwizard-formatted file containing offsource segments")
+parser.add_option("--ifos", action="callback", type="string",
+    callback=comma_delimited,
+    help="comma-separated list of IFOs in lower case")
+parser.add_option("--numloudesttable", action="store", type="int", default="-1",
+    help="number of loudest coincident triggers to be displayed in the Loudest triggers table, defaults at -1")
 parser.add_option("", "--gps-start-time", type="int",
     help="GPS start time of data analyzed")
 parser.add_option("", "--gps-end-time", type="int",
     help="GPS end time of data analyzed")
-parser.add_option("", "--ifo-tag", help="IFO coincidence time analyzed")
-parser.add_option("", "--user-tag", help="a tag to label your plots")
-parser.add_option("", "--output-path", help="root of the HTML output")
-parser.add_option("", "--enable-output", action="store_true", default=False,
-    help="enable plots and HTML output")
+
 
 (opts, args) = parser.parse_args()
 
@@ -214,41 +251,76 @@ page = InspiralUtils.InspiralPage(opts)
 # read in document
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
-off_segs = grbsummary.get_segs_from_doc(offsource_doc)
-
 nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
-total_num_slides = 2 * nominal_num_slides or 1
+offsource_cache = cache.sieve(description = opts.offsource_pattern)
+found = offsource_cache.checkfilesexist()
+if len(found) == 0:
+  print >>sys.stderr, "warning: no files found for pattern %s" \
+      % opts.offsource_pattern
+total_num_slides = 0
+if any("SLIDE" in entry.description for entry in offsource_cache):
+  total_num_slides += 2 * nominal_num_slides
+if any("SLIDE" not in entry.description for entry in offsource_cache):
+  total_num_slides += 1
 
-# get the onsource and offsource segments
+
+off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
+                                      coltype=int)
 on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
-                                                    coltype=int)
-trial_len =  int(abs(on_segs))
+                                      coltype=int)
+buffer_segs = segmentsUtils.fromsegwizard(open(opts.buffer_seg),
+                                      coltype=int)
 
+trial_len =  abs(on_segs)
+num_trials = abs(off_segs) // trial_len
+num_trials_buffers_onsource = abs(buffer_segs) // trial_len
+
+##veto segments for IFOs
+ifo_list = opts.ifos
+veto_segs = {}
+for ifo in ifo_list:
+  veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
+
+#get slide amounts 
+slide_amount = {}
+slide_table = table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName)
+for row in slide_table:
+  for ifo in ifo_list:
+    if nominal_num_slides > 0:
+      if row.param == "--%s-slide" % ifo:
+        slide_amount[ifo] = int(float(row.value)) // trial_len
+    else:
+      slide_amount[ifo] = 0
 ##############################################################################
 # make mchirp bins
 mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
-# segment computation
-bins, trial_veto_mask, onsource_ind = \
-    grbsummary.get_exttrig_trials( on_segs, off_segs, opts.veto_files)
-num_trials = len(bins)
+#set the extents of offsource and buffer
+extent_off = off_segs.extent()
+extent_buffer = buffer_segs.extent()
 
-# derive a 2D and 3D trial masks for convenience
-trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials),
-                                 dtype=numpy.bool8)
-trial_veto_mask_2d[0, trial_veto_mask] = True
-trial_veto_mask_3d = numpy.zeros((len(mc_bins), total_num_slides, num_trials),
-                                 dtype=numpy.bool8)
-trial_veto_mask_3d[:, trial_veto_mask_2d] = True
+#do trial bins
+bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
 
-# count how many unvetoed trials we have
-eff_num_trials = numpy.sum(~trial_veto_mask)
+#build veto masks to left and right and then merge them
+veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
+veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], extent_off[1], trial_len, veto_segs)
+trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
+buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
 
+for slide in range(-nominal_num_slides, nominal_num_slides+1):
+
+  trial_mask_left = grbsummary.get_trial_mask(veto_mask_left, slide_amount, slide)
+  trial_mask_right = grbsummary.get_trial_mask(veto_mask_right, slide_amount, slide)
+  trial_mask_2d = numpy.concatenate((trial_mask_left, buffer_mask, trial_mask_right))
+  trial_veto_mask_2d[slide] = trial_mask_2d
+
+
+trial_veto_mask = trial_veto_mask_2d.flatten()
 ##############################################################################
 # make mchirp bins
 mc_bins = rate.IrregularBins(opts.mc_boundaries)
-
 ##############################################################################
 # read triggers, veto them, and reconstruct coincidences
 triggers = table.get_table(offsource_doc, lsctables.SnglInspiralTable.tableName)
@@ -280,23 +352,30 @@ if num_discarded > 0:
 
 # apply a vectorized len function to count how many coincs are in each bin
 counts_by_mc_slide_trial = vec_len(coincs)
-
+eff_num_trials = numpy.sum(~trial_veto_mask)
 ##############################################################################
 # output statistics by mchirp
 
-page.write("Total number of slides "\
-    "(pos + neg or zerolag): %d" % total_num_slides)
-page.write("Total time analyzed (s): "\
-    "%d of %d" % (eff_num_trials * trial_len, bins.max - bins.min))
+page.write("Total number of slides and zero lag: "\
+    "(pos + neg + zero lag): %d" % (total_num_slides))
+page.write("Total number of analyzed background trials: "\
+    "%d of %d" % (eff_num_trials, num_trials*(total_num_slides)))
 page.write("Number of %d second "\
-    "segments per slide: %d" % (trial_len, eff_num_trials))
+    "segments per slide: %d" % (trial_len, eff_num_trials/(total_num_slides)))
+
+#loudest coincs display using coinc_summ_table
+coincSumm = InspiralUtils.write_coinc_summ_table(
+  tableList = [coincTable], commentList = ['Loudest triggers'], stat = stat,
+  statTag = 'Effective SNR', number=opts.numloudesttable, format='html',\
+  followup=None,followupOpts=None)
+page.write(coincSumm)
 
 # by mchirp range
 for counts_by_slide_trial, mc_range in \
     zip(counts_by_mc_slide_trial, zip(mc_bins.lower(), mc_bins.upper())):
 
     total_counts = counts_by_slide_trial[~trial_veto_mask_2d].sum()
-    norm = 1 / (total_num_slides * eff_num_trials)
+    norm = 1 / eff_num_trials
     mean = norm * total_counts
     stdev = numpy.sqrt(norm * ((counts_by_slide_trial[~trial_veto_mask_2d] \
                                 - mean)**2).sum())
@@ -307,25 +386,29 @@ for counts_by_slide_trial, mc_range in \
         "%d" % total_counts)
     page.write("  Mean coincidences per trial: "\
         "%f" % mean)
+   
+
     page.write("  Stdev of trials: %f" % stdev)
 
     for i in range(min(10, counts_by_slide_trial[~trial_veto_mask_2d].max()+1)):
         prob = norm * (counts_by_slide_trial[~trial_veto_mask_2d] == i).sum()
         page.write("  p(%d|0): %f" % (i, prob))
-    page.write("")
+    page.write("")    
 
 # all together
 if len(mc_bins) > 1:
     counts_by_slide_trial = counts_by_mc_slide_trial.sum(axis=0)
     total_counts = counts_by_slide_trial[~trial_veto_mask_2d].sum()
-    norm = 1 / (total_num_slides * eff_num_trials)
+    norm = 1 / eff_num_trials
     mean = norm * total_counts
     stdev = numpy.sqrt(norm * ((counts_by_slide_trial[~trial_veto_mask_2d] \
                                 - mean)**2).sum())
 
     page.write("Combined mchirp bins:")
-    page.write("  Total number of coincidences: %d" % total_counts)
-    page.write("  Mean coincidences per trial: %f" % mean)
+    page.write("  Total number of coincidences: "\
+        "%d" % total_counts)
+    page.write("  Mean coincidences per trial: "\
+        "%f" % mean)
     page.write("  Stdev of trials: %f" % stdev)
 
     for i in range(min(10, counts_by_slide_trial[~trial_veto_mask_2d].max()+1)):
@@ -334,10 +417,9 @@ if len(mc_bins) > 1:
 
 ##############################################################################
 # prepare loudest event statistics (squared) for plots
-trial_numbers = numpy.arange(num_trials, dtype=int) + 1
-slide_numbers = numpy.arange(-nominal_num_slides, nominal_num_slides + 1)
+trial_numbers = numpy.arange(num_trials, dtype=int)
+slide_numbers = numpy.arange(-nominal_num_slides, nominal_num_slides+1)
 loudest_sq_by_mc_slide_trial = vec_get_loudest_stat(coincs)**2
-
 ##############################################################################
 # plots
 safe_stat = opts.coinc_statistic.replace("_", r"\_")
@@ -357,7 +439,7 @@ for loudest_sq, counts, mc_range in \
 
     # plot cumulative histogram of zero-lag trials' loudest event statistics
     if opts.hist_loudest:
-        text = "Cumulative histogram of zero-lag trials' loudest event" \
+        text = "Cumulative histogram of slides-trials' loudest event" \
             "statistics"
 
         # initialize plot
@@ -369,7 +451,7 @@ for loudest_sq, counts, mc_range in \
                 + r"}^2\textrm{ of loudest events}" + mc_str + "$")
 
         # finalize plot
-        plot.add_content(loudest_sq[0, ~trial_veto_mask])
+        plot.add_content(loudest_sq[~trial_veto_mask_2d].flatten())
         plot.finalize(num_bins=50, normalization=1/eff_num_trials)
 
         # output it as appropriate
@@ -383,7 +465,7 @@ for loudest_sq, counts, mc_range in \
     if opts.hist_onsource or opts.hist_background or len(opts.hist_trials) > 0:
         # sanity check
         for trial_num in opts.hist_trials:
-            if trial_num < 0 or trial_num > num_trials:
+            if trial_num < 0 or trial_num > num_trials*total_num_slides:
                 raise ValueError, "--hist-trials must provide numbers "
                 "between 1 and the number of trials"
 
@@ -396,29 +478,14 @@ for loudest_sq, counts, mc_range in \
                 r"$\textrm{Cumulative histogram of loudest %s}^2" % safe_stat \
                 + mc_str + "$")
 
-        # add on-source
-        if opts.hist_onsource:
-            plot.add_content([loudest_sq[0, num_trials // 2]],
-                             "on-source trial")
-
         # add hist_trials (assume zero lag)
         for trial_num in opts.hist_trials:
-            plot.add_content([loudest_sq[0, trial_num - 1]],
+            plot.add_content([loudest_sq[:, trial_num]],
                              "trial %d" % trial_num)
-
-        # create a mask so that we know to veto hist_trials trials from the bg
-        hist_trials_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
-        hist_trials_mask[opts.hist_trials] = True
 
         # add background
         if opts.hist_background:
-            bg_slice = numpy.ones(loudest_sq.shape, dtype=numpy.bool8)
-            # only mask zero-lag trials
-            bg_slice[0, trial_veto_mask | hist_trials_mask] = False
-            # add_background expects a list of trials, but loudest_sq[bg_slice]
-            # is a one-dimensional array.  The [:, None] construct separates
-            # each element into a separate trial.
-            plot.add_background(loudest_sq[bg_slice][:, None],
+            plot.add_background(loudest_sq[~trial_veto_mask_2d][:, None],
                                 label=r"off-source\ trials")
 
         # finalize plot
@@ -441,10 +508,8 @@ for loudest_sq, counts, mc_range in \
             r"$\textrm{Loudest events in each trial}" + mc_str + "$")
 
         # prepare data
-        x_data = trial_numbers[~trial_veto_mask]
-        y_data = loudest_sq[0, ~trial_veto_mask]
-
-        # complete plot
+	y_data = loudest_sq[~trial_veto_mask_2d].flatten()
+	x_data = range(0,len(y_data))
         plot.add_content(x_data, y_data)
         plot.finalize()
 
@@ -464,15 +529,17 @@ for loudest_sq, counts, mc_range in \
             r"$\textrm{\# coincs in each trial}" + mc_str + "$")
 
         # prepare data
-        x_data = trial_numbers[~trial_veto_mask]
-        plot.add_content(x_data, counts[0, ~trial_veto_mask])
-
+        y_data = counts[~trial_veto_mask_2d].flatten()
+        x_data = range(0,len(y_data))
         # complete plot
+        plot.add_content(x_data, y_data) 
         plot.finalize()
+
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig, "plot_num_coincs" + fname_suffix)
+            page.add_plot(plot.fig,
+                "plot_num_coincs" + fname_suffix)
         if not opts.show_plot:
             plot.close()
 
@@ -495,7 +562,8 @@ for loudest_sq, counts, mc_range in \
 
         # output it as appropriate
         if opts.enable_output:
-            page.add_plot(plot.fig, "hist_num_coincs" + fname_suffix)
+            page.add_plot(plot.fig,
+                "hist_num_coincs" + fname_suffix)
         if not opts.show_plot:
             plot.close()
 

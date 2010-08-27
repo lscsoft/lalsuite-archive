@@ -40,6 +40,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
+from glue.iterutils import any
 from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
@@ -47,11 +48,26 @@ from pylal import rate
 from pylal import git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu> and Valeriu Predoi <valeriu.predoi@astro.cf.ac.uk>"
 
 #
 # get loudest coincs from each category
 #
+def comma_delimited(option, opt_str, value, parser, elem_type=str):
+    """
+    This callback function stores a comma-delimited string as a list during
+    option parsing.  Cast elements of list to elem_type, specified via
+    callback_kwargs (default: str).  Must specify type="string"!
+
+    Example:
+    parser.add_option("-n", "--names", action="callback", type="string",
+        callback=comma_delimited, callback_kwargs={"elem_type":str})
+
+    This would allow a user to provide "--names Joe,Bob,Sarah" and the
+    developer to have opts.names == ["Joe", "Bob", "Sarah"].
+    """
+    setattr(parser.values, option.dest, map(elem_type, value.split(",")))
+
 
 def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
     dtype=float, verbose=False):
@@ -61,7 +77,6 @@ def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
     length of nd_bins.  The key_funcs are the functions used to
     extract the quantities being binned.  stat_func is called to extract
     the statistic of interest from each row.
-
     Example:
     >>> bins = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
     >>> stat = lambda trig: trig.snr
@@ -147,10 +162,10 @@ def keep_only_loudest_events_by_cat(xmldoc, coincstat, mc_bins, mc_ifo_cats):
 
     return xmldoc
 
-def get_loudest_stats_by_trial_cat(offsource_doc, coinc_stat,
-    trial_bins, mc_bins, mc_ifo_cats):
+def get_loudest_stats_by_trial_cat_slide(offsource_doc, coinc_stat,
+    trial_bins, slide_bins, mc_bins, mc_ifo_cats):
     """
-    Return a 2-D array containing the loudest stats in the SnglInspiralTable
+    Return a 3-D array containing the loudest stats in the SnglInspiralTable
     in xmldoc for each (trial, category) bin.  coinc_stat must be an instance
     of CoincInspiralUtils.coincStatistic and trial_bins and mc_bins must be
     instances of rate.Bins. mc_ifo_cats is a Categories object to bin up the
@@ -169,9 +184,9 @@ def get_loudest_stats_by_trial_cat(offsource_doc, coinc_stat,
         coinc_stat)
 
     # define bins and keys
-    nd_bins = rate.NDBins((trial_bins, mc_ifo_cats))
+    nd_bins = rate.NDBins((trial_bins, slide_bins, mc_ifo_cats))
     stat_func = operator.attrgetter("stat")
-    keys = (CoincInspiralUtils.coincInspiralTable.row.get_time,
+    keys = (CoincInspiralUtils.coincInspiralTable.row.get_time, CoincInspiralUtils.coincInspiralTable.row._get_slide_num,
             lambda c: (mc_bins[grbsummary.get_mean_mchirp(c)], c.ifos))
 
     # get loudest stat in each bin
@@ -215,6 +230,7 @@ def get_loudest_stats_by_inj_cat(inj_doc, coinc_doc, coinc_stat, trial_bins,
 
     return sims, loudest_by_sim_cat
 
+
 def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
@@ -224,7 +240,7 @@ def parse_args():
     parser.add_option("--onsource-glob", metavar="GLOB", help="glob the "
         "on-source files with GLOB")
     parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
-        "cache descriptions for off-source coincidence files with PAT")
+        "cache descriptions for off-source coincidence files with PAT: THINCA_SLIDE_SECOND*OFFSOURCE for slides only; THINCA*SECOND*OFFSOURCE for slides and zero-lag; THINCA_SECOND*OFFSOURCE for zero-lag only")
     parser.add_option("--injection-pattern", metavar="PAT",
         help="sieve the cache descriptions for injection files with PAT")
     parser.add_option("--inj-coinc-pattern", metavar="PAT",
@@ -244,10 +260,30 @@ def parse_args():
         "requires --off-source-pattern and --injection-pattern")
 
     # segments
-    parser.add_option("--veto-segfiles", default="",
-        help="comma-separated list of segwizard-formatted segment files that "
-        "contain segments to veto")
-
+    parser.add_option( "--offsource-seg", action="store", type="string",
+        default=None,
+        help="segwizard-formatted file containing offsource segments")
+    parser.add_option( "--buffer-seg", action="store", type="string",
+        default=None,
+        help="segwizard-formatted file containing buffer segment")
+    parser.add_option("--g1-veto-file", default="",
+        help="segwizard-formatted segment files that "
+        "contain segments to veto in G1")
+    parser.add_option("--h1-veto-file", default="",
+        help="segwizard-formatted segment files that "
+        "contain segments to veto in H1")
+    parser.add_option("--h2-veto-file", default="",
+        help="segwizard-formatted segment files that "
+        "contain segments to veto in H2")
+    parser.add_option("--l1-veto-file", default="",
+        help="segwizard-formatted segment files that "
+        "contain segments to veto in L1")
+    parser.add_option("--t1-veto-file", default="",
+        help="segwizard-formatted segment files that "
+        "contain segments to veto in T1")
+    parser.add_option("--v1-veto-file", default="",
+        help="segwizard-formatted segment files that "
+        "contain segments to veto in V1")
     parser.add_option( "--onsource-seg", action="store", type="string",
         default=None,
         help="segwizard-formatted file containing onsource segment")
@@ -272,15 +308,20 @@ def parse_args():
     # odds and ends
     parser.add_option("--statistic", default="snr",
         help="choice of statistic used in making plots, valid arguments are: "
-        "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr")
+        "snr,effective_snr and new_snr")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
+    parser.add_option("--ifos", action="callback", type="string",
+        callback=comma_delimited,
+        help="comma-separated list of IFOs in lower case")
+
+
 
     options, arguments = parser.parse_args()
 
     # check that mandatory switches are present
     for opt in ("cache_file","offsource_pattern",
-        "veto_segfiles", "mc_boundaries", "statistic"):
+        "mc_boundaries", "statistic"):
         if getattr(options, opt) is None:
             raise ValueError, "--%s is always required" % opt.replace("_", "-")
     if not (options.write_onsource or options.write_offsource \
@@ -323,20 +364,80 @@ if not opts.write_onsource:
 # always read offsource triggers (needed in any case)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
-off_segs = grbsummary.get_segs_from_doc(offsource_doc)
-
+off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
+                                      coltype=int)
+buffer_segs = segmentsUtils.fromsegwizard(open(opts.buffer_seg),
+                                      coltype=int)
 ################################################################################
 # choose segments/trials/vetoes (match grbtimeslide_stats)
 
 on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
-                                      coltype=LIGOTimeGPS)
-trial_bins, trial_veto_mask, _ = \
-    grbsummary.get_exttrig_trials(on_segs, off_segs,
-                                  opts.veto_segfiles.split(","))
+                                      coltype=int)
 
+nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
+
+offsource_cache = cache.sieve(description = opts.offsource_pattern)
+found = offsource_cache.checkfilesexist()
+if len(found) == 0:
+  print >>sys.stderr, "warning: no files found for pattern %s" \
+      % opts.offsource_pattern
+total_num_slides = 0
+if any("SLIDE" in entry.description for entry in offsource_cache):
+  total_num_slides += 2 * nominal_num_slides
+if any("SLIDE" not in entry.description for entry in offsource_cache):
+  total_num_slides += 1
+
+extent_off = off_segs.extent()
+extent_buffer = buffer_segs.extent()
+
+#veto mask prerequisites
+trial_len =  abs(on_segs)
+num_trials = abs(off_segs) // trial_len
+num_trials_buffers_onsource = abs(buffer_segs) // trial_len
+
+##veto segments for IFOs
+ifo_list = opts.ifos
+veto_segs = {}
+for ifo in ifo_list:
+  veto_segs[ifo] = segmentsUtils.fromsegwizard(open(getattr(opts, ifo + "_veto_file")))
+
+#get slide amounts(values of slide amount must be an integer!!)
+slide_amount = {}
+slide_table = table.get_table(offsource_doc, lsctables.ProcessParamsTable.tableName)
+for row in slide_table:
+  for ifo in ifo_list:
+    if nominal_num_slides > 0:
+      if row.param == "--%s-slide" % ifo:
+        slide_amount[ifo] = int(float(row.value)) // trial_len
+    else:
+      slide_amount[ifo] = 0
+
+#make trial, chirpmass and slide bins
+trial_bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
+mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
+slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides)
+
+#build veto masks to left and right and then merge them
+veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
+veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], extent_off[1], trial_len, veto_segs)
+trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
+buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
+
+for slide in range(-nominal_num_slides, nominal_num_slides+1):
+
+  trial_mask_left = grbsummary.get_trial_mask(veto_mask_left, slide_amount, slide)
+  trial_mask_right = grbsummary.get_trial_mask(veto_mask_right, slide_amount, slide)
+  trial_mask_2d = numpy.concatenate((trial_mask_left, buffer_mask, trial_mask_right))
+  trial_veto_mask_2d[slide] = trial_mask_2d
+
+trial_veto_mask = trial_veto_mask_2d.flatten()
+trial_veto_mask_inj = numpy.zeros(num_trials, dtype=numpy.bool8)
+if nominal_num_slides > 0:
+  trial_veto_mask_inj = trial_veto_mask_2d[0]
+else:
+  trial_veto_mask_inj = trial_veto_mask
 ################################################################################
 # choose other binnings: mchirp, m2, D, and (mchirp_ind and IFO combo)
-mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
 
 if opts.write_injections:
     m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
@@ -384,13 +485,12 @@ if opts.write_onsource:
 # get loudest off-source coincs
 if opts.write_offsource or opts.write_injections:
 
-  offsource_loudest_by_trial_cat = get_loudest_stats_by_trial_cat(offsource_doc,
-      coinc_stat, trial_bins, mc_bins, mc_ifo_cats)
-
-  # throw out vetoed trials
+  offsource_loudest_by_trial_cat_slide = get_loudest_stats_by_trial_cat_slide(offsource_doc,
+      coinc_stat, trial_bins, slide_bins, mc_bins, mc_ifo_cats)
+  offsource_loudest_by_trial_cat_unvetoed = \
+      offsource_loudest_by_trial_cat_slide.reshape(total_num_slides*len(trial_bins), len(mc_bins))
   offsource_loudest_by_trial_cat = \
-      offsource_loudest_by_trial_cat[~trial_veto_mask, :]
-
+      offsource_loudest_by_trial_cat_unvetoed[~trial_veto_mask,:]
 ################################################################################
 # get loudest injection coincs
 if opts.write_injections:
@@ -430,7 +530,7 @@ if opts.write_injections:
     inj_loudest_by_inj_cat = numpy.array(inj_loudest_by_inj_cat)
 
     # throw out vetoed injection trials
-    inj_mask = trial_veto_mask[[trial_bins[sim.get_end()] for sim in sims]]
+    inj_mask = trial_veto_mask_inj[[trial_bins[sim.get_end()] for sim in sims]]
     sims = [sim for sim, keep in zip(sims, inj_mask) if not keep]
     inj_loudest_by_inj_cat = inj_loudest_by_inj_cat[~inj_mask, ...]
 
@@ -452,8 +552,8 @@ else:
 if opts.write_onsource:
     fname = fname_prefix + "_onsource" + fname_suffix
     # write pickle
-    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
-                 onsource_loudest_by_cat), open(fname, "wb"), -1)
+    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, onsource_loudest_by_cat),
+                open(fname, "wb"), -1)
     # write XML
     ligolw_process.set_process_end_time(process)
     utils.write_filename(onsource_doc, fname_prefix + "_onsource" \
@@ -461,13 +561,13 @@ if opts.write_onsource:
     sys.stdout.write("Loudest on-source coincs written.\n")
 if opts.write_offsource:
     fname = fname_prefix + "_offsource" + fname_suffix
-    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
+    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats,
                  offsource_loudest_by_trial_cat), open(fname, "wb"), -1)
     sys.stdout.write("Loudest off-source coincs written.\n")
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
-    pickle.dump((git_version.id, opts.statistic, mc_bins, mc_ifo_cats,
-                 m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_cat),
+    pickle.dump((opts.statistic, mc_bins, mc_ifo_cats, m2_bins, D_bins,
+                 m2_D_by_inj, inj_loudest_by_inj_cat),
                 open(fname, "wb"), -1)
     sys.stdout.write("Loudest injection coincs written.\n")
 

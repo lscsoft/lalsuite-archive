@@ -114,6 +114,16 @@ use___segments(lsctables)
 
 
 #
+# Utilities
+#
+
+def coinc_ringdown_start(events, offset_vector):
+	
+	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
+	tstart = events[0].get_start() + offset_vector[events[0].ifo]
+	return tstart + sum(event.snr * float(event.get_start() + offset_vector[event.ifo] - tstart) for event in events) / sum(event.snr for event in events)
+
+#
 # =============================================================================
 #
 #                           Add Process Information
@@ -125,7 +135,7 @@ use___segments(lsctables)
 process_program_name = "ligolw_rinca"
 
 
-def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, vetoes_name = None, verbose = None):
+def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None, save_small_coincs = None, vetoes_name = None, coinc_end_time_segment = None, verbose = None):
 	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
@@ -139,6 +149,8 @@ def append_process(xmldoc, comment = None, force = None, ds_sq_threshold = None,
 		params += [(u"--save-small-coincs", None, None)]
 	if vetoes_name is not None:
 		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
+	if coinc_end_time_segment is not None:
+		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
 	if verbose is not None:
 		params += [(u"--verbose", None, None)]
 
@@ -197,11 +209,13 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
+	def append_coinc(self, process_id, node, coinc_def_id, events):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
-
+		
+		time_slide_id = node.time_slide_id
+		
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
 
 		#
@@ -219,8 +233,10 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
 		# use the time of event[0] as an epoch
-		tstart = events[0].get_start() + self.time_slide_index[time_slide_id][events[0].ifo]
-		coinc_ringdown.set_start(tstart + sum(event.snr * float(event.get_start() + self.time_slide_index[time_slide_id][event.ifo] - tstart) for event in events) / sum(event.snr for event in events))
+		tstart = coinc_ringdown_start(events, node.offset_vector)
+		coinc_ringdown.set_start(tstart)
+		#tstart = events[0].get_start() + self.time_slide_index[time_slide_id][events[0].ifo]
+		#coinc_ringdown.set_start(tstart + sum(event.snr * float(event.get_start() + self.time_slide_index[time_slide_id][event.ifo] - tstart) for event in events) / sum(event.snr for event in events))
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
@@ -232,7 +248,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		# unslid to compare with the instrument segment lists
 		#
 
-		tstart = coinc_ringdown.get_start()
+		#tstart = coinc_ringdown.get_start()
 		coinc.set_instruments(instrument for instrument, segs in self.seglists.items() if tstart - self.time_slide_index[time_slide_id][instrument] in segs)
 
 		#
@@ -348,6 +364,22 @@ def ringdown_coinc_compare(a, offseta, b, offsetb, light_travel_time, ds_sq_thre
 #
 # =============================================================================
 #
+#                              Compare Functions
+#
+# =============================================================================
+#
+
+
+def default_ntuple_comparefunc(events, offset_vector):
+	"""
+	Default ntuple test function.  Accept all ntuples.
+	"""
+	return False
+
+
+#
+# =============================================================================
+#
 #                                 Library API
 #
 # =============================================================================
@@ -383,6 +415,7 @@ def ligolw_rinca(
 	ntuple_comparefunc = lambda events, offset_vector: False,
 	small_coincs = False,
 	veto_segments = None,
+	coinc_end_time_segment = None,
 	verbose = False
 ):
 	#
@@ -442,12 +475,12 @@ def ligolw_rinca(
 		for coinc in node.get_coincs(eventlists, event_comparefunc, thresholds, verbose):
 			ntuple = tuple(sngl_index[id] for id in coinc)
 			if not ntuple_comparefunc(ntuple, node.offset_vector):
-				coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+				coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
 		if small_coincs:
 			for coinc in node.unused_coincs:
 				ntuple = tuple(sngl_index[id] for id in coinc)
 				if not ntuple_comparefunc(ntuple, node.offset_vector):
-					coinc_tables.append_coinc(process_id, node.time_slide_id, coinc_def_id, ntuple)
+					coinc_tables.append_coinc(process_id, node, coinc_def_id, ntuple)
 
 	#
 	# remove time offsets from events

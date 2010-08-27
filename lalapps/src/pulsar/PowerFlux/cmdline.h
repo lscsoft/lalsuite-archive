@@ -138,9 +138,12 @@ struct gengetopt_args_info
   int nbins_arg;	/**< @brief number of frequency bins to analyze (default='501').  */
   char * nbins_orig;	/**< @brief number of frequency bins to analyze original value given at command line.  */
   const char *nbins_help; /**< @brief number of frequency bins to analyze help description.  */
-  int side_cut_arg;	/**< @brief number of bins to cut from each side due to corruption from doppler shifts.  */
-  char * side_cut_orig;	/**< @brief number of bins to cut from each side due to corruption from doppler shifts original value given at command line.  */
-  const char *side_cut_help; /**< @brief number of bins to cut from each side due to corruption from doppler shifts help description.  */
+  int side_cut_arg;	/**< @brief number of extra bins to load to accomodate doppler shifts and spindown.  */
+  char * side_cut_orig;	/**< @brief number of extra bins to load to accomodate doppler shifts and spindown original value given at command line.  */
+  const char *side_cut_help; /**< @brief number of extra bins to load to accomodate doppler shifts and spindown help description.  */
+  int extra_side_cut_arg;	/**< @brief number of extra bins to load in addition to side-cut computed automatically (default='0').  */
+  char * extra_side_cut_orig;	/**< @brief number of extra bins to load in addition to side-cut computed automatically original value given at command line.  */
+  const char *extra_side_cut_help; /**< @brief number of extra bins to load in addition to side-cut computed automatically help description.  */
   double expected_timebase_arg;	/**< @brief expected timebase in months (default='6').  */
   char * expected_timebase_orig;	/**< @brief expected timebase in months original value given at command line.  */
   const char *expected_timebase_help; /**< @brief expected timebase in months help description.  */
@@ -248,7 +251,7 @@ struct gengetopt_args_info
   double fake_ref_time_arg;	/**< @brief time of signal start (default='0').  */
   char * fake_ref_time_orig;	/**< @brief time of signal start original value given at command line.  */
   const char *fake_ref_time_help; /**< @brief time of signal start help description.  */
-  double fake_ra_arg;	/**< @brief RA of fake signal to inject (default='3.14').  */
+  double fake_ra_arg;	/**< @brief RA of fake signal to inject (default='0.0').  */
   char * fake_ra_orig;	/**< @brief RA of fake signal to inject original value given at command line.  */
   const char *fake_ra_help; /**< @brief RA of fake signal to inject help description.  */
   double fake_dec_arg;	/**< @brief DEC of fake signal to inject (default='0.0').  */
@@ -266,7 +269,7 @@ struct gengetopt_args_info
   double fake_spindown_arg;	/**< @brief spindown of fake signal to inject (default='0.0').  */
   char * fake_spindown_orig;	/**< @brief spindown of fake signal to inject original value given at command line.  */
   const char *fake_spindown_help; /**< @brief spindown of fake signal to inject help description.  */
-  double fake_strain_arg;	/**< @brief amplitude of fake signal to inject (default='1e-23').  */
+  double fake_strain_arg;	/**< @brief amplitude of fake signal to inject (default='0.0').  */
   char * fake_strain_orig;	/**< @brief amplitude of fake signal to inject original value given at command line.  */
   const char *fake_strain_help; /**< @brief amplitude of fake signal to inject help description.  */
   double fake_freq_arg;	/**< @brief frequency of fake signal to inject.  */
@@ -278,7 +281,7 @@ struct gengetopt_args_info
   double fake_freq_modulation_depth_arg;	/**< @brief depth of additional sinusoidal frequency modulation in Hz (default='0.0').  */
   char * fake_freq_modulation_depth_orig;	/**< @brief depth of additional sinusoidal frequency modulation in Hz original value given at command line.  */
   const char *fake_freq_modulation_depth_help; /**< @brief depth of additional sinusoidal frequency modulation in Hz help description.  */
-  double fake_freq_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal frequency modulation (default='0.0').  */
+  double fake_freq_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal frequency modulation (default='1.0').  */
   char * fake_freq_modulation_freq_orig;	/**< @brief frequency of additional sinusoidal frequency modulation original value given at command line.  */
   const char *fake_freq_modulation_freq_help; /**< @brief frequency of additional sinusoidal frequency modulation help description.  */
   double fake_freq_modulation_phase_arg;	/**< @brief phase of additional sinusoidal frequency modulation (default='0.0').  */
@@ -293,6 +296,9 @@ struct gengetopt_args_info
   double fake_phase_modulation_phase_arg;	/**< @brief phase of additional sinusoidal phase modulation (default='0.0').  */
   char * fake_phase_modulation_phase_orig;	/**< @brief phase of additional sinusoidal phase modulation original value given at command line.  */
   const char *fake_phase_modulation_phase_help; /**< @brief phase of additional sinusoidal phase modulation help description.  */
+  int fake_injection_window_arg;	/**< @brief compute this number of frequency bins to the left and right of the central frequency (default='5').  */
+  char * fake_injection_window_orig;	/**< @brief compute this number of frequency bins to the left and right of the central frequency original value given at command line.  */
+  const char *fake_injection_window_help; /**< @brief compute this number of frequency bins to the left and right of the central frequency help description.  */
   double snr_precision_arg;	/**< @brief Assumed level of error in detection strength - used for listing candidates (default='0.2').  */
   char * snr_precision_orig;	/**< @brief Assumed level of error in detection strength - used for listing candidates original value given at command line.  */
   const char *snr_precision_help; /**< @brief Assumed level of error in detection strength - used for listing candidates help description.  */
@@ -421,6 +427,7 @@ struct gengetopt_args_info
   unsigned int first_bin_given ;	/**< @brief Whether first-bin was given.  */
   unsigned int nbins_given ;	/**< @brief Whether nbins was given.  */
   unsigned int side_cut_given ;	/**< @brief Whether side-cut was given.  */
+  unsigned int extra_side_cut_given ;	/**< @brief Whether extra-side-cut was given.  */
   unsigned int expected_timebase_given ;	/**< @brief Whether expected-timebase was given.  */
   unsigned int hist_bins_given ;	/**< @brief Whether hist-bins was given.  */
   unsigned int detector_given ;	/**< @brief Whether detector was given.  */
@@ -473,6 +480,7 @@ struct gengetopt_args_info
   unsigned int fake_phase_modulation_depth_given ;	/**< @brief Whether fake-phase-modulation-depth was given.  */
   unsigned int fake_phase_modulation_freq_given ;	/**< @brief Whether fake-phase-modulation-freq was given.  */
   unsigned int fake_phase_modulation_phase_given ;	/**< @brief Whether fake-phase-modulation-phase was given.  */
+  unsigned int fake_injection_window_given ;	/**< @brief Whether fake-injection-window was given.  */
   unsigned int snr_precision_given ;	/**< @brief Whether snr-precision was given.  */
   unsigned int max_candidates_given ;	/**< @brief Whether max-candidates was given.  */
   unsigned int min_candidate_snr_given ;	/**< @brief Whether min-candidate-snr was given.  */

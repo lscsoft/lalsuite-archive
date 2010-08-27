@@ -48,7 +48,7 @@ while { 1 }  {
 	set psi [sample $PSI_RANGE]
 	set phi [sample $PHI_RANGE]
 	set iota [sample $IOTA_RANGE]
-	set freq [sample [list [expr $first_bin/1800.0] [expr ($first_bin+450)/1800.0]]]
+	set freq [sample [list [expr ($first_bin+$FREQ_BIN_START)/1800.0] [expr ($first_bin+$FREQ_BIN_STOP)/1800.0]]]
 	set h0  [expr exp([sample $POWER_LOG10_RANGE] * log(10.0)) * $POWER_MAX]
         set spindown [expr exp([sample $SPINDOWN_LOG10_RANGE] * log(10.0)) * $SPINDOWN_MAX]
 	set aPlus [expr $h0 * (1.0+cos($iota)*cos($iota))/2.0]

@@ -57,7 +57,7 @@ from pylal import llwapp
 
 
 class CoincDatabase(object):
-	def __init__(self, connection, live_time_program, search = "excesspower", verbose = False):
+	def __init__(self, connection, live_time_program, search = "excesspower", veto_segments_name = None, verbose = False):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
@@ -65,6 +65,7 @@ class CoincDatabase(object):
 		"""
 
 		from glue.ligolw import dbtables
+		from glue.ligolw.utils import segments as ligolwsegments
 		self.connection = connection
 		self.xmldoc = dbtables.get_xml(connection)
 
@@ -95,6 +96,10 @@ class CoincDatabase(object):
 		# get the segment lists
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program).coalesce()
 		self.instruments = set(self.seglists.keys())
+		if veto_segments_name is not None:
+			self.vetoseglists = ligolwsegments.segmenttable_get_by_name(self.xmldoc, veto_segments_name).coalesce()
+		else:
+			self.vetoseglists = ligolwsegments.segments.segmentlistdict()
 
 		# determine a few coinc_definer IDs
 		# FIXME:  don't hard-code the numbers
@@ -124,6 +129,8 @@ class CoincDatabase(object):
 		# verbosity
 		if verbose:
 			print >>sys.stderr, "database stats:"
+			for instrument, seglist in sorted(self.seglists.items()):
+				print >>sys.stderr, "\t%s livetime: %g s (%g%% vetoed)" % (instrument, abs(seglist), 100.0 * float(abs(instrument in self.vetoseglists and (seglist & self.vetoseglists[instrument]) or 0.0)) / float(abs(seglist)))
 			if self.sngl_burst_table is not None:
 				print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
 			if self.sim_burst_table is not None:
@@ -131,7 +138,7 @@ class CoincDatabase(object):
 			if self.time_slide_table is not None:
 				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
 			if self.coinc_def_table is not None:
-				for description, n in connection.cursor().execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+				for description, n in connection.cursor().execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id ORDER BY description"):
 					print >>sys.stderr, "\t%s: %d" % (description, n)
 
 
