@@ -67,6 +67,10 @@ class upper_limit(object):
 
     if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
 
+    # seed the RNG to make output predictably random
+    if opts.bootstrap_seed is not None:
+      scipy.random.seed(seed=opts.bootstrap_seed)
+
     # open a connection to the input database
     working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
     connection = sqlite3.connect(working_filename)
@@ -577,10 +581,11 @@ class upper_limit(object):
 def parse_command_line():
   parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] database", description = "%prog computes mass/mass upperlimit")
 
+  parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000")
+  parser.add_option("--bootstrap-seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the bootstrap resampling. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
   parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
-  parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000")
   parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
   parser.add_option("--d-err", default = 0.197, metavar = "float", type = "float", help = "When bootstrapping, simulate a random calibration error on distance of the specified magnitude.")
   parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
