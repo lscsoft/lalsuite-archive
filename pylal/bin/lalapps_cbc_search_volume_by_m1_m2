@@ -66,9 +66,9 @@ class upper_limit(object):
     xmldoc = dbtables.get_xml(connection)
 
     self.get_instruments(connection)      #find out which instruments were on at all during search
+    self.get_livetime(connection)         #get the livetime for each set of instruments
     self.get_segments(connection)         #get single ifo segments with vetoes applied
     self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
-    self.get_livetime(connection)         #get the livetime for each set of instruments
     self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
     self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
     self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
@@ -99,6 +99,27 @@ class upper_limit(object):
       if self.opts.verbose: print >>sys.stdout,"\t%s" % instruments[0]
 
     return self.instruments
+
+
+  def get_livetime(self,connection):
+    livetime_query = """
+    SELECT instruments,duration
+    FROM experiment_summary
+    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+    WHERE experiment_summary.datatype == "exclude_play";
+    """
+    if self.opts.verbose:
+      print >>sys.stdout,"\nQuerying database for livetimes..."
+      print >>sys.stdout,"\t" + livetime_query
+
+    self.livetime = dict( (inst,0) for inst in self.instruments )
+    for instruments,livetime in connection.cursor().execute(livetime_query):
+      inst =  frozenset(lsctables.instrument_set_from_ifos(instruments))
+      self.livetime[inst] = livetime
+      if self.opts.verbose:
+        print >>sys.stdout,"\t%s were on for %g seconds (excludes playground)" % (instruments,livetime)
+
+    return self.livetime
 
 
   def get_segments(self, connection):
@@ -158,42 +179,6 @@ class upper_limit(object):
       # FIXME need to reomove playground from segments!!!
 
     return self.zero_lag_segments
-
-
-  def set_instruments_to_calculate(self):
-    if not opts.instruments: return self.instruments
-    if opts.instruments in self.instruments:
-      return frozenset(lsctables.instrument_set_from_ifos(i[0]))
-    else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
-      return []
-
-
-  def get_gps_times_duration(self, connection):
-    self.start_time = int( connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
-    self.end_time = int( connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
-    return True
-
-
-  def get_livetime(self,connection):
-    livetime_query = """
-    SELECT instruments,duration
-    FROM experiment_summary
-    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-    WHERE experiment_summary.datatype == "exclude_play";
-    """
-    if self.opts.verbose:
-      print >>sys.stdout,"\nQuerying database for livetimes..."
-      print >>sys.stdout,"\t" + livetime_query
-
-    self.livetime = dict( (inst,0) for inst in self.instruments )
-    for instruments,livetime in connection.cursor().execute(livetime_query):
-      inst =  frozenset(lsctables.instrument_set_from_ifos(instruments))
-      self.livetime[inst] = livetime
-      if self.opts.verbose:
-        print >>sys.stdout,"\t%s were on for %g seconds (excludes playground)" % (instruments,livetime)
-
-    return self.livetime
 
 
   def get_total_mass_bins(self, connection):
@@ -270,6 +255,21 @@ class upper_limit(object):
         print >>sys.stdout,"\tloudest event in %s time has FAR = %g" % (','.join(sorted(list(inst))),self.far[inst])
 
     return self.far
+
+
+  def get_gps_times_duration(self, connection):
+    self.start_time = int( connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
+    self.end_time = int( connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
+    return True
+
+
+  def set_instruments_to_calculate(self):
+    if not opts.instruments: return self.instruments
+    if opts.instruments in self.instruments:
+      return frozenset(lsctables.instrument_set_from_ifos(i[0]))
+    else:
+      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(frozenset(lsctables.instrument_set_from_ifos(i[0]))),)
+      return []
 
 
   def get_volume_derivative(self,instruments):
