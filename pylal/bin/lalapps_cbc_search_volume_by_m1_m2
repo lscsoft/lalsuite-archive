@@ -52,10 +52,6 @@ class upper_limit(object):
     self.gw = None
     self.wnfunc = None
     self.bootnum = int(opts.bootstrap_iterations)
-    self.minmass = None
-    self.maxmass = None
-    self.mintotal = None
-    self.maxtotal = None
     self.segments = {}  #An ifo-keys segments dict for single ifo
     self.zero_lag_segments = {}  #An instruments-keyed segment dict for coincident ifo time
     self.coinc_inspiral_table = None
@@ -74,14 +70,13 @@ class upper_limit(object):
     dbtables.DBTable_set_connection(connection)
     xmldoc = dbtables.get_xml(connection)
 
-    # extract useful info from db
-    self.get_instruments(connection)  #find out which instruments were on at all
-    self.get_segments(connection)  #get single ifo segments with vetos applied
-    self.get_zero_lag_segments()  #get coincident ifo segments
-    self.get_livetime(connection)  #get the livetime for each set of instruments
-    self.get_mass_ranges(connection)  #determine the mass ranges and binning for this calculation
-    self.get_2d_mass_bins(self.minmass, self.maxmass, opts.mass_bins) # set the m1-m2 binning
-    self.get_far_thresholds(connection)
+    self.get_instruments(connection)      #find out which instruments were on at all during search
+    self.get_segments(connection)         #get single ifo segments with vetoes applied
+    self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
+    self.get_livetime(connection)         #get the livetime for each set of instruments
+    self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
+    self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
+    self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
     self.get_gps_times_duration(connection)
 
     # close db connection
@@ -178,21 +173,6 @@ class upper_limit(object):
     return True
 
 
-  def get_mass_ranges(self, connection):
-    #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
-    minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-    minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-    maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-    maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
-    self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-    self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
-
-    self.minmass = min(minmass1,minmass2)
-    self.maxmass = max(maxmass1,maxmass2)
-
-    return
-
-
   def get_livetime(self,connection):
     livetime_query = """
     SELECT instruments,duration
@@ -212,6 +192,46 @@ class upper_limit(object):
         print >>sys.stdout,"\t%s were on for %g seconds (excludes playground)" % (instruments,livetime)
 
     return self.livetime
+
+
+  def get_total_mass_bins(self, connection):
+    '''Find the total mass range for the search and generate one dimensional mass bins for this range.'''
+    if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected total masses..."
+
+    #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
+    self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+    self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+
+    if self.opts.verbose:
+       print >>sys.stdout,"\tminimum total: %g solar masses" % self.mintotal
+       print >>sys.stdout,"\tmaximum total: %g solar masses" % self.maxtotal
+
+    self.total_mass_bins = rate.NDBins((rate.LinearBins(self.mintotal,self.maxtotal,self.opts.mass_bins),))
+
+    return self.total_mass_bins
+
+
+  def get_m1m2_mass_bins(self, connection):
+    '''Find the component mass range for the search and generate two dimensional mass bins for this range.'''
+    if self.opts.verbose: print >>sys.stdout,"\nFinding the range of injected component masses..."
+
+    minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+    minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+    maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+    maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+
+    self.minmass = min(minmass1,minmass2)
+    self.maxmass = max(maxmass1,maxmass2)
+
+    if self.opts.verbose:
+       print >>sys.stdout,"\tminimum component: %g solar masses" % self.minmass
+       print >>sys.stdout,"\tmaximum component: %g solar masses" % self.maxmass
+
+    mass1Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
+    mass2Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
+    self.m1m2_mass_bins = rate.NDBins( (mass1Bin,mass2Bin) )
+
+    return self.m1m2_mass_bins
 
 
   def get_far_thresholds(self, connection):
@@ -256,12 +276,12 @@ class upper_limit(object):
     """
     FAR = self.far[instruments]
     gw = self.gw
-    twoDMassBins = self.twoDMassBins
+    twoDMassBins = self.m1m2_mass_bins
 
     # If the loudest event has 0-FAR, then there is no volume above that event.
     # We return zeros for the volume arrays.
     if FAR == 0:
-      return rate.BinnedArray(self.twoDMassBins)
+      return rate.BinnedArray(self.m1m2_mass_bins)
 
     #determine binning up front for infinite FAR
     found, missed = self.get_injections(instruments, FAR=float("inf"))
@@ -378,7 +398,7 @@ class upper_limit(object):
     restricts array to only have data within the mass space and sets everything
     outside the mass space to some canonical value, minthresh
     """
-    twodbin = self.twoDMassBins
+    twodbin = self.m1m2_mass_bins
     x = eff.array.shape[0]
     y = eff.array.shape[1]
     c1 = twodbin.centres()[0]
@@ -403,15 +423,6 @@ class upper_limit(object):
       sims2.append(l2)
     sims.extend(sims2)
 
-  def get_2d_mass_bins(self, low, high, bins):
-    """
-    Given the component mass range low, high of the search it will
-    return 2D bins with size bins in each direction
-    """
-    mass1Bin = rate.LinearBins(low,high,bins)
-    mass2Bin = rate.LinearBins(low,high,bins)
-    self.twoDMassBins = rate.NDBins( (mass1Bin,mass2Bin) )
-    return self.twoDMassBins
 
   def _scramble_pop(self, m, f):
     """
@@ -439,7 +450,7 @@ class upper_limit(object):
     return an array of live times, note every bin will be the same :) it is just a
     convenience.
     """
-    live_time = rate.BinnedArray(self.twoDMassBins)
+    live_time = rate.BinnedArray(self.m1m2_mass_bins)
     live_time.array += 1.0
     live_time.array *= self.livetime[instruments]
     return live_time
@@ -475,12 +486,12 @@ class upper_limit(object):
     if not bootnum: bootnum = self.bootnum
 
     # mass bins for which to compute the search volume
-    twodbin = self.twoDMassBins
+    twodbin = self.m1m2_mass_bins
 
     # If the loudest event has 0-FAR, then there is no volume above that event.
     # We return zeros for the volume arrays.
     if FAR == 0:
-      return rate.BinnedArray(self.twoDMassBins),rate.BinnedArray(self.twoDMassBins)
+      return rate.BinnedArray(self.m1m2_mass_bins),rate.BinnedArray(self.m1m2_mass_bins)
 
     # set up an empty ratio array for each distance bin
     z = int(self.opts.dist_bins)
