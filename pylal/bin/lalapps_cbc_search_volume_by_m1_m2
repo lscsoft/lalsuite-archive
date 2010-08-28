@@ -75,7 +75,6 @@ class upper_limit(object):
     xmldoc = dbtables.get_xml(connection)
 
     # extract useful info from db
-    self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
     self.get_instruments(connection)  #find out which instruments were on at all
     self.get_segments(connection)  #get single ifo segments with vetos applied
     self.get_zero_lag_segments()  #get coincident ifo segments
@@ -332,13 +331,10 @@ class upper_limit(object):
     connection.create_function("injection_was_made", 2, injection_was_made)
     make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
 
-    # INSPIRAL
-    if self.coinc_inspiral_table:
-         for values in connection.cursor().execute("""
-	 SELECT
-	   sim_inspiral.*,
-	   -- true if injection matched a coinc below the false alarm rate threshold
-	   EXISTS (
+    injection_finding_query = """
+       SELECT sim_inspiral.*,
+       -- true if injection matched a coinc below the false alarm rate threshold
+       EXISTS (
 	     SELECT *
 	     FROM coinc_event_map AS mapa
 	     JOIN coinc_event_map AS mapb ON ( mapa.coinc_event_id == mapb.coinc_event_id )
@@ -347,19 +343,20 @@ class upper_limit(object):
 	     AND mapa.event_id == sim_inspiral.simulation_id
 	     AND coinc_inspiral.combined_far < ?
 	     )
-	 FROM
-	   sim_inspiral
-	 WHERE
-	 -- only interested in injections that were injected
-	   injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
-	 """, (FAR,)):
-          sim = make_sim_inspiral(values)
-          if values[-1]:
-            found.append(sim)
-          else:
-            missed.append(sim)
+       FROM sim_inspiral
+       WHERE
+       -- only interested in injections that were injected
+       injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
+	 """
 
-    # done
+    for values in connection.cursor().execute(injection_finding_query,(FAR,)):
+      sim = make_sim_inspiral(values)
+      if values[-1]:
+        found.append(sim)
+      else:
+        missed.append(sim)
+
+    # close connection to database
     connection.commit()
     dbtables.discard_connection_filename(self.fname, working_filename, verbose = verbose)
     dbtables.DBTable_set_connection(None)
