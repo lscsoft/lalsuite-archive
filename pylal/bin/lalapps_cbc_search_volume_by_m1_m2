@@ -48,14 +48,9 @@ class upper_limit(object):
     ## Instance variables ######################################
     self.fname = database
     self.opts = opts
-    self.twoDMassBins = None  #m1-m2 rectangles into which we subdivide the upper limit calculation
     self.gw = None
     self.wnfunc = None
     self.bootnum = int(opts.bootstrap_iterations)
-    self.segments = {}  #An ifo-keys segments dict for single ifo
-    self.zero_lag_segments = {}  #An instruments-keyed segment dict for coincident ifo time
-    self.coinc_inspiral_table = None
-    self.sngl_sngl_coinc_def_id = None
     ############################################################
 
     if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
@@ -107,38 +102,45 @@ class upper_limit(object):
 
 
   def get_segments(self, connection):
-    '''Retrieve single-IFO segments from the database and apply vetoes to these segments. '''
+    '''Retrieve raw single IFO segments from the database and apply vetoes.'''
+    if self.opts.verbose: print >>sys.stdout,"\nQuerying database for single IFO zero lag segments..."
     self.segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
-    self.segments -= self.get_veto_segments(connection) #Apply veto segments
-    return self.segments
 
+    if self.opts.verbose:
+      for ifo in self.segments:
+        print "\t%s was on for %g seconds" % (ifo,abs(self.segments[ifo]))
 
-  def get_veto_segments(self, connection):
-    if self.opts.veto_segments_name is not None:
-      try: #FIXME super hack
+    if self.opts.verbose: print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
+
+    if self.opts.veto_segments_name is None:
+      veto_segments = segments.segmentlistdict()
+    else:
+      #FIXME super hack to work around missing NS column in veto definer
+      try:
         veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
       except AttributeError:
         # will get an AttributeError if using newer format veto segment file because
         # the new format does not include _ns; if so, remove the _ns columns from the
         # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
         from glue.lal import LIGOTimeGPS
-
         del lsctables.SegmentTable.validcolumns['start_time_ns']
         del lsctables.SegmentTable.validcolumns['end_time_ns']
-
         def get_segment(self):
-            return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+          return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
         def set_segment(self, segment):
-            self.start_time = segment[0].seconds
-            self.end_time = segment[1].seconds
-
+          self.start_time = segment[0].seconds
+          self.end_time = segment[1].seconds
         lsctables.Segment.get = get_segment
         lsctables.Segment.set = set_segment
         veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
-    else:
-      veto_segments = segments.segmentlistdict()
 
-    return veto_segments
+    self.segments -= veto_segments
+
+    if self.opts.verbose:
+      for ifo in self.segments:
+        print "\t%s was on for %g seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
+
+    return self.segments
 
 
   def get_zero_lag_segments(self):
