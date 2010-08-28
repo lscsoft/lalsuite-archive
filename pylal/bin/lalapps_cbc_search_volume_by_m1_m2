@@ -148,8 +148,18 @@ class upper_limit(object):
 
   def get_zero_lag_segments(self):
     '''Compute multi-ifo (coincident) segment list from single ifo segments.'''
-    for i in self.instruments:
-      self.zero_lag_segments[i] = self.segments.intersection(i) - self.segments.union(set(self.segments.keys()) - i)
+    if self.opts.verbose: print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
+
+    self.zero_lag_segments = dict( (inst,0) for inst in self.instruments )
+    for inst in self.instruments:
+      self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
+      if self.opts.verbose:
+        print >>sys.stdout,"\t%s were on for %g seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
+
+      # FIXME need to reomove playground from segments!!!
+      self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
+      # FIXME need to reomove playground from segments!!!
+
     return self.zero_lag_segments
 
 
@@ -303,30 +313,29 @@ class upper_limit(object):
         dA.array[m1][m2] = val # minus the derivitave
     return dA
 
+
   def get_injections(self, instruments, FAR=None):
+    """
+    This method separates injections into found and missed categories. An injection which
+    is coincident with two or more single inspiral triggers (sngl1<-->sim and sngl2<-->sim)
+    which are themselves coincident (sngl1<-->sngl2) triggers are considered "found". An
+    injection in triple time therefore is considered found if it matches any double-IFO
+    coincident event. All other injections are considered "missed".
+    """
     if not FAR: FAR = self.far[instruments]
-    verbose = self.opts.verbose
+
     found = []
     missed = []
 
-    working_filename = dbtables.get_connection_filename(self.fname, tmp_path = opts.tmp_space, verbose = verbose)
+    # Open a fresh connection to the database
+    working_filename = dbtables.get_connection_filename(self.fname, tmp_path = opts.tmp_space, verbose = self.opts.verbose)
     connection = sqlite3.connect(working_filename)
 
-    # WORK OUT CORRECT SEGMENTS FOR THIS FILE WHERE WE SHOULD SEE INJECTIONS
-    segments = self.segments
-    zero_lag_segments  = self.zero_lag_segments[instruments]
-    ###############
-    if zero_lag_segments:
-        #FIXME we shouldn't assume that we want to remove playground
-        zero_lag_segments -= segmentsUtils.S2playground(zero_lag_segments.extent())
-        ###############
-
-    # DEFINE THE INJECTION WAS MADE FUNCTION
-    def injection_was_made(geocent_end_time, geocent_end_time_ns, zero_lag_segments = zero_lag_segments):
+    def injection_was_made(geocent_end_time, geocent_end_time_ns):
         """
-        return True if injection was made in the given segmentlist
+        Returns True if injection end time lies within the instruments' coincident segments.
         """
-        return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in zero_lag_segments
+        return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in self.zero_lag_segments[instruments]
 
     connection.create_function("injection_was_made", 2, injection_was_made)
     make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SimInspiralTable.tableName).row_from_cols
@@ -358,7 +367,7 @@ class upper_limit(object):
 
     # close connection to database
     connection.commit()
-    dbtables.discard_connection_filename(self.fname, working_filename, verbose = verbose)
+    dbtables.discard_connection_filename(self.fname, working_filename, verbose = self.opts.verbose)
     dbtables.DBTable_set_connection(None)
 
     return found, missed
