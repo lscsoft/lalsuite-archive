@@ -457,27 +457,23 @@ class upper_limit(object):
     live_time.array *= self.livetime[instruments]
     return live_time
 
-
-  def twoD_SearchVolume(self, instruments, dbin_in=None, FAR=None, bootnum=None, derr=0.197, dsys=0.074):
+  def twoD_SearchVolume(self,instruments,dbin_in=None,FAR=None,bootnum=None,verbose=False):
     """
-    Compute the search volume in the mass/mass plane, bootstrap
-    and measure the first and second moment (assumes the underlying
-    distribution can be characterized by those two parameters)
-    This is gonna be brutally slow.
-    derr = (0.134**2+.103**2+.102**2)**.5 = 0.197 which is the 3 detector
-    calibration uncertainty in quadrature.  This is conservative since some injections
-     will be H1L1 and have a lower error of .17
-    the dsys is the DC offset which is the max offset of .074.
+    Compute the search volume above the specified FAR over given mass bins.
+    If bootstrapping is turned on, the injection population will be randomly
+    (i) perturbed in injected distance and (ii) resampled with replacement to
+    account for errors due to resp. (i) uncertain calibration and (ii) finite
+    number of injections. We take the variance in the bootstrapped volume in
+    as a measure of the uncertainty in the search volume (as given by the mean
+    bootstrapped volume).
     """
 
     # if no FAR specified, use the FAR of the loudest event
     if FAR is None: FAR = self.far[instruments]
 
-    # get the injections found above this FAR (found); and the injections
-    # found below this FAR or not found at all (missed)
     found, missed = self.get_injections(instruments, FAR)
 
-    if self.opts.verbose:
+    if verbose:
       print >>sys.stdout, "\tcomputing volume at FAR %g: found = %d, missed = %d" % (FAR, len(found), len(missed))
 
     # wnfunc is for smoothing across bins
@@ -537,8 +533,8 @@ class upper_limit(object):
 
 	# randomly adjust injection distance to account for uncertainty in distance
         # I make a separate array of distances to speed up this calculation
-        f_dist = self._scramble_dist(sf, derr, dsys)
-        m_dist = self._scramble_dist(sm, derr, dsys)
+        f_dist = self._scramble_dist(sf, self.opts.dist_err, self.opts.dist_sys_err)
+        m_dist = self._scramble_dist(sm, self.opts.dist_err, self.opts.dist_sys_err)
 
       # compute the distance bins
       if not dbin_in:
@@ -563,7 +559,7 @@ class upper_limit(object):
 
       # check whether there are a sensible number of injections
       # FIXME this check could be cleaner
-      if n == 0:
+      if verbose and n == 0:
         farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
         for m1 in twodbin.centres()[0]:
           for m2 in twodbin.centres()[1]:
@@ -595,7 +591,7 @@ class upper_limit(object):
         volArray.array += integrand
         tmpArray2.array += integrand
 
-	if self.opts.verbose:
+	if verbose:
 	  print >>sys.stdout, "\tbootstrapping:\t%.1f%% and calculating smoothed volume:\t%.1f%%\r" % ((100.0 * n / bootnum), (100.0 * k / z)),
 
       tmpArray2.array *= tmpArray2.array
@@ -631,8 +627,8 @@ def parse_command_line():
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
   parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
-  parser.add_option("--d-err", default = 0.197, metavar = "float", type = "float", help = "When bootstrapping, simulate a random calibration error on distance of the specified magnitude.")
-  parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
+  parser.add_option("--dist-err", default = 0.197, metavar = "float", type = "float", help = "When bootstrapping, simulate a random calibration error on distance of the specified magnitude.")
+  parser.add_option("--dist-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
   parser.add_option("--mass-bins", default = 11, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
   parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event.")
   parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed FAR for the loudest event, estimate the FAR based on livetime. This option overrides the --far option.")
@@ -679,7 +675,7 @@ for instruments in UL.set_instruments_to_calculate():
   #compute volume first and second moments
   if opts.verbose:
     print >>sys.stdout, "Calculating search volume above FAR %g for %s" % (UL.far[instruments],",".join(sorted(list(instruments))),)
-  vA, vA2 = UL.twoD_SearchVolume(instruments)
+  vA, vA2 = UL.twoD_SearchVolume(instruments,verbose=True)
 
   # get an array of livetimes for convenience
   ltA = UL.live_time_array(instruments)
