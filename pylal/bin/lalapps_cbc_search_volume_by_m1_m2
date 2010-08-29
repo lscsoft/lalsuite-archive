@@ -301,7 +301,7 @@ class upper_limit(object):
     vA2 = []
 
     for far in FARS.centres():
-      vAt, vA2t = self.twoD_SearchVolume(instruments,mass_bins,dbin_in=dbin,FAR=far,bootnum=1)
+      vAt, vA2t, fm = self.twoD_SearchVolume(instruments,mass_bins,dbin_in=dbin,FAR=far,bootnum=1)
       # we need to compute derivitive of log according to ul paper
       vAt.array = scipy.log10(vAt.array + 0.001)
       vA.append(vAt)
@@ -461,6 +461,9 @@ class upper_limit(object):
     # set up an empty ratio array for each distance bin
     rArrays = [rate.BinnedRatios(mass_bins) for k in range(self.opts.dist_bins)]
 
+    # an array to hold to the found/missed statistics for the injections
+    fm_array = rate.BinnedRatios(mass_bins)
+
     # the search volume arrays are obtained by summing some function of
     # the binned arrays in rArrays over distance
     volArray=rate.BinnedArray(mass_bins)
@@ -509,6 +512,10 @@ class upper_limit(object):
       rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
 
+      if trial == 0: # store injection summary for actually observed injection results
+        fm_array.numerator.array = numpy.sum(rArrays[k].numerator.array for k in range(self.opts.dist_bins))
+        fm_array.denominator.array = numpy.sum(rArrays[k].denominator.array for k in range(self.opts.dist_bins))
+
       # the ratio of the numerator to the (numerator+denominator) is equal
       # to the efficiency at that m1-m2-d bin
       tmpArray2=rate.BinnedArray(mass_bins) #start with a zero array to compute the mean square
@@ -549,7 +556,7 @@ class upper_limit(object):
     volArray.array *= self.livetime[instruments]
     volArray2.array *= self.livetime[instruments]**2
 
-    return volArray, volArray2
+    return volArray, volArray2, fm_array
 
 
   def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
@@ -653,7 +660,7 @@ for instruments in UL.set_instruments_to_calculate():
   dvA = UL.get_volume_derivative(instruments,UL.m1m2_mass_bins)
 
   #compute volume first and second moments
-  vA, vA2 = UL.twoD_SearchVolume(instruments,UL.m1m2_mass_bins,verbose=True)
+  vA, vA2, fm = UL.twoD_SearchVolume(instruments,UL.m1m2_mass_bins,verbose=True)
 
   # FIXME convert to years (use some lal or pylal thing in the future)
   vA.array /= secs_in_year
@@ -665,6 +672,8 @@ for instruments in UL.set_instruments_to_calculate():
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeFirstMoment"))
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA2, "2DsearchvolumeSecondMoment"))
   xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(dvA, "2DsearchvolumeDerivative"))
+  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.numerator, "2DsearchvolumeFoundInjections"))
+  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.denominator, "2DsearchvolumeMissedInjections"))
 
   # DONE with vA, so it is okay to mess it up...
   # Compute range
