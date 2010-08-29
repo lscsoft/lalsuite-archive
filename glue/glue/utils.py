@@ -44,7 +44,7 @@ Performs the equivalent of "mkdir -p", creating any intermediate
 directories needed to create the leaf directory -- but unlike
 os.makedirs(), produces no error if the path already exists.
 
-Inspired by ΤΖΩΤΖΙΟΥ (Christos Georgiou)
+Inspired by Christos Georgiou
 <http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python>
 """
 def mkdir_p(path):

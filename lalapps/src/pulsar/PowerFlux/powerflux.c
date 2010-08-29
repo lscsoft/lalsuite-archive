@@ -811,7 +811,7 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 
 	if(args_info.only_large_cos_given) {
 		fprintf(LOG, "only large cos level: %f\n", args_info.only_large_cos_arg);
-   		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[3], args_info.only_large_cos_arg);
+   		mask_small_cos(fine_grid, band_axis[0], band_axis[1], band_axis[2], args_info.only_large_cos_arg);
 		propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 		}
 

@@ -6,10 +6,10 @@ import numpy
 from math import *
 
 try:
-        import sqlite3
+  import sqlite3
 except ImportError:
-        # pre 2.5.x
-        from pysqlite2 import dbapi2 as sqlite3
+  # pre 2.5.x
+  from pysqlite2 import dbapi2 as sqlite3
 
 import os
 import sys
@@ -45,24 +45,25 @@ class upper_limit(object):
   for a search described by the input database.
   """
   def __init__(self, database, opts):
-    # Class attributes ###########################
-    self.far = {}
+    ## Instance variables ######################################
+    self.far = {}  #An instruments-keyed dict specifying the FAR at which to compute the upper limit
     self.fname = database
-    self.twoDMassBins = None
+    self.twoDMassBins = None  #m1-m2 rectangles into which we subdivide the upper limit calculation
     self.gw = None
     self.wnfunc = None
     self.opts = opts
     self.bootnum = int(opts.bootstrap_iterations)
-    self.livetime = {}
+    self.livetime = {}  #An instruments-keyed dict containing the livetime for each instrument set
     self.minmass = None
     self.maxmass = None
     self.mintotal = None
     self.maxtotal = None
+    self.instruments = []  #The keys to all my dicts
+    self.segments = {}  #An ifo-keys segments dict for single ifo
+    self.zero_lag_segments = {}  #An instruments-keyed segment dict for coincident ifo time
     self.coinc_inspiral_table = None
-    self.instruments = []
-    self.segments = None
-    self.zero_lag_segments = {}
-    ###############################################
+    self.sngl_sngl_coinc_def_id = None
+    ############################################################
 
     if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
 
@@ -74,22 +75,14 @@ class upper_limit(object):
 
     # extract useful info from db
     self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
-    self.get_instruments(connection)
-    self.get_segments(connection)
-    self.get_mass_ranges(connection)
-    self.get_livetime(connection)
+    self.get_instruments(connection)  #find out which instruments were on at all
+    self.get_segments(connection)  #get single ifo segments with vetos applied
+    self.get_zero_lag_segments()  #get coincident ifo segments
+    self.get_livetime(connection)  #get the livetime for each set of instruments
+    self.get_mass_ranges(connection)  #determine the mass ranges and binning for this calculation
+    self.get_2d_mass_bins(self.minmass, self.maxmass, opts.mass_bins) # set the m1-m2 binning
     self.get_far_thresholds(connection)
     self.get_gps_times_duration(connection)
-
-    # compute 2D mass binning based on min/max masses
-    self.twoDMassBins = self.get_2d_mass_bins(self.minmass, self.maxmass, opts.mass_bins)
-
-    # remove redundant instruments (also removes 0-far loudest events)
-    self.instruments = list(set( self.far.keys() ))
-
-    # zero lag segments
-    for i in self.instruments:
-      self.zero_lag_segments[i] = self.segments.intersection(i) - self.segments.union(set(self.segments.keys()) - i)
 
     # close db connection
     connection.commit()
@@ -98,21 +91,54 @@ class upper_limit(object):
 
 
   def get_instruments(self, connection):
-    instruments = []
-    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event'):
-      if i[0]: self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
+    '''Retrieve the sets of instruments which participated in coincident events. '''
+    # FIXME bad to hardcode search_coinc_type
+    self.sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
+    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?', (self.sngl_sngl_coinc_def_id,)):
+      self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
     return self.instruments
 
 
   def get_segments(self, connection):
-    segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
-    segs -= self.get_veto_segments(connection)
-    self.segments = segs
+    '''Retrieve single-IFO segments from the database and apply vetoes to these segments. '''
+    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
+    self.segments -= self.get_veto_segments(connection) #Apply veto segments
+    return self.segments
 
 
   def get_veto_segments(self, connection):
-    if self.opts.veto_segments_name is not None: return db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
-    else: return segments.segmentlistdict()
+    if self.opts.veto_segments_name is not None:
+      try: #FIXME super hack
+        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
+      except AttributeError:
+        # will get an AttributeError if using newer format veto segment file because
+        # the new format does not include _ns; if so, remove the _ns columns from the
+        # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
+        from glue.lal import LIGOTimeGPS
+
+        del lsctables.SegmentTable.validcolumns['start_time_ns']
+        del lsctables.SegmentTable.validcolumns['end_time_ns']
+
+        def get_segment(self):
+            return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
+        def set_segment(self, segment):
+            self.start_time = segment[0].seconds
+            self.end_time = segment[1].seconds
+
+        lsctables.Segment.get = get_segment
+        lsctables.Segment.set = set_segment
+        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
+    else:
+      veto_segments = segments.segmentlistdict()
+
+    return veto_segments
+
+
+  def get_zero_lag_segments(self):
+    '''Compute multi-ifo (coincident) segment list from single ifo segments.'''
+    for i in self.instruments:
+      self.zero_lag_segments[i] = self.segments.intersection(i) - self.segments.union(set(self.segments.keys()) - i)
+    return self.zero_lag_segments
 
 
   def set_instruments_to_calculate(self):
@@ -132,22 +158,17 @@ class upper_limit(object):
 
   def get_mass_ranges(self, connection):
     #FIXME assumes certain inspinj command lines were run.  probably a good idea but I don't know
-    minmass1 = float(connection.cursor().execute('SELECT MIN(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-    minmass2 = float(connection.cursor().execute('SELECT MIN(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-    maxmass1 = float(connection.cursor().execute('SELECT MAX(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-    maxmass2 = float(connection.cursor().execute('SELECT MAX(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
-    minmtotal = float(connection.cursor().execute('SELECT MIN(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-    maxmtotal = float(connection.cursor().execute('SELECT MAX(value) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+    minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+    minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+    maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+    maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+    self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+    self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
 
-    v = (minmass1, minmass2, maxmass1, maxmass2, minmtotal, maxmtotal)
-    if self.minmass: self.minmass = min([v[0], v[1], self.minmass])
-    else: self.minmass = min(v[0], v[1])
-    if self.maxmass: self.maxmass = max([v[2], v[3], self.maxmass])
-    else: self.maxmass = max(v[2], v[3])
-    if self.mintotal: self.mintotal = min([v[4], self.mintotal])
-    else: self.mintotal = v[4]
-    if self.maxtotal: self.maxtotal = max([v[5], self.maxtotal])
-    else: self.maxtotal = v[5]
+    self.minmass = min(minmass1,minmass2)
+    self.maxmass = max(maxmass1,maxmass2)
+
+    return
 
 
   def get_livetime(self,connection):
@@ -161,6 +182,7 @@ class upper_limit(object):
     for inst,lt in connection.cursor().execute(query):
       inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
       self.livetime[inst] = lt
+    return self.livetime
 
 
   def get_far_thresholds(self, connection):
@@ -353,8 +375,8 @@ class upper_limit(object):
     """
     mass1Bin = rate.LinearBins(low,high,bins)
     mass2Bin = rate.LinearBins(low,high,bins)
-    twoDMB=rate.NDBins( (mass1Bin,mass2Bin) )
-    return twoDMB
+    self.twoDMassBins = rate.NDBins( (mass1Bin,mass2Bin) )
+    return self.twoDMassBins
 
   def _scramble_pop(self, m, f):
     """
@@ -555,15 +577,12 @@ class upper_limit(object):
 def parse_command_line():
   parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] database", description = "%prog computes mass/mass upperlimit")
 
-  # REQUIRED OPTIONS
   parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
-
-  # OPTIONS WITH REASONABLE DEFAULTS
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
   parser.add_option("--bootstrap-iterations", default = 1000, metavar = "integer", type = "int", help = "Number of iterations to compute mean and variance of volume MUST BE GREATER THAN 1 TO GET USABLE NUMBERS, a good number is 10000")
-  parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of mass bins")
-  parser.add_option("--d-err", default = 0.197, metavar = "float", type = "float", help = "random calibration error on distance")
+  parser.add_option("--dist-bins", default = 50, metavar = "integer", type = "int", help = "Number of bins to use for integration over distance.")
+  parser.add_option("--d-err", default = 0.197, metavar = "float", type = "float", help = "When bootstrapping, simulate a random calibration error on distance of the specified magnitude.")
   parser.add_option("--d-sys-err", default = 0.074, metavar = "float", type = "float", help = "systematic calibration error on distance (should use worst)")
   parser.add_option("--mass-bins", default = 11, metavar = "integer", type = "int", help = "Number of mass bins along 1 dimension (Note the total number of mass bins will generally be less than --mass-bins * --mass-bins once the actual parameter space is carved out)")
   parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event.")

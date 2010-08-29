@@ -42,16 +42,17 @@ def get_lock(lockfile):
     except IOError,e:
         raise RuntimeError, "failed to lock %s: %s" % (lockfile, e)
 
-    # we got the file lock, so check the pid therein
+    # we got the file lock, so check for a pid therein
     pidfile.seek(0)
     pidfile_pid = pidfile.readline().strip()
-    
-    if pidfile_pid.isdigit() and glue.utils.pid_exists(int(pidfile_pid)):
-        raise RuntimeError, ("pidfile %s contains pid (%s) of a running "
-                             "process" % (lockfile, pidfile_pid))
-    else:
-        print ("pidfile %s contains stale pid %s; writing new lock" %
-               (lockfile, pidfile_pid))
+
+    if pidfile_pid.isdigit():
+        if glue.utils.pid_exists(int(pidfile_pid)):
+            raise RuntimeError, ("pidfile %s contains pid (%s) of a running "
+                                 "process" % (lockfile, pidfile_pid))
+        else:
+            print ("pidfile %s contains stale pid %s; writing new lock" %
+                   (lockfile, pidfile_pid))
 
     # the pidfile didn't exist or was stale, so grab a new lock
     pidfile.truncate(0)
