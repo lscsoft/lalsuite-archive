@@ -507,14 +507,14 @@ class upper_limit(object):
     # scrambled population to recompute the search volume. This technique gives
     # a sense of how sensitive the calculation is to the particular set of data
     # we happened to acquire.
-    for n in range(bootnum):
+    for trial in range(bootnum):
 
       # Initialize this sum by setting the binned arrays in rArrays to zero
       for k in range(z):
         rArrays[k].numerator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
         rArrays[k].denominator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
 
-      if bootnum == 1: # first time through, use the observed found/missed populations
+      if trial == 0: # first time through, use the observed found/missed populations
         new_missed, new_found = missed, found
         f_dist = numpy.array([l.distance for l in found])
         m_dist = numpy.array([l.distance for l in missed])
@@ -536,7 +536,7 @@ class upper_limit(object):
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
-      rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=n)
+      rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
 
       # the ratio of the numerator to the (numerator+denominator) is equal
       # to the efficiency at that m1-m2-d bin
@@ -553,9 +553,6 @@ class upper_limit(object):
         integrand = 4.0 * pi * tbins.ratio() * dbin.centres()[k]**3 * dbin.delta
         volArray.array += integrand
         tmpArray2.array += integrand
-
-	if verbose:
-	  print >>sys.stdout, "\tbootstrapping:\t%.1f%% and calculating smoothed volume:\t%.1f%%\r" % ((100.0 * n / bootnum), (100.0 * k / z)),
 
       tmpArray2.array *= tmpArray2.array
       volArray2.array += tmpArray2.array
