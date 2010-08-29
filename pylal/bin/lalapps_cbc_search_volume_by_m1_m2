@@ -73,6 +73,10 @@ class upper_limit(object):
     self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
     self.get_gps_times_duration(connection)
 
+    # these are the supported mass binning types
+    self.mass_bins = {"M1M2":self.m1m2_mass_bins,
+                      "MTOTAL":self.total_mass_bins}
+
     # close db connection
     connection.commit()
     dbtables.discard_connection_filename(self.fname, working_filename, verbose = opts.verbose)
@@ -271,12 +275,14 @@ class upper_limit(object):
       return []
 
 
-  def get_volume_derivative(self,instruments,mass_bins):
+  def get_volume_derivative(self,instruments,bin_type):
     """
     Compute the derivative of the search volume at the FAR of the loudest event
     """
     if self.opts.verbose:
       print >>sys.stdout, "\nCalculating volume derivative at FAR %g for %s" % (UL.far[instruments],",".join(sorted(list(instruments))),)
+
+    mass_bins = self.mass_bins[bin_type]
 
     FAR = self.far[instruments]
     gw = self.gw
@@ -301,7 +307,7 @@ class upper_limit(object):
     vA2 = []
 
     for far in FARS.centres():
-      vAt, vA2t, fm = self.twoD_SearchVolume(instruments,mass_bins,dbin_in=dbin,FAR=far,bootnum=1)
+      vAt, vA2t, fm = self.twoD_SearchVolume(instruments,bin_type,dbin_in=dbin,FAR=far,bootnum=1)
       # we need to compute derivitive of log according to ul paper
       vAt.array = scipy.log10(vAt.array + 0.001)
       vA.append(vAt)
@@ -324,31 +330,41 @@ class upper_limit(object):
     return volDeriv
 
 
-  def _derivitave_fit(self, farts, FARt, vAs, twodbin):
+  def _derivitave_fit(self,farts, FARt, vAs, mass_bins):
     '''
-       Relies on scipy spline fits for each mass bin
-       to find the derivitave of the volume at a given
-       FAR.  See how this works for a simple case where
-       I am clearly giving it a parabola.  To high precision it calculates
-       the proper derivitave.
-       A = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
-       B = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-       C = interpolate.splrep(B,A,s=0, k=4)
-       interpolate.splev(5,C,der=1)
-       10.000
+    Relies on scipy spline fits for each mass bin to find the derivitave of the
+    volume at a given FAR.  See how this works for a simple case where
+    I am clearly giving it a parabola.  To high precision it calculates
+    the proper derivitave.
+    >>> A = [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+    >>> B = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    >>> C = interpolate.splrep(B,A,s=0, k=4)
+    >>> interpolate.splev(5,C,der=1)
+    10.000
     '''
-    dA = rate.BinnedArray(twodbin)
-    for m1 in range(dA.array.shape[0]):
-      for m2 in range(dA.array.shape[1]):
-        da = []
-        for f in farts.centres():
-          da.append(vAs[farts[f]].array[m1][m2])
-        fit = interpolate.splrep(farts.centres(),da,k=4)
-        val = interpolate.splev(FARt,fit,der=1)
-        #print val
-        # FIXME this prevents negative derivitives arising from bad fits
-        if val < 0: val = 0
-        dA.array[m1][m2] = val # minus the derivitave
+    dA = rate.BinnedArray(mass_bins)
+
+    dim = len(mass_bins) # only possible for dim to be 1 or 2
+    if dim == 1:
+      for m in mass_bins.centres()[0]:
+          da = [ vAs[farts[f]][(m,)] for f in farts.centres() ]
+          fit = interpolate.splrep(farts.centres(),da,k=4)
+          val = interpolate.splev(FARt,fit,der=1)
+          # FIXME this prevents negative derivitives arising from bad fits
+          if val < 0: val = 0
+          dA[(m,)] = val # minus the derivitave
+    else:
+      for m1 in range(dA.array.shape[0]):
+        for m2 in range(dA.array.shape[1]):
+          da = []
+          for f in farts.centres():
+            da.append(vAs[farts[f]].array[m1][m2])
+          fit = interpolate.splrep(farts.centres(),da,k=4)
+          val = interpolate.splev(FARt,fit,der=1)
+          # FIXME this prevents negative derivitives arising from bad fits
+          if val < 0: val = 0
+          dA.array[m1][m2] = val # minus the derivitave
+
     return dA
 
 
@@ -441,7 +457,7 @@ class upper_limit(object):
     live_time.array += self.livetime[instruments]
     return live_time
 
-  def twoD_SearchVolume(self,instruments,mass_bins,dbin_in=None,FAR=None,bootnum=None,verbose=False):
+  def twoD_SearchVolume(self,instruments,bin_type,dbin_in=None,FAR=None,bootnum=None,verbose=False):
     """
     Compute the search volume above the specified FAR over given mass bins.
     If bootstrapping is turned on, the injection population will be randomly
@@ -451,6 +467,8 @@ class upper_limit(object):
     as a measure of the uncertainty in the search volume (as given by the mean
     bootstrapped volume).
     """
+    # get the appropriate mass bins for this calculation
+    mass_bins = self.mass_bins[bin_type]
 
     # if no FAR specified, use the FAR of the loudest event
     if FAR is None: FAR = self.far[instruments]
@@ -522,7 +540,10 @@ class upper_limit(object):
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
-      rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
+      if bin_type == "M1M2":
+        rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
+      if bin_type == "MTOTAL":
+        rArrays = self.sort_into_mtotal_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
 
       if trial == 0: # store injection summary for actually observed injection results
@@ -570,6 +591,47 @@ class upper_limit(object):
     volArray2.array *= self.livetime[instruments]**2
 
     return volArray, volArray2, fm_array
+
+
+  def sort_into_mtotal_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
+
+    f_m1 = numpy.array([l.mass1 for l in  found])
+    f_m2 = numpy.array([l.mass2 for l in  found])
+    m_m1 = numpy.array([l.mass1 for l in  missed])
+    m_m2 = numpy.array([l.mass2 for l in  missed])
+
+    # get rid of all missed injections outside the distance bins
+    # to prevent binning errors
+    m_m1, m_m2, missed_dist = self.cut_distance(m_m1, m_m2, missed_dist, dbin)
+    f_m1, f_m2, found_dist = self.cut_distance(f_m1, f_m2, found_dist, dbin)
+
+    f_mtotal = numpy.array(f_m1)+numpy.array(f_m2)
+    m_mtotal = numpy.array(m_m1)+numpy.array(m_m2)
+
+    # for each found injection, find the m1-m2-d bin it corresponds to
+    # and increment the numerator there by one
+    for i, l in enumerate(found_dist):
+      tbin = rArrays[dbin[found_dist[i]]]
+      tbin.incnumerator( (f_mtotal[i],) )
+
+    # check whether there are a sensible number of injections
+    # FIXME this check could be cleaner
+    if not quiet:
+      mass_bins = self.total_mass_bins
+      farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
+      for m in mass_bins.centres()[0]:
+        if farray[mass_bins[(m,)]] < 100:
+            print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f total mass bin over all injected distances."  % (farray[mass_bins[(m,)]],''.join(sorted(list(instruments))),m)
+            print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
+
+    # for each found injection, find the m-d bin it corresponds to
+    # and increment the denominator there by one
+    for i, l in enumerate(missed_dist):
+      tbin = rArrays[dbin[missed_dist[i]]]
+      tbin.incdenominator( (m_mtotal[i],) )
+
+    return rArrays
+
 
 
   def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
@@ -669,33 +731,36 @@ cache_list = []
 #loop over the requested instruments
 for instruments in UL.set_instruments_to_calculate():
 
-  #compute volume derivitive
-  dvA = UL.get_volume_derivative(instruments,UL.m1m2_mass_bins)
-
-  #compute volume first and second moments
-  vA, vA2, fm = UL.twoD_SearchVolume(instruments,UL.m1m2_mass_bins,verbose=True)
-
-  # FIXME convert to years (use some lal or pylal thing in the future)
-  vA.array /= secs_in_year
-  vA2.array /= secs_in_year * secs_in_year #two powers for this squared quantity
-
-  #output an XML file with the result
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeFirstMoment"))
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA2, "2DsearchvolumeSecondMoment"))
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(dvA, "2DsearchvolumeDerivative"))
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.numerator, "2DsearchvolumeFoundInjections"))
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.denominator, "2DsearchvolumeMissedInjections"))
 
-  # DONE with vA, so it is okay to mess it up...
-  # Compute range
-  vA.array = (vA.array * secs_in_year / UL.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeDistance"))
+  for bin_type in UL.mass_bins:
 
-  # make a live time table
-  ltA = UL.live_time_array(instruments,UL.m1m2_mass_bins)
-  xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "2DsearchvolumeLiveTime"))
+    #compute volume derivitive
+    dvA = UL.get_volume_derivative(instruments,bin_type)
+
+    #compute volume first and second moments
+    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=True)
+
+    # FIXME convert to years (use some lal or pylal thing in the future)
+    vA.array /= secs_in_year
+    vA2.array /= secs_in_year * secs_in_year #two powers for this squared quantity
+
+    #write out the results to the xml file
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeFirstMoment"+bin_type))
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA2, "2DsearchvolumeSecondMoment"+bin_type))
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(dvA, "2DsearchvolumeDerivative"+bin_type))
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.numerator, "2DsearchvolumeFoundInjections"+bin_type))
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.denominator, "2DsearchvolumeMissedInjections"+bin_type))
+
+    # DONE with vA, so it is okay to mess it up...
+    # Compute range
+    vA.array = (vA.array * secs_in_year / UL.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeDistance"+bin_type))
+
+    # make a live time table
+    ltA = UL.live_time_array(instruments,UL.m1m2_mass_bins)
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "2DsearchvolumeLiveTime"+bin_type))
 
   output_filename = "2Dsearchvolume-%s-%s.xml" % (opts.output_name_tag, "".join(sorted(list(instruments))) )
 
