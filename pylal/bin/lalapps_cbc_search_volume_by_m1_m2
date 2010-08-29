@@ -308,7 +308,20 @@ class upper_limit(object):
 
     # the derivitive is calcuated with respect to FAR * t
     FARTS = rate.LogarithmicBins(FARl * livetime, FARh * livetime, nbins)
-    return self._derivitave_fit(FARTS, FAR * livetime, vA, mass_bins)
+    volDeriv = self._derivitave_fit(FARTS, FAR * livetime, vA, mass_bins)
+
+    if self.opts.verbose:
+      dim = len(mass_bins)
+      if dim == 1:
+        for m in mass_bins.centres()[0]:
+          print >>sys.stdout,"\t\tvolume derivative in bin centered on %g Msun: %g (units?)" % (m, volDeriv[(m,)])
+      if dim == 2:
+        for m1 in mass_bins.centres()[0]:
+          for m2 in mass_bins.centres()[1]:
+            if m1<=m2:
+              print >>sys.stdout,"\t\tvolume derivative in bin centered on %g-%g Msun: %g (units?)" % (m1,m2,volDeriv[(m1,m2)])
+
+    return volDeriv
 
 
   def _derivitave_fit(self, farts, FARt, vAs, twodbin):
