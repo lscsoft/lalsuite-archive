@@ -195,6 +195,35 @@ def targeted_coinc_params(events, offsetvector, ra, dec):
 #
 
 
+class FilterThread(threading.Thread):
+	# allow at most 5 threads
+	cpu = threading.Semaphore(5)
+	# allow at most one to write to stderr
+	stderr = threading.Semaphore(1)
+
+	def __init__(self, binnedarray, filter, verbose = False, name = None):
+		threading.Thread.__init__(self, name = name)
+		self.binnedarray = binnedarray
+		self.filter = filter
+		self.verbose = verbose
+
+	def run(self):
+		self.cpu.acquire()
+		if self.verbose:
+			self.stderr.acquire()
+			print >>sys.stderr, "\tstarting %s" % self.getName()
+			self.stderr.release()
+
+		self.binnedarray.array /= numpy.sum(self.binnedarray.array)
+		rate.to_moving_mean_density(self.binnedarray, self.filter)
+
+		if self.verbose:
+			self.stderr.acquire()
+			print >>sys.stderr, "\tcompleted %s" % self.getName()
+			self.stderr.release()
+		self.cpu.release()
+
+
 class CoincParamsDistributions(object):
 	def __init__(self, **kwargs):
 		self.zero_lag_rates = {}
@@ -263,10 +292,7 @@ class CoincParamsDistributions(object):
 		threads = []
 		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
-			if verbose:
-				print >>sys.stderr, "\t%d / %d: %s \"%s\"" % (n, N, group, name)
-			binnedarray.array /= numpy.sum(binnedarray.array)
-			threads.append(threading.Thread(target = rate.to_moving_mean_density, args = (binnedarray, filters.get(name, default_filter))))
+			threads.append(FilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
 			threads[-1].start()
 		for thread in threads:
 			thread.join()
