@@ -225,8 +225,8 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
-	def add_zero_lag(self, param_func, events, offsetvector, *args):
-		for param, value in (param_func(events, offsetvector, *args) or {}).items():
+	def add_zero_lag(self, param_dict):
+		for param, value in (param_dict or {}).items():
 			rate = self.zero_lag_rates[param]
 			try:
 				rate[value] += 1.0
@@ -234,8 +234,8 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def add_background(self, param_func, events, offsetvector, *args):
-		for param, value in (param_func(events, offsetvector, *args) or {}).items():
+	def add_background(self, param_dict):
+		for param, value in (param_dict or {}).items():
 			rate = self.background_rates[param]
 			try:
 				rate[value] += 1.0
@@ -243,8 +243,8 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def add_injection(self, param_func, events, offsetvector, *args):
-		for param, value in (param_func(events, offsetvector, *args) or {}).items():
+	def add_injection(self, param_dict):
+		for param, value in (param_dict or {}).items():
 			rate = self.injection_rates[param]
 			try:
 				rate[value] += 1.0
@@ -408,20 +408,20 @@ class Covariance(object):
 		self.bak_observations = []
 		self.inj_observations = []
 
-	def add_noninjections(self, param_func, database, *args):
+	def add_noninjections(self, param_func, database):
 		# iterate over burst<-->burst coincs
 		for is_background, events, offsetvector in get_noninjections(database):
 			if is_background:
-				self.bak_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector, *args).items())))
+				self.bak_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector).items())))
 			else:
 				# zero-lag not used
 				pass
 
-	def add_injections(self, param_func, database, *args):
+	def add_injections(self, param_func, database):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
 		for sim, events, offsetvector in get_injections(database):
-			self.inj_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector, *args).items())))
+			self.inj_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector).items())))
 
 	def finish(self):
 		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
@@ -485,19 +485,19 @@ class DistributionsStats(object):
 	def __init__(self):
 		self.distributions = CoincParamsDistributions(**self.binnings)
 
-	def add_noninjections(self, param_func, database):
+	def add_noninjections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs
 		for is_background, events, offsetvector in get_noninjections(database):
 			if is_background:
-				self.distributions.add_background(param_func, events, offsetvector)
+				self.distributions.add_background(param_func(events, offsetvector, *args))
 			else:
-				self.distributions.add_zero_lag(param_func, events, offsetvector)
+				self.distributions.add_zero_lag(param_func(events, offsetvector, *args))
 
-	def add_injections(self, param_func, database):
+	def add_injections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
 		for sim, events, offsetvector in get_injections(database):
-			self.distributions.add_injection(param_func, events, offsetvector)
+			self.distributions.add_injection(param_func(events, offsetvector, *args))
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
