@@ -124,9 +124,9 @@ def parse_command_line():
 #
 
 
-class FreqVsTime(SnglBurstUtils.BurstPlot):
+class FreqVsTime(object):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot.("GPS Time (s)", "Frequency (Hz)")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.num_injections = 0
@@ -186,9 +186,9 @@ FROM
 #
 
 
-class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
+class HrssVsFreqScatter(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", amplitude_lbl)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Frequency (Hz)", amplitude_lbl)
 		self.axes.loglog()
 		self.instrument = instrument
 		self.amplitude_func = amplitude_func
@@ -247,9 +247,9 @@ FROM
 #
 
 
-class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
+class TriggerCountHistogram(object):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "Number of Triggers Coincident with Injection", "Count")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Number of Triggers Coincident with Injection", "Count")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.found = 0
@@ -283,9 +283,9 @@ WHERE
 #
 
 
-class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
+class RecoveredVsInjectedhrss(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injected " + amplitude_lbl, r"Recovered $h_{\mathrm{rss}}$")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Injected " + amplitude_lbl, r"Recovered $h_{\mathrm{rss}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -334,9 +334,9 @@ WHERE
 		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected " + self.amplitude_lbl + " (%d Events Matching Injections)" % self.matches)
 
 
-class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
+class RecoveredPerInjectedhrssVsFreq(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected "+ amplitude_lbl)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{injected}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected "+ amplitude_lbl)
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -378,9 +378,9 @@ WHERE
 		self.axes.set_title(r"Ratio of Recovered $h_{\mathrm{rss}}$ to Injected " + self.amplitude_lbl + r" vs.\ Frequency (%d Events Matching Injections)" % self.matches)
 
 
-class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
+class RecoveredPerInjectedhrssVsBandwidth(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected " + amplitude_lbl)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected " + amplitude_lbl)
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -432,9 +432,9 @@ WHERE
 #
 
 
-class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
+class RecoveredTimeOffset(object):
 	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$t_{\mathrm{recovered}} - t_{\mathrm{injected}}$ (s)", "Triggers per Unit Offset")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$t_{\mathrm{recovered}} - t_{\mathrm{injected}}$ (s)", "Triggers per Unit Offset")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.found = 0
@@ -506,9 +506,9 @@ WHERE
 #
 
 
-class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
+class RecoveredFrequencyOffset(object):
 	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{recovered}} / f_{\mathrm{injected}}$", "Event Number Density")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{recovered}} / f_{\mathrm{injected}}$", "Event Number Density")
 		self.axes.loglog()
 		self.instrument = instrument
 		self.found = 0
@@ -581,9 +581,9 @@ WHERE
 #
 
 
-class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
+class RecoveredVsInjectedFreq(object):
 	def __init__(self, instrument, amplitude_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -629,9 +629,9 @@ WHERE
 		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
 
 
-class CoincRecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
+class CoincRecoveredVsInjectedFreq(object):
 	def __init__(self, instruments):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instruments = set(instruments)
@@ -878,8 +878,8 @@ for n, plot in enumerate(coincplots):
 
 
 def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
-	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$h_{\mathrm{rss}}$")
-	plot.axes.loglog()
+	fig, axes = SnglBurstUtils.make_burst_plot("Frequency (Hz)", r"$h_{\mathrm{rss}}$")
+	axes.loglog()
 
 	e = efficiencies[0]
 	xcoords, ycoords = e.efficiency.centres()
@@ -921,12 +921,12 @@ def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
 
 	instruments = r" \& ".join(sorted("+".join(sorted(e.instruments)) for e in efficiencies))
 
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
+	cset = axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % error, colors = "k")
 
-	plot.axes.set_title(r"%s Estimated Injection Detection Efficiency ($\sim$%d of $\sim$%d Found)" % (instruments, nfound_guess, ninjected_guess))
+	axes.set_title(r"%s Estimated Injection Detection Efficiency ($\sim$%d of $\sim$%d Found)" % (instruments, nfound_guess, ninjected_guess))
 
-	return plot.fig
+	return fig
 
 
 if efficiencies:

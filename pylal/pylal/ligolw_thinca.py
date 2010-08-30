@@ -112,22 +112,6 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
-# Use C segments module
-#
-
-
-def use___segments(modulename):
-	from glue import __segments
-	modulename.segments.infinity = __segments.infinity
-	modulename.segments.NegInfinity = __segments.NegInfinity
-	modulename.segments.PosInfinity = __segments.PosInfinity
-	modulename.segments.segment = __segments.segment
-	modulename.segments.segmentlist = __segments.segmentlist
-use___segments(llwapp)
-use___segments(lsctables)
-
-
-#
 # =============================================================================
 #
 #                           Add Process Information

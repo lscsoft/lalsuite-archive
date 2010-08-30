@@ -689,8 +689,8 @@ def plot_rate_vs_threshold(data):
 	print >>sys.stderr
 	print >>sys.stderr, "plotting event rate ..."
 
-	plot = SnglBurstUtils.BurstPlot(r"Detection Statistic Threshold", r"Mean Event Rate (Hz)")
-	plot.axes.semilogy()
+	fig, axes = SnglBurstUtils.make_burst_plot(r"Detection Statistic Threshold", r"Mean Event Rate (Hz)")
+	axes.semilogy()
 
 	# draw the background rate 1-sigma error bars as a shaded polygon
 	# clipped to the plot.  warning:  the error bar polygon is not
@@ -701,11 +701,11 @@ def plot_rate_vs_threshold(data):
 	ymax = 1e0
 	poly_x = numpy.concatenate((data.background_rate_x, data.background_rate_x[::-1]))
 	poly_y = numpy.concatenate((data.background_rate_y + 1 * data.background_rate_dy, (data.background_rate_y - 1 * data.background_rate_dy)[::-1]))
-	plot.axes.add_patch(patches.Polygon(numpy.column_stack((poly_x, numpy.clip(poly_y, ymin, ymax))), edgecolor = "k", facecolor = "k", alpha = 0.3))
+	axes.add_patch(patches.Polygon(numpy.column_stack((poly_x, numpy.clip(poly_y, ymin, ymax))), edgecolor = "k", facecolor = "k", alpha = 0.3))
 
 	# draw the mean background event rate
 
-	line1 = plot.axes.plot(data.background_rate_x, data.background_rate_y, "k-")
+	line1 = axes.plot(data.background_rate_x, data.background_rate_y, "k-")
 
 	# draw the smoothed approximation to the mean background event rate
 
@@ -713,36 +713,36 @@ def plot_rate_vs_threshold(data):
 	#lo = len(data.background_rate_x) - (len(data.background_rate_x) - index) * 10
 	#hi = len(data.background_rate_x) - (len(data.background_rate_x) - index) / 10
 	#x = data.background_rate_x[lo:hi]
-	#line2 = plot.axes.plot(x, data.background_rate_approximant(x), "b-")
+	#line2 = axes.plot(x, data.background_rate_approximant(x), "b-")
 
 	# draw the mean zero-lag event rate.  if the box is closed, these
 	# arrays will be empty.
 
-	line3 = plot.axes.plot(data.zero_lag_rate_x, data.zero_lag_rate_y, "r-")
+	line3 = axes.plot(data.zero_lag_rate_x, data.zero_lag_rate_y, "r-")
 
 	# draw a vertical marker indicating the threshold
 
-	plot.axes.axvline(data.amplitude_threshold, color = "k")
+	axes.axvline(data.amplitude_threshold, color = "k")
 
-	#plot.axes.set_ylim((ymin, ymax))
-	#plot.axes.xaxis.grid(True, which="minor")
-	#plot.axes.yaxis.grid(True, which="minor")
+	#axes.set_ylim((ymin, ymax))
+	#axes.xaxis.grid(True, which="minor")
+	#axes.yaxis.grid(True, which="minor")
 
 	# add a legend and a title
 
-	plot.axes.legend((line1, line3), (r"Background (time slides)", r"Zero lag"))
-	plot.axes.set_title(r"Mean Event Rate vs.\ Detection Statistic Threshold")
+	axes.legend((line1, line3), (r"Background (time slides)", r"Zero lag"))
+	axes.set_title(r"Mean Event Rate vs.\ Detection Statistic Threshold")
 
 	# done rate vs. threshold plot
 
 	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
-	#plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
+	#fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
 	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
-	plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
+	fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
 
 	# start rate vs. threshold residual plot
 
-	plot = SnglBurstUtils.BurstPlot(r"Detection Statistic Threshold", r"Mean Event Rate Residual (standard deviations)")
+	fig, axes = SnglBurstUtils.make_burst_plot(r"Detection Statistic Threshold", r"Mean Event Rate Residual (standard deviations)")
 
 	# construct a linear interpolator for the backround rate data so
 	# that we can evaluate it at the x co-ordinates of the zero-lag
@@ -753,18 +753,18 @@ def plot_rate_vs_threshold(data):
 
 	# plot the residual
 
-	plot.axes.plot(data.zero_lag_rate_x, (data.zero_lag_rate_y - interp_y(data.zero_lag_rate_x)) / interp_dy(data.zero_lag_rate_x), "k-")
+	axes.plot(data.zero_lag_rate_x, (data.zero_lag_rate_y - interp_y(data.zero_lag_rate_x)) / interp_dy(data.zero_lag_rate_x), "k-")
 
 	# add a title
 
-	plot.axes.set_title(r"Mean Event Rate Residual vs.\ Detection Statistic Threshold")
+	axes.set_title(r"Mean Event Rate Residual vs.\ Detection Statistic Threshold")
 
 	# done rate vs. threshold residual plot
 
 	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
-	#plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
+	#fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
 	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
-	plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
+	fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
 
 	# done
 
@@ -785,13 +785,13 @@ def plot_rate_vs_threshold(data):
 
 def diagnostic_plot(z, bins, title, ylabel, filename):
 	print >>sys.stderr, "generating %s ..." % filename
-	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", ylabel)
-	plot.axes.loglog()
+	fig, axes = SnglBurstUtils.make_burst_plot("Centre Frequency (Hz)", ylabel)
+	axes.loglog()
 	xcoords, ycoords = bins.centres()
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z), 9)
+	cset = axes.contour(xcoords, ycoords, numpy.transpose(z), 9)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
-	plot.axes.set_title(title)
-	plot.fig.savefig(filename)
+	axes.set_title(title)
+	fig.savefig(filename)
 
 
 #
@@ -1172,30 +1172,30 @@ def plot_rate_upper_limit(rate_data):
 	# contour plot in frequency-energy plane
 	#
 
-	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", rate_data.amplitude_lbl)
-	plot.axes.loglog()
+	fig, axes = SnglBurstUtils.make_burst_plot("Centre Frequency (Hz)", rate_data.amplitude_lbl)
+	axes.loglog()
 
 	xcoords, ycoords = rate_data.rate_array.centres()
 	# zvals = log_{10}(R_{0.9} / 1 Hz)
 	zvals = numpy.log10(numpy.clip(rate_data.rate_array.array, 0, 1) / 1.0)
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), 19)
+	cset = axes.contour(xcoords, ycoords, numpy.transpose(zvals), 19)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 
-	#plot.axes.set_ylim((3e-17, 3e-10))
+	#axes.set_ylim((3e-17, 3e-10))
 
-	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * rate_data.confidence, rate_data.confidence))
+	axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * rate_data.confidence, rate_data.confidence))
 
 	#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.pdf ..."
-	#plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
+	#fig.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
 	print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.png ..."
-	plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_1.png")
+	fig.savefig("lalapps_excesspowerfinal_upper_limit_1.png")
 
 	#
 	# rate vs. energy curve at a sample frequency
 	#
 
-	plot = SnglBurstUtils.BurstPlot(rate_data.amplitude_lbl, r"Rate Upper Limit (Hz)")
-	plot.axes.loglog()
+	fig, axes = SnglBurstUtils.make_burst_plot(rate_data.amplitude_lbl, r"Rate Upper Limit (Hz)")
+	axes.loglog()
 
 	zvals = rate_data.rate_array[110, :]
 	max = min(zvals) * 1e4
@@ -1204,14 +1204,14 @@ def plot_rate_upper_limit(rate_data):
 	max = min(ycoords) * 1e6
 	zvals = numpy.compress(ycoords <= max, zvals)
 	ycoords = numpy.compress(ycoords <= max, ycoords)
-	plot.axes.plot(ycoords, zvals, "k-")
+	axes.plot(ycoords, zvals, "k-")
 
-	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit at $110\,\mathrm{Hz}$" % (100 * rate_data.confidence))
+	axes.set_title(r"%g\%% Confidence Rate Upper Limit at $110\,\mathrm{Hz}$" % (100 * rate_data.confidence))
 
 	#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.pdf ..."
-	#plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
+	#fig.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
 	print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.png ..."
-	plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_2.png")
+	fig.savefig("lalapps_excesspowerfinal_upper_limit_2.png")
 
 
 #
