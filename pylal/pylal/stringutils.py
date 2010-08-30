@@ -111,11 +111,10 @@ def dt_binning(instrument1, instrument2):
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 3001),))
 
 
-class DistributionsStats(ligolw_burca_tailor.Stats):
+class DistributionsStats(object):
 	"""
-	A subclass of the Stats class used to populate a
-	CoincParamsDistribution instance with the data from the outputs of
-	ligolw_burca and ligolw_binjfind.
+	A class used to populate a CoincParamsDistribution instance with
+	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
 	binnings = {
@@ -169,17 +168,22 @@ class DistributionsStats(ligolw_burca_tailor.Stats):
 	}
 
 	def __init__(self):
-		ligolw_burca_tailor.Stats.__init__(self)
 		self.distributions = ligolw_burca_tailor.CoincParamsDistributions(**self.binnings)
 
-	def _add_zero_lag(self, param_func, events, offsetvector, vetosegs, *args, **kwargs):
-		self.distributions.add_zero_lag(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetvector, *args, **kwargs)
+	def add_noninjections(self, param_func, database, vetoseglists):
+		# iterate over burst<-->burst coincs
+		for is_background, events, offsetvector in ligolw_burca_tailor.get_noninjections(database):
+			events = [event for event in events if event.ifo not in vetoseglists or event.get_peak not in vetoseglists[event.ifo]]
+			if is_background:
+				self.distributions.add_background(param_func, events, offsetvector)
+			else:
+				self.distributions.add_zero_lag(param_func, events, offsetvector)
 
-	def _add_background(self, param_func, events, offsetvector, vetosegs, *args, **kwargs):
-		self.distributions.add_background(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetvector, *args, **kwargs)
-
-	def _add_injections(self, param_func, sim, events, offsetvector, vetosegs, *args, **kwargs):
-		self.distributions.add_injection(param_func, [event for event in events if event.ifo not in vetosegs or event.get_peak() not in vetosegs[event.ifo]], offsetvector, *args, **kwargs)
+	def add_injections(self, param_func, database, vetoseglists):
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
+		for sim, events, offsetvector in ligolw_burca_tailor.get_injections(database):
+			self.distributions.add_injection(param_func, [event for event in events if event.ifo not in vetoseglists or event.get_peak not in vetoseglists[event.ifo]], offsetvector)
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)
