@@ -225,29 +225,29 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
-	def add_zero_lag(self, param_dict):
+	def add_zero_lag(self, param_dict, weight = 1.0):
 		for param, value in (param_dict or {}).items():
 			rate = self.zero_lag_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value] += weight
 			except IndexError:
 				# param value out of range
 				pass
 
-	def add_background(self, param_dict):
+	def add_background(self, param_dict, weight = 1.0):
 		for param, value in (param_dict or {}).items():
 			rate = self.background_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value] += weight
 			except IndexError:
 				# param value out of range
 				pass
 
-	def add_injection(self, param_dict):
+	def add_injection(self, param_dict, weight = 1.0):
 		for param, value in (param_dict or {}).items():
 			rate = self.injection_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value] += weight
 			except IndexError:
 				# param value out of range
 				pass
