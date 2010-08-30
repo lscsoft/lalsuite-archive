@@ -280,7 +280,7 @@ class upper_limit(object):
     Compute the derivative of the search volume at the FAR of the loudest event
     """
     if self.opts.verbose:
-      print >>sys.stdout, "\nCalculating volume derivative at FAR %g for %s" % (UL.far[instruments],",".join(sorted(list(instruments))),)
+      print >>sys.stdout, "\nCalculating volume derivative at FAR %g for %s, binning by %s" % (UL.far[instruments],",".join(sorted(list(instruments))),bin_type)
 
     mass_bins = self.mass_bins[bin_type]
 
@@ -476,7 +476,7 @@ class upper_limit(object):
     found, missed = self.get_injections(instruments, FAR)
 
     if verbose:
-      print >>sys.stdout, "\nCalculating search volume below FAR %g for %s" % (FAR,",".join(sorted(list(instruments))),)
+      print >>sys.stdout, "\nCalculating search volume below FAR %g for %s, binning by %s" % (FAR,",".join(sorted(list(instruments))),bin_type)
 
     # wnfunc is for smoothing across bins
     wnfunc = self.gw
@@ -544,6 +544,8 @@ class upper_limit(object):
         rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
       if bin_type == "MTOTAL":
         rArrays = self.sort_into_mtotal_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
+      if bin_type == "MCHIRP":
+        rArrays = self.sort_into_mchirp_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
 
       if trial == 0: # store injection summary for actually observed injection results
@@ -632,6 +634,9 @@ class upper_limit(object):
 
     return rArrays
 
+
+  def sort_into_mchirp_bins(self,rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial):
+    raise NotImplementedError
 
 
   def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
@@ -732,7 +737,7 @@ cache_list = []
 for instruments in UL.set_instruments_to_calculate():
 
   xmldoc = ligolw.Document()
-  xmldoc.appendChild(ligolw.LIGO_LW())
+  child = xmldoc.appendChild(ligolw.LIGO_LW())
 
   for bin_type in UL.mass_bins:
 
@@ -747,28 +752,28 @@ for instruments in UL.set_instruments_to_calculate():
     vA2.array /= secs_in_year * secs_in_year #two powers for this squared quantity
 
     #write out the results to the xml file
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeFirstMoment"+bin_type))
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA2, "2DsearchvolumeSecondMoment"+bin_type))
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(dvA, "2DsearchvolumeDerivative"+bin_type))
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.numerator, "2DsearchvolumeFoundInjections"+bin_type))
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(fm.denominator, "2DsearchvolumeMissedInjections"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeFirstMoment"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(vA2, "SearchvolumeSecondMoment"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(dvA, "SearchvolumeDerivative"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(fm.numerator, "SearchvolumeFoundInjections"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(fm.denominator, "SearchvolumeMissedInjections"+bin_type))
 
     # DONE with vA, so it is okay to mess it up...
     # Compute range
     vA.array = (vA.array * secs_in_year / UL.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(vA, "2DsearchvolumeDistance"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeDistance"+bin_type))
 
     # make a live time table
-    ltA = UL.live_time_array(instruments,UL.m1m2_mass_bins)
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "2DsearchvolumeLiveTime"+bin_type))
+    ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
+    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "SearchvolumeLiveTime"+bin_type))
 
-  output_filename = "2Dsearchvolume-%s-%s.xml" % (opts.output_name_tag, "".join(sorted(list(instruments))) )
+  output_filename = "%s-SEARCH_VOLUME-%s.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag)
 
   utils.write_filename(xmldoc, output_filename)
   cache_list.append( lal.CacheEntry( "".join(sorted(list(instruments))),
-				     "SEARCH_VOLUME",
-				     segments.segment(UL.start_time, UL.end_time),
-				     "file://localhost%s/%s" % (os.getcwd(),output_filename) ) )
+                                     "SEARCH_VOLUME",
+                                     segments.segment(UL.start_time, UL.end_time),
+                                     "file://localhost%s/%s" % (os.getcwd(),output_filename) ) )
 
 
 # write cache file
