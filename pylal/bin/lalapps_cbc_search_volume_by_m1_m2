@@ -635,7 +635,7 @@ class upper_limit(object):
     return rArrays
 
 
-  def sort_into_mchirp_bins(self,rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial):
+  def sort_into_mchirp_bins(self,rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=True):
     raise NotImplementedError
 
 
@@ -655,7 +655,10 @@ class upper_limit(object):
     # and increment the numerator there by one
     for i, l in enumerate(found_dist):
       tbin = rArrays[dbin[found_dist[i]]]
-      tbin.incnumerator( (f_m1[i], f_m2[i]) )
+      if f_m1[i] <= f_m2[i]: # exploit m1/m2 symmetry to improve statistics
+        tbin.incnumerator( (f_m1[i], f_m2[i]) )
+      else:
+        tbin.incnumerator( (f_m2[i], f_m1[i]) )
 
     # check whether there are a sensible number of injections
     # FIXME this check could be cleaner
