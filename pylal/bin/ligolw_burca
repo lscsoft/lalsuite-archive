@@ -274,7 +274,7 @@ def burca1(options, filenames):
 			ntuple_comparefunc = lambda *args: coinc_segs_ntuple_comparefunc(*args) or ligolw_burca.StringNTupleCoincCompare(*args)
 		else:
 			ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
-		CoincTables = snglcoinc.CoincTables
+		CoincTables = ligolw_burca.StringCuspCoincTables
 		CoincDef = ligolw_burca.StringCuspBBCoincDef
 	else:
 		raise Exception, "should never get here"

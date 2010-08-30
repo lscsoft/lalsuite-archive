@@ -119,7 +119,10 @@ class TimeSlideGraphNode(object):
 				print >>sys.stderr, "\tsearching ..."
 			# FIXME:  assumes the instrument column is named
 			# "ifo".  works for inspirals, bursts, and
-			# ring-downs.
+			# ring-downs.  note that the event order in each
+			# tuple returned by get_doubles() is arbitrary so
+			# we need to sort each tuple by instrument name
+			# explicitly
 			self.coincs = sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose))
 			self.coincs = tuple(self.coincs)
 			return self.coincs
@@ -573,17 +576,18 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 	"""
 	Given an instance of an EventListDict, an event comparison
 	function, an iterable (e.g., a list) of instruments, and a
-	dictionary mapping instrument pair to threshold data, generate a
-	sequence of tuples of mutually coincident events.
+	dictionary mapping instrument pair to threshold data for use by the
+	event comparison function, generate a sequence of tuples of
+	mutually coincident events.
 
 	The signature of the comparison function should be
 
 	>>> comparefunc(event1, offset1, event2, offset2, light_travel_time, threshold_data)
 
 	where event1 and event2 are two objects drawn from the event lists
-	(from different instruments), offset1 and offset2 are the time
-	shifts that should be added to the arrival times of event1 and
-	event2 respectively, light_travel_time is the distance between the
+	(of different instruments), offset1 and offset2 are the time shifts
+	that should be added to the arrival times of event1 and event2
+	respectively, light_travel_time is the distance between the
 	instruments in light seconds, and threshold_data is the value
 	contained in the thresholds dictionary for the pair of instruments
 	from which event1 and event2 have been drawn.  The return value
@@ -598,8 +602,8 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	i.e., the keys are tuples of instrument pairs and the values
 	specify the "threshold" for that instrument pair.  The threshold
-	itself is arbitrary.  Here simple floats are used as an example,
-	but any Python object can be provided and will be passed to the
+	itself is arbitrary.  Floats are shown in the example above, but
+	any Python object can be provided and will be passed to the
 	comparefunc().  Note that it is assumed that order matters in the
 	comparison function and so the thresholds dictionary must provide a
 	threshold for the instruments in both orders.
@@ -609,6 +613,10 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 
 	NOTE:  the instruments sequence must contain exactly two
 	instruments.
+
+	NOTE:  the order of the events in each tuple returned by this
+	function is arbitrary, in particular it does not necessarily match
+	the order of instruments sequence.
 	"""
 	# retrieve the event lists for the requested instrument combination
 

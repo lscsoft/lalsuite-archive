@@ -260,14 +260,3 @@ def make_burst_plot(x_label, y_label, width = 165.0):
 	axes.set_xlabel(x_label)
 	axes.set_ylabel(y_label)
 	return fig, axes
-
-
-class BurstPlot(object):
-	def __init__(self, x_label, y_label, width = 165.0):
-		self.fig, self.axes = make_burst_plot(x_label, y_label, width = width)
-
-	def add_contents(self, doc):
-		raise NotImplementedError
-
-	def finish(self):
-		pass

@@ -92,7 +92,7 @@ def append_process(xmldoc, **kwargs):
 		for (a, b), value in kwargs["thresholds"].items():
 			if a < b:
 				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (a, b, ",".join(map(str, value))))]
-	if "coincidence_segments" in kwargs:
+	if "coincidence_segments" in kwargs and kwargs["coincidence_segments"] is not None:
 		params += [(u"--coincidence-segments", u"lstring", kwargs["coincidence_segments"])]
 
 	ligolw_process.append_process_params(xmldoc, process, params)
@@ -186,6 +186,13 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 
 
 StringCuspBBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+
+
+class StringCuspCoincTables(snglcoinc.CoincTables):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id, events)
+		coinc.set_instruments(event.ifo for event in events)
+		return coinc
 
 
 #
