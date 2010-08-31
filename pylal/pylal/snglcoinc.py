@@ -191,6 +191,11 @@ class TimeSlideGraphNode(object):
 			# IDs in coinc0.  note that they are guaranteed to
 			# be arranged together in the list of coincs and
 			# can be identified with two bisection searches
+			# note:  cannot use bisect_right() because we're
+			# only comparing against the first (n-2) of (n-1)
+			# things in each tuple, we need to use bisect_left
+			# after incrementing the last of the (n-2) things
+			# by one to obtain the correct range of indexes
 			coincs1 = allcoincs1[bisect.bisect_left(allcoincs1, coinc0[:-1]):bisect.bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
 			# find all the coincs in list 2 whose first (n-2)
 			# event IDs are the same as the last (n-2) event
