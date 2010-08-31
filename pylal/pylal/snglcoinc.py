@@ -58,12 +58,6 @@ __date__ = git_version.date
 #
 
 
-def offset_vector_str(offset_vector, compact = False):
-	if compact:
-		return ",".join(("%s=%g" % x) for x in sorted(offset_vector.items()))
-	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
-
-
 class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector, time_slide_id = None):
 		self.time_slide_id = time_slide_id
@@ -81,7 +75,7 @@ class TimeSlideGraphNode(object):
 
 		if self.coincs is not None:
 			if verbose:
-				print >>sys.stderr, "\treusing %s" % offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\treusing %s" % ligolw_tisi.offset_vector_str(self.offset_vector)
 			return self.coincs
 
 		#
@@ -90,11 +84,12 @@ class TimeSlideGraphNode(object):
 
 		if self.components is None:
 			if verbose:
-				print >>sys.stderr, "\tconstructing %s ..." % offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\tconstructing %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
 			#
 			# can we do it?
 			#
 
+			assert len(self.offset_vector) == 2
 			avail_instruments = set(eventlists)
 			offset_instruments = set(self.offset_vector)
 			if not offset_instruments.issubset(avail_instruments):
@@ -134,7 +129,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % offset_vector_str(self.components[0].offset_vector)
+				print >>sys.stderr, "\tgetting coincs from %s ..." % ligolw_tisi.offset_vector_str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -164,7 +159,7 @@ class TimeSlideGraphNode(object):
 			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % offset_vector_str(self.offset_vector)
+			print >>sys.stderr, "\tassembling %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
 		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
@@ -258,16 +253,16 @@ class TimeSlideGraph(object):
 		print >>fileobj, "digraph \"Time Slides\" {"
 		for nodes in self.generations.values():
 			for node in nodes:
-				node_name = offset_vector_str(node.offset_vector, compact = True)
+				node_name = ligolw_tisi.offset_vector_str(node.offset_vector, compact = True)
 				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
 				if node.components is not None:
 					for component in node.components:
-						print >>fileobj, "\t\"%s\" -> \"%s\";" % (offset_vector_str(component.offset_vector, compact = True), node_name)
+						print >>fileobj, "\t\"%s\" -> \"%s\";" % (ligolw_tisi.offset_vector_str(component.offset_vector, compact = True), node_name)
 		for node in self.head:
-			node_name = offset_vector_str(node.offset_vector, compact = True)
+			node_name = ligolw_tisi.offset_vector_str(node.offset_vector, compact = True)
 			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node_name
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (offset_vector_str(component.offset_vector, compact = True), node_name)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (ligolw_tisi.offset_vector_str(component.offset_vector, compact = True), node_name)
 		print >>fileobj, "}"
 
 
