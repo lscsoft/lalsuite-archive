@@ -756,6 +756,7 @@ class plotmcmcJob(pipeline.CondorDAGJob, FUJob):
                 self.__executable = string.strip(cp.get('fu-condor','plotmcmc'))
                 self.name = os.path.split(self.__executable.rstrip('/'))[1]
                 self.__universe = "vanilla"
+		self.add_condor_cmd('getenv','True')
                 pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
                 self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
 
