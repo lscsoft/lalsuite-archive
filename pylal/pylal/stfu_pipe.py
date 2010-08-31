@@ -1944,13 +1944,13 @@ class plotmcmcNode(pipeline.CondorDAGNode, FUNode):
 
 		sngl = eval("coinc." + sngl_insp_string + "[\'" + ifo + "\']")
 
-		if cp.has_option('followup-plotmcmc','burnin'):
-			burnin = string.strip(cp.get('followup-plotmcmc','burnin'))
+		if cp.has_option('fu-plotmcmc','burnin'):
+			burnin = string.strip(cp.get('fu-plotmcmc','burnin'))
 			if burnin.strip():
 				self.add_var_opt("burnin",burnin)
 
-		plot_routine = string.strip(cp.get('followup-plotmcmc','plot_routine'))
-		executable = string.strip(cp.get('followup-plotmcmc','executable'))
+		plot_routine = string.strip(cp.get('fu-plotmcmc','plot_routine'))
+		executable = string.strip(cp.get('fu-plotmcmc','executable'))
 
 		#FIXME: add a if statement to treat differently the injections. Reference values for injections should be the injected params.
 		gps = sngl.time
