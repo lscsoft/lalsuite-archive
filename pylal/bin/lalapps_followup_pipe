@@ -677,6 +677,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	effD_ratio_job		= stfu_pipe.effDRatioJob(options,cp, dir=search)
 	mcmc_sngl_job           = stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="sngl")
 	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
+	plot_mcmc_sngl_job	= stfu_pipe.plotmcmcJob(options,cp,dir=search,tag_base="sngl")
+	plot_mcmc_coh_job	= stfu_pipe.plotmcmcJob(options,cp,dir=search,tag_base="coh")
 	if options.do_remoteScans:
 		#setup_proxy_job		= stfu_pipe.setupProxyJob(options,cp, tag_base='Q_RDS', dir=search)
 		remote_datafind_job	= stfu_pipe.remoteDatafindJob(options,cp, tag_base='Q_RDS', dir=search)
@@ -735,12 +737,14 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			# Single ifo MCMC jobs
 			# run multiple MCMC chains (1 chain = 1 node)
 			chainNumber = string.strip(cp.get('fu-mcmc','chain_nb'))
-			mcmcId_list = []
+			mcmcNodeList = []
 			for k in range(int(chainNumber)):
 				calculate_seed = str(sngl_inspiral.time + k).split('.')[0]
 				randomseed = calculate_seed[-4:len(calculate_seed)]
 				mcmc_sngl_node = stfu_pipe.mcmcNode(dag,mcmc_sngl_job,cp,options,coinc,[insp_datafind_node[ifo].outputFileName],randomseed,p_nodes=[insp_datafind_node[ifo]],ifo_string=ifo)
-				mcmcId_list.append(mcmc_sngl_node.id)
+				mcmcNodeList.append(mcmc_sngl_node)
+			# PLOT MCMC JOBS
+			plot_mcmc_sngl_node = stfu_pipe.plotmcmcNode(plot_mcmc_sngl_job,coinc,cp,options,dag,mcmc_sgnl_node.ifoRef,mcmc_sgnl_node.ifonames,p_nodes=mcmcNodeList)
 
 
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
@@ -774,12 +778,14 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 		# Coherent MCMC jobs
 		# run multiple MCMC chains (1 chain = 1 node)
 		chainNumber = string.strip(cp.get('fu-mcmc','chain_nb'))
-		mcmcId_list = []
+		mcmcNodeList = []
 		for k in range(int(chainNumber)):
 			calculate_seed = str(coinc.time + k).split('.')[0]
 			randomseed = calculate_seed[-4:len(calculate_seed)]
 			mcmc_coh_node = stfu_pipe.mcmcNode(dag,mcmc_coh_job,cp,options,coinc,cacheFile_list,randomseed,p_nodes=dataFind_list,ifo_string=None)
-			mcmcId_list.append(mcmc_coh_node.id)
+			mcmcNodeList.append(mcmc_coh_node)
+
+		plot_mcmc_coh_node = stfu_pipe.plotmcmcNode(plot_mcmc_coh_job,coinc,cp,options,dag,mcmc_coh_node.ifoRef,mcmc_coh_node.ifonames,p_nodes=mcmcNodeList)
 
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
