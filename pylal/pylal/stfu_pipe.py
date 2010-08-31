@@ -1977,7 +1977,7 @@ class plotmcmcNode(pipeline.CondorDAGNode, FUNode):
 		self.add_var_opt("identity",self.id)
 
 		self.add_var_opt("output-path",job.outputPath)
-		self.output_cache = lal.CacheEntry(ifonames, job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.output_path+"/"+self.id)
+		self.output_cache = lal.CacheEntry(ifonames, job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.outputPath+"/"+self.id)
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
