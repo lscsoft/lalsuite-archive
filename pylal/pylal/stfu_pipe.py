@@ -1325,7 +1325,8 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 			self.add_var_opt("estimate-background",cp.get('findFlags','estimate-background'))
 		if cp.has_option('findFlags','background-location'):			
 			self.add_var_opt("background-location",cp.get('findFlags','background-location'))
-
+		if cp.has_option('findFlags','blind'):
+			self.add_var_opt("blind",cp.get('findFlags','blind'))
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
 		#IFO arg string
@@ -1381,8 +1382,10 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findVetoes','window'))
 		if cp.has_option('findVetoes','estimate-background'):
 			self.add_var_opt("estimate-background",cp.get('findVetoes','estimate-background'))
-		if cp.has_option('findFlags','background-location'):			
+		if cp.has_option('findVetoes','background-location'):			
 			self.add_var_opt("background-location",cp.get('findVetoes','background-location'))
+		if cp.has_option('findVetoes','blind'):
+			self.add_var_opt("findVetoes",cp.get('findVetoes','blind'))
 
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
