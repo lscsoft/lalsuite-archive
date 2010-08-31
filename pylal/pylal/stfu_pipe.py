@@ -1907,14 +1907,14 @@ class mcmcNode(pipeline.CondorDAGNode, FUNode):
 
 		self.add_var_opt("importanceresample",10000)
 
-		self.id = job.name.upper() + '-' + self.ifonames + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
+		self.id = job.name.upper() + '-' + self.ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
 		self.outputName = job.outputPath + '/' + self.id
 		self.add_var_opt("outfilename",self.outputName)
 
 		self.start_time = min(chunk_start_list.values())
 		self.end_time = max(chunk_end_list.values())
 		self.output_cache = []
-		self.output_cache.append(lal.CacheEntry(self.ifonames, job.name.upper(), segments.segment(self.start_time,self.end_time), "file://localhost/"+self.outputName+".csv"))
+		self.output_cache.append(lal.CacheEntry(self.ifonames.replace(",",""), job.name.upper(), segments.segment(self.start_time,self.end_time), "file://localhost/"+self.outputName+".csv"))
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
@@ -1974,11 +1974,11 @@ class plotmcmcNode(pipeline.CondorDAGNode, FUNode):
 			mcmcfilelist += node.outputName + '.csv,'
 		self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
 
-		self.id = job.name.upper() + '-' + ifonames + '-' + str(int(coinc.coinc_event_id))
+		self.id = job.name.upper() + '-' + ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id))
 		self.add_var_opt("identity",self.id)
 
 		self.add_var_opt("output-path",job.outputPath)
-		self.output_cache = lal.CacheEntry(ifonames, job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.outputPath+"/"+self.id)
+		self.output_cache = lal.CacheEntry(ifonames.replace(",",""), job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.outputPath+"/"+self.id)
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
