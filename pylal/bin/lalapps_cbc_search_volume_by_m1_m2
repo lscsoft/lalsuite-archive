@@ -508,11 +508,6 @@ class upper_limit(object):
 
     if bootnum is None: bootnum = self.opts.bootstrap_iterations
 
-    # If the loudest event has 0-FAR, then there is no volume above that event.
-    # We return zeros for the volume arrays.
-    if FAR == 0:
-      return rate.BinnedArray(mass_bins),rate.BinnedArray(mass_bins)
-
     # set up an empty ratio array for each distance bin
     rArrays = [rate.BinnedRatios(mass_bins) for k in range(self.opts.dist_bins)]
 
@@ -560,7 +555,10 @@ class upper_limit(object):
 
       # compute the distance bins
       if not dbin_in:
-        dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), self.opts.dist_bins)
+        if FAR > 0:
+          dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), self.opts.dist_bins)
+        else:
+          dbin = rate.LogarithmicBins(min(m_dist),max(m_dist), self.opts.dist_bins)
       else: dbin = dbin_in
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
@@ -571,6 +569,15 @@ class upper_limit(object):
       if bin_type == "MCHIRP":
         rArrays = self.sort_into_1D_mass_bins(rArrays,chirp_mass,new_found,f_dist,new_missed,m_dist,dbin)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
+
+      if trial == 0: # store injection summary for actually observed injection results
+        fm_array.numerator.array = numpy.sum(rArrays[k].numerator.array for k in range(self.opts.dist_bins))
+        fm_array.denominator.array = numpy.sum(rArrays[k].denominator.array for k in range(self.opts.dist_bins))
+
+      # If the loudest event has 0-FAR, then there is no volume above that event.
+      # We return zeros for the volume arrays.
+      if FAR == 0:
+        return rate.BinnedArray(mass_bins),rate.BinnedArray(mass_bins), fm_array
 
       # check whether there are a sensible number of injections
       # FIXME this check could be cleaner
@@ -588,11 +595,6 @@ class upper_limit(object):
               if m1+m2<self.maxtotal and m1+m2>self.mintotal and m1<=m2 and farray[mass_bins[(m1,m2)]] < 100:
                 print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f-%.1f mass bin over all injected distances."  % (farray[mass_bins[(m1,m2)]],''.join(sorted(list(instruments))),m1,m2)
                 print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
-
-
-      if trial == 0: # store injection summary for actually observed injection results
-        fm_array.numerator.array = numpy.sum(rArrays[k].numerator.array for k in range(self.opts.dist_bins))
-        fm_array.denominator.array = numpy.sum(rArrays[k].denominator.array for k in range(self.opts.dist_bins))
 
       # the ratio of the numerator to the (numerator+denominator) is equal
       # to the efficiency at that m1-m2-d bin
@@ -789,7 +791,7 @@ for instruments in UL.set_instruments_to_calculate():
     child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeFirstMoment"+bin_type))
     child.appendChild(rate.binned_array_to_xml(vA2, "SearchvolumeSecondMoment"+bin_type))
     child.appendChild(rate.binned_array_to_xml(dvA, "SearchvolumeDerivative"+bin_type))
-    child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeDistance"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(distance, "SearchvolumeDistance"+bin_type))
     child.appendChild(rate.binned_array_to_xml(fm.numerator, "SearchvolumeFoundInjections"+bin_type))
     child.appendChild(rate.binned_array_to_xml(fm.denominator, "SearchvolumeMissedInjections"+bin_type))
     child.appendChild(rate.binned_array_to_xml(ltA, "SearchvolumeLiveTime"+bin_type)) #FIXME do we still need this?
