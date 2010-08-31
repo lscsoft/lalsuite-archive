@@ -744,8 +744,7 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 				mcmc_sngl_node = stfu_pipe.mcmcNode(dag,mcmc_sngl_job,cp,options,coinc,[insp_datafind_node[ifo].outputFileName],randomseed,p_nodes=[insp_datafind_node[ifo]],ifo_string=ifo)
 				mcmcNodeList.append(mcmc_sngl_node)
 			# PLOT MCMC JOBS
-			plot_mcmc_sngl_node = stfu_pipe.plotmcmcNode(plot_mcmc_sngl_job,coinc,cp,options,dag,mcmc_sgnl_node.ifoRef,mcmc_sgnl_node.ifonames,p_nodes=mcmcNodeList)
-
+			plot_mcmc_sngl_node = stfu_pipe.plotmcmcNode(plot_mcmc_sngl_job,coinc,cp,options,dag,mcmc_sngl_node.ifoRef,mcmc_sngl_node.ifonames,p_nodes=mcmcNodeList)
 
 		# SETUP JOBS FOR IFOS USING THE MAX TEMPLATE (LIKE COHERENT INSPIRAL JOBS)
 		for ifo, sngl_inspiral in coinc.sngl_inspiral_coh.items():
