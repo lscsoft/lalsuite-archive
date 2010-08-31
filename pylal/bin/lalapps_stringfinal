@@ -173,17 +173,12 @@ def compress_ratevsthresh_curve(x, y, yerr):
 
 class RateVsThreshold(object):
 	def __init__(self, open_box, record_candidates = 10):
-		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
 		self.zero_lag = []
 		self.background = []
 		self.candidates = iterutils.Highest(max = record_candidates)
 		self.zero_lag_time = 0.0
 		self.background_time = 0.0
 		self.open_box = open_box
-		self.axes.loglog()
-		self.axes.set_position([0.125, 0.15, 0.83, 0.75])
-		self.axes.xaxis.grid(True, which = "major,minor")
-		self.axes.yaxis.grid(True, which = "major,minor")
 
 	def add_contents(self, contents, verbose = False):
 		#
@@ -261,10 +256,15 @@ WHERE
 		self.candidates.extend(candidates)
 
 	def finish(self):
+		fig, axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
+		axes.loglog()
+		axes.set_position([0.125, 0.15, 0.83, 0.75])
+		axes.xaxis.grid(True, which = "major,minor")
+		axes.yaxis.grid(True, which = "major,minor")
 		if self.open_box:
-			self.axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
+			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
 		else:
-			self.axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold (Closed Box)")
+			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold (Closed Box)")
 
 		self.background.sort()
 		self.zero_lag.sort()
@@ -310,16 +310,16 @@ WHERE
 
 		poly_x = numpy.concatenate((background, background[::-1]))
 		poly_y = numpy.concatenate((background_y + 1 * background_yerr, (background_y - 1 * background_yerr)[::-1]))
-		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, minY, maxY)), edgecolor = "k", facecolor = "k", alpha = 0.3))
-		line1, = self.axes.loglog(background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "--")
+		axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, minY, maxY)), edgecolor = "k", facecolor = "k", alpha = 0.3))
+		line1, = axes.loglog(background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "--")
 		if self.open_box:
-			line2, = self.axes.loglog(self.zero_lag.repeat(2)[:-1], zero_lag_y.repeat(2)[1:], color = "k", linestyle = "-", linewidth = 2)
-			self.axes.legend((line1, line2), (r"Expected background", r"Zero-lag"), loc = "lower left")
+			line2, = axes.loglog(self.zero_lag.repeat(2)[:-1], zero_lag_y.repeat(2)[1:], color = "k", linestyle = "-", linewidth = 2)
+			axes.legend((line1, line2), (r"Expected background", r"Zero-lag"), loc = "lower left")
 		else:
-			self.axes.legend((line1,), (r"Expected background",), loc = "lower left")
+			axes.legend((line1,), (r"Expected background",), loc = "lower left")
 
-		self.axes.set_xlim((minX, maxX))
-		self.axes.set_ylim((minY, maxY))
+		axes.set_xlim((minX, maxX))
+		axes.set_ylim((minY, maxY))
 
 		#
 		# dump info about highest-ranked zero-lag events
@@ -334,6 +334,12 @@ WHERE
 			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
 			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
 			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+
+		#
+		# done
+		#
+
+		return fig,
 
 
 #
@@ -435,8 +441,6 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 
 class Efficiency(object):
 	def __init__(self, detection_threshold, cal_uncertainty, amplitude_factor, filter_width):
-		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
-		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
 		self.amplitude_factor = amplitude_factor
@@ -446,14 +450,6 @@ class Efficiency(object):
 		self.found = []
 		self.missed = iterutils.Highest(max = 100)	# keep 100 loudest missed injections
 		self.all = []
-		self.axes.semilogx()
-		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
-
-		# set desired yticks
-		self.axes.set_yticks((0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0))
-		self.axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
-		self.axes.xaxis.grid(True, which = "major,minor")
-		self.axes.yaxis.grid(True, which = "major,minor")
 
 	def add_contents(self, contents, verbose = False):
 		#
@@ -506,6 +502,17 @@ FROM
 		self.missed.extend(missed)
 
 	def finish(self):
+		fig, axes = SnglBurstUtils.make_burst_plot(r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
+		axes.set_title(r"Detection Efficiency vs.\ Amplitude")
+		axes.semilogx()
+		axes.set_position([0.10, 0.150, 0.86, 0.77])
+
+		# set desired yticks
+		axes.set_yticks((0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0))
+		axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
+		axes.xaxis.grid(True, which = "major,minor")
+		axes.yaxis.grid(True, which = "major,minor")
+
 		# put made and found injections in the denominators and
 		# numerators of the efficiency bins
 		bins = rate.NDBins((rate.LogarithmicBins(min(sim.amplitude for sim in self.all) * self.amplitude_factor, max(sim.amplitude for sim in self.all) * self.amplitude_factor, 400),))
@@ -531,15 +538,15 @@ FROM
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_binned_ratios(efficiency, windowfunc)
 
-		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
+		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.2e" % self.detection_threshold),), loc = "lower right")
+		axes.legend((line1,), (r"\noindent Injections recovered with $\Lambda > %s$" % SnglBurstUtils.latexnumber("%.2e" % self.detection_threshold),), loc = "lower right")
 
 		# adjust limits
-		self.axes.set_xlim([1e-21, 2e-18])
-		self.axes.set_ylim([0.0, 1.0])
+		axes.set_xlim([1e-21, 2e-18])
+		axes.set_ylim([0.0, 1.0])
 
 		#
 		# dump some information about the highest-amplitude missed
@@ -565,6 +572,12 @@ FROM
 			print >>f, "Time at geocentre:\t%s s" % t
 			print >>f, "Segments within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.seglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.seglists))
 			print >>f, "Vetoes within 60 seconds:\t%s" % segmentsUtils.segmentlistdict_to_short_string(self.vetoseglists & segments.segmentlistdict((instrument, segments.segmentlist([segments.segment(t-60, t+60)])) for instrument in self.vetoseglists))
+
+		#
+		# done
+		#
+
+		return fig,
 
 
 #
@@ -649,18 +662,18 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 
 
 def write_products(products, prefix, image_formats, verbose = False):
-	format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(products) - 1, 1))) + 1)
-	n = 0
+	format = "%%s%%0%dd%%s.%%s" % (int(math.log10(max(len(products) - 1, 1))) + 1)
+	n = m = 0
 	while products:
 		if verbose:
 			print >>sys.stderr, "finishing product %d ..." % n
-		products[0].finish()
-		for ext in image_formats:
-			filename = format % (prefix, n, ext)
-			if verbose:
-				print >>sys.stderr, "writing %s ..." % filename
-			products[0].fig.savefig(filename)
-		del products[0]
+		for fig in products.pop(0).finish():
+			for ext in image_formats:
+				filename = format % (prefix, n, chr(m + 97), ext)
+				if verbose:
+					print >>sys.stderr, "writing %s ..." % filename
+				fig.savefig(filename)
+				m += 1
 		n += 1
 
 
