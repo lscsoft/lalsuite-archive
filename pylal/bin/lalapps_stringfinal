@@ -156,6 +156,12 @@ def ratevsthresh_bounds(background_x, background_y, zero_lag_x, zero_lag_y):
 	return minX, maxX, minY, maxY
 
 
+def expected_count(x, background_x, background_y):
+	if x > background_x[-1]:
+		return 0
+	return background_y[bisect.bisect_left(background_x, x)]
+
+
 def compress_ratevsthresh_curve(x, y, yerr):
 	#
 	# construct a background mask to retain the highest-ranked 10,000
@@ -256,15 +262,23 @@ WHERE
 		self.candidates.extend(candidates)
 
 	def finish(self):
-		fig, axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
-		axes.loglog()
-		axes.set_position([0.125, 0.15, 0.83, 0.75])
-		axes.xaxis.grid(True, which = "major,minor")
-		axes.yaxis.grid(True, which = "major,minor")
-		if self.open_box:
-			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
-		else:
-			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold (Closed Box)")
+		#
+		# dump info about highest-ranked zero-lag events
+		#
+
+		f = file("string_candidates.txt", "w")
+		print >>f, "Highest-Ranked Zero-Lag Events"
+		print >>f, "=============================="
+		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
+			print >>f
+			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
+			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
+			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
+			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+
+		#
+		# sort the ranking statistics and convert to arrays
+		#
 
 		self.background.sort()
 		self.zero_lag.sort()
@@ -280,13 +294,19 @@ WHERE
 		background_y = numpy.arange(len(self.background), 0.0, -1.0, dtype = "double") / self.background_time * self.zero_lag_time
 		background_yerr = numpy.sqrt(background_y)
 
-		# convert to background rate and uncertainty expected in
-		# zero-lag
+		# count observed in zero-lag
+		zero_lag_y = numpy.arange(len(self.zero_lag), 0.0, -1.0, dtype = "double")
+
+		# compute zero-lag - expected residual in units of \sqrt{N}
+		zero_lag_residual = numpy.zeros((len(self.zero_lag),), dtype = "double")
+		for i in xrange(len(self.zero_lag)):
+			n = expected_count(self.zero_lag[i], self.background, background_y)
+			zero_lag_residual[i] = (zero_lag_y[i] - n) / math.sqrt(n)
+
+		# convert counts to rates
 		background_y /= self.zero_lag_time
 		background_yerr /= self.zero_lag_time
-
-		# rate observed in zero-lag
-		zero_lag_y = numpy.arange(len(self.zero_lag), 0.0, -1.0, dtype = "double") / self.zero_lag_time
+		zero_lag_y /= self.zero_lag_time
 
 		#
 		# determine the horizontal and vertical extent of the plot
@@ -302,6 +322,20 @@ WHERE
 		#
 
 		background, background_y, background_yerr = compress_ratevsthresh_curve(self.background, background_y, background_yerr)
+
+		#
+		# start the rate vs. threshold plot
+		#
+
+		ratefig, axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", "Event Rate (Hz)", width = 108.0)
+		axes.loglog()
+		axes.set_position([0.125, 0.15, 0.83, 0.75])
+		axes.xaxis.grid(True, which = "major,minor")
+		axes.yaxis.grid(True, which = "major,minor")
+		if self.open_box:
+			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold")
+		else:
+			axes.set_title(r"Event Rate vs.\ Likelihood Ratio Threshold (Closed Box)")
 
 		# warning:  the error bar polygon is not *really* clipped
 		# to the axes' bounding box, the result will be incorrect
@@ -322,24 +356,30 @@ WHERE
 		axes.set_ylim((minY, maxY))
 
 		#
-		# dump info about highest-ranked zero-lag events
+		# start the count residual vs. threshold plot
 		#
 
-		f = file("string_candidates.txt", "w")
-		print >>f, "Highest-Ranked Zero-Lag Events"
-		print >>f, "=============================="
-		for likelihood_ratio, filename, coinc_event_id, instruments, peak_time in self.candidates:
-			print >>f
-			print >>f, "%s in %s:" % (str(coinc_event_id), filename)
-			print >>f, "Recovered in: %s" % ", ".join(sorted(instruments or []))
-			print >>f, "Mean peak time:  %.16g s GPS" % peak_time
-			print >>f, "\\Lambda:  %.16g" % likelihood_ratio
+		residualfig, axes = SnglBurstUtils.make_burst_plot(r"Likelihood Ratio Threshold $\Lambda$", r"Event Count Residual / $\sqrt{N}$", width = 108.0)
+		axes.semilogx()
+		axes.set_position([0.125, 0.15, 0.83, 0.75])
+		axes.xaxis.grid(True, which = "major,minor")
+		axes.yaxis.grid(True, which = "major,minor")
+		if self.open_box:
+			axes.set_title(r"Event Count Residual vs.\ Likelihood Ratio Threshold")
+		else:
+			axes.set_title(r"Event Count Residual vs.\ Likelihood Ratio Threshold (Closed Box)")
+
+		axes.add_patch(patches.Polygon(((minX, -1), (maxX, -1), (maxX, +1), (minX, +1)), edgecolor = "k", facecolor = "k", alpha = 0.3))
+		if self.open_box:
+			line1, = axes.semilogx(self.zero_lag, zero_lag_residual, color = "k", linestyle = "-", linewidth = 2)
+
+		axes.set_xlim((minX, maxX))
 
 		#
 		# done
 		#
 
-		return fig,
+		return ratefig, residualfig
 
 
 #
@@ -663,17 +703,16 @@ def process_files(filenames, products, live_time_program, tmp_path = None, veto_
 
 def write_products(products, prefix, image_formats, verbose = False):
 	format = "%%s%%0%dd%%s.%%s" % (int(math.log10(max(len(products) - 1, 1))) + 1)
-	n = m = 0
+	n = 1
 	while products:
 		if verbose:
 			print >>sys.stderr, "finishing product %d ..." % n
-		for fig in products.pop(0).finish():
+		for m, fig in enumerate(products.pop(0).finish()):
 			for ext in image_formats:
 				filename = format % (prefix, n, chr(m + 97), ext)
 				if verbose:
 					print >>sys.stderr, "writing %s ..." % filename
 				fig.savefig(filename)
-				m += 1
 		n += 1
 
 
@@ -698,7 +737,7 @@ if options.verbose:
 	print >>sys.stderr, "Collecting background and zero-lag statistics ..."
 rate_vs_threshold = RateVsThreshold(options.open_box)
 process_files(noninjection_filenames, [rate_vs_threshold], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-write_products([rate_vs_threshold], "string_triggers_", options.image_formats, verbose = False)
+write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = False)
 
 
 if options.open_box:
@@ -718,7 +757,7 @@ if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
 efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
 process_files(injection_filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
-write_products([efficiency], "string_injections_", options.image_formats, verbose = False)
+write_products([efficiency], "string_efficiency_", options.image_formats, verbose = False)
 
 
 if options.verbose:
