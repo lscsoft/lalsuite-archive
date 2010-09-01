@@ -2083,7 +2083,8 @@ class create_default_config(object):
 		cp.add_section("makeCheckListWiki")
 		cp.set("makeCheckListWiki","universe","local")
 		cp.set("makeCheckListWiki","location",os.getcwd())
-		cp.set("makeCheckListWiki","ini-file",self.ini_file)
+		#Store full abs path in ini file!
+		cp.set("makeCheckListWiki","ini-file",os.path.abspath(self.ini_file))
 		
 		# fu-q-hoft-datafind SECTION
 		cp.add_section("fu-q-hoft-datafind")
