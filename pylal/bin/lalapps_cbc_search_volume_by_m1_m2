@@ -46,19 +46,16 @@ class upper_limit(object):
   """
   def __init__(self, database, opts):
     ## Instance variables ######################################
-    self.far = {}  #An instruments-keyed dict specifying the FAR at which to compute the upper limit
     self.fname = database
+    self.opts = opts
     self.twoDMassBins = None  #m1-m2 rectangles into which we subdivide the upper limit calculation
     self.gw = None
     self.wnfunc = None
-    self.opts = opts
     self.bootnum = int(opts.bootstrap_iterations)
-    self.livetime = {}  #An instruments-keyed dict containing the livetime for each instrument set
     self.minmass = None
     self.maxmass = None
     self.mintotal = None
     self.maxtotal = None
-    self.instruments = []  #The keys to all my dicts
     self.segments = {}  #An ifo-keys segments dict for single ifo
     self.zero_lag_segments = {}  #An instruments-keyed segment dict for coincident ifo time
     self.coinc_inspiral_table = None
@@ -95,11 +92,23 @@ class upper_limit(object):
 
 
   def get_instruments(self, connection):
-    '''Retrieve the sets of instruments which participated in coincident events. '''
+    '''Retrieve the sets of instruments which were on during this search.'''
     # FIXME bad to hardcode search_coinc_type
     self.sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
-    for i in connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?', (self.sngl_sngl_coinc_def_id,)):
-      self.instruments.append(frozenset(lsctables.instrument_set_from_ifos(i[0])))
+    instruments_query = """
+    SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?;
+    """
+
+    if self.opts.verbose:
+      print >>sys.stdout,"\nQuerying database for on instruments..."
+      print >>sys.stdout,"\t" + instruments_query.replace('?',self.sngl_sngl_coinc_def_id)
+
+    self.instruments = []
+    for instruments in connection.cursor().execute(instruments_query, (self.sngl_sngl_coinc_def_id,) ):
+      inst =  frozenset(lsctables.instrument_set_from_ifos(instruments[0]))
+      self.instruments.append(inst)
+      if self.opts.verbose: print >>sys.stdout,"\t%s" % instruments[0]
+
     return self.instruments
 
 
@@ -176,24 +185,32 @@ class upper_limit(object):
 
 
   def get_livetime(self,connection):
-    query = """
+    livetime_query = """
     SELECT instruments,duration
     FROM experiment_summary
-    JOIN experiment
-    ON experiment_summary.experiment_id == experiment.experiment_id
-    WHERE experiment_summary.datatype == "exclude_play"
+    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+    WHERE experiment_summary.datatype == "exclude_play";
     """
-    for inst,lt in connection.cursor().execute(query):
-      inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
-      self.livetime[inst] = lt
+    if self.opts.verbose:
+      print >>sys.stdout,"\nQuerying database for livetimes..."
+      print >>sys.stdout,"\t" + livetime_query
+
+    self.livetime = dict( (inst,0) for inst in self.instruments )
+    for instruments,livetime in connection.cursor().execute(livetime_query):
+      inst =  frozenset(lsctables.instrument_set_from_ifos(instruments))
+      self.livetime[inst] = livetime
+      if self.opts.verbose:
+        print >>sys.stdout,"\t%s were on for %g seconds (excludes playground)" % (instruments,livetime)
+
     return self.livetime
 
 
   def get_far_thresholds(self, connection):
-    """
-    Returns the false alarm rate of the most rare zero-lag coinc.
-    """
-    if self.opts.verbose: print >>sys.stdout, "getting FAR thresholds..."
+    """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
+    be the FAR of the most rare zero-lag coinc)."""
+    if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for the loudest event..."
+
+    self.far = dict( (inst,-1) for inst in self.instruments )
 
     if self.opts.use_expected_loudest_event:
       for inst in self.instruments:
@@ -202,7 +219,7 @@ class upper_limit(object):
       for inst in self.instruments:
         self.far[inst] = self.opts.far
     else:
-      query = """
+      far_threshold_query = """
       SELECT coinc_event.instruments,MIN(combined_far)
       FROM coinc_inspiral
       JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
@@ -211,9 +228,17 @@ class upper_limit(object):
       WHERE experiment_summary.datatype == "exclude_play"
       GROUP BY coinc_event.instruments;
       """
-      for inst, far in connection.cursor().execute(query):
+      if self.opts.verbose: print >>sys.stdout,"\t"+far_threshold_query
+
+      for inst, far in connection.cursor().execute(far_threshold_query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
         self.far[inst] = far # handle FAR = 0 case specially downstream
+
+    if self.opts.verbose:
+      for inst in self.instruments:
+        print >>sys.stdout,"\tloudest event in %s time has FAR = %g" % (','.join(sorted(list(inst))),self.far[inst])
+
+    return self.far
 
 
   def get_volume_derivative(self,instruments):
