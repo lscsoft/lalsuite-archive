@@ -272,23 +272,26 @@ class upper_limit(object):
       return []
 
 
-  def get_volume_derivative(self,instruments):
+  def get_volume_derivative(self,instruments,mass_bins):
     """
     Compute the derivative of the search volume at the FAR of the loudest event
     """
+    if self.opts.verbose:
+      print >>sys.stdout, "\nCalculating volume derivative at FAR %g for %s" % (UL.far[instruments],",".join(sorted(list(instruments))),)
+
     FAR = self.far[instruments]
     gw = self.gw
-    twoDMassBins = self.m1m2_mass_bins
 
     # If the loudest event has 0-FAR, then there is no volume above that event.
     # We return zeros for the volume arrays.
     if FAR == 0:
-      return rate.BinnedArray(self.m1m2_mass_bins)
+      return rate.BinnedArray(mass_bins)
 
     #determine binning up front for infinite FAR
     found, missed = self.get_injections(instruments, FAR=float("inf"))
     dbin = rate.LogarithmicBins(min([l.distance for l in found]),max([l.distance for l in found]), int(self.opts.dist_bins))
 
+    # FIXME is this the same as self.livetime[instruments]??
     livetime = float(abs(self.zero_lag_segments[instruments]))
 
     FARh = FAR*100000
@@ -299,14 +302,15 @@ class upper_limit(object):
     vA2 = []
 
     for far in FARS.centres():
-      vAt, vA2t = self.twoD_SearchVolume(instruments, dbin_in=dbin, FAR = far, bootnum=1)
+      vAt, vA2t = self.twoD_SearchVolume(instruments,mass_bins,dbin_in=dbin,FAR=far,bootnum=1)
       # we need to compute derivitive of log according to ul paper
       vAt.array = scipy.log10(vAt.array + 0.001)
       vA.append(vAt)
 
     # the derivitive is calcuated with respect to FAR * t
     FARTS = rate.LogarithmicBins(FARl * livetime, FARh * livetime, nbins)
-    return self._derivitave_fit(FARTS, FAR * livetime, vA, twoDMassBins)
+    return self._derivitave_fit(FARTS, FAR * livetime, vA, mass_bins)
+
 
   def _derivitave_fit(self, farts, FARt, vAs, twodbin):
     '''
@@ -442,22 +446,21 @@ class upper_limit(object):
 
   def _scramble_dist(self, inj, relerr, syserr):
     """
-    function to handle random calibration error.  Individually scrambles the distances
-    of injection by an error assumed to be log normal + a systematic.
+    Function to handle random calibration error.  Individually scrambles the distances
+    of injections by an error assumed to be log normal + a systematic.
     """
     return numpy.array([sim.distance * (1.0-syserr) * float(scipy.exp( relerr * scipy.random.standard_normal(1))) for sim in inj])
 
-  def live_time_array(self, instruments):
+  def live_time_array(self,instruments,mass_bins):
     """
     return an array of live times, note every bin will be the same :) it is just a
     convenience.
     """
-    live_time = rate.BinnedArray(self.m1m2_mass_bins)
-    live_time.array += 1.0
-    live_time.array *= self.livetime[instruments]
+    live_time = rate.BinnedArray(mass_bins)
+    live_time.array += self.livetime[instruments]
     return live_time
 
-  def twoD_SearchVolume(self,instruments,dbin_in=None,FAR=None,bootnum=None,verbose=False):
+  def twoD_SearchVolume(self,instruments,mass_bins,dbin_in=None,FAR=None,bootnum=None,verbose=False):
     """
     Compute the search volume above the specified FAR over given mass bins.
     If bootstrapping is turned on, the injection population will be randomly
@@ -474,33 +477,28 @@ class upper_limit(object):
     found, missed = self.get_injections(instruments, FAR)
 
     if verbose:
-      print >>sys.stdout, "\tcomputing volume at FAR %g: found = %d, missed = %d" % (FAR, len(found), len(missed))
+      print >>sys.stdout, "\nCalculating search volume below FAR %g for %s" % (FAR,",".join(sorted(list(instruments))),)
 
     # wnfunc is for smoothing across bins
     wnfunc = self.gw
     if wnfunc: wnfunc /= wnfunc[(wnfunc.shape[0]-1) / 2, (wnfunc.shape[1]-1) / 2]
 
-    livetime = self.livetime[instruments]
     if not bootnum: bootnum = self.bootnum
-
-    # mass bins for which to compute the search volume
-    twodbin = self.m1m2_mass_bins
 
     # If the loudest event has 0-FAR, then there is no volume above that event.
     # We return zeros for the volume arrays.
     if FAR == 0:
-      return rate.BinnedArray(self.m1m2_mass_bins),rate.BinnedArray(self.m1m2_mass_bins)
+      return rate.BinnedArray(mass_bins),rate.BinnedArray(mass_bins)
 
     # set up an empty ratio array for each distance bin
     z = int(self.opts.dist_bins)
-    rArrays = [rate.BinnedRatios(twodbin) for k in range(z)]
+    rArrays = [rate.BinnedRatios(mass_bins) for k in range(z)]
 
     # the search volume arrays are obtained by summing some function of
     # the binned arrays in rArrays over distance
-    volArray=rate.BinnedArray(twodbin)
-    volArray2=rate.BinnedArray(twodbin)
+    volArray=rate.BinnedArray(mass_bins)
+    volArray2=rate.BinnedArray(mass_bins)
 
-    #
     # Bootstrap to account for errors.
     #
     # In bootstrapping, we draw a new population of found (missed) injections
@@ -509,75 +507,40 @@ class upper_limit(object):
     # scrambled population to recompute the search volume. This technique gives
     # a sense of how sensitive the calculation is to the particular set of data
     # we happened to acquire.
-    #
     for n in range(bootnum):
-      #
-      # In each iteration, we will compute volArray and volArray2 by summing
-      # some function of rArrays[k] over the distance index k.
-      #
 
       # Initialize this sum by setting the binned arrays in rArrays to zero
       for k in range(z):
         rArrays[k].numerator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
         rArrays[k].denominator.array = numpy.zeros(rArrays[k].numerator.bins.shape)
 
-      # first time through, use the observed found/missed populations
-      if bootnum == 1:
-        sm, sf = missed, found
+      if bootnum == 1: # first time through, use the observed found/missed populations
+        new_missed, new_found = missed, found
         f_dist = numpy.array([l.distance for l in found])
         m_dist = numpy.array([l.distance for l in missed])
-      # after the first time, resample the found/missed populations (bootstrapping)
-      else:
+        if verbose:
+          print >>sys.stdout, "\tcomputing observed volume for actual injection population: found = %d, missed = %d" % (len(found), len(missed))
+
+      else: # after the first time, resample the found/missed populations (bootstrapping)
         # resample found/missed
-        sm, sf = self._scramble_pop(missed, found)
+        new_missed, new_found = self._scramble_pop(missed, found)
 
 	# randomly adjust injection distance to account for uncertainty in distance
         # I make a separate array of distances to speed up this calculation
-        f_dist = self._scramble_dist(sf, self.opts.dist_err, self.opts.dist_sys_err)
-        m_dist = self._scramble_dist(sm, self.opts.dist_err, self.opts.dist_sys_err)
+        f_dist = self._scramble_dist(new_found, self.opts.dist_err, self.opts.dist_sys_err)
+        m_dist = self._scramble_dist(new_missed, self.opts.dist_err, self.opts.dist_sys_err)
 
       # compute the distance bins
       if not dbin_in:
         dbin = rate.LogarithmicBins(min(f_dist),max(f_dist), z)
       else: dbin = dbin_in
 
-      # get rid of all missed injections outside the distance bins
-      # to prevent binning errors
-      f_m1 = numpy.array([l.mass1 for l in  sf])
-      f_m2 = numpy.array([l.mass2 for l in  sf])
-      m_m1 = numpy.array([l.mass1 for l in  sm])
-      m_m2 = numpy.array([l.mass2 for l in  sm])
-
-      m_m1, m_m2, m_dist = self.cut_distance(m_m1, m_m2, m_dist, dbin)
-      f_m1, f_m2, f_dist = self.cut_distance(f_m1, f_m2, f_dist, dbin)
-
-      # for each found injection, find the m1-m2-d bin it corresponds to
-      # and increment the numerator there by one
-      for i, l in enumerate(f_dist):
-        tbin = rArrays[dbin[f_dist[i]]]
-        tbin.incnumerator( (f_m1[i], f_m2[i]) )
-
-      # check whether there are a sensible number of injections
-      # FIXME this check could be cleaner
-      if verbose and n == 0:
-        farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
-        for m1 in twodbin.centres()[0]:
-          for m2 in twodbin.centres()[1]:
-            if m1+m2<self.maxtotal and m1+m2>self.mintotal and m1<=m2 and farray[twodbin[(m1,m2)]] < 100:
-               print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f-%.1f mass bin above FAR=%g over all injected distances."  % (farray[twodbin[(m1,m2)]],''.join(sorted(list(instruments))),m1,m2,FAR)
-               print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
-
-
-      # for each found injection, find the m1-m2-d bin it corresponds to
-      # and increment the denominator there by one
-      for i, l in enumerate(m_dist):
-        tbin = rArrays[dbin[m_dist[i]]]
-        tbin.incdenominator( (m_m1[i], m_m2[i]) )
+      # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
+      rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=n)
 
       # the ratio of the numerator to the (numerator+denominator) is equal
       # to the efficiency at that m1-m2-d bin
-
-      tmpArray2=rate.BinnedArray(twodbin) #start with a zero array to compute the mean square
+      tmpArray2=rate.BinnedArray(mass_bins) #start with a zero array to compute the mean square
       for k in range(z):
         tbins = rArrays[k]
         tbins.denominator.array += tbins.numerator.array
@@ -597,15 +560,51 @@ class upper_limit(object):
       tmpArray2.array *= tmpArray2.array
       volArray2.array += tmpArray2.array
 
-    if self.opts.verbose:
-      print >>sys.stdout, ""
     #Mean and variance
     volArray.array /= bootnum
     volArray2.array /= bootnum
     volArray2.array -= volArray.array**2 # Variance
-    volArray.array *= livetime
-    volArray2.array *= livetime*livetime # this gets two powers of live time
+    volArray.array *= self.livetime[instruments]
+    volArray2.array *= self.livetime[instruments]**2
     return volArray, volArray2
+
+
+  def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
+
+    f_m1 = numpy.array([l.mass1 for l in  found])
+    f_m2 = numpy.array([l.mass2 for l in  found])
+    m_m1 = numpy.array([l.mass1 for l in  missed])
+    m_m2 = numpy.array([l.mass2 for l in  missed])
+
+    # get rid of all missed injections outside the distance bins
+    # to prevent binning errors
+    m_m1, m_m2, missed_dist = self.cut_distance(m_m1, m_m2, missed_dist, dbin)
+    f_m1, f_m2, found_dist = self.cut_distance(f_m1, f_m2, found_dist, dbin)
+
+    # for each found injection, find the m1-m2-d bin it corresponds to
+    # and increment the numerator there by one
+    for i, l in enumerate(found_dist):
+      tbin = rArrays[dbin[found_dist[i]]]
+      tbin.incnumerator( (f_m1[i], f_m2[i]) )
+
+    # check whether there are a sensible number of injections
+    # FIXME this check could be cleaner
+    if not quiet:
+      mass_bins = self.m1m2_mass_bins
+      farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
+      for m1 in mass_bins.centres()[0]:
+        for m2 in mass_bins.centres()[1]:
+          if m1+m2<self.maxtotal and m1+m2>self.mintotal and m1<=m2 and farray[mass_bins[(m1,m2)]] < 100:
+            print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f-%.1f mass bin over all injected distances."  % (farray[mass_bins[(m1,m2)]],''.join(sorted(list(instruments))),m1,m2)
+            print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
+
+    # for each found injection, find the m1-m2-d bin it corresponds to
+    # and increment the denominator there by one
+    for i, l in enumerate(missed_dist):
+      tbin = rArrays[dbin[missed_dist[i]]]
+      tbin.incdenominator( (m_m1[i], m_m2[i]) )
+
+    return rArrays
 
 
   def cut_distance(self, m1, m2, d, dbin):
@@ -668,17 +667,13 @@ cache_list = []
 for instruments in UL.set_instruments_to_calculate():
 
   #compute volume derivitive
-  if opts.verbose:
-    print >>sys.stdout, "Calculating volume derivative at FAR %g for %s" % (UL.far[instruments],",".join(sorted(list(instruments))),)
-  dvA = UL.get_volume_derivative(instruments)
+  dvA = UL.get_volume_derivative(instruments,UL.m1m2_mass_bins)
 
   #compute volume first and second moments
-  if opts.verbose:
-    print >>sys.stdout, "Calculating search volume above FAR %g for %s" % (UL.far[instruments],",".join(sorted(list(instruments))),)
-  vA, vA2 = UL.twoD_SearchVolume(instruments,verbose=True)
+  vA, vA2 = UL.twoD_SearchVolume(instruments,UL.m1m2_mass_bins,verbose=True)
 
   # get an array of livetimes for convenience
-  ltA = UL.live_time_array(instruments)
+  ltA = UL.live_time_array(instruments,UL.m1m2_mass_bins)
 
   # FIXME convert to years (use some lal or pylal thing in the future)
   vA.array /= secs_in_year
