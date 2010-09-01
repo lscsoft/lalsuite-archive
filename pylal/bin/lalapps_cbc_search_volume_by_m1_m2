@@ -38,6 +38,15 @@ __date__ = git_version.date
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
+def total_mass(m1,m2):
+  return numpy.array(m1)+numpy.array(m2)
+
+def chirp_mass(m1,m2):
+  m1 = numpy.array(m1)
+  m2 = numpy.array(m2)
+  mu = (m1*m2)/(m1+m2)
+  mtotal = m1+m2
+  return mu**(3./5) *mtotal**(2./5)
 
 class upper_limit(object):
   """
@@ -70,12 +79,14 @@ class upper_limit(object):
     self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
     self.get_total_mass_bins(connection)  #determine the total mass ranges and binning for this calculation
     self.get_m1m2_mass_bins(connection)   #determine the component mass ranges and binning for this calculation
+    self.get_chirp_mass_bins()            #determine the chirp mass ranges and binning for this calculation
     self.get_far_thresholds(connection)   #determine FAR to use for computing search volume
     self.get_gps_times_duration(connection)
 
     # these are the supported mass binning types
     self.mass_bins = {"M1M2":self.m1m2_mass_bins,
-                      "MTOTAL":self.total_mass_bins}
+                      "MTOTAL":self.total_mass_bins,
+                      "MCHIRP":self.chirp_mass_bins}
 
     # close db connection
     connection.commit()
@@ -222,6 +233,19 @@ class upper_limit(object):
     self.m1m2_mass_bins = rate.NDBins( (mass1Bin,mass2Bin) )
 
     return self.m1m2_mass_bins
+
+
+  def get_chirp_mass_bins(self):
+    min_mchirp = numpy.min(chirp_mass(self.minmass,self.minmass))
+    max_mchirp = numpy.max(chirp_mass(self.maxtotal/2,self.maxtotal/2))
+
+    if self.opts.verbose:
+       print >>sys.stdout,"\tminimum chirp mass: %g solar masses" % min_mchirp
+       print >>sys.stdout,"\tmaximum chirp mass: %g solar masses" % max_mchirp
+
+    self.chirp_mass_bins = rate.NDBins((rate.LinearBins(min_mchirp,max_mchirp,self.opts.mass_bins),))
+
+    return self.chirp_mass_bins
 
 
   def get_far_thresholds(self, connection):
@@ -541,12 +565,30 @@ class upper_limit(object):
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
       if bin_type == "M1M2":
-        rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial or not verbose)
+        rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin)
       if bin_type == "MTOTAL":
-        rArrays = self.sort_into_mtotal_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial or not verbose)
+        rArrays = self.sort_into_1D_mass_bins(rArrays,total_mass,new_found,f_dist,new_missed,m_dist,dbin)
       if bin_type == "MCHIRP":
-        rArrays = self.sort_into_mchirp_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial or not verbose)
+        rArrays = self.sort_into_1D_mass_bins(rArrays,chirp_mass,new_found,f_dist,new_missed,m_dist,dbin)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
+
+      # check whether there are a sensible number of injections
+      # FIXME this check could be cleaner
+      if verbose and trial == 0:
+        dim = len(mass_bins.shape)
+        farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
+        if dim == 1:
+          for m in mass_bins.centres()[0]:
+            if farray[mass_bins[(m,)]] < 100:
+              print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f mass bin over all injected distances."  % (farray[mass_bins[(m,)]],''.join(sorted(list(instruments))),m)
+              print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
+        if dim == 2:
+          for m1 in mass_bins.centres()[0]:
+            for m2 in mass_bins.centres()[1]:
+              if m1+m2<self.maxtotal and m1+m2>self.mintotal and m1<=m2 and farray[mass_bins[(m1,m2)]] < 100:
+                print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f-%.1f mass bin over all injected distances."  % (farray[mass_bins[(m1,m2)]],''.join(sorted(list(instruments))),m1,m2)
+                print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
+
 
       if trial == 0: # store injection summary for actually observed injection results
         fm_array.numerator.array = numpy.sum(rArrays[k].numerator.array for k in range(self.opts.dist_bins))
@@ -579,7 +621,6 @@ class upper_limit(object):
     if verbose:
       mean_range = (3./(4*numpy.pi) *volArray.array)**(1./3)
       error_range = (3./(4*numpy.pi)*volArray2.array**0.5)**(1./3)
-      dim = len(mass_bins.shape)
       if dim == 1:
         for m in mass_bins.centres()[0]:
           print >>sys.stdout,"\t\trange in bin centered on %g Msun: %g pm %g Mpc" % (m, mean_range[mass_bins[(m,)]],error_range[mass_bins[(m,)]])
@@ -595,7 +636,7 @@ class upper_limit(object):
     return volArray, volArray2, fm_array
 
 
-  def sort_into_mtotal_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
+  def sort_into_1D_mass_bins(self,rArrays,param_convert,found,found_dist,missed,missed_dist,dbin,quiet=True):
 
     f_m1 = numpy.array([l.mass1 for l in  found])
     f_m2 = numpy.array([l.mass2 for l in  found])
@@ -607,36 +648,22 @@ class upper_limit(object):
     m_m1, m_m2, missed_dist = self.cut_distance(m_m1, m_m2, missed_dist, dbin)
     f_m1, f_m2, found_dist = self.cut_distance(f_m1, f_m2, found_dist, dbin)
 
-    f_mtotal = numpy.array(f_m1)+numpy.array(f_m2)
-    m_mtotal = numpy.array(m_m1)+numpy.array(m_m2)
+    f_mparam = param_convert(f_m1,f_m2)
+    m_mparam = param_convert(m_m1,m_m2)
 
     # for each found injection, find the m1-m2-d bin it corresponds to
     # and increment the numerator there by one
     for i, l in enumerate(found_dist):
       tbin = rArrays[dbin[found_dist[i]]]
-      tbin.incnumerator( (f_mtotal[i],) )
-
-    # check whether there are a sensible number of injections
-    # FIXME this check could be cleaner
-    if not quiet:
-      mass_bins = self.total_mass_bins
-      farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
-      for m in mass_bins.centres()[0]:
-        if farray[mass_bins[(m,)]] < 100:
-            print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f total mass bin over all injected distances."  % (farray[mass_bins[(m,)]],''.join(sorted(list(instruments))),m)
-            print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
+      tbin.incnumerator( (f_mparam[i],) )
 
     # for each found injection, find the m-d bin it corresponds to
     # and increment the denominator there by one
     for i, l in enumerate(missed_dist):
       tbin = rArrays[dbin[missed_dist[i]]]
-      tbin.incdenominator( (m_mtotal[i],) )
+      tbin.incdenominator( (m_mparam[i],) )
 
     return rArrays
-
-
-  def sort_into_mchirp_bins(self,rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=True):
-    raise NotImplementedError
 
 
   def sort_into_m1m2_bins(self,rArrays,found,found_dist,missed,missed_dist,dbin,quiet=True):
@@ -660,17 +687,6 @@ class upper_limit(object):
       else:
         tbin.incnumerator( (f_m2[i], f_m1[i]) )
 
-    # check whether there are a sensible number of injections
-    # FIXME this check could be cleaner
-    if not quiet:
-      mass_bins = self.m1m2_mass_bins
-      farray = sum(rArrays[i].numerator.array for i in range(len(rArrays)))
-      for m1 in mass_bins.centres()[0]:
-        for m2 in mass_bins.centres()[1]:
-          if m1+m2<self.maxtotal and m1+m2>self.mintotal and m1<=m2 and farray[mass_bins[(m1,m2)]] < 100:
-            print >>sys.stderr, "WARNING: Only %d injections were found in %s time in the %.1f-%.1f mass bin over all injected distances."  % (farray[mass_bins[(m1,m2)]],''.join(sorted(list(instruments))),m1,m2)
-            print >>sys.stderr, "In order to obtain an accurate upper limit, you should run with more injections."
-
     # for each found injection, find the m1-m2-d bin it corresponds to
     # and increment the denominator there by one
     for i, l in enumerate(missed_dist):
@@ -688,6 +704,12 @@ class upper_limit(object):
     mxd = max(dbin.upper())
     indexes = numpy.logical_and(d <= mxd, d >= mnd)
     return m1[indexes], m2[indexes], d[indexes]
+
+
+  def distance_from_4volume(self,vA,instruments):
+    distance = rate.BinnedArray(vA.bins)
+    distance.array = (vA.array / self.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
+    return distance
 
 
 def parse_command_line():
@@ -744,31 +766,33 @@ for instruments in UL.set_instruments_to_calculate():
 
   for bin_type in UL.mass_bins:
 
+    # put these calculation into a unique ligolw element
+    #child = child.appendChild(ligolw.LIGO_LW())
+
     #compute volume derivitive
     dvA = UL.get_volume_derivative(instruments,bin_type)
 
     #compute volume first and second moments
     vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=True)
 
+    # convert to distance
+    distance = UL.distance_from_4volume(vA,instruments)
+
     # FIXME convert to years (use some lal or pylal thing in the future)
     vA.array /= secs_in_year
     vA2.array /= secs_in_year * secs_in_year #two powers for this squared quantity
+
+    # make a live time table
+    ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
 
     #write out the results to the xml file
     child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeFirstMoment"+bin_type))
     child.appendChild(rate.binned_array_to_xml(vA2, "SearchvolumeSecondMoment"+bin_type))
     child.appendChild(rate.binned_array_to_xml(dvA, "SearchvolumeDerivative"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeDistance"+bin_type))
     child.appendChild(rate.binned_array_to_xml(fm.numerator, "SearchvolumeFoundInjections"+bin_type))
     child.appendChild(rate.binned_array_to_xml(fm.denominator, "SearchvolumeMissedInjections"+bin_type))
-
-    # DONE with vA, so it is okay to mess it up...
-    # Compute range
-    vA.array = (vA.array * secs_in_year / UL.livetime[instruments] / (4.0/3.0 * pi)) **(1.0/3.0)
-    child.appendChild(rate.binned_array_to_xml(vA, "SearchvolumeDistance"+bin_type))
-
-    # make a live time table
-    ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
-    xmldoc.childNodes[-1].appendChild(rate.binned_array_to_xml(ltA, "SearchvolumeLiveTime"+bin_type))
+    child.appendChild(rate.binned_array_to_xml(ltA, "SearchvolumeLiveTime"+bin_type)) #FIXME do we still need this?
 
   output_filename = "%s-SEARCH_VOLUME-%s.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag)
 
