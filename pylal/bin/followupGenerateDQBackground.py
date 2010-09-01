@@ -104,7 +104,7 @@ epoch. Be Warned! Some combinations may be nonsense.\n")
             else:
                 sys.stdout.write(
                     "%s:%s found at %s\n"\
-                    %(j,myEpoch))
+                    %(j,myEpoch,myPickle))
     #Ifo doubles
     sys.stdout.write("Doubles\n")
     doubleList=list()

@@ -75,15 +75,13 @@ def MultiIter(*sequences):
 	runs approximately 5 times faster if the lengths list is reversed.
 	"""
 	if len(sequences) > 1:
-		# FIXME:  experiment with a generator expression in Python
-		# >= 2.5
 		# FIXME:  this loop is about 5% faster if done the other
 		# way around, if the last list is iterated over in the
 		# inner loop.  but there is code, like snglcoinc.py in
 		# pylal, that has been optimized for the current order and
 		# would need to be reoptimized if this function were to be
 		# reversed.
-		head = tuple([(x,) for x in sequences[0]])
+		head = tuple((x,) for x in sequences[0])
 		for t in MultiIter(*sequences[1:]):
 			for h in head:
 				yield h + t
@@ -305,16 +303,16 @@ class Highest(list):
 	Python list, but one that stores only some fraction of all items
 	that have been added to it.  The list is always sorted in
 	decreasing order, so the 0th element is the highest-valued item
-	added to the list and so on.
+	added to the list.
 
-	To function correctly the list must remain sorted, so the insert()
-	and __setitem__() methods are disabled.  Only the append() and
-	extend() methods can be used to add elements to the list.  The
-	__len__() method returns the total number of items that have been
-	added to the list ever, not the number that are actually stored in
-	it at any given time.  To retrieve the number of items actually
-	stored in memory, use the list class' __len__() method.  See the
-	example below.
+	For this class to function correctly the list must remain sorted,
+	so the insert() and __setitem__() methods are disabled.  Only the
+	append() and extend() methods can be used to add elements to the
+	list.  The __len__() method returns the total number of items that
+	have been added to the list ever, not the number that are actually
+	stored in it at any given time.  To retrieve the number of items
+	actually stored in memory, use the list class' __len__() method.
+	See the example below.
 
 	Example:
 
@@ -341,6 +339,8 @@ class Highest(list):
 		return self.n
 
 	def append(self, value):
+		# can't use bisect module because list is sorted in reverse
+		# order
 		hi = list.__len__(self)
 		lo = 0
 		while lo < hi:
@@ -354,6 +354,8 @@ class Highest(list):
 		del self[self.max:]
 
 	def extend(self, sequence):
+		# n is updated in a way that allows sequence to be a
+		# generator or other object without a __len__() method
 		before = list.__len__(self)
 		list.extend(self, sequence)
 		self.n += list.__len__(self) - before
