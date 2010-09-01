@@ -324,7 +324,7 @@ class upper_limit(object):
       if dim == 2:
         for m1 in mass_bins.centres()[0]:
           for m2 in mass_bins.centres()[1]:
-            if m1<=m2:
+            if m1<=m2 and m1+m2<self.maxtotal and m1+m2>self.mintotal:
               print >>sys.stdout,"\t\tvolume derivative in bin centered on %g-%g Msun: %g (units?)" % (m1,m2,volDeriv[(m1,m2)])
 
     return volDeriv
@@ -541,11 +541,11 @@ class upper_limit(object):
 
       # THIS IS WHERE THE CODE STARTS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
       if bin_type == "M1M2":
-        rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
+        rArrays = self.sort_into_m1m2_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial or not verbose)
       if bin_type == "MTOTAL":
-        rArrays = self.sort_into_mtotal_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
+        rArrays = self.sort_into_mtotal_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial or not verbose)
       if bin_type == "MCHIRP":
-        rArrays = self.sort_into_mchirp_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial)
+        rArrays = self.sort_into_mchirp_bins(rArrays,new_found,f_dist,new_missed,m_dist,dbin,quiet=trial or not verbose)
       # THIS IS WHERE THE CODE STOPS CARING ABOUT WHAT PARAMETERS WE ARE BINNING OVER
 
       if trial == 0: # store injection summary for actually observed injection results
@@ -577,17 +577,17 @@ class upper_limit(object):
     volArray2.array -= volArray.array**2 # Variance
 
     if verbose:
-      mean_range = (3./(4*numpy.pi))*volArray.array**(1./3)
-      error_range = (3./(4*numpy.pi))*volArray2.array**(1./3)
+      mean_range = (3./(4*numpy.pi) *volArray.array)**(1./3)
+      error_range = (3./(4*numpy.pi)*volArray2.array**0.5)**(1./3)
       dim = len(mass_bins.shape)
       if dim == 1:
         for m in mass_bins.centres()[0]:
-          print >>sys.stdout,"\t\trange in bin centered on %g Msun: %g pm %g Mpc" % (m, mean_range[mass_bins[(m,)]],numpy.sqrt(error_range[mass_bins[(m,)]]))
+          print >>sys.stdout,"\t\trange in bin centered on %g Msun: %g pm %g Mpc" % (m, mean_range[mass_bins[(m,)]],error_range[mass_bins[(m,)]])
       if dim == 2:
         for m1 in mass_bins.centres()[0]:
           for m2 in mass_bins.centres()[1]:
-            if m1<=m2:
-              print >>sys.stdout,"\t\trange in bin centered on %g-%g Msun: %g pm %g Mpc" % (m1,m2, mean_range[mass_bins[(m1,m2)]],numpy.sqrt(error_range[mass_bins[(m1,m2)]]))
+            if m1<=m2 and self.mintotal < m1+m2 and m1+m2 < self.maxtotal:
+              print >>sys.stdout,"\t\trange in bin centered on %g-%g Msun: %g pm %g Mpc" % (m1,m2, mean_range[mass_bins[(m1,m2)]],error_range[mass_bins[(m1,m2)]])
 
     volArray.array *= self.livetime[instruments]
     volArray2.array *= self.livetime[instruments]**2
