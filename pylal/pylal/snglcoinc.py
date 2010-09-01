@@ -58,12 +58,6 @@ __date__ = git_version.date
 #
 
 
-def offset_vector_str(offset_vector, compact = False):
-	if compact:
-		return ",".join(("%s=%g" % x) for x in sorted(offset_vector.items()))
-	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
-
-
 class TimeSlideGraphNode(object):
 	def __init__(self, offset_vector, time_slide_id = None):
 		self.time_slide_id = time_slide_id
@@ -81,7 +75,7 @@ class TimeSlideGraphNode(object):
 
 		if self.coincs is not None:
 			if verbose:
-				print >>sys.stderr, "\treusing %s" % offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\treusing %s" % ligolw_tisi.offset_vector_str(self.offset_vector)
 			return self.coincs
 
 		#
@@ -90,11 +84,12 @@ class TimeSlideGraphNode(object):
 
 		if self.components is None:
 			if verbose:
-				print >>sys.stderr, "\tconstructing %s ..." % offset_vector_str(self.offset_vector)
+				print >>sys.stderr, "\tconstructing %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
 			#
 			# can we do it?
 			#
 
+			assert len(self.offset_vector) == 2
 			avail_instruments = set(eventlists)
 			offset_instruments = set(self.offset_vector)
 			if not offset_instruments.issubset(avail_instruments):
@@ -134,7 +129,7 @@ class TimeSlideGraphNode(object):
 
 		if len(self.components) == 1:
 			if verbose:
-				print >>sys.stderr, "\tgetting coincs from %s ..." % offset_vector_str(self.components[0].offset_vector)
+				print >>sys.stderr, "\tgetting coincs from %s ..." % ligolw_tisi.offset_vector_str(self.components[0].offset_vector)
 			self.coincs = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose)
 			self.unused_coincs = self.components[0].unused_coincs
 
@@ -158,35 +153,92 @@ class TimeSlideGraphNode(object):
 		#
 
 		self.coincs = []
+
+		# all coincs with n-1 instruments from the component time
+		# slides are potentially unused.  they all go in, we'll
+		# remove things from this set as we use them
+		# NOTE:  this function call is the recursion into the
+		# components to ensure they are initialized, it must be
+		# executed before any of what follows
 		for component in self.components:
 			self.unused_coincs |= set(component.get_coincs(eventlists, event_comparefunc, thresholds, verbose = verbose))
+		# of the (< n-1)-instrument coincs that were not used in
+		# forming the (n-1)-instrument coincs, any that remained
+		# unused after forming two compontents cannot have been
+		# used by any other components, they definitely won't be
+		# used to construct our n-instrument coincs, and so they go
+		# into our unused pile
 		for componenta, componentb in iterutils.choices(self.components, 2):
 			self.unused_coincs |= componenta.unused_coincs & componentb.unused_coincs
 
 		if verbose:
-			print >>sys.stderr, "\tassembling %s ..." % offset_vector_str(self.offset_vector)
+			print >>sys.stderr, "\tassembling %s ..." % ligolw_tisi.offset_vector_str(self.offset_vector)
+		# magic:  we can form all n-instrument coincs by knowing
+		# just three sets of the (n-1)-instrument coincs no matter
+		# what n is (n > 2).  note that we pass verbose=False
+		# because we've already called the .get_coincs() methods
+		# above
 		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
+		# for each coinc in list 0
 		length = len(allcoincs0)
 		for n, coinc0 in enumerate(allcoincs0):
 			if verbose and not (n % 200):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+			# find all the coincs in list 1 whose first (n-2)
+			# event IDs are the same as the first (n-2) event
+			# IDs in coinc0.  note that they are guaranteed to
+			# be arranged together in the list of coincs and
+			# can be identified with two bisection searches
+			# note:  cannot use bisect_right() because we're
+			# only comparing against the first (n-2) of (n-1)
+			# things in each tuple, we need to use bisect_left
+			# after incrementing the last of the (n-2) things
+			# by one to obtain the correct range of indexes
 			coincs1 = allcoincs1[bisect.bisect_left(allcoincs1, coinc0[:-1]):bisect.bisect_left(allcoincs1, coinc0[:-2] + (coinc0[-2] + 1,))]
+			# find all the coincs in list 2 whose first (n-2)
+			# event IDs are the same as the last (n-2) event
+			# IDs in coinc0.  note that they are guaranteed to
+			# be arranged together in the list and can be
+			# identified with two bisection searches
 			coincs2 = allcoincs2[bisect.bisect_left(allcoincs2, coinc0[1:]):bisect.bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
+			# for each coinc in list 1 identified above search
+			# for a coinc in list 2 whose first (n-2) event IDs
+			# are the last (n-2) event IDs in coinc 0 and whose
+			# last event ID is the last event ID in coinc 1.
+			# when found, the first ID from coinc 0 prepended
+			# to the (n-1) coinc IDs from coinc 2 forms an
+			# n-instrument coinc.  coinc 0 and coinc 1, both
+			# (n-1)-instrument coincs, together identify a
+			# unique potential n-instrument coinc.  coinc 2's
+			# role is to confirm the coincidence by showing
+			# that the event from the instrument in coinc 1
+			# that isn't found in coinc 0 is coincident with
+			# all the other events that are in coinc 1 (if it
+			# is, that combination of event IDs must be found
+			# in the coincs2 list)
 			for coinc1 in coincs1:
 				i = bisect.bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
 				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
 					new_coinc = coinc0[:1] + coincs2[i]
+					# break the new coinc into
+					# (n-1)-instrument components and
+					# remove them from the unused list
+					# because we just used them, then
+					# record the coinc and move on
 					self.unused_coincs -= set(iterutils.choices(new_coinc, len(new_coinc) - 1))
 					self.coincs.append(new_coinc)
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
+		# sort the coincs we just constructed by the component
+		# event IDs and convert to a tuple for speed
 		self.coincs.sort()
 		self.coincs = tuple(self.coincs)
 
 		#
-		# done.  unlink the graph as we go to release memory
+		# done.  we won't be back here again so unlink the graph as
+		# we go to release memory
 		#
 
 		self.components = None
@@ -217,9 +269,23 @@ class TimeSlideGraph(object):
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
 		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
+			#
+			# collect all offset vectors of length n that we
+			# need to be able to construct
+			#
+
 			offset_vectors = [node.offset_vector for node in self.head if len(node.offset_vector) == n]
 			if n in self.generations:
 				offset_vectors += [node.offset_vector for node in self.generations[n]]
+
+			#
+			# determine the smallest set of offset vectors of
+			# length n-1 required to construct the length-n
+			# offset vectors, build a graph node for each of
+			# the vectors of length n-1, and record the nodes
+			# as the n-1'st generation
+			#
+
 			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, n - 1))
 
 		#
@@ -231,13 +297,27 @@ class TimeSlideGraph(object):
 		#
 
 		for node in self.head:
-			node.components = tuple(sorted((component for component in self.generations[len(node.offset_vector)] if node.deltas == component.deltas), lambda a, b: cmp(sorted(a.offset_vector), sorted(b.offset_vector))))
+			#
+			# the offset vector of a head node should be found
+			# directly in its generation, and it must be unique
+			# or there's a bug above.  despite this, we still
+			# go to the trouble of sorting to make it easy to
+			# keep this code in sync with the code for other
+			# graph nodes below, but the assert makes sure the
+			# result contains just one entry
+			#
+
+			node.components = tuple(sorted((component for component in self.generations[len(node.offset_vector)] if node.deltas == component.deltas), key = lambda x: sorted(x.offset_vector)))
+			assert len(node.components) == 1
+
 		for n, nodes in self.generations.items():
-			if n <= 2:
+			assert n >= 2	# failure indicates bug in code that constructed generations
+			if n == 2:
+				# leaf nodes have no components
 				continue
 			for node in nodes:
 				component_deltas = set(frozenset(ligolw_tisi.offset_vector_to_deltas(offset_vector).items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
-				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), lambda a, b: cmp(sorted(a.offset_vector), sorted(b.offset_vector))))
+				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), key = lambda x: sorted(x.offset_vector)))
 
 		#
 		# done
@@ -258,16 +338,16 @@ class TimeSlideGraph(object):
 		print >>fileobj, "digraph \"Time Slides\" {"
 		for nodes in self.generations.values():
 			for node in nodes:
-				node_name = offset_vector_str(node.offset_vector, compact = True)
+				node_name = ligolw_tisi.offset_vector_str(node.offset_vector, compact = True)
 				print >>fileobj, "\t\"%s\" [shape=box];" % node_name
 				if node.components is not None:
 					for component in node.components:
-						print >>fileobj, "\t\"%s\" -> \"%s\";" % (offset_vector_str(component.offset_vector, compact = True), node_name)
+						print >>fileobj, "\t\"%s\" -> \"%s\";" % (ligolw_tisi.offset_vector_str(component.offset_vector, compact = True), node_name)
 		for node in self.head:
-			node_name = offset_vector_str(node.offset_vector, compact = True)
+			node_name = ligolw_tisi.offset_vector_str(node.offset_vector, compact = True)
 			print >>fileobj, "\t\"%s\" [shape=ellipse];" % node_name
 			for component in node.components:
-				print >>fileobj, "\t\"%s\" -> \"%s\";" % (offset_vector_str(component.offset_vector, compact = True), node_name)
+				print >>fileobj, "\t\"%s\" -> \"%s\";" % (ligolw_tisi.offset_vector_str(component.offset_vector, compact = True), node_name)
 		print >>fileobj, "}"
 
 
@@ -650,7 +730,7 @@ def get_doubles(eventlists, comparefunc, instruments, thresholds, verbose = Fals
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
 
 		# iterate over events from the other list that are
-		# coincident with the event.
+		# coincident with the event, and return the pairs
 
 		for eventb in eventlistb.get_coincs(eventa, eventlista.offset, light_travel_time, thresholds, comparefunc):
 			yield (eventa, eventb)
