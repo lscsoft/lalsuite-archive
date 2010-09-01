@@ -1385,8 +1385,7 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		if cp.has_option('findVetoes','background-location'):			
 			self.add_var_opt("background-location",cp.get('findVetoes','background-location'))
 		if cp.has_option('findVetoes','blind'):
-			self.add_var_opt("findVetoes",cp.get('findVetoes','blind'))
-
+			self.add_var_opt("blind",cp.get('findVetoes','blind'))
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
 		#IFO arg string
