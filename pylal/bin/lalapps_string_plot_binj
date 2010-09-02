@@ -71,7 +71,7 @@ def parse_command_line():
 	)
 	parser.add_option("--made-only", action = "store_true", default = False, help = "Plot only injections that were made.")
 	parser.add_option("-b", "--base", metavar = "base", default = "string_plotbinj_", help = "Set the prefix for output filenames (default = \"string_plotbinj_\").")
-	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\").")
+	parser.add_option("-f", "--format", metavar = "format", action = "append", default = [], help = "Set the output image format (default = \"png\").  Option can be given multiple times to generate plots in multiple formats.")
 	parser.add_option("--amplitude-func", metavar = "det|wave", default = "det", help = "Select the amplitude to show on the plots.  \"det\" = the amplitude expected in the detector, \"wave\" = the amplitude of the wave (default = \"det\").")
 	parser.add_option("--input-cache", metavar = "filename", action = "append", default = [], help = "Get list of files from this LAL cache.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name of the program, as it appears in the process table, whose search summary entries define the search live time (default = \"StringSearch\").")
@@ -89,6 +89,9 @@ def parse_command_line():
 		options.amplitude_lbl = r"$A^{\mathrm{det}}$"
 	else:
 		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
+
+	if not options.format:
+		options.format = ["png"]
 
 	if options.plot is None:
 		pass
@@ -121,9 +124,9 @@ def parse_command_line():
 #
 
 
-class FreqVsTime(SnglBurstUtils.BurstPlot):
+class FreqVsTime(object):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("GPS Time (s)", "Frequency (Hz)")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.num_injections = 0
@@ -183,9 +186,9 @@ FROM
 #
 
 
-class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
+class HrssVsFreqScatter(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", amplitude_lbl)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Frequency (Hz)", amplitude_lbl)
 		self.axes.loglog()
 		self.instrument = instrument
 		self.amplitude_func = amplitude_func
@@ -244,9 +247,9 @@ FROM
 #
 
 
-class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
+class TriggerCountHistogram(object):
 	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "Number of Triggers Coincident with Injection", "Count")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Number of Triggers Coincident with Injection", "Count")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.found = 0
@@ -280,9 +283,9 @@ WHERE
 #
 
 
-class RecoveredVsInjectedAmplitude(SnglBurstUtils.BurstPlot):
+class RecoveredVsInjectedAmplitude(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, "Injected %s" % amplitude_lbl, r"Recovered $A$")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Injected %s" % amplitude_lbl, r"Recovered $A$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -330,9 +333,9 @@ WHERE
 		self.axes.set_title(r"Recovered $A$ vs.\ Injected %s in %s (%d Recovered Injections)" % (self.amplitude_lbl, self.instrument, self.matches))
 
 
-class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
+class RecoveredPerInjectedhrssVsFreq(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected "+ amplitude_lbl)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{injected}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected "+ amplitude_lbl)
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -374,9 +377,9 @@ WHERE
 		self.axes.set_title(r"Ratio of Recovered $h_{\mathrm{rss}}$ to Injected " + self.amplitude_lbl + r" vs.\ Frequency (%d Events Matching Injections)" % self.matches)
 
 
-class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
+class RecoveredPerInjectedhrssVsBandwidth(object):
 	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected " + amplitude_lbl)
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected " + amplitude_lbl)
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -428,9 +431,9 @@ WHERE
 #
 
 
-class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
+class RecoveredTimeOffset(object):
 	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$t_{\mathrm{recovered}} - t_{\mathrm{injected}}$ (s)", "Triggers per Unit Offset")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$t_{\mathrm{recovered}} - t_{\mathrm{injected}}$ (s)", "Triggers per Unit Offset")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.found = 0
@@ -487,9 +490,9 @@ WHERE
 #
 
 
-class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
+class RecoveredFrequencyOffset(object):
 	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{recovered}} / f_{\mathrm{injected}}$", "Event Number Density")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{recovered}} / f_{\mathrm{injected}}$", "Event Number Density")
 		self.axes.loglog()
 		self.instrument = instrument
 		self.found = 0
@@ -562,9 +565,9 @@ WHERE
 #
 
 
-class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
+class RecoveredVsInjectedFreq(object):
 	def __init__(self, instrument, amplitude_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
@@ -610,9 +613,9 @@ WHERE
 		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
 
 
-class CoincRecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
+class CoincRecoveredVsInjectedFreq(object):
 	def __init__(self, instruments):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot(r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instruments = set(instruments)
@@ -729,7 +732,9 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp", verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp")
+	if options.verbose:
+		SnglBurstUtils.summarize_coinc_database(database)
 	if options.plot != []:
 		if database.coinc_table is not None:
 			#SimBurstUtils.create_sim_burst_best_string_sngl_map(connection, database.sb_definer_id)
@@ -791,7 +796,6 @@ for instrument in plots:
 	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(len(plots[instrument]) or 1)) + 1)
 	while len(plots[instrument]):
 		plot = plots[instrument].pop(0)
-		filename = format % (options.base, n, options.format)
 		if options.verbose:
 			print >>sys.stderr, "finishing %s plot %d ..." % (instrument, n)
 		try:
@@ -800,9 +804,11 @@ for instrument in plots:
 		except ValueError, e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, n, str(e))
 		else:
-			if options.verbose:
-				print >>sys.stderr, "writing %s ..." % filename
-			fig.savefig(filename)
+			for extension in options.format:
+				filename = format % (options.base, n, extension)
+				if options.verbose:
+					print >>sys.stderr, "writing %s ..." % filename
+				fig.savefig(filename)
 		n += 1
 
 

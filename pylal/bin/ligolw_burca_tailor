@@ -175,7 +175,9 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	database = SnglBurstUtils.CoincDatabase(connection, "lalapps_power", verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(connection, "lalapps_power")
+	if options.verbose:
+		SnglBurstUtils.summarize_coinc_database(database)
 	segs |= database.seglists
 
 	#

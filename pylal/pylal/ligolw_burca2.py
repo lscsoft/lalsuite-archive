@@ -183,9 +183,12 @@ class Likelihood(object):
 		self.P_gw = P
 
 	def P(self, params_func, events, offsetdict, *params_func_extra_args):
+		params = params_func(events, offsetdict, *params_func_extra_args)
+		if params is None:
+			return None, None
 		P_bak = 1.0
 		P_inj = 1.0
-		for name, value in sorted(params_func(events, offsetdict, *params_func_extra_args).items()):
+		for name, value in sorted(params.items()):
 			P_bak *= self.background_rates[name](*value)[0]
 			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj
@@ -202,6 +205,8 @@ class Likelihood(object):
 		used to time shift the events before comparison.
 		"""
 		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		if P_bak is None and P_inj is None:
+			return None
 		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
 
 
@@ -217,6 +222,8 @@ class Confidence(Likelihood):
 		that is a large positive number.
 		"""
 		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		if P_bak is None and P_inj is None:
+			return None
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
 
 
@@ -242,6 +249,8 @@ class LikelihoodRatio(Likelihood):
 		a prior probability to be provided.
 		"""
 		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		if P_bak is None and P_inj is None:
+			return None
 		if P_bak == 0.0 and P_inj == 0.0:
 			# this can happen.  "correct" answer is 0, not NaN,
 			# because if a tuple of events has been found in a
@@ -290,7 +299,7 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 	# Construct the in-SQL likelihood ratio function
 	#
 
-	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
+	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), vetoseglists = database.vetoseglists, offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
 		events = map(row_from_cols, cursor.execute("""
 SELECT
 	sngl_burst.*
@@ -303,7 +312,7 @@ FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 		""", (coinc_event_id,)))
-		return likelihood_ratio(params_func, [event for event in events if event.ifo not in database.vetoseglists or event.get_peak() not in database.vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args)
+		return likelihood_ratio(params_func, [event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args)
 
 	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 
