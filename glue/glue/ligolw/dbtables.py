@@ -225,10 +225,23 @@ def set_temp_store_directory(connection, temp_store_directory, verbose = False):
 class IOTrappedSignal(Exception):
 	"""
 	Raised by put_connection_filename() upon completion if it trapped a
-	signal during the operation
+	signal during the operation.  Example:
+
+	>>> try:
+	...	put_connection_filename(filename, working_filename, verbose = True)
+	... except IOTrappedSignal, e:
+	...	os.kill(os.getpid(), e.signum)
+	...
+
+	This example re-transmits the most-recently received signal back to
+	itself following completion of the function call, if a signal was
+	trapped while the function ran.
 	"""
 	def __init__(self, signum):
 		self.signum = signum
+
+	def __repr__(self):
+		return "IOTrappedSignal(%d)" % self.signum
 
 	def __str__(self):
 		return "trapped signal %d" % self.signum
@@ -274,7 +287,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# make the dummy file.  FIXME: this is stupid, find a
 		# better way to shut TemporaryFile up
 		try:
-			file(working_filename, "w")
+			file(working_filename, "w").close()
 		except:
 			pass
 		del temporary_files[working_filename]
@@ -284,8 +297,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		for sig, oldhandler in oldhandlers.iteritems():
 			signal.signal(sig, oldhandler)
 		if __llwapp_write_filename_got_sig:
-			raise
-			IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+			raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
