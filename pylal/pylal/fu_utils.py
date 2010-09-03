@@ -2314,7 +2314,7 @@ class followupDQV:
   background studies.
   Contact: Cristina Valeria Torres
   """
-  def __init__(self,LDBDServerURL=None,quiet=bool(False),pickle=None):
+  def __init__(self,LDBDServerURL=None,quiet=bool(False),pickle=None,blinded=False):
     """
     This class setups of for connecting to a LDBD server specified at
     command line to do segment queries as part of the follow up
@@ -2329,6 +2329,11 @@ class followupDQV:
     self.__connection__= None
     self.__engine__= None
     self.__installPath__=home_dir()+"/ctorres/followupbackgrounds/dq/"
+    self.__blinded__=blinded
+    self.__blindFlags__=[\
+      "DMT-INJECTION_INSPIRAL",
+      "DMT-INJECTION"\
+      ]
     if pickle==None:
       self.__backgroundPickle__=None
     else:
@@ -2360,7 +2365,7 @@ defaulting to %s\n"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
     self.resultList=list()
-    self.dqvQueryLatestVersion= """SELECT \
+    self.dqvQuery= """SELECT \
     segment_definer.ifos, \
     segment_definer.name, \
     segment_definer.version, \
@@ -2371,11 +2376,20 @@ defaulting to %s\n"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id \
     AND segment_definer.version = (SELECT MAX(x.version) \
-    FROM segment_definer AS x WHERE x.name = segment_definer.name ) \
+    FROM segment_definer AS x WHERE \
+    ( x.name = segment_definer.name AND \
+    x.ifos = segment_definer.ifos )) \
     AND segment.segment_def_cdb = segment_definer.creator_db \
     AND NOT (segment.start_time > %s OR %s > segment.end_time) \
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
     """
+    tmpBlind=""
+    for blindFlag in self.__blindFlags__:
+      tmpBlind+=""" AND NOT (segment_definer.name = '%s') """%blindFlag
+    self.dqvQueryBlinded=self.dqvQuery.split("ORDER")[0]+\
+                          tmpBlind+\
+                          " ORDER "+\
+                          self.dqvQuery.split("ORDER")[1]
   #End __init__()
 
 
@@ -2588,7 +2602,12 @@ defaulting to %s\n"%(self.serverURL))
       self.triggerTime = float(triggerTime)
     gpsEnd=int(triggerTime)+int(backWindow)
     gpsStart=int(triggerTime)-int(frontWindow)
-    sqlString=self.dqvQueryLatestVersion%(gpsEnd,gpsStart)      
+    #If this is a blinded check use blined query
+    if self.__blinded__:
+      pass
+      sqlString=self.dqvQueryBlinded%(gpsEnd,gpsStart)
+    else:
+      sqlString=self.dqvQuery%(gpsEnd,gpsStart)
     self.resultList=self.query(sqlString)
     if len(self.resultList) < 1:
       sys.stdout.write("Query Completed, Nothing Returned for time %s.\n"%(triggerTime))
@@ -2726,7 +2745,7 @@ permissions to create DQ background pickle file:%s.\n"%(autoPath))
     self.__connectToSegmentDB__()
     for myIfo,myTimes in self.__backgroundTimesDict__.iteritems():
       for myTime in myTimes:
-        myQuery=self.dqvQueryLatestVersion%(myTime,myTime)
+        myQuery=self.dqvQuery%(myTime,myTime)
         #Insert befor "ORDER BY"
         myQueryA,myQueryB=myQuery.split("ORDER BY",1)
         myQuery=myQueryA+\

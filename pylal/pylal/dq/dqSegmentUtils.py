@@ -178,8 +178,16 @@ def coinc_segments(start,end,ifos):
     triple_segments[triple] = segments[ifo_1] & segments[ifo_2] \
                                               & segments[ifo_3]
 
-  return segments,double_segments,triple_segments
+  for double in doubles:
+    for triple in triples:
+      double_segments[double] = double_segments[double]-triple_segments[triple]
 
+  if triples:
+    return segments,double_segments,triple_segments
+  if doubles:
+    return segments,double_segments
+  else:
+    return segments
 # =============================================================================
 # Function to calculate duty cycle and analysable time given segmentlist
 # =============================================================================

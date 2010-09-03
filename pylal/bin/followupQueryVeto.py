@@ -75,6 +75,10 @@ parser.add_option("-l","--background-location",action="store",\
                    default="",help="Specify the disk path to the \
 stored location of a static DQ background file.  This is epoch \
 specific.")
+parser.add_option("-B","--blind",action="store_true",\
+                  default=False,help="Set this flag so that your query \
+to the segment database is inspiral injection blinded.  i.e. Your \
+query will ignore know injection flags related to inspiral search.")
 
 ######################################################################
 
@@ -99,7 +103,7 @@ if len(opts.window.split(',')) == 2:
     frontWindow,backWindow=opts.window.split(',')
     if len(backWindow) == 0:
         backWindow=frontWindow
-x=followupDQV(server)
+x=followupDQV(server,blinded=opts.blind)
 x.fetchInformationDualWindow(triggerTime,frontWindow,backWindow,ifoList=ifos)
 if estimateBackground:
     if backgroundLocation == "automatic":

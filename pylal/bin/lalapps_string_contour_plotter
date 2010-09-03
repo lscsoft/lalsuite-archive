@@ -30,7 +30,6 @@
 #
 
 
-import math
 import matplotlib
 matplotlib.rcParams.update({
 	"font.size": 8.0,
@@ -55,20 +54,18 @@ import numpy
 from optparse import OptionParser
 import sys
 
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import git_version
-from pylal import inject
-from pylal import ligolw_burca_tailor
-from pylal import stringutils
+
+__author__ = "Andrew Mergl <>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 #import array
 
 def parse_command_line():
-#    parser = OptionParser(
-#        version = "Name: %%prog\n$s" % git_version.verbose_msg
-#        )
-    parser = OptionParser()
+    parser = OptionParser(
+        version = "Name: %%prog\n%s" % git_version.verbose_msg
+    )
     parser.add_option("-v", "--verbose", action = "store_true",
                       help = "Be verbose.")
     parser.add_option("-t", "--live-time", dest="livetime",

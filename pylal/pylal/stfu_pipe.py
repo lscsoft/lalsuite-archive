@@ -743,6 +743,23 @@ class mcmcJob(pipeline.CondorDAGJob, FUJob):
 		pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
 		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
 
+##############################################################################
+# jobs class for setting a the plotting of mcmc results
+
+class plotmcmcJob(pipeline.CondorDAGJob, FUJob):
+        """
+        A job to set up a plotmcmc run
+        """
+        def __init__(self,opts,cp,dir='',tag_base=''):
+                """
+                """
+                self.__executable = string.strip(cp.get('fu-condor','plotmcmc'))
+                self.name = os.path.split(self.__executable.rstrip('/'))[1]
+                self.__universe = "vanilla"
+                pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+		self.add_condor_cmd('getenv','True')
+		self.setupJob(name=self.name,dir=dir,cp=cp,tag_base=tag_base)
+
 #############################################################################
 ###### CONDOR NODE CLASSES ##################################################
 #############################################################################
@@ -1323,9 +1340,10 @@ class findFlagsNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findFlags','window'))
 		if cp.has_option('findFlags','estimate-background'):
 			self.add_var_opt("estimate-background",cp.get('findFlags','estimate-background'))
-		if cp.has_option('findFlags','background-location'):			
+		if cp.has_option('findFlags','background-location'):
 			self.add_var_opt("background-location",cp.get('findFlags','background-location'))
-
+		if cp.has_option('findFlags','blind'):
+			self.add_var_opt("blind",cp.get('findFlags','blind'))
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
 		#IFO arg string
@@ -1381,9 +1399,10 @@ class findVetosNode(pipeline.CondorDAGNode,FUNode):
 		self.add_var_opt("window",cp.get('findVetoes','window'))
 		if cp.has_option('findVetoes','estimate-background'):
 			self.add_var_opt("estimate-background",cp.get('findVetoes','estimate-background'))
-		if cp.has_option('findFlags','background-location'):			
+		if cp.has_option('findVetoes','background-location'):
 			self.add_var_opt("background-location",cp.get('findVetoes','background-location'))
-
+		if cp.has_option('findVetoes','blind'):
+			self.add_var_opt("findVetoes",cp.get('findVetoes','blind'))
 		self.output_cache = lal.CacheEntry(coincEvent.ifos, job.name.upper(), segments.segment(float(coincEvent.time), float(coincEvent.time)), "file://localhost/"+job.outputPath+'/DataProducts/'+oFilename)
 
 		#IFO arg string
@@ -1888,12 +1907,14 @@ class mcmcNode(pipeline.CondorDAGNode, FUNode):
 
 		self.add_var_opt("importanceresample",10000)
 
-		self.id = job.name.upper() + '-' + self.ifonames + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
-		outputName = job.outputPath + '/' + self.id
-		self.add_var_opt("outfilename",outputName)
+		self.id = job.name.upper() + '-' + self.ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id)) + '_' + randomseed
+		self.outputName = job.outputPath + '/' + self.id
+		self.add_var_opt("outfilename",self.outputName)
 
+		self.start_time = min(chunk_start_list.values())
+		self.end_time = max(chunk_end_list.values())
 		self.output_cache = []
-		self.output_cache.append(lal.CacheEntry(self.ifonames, job.name.upper(), segments.segment(min(chunk_start_list.values()),max(chunk_end_list.values())), "file://localhost/"+outputName+".csv"))
+		self.output_cache.append(lal.CacheEntry(self.ifonames.replace(",",""), job.name.upper(), segments.segment(self.start_time,self.end_time), "file://localhost/"+self.outputName+".csv"))
 
 		if not opts.disable_dag_categories:
 			self.set_category(job.name.lower())
@@ -1907,6 +1928,69 @@ class mcmcNode(pipeline.CondorDAGNode, FUNode):
 		else:
 			self.invalidate()
 
+##############################################################################
+# node class for running the plotting of the mcmc results
+
+class plotmcmcNode(pipeline.CondorDAGNode, FUNode):
+        """
+        Runs a plotmcmc job
+        """
+	def __init__(self,job,coinc,cp,opts,dag,ifo,ifonames,p_nodes):
+		pipeline.CondorDAGNode.__init__(self,job)
+
+		if job.tag_base=="sngl":
+			sngl_insp_string = "sngl_inspiral"
+		else:
+			sngl_insp_string = "sngl_inspiral_coh"
+
+		sngl = eval("coinc." + sngl_insp_string + "[\'" + ifo + "\']")
+
+		if cp.has_option('fu-plotmcmc','burnin'):
+			burnin = string.strip(cp.get('fu-plotmcmc','burnin'))
+			if burnin.strip():
+				self.add_var_opt("burnin",burnin)
+
+		plot_routine = string.strip(cp.get('fu-plotmcmc','plot_routine'))
+		executable = string.strip(cp.get('fu-plotmcmc','executable'))
+
+		#FIXME: add a if statement to treat differently the injections. Reference values for injections should be the injected params.
+		gps = sngl.time
+		mchirp = sngl.row.mchirp
+		eta = sngl.row.eta
+		distance = sngl.row.eff_distance
+		phi = "0.0"
+
+		self.add_var_opt("plot-routine",plot_routine)
+		self.add_var_opt("executable",executable)
+		self.add_var_opt("reference-time",gps)
+		self.add_var_opt("reference-mchirp",mchirp)
+		self.add_var_opt("reference-eta",eta)
+		self.add_var_opt("reference-distance",distance)
+		self.add_var_opt("reference-phi",phi)
+
+		# get the list of MCMC .txt files to be used as input
+		mcmcfilelist = ""
+		for node in p_nodes:
+			mcmcfilelist += node.outputName + '.csv,'
+		self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
+
+		self.id = job.name.upper() + '-' + ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id))
+		self.add_var_opt("identity",self.id)
+
+		self.add_var_opt("output-path",job.outputPath)
+		self.output_cache = lal.CacheEntry(ifonames.replace(",",""), job.name.upper(), segments.segment(p_nodes[0].start_time,p_nodes[0].end_time), "file://localhost/"+job.outputPath+"/"+self.id)
+
+		if not opts.disable_dag_categories:
+			self.set_category(job.name.lower())
+
+		if opts.enable_bayesian:
+			for node in p_nodes:
+				if node.validNode:
+					self.add_parent(node)
+			dag.add_node(self)
+			self.validate()
+		else:
+			self.invalidate()
 
 ##############################################################################
 ###### CONDOR DAG THINGY #####################################################
@@ -1988,6 +2072,7 @@ class create_default_config(object):
                 cp.set("fu-condor","vetoflags", self.which("followupQueryVeto.py"))
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
+		cp.set("fu-condor","plotmcmc", self.which("plotmcmc.py"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
 		#cp.set("fu-condor","qscan",home_base+"/romain/opt/omega/omega_r2062_glnxa64_binary/bin/wpipeline")
 		self.set_qscan_executable()
@@ -2086,6 +2171,8 @@ class create_default_config(object):
 
 		# FU-PLOTMCMC SECTION
 		cp.add_section("fu-plotmcmc")
+		cp.set("fu-plotmcmc","plot_routine",self.__find_routine("mcmcsummary.R","R SCRIPT FOR MCMC PLOTS"))
+		cp.set("fu-plotmcmc","executable","/usr/bin/R")
 
 		# REMOTE JOBS SECTION
 		cp.add_section("fu-remote-jobs")
@@ -2171,6 +2258,20 @@ class create_default_config(object):
 		out = path.replace('bin','share/lalapps') + '/' + config
 		if not os.path.isfile(out):
 			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (config, out)
+			raise ValueError
+			sys.exit(1)
+		return out
+
+	def __find_routine(self,script,description):
+		path = self.which('lalapps_inspiral')
+                if path: path = os.path.split(path)[0]
+		else:
+			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (script, path)
+			raise ValueError
+                        sys.exit(1)
+		out = path.replace('bin','share/lalapps') + '/' + script
+		if not os.path.isfile(out):
+			print >>sys.stderr, "COULD NOT FIND " + description + " FILE %s IN %s, ABORTING" % (script, out)
 			raise ValueError
 			sys.exit(1)
 		return out
