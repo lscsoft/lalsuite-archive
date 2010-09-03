@@ -143,22 +143,23 @@ def parse_command_line():
 
 opts, files, args = parse_command_line()
 
-
-
-__prog__ = "search_upper_limit_by_m1_m2"
 # bins are the same for each call and upper_limit is an empty binnedArray that has the right shape
 # that can hold the upper limit when we get around to computing it later, so it is okay
 # that bins, and upper_limit are overwritten in each call.
-childNodeBase = 0
+fnameList = []
+tagList = []
 for bin_type in ["MCHIRP","MTOTAL"]:
-	bins, vA, ulA = get_combined_array("SearchvolumeFirstMoment"+bin_type,childNodeBase+0,files)
-	bins, vA2, ulA = get_combined_array("SearchvolumeSecondMoment"+bin_type,childNodeBase+1,files)
-	bins, dvA, ulA = get_combined_array("SearchvolumeDerivative"+bin_type,childNodeBase+2,files)
-	bins, vAD, ulA = get_combined_array("SearchvolumeDistance"+bin_type,childNodeBase+3,files)
-	bins, found_inj, ulA = get_combined_array("SearchvolumeFoundInjections"+bin_type,childNodeBase+4,files)
-	bins, missed_inj, ulA = get_combined_array("SearchvolumeMissedInjections"+bin_type,childNodeBase+5,files)
-	bins, ltA, ulA = get_combined_array("SearchvolumeLiveTime"+bin_type,childNodeBase+6,files)
-	childNodeBase += 7
+
+	files = [l.path() for l in lal.Cache.fromfile(open(opts.input_cache)).sieve(description=bin_type)]
+	__prog__ = "lalapps_cbc_sink"
+
+	bins, vA, ulA = get_combined_array("SearchvolumeFirstMoment"+bin_type,0,files)
+	bins, vA2, ulA = get_combined_array("SearchvolumeSecondMoment"+bin_type,1,files)
+	bins, dvA, ulA = get_combined_array("SearchvolumeDerivative"+bin_type,2,files)
+	bins, vAD, ulA = get_combined_array("SearchvolumeDistance"+bin_type,3,files)
+	bins, found_inj, ulA = get_combined_array("SearchvolumeFoundInjections"+bin_type,4,files)
+	bins, missed_inj, ulA = get_combined_array("SearchvolumeMissedInjections"+bin_type,5,files)
+	bins, ltA, ulA = get_combined_array("SearchvolumeLiveTime"+bin_type,6,files)
 
 	vA[vA==0] = 0.01 #FIXME Hack to give volume that is zero a value = 0.01
 	combined_ifos = opts.input_cache.split('-')[0] #FIXME super hack
@@ -191,8 +192,6 @@ for bin_type in ["MCHIRP","MTOTAL"]:
 
 		opts.user_tag = output_tag
 		InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
-		fnameList = []
-		tagList = []
 
 		# Make a table summarizing the results
 		summary_file = open(opts.output_path + ifos + '-' + output_tag + '_' + bin_type+'_range_summary.'+opts.output_format,'w')
@@ -300,14 +299,14 @@ for bin_type in ["MCHIRP","MTOTAL"]:
 		savefig_pylal(bin_type+'_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 		pylab.clf()
 
-		plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
-							    tagList, add_box_flag = False )
-		InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
+	plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
+						   tagList, add_box_flag = False )
+	InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
 
         ###############################################################################
 	# now write out the special combined case
         ###############################################################################
-	__prog__ = "search_combined_upper_limit_by_m1_m2"
+	__prog__ = "lalapps_cbc_combined_sink"
 	lines = []
 	legend_str = []
 	ulA.array *= 0
@@ -387,22 +386,21 @@ for bin_type in ["MCHIRP","MTOTAL"]:
 				  columnList = columnList)
 	summary_file.close()
 
-print >> sys.stderr, "ALL FINNISH!"
-
 
 
 # bins are the same for each call and upper_limit is an empty binnedArray that has the right shape
 # that can hold the upper limit when we get around to computing it later, so it is okay
 # that bins, and upper_limit are overwritten in each call.
 bin_type = "M1M2"
-childNodeBase = 14
-bins, vA, ulA = get_combined_array("SearchvolumeFirstMoment"+bin_type,childNodeBase+0,files)
-bins, vA2, ulA = get_combined_array("SearchvolumeSecondMoment"+bin_type,childNodeBase+1,files)
-bins, dvA, ulA = get_combined_array("SearchvolumeDerivative"+bin_type,childNodeBase+2,files)
-bins, vAD, ulA = get_combined_array("SearchvolumeDistance"+bin_type,childNodeBase+3,files)
-bins, found_inj, ulA = get_combined_array("SearchvolumeFoundInjections"+bin_type,childNodeBase+4,files)
-bins, missed_inj, ulA = get_combined_array("SearchvolumeMissedInjections"+bin_type,childNodeBase+5,files)
-bins, ltA, ulA = get_combined_array("SearchvolumeLiveTime"+bin_type,childNodeBase+6,files)
+__prog__ = "lalapps_cbc_sink"
+files = [l.path() for l in lal.Cache.fromfile(open(opts.input_cache)).sieve(description=bin_type)]
+bins, vA, ulA = get_combined_array("SearchvolumeFirstMoment"+bin_type,0,files)
+bins, vA2, ulA = get_combined_array("SearchvolumeSecondMoment"+bin_type,1,files)
+bins, dvA, ulA = get_combined_array("SearchvolumeDerivative"+bin_type,2,files)
+bins, vAD, ulA = get_combined_array("SearchvolumeDistance"+bin_type,3,files)
+bins, found_inj, ulA = get_combined_array("SearchvolumeFoundInjections"+bin_type,4,files)
+bins, missed_inj, ulA = get_combined_array("SearchvolumeMissedInjections"+bin_type,5,files)
+bins, ltA, ulA = get_combined_array("SearchvolumeLiveTime"+bin_type,6,files)
 
 vA[vA==0] = 0.01 #FIXME Hack to give volume that is zero a value = 0.01
 combined_ifos = opts.input_cache.split('-')[0] #FIXME super hack
@@ -506,7 +504,7 @@ for i, f in enumerate(files):
 	pylab.grid()
 	#FIXME hardcoded rate limits are bad for advanced ligo
 	pylab.xlim([1e-8, 1])
-	savefig_pylal('posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal(bin_type+'_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	##
@@ -525,7 +523,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('volume_time', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal(bin_type+'_volume_time', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	##
@@ -544,7 +542,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('distance', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal(bin_type+'_distance', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	## 
@@ -560,7 +558,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('fractional_error', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal(bin_type+'_fractional_error', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	##
@@ -577,7 +575,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('lambda', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal(bin_type+'_lambda', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	##
@@ -593,7 +591,7 @@ for i, f in enumerate(files):
 	pylab.ylabel("Mass 1",fontsize=14)
 	pylab.gca().set_aspect(1)
 	pylab.grid()
-	savefig_pylal('upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+	savefig_pylal(bin_type+'_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 	pylab.clf()
 
 	plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
@@ -605,7 +603,7 @@ for i, f in enumerate(files):
 ###############################################################################
 # now write out the special combined case
 ###############################################################################
-__prog__ = "search_combined_upper_limit_by_m1_m2"
+__prog__ = "lalapps_cbc_combined_sink"
 lines = []
 legend_str = []
 ulA.array *= 0
@@ -646,7 +644,7 @@ pylab.ylim([0.0001, 1])
 pylab.grid()
 #FIXME hardcoded rate limits are bad for advanced ligo
 pylab.xlim([1e-8, 1])
-savefig_pylal('combined_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+savefig_pylal(bin_type+'_combined_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 pylab.clf()
 
 
@@ -663,7 +661,7 @@ pylab.xlabel("Mass 2",fontsize=14)
 pylab.ylabel("Mass 1",fontsize=14)
 pylab.gca().set_aspect(1)
 pylab.grid()
-savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+savefig_pylal(bin_type+'_combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
 pylab.clf()
 
 plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
