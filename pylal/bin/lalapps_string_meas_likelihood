@@ -126,8 +126,14 @@ def get_injection_weight_func(contents, reweight_type):
 			# dA \propto A^{-4} dA, so each physical injection
 			# needs to be treated as if it was A^{-3} virtual
 			# injections, then the density of virtual
-			# injections will be P(A) dA \propto A^{-4} dA
-			return sim.amplitude**-3
+			# injections will be P(A) dA \propto A^{-4} dA.
+			# the factor of 10^{21} simply renders the
+			# amplitudes closer to 1;  since double-precision
+			# arithmetic is used this should have no affect on
+			# the results, but it might help make the numbers a
+			# little easier for humans to look at should anyone
+			# have occasion to do so.
+			return (sim.amplitude * 1e21)**-3
 	else:
 		raise ValueError, reweight_type
 	return weight_func
