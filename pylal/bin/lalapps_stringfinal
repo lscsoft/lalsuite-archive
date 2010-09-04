@@ -467,7 +467,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	A50_err = interpolate.interp1d(x, net_xerr)(A50)
 
 	# mark 50% point on graph
-	axes.axvline(A50, color = colour, linestyle = linestyle)
+	#axes.axvline(A50, color = colour, linestyle = linestyle)
 
 	# print some analysis
 	num_injections = efficiency.denominator.array.sum()
@@ -504,8 +504,8 @@ class Efficiency(object):
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
-		# injection or null if no such matching burst events were
-		# found
+		# injection or null if no burst coincs matched the
+		# injection
 		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
 		missed = []
 		for values in contents.connection.cursor().execute("""
@@ -560,10 +560,6 @@ FROM
 		for sim in self.all:
 			efficiency.incdenominator((sim.amplitude,))
 
-		# regularize:  adjust unused bins so that the efficiency is
-		# 0, not NaN
-		efficiency.regularize()
-
 		# generate and plot trend curves.  adjust window function
 		# normalization so that denominator array correctly
 		# represents the number of injections contributing to each
@@ -575,6 +571,10 @@ FROM
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_binned_ratios(efficiency, windowfunc)
+
+		# regularize:  adjust unused bins so that the efficiency is
+		# 0, not NaN
+		efficiency.regularize()
 
 		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
