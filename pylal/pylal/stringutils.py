@@ -63,11 +63,17 @@ def coinc_params_func(events, offsetvector):
 	if len(events) < 2:
 		return None
 
+	params = {}
+
+	#
+	# zero-instrument parameters
+	#
+
+	params["nevents"] = (len(events),)
+
 	#
 	# one-instrument parameters
 	#
-
-	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo
@@ -79,9 +85,7 @@ def coinc_params_func(events, offsetvector):
 	#
 
 	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
-		if event1.ifo == event2.ifo:
-			# shouldn't happen, but might as well check for it
-			continue
+		assert event1.ifo != event2.ifo
 
 		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 
@@ -139,7 +143,8 @@ class DistributionsStats(object):
 		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
+		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
 	}
 
 	filters = {
@@ -164,7 +169,8 @@ class DistributionsStats(object):
 		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
-		"L1_V1_df": rate.gaussian_window(11, sigma = 20)
+		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"nevents": rate.tophat_window(1)
 	}
 
 	def __init__(self):
