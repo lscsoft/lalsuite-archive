@@ -180,8 +180,7 @@ class Likelihood(object):
 	def set_P_gw(self, P):
 		self.P_gw = P
 
-	def P(self, params_func, events, offsetdict, *params_func_extra_args):
-		params = params_func(events, offsetdict, *params_func_extra_args)
+	def P(self, params):
 		if params is None:
 			return None, None
 		P_bak = 1.0
@@ -191,7 +190,7 @@ class Likelihood(object):
 			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj
 
-	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
+	def __call__(self, params):
 		"""
 		Compute the likelihood that the coincident n-tuple of
 		events is the result of a gravitational wave:  the
@@ -202,14 +201,14 @@ class Likelihood(object):
 		is a dictionary of instrument --> offset mappings to be
 		used to time shift the events before comparison.
 		"""
-		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		P_bak, P_inj = self.P(params)
 		if P_bak is None and P_inj is None:
 			return None
 		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
 
 
 class Confidence(Likelihood):
-	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
+	def __call__(self, params):
 		"""
 		Compute the confidence that the list of events are the
 		result of a gravitational wave:  -ln[1 - P(gw)], where
@@ -219,7 +218,7 @@ class Confidence(Likelihood):
 		to 1, so 1 - P is a small positive number, and so -ln of
 		that is a large positive number.
 		"""
-		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		P_bak, P_inj = self.P(params)
 		if P_bak is None and P_inj is None:
 			return None
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
@@ -233,7 +232,7 @@ class LikelihoodRatio(Likelihood):
 		"""
 		raise NotImplementedError
 
-	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
+	def __call__(self, params):
 		"""
 		Compute the likelihood ratio for the hypothesis that the
 		list of events are the result of a gravitational wave.  The
@@ -246,7 +245,7 @@ class LikelihoodRatio(Likelihood):
 		likelihood ratios, which has the advantage of not requiring
 		a prior probability to be provided.
 		"""
-		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		P_bak, P_inj = self.P(params)
 		if P_bak is None and P_inj is None:
 			return None
 		if P_bak == 0.0 and P_inj == 0.0:
@@ -310,7 +309,7 @@ FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 		""", (coinc_event_id,)))
-		return likelihood_ratio(params_func, [event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args)
+		return likelihood_ratio(params_func([event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args))
 
 	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 
