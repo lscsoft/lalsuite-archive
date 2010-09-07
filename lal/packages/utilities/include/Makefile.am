@@ -9,10 +9,12 @@ pkginclude_HEADERS = \
 	Interpolate.h \
 	LALRunningMedian.h \
 	MatrixUtils.h \
+	NonCentralChisq.h \
 	ODE.h \
 	Random.h \
 	RngMedBias.h \
 	Sort.h
+        
 
 MOSTLYCLEANFILES = .dvi-dep
 DISTCLEANFILES = *.tex

@@ -17,6 +17,7 @@ libutilities_la_SOURCES = \
 	LALRunningMedian.c \
 	MatrixOps.c \
 	MersenneRandom.c \
+	NonCentralChisq.c \
 	ODE.c \
 	Random.c \
 	RngMedBias.c
