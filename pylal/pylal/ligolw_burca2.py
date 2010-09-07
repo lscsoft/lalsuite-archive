@@ -1,4 +1,4 @@
-# Copyright (C) 2007  Kipp Cannon
+# Copyright (C) 2007-2010  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,8 +31,6 @@ from scipy.interpolate import interpolate
 import sys
 
 
-from glue import segments
-from glue.ligolw import lsctables
 from pylal import git_version
 
 
