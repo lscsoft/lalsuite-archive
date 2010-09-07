@@ -496,6 +496,7 @@ LALFindChirpACTDNormalize(
   REAL4           cons1;
   REAL4           cons2;
   REAL4           cons3;
+  REAL4           consSum;
 
   /* Variables for GSL */
   UINT4       matrixDim = 0;
@@ -622,9 +623,14 @@ LALFindChirpACTDNormalize(
     }
 
     /* Now repopulate the vector with the appropriate values */
-    fcTmplt->ACTDconstraint->data[0] = cons1 / cons2;
-    fcTmplt->ACTDconstraint->data[1] = 1.0;
-    fcTmplt->ACTDconstraint->data[2] = cons3 / cons2;
+    /* As a new experiment, we will normalize these with the */
+    /* sum of the lot of them */
+
+    consSum = cons1 + cons2 + cons3;
+
+    fcTmplt->ACTDconstraint->data[0] = cons1 / consSum;
+    fcTmplt->ACTDconstraint->data[1] = cons2 / consSum;
+    fcTmplt->ACTDconstraint->data[2] = cons3 / consSum;
   }
 
 

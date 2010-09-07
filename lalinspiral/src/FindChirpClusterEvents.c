@@ -273,6 +273,11 @@ LALFindChirpClusterEvents (
       {
         applyACTDconstraint =
           XLALFindChirpACTDApplyConstraint( j, input, params );
+
+        if ( applyACTDconstraint == XLAL_FAILURE )
+        {
+          ABORTXLAL( status );
+        }
       }
 
       /* if we have don't have a chisq or the chisq drops below the       */

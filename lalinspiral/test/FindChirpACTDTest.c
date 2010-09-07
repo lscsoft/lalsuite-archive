@@ -887,8 +887,11 @@ int main( int argc, char **argv )
   {
     if( filterParams->rhosqVec->data->data[i] > max )
     {
-      applyACTDconstraint =
+      if ( constraint )
+      {
+        applyACTDconstraint =
           XLALFindChirpACTDApplyConstraint( i, filterInput, filterParams );
+      }
       if( !applyACTDconstraint )
         max = filterParams->rhosqVec->data->data[i];
     }

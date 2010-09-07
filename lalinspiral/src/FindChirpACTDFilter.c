@@ -37,11 +37,14 @@ binary inspiral chirps.
 #include <lal/FindChirp.h>
 #include <lal/FindChirpChisq.h>
 #include <lal/FindChirpACTD.h>
+#include <lal/NonCentralChisq.h>
 
 double rint(double x);
 /* debugging */
 extern int vrbflg;                      /* verbocity of lal function    */
 
+static REAL8
+XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel );
 
 NRCSID (FINDCHIRPACTDFILTERC, "$Id$");
 
@@ -341,19 +344,35 @@ INT4 XLALFindChirpACTDApplyConstraint(
       FindChirpFilterParams     * restrict params )
 {
   
-  REAL4Vector *qForConstraint = NULL;
+  static const char func[] = "XLALFindChirpACTDApplyConstraint";
+
+  REAL4Vector *qSqForConstraint = NULL;
   UINT4        matrixDim;
   INT4         apply = 0;
-  INT4         i, k;
+  UINT4        i, k;
 
-  /* Create the vector for the constraint */
-  qForConstraint = XLALCreateREAL4Vector( NACTDTILDEVECS );
+  /* Constraints to apply taking into account SNR */
+  REAL4Vector *cons = NULL;
+
+  REAL4 normFacSq;
+
+  /* The SNR-squared as would be calculated from */
+  /* non-orthogonal templates */
+  REAL4 falseRhoSq = 0.0;
+
+  /* Create the vectors for the constraint */
+  qSqForConstraint = XLALCreateREAL4Vector( NACTDTILDEVECS );
+  cons             = XLALCreateREAL4Vector( input->fcTmplt->ACTDconstraint->length );
 
   /* Calculate the dimension of the matrix used in the constraint */
   matrixDim = 2 * (input->fcTmplt->stopVecACTD - input->fcTmplt->startVecACTD );
 
+  /* Normalization factor for rho squared */
+  normFacSq = 2.0 * params->deltaT / (REAL4)(params->qVecACTD[0]->length);
+  normFacSq = normFacSq * normFacSq;
+
   /* Go through the transformation matrix */
-  memset( qForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
+  memset( qSqForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
     for ( k = 0; k < NACTDTILDEVECS; k++ )
@@ -367,36 +386,133 @@ INT4 XLALFindChirpACTDApplyConstraint(
         idx1 = (i / NACTDVECS) * nVec + i % NACTDVECS - input->fcTmplt->startVecACTD;
         idx2 = (k / NACTDVECS) * nVec + k % NACTDVECS - input->fcTmplt->startVecACTD;
 
-        qForConstraint->data[i] += 
+        qSqForConstraint->data[i] += 
           gsl_matrix_get( input->fcTmplt->ACTDconmatrix, idx1, idx2 ) 
           * params->qVecACTD[k]->data[qidx]
           * sqrt( gsl_vector_get( input->fcTmplt->ACTDconvector, idx2 ) );
       }
     }
+    qSqForConstraint->data[i] *= qSqForConstraint->data[i];
+    falseRhoSq          += qSqForConstraint->data[i];
+  }
+
+  falseRhoSq *= normFacSq;
+
+  /* Having calculated the SNR in this basis, we need to tweak */
+  /* the constraint so that it takes into account the SNR.     */
+  /* We also have to take into account the variance for noise. */
+  for ( i=input->fcTmplt->startVecACTD; i < cons->length; i++ )
+  {
+    REAL8 noNoiseConstraint = input->fcTmplt->ACTDconstraint->data[i] * falseRhoSq;
+
+    /* Find the SNR to be used in the constraint taking into account noise. */
+    /* To give ourselves some headroom, we take the 90% level for the       */
+    /* numerator, and the 10% level for the denominator.                    */
+    if ( i == 1 )
+    {
+      cons->data[i] = XLALFindHarmonicRhoSq( noNoiseConstraint, 0.1 );
+    }
+    else
+    {
+      cons->data[i] = XLALFindHarmonicRhoSq( noNoiseConstraint, 0.9 );
+    }
+    if ( XLAL_IS_REAL8_FAIL_NAN( cons->data[i] ) )
+    {
+      XLAL_ERROR( func, XLAL_EFUNC );
+    }
+  }
+
+  /* ...and now for something completely different */
+  for ( i=input->fcTmplt->startVecACTD; i < cons->length; i++ )
+  {
+    cons->data[i] /= cons->data[1];
   }
 
   /* Compare ratio of first harmonic with second in original basis */
-  if ( sqrt( (qForConstraint->data[0] * qForConstraint->data[0]
-            + qForConstraint->data[3] * qForConstraint->data[3])
-           / (qForConstraint->data[1] * qForConstraint->data[1]
-            + qForConstraint->data[4] * qForConstraint->data[4]))
-           > input->fcTmplt->ACTDconstraint->data[0] )
+  if ( sqrt( (qSqForConstraint->data[0]
+            + qSqForConstraint->data[3])
+           / (qSqForConstraint->data[1]
+            + qSqForConstraint->data[4]))
+           > cons->data[0] )
   {
     apply = 1;
   }
 
   /* Compare ratio of third harmonic with second in original basis */
-  if ( sqrt( (qForConstraint->data[2] * qForConstraint->data[2]
-            + qForConstraint->data[5] * qForConstraint->data[5])
-           / (qForConstraint->data[1] * qForConstraint->data[1]
-            + qForConstraint->data[4] * qForConstraint->data[4]))
-           > input->fcTmplt->ACTDconstraint->data[2] )
+  if ( sqrt( ( qSqForConstraint->data[2]
+            +  qSqForConstraint->data[5])
+           / (qSqForConstraint->data[1]
+            + qSqForConstraint->data[4]))
+           > cons->data[2] )
   {
     apply = 1;
   }
 
 
-  XLALDestroyREAL4Vector( qForConstraint );
+  XLALDestroyREAL4Vector( qSqForConstraint );
  
   return apply;
+}
+
+
+static REAL8
+XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel )
+{
+
+  static const char func[] = "XLALFindHarmonicRhoSq";
+
+  /* For now we hard-code the degrees of freedom to be 2 */
+  const INT4 dof = 2;
+
+  const INT4 maxIter = 100;
+
+  const REAL8 epsilon = 1.0e-3;
+  /* Non-central chisq CDF and PDF values */
+  REAL8 cdf, pdf;
+
+  REAL8 rhoSq, oldRhoSq;
+
+  /* Sometimes the root-finding will overshoot */
+  /* If it happens more than once, we will throw an error */
+  INT4  overshot = 0;
+
+  INT4 i = 0;
+
+  /* Choose an appropriate starting point */
+  rhoSq    = expRhoSq > (REAL8)dof ? expRhoSq : dof;
+  oldRhoSq = rhoSq + 1.0;
+
+  while ( fabs( rhoSq - oldRhoSq ) > 1.0e-8 * rhoSq && i <= maxIter )
+  {
+    oldRhoSq = rhoSq;
+
+    cdf = XLALNonCentralChisqCDF( rhoSq, dof, expRhoSq );
+    pdf = XLALNonCentralChisqPDF( rhoSq, dof, expRhoSq );
+
+    if ( XLAL_IS_REAL8_FAIL_NAN( cdf ) || XLAL_IS_REAL8_FAIL_NAN( pdf ) )
+    {
+      XLAL_ERROR_REAL8( func, XLAL_EFUNC );
+    }
+    rhoSq = rhoSq - ( cdf - cdfLevel ) / pdf;
+
+    /* If we have overshot, just set rhoSq to a small number */
+    if ( rhoSq < 0 )
+    {
+      if ( !overshot )
+      {
+        rhoSq = epsilon;
+        overshot = 1;
+      }
+      else
+      {
+        XLAL_ERROR_REAL8( func, XLAL_ETOL );
+      }
+    }
+    i++;
+  }
+
+  if ( i > maxIter )
+    XLAL_ERROR_REAL8( func, XLAL_EMAXITER );
+
+  return rhoSq;
 }
