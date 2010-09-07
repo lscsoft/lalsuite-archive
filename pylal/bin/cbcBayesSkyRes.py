@@ -379,11 +379,9 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
 
 
     #####Generate 2D kde plots and webpage########
-
-    
     margdir=os.path.join(outdir,'2D')
-    if not os.path.isdir(os.path.join(margdir,'/')):
-        os.mkdir(margdir)
+    if not os.path.isdir(margdir):
+        os.makedirs(margdir)
 
     twoDKdePaths=[]
     
