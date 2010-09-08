@@ -3,7 +3,7 @@
 from __future__ import division
 
 from glue import git_version
-
+import re
 import os
 import sys
 from pylal import Fr
@@ -60,10 +60,18 @@ def grab_data(start,end,channel,type,\
     cache = dmt_cache(start,end,channel[0:1],type)
   #== loop over frames in cache
   for frame in cache:
+    #== check frame file exists
+    if not os.path.isfile(frame):  continue
+    #== check for Segmentation fault
+    segtest = Popen('FrCheck -i '+frame,shell=True,stdout=PIPE)
+    if os.waitpid(segtest.pid,0)[1]==11:  continue
+    segtest.stdout.close()
+    #== try to extract data from frame
     try:
       frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,channel)
       if frame_data==[]:
-        print >>sys.stdout, "  No data for "+channel+" in "+frame
+        print >>sys.stderr, "No data for "+channel+" in "+frame
+        continue
       #== construct time array
       frame_length = float(dt)*len(frame_data)
       frame_time = data_start+dt*numpy.arange(len(frame_data))
@@ -74,6 +82,7 @@ def grab_data(start,end,channel,type,\
         time.append(frame_time[i])
         data.append(frame_data[i])
     except:
+      print >>sys.stderr, "Failed to access frame:\n"+frame
       continue
   return time,data
 
@@ -111,7 +120,7 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
     #== loop over each frame type
     for type in types:
       ldf_exe,sourced = GetCommandOutput('which ligo_data_find')
-      if sourced!=0:
+      if ldf_exe.find('ligo_data_find')==-1:
         print "Cannot find ligo_data_find. Please ensure, lscsoft is sourced."
         sys.exit()
       try:
@@ -176,13 +185,14 @@ def find_types(types,search='standard'):
 
   #== check for ldf
   ldf_exe='ligo_data_find'
-  ldf_status = GetCommandOutput('which '+ldf_exe)[1]
+  ldf,ldf_status = GetCommandOutput('which '+ldf_exe)
   if ldf_status != 0:
     print >>sys.stderr, \
         "Error: ligo_data_find not found. Please ensure lscsoftrc is sourced"
     sys.exit()
 
   #== make sure types is a list
+  if types is None:  types = []
   if isinstance(types,str):  types = [types]
 
   #== set up search command
@@ -218,12 +228,12 @@ def find_types(types,search='standard'):
       special_cases.append(type)
     #== otherwise add it to the grep command
     else:
-      find_cmd+= "'"
+      if not find_cmd.endswith('|'):
+        find_cmd+= "'"
       find_cmd+=type+"|"
   #== take of the extra character
   if find_cmd[-1]=="|":
     find_cmd = find_cmd[0:-1] + "'"
-
   found_types = []
   #== if not searching only for special types, run the grep command
   if find_cmd != ldf_exe+" -y | egrep '":
@@ -238,7 +248,6 @@ def find_types(types,search='standard'):
     found_types.append(type)
   if found_types == ['']:
     print >>sys.stderr, "No data types found, exiting."
-
   return found_types
 
 # =============================================================================
@@ -358,12 +367,16 @@ def find_channels(channels=None,\
   ldf_exe='ligo_data_find'
   ldf_status = GetCommandOutput('which '+ldf_exe)[1]
   if ldf_status != 0:
-    print "Error: ligo_data_find not found. Please ensure lscsoftrc is sourced"
+    print >>sys.stderr, "Error: ligo_data_find not found. "+\
+                        "Please ensure lscsoftrc is sourced"
     sys.exit()
 
   #== cannot work with no ifos
   if ifos is None:
     ifos = find_ifos(channels,types,ifos)
+
+  if types is None:
+    types = find_types(types)
 
   #== check list status
   if isinstance(channels,str):
@@ -379,7 +392,6 @@ def find_channels(channels=None,\
     if time is None:
       time = \
           str(GetCommandOutput('tconvert now -2 days')[0]).replace('\n','')
-
     if verbose:
       print_statement = \
           "Searching "+str(len(types))+" frame types for: "
@@ -406,9 +418,14 @@ def find_channels(channels=None,\
                   ''' --type='''+type+\
                   ''' --gps-start-time '''+str(time)+\
                   ''' --gps-end-time '''+str(time)+\
-                  ''' --url-type file --lal-cache | '''+\
-                  ''' sort -g -k 3 -r | awk 'NR==1' '''
-      frame,frame_status = GetCommandOutput(frame_cmd)
+                  ''' --url-type file'''
+      frame_out = Popen(frame_cmd,shell=True,stdout=PIPE,stderr=PIPE)
+      frame_status = 0
+      frame=''
+      for line in frame_out.stdout.readlines():
+        if line[0:7]=='file://':  frame = line
+        break
+      frame_out.stdout.close()
       frame = frame.replace('\n','')
       #== if frame is found:
       if frame_status == 0 and frame != "":
@@ -428,7 +445,6 @@ def find_channels(channels=None,\
           for ex_channel in ex_channels:
             channel_find_cmd += ex_channel+"|"
           channel_find_cmd = channel_find_cmd[0:-1]+"'"
-
         #== grab channels
         try:
           channel_list_out = Popen(channel_find_cmd,shell=True,stdout=PIPE)
@@ -484,21 +500,7 @@ def parse_unique_channels(channels,type_order=None):
 
   #== set up type preference order
   if type_order == None:
-    type_order = []
-    #== set up list of ifos for type name construction
-    ifos = []
-    for channel in channels:
-      if channel.name.find(':')==-1:
-        ifos.append(channel.name[0:2])
-    #== for each ifo add the *_RDS_R_L1 and *_RDS_R_L3 sets to the order
-    for ifo in ifos:
-      type_order.append(ifo+'_RDS_R_L1')
-      type_order.append(ifo+'_RDS_R_L3')
-    #== add the Raw data type
-    type_order.append('R')
-    #== add the S5 RDS type
-    type_order.append('RDS_R_L1')
-
+    type_order = ['H1_RDS_R_L1','L1_RDS_R_L1','H2_RDS_R_L1','R','RDS_R_L1']
   #== sort channels by name
   channels = sorted(channels,key=lambda ch: ch.name)
   #== set up loop variables
