@@ -441,7 +441,7 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
         else:
             htmlfile.write('<p>Injection not found in posterior bins in sky location!</p>')
     htmlfile.write('<h5>2D Marginal PDFs</h5><br>')
-    htmlfile.write('<table border=1><tr>')
+    htmlfile.write('<table border=1 width=100%><tr>')
     #htmlfile.write('<td width=30%><img width=100% src="m1m2.png"></td>')
     #htmlfile.write('<td width=30%><img width=100% src="RAdec.png"></td>')
     #htmlfile.write('<td width=30%><img width=100% src="Meta.png"></td>')
@@ -504,7 +504,8 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
 
         print "Generating 1D plot for %s."%param
         rbins,plotFig=bppu.plot1DPDF(pos_samps,param,injpar=injpar_)
-        oneDplotPath=os.path.join(outdir,param+'.png')
+        figname=param+'.png'
+	oneDplotPath=os.path.join(outdir,figname)
         
         plotFig.savefig(os.path.join(outdir,param+'.png'))
         if rbins:
@@ -516,12 +517,12 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
         if injpar_:
             if min(pos_samps)<injpar_ and max(pos_samps)>injpar_:
                 plt.plot([0,len(pos_samps)],[injpar_,injpar_],'r-.')
-        myfig.savefig(os.path.join(outdir,param+'_samps.png'))
+        myfig.savefig(os.path.join(outdir,figname.replace('.png','_samps.png')))
     
         #summary_file.set('1D ranking kde',param,rkde)
         summary_file.set('1D ranking bins',param,rbins)
 
-        oneDplotPaths.append(oneDplotPath)
+        oneDplotPaths.append(figname)
         
     for plotPath in oneDplotPaths:
         htmlfile.write('<img src="'+plotPath+'"><img src="'+plotPath.replace('.png','_samps.png')+'"><br>')
@@ -557,7 +558,7 @@ if __name__=='__main__':
     (opts,args)=parser.parse_args()
 
     #List of parameters to plot/bin . Need to match (converted) column names.
-    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','eta','RA','dec','a1','a2','phi1','theta1','phi2','theta2']
+    oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','RA','dec','a1','a2','phi1','theta1','phi2','theta2']
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['RA','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
@@ -565,7 +566,7 @@ if __name__=='__main__':
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
-    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist']]
+    twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
 
     
     cbcBayesSkyRes(opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,greedyRes,confidenceLevels,twoDplots,injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres)
