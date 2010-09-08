@@ -694,9 +694,14 @@ class BinnedArray(object):
 
 	Note that even for 1 dimensional arrays the index must be a tuple.
 	"""
-	def __init__(self, bins, dtype = "double"):
+	def __init__(self, bins, array = None, dtype = "double"):
 		self.bins = bins
-		self.array = numpy.zeros(bins.shape, dtype = dtype)
+		if array is None:
+			self.array = numpy.zeros(bins.shape, dtype = dtype)
+		else:
+			if array.shape != bins.shape:
+				raise ValueError,"Input array and input bins must have the same shape."
+			self.array = array
 
 	def __getitem__(self, coords):
 		return self.array[self.bins[coords]]
