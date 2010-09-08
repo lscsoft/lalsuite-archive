@@ -221,10 +221,16 @@ phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
 	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
 	
 if(fabs(p->freq_modulation_freq)>0) {	
-	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)/p->freq_modulation_freq;
+	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)/(2*M_PI*p->freq_modulation_freq);
 	} else {
-	/* we just have a constant frequency offset for practical purposes */
-	phase_freq+=p->freq_modulation_depth*te;
+	/* we just have a constant frequency offset for practical purposes which corresponds to freezing 
+	   omega at the level of definition of *f, not phase_freq which would diverge for anything but sin(), but that is an extra random constant offset in phase which should be taken care of by using random phi :
+	   
+	   sin(wt+a)    sin(wt)cos(a)     cos(wt)sin(a)               sin(a)     wt^2 sin(a) 
+	   --------- =  ------------- +   ------------- = t cos(a) +  ------ -   ----------- + o(w^2)
+	       w             w                 w                        w             2
+	   */
+	phase_freq+=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
 	}
 
 omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
