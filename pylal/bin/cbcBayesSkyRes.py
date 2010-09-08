@@ -112,7 +112,7 @@ def getinjpar(paramnames,inj,parnum):
 #
 
 
-def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_levels,twoDplots,injfile=None,eventnum=None,skyres=None):
+def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_levels,twoDplots,injfile=None,eventnum=None,skyres=None,bayesfactornoise=None,bayesfactorcoherent=None):
 
     if eventnum is not None and injfile is None:
         print "You specified an event number but no injection file. Ignoring!"
@@ -132,7 +132,6 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
     summary_fo=open(os.path.join(outdir,'summary.ini'),'w')
 
     summary_file=ConfigParser()
-
     summary_file.add_section('metadata')
     summary_file.set('metadata','group_id','X')
     if eventnum:
@@ -211,8 +210,19 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
 
         skyreses,skyinjectionconfidence=bppu.plotSkyMap(skypos,skyres,injvalues,confidence_levels,outdir)
         
+    # Add bayes factor information to summary file
+    summary_file.add_section('bayesfactor')
+    if bayesfactornoise is not None:
+        bfile=open(bayesfactornoise,'r')
+        BSN=bfile.read()
+        bfile.close()
+        summary_file.set('bayesfactor','BSN',BSN)
+    if bayesfactorcoherent is not None:
+        bfile=open(bayesfactorcoherent,'r')
+        BCI=bfile.read()
+        bfile.close()
+        summary_file.set('bayesfactor','BCI',BCI)
 
-    
     #Loop over parameter pairs in twoDGreedyMenu and bin the sample pairs
     #using a greedy algorithm . The ranked pixels (toppoints) are used
     #to plot 2D histograms and evaluate Bayesian confidence intervals.
@@ -422,6 +432,10 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
         for (frac,skysize) in skyreses:
             htmlfile.write('<tr><td>%f<td>%f</tr>'%(frac,skysize))
         htmlfile.write('</table>')
+    if bayesfactornoise is not None:
+        htmlfile.write('<p>log Bayes factor (coherent vs gaussian noise) = %s</p>'%(BSN))
+    if bayesfactorcoherent is not None:
+        htmlfile.write('<p>log Bayes factor (coherent vs incoherent ) = %s</p>'%(BCI))
     htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples.<br>')
     htmlfile.write('Samples read from %s<br>'%(data[0]))
     htmlfile.write('<h4>Mean parameter estimates</h4>')
@@ -554,6 +568,8 @@ if __name__=='__main__':
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
+    parser.add_option("--BSN",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
+    parser.add_option("--BCI",action="store",default=None,help="Optional file containing the bayes factor coherent against incoherent models",type="string")
 
     (opts,args)=parser.parse_args()
 
@@ -569,5 +585,5 @@ if __name__=='__main__':
     twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
 
     
-    cbcBayesSkyRes(opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,greedyRes,confidenceLevels,twoDplots,injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres)
+    cbcBayesSkyRes(opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,greedyRes,confidenceLevels,twoDplots,injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,bayesfactornoise=opts.BSN,bayesfactorcoherent=opts.BCI)
 #
