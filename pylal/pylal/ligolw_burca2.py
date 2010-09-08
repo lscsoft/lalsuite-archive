@@ -49,28 +49,6 @@ __date__ = git_version.date
 
 
 #
-# starting from Bayes' theorem:
-#
-# P(coinc is a g.w. | its parameters)
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#                                P(parameters)
-#
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
-#
-#                       P(inj params) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
-#
-#                        P(inj params) * P(coinc is g.w.)
-#   = ----------------------------------------------------------------------
-#     P(noise params) + [P(inj params) - P(noise params)] * P(coinc is g.w.)
-#
-
-
-#
 # Interpolator wrappers.
 #
 
@@ -138,6 +116,44 @@ class interp2d(interpolate.interp2d):
 	# fixed.
 	def __call__(self, x, y):
 		return (self.z[bisect.bisect(self.x, x), bisect.bisect(self.y, y)],)
+
+
+# starting from Bayes' theorem:
+#
+# P(coinc is a g.w. | its parameters)
+#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#                                P(parameters)
+#
+#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
+#
+#                       P(inj params) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
+#
+#                        P(inj params) * P(coinc is g.w.)
+#   = ----------------------------------------------------------------------
+#     P(noise params) + [P(inj params) - P(noise params)] * P(coinc is g.w.)
+#
+# this last form above is used below to compute the LHS
+#
+#          [P(inj params) / P(noise params)] * P(coinc is g.w.)
+#   = --------------------------------------------------------------
+#     1 + [[P(inj params) / P(noise params)] - 1] * P(coinc is g.w.)
+#
+#          Lambda * P(coinc is g.w.)                       P(inj params)
+#   = -----------------------------------  where Lambda = ---------------
+#     1 + (Lambda - 1) * P(coinc is g.w.)                 P(noise params)
+#
+# Differentiating w.r.t. Lambda shows the derivative is always positive, so
+# this is a monotonically increasing function of Lambda --> thresholding on
+# Lambda is equivalent to thresholding on P(coinc is a g.w. | its
+# parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
+# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its
+# parameters)=P(coinc is g.w.), Lambda=0/0 --> P(coinc is a g.w. | its
+# parameters)=0/0.  We interpret the last case to be 0.
 
 
 #
