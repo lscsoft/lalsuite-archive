@@ -568,8 +568,8 @@ if __name__=='__main__':
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
-    parser.add_option("--BSN",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
-    parser.add_option("--BCI",action="store",default=None,help="Optional file containing the bayes factor coherent against incoherent models",type="string")
+    parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
+    parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent against incoherent models",type="string")
 
     (opts,args)=parser.parse_args()
 
@@ -585,5 +585,5 @@ if __name__=='__main__':
     twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0']]
 
     
-    cbcBayesSkyRes(opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,greedyRes,confidenceLevels,twoDplots,injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,bayesfactornoise=opts.BSN,bayesfactorcoherent=opts.BCI)
+    cbcBayesSkyRes(opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,greedyRes,confidenceLevels,twoDplots,injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,bayesfactornoise=opts.bsn,bayesfactorcoherent=opts.bci)
 #
