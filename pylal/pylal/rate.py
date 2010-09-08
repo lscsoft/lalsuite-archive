@@ -881,7 +881,7 @@ def gaussian_window(bins, sigma = 10):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	l = sigma * int(bins / 2.0)
+	l = sigma * int(math.floor(bins / 2.0))
 	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
 	return w.data / w.sum
 
@@ -903,7 +903,7 @@ def tophat_window(bins):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	w = window.XLALCreateRectangularREAL8Window(int(bins / 2.0) * 2 + 1)
+	w = window.XLALCreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
 	return w.data / w.sum
 
 
