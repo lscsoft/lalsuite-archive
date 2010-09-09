@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006-2010  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -61,18 +61,27 @@ __date__ = git_version.date
 #
 
 
-def get_time_slide_id(xmldoc, time_slide, create_new = None):
+def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False, nonunique_ok = False):
 	"""
-	Return the time_slide_id corresponding to the time slide described
-	by time_slide, a dictionary of instrument/offset pairs.  If the
-	document does not contain exactly 1 time_slide table then
-	ValueError is raised.  If the table does not describe a matching
-	time slide then KeyError is raised.  If, however, the optional
-	create_new argument is set to an lsctables.Process object (or any
-	other object with a process_id attribute), then a time slide table
-	will be created if needed and or the missing time slide description
-	added to the table, and indicated as having been created by the
-	given process.
+	Return the time_slide_id corresponding to the offset vector
+	described by time_slide, a dictionary of instrument/offset pairs.
+
+	Example:
+
+	>>> get_time_slide_id(xmldoc, {"H1": 0, "L1": 0})
+	'time_slide:time_slide_id:10'
+
+	This function is a wrapper around the .get_time_slide_id() method
+	of the glue.ligolw.lsctables.TimeSlideTable class.  See the
+	documentation for that class for the meaning of the create_new,
+	superset_ok and nonunique_ok keyword arguments.
+
+	This function requires the document to contain exactly one
+	time_slide table.  If the document does not contain exactly one
+	time_slide table then ValueError is raised, unless the optional
+	create_new argument is not None.  In that case a new table is
+	created.  This affect of the create_new argument is in addition to
+	the affects described by the TimeSlideTable class.
 	"""
 	try:
 		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
@@ -85,7 +94,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	# make sure the next_id attribute is correct
 	tisitable.sync_next_id()
 	# get the id
-	return tisitable.get_time_slide_id(time_slide, create_new = create_new)
+	return tisitable.get_time_slide_id(time_slide, create_new = create_new, superset_ok = superset_ok, nonunique_ok = nonunique_ok)
 
 
 def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description = u""):

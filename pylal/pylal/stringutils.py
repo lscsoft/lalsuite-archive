@@ -30,6 +30,8 @@ import sys
 
 from glue import iterutils
 from glue import segmentsUtils
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -265,6 +267,20 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 
 def get_coincparamsdistributions(xmldoc):
 	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
+	return coincparamsdistributions
+
+
+def load_likelihood_data(filenames, verbose = False):
+	coincparamsdistributions = None
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = verbose)
+		if coincparamsdistributions is None:
+			coincparamsdistributions = get_coincparamsdistributions(xmldoc)
+		else:
+			coincparamsdistributions += get_coincparamsdistributions(xmldoc)
+		xmldoc.unlink()
 	return coincparamsdistributions
 
 

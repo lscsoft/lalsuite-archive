@@ -69,7 +69,6 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg
 	)
-	parser.add_option("--made-only", action = "store_true", default = False, help = "Plot only injections that were made.")
 	parser.add_option("-b", "--base", metavar = "base", default = "string_plotbinj_", help = "Set the prefix for output filenames (default = \"string_plotbinj_\").")
 	parser.add_option("-f", "--format", metavar = "format", action = "append", default = [], help = "Set the output image format (default = \"png\").  Option can be given multiple times to generate plots in multiple formats.")
 	parser.add_option("--amplitude-func", metavar = "det|wave", default = "det", help = "Select the amplitude to show on the plots.  \"det\" = the amplitude expected in the detector, \"wave\" = the amplitude of the wave (default = \"det\").")
@@ -372,7 +371,7 @@ FROM
 			axes.plot([xmin, xmax], [ymin, ymax], "k-")
 			axes.set_xlim([xmin, xmax])
 			axes.set_ylim([ymin, ymax])
-			axes.set_title(r"Recovered Cut-off Frequency vs.\ Injected Cut-off Frequency in %s (%d Injections)" % (instrument, data.found))
+			axes.set_title(r"Recovered Cut-off Frequency vs.\ Injected Cut-off Frequency in %s\\(%d Injections; red = high recovered SNR, blue = low recovered SNR)" % (instrument, data.found))
 
 			yield fig
 
@@ -380,7 +379,7 @@ FROM
 #
 # =============================================================================
 #
-#                                     Plot
+#                                     Main
 #
 # =============================================================================
 #
@@ -447,7 +446,7 @@ AS
 	""", (database.sb_definer_id,))
 	for n, plot in enumerate(plots):
 		if options.verbose:
-			print >>sys.stderr, "adding to plot %d ..." % n
+			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(database)
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
