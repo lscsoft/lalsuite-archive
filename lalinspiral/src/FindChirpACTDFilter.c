@@ -450,6 +450,7 @@ INT4 XLALFindChirpACTDApplyConstraint(
 
 
   XLALDestroyREAL4Vector( qSqForConstraint );
+  XLALDestroyREAL4Vector( cons );
  
   return apply;
 }
