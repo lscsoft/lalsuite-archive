@@ -1417,6 +1417,7 @@ class CoincInspiralTable(table.Table):
 		"end_time_ns": "int_4s",
 		"mass": "real_8",
 		"mchirp": "real_8",
+		"minimum_duration": "real_8",
 		"snr": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
