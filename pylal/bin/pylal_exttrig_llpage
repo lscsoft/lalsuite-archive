@@ -582,7 +582,7 @@ def get_segments_tag(tag, grb):
       output_seconds, status = \
         make_external_call(command, False, False, True)
       if output_seconds.rstrip():
-        thisdata[ifo] = [os.path.basename(vetofile), "%.2f"%float(output_seconds)/86400.0, "%.2f"%output_seconds]
+        thisdata[ifo] = [os.path.basename(vetofile), "%.2f"%(float(output_seconds)/86400.0), "%.2f"%float(output_seconds)]
       else:
         thisdata[ifo] = [os.path.basename(vetofile), '0.0', '0.0']
     else: 
