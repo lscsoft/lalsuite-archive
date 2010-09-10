@@ -687,6 +687,89 @@ def create_subpage_bkg(subpage, cp, grb, statistic):
     sec.add_link(href = main_path+pagelink, text = key+' summary page')
 
 
+def create_subpage_inj(subpage, cp, grb, statistic):
+  """Creates the section with information about the injections."""
+
+  def file_replace(fname):
+    fname = fname.replace('MACIDENT', '%9d-%d' % (grb.starttime, grb.endtime - grb.starttime))
+    fname = fname.replace('MACIFOS', ''.join(grb.ifolist))
+    fname = fname.replace('MACGRB', grb.name)
+    fname = fname.replace('MACSTAT', statistic)
+    return fname
+
+  # define a complete list of images to be shown on the sanity page
+  page_sections = {}
+  for ifo in grb.ifolist:
+    page_sections['plotinspinj%s' % ifo] = {
+      'page': '%s-plotinspinj_SECOND_H1_GRBMACGRB-MACIDENT.html' % ifo,
+      'images': ['%s-plotinspinj_SECOND_%s_GRBMACGRB_%s-MACIDENT.png' % (ifo, ifo, x) \
+                   for x in \
+                 'mchirp_plot mchirp_accuracy mchirp_histogram '
+                 'eta_accuracy eta_histogram '
+                 'end_time_accuracy end_time_histogram '
+                 'eff_dist_accuracy eff_dist_histogram eff_dist_plot '
+                 'mchirp_vs_eff_dist end_time_vs_eff_dist '
+                 'mchirp_vs_snr end_time_vs_snr eta_vs_snr'.split()] }
+
+  ethinca_singleifo_plots = []
+  for ifo in grb.ifolist:
+    ethinca_singleifo_plots += [
+      'ethinca_vs_%s_snr_andtotMass' % ifo,
+      'ethinca_slide_only_vs_%s_snr_andtotMass' % ifo,
+      'ethinca_vs_%s_snr' % ifo]
+  page_sections['plotethinca'] = {
+    'page': 'MACIFOS-plotethinca_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
+    'images': ['MACIFOS-plotethinca_SECOND_H1L1_GRBMACGRB_%s_%s-MACIDENT.png' % ('_'.join(grb.ifolist), x) \
+                 for x in ethinca_singleifo_plots + \
+                 'ethinca_vs_combined_new_snr hist_combined_new_snr ethinca_hist'.split()]}
+
+  page_sections['plotinjnum'] = {
+    'page': 'MACIFOS-plotinjnum_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
+    'images': ['MACIFOS-plotinjnum_SECOND_MACIFOS_GRBMACGRB_%s-MACIDENT.png' % x \
+                 for x in 'found_missed_chirp_dist_h_vs_mchirp '
+                          'found_missed_eff_dist_h_vs_end_time_gmst '
+                          'found_missed_eff_dist_h_vs_mchirp'.split()] }
+
+  inspmissed_singleifo_plots = []
+  for ifo in grb.ifolist:
+    inspmissed_singleifo_plots += [
+      'time-eff_dist-log-%s' % ifo,
+      'mchirp-eff_dist-lin-%s' % ifo,
+      'mchirp-eff_dist-log-%s' % ifo,
+      'mtotal-eff_dist-lin-%s' % ifo,
+      'mtotal-eff_dist-log-%s' % ifo]
+  page_sections['plotinspmissed'] = {
+    'page': 'MACIFOS-plotinspmissed_SECOND_MACIFOS_GRBMACGRB-MACIDENT.html',
+    'images': ['MACIFOS-plotinspmissed_SECOND_MACIFOS_GRBMACGRB_%s-MACIDENT.png' % x \
+                 for x in 'totalmass-decisiveEffDist_log-map '
+                          'map-THINCA_FIRST-1 map-THINCA_SECOND_CAT_1-1 '
+                          'map-INSPIRAL_SECOND-1 map-INSPIRAL_FIRST-1'.split()] }
+
+  for ifo in grb.ifolist:
+    page_sections['plotsnrchi%s' % ifo] = {
+      'page': 'MACIFOS-plotsnrchi_%s_GRBMACGRB-MACIDENT.html' % ifo,
+      'images': ['MACIFOS-plotsnrchi_%s_GRBMACGRB_snr_vs_chisq-MACIDENT.png' % ifo,
+                 'MACIFOS-plotsnrchi_%s_GRBMACGRB_snr_vs_rsq-MACIDENT.png' % ifo] }
+
+  # replace the macro definitions and put it together, in the given order
+  main_path = cp.get('paths', 'publishing_url') + '/GRB%s/' % (grb.name)
+  for key in page_sections:
+    sec = subpage.add_section(key, "Plots from "+key)
+
+    pagelink = file_replace(page_sections[key]['page'])
+    images = page_sections[key]['images']
+
+    for image in images:
+      imagename = file_replace(image)
+      print image, imagename
+      fullimagepath = main_path+'Images/'+imagename
+      sec.add_link(href=fullimagepath, text='<img src="%s" border="2" width="300">' % fullimagepath)
+
+    sec.add('<br')
+    sec.add_text(txt='Detailed results can be found here:', bold=True)
+    sec.add_link(href = main_path+pagelink, text = key+' summary page')
+
+
 
 # --------------------------------
 def create_subpage_openbox(subpage, cp, grb, statistic, columns, rows):
@@ -960,6 +1043,7 @@ create_subpage_general(page.subpages["subpage_general"], cp, grb)
 create_subpage_trigger(page.subpages["subpage_trigger"], cp, grb)
 create_subpage_data(page.subpages["subpage_data"], cp, grb)
 create_subpage_bkg(page.subpages["subpage_bg_diag"], cp, grb, statistic)
+create_subpage_inj(page.subpages["subpage_inj_diag"], cp, grb, statistic)
 
 create_subpage_openbox(page.subpages["subpage_openbox"], cp, grb, statistic, columns, rows)
 
