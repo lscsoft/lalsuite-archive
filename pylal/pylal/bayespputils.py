@@ -498,7 +498,7 @@ def greedyBin1(par_samps,par_bin,confidence_levels,par_injvalue=None):
         oneDGreedyInj['confidence']=injectionconfidence
         #Recover interval containing injection point
         interval=0
-        while True:
+        while interval<len(np.asarray(toppoints)[:,3]):
             if injectionconfidence<np.asarray(toppoints)[interval,3]:
                 break
             interval+=1
