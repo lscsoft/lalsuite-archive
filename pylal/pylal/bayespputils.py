@@ -204,7 +204,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
     plt.clf()
 
     #Save skypoints
-    np.savetxt('ranked_sky_pixels',np.column_stack([np.asarray(toppoints)[:,0:1],np.asarray(toppoints)[:,1],np.asarray(toppoints)[:,3]]))
+    np.savetxt(os.path.join(outdir,'ranked_sky_pixels.dat'),np.column_stack([np.asarray(toppoints)[:,0:1],np.asarray(toppoints)[:,1],np.asarray(toppoints)[:,3]]))
 
     return skyreses,skyinjectionconfidence
 #
