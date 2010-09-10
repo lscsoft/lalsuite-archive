@@ -17,6 +17,16 @@
 *  MA  02111-1307  USA
 */
 
+/*
+
+	TO DO LIST:
+	
+	1. include derivatives for phi_T
+	2. take derivative in time by using SG filter
+	3. Make testACS a pointer that is passed to save space
+
+*/
+
 #if 0
 <lalVerbatim file="LALInspiralComputeFisherCV">
 Author: Tjonnie Li, Chris Van Den Broeck
@@ -123,6 +133,11 @@ void XLALCopyPPNConsistencyParamStruc (
 		duplicateParams->ampOrder = inputParams->ampOrder;    /* PN amplitude selection 0-5 */
   
 		/* PN phasing coefficients for use in AmpCorConsistency */
+		for (i=0; i<9; i++) {
+			duplicateParams->phasePNparams[i] = inputParams->phasePNparams[i];
+		}
+		
+		/*
 		duplicateParams->phi0 = inputParams->phi0;
 		duplicateParams->phi2 = inputParams->phi2;
 		duplicateParams->phi3 = inputParams->phi3;
@@ -132,6 +147,7 @@ void XLALCopyPPNConsistencyParamStruc (
 		duplicateParams->phi6 = inputParams->phi6;
 		duplicateParams->phi6l = inputParams->phi6l;
 		duplicateParams->phi7 = inputParams->phi7;
+		*/
     
     // Check if *.ppn vector is created
     if ( !(duplicateParams->ppn) )
@@ -153,7 +169,7 @@ void XLALCopyPPNConsistencyParamStruc (
     }
     else
     {
-      fprintf(stdout, "Could not copy PPNConsistencyParamStruc \n");
+			fprintf(stdout, "Could not copy PPNConsistencyParamStruc \n");
     }
   }
   else
@@ -169,10 +185,12 @@ void LALInspiralComputeFisherMatrix (
     LALStatus                              *status,  
     REAL8FrequencySeries                   *psd,
     PPNConsistencyParamStruc                          *params,
-    FisherACS															 ACS	 )
+    REAL4																	 *Fisher,
+    FisherACS															 *ACS 
+    )
 /* </lalVerbatim> */
 { 
-  if(ACS.verbose_switch == 1) fprintf(stdout, "Running LALInspiralComputeFisherMatrix \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "Running LALInspiralComputeFisherMatrix \n");
   
   /*********************************************************************
    *
@@ -189,22 +207,25 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/ 
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Initialising Variables \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Initialising Variables \n");
   
   /* COUNTERS */
-  INT4 i, j;         
+  INT4 i, j, k;         
   
   /* STRUCTURES */
-  REAL4TimeSeries *hderiv[ACS.N_inputparams]; // Waveform derivatives
+  REAL4TimeSeries *hderiv[ACS->N_inputparams]; // Waveform derivatives
   
   /* FISHER MATRIX */
-  InspiralMetric Fisher;
+  for(i=0;i<(ACS->N_inputparams*ACS->N_inputparams);i++)
+  {
+		Fisher[i] = 0.0;
+	}
   
   /* LOCAL COPY OF INPUT PARAMETERS */
   PPNConsistencyParamStruc PPNparams;
 
   // Fourier Transform of derivatives
-  COMPLEX8FrequencySeries *Hfderiv[ACS.N_inputparams];  // FT of derivatives
+  COMPLEX8FrequencySeries *Hfderiv[ACS->N_inputparams];  // FT of derivatives
   
   /*********************************************************************
    *
@@ -212,6 +233,31 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/   
   
+  //FILE *fisher_out;
+  //FILE *cov_out;
+  FILE *derivatives_out;
+  FILE *fourierderivs_out;
+  
+  //char fisher_name[128];
+  //char cov_name[128];
+  char derivatives_name[128];
+  char fourierderivatives_name[128];
+	
+	//char folder[] = ACS->folder;
+  
+  //sprintf(fisher_name, "%s%s%d%s", ACS->folder, "fisher", ACS->seed, ".dat");
+  //sprintf(cov_name, "%s%s%d%s", ACS->folder, "covariance", ACS->seed, ".dat");
+  sprintf(derivatives_name, "%s%s%d%s", ACS->folder, "derivatives", ACS->seed, ".dat");
+  sprintf(fourierderivatives_name, "%s%s%d%s", ACS->folder, "fourierderivatives", ACS->seed, ".dat");
+  
+  //sprintf(traject_name,"%s%s%d%s", ACS->folder, traject_base, paramid, ".dat");  
+  //sprintf(hx_name, "%s%s%d%s", ACS->folder, hx_base, paramid, ".dat");
+  //sprintf(linReg_name, "%s%s%d%s", ACS->folder, linReg_base, paramid, ".dat");
+  
+  //fisher_out = fopen(fisher_name, "w");
+  //cov_out		= fopen(cov_name, "w");
+  derivatives_out = fopen(derivatives_name ,"w");
+  fourierderivs_out = fopen(fourierderivatives_name ,"w");
   
   /*********************************************************************
    *
@@ -219,17 +265,14 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Setting Variables \n");
-  
-	// Reset Structures (should be removed)
-  memset( &Fisher, 0, sizeof(InspiralMetric));
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Setting Variables \n");
   
   /* COPY INPUT PARAMETERS */
   PPNparams.ppn = XLALCreateREAL4Vector( params->ppn->length );
   TRY( XLALCopyPPNConsistencyParamStruc(params, &PPNparams), status);
   
   // Creating Time/Frequency Series for derivatives
-  for (i = 0; i < ACS.N_inputparams; ++i) 
+  for (i = 0; i < ACS->N_inputparams; ++i) 
   {
     if( (hderiv[i] = (REAL4TimeSeries *) LALMalloc( sizeof(REAL4TimeSeries) ) ) == NULL  &&
         (Hfderiv[i] = (COMPLEX8FrequencySeries *) LALMalloc( sizeof(COMPLEX8FrequencySeries) ) ) == NULL )
@@ -239,14 +282,14 @@ void LALInspiralComputeFisherMatrix (
     else
     { 
       /* CREATE TIME/FREQUENCY SERIES */
-      hderiv[i] = XLALCreateREAL4TimeSeries("hderiv", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
-      Hfderiv[i] = XLALCreateCOMPLEX8FrequencySeries("Hfderiv", &(ACS.epoch), 0.0, ACS.deltaF_fs, &lalStrainUnit, ACS.N_ts/2+1);
+      hderiv[i] = XLALCreateREAL4TimeSeries("hderiv", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+      Hfderiv[i] = XLALCreateCOMPLEX8FrequencySeries("Hfderiv", &(ACS->epoch), 0.0, ACS->deltaF_fs, &lalStrainUnit, ACS->N_ts/2+1);
       
       /* CLEARING TIME/FREQUENCY SERIES */
-      for (j=0; j<ACS.N_ts; j++)
+      for (j=0; j<ACS->N_ts; j++)
       {
-        if (j<ACS.N_ts)       {hderiv[i]->data->data[j] = 0.0;}
-        if (j<(ACS.N_fs)) {Hfderiv[i]->data->data[j].re = 0.0; Hfderiv[i]->data->data[j].im = 0.0;}
+        if (j<ACS->N_ts)       {hderiv[i]->data->data[j] = 0.0;}
+        if (j<(ACS->N_fs)) {Hfderiv[i]->data->data[j].re = 0.0; Hfderiv[i]->data->data[j].im = 0.0;}
       }
       
     }
@@ -258,10 +301,12 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Optimal SNR \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Optimal SNR \n");
   
   /* COMPUTING SNR */
-  TRY( LALInspiralComputeSNR(status->statusPtr, psd, &PPNparams, ACS), status);
+  REAL8 SNR;
+  TRY( LALInspiralComputeSNR(status->statusPtr, psd, &PPNparams, &SNR, ACS), status);
+  ACS->SNR = SNR;
   
 
   /*********************************************************************
@@ -270,28 +315,86 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing derivatives \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing derivatives \n");
+  
+  /* VARIALBES FOR SWITCHING BETWEEN MASSES AND PHI_0/PHI_2 DERIVATIVES */
+	
+	/* TEMPORARY TIME SERIES */
+	REAL4TimeSeries *tmphderiv[2];
+	
+	tmphderiv[0] = (REAL4TimeSeries *) LALMalloc( sizeof( REAL4TimeSeries ) );
+	tmphderiv[1] = (REAL4TimeSeries *) LALMalloc( sizeof( REAL4TimeSeries ) );
+	
+	tmphderiv[0] = XLALCreateREAL4TimeSeries("tmphderiv0", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+	tmphderiv[1] = XLALCreateREAL4TimeSeries("tmphderiv1", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+	
+	for (j=0; j<((INT4)tmphderiv[0]->data->length); j++)
+	{
+		tmphderiv[0]->data->data[j] = 0.0;
+		tmphderiv[1]->data->data[j] = 0.0;
+	}
+	
+	//derivatives of mtot and eta for calculating new hderiv 0 and 1
+	REAL4 dmtotdphi0 = pow(params->eta_real8,3.0/8.0)	*	(-3715.0+2772.0*params->eta_real8)	*	(params->mTot_real8)	*	pow(5.0*LAL_MTSUN_SI*params->mTot_real8,5.0/8.0)
+													/(-1486.0+2772.0*params->eta_real8);
+	REAL4 dmtotdphi2 = 12096.0	*	pow(params->eta_real8,5.0/8.0)	*	(params->mTot_real8)	*	pow(LAL_MTSUN_SI*params->mTot_real8,3.0/8.0)
+													/(pow(5.0,5.0/8.0)	*	(-743.0+1386.0*params->eta_real8));
+	REAL4 detadphi0 = 3.0	*	pow(5.0,5.0/8.0)	*	pow(params->eta_real8,11.0/8.0)	*	(743.0+924.0*params->eta_real8)	*	pow(LAL_MTSUN_SI*params->mTot_real8,5.0/8.0)
+													/(-1486.0+2772.0*params->eta_real8);
+	REAL4 detadphi2 = 4032.0	*	pow(5.0,3.0/8.0)	*	pow(params->eta_real8,13.0/8.0)	*	pow(LAL_MTSUN_SI*params->mTot_real8,3.0/8.0)
+													/(743.0-1386.0*params->eta_real8);
     
-  for (i = 0; i<ACS.N_inputparams; i++)
+  for (i = 0; i<ACS->N_inputparams; i++)
   {
     LALInspiralComputeDerivatives(status->statusPtr, hderiv[i], params, i, ACS);
-    LALInspiralWaveTaper(status->statusPtr, hderiv[i]->data, 3);
   }
-
-	if(ACS.printall == 1)
+	
+	/* CHANGE TO PHI_0 AND PHI_2 DERIVATIVES */
+	
+	if(ACS->mass2phi_switch == 1)
 	{
-		for (i = 0; i < ACS.N_ts; ++i)
+		for(j=0; j<((INT4)hderiv[0]->data->length);j++)
 		{
-			fprintf(ACS.derivatives_out, "%e\t", i*ACS.deltaT_ts);
-			for (j = 0; j < ACS.N_inputparams; j++)
+			tmphderiv[0]->data->data[j] = hderiv[0]->data->data[j];
+			tmphderiv[1]->data->data[j] = hderiv[1]->data->data[j];
+		}
+		
+		for(j=0; j<((INT4)hderiv[0]->data->length);j++)
+		{
+			hderiv[0]->data->data[j] = tmphderiv[0]->data->data[j]*dmtotdphi0+tmphderiv[1]->data->data[j]*detadphi0;
+			hderiv[1]->data->data[j] = tmphderiv[0]->data->data[j]*dmtotdphi2+tmphderiv[1]->data->data[j]*detadphi2;
+		}
+	}
+  
+  for (i=0; i<ACS->N_inputparams; i++) 
+	{
+     LALInspiralWaveTaper(status->statusPtr, hderiv[i]->data, 3);
+		if(ACS->SavitskyGolay_switch==1){for(k=0;k<1E3;k++)
+		{
+			if(ACS->verbose_switch == 1)printf("\r... Smoothing - %d percent done", k/10);
+			LALSavitskyGolayFilter(status->statusPtr, ACS->SG_R, ACS->SG_M, hderiv[i]);
+		}}
+	}
+  
+  if(ACS->verbose_switch == 1) fprintf(stdout, "\n");
+
+	if(ACS->verbose_switch == 1)printf("... Writing to file \n");
+	if(ACS->printall == 1)
+	{
+		for (i = 0; i < ACS->N_ts; ++i)
+		{
+			fprintf(derivatives_out, "%e\t", i*ACS->deltaT_ts);
+			for (j = 0; j < ACS->N_inputparams; j++)
 			{
-				fprintf(ACS.derivatives_out, "%e", hderiv[j]->data->data[i]);
-				if(j==(ACS.N_inputparams-1)) fprintf(ACS.derivatives_out, "\n");
-				else fprintf(ACS.derivatives_out, "\t");
+				fprintf(derivatives_out, "%e", hderiv[j]->data->data[i]);
+				if(j==(ACS->N_inputparams-1)) fprintf(derivatives_out, "\n");
+				else fprintf(derivatives_out, "\t");
 			}
 		}
-	
 	}
+	
+	XLALDestroyREAL4TimeSeries(tmphderiv[0]);
+	XLALDestroyREAL4TimeSeries(tmphderiv[1]);
 
 
   /*********************************************************************
@@ -299,56 +402,57 @@ void LALInspiralComputeFisherMatrix (
    *  COMPUTE FOURIER TRANSFORMS OF DERIVATIVES
    * 
    ********************************************************************/
+		if(ACS->verbose_switch == 1)printf("... Computing Fourier Transforms \n");
 
 	/* PERFORM FFT PLAN */
 
-  for (i = 0; i < ACS.N_inputparams; ++i)
+  for (i = 0; i < ACS->N_inputparams; ++i)
   {
     RealFFTPlan *fwdRealPlanDeriv;         // FFT plan for derivs
     fwdRealPlanDeriv = NULL;
-    fwdRealPlanDeriv  = XLALCreateForwardREAL4FFTPlan(ACS.N_ts,0); 
+    fwdRealPlanDeriv  = XLALCreateForwardREAL4FFTPlan(ACS->N_ts,0); 
     LALTimeFreqRealFFT( status->statusPtr, Hfderiv[i], hderiv[i], fwdRealPlanDeriv );
     TRY( LALDestroyRealFFTPlan( status->statusPtr, &fwdRealPlanDeriv), status); fwdRealPlanDeriv = NULL;
   } 
   
   /* RESCALE WITH DYNAMICAL RANGE */
-  REAL8 tempRe[ACS.N_inputparams];
-  REAL8 tempIm[ACS.N_inputparams];
-  for(i=0; i<ACS.N_inputparams; i++)
+  REAL8 tempRe[ACS->N_inputparams];
+  REAL8 tempIm[ACS->N_inputparams];
+  for(i=0; i<ACS->N_inputparams; i++)
   {
 		tempRe[i] = 0.0;
 		tempIm[i] = 0.0;
 	}
 
   
-  for (i = 0; i < ACS.N_fs; ++i)
+  for (i = 0; i < ACS->N_fs; ++i)
   {
-    //temp0Re = Hfderiv[0]->data->data[j].re*ACS.dynRange;
-    //temp0Im = Hfderiv[0]->data->data[j].im*ACS.dynRange;
-    //temp1Re = Hfderiv[1]->data->data[j].re*ACS.dynRange;
-    //temp1Im = Hfderiv[1]->data->data[j].im*ACS.dynRange;
-    //temp2Re = Hfderiv[2]->data->data[j].re*ACS.dynRange;
-    //temp2Im = Hfderiv[2]->data->data[j].im*ACS.dynRange;
-    //temp3Re = Hfderiv[3]->data->data[j].re*ACS.dynRange;
-    //temp3Im = Hfderiv[3]->data->data[j].im*ACS.dynRange;
-    //temp4Re = Hfderiv[4]->data->data[j].re*ACS.dynRange;
-    //temp4Im = Hfderiv[4]->data->data[j].im*ACS.dynRange;
+    //temp0Re = Hfderiv[0]->data->data[j].re*ACS->dynRange;
+    //temp0Im = Hfderiv[0]->data->data[j].im*ACS->dynRange;
+    //temp1Re = Hfderiv[1]->data->data[j].re*ACS->dynRange;
+    //temp1Im = Hfderiv[1]->data->data[j].im*ACS->dynRange;
+    //temp2Re = Hfderiv[2]->data->data[j].re*ACS->dynRange;
+    //temp2Im = Hfderiv[2]->data->data[j].im*ACS->dynRange;
+    //temp3Re = Hfderiv[3]->data->data[j].re*ACS->dynRange;
+    //temp3Im = Hfderiv[3]->data->data[j].im*ACS->dynRange;
+    //temp4Re = Hfderiv[4]->data->data[j].re*ACS->dynRange;
+    //temp4Im = Hfderiv[4]->data->data[j].im*ACS->dynRange;
     
-    fprintf(ACS.fourierderivs_out, "%e\t", i*ACS.deltaF_fs); 
+    if(ACS->printall == 1)fprintf(fourierderivs_out, "%e\t", i*ACS->deltaF_fs); 
     
-    for(j=0; j<ACS.N_inputparams; j++)
+    for(j=0; j<ACS->N_inputparams; j++)
     {
 			
 			tempRe[j] = 0.0;
 			tempIm[j] = 0.0;
-			tempRe[j] = Hfderiv[j]->data->data[i].re*ACS.dynRange;
-			tempIm[j] = Hfderiv[j]->data->data[i].im*ACS.dynRange;
+			tempRe[j] = Hfderiv[j]->data->data[i].re*ACS->dynRange;
+			tempIm[j] = Hfderiv[j]->data->data[i].im*ACS->dynRange;
 			
-			if(ACS.printall == 1)
+			if(ACS->printall == 1)
 			{
-				fprintf(ACS.fourierderivs_out, "%e", sqrt(tempRe[j]*tempRe[j] + tempIm[j]*tempIm[j])/ACS.dynRange); 
-				if(j == (ACS.N_inputparams -1)){ fprintf(ACS.fourierderivs_out, "\n"); }
-				else{ fprintf(ACS.fourierderivs_out, "\t"); }
+				fprintf(fourierderivs_out, "%e", sqrt(tempRe[j]*tempRe[j] + tempIm[j]*tempIm[j])/ACS->dynRange); 
+				if(j == (ACS->N_inputparams -1)){ fprintf(fourierderivs_out, "\n"); }
+				else{ fprintf(fourierderivs_out, "\t"); }
 			}
 		}
   }
@@ -360,42 +464,25 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/
 
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Fisher matrix components \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Fisher matrix components \n");
   
   /* COMPUTE FISHER COMPONENTS */
-  for (i = 0; i < ACS.N_inputparams; ++i)
+  for (i = 0; i < ACS->N_inputparams; ++i)
   {
     for (j = 0; j < i + 1; ++j) 
     {
-      LALInspiralComputeFisherComponents( status->statusPtr, &Fisher, hderiv[i], hderiv[j], psd, i*ACS.N_inputparams + j, ACS);
+      LALInspiralComputeFisherComponents( status->statusPtr, Fisher, hderiv[i], hderiv[j], psd, i*ACS->N_inputparams + j, ACS);
     }
   }
    
   /* FILLING FISHER MATRIX */
-  for (i = 0; i < ACS.N_inputparams; ++i)
+  for (i = 0; i < ACS->N_inputparams; ++i)
   {
-    for (j = i + 1; j < ACS.N_inputparams; ++j)
-      Fisher.Gamma[i*ACS.N_inputparams + j] = Fisher.Gamma[j*ACS.N_inputparams + i];
+    for (j = i + 1; j < ACS->N_inputparams; ++j)
+      Fisher[i*ACS->N_inputparams + j] = Fisher[j*ACS->N_inputparams + i];
   }
- 
-  /* OUTPUT FISHER TO FILE */
-  for (i = 0; i < ACS.N_inputparams*ACS.N_inputparams; ++i)
-  {
-    fprintf(ACS.fisher_out, "\t%e", Fisher.Gamma[i]);
-	}
-	fprintf(ACS.fisher_out, "\n");
 
-	/* INVERTING FISHER TO GET COVARIANCE */
-  REAL4 Covariance[ACS.N_inputparams * ACS.N_inputparams];
-  LALInspiralInvertMatrix(status->statusPtr, Fisher.Gamma, Covariance, ACS); 
- 
-  for (i = 0; i < ACS.N_inputparams*ACS.N_inputparams; ++i)
-  {
-    fprintf(ACS.cov_out, "\t%e", Covariance[i]);
-	}
-	fprintf(ACS.cov_out, "\n");  
-
-    //if( (i%ACS.N_inputparams) == (ACS.N_inputparams-1) )
+    //if( (i%ACS->N_inputparams) == (ACS->N_inputparams-1) )
     //{
       //fprintf(invert_out, "%e\n", Input[i]); 
       //fprintf(stdout, "%e\n", Input[i]); 
@@ -411,22 +498,26 @@ void LALInspiralComputeFisherMatrix (
    *  CLEANING UP
    * 
    ********************************************************************/
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Cleaning Up \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Cleaning Up \n");
   
   /* DESTROY LOCAL COPY INPUT PARAMETERS */
   TRY( XLALDestroyREAL4Vector( PPNparams.ppn ), status); 
   
   /* DESTROY TIME/FREQUENCY SERIES */
-  for(i=0; i<ACS.N_inputparams; i++)
+  for(i=0; i<ACS->N_inputparams; i++)
   {
-    fprintf(stdout, "paramid = %d \n", i);
+    if(ACS->verbose_switch == 1)fprintf(stdout, "paramid = %d \n", i);
     XLALDestroyREAL4TimeSeries( hderiv[i] ); hderiv[i] = NULL;
     XLALDestroyCOMPLEX8FrequencySeries( Hfderiv[i] ); Hfderiv[i] = NULL;
   }
   
   /* DESTROY FFT PLAN */
 	
-
+	/* CLOSE OUTPUT FILES */
+	//fclose(fisher_out);
+	//fclose(cov_out);
+	fclose(derivatives_out);
+	fclose(fourierderivs_out);
 
   /*********************************************************************
    *
@@ -434,7 +525,7 @@ void LALInspiralComputeFisherMatrix (
    * 
    ********************************************************************/
   DETATCHSTATUSPTR( status );
-  fprintf(stdout, "Running XLALInspiralComputeFisherMatrixCP - done \n");
+  if(ACS->verbose_switch == 1)fprintf(stdout, "Running XLALInspiralComputeFisherMatrixCP - done \n");
   RETURN(status);
 
 }
@@ -443,12 +534,12 @@ void LALInspiralComputeFisherMatrix (
 void LALInspiralComputeDerivatives (
     LALStatus                          *status,
     REAL4TimeSeries                    *hderiv,
-    PPNConsistencyParamStruc                      *PPNparams,
-    INT4                              paramid,
-    FisherACS														ACS)
+    PPNConsistencyParamStruc           *PPNparams,
+    INT4                               paramid,
+    FisherACS														*ACS)
     /* </lalVerbatim> */
 {
-  fprintf(stdout, "Running LALInspiralComputeDerivatives: paramid = %d \n", paramid);
+  if(ACS->verbose_switch == 1)fprintf(stdout, "Running LALInspiralComputeDerivatives: paramid = %d \n", paramid);
   
   /*********************************************************************
    *
@@ -474,7 +565,7 @@ void LALInspiralComputeDerivatives (
    * 
    ********************************************************************/ 
   
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Creating Output Files \n");}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Creating Output Files \n");}
   
   //FILE *traject_out;  
   //FILE *hx_out;         // h(x)
@@ -489,9 +580,9 @@ void LALInspiralComputeDerivatives (
   //const char hx_base[]      = "hx_out_";
   //const char linReg_base[]      = "linReg_out_";
 
-  //sprintf(traject_name,"%s%s%d%s", ACS.folder, traject_base, paramid, ".dat");  
-  //sprintf(hx_name, "%s%s%d%s", ACS.folder, hx_base, paramid, ".dat");
-  //sprintf(linReg_name, "%s%s%d%s", ACS.folder, linReg_base, paramid, ".dat");
+  //sprintf(traject_name,"%s%s%d%s", ACS->folder, traject_base, paramid, ".dat");  
+  //sprintf(hx_name, "%s%s%d%s", ACS->folder, hx_base, paramid, ".dat");
+  //sprintf(linReg_name, "%s%s%d%s", ACS->folder, linReg_base, paramid, ".dat");
   
   //// Open output files
   //traject_out = fopen(traject_name, "w");
@@ -504,7 +595,7 @@ void LALInspiralComputeDerivatives (
    * 
    ********************************************************************/ 
   
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Initialising Variables \n");}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Initialising Variables \n");}
   
   // Counters
   INT4 i,j;
@@ -521,7 +612,10 @@ void LALInspiralComputeDerivatives (
 	REAL8 deltax_min = 0.0;
 	INT4 loopcount = 0;
 	INT4 deltaL = 0;				// Length difference in differentiation region
-	INT4 waveformlength_min = ACS.N_ts;
+	INT4 waveformlength_min = ACS->N_ts;
+	INT4 xsamples_tot = ACS->xsamples_tot;
+	REAL8 deltaPhi_max = ACS->deltaPhi_max;
+	INT4 linReg_countMax = ACS->linReg_countMax;
 
   // Initialise TimeSeries
   REAL4TimeSeries *hderiv_tmp;         // Storing derivative
@@ -545,7 +639,7 @@ void LALInspiralComputeDerivatives (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Allocating memory \n");}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Allocating memory \n");}
   
   // Allocating Memory for TimeSeries
   if(     (     hderiv_tmp           = (REAL4TimeSeries *) LALMalloc( sizeof( REAL4TimeSeries) ) ) == NULL 
@@ -564,18 +658,23 @@ void LALInspiralComputeDerivatives (
   else
   {
     // Creating TimeSeries
-    if ( XLALCreateREAL4TimeSeries("test", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts) == NULL)
+    if ( XLALCreateREAL4TimeSeries("test", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts) == NULL)
     {
-      fprintf(stdout, "... Setting variables and allocating memory - Creating TimeSeries -> Error, destroy TimeSeries and Abort \n");
+      if(ACS->verbose_switch == 1)fprintf(stdout, "... Setting variables and allocating memory - Creating TimeSeries -> Error, destroy TimeSeries and Abort \n");
       ABORT( status, LALINSPIRALCOMPUTEFISHERC_ETSCREATE, LALINSPIRALCOMPUTEFISHERC_ETSCREATE_MSG );
     }
     else
     {
-      hderiv_tmp              = XLALCreateREAL4TimeSeries("hderiv_tmp", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
-      phiStart            = XLALCreateREAL4TimeSeries("phiStart", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
-      phiEnd              = XLALCreateREAL4TimeSeries("phiEnd", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
-      AStart              = XLALCreateREAL4TimeSeries("AStart", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
-      AEnd              = XLALCreateREAL4TimeSeries("AEnd", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
+      hderiv_tmp              = XLALCreateREAL4TimeSeries("hderiv_tmp", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+      phiStart            = XLALCreateREAL4TimeSeries("phiStart", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+      phiEnd              = XLALCreateREAL4TimeSeries("phiEnd", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+      AStart              = XLALCreateREAL4TimeSeries("AStart", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+      AEnd              = XLALCreateREAL4TimeSeries("AEnd", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+      
+			for (j = 0; j < ((INT4) ACS->N_ts); j++)
+      {
+        hderiv_tmp->data->data[j]              = 0.0;
+      }  
     }
     
     // Clearing waveform holding time series
@@ -599,7 +698,7 @@ void LALInspiralComputeDerivatives (
     //} 
   }
     
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Allocating memory - done \n");}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Allocating memory - done \n");}
 
   /*********************************************************************
    *
@@ -607,29 +706,32 @@ void LALInspiralComputeDerivatives (
    * 
    ********************************************************************/
 
-	if(ACS.verbose_switch==1){fprintf(stdout, "... Calculating Derivative \n");   }
+	if(ACS->verbose_switch==1){fprintf(stdout, "... Calculating Derivative \n");   }
 
   // Load relevant parameter depending on paramid
   switch(paramid)
   {
     case 0:
-      absdelta = PPNparams->mTot_real8*ACS.reldelta;
+      absdelta = PPNparams->mTot_real8*ACS->reldelta;
       break;
     case 1:
-      absdelta = PPNparams->eta_real8*ACS.reldelta;    
+      absdelta = PPNparams->eta_real8*ACS->reldelta;    
       break;
+    //case 2:
+      //break;
     case 2:
+      if(PPNparams->phi==0.0){absdelta = 1.0*ACS->reldelta*500.0;}
+      else{absdelta = PPNparams->phi*ACS->reldelta*500.0;}
       break;
     case 3:
-      if(PPNparams->phi==0.0){absdelta = 1.0*ACS.reldelta*500.0;}
-      else{absdelta = PPNparams->phi*ACS.reldelta*500.0;}
+      absdelta = ACS->deltaT_ts;
       break;
-    case 4:
-      absdelta = ACS.deltaT_ts;
-      break;
+		case 4:
+			if(PPNparams->cosI == 0.0) absdelta = 1.0*ACS->reldelta*10.0;
+			else {absdelta = PPNparams->cosI*ACS->reldelta*10.0;}
+			break;
 		case 5:
-			if(PPNparams->cosI == 0.0) absdelta = 1.0*ACS.reldelta*500.0;
-			else {absdelta = PPNparams->cosI*ACS.reldelta*500.0;}
+			absdelta = PPNparams->phasePNparams[ACS->testPhaseParam]*ACS->reldelta;
 			break;
     default:
       ABORT( status, LALINSPIRALCOMPUTEFISHERC_EINPUT, LALINSPIRALCOMPUTEFISHERC_EINPUT_MSG );
@@ -637,302 +739,313 @@ void LALInspiralComputeDerivatives (
   }	
   
   /* COMPUTE DERIVATIVES */
-  if(paramid != 2)
-  {
-		while(icur < ACS.N_ts)
+	while(icur < ACS->N_ts)
+	{
+		loopcount++;
+		if(loopcount == 1){deltax_min = absdelta; deltax_max=absdelta;}
+		
+		/* RESTART BOUNDS AFTER 25 ITERATIONS */
+		if((loopcount%25) == 0)
 		{
-      loopcount++;
-      if(loopcount == 1){deltax_min = absdelta; deltax_max=absdelta;}
-      
-      /* RESTART BOUNDS AFTER 25 ITERATIONS */
-      if((loopcount%25) == 0)
-      {
-				
-				ACS.linReg_countMax += ACS.linReg_countMax/10;
-				ACS.deltaPhi_max *= 1.1;
-				
-				/* RESET DELTAX BOUNDS */
-				deltax_min = absdelta; 
-				deltax_max = absdelta;				
-			}
-      
-      // Initialise parameter structure
-      PPNConsistencyParamStruc hxStartPPNparams;               // params start differentiation region
-      PPNConsistencyParamStruc hxEndPPNparams;                 // params end differentiation region
-      hxStartPPNparams.ppn = XLALCreateREAL4Vector(PPNparams->ppn->length);
-      hxEndPPNparams.ppn = XLALCreateREAL4Vector(PPNparams->ppn->length);
-      TRY( XLALCopyPPNConsistencyParamStruc(PPNparams, &hxStartPPNparams), status);
-      TRY( XLALCopyPPNConsistencyParamStruc(PPNparams, &hxEndPPNparams), status);
-  
-      // Initialise waveforms (hxwaveform declared/destroyed in analysis loop)
-      CoherentGW hxStartWaveform;                			// waveform start of differentiation region
-      CoherentGW hxEndWaveform;                				// waveform end of differentiation region
-      memset(&hxStartWaveform,0,sizeof(CoherentGW));
-      memset(&hxEndWaveform, 0, sizeof(CoherentGW));
-      
-      /* CLEAR TIME SERIES */
-      for (j = 0; j < ((INT4) ACS.N_ts); j++)
-      {
-        hderiv_tmp->data->data[j]              = 0.0;
-        phiStart->data->data[j]            = 0.0;
-        phiEnd->data->data[j]              = 0.0;
-        AStart->data->data[j]              = 0.0;
-        AEnd->data->data[j]              = 0.0;
-      }      
-      
-      /* USE EDGES OF DIFFERENTIATION REGION */
-      switch(paramid)
-      {
-				case 0:
-					hxStartPPNparams.mTot_real8 	-= ACS.xsamples_tot/2 * absdelta;
-					hxEndPPNparams.mTot_real8 		+= ACS.xsamples_tot/2 * absdelta;
-					
-					/* REFILL PHI_I FOR Start */
-					hxStartPPNparams.phi0 = -pow(hxStartPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-5.0/8.0); 
-					hxStartPPNparams.phi2 = -(3715.0/8064.0 + 55.0/96.0*hxStartPPNparams.eta_real8)*pow(hxStartPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-3.0/8.0);
-					hxStartPPNparams.phi3 = 3.0/4.0*LAL_PI*pow(hxStartPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-0.25); 
-					hxStartPPNparams.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*hxStartPPNparams.eta_real8 + 1855.0/2048.0*pow(hxStartPPNparams.eta_real8,2.0))*pow(hxStartPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-1.0/8.0);
-					hxStartPPNparams.phi5 = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI*log(hxStartPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8));
-					hxStartPPNparams.phi5l = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI; 
-					hxStartPPNparams.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxStartPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxStartPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxStartPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxStartPPNparams.eta_real8,3.0))*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
-					hxStartPPNparams.phi6l = -107.0/448.0*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
-					hxStartPPNparams.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*hxStartPPNparams.eta_real8 - 141769.0/516096.0*pow(hxStartPPNparams.eta_real8,2.0))*LAL_PI*pow(hxStartPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/4.0); 		
-								
-					/* REFILL PHI_I FOR End */
-					hxEndPPNparams.phi0 = -pow(hxEndPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-5.0/8.0); 
-					hxEndPPNparams.phi2 = -(3715.0/8064.0 + 55.0/96.0*hxEndPPNparams.eta_real8)*pow(hxEndPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-3.0/8.0);
-					hxEndPPNparams.phi3 = 3.0/4.0*LAL_PI*pow(hxEndPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-0.25); 
-					hxEndPPNparams.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*hxEndPPNparams.eta_real8 + 1855.0/2048.0*pow(hxEndPPNparams.eta_real8,2.0))*pow(hxEndPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-1.0/8.0);
-					hxEndPPNparams.phi5 = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI*log(hxEndPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8));
-					hxEndPPNparams.phi5l = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI; 
-					hxEndPPNparams.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxEndPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxEndPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxEndPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxEndPPNparams.eta_real8,3.0))*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
-					hxEndPPNparams.phi6l = -107.0/448.0*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
-					hxEndPPNparams.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*hxEndPPNparams.eta_real8 - 141769.0/516096.0*pow(hxEndPPNparams.eta_real8,2.0))*LAL_PI*pow(hxEndPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/4.0); 					
-					break;
-					
-				case 1:
-					hxStartPPNparams.eta_real8 	-= ACS.xsamples_tot/2 * absdelta;
-					hxEndPPNparams.eta_real8 		+= ACS.xsamples_tot/2 * absdelta;
-					
-					/* REFILL PHI_I FOR Start */
-					hxStartPPNparams.phi0 = -pow(hxStartPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-5.0/8.0); 
-					hxStartPPNparams.phi2 = -(3715.0/8064.0 + 55.0/96.0*hxStartPPNparams.eta_real8)*pow(hxStartPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-3.0/8.0);
-					hxStartPPNparams.phi3 = 3.0/4.0*LAL_PI*pow(hxStartPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-0.25); 
-					hxStartPPNparams.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*hxStartPPNparams.eta_real8 + 1855.0/2048.0*pow(hxStartPPNparams.eta_real8,2.0))*pow(hxStartPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-1.0/8.0);
-					hxStartPPNparams.phi5 = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI*log(hxStartPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8));
-					hxStartPPNparams.phi5l = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI; 
-					hxStartPPNparams.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxStartPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxStartPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxStartPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxStartPPNparams.eta_real8,3.0))*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
-					hxStartPPNparams.phi6l = -107.0/448.0*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
-					hxStartPPNparams.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*hxStartPPNparams.eta_real8 - 141769.0/516096.0*pow(hxStartPPNparams.eta_real8,2.0))*LAL_PI*pow(hxStartPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/4.0); 		
-								
-					/* REFILL PHI_I FOR End */
-					hxEndPPNparams.phi0 = -pow(hxEndPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-5.0/8.0); 
-					hxEndPPNparams.phi2 = -(3715.0/8064.0 + 55.0/96.0*hxEndPPNparams.eta_real8)*pow(hxEndPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-3.0/8.0);
-					hxEndPPNparams.phi3 = 3.0/4.0*LAL_PI*pow(hxEndPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-0.25); 
-					hxEndPPNparams.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*hxEndPPNparams.eta_real8 + 1855.0/2048.0*pow(hxEndPPNparams.eta_real8,2.0))*pow(hxEndPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-1.0/8.0);
-					hxEndPPNparams.phi5 = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI*log(hxEndPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8));
-					hxEndPPNparams.phi5l = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI; 
-					hxEndPPNparams.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxEndPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxEndPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxEndPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxEndPPNparams.eta_real8,3.0))*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
-					hxEndPPNparams.phi6l = -107.0/448.0*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
-					hxEndPPNparams.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*hxEndPPNparams.eta_real8 - 141769.0/516096.0*pow(hxEndPPNparams.eta_real8,2.0))*LAL_PI*pow(hxEndPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/4.0); 					
-					break;
-					
-				case 2:
-					break;
-				case 3:
-					hxStartPPNparams.phi 	-= ACS.xsamples_tot/2 * absdelta;
-					hxEndPPNparams.phi 		+= ACS.xsamples_tot/2 * absdelta;				
-					break;
-				case 4:
-					break;
-				case 5:
-					hxStartPPNparams.cosI 	-= ACS.xsamples_tot/2 * absdelta;
-					hxEndPPNparams.cosI 		+= ACS.xsamples_tot/2 * absdelta;
-					
-					/* MIRROR AROUND -1 IF CROSSING -1 */
-					if(hxStartPPNparams.cosI < -1.0 ){ hxStartPPNparams.cosI = -2.0 - hxStartPPNparams.cosI; hxStartPPNparams.sinI = -hxStartPPNparams.sinI;}
-					
-					/* MIRROR AROUND +1 IF CROSSING +1 */
-					if(hxEndPPNparams.cosI > 1.0 ){ hxEndPPNparams.cosI = 2.0 - hxEndPPNparams.cosI; hxEndPPNparams.sinI = -hxEndPPNparams.sinI;}
-					
-					break;					
-				default:
-					break;
-			}
-      
-      /* COMPUTE WAVEFORMS, NO NEED TO COMBINE HP AND HC AS ONLY PHASE IS REQUIRED */
-      TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &hxStartWaveform, &hxStartPPNparams), status);
-      TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &hxEndWaveform, &hxEndPPNparams), status);
-      
-      /* LOAD PHASE INTO TIMESERIES */
-      for(j=0;j<((INT4)hxStartWaveform.phi->data->length);j++)
-      {
-				phiStart->data->data[(ACS.N_ts-hxStartWaveform.phi->data->length)+j] = hxStartWaveform.phi->data->data[j];
-				AStart->data->data[(ACS.N_ts-hxStartWaveform.phi->data->length)+j] = hxStartWaveform.h->data->data[2*j];
-			}
-      if(paramid==4){for(j=0;j<((INT4)hxEndWaveform.phi->data->length)-ACS.xsamples_tot;j++)
-      {
-				phiEnd->data->data[(ACS.N_ts-hxEndWaveform.phi->data->length)+j+ACS.xsamples_tot] = hxEndWaveform.phi->data->data[j];
-				AEnd->data->data[(ACS.N_ts-hxEndWaveform.phi->data->length)+j+ACS.xsamples_tot] = hxEndWaveform.h->data->data[2*j];
-			}}
-      else{for(j=0;j<((INT4)hxEndWaveform.phi->data->length);j++)
-      {
-				phiEnd->data->data[(ACS.N_ts-hxEndWaveform.phi->data->length)+j] = hxEndWaveform.phi->data->data[j];
-				AEnd->data->data[(ACS.N_ts-hxEndWaveform.phi->data->length)+j] = hxEndWaveform.h->data->data[2*j];
-			}}
 			
-			/* COMPUTE LENGTH DIFFERENCE */
-			deltaL = abs(hxStartWaveform.f->data->length-hxEndWaveform.f->data->length);
+			linReg_countMax += linReg_countMax/10;
+			deltaPhi_max *= 1.1;
 			
-			/* Test region in time for which current deltax is suitable */
-			for(i=icur;i<ACS.N_ts;i++)
-			{
-				/* PRINT CURRENT STATUS */
-				if(ACS.verbose_switch==1)fprintf(stdout, "\r i = %d | icur = %d | deltax = %e |  deltaA = %e | deltaL = %d | dPhi = %e ", i, icur,  absdelta, fabs(1.0-AStart->data->data[ACS.N_ts-1-i]/AEnd->data->data[ACS.N_ts-1-i]) ,deltaL, fabs(1.0-phiStart->data->data[ACS.N_ts-1-i]/phiEnd->data->data[ACS.N_ts-1-i]));
+			/* RESET DELTAX BOUNDS */
+			deltax_min = absdelta; 
+			deltax_max = absdelta;				
+		}
+		
+		// Initialise parameter structure
+		PPNConsistencyParamStruc hxStartPPNparams;               // params start differentiation region
+		PPNConsistencyParamStruc hxEndPPNparams;                 // params end differentiation region
+		hxStartPPNparams.ppn = XLALCreateREAL4Vector(PPNparams->ppn->length);
+		hxEndPPNparams.ppn = XLALCreateREAL4Vector(PPNparams->ppn->length);
+		TRY( XLALCopyPPNConsistencyParamStruc(PPNparams, &hxStartPPNparams), status);
+		TRY( XLALCopyPPNConsistencyParamStruc(PPNparams, &hxEndPPNparams), status);
+
+		// Initialise waveforms (hxwaveform declared/destroyed in analysis loop)
+		CoherentGW hxStartWaveform;                			// waveform start of differentiation region
+		CoherentGW hxEndWaveform;                				// waveform end of differentiation region
+		memset(&hxStartWaveform,0,sizeof(CoherentGW));
+		memset(&hxEndWaveform, 0, sizeof(CoherentGW));
+		
+		/* CLEAR TIME SERIES */
+		for (j = 0; j < ((INT4) ACS->N_ts); j++)
+		{
+			//hderiv_tmp->data->data[j]              = 0.0;
+			phiStart->data->data[j]            = 0.0;
+			phiEnd->data->data[j]              = 0.0;
+			AStart->data->data[j]              = 0.0;
+			AEnd->data->data[j]              = 0.0;
+		}      
+		
+		/* USE EDGES OF DIFFERENTIATION REGION */
+		switch(paramid)
+		{
+			case 0:
+				hxStartPPNparams.mTot_real8 	-= xsamples_tot/2 * absdelta;
+				hxEndPPNparams.mTot_real8 		+= xsamples_tot/2 * absdelta;
 				
-				/* CHECK IF AMOUNT OF EDGES IS HIGHER THAN MINIMUM) */
-				/* TOTAL LENGTH OF THE WAVEFORM SHOULD BE 2*ACS.N_TS INSTEAD OF ACS.N_TS -> CHANGE INTO ASTART/AEND LATER */
-				if( 	(( (fabs(1.0-AStart->data->data[ACS.N_ts-1-i]/AEnd->data->data[ACS.N_ts-1-i]) < 1.0E-5) && (AStart->data->data[ACS.N_ts-1-i] != 0.0 && AEnd->data->data[ACS.N_ts-1-i] != 0.0))
-							&& ( (fabs(phiStart->data->data[ACS.N_ts-1-i]-phiEnd->data->data[ACS.N_ts-1-i]) == 0.0) && (phiStart->data->data[ACS.N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS.N_ts-1-i]!=0.0) ) )
-							|| ((deltaL < ACS.linReg_countMin) && (paramid != 3 && paramid != 4 && paramid != 5) ) 
+				/* REFILL PHI_I FOR Start */
+				if(ACS->testPhaseParam!=0) hxStartPPNparams.phasePNparams[0] = -pow(hxStartPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-5.0/8.0); 
+				if(ACS->testPhaseParam!=1) hxStartPPNparams.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*hxStartPPNparams.eta_real8)*pow(hxStartPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-3.0/8.0);
+				if(ACS->testPhaseParam!=2) hxStartPPNparams.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(hxStartPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-0.25); 
+				if(ACS->testPhaseParam!=3) hxStartPPNparams.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*hxStartPPNparams.eta_real8 + 1855.0/2048.0*pow(hxStartPPNparams.eta_real8,2.0))*pow(hxStartPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-1.0/8.0);
+				if(ACS->testPhaseParam!=4) hxStartPPNparams.phasePNparams[4] = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI*log(hxStartPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8));
+				if(ACS->testPhaseParam!=5) hxStartPPNparams.phasePNparams[5] = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI; 
+				if(ACS->testPhaseParam!=6) hxStartPPNparams.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxStartPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxStartPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxStartPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxStartPPNparams.eta_real8,3.0))*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=7) hxStartPPNparams.phasePNparams[7] = -107.0/448.0*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=8) hxStartPPNparams.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*hxStartPPNparams.eta_real8 - 141769.0/516096.0*pow(hxStartPPNparams.eta_real8,2.0))*LAL_PI*pow(hxStartPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/4.0); 		
 							
-					)
-				{
-					if (ACS.verbose_switch==1)
-					{
-						if ( (hxStartWaveform.h->data->data[ACS.N_ts-1-2*i] - hxEndWaveform.h->data->data[ACS.N_ts-1-2*i]) == 0.0 && hxStartWaveform.h->data->data[ACS.N_ts-1-2*i] != 0.0 && hxEndWaveform.h->data->data[ACS.N_ts-1-2*i] != 0.0) fprintf(stdout, " delta_Amp = 0");
-						if ( (fabs(phiStart->data->data[ACS.N_ts-1-i]-phiEnd->data->data[ACS.N_ts-1-i]) == 0.0) && (phiStart->data->data[ACS.N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS.N_ts-1-i]!=0.0) ) fprintf(stdout, " delta_Phi = 0 \n");
-						if ( (deltaL < ACS.linReg_countMin) && (paramid != 3 && paramid != 4 && paramid != 5) ) fprintf(stdout, "deltaL < deltaL_min \n");
-					}
-					deltax_dir = 1;
-					if( ((i-icur)>(ACS.N_ts/10)) && (icur<ACS.N_ts-ACS.N_ts/10)) iend = i;
-					break;
-				}				
+				/* REFILL PHI_I FOR End */
+				if(ACS->testPhaseParam!=0) hxEndPPNparams.phasePNparams[0] = -pow(hxEndPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-5.0/8.0); 
+				if(ACS->testPhaseParam!=1) hxEndPPNparams.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*hxEndPPNparams.eta_real8)*pow(hxEndPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-3.0/8.0);
+				if(ACS->testPhaseParam!=2) hxEndPPNparams.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(hxEndPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-0.25); 
+				if(ACS->testPhaseParam!=3) hxEndPPNparams.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*hxEndPPNparams.eta_real8 + 1855.0/2048.0*pow(hxEndPPNparams.eta_real8,2.0))*pow(hxEndPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-1.0/8.0);
+				if(ACS->testPhaseParam!=4) hxEndPPNparams.phasePNparams[4] = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI*log(hxEndPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8));
+				if(ACS->testPhaseParam!=5) hxEndPPNparams.phasePNparams[5] = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI; 
+				if(ACS->testPhaseParam!=6) hxEndPPNparams.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxEndPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxEndPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxEndPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxEndPPNparams.eta_real8,3.0))*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=7) hxEndPPNparams.phasePNparams[7] = -107.0/448.0*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=8) hxEndPPNparams.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*hxEndPPNparams.eta_real8 - 141769.0/516096.0*pow(hxEndPPNparams.eta_real8,2.0))*LAL_PI*pow(hxEndPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/4.0); 					
+				break;
 				
-				/* CHECK IF DELTA_PHI IS SMALL ENOUGH AND IF AMOUNT OF EDGES IS SMALLER THAN MAXIMUM */
-				if( ((deltaL > ACS.linReg_countMax) && (paramid != 3 && paramid != 4 && paramid != 5)) || ((fabs(phiStart->data->data[ACS.N_ts-1-i]-phiEnd->data->data[ACS.N_ts-1-i]) > ACS.deltaPhi_max) && (phiStart->data->data[ACS.N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS.N_ts-1-i]!=0.0) ) )
+			case 1:
+				hxStartPPNparams.eta_real8 	-= xsamples_tot/2 * absdelta;
+				hxEndPPNparams.eta_real8 		+= xsamples_tot/2 * absdelta;
+				
+				/* REFILL PHI_I FOR Start */
+				if(ACS->testPhaseParam!=0) hxStartPPNparams.phasePNparams[0] = -pow(hxStartPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-5.0/8.0); 
+				if(ACS->testPhaseParam!=1) hxStartPPNparams.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*hxStartPPNparams.eta_real8)*pow(hxStartPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-3.0/8.0);
+				if(ACS->testPhaseParam!=2) hxStartPPNparams.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(hxStartPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-0.25); 
+				if(ACS->testPhaseParam!=3) hxStartPPNparams.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*hxStartPPNparams.eta_real8 + 1855.0/2048.0*pow(hxStartPPNparams.eta_real8,2.0))*pow(hxStartPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,-1.0/8.0);
+				if(ACS->testPhaseParam!=4) hxStartPPNparams.phasePNparams[4] = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI*log(hxStartPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8));
+				if(ACS->testPhaseParam!=5) hxStartPPNparams.phasePNparams[5] = -1.0/hxStartPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxStartPPNparams.eta_real8)*LAL_PI; 
+				if(ACS->testPhaseParam!=6) hxStartPPNparams.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxStartPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxStartPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxStartPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxStartPPNparams.eta_real8,3.0))*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=7) hxStartPPNparams.phasePNparams[7] = -107.0/448.0*pow(hxStartPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=8) hxStartPPNparams.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*hxStartPPNparams.eta_real8 - 141769.0/516096.0*pow(hxStartPPNparams.eta_real8,2.0))*LAL_PI*pow(hxStartPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxStartPPNparams.mTot_real8,1.0/4.0); 		
+							
+				/* REFILL PHI_I FOR End */
+				if(ACS->testPhaseParam!=0) hxEndPPNparams.phasePNparams[0] = -pow(hxEndPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-5.0/8.0); 
+				if(ACS->testPhaseParam!=1) hxEndPPNparams.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*hxEndPPNparams.eta_real8)*pow(hxEndPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-3.0/8.0);
+				if(ACS->testPhaseParam!=2) hxEndPPNparams.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(hxEndPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-0.25); 
+				if(ACS->testPhaseParam!=3) hxEndPPNparams.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*hxEndPPNparams.eta_real8 + 1855.0/2048.0*pow(hxEndPPNparams.eta_real8,2.0))*pow(hxEndPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,-1.0/8.0);
+				if(ACS->testPhaseParam!=4) hxEndPPNparams.phasePNparams[4] = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI*log(hxEndPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8));
+				if(ACS->testPhaseParam!=5) hxEndPPNparams.phasePNparams[5] = -1.0/hxEndPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxEndPPNparams.eta_real8)*LAL_PI; 
+				if(ACS->testPhaseParam!=6) hxEndPPNparams.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxEndPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxEndPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxEndPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxEndPPNparams.eta_real8,3.0))*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=7) hxEndPPNparams.phasePNparams[7] = -107.0/448.0*pow(hxEndPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=8) hxEndPPNparams.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*hxEndPPNparams.eta_real8 - 141769.0/516096.0*pow(hxEndPPNparams.eta_real8,2.0))*LAL_PI*pow(hxEndPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxEndPPNparams.mTot_real8,1.0/4.0); 					
+				break;
+				
+			//case 2:
+				//break;
+			case 2:
+				hxStartPPNparams.phi 	-= xsamples_tot/2 * absdelta;
+				hxEndPPNparams.phi 		+= xsamples_tot/2 * absdelta;				
+				break;
+			case 3:
+				break;
+			case 4:
+				hxStartPPNparams.cosI 	-= xsamples_tot/2 * absdelta;
+				hxEndPPNparams.cosI 		+= xsamples_tot/2 * absdelta;
+				
+				/* MIRROR AROUND -1 IF CROSSING -1 */
+				if(hxStartPPNparams.cosI < -1.0 ){ hxStartPPNparams.cosI = -2.0 - hxStartPPNparams.cosI; hxStartPPNparams.sinI = -hxStartPPNparams.sinI;}
+				
+				/* MIRROR AROUND +1 IF CROSSING +1 */
+				if(hxEndPPNparams.cosI > 1.0 ){ hxEndPPNparams.cosI = 2.0 - hxEndPPNparams.cosI; hxEndPPNparams.sinI = -hxEndPPNparams.sinI;}
+			
+				break;	
+				
+			case 5:
+				hxStartPPNparams.phasePNparams[ACS->testPhaseParam] 	-= xsamples_tot/2 * absdelta;
+				hxEndPPNparams.phasePNparams[ACS->testPhaseParam] 		+= xsamples_tot/2 * absdelta;
+				break;
+																
+			default:
+				break;
+		}
+		
+		/* COMPUTE WAVEFORMS, NO NEED TO COMBINE HP AND HC AS ONLY PHASE IS REQUIRED */
+		TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &hxStartWaveform, &hxStartPPNparams), status);
+		TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &hxEndWaveform, &hxEndPPNparams), status);
+		
+		/* LOAD PHASE INTO TIMESERIES */
+		ASSERT( (((INT4)hxStartWaveform.phi->data->length) < ACS->N_ts), status, LALINSPIRALCOMPUTEFISHERC_ETSSIZE, LALINSPIRALCOMPUTEFISHERC_ETSSIZE_MSG );
+		//printf("%d | %d \n", ACS->N_ts, hxStartWaveform.phi->data->length);
+		for(j=0;j<((INT4)hxStartWaveform.phi->data->length);j++)
+		{
+			phiStart->data->data[(ACS->N_ts-hxStartWaveform.phi->data->length)+j] = hxStartWaveform.phi->data->data[j];
+			AStart->data->data[(ACS->N_ts-hxStartWaveform.phi->data->length)+j] = hxStartWaveform.h->data->data[2*j];
+		}
+		if(paramid==3){for(j=0;j<((INT4)hxEndWaveform.phi->data->length)-xsamples_tot;j++)
+		{
+			phiEnd->data->data[(ACS->N_ts-hxEndWaveform.phi->data->length)+j+xsamples_tot] = hxEndWaveform.phi->data->data[j];
+			AEnd->data->data[(ACS->N_ts-hxEndWaveform.phi->data->length)+j+xsamples_tot] = hxEndWaveform.h->data->data[2*j];
+		}}
+		else{for(j=0;j<((INT4)hxEndWaveform.phi->data->length);j++)
+		{
+			phiEnd->data->data[(ACS->N_ts-hxEndWaveform.phi->data->length)+j] = hxEndWaveform.phi->data->data[j];
+			AEnd->data->data[(ACS->N_ts-hxEndWaveform.phi->data->length)+j] = hxEndWaveform.h->data->data[2*j];
+		}}
+		
+		/* COMPUTE LENGTH DIFFERENCE */
+		deltaL = abs(hxStartWaveform.f->data->length-hxEndWaveform.f->data->length);
+		
+		/* Test region in time for which current deltax is suitable */
+		for(i=icur;i<ACS->N_ts;i++)
+		{
+			/* PRINT CURRENT STATUS */
+			if(ACS->verbose_switch==1)fprintf(stdout, "\r i = %d | icur = %d | deltax = %e |  deltaA = %e | deltaL = %d | dPhi = %e | dPhi_max = %e ", i, icur,  absdelta, fabs(1.0-AStart->data->data[ACS->N_ts-1-i]/AEnd->data->data[ACS->N_ts-1-i]),deltaL, fabs(phiEnd->data->data[ACS->N_ts-1-i]-phiStart->data->data[ACS->N_ts-1-i]), deltaPhi_max);
+			
+			/* CHECK IF AMOUNT OF EDGES IS HIGHER THAN MINIMUM) */
+			/* TOTAL LENGTH OF THE WAVEFORM SHOULD BE 2*ACS->N_TS INSTEAD OF ACS->N_TS -> CHANGE INTO ASTART/AEND LATER */
+			if( 	(( (fabs(1.0-AStart->data->data[ACS->N_ts-1-i]/AEnd->data->data[ACS->N_ts-1-i]) < 1.0E-7) && (AStart->data->data[ACS->N_ts-1-i] != 0.0 && AEnd->data->data[ACS->N_ts-1-i] != 0.0))
+						&& ( (fabs(phiStart->data->data[ACS->N_ts-1-i]-phiEnd->data->data[ACS->N_ts-1-i]) == 0.0) && (phiStart->data->data[ACS->N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS->N_ts-1-i]!=0.0) ) )
+						|| ((deltaL < ACS->linReg_countMin) && (paramid != 2 && paramid != 3 && paramid != 4 && paramid != 5) ) 
+						
+				)
+			{
+				if (ACS->verbose_switch==1)
 				{
-					if((fabs(phiStart->data->data[ACS.N_ts-1-i]-phiEnd->data->data[ACS.N_ts-1-i]) > ACS.deltaPhi_max) && (phiStart->data->data[ACS.N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS.N_ts-1-i]!=0.0)) fprintf(stdout, "| deltaPhi > deltaPhi_Max \n");
-					if( (deltaL > ACS.linReg_countMax) && (paramid != 3 && paramid != 4) && paramid != 5) if(ACS.verbose_switch==1)fprintf(stdout, "| deltaL > deltaL_Max \n");
-					deltax_dir = 2;
-					if( ((i-icur)>(ACS.N_ts/10)) && (icur<ACS.N_ts-ACS.N_ts/10)) iend = i;
-					break;
+					if ( (hxStartWaveform.h->data->data[ACS->N_ts-1-2*i] - hxEndWaveform.h->data->data[ACS->N_ts-1-2*i]) == 0.0 && hxStartWaveform.h->data->data[ACS->N_ts-1-2*i] != 0.0 && hxEndWaveform.h->data->data[ACS->N_ts-1-2*i] != 0.0) if(ACS->verbose_switch == 1)fprintf(stdout, " delta_Amp = 0");
+					if ( (fabs(phiStart->data->data[ACS->N_ts-1-i]-phiEnd->data->data[ACS->N_ts-1-i]) == 0.0) && (phiStart->data->data[ACS->N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS->N_ts-1-i]!=0.0) ) if(ACS->verbose_switch == 1)fprintf(stdout, "| delta_Phi = 0 \n");
+					if ( (deltaL < ACS->linReg_countMin) && (paramid != 2 && paramid != 3 && paramid != 4 && paramid != 5) ) if(ACS->verbose_switch == 1)fprintf(stdout, "| deltaL < deltaL_min \n");
 				}
-				if(i==ACS.N_ts-1) if(ACS.verbose_switch==1)fprintf(stdout, "| end reached \n");
-			}
+				deltax_dir = 1;
+				if( ((i-icur)>(ACS->N_ts/10)) && (icur<ACS->N_ts-ACS->N_ts/10)) iend = i;
+				break;
+			}				
 			
-			/* Calculate derivative for suitable region */
-			if(icur != i && (((i-icur)>(ACS.N_ts/10)) || (icur>(ACS.N_ts-ACS.N_ts/10))) )
+			/* CHECK IF DELTA_PHI IS SMALL ENOUGH AND IF AMOUNT OF EDGES IS SMALLER THAN MAXIMUM */
+			if( ((deltaL > linReg_countMax) && (paramid != 2 && paramid != 3 && paramid != 4 && paramid != 5)) || ((fabs(phiStart->data->data[ACS->N_ts-1-i]-phiEnd->data->data[ACS->N_ts-1-i]) > deltaPhi_max) && (phiStart->data->data[ACS->N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS->N_ts-1-i]!=0.0) ) )
 			{
-				/* KEEP TRACK OF MINIMAL WAVELENGTH */
-				if(waveformlength_min >((INT4) hxEndWaveform.f->data->length)) waveformlength_min = hxEndWaveform.f->data->length;
-				if(waveformlength_min > ((INT4)hxStartWaveform.f->data->length)) waveformlength_min = hxStartWaveform.f->data->length;
-				
-				/* CALCULATE DERIVATIVE */
-				LALInspiralComputeDerivatives_linReg(status->statusPtr, PPNparams, absdelta, paramid, icur, i, hderiv_tmp, ACS.xsamples_tot, ACS);
-				icur = i;
-				loopcount = 0;
-				
-				/* RESET DELTAX BOUNDS */
-				deltax_min = absdelta; 
-				deltax_max = absdelta;	
-			}
-			else{if(icur != i) if(ACS.verbose_switch == 1) fprintf(stdout, "... Differentiable region too small, retry \n");}
-			//fprintf(traject_out, "%d\t%e\t%e\t%e \n",loopcount, absdelta, deltax_min, deltax_max);
-			
-			/* Update deltax */
-			switch(deltax_dir)
-			{
-				case 1:
-					if(paramid == 4){ACS.xsamples_tot = ACS.xsamples_tot*ACS.xsamples_adjustUp;}
-					else
-					{
-						if(deltax_max == absdelta) {deltax_min = absdelta; deltax_max = absdelta * ACS.absdelta_adjustUp; absdelta *= ACS.absdelta_adjustUp;}
-						else{deltax_min = absdelta; absdelta = (deltax_max + deltax_min)/2.0;}
-					}
-					break;
-				
-				case 2:
-					if(paramid == 4)
-					{
-						ACS.xsamples_tot -= ACS.xsamples_tot/ACS.xsamples_adjustDown;
-						if(ACS.xsamples_tot<10){ LALInspiralComputeDerivatives_5point(status->statusPtr, PPNparams, paramid, absdelta, icur, ((INT4)hxEndWaveform.phi->data->length)-ACS.xsamples_tot, hderiv_tmp);}
-					}
-					else 
-					{
-						if(deltax_min == absdelta){deltax_max = absdelta; deltax_min = absdelta*ACS.absdelta_adjustDown; absdelta *= ACS.absdelta_adjustDown;}
-						else{deltax_max = absdelta; absdelta = (deltax_max+deltax_min)/2.0;}
-					}
-					break;
-					
-				default:
-					fprintf(stdout, "... no directional change \n");
-					break;
-			}
-      
-      if(ACS.xsamples_tot<10) break;
-      
-      if(loopcount == 5E2)
-      {
-				LALInspiralComputeDerivatives_5point(status->statusPtr, PPNparams, paramid, absdelta, icur, (INT4)hxEndWaveform.phi->data->length, hderiv_tmp); 
+				if((fabs(phiStart->data->data[ACS->N_ts-1-i]-phiEnd->data->data[ACS->N_ts-1-i]) > deltaPhi_max) && (phiStart->data->data[ACS->N_ts-1-i]!=0.0) && (phiEnd->data->data[ACS->N_ts-1-i]!=0.0)) if(ACS->verbose_switch == 1)fprintf(stdout, "| deltaPhi > deltaPhi_Max \n");
+				if( (deltaL > linReg_countMax) && (paramid != 2 && paramid != 3 && paramid != 4 && paramid != 5) )if(ACS->verbose_switch==1)if(ACS->verbose_switch == 1)fprintf(stdout, "| deltaL > deltaL_Max \n");
+				deltax_dir = 2;
+				if( ((i-icur)>(ACS->N_ts/10)) && (icur<ACS->N_ts-ACS->N_ts/10)) iend = i;
 				break;
 			}
-
-      /* CLEANING UP */
-      TRY( XLALDestroyREAL4Vector( hxStartPPNparams.ppn ), status);
-      TRY( XLALDestroyREAL4Vector( hxEndPPNparams.ppn ), status);
-      TRY( XLALDestroyCoherentGW(&hxStartWaveform), status); 
-      TRY( XLALDestroyCoherentGW(&hxEndWaveform), status); 
-      
+			if(i==ACS->N_ts-1) if(ACS->verbose_switch==1)fprintf(stdout, "| end reached \n");
 		}
+		
+		/* Calculate derivative for suitable region */
+		if(icur != i && (((i-icur)>(ACS->N_ts/10)) || (icur>(ACS->N_ts-ACS->N_ts/10))) )
+		{
+			/* KEEP TRACK OF MINIMAL WAVELENGTH */
+			if(waveformlength_min > ((INT4)hxEndWaveform.f->data->length)) waveformlength_min = hxEndWaveform.f->data->length;
+			if(waveformlength_min > ((INT4)hxStartWaveform.f->data->length)) waveformlength_min = hxStartWaveform.f->data->length;
+			
+			/* CALCULATE DERIVATIVE */
+			LALInspiralComputeDerivatives_linReg(status->statusPtr, PPNparams, absdelta, paramid, icur, i, hderiv_tmp, xsamples_tot, ACS);
+			icur = i;
+			loopcount = 0;
+			
+			/* RESET DELTAX BOUNDS */
+			deltax_min = absdelta; 
+			deltax_max = absdelta;	
+		}
+		else{if(icur != i) if(ACS->verbose_switch == 1) fprintf(stdout, "... Differentiable region too small, retry \n");}
+		//fprintf(traject_out, "%d\t%e\t%e\t%e \n",loopcount, absdelta, deltax_min, deltax_max);
+		
+		/* Update deltax */
+		switch(deltax_dir)
+		{
+			case 1:
+				if(paramid == 3){xsamples_tot = xsamples_tot*ACS->xsamples_adjustUp;}
+				else
+				{
+					if(deltax_max == absdelta) {deltax_min = absdelta; deltax_max = absdelta * ACS->absdelta_adjustUp; absdelta *= ACS->absdelta_adjustUp;}
+					else{deltax_min = absdelta; absdelta = (deltax_max + deltax_min)/2.0;}
+				}
+				break;
+			
+			case 2:
+				if(paramid == 3)
+				{
+					xsamples_tot -= xsamples_tot/ACS->xsamples_adjustDown;
+					if(xsamples_tot<10){ LALInspiralComputeDerivatives_5point(status->statusPtr, PPNparams, paramid, absdelta, icur, ((INT4)hxEndWaveform.phi->data->length)-xsamples_tot, hderiv_tmp, ACS);}
+				}
+				else 
+				{
+					if(deltax_min == absdelta){deltax_max = absdelta; deltax_min = absdelta*ACS->absdelta_adjustDown; absdelta *= ACS->absdelta_adjustDown;}
+					else{deltax_max = absdelta; absdelta = (deltax_max+deltax_min)/2.0;}
+				}
+				break;
+				
+			default:
+				if(ACS->verbose_switch == 1)fprintf(stdout, "... no directional change \n");
+				break;
+		}
+		
+		if(xsamples_tot<10) break;
+		
+		if(loopcount == 5E2)
+		{
+			LALInspiralComputeDerivatives_5point(status->statusPtr, PPNparams, paramid, absdelta, icur, (INT4)hxEndWaveform.phi->data->length, hderiv_tmp, ACS); 
+			break;
+		}
+
+		/* CLEANING UP */
+		TRY( XLALDestroyREAL4Vector( hxStartPPNparams.ppn ), status);
+		TRY( XLALDestroyREAL4Vector( hxEndPPNparams.ppn ), status);
+		TRY( XLALDestroyCoherentGW(&hxStartWaveform), status); 
+		TRY( XLALDestroyCoherentGW(&hxEndWaveform), status); 
+		
 	}
 	
 	/* FOR LOG DL, DERIVATIVE IS H(T) AGAIN */
-  else if(paramid == 2)
-  {
-		TRY( XLALCopyPPNConsistencyParamStruc(PPNparams, &htPPNparams), status);
-		TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &htwaveform, &htPPNparams), status);
-		LALInspiralCombinePlusCross(status->statusPtr,htwaveform, hderiv_tmp);
-		//ht_len = htwaveform.f->data->length;
-    //for(j=0;j<((INT4)htwaveform.f->data->length);j++){hderiv_tmp->data->data[(ACS.N_ts-htwaveform.f->data->length)+j] = htwaveform.h->data->data[2*j];}		
-	}
+  //else if(paramid == 2)
+  //{
+		//TRY( XLALCopyPPNConsistencyParamStruc(PPNparams, &htPPNparams), status);
+		//TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &htwaveform, &htPPNparams), status);
+		//LALInspiralCombinePlusCross(status->statusPtr,htwaveform, htPPNparams, hderiv_tmp, ACS);
+		////ht_len = htwaveform.f->data->length;
+    ////for(j=0;j<((INT4)htwaveform.f->data->length);j++){hderiv_tmp->data->data[(ACS->N_ts-htwaveform.f->data->length)+j] = htwaveform.h->data->data[2*j];}		
+	//}
   
   for(i=1;i<(waveformlength_min+1);i++)
   {
 		switch(paramid)
 		{
 			case 0:
-				hderiv->data->data[ACS.N_ts-i] = hderiv_tmp->data->data[ACS.N_ts-i];
+				hderiv->data->data[ACS->N_ts-i] = hderiv_tmp->data->data[ACS->N_ts-i];
 				break;
 			case 1:
-				hderiv->data->data[ACS.N_ts-i] = hderiv_tmp->data->data[ACS.N_ts-i];
+				hderiv->data->data[ACS->N_ts-i] = hderiv_tmp->data->data[ACS->N_ts-i];
 				break;
+			//case 2:
+				//hderiv->data->data[ACS->N_ts-i] = -1.0*hderiv_tmp->data->data[ACS->N_ts-i];
+				//break;
 			case 2:
-				hderiv->data->data[ACS.N_ts-i] = -1.0*hderiv_tmp->data->data[ACS.N_ts-i];
+				hderiv->data->data[ACS->N_ts-i] = hderiv_tmp->data->data[ACS->N_ts-i];
 				break;
 			case 3:
-				hderiv->data->data[ACS.N_ts-i] = hderiv_tmp->data->data[ACS.N_ts-i];
-				break;
-			case 4:
-        if(i<(waveformlength_min-ACS.xsamples_tot)) hderiv->data->data[ACS.N_ts-i] = hderiv_tmp->data->data[ACS.N_ts-i];
+				/* decrease wavelength by amount of stepsizes shifted */
+        if(i<(waveformlength_min-xsamples_tot)) hderiv->data->data[ACS->N_ts-i] = hderiv_tmp->data->data[ACS->N_ts-i];
         break;
-			case 5:
-				hderiv->data->data[ACS.N_ts-i] = hderiv_tmp->data->data[ACS.N_ts-i];
+			case 4:
+				hderiv->data->data[ACS->N_ts-i] = hderiv_tmp->data->data[ACS->N_ts-i];
 				break;
+				
+			case 5:
+				hderiv->data->data[ACS->N_ts-i] = hderiv_tmp->data->data[ACS->N_ts-i];
+				break;
+				
 			default:
-				fprintf(stdout, "XLALInspiralComputeDerivatives failed: invalid derivative variable \n");
+				if(ACS->verbose_switch == 1)fprintf(stdout, "XLALInspiralComputeDerivatives failed: invalid derivative variable \n");
 				break;
 		}    
 	}
   
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Calculating Derivative - done \n");   }
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Calculating Derivative - done \n");   }
   
   /*********************************************************************
    *
    *  Clean up
    * 
    ********************************************************************/
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Cleaning Up \n");}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Cleaning Up \n");}
   
   // OUTPUT FILES
   //fclose(hx_out);
@@ -958,7 +1071,7 @@ void LALInspiralComputeDerivatives (
    * 
    ********************************************************************/
   DETATCHSTATUSPTR( status );
-  fprintf(stdout, "Running LALInspiralComputeDerivatives: paramid = %d - done \n", paramid);
+  if(ACS->verbose_switch == 1)fprintf(stdout, "Running LALInspiralComputeDerivatives: paramid = %d - done \n", paramid);
   RETURN(status);
   
 }
@@ -966,15 +1079,15 @@ void LALInspiralComputeDerivatives (
 /* <lalVerbatim file="LALInspiralComputeFisherComponentsCP">  */
 void LALInspiralComputeFisherComponents (
     LALStatus															 *status,
-    InspiralMetric                         *Comp,
+    REAL4					                         *Comp,
     REAL4TimeSeries                        *hderiv1,
     REAL4TimeSeries                        *hderiv2,
     REAL8FrequencySeries                   *psd,
     UINT4                                  compid,
-    FisherACS															 ACS)
+    FisherACS															 *ACS)
     /* </lalVerbatim> */
 {
-	if(ACS.verbose_switch == 1) fprintf(stdout, "Running XLALInspiralComputeFisherComponents: compid = %d \n", compid);
+	if(ACS->verbose_switch == 1) fprintf(stdout, "Running XLALInspiralComputeFisherComponents: compid = %d \n", compid);
 
   /*********************************************************************
    *
@@ -991,7 +1104,7 @@ void LALInspiralComputeFisherComponents (
    * 
    ********************************************************************/  
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Setting variables and allocating memory \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Setting variables and allocating memory \n");
    
   /* COUNTERS */
   INT4 i, k;
@@ -1016,15 +1129,15 @@ void LALInspiralComputeFisherComponents (
 	}
 	else
 	{
-		Hfderiv1 = XLALCreateCOMPLEX8FrequencySeries("Hfderiv1", &(ACS.epoch), 0.0, ACS.deltaF_fs, &lalStrainUnit, ACS.N_fs);
-		Hfderiv2 = XLALCreateCOMPLEX8FrequencySeries("Hfderiv2", &(ACS.epoch), 0.0, ACS.deltaF_fs, &lalStrainUnit, ACS.N_fs);
-		integrand = XLALCreateCOMPLEX8FrequencySeries("integrand", &(ACS.epoch), 0.0, ACS.deltaF_fs, &lalStrainUnit, ACS.N_fs);
-		temp = XLALCreateREAL4TimeSeries("temp", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
+		Hfderiv1 = XLALCreateCOMPLEX8FrequencySeries("Hfderiv1", &(ACS->epoch), 0.0, ACS->deltaF_fs, &lalStrainUnit, ACS->N_fs);
+		Hfderiv2 = XLALCreateCOMPLEX8FrequencySeries("Hfderiv2", &(ACS->epoch), 0.0, ACS->deltaF_fs, &lalStrainUnit, ACS->N_fs);
+		integrand = XLALCreateCOMPLEX8FrequencySeries("integrand", &(ACS->epoch), 0.0, ACS->deltaF_fs, &lalStrainUnit, ACS->N_fs);
+		temp = XLALCreateREAL4TimeSeries("temp", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
 	}
 	
-	for(i=0;i<ACS.N_ts;i++)
+	for(i=0;i<ACS->N_ts;i++)
 	{
-		if(i<ACS.N_fs)
+		if(i<ACS->N_fs)
 		{
 			Hfderiv1->data->data[i].re *= 0.0;
 			Hfderiv1->data->data[i].im *= 0.0;
@@ -1053,66 +1166,66 @@ void LALInspiralComputeFisherComponents (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Fisher component \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Fisher component \n");
 
   /* Take FFT of derivatives */ 
   
   //Hfderiv1.data = NULL;
   //Hfderiv2.data = NULL;
-  //LALCCreateVector( status->statusPtr, &Hfderiv1.data, ACS.N_fs );
-  //LALCCreateVector( status->statusPtr, &Hfderiv2.data, ACS.N_fs );
+  //LALCCreateVector( status->statusPtr, &Hfderiv1.data, ACS->N_fs );
+  //LALCCreateVector( status->statusPtr, &Hfderiv2.data, ACS->N_fs );
 
-  LALCreateForwardRealFFTPlan( status->statusPtr, &fwdRealPlan1, ACS.N_ts, 0 ); 
-  LALCreateForwardRealFFTPlan( status->statusPtr, &fwdRealPlan2, ACS.N_ts, 0 ); 
+  LALCreateForwardRealFFTPlan( status->statusPtr, &fwdRealPlan1, ACS->N_ts, 0 ); 
+  LALCreateForwardRealFFTPlan( status->statusPtr, &fwdRealPlan2, ACS->N_ts, 0 ); 
 
   hderiv1->f0 = 0.0;
-  hderiv1->deltaT = ACS.deltaT_ts;
+  hderiv1->deltaT = ACS->deltaT_ts;
 
-  //Hfderiv1.deltaF = ACS.deltaF_fs;
+  //Hfderiv1.deltaF = ACS->deltaF_fs;
 
   hderiv2->f0 = 0.0;
-  hderiv2->deltaT = ACS.deltaT_ts;
+  hderiv2->deltaT = ACS->deltaT_ts;
 
-  //Hfderiv2.deltaF = ACS.deltaF_fs;
+  //Hfderiv2.deltaF = ACS->deltaF_fs;
   
   LALTimeFreqRealFFT( status->statusPtr, Hfderiv1, hderiv1, fwdRealPlan1 );
   LALTimeFreqRealFFT( status->statusPtr, Hfderiv2, hderiv2, fwdRealPlan2 );
   
   /* Rescale by a dynamical range */
-  for (i = 0; i < ACS.N_fs; ++i)
+  for (i = 0; i < ACS->N_fs; ++i)
   {
-    Hfderiv1->data->data[i].re *= ACS.dynRange;
-    Hfderiv1->data->data[i].im *= ACS.dynRange;    
+    Hfderiv1->data->data[i].re *= ACS->dynRange;
+    Hfderiv1->data->data[i].im *= ACS->dynRange;    
 
-    Hfderiv2->data->data[i].re *= ACS.dynRange;
-    Hfderiv2->data->data[i].im *= ACS.dynRange;    
+    Hfderiv2->data->data[i].re *= ACS->dynRange;
+    Hfderiv2->data->data[i].im *= ACS->dynRange;    
   }
 
   /* Compute Fisher matrix component */
   //integrand.data = NULL;
   //temp.data = NULL;
-  //LALCCreateVector( status->statusPtr, &integrand.data, ACS.N_fs );
-  //LALSCreateVector( status->statusPtr, &temp.data, ACS.N_ts );
+  //LALCCreateVector( status->statusPtr, &integrand.data, ACS->N_fs );
+  //LALSCreateVector( status->statusPtr, &temp.data, ACS->N_ts );
   
-  LALCreateReverseRealFFTPlan( status->statusPtr, &revRealPlan, ACS.N_ts, 0 ); 
+  LALCreateReverseRealFFTPlan( status->statusPtr, &revRealPlan, ACS->N_ts, 0 ); 
 
-  for (k = 0; k < ACS.N_fs; ++k)
+  for (k = 0; k < ACS->N_fs; k++)
   {
 		// check PSD and set integration limits (40.0 - LSO)
-    if (psd->data->data[k] == 0.0 || ((REAL8) k)*ACS.deltaF_fs < ACS.fstart || ((REAL8) k)*ACS.deltaF_fs > ACS.fstop	)
+    if (psd->data->data[k] == 0.0 || ((REAL8) k)*ACS->deltaF_fs < ACS->fstart || ((REAL8) k)*ACS->deltaF_fs > ACS->fstop	)
       invpsd = 0.0;
     else
-      invpsd = 1.0 / ( ACS.dynRange * ACS.dynRange * psd->data->data[k] * 2.0 );
+      invpsd = 1.0 / ( ACS->dynRange * ACS->dynRange * psd->data->data[k] * 2.0 );
      
     integrand->data->data[k].re = (Hfderiv1->data->data[k].re * Hfderiv2->data->data[k].re + Hfderiv1->data->data[k].im * Hfderiv2->data->data[k].im) * invpsd;
     integrand->data->data[k].im = 0.0;
   }
 
-  //integrand.deltaF = ACS.deltaF_fs;
+  //integrand.deltaF = ACS->deltaF_fs;
     
   LALFreqTimeRealFFT( status->statusPtr, temp, integrand, revRealPlan );
  
-  Comp->Gamma[compid] = 4.0*temp->data->data[0]; 
+  Comp[compid] = 4.0*temp->data->data[0]; 
 
   /*********************************************************************
    *
@@ -1120,7 +1233,7 @@ void LALInspiralComputeFisherComponents (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Cleaning up \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Cleaning up \n");
   
   /* VECTORS */
   XLALDestroyCOMPLEX8FrequencySeries(Hfderiv1);		Hfderiv1 = NULL;
@@ -1154,10 +1267,10 @@ void LALInspiralInvertMatrix (
     LALStatus															*status,
     REAL4                                 *Input,
     REAL4                                 *Inverse,
-    FisherACS															ACS)
+    FisherACS															*ACS)
 /* </lalVerbatim> */
 { 
-	if(ACS.verbose_switch == 1) fprintf(stdout, "Running LALInspiralInvertMatrix \n");
+	if(ACS->verbose_switch == 1) fprintf(stdout, "Running LALInspiralInvertMatrix \n");
 
   /*********************************************************************
    *
@@ -1174,25 +1287,25 @@ void LALInspiralInvertMatrix (
    * 
    ********************************************************************/  
 
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Setting Variables and Allocating Memory \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Setting Variables and Allocating Memory \n");
 
 	/* COUNTERS */
   INT4 i = 0;
   
   // Initialise matrices A, U, S and V
-  gsl_matrix *A     = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // Input matrix
-  gsl_matrix *InvS  = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // inverse S
-  gsl_matrix *V     = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // V
-  gsl_matrix *U     = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // U
-  gsl_matrix *InvA  = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // Inverse A
-  gsl_matrix *C     = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // temporary storage
-  gsl_matrix *I     = gsl_matrix_calloc (ACS.N_inputparams, ACS.N_inputparams); // testing idenity
-  gsl_vector *s     = gsl_vector_alloc (ACS.N_inputparams);     // eigenvalues AA^T
+  gsl_matrix *A     = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // Input matrix
+  gsl_matrix *InvS  = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // inverse S
+  gsl_matrix *V     = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // V
+  gsl_matrix *U     = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // U
+  gsl_matrix *InvA  = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // Inverse A
+  gsl_matrix *C     = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // temporary storage
+  gsl_matrix *I     = gsl_matrix_calloc (ACS->N_inputparams, ACS->N_inputparams); // testing idenity
+  gsl_vector *s     = gsl_vector_alloc (ACS->N_inputparams);     // eigenvalues AA^T
   
   // Loading Gamma matrix from input into gsl matrix A
-  for (i = 0; i<ACS.N_inputparams * ACS.N_inputparams; i++)
+  for (i = 0; i<ACS->N_inputparams * ACS->N_inputparams; i++)
   {
-    gsl_matrix_set (A, i/ACS.N_inputparams, i%ACS.N_inputparams, Input[i]);
+    gsl_matrix_set (A, i/ACS->N_inputparams, i%ACS->N_inputparams, Input[i]);
   }
   
   /*********************************************************************
@@ -1203,18 +1316,25 @@ void LALInspiralInvertMatrix (
    * 
    ********************************************************************/ 
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Inverse \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Inverse \n");
 
 	// Prepare U for SVD
 	gsl_matrix_memcpy(U, A);
 	
 	// Perform SVD
-	if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Inverse - Performing SVD\n");
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Inverse - Performing SVD\n");
 	gsl_linalg_SV_decomp_jacobi(U, V, s);  
 	
-	if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Inverse - Inverting SVD elements \n");
+	//printf("Eigenvalues\n");
+	//for(i=0;i<ACS->N_inputparams;i++)
+	//{
+		//printf("%e\t", gsl_vector_get(s, i));
+	//}
+	//printf("\n");
+	
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Inverse - Inverting SVD elements \n");
 	// Compute Inverse S
-	for (i = 0; i<ACS.N_inputparams; i++)
+	for (i = 0; i<ACS->N_inputparams; i++)
 	{
 		gsl_vector_set( s, i, 1./gsl_vector_get( s, i) );
 		gsl_matrix_set( InvS, i, i, gsl_vector_get( s, i) );
@@ -1226,7 +1346,7 @@ void LALInspiralInvertMatrix (
 	// Tranpose U
 	gsl_matrix_transpose(U);
 	
-	if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Inverse - Multiplying inverted elements \n");
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Inverse - Multiplying inverted elements \n");
 	
 	// Multiply V and InvS
 	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
@@ -1237,12 +1357,15 @@ void LALInspiralInvertMatrix (
 							1.0, C, U,
 							0.0, InvA);                             
   
-  for(i=0;i<(ACS.N_inputparams*ACS.N_inputparams);i++)
+  for(i=0;i<(ACS->N_inputparams*ACS->N_inputparams);i++)
   {
-		Inverse[i] = sqrt( fabs(gsl_matrix_get(InvA, i/ACS.N_inputparams, i%ACS.N_inputparams)) );
+		Inverse[i] = fabs(gsl_matrix_get(InvA, i/ACS->N_inputparams, i%ACS->N_inputparams));
+		//fprintf(stdout, "%e",gsl_matrix_get(InvA, i/ACS->N_inputparams, i%ACS->N_inputparams));
+		//if(i%ACS->N_inputparams==(ACS->N_inputparams-1)) printf("\n");
+		//else printf("\t");
 	}
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Computing Inverse - done \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Computing Inverse - done \n");
   
   /*********************************************************************
    *
@@ -1251,14 +1374,22 @@ void LALInspiralInvertMatrix (
    * 
    ********************************************************************/  
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Testing accuracy \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Testing accuracy \n");
   
   gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
               1.0, A, InvA,
               0.0, I);      
 
-  if(ACS.verbose_switch == 1) fprintf(stdout, "Unit = \n");
-  if(ACS.verbose_switch == 1) gsl_matrix_fprintf(stdout, I, "%e"); 
+  if(ACS->verbose_switch == 1) fprintf(stdout, "Unit = \n");
+  if(ACS->verbose_switch == 1)
+  {
+		for(i=0;i<(ACS->N_inputparams*ACS->N_inputparams);i++)
+		{
+			fprintf(stdout, "%e", gsl_matrix_get(I, i/ACS->N_inputparams, i%ACS->N_inputparams));
+			if(i%ACS->N_inputparams==(ACS->N_inputparams-1)) fprintf(stdout,"\n");
+			else fprintf(stdout,"\t");
+		}		
+	}
   
   /*********************************************************************
    *
@@ -1266,7 +1397,7 @@ void LALInspiralInvertMatrix (
    * 
    ********************************************************************/  
   
-  if(ACS.verbose_switch == 1) fprintf(stdout, "... Cleaning memory \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Cleaning memory \n");
 
 	/* MATRICES */
   gsl_matrix_free(A);
@@ -1293,10 +1424,11 @@ void LALInspiralComputeSNR (
 		LALStatus															 *status,
 		REAL8FrequencySeries                   *psd,
     PPNConsistencyParamStruc                          *PPNparams,
-    FisherACS															 ACS)
+    REAL8																	 *SNR,
+    FisherACS															 *ACS)
     /* </lalVerbatim> */
 {
-	if(ACS.verbose_switch == 1) fprintf(stdout, "Running LALInspiralTestWaveform \n");
+	if(ACS->verbose_switch == 1) fprintf(stdout, "Running LALInspiralTestWaveform \n");
 
   /*********************************************************************
    *
@@ -1319,7 +1451,7 @@ void LALInspiralComputeSNR (
    * 
    ********************************************************************/ 
   
-	if(ACS.verbose_switch == 1){fprintf(stdout, "... Initialising Variables \n");}
+	if(ACS->verbose_switch == 1){fprintf(stdout, "... Initialising Variables \n");}
 	
 	//Counters
 	INT4 i,j,k;
@@ -1348,7 +1480,7 @@ void LALInspiralComputeSNR (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Setting Variables and Allocating Memory \n");}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Setting Variables and Allocating Memory \n");}
 	
 	// CREATING TIME/FREQUENCY SERIES
 	if( (	ht 				= (REAL4TimeSeries *) 				LALMalloc( sizeof(REAL4TimeSeries) ) ) == NULL	&&
@@ -1364,15 +1496,15 @@ void LALInspiralComputeSNR (
 	}
 	else
 	{
-		ht 				= XLALCreateREAL4TimeSeries("ht", &(ACS.epoch), 0.0, ACS.deltaT_ts, &lalStrainUnit, ACS.N_ts);
-		invFT			=	XLALCreateREAL4TimeSeries("invFT", &(ACS.epoch), 0.0, ACS.deltaT_ts,&lalStrainUnit, ACS.N_ts);
-		Hf				= XLALCreateCOMPLEX8FrequencySeries("Hf", &(ACS.epoch), 0.0, ACS.deltaF_fs, &lalStrainUnit, ACS.N_ts/2+1);
-		snrpower	= XLALCreateCOMPLEX8FrequencySeries("snrpower", &(ACS.epoch), 0.0, ACS.deltaF_fs, &lalStrainUnit, ACS.N_ts/2+1);
+		ht 				= XLALCreateREAL4TimeSeries("ht", &(ACS->epoch), 0.0, ACS->deltaT_ts, &lalStrainUnit, ACS->N_ts);
+		invFT			=	XLALCreateREAL4TimeSeries("invFT", &(ACS->epoch), 0.0, ACS->deltaT_ts,&lalStrainUnit, ACS->N_ts);
+		Hf				= XLALCreateCOMPLEX8FrequencySeries("Hf", &(ACS->epoch), 0.0, ACS->deltaF_fs, &lalStrainUnit, ACS->N_ts/2+1);
+		snrpower	= XLALCreateCOMPLEX8FrequencySeries("snrpower", &(ACS->epoch), 0.0, ACS->deltaF_fs, &lalStrainUnit, ACS->N_ts/2+1);
 		
-		for(j=0;j<ACS.N_ts;j++)
+		for(j=0;j<ACS->N_ts;j++)
 		{
-			if(j<ACS.N_ts){ht->data->data[j] 		= 0.0; invFT->data->data[j]	= 0.0;}
-			if(j<(ACS.N_ts/2+1)){Hf->data->data[j].re=0.0; Hf->data->data[j].im = 0.0; snrpower->data->data[j].re=0.0, snrpower->data->data[j].im=0.0;}
+			if(j<ACS->N_ts){ht->data->data[j] 		= 0.0; invFT->data->data[j]	= 0.0;}
+			if(j<(ACS->N_ts/2+1)){Hf->data->data[j].re=0.0; Hf->data->data[j].im = 0.0; snrpower->data->data[j].re=0.0, snrpower->data->data[j].im=0.0;}
 		}
 		
 	}
@@ -1385,8 +1517,8 @@ void LALInspiralComputeSNR (
 	memset(&SNRwaveform, 0, sizeof(CoherentGW) );  
   
   // FFT
-  fwdRealPlan = XLALCreateForwardREAL4FFTPlan(ACS.N_ts,0);
-  revRealPlan = XLALCreateReverseREAL4FFTPlan(ACS.N_ts,0);
+  fwdRealPlan = XLALCreateForwardREAL4FFTPlan(ACS->N_ts,0);
+  revRealPlan = XLALCreateReverseREAL4FFTPlan(ACS->N_ts,0);
 
   
   /*********************************************************************
@@ -1395,35 +1527,35 @@ void LALInspiralComputeSNR (
    * 
    ********************************************************************/
   
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Computing SNR - fstart = %e | fstop = %e \n", PPNparams->fStartIn, ACS.fstop);}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Computing SNR - fstart = %e | fstop = %e \n", PPNparams->fStartIn, ACS->fstop);}
   
   // GENERATE WAVEFORM AND COMBINE HP AND HC
   LALGeneratePPNAmpCorConsistency(status->statusPtr, &SNRwaveform, &SNRparams);
-  LALInspiralCombinePlusCross(status->statusPtr, SNRwaveform, ht);
+  LALInspiralCombinePlusCross(status->statusPtr, SNRwaveform, SNRparams, ht, ACS);
   
   // COPY INTO TIMESERIES
   //for (i=0; i<((INT4)SNRwaveform.f->data->length); i++)
   //{
-    //ht->data->data[(ACS.N_ts-SNRwaveform.f->data->length)+i] = SNRwaveform.h->data->data[2*i];
+    //ht->data->data[(ACS->N_ts-SNRwaveform.f->data->length)+i] = SNRwaveform.h->data->data[2*i];
   //}
   
   // PERFORM FFT ON HT
   LALTimeFreqRealFFT( status->statusPtr, Hf, ht, fwdRealPlan );
   
   // Scale using dynamical range
-  for (i = 0; i < ACS.N_fs; ++i)
+  for (i = 0; i < ACS->N_fs; ++i)
   {
-    Hf->data->data[i].re *= ACS.dynRange; Hf->data->data[i].im *= ACS.dynRange; 
-    //if(ACS.printall == 1) fprintf(ACS.modsq_out, "%e\t%e\n", i*ACS.deltaF_fs, sqrt(Hf->data->data[i].re*Hf->data->data[i].re+Hf->data->data[i].im*Hf->data->data[i].im)/ACS.dynRange);
+    Hf->data->data[i].re *= ACS->dynRange; Hf->data->data[i].im *= ACS->dynRange; 
+    //if(ACS->printall == 1) fprintf(ACS->modsq_out, "%e\t%e\n", i*ACS->deltaF_fs, sqrt(Hf->data->data[i].re*Hf->data->data[i].re+Hf->data->data[i].im*Hf->data->data[i].im)/ACS->dynRange);
   }  
 
 	// Calculate Optimal SNR
-	for (k = 0; k < ACS.N_ts / 2 + 1; ++k)
+	for (k = 0; k < ACS->N_ts / 2 + 1; ++k)
   {
-    if (psd->data->data[k] == 0.0 || ((REAL8) k)*ACS.deltaF_fs < ACS.fstart || ((REAL8) k)*ACS.deltaF_fs > ACS.fstop )
+    if (psd->data->data[k] == 0.0 || ((REAL8) k)*ACS->deltaF_fs < ACS->fstart || ((REAL8) k)*ACS->deltaF_fs > ACS->fstop )
       invpsd = 0.0;
     else
-      invpsd = 1.0 / ( ACS.dynRange * ACS.dynRange * psd->data->data[k]*2.0);
+      invpsd = 1.0 / ( ACS->dynRange * ACS->dynRange * psd->data->data[k]*2.0);
      
     snrpower->data->data[k].re = (Hf->data->data[k].re * Hf->data->data[k].re + Hf->data->data[k].im * Hf->data->data[k].im) * invpsd;
     snrpower->data->data[k].im = 0.0;
@@ -1434,14 +1566,15 @@ void LALInspiralComputeSNR (
 	
 	// Compute Total SNR
 	SNRtot = pow( 4.0*invFT->data->data[0] , 0.5 ); 
-  if(ACS.verbose_switch==1){fprintf(stdout, "... Computing SNR - SNRtot = %e\n", SNRtot);}
+  if(ACS->verbose_switch==1){fprintf(stdout, "... Computing SNR - SNRtot = %e\n", SNRtot);}
+  *SNR = SNRtot;
   
   /*********************************************************************
    *
    *  Compute SNR
    * 
    ********************************************************************/
-	if(ACS.verbose_switch == 1){fprintf(stdout, "... Cleaning up \n");}
+	if(ACS->verbose_switch == 1){fprintf(stdout, "... Cleaning up \n");}
   
 	XLALDestroyREAL4TimeSeries(ht);							ht = NULL;
 	XLALDestroyREAL4TimeSeries(invFT);					invFT = NULL;
@@ -1471,9 +1604,9 @@ void LALInspiralComputeDerivatives_linReg(
 		INT4																		iend,					// end waveform element (length)
 		REAL4TimeSeries													*hderiv,			// derivative calculated with linReg algorithm
     INT4                                    xsamples,
-		FisherACS																ACS)    
+		FisherACS																*ACS)    
 {
-	fprintf(stdout, "Running ComputeDerivatives_linReg - paramid = %d | icur = %d | iend = %d | deltax = %e  | xsamples = %d \n", paramid, icur, iend, deltax, xsamples);
+	if(ACS->verbose_switch == 1)fprintf(stdout, "Running ComputeDerivatives_linReg - paramid = %d | icur = %d | iend = %d | deltax = %e  | xsamples = %d \n", paramid, icur, iend, deltax, xsamples);
 	/* ------------------LAL error handling ----------------------------*/
   INITSTATUS( status, "LALInspiralComputeDerivatives_linReg", LALINSPIRALCOMPUTEFISHERC);
   ATTATCHSTATUSPTR(status);
@@ -1517,7 +1650,7 @@ void LALInspiralComputeDerivatives_linReg(
 	 * 
 	 ********************************************************************/
 	
-	fprintf(stdout, "... Initialising Variables \n");
+	if(ACS->verbose_switch == 1)fprintf(stdout, "... Initialising Variables \n");
 	
 	/* linReg settings - tune for optimal perfomance */
 	
@@ -1541,11 +1674,9 @@ void LALInspiralComputeDerivatives_linReg(
 	REAL8 SumXX_max		= 0.0;		// sum x^2, maximal point of band
   REAL8 band_temp   = 0.0;    // calculating width of band
   REAL8 band_cum    = 0.0;
-  
-  INT4 i0           = 0;		// PRINT OUTPUT FROM THIS POINT
 	
 	/* Creating TimeSeries */
-	fprintf(stdout, "... Initialising Variables - Creating TimeSeries \n");
+	if(ACS->verbose_switch == 1)fprintf(stdout, "... Initialising Variables - Creating TimeSeries \n");
 	REAL4TimeSeries							*phiStart;			// phase @ xstart
 	REAL4TimeSeries							*phiEnd;				// phase @ xend
 	REAL4TimeSeries							*hxCur;					// storing current temporary waveform
@@ -1588,7 +1719,7 @@ void LALInspiralComputeDerivatives_linReg(
     // Creating TimeSeries
     if ( XLALCreateREAL4TimeSeries("test", &epoch, 0.0, InputParams->deltaT, &lalStrainUnit, N) == NULL)
     {
-      fprintf(stdout, "... Initialising Variables - Creating TimeSeries -> Error, destroy TimeSeries and Abort \n");
+      if(ACS->verbose_switch == 1)fprintf(stdout, "... Initialising Variables - Creating TimeSeries -> Error, destroy TimeSeries and Abort \n");
       ABORT( status, LALINSPIRALCOMPUTEFISHERC_ETSCREATE, LALINSPIRALCOMPUTEFISHERC_ETSCREATE_MSG );
     }
     else
@@ -1665,14 +1796,17 @@ void LALInspiralComputeDerivatives_linReg(
 			parameter = InputParams->eta_real8; 
 			if (parameter == 0.0) ABORT( status, LALINSPIRALCOMPUTEFISHERC_EMBAD, LALINSPIRALCOMPUTEFISHERC_EMBAD_MSG );     
       break;
+    //case 2:
+      //break;
     case 2:
-      break;
-    case 3:
       parameter = InputParams->phi;
-    case 4:
+    case 3:
       break;
-    case 5:
+    case 4:
 			parameter = InputParams->cosI;
+			break;
+		case 5:
+			parameter = InputParams->phasePNparams[ACS->testPhaseParam];
 			break;
     default:
       ABORT( status, LALINSPIRALCOMPUTEFISHERC_EINPUT, LALINSPIRALCOMPUTEFISHERC_EINPUT_MSG );
@@ -1682,8 +1816,8 @@ void LALInspiralComputeDerivatives_linReg(
 	/* Looping over parameter space */
   for(i=0; i<xsamples; i++)
   {
-    if( ((100*i/xsamples)%10) == 0){if(ACS.verbose_switch==1){fprintf(stdout, "\r... Creating h(x): %d percent done", 100*i/xsamples);}}
-    if(i==(xsamples-1)){if(ACS.verbose_switch==1){fprintf(stdout, "\n");}}
+    if( ((100*i/xsamples)%10) == 0){if(ACS->verbose_switch==1){fprintf(stdout, "\r... Creating h(x): %d percent done", 100*i/xsamples);}}
+    if(i==(xsamples-1)){if(ACS->verbose_switch==1){fprintf(stdout, "\n");}}
     
     // Creating hxwaveform structure
     CoherentGW hxwaveform;                // h(x) temp waveform
@@ -1694,7 +1828,7 @@ void LALInspiralComputeDerivatives_linReg(
     hxPPNparams.ppn = XLALCreateREAL4Vector( InputParams->ppn->length );
     TRY( XLALCopyPPNConsistencyParamStruc(InputParams, &hxPPNparams), status);
 
-    if (paramid == 4)
+    if (paramid == 3)
     {
       prevX = parameter +  (i-1) * deltax;
       curX = parameter +  i * deltax;
@@ -1712,60 +1846,63 @@ void LALInspiralComputeDerivatives_linReg(
         hxPPNparams.mTot_real8 = curX;
         
 				/* REFILL PHI_I*/
-				hxPPNparams.phi0 = -pow(hxPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-5.0/8.0); 
-				hxPPNparams.phi2 = -(3715.0/8064.0 + 55.0/96.0*hxPPNparams.eta_real8)*pow(hxPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-3.0/8.0);
-				hxPPNparams.phi3 = 3.0/4.0*LAL_PI*pow(hxPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-0.25); 
-				hxPPNparams.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*hxPPNparams.eta_real8 + 1855.0/2048.0*pow(hxPPNparams.eta_real8,2.0))*pow(hxPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-1.0/8.0);
-				hxPPNparams.phi5 = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI*log(hxPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8));
-				hxPPNparams.phi5l = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI; 
-				hxPPNparams.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxPPNparams.eta_real8,3.0))*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
-				hxPPNparams.phi6l = -107.0/448.0*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
-				hxPPNparams.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*hxPPNparams.eta_real8 - 141769.0/516096.0*pow(hxPPNparams.eta_real8,2.0))*LAL_PI*pow(hxPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/4.0); 		        
+				if(ACS->testPhaseParam!=0) hxPPNparams.phasePNparams[0] = -pow(hxPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-5.0/8.0); 
+				if(ACS->testPhaseParam!=1) hxPPNparams.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*hxPPNparams.eta_real8)*pow(hxPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-3.0/8.0);
+				if(ACS->testPhaseParam!=2) hxPPNparams.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(hxPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-0.25); 
+				if(ACS->testPhaseParam!=3) hxPPNparams.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*hxPPNparams.eta_real8 + 1855.0/2048.0*pow(hxPPNparams.eta_real8,2.0))*pow(hxPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-1.0/8.0);
+				if(ACS->testPhaseParam!=4) hxPPNparams.phasePNparams[4] = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI*log(hxPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8));
+				if(ACS->testPhaseParam!=5) hxPPNparams.phasePNparams[5] = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI; 
+				if(ACS->testPhaseParam!=6) hxPPNparams.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxPPNparams.eta_real8,3.0))*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=7) hxPPNparams.phasePNparams[7] = -107.0/448.0*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=8) hxPPNparams.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*hxPPNparams.eta_real8 - 141769.0/516096.0*pow(hxPPNparams.eta_real8,2.0))*LAL_PI*pow(hxPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/4.0); 		        
         
         break;
       case 1:
         hxPPNparams.eta_real8 = curX;
         
 				/* REFILL PHI_I FOR */
-				hxPPNparams.phi0 = -pow(hxPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-5.0/8.0); 
-				hxPPNparams.phi2 = -(3715.0/8064.0 + 55.0/96.0*hxPPNparams.eta_real8)*pow(hxPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-3.0/8.0);
-				hxPPNparams.phi3 = 3.0/4.0*LAL_PI*pow(hxPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-0.25); 
-				hxPPNparams.phi4 = -(9275495.0/14450688.0 + 284875.0/258048.0*hxPPNparams.eta_real8 + 1855.0/2048.0*pow(hxPPNparams.eta_real8,2.0))*pow(hxPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-1.0/8.0);
-				hxPPNparams.phi5 = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI*log(hxPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8));
-				hxPPNparams.phi5l = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI; 
-				hxPPNparams.phi6 = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxPPNparams.eta_real8,3.0))*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
-				hxPPNparams.phi6l = -107.0/448.0*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
-				hxPPNparams.phi7 = -(188516689.0/173408256.0 + 488825.0/516096.0*hxPPNparams.eta_real8 - 141769.0/516096.0*pow(hxPPNparams.eta_real8,2.0))*LAL_PI*pow(hxPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/4.0); 		                
+				if(ACS->testPhaseParam!=0) hxPPNparams.phasePNparams[0] = -pow(hxPPNparams.eta_real8,-3.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-5.0/8.0); 
+				if(ACS->testPhaseParam!=1) hxPPNparams.phasePNparams[1] = -(3715.0/8064.0 + 55.0/96.0*hxPPNparams.eta_real8)*pow(hxPPNparams.eta_real8,-5.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-3.0/8.0);
+				if(ACS->testPhaseParam!=2) hxPPNparams.phasePNparams[2] = 3.0/4.0*LAL_PI*pow(hxPPNparams.eta_real8,-0.75)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-0.25); 
+				if(ACS->testPhaseParam!=3) hxPPNparams.phasePNparams[3] = -(9275495.0/14450688.0 + 284875.0/258048.0*hxPPNparams.eta_real8 + 1855.0/2048.0*pow(hxPPNparams.eta_real8,2.0))*pow(hxPPNparams.eta_real8,-7.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,-1.0/8.0);
+				if(ACS->testPhaseParam!=4) hxPPNparams.phasePNparams[4] = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI*log(hxPPNparams.eta_real8/(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8));
+				if(ACS->testPhaseParam!=5) hxPPNparams.phasePNparams[5] = -1.0/hxPPNparams.eta_real8*(-38645.0/172032.0 + 65.0/2048.0*hxPPNparams.eta_real8)*LAL_PI; 
+				if(ACS->testPhaseParam!=6) hxPPNparams.phasePNparams[6] = -(831032450749357.0/57682522275840.0 - 53.0/40.0*LAL_PI*LAL_PI - 107.0/56.0*LAL_GAMMA + 107.0/448.0*log(hxPPNparams.eta_real8/(256*5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8)) + (-123292747421.0/4161798144.0 + 2255.0/2048.0*LAL_PI*LAL_PI + 385.0/48.0*(-1987.0/3080.0) - 55.0/16.0*(-11831.0/9240.0))*hxPPNparams.eta_real8 + 154565.0/1835008.0*pow(hxPPNparams.eta_real8,2.0) - 1179625.0/1769472.0*pow(hxPPNparams.eta_real8,3.0))*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=7) hxPPNparams.phasePNparams[7] = -107.0/448.0*pow(hxPPNparams.eta_real8,-9.0/8.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/8.0);
+				if(ACS->testPhaseParam!=8) hxPPNparams.phasePNparams[8] = -(188516689.0/173408256.0 + 488825.0/516096.0*hxPPNparams.eta_real8 - 141769.0/516096.0*pow(hxPPNparams.eta_real8,2.0))*LAL_PI*pow(hxPPNparams.eta_real8,-5.0/4.0)*pow(5.0*LAL_MTSUN_SI*hxPPNparams.mTot_real8,1.0/4.0); 		                
         
         break;
+      //case 2:
+        //break;
       case 2:
-        break;
-      case 3:
         hxPPNparams.phi = curX;
-      case 4:
+      case 3:
         break;
-			case 5:
+			case 4:
 				hxPPNparams.cosI = curX;
 				/* MIRROR AROUND -1 IF CROSSING -1 */
 				if(hxPPNparams.cosI < -1.0 ){ hxPPNparams.cosI = -2.0 - hxPPNparams.cosI; hxPPNparams.sinI = -hxPPNparams.sinI;}
 				/* MIRROR AROUND +1 IF CROSSING +1 */
 				if(hxPPNparams.cosI > 1.0 ){ hxPPNparams.cosI = 2.0 - hxPPNparams.cosI; hxPPNparams.sinI = -hxPPNparams.sinI;}
 				break;
+			case 5:
+				hxPPNparams.phasePNparams[ACS->testPhaseParam] = curX;
+				break;
       default:
-        fprintf(stdout, "XLALInspiralComputeDerivatives failed: invalid derivative variable \n");
+        if(ACS->verbose_switch == 1)fprintf(stdout, "XLALInspiralComputeDerivatives failed: invalid derivative variable \n");
         break;
     }
 
     // Create waveforms
     TRY( LALGeneratePPNAmpCorConsistency( status->statusPtr, &hxwaveform, &hxPPNparams), status);
-		if(paramid==4){LALInspiralCombinePlusCross( status->statusPtr, hxwaveform, hxCur_tmp);}
-		else{LALInspiralCombinePlusCross( status->statusPtr, hxwaveform, hxCur);}
+		if(paramid==3){LALInspiralCombinePlusCross( status->statusPtr, hxwaveform, hxPPNparams, hxCur_tmp, ACS);}
+		else{LALInspiralCombinePlusCross( status->statusPtr, hxwaveform, hxPPNparams, hxCur, ACS);}
   
     // Get length and check if vector is long enough to hold waveform
     hxCur_len = hxwaveform.f->data->length;
     
     /* SHIFT WAVEFORM FOR TIME DERIVATIVE */
-    if (paramid == 4)
+    if (paramid == 3)
     {
 			for(j=0;j+i<N;j++)
 			{
@@ -1796,21 +1933,22 @@ void LALInspiralComputeDerivatives_linReg(
     //}  
     
     /*if(paramid == 0 || paramid == 1){} */
-    
-    if(paramid==5)
-    {
-			fprintf(ACS.hx_out, "%e\t",curX);
-			for(i0=0;i0<((INT4)hxwaveform.f->data->length);i0+=200)
-			{
-				fprintf(ACS.hx_out, "%e\t", hxCur->data->data[N-1-i0]);
-			}
-			fprintf(ACS.hx_out, "\n");
-		}
 		
+      /* PRINT OUTPUT TO FILE */
+			/*if(paramid==1)
+			{
+				INT4 i0           = 0;
+				fprintf(ACS->hx_out, "%e\t",curX);
+				for(i0=0;i0<((INT4)hxwaveform.f->data->length);i0+=200)
+				{
+					fprintf(ACS->hx_out, "%e\t", hxCur->data->data[N-1-i0]);
+				}
+				fprintf(ACS->hx_out, "\n");
+			}     */  
     
-    if( ((paramid == 3 || paramid == 4 || paramid == 5) && ((INT4)i) !=0 ) || (((INT4)i) != 0 && hxCur_len != hxPrev_len) )
+    if( ((paramid == 2 || paramid == 3 || paramid == 4 || paramid == 5) && ((INT4)i) !=0 ) || ( paramid == 1 && ((INT4)i) != 0 && hxCur_len != hxPrev_len && curX < 0.25) || (paramid == 0 && ((INT4)i) != 0 && hxCur_len != hxPrev_len ) )
     {
-      linReg_count++;
+      linReg_count++;   
       
       if(linReg_count > 1) band_cum  += (curX - band_temp);
       band_temp = curX;
@@ -1832,7 +1970,7 @@ void LALInspiralComputeDerivatives_linReg(
         }
         else 
         {
-          if (paramid == 4)
+          if (paramid == 3)
           {
             if ( ((N-hxCur_len)+j+i) <N ) phiEnd->data->data[(N-hxCur_len)+j+i] = hxwaveform.phi->data->data[j];
           }
@@ -1861,10 +1999,10 @@ void LALInspiralComputeDerivatives_linReg(
   }
   
   /* Computing derivative */
-  fprintf(stdout, "... Calculating Derivative \n");
+  if(ACS->verbose_switch == 1)fprintf(stdout, "... Calculating Derivative \n");
   for(i=icur;i<iend;i++)
   {
-    if(icur>N) fprintf(stdout, "... icur too large \n");
+    if(icur>N) if(ACS->verbose_switch == 1)fprintf(stdout, "... icur too large \n");
     hderiv->data->data[N-1-i] = ((SumXY_min->data->data[N-1-i] - SumX_min * SumY_min->data->data[N-1-i] / linReg_count) / (SumXX_min - pow(SumX_min, 2.0) / linReg_count)
       + (SumXY_max->data->data[N-1-i] - SumX_max * SumY_max->data->data[N-1-i] / linReg_count) / (SumXX_max - pow(SumX_max, 2.0) / linReg_count))/2.0; 
     
@@ -1882,14 +2020,14 @@ void LALInspiralComputeDerivatives_linReg(
 	 * Clean Up
 	 * 
 	 ********************************************************************/	
-	fprintf(stdout, "... Cleaning up \n");
+	if(ACS->verbose_switch == 1)fprintf(stdout, "... Cleaning up \n");
   
-  fprintf(stdout, "... Cleaning up - Closing files\n");
+  if(ACS->verbose_switch == 1)fprintf(stdout, "... Cleaning up - Closing files\n");
   //fclose(deltaPhi_out);
   //fclose(bandlength_out);
   //fclose(phi_out);
 	
-	fprintf(stdout, "... Cleaning up - TimeSeries\n");
+	if(ACS->verbose_switch == 1)fprintf(stdout, "... Cleaning up - TimeSeries\n");
 	TRY( XLALDestroyREAL4TimeSeries(phiStart),	status);
 	TRY( XLALDestroyREAL4TimeSeries(phiEnd),		status);
 	TRY( XLALDestroyREAL4TimeSeries(hxCur),			status);
@@ -1915,9 +2053,10 @@ void LALInspiralComputeDerivatives_5point(
 		REAL8																		deltax,				// differentiation width
 		INT4																		istart,				// starting time
 		INT4																		iend,					// end time
-		REAL4TimeSeries													*hderiv)			// TimeSerie holding derivative
+		REAL4TimeSeries													*hderiv, 
+		FisherACS																*ACS)			// TimeSerie holding derivative
 {
-	fprintf(stdout, "Running LALInspiralComputeDerivatives_5point \n");
+	if(ACS->verbose_switch == 1)fprintf(stdout, "Running LALInspiralComputeDerivatives_5point \n");
 	
 	/*********************************************************************
   * 
@@ -1946,9 +2085,6 @@ void LALInspiralComputeDerivatives_5point(
   
 	// Global TimeSeries variables
 	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
-	
-	// SWITCHES
-	INT4 switch_verbose = 1;
   
 	/*********************************************************************
   * 
@@ -1956,7 +2092,7 @@ void LALInspiralComputeDerivatives_5point(
   * 
   *********************************************************************/	 
  
-	if(switch_verbose ==1) fprintf(stdout, "... Initialising Variables \n");
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Initialising Variables \n");
  
 	// COUNTERS	
 	INT4 i;
@@ -1996,7 +2132,7 @@ void LALInspiralComputeDerivatives_5point(
   * Allocate Memory
   * 
   *********************************************************************/	
-  if(switch_verbose ==1) fprintf(stdout, "... Allocating Memory \n");
+  if(ACS->verbose_switch == 1) fprintf(stdout, "... Allocating Memory \n");
   
   // TIME SERIES
   if( 		(ht = (REAL4TimeSeries *) LALMalloc( sizeof( REAL4TimeSeries) ) ) == NULL
@@ -2075,10 +2211,10 @@ void LALInspiralComputeDerivatives_5point(
   * 
   *********************************************************************/	
 	
-	if(switch_verbose ==1) fprintf(stdout, "... Calculating 5-point derivative \n");
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Calculating 5-point derivative \n");
 	
 	// COPY INPUT PARAMETERS
-	if(switch_verbose ==1) fprintf(stdout, "... Calculating 5-point derivative - Copy input parameters \n");	
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Calculating 5-point derivative - Copy input parameters \n");	
 	TRY( XLALCopyPPNConsistencyParamStruc(InputParams, &htPPNparams), status);
 	TRY( XLALCopyPPNConsistencyParamStruc(InputParams, &m1htPPNparams), status);
 	TRY( XLALCopyPPNConsistencyParamStruc(InputParams, &m2htPPNparams), status);
@@ -2086,7 +2222,7 @@ void LALInspiralComputeDerivatives_5point(
 	TRY( XLALCopyPPNConsistencyParamStruc(InputParams, &p2htPPNparams), status);
 	
 	// SHIFT PARAMETERS ACCORDING TO ABSDELTA/DELTAT
-	if(switch_verbose ==1) fprintf(stdout, "... Calculating 5-point derivative - Shift parameters \n");	
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Calculating 5-point derivative - Shift parameters \n");	
 	switch(paramid)
 	{
 		case 0:
@@ -2103,20 +2239,20 @@ void LALInspiralComputeDerivatives_5point(
 			p2htPPNparams.eta_real8 = htPPNparams.eta_real8 + 2.0*deltax;
 			break;
 			
-		case 2:
-			break;
+		//case 2:
+			//break;
 			
-		case 3:
+		case 2:
 			m1htPPNparams.phi = htPPNparams.phi - deltax;
 			m2htPPNparams.phi = htPPNparams.phi - 2.0*deltax;
 			p1htPPNparams.phi = htPPNparams.phi + deltax;
 			p2htPPNparams.phi = htPPNparams.phi + 2.0*deltax;		
 			break;
 			
-		case 4:
+		case 3:
 			break;
 			
-		case 5:
+		case 4:
 			/* CHECKING BOUNDS OF COSi */
 			m1htPPNparams.cosI = htPPNparams.cosI - deltax;
 			if(m1htPPNparams.cosI <-1.0){m1htPPNparams.cosI = -2.0 - m1htPPNparams.cosI;} if(m1htPPNparams.cosI > 1.0){m1htPPNparams.cosI = 2.0 - m1htPPNparams.cosI;}
@@ -2128,6 +2264,13 @@ void LALInspiralComputeDerivatives_5point(
 			if(p2htPPNparams.cosI <-1.0){p2htPPNparams.cosI = -2.0 - p2htPPNparams.cosI;} if(p2htPPNparams.cosI > 1.0){p2htPPNparams.cosI = 2.0 - p2htPPNparams.cosI;}
 			break;
 			
+		case 5:
+			m1htPPNparams.phasePNparams[ACS->testPhaseParam] = htPPNparams.phasePNparams[ACS->testPhaseParam] - deltax;
+			m2htPPNparams.phasePNparams[ACS->testPhaseParam] = htPPNparams.phasePNparams[ACS->testPhaseParam] - 2.0*deltax;
+			p1htPPNparams.phasePNparams[ACS->testPhaseParam] = htPPNparams.phasePNparams[ACS->testPhaseParam] + deltax;
+			p2htPPNparams.phasePNparams[ACS->testPhaseParam] = htPPNparams.phasePNparams[ACS->testPhaseParam] + 2.0*deltax;
+			break;
+			
 		default:
 			ABORT(status, LALINSPIRALCOMPUTEFISHERC_EINPUT, LALINSPIRALCOMPUTEFISHERC_EINPUT_MSG);
 			break;
@@ -2136,7 +2279,7 @@ void LALInspiralComputeDerivatives_5point(
 	
 	
 	// GENERATE WAVEFORMS
-	if(switch_verbose ==1) fprintf(stdout, "... Calculating 5-point derivative - Generate Waveforms \n");	
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Calculating 5-point derivative - Generate Waveforms \n");	
 	LALGeneratePPNAmpCorConsistency( status->statusPtr, &htwaveform, &htPPNparams);
 	LALGeneratePPNAmpCorConsistency( status->statusPtr, &m1htwaveform, &m1htPPNparams);
 	LALGeneratePPNAmpCorConsistency( status->statusPtr, &m2htwaveform, &m2htPPNparams);
@@ -2144,25 +2287,25 @@ void LALInspiralComputeDerivatives_5point(
 	LALGeneratePPNAmpCorConsistency( status->statusPtr, &p2htwaveform, &p2htPPNparams);
 	
 	/* COMBINE HP AND HC */
-	if(paramid==4)
+	if(paramid==3)
 	{
-		LALInspiralCombinePlusCross(status->statusPtr, htwaveform, ht_tmp);
-		LALInspiralCombinePlusCross(status->statusPtr, m1htwaveform, m1ht_tmp);
-		LALInspiralCombinePlusCross(status->statusPtr, m2htwaveform, m2ht_tmp);
-		LALInspiralCombinePlusCross(status->statusPtr, p1htwaveform, p1ht_tmp);
-		LALInspiralCombinePlusCross(status->statusPtr, p2htwaveform, p2ht_tmp);		
+		LALInspiralCombinePlusCross(status->statusPtr, htwaveform, htPPNparams, ht_tmp, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, m1htwaveform, m1htPPNparams, m1ht_tmp, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, m2htwaveform, m2htPPNparams, m2ht_tmp, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, p1htwaveform, p1htPPNparams, p1ht_tmp, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, p2htwaveform, p2htPPNparams, p2ht_tmp, ACS);		
 	}
 	else
 	{	
-		LALInspiralCombinePlusCross(status->statusPtr, htwaveform, ht);
-		LALInspiralCombinePlusCross(status->statusPtr, m1htwaveform, m1ht);
-		LALInspiralCombinePlusCross(status->statusPtr, m2htwaveform, m2ht);
-		LALInspiralCombinePlusCross(status->statusPtr, p1htwaveform, p1ht);
-		LALInspiralCombinePlusCross(status->statusPtr, p2htwaveform, p2ht);
+		LALInspiralCombinePlusCross(status->statusPtr, htwaveform, htPPNparams, ht, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, m1htwaveform, m1htPPNparams, m1ht, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, m2htwaveform, m2htPPNparams, m2ht, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, p1htwaveform, p1htPPNparams, p1ht, ACS);
+		LALInspiralCombinePlusCross(status->statusPtr, p2htwaveform, p2htPPNparams, p2ht, ACS);
 	}
 	
 	/* SHIFT WAVEFORM IN CASE OF PARAMID == 4 */
-	if(paramid == 4)
+	if(paramid == 3)
 	{
 		for(i=0;i<N;i++)
 		{
@@ -2176,7 +2319,7 @@ void LALInspiralComputeDerivatives_5point(
 
 
 	// COPY WAVEFORMS INTO TIMESERIES (+ SHIFT IN CASE OF PARAMID = 4)
-	if(switch_verbose ==1) fprintf(stdout, "... Calculating 5-point derivative - Copy into TimeSeries \n");	
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Calculating 5-point derivative - Copy into TimeSeries \n");	
 	//for(i=0;i<N;i++)
 	//{
 		//if( (paramid == 4) && (N-((INT4)htwaveform.f->data->length)+i < N) )
@@ -2199,11 +2342,11 @@ void LALInspiralComputeDerivatives_5point(
 	//}
 	
 	// CALCULATE DERIVATIVE
-	if(switch_verbose ==1) fprintf(stdout, "... Calculating 5-point derivative - Calculate derivative \n");	
+	if(ACS->verbose_switch == 1) fprintf(stdout, "... Calculating 5-point derivative - Calculate derivative \n");	
 	for(i=istart;i<iend;i++)
 	{
-		if(paramid == 2) hderiv->data->data[N-1-i] = -1.0*ht->data->data[N-1-i];
-		else hderiv->data->data[N-1-i] = (m2ht->data->data[N-1-i]-p2ht->data->data[N-1-i]+8.0*p1ht->data->data[N-1-i]-8.0*m1ht->data->data[N-1-i])/(12.0*deltax);
+		//if(paramid == 2) hderiv->data->data[N-1-i] = -1.0*ht->data->data[N-1-i];
+		hderiv->data->data[N-1-i] = (m2ht->data->data[N-1-i]-p2ht->data->data[N-1-i]+8.0*p1ht->data->data[N-1-i]-8.0*m1ht->data->data[N-1-i])/(12.0*deltax);
 	}
 	
 	/*********************************************************************
@@ -2253,7 +2396,9 @@ void LALInspiralComputeDerivatives_5point(
 void LALInspiralCombinePlusCross(
 		LALStatus															*status,			// Status pointer
 		CoherentGW														GravWav,			// Input waveform, data[2i] = hp, data[2i+1] = hc
-		REAL4TimeSeries												*ht)					// combined h(t) from hp and hc
+		PPNConsistencyParamStruc													params,				// 
+		REAL4TimeSeries												*ht,
+		FisherACS															*ACS)					// combined h(t) from hp and hc
 {
 	/*********************************************************************
   * 
@@ -2360,20 +2505,75 @@ void LALInspiralCombinePlusCross(
   * 
   *********************************************************************/
   
-  theta = GravWav.position.longitude;
-  phi		= GravWav.position.latitude;
-  psi		= GravWav.psi;
+	LALDetector detector = lalCachedDetectors[LAL_LHO_4K_DETECTOR]; /* H1 */
+	LALSource source;
+	LIGOTimeGPS epoch;
+	LALDetAndSource det_source; 
+	LALDetAMResponse det_resp; 									
   
-  Fp = 1.0/2.0 * ( 1 + pow(cos(theta),2.0) ) * cos(2.0*phi) * cos(2.0*psi)
-				- cos(theta) * sin(2.0*phi) * sin(2.0*psi);
-				
-				
-	//fprintf(stdout, "Fp = %e \n", Fp);
-				
-	Fc =  1.0/2.0 * (1 + pow(cos(theta),2.0) ) * cos(2.0*phi) * sin(2.0*psi)
-				+ cos(theta) * sin(2.0*phi) * cos(2.0*psi);
+  switch(ACS->coordinate)
+  {
+		case 0:
+			theta = params.position.latitude;
+			phi		= params.position.longitude;
+			psi		= params.psi;
+			
+			Fp = 1.0/2.0 * ( 1 + pow(cos(theta),2.0) ) * cos(2.0*phi) * cos(2.0*psi)
+						- cos(theta) * sin(2.0*phi) * sin(2.0*psi);
+						
+						
+			//fprintf(stdout, "Fp = %e \n", Fp);
+						
+			Fc =  1.0/2.0 * (1 + pow(cos(theta),2.0) ) * cos(2.0*phi) * sin(2.0*psi)
+						+ cos(theta) * sin(2.0*phi) * cos(2.0*psi);
+			
+			//fprintf(stdout, "Fc = %e \n", Fc);		
+			break;
+			
+		case 1:
+			/* LOAD DETECTOR INFORMATION */
+
+			
+			/* The position and polarisation of the binary */
+
+			source.equatorialCoords.longitude = params.position.longitude;
+			source.equatorialCoords.latitude = params.position.latitude;
+
+			/* Specify EQUATORIAL coords so that long = R.A. and lat=dec */
+			source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
+			source.orientation = params.psi;
+			
+			/* Time of the event */
+
+			epoch = params.epoch; 
+			
+			/* Create a detector and source structure */
+
+			det_source.pSource		= &source; /* Set source */
+			det_source.pDetector	= &detector; /* detector */	
+			
+			/* LALDETECTOR RESPONSE */
+
+			
+			/* Compute det_resp */
+			LALComputeDetAMResponse(status->statusPtr, &det_resp, &det_source, &epoch);
+			
+			Fp = det_resp.plus;
+			Fc = det_resp.cross;  		
+			break;
+			
+		default:
+			printf("ERROR - INVALID COORDINATE SYSTEM \n");
+			break;
+		
+	}
   
-  //fprintf(stdout, "Fc = %e \n", Fc);
+	/*********************************************************************
+  * 
+  * Calculate Detector Response for equitorial coordinates
+  * 
+  *********************************************************************/		
+  
 	
 	/*********************************************************************
   * 
@@ -2407,6 +2607,409 @@ void LALInspiralCombinePlusCross(
   RETURN(status);	
 }
 
+void InvertMatrixSVD (
+    gsl_matrix        *A,
+    gsl_matrix				*InvA,
+    int								N)
+{ 
+
+  /*********************************************************************
+   *
+   *  CREATING TEMPORARY VARIABLES
+   * 
+   ********************************************************************/  
+
+	/* COUNTERS */
+  int i = 0;
+  
+  // Initialise matrices A, U, S and V
+  gsl_matrix *InvS  = gsl_matrix_calloc (N, N); // inverse S
+  gsl_matrix *V     = gsl_matrix_calloc (N, N); // V
+  gsl_matrix *U     = gsl_matrix_calloc (N, N); // U
+  gsl_matrix *C     = gsl_matrix_calloc (N, N); // temporary storage
+  gsl_matrix *I     = gsl_matrix_calloc (N, N); // testing idenity
+  gsl_vector *s     = gsl_vector_alloc (N);     // eigenvalues AA^T
+    
+  //printf("INPUT \n");
+	//for(i=0;i<(N*N);i++)
+	//{
+		//printf("%e", gsl_matrix_get(A, i/N, i%N));
+		//if(i%N==(N-1)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");
+  
+  /*********************************************************************
+   *
+   *  COMPUTING INVERSE
+   * 		- PERFORM SVD
+   * 		- CALCULATE INVERSE
+   * 
+   ********************************************************************/ 
+
+	// Prepare U for SVD
+	gsl_matrix_memcpy(U, A);
+	
+	// Perform SVD
+	gsl_linalg_SV_decomp_jacobi(U, V, s);  
+
+	// Compute Inverse S
+	for (i = 0; i<N; i++)
+	{
+		gsl_vector_set( s, i, 1./gsl_vector_get( s, i) );
+		gsl_matrix_set( InvS, i, i, gsl_vector_get( s, i) );
+	}
+	
+	//printf("EIGENVECTORS \n");
+	//for(i=0;i<N;i++)
+	//{
+		//printf("%e", gsl_vector_get(s,i));
+		//if(i==(N-1)) printf("\n");
+		//else printf("\t");
+	//}
+	//printf("\n");
+	
+	// Tranpose U
+	gsl_matrix_transpose(U);
+	
+	// Multiply V and InvS
+	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+							1.0, V, InvS,
+							0.0, C);
+							
+	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+							1.0, C, U,
+							0.0, InvA);                             
+  
+  //printf("INVERSE \n");
+	//for(i=0;i<(N*N);i++)
+	//{
+		//printf("%e", gsl_matrix_get(InvA, i/N, i%N));
+		//if(i%N==(N-1)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");  
+  
+  /*********************************************************************
+   *
+   *  TESTING ACCURACY
+   * 		- A * INVA = 1
+   * 
+   ********************************************************************/  
+  
+  gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+              1.0, A, InvA,
+              0.0, I);      
+
+	//printf("UNIT\n");
+	//for(i=0;i<(N*N);i++)
+	//{
+		//printf("%e", gsl_matrix_get(I, i/N, i%N));
+		//if(i%N==(N-1)) printf("\n");
+		//else printf("\t");
+	//}
+	//printf("\n");
+  
+  /*********************************************************************
+   *
+   *  CLEANING UP
+   * 
+   ********************************************************************/  
+
+	/* MATRICES */
+  //gsl_matrix_free(A);
+  gsl_matrix_free(U);
+  gsl_matrix_free(InvS);
+  //gsl_matrix_free(InvA);
+  gsl_matrix_free(V);
+  gsl_matrix_free(C);
+  gsl_matrix_free(I);
+  gsl_vector_free(s);
+  
+  /*********************************************************************
+   *
+   *  Detach Error handling
+   * 
+   ********************************************************************/
+  
+  return;
+}
+
+void LALSavitskyGolayFilter(
+		LALStatus						*status,
+		INT4								R,		/* Polynomial fitter order */
+		INT4								M,		/* time steps forward/backward sampled */
+		REAL4TimeSeries			*y		/* Time Series to be filtered */
+		)
+{
+	
+	
+  /*********************************************************************
+   *
+   * Savitsky-Golay Filter
+   * - Based on least square fitting of a polynomial of Rth order
+   * - Smoothens function by extrapolating from m neighbouring points
+   * - See Abraham Savitsky and Marcel J. E. Golay 
+   * 		"Smoothing and differentiation of data by simplified least squares procedures," Anal. Chem. 36, 1627ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ1639 (1964).
+   * 
+   ********************************************************************/ 
+   
+	/*********************************************************************
+  * 
+  * LAL error handling
+  * 
+  *********************************************************************/	
+  
+  INITSTATUS( status, "LALSavitskyGolayFilter", LALINSPIRALCOMPUTEFISHERC);
+  ATTATCHSTATUSPTR(status);	 
+   
+	/*********************************************************************
+  * 
+  * Read input
+  * 
+  *********************************************************************/	   
+   
+  /* LOAD IN TIMESERIES PARAMETERS */
+  REAL8 dt = y->deltaT;
+  INT4 N = y->data->length;
+  //printf("Input parameters: R = %d | M = %d | N = %d | dt = %e \n", R, M, N, dt);	
+	
+  /*********************************************************************
+   *
+   * Create Temporary Variables
+   * 
+   ********************************************************************/  
+  
+  //printf("Initialising Variables \n");
+  
+  /* COUNTERS */
+  int i,j,k;
+  
+  /* MATRICES AND VECTORS */
+	gsl_matrix *m     	= gsl_matrix_calloc (R+1, 2*M+1);   /* m_ij = j^i */
+	gsl_matrix *U				= gsl_matrix_calloc (R+1, R+1);		/* U_ii = deltaT^i */
+	gsl_vector *a				= gsl_vector_calloc (R+1);			/* a_j, for y(t_i) = Sum_{j=0}^{R} a_j t_i^j */
+	gsl_matrix *c				= gsl_matrix_calloc (R+1, 2*M+1);		/* c_ij = U_-1 (m m^T)^-1 m, in a_j = c_ji y_i */ 
+	gsl_vector *ym			= gsl_vector_calloc (2*M+1);	/* y_m = [y_-M, ... , y_M] */
+	gsl_matrix *tmr			= gsl_matrix_calloc (R+1, 2*M+1);		/* t_m^r = U*m */
+		
+	/* COMBINED MATRICES AND VECTORS */
+	gsl_matrix *mT			= gsl_matrix_calloc (2*M+1, R+1);		/* m^T */
+	gsl_matrix *mmT			= gsl_matrix_calloc (R+1, R+1);		/* mm^T */
+	gsl_matrix *InvmmT	= gsl_matrix_calloc (R+1, R+1);		/* (mm^T)^-1 */
+	gsl_matrix *InvmmTm	= gsl_matrix_calloc (R+1, 2*M+1);		/* (mm^T)^-1 m */
+	gsl_matrix *InvU		= gsl_matrix_calloc (R+1, R+1);		/* U^-1 */
+	
+	/* OUTPUT ARRAY */
+	double Output[N];
+	
+	/* COPY INPUT ARRAY */
+	for(k=0;k<N;k++)
+	{
+		Output[k] = y->data->data[k];
+	}
+   	
+  /*********************************************************************
+   *
+   * Filling matrices
+   * 
+   ********************************************************************/ 
+   //printf("Filling parameters \n");
+   
+  /* m_ij = j^i */
+  //printf("Filling parameters -  m %dx%d\n", m->size1, m->size2);
+  for(i=0;i<(R+1);i++)
+  {
+		 for(j=0;j<(2*M+1);j++)
+		 {
+			 gsl_matrix_set(m, i, j, pow((j-M), i));
+		 }
+	 }
+	 
+  //printf("m %dx%d\n", m->size1, m->size2);
+	//for(i=0;i<((R+1)*(2*M+1));i++)
+	//{
+		//printf("%e", gsl_matrix_get(m, i/(2*M+1), i%(2*M+1)));
+		//if(i%(2*M+1)==(2*M)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");	 
+   
+  /* U_ii = deltaT^i */
+  //printf("Filling parameters -  U %dx%d \n", U->size1, U->size2);
+  for(i=0;i<(R+1);i++)
+  {
+		gsl_matrix_set(U, i, i, pow(dt,i));
+	} 
+	
+  //printf("U %dx%d\n", U->size1, U->size2);
+	//for(i=0;i<((R+1)*(R+1));i++)
+	//{
+		//printf("%e", gsl_matrix_get(U, i/(R+1), i%(R+1)));
+		//if(i%(R+1)==(R)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");	 	
+	
+	/* m^T */
+	//printf("Filling parameters -  mT %dx%d\n", mT->size1, mT->size2);
+	for(i=0;i<(R+1); i++)
+	{
+		for(j=0;j<(2*M+1);j++)
+		{
+			gsl_matrix_set(mT, j, i, gsl_matrix_get(m, i, j));
+		}
+	}
+	
+  //printf("mT %dx%d\n", mT->size1, mT->size2);
+	//for(i=0;i<((2*M+1)*(R+1));i++)
+	//{
+		//printf("%e", gsl_matrix_get(mT, i/(R+1), i%(R+1)));
+		//if(i%(R+1)==(R)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");	 	
+	
+	/* mm^T */
+	//printf("Filling parameters -  mmT %dx%d\n", mmT->size1, mmT->size2);
+	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+							1.0, m, mT,
+							0.0, mmT);	
+							
+  //printf("mmT %dx%d\n", mmT->size1, mmT->size2);
+	//for(i=0;i<((R+1)*(R+1));i++)
+	//{
+		//printf("%e", gsl_matrix_get(mmT, i/(R+1), i%(R+1)));
+		//if(i%(R+1)==(R)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");							
+							
+	/* (mm^T)^-1 */
+	//printf("Filling parameters -  InvmmT %dx%d\n", InvmmT->size1, InvmmT->size2);
+	InvertMatrixSVD(mmT, InvmmT, R+1);
+	
+	/* U^-1*/
+	//printf("Filling parameters -  InvU %dx%d\n", InvU->size1, InvU->size2);
+	//InvertMatrixSVD(U, InvU, R+1);
+	
+	for(i=0;i<(R+1);i++)
+	{
+		//printf("%e | %e \n", 1.0/gsl_matrix_get(U, i, i), gsl_matrix_get(InvU, i, i));
+		gsl_matrix_set(InvU, i, i, 1.0/gsl_matrix_get(U, i, i));
+	}
+	
+	/* (mm^T)^-1 m */
+	//printf("Filling parameters -  InvmmTm %dx%d \n", InvmmTm->size1, InvmmTm->size2 );
+	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+							1.0, InvmmT, m,
+							0.0, InvmmTm);	
+							
+  //printf("InvmmTm \n");
+	//for(i=0;i<((R+1)*(2*M+1));i++)
+	//{
+		//printf("%e", gsl_matrix_get(InvmmTm, i/(2*M+1), i%(2*M+1)));
+		//if(i%(2*M+1)==(2*M)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");	
+	
+	/* c_ij = U_-1 (m m^T)^-1 m */
+	//printf("Filling parameters -  c \n");
+	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+							1.0, InvU, InvmmTm,
+							0.0, c);
+							
+  //printf("c \n");
+	//for(i=0;i<((c->size1)*(c->size2));i++)
+	//{
+		//printf("%e", gsl_matrix_get(c, i/(c->size2), i%(c->size2)));
+		//if(i%(c->size2)==(c->size2-1)) printf("\n");
+		//else printf("\t");
+	//}  
+	//printf("\n");	
+							
+	/* t_m^r = U*m */
+	//printf("%dx%d -> (%dx%d)x(%dx%d)\n", tmr->size1, tmr->size2, U->size1, U->size2, m->size1, m->size2);
+	//printf("Filling parameters -  tmr \n");
+	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans,
+							1.0, U, m,
+							0.0, tmr);	
+	
+   
+	/*********************************************************************
+   *
+   * Set polynomial prefactors and smooth function
+   * 
+   ********************************************************************/ 
+  
+  //printf("Smoothing \n");
+  for(k=M;k<(N-M);k++)
+  {
+		/* READ DATA POINTS INTO VECTOR */
+		for(j=0;j<2*M+1;j++)
+		{
+			gsl_vector_set(ym, j, y->data->data[k-M+j]);		
+		}
+		
+		/* a = c*y */
+		gsl_blas_dgemv( CblasNoTrans, 
+							1.0, c, ym, 
+							0.0, a );
+		
+		Output[k] = gsl_vector_get(a, 0);
+		
+		/* CLEAN UP IN THE LOOP */
+		gsl_vector_set_zero (ym);
+		gsl_vector_set_zero (a);
+	}
+	
+	for(k=M;k<N;k++)
+	{
+		y->data->data[k] = Output[k];
+		
+	}
+   
+  /*********************************************************************
+   *
+   * Output to file
+   * 
+   ********************************************************************/  
+  //printf("Write to file \n");
+  //FILE *smoothOut;
+  //smoothOut = fopen("smoothOut.dat", "w");
+  
+  //for(k=0;k<N;k++)
+  //{
+		//fprintf(smoothOut, "%e\t%e\n", k*dt, Output[k]);
+	//}
+	//fclose(smoothOut);
+   
+  /*********************************************************************
+   *
+   * Clean Up
+   *  
+   ********************************************************************/  
+   
+   //printf("Cleaning up \n");
+   gsl_matrix_free(m);
+   gsl_matrix_free(U);
+   gsl_vector_free(a);
+   gsl_matrix_free(c);  
+   gsl_vector_free(ym);
+   gsl_matrix_free(tmr);
+   gsl_matrix_free(mT);
+   gsl_matrix_free(mmT);
+   gsl_matrix_free(InvmmT);
+   gsl_matrix_free(InvmmTm);
+   gsl_matrix_free(InvU);
+   
+   DETATCHSTATUSPTR(status);
+	 RETURN(status);
+}
+		
+
+
 /*  version tracker
     v1: Base version with both Interband and AdaptiveDelta Method
     v2: Write LinReg based on Interband
@@ -2417,6 +3020,10 @@ void LALInspiralCombinePlusCross(
 				time derivative.
 		v5: Include Algorithm Control Structure (for versatile code tuning)
 		v6: Beam pattern function for h+ and hx
-				RNG for inclination angle		
+				RNG for inclination angle	
+		v7: -
+		v8: Include LSO dependent length of waveform
+				Include Savitsky-Golay smoothing filter
+		v9: Include derivatives for PN phase parameters
 
 */
