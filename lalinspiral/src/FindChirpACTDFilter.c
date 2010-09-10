@@ -364,6 +364,9 @@ INT4 XLALFindChirpACTDApplyConstraint(
   qSqForConstraint = XLALCreateREAL4Vector( NACTDTILDEVECS );
   cons             = XLALCreateREAL4Vector( input->fcTmplt->ACTDconstraint->length );
 
+  memset( cons->data, 0, input->fcTmplt->ACTDconstraint->length * sizeof( REAL4 ) );
+  memset( qSqForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
+
   /* Calculate the dimension of the matrix used in the constraint */
   matrixDim = 2 * (input->fcTmplt->stopVecACTD - input->fcTmplt->startVecACTD );
 
@@ -372,7 +375,6 @@ INT4 XLALFindChirpACTDApplyConstraint(
   normFacSq = normFacSq * normFacSq;
 
   /* Go through the transformation matrix */
-  memset( qSqForConstraint->data, 0, NACTDTILDEVECS * sizeof( REAL4 ));
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
     for ( k = 0; k < NACTDTILDEVECS; k++ )
@@ -429,20 +431,20 @@ INT4 XLALFindChirpACTDApplyConstraint(
   }
 
   /* Compare ratio of first harmonic with second in original basis */
-  if ( sqrt( (qSqForConstraint->data[0]
+  if ( (qSqForConstraint->data[0]
             + qSqForConstraint->data[3])
            / (qSqForConstraint->data[1]
-            + qSqForConstraint->data[4]))
+            + qSqForConstraint->data[4])
            > cons->data[0] )
   {
     apply = 1;
   }
 
   /* Compare ratio of third harmonic with second in original basis */
-  if ( sqrt( ( qSqForConstraint->data[2]
+  if ( ( qSqForConstraint->data[2]
             +  qSqForConstraint->data[5])
            / (qSqForConstraint->data[1]
-            + qSqForConstraint->data[4]))
+            + qSqForConstraint->data[4])
            > cons->data[2] )
   {
     apply = 1;
