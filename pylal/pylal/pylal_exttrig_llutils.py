@@ -26,6 +26,7 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import git_version
 
 # the config parser to be used in some of the functions
@@ -637,7 +638,7 @@ def generate_summary(publish_path, publish_url):
       tag_lik = 'None'
     table = add(table, tag_onoff+'<br>'+tag_lik)
     table = add(table, grb.time)
-    tm = date.XLALGPSToUTC(date.LIGOTimeGPS(grb.time))
+    tm = date.XLALGPSToUTC(LIGOTimeGPS(grb.time))
     asctime = time.strftime("%d %b %Y\n%H:%M:%S",tm)
     table = add(table, asctime)
     table = add_linked_value(table, grb.redshift, None )
