@@ -359,7 +359,7 @@ if FUPtype == 'LE':
     else:
       for coinc,p in zip(coincTable,page):
         if event.coinc_event_id == coinc[0].coinc_event_id:
-          event.mini_followups = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+          event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
 elif FUPtype == 'CMI' or FUPtype == 'SFI':
   if omegaScans:
     for event,p,omegaScan in zip(summTable,page,omegaScans):
