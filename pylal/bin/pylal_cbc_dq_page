@@ -598,6 +598,7 @@ def main():
         else:
           skipped_days+=' '+utc_date[d].strftime("%Y%m%d")+' '
       #== query for command dq flags
+      print common_dq_cmd
       flags,status=GetCommandOutput(common_dq_cmd)
       #== if it worked, write the output to a file
       if status==0:
@@ -835,7 +836,48 @@ def main():
           #== display results in table
           print >>output, "[["+hveto_url+"|"+hveto_winner+"]]||",
     print >>output
-  
+
+    #== display SeisVeto data
+    seis_veto_web_path = 'https://ldas-jobs.ligo.caltech.edu/~duncan.macleod/'+\
+                         'detchar/seis_veto/hveto'
+    seis_veto_path = '/archive/home/duncan.macleod/public_html/detchar/'+\
+                     'seis_veto/hveto'
+    if options.verbose:  print >>sys.stdout, "Writing SeisVeto results..."
+    print >>output, "SeisVeto is a dedicated hveto analysis using tuned "+\
+                    "seismic triggers and daily ihope results. "+\
+                    "The results for this week are:"
+    #== set up table
+    print >>output, '||<tablewidth="100%" rowbgcolor="#ffffcc">',
+    for ifo in options.ifos:
+      if ifo not in options.ligo_ifos:  continue
+      print >>output, ifo+"||",
+    print >>output
+    #== set up row
+    print >>output, '||',
+    for ifo in options.ifos:
+      if ifo not in options.ligo_ifos:  continue
+      for saturday in saturdays:
+        hveto_dir = ifo+'-HVETO_iHopeSeisVeto_PEM-'+str(saturday)+'-604800/'
+        seis_veto_url = os.path.join(seis_veto_web_path,hveto_dir)
+        summary_file = os.path.join(seis_veto_path,hveto_dir,\
+                                    'summary_stats.txt')
+        if os.path.isfile(summary_file):
+          winner_cmd = '''cat '''+summary_file+''' | '''+\
+                       '''awk 'BEGIN{FS=OFS=" "}{print $2}' | '''+\
+                       '''awk 'NR==1 {print }' '''
+          grep_output, grep_status = GetCommandOutput(winner_cmd)
+          if grep_status == 0:
+            if grep_output == "":
+              hveto_winner='link'
+            else:
+              hveto_winner=str(grep_output).replace("\n","")
+          else:
+            hveto_winner='link'
+        else:
+          hveto_winnder='link'
+        #== display results in table
+        print >>output, "[["+seis_veto_url+"|"+hveto_winner+"]]||",
+
   output.flush()
   #== display hveto KW data
   if options.skip_hveto_kw is False:
