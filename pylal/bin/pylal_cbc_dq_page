@@ -598,7 +598,6 @@ def main():
         else:
           skipped_days+=' '+utc_date[d].strftime("%Y%m%d")+' '
       #== query for command dq flags
-      print common_dq_cmd
       flags,status=GetCommandOutput(common_dq_cmd)
       #== if it worked, write the output to a file
       if status==0:
@@ -877,6 +876,7 @@ def main():
           hveto_winnder='link'
         #== display results in table
         print >>output, "[["+seis_veto_url+"|"+hveto_winner+"]]||",
+    print >>output
 
   output.flush()
   #== display hveto KW data
