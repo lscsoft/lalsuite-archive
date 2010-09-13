@@ -51,11 +51,8 @@ from optparse import OptionParser
 import sys
 
 
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import git_version
 from pylal import inject
-from pylal import ligolw_burca_tailor
 from pylal import stringutils
 
 
@@ -206,17 +203,7 @@ def nevents_plot(key, xcoords, background_data, injections_data):
 options, filenames = parse_command_line()
 
 
-coincparamsdistributions = None
-for n, filename in enumerate(filenames):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
-	if coincparamsdistributions is None:
-		coincparamsdistributions = stringutils.get_coincparamsdistributions(xmldoc)
-	else:
-		coincparamsdistributions += stringutils.get_coincparamsdistributions(xmldoc)
-	xmldoc.unlink()
-	del xmldoc
+coincparamsdistributions = stringutils.load_likelihood_data(filenames, verbose = options.verbose)
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."

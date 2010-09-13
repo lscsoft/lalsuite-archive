@@ -346,8 +346,7 @@ if not opts.write_onsource:
 # always read offsource triggers (needed in any case; see next section)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
-off_segs = segmentsUtils.fromsegwizard(open(opts.offsource_seg),
-                                      coltype=int)
+off_segs = grbsummary.get_segs_from_doc(offsource_doc).extent()
 buffer_segs = segmentsUtils.fromsegwizard(open(opts.buffer_seg),
                                       coltype=int)
 ################################################################################
@@ -369,7 +368,6 @@ if any("SLIDE" in entry.description for entry in offsource_cache):
 if any("SLIDE" not in entry.description for entry in offsource_cache):
   total_num_slides += 1
 
-extent_off = off_segs.extent()
 extent_buffer = buffer_segs.extent()
 
 #veto mask prerequisites
@@ -395,13 +393,13 @@ for row in slide_table:
       slide_amount[ifo] = 0
 
 #make trial, chirpmass and slide bins
-trial_bins = rate.LinearBins(extent_off[0], extent_off[1], num_trials)
+trial_bins = rate.LinearBins(off_segs[0], off_segs[1], num_trials)
 mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
 slide_bins = rate.LinearBins(-nominal_num_slides-0.5, nominal_num_slides+0.5, total_num_slides)
 
 #build veto masks to left and right and then merge them
-veto_mask_left = grbsummary.get_veto_mask(extent_off[0], extent_buffer[0], trial_len, veto_segs)
-veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], extent_off[1], trial_len, veto_segs)
+veto_mask_left = grbsummary.get_veto_mask(off_segs[0], extent_buffer[0], trial_len, veto_segs)
+veto_mask_right = grbsummary.get_veto_mask(extent_buffer[1], off_segs[1], trial_len, veto_segs)
 trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials), dtype=numpy.bool8)
 buffer_mask = numpy.ones(num_trials_buffers_onsource, dtype=numpy.bool8)
 
