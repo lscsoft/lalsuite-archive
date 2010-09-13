@@ -626,6 +626,12 @@ LALFindChirpACTDNormalize(
     /* As a new experiment, we will normalize these with the */
     /* sum of the lot of them */
 
+    /* Note also that the actual constraint will be applied to rho^2 */
+    /* We will therefore need to square the values */
+    cons1 *= cons1;
+    cons2 *= cons2;
+    cons3 *= cons3;
+
     consSum = cons1 + cons2 + cons3;
 
     fcTmplt->ACTDconstraint->data[0] = cons1 / consSum;
