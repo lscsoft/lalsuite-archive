@@ -468,7 +468,7 @@ if opts.write_offsource or opts.write_injections:
   offsource_loudest_by_trial_cat_slide = get_loudest_stats_by_trial_cat_slide(offsource_doc,
       coinc_stat, trial_bins, slide_bins, mc_bins, mc_ifo_cats)
   offsource_loudest_by_trial_cat_unvetoed = \
-      offsource_loudest_by_trial_cat_slide.reshape(total_num_slides*len(trial_bins), len(mc_bins))
+      offsource_loudest_by_trial_cat_slide.reshape(total_num_slides*len(trial_bins), len(mc_ifo_cats))
   offsource_loudest_by_trial_cat = \
       offsource_loudest_by_trial_cat_unvetoed[~trial_veto_mask,:]
 ################################################################################
