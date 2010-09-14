@@ -33,10 +33,11 @@
 
 #include <gsl/gsl_sf_gamma.h>
 #include <gsl/gsl_cdf.h>
+#include <gsl/gsl_randist.h>
 #include <gsl/gsl_errno.h>
 
 #define LAL_NCCHISQ_MAXITER 1000
-
+#define LAL_NCPARAM_EPSILON  1.0e-8
 
 REAL8 XLALNonCentralChisqPDF( REAL8 x,
                               INT4  dof, 
@@ -59,9 +60,16 @@ REAL8 XLALNonCentralChisqPDF( REAL8 x,
 
   REAL8 finalValue;
 
-  if ( x < 0.0 || lambda < 0 || dof < 0 )
+  if ( x < 0.0 || lambda < 0 || dof <= 0 )
   {
     XLAL_ERROR_REAL8( func, XLAL_EINVAL );
+  }
+
+  /* If the non-centrality parameter is zero */
+  /* just use regular chi-squared from GSL   */
+  if ( lambda < LAL_NCPARAM_EPSILON )
+  {
+    return gsl_ran_chisq_pdf( x, (double)dof );
   }
 
   logMultiplier  = - ( x + lambda ) / 2.0;
@@ -136,9 +144,16 @@ REAL8 XLALNonCentralChisqCDF( REAL8 x,
 
   INT4 maxIter;
 
-  if ( x < 0.0 || lambda < 0 || dof < 0 )
+  if ( x < 0.0 || lambda < 0 || dof <= 0 )
   {
     XLAL_ERROR_REAL8( func, XLAL_EINVAL );
+  }
+
+  /* If the non-centrality parameter is zero */
+  /* just use regular chi-squared from GSL   */
+  if ( lambda < LAL_NCPARAM_EPSILON )
+  {
+    return gsl_cdf_chisq_P( x, (double)dof );
   }
 
   /* We start from the index with the greatest Poisson weighting */
