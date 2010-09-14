@@ -43,7 +43,7 @@ double rint(double x);
 /* debugging */
 extern int vrbflg;                      /* verbocity of lal function    */
 
-static REAL8
+static REAL4
 XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel );
 
 NRCSID (FINDCHIRPACTDFILTERC, "$Id$");
@@ -418,7 +418,7 @@ INT4 XLALFindChirpACTDApplyConstraint(
     {
       cons->data[i] = XLALFindHarmonicRhoSq( noNoiseConstraint, 0.9 );
     }
-    if ( XLAL_IS_REAL8_FAIL_NAN( cons->data[i] ) )
+    if ( XLAL_IS_REAL4_FAIL_NAN( cons->data[i] ) )
     {
       XLAL_ERROR( func, XLAL_EFUNC );
     }
@@ -458,7 +458,7 @@ INT4 XLALFindChirpACTDApplyConstraint(
 }
 
 
-static REAL8
+static REAL4
 XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel )
 {
 
@@ -482,7 +482,7 @@ XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel )
   INT4 i = 0;
 
   /* Choose an appropriate starting point */
-  rhoSq    = expRhoSq > (REAL8)dof ? expRhoSq : dof;
+  rhoSq    = expRhoSq > (REAL8)dof ? expRhoSq : (REAL8)dof;
   oldRhoSq = rhoSq + 1.0;
 
   while ( fabs( rhoSq - oldRhoSq ) > 1.0e-8 * rhoSq && i <= maxIter )
@@ -494,7 +494,7 @@ XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel )
 
     if ( XLAL_IS_REAL8_FAIL_NAN( cdf ) || XLAL_IS_REAL8_FAIL_NAN( pdf ) )
     {
-      XLAL_ERROR_REAL8( func, XLAL_EFUNC );
+      XLAL_ERROR_REAL4( func, XLAL_EFUNC );
     }
     rhoSq = rhoSq - ( cdf - cdfLevel ) / pdf;
 
@@ -508,14 +508,14 @@ XLALFindHarmonicRhoSq( REAL8 expRhoSq, REAL8 cdfLevel )
       }
       else
       {
-        XLAL_ERROR_REAL8( func, XLAL_ETOL );
+        XLAL_ERROR_REAL4( func, XLAL_ETOL );
       }
     }
     i++;
   }
 
   if ( i > maxIter )
-    XLAL_ERROR_REAL8( func, XLAL_EMAXITER );
+    XLAL_ERROR_REAL4( func, XLAL_EMAXITER );
 
-  return rhoSq;
+  return (REAL4)rhoSq;
 }
