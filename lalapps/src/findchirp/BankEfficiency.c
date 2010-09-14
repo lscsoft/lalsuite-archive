@@ -683,6 +683,12 @@ main (INT4 argc, CHAR **argv )
                     applyACTDconstraint =
                       XLALFindChirpACTDApplyConstraint( i, 
                                       ampCorFilterInput, ampCorFilterParams );
+                    if ( applyACTDconstraint == XLAL_FAILURE )
+                    {
+                      fprintf( stderr, "ACTD constraint function failed.\n" );
+                      exit(1);
+                    }
+
                     if( !applyACTDconstraint )
                     { 
                       max = ampCorFilterParams->rhosqVec->data->data[i];
