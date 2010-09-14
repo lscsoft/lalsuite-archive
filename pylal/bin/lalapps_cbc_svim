@@ -237,14 +237,17 @@ class upper_limit(object):
        print >>sys.stdout,"\tmaximum component: %g solar masses" % self.maxmass
 
     mass1Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
-    mass2Bin = rate.LinearBins(self.minmass,self.maxmass,self.opts.mass_bins)
+    maxm2 = numpy.min(mass1Bin.upper()[mass1Bin.upper() > self.maxtotal/2]) # just to make plots prettier
+    m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
+    mass2Bin = rate.LinearBins(self.minmass,maxm2,m2bins)
+
     self.m1m2_mass_bins = rate.NDBins( (mass1Bin,mass2Bin) )
 
     return self.m1m2_mass_bins
 
 
   def get_chirp_mass_bins(self):
-    min_mchirp = numpy.min(chirp_mass(self.minmass,self.minmass))
+    min_mchirp = numpy.min(chirp_mass(self.minmass,self.mintotal-self.minmass))
     max_mchirp = numpy.max(chirp_mass(self.maxtotal/2,self.maxtotal/2))
 
     if self.opts.verbose:
@@ -710,16 +713,19 @@ class upper_limit(object):
     # and increment the numerator there by one
     for i, l in enumerate(found_dist):
       tbin = rArrays[dbin[found_dist[i]]]
-      if f_m1[i] <= f_m2[i]: # exploit m1/m2 symmetry to improve statistics
+      if f_m1[i] >= f_m2[i]: # exploit m1/m2 symmetry to improve statistics
         tbin.incnumerator( (f_m1[i], f_m2[i]) )
       else:
         tbin.incnumerator( (f_m2[i], f_m1[i]) )
 
-    # for each found injection, find the m1-m2-d bin it corresponds to
+    # for each missed injection, find the m1-m2-d bin it corresponds to
     # and increment the denominator there by one
     for i, l in enumerate(missed_dist):
       tbin = rArrays[dbin[missed_dist[i]]]
-      tbin.incdenominator( (m_m1[i], m_m2[i]) )
+      if m_m1[i] >= m_m2[i]: # exploit m1/m2 symmetry to improve statistics
+        tbin.incdenominator( (m_m1[i], m_m2[i]) )
+      else:
+        tbin.incdenominator( (m_m2[i], m_m1[i]) )
 
     return rArrays
 
@@ -791,10 +797,6 @@ for instruments in UL.set_instruments_to_calculate():
 
   for bin_type in UL.mass_bins:
 
-    # put these calculation into a unique ligolw element
-    xmldoc = ligolw.Document()
-    child = xmldoc.appendChild(ligolw.LIGO_LW())
-
     #compute volume derivitive
     dvA = UL.get_volume_derivative(instruments,bin_type)
 
@@ -812,6 +814,9 @@ for instruments in UL.set_instruments_to_calculate():
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
 
     #write out the results to the xml file
+    xmldoc = ligolw.Document()
+    child = xmldoc.appendChild(ligolw.LIGO_LW())
+
     dim = len(UL.mass_bins[bin_type])
     for j in range(dim):
       xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
