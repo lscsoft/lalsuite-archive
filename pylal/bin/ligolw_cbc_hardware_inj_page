@@ -531,7 +531,7 @@ parser.add_option("-x","--source-xml",action="store",type="string",\
     metavar="IN_XML", help="input xml file of injections" )
 
 parser.add_option("-s", "--segment-db", metavar = "segment_url", \
-    default = "ldbd://segdb.ligo.caltech.edu:30015", \
+    default = "https://segdb.ligo.caltech.edu", \
     help = "URL pointing to segment database") 
 
 parser.add_option("-d","--trig-dir", action="store",\
