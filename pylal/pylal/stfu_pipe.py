@@ -2174,7 +2174,7 @@ class plotspinmcmcNode(pipeline.CondorDAGNode, FUNode):
 		# get the list of MCMC .txt files to be used as input
 		mcmcfilelist = ""
 		for node in p_nodes:
-			mcmcfilelist += node.outputName'
+			mcmcfilelist += node.outputName
 		self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
 
 		self.id = job.name.upper() + '-' + ifonames.replace(",","") + '-' + str(int(coinc.coinc_event_id))
@@ -2276,7 +2276,7 @@ class create_default_config(object):
                 cp.set("fu-condor","vetoflags", self.which("followupQueryVeto.py"))
                 cp.set("fu-condor","dqflags", self.which("followupQueryDQ.py"))
 		cp.set("fu-condor","mcmc", self.which("lalapps_followupMcmc"))
-		cp.set("fu-condor","mcmc", self.which("lalapps_spinspiral"))
+		cp.set("fu-condor","spinmcmc", self.which("lalapps_spinspiral"))
 		cp.set("fu-condor","plotmcmc", self.which("plotmcmc.py"))
 		cp.set("fu-condor","plotspinmcmc", self.which("plotspinmcmc.py"))
 		#FIXME SET THIS TO SOMETHING THAT WORKS
@@ -2418,6 +2418,9 @@ class create_default_config(object):
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_full_data","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_playground","20")
 		cp.set("condor-max-jobs","lalapps_followupmcmc_coh_time_slides","20")
+		cp.set("condor-max-jobs","lalapps_spinspiral_coh_full_data","20")
+		cp.set("condor-max-jobs","lalapps_spinspiral_coh_playground","20")
+		cp.set("condor-max-jobs","lalapps_spinspiral_coh_time_slides","20")
 
 		# Following comments relate to default options
 		# Generate by FUNode.__conditionalLoadDefaults__ method
