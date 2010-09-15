@@ -26,6 +26,7 @@ from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 from pylal import antenna
 from pylal.xlal import date
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import git_version
 
 # the config parser to be used in some of the functions
@@ -623,7 +624,7 @@ def generate_summary(publish_path, publish_url):
       tag_lik = 'None'
     table = add(table, tag_onoff+'<br>'+tag_lik)
     table = add(table, grb.time)
-    tm = date.XLALGPSToUTC(date.LIGOTimeGPS(grb.time))
+    tm = date.XLALGPSToUTC(LIGOTimeGPS(grb.time))
     asctime = time.strftime("%d %b %Y\n%H:%M:%S",tm)
     table = add(table, asctime)
     table = add_linked_value(table, grb.redshift, None )
@@ -1519,12 +1520,22 @@ class GRB(object):
        self.cleanup(thispath)
 
     # download the original VD file for later review issues
-    filename = os.path.basename(definer_file)
-    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
-    system_call(self.name, cmd)
+    # if the path already exists
+    if os.path.exists(self.analysis_dir):
+      self.get_veto_definer(definer_file)
 
     # remember the veto definer file used
     self.veto_definer = os.path.basename(definer_file)
+
+  # -----------------------------------------------------
+  def get_veto_definer(self, definer_file):
+    """
+    Downloading the veto-definer file and keeping the original name.
+    """
+
+    filename = os.path.basename(definer_file)
+    cmd = "wget -O %s/%s %s" % (self.analysis_dir, filename, definer_file)
+    system_call(self.name, cmd)
 
   # -----------------------------------------------------
   def check_veto_onsource(self):

@@ -184,7 +184,7 @@ typedef struct {
 	
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-double doppler, omega_t, c_omega_t, s_omega_t, modomega_t, fmodomega_t;
+double doppler, omega_t, c_omega_t, s_omega_t, modomega_t, fmodomega_t, a;
 double hann;
 float f_plus, f_cross;
 EmissionTime emission_time;
@@ -210,9 +210,9 @@ doppler=p->e[0]*emission_time.vDetector[0]+p->e[1]*emission_time.vDetector[1]+p-
 /* Compute SSB time since ref time */
 te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.gpsNanoSeconds;
 
-fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq))+p->freq_modulation_phase;
+fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq));
 
-*f=(p->freq+p->spindown*te+p->freq_modulation_depth*cos(fmodomega_t))*(1.0+doppler);
+*f=(p->freq+p->spindown*te+p->freq_modulation_depth*cos(fmodomega_t+p->freq_modulation_phase))*(1.0+doppler);
 
 phase_spindown=0.5*te*te*p->spindown;
 
@@ -220,11 +220,26 @@ phase_spindown=0.5*te*te*p->spindown;
 phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
 	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
 	
-if(fabs(p->freq_modulation_freq)>0) {	
-	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)/p->freq_modulation_freq;
+if(fabs(p->freq_modulation_freq)>1e-28) {
+	/* Split up computation according to the formula below.
+	   Note that for small freq_modulation_depth the second component will be zero due to precision loss and we need random phi to properly simulate global phase.
+
+	   sin(wt+a)    sin(wt)cos(a)     cos(wt)sin(a) 
+	   --------- =  ------------- +   ------------- 
+	       w             w                 w        
+	*/
+	phase_freq+=p->freq_modulation_depth*sin(fmodomega_t)*cos(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	a=p->freq_modulation_depth*cos(fmodomega_t)*sin(p->freq_modulation_phase)/(2*M_PI*p->freq_modulation_freq);
+	phase_freq+=a-floor(a);
 	} else {
-	/* we just have a constant frequency offset for practical purposes */
-	phase_freq+=p->freq_modulation_depth*te;
+	/* we just have a constant frequency offset for practical purposes which corresponds to freezing 
+	   omega at the level of definition of *f, not phase_freq which would diverge for anything but sin(), but that is an extra random constant offset in phase which should be taken care of by using random phi :
+	   
+	   sin(wt+a)    sin(wt)cos(a)     cos(wt)sin(a)               sin(a)     wt^2 sin(a) 
+	   --------- =  ------------- +   ------------- = t cos(a) +  ------ -   ----------- + o(w^2)
+	       w             w                 w                        w             2
+	*/
+	phase_freq+=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
 	}
 
 omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
@@ -1395,7 +1410,7 @@ while((fin=fopen(filename,"r"))==NULL) {
 	condor_safe_sleep(args_info.retry_delay_arg);
 	}
 if(retries>0) {
-	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
+	fprintf(stderr, "Successfully opened file \"%s\" after %ld attempts.\n", filename, retries);
 	}
 /* read header */
 header_offset=0;

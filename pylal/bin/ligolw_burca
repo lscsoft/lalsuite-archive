@@ -274,7 +274,7 @@ def burca1(options, filenames):
 			ntuple_comparefunc = lambda *args: coinc_segs_ntuple_comparefunc(*args) or ligolw_burca.StringNTupleCoincCompare(*args)
 		else:
 			ntuple_comparefunc = ligolw_burca.StringNTupleCoincCompare
-		CoincTables = snglcoinc.CoincTables
+		CoincTables = ligolw_burca.StringCuspCoincTables
 		CoincDef = ligolw_burca.StringCuspBBCoincDef
 	else:
 		raise Exception, "should never get here"
@@ -420,7 +420,9 @@ def burca2(options, filenames):
 		connection = sqlite3.connect(working_filename)
 		connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(connection, options.program, verbose = options.verbose)
+		database = SnglBurstUtils.CoincDatabase(connection, options.program)
+		if options.verbose:
+			SnglBurstUtils.summarize_coinc_database(database)
 
 
 		#

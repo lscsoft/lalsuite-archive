@@ -3,12 +3,12 @@
 from __future__ import division
 
 from glue import git_version
-
+import re
 import os
 import sys
 from pylal import Fr
 import numpy
-from subprocess import Popen,PIPE
+import subprocess
 __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -50,6 +50,12 @@ def grab_data(start,end,channel,type,\
   time = []
   data = []
 
+  #== find FrCheck
+  p = subprocess.Popen(["which", "FrCheck"], stdout=subprocess.PIPE)
+  frcheck = p.communicate()[0].replace('\n','')
+  if p.returncode != 0:
+    raise ValueError, "FrCheck not found."
+  p.stdout.close()
   #== generate framecache
   if verbose:
     print >>sys.stdout, "Generating framecache..."
@@ -60,10 +66,21 @@ def grab_data(start,end,channel,type,\
     cache = dmt_cache(start,end,channel[0:1],type)
   #== loop over frames in cache
   for frame in cache:
+    #== check frame file exists
+    if not os.path.isfile(frame):  continue
+    #== check for Segmentation fault
+    segtest = subprocess.Popen([frcheck,"-i",frame],stdout=subprocess.PIPE)
+    if os.waitpid(segtest.pid,0)[1]==11:  
+      print >>sys.stderr, "Warning. Segmentation fault detected with command:"
+      print >>sys.stderr, "FrCheck -i "+frame
+      continue
+    segtest.stdout.close()
+    #== try to extract data from frame
     try:
       frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,channel)
       if frame_data==[]:
-        print >>sys.stdout, "  No data for "+channel+" in "+frame
+        print >>sys.stderr, "No data for "+channel+" in "+frame
+        continue
       #== construct time array
       frame_length = float(dt)*len(frame_data)
       frame_time = data_start+dt*numpy.arange(len(frame_data))
@@ -74,6 +91,7 @@ def grab_data(start,end,channel,type,\
         time.append(frame_time[i])
         data.append(frame_data[i])
     except:
+      print >>sys.stderr, "Failed to access frame:\n"+frame
       continue
   return time,data
 
@@ -101,6 +119,14 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
   """
 
   cache = []
+
+  #== find ldf
+  p = subprocess.Popen(["which", "ligo_data_find"], stdout=subprocess.PIPE)
+  ldf = p.communicate()[0].replace('\n','')
+  if p.returncode != 0:
+    raise ValueError, "ligo_data_find"
+  p.stdout.close()
+  ldf = os.path.realpath(ldf)
   #== if given strings, make single-element lists
   if isinstance(ifos,str):
     ifos=[ifos]
@@ -110,12 +136,8 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
   for ifo in ifos:
     #== loop over each frame type
     for type in types:
-      ldf_exe,sourced = GetCommandOutput('which ligo_data_find')
-      if sourced!=0:
-        print "Cannot find ligo_data_find. Please ensure, lscsoft is sourced."
-        sys.exit()
       try:
-        data_find_cmd =   ldf_exe.replace('\n','')+\
+        data_find_cmd =   ldf+\
                           ''' --gps-start-time '''+str(start_time)+\
                           ''' --gps-end-time '''+str(end_time)+\
                           ''' --observatory '''+ifo[0:1]+\
@@ -123,7 +145,8 @@ def generate_cache(start_time,end_time,ifos,types,return_files=False):
                           ''' --url-type file '''+\
                           ''' --frame-cache | sort'''
         #== run ligo_data_find and append each frame to the cache
-        cache_out = Popen(data_find_cmd,shell=True,stdout=PIPE)
+        cache_out = subprocess.Popen(data_find_cmd,shell=True,\
+                                     stdout=subprocess.PIPE)
         for line in cache_out.stdout.readlines():
           #== if line is not recognised in standard frame cache format, skip
           if len(line.split(' '))!=6:
@@ -174,19 +197,20 @@ def find_types(types,search='standard'):
   ['H1_RDS_R_L1', 'H1_RDS_R_L3', 'H1_RDS_R_L4', 'R']
   """
 
-  #== check for ldf
-  ldf_exe='ligo_data_find'
-  ldf_status = GetCommandOutput('which '+ldf_exe)[1]
-  if ldf_status != 0:
-    print >>sys.stderr, \
-        "Error: ligo_data_find not found. Please ensure lscsoftrc is sourced"
-    sys.exit()
+  #== find ldf
+  p = subprocess.Popen(["which", "ligo_data_find"], stdout=subprocess.PIPE)
+  ldf = p.communicate()[0].replace('\n','')
+  if p.returncode != 0:
+    raise ValueError, "ligo_data_find"
+  p.stdout.close()
+  ldf = os.path.realpath(ldf)
 
   #== make sure types is a list
+  if types is None:  types = []
   if isinstance(types,str):  types = [types]
 
   #== set up search command
-  find_cmd = ldf_exe+" -y | egrep "
+  find_cmd = ldf+" -y | egrep "
 
   #== treat 'R','M' and 'T' as special cases,
   #== so not to grep for all types containing 'R'
@@ -218,16 +242,17 @@ def find_types(types,search='standard'):
       special_cases.append(type)
     #== otherwise add it to the grep command
     else:
-      find_cmd+= "'"
+      if not find_cmd.endswith('|'):
+        find_cmd+= "'"
       find_cmd+=type+"|"
   #== take of the extra character
   if find_cmd[-1]=="|":
     find_cmd = find_cmd[0:-1] + "'"
-
   found_types = []
   #== if not searching only for special types, run the grep command
-  if find_cmd != ldf_exe+" -y | egrep '":
-    found_types_out = Popen(find_cmd,shell=True,stdout=PIPE)
+  if find_cmd != ldf+" -y | egrep '":
+    found_types_out = subprocess.Popen(find_cmd,shell=True,\
+                                       stdout=subprocess.PIPE)
     for line in found_types_out.stdout.readlines():
       if line=='\n':  continue
       found_type = line.replace('\n','')
@@ -238,7 +263,6 @@ def find_types(types,search='standard'):
     found_types.append(type)
   if found_types == ['']:
     print >>sys.stderr, "No data types found, exiting."
-
   return found_types
 
 # =============================================================================
@@ -354,16 +378,20 @@ def find_channels(channels=None,\
   H1:LSC-DARM_ERR H1_RDS_R_L1 16384.0
   """
  
-  #== check for ldf
-  ldf_exe='ligo_data_find'
-  ldf_status = GetCommandOutput('which '+ldf_exe)[1]
-  if ldf_status != 0:
-    print "Error: ligo_data_find not found. Please ensure lscsoftrc is sourced"
-    sys.exit()
+  #== find ldf
+  p = subprocess.Popen(["which", "ligo_data_find"], stdout=subprocess.PIPE)
+  ldf = p.communicate()[0].replace('\n','')
+  if p.returncode != 0:
+    raise ValueError, "ligo_data_find"
+  p.stdout.close()
+  ldf = os.path.realpath(ldf)
 
   #== cannot work with no ifos
   if ifos is None:
     ifos = find_ifos(channels,types,ifos)
+
+  if types is None:
+    types = find_types(types)
 
   #== check list status
   if isinstance(channels,str):
@@ -379,7 +407,6 @@ def find_channels(channels=None,\
     if time is None:
       time = \
           str(GetCommandOutput('tconvert now -2 days')[0]).replace('\n','')
-
     if verbose:
       print_statement = \
           "Searching "+str(len(types))+" frame types for: "
@@ -402,13 +429,19 @@ def find_channels(channels=None,\
       sys.stdout.flush()
 
       #== find first frame file for type
-      frame_cmd = ldf_exe+''' --observatory '''+ifo[0:1]+\
+      frame_cmd = ldf+''' --observatory '''+ifo[0:1]+\
                   ''' --type='''+type+\
                   ''' --gps-start-time '''+str(time)+\
                   ''' --gps-end-time '''+str(time)+\
-                  ''' --url-type file --lal-cache | '''+\
-                  ''' sort -g -k 3 -r | awk 'NR==1' '''
-      frame,frame_status = GetCommandOutput(frame_cmd)
+                  ''' --url-type file'''
+      frame_out = subprocess.Popen(frame_cmd,shell=True,stdout=subprocess.PIPE,\
+                                   stderr=subprocess.PIPE)
+      frame_status = 0
+      frame=''
+      for line in frame_out.stdout.readlines():
+        if line[0:7]=='file://':  frame = line
+        break
+      frame_out.stdout.close()
       frame = frame.replace('\n','')
       #== if frame is found:
       if frame_status == 0 and frame != "":
@@ -428,10 +461,10 @@ def find_channels(channels=None,\
           for ex_channel in ex_channels:
             channel_find_cmd += ex_channel+"|"
           channel_find_cmd = channel_find_cmd[0:-1]+"'"
-
         #== grab channels
         try:
-          channel_list_out = Popen(channel_find_cmd,shell=True,stdout=PIPE)
+          channel_list_out = subprocess.Popen(channel_find_cmd,shell=True,\
+                                              stdout=subprocess.PIPE)
           for line in channel_list_out.stdout.readlines():
             data = line.replace('\n','')
             name,sampling = data.split(' ')
@@ -484,21 +517,7 @@ def parse_unique_channels(channels,type_order=None):
 
   #== set up type preference order
   if type_order == None:
-    type_order = []
-    #== set up list of ifos for type name construction
-    ifos = []
-    for channel in channels:
-      if channel.name.find(':')==-1:
-        ifos.append(channel.name[0:2])
-    #== for each ifo add the *_RDS_R_L1 and *_RDS_R_L3 sets to the order
-    for ifo in ifos:
-      type_order.append(ifo+'_RDS_R_L1')
-      type_order.append(ifo+'_RDS_R_L3')
-    #== add the Raw data type
-    type_order.append('R')
-    #== add the S5 RDS type
-    type_order.append('RDS_R_L1')
-
+    type_order = ['H1_RDS_R_L1','L1_RDS_R_L1','H2_RDS_R_L1','R','RDS_R_L1']
   #== sort channels by name
   channels = sorted(channels,key=lambda ch: ch.name)
   #== set up loop variables
