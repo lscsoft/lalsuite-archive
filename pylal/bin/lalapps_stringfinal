@@ -94,7 +94,6 @@ def parse_command_line():
 		usage = "%prog [options] [file ...]",
 		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input consists of a list of all sqlite format database files produced by all injection and non-injection runs of the analysis pipeline.  The file names can be given on the command line and/or provided in a LAL cache file."
 	)
-	parser.add_option("-a", "--amplitude-factor", metavar = "factor", type = "float", default = 1e-20, help = "Multiply amplitudes in XML files by this amount (default = 1e-20).")
 	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).  This option is required, use 0 to disable calibration uncertainty.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves (default = 16.7).")
 	parser.add_option("-c", "--input-cache", metavar = "filename", help = "Also process the files named in this LAL cache.  See lalapps_path2cache for information on how to produce a LAL cache file.")
@@ -468,7 +467,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	A50_err = interpolate.interp1d(x, net_xerr)(A50)
 
 	# mark 50% point on graph
-	axes.axvline(A50, color = colour, linestyle = linestyle)
+	#axes.axvline(A50, color = colour, linestyle = linestyle)
 
 	# print some analysis
 	num_injections = efficiency.denominator.array.sum()
@@ -480,10 +479,9 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 
 
 class Efficiency(object):
-	def __init__(self, detection_threshold, cal_uncertainty, amplitude_factor, filter_width):
+	def __init__(self, detection_threshold, cal_uncertainty, filter_width):
 		self.detection_threshold = detection_threshold
 		self.cal_uncertainty = cal_uncertainty
-		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
 		self.seglists = segments.segmentlistdict()
 		self.vetoseglists = segments.segmentlistdict()
@@ -506,8 +504,8 @@ class Efficiency(object):
 
 		# for each injection, retrieve the highest likelihood ratio
 		# of the burst coincs that were found to match the
-		# injection or null if no such matching burst events were
-		# found
+		# injection or null if no burst coincs matched the
+		# injection
 		stringutils.create_recovered_likelihood_table(contents.connection, contents.bb_definer_id)
 		missed = []
 		for values in contents.connection.cursor().execute("""
@@ -555,16 +553,12 @@ FROM
 
 		# put made and found injections in the denominators and
 		# numerators of the efficiency bins
-		bins = rate.NDBins((rate.LogarithmicBins(min(sim.amplitude for sim in self.all) * self.amplitude_factor, max(sim.amplitude for sim in self.all) * self.amplitude_factor, 400),))
+		bins = rate.NDBins((rate.LogarithmicBins(min(sim.amplitude for sim in self.all), max(sim.amplitude for sim in self.all), 400),))
 		efficiency = rate.BinnedRatios(bins)
 		for sim in self.found:
-			efficiency.incnumerator((sim.amplitude * self.amplitude_factor,))
+			efficiency.incnumerator((sim.amplitude,))
 		for sim in self.all:
-			efficiency.incdenominator((sim.amplitude * self.amplitude_factor,))
-
-		# regularize:  adjust unused bins so that the efficiency is
-		# 0, not NaN
-		efficiency.regularize()
+			efficiency.incdenominator((sim.amplitude,))
 
 		# generate and plot trend curves.  adjust window function
 		# normalization so that denominator array correctly
@@ -577,6 +571,10 @@ FROM
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
 		rate.filter_binned_ratios(efficiency, windowfunc)
+
+		# regularize:  adjust unused bins so that the efficiency is
+		# 0, not NaN
+		efficiency.regularize()
 
 		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "-", erroralpha = 0.2)
 		print >>sys.stderr, "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
@@ -755,7 +753,7 @@ else:
 
 if options.verbose:
 	print >>sys.stderr, "Collecting efficiency statistics ..."
-efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
+efficiency = Efficiency(detection_threshold, options.cal_uncertainty, options.injections_bin_size)
 process_files(injection_filenames, [efficiency], options.live_time_program, tmp_path = options.tmp_space, veto_segments_name = options.vetoes_name, verbose = options.verbose)
 write_products([efficiency], "string_efficiency_", options.image_formats, verbose = False)
 

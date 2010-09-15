@@ -113,9 +113,9 @@ def cosmo_contour(x, y, avg, min, max, p, neventsUL, filename):
     axes.contour(x, y, max/p, [neventsUL], linestyles='dashed', colors='r')
     axes.set_xlim([x.min(),x.max()])
     axes.set_ylim([y.min(),y.max()])
-    axes.set_title("p=" + str(p))
-    axes.set_xlabel(r"$G\mu{}$")
-    axes.set_ylabel(r"$\epsilon{}$")
+    axes.set_title(r"$P = %g$" % p)
+    axes.set_xlabel(r"$G\mu$")
+    axes.set_ylabel(r"$\epsilon$")
     fig.savefig(filename)
        
 

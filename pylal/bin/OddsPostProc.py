@@ -13,6 +13,8 @@ import numpy
 from time import strftime
 from scipy import stats
 from pylal import SimInspiralUtils
+from pylal import bayespputils
+from pylal.bayespputils import plot2Dkernel
 
 parser=OptionParser()
 parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
@@ -400,19 +402,6 @@ if(opts.skyres is not None):
 
 myfig=figure(1,figsize=(6,4),dpi=80)
 clf()
-def plot2Dkernel(xdat,ydat,Nx,Ny):
-    xax=linspace(min(xdat),max(xdat),Nx)
-    yax=linspace(min(ydat),max(ydat),Ny)
-    x,y=numpy.meshgrid(xax,yax)
-    samp=array([xdat,ydat])
-    kde=stats.kde.gaussian_kde(samp)
-    grid_coords = numpy.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
-    z = kde(grid_coords.T)
-    z = z.reshape(Nx,Ny)
-    asp=xax.ptp()/yax.ptp()
-#    if(asp<0.8 or asp > 1.6): asp=1.4
-    imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
-    colorbar()
 
 
 plot2Dkernel(pos[:,0],pos[:,1],100,100)

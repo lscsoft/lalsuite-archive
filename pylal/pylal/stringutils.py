@@ -30,6 +30,8 @@ import sys
 
 from glue import iterutils
 from glue import segmentsUtils
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import git_version
 from pylal import inject
@@ -63,11 +65,17 @@ def coinc_params_func(events, offsetvector):
 	if len(events) < 2:
 		return None
 
+	params = {}
+
+	#
+	# zero-instrument parameters
+	#
+
+	params["nevents"] = (len(events),)
+
 	#
 	# one-instrument parameters
 	#
-
-	params = {}
 
 	for event in events:
 		prefix = "%s_" % event.ifo
@@ -79,9 +87,7 @@ def coinc_params_func(events, offsetvector):
 	#
 
 	for event1, event2 in iterutils.choices(sorted(events, key = lambda event: event.ifo), 2):
-		if event1.ifo == event2.ifo:
-			# shouldn't happen, but might as well check for it
-			continue
+		assert event1.ifo != event2.ifo
 
 		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
 
@@ -139,7 +145,8 @@ class DistributionsStats(object):
 		"H1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_L1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
 		"H2_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
-		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),))
+		"L1_V1_df": rate.NDBins((rate.ATanBins(-0.5, +0.5, 6001),)),
+		"nevents": rate.NDBins((rate.LinearBins(0.5, 4.5, 4),))	# bin centres are at 1, 2, 3, ...
 	}
 
 	filters = {
@@ -164,7 +171,8 @@ class DistributionsStats(object):
 		"H1_V1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_L1_df": rate.gaussian_window(11, sigma = 20),
 		"H2_V1_df": rate.gaussian_window(11, sigma = 20),
-		"L1_V1_df": rate.gaussian_window(11, sigma = 20)
+		"L1_V1_df": rate.gaussian_window(11, sigma = 20),
+		"nevents": rate.tophat_window(1)
 	}
 
 	def __init__(self):
@@ -259,6 +267,20 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 
 def get_coincparamsdistributions(xmldoc):
 	coincparamsdistributions, process_id = ligolw_burca_tailor.coinc_params_distributions_from_xml(xmldoc, u"string_cusp_likelihood")
+	return coincparamsdistributions
+
+
+def load_likelihood_data(filenames, verbose = False):
+	coincparamsdistributions = None
+	for n, filename in enumerate(filenames):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = verbose)
+		if coincparamsdistributions is None:
+			coincparamsdistributions = get_coincparamsdistributions(xmldoc)
+		else:
+			coincparamsdistributions += get_coincparamsdistributions(xmldoc)
+		xmldoc.unlink()
 	return coincparamsdistributions
 
 

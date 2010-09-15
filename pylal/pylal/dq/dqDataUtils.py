@@ -190,7 +190,7 @@ def daily_ihope_cache(start,end,ifo,cluster=None):
   day_start = int(GetCommandOutput('tconvert `tconvert '+str(start)+\
                                    ' -f %D`')[0])
   duration = end-start
-  num_days = int(round((duration)/86400))
+  num_days = int(round((int(duration))/86400))
   #== generate array of days
   day_end = day_start+num_days*86400
   while day_end<end:
