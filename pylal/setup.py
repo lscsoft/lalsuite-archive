@@ -477,6 +477,7 @@ setup(
 		os.path.join("bin", "IFOstatus_check"),
 		os.path.join("bin", "plotsnrchisq_pipe"),
 		os.path.join("bin", "plotmcmc.py"),
+		os.path.join("bin", "plotspinmcmc.py"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "antime"),
