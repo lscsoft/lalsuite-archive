@@ -2468,7 +2468,7 @@ class RepopCoincNode(pipeline.SqliteNode):
   """
   A repop_coinc node.
   """
-    def __init__(self, job):
+  def __init__(self, job):
     """
     @job: a RepopCoincJob
     """
