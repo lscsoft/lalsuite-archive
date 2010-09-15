@@ -25,6 +25,7 @@ from glue.ligolw import table
 from glue.ligolw import array
 from glue import segmentsUtils
 from glue import lal
+from glue import iterutils
 
 from pylal import db_thinca_rings
 from pylal import llwapp
@@ -38,6 +39,12 @@ __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
+
+
+# FIXME this should come from a constants package
+# Astronomers use Julian year
+secs_in_year = 31557600.0
+
 
 def edges(bins):
   """Get the boundary points of a rate.NDBins object."""
@@ -345,15 +352,13 @@ class upper_limit(object):
     found, missed = self.get_injections(instruments, FAR=float("inf"))
     dbin = rate.LogarithmicBins(min([l.distance for l in found]),max([l.distance for l in found]), int(self.opts.dist_bins))
 
-    # FIXME is this the same as self.livetime[instruments]??
-    livetime = float(abs(self.zero_lag_segments[instruments]))
+    livetime = float(abs(self.zero_lag_segments[instruments]))/secs_in_year
 
     FARh = FAR*100000
     FARl = FAR*0.001
     nbins = 5
     FARS = rate.LogarithmicBins(FARl, FARh, nbins)
     vA = []
-    vA2 = []
 
     for far in FARS.centres():
       vAt, vA2t, fm = self.twoD_SearchVolume(instruments,bin_type,dbin_in=dbin,FAR=far,bootnum=1)
@@ -773,11 +778,6 @@ def parse_command_line():
     sys.exit(1)
 
   return opts, filenames[0]
-
-# FIXME this should come from a constants package
-# Astronomers use Julian year
-secs_in_year = 31557600.0
-
 
 
 ############################ MAIN PROGRAM #####################################
