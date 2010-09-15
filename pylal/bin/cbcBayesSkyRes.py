@@ -537,10 +537,10 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
         summary_file.set('1D ranking bins',param,rbins)
 
         oneDplotPaths.append(figname)
-        
+    htmlfile.write('<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th>')
     for plotPath in oneDplotPaths:
-        htmlfile.write('<img src="'+plotPath+'"><img src="'+plotPath.replace('.png','_samps.png')+'"><br>')
-
+        htmlfile.write('<tr><td><img src="'+plotPath+'"></td><td><img src="'+plotPath.replace('.png','_samps.png')+'"></td>')
+    htmlfile.write('</table>')
     htmlfile.write('<hr><br />Produced using cbcBayesSkyRes.py at '+strftime("%Y-%m-%d %H:%M:%S"))
     htmlfile.write('</BODY></HTML>')
     htmlfile.close()
