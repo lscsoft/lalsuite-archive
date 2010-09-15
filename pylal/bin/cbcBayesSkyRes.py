@@ -433,9 +433,9 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
             htmlfile.write('<tr><td>%f<td>%f</tr>'%(frac,skysize))
         htmlfile.write('</table>')
     if bayesfactornoise is not None:
-        htmlfile.write('<p>log Bayes factor (coherent vs gaussian noise) = %s</p>'%(BSN))
+        htmlfile.write('<p>log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f</p>'%(BSN,exp(float(BSN))))
     if bayesfactorcoherent is not None:
-        htmlfile.write('<p>log Bayes factor (coherent vs incoherent ) = %s</p>'%(BCI))
+        htmlfile.write('<p>log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f</p>'%(BCI,exp(float(BCI))))
     htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples.<br>')
     htmlfile.write('Samples read from %s<br>'%(data[0]))
     htmlfile.write('<h4>Mean parameter estimates</h4>')
