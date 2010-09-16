@@ -679,6 +679,8 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 	mcmc_coh_job		= stfu_pipe.mcmcJob(options,cp,dir=search,tag_base="coh")
 	plot_mcmc_sngl_job	= stfu_pipe.plotmcmcJob(options,cp,dir=search,tag_base="sngl")
 	plot_mcmc_coh_job	= stfu_pipe.plotmcmcJob(options,cp,dir=search,tag_base="coh")
+	spinmcmc_coh_job	= stfu_pipe.spinmcmcJob(options,cp,dir=search,tag_base="coh")
+	plot_spinmcmc_coh_job	= stfu_pipe.plotspinmcmcJob(options,cp,dir=search,tag_base="coh")
 	if options.do_remoteScans:
 		#setup_proxy_job		= stfu_pipe.setupProxyJob(options,cp, tag_base='Q_RDS', dir=search)
 		remote_datafind_job	= stfu_pipe.remoteDatafindJob(options,cp, tag_base='Q_RDS', dir=search)
@@ -785,6 +787,12 @@ for search, candidates in [('playground',trigs.playground_candidates), ('full_da
 			mcmcNodeList.append(mcmc_coh_node)
 
 		plot_mcmc_coh_node = stfu_pipe.plotmcmcNode(plot_mcmc_coh_job,coinc,cp,options,dag,mcmc_coh_node.ifoRef,mcmc_coh_node.ifonames,p_nodes=mcmcNodeList)
+
+		# Coherent SPIN MCMC jobs
+		# for now we are running only one chain
+		spinmcmc_coh_node = stfu_pipe.spinmcmcNode(dag,spinmcmc_coh_job,cp,options,coinc,cacheFile_list,p_nodes=dataFind_list)
+
+		plot_spinmcmc_coh_node = stfu_pipe.plotspinmcmcNode(plot_spinmcmc_coh_job,coinc,cp,options,dag,mcmc_coh_node.ifoRef,mcmc_coh_node.ifonames,p_nodes=[spinmcmc_coh_node])
 
 		effDRatio_Node = stfu_pipe.effDRatioNode(dag,effD_ratio_job,cp,options,coinc)
 		findFlags_Node = stfu_pipe.findFlagsNode(dag,find_flags_job,cp,options,coinc)
