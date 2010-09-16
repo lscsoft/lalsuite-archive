@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 from __future__ import division
 from optparse import OptionParser
@@ -11,25 +11,35 @@ matplotlib.use('Agg')
 import pylab
 import numpy
 import shutil
+import subprocess
+import re
 
 from pylal import date
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.dq import dqFrameUtils,dqDataUtils,dqSegmentUtils
 from socket import getfqdn
-from subprocess import Popen,PIPE
+
 # =============================================================================
 # Function to execute shell command and get output
 # =============================================================================
-def GetCommandOutput(command):
+def GetCommandOutput(exe,args,shell=False,stderr=False):
   #== function to execute bash commands and return the stdout and error status
-  stdin, out, err = os.popen3(command)
-  pid, status = os.wait()
-  this_output = out.read()
-  stdin.close()
-  out.close()
-  err.close()
-  return this_output, status
+  if not isinstance(exe,str):
+    exe = str(exe)
+  if isinstance(args,str):
+    args = args.split(' ')
+  cmd = [exe]+args
+  cmd_out = subprocess.Popen(cmd,shell=shell,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  status = cmd_out.wait()
+  out = cmd_out.stdout.read()
+  err = cmd_out.stderr.read()
+  cmd_out.stdout.close()
+  cmd_out.stderr.close()
+  if stderr:
+    return out, status, err
+  else:
+    return out, status
 
 # =============================================================================
 # Function to remove empty strings from a list
@@ -135,7 +145,7 @@ def scimon_flags(start,end,ifos,username,password):
   query_cmd_print = query_cmd_print.replace(password,'<password>')
 
   try:
-    flags = Popen(query_cmd,shell=True,stdout=PIPE)
+    flags = subprocess.Popen(query_cmd,shell=True,stdout=subprocess.PIPE)
     scimon_flags={}
     for ifo in ifos:
       scimon_flags[ifo]=[]
@@ -553,6 +563,18 @@ def main():
       print >>sys.stdout, \
           "Generating lists of common DQ flags (from lalapps_flag_triggers)..."
   
+    #== set options
+    cdq_runs = ['SNR','newSNR']
+    cdq_thresh = {}
+    cdq_tag = {}
+    for cdq_run in cdq_runs:
+      if cdq_run.lower()=='snr':
+        cdq_thresh[cdq_run] = options.snr_threshold
+        cdq_tag[cdq_run] = 'SNR'+str(cdq_thresh[cdq_run])
+      elif cdq_run.lower()=='newsnr':
+        cdq_thresh[cdq_run] = 8
+        cdq_tag[cdq_run] = 'newSNR'+str(cdq_thresh[cdq_run])
+
     #== set directories
     common_dq_tag = 'common_dq_flag'
     common_dq_path = os.path.join(dq_path,common_dq_tag)
@@ -563,56 +585,73 @@ def main():
     #== print header
     print >>output, "== Common DQ Flags =="
     print >>output, "{{{"
-    print >>output, "lalapps_flag_triggers ${IFO} ${CAT_LEVEL} "+\
-                        "${SNR_THRESHOLD} ${DAILY_DIRECTORIES}"
+    print >>output, "lalapps_flag_triggers --gps-start-time ${GPSSTART} "+\
+                                          "--gps-end-time ${GPSEND} "+\
+                                          "--ifo ${IFO} "+\
+                                          "--veto-category ${CATNUM} "+\
+                                          "--min-snr ${SNR_THRESHOLD} "+\
+                                          "--sixteen-sec"
     print >>output, "}}}"
-  
-    #== loop over options.ifos
-    for ifo in options.ifos:
-      #== set variables
-      skipped_days = ''
-      filename = ifo+'-'+common_dq_tag+'_'+str(gps_start)+'-'+\
-                     str(duration)+'.txt'
-      filename = os.path.join(common_dq_path,filename)
-  
-      #== print ifo header
-      print >>output, "===== "+ifo+" ====="
+    print >>output 
+    print >>output
+    print >>output, "'''lalapps_flag_triggers''' finds all triggers above "+\
+                    "a given (new)SNR threshold in the daily iHope "+\
+                    "triggers and lists the DQ flags as a percentage. "
+    print >>output
+    
+    #== loop over different runs
+    for cdq_run in cdq_runs:
+      print >>output, "Triggers with "+cdq_run+">"+str(cdq_thresh[cdq_run])+\
+                      " after CAT"+str(options.cat_level)+":"
       print >>output
-      print >>output, "A list of common data quality flags for "+ifo+\
-          " after category "+str(options.cat_level)+\
-          " vetoes applied, on triggers with SNR > "+\
-                str(options.snr_threshold)+\
-          " can be found [["+common_dq_web_path+'/'+\
-                             os.path.split(filename)[-1]+"|here]]."
-  
-      f = open(filename,'w')
-      #== construct query command
-      common_dq_cmd = 'lalapps_flag_triggers '+ifo
-      common_dq_cmd+= ' '+str(options.cat_level)
-      common_dq_cmd+= ' '+str(options.snr_threshold)+' '
-      #== for each day: if triggers cache exists: list; else: skip
-      for d in gps_days:
-        if os.path.exists(ihope_daily_path[d]+'/'+\
-               'H1-'+str(options.cat_level)+'-INSPIRAL_16SEC_CLUSTERED.csv'):
-          common_dq_cmd+=ihope_daily_path[d]+' '
+      print >>output, "||",
+      for ifo in options.ifos:
+        print >>output, ifo+"||",
+      print >>output
+      print >>output, "||",
+      #== loop over ifos
+      for ifo in options.ifos:
+        filename = ifo+'-'+cdq_tag[cdq_run]+'_'+str(gps_start)+'-'+\
+                   str(duration)+'.txt'
+        outfile = os.path.join(common_dq_path,filename)
+        f = open(outfile,'w')
+        #== construct query command
+        cmd_exe  = GetCommandOutput('which','lalapps_flag_triggers')[0]\
+                       .split('\n')[0]
+        cmd_args = ['--gps-start-time',str(gps_days[0]),
+                    '--gps-end-time',str(gps_days[-1]),
+                    '--ifo',ifo,
+                    '--veto-category',str(options.cat_level),
+                    '--sixteen-sec']
+        if cdq_run.lower()=='snr':
+          cmd_args.append('--min-snr')
+        elif cdq_run.lower()=='newsnr':
+          cmd_args.append('--min-new-snr')
+        cmd_args.append(str(cdq_thresh[cdq_run]))
+
+        #== query for command dq flags
+        flags,status=GetCommandOutput(cmd_exe,cmd_args)
+        #== if it worked, write the output to a file
+        if status==0:
+          f.write(flags)
+        #== if it didn't, apologise
         else:
-          skipped_days+=' '+utc_date[d].strftime("%Y%m%d")+' '
-      #== query for command dq flags
-      flags,status=GetCommandOutput(common_dq_cmd)
-      #== if it worked, write the output to a file
-      if status==0:
-        f.write(flags)
-      #== if it didn't, apologise
-      else:
-        f.write("Command:\n "+common_dq_cmd)
-        f.write("\nfailed, please rerun.")
-      f.close()
-      #== if we had to skip some days, list these
-      if skipped_days:
-        print >>output, \
-            "The following days were not analysed due to a lack of data:"
-        print >>output, skipped_days
-  
+          cmd = cmd_exe
+          for arg in cmd_args:
+            cmd+=' '+arg
+          f.write("Command:\n "+cmd)
+          f.write("\nfailed, please rerun.")
+        f.close()
+        #== print result
+        if re.match('Found',flags):
+          flag_line = flags.split(' ')[1]+' triggers'
+        else:
+          flag_line = 'link'
+        print >>output, "[["+os.path.join(common_dq_web_path,filename)+"|"+\
+                             flag_line+"]]||",
+      print >>output
+      print >>output
+      
     print >>output
     print >>output, "[[#top|Back to top]]"
   
@@ -817,19 +856,19 @@ def main():
     for ifo in options.ifos: 
       if ifo in options.ligo_ifos:
         for hveto_type in hveto_types:
-          hveto_url = hveto_ihope_web_path+'/'+ifo+'-HVETO_iHope_'+hveto_type+\
-              '-'+str(gps_start)+'-'+str(duration)
-          hveto_winner_grep_cmd = '''cat '''+hveto_ihope_path+\
-              '''/'''+ifo+'''-HVETO_iHope_'''+hveto_type+'''-'''+str(gps_start)+\
-              '''-'''+str(duration)+'''/summary_stats.txt | '''+\
-              '''awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
-          grep_output, grep_status = GetCommandOutput(hveto_winner_grep_cmd)
-  
-          if grep_status == 0:
-            if grep_output == "":
+          hveto_dir = ifo+'-HVETO_iHopeKW_'+hveto_type+\
+                      '-'+str(gps_start)+'-'+str(duration)
+          summ_file = os.path.join(hveto_ihope_path,hveto_dir,\
+                                   'summary_stats.txt')
+          hveto_url = os.path.join(hveto_ihope_web_path,hveto_dir)
+
+          if os.path.isfile(summ_file):
+            try:
+              summ_data = open(summ_file,'r')
+              hveto_winner = str(summ_data.readlines()[0].split(' ')[1])
+              summ_data.close()
+            except:
               hveto_winner='hveto error'
-            else:
-              hveto_winner=str(grep_output).replace("\n","")
           else:
             hveto_winner='hveto error'
           #== display results in table
@@ -858,22 +897,17 @@ def main():
       for saturday in saturdays:
         hveto_dir = ifo+'-HVETO_iHopeSeisVeto_PEM-'+str(saturday)+'-604800/'
         seis_veto_url = os.path.join(seis_veto_web_path,hveto_dir)
-        summary_file = os.path.join(seis_veto_path,hveto_dir,\
-                                    'summary_stats.txt')
-        if os.path.isfile(summary_file):
-          winner_cmd = '''cat '''+summary_file+''' | '''+\
-                       '''awk 'BEGIN{FS=OFS=" "}{print $2}' | '''+\
-                       '''awk 'NR==1 {print }' '''
-          grep_output, grep_status = GetCommandOutput(winner_cmd)
-          if grep_status == 0:
-            if grep_output == "":
-              hveto_winner='link'
-            else:
-              hveto_winner=str(grep_output).replace("\n","")
-          else:
-            hveto_winner='link'
+        summ_file = os.path.join(seis_veto_path,hveto_dir,\
+                                 'summary_stats.txt')
+        if os.path.isfile(summ_file):
+          try:
+            summ_data = open(summ_file,'r')
+            hveto_winner = str(summ_data.readlines()[0].split(' ')[1])
+            summ_data.close()
+          except:
+            hveto_winner='hveto error'
         else:
-          hveto_winnder='link'
+          hveto_winner='hveto error'
         #== display results in table
         print >>output, "[["+seis_veto_url+"|"+hveto_winner+"]]||",
     print >>output
@@ -886,10 +920,8 @@ def main():
     #== generate temporary path for hveto data to cp into
     hveto_kw_path = dq_path+'/hveto_summaries_tmp' 
     if not os.path.exists(hveto_kw_path):
+      print 'TEST'
       os.makedirs(hveto_kw_path)
-  
-    hveto_winner_grep_cmd='''cat '''+hveto_kw_path+'''/summary_stats.txt | \
-        awk 'BEGIN{FS=OFS=" "}{print $2}' | awk 'NR==1 {print }' '''
   
     #== print entry info
     print >>output, \
@@ -909,22 +941,30 @@ def main():
         if ifo in options.ligo_ifos:
           for hveto_type in hveto_types:
             #== set up url string
-            hveto_url = '''https://ldas-jobs.ligo'''+options.site[ifo]+\
-                '''.caltech.edu/~jrsmith/hveto/s6b/'''+ifo+'''-HVETO_KW_'''+\
-                hveto_type+'''-'''+str(hveto_gps)+'''-86400/'''
+            hveto_dir = ifo+'-HVETO_KW_'+hveto_type+'-'+str(hveto_gps)+'-86400'
+            hveto_url = os.path.join('https://ldas-jobs.ligo'+\
+                                         options.site[ifo]+\
+                                         '.caltech.edu/~jrsmith/hveto/s6b',
+                                     hveto_dir)
             #== cp hveto summary.txt
-            hveto_sum_cp_cmd = '''gsiscp ldas-grid.ligo'''+options.site[ifo]+\
-                '''.caltech.edu:/archive/home/jrsmith/public_html/hveto/s6b/'''+\
-                ifo+'''-HVETO_KW_'''+hveto_type+'''-'''+str(hveto_gps)+\
-                '''-86400/summary_stats.txt '''+hveto_kw_path
-            cp_status = GetCommandOutput(hveto_sum_cp_cmd)[1]
-            #== grep winning channel name
-            if cp_status==0:
-              grep_output,grep_status = GetCommandOutput(hveto_winner_grep_cmd)
-              if grep_status==0:
-                hveto_winner = str(grep_output).replace("\n","")
-              else:
-                hveto_winner = 'hveto error'
+            summ_file = os.path.join('ldas-grid.ligo'+options.site[ifo]+\
+                                          '.caltech.edu:',
+                                     'archive/home/jrsmith/public_html/hveto',
+                                     's6b',hveto_dir,'summary_stats.txt')
+            cmd_exe  = 'gsiscp' 
+            cmd_args = [summ_file,hveto_kw_path]
+            cmd_out,status,cmd_err = GetCommandOutput(cmd_exe,cmd_args,\
+                                                      stderr=True)
+            #== grab winning channel name
+            if status==0:
+              try:
+                summ_data = open(os.path.join(hveto_kw_path,
+                                              'summary_stats.txt'),'r')
+                hveto_winner = str(summ_data.readlines()[0].split(' ')[1])
+                print hveto_winner
+                summ_data.close()
+              except:
+                hveto_winner='hveto error'
             else:
               hveto_winner = 'hveto error'
             #== display results in table
@@ -970,11 +1010,20 @@ def main():
   
   site_weekly_url = 'http://relativity.phys.lsu.edu/pipermail/siteweekly'
   for site_weekly in site_weekly_date:
-    month_url = os.path.join(site_weekly_url,site_weekly.strftime("%Y-%b"))
-    site_weekly_html = \
-        GetCommandOutput('curl '+month_url+' '+\
-                         '| grep "'+site_weekly.strftime("%d %b % Y")+' " '+\
-                         '| cut -d\" -f2')[0]
+    month_url = os.path.join(site_weekly_url,site_weekly.strftime("%Y-%B"))
+    cmd_exe = 'curl'
+    cmd_args = month_url+'/'
+    site_weekly_html=''
+    try:
+      cmd_out,status = GetCommandOutput(cmd_exe,cmd_args)
+      if status==0:
+        cmd_out = cmd_out.split('\n')
+        for line in cmd_out:
+          if re.search(site_weekly.strftime("%d %b %Y"),line):
+            site_weekly_html = line.split('"')[1] 
+            break
+    except:
+      pass
     print >>output, " [["+os.path.join(month_url,site_weekly_html)+"|"+\
                           site_weekly.strftime("%e %b %Y")+"]],",
   
