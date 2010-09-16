@@ -38,10 +38,7 @@ import sys
 
 
 from glue.lal import CacheEntry
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import git_version
-from pylal import ligolw_burca_tailor
 from pylal import ligolw_burca2
 from pylal import SnglBurstUtils
 from pylal import stringutils
@@ -109,17 +106,7 @@ options, filenames = parse_command_line()
 #
 
 
-coincparamsdistributions = None
-for n, filename in enumerate(options.likelihood_filenames):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(options.likelihood_filenames)),
-	xmldoc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
-	if coincparamsdistributions is None:
-		coincparamsdistributions = stringutils.get_coincparamsdistributions(xmldoc)
-	else:
-		coincparamsdistributions += stringutils.get_coincparamsdistributions(xmldoc)
-	xmldoc.unlink()
-	del xmldoc
+coincparamsdistributions = stringutils.load_likelihood_data(options.likelihood_filenames, verbose = options.verbose)
 
 if options.verbose:
 	print >>sys.stderr, "computing event densities ..."
