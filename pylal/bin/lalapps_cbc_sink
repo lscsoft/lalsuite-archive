@@ -171,6 +171,7 @@ def parse_command_line():
 			  help="Choose directory to save output files.")
 	parser.add_option("--open-box", default = False, action = "store_true",
 			  help="Turn flag on to indicate that input data describes zero-lag coincident events.")
+        parser.add_option("--user-tag",default = '',help = "Add a descriptive string to the output file names.")
 	##########################
 
 	opts, files = parser.parse_args()
@@ -192,11 +193,12 @@ def parse_command_line():
 
 	return opts
 
+
 sec_in_yr = 3600*24*365.0
 opts  = parse_command_line()
 
 combined_ifos = opts.input_cache.split('-')[0] #FIXME super hack
-for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
+for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 
    __prog__ = "lalapps_cbc_sink_by_"+bin_type.lower() # have you ever met a program with multiple identities?
    total_vol = total_err = total_found = total_missed = total_lt = 0
@@ -240,7 +242,6 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       opts.ifo_times = entry.observatory
       opts.gps_start_time = entry.segment[0]
       opts.gps_end_time = entry.segment[1]
-      opts.user_tag = entry.path().split('/')[-1].split('-')[2] #FIXME this is a hack
       InspiralUtilsOpts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg )
 
       # Make a table summarizing the results
@@ -250,21 +251,23 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       ul_table = lsctables.New(UpperLimitTable)
       summary_doc.childNodes[0].appendChild(ul_table)
 
+      if len(bins) == 2: # in twod case, just choose a few representative bins
+        mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
+        maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
+        if maxtotal <= 35.0: # this is what I'm defining to be a lowmass search
+          # only print out the canonical lowmass bins 1.35-1.35 (BNS),
+          # 5-5 (BBH) and 1.35-5 (NSBH)
+          # of course this assumes a certain binning, but sometimes you just gotta
+          # make a choice and stick to it
+          representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
+        else:
+          representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
+
       for mbin in iterutils.MultiIter(*bins.centres()):
 
         row = ul_table.RowType()
 
-        # the twoD bins can get kind of messy, to keep things simple, we
-        # only print out a few of the most interesting rows
-        if bin_type == "Low_Mass" or bin_type == "Mass1_Mass2":
-          if bin_type == "Low_Mass":
-	    # only print out the canonical lowmass bins 1.35-1.35 (BNS),
-	    # 5-5 (BBH) and 1.35-5 (NSBH)
-            representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
-          else:
-            mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins.centres()[0]),numpy.min(bins.centres()[1])),(maxtotal/2,maxtotal/2)]
+        if bin_type == "Mass1_Mass2":
           if bins[mbin] not in [bins[k] for k in representative_bins]: continue
           row.mass1 = mbin[0]
           row.mass2 = mbin[1]
@@ -299,9 +302,9 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       # posterior plots
       #
       for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-         if bin_type == "Low_Mass" and bins[mbin] not in [bins[k] for k in [(1.35,1.35),(1.35,5.0),(5.0,5.0)]]:
+        if bin_type == "Mass1_Mass2" and bins[mbin] not in [bins[k] for k in representative_bins]:
 	    continue # we only care about these three mass bins for the lowmass binning
-         if bin_type != "Low_Mass" and j > 10: continue #let's not get ridiculous here
+         if bin_type != "Mass1_Mass2" and j > 10: continue #let's not get ridiculous here
          if found[mbin] > 0:
 	    pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
       pylab.title(entry.observatory+ " Cumulative Posterior Rate Distributions",fontsize=14)
@@ -507,9 +510,9 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
    # combined posterior plot
    #
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-      if bin_type == "Low_Mass" and bins[mbin] not in [bins[k] for k in [(1.35,1.35),(1.35,5.0),(5.0,5.0)]]:
+      if bin_type == "Mass1_Mass2" and bins[mbin] not in [bins[k] for k in representative_bins]:
          continue # we only care about these three mass bins for the lowmass binning
-      if bin_type != "Low_Mass" and j > 10: continue #let's not get ridiculous here
+      if bin_type != "Mass1_Mass2" and j > 10: continue #let's not get ridiculous here
       if combined_upper_limit[mbin] < float('inf'):
          pylab.semilogx(mu,combined_post[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
    pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=14)
@@ -576,19 +579,11 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 
       # the twoD bins can get kind of messy, to keep things simple, we
       # only print out a few of the most interesting rows
-      if bin_type == "Low_Mass" or bin_type == "Mass1_Mass2":
-         if bin_type == "Low_Mass":
-	    # only print out the canonical lowmass bins 1.35-1.35 (BNS),
-	    # 5-5 (BBH) and 1.35-5 (NSBH)
-            representative_bins = [(1.35,1.35),(1.35,5.0),(5.0,5.0)]
-         else:
-            mintotal = numpy.min([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            maxtotal = numpy.max([m[0]+m[1] for m in iterutils.MultiIter(*bins.centres()) if found[m]+missed[m]>0])
-            representative_bins = [(mintotal/2,mintotal/2),(numpy.max(bins[0].centres()),numpy.min(bins[1].centres())),(maxtotal/2,maxtotal/2)]
-         if bins[mbin] not in [bins[k] for k in representative_bins]: continue
-	 row.mass1 = mbin[0]
-	 row.mass2 = mbin[1]
-         columnList = ['mass1','mass2']
+      if bin_type == "Mass1_Mass2":
+        if bins[mbin] not in [bins[k] for k in representative_bins]: continue
+        row.mass1 = mbin[0]
+        row.mass2 = mbin[1]
+        columnList = ['mass1','mass2']
 
       # in the oneD case, print every row (there aren't that many)
       if bin_type == "Total_Mass":
