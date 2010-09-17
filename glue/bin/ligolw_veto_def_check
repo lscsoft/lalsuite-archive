@@ -29,17 +29,17 @@ __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 #   Parse command line
 #
 
-parser = OptionParser(usage = "%s [options] veto_file1.xml veto_file2.xml ... " % __prog__, description = "Checks the segment database for higher versions of flags in the given veto definer file(s) during the specified times. Outputs a summary of what flags have higher versions and for what segments. Also checks if SciMon flags in the veto-definer file(s) are in the database. If the optional --write-new-veto-file is specified, a new veto definer file will be written with all of the updated versions.")
+parser = OptionParser(usage = "%s [options] veto_file1.xml veto_file2.xml ... " % __prog__, description = "Checks the segment database for higher versions of flags in the given veto definer file(s) during the specified times. Outputs a summary of what flags have higher versions and for what segments. Also checks if SciMon flags in the veto-definer file(s) are in the database. If the optional --write-new-veto-file is specified, a new veto definer file will be written based on what the program thinks are the correct versions to use. That is: vetoes that are found to have higher versions in the database will be re-written with the higher version. If a veto is found to not intersect at all with the correct version in the segment database, it will be discarded. This action can be overridden for specific flags using the various skip- options, however.")
 
 parser.add_option("-o", "--output-directory", default = "./", help = "write summary files to directory. Default is to write to the current directory.")
 parser.add_option("-n", "--write-new-veto-file", action = "store_true", default = False,  help = "write a new veto definer file with the updated versions to the specified files. The file will be named {IFOS}-UPDATED_VETO_DEFINER-{START_TIME}-{DURATION}.xml, where IFOS are all the ifos in the input veto definer file(s), START_TIME is the start time of the analysis (see --start-time for more info), and DURATION is the duration of the analysis (see --end-time for more info). This file will be located in the output-directory.")
 parser.add_option("-s", "--start-time", action = "store", type = "int", default = 931035296, help = "earliest time to check; default is the start of S6 (931035296)")
 parser.add_option("-e", "--end-time", action = "store", type = "int", default = None, help = "latest time to check; default is to check up to now. WARNING: If set to anything other than the default (now), the analysis may not be correct. This is because higher versions of flags may be defined at a point later than the given end time, making any lower version found obsolete.")
-parser.add_option("-F", "--skip-flag", action = "append", default = [], metavar = "IFO:NAME", help = "Keep the given flag the same in the new veto-definer file, even if updated versions are found in the segment database. Note that the flag will still be analyzed, so this options only has an effect if a new veto-definer file is desired. To specify multiple flags, give the option multiple times." )
-parser.add_option("-I", "--skip-ifo", action = "append", default = [], metavar = "IFO", help = "Add all of the given ifo's flags to the list of skipped flags. To specify multiple flags, give the option multiple times. Note: this does not work for Virgo flags." )
+parser.add_option("-F", "--skip-flag", action = "append", default = [], metavar = "IFO:NAME", help = "Keep all of the original vetoes for a given flag the same in the updated veto-definer file, regardless of the results of the analysis. Note that the flag will still be analyzed, so this option only has an effect if a new veto-definer file is desired. To specify multiple flags, give the option multiple times." )
+parser.add_option("-I", "--skip-ifo", action = "append", default = [], metavar = "IFO", help = "Add all of the given ifo's flags to the list of skipped flags. To specify multiple flags, give the option multiple times." )
 parser.add_option("-T", "--skip-type", action = "append", default = [], metavar = "TYPE", help = "Add all flags of the given type to the list of skipped flags. A flag's type is given by whatever preceeds the first '-' in the flag name. For example, H1:DMT-UP is a DMT flag. To specify multiple flags, give the option multiple times. Note: this does not work for Virgo flags." )
-parser.add_option("-S", "--skip-science-linked-flags", action = "store_true", default = False, help = "Add Science-related DMT flags to the list of skipped flags. These are flags that are re-published along with DMT-SCIENCE, e.g., BADGAMMA." )
-parser.add_option("-U", "--skip-undefined-flags", action = "store_true", default = False, help = "Add undefined flags to the list of skipped flags. These are flags that, due to the prescence of higher versions in the segdb, no longer intersect anything in the database. The default is to delete these from the updated veto definer file but turning this on will cause them to be left in the updated file." )
+parser.add_option("-S", "--skip-science-linked-flags", action = "store_true", default = False, help = "Add Science-related DMT flags to the list of skipped flags. These are flags that are republished along with DMT-SCIENCE, e.g., DMT-BADGAMMA." )
+parser.add_option("-U", "--skip-undefined-flags", action = "store_true", default = False, help = "Add undefined flags to the list of skipped flags. These are non-SciMon flags that are found to not intersect any of the vetoes in the input file(s). This can be due to a mistake in either the veto-definer file or in the insertion of the flag into the segment database. The default action is to delete these from the updated veto-definer file; turning this on will cause the vetoes to be left in as they were in the original file(s)." )
 parser.add_option("-v", "--verbose", action = "store_true", default = False, help = "Be verbose.")
 
 opts, veto_def_files = parser.parse_args()
@@ -53,13 +53,15 @@ if opts.end_time is not None:
 skip_flags = []
 skip_ifos = []
 skip_types = []
-for listopt, listname in [('skip_flag',skip_flags), ('skip_ifo', skip_ifos), ('skip_type', skip_types)]:
+for listopt, listname in [('skip_ifo', skip_ifos), ('skip_type', skip_types), ('skip_flag',skip_flags)]:
     if getattr(opts, listopt) != []:
-        listname.extend( map(str.upper, opts.skip_flag) )
-        # set opts.skip_flag to a comma separated string so as not to confuse prcoess_params table
-        setattr(opts, listopt, ','.join([flag for flag in skip_flags]))
+        listname.extend( map(str.upper, getattr(opts, listopt)) )
+        setattr(opts, listopt, ','.join([flag for flag in listname]))
     else:
         setattr(opts, listopt, None)
+# make skip_flags into a list of tuples
+skip_flags = [tuple(x.split(':')) for x in skip_flags]
+    
 
 #
 #   Main
@@ -208,13 +210,13 @@ non_intersecting_flags = {}
 check_names = dict([ [(veto.ifo, veto.name), [y for y in veto_def_table if y.ifo == veto.ifo and y.name == veto.name]] for veto in veto_def_table if (veto.ifo,veto.name) not in scimon_flags])
 
 # get flags to not update
-other_skipped_flags = ['%s:%s' % (this_ifo, this_name) for this_ifo, this_name in check_names if this_ifo in skip_ifos or this_ifo != 'V1' and this_name.split('-')[0] in skip_types]
+other_skipped_flags = [(this_ifo, this_name) for this_ifo, this_name in check_names if this_ifo in skip_ifos or this_ifo != 'V1' and this_name.split('-')[0] in skip_types]
 skip_flags.extend(other_skipped_flags)    
 
 # FIXME: Virgo science flags?
 science_related_flags = ['H1:DMT-INJECTION', 'H1:DMT-UP', 'H1:DMT-CALIBRATED', 'H1:DMT-BADGAMMA', 'H1:DMT-LIGHT', 'L1:DMT-SCIENCE', 'L1:DMT-INJECTION', 'L1:DMT-UP', 'L1:DMT-CALIBRATED', 'L1:DMT-BADGAMMA', 'L1:DMT-LIGHT']
 if opts.skip_science_linked_flags:
-    skip_flags.extend(science_related_flags)
+    skip_flags.extend(tuple(x.split(':')) for x in science_related_flags)
 
 for this_ifo, this_name in sorted(check_names):
     if opts.verbose:
@@ -297,7 +299,7 @@ for this_ifo, this_name in sorted(check_names):
                 added_flags.append(updated_flag)
             
         # check if the flag in the skipped flags; if not, add the new ones to the outtable; otherwise, add the original
-        if '%s:%s' %(this_ifo, this_name) in skip_flags or added_flags == [] and opts.skip_undefined_flags:
+        if (this_ifo, this_name) in skip_flags or added_flags == [] and opts.skip_undefined_flags:
             for veto in check_names[this_ifo, this_name]:
                 outtable.append(veto)
         else:
@@ -334,7 +336,7 @@ for this_ifo, this_name in sorted(check_names):
                     print >> summ_file, 'The veto intersects with segment_summary segments in the segment database, but not with the highest version. This can result in time being vetoed that should not be (assuming the versions were republished correctly in the segment database).'
                 else:
                     print >> summ_file, 'The veto does not intersect with any versions of the flag in the segment database.'
-                print >> summ_file, '</b></td></tr></table>'
+                print >> summ_file, '</b></td></tr></table><br />'
             else:
                 print >> summ_file, "These should be updated to:" + nl
                 print >> summ_file, '<table style="background-color:#90ee90", cellpadding="5">'
@@ -345,7 +347,7 @@ for this_ifo, this_name in sorted(check_names):
 
             for vn in sorted(versions):
                 start, end = seg_extents[vn]
-                print >> summ_file, "Version %i extent: %i - %i (%s - %s)" % ( vn, start, end, format_end_time_in_utc(start), format_end_time_in_utc(end) ) + nl
+                print >> summ_file, "<b>Version %i extent:</b> %i - %i (%s - %s)" % ( vn, start, end, format_end_time_in_utc(start), format_end_time_in_utc(end) ) + nl
             print >> summ_file, "</p>"
 
             print >> summ_file, "<h3>Extent of Uncertain Segments</h3>"
@@ -466,8 +468,8 @@ if opts.write_new_veto_file:
     for x in skip_ifos+skip_types:
         print >> summ_file, lix + "All %s flags" % x.upper() + xli
     for flag in skip_flags:
-        if tuple(flag.split(':')) in check_names and flag not in other_skipped_flags:
-            print >> summ_file, lix + flag + xli
+        if flag in check_names and flag not in other_skipped_flags:
+            print >> summ_file, lix + ':'.join(flag) + xli
     print >> summ_file, xul + "</p>"
 
 print >> summ_file, "<hr /><h2>SciMon Flags Checked</h2>"
@@ -493,7 +495,7 @@ print >> summ_file, "<hr /><h2>Undefined Flags</h2>"
 print >> summ_file, "<p>These are non-SciMon entries in the veto-definer file(s) that do not intersect with any defined segments at the correct version in the segment database, rendering them useless. This can happen for one of three reasons:<ol>"
 print >> summ_file, lix + "<b>Missing flags:</b> No summary segment could be found in the segment database during the times checked, implying that the flag is not in the segment database at all." + xli
 print >> summ_file, lix + "<b>Non-intersecting flags:</b> The flag is defined in the database, but none of the defined segments intersect with times for which the veto was specified to be used. This could be because the version specified in the veto-definer file is higher than the maximum version found in the database; see the summary files for details." + xli
-print >> summ_file, lix + "<b>Non-intersecting flags due to higher versions:</b> The entries in the veto-definer file do intersect with defined segments in the segment database at the versions specified but do not intersect with higher versions of the flag. This could indicate a mistake in the publication of the segments -- when the higher versions were added, segments occuring before the times that were meant to be fixed were not republished at the higher version, as they should have been -- or this could have been done on purpose -- the higher versions were added to the database because it was found that the flag should not be defined during those times, and so the veto should be removed. If the latter, leaving these flags in the veto-definer file will result in times being vetoed that shouldn't be. If the former, removing these flags will result in times not being vetoed that should be. <i>Without contacting the person who republished the segments, it is impossible to tell which is the case.</i>" + xli
+print >> summ_file, lix + "<b>Non-intersecting flags due to higher versions:</b> The entries in the veto-definer file do intersect with defined segments in the segment database at the versions specified but do not intersect with higher versions of the flag. This could indicate a mistake in the publication of the segments -- when the higher versions were added, segments occuring before the times that were meant to be fixed were not republished at the higher version, as they should have been -- or this could have been done on purpose -- the higher versions were added to the database because it was found that the flag should not be defined during those times, and so the veto should be removed. If the latter, leaving these flags in the veto-definer file will result in times being vetoed that shouldn't be. If the former, removing these flags will result in times not being vetoed that should be. <b>Without contacting the person who republished the segments, it is impossible to tell which is the case.</b>" + xli
 print >> summ_file, '</ol>'
 
 print >> summ_file, "<h3>Missing Flags</h3>"
@@ -517,8 +519,9 @@ else:
         print >> summ_file, "<p><b>All flags marked </b><i>removed</i><b> have been removed from the updated veto-definer file.</b></p>"
     print >> summ_file, '<table style="background-color:#ff8080"; align="center", cellpadding="5">'
     print >> summ_file, '<caption><i>Click on link to see summary</i></caption>'
+    updt_mark = '<td style="background-color:#80ff80"><i>removed</i>'
     for (this_ifo, this_name), summ_fn in sorted(non_intersecting_flags.items()):
-        print >> summ_file, ''.join([ rx, cx, hlx, "./summary_files/%s" % os.path.basename(summ_fn), hxl, "%s:%s" %( this_ifo, this_name), xhl, xc, cx, '%s' %( ( opts.skip_undefined_flags or (this_ifo,this_name) in skip_flags) and '' or '<i>removed</i>'), xc, xr ]) 
+        print >> summ_file, ''.join([ rx, cx, hlx, "./summary_files/%s" % os.path.basename(summ_fn), hxl, "%s:%s" %( this_ifo, this_name), xhl, xc, opts.write_new_veto_file and '%s' %( ( opts.skip_undefined_flags or (this_ifo,this_name) in skip_flags) and cx or updt_mark) or cx, xc, xr ]) 
     print >> summ_file, xt
 
 print >> summ_file, "<h3>Non-intersecting Flags due to Higher Versions</h3>"
@@ -529,8 +532,9 @@ else:
         print >> summ_file, "<p><b>All flags marked </b><i>removed</i><b> have been removed from the updated veto-definer file.</b></p>"
     print >> summ_file, '<table style="background-color:#ff8080"; align="center", cellpadding="5">'
     print >> summ_file, '<caption><i>Click on link to see summary</i></caption>'
+    updt_mark = '<td style="background-color:#80ff80"><i>removed</i>'
     for (this_ifo, this_name), summ_fn in sorted(undefined_flags.items()):
-        print >> summ_file, ''.join([ rx, cx, hlx, "./summary_files/%s" % os.path.basename(summ_fn), hxl, "%s:%s" %( this_ifo, this_name), xhl, xc, cx, '%s' %( ( opts.skip_undefined_flags or (this_ifo,this_name) in skip_flags) and '' or '<i>removed</i>'), xc, xr ]) 
+        print >> summ_file, ''.join([ rx, cx, hlx, "./summary_files/%s" % os.path.basename(summ_fn), hxl, "%s:%s" %( this_ifo, this_name), xhl, xc, opts.write_new_veto_file and '%s' %( ( opts.skip_undefined_flags or (this_ifo,this_name) in skip_flags) and cx or updt_mark) or cx, xc, xr ]) 
     print >> summ_file, xt
 
 
@@ -543,12 +547,13 @@ else:
         print >> summ_file, "<p><b>All flags marked </b><i>updated</i><b> have been updated in the new veto definer file according to what's shown on their respective summary pages.</b></p>"
     print >> summ_file, '<table style="background-color:#ff8080"; align="center", cellpadding="5">'
     print >> summ_file, '<caption><i>Click on link to see summary</i></caption>'
+    updt_mark = '<td style="background-color:#80ff80"><i>updated</i>'
     for (this_ifo, this_name), summ_fn in sorted(updated_flags.items()):
-        print >> summ_file, ''.join([ rx, cx, hlx, "./summary_files/%s" % os.path.basename(summ_fn), hxl, "%s:%s" %( this_ifo, this_name), xhl, xc, cx, '%s' %( (this_ifo,this_name) in skip_flags and '' or '<i>updated</i>'), xc, xr ])
+        print >> summ_file, ''.join([ rx, cx, hlx, "./summary_files/%s" % os.path.basename(summ_fn), hxl, "%s:%s" %( this_ifo, this_name), xhl, xc, opts.write_new_veto_file and '%s' %( (this_ifo,this_name) in skip_flags and cx or updt_mark) or cx, xc, xr ])
     print >> summ_file, xt
 
 print >> summ_file, "<hr /><h2>Flags with No Higher Versions</h2>"
-print >> summ_file, "<p>These are all non-SciMon flags for which there are no higher versions in the segment database than what's specified in the veto-definer file for all associated vetoes.</p>" + ulx
+print >> summ_file, '<p>These are all non-SciMon flags for which there are no higher versions in the segment database than what is specified in the veto-definer file for all associated vetoes.</p><ul style="background-color:#80ff80"'
 for this_ifo, this_name in sorted(unchanged_flags):
     print >> summ_file, ''.join([ lix, "%s:%s" % (this_ifo, this_name), xli ])
 print >> summ_file, xul
@@ -560,7 +565,7 @@ print >> summ_file, "%s\n%s" % ( '</body>', '</html>' )
 summ_file.close()
 
 # write xml file
-if opts.write_new_veto_file is not None:
+if opts.write_new_veto_file:
     if opts.verbose:
         print >> sys.stderr, "Writing new veto file..."
     # add scimon flags
