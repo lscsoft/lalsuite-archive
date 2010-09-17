@@ -1698,6 +1698,9 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
+        def get_end(self):
+                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
