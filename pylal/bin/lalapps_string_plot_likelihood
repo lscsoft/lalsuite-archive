@@ -166,7 +166,7 @@ def df_plot(key, background_coords, background_data, injections_coords, injectio
 	instrument1, instrument2 = key.split("-")[:2]
 	axes.set_title(r"%s--%s Frequency Cutoff Asymmetry Distribution" % (instrument1, instrument2))
 	axes.set_ylabel("Probability Density")
-	axes.set_xlabel(r"$\left(fcut_{\mathrm{%s}} - fcut_{\mathrm{%s}}\right) / \left(fcut_{\mathrm{%s}} + fcut_{\mathrm{%s}}\right)$" % (instrument1, instrument2))
+	axes.set_xlabel(r"$\left(fcut_{\mathrm{%s}} - fcut_{\mathrm{%s}}\right) / \left(fcut_{\mathrm{%s}} + fcut_{\mathrm{%s}}\right)$" % (instrument1, instrument2,instrument1, instrument2))
 	axes.xaxis.grid(True, which = "major,minor")
 	axes.yaxis.grid(True, which = "major,minor")
 	return fig
