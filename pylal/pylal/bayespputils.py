@@ -204,7 +204,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
     plt.clf()
 
     #Save skypoints
-    np.savetxt('ranked_sky_pixels',np.column_stack([np.asarray(toppoints)[:,0:1],np.asarray(toppoints)[:,1],np.asarray(toppoints)[:,3]]))
+    np.savetxt(os.path.join(outdir,'ranked_sky_pixels.dat'),np.column_stack([np.asarray(toppoints)[:,0:1],np.asarray(toppoints)[:,1],np.asarray(toppoints)[:,3]]))
 
     return skyreses,skyinjectionconfidence
 #
@@ -498,7 +498,7 @@ def greedyBin1(par_samps,par_bin,confidence_levels,par_injvalue=None):
         oneDGreedyInj['confidence']=injectionconfidence
         #Recover interval containing injection point
         interval=0
-        while True:
+        while interval<len(np.asarray(toppoints)[:,3]):
             if injectionconfidence<np.asarray(toppoints)[interval,3]:
                 break
             interval+=1
