@@ -373,11 +373,11 @@ class upper_limit(object):
     if self.opts.verbose:
       dim = len(mass_bins)
       if dim == 1:
-        print >>sys.stdout,"\t\t%s (Msun)\tVolume Derivative (units?)" % bin_type
+        print >>sys.stdout,"\t\t%s (Msun)\tLambda" % bin_type
         for m_low,m_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
           print >>sys.stdout,"\t\t%.2f-%.2f\t%f" % (m_low,m_high, volDeriv[(m_low,)])
       if dim == 2:
-        print >>sys.stdout,"\t\tM1 (Msun)\tM2 (Msun)\tVolume Derivative (units?)"
+        print >>sys.stdout,"\t\tM1 (Msun)\tM2 (Msun)\tLambda"
         for m1_low,m1_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
           for m2_low,m2_high in zip(mass_bins.lower()[1],mass_bins.upper()[1]):
             if m1_low<=m2_low and m1_low+m2_low<self.maxtotal and m1_high+m2_high>self.mintotal:
