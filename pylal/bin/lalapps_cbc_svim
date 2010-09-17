@@ -654,7 +654,7 @@ class upper_limit(object):
 
     if verbose:
       mean_range = (3./(4*numpy.pi) *volArray.array)**(1./3)
-      error_range = (3./(4*numpy.pi)*volArray2.array**0.5)**(1./3)
+      error_range = (mean_range/3) *(volArray2.array**0.5/volArray.array)
       if dim == 1:
         print >>sys.stdout,"\t\t%s (Msun)\tRange (Mpc)" % bin_type
         for m_low,m_high in zip(mass_bins.lower()[0],mass_bins.upper()[0]):
