@@ -146,7 +146,7 @@ for this_ifo, this_name in sorted(scimon_flags):
     if opts.verbose:
         print >> sys.stderr, "\t%s:%s" %(this_ifo, this_name)
     for this_veto in scimon_flags[(this_ifo, this_name)]:
-        vseg = segments.segment(veto.start_time, veto.end_time != 0 and veto.end_time or segments.infinity)
+        vseg = segments.segment(this_veto.start_time, this_veto.end_time != 0 and this_veto.end_time or segments.infinity)
         sqlquery = "SELECT segdef.comment, segdef.version, segsumm.start_time, segsumm.end_time FROM segment_summary AS segsumm JOIN segment_definer AS segdef ON (segdef.segment_def_id = segsumm.segment_def_id) WHERE segdef.ifos = '%s' AND segdef.name = '%s' AND segsumm.end_time > %i" % (this_ifo, this_name, this_veto.start_time)
         for cmt, vn, start, end in engine.query(sqlquery):
             this_seg = segments.segment(start,end)
