@@ -158,6 +158,8 @@ def skyhist_cart_slow(skycarts,sky_samples):
 
 def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
 
+    skyinjectionconfidence=None
+
     from mpl_toolkits.basemap import Basemap
     from pylal import skylocutils
 
@@ -181,6 +183,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
 
     (skyinjectionconfidence,toppoints,skyreses)=calculateConfidenceLevels(shist,skypoints,injbin,float(skyres),confidence_levels,len(skypos))
 
+    min_sky_area_containing_injection=None
     if injbin and skyinjectionconfidence:
         i=list(np.nonzero(np.asarray(toppoints)[:,2]==injbin))[0]
 

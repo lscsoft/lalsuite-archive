@@ -212,8 +212,10 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
             injvalues=(injpoint[RAdim],injpoint[decdim])
 
         skyreses,toppoints,skyinjectionconfidence,min_sky_area_containing_injection=bppu.plotSkyMap(skypos,skyres,injvalues,confidence_levels,outdir)
-        twoDGreedyCL['ra_sb,dec_sb']=skyinjectionconfidence
-        twoDGreedyInj['ra_sb,dec_sb']=min_sky_area_containing_injection
+        if skyinjectionconfidence:
+            twoDGreedyCL['ra_sb,dec_sb']=skyinjectionconfidence
+        if min_sky_area_containing_injection:
+            twoDGreedyInj['ra_sb,dec_sb']=min_sky_area_containing_injection
     # Add bayes factor information to summary file
     summary_file.add_section('bayesfactor')
     if bayesfactornoise is not None:
