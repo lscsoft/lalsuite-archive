@@ -206,7 +206,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
     #Save skypoints
     np.savetxt(os.path.join(outdir,'ranked_sky_pixels.dat'),np.column_stack([np.asarray(toppoints)[:,0:1],np.asarray(toppoints)[:,1],np.asarray(toppoints)[:,3]]))
 
-    return skyreses,skyinjectionconfidence
+    return skyreses,toppoints,skyinjectionconfidence,min_sky_area_containing_injection
 #
 
 def calculateSkyConfidence_slow(shist,skypoints,injbin,skyres_,confidence_levels,lenpos):
