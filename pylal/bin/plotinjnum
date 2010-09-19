@@ -14,8 +14,9 @@ import re
 import exceptions
 import glob
 from types import *
+from glue import segmentsUtils
 from glue.ligolw import ligolw
-from glue.ligolw import table
+from glue.ligolw import table as tab
 from glue import lal
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
@@ -32,6 +33,26 @@ def found_missed(opts,foundFiles,missedFiles):
     file = [file]
     simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True,old_document=opts.old_document)
+
+    # Perform the veto
+    if opts.veto_file is not None:
+      for veto_file in opts.veto_file.split(','):
+        seglist = segmentsUtils.fromsegwizard(open(veto_file))
+        # We would use inspTriggers.veto(seglist) and simFound.veto(seglist), but
+        # their times may differ, with one inside the veto and not the other
+        inspTriggers_keep = tab.new_from_template(inspTriggers)
+        simFound_keep = tab.new_from_template(simFound)
+        for i in range(len(simFound)):
+          # 2 detectors: 2 triggers in coincidence per sim
+          if simFound[i].get_end() not in seglist and \
+                inspTriggers[2*i].get_end() not in seglist and \
+                inspTriggers[2*i+1].get_end() not in seglist:
+            simFound_keep.append(simFound[i])
+            inspTriggers_keep.append(inspTriggers[2*i])
+            inspTriggers_keep.append(inspTriggers[2*i+1])
+        inspTriggers = inspTriggers_keep
+        simFound = simFound_keep
+
     if simFound and inspTriggers:
     # construct the coincs
       fileCoincTriggers = \
@@ -157,6 +178,9 @@ def parse_command_line():
   parser.add_option("-I","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE_FILE",\
       help="input file to read Cache file" )
+  parser.add_option("-V","--veto-file",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="read in segments from FNAME (assumed segwizard format)")
   parser.add_option("-i","--ifo-type",action="store",type="string",\
       default=None,  help="selects the ifo type for sieve for" )
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
