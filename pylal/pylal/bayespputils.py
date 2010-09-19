@@ -117,7 +117,7 @@ def greedyBin2(posterior_array,par_bins,confidence_levels,par_names=None,injecti
         twoDGreedyInj['confidence']=injectionconfidence
         #Recover area contained within injection point interval
         areasize=0
-        while True:
+        while areasize<len(np.asarray(toppoints)[:,3]):
             if injectionconfidence<np.asarray(toppoints)[areasize,3]:
                 break
             areasize+=1
