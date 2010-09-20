@@ -399,18 +399,11 @@ class Summaries(object):
 
 	def get_previous_newcorse_info(self, connection):
 		# this should only return at most one thing because of max(), but if it returns nothing it is a no-op
-		for procid, starttime in connection.cursor().execute('SELECT process.process_id, start_time FROM process WHERE process.program == "lalapps_newcorse" and start_time == (SELECT max(start_time) FROM process WHERE process.program == "lalapps_newcorse")'):
-			if self.prev_newcorse_time is None: self.prev_newcorse_time = starttime
-			if self.prev_newcorse_time != starttime:
-				raise ValueError("found file that has wrong newcorse process time, exiting")
-			for bins, in connection.cursor().execute('SELECT value from process_params WHERE process_id == ? AND param = "--mass-bins"', (procid,)):
-				if self.prev_num_mass_bins is None: self.prev_num_mass_bins = bins
-				if self.prev_num_mass_bins != bins:
-					raise ValueError("previous mass bins do not agree between files, exiting")
+		self.prev_num_mass_bins = connection.cursor().execute('SELECT value FROM process_params WHERE param =="--mass-bins"').fetchone()
 
 	def get_prev_num_mass_bins(self):
 		out = 0
-		if self.prev_num_mass_bins is not None: out = len(self.prev_num_mass_bins.split(',')) - 1
+		if self.prev_num_mass_bins is not None: out = len(self.prev_num_mass_bins[0].split(',')) - 1
 		if out < 0: out = 0
 		return out
 
