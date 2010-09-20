@@ -242,6 +242,7 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       opts.ifo_times = entry.observatory
       opts.gps_start_time = entry.segment[0]
       opts.gps_end_time = entry.segment[1]
+      opts.user_tag = entry.path().split('/')[-1].split('-')[2] #FIXME this is a hack
       InspiralUtilsOpts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg )
 
       # Make a table summarizing the results
@@ -304,9 +305,9 @@ for bin_type in ["Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
         if bin_type == "Mass1_Mass2" and bins[mbin] not in [bins[k] for k in representative_bins]:
 	    continue # we only care about these three mass bins for the lowmass binning
-         if bin_type != "Mass1_Mass2" and j > 10: continue #let's not get ridiculous here
-         if found[mbin] > 0:
-	    pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
+        if bin_type != "Mass1_Mass2" and j > 10: continue #let's not get ridiculous here
+        if found[mbin] > 0:
+            pylab.semilogx(mu,post_werrs[bins[mbin]].cumsum(),label=','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$")
       pylab.title(entry.observatory+ " Cumulative Posterior Rate Distributions",fontsize=14)
       pylab.legend(loc='upper left')
       pylab.ylabel("Cumulative Probability",fontsize=14)
