@@ -536,7 +536,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
       pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
       pylab.ylim([-7,0])
       pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=14)
-      pylab.ylabel("Upper Limit (log$_{10}$ 1/Mpc$^3$/yr)")
+      pylab.ylabel("Rate Upper Limit (log$_{10}$ 1/Mpc$^3$/yr)", fontsize=14)
       pylab.grid()
       savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
       pylab.clf()
