@@ -117,7 +117,7 @@ def greedyBin2(posterior_array,par_bins,confidence_levels,par_names=None,injecti
         twoDGreedyInj['confidence']=injectionconfidence
         #Recover area contained within injection point interval
         areasize=0
-        while True:
+        while areasize<len(np.asarray(toppoints)[:,3]):
             if injectionconfidence<np.asarray(toppoints)[areasize,3]:
                 break
             areasize+=1
@@ -158,6 +158,8 @@ def skyhist_cart_slow(skycarts,sky_samples):
 
 def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
 
+    skyinjectionconfidence=None
+
     from mpl_toolkits.basemap import Basemap
     from pylal import skylocutils
 
@@ -181,6 +183,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
 
     (skyinjectionconfidence,toppoints,skyreses)=calculateConfidenceLevels(shist,skypoints,injbin,float(skyres),confidence_levels,len(skypos))
 
+    min_sky_area_containing_injection=None
     if injbin and skyinjectionconfidence:
         i=list(np.nonzero(np.asarray(toppoints)[:,2]==injbin))[0]
 
@@ -206,7 +209,7 @@ def plotSkyMap(skypos,skyres,sky_injpoint,confidence_levels,outdir):
     #Save skypoints
     np.savetxt(os.path.join(outdir,'ranked_sky_pixels.dat'),np.column_stack([np.asarray(toppoints)[:,0:1],np.asarray(toppoints)[:,1],np.asarray(toppoints)[:,3]]))
 
-    return skyreses,skyinjectionconfidence
+    return skyreses,toppoints,skyinjectionconfidence,min_sky_area_containing_injection
 #
 
 def calculateSkyConfidence_slow(shist,skypoints,injbin,skyres_,confidence_levels,lenpos):

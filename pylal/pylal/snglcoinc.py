@@ -31,6 +31,7 @@ Light Weight XML documents.
 
 
 import bisect
+import itertools
 import sys
 
 
@@ -177,7 +178,7 @@ class TimeSlideGraphNode(object):
 		# just three sets of the (n-1)-instrument coincs no matter
 		# what n is (n > 2).  note that we pass verbose=False
 		# because we've already called the .get_coincs() methods
-		# above
+		# above, these are no-ops to retrieve the answers again
 		allcoincs0 = self.components[0].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs1 = self.components[1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
 		allcoincs2 = self.components[-1].get_coincs(eventlists, event_comparefunc, thresholds, verbose = False)
@@ -203,21 +204,27 @@ class TimeSlideGraphNode(object):
 			# be arranged together in the list and can be
 			# identified with two bisection searches
 			coincs2 = allcoincs2[bisect.bisect_left(allcoincs2, coinc0[1:]):bisect.bisect_left(allcoincs2, coinc0[1:-1] + (coinc0[-1] + 1,))]
-			# for each coinc in list 1 identified above search
-			# for a coinc in list 2 whose first (n-2) event IDs
-			# are the last (n-2) event IDs in coinc 0 and whose
-			# last event ID is the last event ID in coinc 1.
-			# when found, the first ID from coinc 0 prepended
-			# to the (n-1) coinc IDs from coinc 2 forms an
-			# n-instrument coinc.  coinc 0 and coinc 1, both
-			# (n-1)-instrument coincs, together identify a
+			# for each coinc extracted from list 1 above search
+			# for a coinc extracted from list 2 above whose
+			# first (n-2) event IDs are the last (n-2) event
+			# IDs in coinc 0 and whose last event ID is the
+			# last event ID in coinc 1.  when found, the first
+			# ID from coinc 0 prepended to the (n-1) coinc IDs
+			# from coinc 2 forms an n-instrument coinc.  how
+			# this works is as follows:  coinc 0 and coinc 1,
+			# both (n-1)-instrument coincs, together identify a
 			# unique potential n-instrument coinc.  coinc 2's
 			# role is to confirm the coincidence by showing
 			# that the event from the instrument in coinc 1
 			# that isn't found in coinc 0 is coincident with
-			# all the other events that are in coinc 1 (if it
-			# is, that combination of event IDs must be found
-			# in the coincs2 list)
+			# all the other events that are in coinc 1.  if the
+			# coincidence holds then that combination of event
+			# IDs must be found in the coincs2 list, because we
+			# assume the coincs2 list is complete  the
+			# bisection search above to extract the coincs2
+			# list could be skipped, but by starting with a
+			# shorter list the bisection searches inside the
+			# following loop are faster.
 			for coinc1 in coincs1:
 				i = bisect.bisect_left(coincs2, coinc0[1:] + coinc1[-1:])
 				if i < len(coincs2) and coincs2[i] == coinc0[1:] + coinc1[-1:]:
@@ -328,6 +335,24 @@ class TimeSlideGraph(object):
 			for n in sorted(self.generations):
 				print >>sys.stderr,"\t%d %d-insrument offset vectors (%s)" % (len(self.generations[n]), n, ((n == 2) and "to be constructed directly" or "to be constructed indirectly"))
 			print >>sys.stderr, "\t%d offset vectors total" % sum(len(self.generations[n]) for n in self.generations)
+
+
+	def get_coincs(self, eventlists, event_comparefunc, thresholds, include_small_coincs = True, verbose = False):
+		if verbose:
+			print >>sys.stderr, "constructing coincs for target offset vectors ..."
+		for n, node in enumerate(self.head):
+			if verbose:
+				print >>sys.stderr, "%d/%d: %s" % (n + 1, len(self.head), ligolw_tisi.offset_vector_str(node.offset_vector))
+			if include_small_coincs:
+				# note that unused_coincs must be retrieved
+				# after the call to .get_coincs() because
+				# the former is computed as a side effect
+				# of the latter
+				iterator = itertools.chain(node.get_coincs(eventlists, event_comparefunc, thresholds, verbose), node.unused_coincs)
+			else:
+				iterator = node.get_coincs(eventlists, event_comparefunc, thresholds, verbose)
+			for coinc in iterator:
+				yield node, coinc
 
 
 	def write(self, fileobj):

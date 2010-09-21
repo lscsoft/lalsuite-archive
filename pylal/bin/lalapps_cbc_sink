@@ -153,7 +153,7 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
 	validcolumns = {"total_mass":"real_8","chirp_mass":"real_8","mass1":"real_8","mass2":"real_8", #FIXME add units?
-                        "range_in_Mpc":"real_8","lambda":"real_8","fractional_error_in_volume":"real_8",
+                        "range_in_Mpc":"real_8","lambda_ratio":"real_8","fractional_error_in_volume":"real_8",
 			"upper_limit":"real_8","marginalized_upper_limit":"real_8",
 			"livetime_in_seconds":"real_8", # FIXME alan doesn't want this as a column
 			"injections_found":"int_4s","injections_missed":"int_4s"}
@@ -280,13 +280,14 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
         row.range_in_Mpc = (sec_in_yr*vA[mbin]/ltA[mbin] /(4*numpy.pi/3) )**(1./3)
         row.fractional_error_in_volume = vA2[mbin]**0.5 / vA[mbin]
         row.injections_found = found[mbin]
+        row.lambda_ratio = dvA[mbin]
         row.injections_missed = missed[mbin]
         row.livetime_in_seconds = ltA[mbin]
         row.upper_limit = upper_limit[mbin]
         row.marginalized_upper_limit = upper_limit_werrs[mbin]
         ul_table.append(row)
 
-      columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','fractional_error_in_volume','injections_found','injections_missed','livetime_in_seconds']
+      columnList += ['range_in_Mpc','upper_limit','marginalized_upper_limit','lambda_ratio','fractional_error_in_volume','injections_found','injections_missed','livetime_in_seconds']
       print_tables.print_tables(summary_doc,summary_file,opts.output_format,
                                 tableList=['upper_limit'],
                                 columnList = columnList)
@@ -325,8 +326,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
          #
 	 # distance plot in 1d
 	 #
-	 sec_in_yr = 3600*24*365.0
-	 derr = ( vA2.array**0.5 *sec_in_yr / ltA.array / (4./3 *numpy.pi) )**(1./3)
+	 derr = (distance.array/3) *( vA2.array**0.5 / vA.array ) # fractional error in distance is 1/3 fractional error in volume
 	 pylab.bar(bins.lower()[0],distance.array,width,yerr=derr)
 	 pylab.grid()
 	 pylab.xticks(tick_locs,tick_strings)
@@ -362,7 +362,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 	 pylab.xticks(tick_locs,tick_strings)
 	 pylab.grid()
 	 pylab.xlim([numpy.min(bins.lower()[0])-numpy.min(width)/2,numpy.max(bins.upper()[0])+numpy.min(width)/2])
-	 pylab.ylim([-9,-5]) #FIXME are these numbers sensible?
+	 pylab.ylim([-3,3]) #FIXME are these numbers sensible?
 	 pylab.title(entry.observatory + " Likelihood of the Loudest Event",fontsize=14)
 	 pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=14)
 	 pylab.ylabel("Likelihood (log$_{10}$ $\Lambda$)",fontsize=14)
@@ -435,7 +435,7 @@ for bin_type in ["Low_Mass","Mass1_Mass2","Chirp_Mass","Total_Mass"]:
 	 # lambda plot
 	 #
 	 log_der = pylab.log10(dvA.array + 0.000000001)
-	 pylab.pcolor(xtick_locs,ytick_locs, log_der.T, vmin=-9, vmax=-3) #FIXME hard limits
+	 pylab.pcolor(xtick_locs,ytick_locs, log_der.T, vmin=-3, vmax=3) #FIXME hard limits
 	 pylab.colorbar().set_label("log$_{10} $\Lambda$")
 	 pylab.xlim(m1range)
 	 pylab.ylim(m2range)

@@ -197,6 +197,9 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
 
     #
 
+    twoDGreedyCL={}
+    twoDGreedyInj={}
+
     #If sky resolution parameter has been specified try and create sky map.
     skyreses=None
     if skyres is not None:
@@ -208,8 +211,15 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
         if injection:
             injvalues=(injpoint[RAdim],injpoint[decdim])
 
-        skyreses,skyinjectionconfidence=bppu.plotSkyMap(skypos,skyres,injvalues,confidence_levels,outdir)
+        skyreses,toppoints,skyinjectionconfidence,min_sky_area_containing_injection=bppu.plotSkyMap(skypos,skyres,injvalues,confidence_levels,outdir)
         
+        if skyinjectionconfidence:
+            twoDGreedyInj['ra_sb,dec_sb']={}
+            twoDGreedyInj['ra_sb,dec_sb']['confidence']=min_sky_area_containing_injection
+            if min_sky_area_containing_injection:
+                twoDGreedyInj['ra_sb,dec_sb']['area']=min_sky_area_containing_injection
+            
+            
     # Add bayes factor information to summary file
     summary_file.add_section('bayesfactor')
     if bayesfactornoise is not None:
@@ -233,8 +243,7 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
     ncon=len(confidence_levels)
     pos_array=np.array(pos)
 
-    twoDGreedyCL={}
-    twoDGreedyInj={}
+    
 
     for par1_name,par2_name in twoDGreedyMenu:
         print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
@@ -519,7 +528,7 @@ def cbcBayesSkyRes(outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,confidence_leve
         print "Generating 1D plot for %s."%param
         rbins,plotFig=bppu.plot1DPDF(pos_samps,param,injpar=injpar_)
         figname=param+'.png'
-	oneDplotPath=os.path.join(outdir,figname)
+        oneDplotPath=os.path.join(outdir,figname)
         
         plotFig.savefig(os.path.join(outdir,param+'.png'))
         if rbins:
@@ -578,7 +587,7 @@ if __name__=='__main__':
     #List of parameter pairs to bin . Need to match (converted) column names.
     twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['RA','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyRes={'mc':0.025,'m1':0.1,'m2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'RA':0.005,'dec':0.005}
+    greedyRes={'mc':0.025,'m1':0.1,'m2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'RA':0.05,'dec':0.05}
     #Confidence levels
     confidenceLevels=[0.67,0.9,0.95,0.99]
     #2D plots list
