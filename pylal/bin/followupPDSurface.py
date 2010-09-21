@@ -170,14 +170,22 @@ def scatterPointer(A=None,B=None):
     # Ang = arcsin(dY/dX)
     dY=float(B[-1]-A[-1])
     dX=float(B[0]-A[0])
-    if dY>=0 and dX>=0:
+    if dY>=0 and dX>0:
         myAngle=arctan(dY/dX)
-    elif dY>=0 and dX<0:
+    elif dY>0 and dX<0:
         myAngle=pi-arctan(dY/dX)
     elif dY<0 and dX<0:
         myAngle=arctan(dY/dX)+pi
     elif dY<0 and dX>0:
         myAngle=(2.0*pi)-arctan(dY/dX)
+    elif dX==0 and dY>=0:
+        myAngle=(pi/2.0)
+    elif dX==0 and dY<0:
+        myAngle=(3.0/2.0)*pi
+    elif dX>0 and dY==0:
+        myAngle=0
+    elif dX<0 and dY==0:
+        myAngle=pi
     else:
         myAngle=0
     return (3,0,myAngle)
