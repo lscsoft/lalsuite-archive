@@ -161,6 +161,25 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
 		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
 		self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
+class ligolw_sqlitex_job(pipeline.CondorDAGJob):
+        """
+        A ligolw_sqlite job
+        """
+        def __init__(self, cp, tag_base='LIGOLW_SQLITEX'):
+                """
+                """
+                self.__prog__ = 'ligolw_sqlite'
+                self.__executable = string.strip(cp.get('condor','ligolw_sqlite'))
+                self.__universe = "vanilla"
+                pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+                self.add_condor_cmd('getenv','True')
+                self.tag_base = tag_base
+                self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+                self.set_sub_file(tag_base+'.sub')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+                self.add_opt("tmp-space",cp.get('input','tmp-space'))
+
 class lalapps_run_sqlite_job(pipeline.CondorDAGJob):
 	"""
 	A lalapps_run_sqlite job
@@ -296,6 +315,19 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
 			self.add_parent(p)
 		dag.add_node(self)
 
+class ligolw_sqlitex_node(pipeline.CondorDAGNode):
+        """
+        """
+        def __init__(self, job, dag, database, extract, p_node=[]):
+                pipeline.CondorDAGNode.__init__(self,job)
+                #FIXME add tmp file s
+                self.add_macro("macroid", dag.id)
+                self.add_var_opt("database", database)
+		self.add_var_opt("extract", extract)
+                for p in p_node:
+                        self.add_parent(p)
+                dag.add_node(self)
+
 class lalapps_run_sqlite_node(pipeline.CondorDAGNode):
 	"""
 	"""
@@ -411,6 +443,10 @@ injfind_node = {}
 sqlite_job = ligolw_sqlite_job(cp)
 sqlite_node = {}
 
+#ligolw sqlite
+sqlitex_job = ligolw_sqlitex_job(cp)
+sqlitex_node = {}
+
 #lalapps run sqlite
 runsql_job = lalapps_run_sqlite_job(cp)
 runsql_node = {}
@@ -434,7 +470,6 @@ for (desc, cachefile) in cachenamestypes.items():
 	#
 
 	tisi_parse = ligolw_tisi.parse_slides(opts.instrument)
-	#if "INJ" not in desc: tisi = Tisi(opts,tisi_parse)
 	if "INJ" not in desc: tisi = Tisi(opts,tisi_parse,filename = desc+"_tisi.xml")
 	else: 
 		for k in tisi_parse.keys(): tisi_parse[k] = [0.0]
@@ -449,21 +484,17 @@ for (desc, cachefile) in cachenamestypes.items():
 		if "INJ" in desc: add_node[f] = ligolw_add_node(add_job, dag, f + " --input-cache " + cachefile[1], tisi.filename, f.replace(".cache",".xml.gz"))
 		else: add_node[f] = ligolw_add_node(add_job, dag, f, tisi.filename, f.replace(".cache",".xml.gz"))
 		rinca_node[f] = ligolw_rinca_node(rinca_job, dag, add_node[f].get_output_files()[0], ds_sq_threshold, extent=c.extent, p_node=[add_node[f]])
-		if "INJ" in desc:
-			injfind_node[f] = lalapps_cbc_injfind_node(injfind_job, dag, rinca_node[f].get_output_files(), p_node=[rinca_node[f]])
-			pnode = injfind_node[f]
-		else: pnode = rinca_node[f]
 		db = f.replace(".cache",".sqlite")
 		dbs.append(db)
-		sqlite_node[f] = ligolw_sqlite_node(sqlite_job, dag, db, rinca_node[f].get_output_files(), p_node=[pnode])
+		sqlite_node[f] = ligolw_sqlite_node(sqlite_job, dag, db, rinca_node[f].get_output_files(), p_node=[rinca_node[f]])
 		runsql_node[f] = lalapps_run_sqlite_node(runsql_job, dag, db, p_node=[sqlite_node[f]])
-		# FIXME add ringcorse
+		if "INJ" in desc:
+			xml = db.replace('.sqlite','.xml.gz')
+			sqlitex_node[f] = ligolw_sqlitex_node(sqlitex_job, dag, db, xml, p_node=[runsql_node[f]])
+			injfind_node[f] = lalapps_cbc_injfind_node(injfind_job, dag, [xml], p_node=[sqlitex_node[f]])
+			sqlite_node[f] = ligolw_sqlite_node(sqlite_job, dag, db, [xml], p_node=[injfind_node[f]])
 
 ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, categories, rank_by, frequency_bins, live_time_program, p_node=runsql_node.values())
-
-	#FIXME Do you want everying in one file, what should be the file name?
-	#sqlite_node[desc] = ligolw_sqlite_node(sqlite_job, dag, "%s.sqlite" % (desc,), [f.get_output_files()[0] for f in rinca_node.values()], p_node=rinca_node.values())
-
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()
