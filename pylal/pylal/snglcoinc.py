@@ -42,7 +42,6 @@ from pylal import git_version
 from pylal import inject
 from pylal import llwapp
 from pylal import ligolw_tisi
-from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS # FIXME:  not needed once graph construction arithmetic is fixed
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -659,7 +658,7 @@ class CoincTables(object):
 		# FIXME:  I believe the arithmetic in the time slide graph
 		# construction can be cleaned up so that this isn't
 		# required.  when that is fixed, remove this
-		self.time_slide_index = dict((time_slide_id, dict((instrument, LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
+		self.time_slide_index = dict((time_slide_id, dict((instrument, lsctables.LIGOTimeGPS(offset)) for instrument, offset in offset_vector.items())) for time_slide_id, offset_vector in self.time_slide_index.items())
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events):
 		"""
