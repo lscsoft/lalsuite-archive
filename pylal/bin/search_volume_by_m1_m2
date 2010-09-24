@@ -38,29 +38,62 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 # Convenience functions
 #
 
-# Approximate fit to phenom A amplitude errors
-def phenom_err(m,eta):
-  return  1.0  + 0.1 + ((m/60.)**2 - (m/68.)**3 + (m/100.)**4)*(0.08/eta**1.0)
+class EOBNRCorrection(object):
+  # polynomial fit to EOBNR waveform errors
+  def __init__(self):
+    self.polys = [numpy.poly1d([ -1.21455522e-12,   2.44140553e-11,  -1.45426696e-10,
+         2.41333982e-10]), numpy.poly1d([  4.40919537e-10,  -8.64177055e-09,   4.90687038e-08,
+        -8.18392001e-08]), numpy.poly1d([ -5.80864221e-08,   1.10484293e-06,  -5.88066550e-06,
+         9.73440596e-06]), numpy.poly1d([  3.33188555e-06,  -6.11180171e-05,   2.96744841e-04,
+        -4.53371538e-04]), numpy.poly1d([ -7.28708194e-05,   1.31529974e-03,  -6.07701635e-03,
+         8.86302341e-03]), numpy.poly1d([  5.09694694e-04,  -9.27688858e-03,   4.42100899e-02,
+         1.00367870e+00])]
 
-# Approximate fit to EOBNR amplitude errors
-def eob_err(m,eta):
-  x = (0.25-eta)
-  s = .008
-  ep = x/s * numpy.exp(-x**2 / 2.0 / s)
-  return  (1. + 0.18  + (m / 130.0)**(6.0) + ep / 1428.0 * (1.0 + 2.0*(m / 40.)**3))
+  def eval(self,m,q):
+    coeffs = []
+    for p in self.polys:
+      coeffs.append(p(q))
+    poly = numpy.poly1d(coeffs)
+    return poly(m)
 
-def waveform_err(m,eta,approx):
+
+class PhenomCorrection(object):
+  # Polynomial fit to phenom waveform errors
+  def __init__(self):
+    self.polys = [numpy.poly1d([  9.82592919e-13,  -2.00250428e-11,   1.09295417e-10,
+        -1.23236776e-10]), numpy.poly1d([ -2.91767468e-10,   5.80431703e-09,  -3.02519908e-08,
+         3.46588402e-08]), numpy.poly1d([  2.70604281e-08,  -5.09703996e-07,   2.35057339e-06,
+        -2.67463185e-06]), numpy.poly1d([ -6.78091313e-07,   1.01172506e-05,  -1.68960138e-05,
+        -1.36845742e-05]), numpy.poly1d([  6.60029315e-06,  -6.52645282e-05,  -1.26047109e-04,
+         5.40052944e-03]), numpy.poly1d([  7.82542841e-06,  -9.68738528e-04,   1.42625394e-02,
+         1.00191945e+00])]
+
+  def eval(self,m,q):
+    coeffs = []
+    for p in self.polys:
+      coeffs.append(p(q))
+    poly = numpy.poly1d(coeffs)
+    return poly(m)
+
+
+def waveform_err(m,eta,approx,eob,phenom):
   # The errors are fractional errors of old / new.  I'll return the reciprocal
   # so that we can simply multiply the value of distance by what this
   # function returns
-  if approx == 'EOBNRpseudoFourPN': return 1.0 / eob_err(m,eta)
-  if approx == 'IMRPhenomAtwoPN': return 1.0 / phenom_err(m,eta)
+
+  q = (1 - 2.0 * eta + (1- 4.0 * eta)**0.5) / (2.0 * eta)
+  if q > 10.0: return 1.0 # We only believe the correction to q=10
+  if approx == 'EOBNRpseudoFourPN': return 1.0 / eob.eval(m,q)
+  if approx == 'IMRPhenomAtwoPN': return 1.0 / phenom.eval(m,q)
   # Anything else does not get a correction
   return 1.0
 
+
 def correct_distance(sim):
+  eob = EOBNRCorrection()
+  phenom = PhenomCorrection()
   for s in sim:
-    s.distance *= waveform_err(s.mass1 + s.mass2, s.eta, s.waveform)
+    s.distance *= waveform_err(s.mass1 + s.mass2, s.eta, s.waveform, eob, phenom)
 
 class upper_limit(object):
 
