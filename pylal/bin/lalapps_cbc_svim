@@ -834,7 +834,7 @@ for instruments in UL.instruments:
     dvA = UL.get_volume_derivative(instruments,bin_type)
 
     #compute volume first and second moments
-    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=True)
+    vA, vA2, fm = UL.twoD_SearchVolume(instruments,bin_type,verbose=opts.verbose)
 
     # convert to distance
     distance = UL.distance_from_4volume(vA,instruments)
