@@ -64,21 +64,21 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 
 	C[,"Found_input"]<-C[,"Found_input"]*100
 	C[,"Found_output"]<-C[,"Found_output"]*100
-	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, ...))
+	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), cex=1, ...))
 	}
 
-ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), ...) {
+ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
 	C<-merge(Input, Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"))
 	C<-C[!is.na(C[,"line_id"]),]
 	if(best.snr) {
 		C<-C[order(C[,"snr_output"], decreasing=TRUE),,drop=FALSE]
 		C<-C[!duplicated(C[,"i"]),,drop=FALSE]
 		}
-	print(xyplot(formula, C, auto.key=auto.key, ...))
+	print(xyplot(formula, C, auto.key=auto.key, pch=pch, ...))
 	}
 
-make_plot<-function(name, width=600, height=600, dpi=110, ...) {
-	png(p(name, ".png"), width=width, height=height, res=dpi)
+make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
+	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
 	}
 
 
@@ -100,11 +100,11 @@ dev.off()
 
 
 make_plot("snr_improvement")
-ComparisonPlot(I(snr_output/snr_input)~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input")
+ComparisonPlot(I(snr_output/snr_input)~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
 make_plot("snr_improvement_zoomed")
-ComparisonPlot(I(pmin(snr_output/snr_input, 3))~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input")
+ComparisonPlot(I(pmin(snr_output/snr_input, 3))~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
 dev.off()
 
 make_plot("f0_improvement")
