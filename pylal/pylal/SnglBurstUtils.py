@@ -140,7 +140,7 @@ def summarize_coinc_database(contents):
 	if contents.sngl_burst_table is not None:
 		print >>sys.stderr, "\tburst events: %d" % len(contents.sngl_burst_table)
 	if contents.sim_burst_table is not None:
-		print >>sys.stderr, "\tinjections: %d" % len(contents.sim_burst_table)
+		print >>sys.stderr, "\tburst injections: %d" % len(contents.sim_burst_table)
 	if contents.time_slide_table is not None:
 		print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
 	if contents.coinc_def_table is not None:

@@ -409,7 +409,7 @@ export X509_USER_PROXY=`pwd`/proxy.pem
 /opt/exp_software/virgo/lscsoft/etc/LSCdataFind --observatory $1 --gps-start-time $2 --gps-end-time $3 --url-type file --lal-cache --type $4 --output $5
 outputCache=$5
 outputQcache=${outputCache/.cache/.qcache}
-/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/convertlalcache $5 %s-%s-$outputQcache
+/storage/gpfs_virgo3/virgo/omega/omega_r3270_glnxa64_binary/bin/convertlalcache $5 %s-%s-$outputQcache
 		"""%(dir,tag_base))
 		submit_script.close()
 		os.chmod('remoteDatafind_'+dir+'_'+tag_base+'.sh',0755)
@@ -444,8 +444,9 @@ class remoteQscanJob(pipeline.CondorDAGJob, FUJob):
 		submit_script.write("""#!/bin/bash
 . /opt/exp_software/virgo/etc/virgo-env.sh
 . /opt/glite/etc/profile.d/grid-env.sh
+. /storage/gpfs_virgo3/virgo/omega/omega_env.sh
 export X509_USER_PROXY=`pwd`/proxy.pem
-/storage/gpfs_virgo3/virgo/omega/omega_r2757_glnx86_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
+/storage/gpfs_virgo3/virgo/omega/omega_r3270_glnxa64_binary/bin/wpipeline scan -r -c $1 -f $2 -o $3 $4
 
 tar -czf %s-%s-$4.tgz $3
 		"""%(dir,tag_base))
@@ -2450,9 +2451,9 @@ class create_default_config(object):
 	def set_qscan_executable(self):
 		host = get_hostname()
 		if 'phy.syr.edu' in host:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")
+			self.cp.set("fu-condor","qscan",home_dirs()+"/rgouaty/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")
 		else:
-			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r2625_glnxa64_binary/bin/wpipeline")		
+			self.cp.set("fu-condor","qscan",home_dirs()+"/romain/opt/omega/omega_r3270_glnxa64_binary/bin/wpipeline")		
 
 	def __config_name(self,ifo,type):
 		fileMap={

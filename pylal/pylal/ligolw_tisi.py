@@ -488,7 +488,7 @@ def offset_vector_str(offset_vector, compact = False):
 	'H1=-10,L1=0.1'
 	"""
 	if compact:
-		return ",".join(("%s=%g" % x) for x in sorted(offset_vector.items()))
+		return ",".join(("%s=%.5g" % x) for x in sorted(offset_vector.items()))
 	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
 
 
