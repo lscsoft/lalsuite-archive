@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <regex.h>
 
+#include <lal/LALRCSID.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/DetResponse.h>
 #include <lal/Velocity.h>
@@ -39,6 +40,7 @@
 #include "grid.h"
 #include "intervals.h"
 #include "polarization.h"
+#include "hookup.h"
 
 #ifndef PATH_MAX
 /* just in case it is not defined */
@@ -194,6 +196,9 @@ if(!strcasecmp("LHO", det)){
 	} else 
 if(!strcasecmp("LLO", det)){
 	detector=lalCachedDetectors[LALDetectorIndexLLODIFF];
+	} else
+if(!strcasecmp("VIRGO", det)){
+	detector=lalCachedDetectors[LALDetectorIndexVIRGODIFF];
 	} else {
 	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
 	exit(-1);
@@ -207,6 +212,9 @@ if(!strcasecmp("LHO", det)){
 	} else 
 if(!strcasecmp("LLO", det)){
 	return lalCachedDetectors[LALDetectorIndexLLODIFF];
+	} else
+if(!strcasecmp("VIRGO", det)){
+	return lalCachedDetectors[LALDetectorIndexVIRGODIFF];
 	} else {
 	fprintf(stderr,"Unrecognized detector site: \"%s\"\n", args_info.detector_arg);
 	exit(-1);
@@ -236,7 +244,7 @@ fprintf(stderr,"Successfully initialized ephemeris data\n");
 if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
-void get_AM_response(INT64 gps, double coherence_time, float latitude, float longitude, float orientation,
+void get_AM_response(INT64 gps, float latitude, float longitude, float orientation,
 	float *plus, float *cross)
 {
 LALStatus status={level:0, statusPtr:NULL};
@@ -246,8 +254,8 @@ LALDetAMResponse response;
 LIGOTimeGPS ligo_gps;
 
 memset(&ligo_gps, 0, sizeof(ligo_gps));
-ligo_gps.gpsSeconds=gps+floor(0.5*coherence_time); 
-ligo_gps.gpsNanoSeconds=round(1e9*(0.5*coherence_time-floor(0.5*coherence_time)));
+ligo_gps.gpsSeconds=gps; 
+ligo_gps.gpsNanoSeconds=0;
 
 memset(&source, 0, sizeof(source));
 source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
@@ -256,6 +264,39 @@ source.equatorialCoords.longitude=longitude;
 source.equatorialCoords.latitude=latitude;
 
 det_and_source.pDetector=&detector;
+det_and_source.pSource=&source;
+
+LALComputeDetAMResponse(&status, &response, &det_and_source, &ligo_gps);
+TESTSTATUS(&status);
+
+*cross=response.cross;
+*plus=response.plus;
+if(status.statusPtr)FREESTATUSPTR(&status);
+}
+
+void get_AM_response_d(double gps, float latitude, float longitude, float orientation, char *detector,
+	float *plus, float *cross)
+{
+LALStatus status={level:0, statusPtr:NULL};
+LALSource source;
+LALDetAndSource det_and_source={NULL, NULL};
+LALDetAMResponse response;
+LIGOTimeGPS ligo_gps;
+LALDetector det;
+
+memset(&ligo_gps, 0, sizeof(ligo_gps));
+ligo_gps.gpsSeconds=floor(gps); 
+ligo_gps.gpsNanoSeconds=(gps-floor(gps))*1e9;
+
+memset(&source, 0, sizeof(source));
+source.equatorialCoords.system=COORDINATESYSTEM_EQUATORIAL;
+source.orientation=orientation;
+source.equatorialCoords.longitude=longitude;
+source.equatorialCoords.latitude=latitude;
+
+det=get_detector_struct(detector);
+
+det_and_source.pDetector=&det;
 det_and_source.pSource=&source;
 
 LALComputeDetAMResponse(&status, &response, &det_and_source, &ligo_gps);
@@ -286,7 +327,7 @@ fprintf(stderr,"powerflux: det_velocity=(%g,%g,%g)\n",
 	det_velocity[1],
 	det_velocity[2]
 	);
-fprintf(stderr,"gps=%d (nano=%d)\n",gps_and_acc.gps.gpsSeconds, gps_and_acc.gps.gpsNanoSeconds);
+fprintf(stderr,"gps=%d (nano=%d)\n",ligo_gps.gpsSeconds, ligo_gps.gpsNanoSeconds);
 fprintf(stderr,"detector=%s\n", detector.frDetector.name);
 fprintf(stderr,"powerflux nE=%d nS=%d dE=%g dS=%g\n",
 	ephemeris.nentriesE,
@@ -304,8 +345,7 @@ void get_emission_time(EmissionTime *emission_time, EarthState *earth_state, dou
 BarycenterInput baryinput;
 LALStatus status={level:0, statusPtr:NULL};
 
-TODO("do not pass detector as character, but rather find detector struct as dataset is loaded")
-
+memset(&baryinput, 0, sizeof(baryinput));
 baryinput.tgps=tGPS;
 baryinput.site=get_detector_struct(detector);
 baryinput.site.location[0]=baryinput.site.location[0]/LAL_C_SI;
@@ -317,10 +357,12 @@ baryinput.dInv=dInv;
 
 LALBarycenter(&status, emission_time, &baryinput, earth_state);
 TESTSTATUS(&status);
+if(status.statusPtr)FREESTATUSPTR(&status);
 }
 
+
 /* there are count*GRID_FIT_COUNT coefficients */
-void get_whole_sky_AM_response(INT64 *gps, double coherence_time, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
+void get_whole_sky_AM_response(INT64 *gps, double coherence_time, char *detector, long count, float orientation, float **coeffs_plus, float **coeffs_cross, long *size)
 {
 int i, j, k;
 SKY_GRID *sample_grid=NULL;
@@ -332,8 +374,8 @@ gsl_vector *y_plus=NULL, *y_cross=NULL, *c=NULL;
 double chisq;
 
 fprintf(stderr,"Computing whole sky AM response for %ld SFTs\n", count);
-fprintf(stderr, "AM coeffs size: %.3f MB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_plus)/(1024.0*1024.0));
-fprintf(LOG, "AM coeffs size: %.3f MB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_plus)/(1024.0*1024.0));
+fprintf(stderr, "AM coeffs size: %f KB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_plus)/1024.0);
+fprintf(LOG, "AM coeffs size: %f KB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_plus)/1024.0);
 *size=count*GRID_FIT_COUNT;
 *coeffs_plus=do_alloc(*size, sizeof(**coeffs_plus));
 *coeffs_cross=do_alloc(*size, sizeof(**coeffs_cross));
@@ -352,9 +394,9 @@ X=gsl_matrix_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 
 for(k=0;k<count;k++){
 	for(i=0;i<sample_grid->npoints;i++){
-		get_AM_response(gps[k], coherence_time, 
+		get_AM_response_d(gps[k]+coherence_time*0.5, 
 			sample_grid->latitude[i], sample_grid->longitude[i], 
-			orientation,
+			orientation, detector,
 			&plus, &cross);
 		gsl_vector_set(y_plus, i, plus);
 		gsl_vector_set(y_cross, i, cross);
@@ -399,7 +441,7 @@ free_grid(sample_grid);
 }
 
 /* there are count*GRID_FIT_COUNT coefficients */
-void verify_whole_sky_AM_response(INT64 *gps, double coherence_time, long count, float orientation,  SKY_GRID *sample_grid, float *coeffs_plus, char *name)
+void verify_whole_sky_AM_response(INT64 *gps, double coherence_time, char *detector, long count, float orientation,  SKY_GRID *sample_grid, float *coeffs_plus, char *name)
 {
 int i,j;
 long offset;
@@ -414,9 +456,9 @@ for(i=0;i<count;i++){
 	for(j=0;j<20;j++){
 		/* test in random grid points */
 		offset=floor(sample_grid->npoints*gsl_rng_uniform(rng));
-		get_AM_response(gps[i], coherence_time,
+		get_AM_response_d(gps[i]+coherence_time*0.5, 
 			sample_grid->latitude[offset], sample_grid->longitude[offset], 
-			orientation,
+			orientation, detector,
 			&plus, &cross);
 		err=fabs(plus*plus-AM_response(i, sample_grid, offset, coeffs_plus));
 		if(err>max_err)max_err=err;
@@ -425,9 +467,4 @@ for(i=0;i<count;i++){
 fprintf(stderr, "%s AM coeffs error: %g\n", name, max_err);
 fprintf(LOG, "%s AM coeffs error: %g\n", name, max_err);
 gsl_rng_free(rng);
-}
-
-void epicyclic_phase_model(double gps, SKY_GRID *sample_grid, float *coeffs)
-{
-	
 }

@@ -157,6 +157,9 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time, grb_duration):
         # set the used tag for the inspiral analysis
         grb.code['inspiral'] = peu.CodeTagger()
   
+        # downloading the used veto-definer file
+        grb.get_veto_definer(cp.get('data','veto_definer'))
+
         # cleaning up
         grb.cleanup(analysis_path)
   
@@ -501,7 +504,7 @@ def parse_args():
 
 
     # injection related setting
-    parser.add_option( "--dag-injections", default = None,\
+    parser.add_option( "--dag-injections", default = 'short',\
         help="Sets what to do with injections: always, short, never, only.")
     parser.add_option("--injection-config",default=None,\
         help="Specifies the injection ini file (if required).")
@@ -528,9 +531,9 @@ def parse_args():
     if options.check_number is not None and options.grb is not None:
       raise ValueError, "Only option '--check-number' or '--grb' can be specified, not both together!"
 
-    if options.dag_injections and not options.injection_config:
-      raise ValueError, "injection ini-file must be specified with '--injection-config'"\
-                        " if the option '--dag-injections' is set!"
+    #if options.dag_injections and not options.injection_config:
+    #  raise ValueError, "injection ini-file must be specified with '--injection-config'"\
+    #                    " if the option '--dag-injections' is set!"
 
     if options.gps_start_time or options.gps_end_time:
       if not (options.gps_start_time and options.gps_end_time):

@@ -252,13 +252,10 @@ POWER_SUM *ps_local;
 DATASET *d;
 POLARIZATION *pl;
 int gps_step=ctx->summing_step;
-int i, j, k;
+int i, j;
 float min_shift, max_shift, a;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
-int group_count=24;
-SEGMENT_INFO **groups;
-int *group_segment_count;
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
 
 float *patch_e=ps[0].patch_e; /* set of coefficients for this patch, used for amplitude response and bin shift estimation */

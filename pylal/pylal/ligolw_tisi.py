@@ -473,6 +473,25 @@ def time_slide_normalize(time_slide, **kwargs):
 #
 
 
+def offset_vector_str(offset_vector, compact = False):
+	"""
+	A function to dispaly an offset vector in human-readable form.
+	Example uses include constructing verbosity messages in programs,
+	and generating labels for dot graphs.
+
+	Example:
+
+	>>> offsetvector = {"H1": -10.0, "L1": 0.1}
+	>>> offset_vector_str(offsetvector)
+	'H1 = -10 s, L1 = +0.1 s'
+	>>> offset_vector_str(offsetvector, compact = True)
+	'H1=-10,L1=0.1'
+	"""
+	if compact:
+		return ",".join(("%s=%.5g" % x) for x in sorted(offset_vector.items()))
+	return ", ".join(("%s = %+.16g s" % x) for x in sorted(offset_vector.items()))
+
+
 def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 	"""
 	Print a summary of the output of time_slide_component_offsets().

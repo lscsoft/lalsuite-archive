@@ -193,8 +193,9 @@ def ifos_from_instrument_set(instruments):
 	can be None or an interable of zero or more instrument names, none
 	of which may contain "," or "+" characters.  The output is a single
 	string containing the instrument names concatenated using "," as a
-	delimiter.  Whitespace is allowed in instrument names but may not
-	be preserved.
+	delimiter.  instruments will only be iterated over once and so can
+	be a generator expression.  Whitespace is allowed in instrument
+	names but may not be preserved.
 	"""
 	if instruments is None:
 		return None
@@ -1416,6 +1417,7 @@ class CoincInspiralTable(table.Table):
 		"end_time_ns": "int_4s",
 		"mass": "real_8",
 		"mchirp": "real_8",
+		"minimum_duration": "real_8",
 		"snr": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8"
@@ -1695,6 +1697,9 @@ class MultiInspiralTable(table.Table):
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+        def get_end(self):
+                return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
@@ -2437,28 +2442,65 @@ class TimeSlideTable(table.Table):
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
-	def get_time_slide_id(self, offsetdict, create_new = None):
+	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
-		Return the time_slide_id corresponding to the time slide
+		Return the time_slide_id corresponding to the offset vector
 		described by offsetdict, a dictionary of instrument/offset
-		pairs.  If no matching time_slide_id is found, then
-		KeyError is raised.  If, however, the optional create_new
-		argument is set to an lsctables.Process object (or any
-		other object with a process_id attribute), then new rows
-		are added to the table to describe the desired time slide,
-		and the ID of the new rows is returned.
-		"""
-		# look for the ID
-		for id, slide in self.as_dict().iteritems():
-			if offsetdict == slide:
-				# found it
-				return id
+		pairs.
 
-		# time slide not found in table
-		if create_new is None:
+		If the optional create_new argument is None (the default),
+		then the table must contain a matching offset vector.  The
+		return value is the ID of that vector.  If the table does
+		not contain a matching offset vector then KeyError is
+		raised.
+
+		If the optional create_new argument is set to a Process
+		object (or any other object with a process_id attribute),
+		then if the table does not contain a matching offset vector
+		a new one will be added to the table and marked as having
+		been created by the given process.  The return value is the
+		ID of the (possibly newly created) matching offset vector.
+
+		If the optional superset_ok argument is False (the default)
+		then an offset vector in the table is considered to "match"
+		the requested offset vector only if they contain the exact
+		same set of instruments.  If the superset_ok argument is
+		True, then an offset vector in the table is considered to
+		match the requested offset vector as long as it provides
+		the same offsets for the same instruments as the requested
+		vector, even if it provides offsets for other instruments
+		as well.
+
+		More than one offset vector in the table might match the
+		requested vector.  If the optional nonunique_ok argument is
+		False (the default), then KeyError will be raised if more
+		than one offset vector in the table is found to match the
+		requested vector.  If the optional nonunique_ok is True
+		then the return value is the ID of one of the matching
+		offset vectors selected at random.
+		"""
+		# look for matching offset vectors
+		if superset_ok:
+			ids = [id for id, slide in self.as_dict().items() if offsetdict == dict((instrument, offset) for instrument, offset in slide.items() if instrument in offsetdict)]
+		else:
+			ids = [id for id, slide in self.as_dict().items() if offsetdict == slide]
+		if len(ids) > 1:
+			# found more than one
+			if nonunique_ok:
+				# and that's OK
+				return ids[0]
+			# and that's not OK
 			raise KeyError, offsetdict
+		if len(ids) == 1:
+			# found one
+			return ids[0]
+		# offset vector not found in table
+		if create_new is None:
+			# and that's not OK
+			raise KeyError, offsetdict
+		# that's OK, create new vector
 		id = self.get_next_id()
-		for instrument, offset in offsetdict.iteritems():
+		for instrument, offset in offsetdict.items():
 			row = self.RowType()
 			row.process_id = create_new.process_id
 			row.time_slide_id = id

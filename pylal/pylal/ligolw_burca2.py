@@ -1,4 +1,4 @@
-# Copyright (C) 2007  Kipp Cannon
+# Copyright (C) 2007-2010  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,7 +31,6 @@ from scipy.interpolate import interpolate
 import sys
 
 
-from glue.ligolw import lsctables
 from pylal import git_version
 
 
@@ -46,28 +45,6 @@ __date__ = git_version.date
 #                                  Likelihood
 #
 # =============================================================================
-#
-
-
-#
-# starting from Bayes' theorem:
-#
-# P(coinc is a g.w. | its parameters)
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#                                P(parameters)
-#
-#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
-#
-#                       P(inj params) * P(coinc is g.w.)
-#   = -------------------------------------------------------------------
-#     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
-#
-#                        P(inj params) * P(coinc is g.w.)
-#   = ----------------------------------------------------------------------
-#     P(noise params) + [P(inj params) - P(noise params)] * P(coinc is g.w.)
 #
 
 
@@ -141,6 +118,44 @@ class interp2d(interpolate.interp2d):
 		return (self.z[bisect.bisect(self.x, x), bisect.bisect(self.y, y)],)
 
 
+# starting from Bayes' theorem:
+#
+# P(coinc is a g.w. | its parameters)
+#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#                                P(parameters)
+#
+#     P(those parameters | a coinc known to be a g.w.) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#     P(noise params) * P(coinc is not g.w.) + P(inj params) * P(coinc is g.w.)
+#
+#                       P(inj params) * P(coinc is g.w.)
+#   = -------------------------------------------------------------------
+#     P(noise params) * [1 - P(coinc is g.w.)] + P(inj params) * P(coinc is g.w.)
+#
+#                        P(inj params) * P(coinc is g.w.)
+#   = ----------------------------------------------------------------------
+#     P(noise params) + [P(inj params) - P(noise params)] * P(coinc is g.w.)
+#
+# this last form above is used below to compute the LHS
+#
+#          [P(inj params) / P(noise params)] * P(coinc is g.w.)
+#   = --------------------------------------------------------------
+#     1 + [[P(inj params) / P(noise params)] - 1] * P(coinc is g.w.)
+#
+#          Lambda * P(coinc is g.w.)                       P(inj params)
+#   = -----------------------------------  where Lambda = ---------------
+#     1 + (Lambda - 1) * P(coinc is g.w.)                 P(noise params)
+#
+# Differentiating w.r.t. Lambda shows the derivative is always positive, so
+# this is a monotonically increasing function of Lambda --> thresholding on
+# Lambda is equivalent to thresholding on P(coinc is a g.w. | its
+# parameters).  The limits:  Lambda=0 --> P(coinc is a g.w. | its
+# parameters)=0, Lambda=+inf --> P(coinc is a g.w. | its
+# parameters)=P(coinc is g.w.), Lambda=0/0 --> P(coinc is a g.w. | its
+# parameters)=0/0.  We interpret the last case to be 0.
+
+
 #
 # Class for computing foreground likelihoods from the measurements in a
 # CoincParamsDistributions instance.
@@ -181,15 +196,17 @@ class Likelihood(object):
 	def set_P_gw(self, P):
 		self.P_gw = P
 
-	def P(self, params_func, events, offsetdict, *params_func_extra_args):
+	def P(self, params):
+		if params is None:
+			return None, None
 		P_bak = 1.0
 		P_inj = 1.0
-		for name, value in sorted(params_func(events, offsetdict, *params_func_extra_args).items()):
+		for name, value in sorted(params.items()):
 			P_bak *= self.background_rates[name](*value)[0]
 			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj
 
-	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
+	def __call__(self, params):
 		"""
 		Compute the likelihood that the coincident n-tuple of
 		events is the result of a gravitational wave:  the
@@ -200,12 +217,14 @@ class Likelihood(object):
 		is a dictionary of instrument --> offset mappings to be
 		used to time shift the events before comparison.
 		"""
-		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		P_bak, P_inj = self.P(params)
+		if P_bak is None and P_inj is None:
+			return None
 		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
 
 
 class Confidence(Likelihood):
-	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
+	def __call__(self, params):
 		"""
 		Compute the confidence that the list of events are the
 		result of a gravitational wave:  -ln[1 - P(gw)], where
@@ -215,7 +234,9 @@ class Confidence(Likelihood):
 		to 1, so 1 - P is a small positive number, and so -ln of
 		that is a large positive number.
 		"""
-		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		P_bak, P_inj = self.P(params)
+		if P_bak is None and P_inj is None:
+			return None
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
 
 
@@ -227,7 +248,7 @@ class LikelihoodRatio(Likelihood):
 		"""
 		raise NotImplementedError
 
-	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
+	def __call__(self, params):
 		"""
 		Compute the likelihood ratio for the hypothesis that the
 		list of events are the result of a gravitational wave.  The
@@ -240,7 +261,9 @@ class LikelihoodRatio(Likelihood):
 		likelihood ratios, which has the advantage of not requiring
 		a prior probability to be provided.
 		"""
-		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
+		P_bak, P_inj = self.P(params)
+		if P_bak is None and P_inj is None:
+			return None
 		if P_bak == 0.0 and P_inj == 0.0:
 			# this can happen.  "correct" answer is 0, not NaN,
 			# because if a tuple of events has been found in a
@@ -289,7 +312,7 @@ def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, para
 	# Construct the in-SQL likelihood ratio function
 	#
 
-	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
+	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), vetoseglists = database.vetoseglists, offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
 		events = map(row_from_cols, cursor.execute("""
 SELECT
 	sngl_burst.*
@@ -302,7 +325,7 @@ FROM
 WHERE
 	coinc_event_map.coinc_event_id == ?
 		""", (coinc_event_id,)))
-		return likelihood_ratio(params_func, events, offset_vectors[time_slide_id], *params_func_extra_args)
+		return likelihood_ratio(params_func([event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args))
 
 	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 

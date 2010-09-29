@@ -6,6 +6,9 @@ __author__ = "Alexander Dietz <alexanderdietz1@googlemail.com>"
 import sys
 import optparse
 
+import matplotlib
+matplotlib.use('Agg')
+
 from glue import lal
 from pylal import git_version
 from pylal import SnglInspiralUtils

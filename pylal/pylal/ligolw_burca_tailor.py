@@ -1,4 +1,4 @@
-# Copyright (C) 2007  Kipp Cannon
+# Copyright (C) 2007-2010  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -83,7 +83,7 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 
 
-def coinc_params(events, offsetdict):
+def coinc_params(events, offsetvector):
 	params = {}
 
 	if events:
@@ -113,7 +113,7 @@ def coinc_params(events, offsetdict):
 		# more than one event from a given instrument, the smallest
 		# deltas are recorded
 
-		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo])
+		dt = float(event1.get_peak() + offsetvector[event1.ifo] - event2.get_peak() - offsetvector[event2.ifo])
 		name = "%sdt" % prefix
 		if name not in params or abs(params[name][0]) > abs(dt):
 			#params[name] = (dt,)
@@ -177,8 +177,8 @@ def delay_and_amplitude_correct(event, ra, dec):
 	return event
 
 
-def targeted_coinc_params(events, offsetdict, ra, dec):
-	return coinc_params((delay_and_amplitude_correct(event, ra, dec) for event in events), offsetdict)
+def targeted_coinc_params(events, offsetvector, ra, dec):
+	return coinc_params((delay_and_amplitude_correct(event, ra, dec) for event in events), offsetvector)
 
 
 #
@@ -193,6 +193,35 @@ def targeted_coinc_params(events, offsetdict, ra, dec):
 #
 # A class for measuring parameter distributions
 #
+
+
+class FilterThread(threading.Thread):
+	# allow at most 5 threads
+	cpu = threading.Semaphore(5)
+	# allow at most one to write to stderr
+	stderr = threading.Semaphore(1)
+
+	def __init__(self, binnedarray, filter, verbose = False, name = None):
+		threading.Thread.__init__(self, name = name)
+		self.binnedarray = binnedarray
+		self.filter = filter
+		self.verbose = verbose
+
+	def run(self):
+		self.cpu.acquire()
+		if self.verbose:
+			self.stderr.acquire()
+			print >>sys.stderr, "\tstarting %s" % self.getName()
+			self.stderr.release()
+
+		self.binnedarray.array /= numpy.sum(self.binnedarray.array)
+		rate.to_moving_mean_density(self.binnedarray, self.filter)
+
+		if self.verbose:
+			self.stderr.acquire()
+			print >>sys.stderr, "\tcompleted %s" % self.getName()
+			self.stderr.release()
+		self.cpu.release()
 
 
 class CoincParamsDistributions(object):
@@ -225,29 +254,29 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
-	def add_zero_lag(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+	def add_zero_lag(self, param_dict, weight = 1.0):
+		for param, value in (param_dict or {}).items():
 			rate = self.zero_lag_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value] += weight
 			except IndexError:
 				# param value out of range
 				pass
 
-	def add_background(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+	def add_background(self, param_dict, weight = 1.0):
+		for param, value in (param_dict or {}).items():
 			rate = self.background_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value] += weight
 			except IndexError:
 				# param value out of range
 				pass
 
-	def add_injection(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).items():
+	def add_injection(self, param_dict, weight = 1.0):
+		for param, value in (param_dict or {}).items():
 			rate = self.injection_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value] += weight
 			except IndexError:
 				# param value out of range
 				pass
@@ -263,10 +292,7 @@ class CoincParamsDistributions(object):
 		threads = []
 		for group, (name, binnedarray) in itertools.chain(zip(["zero lag"] * len(self.zero_lag_rates), self.zero_lag_rates.items()), zip(["background"] * len(self.background_rates), self.background_rates.items()), zip(["injections"] * len(self.injection_rates), self.injection_rates.items())):
 			n += 1
-			if verbose:
-				print >>sys.stderr, "\t%d / %d: %s \"%s\"" % (n, N, group, name)
-			binnedarray.array /= numpy.sum(binnedarray.array)
-			threads.append(threading.Thread(target = rate.to_moving_mean_density, args = (binnedarray, filters.get(name, default_filter))))
+			threads.append(FilterThread(binnedarray, filters.get(name, default_filter), verbose = verbose, name = "%d / %d: %s \"%s\"" % (n, N, group, name)))
 			threads[-1].start()
 		for thread in threads:
 			thread.join()
@@ -282,79 +308,63 @@ class CoincParamsDistributions(object):
 #
 
 
-#
-# Base class used to hook the database contents into a statistics analyzer.
-#
+def get_noninjections(contents):
+	"""
+	Generator function to return
 
+		is_background, event_list, offsetvector
 
-class Stats(object):
-	def _add_zero_lag(self, param_func, events, timeslide, *args):
-		"""
-		A subclass should provide an override of this method to do
-		whatever it needs to do with a tuple of coincidence events
-		identified as "zero lag".
-		"""
-		raise NotImplementedError
-
-
-	def _add_background(self, param_func, events, timeslide, *args):
-		"""
-		A subclass should provide an override of this method to do
-		whatever it needs to do with a tuple of coincidence events
-		identified as "background".
-		"""
-		raise NotImplementedError
-
-
-	def _add_injections(self, param_func, sim, events, timeslide, *args):
-		"""
-		A subclass should provide an override of this method to do
-		whatever it needs to do with a tuple of coincidence events
-		identified as "injection".
-		"""
-		raise NotImplementedError
-
-
-	def add_noninjections(self, param_func, database, *args):
-		# iterate over burst<-->burst coincs
-		for coinc_event_id, rows in itertools.groupby(database.connection.cursor().execute("""
+	tuples by querying the coinc_event and sngl_burst tables in the
+	database described by contents.  Only coincs corresponding to
+	sngl_burst<-->sngl_burst coincs will be retrieved.
+	"""
+	cursor = contents.connection.cursor()
+	for coinc_event_id, time_slide_id in contents.connection.cursor().execute("""
 SELECT
-	coinc_event.coinc_event_id,
-	time_slide.offset,
-	sngl_burst.*
+	coinc_event_id,
+	time_slide_id
 FROM
-	sngl_burst
-	JOIN coinc_event_map ON (
+	coinc_event
+WHERE
+	coinc_def_id == ?
+	""", (contents.bb_definer_id,)):
+		rows = [(contents.sngl_burst_table.row_from_cols(row), row[-1]) for row in cursor.execute("""
+SELECT
+	sngl_burst.*,
+	time_slide.offset
+FROM
+	coinc_event_map
+	JOIN sngl_burst ON (
 		coinc_event_map.table_name == 'sngl_burst'
-		AND coinc_event_map.event_id == sngl_burst.event_id
-	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+		AND sngl_burst.event_id == coinc_event_map.event_id
 	)
 	JOIN time_slide ON (
-		coinc_event.time_slide_id == time_slide.time_slide_id
-		AND sngl_burst.ifo == time_slide.instrument
+		time_slide.instrument == sngl_burst.ifo
 	)
 WHERE
-	coinc_event.coinc_def_id == ?
-ORDER BY
-	coinc_event.coinc_event_id
-		""", (database.bb_definer_id,)), lambda row: row[0]):
-			events = []
-			offsetdict = {}
-			for row in rows:
-				events.append(database.sngl_burst_table.row_from_cols(row[2:]))
-				offsetdict[events[-1].ifo] = row[1]
-			if any(offsetdict.values()):
-				self._add_background(param_func, events, offsetdict, *args)
-			else:
-				self._add_zero_lag(param_func, events, offsetdict, *args)
+	coinc_event_map.coinc_event_id == ?
+	AND time_slide.time_slide_id == ?
+		""", (coinc_event_id, time_slide_id))]
+		offsetvector = dict((event.ifo, offset) for event, offset in rows)
+		if any(offsetvector.values()):
+			yield True, [event for event, offset in rows], offsetvector
+		else:
+			yield False, [event for event, offset in rows], offsetvector
+	cursor.close()
 
 
-	def add_injections(self, param_func, database, *args):
-		# iterate over burst<-->burst coincs matching injections
-		# "exactly"
-		for values in database.connection.cursor().execute("""
+def get_injections(contents):
+	"""
+	Generator function to return
+
+		sim, event_list, offsetvector
+
+	tuples by querying the sim_burst, coinc_event and sngl_burst tables
+	in the database described by contents.  Only coincs corresponding
+	to "exact" sim_burst<-->coinc_event coincs will be retrieved.
+	"""
+	cursor = contents.connection.cursor()
+	for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
 	burst_coinc_event_map.event_id
@@ -373,16 +383,14 @@ FROM
 	)
 WHERE
 	sim_coinc_event.coinc_def_id == ?
-		""", (database.sce_definer_id,)):
-			# retrieve the injection and the coinc_event_id
-			sim = database.sim_burst_table.row_from_cols(values)
-			coinc_event_id = values[-1]
+	""", (contents.sce_definer_id,)):
+		# retrieve the injection and the coinc_event_id
+		sim = contents.sim_burst_table.row_from_cols(values)
+		coinc_event_id = values[-1]
 
-			# retrieve the list of the sngl_bursts in this
-			# coinc, and their time slide dictionary
-			events = []
-			offsetdict = {}
-			for values in database.connection.cursor().execute("""
+		# retrieve the list of the sngl_bursts in this
+		# coinc, and their time slide dictionary
+		rows = [(contents.sngl_burst_table.row_from_cols(row), row[-1]) for row in cursor.execute("""
 SELECT
 	sngl_burst.*,
 	time_slide.offset
@@ -401,23 +409,10 @@ FROM
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
-ORDER BY
-	sngl_burst.ifo
-			""", (coinc_event_id,)):
-				# reconstruct the burst event
-				event = database.sngl_burst_table.row_from_cols(values)
-
-				# add to list
-				events.append(event)
-
-				# store the time slide offset
-				offsetdict[event.ifo] = values[-1]
-
-			# pass the events to whatever wants them
-			self._add_injections(param_func, sim, events, offsetdict, *args)
-
-	def finish(self):
-		pass
+		""", (coinc_event_id,))]
+		# pass the events to whatever wants them
+		yield sim, [event for event, offset in rows], dict((event.ifo, offset) for event, offset in rows)
+	cursor.close()
 
 
 #
@@ -434,20 +429,25 @@ def covariance_normalize(c):
 	return c / numpy.outer(std_dev, std_dev)
 
 
-class Covariance(Stats):
+class Covariance(object):
 	def __init__(self):
-		Stats.__init__(self)
 		self.bak_observations = []
 		self.inj_observations = []
 
-	def _add_zero_lag(self, param_func, events, offsetdict, *args):
-		pass
+	def add_noninjections(self, param_func, database):
+		# iterate over burst<-->burst coincs
+		for is_background, events, offsetvector in get_noninjections(database):
+			if is_background:
+				self.bak_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector).items())))
+			else:
+				# zero-lag not used
+				pass
 
-	def _add_background(self, param_func, events, offsetdict, *args):
-		self.bak_observations.append(tuple(value for name, value in sorted(param_func(events, offsetdict, *args).items())))
-
-	def _add_injections(self, param_func, sim, events, offsetdict, *args):
-		self.inj_observations.append(tuple(value for name, value in sorted(param_func(events, offsetdict, *args).items())))
+	def add_injections(self, param_func, database):
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
+		for sim, events, offsetvector in get_injections(database):
+			self.inj_observations.append(tuple(value for name, value in sorted(param_func(events, offsetvector).items())))
 
 	def finish(self):
 		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))
@@ -466,11 +466,10 @@ def dt_binning(instrument1, instrument2):
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001), rate.LinearBins(0.0, 2 * math.pi, 61)))
 
 
-class DistributionsStats(Stats):
+class DistributionsStats(object):
 	"""
-	A subclass of the Stats class used to populate a
-	CoincParamsDistribution instance with the data from the outputs of
-	ligolw_burca and ligolw_binjfind.
+	A class used to populate a CoincParamsDistribution instance with
+	the data from the outputs of ligolw_burca and ligolw_binjfind.
 	"""
 
 	binnings = {
@@ -510,17 +509,21 @@ class DistributionsStats(Stats):
 	}
 
 	def __init__(self):
-		Stats.__init__(self)
 		self.distributions = CoincParamsDistributions(**self.binnings)
 
-	def _add_zero_lag(self, param_func, events, offsetdict, *args):
-		self.distributions.add_zero_lag(param_func, events, offsetdict, *args)
+	def add_noninjections(self, param_func, database, *args):
+		# iterate over burst<-->burst coincs
+		for is_background, events, offsetvector in get_noninjections(database):
+			if is_background:
+				self.distributions.add_background(param_func(events, offsetvector, *args))
+			else:
+				self.distributions.add_zero_lag(param_func(events, offsetvector, *args))
 
-	def _add_background(self, param_func, events, offsetdict, *args):
-		self.distributions.add_background(param_func, events, offsetdict, *args)
-
-	def _add_injections(self, param_func, sim, events, offsetdict, *args):
-		self.distributions.add_injection(param_func, events, offsetdict, *args)
+	def add_injections(self, param_func, database, *args):
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
+		for sim, events, offsetvector in get_injections(database):
+			self.distributions.add_injection(param_func(events, offsetvector, *args))
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)

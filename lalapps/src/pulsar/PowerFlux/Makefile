@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.43-64
+VERSION=1.4.45-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/

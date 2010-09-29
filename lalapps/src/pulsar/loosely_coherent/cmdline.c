@@ -108,6 +108,13 @@ const char *gengetopt_args_info_help[] = {
   "      --fake-strain=DOUBLE      amplitude of fake signal to inject  \n                                  (default=`1e-23')",
   "      --fake-freq=DOUBLE        frequency of fake signal to inject",
   "      --fake-dInv=DOUBLE        inverse distance to the source in seconds  \n                                  (default=`0')",
+  "      --fake-freq-modulation-depth=DOUBLE\n                                depth of additional sinusoidal frequency \n                                  modulation in Hz  (default=`0.0')",
+  "      --fake-freq-modulation-freq=DOUBLE\n                                frequency of additional sinusoidal frequency \n                                  modulation  (default=`1.0')",
+  "      --fake-freq-modulation-phase=DOUBLE\n                                phase of additional sinusoidal frequency \n                                  modulation  (default=`0.0')",
+  "      --fake-phase-modulation-depth=DOUBLE\n                                depth of additional sinusoidal phase modulation \n                                  in radians  (default=`0.0')",
+  "      --fake-phase-modulation-freq=DOUBLE\n                                frequency of additional sinusoidal phase \n                                  modulation  (default=`0.0')",
+  "      --fake-phase-modulation-phase=DOUBLE\n                                phase of additional sinusoidal phase modulation \n                                   (default=`0.0')",
+  "      --fake-injection-window=INT\n                                compute this number of frequency bins to the \n                                  left and right of the central frequency  \n                                  (default=`2')",
   "      --extended-test=INT       Perform extended self test  (default=`0')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto \n                                  information  (default=`100')",
   "      --dump-stream-data=INT    Output timeseries  (default=`0')",
@@ -239,6 +246,13 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->fake_strain_given = 0 ;
   args_info->fake_freq_given = 0 ;
   args_info->fake_dInv_given = 0 ;
+  args_info->fake_freq_modulation_depth_given = 0 ;
+  args_info->fake_freq_modulation_freq_given = 0 ;
+  args_info->fake_freq_modulation_phase_given = 0 ;
+  args_info->fake_phase_modulation_depth_given = 0 ;
+  args_info->fake_phase_modulation_freq_given = 0 ;
+  args_info->fake_phase_modulation_phase_given = 0 ;
+  args_info->fake_injection_window_given = 0 ;
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->dump_stream_data_given = 0 ;
@@ -381,6 +395,20 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->fake_freq_orig = NULL;
   args_info->fake_dInv_arg = 0;
   args_info->fake_dInv_orig = NULL;
+  args_info->fake_freq_modulation_depth_arg = 0.0;
+  args_info->fake_freq_modulation_depth_orig = NULL;
+  args_info->fake_freq_modulation_freq_arg = 1.0;
+  args_info->fake_freq_modulation_freq_orig = NULL;
+  args_info->fake_freq_modulation_phase_arg = 0.0;
+  args_info->fake_freq_modulation_phase_orig = NULL;
+  args_info->fake_phase_modulation_depth_arg = 0.0;
+  args_info->fake_phase_modulation_depth_orig = NULL;
+  args_info->fake_phase_modulation_freq_arg = 0.0;
+  args_info->fake_phase_modulation_freq_orig = NULL;
+  args_info->fake_phase_modulation_phase_arg = 0.0;
+  args_info->fake_phase_modulation_phase_orig = NULL;
+  args_info->fake_injection_window_arg = 2;
+  args_info->fake_injection_window_orig = NULL;
   args_info->extended_test_arg = 0;
   args_info->extended_test_orig = NULL;
   args_info->max_sft_report_arg = 100;
@@ -476,11 +504,18 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->fake_strain_help = gengetopt_args_info_help[73] ;
   args_info->fake_freq_help = gengetopt_args_info_help[74] ;
   args_info->fake_dInv_help = gengetopt_args_info_help[75] ;
-  args_info->extended_test_help = gengetopt_args_info_help[76] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[77] ;
-  args_info->dump_stream_data_help = gengetopt_args_info_help[78] ;
-  args_info->dump_fft_data_help = gengetopt_args_info_help[79] ;
-  args_info->num_threads_help = gengetopt_args_info_help[80] ;
+  args_info->fake_freq_modulation_depth_help = gengetopt_args_info_help[76] ;
+  args_info->fake_freq_modulation_freq_help = gengetopt_args_info_help[77] ;
+  args_info->fake_freq_modulation_phase_help = gengetopt_args_info_help[78] ;
+  args_info->fake_phase_modulation_depth_help = gengetopt_args_info_help[79] ;
+  args_info->fake_phase_modulation_freq_help = gengetopt_args_info_help[80] ;
+  args_info->fake_phase_modulation_phase_help = gengetopt_args_info_help[81] ;
+  args_info->fake_injection_window_help = gengetopt_args_info_help[82] ;
+  args_info->extended_test_help = gengetopt_args_info_help[83] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[84] ;
+  args_info->dump_stream_data_help = gengetopt_args_info_help[85] ;
+  args_info->dump_fft_data_help = gengetopt_args_info_help[86] ;
+  args_info->num_threads_help = gengetopt_args_info_help[87] ;
   
 }
 
@@ -699,6 +734,13 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->fake_strain_orig));
   free_string_field (&(args_info->fake_freq_orig));
   free_string_field (&(args_info->fake_dInv_orig));
+  free_string_field (&(args_info->fake_freq_modulation_depth_orig));
+  free_string_field (&(args_info->fake_freq_modulation_freq_orig));
+  free_string_field (&(args_info->fake_freq_modulation_phase_orig));
+  free_string_field (&(args_info->fake_phase_modulation_depth_orig));
+  free_string_field (&(args_info->fake_phase_modulation_freq_orig));
+  free_string_field (&(args_info->fake_phase_modulation_phase_orig));
+  free_string_field (&(args_info->fake_injection_window_orig));
   free_string_field (&(args_info->extended_test_orig));
   free_string_field (&(args_info->max_sft_report_orig));
   free_string_field (&(args_info->dump_stream_data_orig));
@@ -891,6 +933,20 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "fake-freq", args_info->fake_freq_orig, 0);
   if (args_info->fake_dInv_given)
     write_into_file(outfile, "fake-dInv", args_info->fake_dInv_orig, 0);
+  if (args_info->fake_freq_modulation_depth_given)
+    write_into_file(outfile, "fake-freq-modulation-depth", args_info->fake_freq_modulation_depth_orig, 0);
+  if (args_info->fake_freq_modulation_freq_given)
+    write_into_file(outfile, "fake-freq-modulation-freq", args_info->fake_freq_modulation_freq_orig, 0);
+  if (args_info->fake_freq_modulation_phase_given)
+    write_into_file(outfile, "fake-freq-modulation-phase", args_info->fake_freq_modulation_phase_orig, 0);
+  if (args_info->fake_phase_modulation_depth_given)
+    write_into_file(outfile, "fake-phase-modulation-depth", args_info->fake_phase_modulation_depth_orig, 0);
+  if (args_info->fake_phase_modulation_freq_given)
+    write_into_file(outfile, "fake-phase-modulation-freq", args_info->fake_phase_modulation_freq_orig, 0);
+  if (args_info->fake_phase_modulation_phase_given)
+    write_into_file(outfile, "fake-phase-modulation-phase", args_info->fake_phase_modulation_phase_orig, 0);
+  if (args_info->fake_injection_window_given)
+    write_into_file(outfile, "fake-injection-window", args_info->fake_injection_window_orig, 0);
   if (args_info->extended_test_given)
     write_into_file(outfile, "extended-test", args_info->extended_test_orig, 0);
   if (args_info->max_sft_report_given)
@@ -1541,6 +1597,13 @@ cmdline_parser_internal (
         { "fake-strain",	1, NULL, 0 },
         { "fake-freq",	1, NULL, 0 },
         { "fake-dInv",	1, NULL, 0 },
+        { "fake-freq-modulation-depth",	1, NULL, 0 },
+        { "fake-freq-modulation-freq",	1, NULL, 0 },
+        { "fake-freq-modulation-phase",	1, NULL, 0 },
+        { "fake-phase-modulation-depth",	1, NULL, 0 },
+        { "fake-phase-modulation-freq",	1, NULL, 0 },
+        { "fake-phase-modulation-phase",	1, NULL, 0 },
+        { "fake-injection-window",	1, NULL, 0 },
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "dump-stream-data",	1, NULL, 0 },
@@ -2574,6 +2637,104 @@ cmdline_parser_internal (
                 &(local_args_info.fake_dInv_given), optarg, 0, "0", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
                 "fake-dInv", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* depth of additional sinusoidal frequency modulation in Hz.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq-modulation-depth") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_freq_modulation_depth_arg), 
+                 &(args_info->fake_freq_modulation_depth_orig), &(args_info->fake_freq_modulation_depth_given),
+                &(local_args_info.fake_freq_modulation_depth_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-freq-modulation-depth", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* frequency of additional sinusoidal frequency modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq-modulation-freq") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_freq_modulation_freq_arg), 
+                 &(args_info->fake_freq_modulation_freq_orig), &(args_info->fake_freq_modulation_freq_given),
+                &(local_args_info.fake_freq_modulation_freq_given), optarg, 0, "1.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-freq-modulation-freq", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* phase of additional sinusoidal frequency modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-freq-modulation-phase") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_freq_modulation_phase_arg), 
+                 &(args_info->fake_freq_modulation_phase_orig), &(args_info->fake_freq_modulation_phase_given),
+                &(local_args_info.fake_freq_modulation_phase_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-freq-modulation-phase", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* depth of additional sinusoidal phase modulation in radians.  */
+          else if (strcmp (long_options[option_index].name, "fake-phase-modulation-depth") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_phase_modulation_depth_arg), 
+                 &(args_info->fake_phase_modulation_depth_orig), &(args_info->fake_phase_modulation_depth_given),
+                &(local_args_info.fake_phase_modulation_depth_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-phase-modulation-depth", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* frequency of additional sinusoidal phase modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-phase-modulation-freq") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_phase_modulation_freq_arg), 
+                 &(args_info->fake_phase_modulation_freq_orig), &(args_info->fake_phase_modulation_freq_given),
+                &(local_args_info.fake_phase_modulation_freq_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-phase-modulation-freq", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* phase of additional sinusoidal phase modulation.  */
+          else if (strcmp (long_options[option_index].name, "fake-phase-modulation-phase") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_phase_modulation_phase_arg), 
+                 &(args_info->fake_phase_modulation_phase_orig), &(args_info->fake_phase_modulation_phase_given),
+                &(local_args_info.fake_phase_modulation_phase_given), optarg, 0, "0.0", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "fake-phase-modulation-phase", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* compute this number of frequency bins to the left and right of the central frequency.  */
+          else if (strcmp (long_options[option_index].name, "fake-injection-window") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fake_injection_window_arg), 
+                 &(args_info->fake_injection_window_orig), &(args_info->fake_injection_window_given),
+                &(local_args_info.fake_injection_window_given), optarg, 0, "2", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "fake-injection-window", '-',
                 additional_error))
               goto failure;
           
