@@ -22,7 +22,7 @@ except ImportError:
     from pysqlite2 import dbapi2 as sqlite3
 import sys
 import os
-import math
+import numpy
 
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
@@ -48,11 +48,11 @@ def parse_command_line():
     parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
         help =
             "Input database to read. Can only input one at a time."
-            )
+        )
     parser.add_option( "-o", "--output", action = "store", type = "string", default = None,
         help =
             "Name of output database to save to."
-            )
+        )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help =
@@ -60,45 +60,45 @@ def parse_command_line():
             "This is used to enhance performance in a networked " +
             "environment, and to protect against accidentally " +
             "overwriting the input database."
-            )
+        )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help =
             "Print progress information"
-           )
+        )
     # following are standard options for database-based programs
     parser.add_option( "", "--output-column", action = "store", type = "string", default = None,
         help =
             "Required. Column in the coinc_inspiral table to store output to."
-            )
+        )
     # following are specific to this program
     parser.add_option("", "--statistic-type", action = "store", type="string",
         default=None, metavar="STATTYPE",
         help =
             "type of single-ifo statistic to be computed: " +
-            "allowed values are snr, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike"
+            "allowed values are snr, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, highstat"
         )
-    parser.add_option("", "--nlow", action = "store", type = "float",
-        default = 4.,
+    parser.add_option("", "--nlow", action = "store", type = "float", default = 4.,
         help =
             "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
             "contours of constant statistic at small snr"
         )
-    parser.add_option("", "--nhigh", action = "store", type = "float",
-        default = 2.,
+    parser.add_option("", "--nhigh", action = "store", type = "float", default = 2.,
         help =
             "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
             "contours of constant statistic at large snr"
         )
-    parser.add_option("", "--chisq-index", action="store", type="float",
-        default=6.,
+    parser.add_option("", "--chisq-index", action="store", type="float", default=6.,
         help =
           "chisq index q for newsnr; default is 6."
         )
-    parser.add_option("", "--crossover-snr", action="store", type="float",
-        default=15.81,
+    parser.add_option("", "--crossover-snr", action="store", type="float", default=15.81,
         help = 
           "crossover snr value for effective snr and " +
           "effsnrlike, equivalent to sqrt of magic number; default is sqrt(250)=15.81."
+        )
+    parser.add_option("", "--duration-threshold", action="store", type="float", default=0.2,
+        help =
+          "threshold for dividing bins in highstat statistic" 
         )
     parser.add_option("", "--snr-power", action="store", type="float",
         default=2.,
@@ -109,7 +109,7 @@ def parse_command_line():
     parser.add_option("", "--hanford-factor", action="store", type="float",
         default=1.,
         help =
-          "prefactor for power of H1 statistic in combined statistic; default is 1."
+          "prefactor for power of H1 or H2 statistic in combined statistic; default is 1."
         )
     parser.add_option("", "--livingston-factor", action="store", type="float",
         default=1.,
@@ -165,8 +165,8 @@ class CombiningFunctions:
     variables can be set when the class is called, thus allowing them to automatically be used by sqlite
     when computing the results in the UPDATE SET command.
     """
-    def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, power = 2., \
-     hfac = 1., lfac = 1., vfac = .1 ):
+    def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
+      durthresh = None, power = 2., hfac = 1., lfac = 1., vfac = 1. ):
         """
         Sets outside variables.
         """
@@ -174,6 +174,7 @@ class CombiningFunctions:
         self.nlow = nlow
         self.nhigh = nhigh
         self.rhoc = rhoc
+        self.duration_threshold = durthresh
         self.power = power
         self.hfac = hfac
         self.lfac = lfac
@@ -188,7 +189,7 @@ class CombiningFunctions:
 #        for sngl in coinc_sngls: # diagnostic
 #            print sngl.ifo[0].lower()
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log(sngl.snr) for sngl in coinc_sngls ))
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log(sngl.snr) for sngl in coinc_sngls ))
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls ))**(1./self.power)
 
@@ -199,10 +200,10 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log(sngl.snr/math.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log(sngl.snr/numpy.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))
                 for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.snr/math.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))\
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.snr/numpy.sqrt(sngl.chisq/(2*sngl.chisq_dof-2)))\
                 **self.power
                 for sngl in coinc_sngls ))**(1./self.power)
 
@@ -214,12 +215,10 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**2))**0.25 ) 
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=rhoc**2) ) \
                 for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**2))**0.25 ) **self.power 
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.get_effective_snr(fac=rhoc**2) ) \
                 for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_effsnrlike( self, coinc_sngls ):
@@ -230,12 +229,12 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) 
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.snr/((sngl.chisq/\
+                  (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) 
                 for sngl in coinc_sngls ))
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/((sngl.chisq/\
-                (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) **self.power 
+                  (2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) **self.power 
                 for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_newsnrlike( self, coinc_sngls ):
@@ -246,12 +245,12 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( \
-                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) 
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.snr/(0.5*( \
+                  (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) 
                 for sngl in coinc_sngls ))
         else:
             return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) +\
-                (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) **self.power 
+                  (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) **self.power 
                 for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_newsnr( self, coinc_sngls ):
@@ -261,15 +260,31 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return math.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * math.log( sngl.snr/(0.5*( 1 + (max(\
-			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) ))**(1./self.q) ) 
-                for sngl in coinc_sngls ))
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=q) )  for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.snr/(0.5*( 1 + (max(\
-			 sngl.chisq/(2*sngl.chisq_dof-2),1))**(self.q/self.nhigh) ))**(1./self.q) ) **self.power 
-                for sngl in coinc_sngls ))**(1./self.power)
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.get_new_snr(index=q))**self.power for sngl in coinc_sngls ))**(1./self.power)
 
+    def compute_highstat( self, coinc_sngls ):
+        """
+        Computes 'highstat' combining newsnrs if minimum template duration is above durthresh, else combining
+        newsnr in V1 with effsnr in H1,H2,L1
 
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        min_duration = min(sngl.template_duration for sngl in coinc_sngls)
+        n = len(coinc_sngls)
+        snglstat = zeros(n)
+        snglfac = zeros(n)
+        for i, sngl in zip(arange(n), coinc_sngls):
+            snglfac[i] = getattr(self, sngl.ifo[0].lower()+'fac')
+            if min_duration < 0.2 and sngl.ifo in ('H1', 'H2', 'L1'):
+                snglstat[i] = sngl.get_effective_snr(fac = rhoc**2)
+            else:
+                snglstat[i] = sngl.get_new_snr(index = q)
+        if self.power == 0:
+            return numpy.exp(sum ( snglfac[i] * numpy.log( snglstat[i] ) for i in arange(n) )
+        else:
+            return (sum ( snglfac[i] * snglstat[i]**self.power for i in arange(n) )**(1./self.power)
 
 # =============================================================================
 #
@@ -278,7 +293,7 @@ class CombiningFunctions:
 # =============================================================================
 
 #
-#       Generic Initilization
+#       Generic Initialization
 #
 
 opts, args = parse_command_line()
@@ -309,8 +324,9 @@ create_column( connection, 'coinc_inspiral', output_column )
 #
 
 # 1. initialize the combining function class
-function_class = CombiningFunctions(  q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
-    power = opts.snr_power, hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor )
+function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
+    durthresh = opts.duration_threshold, power = opts.snr_power, 
+    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor )
 opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
 if opts.statistic_type == 'snr':
     function = 'compute_combined_snr'
