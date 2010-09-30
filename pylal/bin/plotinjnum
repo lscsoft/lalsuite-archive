@@ -38,20 +38,10 @@ def found_missed(opts,foundFiles,missedFiles):
     if opts.veto_file is not None:
       for veto_file in opts.veto_file.split(','):
         seglist = segmentsUtils.fromsegwizard(open(veto_file))
-        # We would use inspTriggers.veto(seglist) and simFound.veto(seglist), but
-        # their times may differ, with one inside the veto and not the other
-        inspTriggers_keep = tab.new_from_template(inspTriggers)
-        simFound_keep = tab.new_from_template(simFound)
-        for i in range(len(simFound)):
-          # 2 detectors: 2 triggers in coincidence per sim
-          if simFound[i].get_end() not in seglist and \
-                inspTriggers[2*i].get_end() not in seglist and \
-                inspTriggers[2*i+1].get_end() not in seglist:
-            simFound_keep.append(simFound[i])
-            inspTriggers_keep.append(inspTriggers[2*i])
-            inspTriggers_keep.append(inspTriggers[2*i+1])
-        inspTriggers = inspTriggers_keep
-        simFound = simFound_keep
+
+        # veto the triggers and sims
+        inspTriggers.veto(seglist)
+        simFound.veto(seglist)
 
     if simFound and inspTriggers:
     # construct the coincs
