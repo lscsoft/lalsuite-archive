@@ -587,12 +587,12 @@ setup(
 		os.path.join("bin", "plot_skypoints.py"),
 		os.path.join("bin", "pylal_cbc_select_hardware_injections"),
 		os.path.join("bin", "coh_PTF_efficiency"),
-                os.path.join("bin", "coh_PTF_html_summary"),
-                os.path.join("bin", "coh_PTF_injfinder"),
-                os.path.join("bin", "coh_PTF_sbv_plotter"),
-                os.path.join("bin", "coh_PTF_trig_cluster"),
-                os.path.join("bin", "coh_PTF_trig_combiner"),
-                os.path.join("bin", "ring_post"),
+		os.path.join("bin", "coh_PTF_html_summary"),
+		os.path.join("bin", "coh_PTF_injfinder"),
+		os.path.join("bin", "coh_PTF_sbv_plotter"),
+		os.path.join("bin", "coh_PTF_trig_cluster"),
+		os.path.join("bin", "coh_PTF_trig_combiner"),
+		os.path.join("bin", "ring_post"),
 		os.path.join("bin","cbcBayesSkyRes.py")
 	],
 	data_files = [ ("etc", [
