@@ -1079,8 +1079,9 @@ def getSciSegs(ifo=None,
   segment_definer AS x, segment AS y \
   WHERE x.name = segment_definer.name AND \
   x.segment_def_id = y.segment_def_id AND \
-  y.segment_def_cdb = x.creator_db AND \
-  NOT (y.start_time > %s OR  %s > y.end_time) ) \
+  y.segment_def_cdb = x.creator_db) AND \
+  NOT (segment.start_time > %s OR  %s > segment.end_time)  \
+  ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
   """
   #Determine who to query if not specified.
   if serverURL == None:
