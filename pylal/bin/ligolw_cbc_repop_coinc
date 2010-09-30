@@ -215,10 +215,10 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=rhoc**2) ) \
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=self.rhoc**2) ) \
                 for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.get_effective_snr(fac=rhoc**2) ) \
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * ( sngl.get_effective_snr(fac=self.rhoc**2) ) \
                 for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_combined_effsnrlike( self, coinc_sngls ):
@@ -260,9 +260,9 @@ class CombiningFunctions:
         @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
         """
         if self.power == 0:
-            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=q) )  for sngl in coinc_sngls ))
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=self.q) )  for sngl in coinc_sngls ))
         else:
-            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.get_new_snr(index=q))**self.power for sngl in coinc_sngls ))**(1./self.power)
+            return (sum( getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.get_new_snr(index=self.q))**self.power for sngl in coinc_sngls ))**(1./self.power)
 
     def compute_highstat( self, coinc_sngls ):
         """
@@ -273,18 +273,18 @@ class CombiningFunctions:
         """
         min_duration = min(sngl.template_duration for sngl in coinc_sngls)
         n = len(coinc_sngls)
-        snglstat = zeros(n)
-        snglfac = zeros(n)
-        for i, sngl in zip(arange(n), coinc_sngls):
+        snglstat = numpy.zeros(n)
+        snglfac = numpy.zeros(n)
+        for i, sngl in zip(numpy.arange(n), coinc_sngls):
             snglfac[i] = getattr(self, sngl.ifo[0].lower()+'fac')
             if min_duration < 0.2 and sngl.ifo in ('H1', 'H2', 'L1'):
-                snglstat[i] = sngl.get_effective_snr(fac = rhoc**2)
+                snglstat[i] = sngl.get_effective_snr(fac = self.rhoc**2)
             else:
-                snglstat[i] = sngl.get_new_snr(index = q)
+                snglstat[i] = sngl.get_new_snr(index = self.q)
         if self.power == 0:
-            return numpy.exp(sum ( snglfac[i] * numpy.log( snglstat[i] ) for i in arange(n) )
+            return numpy.exp(sum ( snglfac[i] * numpy.log( snglstat[i] ) for i in numpy.arange(n) ))
         else:
-            return (sum ( snglfac[i] * snglstat[i]**self.power for i in arange(n) )**(1./self.power)
+            return (sum ( snglfac[i] * snglstat[i]**self.power for i in numpy.arange(n) ))**(1./self.power)
 
 # =============================================================================
 #
@@ -340,6 +340,8 @@ elif opts.statistic_type == 'newsnrlike':
     function = 'compute_combined_newsnrlike'
 elif opts.statistic_type == 'newsnr':
     function = 'compute_combined_newsnr'
+elif opts.statistic_type == 'highstat':
+    function = 'compute_highstat'
 
 # 2. initialize the apply_function class in sqlite
 
