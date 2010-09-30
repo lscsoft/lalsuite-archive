@@ -1056,6 +1056,16 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Invalid arguments given to getSciSegs.\n")
     return None
   ifo=ifo.strip()
+  #query01 ="""SELECT segment.start_time, \
+  #segment.end_time \
+  #FROM segment, segment_definer \
+  #WHERE \
+  #segment.segment_def_id  = segment_definer.segment_def_id AND \
+  #segment.segment_def_cdb = segment_definer.creator_db AND \
+  #segment_definer.name = '%s' AND \
+  #segment_definer.ifos = '%s' AND \
+  #NOT (segment.start_time > %s OR  %s > segment.end_time) \
+  #"""
   query01 ="""SELECT segment.start_time, \
   segment.end_time \
   FROM segment, segment_definer \
@@ -1066,7 +1076,11 @@ def getSciSegs(ifo=None,
   segment_definer.ifos = '%s' AND \
   NOT (segment.start_time > %s OR  %s > segment.end_time) AND \
   segment_definer.version = (SELECT MAX(x.version) FROM \
-  segment_definer AS x WHERE x.name = segment_definer.name )\
+  segment_definer AS x, segment AS y \
+  WHERE x.name = segment_definer.name AND \
+  x.segment_def_id = y.segment_def_id AND \
+  y.segment_def_cdb = x.creator_db AND \
+  NOT (y.start_time > %s OR  %s > y.end_time) ) \
   """
   #Determine who to query if not specified.
   if serverURL == None:
@@ -1082,7 +1096,7 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Error Message :\t %s \n"%(errMsg))
     return None
   try:
-    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
+    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart,gpsStop,gpsStart)
     engine=query_engine.LdbdQueryEngine(connection)
     queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
