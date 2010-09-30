@@ -2390,10 +2390,12 @@ defaulting to %s\n"%(self.serverURL))
     WHERE \
     segment_definer.segment_def_id = segment.segment_def_id \
     AND segment_definer.version = (SELECT MAX(x.version) \
-    FROM segment_definer AS x WHERE \
+    FROM segment_definer AS x, segment AS y WHERE \
     ( x.name = segment_definer.name AND \
-    x.ifos = segment_definer.ifos )) \
-    AND segment.segment_def_cdb = segment_definer.creator_db \
+    x.ifos = segment_definer.ifos AND \
+    x.creator_db = segment.segment_def_cdb ) \
+    AND y.segment_def_cdb = x.creator_db  \ 
+    AND y.segment_def_id = x.segment_def_id ) \
     AND NOT (segment.start_time > %s OR %s > segment.end_time) \
     ORDER BY segment.start_time,segment_definer.segment_def_id,segment_definer.version \
     """
