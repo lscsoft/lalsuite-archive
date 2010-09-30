@@ -141,7 +141,7 @@ macrosnrplots
 </table>
 '''
 
-sbv_plot_tmplt = '''<td><a href="macrooutdir/plots/GRBmacrogrbname_macroplotname.png" title="GRBmacrogrbname_macroplotname"><img src="macrooutdir/plots/GRBmacrogrbname_macroplotname.png" border="2" width="300"></a> </td>'''
+sbv_plot_tmplt = '''<td><a href="macrooutdir/plots_clustered/GRBmacrogrbname_macroplotname.png" title="GRBmacrogrbname_macroplotname"><img src="macrooutdir/plots_clustered/GRBmacrogrbname_macroplotname.png" border="2" width="300"></a> </td>'''
 
 ifo_snr_sec_tmplt = '''<tr>
 <td> macroifo SNR </td>
